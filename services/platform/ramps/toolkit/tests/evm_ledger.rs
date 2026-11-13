@@ -1,3 +1,5 @@
+include!("support/required.rs");
+
 use layerx_client::sequencer::SequencerLog;
 use layerx_ramp_toolkit::evm::{
     decode_ledger_payment, encode_draw, encode_pay_exact, LedgerPayment, LEDGER_ADDRESS,
@@ -68,28 +70,28 @@ fn payment_exact_log_matches_native_ledger_abi() {
     let abi: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../../precompiles/layerxledger/abi.json"
     ))
-    .expect("native ledger ABI");
+    .required("native ledger ABI");
     let event = abi
         .as_array()
-        .expect("ABI definitions")
+        .required("ABI definitions")
         .iter()
         .find(|entry| entry["type"] == "event" && entry["name"] == "PaymentExact")
-        .expect("native PaymentExact event");
+        .required("native PaymentExact event");
     let from = [0x11; 32];
     let to = [0x22; 32];
     let reference = [0x33; 32];
     let asset = [0x44; 32];
     let amount = u128::MAX;
-    let inputs = event["inputs"].as_array().expect("event inputs");
+    let inputs = event["inputs"].as_array().required("event inputs");
     let types: Vec<_> = inputs
         .iter()
-        .map(|input| input["type"].as_str().expect("ABI type"))
+        .map(|input| input["type"].as_str().required("ABI type"))
         .collect();
     let signature = format!("PaymentExact({})", types.join(","));
     let mut topics = vec![Keccak256::digest(signature.as_bytes()).into()];
     let mut data = Vec::new();
     for input in inputs {
-        let word = match input["name"].as_str().expect("ABI field name") {
+        let word = match input["name"].as_str().required("ABI field name") {
             "paymentReference" => reference,
             "from" => from,
             "to" => to,
@@ -101,7 +103,7 @@ fn payment_exact_log_matches_native_ledger_abi() {
             }
             name => panic!("unexpected PaymentExact field: {name}"),
         };
-        if input["indexed"].as_bool().expect("indexed flag") {
+        if input["indexed"].as_bool().required("indexed flag") {
             topics.push(word);
         } else {
             data.extend_from_slice(&word);

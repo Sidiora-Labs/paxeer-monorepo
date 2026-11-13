@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/attestor_cluster.rs"]
 mod attestor_cluster;
 
@@ -75,7 +76,7 @@ impl Fixture {
         let address = listener.local_addr()?;
         let mut seal = Zeroizing::new([0; 32]);
         getrandom::fill(&mut *seal)?;
-        fs::write(root.join("seal"), &*seal)?;
+        fs::write(root.join("seal"), *seal)?;
         fs::write(root.join("snapshot.json"), br#"{"chain_id":125}"#)?;
         fs::write(root.join("assertion"), cluster.tokens.mint(OWNER)?)?;
         let nodes: Vec<_> = cluster

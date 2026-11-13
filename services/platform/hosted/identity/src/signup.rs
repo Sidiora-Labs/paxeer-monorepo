@@ -92,10 +92,7 @@ pub struct Desk {
 
 #[must_use]
 pub fn sha256_hex(bytes: &[u8]) -> String {
-    Sha256::digest(bytes)
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    crate::seal::hex(&Sha256::digest(bytes))
 }
 
 /// Lowercases and checks an address; returns it with its domain.
@@ -117,7 +114,7 @@ pub fn normalize_email(email: &str) -> Option<(String, String)> {
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || b"._%+-".contains(&byte));
     let domain = domain.to_owned();
-    (email.len() <= 254 && labels_ok && local_ok).then(|| (email, domain))
+    (email.len() <= 254 && labels_ok && local_ok).then_some((email, domain))
 }
 
 impl Desk {
@@ -165,6 +162,8 @@ impl Desk {
         self.start_inner(store, request, token_digest, now, None)
     }
 
+    /// # Errors
+    /// Refuses malformed input, denylisted domains, exhausted limits, a verified address, or store failure.
     pub fn start_with_delivery(
         &mut self,
         store: &mut Store,
@@ -225,7 +224,7 @@ impl Desk {
             Some(delivery) => store.put_signup_delivery(signup.clone(), delivery),
             None => store.put_signup(signup.clone()),
         };
-        result.map_err(store_refusal)?;
+        result.map_err(|error| store_refusal(&error))?;
         Ok(signup)
     }
 
@@ -266,8 +265,8 @@ impl Desk {
     }
 }
 
-pub(crate) fn store_refusal(error: String) -> Refused {
-    match error.as_str() {
+pub(crate) fn store_refusal(error: &str) -> Refused {
+    match error {
         SUBJECT_TENANT_CONFLICT => Refused::SubjectConflict,
         SUBJECT_ALREADY_EXISTS => Refused::SubjectExists,
         SIGNUP_CAPACITY_REACHED => Refused::Overloaded,
@@ -291,7 +290,7 @@ pub fn verify(store: &mut Store, token_digest: &str, now: u64) -> Result<Princip
     } else {
         store
             .verify_signup(token_digest, now)
-            .map_err(store_refusal)
+            .map_err(|error| store_refusal(&error))
     };
     let _ = store.audit(&json!({
         "event": "signup_verified",
@@ -613,7 +612,9 @@ mod tests {
         assert_eq!(STARTER_CREDIT_AMOUNT, "1000000");
         let amount = STARTER_CREDIT_AMOUNT
             .parse::<u64>()
-            .expect("starter credit amount must be a u64 in base units");
+            .unwrap_or_else(|error| {
+                panic!("starter credit amount must be a u64 in base units: {error}")
+            });
         assert_eq!(amount, 1_000_000);
         assert!(amount < 10_u64.pow(18));
         assert_eq!(STARTER_CREDIT_ASSET, "PAX");

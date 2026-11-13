@@ -11,7 +11,7 @@ import { depositRecord, withdrawalRecord } from './submitted';
 import { solanaRecipientHandle } from './solana';
 import { transferIdOf, type BridgeTransfer } from './transfers';
 import { paxeerXVaultAbi } from './contracts';
-import { openBridgeRepairFixture } from './fixtures/repair-22-33-265';
+import { openBridgeRepairFixture } from './fixtures/settlement-rpc';
 import type { ReleaseAttestation } from './attestation-api';
 
 const hash: Hex = '0xABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789AB';

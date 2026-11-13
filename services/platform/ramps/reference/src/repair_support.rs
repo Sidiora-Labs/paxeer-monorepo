@@ -1,9 +1,9 @@
-//! In-process access to the production listener, journal and reconciler for the repair gate.
+//! In-process access to the listener, journal, and reconciler.
 
 use super::*;
 
-pub(crate) struct Server {
-    pub(crate) address: std::net::SocketAddr,
+pub struct Server {
+    pub address: std::net::SocketAddr,
     state: Arc<State>,
     mode: Arc<Listener>,
     gate: Arc<ConnectionGate>,
@@ -13,15 +13,18 @@ pub(crate) struct Server {
 }
 
 impl Server {
-    pub(crate) fn start(config: serde_json::Value, maximum: usize, schedule: bool) -> Self {
-        let config: Config = serde_json::from_value(config).expect("repair configuration");
-        validate_config(&config).expect("valid configuration");
-        let state = Arc::new(build_state(&config).expect("production state"));
-        let mode = Arc::new(listener_config(&config).expect("production TLS listener"));
+    /// # Panics
+    /// Panics if the listener fixture cannot be constructed or accepted.
+    #[must_use]
+    pub fn start(config: serde_json::Value, maximum: usize, schedule: bool) -> Self {
+        let config: Config = serde_json::from_value(config).required("repair configuration");
+        validate_config(&config).required("valid configuration");
+        let state = Arc::new(build_state(&config).required("production state"));
+        let mode = Arc::new(listener_config(&config).required("production TLS listener"));
         let gate = Arc::new(ConnectionGate::new(maximum));
-        let tcp = TcpListener::bind(&config.listen).expect("loopback listener");
-        let address = tcp.local_addr().expect("listener address");
-        tcp.set_nonblocking(true).expect("nonblocking accept");
+        let tcp = TcpListener::bind(&config.listen).required("loopback listener");
+        let address = tcp.local_addr().required("listener address");
+        tcp.set_nonblocking(true).required("nonblocking accept");
         let (stop, stopped) = mpsc::channel();
         let listener = {
             let state = Arc::clone(&state);
@@ -29,11 +32,9 @@ impl Server {
             let gate = Arc::clone(&gate);
             thread::spawn(move || {
                 let mut workers = Vec::new();
-                loop {
-                    match stopped.recv_timeout(Duration::from_millis(2)) {
-                        Err(mpsc::RecvTimeoutError::Timeout) => {}
-                        _ => break,
-                    }
+                while let Err(mpsc::RecvTimeoutError::Timeout) =
+                    stopped.recv_timeout(Duration::from_millis(2))
+                {
                     match tcp.accept() {
                         Ok((stream, _)) => {
                             let Some(permit) = gate.try_acquire() else {
@@ -51,7 +52,7 @@ impl Server {
                     }
                 }
                 for worker in workers {
-                    worker.join().expect("request worker");
+                    worker.join().required("request worker");
                 }
             })
         };
@@ -74,24 +75,27 @@ impl Server {
         }
     }
 
-    pub(crate) fn active(&self) -> usize {
+    #[must_use]
+    pub fn active(&self) -> usize {
         self.gate.active.load(Ordering::Acquire)
     }
 
-    pub(crate) fn order(&self, id: &str) -> RampOrder {
+    #[must_use]
+    pub fn order(&self, id: &str) -> RampOrder {
         self.state
             .journal
             .lock()
-            .expect("journal")
+            .required("journal")
             .order_by_id(id)
-            .expect("created order")
+            .required("created order")
             .order
             .clone()
     }
 
-    pub(crate) fn pending_custody(&self, id: [u8; 32]) -> bool {
-        let journal = self.state.journal.lock().expect("journal");
-        let pending = self.state.pending_rebalances.lock().expect("pending");
+    #[must_use]
+    pub fn pending_custody(&self, id: [u8; 32]) -> bool {
+        let journal = self.state.journal.lock().required("journal");
+        let pending = self.state.pending_rebalances.lock().required("pending");
         pending.contains(&id)
             && journal
                 .paxeer(&id)
@@ -100,17 +104,18 @@ impl Server {
 
     // The production HTTP codec/writer needs a response larger than TCP's send
     // window to exercise backpressure; ordinary /livez responses fit in it.
-    pub(crate) fn response_writer(
-        &self,
-    ) -> (std::net::SocketAddr, thread::JoinHandle<io::Result<()>>) {
-        let tcp = TcpListener::bind("127.0.0.1:0").expect("writer listener");
-        let address = tcp.local_addr().expect("writer address");
+    /// # Panics
+    /// Panics if the response writer fixture cannot acquire its listener or permit.
+    #[must_use]
+    pub fn response_writer(&self) -> (std::net::SocketAddr, thread::JoinHandle<io::Result<()>>) {
+        let tcp = TcpListener::bind("127.0.0.1:0").required("writer listener");
+        let address = tcp.local_addr().required("writer address");
         let mode = Arc::clone(&self.mode);
         let gate = Arc::clone(&self.gate);
         let response = json_response(200, "x".repeat(32 * 1024 * 1024));
         let worker = thread::spawn(move || {
             let (stream, _) = tcp.accept()?;
-            let _permit = gate.try_acquire().expect("writer admission");
+            let _permit = gate.try_acquire().required("writer admission");
             let stream = DeadlineStream::new(stream)?;
             let Listener::Tls(acceptor) = mode.as_ref() else {
                 panic!("TLS writer")
@@ -130,10 +135,10 @@ impl Drop for Server {
         let _ = self.stop.send(());
         if let Some((stop, worker)) = self.reconciler.take() {
             let _ = stop.send(());
-            worker.join().expect("reconciler shutdown");
+            worker.join().required("reconciler shutdown");
         }
         if let Some(worker) = self.listener.take() {
-            worker.join().expect("listener shutdown");
+            worker.join().required("listener shutdown");
         }
     }
 }

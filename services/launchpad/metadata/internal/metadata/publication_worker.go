@@ -63,19 +63,19 @@ func (s PublicationService) claimPublication(ctx context.Context) (publicationLe
 	return l, e
 }
 func (s PublicationService) failPublication(ctx context.Context, l publicationLease, cause error) error {
-	state, code := "metadata_pending", "dependency_unavailable"
+	state, code := metadataPendingState, "dependency_unavailable"
 	switch {
 	case errors.Is(cause, ErrForbidden) || errors.Is(cause, sharedauth.ErrScopeDenied):
 		state, code = "authorization_required", "creator_authorization_required"
 	case errors.Is(cause, ErrConflict):
-		state, code = "rejected", "stale_revision"
+		state, code = metadataStateRejectedWire, "stale_revision"
 	case errors.Is(cause, ErrValidation) || errors.Is(cause, ErrUnrepresentable):
-		state, code = "rejected", "invalid_intent"
+		state, code = metadataStateRejectedWire, "invalid_intent"
 	case errors.Is(cause, ErrMissing):
 		code = "asset_pending"
 	}
-	if l.Attempt >= 5 && state == "metadata_pending" {
-		state, code = "rejected", "retry_exhausted"
+	if l.Attempt >= 5 && state == metadataPendingState {
+		state, code = metadataStateRejectedWire, "retry_exhausted"
 	}
 	delays := []int{30, 120, 300, 600, 600}
 	delay := delays[l.Attempt-1]
@@ -193,7 +193,7 @@ func (s PublicationService) applyPublication(ctx context.Context, l publicationL
 		if e != nil {
 			return e
 		}
-		if current != p.ExpectedRevision || current == "115792089237316195423570985008687907853269984665640564039457584007913129639935" {
+		if current != p.ExpectedRevision || current == metadataMaxRevision {
 			return ErrConflict
 		}
 		if p.LogoAssetID != nil {
@@ -205,25 +205,25 @@ func (s PublicationService) applyPublication(ctx context.Context, l publicationL
 			if e != nil {
 				return e
 			}
-			if state == "REJECTED" || state == "DELETED" {
+			if state == metadataStateRejected || state == metadataStateDeleted {
 				return ErrForbidden
 			}
-			if state != "APPROVED" {
+			if state != metadataStateApproved {
 				return ErrMissing
 			}
 		}
 		doc := map[string]any{}
 		if p.Name != nil {
-			doc["name"] = *p.Name
+			doc[metadataNameKey] = *p.Name
 		}
 		if p.Symbol != nil {
-			doc["symbol"] = *p.Symbol
+			doc[metadataSymbolKey] = *p.Symbol
 		}
 		if p.Description != nil {
-			doc["description"] = *p.Description
+			doc[metadataDescriptionKey] = *p.Description
 		}
 		if p.Tags != nil {
-			doc["tags"] = *p.Tags
+			doc[metadataTagsKey] = *p.Tags
 		}
 		if p.Socials != nil {
 			doc["socials"] = *p.Socials
@@ -240,12 +240,12 @@ func (s PublicationService) applyPublication(ctx context.Context, l publicationL
 		if e != nil {
 			return e
 		}
-		projection := map[string]string{"description": normalizedSearchText(data.Display.Description)}
+		projection := map[string]string{metadataDescriptionKey: normalizedSearchText(data.Display.Description)}
 		if data.Display.Name != nil {
-			projection["name"] = normalizedSearchText(*data.Display.Name)
+			projection[metadataNameKey] = normalizedSearchText(*data.Display.Name)
 		}
 		if data.Display.Symbol != nil {
-			projection["symbol"] = normalizedSearchText(*data.Display.Symbol)
+			projection[metadataSymbolKey] = normalizedSearchText(*data.Display.Symbol)
 		}
 		search, e := json.Marshal(projection)
 		if e != nil {

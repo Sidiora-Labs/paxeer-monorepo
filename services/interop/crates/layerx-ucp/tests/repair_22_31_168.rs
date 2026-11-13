@@ -35,9 +35,9 @@ fn submission(asset: [u8; 32], recipient: [u8; 32]) -> CheckoutSubmission {
         "https://layerx.dev/2026-04-08/specification/402",
         "https://layerx.dev/2026-04-08/schemas/402.json",
     )
-    .unwrap();
-    let merchant =
-        MerchantProfile::layerx("https://merchant.example/ucp", handler.clone()).unwrap();
+    .or_panic("expected Ok value");
+    let merchant = MerchantProfile::layerx("https://merchant.example/ucp", handler.clone())
+        .or_panic("expected Ok value");
     let platform = PlatformProfile {
         profile_url: "https://buyer.example/profile".into(),
         capabilities: merchant.capabilities().to_vec(),
@@ -49,28 +49,40 @@ fn submission(asset: [u8; 32], recipient: [u8; 32]) -> CheckoutSubmission {
         total_minor: 1000,
         layerx_asset: asset,
         layerx_recipient: recipient,
-        idempotency_key: UcpIdempotencyKey::parse("123e4567-e89b-12d3-a456-426614174000").unwrap(),
-        negotiated: NegotiatedCapabilities::negotiate(&platform, &handler).unwrap(),
+        idempotency_key: UcpIdempotencyKey::parse("123e4567-e89b-12d3-a456-426614174000")
+            .or_panic("expected Ok value"),
+        negotiated: NegotiatedCapabilities::negotiate(&platform, &handler)
+            .or_panic("expected Ok value"),
     }
 }
 
 fn config(asset: [u8; 32], minor: u8, atomic: u8) -> UcpServiceConfig {
-    UcpServiceConfig::new(MerchantCurrencyBinding::new(*b"USD", asset, minor, atomic).unwrap())
+    UcpServiceConfig::new(
+        MerchantCurrencyBinding::new(*b"USD", asset, minor, atomic).or_panic("expected Ok value"),
+    )
 }
 
 fn gateway(trace: &TraceId) -> GatewayCore {
     let mut gateway = GatewayCore::new();
     let spec = PinnedSpec::new(
-        AdapterId::new("ucp").unwrap(),
-        SpecVersion::parse("20260408").unwrap(),
+        AdapterId::new("ucp").or_panic("expected Ok value"),
+        SpecVersion::parse("20260408").or_panic("expected Ok value"),
         UCP_CHECKOUT_SPEC_SHA256,
     )
-    .unwrap();
-    let suite = ConformanceSuite::new(AdapterId::new("ucp-currency-units").unwrap(), 3, [0x68; 32])
-        .unwrap();
+    .or_panic("expected Ok value");
+    let suite = ConformanceSuite::new(
+        AdapterId::new("ucp-currency-units").or_panic("expected Ok value"),
+        3,
+        [0x68; 32],
+    )
+    .or_panic("expected Ok value");
     gateway
-        .register_adapter(ucp_adapter_descriptor(spec, suite).unwrap(), trace, 1)
-        .unwrap();
+        .register_adapter(
+            ucp_adapter_descriptor(spec, suite).or_panic("expected Ok value"),
+            trace,
+            1,
+        )
+        .or_panic("expected Ok value");
     gateway
 }
 
@@ -137,23 +149,27 @@ fn ucp_currency_units_checked_conversion() {
 }
 
 fn bytes(value: &Value) -> Vec<u8> {
-    let encoded = value.as_str().unwrap().strip_prefix("0x").unwrap();
+    let encoded = value
+        .as_str()
+        .or_panic("expected Some value")
+        .strip_prefix("0x")
+        .or_panic("expected Some value");
     assert_eq!(encoded.len() % 2, 0);
     (0..encoded.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&encoded[i..i + 2], 16).unwrap())
+        .map(|i| u8::from_str_radix(&encoded[i..i + 2], 16).or_panic("expected Ok value"))
         .collect()
 }
 
 fn array<const N: usize>(value: &Value) -> [u8; N] {
-    bytes(value).try_into().unwrap()
+    bytes(value).try_into().or_panic("expected Ok value")
 }
 
 fn hex(value: &[u8]) -> String {
     use std::fmt::Write as _;
     let mut out = String::from("0x");
     for byte in value {
-        write!(out, "{byte:02x}").unwrap();
+        write!(out, "{byte:02x}").or_panic("expected Ok value");
     }
     out
 }
@@ -169,7 +185,7 @@ fn payment(value: &Value) -> ExecutedUcpPayment {
             signed_receipt: bytes(&value["receipt"]),
             logs: value["logs"]
                 .as_array()
-                .unwrap()
+                .or_panic("expected Some value")
                 .iter()
                 .enumerate()
                 .map(|(i, log)| {
@@ -177,7 +193,7 @@ fn payment(value: &Value) -> ExecutedUcpPayment {
                         array(&log["address"]),
                         log["topics"]
                             .as_array()
-                            .unwrap()
+                            .or_panic("expected Some value")
                             .iter()
                             .map(array)
                             .collect(),
@@ -212,21 +228,21 @@ impl NativeCheckoutPlane {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../../..")
             .canonicalize()
-            .unwrap();
+            .or_panic("expected Ok value");
         let dir = std::env::temp_dir().join(format!("ucp-currency-units-{}", std::process::id()));
-        fs::create_dir(&dir).unwrap();
+        fs::create_dir(&dir).or_panic("expected Ok value");
         let source = dir.join("producer_test.go");
-        fs::write(&source, NATIVE_PRODUCER).unwrap();
+        fs::write(&source, NATIVE_PRODUCER).or_panic("expected Ok value");
         let overlay = dir.join("overlay.json");
         fs::write(
             &overlay,
             serde_json::to_vec(&json!({"Replace": {
-                (root.join("node/sequencer/repair_22_31_168_test.go").to_str().unwrap()): source
+                (root.join("node/sequencer/repair_22_31_168_test.go").to_str().or_panic("expected Some value")): source
             }}))
-            .unwrap(),
+            .or_panic("expected Ok value"),
         )
-        .unwrap();
-        let log = fs::File::create(dir.join("producer.log")).unwrap();
+        .or_panic("expected Ok value");
+        let log = fs::File::create(dir.join("producer.log")).or_panic("expected Ok value");
         let kernel_dir = dir.join("kernel");
         let programs_dir = dir.join("programs");
         let mut kernel = Command::new("make");
@@ -252,14 +268,14 @@ impl NativeCheckoutPlane {
             let status = dependency
                 .current_dir(&root)
                 .stdin(Stdio::null())
-                .stdout(log.try_clone().unwrap())
-                .stderr(log.try_clone().unwrap())
+                .stdout(log.try_clone().or_panic("expected Ok value"))
+                .stderr(log.try_clone().or_panic("expected Ok value"))
                 .status()
-                .unwrap();
+                .or_panic("expected Ok value");
             assert!(
                 status.success(),
                 "native producer dependency failed: {dependency:?}: {status}\n{}",
-                fs::read_to_string(dir.join("producer.log")).unwrap()
+                fs::read_to_string(dir.join("producer.log")).or_panic("expected Ok value")
             );
         }
         let native_link_flags = format!(
@@ -281,10 +297,10 @@ impl NativeCheckoutPlane {
             .env("CGO_LDFLAGS", native_link_flags)
             .env("UCP_REPAIR_DIR", &dir)
             .stdin(Stdio::null())
-            .stdout(log.try_clone().unwrap())
+            .stdout(log.try_clone().or_panic("expected Ok value"))
             .stderr(log)
             .spawn()
-            .unwrap();
+            .or_panic("expected Ok value");
         let mut plane = Self {
             child,
             dir,
@@ -299,13 +315,13 @@ impl NativeCheckoutPlane {
         let started = Instant::now();
         loop {
             if let Ok(data) = fs::read(self.dir.join(name)) {
-                return serde_json::from_slice(&data).unwrap();
+                return serde_json::from_slice(&data).or_panic("expected Ok value");
             }
-            let exited = self.child.try_wait().unwrap();
+            let exited = self.child.try_wait().or_panic("expected Ok value");
             assert!(
                 exited.is_none() && started.elapsed() < limit,
                 "native producer did not emit {name}: {exited:?}\n{}",
-                fs::read_to_string(self.dir.join("producer.log")).unwrap()
+                fs::read_to_string(self.dir.join("producer.log")).or_panic("expected Ok value")
             );
             std::thread::sleep(Duration::from_millis(50));
         }
@@ -330,16 +346,17 @@ impl UcpPaymentPlane for NativeCheckoutPlane {
                 "reference": hex(&intent.idempotency_key), "amount": intent.amount.to_string(),
                 "underpaidReference": hex(&self.underpaid_reference)
             }))
-            .unwrap(),
+            .or_panic("expected Ok value"),
         )
-        .unwrap();
-        fs::rename(self.dir.join("intent.tmp"), self.dir.join("intent.json")).unwrap();
+        .or_panic("expected Ok value");
+        fs::rename(self.dir.join("intent.tmp"), self.dir.join("intent.json"))
+            .or_panic("expected Ok value");
         let produced = self.wait_json("result.json", Duration::from_secs(120));
-        let status = self.child.wait().unwrap();
+        let status = self.child.wait().or_panic("expected Ok value");
         assert!(
             status.success(),
             "native producer failed: {}",
-            fs::read_to_string(self.dir.join("producer.log")).unwrap()
+            fs::read_to_string(self.dir.join("producer.log")).or_panic("expected Ok value")
         );
         assert_eq!(produced["recipientBalance"], "10001000");
         assert_eq!(produced["payerBalance"], "29999000");
@@ -356,19 +373,13 @@ fn ucp_currency_units_native_checkout() {
     let checkout = submission(asset, array(&ready["recipient"]));
     let mut underpaid = checkout.clone();
     underpaid.checkout_id = "underpaid-currency-units".into();
-    underpaid.idempotency_key =
-        UcpIdempotencyKey::parse("123e4567-e89b-12d3-a456-426614174001").unwrap();
+    underpaid.idempotency_key = UcpIdempotencyKey::parse("123e4567-e89b-12d3-a456-426614174001")
+        .or_panic("expected Ok value");
     native.underpaid_reference = underpaid.idempotency_key.gateway_key();
     let config = config(asset, 2, 6);
-    let seed: [u8; 32] = Sha256::digest(b"sequencer receipt test key").into();
-    let keys = [SequencerAuthorization::new(
-        Sha256::digest(b"sequencer receipt test key id").into(),
-        SigningKey::from_bytes(&seed).verifying_key().to_bytes(),
-        1,
-        1000,
-    )];
+    let keys = receipt_keys();
     let trace = TraceId::mint([0x68; 16]);
-    let principal = PrincipalId::new("merchant-currency-units").unwrap();
+    let principal = PrincipalId::new("merchant-currency-units").or_panic("expected Ok value");
     let mut gateway = gateway(&trace);
     let outcome = UcpAdapter::complete_checkout(
         &mut gateway,
@@ -379,38 +390,13 @@ fn ucp_currency_units_native_checkout() {
         &trace,
         2,
     )
-    .unwrap();
-    assert_eq!(outcome.status, CheckoutStatus::Completed);
-    let order = outcome.order.unwrap();
-    assert_eq!(order.currency, *b"USD");
-    assert_eq!(order.total_minor, 1000);
-    let stored = outcome.stored_order.unwrap();
-    assert_eq!(
-        UcpAdapter::read_order_with_config(&stored, &keys, &config),
-        Ok(order.clone())
-    );
-    assert_eq!(
-        UcpAdapter::read_order(&stored, &keys),
-        Err(UcpError::CurrencyBindingRequired)
-    );
-    assert_eq!(
-        gateway.translation(&principal, checkout.idempotency_key.gateway_key()),
-        Some(TranslationStatus::ReceiptVerified {
-            receipt_digest: order.receipt_digest
-        })
-    );
-    let produced = native.produced.as_ref().unwrap();
+    .or_panic("expected Ok value");
+    let (order, stored) =
+        assert_completed_order(outcome, &keys, &config, &gateway, &principal, &checkout);
+    let produced = native.produced.as_ref().or_panic("expected Some value");
     let mut correct = payment(&produced["correct"]);
     let mut insufficient = payment(&produced["underpaid"]);
-    assert_eq!(
-        verify_sequencer_receipt_with_config(
-            &underpaid,
-            &insufficient.evidence.signed_receipt,
-            &keys,
-            &config
-        ),
-        Err(UcpError::ReceiptMismatch)
-    );
+    assert_underpaid_receipt_refused(&underpaid, &insufficient, &keys, &config);
     let refusal = UcpAdapter::complete_checkout(
         &mut gateway,
         &principal,
@@ -420,7 +406,8 @@ fn ucp_currency_units_native_checkout() {
         &trace,
         3,
     )
-    .unwrap_err()
+    .err()
+    .or_panic("expected Err value")
     .into_error();
     assert_eq!(refusal, UcpError::ReceiptMismatch);
     assert_ne!(
@@ -438,7 +425,7 @@ fn ucp_currency_units_native_checkout() {
         &trace,
         4,
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     assert_eq!(replay.order, Some(order));
     let changed = self::config(asset, 2, 5);
     assert!(UcpAdapter::complete_checkout(
@@ -465,7 +452,8 @@ fn ucp_currency_units_native_checkout() {
             &trace,
             6
         )
-        .unwrap_err()
+        .err()
+        .or_panic("expected Err value")
         .into_error(),
         UcpError::CurrencyBindingRequired
     );
@@ -475,6 +463,63 @@ fn ucp_currency_units_native_checkout() {
         UcpAdapter::read_order_with_config(&corrupted, &keys, &config),
         Err(UcpError::ReceiptMismatch)
     );
+}
+
+fn assert_underpaid_receipt_refused(
+    underpaid: &CheckoutSubmission,
+    insufficient: &ExecutedUcpPayment,
+    keys: &[SequencerAuthorization],
+    config: &UcpServiceConfig,
+) {
+    assert_eq!(
+        verify_sequencer_receipt_with_config(
+            underpaid,
+            &insufficient.evidence.signed_receipt,
+            keys,
+            config
+        ),
+        Err(UcpError::ReceiptMismatch)
+    );
+}
+
+fn receipt_keys() -> [SequencerAuthorization; 1] {
+    let seed: [u8; 32] = Sha256::digest(b"sequencer receipt test key").into();
+    [SequencerAuthorization::new(
+        Sha256::digest(b"sequencer receipt test key id").into(),
+        SigningKey::from_bytes(&seed).verifying_key().to_bytes(),
+        1,
+        1000,
+    )]
+}
+
+fn assert_completed_order(
+    outcome: layerx_ucp::CheckoutOutcome,
+    keys: &[SequencerAuthorization],
+    config: &UcpServiceConfig,
+    gateway: &GatewayCore,
+    principal: &PrincipalId,
+    checkout: &CheckoutSubmission,
+) -> (layerx_ucp::UcpOrder, layerx_ucp::StoredOrder) {
+    assert_eq!(outcome.status, CheckoutStatus::Completed);
+    let order = outcome.order.or_panic("expected Some value");
+    assert_eq!(order.currency, *b"USD");
+    assert_eq!(order.total_minor, 1000);
+    let stored = outcome.stored_order.or_panic("expected Some value");
+    assert_eq!(
+        UcpAdapter::read_order_with_config(&stored, keys, config),
+        Ok(order.clone())
+    );
+    assert_eq!(
+        UcpAdapter::read_order(&stored, keys),
+        Err(UcpError::CurrencyBindingRequired)
+    );
+    assert_eq!(
+        gateway.translation(principal, checkout.idempotency_key.gateway_key()),
+        Some(TranslationStatus::ReceiptVerified {
+            receipt_digest: order.receipt_digest
+        })
+    );
+    (order, stored)
 }
 
 const NATIVE_PRODUCER: &str = r#"
@@ -603,3 +648,25 @@ func TestRepairUcpCurrencyProducer(t *testing.T) {
         "recipientBalance": recipientBalance.String(), "payerBalance": payerBalance.String()})
 }
 "#;
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
+}

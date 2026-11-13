@@ -63,15 +63,15 @@ func readOwnership(ctx context.Context, st *store.Store, schema, pool string, re
 		def, maximum, minimum = 50, whalePageMaximum, 1
 	}
 	q := request.URL.Query()
-	rawCursor, cursorExists := q["cursor"]
-	q.Del("cursor")
+	rawCursor, cursorExists := q[valueCursor]
+	q.Del(valueCursor)
 	page, e := boundedPage(q, def, maximum, minimum, scope)
 	if e != nil {
 		return out, 400, e
 	}
 	var cursor *ownershipCursor
 	if cursorExists {
-		if len(rawCursor) != 1 || len(rawCursor[0]) > 1024 || page.Offset != 0 || len(q["offset"]) > 0 {
+		if len(rawCursor) != 1 || len(rawCursor[0]) > 1024 || page.Offset != 0 || len(q[valueOffset]) > 0 {
 			return out, 400, errors.New("invalid ownership cursor")
 		}
 		raw, e := base64.RawURLEncoding.Strict().DecodeString(rawCursor[0])
@@ -107,12 +107,12 @@ func readOwnership(ctx context.Context, st *store.Store, schema, pool string, re
 	if e != nil {
 		return out, status, e
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), tx)
 	e = tx.QueryRow(ctx, "SELECT supply::text,coverage,revision FROM "+schema+".tokens WHERE token=$1", row.TokenAddress).Scan(&out.Supply, &out.Coverage, &out.Revision)
 	if e != nil {
 		return out, status, e
 	}
-	if out.Coverage == "quarantined" {
+	if out.Coverage == valueQuarantined {
 		return out, status, errors.New("canonical ownership quarantined")
 	}
 	if cursor != nil && cursor.Revision != out.Revision {
@@ -122,7 +122,7 @@ func readOwnership(ctx context.Context, st *store.Store, schema, pool string, re
 	if e != nil {
 		return out, status, e
 	}
-	out.Distribution = holdings.Distribution{Policy: holdings.DistributionPolicy, Supply: out.Supply, InclusiveDenominator: holdings.Denominator{Raw: out.Supply, Policy: "indexed_supply_v1", ExcludedCategories: []string{}}, CirculatingDenominator: holdings.Denominator{Policy: "verified_external_wallets_v1", ExcludedCategories: []string{"unknown", "pool_reserve", "burn", "treasury", "router"}}}
+	out.Distribution = holdings.Distribution{Policy: holdings.DistributionPolicy, Supply: out.Supply, InclusiveDenominator: holdings.Denominator{Raw: out.Supply, Policy: "indexed_supply_v1", ExcludedCategories: []string{}}, CirculatingDenominator: holdings.Denominator{Policy: "verified_external_wallets_v1", ExcludedCategories: []string{valueUnknown, "pool_reserve", "burn", "treasury", "router"}}}
 	for i := range out.Distribution.Bands {
 		out.Distribution.Bands[i].Raw = "0"
 	}
@@ -154,7 +154,7 @@ func readOwnership(ctx context.Context, st *store.Store, schema, pool string, re
 				out.Distribution.ExternalWalletCount += count
 				circulating.Add(circulating, amount)
 			}
-			if category == "unknown" {
+			if category == valueUnknown {
 				out.Distribution.UnknownCount += count
 			}
 		}
@@ -179,7 +179,7 @@ func readOwnership(ctx context.Context, st *store.Store, schema, pool string, re
 		out.Distribution.Creator = holdings.Ratio{Reason: "unknown_creator"}
 		out.Distribution.CirculatingCreator = out.Distribution.Creator
 		if out.Creator != "" {
-			raw, category := "0", "unknown"
+			raw, category := "0", valueUnknown
 			e = tx.QueryRow(ctx, "SELECT balance::text,category FROM "+schema+".balances WHERE token=$1 AND address=$2", row.TokenAddress, out.Creator).Scan(&raw, &category)
 			if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 				return out, status, e
@@ -236,7 +236,7 @@ func readOwnership(ctx context.Context, st *store.Store, schema, pool string, re
 			out.Next = &next
 		}
 	}
-	if out.Coverage != "complete" {
+	if out.Coverage != valueComplete {
 		unavailable := holdings.Ratio{Reason: out.Coverage}
 		out.Distribution.Top10 = unavailable
 		out.Distribution.CirculatingTop10 = unavailable
@@ -251,17 +251,17 @@ func readOwnership(ctx context.Context, st *store.Store, schema, pool string, re
 
 func canonicalDistribution(st *store.Store, schema string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		out, status, err := readOwnership(r.Context(), st, schema, chi.URLParam(r, "poolAddress"), r, false)
+		out, status, err := readOwnership(r.Context(), st, schema, chi.URLParam(r, valuePoolAddress), r, false)
 		if err != nil {
 			sharedhttp.WriteError(w, status, http.StatusText(status), "canonical distribution unavailable")
 			return
 		}
-		sharedhttp.WriteJSON(w, 200, map[string]any{"coverage": out.Coverage, "ownershipSource": "canonical_transfers", "totalHolders": out.Distribution.AllPositiveCount, "distribution": out.Distribution, "walletMap": out.Holders, "walletMapTotal": out.Distribution.AllPositiveCount, "walletMapLimit": out.Limit, "walletMapOffset": out.Offset, "nextCursor": out.Next, "revision": strconv.FormatInt(out.Revision, 10)})
+		sharedhttp.WriteJSON(w, 200, map[string]any{valueCoverage: out.Coverage, valueOwnershipSource: "canonical_transfers", "totalHolders": out.Distribution.AllPositiveCount, "distribution": out.Distribution, "walletMap": out.Holders, "walletMapTotal": out.Distribution.AllPositiveCount, "walletMapLimit": out.Limit, "walletMapOffset": out.Offset, valueNextCursor: out.Next, valueRevision: strconv.FormatInt(out.Revision, 10)})
 	}
 }
 func canonicalWhales(st *store.Store, schema string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		pool := chi.URLParam(r, "poolAddress")
+		pool := chi.URLParam(r, valuePoolAddress)
 		out, status, err := readOwnership(r.Context(), st, schema, pool, r, true)
 		if err != nil {
 			sharedhttp.WriteError(w, status, http.StatusText(status), "canonical whales unavailable")
@@ -271,6 +271,6 @@ func canonicalWhales(st *store.Store, schema string) http.HandlerFunc {
 		for _, item := range out.Holders {
 			whales = append(whales, whaleEntry{Rank: item.Rank, HolderAddress: item.Address, Balance: item.Balance, PctOfSupply: item.PctBps, PctOfSupplyHuman: humanPct(float64(item.PctBps)), IsCreator: strings.EqualFold(item.Address, out.Creator)})
 		}
-		sharedhttp.WriteJSON(w, 200, map[string]any{"coverage": out.Coverage, "ownershipSource": "canonical_transfers", "poolAddress": pool, "whaleThresholdPct": 1, "whaleCount": len(whales), "whales": whales, "limit": out.Limit, "offset": out.Offset, "nextCursor": out.Next, "revision": strconv.FormatInt(out.Revision, 10)})
+		sharedhttp.WriteJSON(w, 200, map[string]any{valueCoverage: out.Coverage, valueOwnershipSource: "canonical_transfers", valuePoolAddress: pool, "whaleThresholdPct": 1, "whaleCount": len(whales), "whales": whales, valueLimit: out.Limit, valueOffset: out.Offset, valueNextCursor: out.Next, valueRevision: strconv.FormatInt(out.Revision, 10)})
 	}
 }

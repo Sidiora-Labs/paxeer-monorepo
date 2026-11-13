@@ -3,12 +3,13 @@ package l17
 import (
 	"context"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	"github.com/go-chi/chi/v5"
 	"net/http"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/go-chi/chi/v5"
 )
 
 var ErrUnavailable = errors.New("portfolio dependency unavailable")
@@ -110,7 +111,7 @@ func (s Service) Portfolio(ctx context.Context, wallet, token string, limit int,
 		if cap := now.Add(15 * time.Minute); expires.After(cap) {
 			expires = cap
 		}
-		cursor = Cursor{Wallet: wallet, Snapshot: id, Revision: revision, Filter: "all", Sort: "snapshot_ordinal_v1", After: -1, Limit: limit, Expires: expires.Unix()}
+		cursor = Cursor{Wallet: wallet, Snapshot: id, Revision: revision, Filter: filterAll, Sort: sortSnapshotOrdinalV1, After: -1, Limit: limit, Expires: expires.Unix()}
 	}
 	key, e := CacheKey(wallet, "", cursor.Revision, false)
 	if e != nil {
@@ -147,13 +148,13 @@ func (s Service) Portfolio(ctx context.Context, wallet, token string, limit int,
 			return out, e
 		}
 	}
-	out = PortfolioResponse{Page: page, Errors: map[string][]string{}, QuoteAsset: "USDL", Decimals: 6, Algorithm: Algorithm, OriginDuration: originDuration}
+	out = PortfolioResponse{Page: page, Errors: map[string][]string{}, QuoteAsset: symbolUSDL, Decimals: 6, Algorithm: Algorithm, OriginDuration: originDuration}
 	for _, p := range page.Positions {
 		var errs []string
-		if p.BasisQuality != "complete" {
+		if p.BasisQuality != statusComplete {
 			errs = append(errs, "basis_incomplete")
 		}
-		if p.RealizedBasisQuality != "complete" {
+		if p.RealizedBasisQuality != statusComplete {
 			errs = append(errs, "historical_realized_basis_incomplete")
 		}
 		if p.PricingQuality != "priced" {
@@ -204,15 +205,15 @@ func (s Service) portfolioV3HTTP(w http.ResponseWriter, r *http.Request, wallet 
 		return
 	}
 	for key, values := range query {
-		if (key != "cursor" && key != "limit") || len(values) != 1 {
+		if (key != "cursor" && key != queryLimit) || len(values) != 1 {
 			writeFailure(w, ErrInvalid)
 			return
 		}
 	}
 	limit := 0
 	var e error
-	if query.Get("limit") != "" {
-		limit, e = strconv.Atoi(query.Get("limit"))
+	if query.Get(queryLimit) != "" {
+		limit, e = strconv.Atoi(query.Get(queryLimit))
 		if e != nil {
 			writeFailure(w, ErrInvalid)
 			return

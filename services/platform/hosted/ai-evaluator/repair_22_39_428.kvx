@@ -1,0 +1,11 @@
+[epoch.commit_then_reveal]
+asserts = "The evaluator commits at the opening of the commit window, retains its secret across a restart, reveals at the opening of the reveal window, and records two applied calls without a refusal or forfeiture."
+
+[epoch.below_quorum_forfeits_and_settles_without_a_score]
+asserts = "An unrevealed evaluator forfeits after the reveal window, near-end metrics count the pending reveal, and aggregation gives both workers insufficient quorum and no eligible reward score."
+
+[epoch.ungranted_key_is_refused_and_never_retried]
+asserts = "A key outside the evaluator grant receives KEY_MISMATCH, changes no market state, and is not retried; an evaluator outside the roster emits no call."
+
+[market]
+admission = "The reputation and admission section holds the reputation region followed by the evaluator and worker admission table."

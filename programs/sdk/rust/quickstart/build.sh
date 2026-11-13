@@ -6,16 +6,21 @@ sdk_dir=$(CDPATH= cd -- "$program_dir/.." && pwd)
 programs_dir=$(CDPATH= cd -- "$sdk_dir/../.." && pwd)
 
 target=wasm32-unknown-unknown
-artifact="$program_dir/target/$target/release/layerx_quickstart.wasm"
+target_dir=${CARGO_TARGET_DIR:-target}
+case "$target_dir" in
+	/*) ;;
+	*) target_dir="$program_dir/$target_dir" ;;
+esac
+artifact="$target_dir/$target/release/layerx_quickstart.wasm"
 
 CARGO=${CARGO:-cargo}
 
 compile() {
-	(cd "$program_dir" && "$CARGO" build --release --target "$target")
+	(cd "$program_dir" && CARGO_TARGET_DIR="$target_dir" "$CARGO" build --release --target "$target")
 }
 
 lint() {
-	(cd "$programs_dir" && "$CARGO" run --quiet -p layerx-program-lint \
+	(cd "$programs_dir" && CARGO_TARGET_DIR="$target_dir" "$CARGO" run --quiet -p layerx-program-lint \
 		--bin layerx-program-lint -- --abi-version 1 "$program_dir" "$artifact")
 }
 

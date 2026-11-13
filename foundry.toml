@@ -18,6 +18,7 @@ extra_output = ["storageLayout"]
 skip = ["contracts/src/**", "contracts/test/**", "contracts/lib/**", "contracts/node_modules/**", "contracts/bridge/**", "contracts/launchpad/**"]
 fs_permissions = [
     { access = "read-write", path = "./tests/vectors/names" },
+    { access = "read", path = "./build/forge-artifacts" },
     { access = "write", path = "./build" },
 ]
 

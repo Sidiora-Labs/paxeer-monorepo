@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,7 +34,7 @@ func (s *developmentSQLStore) Transaction(ctx context.Context, pool, identity st
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer chartcleanup.Rollback(context.WithoutCancel(ctx), tx)
 	if identity != "" {
 		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "development:identity:"+identity); err != nil {
 			return err
@@ -57,7 +59,7 @@ func (t *developmentSQLTx) Get(key string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if kind == "candle" {
+	if kind == developmentCandleKind {
 		// An old projection has neither source ordering nor durable membership.
 		// Reconstruct it from source rather than silently resetting its totals.
 		start, err := strconv.ParseInt(parts[2], 10, 64)
@@ -73,7 +75,7 @@ func (t *developmentSQLTx) Get(key string) ([]byte, error) {
 			return nil, errors.New("engine: development candle requires source reconstruction")
 		}
 	}
-	if kind == "cursor" {
+	if kind == developmentCursorKind {
 		var c store.CursorRow
 		err = t.tx.QueryRow(t.ctx, `SELECT pool_address,timeframe,last_close,last_candle_start,last_sequence_num FROM candles.candle_cursors WHERE pool_address=$1 AND timeframe=$2`, parts[0], parts[1]).Scan(&c.PoolAddress, &c.Timeframe, &c.LastClose, &c.LastCandleStart, &c.LastSequenceNum)
 		if err == nil {
@@ -91,7 +93,7 @@ func developmentParts(key string) (string, []string, error) {
 	if !ok || json.Unmarshal([]byte(wire), &parts) != nil {
 		return "", nil, errors.New("engine: invalid development key")
 	}
-	want := map[string]int{"candle": 3, "cursor": 2, "outbox": 1, "claim": 2}[kind]
+	want := map[string]int{developmentCandleKind: 3, developmentCursorKind: 2, "outbox": 1, "claim": 2}[kind]
 	if want == 0 || len(parts) != want {
 		return "", nil, errors.New("engine: invalid development key arity")
 	}
@@ -102,7 +104,7 @@ func (t *developmentSQLTx) Put(key string, raw []byte) error {
 	if err != nil {
 		return err
 	}
-	if kind == "candle" {
+	if kind == developmentCandleKind {
 		var state developmentCandle
 		if err = json.Unmarshal(raw, &state); err != nil {
 			return err
@@ -130,7 +132,7 @@ func (t *developmentSQLTx) Put(key string, raw []byte) error {
 			return err
 		}
 	}
-	if kind == "cursor" {
+	if kind == developmentCursorKind {
 		var c store.CursorRow
 		if err = json.Unmarshal(raw, &c); err != nil {
 			return err

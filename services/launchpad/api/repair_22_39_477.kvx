@@ -1,0 +1,53 @@
+[coverage]
+module = "services/launchpad/api"
+threshold_percent = 85.0
+before_percent = 50.6
+after_percent = 85.6
+
+[coverage.cmd_apid]
+before_percent = 0.0
+after_percent = 0.0
+
+[coverage.internal_app]
+before_percent = 55.8
+after_percent = 78.7
+
+[coverage.internal_broker]
+before_percent = 71.8
+after_percent = 86.8
+
+[coverage.internal_cache]
+before_percent = 57.6
+after_percent = 86.8
+
+[coverage.internal_config]
+before_percent = 31.0
+after_percent = 86.6
+
+[coverage.internal_internaltest]
+before_percent = 6.3
+after_percent = 79.8
+
+[coverage.internal_ratelimit]
+before_percent = 95.8
+after_percent = 95.8
+
+[coverage.internal_rest]
+before_percent = 61.3
+after_percent = 88.5
+
+[coverage.internal_sse]
+before_percent = 38.9
+after_percent = 84.0
+
+[coverage.internal_store]
+before_percent = 29.9
+after_percent = 85.7
+
+[coverage.internal_ws]
+before_percent = 32.9
+after_percent = 80.0
+
+[coverage.migrations]
+before_percent = 100.0
+after_percent = 100.0

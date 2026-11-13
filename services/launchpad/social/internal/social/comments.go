@@ -3,10 +3,11 @@ package social
 import (
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
@@ -53,7 +54,7 @@ func (h *Handlers) listComments(w http.ResponseWriter, r *http.Request) {
 	}
 	sharedhttp.WriteJSON(w, http.StatusOK, types.CommentsResponse{
 		Comments: out,
-		HasMore:  int32(len(rows)) == limit,
+		HasMore:  len(rows) == int(limit),
 	})
 }
 

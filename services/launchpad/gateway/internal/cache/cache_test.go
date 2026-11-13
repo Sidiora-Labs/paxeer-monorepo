@@ -19,6 +19,9 @@ func TestRealRedisCacheBoundsAndIdentity(t *testing.T) {
 	if redisKey("a:b", "c") == redisKey("a", "b:c") {
 		t.Fatal("key collision")
 	}
+	if _, found, err := c.Get(ctx, bucket, "absent"); err != nil || found {
+		t.Fatalf("empty cache: found=%v error=%v", found, err)
+	}
 	if e := c.Set(ctx, bucket, key, Object{ContentType: "image/png", Body: []byte("synthetic")}); e != nil {
 		t.Fatal(e)
 	}
@@ -37,6 +40,22 @@ func TestRealRedisCacheBoundsAndIdentity(t *testing.T) {
 	}
 	if _, ok, e := c.Get(ctx, bucket, key); e == nil || ok {
 		t.Fatal("oversize corruption accepted")
+	}
+	for _, raw := range []string{"not-json", `{"ct":"text/html","etag":"owned","body":"b3duZWQ="}`} {
+		if err := db.Set(ctx, redisKey(bucket, key), raw, time.Minute).Err(); err != nil {
+			t.Fatal(err)
+		}
+		if _, found, err := c.Get(ctx, bucket, key); err == nil || found {
+			t.Fatalf("corrupt cache entry %q: found=%v error=%v", raw, found, err)
+		}
+	}
+	for _, ttl := range []time.Duration{0, 25 * time.Hour} {
+		if err := New(db, ttl).Set(ctx, bucket, key, Object{ContentType: "image/png", Body: []byte("owned")}); err == nil {
+			t.Fatalf("invalid cache lifetime %s accepted", ttl)
+		}
+	}
+	if err := (*Cache)(nil).Evict(ctx, bucket, key); err == nil {
+		t.Fatal("cache eviction without a client succeeded")
 	}
 }
 

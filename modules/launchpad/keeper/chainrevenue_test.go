@@ -129,6 +129,11 @@ func TestChainRevenueClaimsSumToTheEpochAmount(t *testing.T) {
 		require.Equal(t, want, paid)
 		require.Equal(t, want, f.bankBalance(holder, f.base))
 		total = total.Add(paid)
+		require.True(t, f.k.HasChainRevenueClaim(f.ctx, f.chain, 1, holder))
+		updated, found, err := f.k.GetChainRevenueEpoch(f.ctx, f.chain, 1)
+		require.NoError(t, err)
+		require.True(t, found)
+		require.Equal(t, total, updated.ClaimedTotal)
 	}
 	require.Equal(t, sdk.NewInt(100), total)
 	require.Equal(t, sdk.ZeroInt(), testkeeper.EVMTestApp.BankKeeper.GetBalance(f.ctx, f.k.ModuleAddress(), f.base).Amount)

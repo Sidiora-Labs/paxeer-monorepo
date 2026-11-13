@@ -1,4 +1,5 @@
 #[path = "../../../../../platform/hosted/runtime-clock/src/server.rs"]
+#[allow(dead_code)]
 mod clock_server;
 
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
@@ -48,7 +49,9 @@ impl Drop for ClockAuthority {
     fn drop(&mut self) {
         self.shutdown.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
-            let result = worker.join().expect("runtime clock authority panicked");
+            let result = worker
+                .join()
+                .unwrap_or_else(|_| panic!("runtime clock authority panicked"));
             assert!(result.is_ok(), "runtime clock authority failed: {result:?}");
         }
     }
@@ -66,7 +69,7 @@ fn binding() -> io::Result<ClockBinding> {
         }
         Ok(authority
             .as_ref()
-            .expect("clock authority initialized")
+            .unwrap_or_else(|| panic!("clock authority initialized"))
             .binding
             .clone())
     })

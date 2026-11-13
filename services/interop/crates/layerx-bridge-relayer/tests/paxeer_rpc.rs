@@ -10,7 +10,11 @@ use serde_json::{json, Value};
 const TIMEOUT: Duration = Duration::from_secs(3);
 
 fn result(value: Value) -> Value {
-    json!({"jsonrpc": "2.0", "id": 1, "result": value})
+    let mut object = serde_json::Map::new();
+    object.insert("jsonrpc".to_owned(), Value::from("2.0"));
+    object.insert("id".to_owned(), Value::from(1));
+    object.insert("result".to_owned(), value);
+    Value::Object(object)
 }
 
 fn rejection(code: i64, message: &str) -> Value {
@@ -18,42 +22,69 @@ fn rejection(code: i64, message: &str) -> Value {
 }
 
 fn request(stream: &mut TcpStream) -> Value {
-    stream.set_read_timeout(Some(TIMEOUT)).unwrap();
-    stream.set_write_timeout(Some(TIMEOUT)).unwrap();
+    stream
+        .set_read_timeout(Some(TIMEOUT))
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    stream
+        .set_write_timeout(Some(TIMEOUT))
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let mut reader = BufReader::new(stream);
     let mut line = String::new();
-    reader.read_line(&mut line).unwrap();
+    reader
+        .read_line(&mut line)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(line, "POST / HTTP/1.1\r\n");
     let mut length = None;
     loop {
         line.clear();
-        assert_ne!(reader.read_line(&mut line).unwrap(), 0);
+        assert_ne!(
+            reader
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+            0
+        );
         if line == "\r\n" {
             break;
         }
         if let Some(value) = line.strip_prefix("Content-Length: ") {
-            length = Some(value.trim().parse::<usize>().unwrap());
+            length = Some(
+                value
+                    .trim()
+                    .parse::<usize>()
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+            );
         }
     }
-    let mut body = vec![0; length.unwrap()];
-    reader.read_exact(&mut body).unwrap();
-    let value: Value = serde_json::from_slice(&body).unwrap();
+    let mut body = vec![0; length.unwrap_or_else(|| panic!("expected Some value"))];
+    reader
+        .read_exact(&mut body)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    let value: Value = serde_json::from_slice(&body)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(value["jsonrpc"], "2.0");
     assert_eq!(value["id"], 1);
     value
 }
 
 fn emulator(answers: Vec<Value>) -> (PaxeerEndpoint, JoinHandle<Vec<Value>>) {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let endpoint = PaxeerEndpoint::new(
-        format!("http://{}/", listener.local_addr().unwrap()),
+        format!(
+            "http://{}/",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        ),
         TIMEOUT,
         None,
         125,
         true,
     )
-    .unwrap();
-    listener.set_nonblocking(true).unwrap();
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let worker = thread::spawn(move || {
         let mut requests = Vec::new();
         for answer in answers {
@@ -76,8 +107,10 @@ fn emulator(answers: Vec<Value>) -> (PaxeerEndpoint, JoinHandle<Vec<Value>>) {
                 body.len(),
                 body
             )
-            .unwrap();
-            stream.flush().unwrap();
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+            stream
+                .flush()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         }
         requests
     });
@@ -94,20 +127,23 @@ fn independent_rpc(endpoints: Vec<PaxeerEndpoint>) -> Result<PaxeerRpc, RpcFault
     )
 }
 
-fn quorum_call(answers: Vec<Value>, params: Value) -> Result<Value, RpcFault> {
+fn quorum_call(answers: Vec<Value>, params: &Value) -> Result<Value, RpcFault> {
     let (endpoints, workers): (Vec<_>, Vec<_>) = answers
         .into_iter()
         .map(|answer| emulator(vec![result(json!("0x7d")), answer]))
         .unzip();
-    let rpc = independent_rpc(endpoints).unwrap();
+    let rpc =
+        independent_rpc(endpoints).unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let outcome = rpc.call("eth_blockNumber", params.clone());
     for worker in workers {
-        let requests = worker.join().unwrap();
+        let requests = worker
+            .join()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         assert_eq!(requests.len(), 2);
         assert_eq!(requests[0]["method"], "eth_chainId");
         assert_eq!(requests[0]["params"], json!([]));
         assert_eq!(requests[1]["method"], "eth_blockNumber");
-        assert_eq!(requests[1]["params"], params);
+        assert_eq!(&requests[1]["params"], params);
     }
     outcome
 }
@@ -117,7 +153,7 @@ fn paxeer_reads_need_a_strict_majority_of_endpoints() {
     for outlier in 0..3 {
         let mut answers = vec![result(json!("0x10")); 3];
         answers[outlier] = result(json!("0x11"));
-        assert_eq!(quorum_call(answers, json!([])), Ok(json!("0x10")));
+        assert_eq!(quorum_call(answers, &json!([])), Ok(json!("0x10")));
     }
     assert_eq!(
         quorum_call(
@@ -126,14 +162,14 @@ fn paxeer_reads_need_a_strict_majority_of_endpoints() {
                 result(json!("0x11")),
                 result(json!("0x12"))
             ],
-            json!([])
+            &json!([])
         ),
         Err(RpcFault::Divergence)
     );
     assert_eq!(
         quorum_call(
             vec![result(json!("0x10")), result(json!("0x010"))],
-            json!([])
+            &json!([])
         ),
         Err(RpcFault::Divergence)
     );
@@ -144,7 +180,7 @@ fn paxeer_reads_need_a_strict_majority_of_endpoints() {
                 json!({"invalid": true}),
                 json!({"invalid": true})
             ],
-            json!([])
+            &json!([])
         ),
         Err(RpcFault::Unavailable)
     );
@@ -155,7 +191,7 @@ fn paxeer_reads_need_a_strict_majority_of_endpoints() {
                 rejection(-32000, "refused"),
                 rejection(-32000, "refused")
             ],
-            json!([])
+            &json!([])
         ),
         Err(RpcFault::Rejected {
             code: -32000,
@@ -169,41 +205,49 @@ fn paxeer_reads_need_a_strict_majority_of_endpoints() {
                 rejection(-32000, "first"),
                 rejection(-32000, "second")
             ],
-            json!([])
+            &json!([])
         ),
         Err(RpcFault::Unavailable)
     );
-    let value = json!({"height": "0x10", "transactions": [null, true, {"value": 18446744073709551615_u64}]});
+    let value = json!({"height": "0x10", "transactions": [null, true, {"value": 18_446_744_073_709_551_615_u64}]});
     assert_eq!(
         quorum_call(
             vec![result(value.clone()); 3],
-            json!({"block": "latest", "full": false})
+            &json!({"block": "latest", "full": false})
         ),
         Ok(value)
     );
     let (endpoint, worker) = emulator(vec![result(json!("0x7e"))]);
     assert_eq!(
         PaxeerRpc::new(vec![endpoint])
-            .unwrap()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
             .call("eth_blockNumber", json!([])),
         Err(RpcFault::Unavailable)
     );
-    let requests = worker.join().unwrap();
+    let requests = worker
+        .join()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(requests.len(), 1);
     assert_eq!(requests[0]["method"], "eth_chainId");
 }
 
 #[test]
 fn paxeer_rpc_refuses_mixed_chain_ids_and_more_than_eight_endpoints() {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let endpoint = PaxeerEndpoint::new(
-        format!("http://{}/", listener.local_addr().unwrap()),
+        format!(
+            "http://{}/",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        ),
         TIMEOUT,
         None,
         125,
         true,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let mut other_chain = endpoint.clone();
     other_chain.expected_chain_id = 126;
     for endpoints in [
@@ -226,19 +270,27 @@ fn paxeer_rpc_refuses_mixed_chain_ids_and_more_than_eight_endpoints() {
         Err(RpcFault::Configuration)
     ));
     let listeners: Vec<_> = (0..9)
-        .map(|_| TcpListener::bind("127.0.0.1:0").unwrap())
+        .map(|_| {
+            TcpListener::bind("127.0.0.1:0")
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        })
         .collect();
     let independent: Vec<_> = listeners
         .iter()
         .map(|listener| {
             PaxeerEndpoint::new(
-                format!("http://{}/", listener.local_addr().unwrap()),
+                format!(
+                    "http://{}/",
+                    listener
+                        .local_addr()
+                        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+                ),
                 TIMEOUT,
                 None,
                 125,
                 true,
             )
-            .unwrap()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
         })
         .collect();
     assert!(matches!(
@@ -250,9 +302,15 @@ fn paxeer_rpc_refuses_mixed_chain_ids_and_more_than_eight_endpoints() {
         independent_rpc(independent),
         Err(RpcFault::Configuration)
     ));
-    listener.set_nonblocking(true).unwrap();
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(
-        listener.accept().unwrap_err().kind(),
+        listener
+            .accept()
+            .err()
+            .unwrap_or_else(|| panic!("expected Err value"))
+            .kind(),
         std::io::ErrorKind::WouldBlock
     );
 }
@@ -272,7 +330,8 @@ fn a_sequencer_receipt_read_uses_pax_sequencer_receipt() {
             ])
         })
         .unzip();
-    let rpc = independent_rpc(endpoints).unwrap();
+    let rpc =
+        independent_rpc(endpoints).unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     let rpc: &dyn JsonRpc = &rpc;
     assert_eq!(rpc.sequencer_receipt(&[0xab; 32]), Ok(None));
     assert_eq!(rpc.sequencer_receipt(&[0xab; 32]), Ok(Some(receipt)));
@@ -284,7 +343,9 @@ fn a_sequencer_receipt_read_uses_pax_sequencer_receipt() {
         })
     );
     for worker in workers {
-        let requests = worker.join().unwrap();
+        let requests = worker
+            .join()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         assert_eq!(requests.len(), 6);
         for pair in requests.chunks_exact(2) {
             assert_eq!(pair[0]["method"], "eth_chainId");
@@ -302,7 +363,7 @@ fn duplicate_and_alias_endpoints_cannot_outvote_an_independent_backend() {
     let port = first
         .url
         .strip_prefix("http://127.0.0.1:")
-        .unwrap()
+        .unwrap_or_else(|| panic!("expected Some value"))
         .trim_end_matches('/');
     // Optional private proxy paths are aliases of the same voting authority.
     for url in [
@@ -320,11 +381,17 @@ fn duplicate_and_alias_endpoints_cannot_outvote_an_independent_backend() {
     }
     assert_eq!(
         independent_rpc(vec![first, second])
-            .unwrap()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
             .call("eth_blockNumber", json!([])),
         Err(RpcFault::Divergence)
     );
     for worker in [first_worker, second_worker] {
-        assert_eq!(worker.join().unwrap().len(), 2);
+        assert_eq!(
+            worker
+                .join()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+                .len(),
+            2
+        );
     }
 }

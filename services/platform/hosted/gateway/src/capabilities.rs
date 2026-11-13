@@ -12,6 +12,7 @@
 
 use super::{paxeer, Config};
 use layerx_platform_gateway::evm;
+#[cfg(test)]
 use layerx_platform_gateway::http::Endpoint;
 use serde_json::{json, Value};
 use std::sync::Mutex;
@@ -22,8 +23,7 @@ use std::time::{Duration, Instant};
 pub(super) const SURFACE_UNAVAILABLE: i32 = -32003;
 
 /// Relayed EVM methods that submit a signed transaction to the node.
-pub(super) const SUBMISSION_METHODS: [&str; 2] =
-    ["eth_sendRawTransaction", "eth_sendRawTransactionSync"];
+pub(super) const SUBMISSION_METHODS: [&str; 2] = ["eth_sendRawTransaction", "eth_sendRawTransactionSync"];
 
 const DEFAULT_TTL_SECONDS: u64 = 15;
 const MAX_TTL_SECONDS: u64 = 300;
@@ -32,11 +32,14 @@ const MAX_RAW_TRANSACTION_BYTES: usize = 4 * 1024 * 1024;
 /// The probe view of one surface: a cheap view that the precompile
 /// serving the surface's address declares in its served ABI file.
 struct ProbeView {
+    #[cfg(test)]
     signature: &'static str,
     selector: [u8; 4],
+    #[cfg(test)]
     outputs: &'static [&'static str],
     words: usize,
     /// The served ABI file, relative to the repository root.
+    #[cfg(test)]
     abi: &'static str,
 }
 
@@ -53,15 +56,7 @@ pub(super) enum Surface {
 }
 
 impl Surface {
-    pub(super) const ALL: [Self; 7] = [
-        Self::Exchange,
-        Self::Bridge,
-        Self::Launchpad,
-        Self::Ledger,
-        Self::Pay,
-        Self::Auth,
-        Self::Programs,
-    ];
+    pub(super) const ALL: [Self; 7] = [Self::Exchange, Self::Bridge, Self::Launchpad, Self::Ledger, Self::Pay, Self::Auth, Self::Programs];
 
     pub(super) fn name(self) -> &'static str {
         match self {
@@ -92,52 +87,73 @@ impl Surface {
     const fn probe_view(self) -> ProbeView {
         match self {
             Self::Exchange => ProbeView {
+                #[cfg(test)]
                 signature: "totalMarkets()",
                 selector: [0x81, 0x62, 0x48, 0x6b],
+                #[cfg(test)]
                 outputs: &["uint256"],
                 words: 1,
+                #[cfg(test)]
                 abi: "precompiles/perps/abi/abi.json",
             },
             Self::Bridge => ProbeView {
+                #[cfg(test)]
                 signature: "isPaused()",
                 selector: [0xb1, 0x87, 0xbd, 0x26],
+                #[cfg(test)]
                 outputs: &["bool"],
                 words: 1,
+                #[cfg(test)]
                 abi: "precompiles/layerxbridge/abi.json",
             },
             Self::Launchpad => ProbeView {
+                #[cfg(test)]
                 signature: "getPoolCount()",
                 selector: [0x8e, 0xec, 0x5d, 0x70],
+                #[cfg(test)]
                 outputs: &["uint256"],
                 words: 1,
+                #[cfg(test)]
                 abi: "precompiles/launchpad/abi.json",
             },
             Self::Ledger => ProbeView {
+                #[cfg(test)]
                 signature: "accountId(bytes32,bytes32)",
                 selector: [0x3f, 0x05, 0x0c, 0xbc],
+                #[cfg(test)]
                 outputs: &["bytes32"],
                 words: 1,
+                #[cfg(test)]
                 abi: "precompiles/layerxledger/abi.json",
             },
             Self::Pay => ProbeView {
+                #[cfg(test)]
                 signature: "budgetRemaining(bytes32)",
                 selector: [0xd7, 0x77, 0x87, 0x49],
+                #[cfg(test)]
                 outputs: &["uint128"],
                 words: 1,
+                #[cfg(test)]
                 abi: "precompiles/layerxpay/abi.json",
             },
             Self::Auth => ProbeView {
+                #[cfg(test)]
                 signature: "isLive(bytes32,uint64,uint64)",
                 selector: [0xd4, 0xa0, 0x3b, 0x3d],
+                #[cfg(test)]
                 outputs: &["bool", "string"],
                 words: 4,
+                #[cfg(test)]
                 abi: "precompiles/layerxauth/abi.json",
             },
             Self::Programs => ProbeView {
+                #[cfg(test)]
                 signature: "getCurrentFeeSchedule()",
                 selector: [0xbb, 0xe2, 0xe4, 0x2d],
+                #[cfg(test)]
                 outputs: &["uint32", "uint64[7]", "bytes32"],
                 words: 9,
+                #[cfg(test)]
                 abi: "precompiles/layerxprograms/abi.json",
             },
         }
@@ -168,67 +184,39 @@ impl Surface {
             Self::Bridge => answer.bool(0).is_ok(),
             Self::Pay => answer.word(0).is_ok_and(|word| word[..16] == [0; 16]),
             Self::Auth => answer.bool(0).is_ok() && answer.string(1, 0).is_ok(),
-            Self::Programs => {
-                answer.u32(0).is_ok()
-                    && (1..8).all(|index| answer.u64(index).is_ok())
-                    && answer.word(8).is_ok()
-            }
+            Self::Programs => answer.u32(0).is_ok() && (1..8).all(|index| answer.u64(index).is_ok()) && answer.word(8).is_ok(),
             Self::Exchange | Self::Launchpad | Self::Ledger => answer.word(0).is_ok(),
         }
     }
 
     fn of(address: &[u8; 20]) -> Option<Self> {
-        Self::ALL
-            .into_iter()
-            .find(|surface| surface.address() == *address)
+        Self::ALL.into_iter().find(|surface| surface.address() == *address)
     }
 }
 
 /// One probe of the surfaces at one node height.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) struct Capabilities {
-    pub(super) exchange: bool,
-    pub(super) bridge: bool,
-    pub(super) launchpad: bool,
-    pub(super) ledger: bool,
-    pub(super) pay: bool,
-    pub(super) auth: bool,
-    pub(super) programs: bool,
+    live: [bool; Surface::ALL.len()],
     pub(super) probed_at: u64,
     pub(super) rpc_height: u64,
 }
 
 impl Capabilities {
     pub(super) fn live(&self, surface: Surface) -> bool {
-        match surface {
-            Surface::Exchange => self.exchange,
-            Surface::Bridge => self.bridge,
-            Surface::Launchpad => self.launchpad,
-            Surface::Ledger => self.ledger,
-            Surface::Pay => self.pay,
-            Surface::Auth => self.auth,
-            Surface::Programs => self.programs,
-        }
+        self.live[surface as usize]
     }
 
     pub(super) fn document(&self) -> Value {
-        let addresses: serde_json::Map<String, Value> = Surface::ALL
-            .into_iter()
-            .map(|surface| {
-                (
-                    surface.name().to_owned(),
-                    json!(evm::address_hex(&surface.address())),
-                )
-            })
-            .collect();
+        let addresses: serde_json::Map<String, Value> = Surface::ALL.into_iter().map(|surface| (surface.name().to_owned(), json!(evm::address_hex(&surface.address())))).collect();
         json!({
-            "exchange": self.exchange,
-            "bridge": self.bridge,
-            "launchpad": self.launchpad,
-            "ledger": self.ledger,
-            "pay": self.pay,
-            "auth": self.auth,
-            "programs": self.programs,
+            "exchange": self.live(Surface::Exchange),
+            "bridge": self.live(Surface::Bridge),
+            "launchpad": self.live(Surface::Launchpad),
+            "ledger": self.live(Surface::Ledger),
+            "pay": self.live(Surface::Pay),
+            "auth": self.live(Surface::Auth),
+            "programs": self.live(Surface::Programs),
             "addresses": addresses,
             "probed_at": self.probed_at,
             "rpc_height": self.rpc_height.to_string()
@@ -245,24 +233,13 @@ pub(super) struct Cache {
 
 impl Cache {
     pub(super) fn new(ttl: Duration) -> Self {
-        Self {
-            ttl,
-            entry: Mutex::new(None),
-            ai_views: None,
-        }
+        Self { ttl, entry: Mutex::new(None), ai_views: None }
     }
 
     /// The cached answer while it is younger than the TTL, otherwise a fresh
     /// probe. A failed probe is returned and never cached.
-    pub(super) fn current(
-        &self,
-        now: Instant,
-        probe: impl FnOnce() -> Result<Capabilities, &'static str>,
-    ) -> Result<Capabilities, &'static str> {
-        let mut entry = self
-            .entry
-            .lock()
-            .map_err(|_| "capabilities_cache_unavailable")?;
+    pub(super) fn current(&self, now: Instant, probe: impl FnOnce() -> Result<Capabilities, &'static str>) -> Result<Capabilities, &'static str> {
+        let mut entry = self.entry.lock().map_err(|_| "capabilities_cache_unavailable")?;
         if let Some((taken, capabilities)) = entry.as_ref() {
             if now.saturating_duration_since(*taken) < self.ttl {
                 return Ok(capabilities.clone());
@@ -288,6 +265,7 @@ pub(super) fn configured() -> Result<Cache, String> {
 }
 
 /// Preserve a node origin as `/` and retain explicit domain paths.
+#[cfg(test)]
 pub(super) fn chain_rpc(endpoint: Endpoint) -> Endpoint {
     endpoint.chain_rpc()
 }
@@ -315,10 +293,7 @@ fn height(answer: &Value) -> Result<u64, &'static str> {
 }
 
 /// Reads the node head, then calls every surface's probe view at that head.
-pub(super) fn probe(
-    mut node: impl FnMut(&Value) -> Result<Value, &'static str>,
-    probed_at: u64,
-) -> Result<Capabilities, &'static str> {
+pub(super) fn probe(mut node: impl FnMut(&Value) -> Result<Value, &'static str>, probed_at: u64) -> Result<Capabilities, &'static str> {
     let head = node(&json!({
         "jsonrpc": "2.0",
         "id": "px-capabilities",
@@ -343,18 +318,7 @@ pub(super) fn probe(
         }))?;
         *slot = answers(surface, &answer);
     }
-    let [exchange, bridge, launchpad, ledger, pay, auth, programs] = live;
-    Ok(Capabilities {
-        exchange,
-        bridge,
-        launchpad,
-        ledger,
-        pay,
-        auth,
-        programs,
-        probed_at,
-        rpc_height,
-    })
+    Ok(Capabilities { live, probed_at, rpc_height })
 }
 
 fn current(config: &Config) -> Result<Capabilities, &'static str> {
@@ -405,14 +369,7 @@ pub(super) fn submission_surface(method: &str, params: Option<&Value>) -> Option
 
 /// Consults the capabilities for a surface write and answers the refusal, or
 /// `None` when the request may be relayed.
-pub(super) fn gate_with(
-    cache: &Cache,
-    now: Instant,
-    probe: impl FnOnce() -> Result<Capabilities, &'static str>,
-    id: &Value,
-    method: &str,
-    params: Option<&Value>,
-) -> Option<Value> {
+pub(super) fn gate_with(cache: &Cache, now: Instant, probe: impl FnOnce() -> Result<Capabilities, &'static str>, id: &Value, method: &str, params: Option<&Value>) -> Option<Value> {
     let surface = submission_surface(method, params)?;
     match cache.current(now, probe) {
         Ok(capabilities) if capabilities.live(surface) => None,
@@ -421,12 +378,7 @@ pub(super) fn gate_with(
     }
 }
 
-pub(super) fn gate(
-    config: &Config,
-    id: &Value,
-    method: &str,
-    params: Option<&Value>,
-) -> Option<Value> {
+pub(super) fn gate(config: &Config, id: &Value, method: &str, params: Option<&Value>) -> Option<Value> {
     config.paxeer.as_ref()?;
     gate_with(
         &config.capabilities,
@@ -445,9 +397,7 @@ fn rlp_length(bytes: &[u8]) -> Option<usize> {
     if bytes.is_empty() || bytes.len() > 8 || bytes.first() == Some(&0) {
         return None;
     }
-    bytes.iter().try_fold(0_usize, |length, byte| {
-        length.checked_mul(256)?.checked_add(usize::from(*byte))
-    })
+    bytes.iter().try_fold(0_usize, |length, byte| length.checked_mul(256)?.checked_add(usize::from(*byte)))
 }
 
 /// One RLP item at the start of `bytes`: payload offset, payload length and
@@ -529,11 +479,7 @@ mod tests {
         if length <= 55 {
             return vec![base + u8::try_from(length).unwrap_or_else(|e| panic!("{e}"))];
         }
-        let width: Vec<u8> = length
-            .to_be_bytes()
-            .into_iter()
-            .skip_while(|byte| *byte == 0)
-            .collect();
+        let width: Vec<u8> = length.to_be_bytes().into_iter().skip_while(|byte| *byte == 0).collect();
         let mut out = vec![base + 55 + u8::try_from(width.len()).unwrap_or_else(|e| panic!("{e}"))];
         out.extend(width);
         out
@@ -578,13 +524,7 @@ mod tests {
 
     fn capabilities(exchange: bool, bridge: bool, launchpad: bool) -> Capabilities {
         Capabilities {
-            exchange,
-            bridge,
-            launchpad,
-            ledger: false,
-            pay: false,
-            auth: false,
-            programs: false,
+            live: [exchange, bridge, launchpad, false, false, false, false],
             probed_at: 1_790_000_000,
             rpc_height: 23_860_000,
         }
@@ -598,7 +538,7 @@ mod tests {
         let reason = b"LXP_UNKNOWN_FIELD";
         let mut answer = [0; 128];
         answer[63] = 64;
-        answer[95] = u8::try_from(reason.len()).expect("reason fits one word");
+        answer[95] = u8::try_from(reason.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "reason fits one word"));
         answer[96..96 + reason.len()].copy_from_slice(reason);
         answer
     }
@@ -606,10 +546,7 @@ mod tests {
     /// Paxeer answers to the probe: pre-fork every view answers `0x` (a call
     /// to an address without a precompile), post-fork each answers its ABI
     /// return word, and `eth_getCode` stays `0x` either way.
-    fn recorded_node(
-        forked: bool,
-        calls: &Cell<usize>,
-    ) -> impl FnMut(&Value) -> Result<Value, &'static str> + '_ {
+    fn recorded_node(forked: bool, calls: &Cell<usize>) -> impl FnMut(&Value) -> Result<Value, &'static str> + '_ {
         move |request: &Value| {
             calls.set(calls.get() + 1);
             let result = match request["method"].as_str() {
@@ -617,21 +554,13 @@ mod tests {
                 Some("eth_call") => {
                     assert_eq!(request["params"][1], json!("0x16c1320"));
                     let to = request["params"][0]["to"].as_str().unwrap_or_default();
-                    let surface = Surface::ALL
-                        .into_iter()
-                        .find(|surface| evm::address_hex(&surface.address()) == to)
-                        .unwrap_or_else(|| panic!("probe called {to}"));
-                    assert_eq!(
-                        request["params"][0]["data"],
-                        json!(format!("0x{}", crate::hex(&surface.probe_calldata())))
-                    );
+                    let surface = Surface::ALL.into_iter().find(|surface| evm::address_hex(&surface.address()) == to).unwrap_or_else(|| panic!("probe called {to}"));
+                    assert_eq!(request["params"][0]["data"], json!(format!("0x{}", crate::hex(&surface.probe_calldata()))));
                     if forked {
                         json!(match surface {
                             Surface::Exchange => word(7),
-                            Surface::Bridge => word(0),
-                            Surface::Launchpad | Surface::Ledger | Surface::Pay => word(0),
-                            Surface::Auth =>
-                                format!("0x{}", crate::hex(&auth_missing_grant_answer())),
+                            Surface::Bridge | Surface::Launchpad | Surface::Ledger | Surface::Pay => word(0),
+                            Surface::Auth => format!("0x{}", crate::hex(&auth_missing_grant_answer())),
                             Surface::Programs => format!("0x{}", "00".repeat(9 * 32)),
                         })
                     } else {
@@ -646,41 +575,18 @@ mod tests {
 
     #[test]
     fn capabilities_probe_calls_each_surface_view_and_reads_a_decoded_answer_as_live() {
-        assert_eq!(
-            Surface::Exchange.probe_calldata(),
-            vec![0x81, 0x62, 0x48, 0x6b]
-        );
-        assert_eq!(
-            Surface::Bridge.probe_calldata(),
-            vec![0xb1, 0x87, 0xbd, 0x26]
-        );
-        assert_eq!(
-            Surface::Launchpad.probe_calldata(),
-            vec![0x8e, 0xec, 0x5d, 0x70]
-        );
+        assert_eq!(Surface::Exchange.probe_calldata(), vec![0x81, 0x62, 0x48, 0x6b]);
+        assert_eq!(Surface::Bridge.probe_calldata(), vec![0xb1, 0x87, 0xbd, 0x26]);
+        assert_eq!(Surface::Launchpad.probe_calldata(), vec![0x8e, 0xec, 0x5d, 0x70]);
 
         for surface in Surface::ALL {
             let mut zero = vec![0; surface.probe_view().words * 32];
             if surface == Surface::Auth {
                 zero = auth_missing_grant_answer().to_vec();
             }
-            assert!(
-                answers(
-                    surface,
-                    &json!({"result": format!("0x{}", crate::hex(&zero))})
-                ),
-                "{}",
-                surface.name()
-            );
+            assert!(answers(surface, &json!({"result": format!("0x{}", crate::hex(&zero))})), "{}", surface.name());
             zero[31] = 1;
-            assert!(
-                answers(
-                    surface,
-                    &json!({"result": format!("0x{}", crate::hex(&zero))})
-                ),
-                "{}",
-                surface.name()
-            );
+            assert!(answers(surface, &json!({"result": format!("0x{}", crate::hex(&zero))})), "{}", surface.name());
             for absent in [
                 json!({"error": {"code": -32000, "message": "execution reverted"}}),
                 json!({"error": {"code": -32601, "message": "precompile not active"}}),
@@ -695,15 +601,11 @@ mod tests {
         }
         assert!(!answers(Surface::Bridge, &json!({"result": word(2)})));
         for surface in [Surface::Exchange, Surface::Launchpad] {
-            assert!(answers(
-                surface,
-                &json!({"result": format!("0x01{}", "00".repeat(31))})
-            ));
+            assert!(answers(surface, &json!({"result": format!("0x01{}", "00".repeat(31))})));
         }
 
         let calls = Cell::new(0);
-        let before = probe(recorded_node(false, &calls), 1_790_000_000)
-            .unwrap_or_else(|code| panic!("{code}"));
+        let before = probe(recorded_node(false, &calls), 1_790_000_000).unwrap_or_else(|code| panic!("{code}"));
         assert_eq!(calls.get(), 8);
         assert_eq!(before, {
             let mut expected = capabilities(false, false, false);
@@ -733,8 +635,7 @@ mod tests {
                 "rpc_height": "23860000"
             })
         );
-        let after = probe(recorded_node(true, &calls), 1_790_000_015)
-            .unwrap_or_else(|code| panic!("{code}"));
+        let after = probe(recorded_node(true, &calls), 1_790_000_015).unwrap_or_else(|code| panic!("{code}"));
         assert_eq!(calls.get(), 16);
         assert!(Surface::ALL.into_iter().all(|surface| after.live(surface)));
 
@@ -753,32 +654,17 @@ mod tests {
             1_790_000_030,
         )
         .unwrap_or_else(|code| panic!("{code}"));
-        assert!(partial.exchange && !partial.bridge && partial.launchpad);
+        assert!(partial.live(Surface::Exchange) && !partial.live(Surface::Bridge) && partial.live(Surface::Launchpad));
 
-        assert_eq!(
-            probe(
-                |_: &Value| Ok(json!({"jsonrpc": "2.0", "id": "px-capabilities", "result": "0x"})),
-                0
-            ),
-            Err("invalid_paxeer_response")
-        );
-        assert_eq!(
-            probe(|_: &Value| Err("paxeer_unreachable"), 0),
-            Err("paxeer_unreachable")
-        );
+        assert_eq!(probe(|_: &Value| Ok(json!({"jsonrpc": "2.0", "id": "px-capabilities", "result": "0x"})), 0), Err("invalid_paxeer_response"));
+        assert_eq!(probe(|_: &Value| Err("paxeer_unreachable"), 0), Err("paxeer_unreachable"));
     }
 
     #[test]
     fn launchpad_probe_uses_get_pool_count() {
-        assert_eq!(
-            Surface::Launchpad.probe_view().selector,
-            [0x8e, 0xec, 0x5d, 0x70]
-        );
+        assert_eq!(Surface::Launchpad.probe_view().selector, [0x8e, 0xec, 0x5d, 0x70]);
         assert_eq!(Surface::Launchpad.address(), evm::LAUNCHPAD_PRECOMPILE);
-        assert_eq!(
-            evm::address_hex(&evm::LAUNCHPAD_PRECOMPILE),
-            "0x0000000000000000000000000000000000001017"
-        );
+        assert_eq!(evm::address_hex(&evm::LAUNCHPAD_PRECOMPILE), "0x0000000000000000000000000000000000001017");
         assert!(Surface::Launchpad.decodes(&[0; 32]));
         assert!(Surface::Launchpad.decodes(&[0xff; 32]));
         for length in [0, 1, 31, 33, 64] {
@@ -795,9 +681,7 @@ mod tests {
                     Some("eth_blockNumber") => json!("0x16c1321"),
                     Some("eth_call") => {
                         assert_eq!(request["params"][1], json!("0x16c1321"));
-                        if request["params"][0]["to"]
-                            == json!("0x0000000000000000000000000000000000001017")
-                        {
+                        if request["params"][0]["to"] == json!("0x0000000000000000000000000000000000001017") {
                             launchpad_calls.set(launchpad_calls.get() + 1);
                             assert_eq!(request["params"][0]["data"], json!("0x8eec5d70"));
                             match answer {
@@ -816,13 +700,13 @@ mod tests {
 
         let live = probe(node("pools"), 1_790_000_045).unwrap_or_else(|code| panic!("{code}"));
         assert_eq!(launchpad_calls.get(), 1);
-        assert!(live.launchpad);
+        assert!(live.live(Surface::Launchpad));
         assert_eq!(live.document()["launchpad"], json!(true));
         assert_eq!(live.rpc_height, 0x16c_1321);
 
         for absent in ["0x", "0x03"] {
             let probed = probe(node(absent), 1_790_000_060).unwrap_or_else(|code| panic!("{code}"));
-            assert!(!probed.launchpad, "{absent}");
+            assert!(!probed.live(Surface::Launchpad), "{absent}");
         }
         assert_eq!(launchpad_calls.get(), 3);
     }
@@ -834,10 +718,7 @@ mod tests {
         assert_eq!(Surface::Pay.name(), "pay");
         assert_eq!(Surface::Programs.name(), "programs");
         assert_eq!(evm::address_hex(&Surface::Pay.address()), pay_address);
-        assert_eq!(
-            evm::address_hex(&Surface::Programs.address()),
-            programs_address
-        );
+        assert_eq!(evm::address_hex(&Surface::Programs.address()), programs_address);
         assert_eq!(Surface::ALL.len(), 7);
         assert!(Surface::ALL.contains(&Surface::Pay));
         assert!(Surface::ALL.contains(&Surface::Programs));
@@ -859,14 +740,11 @@ mod tests {
                     }
                     assert_eq!(request["method"], "eth_call");
                     assert_eq!(request["params"][1], "0x123");
-                    let address = request["params"][0]["to"].as_str().expect("probe address");
+                    let address = request["params"][0]["to"].as_str().unwrap_or_else(|| panic!("{}", "probe address"));
                     visited.push(address.to_owned());
                     match address {
                         to if to == pay_address => {
-                            assert_eq!(
-                                request["params"][0]["data"],
-                                format!("0xd7778749{}", "00".repeat(32))
-                            );
+                            assert_eq!(request["params"][0]["data"], format!("0xd7778749{}", "00".repeat(32)));
                             Ok(pay_answer.clone())
                         }
                         to if to == programs_address => {
@@ -878,7 +756,7 @@ mod tests {
                 },
                 1_790_000_100,
             )
-            .expect("capabilities probe");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "capabilities probe"));
             assert_eq!(visited.len(), 7);
             for surface in Surface::ALL {
                 let address = evm::address_hex(&surface.address());
@@ -886,7 +764,7 @@ mod tests {
                 assert_eq!(result.document()["addresses"][surface.name()], address);
                 assert_eq!(result.document()[surface.name()], result.live(surface));
             }
-            assert!(result.exchange && result.bridge && result.launchpad);
+            assert!(result.live(Surface::Exchange) && result.live(Surface::Bridge) && result.live(Surface::Launchpad));
             assert_eq!(result.rpc_height, 0x123);
             assert_eq!(result.probed_at, 1_790_000_100);
             result
@@ -894,33 +772,15 @@ mod tests {
         let pay_answer = json!({"result": format!("0x{}", crate::hex(&pay))});
         let programs_answer = json!({"result": format!("0x{}", crate::hex(&programs))});
         let live = probe_answers(pay_answer.clone(), programs_answer.clone());
-        assert!(live.pay && live.programs);
-        assert!(
-            probe_answers(
-                json!({"result": word(0)}),
-                json!({"result": format!("0x{}", "00".repeat(9 * 32))})
-            )
-            .pay
-        );
+        assert!(live.live(Surface::Pay) && live.live(Surface::Programs));
+        assert!(probe_answers(json!({"result": word(0)}), json!({"result": format!("0x{}", "00".repeat(9 * 32))})).live(Surface::Pay));
         assert!(Surface::Programs.decodes(&[0; 9 * 32]));
 
-        for (surface, valid, lengths) in [
-            (Surface::Pay, pay, vec![0, 1, 31, 33, 64, 9 * 32]),
-            (
-                Surface::Programs,
-                programs,
-                vec![0, 1, 32, 8 * 32, 9 * 32 - 1, 9 * 32 + 1, 10 * 32],
-            ),
-        ] {
-            let mut invalid = lengths
-                .into_iter()
-                .map(|length| json!({"result": format!("0x{}", "00".repeat(length))}))
-                .collect::<Vec<_>>();
+        for (surface, valid, lengths) in [(Surface::Pay, pay, vec![0, 1, 31, 33, 64, 9 * 32]), (Surface::Programs, programs, vec![0, 1, 32, 8 * 32, 9 * 32 - 1, 9 * 32 + 1, 10 * 32])] {
+            let mut invalid = lengths.into_iter().map(|length| json!({"result": format!("0x{}", "00".repeat(length))})).collect::<Vec<_>>();
             let overflowing = match surface {
                 Surface::Pay => vec![(0, 1), (15, 1)],
-                Surface::Programs => std::iter::once((27, 1))
-                    .chain((1..8).map(|index| (index * 32 + 23, 1)))
-                    .collect(),
+                Surface::Programs => std::iter::once((27, 1)).chain((1..8).map(|index| (index * 32 + 23, 1))).collect(),
                 _ => unreachable!(),
             };
             for (index, value) in overflowing {
@@ -928,24 +788,16 @@ mod tests {
                 bytes[index] = value;
                 invalid.push(json!({"result": format!("0x{}", crate::hex(&bytes))}));
             }
-            invalid.extend([
-                json!({"error": {"code": -32000, "message": "execution reverted"}}),
-                json!({"result": "0xzz"}),
-                json!({"result": crate::hex(&valid)}),
-            ]);
+            invalid.extend([json!({"error": {"code": -32000, "message": "execution reverted"}}), json!({"result": "0xzz"}), json!({"result": crate::hex(&valid)})]);
             for answer in invalid {
                 let result = match surface {
                     Surface::Pay => probe_answers(answer.clone(), programs_answer.clone()),
                     Surface::Programs => probe_answers(pay_answer.clone(), answer.clone()),
                     _ => unreachable!(),
                 };
-                assert!(
-                    !result.live(surface),
-                    "{} accepted {answer}",
-                    surface.name()
-                );
-                assert_eq!(result.pay, surface != Surface::Pay);
-                assert_eq!(result.programs, surface != Surface::Programs);
+                assert!(!result.live(surface), "{} accepted {answer}", surface.name());
+                assert_eq!(result.live(Surface::Pay), surface != Surface::Pay);
+                assert_eq!(result.live(Surface::Programs), surface != Surface::Programs);
             }
         }
     }
@@ -958,28 +810,8 @@ mod tests {
         let auth = Surface::Auth;
         assert_eq!(Surface::ALL.len(), 7);
         for (surface, name, address, address_hex, signature, selector, inputs, outputs, words) in [
-            (
-                ledger,
-                "ledger",
-                evm::LEDGER_PRECOMPILE,
-                "0x000000000000000000000000000000000000101a",
-                "accountId(bytes32,bytes32)",
-                [0x3f, 0x05, 0x0c, 0xbc],
-                2,
-                vec!["bytes32"],
-                1,
-            ),
-            (
-                auth,
-                "auth",
-                evm::AUTH_PRECOMPILE,
-                "0x000000000000000000000000000000000000101c",
-                "isLive(bytes32,uint64,uint64)",
-                [0xd4, 0xa0, 0x3b, 0x3d],
-                3,
-                vec!["bool", "string"],
-                4,
-            ),
+            (ledger, "ledger", evm::LEDGER_PRECOMPILE, "0x000000000000000000000000000000000000101a", "accountId(bytes32,bytes32)", [0x3f, 0x05, 0x0c, 0xbc], 2, vec!["bytes32"], 1),
+            (auth, "auth", evm::AUTH_PRECOMPILE, "0x000000000000000000000000000000000000101c", "isLive(bytes32,uint64,uint64)", [0xd4, 0xa0, 0x3b, 0x3d], 3, vec!["bool", "string"], 4),
         ] {
             assert_eq!(surface.name(), name);
             assert_eq!(surface.address(), address);
@@ -992,102 +824,54 @@ mod tests {
             calldata.resize(4 + inputs * 32, 0);
             assert_eq!(surface.probe_calldata(), calldata);
             for raw in [eip1559(&surface.address()), legacy(&surface.address())] {
-                assert_eq!(
-                    submission_surface("eth_sendRawTransaction", Some(&submission(&raw))),
-                    Some(surface)
-                );
+                assert_eq!(submission_surface("eth_sendRawTransaction", Some(&submission(&raw))), Some(surface));
             }
         }
 
         let maximum = [0xff; 32];
         for valid in [[0; 32], maximum] {
             assert!(ledger.decodes(&valid));
-            assert!(answers(
-                ledger,
-                &json!({"result": format!("0x{}", crate::hex(&valid))})
-            ));
+            assert!(answers(ledger, &json!({"result": format!("0x{}", crate::hex(&valid))})));
         }
         let missing_grant = auth_missing_grant_answer();
         let decoded = evm::Answer::new(&missing_grant);
         assert_eq!(decoded.bool(0), Ok(false));
-        assert_eq!(
-            decoded.string(1, 0).expect("auth refusal reason"),
-            "LXP_UNKNOWN_FIELD"
-        );
+        assert_eq!(decoded.string(1, 0).unwrap_or_else(|error| panic!("{}: {error:?}", "auth refusal reason")), "LXP_UNKNOWN_FIELD");
         assert!(auth.decodes(&missing_grant));
-        assert!(answers(
-            auth,
-            &json!({"result": format!("0x{}", crate::hex(&missing_grant))})
-        ));
+        assert!(answers(auth, &json!({"result": format!("0x{}", crate::hex(&missing_grant))})));
 
         let calls = Cell::new(0);
-        let absent = probe(recorded_node(false, &calls), 1_790_000_000).expect("pre-fork probe");
+        let absent = probe(recorded_node(false, &calls), 1_790_000_000).unwrap_or_else(|error| panic!("{}: {error:?}", "pre-fork probe"));
         assert_eq!(calls.get(), 8);
         for surface in [ledger, auth] {
             assert!(!absent.live(surface));
             assert_eq!(absent.document()[surface.name()], false);
         }
-        let live = probe(recorded_node(true, &calls), 1_790_000_015).expect("served probe");
+        let live = probe(recorded_node(true, &calls), 1_790_000_015).unwrap_or_else(|error| panic!("{}: {error:?}", "served probe"));
         assert_eq!(calls.get(), 16);
         for surface in [ledger, auth] {
             assert!(live.live(surface));
             assert_eq!(live.document()[surface.name()], true);
-            assert_eq!(
-                live.document()["addresses"][surface.name()],
-                evm::address_hex(&surface.address())
-            );
+            assert_eq!(live.document()["addresses"][surface.name()], evm::address_hex(&surface.address()));
         }
-        for (surface, valid, lengths) in [
-            (ledger, maximum.to_vec(), vec![0, 1, 31, 33, 64, 12 * 32]),
-            (
-                auth,
-                missing_grant.to_vec(),
-                vec![0, 1, 32, 64, 96, 127, 129, 160],
-            ),
-        ] {
+        for (surface, valid, lengths) in [(ledger, maximum.to_vec(), vec![0, 1, 31, 33, 64, 12 * 32]), (auth, missing_grant.to_vec(), vec![0, 1, 32, 64, 96, 127, 129, 160])] {
             let mut invalid = Vec::new();
             for length in lengths {
                 let bytes = vec![0; length];
-                assert!(
-                    !surface.decodes(&bytes),
-                    "{} accepted {length} bytes",
-                    surface.name()
-                );
+                assert!(!surface.decodes(&bytes), "{} accepted {length} bytes", surface.name());
                 invalid.push(json!({"result": format!("0x{}", crate::hex(&bytes))}));
             }
             if surface == auth {
-                for (index, value) in [
-                    (0, 1),
-                    (31, 2),
-                    (32, 1),
-                    (63, 65),
-                    (63, 128),
-                    (64, 1),
-                    (95, 33),
-                    (96, 0xff),
-                ] {
+                for (index, value) in [(0, 1), (31, 2), (32, 1), (63, 65), (63, 128), (64, 1), (95, 33), (96, 0xff)] {
                     let mut malformed = valid.clone();
                     malformed[index] = value;
-                    assert!(
-                        !auth.decodes(&malformed),
-                        "auth accepted malformed byte {index}"
-                    );
+                    assert!(!auth.decodes(&malformed), "auth accepted malformed byte {index}");
                     invalid.push(json!({"result": format!("0x{}", crate::hex(&malformed))}));
                 }
             }
-            invalid.extend([
-                json!({"error": {"code": -32000, "message": "execution reverted"}}),
-                json!({"result": "0xzz"}),
-                json!({"result": "0x0"}),
-                json!({"result": crate::hex(&valid)}),
-                json!({}),
-            ]);
+            invalid.extend([json!({"error": {"code": -32000, "message": "execution reverted"}}), json!({"result": "0xzz"}), json!({"result": "0x0"}), json!({"result": crate::hex(&valid)}), json!({})]);
             for answer in invalid {
-                assert!(
-                    !answers(surface, &answer),
-                    "{} accepted {answer}",
-                    surface.name()
-                );
+                assert!(!answers(surface, &answer), "{} accepted {answer}", surface.name());
                 let mut node = recorded_node(true, &calls);
                 let probed = probe(
                     |request| {
@@ -1099,15 +883,9 @@ mod tests {
                     },
                     1_790_000_030,
                 )
-                .expect("invalid surface answer probe");
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "invalid surface answer probe"));
                 for other in Surface::ALL {
-                    assert_eq!(
-                        probed.live(other),
-                        other != surface,
-                        "{} after {} answered {answer}",
-                        other.name(),
-                        surface.name()
-                    );
+                    assert_eq!(probed.live(other), other != surface, "{} after {} answered {answer}", other.name(), surface.name());
                     assert_eq!(probed.document()[other.name()], other != surface);
                 }
             }
@@ -1120,49 +898,23 @@ mod tests {
         for surface in Surface::ALL {
             let view = surface.probe_view();
             let path = format!("{root}{}", view.abi);
-            let abi: Value = serde_json::from_slice(
-                &std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}")),
-            )
-            .unwrap_or_else(|e| panic!("{path}: {e}"));
-            let entries = abi
-                .as_array()
-                .unwrap_or_else(|| panic!("{path} is not an ABI"));
-            let found = entries
-                .iter()
-                .filter(|entry| entry["type"] == "function")
-                .find(|entry| {
-                    let inputs = entry["inputs"]
-                        .as_array()
-                        .unwrap_or_else(|| panic!("{path}: inputs missing"))
-                        .iter()
-                        .map(|input| input["type"].as_str().expect("input type"))
-                        .collect::<Vec<_>>()
-                        .join(",");
-                    entry["type"] == "function"
-                        && entry["name"]
-                            .as_str()
-                            .map(|name| format!("{name}({inputs})"))
-                            == Some(view.signature.to_owned())
-                });
-            let entry = found.unwrap_or_else(|| {
-                panic!(
-                    "{} probe {} missing from {path}",
-                    surface.name(),
-                    view.signature
-                )
+            let abi: Value = serde_json::from_slice(&std::fs::read(&path).unwrap_or_else(|e| panic!("{path}: {e}"))).unwrap_or_else(|e| panic!("{path}: {e}"));
+            let entries = abi.as_array().unwrap_or_else(|| panic!("{path} is not an ABI"));
+            let found = entries.iter().filter(|entry| entry["type"] == "function").find(|entry| {
+                let inputs = entry["inputs"]
+                    .as_array()
+                    .unwrap_or_else(|| panic!("{path}: inputs missing"))
+                    .iter()
+                    .map(|input| input["type"].as_str().unwrap_or_else(|| panic!("{}", "input type")))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                entry["type"] == "function" && entry["name"].as_str().map(|name| format!("{name}({inputs})")) == Some(view.signature.to_owned())
             });
+            let entry = found.unwrap_or_else(|| panic!("{} probe {} missing from {path}", surface.name(), view.signature));
             assert_eq!(entry["stateMutability"], "view", "{}", view.signature);
             assert_eq!(
-                entry["outputs"].as_array().map(|outputs| outputs
-                    .iter()
-                    .map(|output| output["type"].clone())
-                    .collect::<Vec<_>>()),
-                Some(
-                    view.outputs
-                        .iter()
-                        .map(|output| json!(output))
-                        .collect::<Vec<_>>()
-                ),
+                entry["outputs"].as_array().map(|outputs| outputs.iter().map(|output| output["type"].clone()).collect::<Vec<_>>()),
+                Some(view.outputs.iter().map(|output| json!(output)).collect::<Vec<_>>()),
                 "{}",
                 view.signature
             );
@@ -1211,36 +963,18 @@ mod tests {
             )
             .unwrap_or_else(|code| panic!("{code}"));
             for surface in Surface::ALL {
-                assert_eq!(
-                    probed.live(surface),
-                    surface != reverting,
-                    "{}",
-                    surface.name()
-                );
+                assert_eq!(probed.live(surface), surface != reverting, "{}", surface.name());
             }
             let params = submission(&eip1559(&reverting.address()));
             let cache = Cache::new(Duration::from_secs(15));
-            let refused = gate_with(
-                &cache,
-                Instant::now(),
-                || Ok(probed.clone()),
-                &json!(1),
-                "eth_sendRawTransaction",
-                Some(&params),
-            )
-            .unwrap_or_else(|| panic!("{} write was relayed", reverting.name()));
+            let refused = gate_with(&cache, Instant::now(), || Ok(probed.clone()), &json!(1), "eth_sendRawTransaction", Some(&params)).unwrap_or_else(|| panic!("{} write was relayed", reverting.name()));
             assert_eq!(refused["error"]["data"]["surface"], reverting.name());
-            for surface in Surface::ALL
-                .into_iter()
-                .filter(|surface| *surface != reverting)
-            {
+            for surface in Surface::ALL.into_iter().filter(|surface| *surface != reverting) {
                 assert_eq!(
                     gate_with(
                         &cache,
                         Instant::now(),
-                        || -> Result<Capabilities, &'static str> {
-                            panic!("the cached probe was not reused")
-                        },
+                        || -> Result<Capabilities, &'static str> { panic!("the cached probe was not reused") },
                         &json!(1),
                         "eth_sendRawTransaction",
                         Some(&submission(&eip1559(&surface.address()))),
@@ -1285,57 +1019,22 @@ mod tests {
                 Ok(answer)
             }
         };
-        assert_eq!(
-            cache.current(start, probe_as(capabilities(false, false, false))),
-            Ok(capabilities(false, false, false))
-        );
-        assert_eq!(
-            cache.current(
-                start + Duration::from_secs(14),
-                probe_as(capabilities(true, true, true))
-            ),
-            Ok(capabilities(false, false, false))
-        );
+        assert_eq!(cache.current(start, probe_as(capabilities(false, false, false))), Ok(capabilities(false, false, false)));
+        assert_eq!(cache.current(start + Duration::from_secs(14), probe_as(capabilities(true, true, true))), Ok(capabilities(false, false, false)));
         assert_eq!(probes.get(), 1);
-        assert_eq!(
-            cache.current(
-                start + Duration::from_secs(15),
-                probe_as(capabilities(true, true, true))
-            ),
-            Ok(capabilities(true, true, true))
-        );
+        assert_eq!(cache.current(start + Duration::from_secs(15), probe_as(capabilities(true, true, true))), Ok(capabilities(true, true, true)));
         assert_eq!(probes.get(), 2);
-        assert_eq!(
-            cache.current(start + Duration::from_secs(40), || Err(
-                "paxeer_unreachable"
-            )),
-            Err("paxeer_unreachable")
-        );
-        assert_eq!(
-            cache.current(
-                start + Duration::from_secs(41),
-                probe_as(capabilities(false, true, false))
-            ),
-            Ok(capabilities(false, true, false))
-        );
+        assert_eq!(cache.current(start + Duration::from_secs(40), || Err("paxeer_unreachable")), Err("paxeer_unreachable"));
+        assert_eq!(cache.current(start + Duration::from_secs(41), probe_as(capabilities(false, true, false))), Ok(capabilities(false, true, false)));
         assert_eq!(probes.get(), 3);
     }
 
     #[test]
     fn capabilities_refuse_surface_writes_with_the_typed_error_until_code_exists() {
         for (surface, address) in [
-            (
-                Surface::Exchange,
-                "0x0000000000000000000000000000000000001015",
-            ),
-            (
-                Surface::Bridge,
-                "0x0000000000000000000000000000000000001016",
-            ),
-            (
-                Surface::Launchpad,
-                "0x0000000000000000000000000000000000001017",
-            ),
+            (Surface::Exchange, "0x0000000000000000000000000000000000001015"),
+            (Surface::Bridge, "0x0000000000000000000000000000000000001016"),
+            (Surface::Launchpad, "0x0000000000000000000000000000000000001017"),
         ] {
             assert_eq!(evm::address_hex(&surface.address()), address);
         }
@@ -1345,15 +1044,7 @@ mod tests {
                 assert_eq!(transaction_target(&raw), Some(surface.address()));
                 let params = submission(&raw);
                 let cache = Cache::new(Duration::from_secs(15));
-                let refused = gate_with(
-                    &cache,
-                    Instant::now(),
-                    || Ok(capabilities(false, false, false)),
-                    &id,
-                    "eth_sendRawTransaction",
-                    Some(&params),
-                )
-                .unwrap_or_else(|| panic!("{} write was relayed", surface.name()));
+                let refused = gate_with(&cache, Instant::now(), || Ok(capabilities(false, false, false)), &id, "eth_sendRawTransaction", Some(&params)).unwrap_or_else(|| panic!("{} write was relayed", surface.name()));
                 assert_eq!(refused["id"], id);
                 assert_eq!(refused["error"]["code"], json!(SURFACE_UNAVAILABLE));
                 assert_eq!(refused["error"]["message"], "Surface unavailable");
@@ -1368,49 +1059,28 @@ mod tests {
                 assert!(refused.get("result").is_none());
                 let mut live = capabilities(false, false, false);
                 match surface {
-                    Surface::Exchange => live.exchange = true,
-                    Surface::Bridge => live.bridge = true,
-                    Surface::Launchpad => live.launchpad = true,
-                    Surface::Ledger => live.ledger = true,
-                    Surface::Pay => live.pay = true,
-                    Surface::Auth => live.auth = true,
-                    Surface::Programs => live.programs = true,
+                    Surface::Exchange => live.live[Surface::Exchange as usize] = true,
+                    Surface::Bridge => live.live[Surface::Bridge as usize] = true,
+                    Surface::Launchpad => live.live[Surface::Launchpad as usize] = true,
+                    Surface::Ledger => live.live[Surface::Ledger as usize] = true,
+                    Surface::Pay => live.live[Surface::Pay as usize] = true,
+                    Surface::Auth => live.live[Surface::Auth as usize] = true,
+                    Surface::Programs => live.live[Surface::Programs as usize] = true,
                 }
                 let fresh = Cache::new(Duration::from_secs(15));
-                assert_eq!(
-                    gate_with(
-                        &fresh,
-                        Instant::now(),
-                        || Ok(live),
-                        &id,
-                        "eth_sendRawTransactionSync",
-                        Some(&params)
-                    ),
-                    None
-                );
+                assert_eq!(gate_with(&fresh, Instant::now(), || Ok(live), &id, "eth_sendRawTransactionSync", Some(&params)), None);
             }
         }
-        let unavailable = gate_with(
-            &Cache::new(Duration::from_secs(15)),
-            Instant::now(),
-            || Err("paxeer_unreachable"),
-            &id,
-            "eth_sendRawTransaction",
-            Some(&submission(&eip1559(&evm::BRIDGE_PRECOMPILE))),
-        )
-        .unwrap_or_else(|| panic!("an unprobed bridge write was relayed"));
+        let unavailable = gate_with(&Cache::new(Duration::from_secs(15)), Instant::now(), || Err("paxeer_unreachable"), &id, "eth_sendRawTransaction", Some(&submission(&eip1559(&evm::BRIDGE_PRECOMPILE)))).unwrap_or_else(|| panic!("an unprobed bridge write was relayed"));
         assert_eq!(unavailable["error"]["code"], json!(-32001));
         assert_eq!(unavailable["error"]["data"]["code"], "paxeer_unreachable");
 
-        let untouched = || -> Result<Capabilities, &'static str> {
-            panic!("a request outside the fork surfaces consulted the capabilities")
-        };
+        let untouched = || -> Result<Capabilities, &'static str> { panic!("a request outside the fork surfaces consulted the capabilities") };
         let cache = Cache::new(Duration::from_secs(15));
         let other = [0x42_u8; 20];
         assert_eq!(transaction_target(&eip1559(&other)), Some(other));
         assert_eq!(transaction_target(&eip1559(&[])), None);
-        let calldata =
-            json!([{"to": evm::address_hex(&evm::EXCHANGE_PRECOMPILE), "data": "0x"}, "latest"]);
+        let calldata = json!([{"to": evm::address_hex(&evm::EXCHANGE_PRECOMPILE), "data": "0x"}, "latest"]);
         for (method, params) in [
             ("eth_sendRawTransaction", submission(&eip1559(&other))),
             ("eth_sendRawTransaction", submission(&legacy(&[]))),
@@ -1418,62 +1088,36 @@ mod tests {
             ("eth_sendRawTransaction", json!([])),
             ("eth_call", calldata.clone()),
             ("eth_estimateGas", calldata),
-            (
-                "eth_getCode",
-                json!([evm::address_hex(&evm::LAUNCHPAD_PRECOMPILE), "latest"]),
-            ),
-            (
-                "px_getHistory",
-                json!(["0x0000000000000000000000000000000000001015"]),
-            ),
+            ("eth_getCode", json!([evm::address_hex(&evm::LAUNCHPAD_PRECOMPILE), "latest"])),
+            ("px_getHistory", json!(["0x0000000000000000000000000000000000001015"])),
         ] {
-            assert_eq!(
-                gate_with(
-                    &cache,
-                    Instant::now(),
-                    untouched,
-                    &id,
-                    method,
-                    Some(&params)
-                ),
-                None,
-                "{method} {params}"
-            );
+            assert_eq!(gate_with(&cache, Instant::now(), untouched, &id, method, Some(&params)), None, "{method} {params}");
         }
     }
 
     #[test]
     fn capabilities_schema_names_each_probe_view() {
-        let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
-            .unwrap_or_else(|e| panic!("{e}"));
+        let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json")).unwrap_or_else(|e| panic!("{e}"));
         let entry = schema["methods"]
             .as_array()
-            .expect("methods missing")
+            .unwrap_or_else(|| panic!("{}", "methods missing"))
             .iter()
             .find(|method| method["name"] == "px_getCapabilities")
-            .expect("px_getCapabilities missing");
-        let description = entry["description"].as_str().expect("description missing");
+            .unwrap_or_else(|| panic!("{}", "px_getCapabilities missing"));
+        let description = entry["description"].as_str().unwrap_or_else(|| panic!("{}", "description missing"));
         assert!(description.contains("eth_call"));
         assert!(description.contains("revert"));
         assert!(description.contains("malformed"));
         for surface in Surface::ALL {
-            assert!(
-                description.contains(surface.probe_view().signature),
-                "{} probe view missing",
-                surface.name()
-            );
-            assert!(
-                description.contains(&evm::address_hex(&surface.address())),
-                "{} probe address missing",
-                surface.name()
-            );
+            assert!(description.contains(surface.probe_view().signature), "{} probe view missing", surface.name());
+            assert!(description.contains(&evm::address_hex(&surface.address())), "{} probe address missing", surface.name());
         }
         let mut pending = vec![entry];
         while let Some(value) = pending.pop() {
             match value {
                 Value::Object(fields) => {
                     if let Some(description) = fields.get("description") {
-                        let description = description.as_str().expect("description is not text");
+                        let description = description.as_str().unwrap_or_else(|| panic!("{}", "description is not text"));
                         assert!(!description.contains("eth_getCode"), "{description}");
                     }
                     pending.extend(fields.values());
@@ -1483,13 +1127,8 @@ mod tests {
             }
         }
         for surface in Surface::ALL {
-            let property = entry["result"]["schema"]["properties"][surface.name()]["description"]
-                .as_str()
-                .expect("surface description missing");
-            assert!(
-                property.contains(surface.probe_view().signature),
-                "{property}"
-            );
+            let property = entry["result"]["schema"]["properties"][surface.name()]["description"].as_str().unwrap_or_else(|| panic!("{}", "surface description missing"));
+            assert!(property.contains(surface.probe_view().signature), "{property}");
             assert!(property.contains("eth_call"), "{property}");
             assert!(property.contains("revert"), "{property}");
             assert!(property.contains("malformed"), "{property}");
@@ -1500,65 +1139,33 @@ mod tests {
     fn capabilities_schema_declares_every_surface() {
         use std::collections::BTreeSet;
 
-        let openrpc: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
-            .unwrap_or_else(|e| panic!("{e}"));
+        let openrpc: Value = serde_json::from_slice(include_bytes!("../openrpc.json")).unwrap_or_else(|e| panic!("{e}"));
         let entry = openrpc["methods"]
             .as_array()
-            .expect("methods missing")
+            .unwrap_or_else(|| panic!("{}", "methods missing"))
             .iter()
             .find(|method| method["name"] == "px_getCapabilities")
-            .expect("px_getCapabilities missing");
+            .unwrap_or_else(|| panic!("{}", "px_getCapabilities missing"));
         let schema = &entry["result"]["schema"];
-        let properties = schema["properties"]
-            .as_object()
-            .expect("properties missing");
-        let required = schema["required"].as_array().expect("required missing");
+        let properties = schema["properties"].as_object().unwrap_or_else(|| panic!("{}", "properties missing"));
+        let required = schema["required"].as_array().unwrap_or_else(|| panic!("{}", "required missing"));
         let document = capabilities(true, false, true).document();
         let property_names: BTreeSet<_> = properties.keys().map(String::as_str).collect();
-        let document_names: BTreeSet<_> = document
-            .as_object()
-            .expect("capabilities document is not an object")
-            .keys()
-            .map(String::as_str)
-            .collect();
+        let document_names: BTreeSet<_> = document.as_object().unwrap_or_else(|| panic!("{}", "capabilities document is not an object")).keys().map(String::as_str).collect();
         assert_eq!(property_names, document_names);
-        assert_eq!(
-            required
-                .iter()
-                .map(|name| name.as_str().expect("required name is not text"))
-                .collect::<BTreeSet<_>>(),
-            property_names
-        );
+        assert_eq!(required.iter().map(|name| name.as_str().unwrap_or_else(|| panic!("{}", "required name is not text"))).collect::<BTreeSet<_>>(), property_names);
         assert_eq!(required.len(), properties.len());
 
         let addresses = &properties["addresses"];
         assert_eq!(addresses["type"], "object");
-        let address_properties = addresses["properties"]
-            .as_object()
-            .expect("address properties missing");
-        let address_required = addresses["required"]
-            .as_array()
-            .expect("required addresses missing");
+        let address_properties = addresses["properties"].as_object().unwrap_or_else(|| panic!("{}", "address properties missing"));
+        let address_required = addresses["required"].as_array().unwrap_or_else(|| panic!("{}", "required addresses missing"));
         let surface_names: BTreeSet<_> = Surface::ALL.into_iter().map(Surface::name).collect();
-        assert_eq!(
-            address_properties
-                .keys()
-                .map(String::as_str)
-                .collect::<BTreeSet<_>>(),
-            surface_names
-        );
-        assert_eq!(
-            address_required
-                .iter()
-                .map(|name| name.as_str().expect("required address name is not text"))
-                .collect::<BTreeSet<_>>(),
-            surface_names
-        );
+        assert_eq!(address_properties.keys().map(String::as_str).collect::<BTreeSet<_>>(), surface_names);
+        assert_eq!(address_required.iter().map(|name| name.as_str().unwrap_or_else(|| panic!("{}", "required address name is not text"))).collect::<BTreeSet<_>>(), surface_names);
         assert_eq!(address_required.len(), surface_names.len());
 
-        let description = openrpc["info"]["description"]
-            .as_str()
-            .expect("info description missing");
+        let description = openrpc["info"]["description"].as_str().unwrap_or_else(|| panic!("{}", "info description missing"));
         assert!(description.contains("-32003 surface_unavailable"));
         assert!(description.contains("while px_getCapabilities reports that surface false"));
         for surface in Surface::ALL {
@@ -1568,24 +1175,15 @@ mod tests {
             assert_eq!(address_properties[name]["type"], "string", "{name}");
             let address = evm::address_hex(&surface.address());
             assert_eq!(document["addresses"][name], address, "{name}");
-            assert!(
-                description.contains(&format!("{name} ({address})")),
-                "{name} refusal address missing"
-            );
+            assert!(description.contains(&format!("{name} ({address})")), "{name} refusal address missing");
         }
     }
 
     #[test]
     fn capabilities_method_is_published_in_openrpc() {
-        let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
-            .unwrap_or_else(|e| panic!("{e}"));
-        let methods = schema["methods"]
-            .as_array()
-            .unwrap_or_else(|| panic!("methods missing"));
-        let entry = methods
-            .iter()
-            .find(|method| method["name"] == "px_getCapabilities")
-            .unwrap_or_else(|| panic!("px_getCapabilities missing"));
+        let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json")).unwrap_or_else(|e| panic!("{e}"));
+        let methods = schema["methods"].as_array().unwrap_or_else(|| panic!("methods missing"));
+        let entry = methods.iter().find(|method| method["name"] == "px_getCapabilities").unwrap_or_else(|| panic!("px_getCapabilities missing"));
         assert_eq!(entry["paramStructure"], "by-position");
         assert_eq!(entry["params"], json!([]));
         let result = &entry["result"]["schema"];
@@ -1595,26 +1193,8 @@ mod tests {
         }
         assert_eq!(result["properties"]["probed_at"]["type"], "integer");
         assert_eq!(result["properties"]["rpc_height"]["type"], "string");
-        assert_eq!(
-            result["required"],
-            json!([
-                "exchange",
-                "bridge",
-                "launchpad",
-                "ledger",
-                "pay",
-                "auth",
-                "programs",
-                "addresses",
-                "probed_at",
-                "rpc_height"
-            ])
-        );
-        assert!(entry["errors"]
-            .as_array()
-            .unwrap_or_else(|| panic!("errors missing"))
-            .iter()
-            .any(|error| error["code"] == json!(-32001)));
+        assert_eq!(result["required"], json!(["exchange", "bridge", "launchpad", "ledger", "pay", "auth", "programs", "addresses", "probed_at", "rpc_height"]));
+        assert!(entry["errors"].as_array().unwrap_or_else(|| panic!("errors missing")).iter().any(|error| error["code"] == json!(-32001)));
         let description = entry["description"].as_str().unwrap_or_default();
         assert!(description.contains("surface_unavailable"));
         assert!(description.contains(&SURFACE_UNAVAILABLE.to_string()));

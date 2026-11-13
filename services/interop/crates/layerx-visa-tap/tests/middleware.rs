@@ -133,13 +133,16 @@ fn fixture_bytes(value: &Value) -> Vec<u8> {
     let hex = value
         .as_str()
         .and_then(|value| value.strip_prefix("0x"))
-        .expect("fixture hex");
+        .unwrap_or_else(|| panic!("fixture hex"));
     assert_eq!(hex.len() % 2, 0);
     hex.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex digits"), 16)
-                .expect("hex byte")
+            u8::from_str_radix(
+                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("hex digits: {error:?}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("hex byte: {error:?}"))
         })
         .collect()
 }
@@ -147,20 +150,20 @@ fn fixture_bytes(value: &Value) -> Vec<u8> {
 pub(crate) fn fixture_fixed<const N: usize>(value: &Value) -> [u8; N] {
     fixture_bytes(value)
         .try_into()
-        .expect("fixture field length")
+        .unwrap_or_else(|error| panic!("fixture field length: {error:?}"))
 }
 
 pub(crate) fn recorded_case() -> Value {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
-    .expect("recorded sequencer fixture");
+    .unwrap_or_else(|error| panic!("recorded sequencer fixture: {error:?}"));
     fixture["cases"]
         .as_array()
-        .expect("fixture cases")
+        .unwrap_or_else(|| panic!("fixture cases"))
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .expect("recorded payExact case")
+        .unwrap_or_else(|| panic!("recorded payExact case"))
         .clone()
 }
 
@@ -176,7 +179,7 @@ pub(crate) fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
     [5, 0, 1].map(|word| {
         transaction[start + word * 32..start + (word + 1) * 32]
             .try_into()
-            .expect("recorded payExact calldata word")
+            .unwrap_or_else(|error| panic!("recorded payExact calldata word: {error:?}"))
     })
 }
 
@@ -187,14 +190,14 @@ pub(crate) fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization;
     assert_eq!(receipt["receipt"], case["signedReceipt"]);
     let logs = receipt["logs"]
         .as_array()
-        .expect("recorded logs")
+        .unwrap_or_else(|| panic!("recorded logs"))
         .iter()
         .map(|log| {
             SequencerLog::new(
                 fixture_fixed(&log["address"]),
                 log["topics"]
                     .as_array()
-                    .expect("log topics")
+                    .unwrap_or_else(|| panic!("log topics"))
                     .iter()
                     .map(fixture_fixed)
                     .collect(),
@@ -203,10 +206,10 @@ pub(crate) fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization;
                     log["logIndex"]
                         .as_str()
                         .and_then(|index| index.strip_prefix("0x"))
-                        .expect("log index"),
+                        .unwrap_or_else(|| panic!("log index")),
                     16,
                 )
-                .expect("hex log index"),
+                .unwrap_or_else(|error| panic!("hex log index: {error:?}")),
             )
         })
         .collect();
@@ -221,8 +224,12 @@ pub(crate) fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization;
         [SequencerAuthorization::new(
             fixture_fixed(&key["keyId"]),
             fixture_fixed(&key["publicKey"]),
-            key["firstHeight"].as_u64().expect("first pinned height"),
-            key["lastHeight"].as_u64().expect("last pinned height"),
+            key["firstHeight"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("first pinned height")),
+            key["lastHeight"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("last pinned height")),
         )],
         fixture_fixed(&case["receiptDigest"]),
     )
@@ -353,7 +360,7 @@ fn merchant_middleware_surfaces_operation_result_through_verified_receipts() {
     *evidence
         .signed_receipt
         .last_mut()
-        .expect("recorded signature") ^= 1;
+        .unwrap_or_else(|| panic!("recorded signature")) ^= 1;
 
     let result = MerchantOperationResult::from_receipt(&evidence, &receipt_keys, payment_reference);
     assert_eq!(result, Err(TapError::ReceiptMismatch));

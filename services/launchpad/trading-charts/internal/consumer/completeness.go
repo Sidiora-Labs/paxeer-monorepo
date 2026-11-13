@@ -44,7 +44,7 @@ type completenessRuntime struct {
 }
 
 func (r *completenessRuntime) refresh(ctx context.Context, p accounting.PublicationV1) error {
-	if accounting.ValidatePublicationV1(p) != nil || p.Fill == nil || p.Facet != "market" || p.Positions[0].ProjectionVersion != r.projection {
+	if accounting.ValidatePublicationV1(p) != nil || p.Fill == nil || p.Facet != marketPartitionKind || p.Positions[0].ProjectionVersion != r.projection {
 		return ErrAccountingAuthority
 	}
 	tx, err := r.store.Begin(ctx)

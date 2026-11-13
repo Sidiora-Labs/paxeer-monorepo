@@ -1,3 +1,5 @@
+include!("support/required.rs");
+
 use std::fs;
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -22,7 +24,8 @@ use native_tls::{Identity, TlsAcceptor};
 use serde_json::{json, Value};
 
 #[path = "support/repair_22_33_1490.rs"]
-mod repair_1490;
+pub mod repair_1490;
+pub use repair_1490::*;
 
 #[test]
 fn reopened_v2_custody_uses_node_root_and_refuses_terminal_contradictions() {
@@ -40,9 +43,9 @@ impl ClientFiles {
             std::process::id(),
             NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).expect("create client credential directory");
+        fs::create_dir(&path).required("create client credential directory");
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
-            .expect("protect client credential directory");
+            .required("protect client credential directory");
         let files = Self(path);
         files.openssl(&[
             "req",
@@ -78,7 +81,7 @@ impl ClientFiles {
             files.0.join("identity.p12"),
             fs::Permissions::from_mode(0o600),
         )
-        .expect("protect client identity");
+        .required("protect client identity");
         for (name, value) in [
             ("password", b"configuration-test".as_slice()),
             ("token", b"configuration-test-token".as_slice()),
@@ -89,8 +92,8 @@ impl ClientFiles {
                 .create_new(true)
                 .mode(0o600)
                 .open(files.0.join(name))
-                .expect("create private credential");
-            file.write_all(value).expect("write private credential");
+                .required("create private credential");
+            file.write_all(value).required("write private credential");
         }
         files
     }
@@ -100,7 +103,7 @@ impl ClientFiles {
             .args(args)
             .current_dir(&self.0)
             .output()
-            .expect("run openssl to create real TLS credentials");
+            .required("run openssl to create real TLS credentials");
         assert!(
             output.status.success(),
             "openssl failed: {:?}",
@@ -113,13 +116,13 @@ impl ClientFiles {
             &MutualTlsFiles {
                 ca_pem: self.0.join("ca.pem"),
                 identity_pkcs12: SecretFile::new(self.0.join("identity.p12"))
-                    .expect("private TLS identity"),
+                    .required("private TLS identity"),
                 identity_password: SecretFile::new(self.0.join("password"))
-                    .expect("private identity password"),
+                    .required("private identity password"),
             },
             Duration::from_secs(1),
         )
-        .expect("construct mutual TLS client")
+        .required("construct mutual TLS client")
     }
 
     fn document(&self) -> Value {
@@ -136,7 +139,7 @@ impl ClientFiles {
             }],
             "max_fee_per_gas": 100,
             "max_priority_fee_per_gas": 2,
-            "gas_limit_cap": 100000,
+            "gas_limit_cap": 100_000,
             "signer_endpoint": "https://signer.example.test",
             "signer_token_file": self.0.join("token"),
             "actor_did": "did:layerx:ramp"
@@ -144,13 +147,13 @@ impl ClientFiles {
     }
 
     fn config(&self) -> LayerxConfig {
-        serde_json::from_value(self.document()).expect("deserialize sequencer config")
+        serde_json::from_value(self.document()).required("deserialize sequencer config")
     }
 }
 
 impl Drop for ClientFiles {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove client credentials");
+        fs::remove_dir_all(&self.0).required("remove client credentials");
     }
 }
 
@@ -189,54 +192,54 @@ fn order_for(direction: RampDirection) -> RampOrder {
         },
         1_000,
     )
-    .expect("bound order")
+    .required("bound order")
 }
 
 fn read_request(stream: &mut impl Read) -> (String, Value) {
     let mut bytes = Vec::new();
     let boundary = loop {
         let mut byte = [0];
-        stream.read_exact(&mut byte).expect("request header");
+        stream.read_exact(&mut byte).required("request header");
         bytes.push(byte[0]);
         assert!(bytes.len() < 32_768, "bounded header");
         if bytes.ends_with(b"\r\n\r\n") {
             break bytes.len();
         }
     };
-    let header = String::from_utf8(bytes).expect("HTTP header");
+    let header = String::from_utf8(bytes).required("HTTP header");
     let length = header
         .lines()
         .find_map(|line| {
             let (name, value) = line.split_once(':')?;
             name.eq_ignore_ascii_case("content-length")
-                .then(|| value.trim().parse::<usize>().expect("length"))
+                .then(|| value.trim().parse::<usize>().required("length"))
         })
-        .expect("content length");
+        .required("content length");
     assert!(length < 512 * 1024);
     let mut body = vec![0; length];
-    stream.read_exact(&mut body).expect("request body");
+    stream.read_exact(&mut body).required("request body");
     assert_eq!(boundary, header.len());
     (
         header,
         if body.is_empty() {
             Value::Null
         } else {
-            serde_json::from_slice(&body).expect("request JSON")
+            serde_json::from_slice(&body).required("request JSON")
         },
     )
 }
 
 fn respond(stream: &mut impl Write, body: &Value) {
-    let bytes = serde_json::to_vec(body).expect("response JSON");
-    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()).expect("response header");
-    stream.write_all(&bytes).expect("response body");
-    stream.flush().expect("flush response");
+    let bytes = serde_json::to_vec(body).required("response JSON");
+    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", bytes.len()).required("response header");
+    stream.write_all(&bytes).required("response body");
+    stream.flush().required("flush response");
 }
 
 fn custody(files: &ClientFiles, endpoint: &str) -> PaxeerCustodyClient {
     PaxeerCustodyClient {
         http: files.http(),
-        endpoint: Endpoint::parse(endpoint).expect("custody endpoint"),
+        endpoint: Endpoint::parse(endpoint).required("custody endpoint"),
         credential: "test-custody-credential".into(),
         broadcast_path: "/broadcast".into(),
         status_path: "/status".into(),
@@ -250,19 +253,19 @@ fn custody(files: &ClientFiles, endpoint: &str) -> PaxeerCustodyClient {
 #[test]
 fn custody_hash_without_prefix_is_refused() {
     let files = ClientFiles::new();
-    let listener = TcpListener::bind(("localhost", 0)).expect("custody listener");
+    let listener = TcpListener::bind(("localhost", 0)).required("custody listener");
     let endpoint = format!(
         "https://localhost:{}",
-        listener.local_addr().expect("address").port()
+        listener.local_addr().required("address").port()
     );
     let acceptor = TlsAcceptor::new(
         Identity::from_pkcs12(
-            &fs::read(files.0.join("identity.p12")).expect("TLS identity"),
+            &fs::read(files.0.join("identity.p12")).required("TLS identity"),
             "configuration-test",
         )
-        .expect("custody identity"),
+        .required("custody identity"),
     )
-    .expect("TLS custody server");
+    .required("TLS custody server");
     let valid = format!("0x{}", "12".repeat(32));
     let hashes = vec![
         valid.clone(),
@@ -275,14 +278,14 @@ fn custody_hash_without_prefix_is_refused() {
     ];
     let worker = thread::spawn(move || {
         for (index, hash) in hashes.into_iter().enumerate() {
-            let (stream, _) = listener.accept().expect("custody connection");
+            let (stream, _) = listener.accept().required("custody connection");
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
-                .expect("read timeout");
+                .required("read timeout");
             stream
                 .set_write_timeout(Some(Duration::from_secs(5)))
-                .expect("write timeout");
-            let mut stream = acceptor.accept(stream).expect("custody TLS handshake");
+                .required("write timeout");
+            let mut stream = acceptor.accept(stream).required("custody TLS handshake");
             let (headers, request) = read_request(&mut stream);
             assert!(headers.contains("Authorization: Bearer test-custody-credential"));
             if index == 6 {
@@ -306,7 +309,7 @@ fn custody_hash_without_prefix_is_refused() {
                     amount: 100,
                     transaction_hash: hash,
                 })
-                .expect("custody answer"),
+                .required("custody answer"),
             );
         }
     });
@@ -314,7 +317,7 @@ fn custody_hash_without_prefix_is_refused() {
     assert_eq!(
         client
             .broadcast([1; 32], 100, [2; 32])
-            .expect("prefixed hash")
+            .required("prefixed hash")
             .transaction_hash,
         valid
     );
@@ -327,11 +330,11 @@ fn custody_hash_without_prefix_is_refused() {
     assert_eq!(
         client
             .reconcile([1; 32], 100, [2; 32])
-            .expect("prefixed status hash")
+            .required("prefixed status hash")
             .transaction_hash,
         valid
     );
-    worker.join().expect("custody listener assertions");
+    worker.join().required("custody listener assertions");
 }
 
 struct RpcListener {
@@ -344,11 +347,11 @@ struct RpcListener {
 
 impl RpcListener {
     fn new() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback JSON-RPC listener");
-        let endpoint = format!("http://{}", listener.local_addr().expect("RPC address"));
+        let listener = TcpListener::bind("127.0.0.1:0").required("loopback JSON-RPC listener");
+        let endpoint = format!("http://{}", listener.local_addr().required("RPC address"));
         listener
             .set_nonblocking(true)
-            .expect("nonblocking listener");
+            .required("nonblocking listener");
         let chain_id = Arc::new(AtomicU64::new(126));
         let chain = chain_id.clone();
         let requests = Arc::new(Mutex::new(Vec::new()));
@@ -367,11 +370,11 @@ impl RpcListener {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("RPC timeout");
+                    .required("RPC timeout");
                 let (header, request) = read_request(&mut stream);
                 assert!(header.starts_with("POST / HTTP/1.1"));
                 assert_eq!(request["jsonrpc"], "2.0");
-                let result = match request["method"].as_str().expect("RPC method") {
+                let result = match request["method"].as_str().required("RPC method") {
                     "eth_chainId" => {
                         assert_eq!(request["params"], json!([]));
                         json!(format!("{:#x}", chain.load(Ordering::Acquire)))
@@ -389,7 +392,7 @@ impl RpcListener {
                     }
                     method => panic!("unexpected RPC before order validation: {method}"),
                 };
-                observed.lock().expect("record RPC").push(request.clone());
+                observed.lock().required("record RPC").push(request.clone());
                 respond(
                     &mut stream,
                     &json!({"jsonrpc": "2.0", "id": request["id"], "result": result}),
@@ -408,9 +411,9 @@ impl RpcListener {
     fn methods(&self) -> Vec<String> {
         self.requests
             .lock()
-            .expect("RPC requests")
+            .required("RPC requests")
             .iter()
-            .map(|request| request["method"].as_str().expect("method").to_owned())
+            .map(|request| request["method"].as_str().required("method").to_owned())
             .collect()
     }
 }
@@ -420,9 +423,9 @@ impl Drop for RpcListener {
         self.stop.store(true, Ordering::Release);
         self.worker
             .take()
-            .expect("RPC worker")
+            .required("RPC worker")
             .join()
-            .expect("RPC assertions");
+            .required("RPC assertions");
     }
 }
 
@@ -432,10 +435,10 @@ fn recovery_refuses_chain_id_mismatch() {
     let rpc = RpcListener::new();
     let mut config = files.config();
     config.rpc_endpoint = rpc.endpoint.clone();
-    let layerx = config.build(files.http()).expect("sequencer client");
+    let layerx = config.build(files.http()).required("sequencer client");
     let provider = ProviderClient {
         http: files.http(),
-        endpoint: Endpoint::parse("https://localhost:1").expect("provider endpoint"),
+        endpoint: Endpoint::parse("https://localhost:1").required("provider endpoint"),
         credential: "test-provider-credential".into(),
         settlement_path: "/settlements".into(),
         status_path: "/status".into(),
@@ -444,10 +447,10 @@ fn recovery_refuses_chain_id_mismatch() {
     let order = order_for(RampDirection::OnRamp);
     let mut operator = order.operator.clone();
     operator.principal_id.push_str("-wrong");
-    let mut journal = Journal::open(files.0.join("recovery.jsonl")).expect("real journal");
+    let mut journal = Journal::open(files.0.join("recovery.jsonl")).required("real journal");
     journal
         .create_order(order.clone(), 1000)
-        .expect("journal bound order");
+        .required("journal bound order");
     assert_eq!(
         verify_recovery_settlement(
             journal.projection(),

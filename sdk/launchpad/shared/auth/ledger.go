@@ -7,13 +7,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
+	"net"
+	"strings"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"net"
-	"strings"
-	"time"
 )
 
 var ErrReplayMismatch = errors.New("operation replay mismatch")
@@ -44,15 +46,19 @@ func (l Ledger) ExecuteValidated(ctx context.Context, req OperationRequest, veri
 	}
 	tx, err := l.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return nil, false, &VerificationError{Category: "upstream", Retryable: true}
+		return nil, false, &VerificationError{Category: valueUpstream, Retryable: true}
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer func() {
+		if cleanupErr := tx.Rollback(context.WithoutCancel(ctx)); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+			log.Printf("transaction rollback: %v", cleanupErr)
+		}
+	}()
 	response, duplicate, err := l.ExecuteValidatedTx(ctx, tx, req, verify, mutate)
 	if err != nil {
 		return nil, false, err
 	}
 	if err = tx.Commit(ctx); err != nil {
-		return nil, false, &VerificationError{Category: "upstream", Retryable: true}
+		return nil, false, &VerificationError{Category: valueUpstream, Retryable: true}
 	}
 	return response, duplicate, nil
 }
@@ -62,7 +68,7 @@ func (l Ledger) ExecuteValidatedTx(ctx context.Context, tx pgx.Tx, req Operation
 		var database *pgconn.PgError
 		var network net.Error
 		if errors.As(err, &database) || errors.As(err, &network) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, pgx.ErrTxClosed) {
-			response, duplicate, err = nil, false, &VerificationError{Category: "upstream", Retryable: true}
+			response, duplicate, err = nil, false, &VerificationError{Category: valueUpstream, Retryable: true}
 		}
 	}()
 	if tx == nil || len(l.AuditKey) < 32 || verify == nil || mutate == nil || !validIdentityID(req.RequestID) || !tokenPattern.MatchString(req.PolicyVersion) {
@@ -117,7 +123,7 @@ func (l Ledger) ExecuteValidatedTx(ctx context.Context, tx pgx.Tx, req Operation
 	if err != nil {
 		return nil, false, err
 	}
-	err = AppendAudit(ctx, tx, l.AuditKey, AuditEvent{RequestID: req.RequestID, Actor: req.Envelope.Actor, Action: req.Action, Result: "accepted", PolicyVersion: req.PolicyVersion, RequestDigest: digest})
+	err = AppendAudit(ctx, tx, l.AuditKey, AuditEvent{RequestID: req.RequestID, Actor: req.Envelope.Actor, Action: req.Action, Result: valueAccepted, PolicyVersion: req.PolicyVersion, RequestDigest: digest})
 	if err != nil {
 		return nil, false, err
 	}

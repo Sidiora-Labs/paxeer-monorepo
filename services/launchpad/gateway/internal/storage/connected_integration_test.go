@@ -51,8 +51,8 @@ func connectedAuthority(t *testing.T) (*Authority, context.Context) {
 		t.Fatal(e)
 	}
 	for _, migration := range []struct{ path, from, to string }{
-		{"../../../../../launchpad/spec/production-system/integration/migrations/390000.sql", `"metadata"`, pgx.Identifier{metadata}.Sanitize()},
-		{"../../../../../launchpad/spec/production-system/integration/migrations/380000.sql", `"chat"`, pgx.Identifier{safety}.Sanitize()},
+		{"../../../../../migrations/390000.sql", `"metadata"`, pgx.Identifier{metadata}.Sanitize()},
+		{"../../../../../migrations/380000.sql", `"chat"`, pgx.Identifier{safety}.Sanitize()},
 	} {
 		raw, e := os.ReadFile(migration.path)
 		if e != nil {
@@ -127,6 +127,29 @@ func TestConnectedPostgresModerationAndRestore(t *testing.T) {
 	}
 	if e = a.AuthorizeDownload(ctx, key, 16*time.Minute); !errors.Is(e, ErrRestricted) {
 		t.Fatal("long signed link", e)
+	}
+}
+
+func TestConnectedDeletedAssetIntakePreservesDenial(t *testing.T) {
+	a, ctx := connectedAuthority(t)
+	hash, key := seedConnectedAsset(t, a, ctx)
+	if _, err := a.Pool.Exec(ctx, "UPDATE "+a.metadata("assets")+" SET state='DELETED' WHERE hash=$1", hash); err != nil {
+		t.Fatal(err)
+	}
+	count, err := a.IntakeDeletedAssets(ctx)
+	if err != nil || count != 1 {
+		t.Fatalf("deleted asset intake: count=%d err=%v", count, err)
+	}
+	if err := a.Allowed(ctx, key); !errors.Is(err, ErrRestricted) {
+		t.Fatalf("deleted asset delivery = %v, want restriction", err)
+	}
+	count, err = a.IntakeDeletedAssets(ctx)
+	if err != nil || count != 0 {
+		t.Fatalf("replayed deleted asset intake: count=%d err=%v", count, err)
+	}
+	var tombstones int
+	if err := a.Pool.QueryRow(ctx, "SELECT count(*) FROM "+a.table("tombstones")+" WHERE hash=$1", hash).Scan(&tombstones); err != nil || tombstones != 1 {
+		t.Fatalf("durable deletion tombstone: count=%d err=%v", tombstones, err)
 	}
 }
 func TestConnectedPurgeStateSurvivesRestart(t *testing.T) {

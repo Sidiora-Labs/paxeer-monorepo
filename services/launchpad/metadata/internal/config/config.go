@@ -15,11 +15,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
-	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
-	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
-	"github.com/jackc/pgx/v5"
-	pgxpool "github.com/jackc/pgx/v5/pgxpool"
 	"io"
 	"net/netip"
 	"net/url"
@@ -29,6 +24,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
+	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
+	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
+	"github.com/jackc/pgx/v5"
+	pgxpool "github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/caarlos0/env/v11"
 )
@@ -203,7 +204,7 @@ func requireURL(name, raw string) error {
 }
 
 func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Context) error, context.CancelFunc, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != productionEnv {
 		if c.NodeEnv != "" && c.NodeEnv != "test" && c.NodeEnv != "development" {
 			return nil, nil, fmt.Errorf("environment_invalid")
 		}
@@ -299,18 +300,19 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 }
 
 func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtimedb.PoolOptions) (*pgxpool.Pool, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != productionEnv {
 		return runtimedb.NewPool(ctx, c.DatabaseURL, legacy)
 	}
-	if c.RuntimeProfile == "container" {
+	switch c.RuntimeProfile {
+	case "container":
 		if c.Port != 8080 || c.BindAddress != "0.0.0.0" {
 			return nil, fmt.Errorf("container_bind_mismatch")
 		}
-	} else if c.RuntimeProfile == "owned_local" {
+	case "owned_local":
 		if c.BindAddress != "127.0.0.1" {
 			return nil, fmt.Errorf("owned_loopback_required")
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("runtime_profile_required")
 	}
 	if (c.RuntimeBudgetFile == "" && c.RuntimeBudgetDocument == "") || c.RuntimePoolID == "" || c.RuntimeInstanceID == "" {
@@ -346,7 +348,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 	return pool, nil
 }
 func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) error {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != productionEnv {
 		return pool.Ping(ctx)
 	}
 	if (c.ExpectedSchemaFile == "" && c.ExpectedSchemaDocument == "") || len(c.ExpectedSchemaSHA256) != 64 {
@@ -386,8 +388,21 @@ func boundBytes(path, inline, digest string) ([]byte, error) {
 		if !info.Mode().IsRegular() || info.Size() > 1048576 {
 			return nil, fmt.Errorf("runtime_document_invalid")
 		}
-		if raw, err = os.ReadFile(path); err != nil {
+		root, err := os.OpenRoot(filepath.Dir(path))
+		if err != nil {
 			return nil, err
+		}
+		file, err := root.Open(filepath.Base(path))
+		if err != nil {
+			return nil, errors.Join(err, root.Close())
+		}
+		raw, err = io.ReadAll(io.LimitReader(file, 1048577))
+		err = errors.Join(err, file.Close(), root.Close())
+		if err != nil {
+			return nil, err
+		}
+		if len(raw) > 1048576 {
+			return nil, fmt.Errorf("runtime_document_invalid")
 		}
 	} else {
 		if len(inline) > 1398104 {
@@ -445,7 +460,7 @@ func PrivateServiceOrigin(raw string) bool {
 		return false
 	}
 	switch u.Scheme {
-	case "https":
+	case httpsScheme:
 		return true
 	case "http":
 		host := strings.ToLower(u.Hostname())
@@ -455,12 +470,12 @@ func PrivateServiceOrigin(raw string) bool {
 }
 
 func (c Config) ValidateMediaRuntime() error {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != productionEnv {
 		return nil
 	}
 	hex64 := regexp.MustCompile(`^[a-f0-9]{64}$`)
 	schema := regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
-	if !schema.MatchString(c.MetadataSchema) || !schema.MatchString(c.CanonicalSchema) || c.MetadataSchema == "public" || c.MetadataSchema == "pg_catalog" {
+	if !schema.MatchString(c.MetadataSchema) || !schema.MatchString(c.CanonicalSchema) || c.MetadataSchema == publicSchema || c.MetadataSchema == postgresCatalogSchema {
 		return fmt.Errorf("metadata_schema_invalid")
 	}
 	if c.Ingress != IngressMTLS && c.Ingress != IngressEdge {
@@ -484,7 +499,7 @@ func (c Config) ValidateMediaRuntime() error {
 		if !regexp.MustCompile(`^[a-f0-9]{128}$`).MatchString(c.MetadataAssertionPrivateKeyHex) || !hex64.MatchString(c.IdentityPeerCertSHA256) || !hex64.MatchString(c.UserPeerCertSHA256) || !hex64.MatchString(c.UserAssertionPublicKeyHex) {
 			return fmt.Errorf("metadata_identity_authority_missing")
 		}
-		if u, e := url.Parse(c.IdentityEndpoint); e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		if u, e := url.Parse(c.IdentityEndpoint); e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
 			return fmt.Errorf("metadata_identity_https_origin_required")
 		}
 	} else {
@@ -520,16 +535,16 @@ func (c Config) ValidateMediaRuntime() error {
 		if !hex64.MatchString(c.ModerationPeerCertSHA256) {
 			return fmt.Errorf("metadata_identity_authority_missing")
 		}
-		if u, e := url.Parse(c.ModerationEndpoint); e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		if u, e := url.Parse(c.ModerationEndpoint); e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
 			return fmt.Errorf("metadata_moderation_https_origin_required")
 		}
 		if c.ModerationBearerKey == "" {
 			return fmt.Errorf("metadata_media_worker_configuration_invalid")
 		}
-	} else if !schema.MatchString(c.ModerationSchema) || c.ModerationSchema == "public" || c.ModerationSchema == "pg_catalog" {
+	} else if !schema.MatchString(c.ModerationSchema) || c.ModerationSchema == publicSchema || c.ModerationSchema == postgresCatalogSchema {
 		return fmt.Errorf("metadata_moderation_schema_invalid")
 	}
-	if u, e := url.Parse(c.PublicURL); e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+	if u, e := url.Parse(c.PublicURL); e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
 		return fmt.Errorf("metadata_public_https_origin_required")
 	}
 	if (c.PublicationConfigFile == "") == (c.PublicationConfigDocument == "") || (c.PublicationConfigFile != "" && !filepath.IsAbs(c.PublicationConfigFile)) || !hex64.MatchString(c.PublicationConfigSHA256) {
@@ -598,7 +613,7 @@ func (c Config) ReadPublicationRuntime() (PublicationRuntime, []byte, error) {
 }
 
 func (c Config) ownedDatabaseURL() (string, error) {
-	if !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(c.MetadataSchema) || c.MetadataSchema == "public" || c.MetadataSchema == "pg_catalog" {
+	if !regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`).MatchString(c.MetadataSchema) || c.MetadataSchema == publicSchema || c.MetadataSchema == postgresCatalogSchema {
 		return "", fmt.Errorf("metadata_schema_invalid")
 	}
 	parsed, e := url.Parse(c.DatabaseURL)

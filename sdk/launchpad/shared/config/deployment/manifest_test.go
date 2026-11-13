@@ -18,6 +18,46 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+func TestRoleMatchesApprovedApartFromAnAbsentStagedPin(t *testing.T) {
+	approved := Current().Roles["Router"]
+	if approved.StagedRuntimeHash == "" || approved.StagedUpgrade == "" {
+		t.Fatal("approved router must carry the staged pin")
+	}
+	cases := []struct {
+		name   string
+		change func(*Role)
+		want   bool
+	}{
+		{"equal", func(*Role) {}, true},
+		{"absent pair", func(r *Role) { r.StagedRuntimeHash, r.StagedUpgrade = "", "" }, true},
+		{"different pair", func(r *Role) { r.StagedRuntimeHash = common.HexToHash("0x01").Hex(); r.StagedUpgrade += "-other" }, false},
+		{"different staged hash", func(r *Role) { r.StagedRuntimeHash = common.HexToHash("0x01").Hex() }, false},
+		{"different upgrade", func(r *Role) { r.StagedUpgrade += "-other" }, false},
+		{"missing staged hash", func(r *Role) { r.StagedRuntimeHash = "" }, false},
+		{"missing upgrade", func(r *Role) { r.StagedUpgrade = "" }, false},
+		{"different address", func(r *Role) { r.Address = common.HexToAddress("0x01").Hex() }, false},
+		{"different runtime hash", func(r *Role) { r.RuntimeHash = common.HexToHash("0x01").Hex() }, false},
+		{"different kind", func(r *Role) { r.Kind = "direct" }, false},
+		{"different implementation address", func(r *Role) { r.ImplementationAddress = common.HexToAddress("0x01").Hex() }, false},
+		{"different implementation hash", func(r *Role) { r.ImplementationHash = common.HexToHash("0x01").Hex() }, false},
+		{"different beacon address", func(r *Role) { r.BeaconAddress = common.HexToAddress("0x01").Hex() }, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			role := approved
+			tc.change(&role)
+			if got := role.MatchesApproved(approved); got != tc.want {
+				t.Fatalf("MatchesApproved = %v, want %v", got, tc.want)
+			}
+		})
+	}
+	withoutPin := approved
+	withoutPin.StagedRuntimeHash, withoutPin.StagedUpgrade = "", ""
+	if !withoutPin.MatchesApproved(withoutPin) || approved.MatchesApproved(withoutPin) {
+		t.Fatal("only the supplied role may omit the approved staged pin")
+	}
+}
+
 func TestCurrentMatchesFrozenDeployment(t *testing.T) {
 	m := Current()
 	var f struct {
@@ -243,7 +283,7 @@ func TestEveryFrontendGeneratedRoleMatchesGoManifest(t *testing.T) {
  checkClient(process.argv[3],data,helper);
  process.stdout.write(helper);`
 	browser := exec.CommandContext(ctx, "node", "-e", script,
-		filepath.Join(root, "tools/launchpad/production/interfaces/contracts/client-deployment.cjs"),
+		filepath.Join(root, "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.cjs"),
 		contractRoot, filepath.Join(root, "apps/launchpad/web/src"))
 	rendered, e := browser.CombinedOutput()
 	if e != nil {
@@ -308,7 +348,9 @@ func TestCurrentManifestValid(t *testing.T) {
 	if m.MarketModel != "AMM" || m.Graduation || m.CoreOracleRequired {
 		t.Fatalf("market policy %s %v %v", m.MarketModel, m.Graduation, m.CoreOracleRequired)
 	}
-	surface := func(a string) Role { return Role{Address: a, Kind: "surface", RuntimeHash: surfaceRuntimeHash} }
+	surface := func(a string) Role {
+		return Role{Address: a, Kind: "surface", RuntimeHash: surfaceRuntimeHash, StagedRuntimeHash: stagedSurfaceRuntimeHash, StagedUpgrade: stagedSurfaceUpgrade}
+	}
 	want := map[string]Role{
 		"SidioraFactory": surface("0x3993D004166738d1069B5C4e0a923f7B9D5D8830"),
 		"Router":         surface("0x78FB06f525cD964388f2305A489035263E31C6e4"),

@@ -34,11 +34,17 @@ impl Drop for ExportAcknowledgement {
 /// Keep this secret at the ceremony recipient until recovery is complete.
 pub struct ExportRecipient(Zeroizing<[u8; 32]>);
 impl ExportRecipient {
+    ///
+    /// # Errors
+    /// Returns an error if the recipient secret is not a valid scalar.
     pub fn new(secret: [u8; 32]) -> Result<Self, String> {
         let secret = Zeroizing::new(secret);
         k256::SecretKey::from_slice(&*secret).map_err(|_| "export recipient scalar invalid")?;
         Ok(Self(secret))
     }
+    ///
+    /// # Errors
+    /// Returns an error if the recipient key or ceremony is invalid.
     pub fn ceremony(&self, id: [u8; 32]) -> Result<ExportCeremony, String> {
         let key = k256::SecretKey::from_slice(&*self.0).map_err(|_| "recipient invalid")?;
         let ceremony = ExportCeremony {
@@ -48,6 +54,9 @@ impl ExportRecipient {
         ceremony.validate()?;
         Ok(ceremony)
     }
+    ///
+    /// # Errors
+    /// Returns an error if the envelope does not authenticate for this ceremony and context.
     pub fn open(
         &self,
         provider: &str,
@@ -83,6 +92,9 @@ impl ExportRecipient {
     }
 }
 impl ExportCeremony {
+    ///
+    /// # Errors
+    /// Returns an error if the ceremony identifier or recipient key is invalid.
     pub fn validate(&self) -> Result<(), String> {
         if self.id == [0; 32] || self.recipient.len() != 33 {
             return Err("export ceremony invalid".into());
@@ -154,7 +166,7 @@ pub(crate) fn seal(
     let mut nonce = [0; 12];
     getrandom::fill(&mut *proof).map_err(|_| "export entropy unavailable")?;
     getrandom::fill(&mut nonce).map_err(|_| "export entropy unavailable")?;
-    let proof_hash = Sha256::digest(&*proof).into();
+    let proof_hash = Sha256::digest(*proof).into();
     let mut ciphertext = Zeroizing::new(seed.to_vec());
     ciphertext.extend_from_slice(&*proof);
     key.seal_in_place_append_tag(

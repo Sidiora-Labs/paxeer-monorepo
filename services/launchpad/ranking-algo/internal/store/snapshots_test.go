@@ -27,7 +27,7 @@ func TestSnapshotStoreLocalPostgres(t *testing.T) {
 	}
 	defer pool.Close()
 	schema := fmt.Sprintf("kd_25f7eaabd03e881749ed6ae1_%d", time.Now().UnixNano())
-	ddl, e := os.ReadFile("../../../../../launchpad/spec/production-system/integration/migrations/190000.sql")
+	ddl, e := os.ReadFile("../../../../../migrations/190000.sql")
 	if e != nil {
 		t.Fatal(e)
 	}

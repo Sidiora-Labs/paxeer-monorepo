@@ -9,6 +9,8 @@ const PYTHON_TEMPLATE: &str = include_str!("../templates/python.tpl");
 const PYTHON_STUB_TEMPLATE: &str = include_str!("../templates/python.pyi.tpl");
 const GUARANTEES_TEMPLATE: &str = include_str!("../templates/guarantees.md.tpl");
 const COMPATIBILITY_TEMPLATE: &str = include_str!("../templates/compatibility.md.tpl");
+const TYPESCRIPT_CLIENT_PATH: &str = "typescript/src/generated/client.ts";
+const TYPESCRIPT_GUARANTEES_PATH: &str = "typescript/src/generated/guarantees.md";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Scalar {
@@ -963,12 +965,9 @@ pub fn agent_sdk_generator(schema_root: &Path) -> Result<Generated, String> {
     Ok(Generated {
         files: BTreeMap::from([
             (PathBuf::from("COMPATIBILITY.md"), compatibility),
+            (PathBuf::from(TYPESCRIPT_CLIENT_PATH), typescript(&model)?),
             (
-                PathBuf::from("typescript/src/generated/client.ts"),
-                typescript(&model)?,
-            ),
-            (
-                PathBuf::from("typescript/src/generated/guarantees.md"),
+                PathBuf::from(TYPESCRIPT_GUARANTEES_PATH),
                 documentation.clone(),
             ),
             (

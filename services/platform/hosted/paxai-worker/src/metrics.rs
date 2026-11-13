@@ -1,4 +1,3 @@
-use std::fmt::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
@@ -21,6 +20,7 @@ impl Metrics {
         self.requests[usize::from(status)].fetch_add(1, Ordering::Relaxed);
     }
 
+    #[must_use]
     pub fn render(&self) -> String {
         let mut text = format!(
             "# TYPE paxai_worker_up gauge\npaxai_worker_up 1\n\
@@ -31,11 +31,11 @@ impl Metrics {
         for (status, counter) in self.requests.iter().enumerate() {
             let count = counter.load(Ordering::Relaxed);
             if count > 0 || status == 200 {
-                writeln!(
-                    text,
-                    "paxai_worker_requests_total{{status=\"{status}\"}} {count}"
-                )
-                .expect("writing metrics to a String cannot fail");
+                text.push_str("paxai_worker_requests_total{status=\"");
+                text.push_str(&status.to_string());
+                text.push_str("\"} ");
+                text.push_str(&count.to_string());
+                text.push('\n');
             }
         }
         text

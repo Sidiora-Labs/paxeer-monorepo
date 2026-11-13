@@ -99,10 +99,10 @@ func (a *BaselineAuthority) receiptSettlement(ctx context.Context, tx pgx.Tx, fi
 		if emitter == fill.Settlement.Address {
 			quoteMoves = append(quoteMoves, m)
 		}
-		if emitter == fill.Token.Address && m.Amount == fill.TokenAmountRaw && ((fill.Side == "buy" && m.From == fill.PoolAddress) || (fill.Side == "sell" && m.To == fill.PoolAddress)) {
+		if emitter == fill.Token.Address && m.Amount == fill.TokenAmountRaw && ((fill.Side == sideBuy && m.From == fill.PoolAddress) || (fill.Side == sideSell && m.To == fill.PoolAddress)) {
 			tokenMoves = append(tokenMoves, m)
 		}
-		if emitter == fill.Settlement.Address && m.Amount == fill.USDLAmountRaw && ((fill.Side == "buy" && m.To == fill.PoolAddress) || (fill.Side == "sell" && m.From == fill.PoolAddress)) {
+		if emitter == fill.Settlement.Address && m.Amount == fill.USDLAmountRaw && ((fill.Side == sideBuy && m.To == fill.PoolAddress) || (fill.Side == sideSell && m.From == fill.PoolAddress)) {
 			settlements = append(settlements, m)
 		}
 	}
@@ -110,7 +110,7 @@ func (a *BaselineAuthority) receiptSettlement(ctx context.Context, tx pgx.Tx, fi
 		return result, ErrCostAllocationUnavailable
 	}
 	payer, recipient := settlements[0].From, tokenMoves[0].To
-	if fill.Side == "sell" {
+	if fill.Side == sideSell {
 		payer, recipient = tokenMoves[0].From, settlements[0].To
 	}
 	if payer == zeroAddress || recipient == zeroAddress {
@@ -118,7 +118,7 @@ func (a *BaselineAuthority) receiptSettlement(ctx context.Context, tx pgx.Tx, fi
 	}
 	actual := new(big.Int)
 	for _, m := range quoteMoves {
-		if fill.Side == "buy" && m.From == payer && m.To != payer || fill.Side == "sell" && m.To == recipient && m.From != recipient {
+		if fill.Side == sideBuy && m.From == payer && m.To != payer || fill.Side == sideSell && m.To == recipient && m.From != recipient {
 			v, e := Uint256(m.Amount)
 			if e != nil {
 				return result, e
@@ -140,19 +140,22 @@ const zeroAddress = "0x0000000000000000000000000000000000000000"
 
 func normalizeMovement(wallet, token string, m movement, settlement *receiptSettlement, at time.Time, digest string) (EconomicRecord, bool, error) {
 	var out EconomicRecord
+	if m.Height < 0 {
+		return out, false, delivery.ErrIntegrity
+	}
 	if m.From == m.To || m.Amount == "0" || m.From != wallet && m.To != wallet {
 		return out, false, nil
 	}
 	leg := Leg{Identity: Identity{Chain: "125", Emitter: token, Transaction: m.TransactionHash, Log: m.LogIndex}, Height: uint64(m.Height), TransactionIndex: m.TransactionIndex, Wallet: wallet, Token: token, Quantity: m.Amount, SettlementReference: digest}
 	if m.To == wallet {
-		leg.Kind = "incoming"
+		leg.Kind = movementIncoming
 		if m.From == zeroAddress {
-			leg.Kind = "mint"
+			leg.Kind = movementMint
 		}
 	} else {
-		leg.Kind = "outgoing"
+		leg.Kind = movementOutgoing
 		if m.To == zeroAddress {
-			leg.Kind = "burn"
+			leg.Kind = movementBurn
 		}
 	}
 	out = EconomicRecord{BlockHash: m.BlockHash, TimedLeg: TimedLeg{Leg: leg, CommittedAt: at.UTC()}, SourceDigest: digest}
@@ -168,7 +171,7 @@ func normalizeMovement(wallet, token string, m movement, settlement *receiptSett
 		out.GasPAXRaw = s.gas
 		out.FeeRaw = s.fill.FeeRaw
 		asset := s.fill.Settlement
-		if s.fill.Side == "sell" {
+		if s.fill.Side == sideSell {
 			asset = s.fill.Token
 		}
 		out.FeeAsset = &asset
@@ -177,15 +180,15 @@ func normalizeMovement(wallet, token string, m movement, settlement *receiptSett
 		out.Leg.Sender = s.fill.Attribution.TransactionSender
 		out.Leg.SettlementReference = s.digest
 		amount := s.fill.USDLAmountRaw
-		if s.fill.Side == "buy" && s.recipient == wallet && s.payer == wallet {
-			out.Leg.Kind = "buy"
+		if s.fill.Side == sideBuy && s.recipient == wallet && s.payer == wallet {
+			out.Leg.Kind = sideBuy
 			out.Leg.ActualUSDL = &amount
 		}
-		if s.fill.Side == "sell" && s.payer == wallet {
+		if s.fill.Side == sideSell && s.payer == wallet {
 			if s.recipient != wallet {
 				return EconomicRecord{}, false, ErrCostAllocationUnavailable
 			}
-			out.Leg.Kind = "sell"
+			out.Leg.Kind = sideSell
 			out.Leg.ActualUSDL = &amount
 		}
 	}

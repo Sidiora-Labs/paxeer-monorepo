@@ -1,4 +1,4 @@
-//! Task 22.31.167: portable_json_budget is proved by portable_json_budget.
+//! Task 22.31.167: `portable_json_budget` is proved by `portable_json_budget`.
 //! Baseline verification was not run: the bounded gate order requires complete
 //! implementation before the first build and verification. No wiring is needed.
 //! The previous attempt failed before producing a receipt because the native
@@ -109,9 +109,11 @@ impl Producer {
     fn new() -> Self {
         let directory =
             std::env::temp_dir().join(format!("portable-budget-{}", std::process::id()));
-        std::fs::create_dir(&directory).expect("producer directory");
+        std::fs::create_dir(&directory)
+            .unwrap_or_else(|error| panic!("producer directory: {error:?}"));
         let source = directory.join("main.go");
-        std::fs::write(&source, PRODUCER).expect("producer driver");
+        std::fs::write(&source, PRODUCER)
+            .unwrap_or_else(|error| panic!("producer driver: {error:?}"));
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
         let native = Command::new("make")
             .args([
@@ -122,7 +124,7 @@ impl Producer {
             ])
             .current_dir(&root)
             .status()
-            .expect("build real sequencer native dependencies");
+            .unwrap_or_else(|error| panic!("build real sequencer native dependencies: {error:?}"));
         assert!(native.success(), "native sequencer dependencies: {native}");
         let mut child = Command::new("go")
             .arg("run")
@@ -133,9 +135,17 @@ impl Producer {
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
             .spawn()
-            .expect("start real sequencer producer");
-        let input = child.stdin.take().expect("producer stdin");
-        let output = BufReader::new(child.stdout.take().expect("producer stdout"));
+            .unwrap_or_else(|error| panic!("start real sequencer producer: {error:?}"));
+        let input = child
+            .stdin
+            .take()
+            .unwrap_or_else(|| panic!("producer stdin"));
+        let output = BufReader::new(
+            child
+                .stdout
+                .take()
+                .unwrap_or_else(|| panic!("producer stdout")),
+        );
         Self {
             child,
             input,
@@ -145,16 +155,22 @@ impl Producer {
     }
 
     fn receipt(&mut self, logs: usize, data: usize) -> Value {
-        writeln!(self.input, "{}", json!({"Logs": logs, "Data": data})).expect("producer request");
-        self.input.flush().expect("flush producer request");
+        writeln!(self.input, "{}", json!({"Logs": logs, "Data": data}))
+            .unwrap_or_else(|error| panic!("producer request: {error:?}"));
+        self.input
+            .flush()
+            .unwrap_or_else(|error| panic!("flush producer request: {error:?}"));
         let mut line = String::new();
         assert_ne!(
-            self.output.read_line(&mut line).expect("producer response"),
+            self.output
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("producer response: {error:?}")),
             0,
             "real sequencer producer stopped: {:?}",
             self.child.try_wait()
         );
-        serde_json::from_str(&line).expect("producer output JSON")
+        serde_json::from_str(&line)
+            .unwrap_or_else(|error| panic!("producer output JSON: {error:?}"))
     }
 }
 
@@ -162,28 +178,34 @@ impl Drop for Producer {
     fn drop(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
-        std::fs::remove_dir_all(&self.directory).expect("remove producer driver");
+        std::fs::remove_dir_all(&self.directory)
+            .unwrap_or_else(|error| panic!("remove producer driver: {error:?}"));
     }
 }
 
 fn bytes(value: &Value) -> Vec<u8> {
     let hex = value
         .as_str()
-        .expect("hex string")
+        .unwrap_or_else(|| panic!("hex string"))
         .strip_prefix("0x")
-        .expect("hex prefix");
+        .unwrap_or_else(|| panic!("hex prefix"));
     (0..hex.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("hex byte"))
+        .map(|i| {
+            u8::from_str_radix(&hex[i..i + 2], 16)
+                .unwrap_or_else(|error| panic!("hex byte: {error:?}"))
+        })
         .collect()
 }
 
 fn key(case: &Value) -> ReceiptKeyEntry {
     ReceiptKeyEntry::new(
-        bytes(&case["key"]["keyId"]).try_into().expect("key id"),
+        bytes(&case["key"]["keyId"])
+            .try_into()
+            .unwrap_or_else(|error| panic!("key id: {error:?}")),
         bytes(&case["key"]["publicKey"])
             .try_into()
-            .expect("public key"),
+            .unwrap_or_else(|error| panic!("public key: {error:?}")),
         1,
         100,
     )
@@ -208,15 +230,18 @@ fn assert_round_trip(case: &Value, height: u64, raw: bool) {
     } else {
         PortableReceiptV2::export(&receipt, &pin, height)
     }
-    .expect("bounded producer output exports");
-    let wire = portable.to_json().expect("bounded serialization");
+    .unwrap_or_else(|error| panic!("bounded producer output exports: {error:?}"));
+    let wire = portable
+        .to_json()
+        .unwrap_or_else(|error| panic!("bounded serialization: {error:?}"));
     assert!(wire.len() <= JSON_LIMIT);
     assert_eq!(
-        PortableReceiptV2::from_json(&wire).expect("import emitted bytes"),
+        PortableReceiptV2::from_json(&wire)
+            .unwrap_or_else(|error| panic!("import emitted bytes: {error:?}")),
         portable
     );
-    let PortableVerified::V2(verified) =
-        verify_portable_json(&wire, &[pin]).expect("consumer verifies");
+    let PortableVerified::V2(verified) = verify_portable_json(&wire, &[pin])
+        .unwrap_or_else(|error| panic!("consumer verifies: {error:?}"));
     assert_eq!(verified.signed_receipt(), receipt);
     assert_eq!(verified.receipt_digest().as_slice(), bytes(&case["digest"]));
     assert_eq!(
@@ -234,31 +259,41 @@ fn assert_round_trip(case: &Value, height: u64, raw: bool) {
         .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/tests"))
         .env("PYTHONDONTWRITEBYTECODE", "1")
         .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped())
-        .spawn().expect("independent verifier");
-    let proof: Value = serde_json::from_slice(&wire).expect("emitted document");
-    let input_result = python.stdin.take().expect("verifier stdin").write_all(
-        &serde_json::to_vec(&json!({"proof": proof, "pins": [case["key"]]}))
-            .expect("verifier input"),
-    );
-    let output = python.wait_with_output().expect("independent verification");
+        .spawn().unwrap_or_else(|error| panic!("independent verifier: {error:?}"));
+    let proof: Value =
+        serde_json::from_slice(&wire).unwrap_or_else(|error| panic!("emitted document: {error:?}"));
+    let input_result = python
+        .stdin
+        .take()
+        .unwrap_or_else(|| panic!("verifier stdin"))
+        .write_all(
+            &serde_json::to_vec(&json!({"proof": proof, "pins": [case["key"]]}))
+                .unwrap_or_else(|error| panic!("verifier input: {error:?}")),
+        );
+    let output = python
+        .wait_with_output()
+        .unwrap_or_else(|error| panic!("independent verification: {error:?}"));
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    input_result.expect("write independent verifier input");
-    let result: Value = serde_json::from_slice(&output.stdout).expect("independent digest");
+    input_result.unwrap_or_else(|error| panic!("write independent verifier input: {error:?}"));
+    let result: Value = serde_json::from_slice(&output.stdout)
+        .unwrap_or_else(|error| panic!("independent digest: {error:?}"));
     assert_eq!(result[0], case["digest"]);
     assert_eq!(bytes(&result[1]).as_slice(), verified.activity_id());
 }
 
 fn assert_oversize(case: &Value, height: u64, raw: bool) {
     let proof = document(case, height, raw);
-    let wire = serde_json::to_vec(&proof).expect("independent size observation");
+    let wire = serde_json::to_vec(&proof)
+        .unwrap_or_else(|error| panic!("independent size observation: {error:?}"));
     assert!(wire.len() > JSON_LIMIT);
     assert!(bytes(&case["receipt"]).len() <= 1_048_576);
     assert!(bytes(&case["raw"]).len() <= 1_048_576);
-    let bypass: PortableReceiptV2 = serde_json::from_value(proof).expect("valid individual fields");
+    let bypass: PortableReceiptV2 = serde_json::from_value(proof)
+        .unwrap_or_else(|error| panic!("valid individual fields: {error:?}"));
     assert!(
         bypass.verify_v2(&[key(case)]).is_ok(),
         "valid signed proof before wire budget"
@@ -288,7 +323,7 @@ fn portable_json_budget() {
     let small = producer.receipt(0, 0);
     let next = producer.receipt(1, 0);
     let base = serde_json::to_vec(&document(&small, 15, false))
-        .expect("base size")
+        .unwrap_or_else(|error| panic!("base size: {error:?}"))
         .len();
     let effect_bytes = bytes(&next["receipt"]).len() - bytes(&small["receipt"]).len();
     assert_eq!(effect_bytes, 229, "real four-topic log effect size");
@@ -304,19 +339,19 @@ fn portable_json_budget() {
     // Hex payloads advance in two-byte wire steps. The inclusion quantity's
     // extra digit selects the parity needed to reach the exact importer limit.
     let size = serde_json::to_vec(&document(&combined, 15, true))
-        .expect("combined size")
+        .unwrap_or_else(|error| panic!("combined size: {error:?}"))
         .len();
     assert!(size < JSON_LIMIT);
     data += (JSON_LIMIT - size) / 2;
     combined = producer.receipt(2000, data);
     let size = serde_json::to_vec(&document(&combined, 15, true))
-        .expect("boundary size")
+        .unwrap_or_else(|error| panic!("boundary size: {error:?}"))
         .len();
     assert!(size == JSON_LIMIT || size == JSON_LIMIT - 1);
     let height = if size == JSON_LIMIT { 15 } else { 16 };
     assert_eq!(
         serde_json::to_vec(&document(&combined, height, true))
-            .expect("exact boundary")
+            .unwrap_or_else(|error| panic!("exact boundary: {error:?}"))
             .len(),
         JSON_LIMIT
     );

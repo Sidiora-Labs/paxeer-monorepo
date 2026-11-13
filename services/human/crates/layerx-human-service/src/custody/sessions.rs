@@ -148,10 +148,6 @@ impl SessionKeyEntropy {
             Ok(Self(seed))
         }
     }
-
-    fn into_secret(self) -> AgentSessionSecret {
-        AgentSessionSecret(self.0)
-    }
 }
 
 impl Debug for SessionKeyEntropy {
@@ -429,6 +425,8 @@ pub struct SessionAuthorityObservation {
 
 pub trait AgentSessionContract {
     /// Reads the exact daemon permission state and chain authority on reopen.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     fn session_authority(
         &mut self,
         _target: &SessionTarget,
@@ -438,6 +436,8 @@ pub trait AgentSessionContract {
 
     /// Proves whether this exact previously attempted grant was installed.
     /// Absence must be authoritative before replaying the identical installation.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     fn recover_provision(
         &mut self,
         _principal: &PrincipalId,
@@ -448,6 +448,8 @@ pub trait AgentSessionContract {
     }
 
     /// Recovers the receipt for an attempted announcement by its canonical payload.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     fn recover_rotation(
         &mut self,
         _principal: &PrincipalId,
@@ -837,6 +839,8 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
 
     /// Opens the durable lifecycle journal and reconciles attempted external steps
     /// before returning authority to the caller. An unavailable peer refuses startup.
+    /// # Errors
+    /// Returns an error if the requested data cannot be read or validated.
     pub fn open(
         root: impl AsRef<std::path::Path>,
         contract: C,
@@ -908,10 +912,7 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
             }
             match lease.state {
                 SessionLeaseState::Active
-                    if !observed.daemon_suspended && observed.revocation.is_none() =>
-                {
-                    ()
-                }
+                    if !observed.daemon_suspended && observed.revocation.is_none() => {}
                 SessionLeaseState::Revoked {
                     reason,
                     revoked_at,
@@ -1356,18 +1357,15 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
     ) -> Result<(RotationJourney, Option<SessionLease>), SessionKeyError> {
         self.healthy()?;
         let key = (principal.clone(), did.clone());
-        let tracked = match self.rotations.get(&key).cloned() {
-            Some(tracked) => tracked,
-            None => {
-                return self
-                    .rotation_history
-                    .iter()
-                    .rev()
-                    .find(|journey| journey.principal == *principal && journey.did == *did)
-                    .cloned()
-                    .map(|journey| (journey, None))
-                    .ok_or(SessionKeyError::RotationNotFound)
-            }
+        let Some(tracked) = self.rotations.get(&key).cloned() else {
+            return self
+                .rotation_history
+                .iter()
+                .rev()
+                .find(|journey| journey.principal == *principal && journey.did == *did)
+                .cloned()
+                .map(|journey| (journey, None))
+                .ok_or(SessionKeyError::RotationNotFound);
         };
         let observed = self.contract.rotation_observation(principal, did)?;
         if observed.tx_hash != tracked.tx_hash
@@ -1544,23 +1542,20 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         Ok(lease)
     }
 
-    fn stop_authority(
+    fn pending_stop(
         &mut self,
-        principal: &PrincipalId,
-        did: &Did,
+        key: &(PrincipalId, Did),
         requested_at: u64,
         reason: RevocationReason,
-    ) -> Result<RevocationOutcome, SessionKeyError> {
-        let key = (principal.clone(), did.clone());
-        self.healthy()?;
-        if let Some(stop) = self.stops.get(&key) {
+    ) -> Result<u64, SessionKeyError> {
+        if let Some(stop) = self.stops.get(key) {
             if stop.reason != reason {
                 return Err(SessionKeyError::InvalidEvidence);
             }
         } else {
             let existing = self
                 .agents
-                .get(&key)
+                .get(key)
                 .ok_or(SessionKeyError::NotProvisioned)?;
             if let SessionLeaseState::Revoked {
                 reason: completed,
@@ -1581,7 +1576,19 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
             );
             self.persist()?;
         }
-        let requested_at = self.stops[&key].requested_at;
+        Ok(self.stops[key].requested_at)
+    }
+
+    fn stop_authority(
+        &mut self,
+        principal: &PrincipalId,
+        did: &Did,
+        requested_at: u64,
+        reason: RevocationReason,
+    ) -> Result<RevocationOutcome, SessionKeyError> {
+        let key = (principal.clone(), did.clone());
+        self.healthy()?;
+        let requested_at = self.pending_stop(&key, requested_at, reason)?;
         let lease = self
             .agents
             .get(&key)
@@ -1839,6 +1846,8 @@ pub struct SessionLifecycleDriver<C: AgentSessionContract, E: SessionEntropySour
     healthy: std::sync::atomic::AtomicBool,
 }
 impl<C: AgentSessionContract, E: SessionEntropySource> SessionLifecycleDriver<C, E> {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn new(owner: SessionKeyProvisioner<C, E>) -> Result<Self, SessionKeyError> {
         if owner.durable.is_none() || owner.poisoned {
             return Err(SessionKeyError::InvalidPolicy);
@@ -1851,6 +1860,8 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionLifecycleDriver<C,
     pub fn healthy(&self) -> bool {
         self.healthy.load(std::sync::atomic::Ordering::Acquire)
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn session(
         &self,
         principal: &PrincipalId,
@@ -1863,6 +1874,8 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionLifecycleDriver<C,
         Ok(owner.session(principal, did).cloned())
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn into_provisioner(self) -> Result<SessionKeyProvisioner<C, E>, SessionKeyError> {
         self.owner
             .into_inner()
@@ -1885,13 +1898,10 @@ impl<C: AgentSessionContract + Send + 'static, E: SessionEntropySource + Send + 
         owner
             .healthy()
             .map_err(|_| ApiFailure::upstream_degraded())?;
-        let count = match owner.maintain_bounded(maximum_items, now) {
-            Ok(count) => count,
-            Err(_) => {
-                self.healthy
-                    .store(false, std::sync::atomic::Ordering::Release);
-                return Err(ApiFailure::upstream_degraded());
-            }
+        let Ok(count) = owner.maintain_bounded(maximum_items, now) else {
+            self.healthy
+                .store(false, std::sync::atomic::Ordering::Release);
+            return Err(ApiFailure::upstream_degraded());
         };
         self.healthy
             .store(true, std::sync::atomic::Ordering::Release);

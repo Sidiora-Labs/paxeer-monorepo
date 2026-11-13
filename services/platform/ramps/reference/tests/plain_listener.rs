@@ -1,3 +1,5 @@
+include!("../src/required.rs");
+
 use std::fs;
 use std::net::TcpListener;
 use std::os::unix::fs::PermissionsExt as _;
@@ -16,13 +18,13 @@ impl Workspace {
     fn new(label: &str) -> Self {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("clock")
+            .required("clock")
             .as_nanos();
         let dir = std::env::temp_dir().join(format!(
             "layerx-ramp-listener-{label}-{}-{nanos}",
             std::process::id()
         ));
-        fs::create_dir_all(&dir).expect("create workspace");
+        fs::create_dir_all(&dir).required("create workspace");
         let workspace = Self { dir };
         workspace.openssl(&[
             "req",
@@ -63,7 +65,7 @@ impl Workspace {
             "anchor.der",
         ]);
         workspace.private_file("password", "ramp-test-password\n");
-        workspace.private(&workspace.path("identity.p12"));
+        Workspace::private(&workspace.path("identity.p12"));
         for token in [
             "identity-token",
             "compliance-token",
@@ -88,7 +90,7 @@ impl Workspace {
             .args(args)
             .current_dir(&self.dir)
             .output()
-            .expect("run openssl");
+            .required("run openssl");
         assert!(
             output.status.success(),
             "openssl {args:?}: {}",
@@ -96,21 +98,21 @@ impl Workspace {
         );
     }
 
-    fn private(&self, path: &Path) {
-        fs::set_permissions(path, fs::Permissions::from_mode(0o600)).expect("private file");
+    fn private(path: &Path) {
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600)).required("private file");
     }
 
     fn private_file(&self, name: &str, contents: &str) {
         let path = self.path(name);
-        fs::write(&path, contents).expect("write file");
-        self.private(&path);
+        fs::write(&path, contents).required("write file");
+        Self::private(&path);
     }
 
     fn config(&self, port: u16, listener: Option<&str>, identity: bool, password: bool) -> PathBuf {
         let p = |name: &str| self.path(name).display().to_string();
         let did = "did:layerx:ramp-listener-test";
         let account = format!("agent:{did}:main");
-        let mut config = json!({
+        let config = json!({
             "listen": format!("127.0.0.1:{port}"),
             "journal_path": p("journal.jsonl"),
             "worker_id": "ramp-listener-worker",
@@ -172,7 +174,7 @@ impl Workspace {
                 }],
                 "max_fee_per_gas": 1000,
                 "max_priority_fee_per_gas": 2,
-                "gas_limit_cap": 100000,
+                "gas_limit_cap": 100_000,
                 "signer_endpoint": "https://signer.example.test",
                 "signer_token_file": p("signer-token"),
                 "actor_did": did
@@ -191,26 +193,37 @@ impl Workspace {
             "provider_callback_public_key": "44".repeat(32),
             "operator_control_token_file": p("operator-token")
         });
-        let object = config.as_object_mut().expect("config object");
+        self.write_config(port, listener, identity, password, config)
+    }
+
+    fn write_config(
+        &self,
+        port: u16,
+        listener: Option<&str>,
+        identity: bool,
+        password: bool,
+        mut config: Value,
+    ) -> PathBuf {
+        let object = config.as_object_mut().required("config object");
         if let Some(listener) = listener {
             object.insert("listener".to_owned(), Value::from(listener));
         }
         if identity {
             object.insert(
                 "server_identity_pkcs12".to_owned(),
-                Value::from(p("identity.p12")),
+                Value::from(self.path("identity.p12").display().to_string()),
             );
         }
         if password {
             object.insert(
                 "server_identity_password_file".to_owned(),
-                Value::from(p("password")),
+                Value::from(self.path("password").display().to_string()),
             );
         }
         let path = self.path(&format!("config-{port}.json"));
-        fs::write(&path, serde_json::to_vec(&config).expect("encode config"))
-            .expect("write config");
-        self.private(&path);
+        fs::write(&path, serde_json::to_vec(&config).required("encode config"))
+            .required("write config");
+        Self::private(&path);
         path
     }
 }
@@ -232,9 +245,9 @@ impl Drop for Ramp {
 
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
-        .expect("bind free port")
+        .required("bind free port")
         .local_addr()
-        .expect("local address")
+        .required("local address")
         .port()
 }
 
@@ -245,7 +258,7 @@ fn start(config: &Path) -> Ramp {
             .stdout(Stdio::null())
             .stderr(Stdio::piped())
             .spawn()
-            .expect("spawn ramp"),
+            .required("spawn ramp"),
     )
 }
 
@@ -254,13 +267,13 @@ fn curl(args: &[&str]) -> Output {
         .args(["-s", "--max-time", "5", "-w", "\n%{http_code}"])
         .args(args)
         .output()
-        .expect("run curl")
+        .required("run curl")
 }
 
 fn await_ready(ramp: &mut Ramp, args: &[&str]) -> String {
     let deadline = Instant::now() + Duration::from_secs(30);
     loop {
-        if let Some(status) = ramp.0.try_wait().expect("poll ramp") {
+        if let Some(status) = ramp.0.try_wait().required("poll ramp") {
             let mut stderr = String::new();
             if let Some(mut pipe) = ramp.0.stderr.take() {
                 let _ = std::io::Read::read_to_string(&mut pipe, &mut stderr);
@@ -314,7 +327,7 @@ fn plain_listener_refuses_configured_server_identity() {
         let output = Command::new(env!("CARGO_BIN_EXE_layerx-reference-ramp"))
             .arg(workspace.config(port, Some("plain"), identity, password))
             .output()
-            .expect("run ramp");
+            .required("run ramp");
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
             !output.status.success(),
@@ -329,7 +342,7 @@ fn plain_listener_refuses_configured_server_identity() {
     let output = Command::new(env!("CARGO_BIN_EXE_layerx-reference-ramp"))
         .arg(workspace.config(port, Some("quic"), true, true))
         .output()
-        .expect("run ramp");
+        .required("run ramp");
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("listener must be tls or plain"),

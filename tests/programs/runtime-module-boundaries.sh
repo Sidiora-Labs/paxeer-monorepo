@@ -49,7 +49,7 @@ check_root() {
         abi/mod.rs abi/balance.rs abi/capability.rs abi/codec.rs abi/context.rs \
         abi/event_tests.rs abi/host_state.rs abi/manifest.rs abi/response.rs abi/storage_ops.rs \
         host/mod.rs host/balance.rs host/context.rs host/memory.rs host/storage.rs host/events.rs host/calls.rs \
-        host/transfer.rs host/scan.rs host/crypto.rs host/signature.rs host/oracle.rs host/web.rs
+        host/transfer.rs host/scan.rs host/scan_tests.rs host/crypto.rs host/signature.rs host/oracle.rs host/web.rs host/market.rs
     do
         if [ ! -f "$root/$path" ]; then
             echo "runtime module boundary: missing $path" >&2
@@ -94,7 +94,7 @@ check_root() {
                 [ -f "$file" ] && basename "$file"
             done | sort
         )
-        expected=$(printf '%s\n' balance.rs calls.rs context.rs crypto.rs events.rs memory.rs mod.rs oracle.rs scan.rs signature.rs storage.rs transfer.rs web.rs)
+        expected=$(printf '%s\n' balance.rs calls.rs context.rs crypto.rs events.rs market.rs memory.rs mod.rs oracle.rs scan.rs scan_tests.rs signature.rs storage.rs transfer.rs web.rs)
         if [ "$actual" != "$expected" ]; then
             echo "runtime module boundary: unexpected host module inventory" >&2
             failed=1
@@ -141,7 +141,7 @@ if [ "${1:-}" = "--self-test" ]; then
     fixture=$(mktemp -d)
     trap 'find "$fixture" -type f -delete; find "$fixture" -depth -type d -exec rmdir {} \; 2>/dev/null || true' EXIT
     mkdir -p "$fixture/abi" "$fixture/host"
-    for path in budget.rs abi/mod.rs abi/balance.rs abi/capability.rs abi/codec.rs abi/context.rs abi/event_tests.rs abi/host_state.rs abi/manifest.rs abi/response.rs abi/storage_ops.rs host/mod.rs host/balance.rs host/context.rs host/memory.rs host/storage.rs host/events.rs host/calls.rs host/transfer.rs host/scan.rs host/crypto.rs host/signature.rs host/oracle.rs host/web.rs
+    for path in budget.rs abi/mod.rs abi/balance.rs abi/capability.rs abi/codec.rs abi/context.rs abi/event_tests.rs abi/host_state.rs abi/manifest.rs abi/response.rs abi/storage_ops.rs host/mod.rs host/balance.rs host/context.rs host/memory.rs host/storage.rs host/events.rs host/calls.rs host/transfer.rs host/scan.rs host/scan_tests.rs host/crypto.rs host/signature.rs host/oracle.rs host/web.rs host/market.rs
     do
         : > "$fixture/$path"
     done
@@ -168,6 +168,15 @@ if [ "${1:-}" = "--self-test" ]; then
             exit 1
         fi
         : > "$fixture/host/$probe_family.rs"
+    done
+    for module in market scan_tests
+    do
+        rm -f "$fixture/host/$module.rs"
+        if check_root "$fixture" >/dev/null 2>&1; then
+            echo "runtime module boundary self-test: missing $module module was accepted" >&2
+            exit 1
+        fi
+        : > "$fixture/host/$module.rs"
     done
     : > "$fixture/host/unlisted.rs"
     if check_root "$fixture" >/dev/null 2>&1; then

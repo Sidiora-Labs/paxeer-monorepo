@@ -20,7 +20,7 @@ fn qualification_refuses_reentry() {
         let output = Command::new("python3")
             .arg("-c")
             .arg(
-                r#"
+                r"
 import os
 import runpy
 import sys
@@ -39,7 +39,7 @@ try:
     runpy.run_path(sys.argv[0], run_name='__main__')
 finally:
     print(f'qualification child process starts: {len(process_starts)}')
-"#,
+",
             )
             .arg(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/real_chain.py"))
             .arg(env!("CARGO_BIN_EXE_layerx-paxeer-boundary"))
@@ -52,11 +52,13 @@ finally:
             .unwrap_or_else(|error| panic!("launch re-entry qualification: {error}"));
         assert_eq!(output.status.code(), Some(2), "{output:?}");
         assert_eq!(
-            String::from_utf8(output.stderr).expect("qualification stderr is UTF-8"),
+            String::from_utf8(output.stderr)
+                .unwrap_or_else(|error| panic!("qualification stderr is UTF-8: {error:?}")),
             "refusing qualification re-entry: LAYERX_PAXEER_QUALIFICATION_ACTIVE is already set\n"
         );
         assert_eq!(
-            String::from_utf8(output.stdout).expect("qualification stdout is UTF-8"),
+            String::from_utf8(output.stdout)
+                .unwrap_or_else(|error| panic!("qualification stdout is UTF-8: {error:?}")),
             "qualification child process starts: 0\n",
             "qualification must refuse before launching any chain or boundary process"
         );

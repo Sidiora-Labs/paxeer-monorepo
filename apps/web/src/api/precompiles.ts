@@ -406,9 +406,13 @@ function logPosition(recipient: string, cursor: string): BridgeLogPosition {
       !parts.slice(2).every((value) => /^(0|[1-9][0-9]{0,77})$/u.test(value))) {
     throw new RangeError("invalid bridge history cursor");
   }
-  const head = BigInt(parts[2]!);
-  const floor = BigInt(parts[3]!);
-  const upper = BigInt(parts[4]!);
+  const [, , headPart, floorPart, upperPart] = parts;
+  if (headPart === undefined || floorPart === undefined || upperPart === undefined) {
+    throw new RangeError("invalid bridge history cursor");
+  }
+  const head = BigInt(headPart);
+  const floor = BigInt(floorPart);
+  const upper = BigInt(upperPart);
   const expectedFloor = head >= PRECOMPILE_LOG_WINDOW ? head - PRECOMPILE_LOG_WINDOW + 1n : 0n;
   if (head >= 1n << 256n || floor !== expectedFloor || upper < floor || upper > head ||
       (head - upper) % PRECOMPILE_LOG_CHUNK !== 0n) throw new RangeError("invalid bridge history position");
@@ -454,7 +458,7 @@ export async function bridgeActivityPage(recipient: string, cursor?: string): Pr
         continue;
       }
       if (entry.event.fields.recipient !== recipient.toLowerCase()) continue;
-      const key = `${entry.blockNumber}:${entry.transactionHash.toLowerCase()}:${entry.logIndex}`;
+      const key = `${entry.blockNumber.toString()}:${entry.transactionHash.toLowerCase()}:${entry.logIndex.toString()}`;
       const previous = events.get(key);
       if (previous !== undefined && (previous.event.event !== entry.event.event ||
           JSON.stringify(previous.event.fields, (_, value: unknown) => typeof value === "bigint" ? value.toString() : value) !==
@@ -473,7 +477,7 @@ export async function bridgeActivityPage(recipient: string, cursor?: string): Pr
     items: newestFirst([...events.values()]), nextCursor,
     status: unavailable ? "unavailable" : nextCursor === null ? "complete" : "partial",
     detail: unavailable ? failures.join("; ") : nextCursor === null ? null
-      : `Bridge history covers blocks ${fromBlock}–${position.upper}; older activity requires continuation.`,
+      : `Bridge history covers blocks ${fromBlock.toString()}–${position.upper.toString()}; older activity requires continuation.`,
     head: position.head,
   };
 }

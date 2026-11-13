@@ -29,9 +29,18 @@ var (
 	_ = abi.ConvertType
 )
 
+// ILaunchpadPermitParams is an auto generated low-level Go binding around an user-defined struct.
+type ILaunchpadPermitParams struct {
+	Value    *big.Int
+	Deadline *big.Int
+	V        uint8
+	R        [32]byte
+	S        [32]byte
+}
+
 // NativeLaunchpadMetaData contains all meta data concerning the NativeLaunchpad contract.
 var NativeLaunchpadMetaData = &bind.MetaData{
-	ABI: "[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"key\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"poolId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"strategy\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"FeeDistributed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint8\",\"name\":\"kind\",\"type\":\"uint8\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"party\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"protocolCut\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"poolCut\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"FeeFlow\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"poolId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"oldStrategy\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"newStrategy\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"FeeStrategyChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"poolId\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"optical\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"MarketCreated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"strategy\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"NftMint\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nft\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"NftTransfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"optical\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"PoolRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"poolId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"virtualReserve\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"realReserve\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokenReserve\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"PoolStateUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint8\",\"name\":\"kind\",\"type\":\"uint8\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"tokenIn\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"tokenOut\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amountIn\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"intermediateUsdl\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"RouterTrade\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"poolId\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"isBuy\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amountIn\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"Swap\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"salt\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"totalSupply\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"TokenDeployed\",\"type\":\"event\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"uint8\",\"name\":\"feeStrategy\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"optical\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"chainName\",\"type\":\"string\"},{\"internalType\":\"uint64\",\"name\":\"gasAllowance\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"byteAllowance\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"feeShareBps\",\"type\":\"uint16\"}],\"name\":\"launchChain\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"tokenAddr\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"poolAddr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"uint8\",\"name\":\"feeStrategy\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"optical\",\"type\":\"address\"},{\"internalType\":\"string\",\"name\":\"chainName\",\"type\":\"string\"},{\"internalType\":\"uint64\",\"name\":\"gasAllowance\",\"type\":\"uint64\"},{\"internalType\":\"uint64\",\"name\":\"byteAllowance\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"feeShareBps\",\"type\":\"uint16\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structILaunchpad.PermitParams\",\"name\":\"permit\",\"type\":\"tuple\"}],\"name\":\"launchChainWithPermit\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"tokenAddr\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"poolAddr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"},{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"}],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"}],\"name\":\"openChainRevenueEpoch\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"epoch\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"epochAmount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"epoch\",\"type\":\"uint64\"}],\"name\":\"claimChainRevenue\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"},{\"internalType\":\"uint64[]\",\"name\":\"epochs\",\"type\":\"uint64[]\"}],\"name\":\"claimChainRevenueBatch\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"totalAmount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"}],\"name\":\"pauseLaunchedChain\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"}],\"name\":\"resumeLaunchedChain\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"}],\"name\":\"retireLaunchedChain\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"}],\"name\":\"launchedChain\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"registryNumber\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"blockNumber\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"launchedChainOfPool\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"homeChainOf\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"epoch\",\"type\":\"uint64\"}],\"name\":\"chainRevenueEpoch\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"registryNumber\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"epochNumber\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"epochAmount\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"snapshotBlock\",\"type\":\"uint64\"},{\"internalType\":\"uint256\",\"name\":\"eligibleSupply\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"claimedTotal\",\"type\":\"uint256\"},{\"internalType\":\"uint64\",\"name\":\"openedAt\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\"},{\"internalType\":\"uint64\",\"name\":\"epoch\",\"type\":\"uint64\"},{\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\"}],\"name\":\"chainRevenueClaimable\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"key\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"oldValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"newValue\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"ConfigUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"poolId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"strategy\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"FeeDistributed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint8\",\"name\":\"kind\",\"type\":\"uint8\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"party\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"protocolCut\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"poolCut\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"FeeFlow\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\",\"indexed\":true},{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\",\"indexed\":true},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\",\"indexed\":true},{\"internalType\":\"uint64\",\"name\":\"chainId\",\"type\":\"uint64\",\"indexed\":false},{\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\",\"indexed\":false},{\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\",\"indexed\":false},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false},{\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\",\"indexed\":false}],\"name\":\"ChainLaunched\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\",\"indexed\":true},{\"internalType\":\"uint64\",\"name\":\"epoch\",\"type\":\"uint64\",\"indexed\":true},{\"internalType\":\"uint256\",\"name\":\"epochAmount\",\"type\":\"uint256\",\"indexed\":false},{\"internalType\":\"uint64\",\"name\":\"snapshotBlock\",\"type\":\"uint64\",\"indexed\":false},{\"internalType\":\"uint256\",\"name\":\"eligibleSupply\",\"type\":\"uint256\",\"indexed\":false},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false},{\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\",\"indexed\":false}],\"name\":\"ChainRevenueEpochOpened\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\",\"indexed\":true},{\"internalType\":\"uint64\",\"name\":\"epoch\",\"type\":\"uint64\",\"indexed\":true},{\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\",\"indexed\":true},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false},{\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\",\"indexed\":false}],\"name\":\"ChainRevenueClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"internalType\":\"uint32\",\"name\":\"chain\",\"type\":\"uint32\",\"indexed\":true},{\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\",\"indexed\":true},{\"internalType\":\"uint256\",\"name\":\"bond\",\"type\":\"uint256\",\"indexed\":false},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\",\"indexed\":false},{\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\",\"indexed\":false}],\"name\":\"LaunchedChainRetired\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"poolId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"oldStrategy\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"newStrategy\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"FeeStrategyChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"poolId\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"optical\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"MarketCreated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"strategy\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"NftMint\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"nft\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokenId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"NftTransfer\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"optical\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"PoolRegistered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"poolId\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"virtualReserve\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"realReserve\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokenReserve\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"PoolStateUpdated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint8\",\"name\":\"kind\",\"type\":\"uint8\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"tokenIn\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"tokenOut\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amountIn\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"intermediateUsdl\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"RouterTrade\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"poolId\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"isBuy\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amountIn\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"price\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"Swap\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"salt\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"indexed\":false,\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"totalSupply\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"}],\"name\":\"TokenDeployed\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"AccessControlUnauthorizedAccount\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AirdropNotTriggered\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AlreadyClaimed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AlreadyInitialized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AlreadyMinted\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ApproveFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DeadlineExpired\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DivisionByZero\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicatePool\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DuplicateToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"FeeOutOfRange\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"FutureLookup\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"IndexOutOfBounds\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientAllowance\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientBalance\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientCreationFee\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientInput\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientLiquidity\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientSurplus\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidBalance\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidConfiguration\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidHookResponse\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidImplementation\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidPermit\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidPoolBinding\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRoleAccount\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidStrategy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LastDefaultAdmin\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"MissingRole\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"MulticallFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NoFeesAccumulated\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NonERC721Receiver\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NonPayableUpgrade\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotApproved\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotInitializing\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotNftOwner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotPaused\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotTokenOwner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OpticalQuoteUnsupported\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Overflow\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Paused\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PermitExpired\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PoolIndexMigrationRequired\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PoolNotFound\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrancyGuardReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrantCall\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"Retired\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SameToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SlippageExceeded\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TokenNotFound\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TransferFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TransferFromFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UUPSNotThroughActiveProxy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UUPSNotThroughProxy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Unauthorized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnauthorizedUpgrade\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnexecutableQuote\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnsupportedSnapshotToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpgradeInitializationFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VirtualFloorBreached\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WrongStrategy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddress\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAmount\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"EpochTooEarly\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotFeeRightHolder\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotLaunchedChain\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NothingToDistribute\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WrongChain\",\"type\":\"error\"}]",
 }
 
 // NativeLaunchpadABI is the input ABI used to generate the binding from.
@@ -178,6 +187,897 @@ func (_NativeLaunchpad *NativeLaunchpadTransactorRaw) Transfer(opts *bind.Transa
 // Transact invokes the (paid) contract method with params as input values.
 func (_NativeLaunchpad *NativeLaunchpadTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
 	return _NativeLaunchpad.Contract.contract.Transact(opts, method, params...)
+}
+
+// ChainRevenueClaimable is a free data retrieval call binding the contract method 0xaea55ee3.
+//
+// Solidity: function chainRevenueClaimable(uint32 chain, uint64 epoch, address holder) view returns(uint256 amount)
+func (_NativeLaunchpad *NativeLaunchpadCaller) ChainRevenueClaimable(opts *bind.CallOpts, chain uint32, epoch uint64, holder common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _NativeLaunchpad.contract.Call(opts, &out, "chainRevenueClaimable", chain, epoch, holder)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// ChainRevenueClaimable is a free data retrieval call binding the contract method 0xaea55ee3.
+//
+// Solidity: function chainRevenueClaimable(uint32 chain, uint64 epoch, address holder) view returns(uint256 amount)
+func (_NativeLaunchpad *NativeLaunchpadSession) ChainRevenueClaimable(chain uint32, epoch uint64, holder common.Address) (*big.Int, error) {
+	return _NativeLaunchpad.Contract.ChainRevenueClaimable(&_NativeLaunchpad.CallOpts, chain, epoch, holder)
+}
+
+// ChainRevenueClaimable is a free data retrieval call binding the contract method 0xaea55ee3.
+//
+// Solidity: function chainRevenueClaimable(uint32 chain, uint64 epoch, address holder) view returns(uint256 amount)
+func (_NativeLaunchpad *NativeLaunchpadCallerSession) ChainRevenueClaimable(chain uint32, epoch uint64, holder common.Address) (*big.Int, error) {
+	return _NativeLaunchpad.Contract.ChainRevenueClaimable(&_NativeLaunchpad.CallOpts, chain, epoch, holder)
+}
+
+// ChainRevenueEpoch is a free data retrieval call binding the contract method 0xcd8063f7.
+//
+// Solidity: function chainRevenueEpoch(uint32 chain, uint64 epoch) view returns(uint32 registryNumber, uint64 epochNumber, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 claimedTotal, uint64 openedAt)
+func (_NativeLaunchpad *NativeLaunchpadCaller) ChainRevenueEpoch(opts *bind.CallOpts, chain uint32, epoch uint64) (struct {
+	RegistryNumber uint32
+	EpochNumber    uint64
+	EpochAmount    *big.Int
+	SnapshotBlock  uint64
+	EligibleSupply *big.Int
+	ClaimedTotal   *big.Int
+	OpenedAt       uint64
+}, error) {
+	var out []interface{}
+	err := _NativeLaunchpad.contract.Call(opts, &out, "chainRevenueEpoch", chain, epoch)
+
+	outstruct := new(struct {
+		RegistryNumber uint32
+		EpochNumber    uint64
+		EpochAmount    *big.Int
+		SnapshotBlock  uint64
+		EligibleSupply *big.Int
+		ClaimedTotal   *big.Int
+		OpenedAt       uint64
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.RegistryNumber = *abi.ConvertType(out[0], new(uint32)).(*uint32)
+	outstruct.EpochNumber = *abi.ConvertType(out[1], new(uint64)).(*uint64)
+	outstruct.EpochAmount = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.SnapshotBlock = *abi.ConvertType(out[3], new(uint64)).(*uint64)
+	outstruct.EligibleSupply = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	outstruct.ClaimedTotal = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
+	outstruct.OpenedAt = *abi.ConvertType(out[6], new(uint64)).(*uint64)
+
+	return *outstruct, err
+
+}
+
+// ChainRevenueEpoch is a free data retrieval call binding the contract method 0xcd8063f7.
+//
+// Solidity: function chainRevenueEpoch(uint32 chain, uint64 epoch) view returns(uint32 registryNumber, uint64 epochNumber, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 claimedTotal, uint64 openedAt)
+func (_NativeLaunchpad *NativeLaunchpadSession) ChainRevenueEpoch(chain uint32, epoch uint64) (struct {
+	RegistryNumber uint32
+	EpochNumber    uint64
+	EpochAmount    *big.Int
+	SnapshotBlock  uint64
+	EligibleSupply *big.Int
+	ClaimedTotal   *big.Int
+	OpenedAt       uint64
+}, error) {
+	return _NativeLaunchpad.Contract.ChainRevenueEpoch(&_NativeLaunchpad.CallOpts, chain, epoch)
+}
+
+// ChainRevenueEpoch is a free data retrieval call binding the contract method 0xcd8063f7.
+//
+// Solidity: function chainRevenueEpoch(uint32 chain, uint64 epoch) view returns(uint32 registryNumber, uint64 epochNumber, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 claimedTotal, uint64 openedAt)
+func (_NativeLaunchpad *NativeLaunchpadCallerSession) ChainRevenueEpoch(chain uint32, epoch uint64) (struct {
+	RegistryNumber uint32
+	EpochNumber    uint64
+	EpochAmount    *big.Int
+	SnapshotBlock  uint64
+	EligibleSupply *big.Int
+	ClaimedTotal   *big.Int
+	OpenedAt       uint64
+}, error) {
+	return _NativeLaunchpad.Contract.ChainRevenueEpoch(&_NativeLaunchpad.CallOpts, chain, epoch)
+}
+
+// HomeChainOf is a free data retrieval call binding the contract method 0x81d1d524.
+//
+// Solidity: function homeChainOf(address pool) view returns(uint64 chainId)
+func (_NativeLaunchpad *NativeLaunchpadCaller) HomeChainOf(opts *bind.CallOpts, pool common.Address) (uint64, error) {
+	var out []interface{}
+	err := _NativeLaunchpad.contract.Call(opts, &out, "homeChainOf", pool)
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+// HomeChainOf is a free data retrieval call binding the contract method 0x81d1d524.
+//
+// Solidity: function homeChainOf(address pool) view returns(uint64 chainId)
+func (_NativeLaunchpad *NativeLaunchpadSession) HomeChainOf(pool common.Address) (uint64, error) {
+	return _NativeLaunchpad.Contract.HomeChainOf(&_NativeLaunchpad.CallOpts, pool)
+}
+
+// HomeChainOf is a free data retrieval call binding the contract method 0x81d1d524.
+//
+// Solidity: function homeChainOf(address pool) view returns(uint64 chainId)
+func (_NativeLaunchpad *NativeLaunchpadCallerSession) HomeChainOf(pool common.Address) (uint64, error) {
+	return _NativeLaunchpad.Contract.HomeChainOf(&_NativeLaunchpad.CallOpts, pool)
+}
+
+// LaunchedChain is a free data retrieval call binding the contract method 0x49e9a8e7.
+//
+// Solidity: function launchedChain(uint32 chain) view returns(uint32 registryNumber, uint64 chainId, address pool, address token, uint256 nftId, address creator, uint64 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadCaller) LaunchedChain(opts *bind.CallOpts, chain uint32) (struct {
+	RegistryNumber uint32
+	ChainId        uint64
+	Pool           common.Address
+	Token          common.Address
+	NftId          *big.Int
+	Creator        common.Address
+	BlockNumber    uint64
+}, error) {
+	var out []interface{}
+	err := _NativeLaunchpad.contract.Call(opts, &out, "launchedChain", chain)
+
+	outstruct := new(struct {
+		RegistryNumber uint32
+		ChainId        uint64
+		Pool           common.Address
+		Token          common.Address
+		NftId          *big.Int
+		Creator        common.Address
+		BlockNumber    uint64
+	})
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.RegistryNumber = *abi.ConvertType(out[0], new(uint32)).(*uint32)
+	outstruct.ChainId = *abi.ConvertType(out[1], new(uint64)).(*uint64)
+	outstruct.Pool = *abi.ConvertType(out[2], new(common.Address)).(*common.Address)
+	outstruct.Token = *abi.ConvertType(out[3], new(common.Address)).(*common.Address)
+	outstruct.NftId = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
+	outstruct.Creator = *abi.ConvertType(out[5], new(common.Address)).(*common.Address)
+	outstruct.BlockNumber = *abi.ConvertType(out[6], new(uint64)).(*uint64)
+
+	return *outstruct, err
+
+}
+
+// LaunchedChain is a free data retrieval call binding the contract method 0x49e9a8e7.
+//
+// Solidity: function launchedChain(uint32 chain) view returns(uint32 registryNumber, uint64 chainId, address pool, address token, uint256 nftId, address creator, uint64 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadSession) LaunchedChain(chain uint32) (struct {
+	RegistryNumber uint32
+	ChainId        uint64
+	Pool           common.Address
+	Token          common.Address
+	NftId          *big.Int
+	Creator        common.Address
+	BlockNumber    uint64
+}, error) {
+	return _NativeLaunchpad.Contract.LaunchedChain(&_NativeLaunchpad.CallOpts, chain)
+}
+
+// LaunchedChain is a free data retrieval call binding the contract method 0x49e9a8e7.
+//
+// Solidity: function launchedChain(uint32 chain) view returns(uint32 registryNumber, uint64 chainId, address pool, address token, uint256 nftId, address creator, uint64 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadCallerSession) LaunchedChain(chain uint32) (struct {
+	RegistryNumber uint32
+	ChainId        uint64
+	Pool           common.Address
+	Token          common.Address
+	NftId          *big.Int
+	Creator        common.Address
+	BlockNumber    uint64
+}, error) {
+	return _NativeLaunchpad.Contract.LaunchedChain(&_NativeLaunchpad.CallOpts, chain)
+}
+
+// LaunchedChainOfPool is a free data retrieval call binding the contract method 0x8a092d44.
+//
+// Solidity: function launchedChainOfPool(address pool) view returns(uint32 chain)
+func (_NativeLaunchpad *NativeLaunchpadCaller) LaunchedChainOfPool(opts *bind.CallOpts, pool common.Address) (uint32, error) {
+	var out []interface{}
+	err := _NativeLaunchpad.contract.Call(opts, &out, "launchedChainOfPool", pool)
+
+	if err != nil {
+		return *new(uint32), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint32)).(*uint32)
+
+	return out0, err
+
+}
+
+// LaunchedChainOfPool is a free data retrieval call binding the contract method 0x8a092d44.
+//
+// Solidity: function launchedChainOfPool(address pool) view returns(uint32 chain)
+func (_NativeLaunchpad *NativeLaunchpadSession) LaunchedChainOfPool(pool common.Address) (uint32, error) {
+	return _NativeLaunchpad.Contract.LaunchedChainOfPool(&_NativeLaunchpad.CallOpts, pool)
+}
+
+// LaunchedChainOfPool is a free data retrieval call binding the contract method 0x8a092d44.
+//
+// Solidity: function launchedChainOfPool(address pool) view returns(uint32 chain)
+func (_NativeLaunchpad *NativeLaunchpadCallerSession) LaunchedChainOfPool(pool common.Address) (uint32, error) {
+	return _NativeLaunchpad.Contract.LaunchedChainOfPool(&_NativeLaunchpad.CallOpts, pool)
+}
+
+// ClaimChainRevenue is a paid mutator transaction binding the contract method 0xf31a46ac.
+//
+// Solidity: function claimChainRevenue(uint32 chain, uint64 epoch) returns(uint256 amount)
+func (_NativeLaunchpad *NativeLaunchpadTransactor) ClaimChainRevenue(opts *bind.TransactOpts, chain uint32, epoch uint64) (*types.Transaction, error) {
+	return _NativeLaunchpad.contract.Transact(opts, "claimChainRevenue", chain, epoch)
+}
+
+// ClaimChainRevenue is a paid mutator transaction binding the contract method 0xf31a46ac.
+//
+// Solidity: function claimChainRevenue(uint32 chain, uint64 epoch) returns(uint256 amount)
+func (_NativeLaunchpad *NativeLaunchpadSession) ClaimChainRevenue(chain uint32, epoch uint64) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.ClaimChainRevenue(&_NativeLaunchpad.TransactOpts, chain, epoch)
+}
+
+// ClaimChainRevenue is a paid mutator transaction binding the contract method 0xf31a46ac.
+//
+// Solidity: function claimChainRevenue(uint32 chain, uint64 epoch) returns(uint256 amount)
+func (_NativeLaunchpad *NativeLaunchpadTransactorSession) ClaimChainRevenue(chain uint32, epoch uint64) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.ClaimChainRevenue(&_NativeLaunchpad.TransactOpts, chain, epoch)
+}
+
+// ClaimChainRevenueBatch is a paid mutator transaction binding the contract method 0xae3572e8.
+//
+// Solidity: function claimChainRevenueBatch(uint32 chain, uint64[] epochs) returns(uint256 totalAmount)
+func (_NativeLaunchpad *NativeLaunchpadTransactor) ClaimChainRevenueBatch(opts *bind.TransactOpts, chain uint32, epochs []uint64) (*types.Transaction, error) {
+	return _NativeLaunchpad.contract.Transact(opts, "claimChainRevenueBatch", chain, epochs)
+}
+
+// ClaimChainRevenueBatch is a paid mutator transaction binding the contract method 0xae3572e8.
+//
+// Solidity: function claimChainRevenueBatch(uint32 chain, uint64[] epochs) returns(uint256 totalAmount)
+func (_NativeLaunchpad *NativeLaunchpadSession) ClaimChainRevenueBatch(chain uint32, epochs []uint64) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.ClaimChainRevenueBatch(&_NativeLaunchpad.TransactOpts, chain, epochs)
+}
+
+// ClaimChainRevenueBatch is a paid mutator transaction binding the contract method 0xae3572e8.
+//
+// Solidity: function claimChainRevenueBatch(uint32 chain, uint64[] epochs) returns(uint256 totalAmount)
+func (_NativeLaunchpad *NativeLaunchpadTransactorSession) ClaimChainRevenueBatch(chain uint32, epochs []uint64) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.ClaimChainRevenueBatch(&_NativeLaunchpad.TransactOpts, chain, epochs)
+}
+
+// LaunchChain is a paid mutator transaction binding the contract method 0x1022e4cc.
+//
+// Solidity: function launchChain(string name, string symbol, uint8 feeStrategy, address optical, string chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps) payable returns(address tokenAddr, address poolAddr, uint256 nftId, uint32 chain, uint64 chainId)
+func (_NativeLaunchpad *NativeLaunchpadTransactor) LaunchChain(opts *bind.TransactOpts, name string, symbol string, feeStrategy uint8, optical common.Address, chainName string, gasAllowance uint64, byteAllowance uint64, feeShareBps uint16) (*types.Transaction, error) {
+	return _NativeLaunchpad.contract.Transact(opts, "launchChain", name, symbol, feeStrategy, optical, chainName, gasAllowance, byteAllowance, feeShareBps)
+}
+
+// LaunchChain is a paid mutator transaction binding the contract method 0x1022e4cc.
+//
+// Solidity: function launchChain(string name, string symbol, uint8 feeStrategy, address optical, string chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps) payable returns(address tokenAddr, address poolAddr, uint256 nftId, uint32 chain, uint64 chainId)
+func (_NativeLaunchpad *NativeLaunchpadSession) LaunchChain(name string, symbol string, feeStrategy uint8, optical common.Address, chainName string, gasAllowance uint64, byteAllowance uint64, feeShareBps uint16) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.LaunchChain(&_NativeLaunchpad.TransactOpts, name, symbol, feeStrategy, optical, chainName, gasAllowance, byteAllowance, feeShareBps)
+}
+
+// LaunchChain is a paid mutator transaction binding the contract method 0x1022e4cc.
+//
+// Solidity: function launchChain(string name, string symbol, uint8 feeStrategy, address optical, string chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps) payable returns(address tokenAddr, address poolAddr, uint256 nftId, uint32 chain, uint64 chainId)
+func (_NativeLaunchpad *NativeLaunchpadTransactorSession) LaunchChain(name string, symbol string, feeStrategy uint8, optical common.Address, chainName string, gasAllowance uint64, byteAllowance uint64, feeShareBps uint16) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.LaunchChain(&_NativeLaunchpad.TransactOpts, name, symbol, feeStrategy, optical, chainName, gasAllowance, byteAllowance, feeShareBps)
+}
+
+// LaunchChainWithPermit is a paid mutator transaction binding the contract method 0x0bac6d3e.
+//
+// Solidity: function launchChainWithPermit(string name, string symbol, uint8 feeStrategy, address optical, string chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps, (uint256,uint256,uint8,bytes32,bytes32) permit) payable returns(address tokenAddr, address poolAddr, uint256 nftId, uint32 chain, uint64 chainId)
+func (_NativeLaunchpad *NativeLaunchpadTransactor) LaunchChainWithPermit(opts *bind.TransactOpts, name string, symbol string, feeStrategy uint8, optical common.Address, chainName string, gasAllowance uint64, byteAllowance uint64, feeShareBps uint16, permit ILaunchpadPermitParams) (*types.Transaction, error) {
+	return _NativeLaunchpad.contract.Transact(opts, "launchChainWithPermit", name, symbol, feeStrategy, optical, chainName, gasAllowance, byteAllowance, feeShareBps, permit)
+}
+
+// LaunchChainWithPermit is a paid mutator transaction binding the contract method 0x0bac6d3e.
+//
+// Solidity: function launchChainWithPermit(string name, string symbol, uint8 feeStrategy, address optical, string chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps, (uint256,uint256,uint8,bytes32,bytes32) permit) payable returns(address tokenAddr, address poolAddr, uint256 nftId, uint32 chain, uint64 chainId)
+func (_NativeLaunchpad *NativeLaunchpadSession) LaunchChainWithPermit(name string, symbol string, feeStrategy uint8, optical common.Address, chainName string, gasAllowance uint64, byteAllowance uint64, feeShareBps uint16, permit ILaunchpadPermitParams) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.LaunchChainWithPermit(&_NativeLaunchpad.TransactOpts, name, symbol, feeStrategy, optical, chainName, gasAllowance, byteAllowance, feeShareBps, permit)
+}
+
+// LaunchChainWithPermit is a paid mutator transaction binding the contract method 0x0bac6d3e.
+//
+// Solidity: function launchChainWithPermit(string name, string symbol, uint8 feeStrategy, address optical, string chainName, uint64 gasAllowance, uint64 byteAllowance, uint16 feeShareBps, (uint256,uint256,uint8,bytes32,bytes32) permit) payable returns(address tokenAddr, address poolAddr, uint256 nftId, uint32 chain, uint64 chainId)
+func (_NativeLaunchpad *NativeLaunchpadTransactorSession) LaunchChainWithPermit(name string, symbol string, feeStrategy uint8, optical common.Address, chainName string, gasAllowance uint64, byteAllowance uint64, feeShareBps uint16, permit ILaunchpadPermitParams) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.LaunchChainWithPermit(&_NativeLaunchpad.TransactOpts, name, symbol, feeStrategy, optical, chainName, gasAllowance, byteAllowance, feeShareBps, permit)
+}
+
+// OpenChainRevenueEpoch is a paid mutator transaction binding the contract method 0xc1422f63.
+//
+// Solidity: function openChainRevenueEpoch(uint32 chain) returns(uint64 epoch, uint256 epochAmount)
+func (_NativeLaunchpad *NativeLaunchpadTransactor) OpenChainRevenueEpoch(opts *bind.TransactOpts, chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.contract.Transact(opts, "openChainRevenueEpoch", chain)
+}
+
+// OpenChainRevenueEpoch is a paid mutator transaction binding the contract method 0xc1422f63.
+//
+// Solidity: function openChainRevenueEpoch(uint32 chain) returns(uint64 epoch, uint256 epochAmount)
+func (_NativeLaunchpad *NativeLaunchpadSession) OpenChainRevenueEpoch(chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.OpenChainRevenueEpoch(&_NativeLaunchpad.TransactOpts, chain)
+}
+
+// OpenChainRevenueEpoch is a paid mutator transaction binding the contract method 0xc1422f63.
+//
+// Solidity: function openChainRevenueEpoch(uint32 chain) returns(uint64 epoch, uint256 epochAmount)
+func (_NativeLaunchpad *NativeLaunchpadTransactorSession) OpenChainRevenueEpoch(chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.OpenChainRevenueEpoch(&_NativeLaunchpad.TransactOpts, chain)
+}
+
+// PauseLaunchedChain is a paid mutator transaction binding the contract method 0x378c575a.
+//
+// Solidity: function pauseLaunchedChain(uint32 chain) returns()
+func (_NativeLaunchpad *NativeLaunchpadTransactor) PauseLaunchedChain(opts *bind.TransactOpts, chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.contract.Transact(opts, "pauseLaunchedChain", chain)
+}
+
+// PauseLaunchedChain is a paid mutator transaction binding the contract method 0x378c575a.
+//
+// Solidity: function pauseLaunchedChain(uint32 chain) returns()
+func (_NativeLaunchpad *NativeLaunchpadSession) PauseLaunchedChain(chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.PauseLaunchedChain(&_NativeLaunchpad.TransactOpts, chain)
+}
+
+// PauseLaunchedChain is a paid mutator transaction binding the contract method 0x378c575a.
+//
+// Solidity: function pauseLaunchedChain(uint32 chain) returns()
+func (_NativeLaunchpad *NativeLaunchpadTransactorSession) PauseLaunchedChain(chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.PauseLaunchedChain(&_NativeLaunchpad.TransactOpts, chain)
+}
+
+// ResumeLaunchedChain is a paid mutator transaction binding the contract method 0x3d183bdf.
+//
+// Solidity: function resumeLaunchedChain(uint32 chain) returns()
+func (_NativeLaunchpad *NativeLaunchpadTransactor) ResumeLaunchedChain(opts *bind.TransactOpts, chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.contract.Transact(opts, "resumeLaunchedChain", chain)
+}
+
+// ResumeLaunchedChain is a paid mutator transaction binding the contract method 0x3d183bdf.
+//
+// Solidity: function resumeLaunchedChain(uint32 chain) returns()
+func (_NativeLaunchpad *NativeLaunchpadSession) ResumeLaunchedChain(chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.ResumeLaunchedChain(&_NativeLaunchpad.TransactOpts, chain)
+}
+
+// ResumeLaunchedChain is a paid mutator transaction binding the contract method 0x3d183bdf.
+//
+// Solidity: function resumeLaunchedChain(uint32 chain) returns()
+func (_NativeLaunchpad *NativeLaunchpadTransactorSession) ResumeLaunchedChain(chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.ResumeLaunchedChain(&_NativeLaunchpad.TransactOpts, chain)
+}
+
+// RetireLaunchedChain is a paid mutator transaction binding the contract method 0x554c12a4.
+//
+// Solidity: function retireLaunchedChain(uint32 chain) returns()
+func (_NativeLaunchpad *NativeLaunchpadTransactor) RetireLaunchedChain(opts *bind.TransactOpts, chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.contract.Transact(opts, "retireLaunchedChain", chain)
+}
+
+// RetireLaunchedChain is a paid mutator transaction binding the contract method 0x554c12a4.
+//
+// Solidity: function retireLaunchedChain(uint32 chain) returns()
+func (_NativeLaunchpad *NativeLaunchpadSession) RetireLaunchedChain(chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.RetireLaunchedChain(&_NativeLaunchpad.TransactOpts, chain)
+}
+
+// RetireLaunchedChain is a paid mutator transaction binding the contract method 0x554c12a4.
+//
+// Solidity: function retireLaunchedChain(uint32 chain) returns()
+func (_NativeLaunchpad *NativeLaunchpadTransactorSession) RetireLaunchedChain(chain uint32) (*types.Transaction, error) {
+	return _NativeLaunchpad.Contract.RetireLaunchedChain(&_NativeLaunchpad.TransactOpts, chain)
+}
+
+// NativeLaunchpadChainLaunchedIterator is returned from FilterChainLaunched and is used to iterate over the raw logs and unpacked data for ChainLaunched events raised by the NativeLaunchpad contract.
+type NativeLaunchpadChainLaunchedIterator struct {
+	Event *NativeLaunchpadChainLaunched // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *NativeLaunchpadChainLaunchedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(NativeLaunchpadChainLaunched)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(NativeLaunchpadChainLaunched)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *NativeLaunchpadChainLaunchedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *NativeLaunchpadChainLaunchedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// NativeLaunchpadChainLaunched represents a ChainLaunched event raised by the NativeLaunchpad contract.
+type NativeLaunchpadChainLaunched struct {
+	Chain       uint32
+	Pool        common.Address
+	Token       common.Address
+	ChainId     uint64
+	NftId       *big.Int
+	Creator     common.Address
+	Timestamp   *big.Int
+	BlockNumber *big.Int
+	Raw         types.Log // Blockchain specific contextual infos
+}
+
+// FilterChainLaunched is a free log retrieval operation binding the contract event 0xcc3fdcbf1588c99f8d97297b1e742174af195b321237d1f9517f600bdb62817d.
+//
+// Solidity: event ChainLaunched(uint32 indexed chain, address indexed pool, address indexed token, uint64 chainId, uint256 nftId, address creator, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) FilterChainLaunched(opts *bind.FilterOpts, chain []uint32, pool []common.Address, token []common.Address) (*NativeLaunchpadChainLaunchedIterator, error) {
+
+	var chainRule []interface{}
+	for _, chainItem := range chain {
+		chainRule = append(chainRule, chainItem)
+	}
+	var poolRule []interface{}
+	for _, poolItem := range pool {
+		poolRule = append(poolRule, poolItem)
+	}
+	var tokenRule []interface{}
+	for _, tokenItem := range token {
+		tokenRule = append(tokenRule, tokenItem)
+	}
+
+	logs, sub, err := _NativeLaunchpad.contract.FilterLogs(opts, "ChainLaunched", chainRule, poolRule, tokenRule)
+	if err != nil {
+		return nil, err
+	}
+	return &NativeLaunchpadChainLaunchedIterator{contract: _NativeLaunchpad.contract, event: "ChainLaunched", logs: logs, sub: sub}, nil
+}
+
+// WatchChainLaunched is a free log subscription operation binding the contract event 0xcc3fdcbf1588c99f8d97297b1e742174af195b321237d1f9517f600bdb62817d.
+//
+// Solidity: event ChainLaunched(uint32 indexed chain, address indexed pool, address indexed token, uint64 chainId, uint256 nftId, address creator, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) WatchChainLaunched(opts *bind.WatchOpts, sink chan<- *NativeLaunchpadChainLaunched, chain []uint32, pool []common.Address, token []common.Address) (event.Subscription, error) {
+
+	var chainRule []interface{}
+	for _, chainItem := range chain {
+		chainRule = append(chainRule, chainItem)
+	}
+	var poolRule []interface{}
+	for _, poolItem := range pool {
+		poolRule = append(poolRule, poolItem)
+	}
+	var tokenRule []interface{}
+	for _, tokenItem := range token {
+		tokenRule = append(tokenRule, tokenItem)
+	}
+
+	logs, sub, err := _NativeLaunchpad.contract.WatchLogs(opts, "ChainLaunched", chainRule, poolRule, tokenRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(NativeLaunchpadChainLaunched)
+				if err := _NativeLaunchpad.contract.UnpackLog(event, "ChainLaunched", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseChainLaunched is a log parse operation binding the contract event 0xcc3fdcbf1588c99f8d97297b1e742174af195b321237d1f9517f600bdb62817d.
+//
+// Solidity: event ChainLaunched(uint32 indexed chain, address indexed pool, address indexed token, uint64 chainId, uint256 nftId, address creator, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) ParseChainLaunched(log types.Log) (*NativeLaunchpadChainLaunched, error) {
+	event := new(NativeLaunchpadChainLaunched)
+	if err := _NativeLaunchpad.contract.UnpackLog(event, "ChainLaunched", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// NativeLaunchpadChainRevenueClaimedIterator is returned from FilterChainRevenueClaimed and is used to iterate over the raw logs and unpacked data for ChainRevenueClaimed events raised by the NativeLaunchpad contract.
+type NativeLaunchpadChainRevenueClaimedIterator struct {
+	Event *NativeLaunchpadChainRevenueClaimed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *NativeLaunchpadChainRevenueClaimedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(NativeLaunchpadChainRevenueClaimed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(NativeLaunchpadChainRevenueClaimed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *NativeLaunchpadChainRevenueClaimedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *NativeLaunchpadChainRevenueClaimedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// NativeLaunchpadChainRevenueClaimed represents a ChainRevenueClaimed event raised by the NativeLaunchpad contract.
+type NativeLaunchpadChainRevenueClaimed struct {
+	Chain       uint32
+	Epoch       uint64
+	Holder      common.Address
+	Amount      *big.Int
+	Timestamp   *big.Int
+	BlockNumber *big.Int
+	Raw         types.Log // Blockchain specific contextual infos
+}
+
+// FilterChainRevenueClaimed is a free log retrieval operation binding the contract event 0x1e561bbeb84dbf638f5444931d883ff8a4ff458bea55b7c85f2f198bcd17630e.
+//
+// Solidity: event ChainRevenueClaimed(uint32 indexed chain, uint64 indexed epoch, address indexed holder, uint256 amount, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) FilterChainRevenueClaimed(opts *bind.FilterOpts, chain []uint32, epoch []uint64, holder []common.Address) (*NativeLaunchpadChainRevenueClaimedIterator, error) {
+
+	var chainRule []interface{}
+	for _, chainItem := range chain {
+		chainRule = append(chainRule, chainItem)
+	}
+	var epochRule []interface{}
+	for _, epochItem := range epoch {
+		epochRule = append(epochRule, epochItem)
+	}
+	var holderRule []interface{}
+	for _, holderItem := range holder {
+		holderRule = append(holderRule, holderItem)
+	}
+
+	logs, sub, err := _NativeLaunchpad.contract.FilterLogs(opts, "ChainRevenueClaimed", chainRule, epochRule, holderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &NativeLaunchpadChainRevenueClaimedIterator{contract: _NativeLaunchpad.contract, event: "ChainRevenueClaimed", logs: logs, sub: sub}, nil
+}
+
+// WatchChainRevenueClaimed is a free log subscription operation binding the contract event 0x1e561bbeb84dbf638f5444931d883ff8a4ff458bea55b7c85f2f198bcd17630e.
+//
+// Solidity: event ChainRevenueClaimed(uint32 indexed chain, uint64 indexed epoch, address indexed holder, uint256 amount, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) WatchChainRevenueClaimed(opts *bind.WatchOpts, sink chan<- *NativeLaunchpadChainRevenueClaimed, chain []uint32, epoch []uint64, holder []common.Address) (event.Subscription, error) {
+
+	var chainRule []interface{}
+	for _, chainItem := range chain {
+		chainRule = append(chainRule, chainItem)
+	}
+	var epochRule []interface{}
+	for _, epochItem := range epoch {
+		epochRule = append(epochRule, epochItem)
+	}
+	var holderRule []interface{}
+	for _, holderItem := range holder {
+		holderRule = append(holderRule, holderItem)
+	}
+
+	logs, sub, err := _NativeLaunchpad.contract.WatchLogs(opts, "ChainRevenueClaimed", chainRule, epochRule, holderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(NativeLaunchpadChainRevenueClaimed)
+				if err := _NativeLaunchpad.contract.UnpackLog(event, "ChainRevenueClaimed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseChainRevenueClaimed is a log parse operation binding the contract event 0x1e561bbeb84dbf638f5444931d883ff8a4ff458bea55b7c85f2f198bcd17630e.
+//
+// Solidity: event ChainRevenueClaimed(uint32 indexed chain, uint64 indexed epoch, address indexed holder, uint256 amount, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) ParseChainRevenueClaimed(log types.Log) (*NativeLaunchpadChainRevenueClaimed, error) {
+	event := new(NativeLaunchpadChainRevenueClaimed)
+	if err := _NativeLaunchpad.contract.UnpackLog(event, "ChainRevenueClaimed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// NativeLaunchpadChainRevenueEpochOpenedIterator is returned from FilterChainRevenueEpochOpened and is used to iterate over the raw logs and unpacked data for ChainRevenueEpochOpened events raised by the NativeLaunchpad contract.
+type NativeLaunchpadChainRevenueEpochOpenedIterator struct {
+	Event *NativeLaunchpadChainRevenueEpochOpened // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *NativeLaunchpadChainRevenueEpochOpenedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(NativeLaunchpadChainRevenueEpochOpened)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(NativeLaunchpadChainRevenueEpochOpened)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *NativeLaunchpadChainRevenueEpochOpenedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *NativeLaunchpadChainRevenueEpochOpenedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// NativeLaunchpadChainRevenueEpochOpened represents a ChainRevenueEpochOpened event raised by the NativeLaunchpad contract.
+type NativeLaunchpadChainRevenueEpochOpened struct {
+	Chain          uint32
+	Epoch          uint64
+	EpochAmount    *big.Int
+	SnapshotBlock  uint64
+	EligibleSupply *big.Int
+	Timestamp      *big.Int
+	BlockNumber    *big.Int
+	Raw            types.Log // Blockchain specific contextual infos
+}
+
+// FilterChainRevenueEpochOpened is a free log retrieval operation binding the contract event 0x052cccce5cfb5c079d591a2ac716ddd1759e66d62f036bd44be608ac47615703.
+//
+// Solidity: event ChainRevenueEpochOpened(uint32 indexed chain, uint64 indexed epoch, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) FilterChainRevenueEpochOpened(opts *bind.FilterOpts, chain []uint32, epoch []uint64) (*NativeLaunchpadChainRevenueEpochOpenedIterator, error) {
+
+	var chainRule []interface{}
+	for _, chainItem := range chain {
+		chainRule = append(chainRule, chainItem)
+	}
+	var epochRule []interface{}
+	for _, epochItem := range epoch {
+		epochRule = append(epochRule, epochItem)
+	}
+
+	logs, sub, err := _NativeLaunchpad.contract.FilterLogs(opts, "ChainRevenueEpochOpened", chainRule, epochRule)
+	if err != nil {
+		return nil, err
+	}
+	return &NativeLaunchpadChainRevenueEpochOpenedIterator{contract: _NativeLaunchpad.contract, event: "ChainRevenueEpochOpened", logs: logs, sub: sub}, nil
+}
+
+// WatchChainRevenueEpochOpened is a free log subscription operation binding the contract event 0x052cccce5cfb5c079d591a2ac716ddd1759e66d62f036bd44be608ac47615703.
+//
+// Solidity: event ChainRevenueEpochOpened(uint32 indexed chain, uint64 indexed epoch, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) WatchChainRevenueEpochOpened(opts *bind.WatchOpts, sink chan<- *NativeLaunchpadChainRevenueEpochOpened, chain []uint32, epoch []uint64) (event.Subscription, error) {
+
+	var chainRule []interface{}
+	for _, chainItem := range chain {
+		chainRule = append(chainRule, chainItem)
+	}
+	var epochRule []interface{}
+	for _, epochItem := range epoch {
+		epochRule = append(epochRule, epochItem)
+	}
+
+	logs, sub, err := _NativeLaunchpad.contract.WatchLogs(opts, "ChainRevenueEpochOpened", chainRule, epochRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(NativeLaunchpadChainRevenueEpochOpened)
+				if err := _NativeLaunchpad.contract.UnpackLog(event, "ChainRevenueEpochOpened", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseChainRevenueEpochOpened is a log parse operation binding the contract event 0x052cccce5cfb5c079d591a2ac716ddd1759e66d62f036bd44be608ac47615703.
+//
+// Solidity: event ChainRevenueEpochOpened(uint32 indexed chain, uint64 indexed epoch, uint256 epochAmount, uint64 snapshotBlock, uint256 eligibleSupply, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) ParseChainRevenueEpochOpened(log types.Log) (*NativeLaunchpadChainRevenueEpochOpened, error) {
+	event := new(NativeLaunchpadChainRevenueEpochOpened)
+	if err := _NativeLaunchpad.contract.UnpackLog(event, "ChainRevenueEpochOpened", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
 }
 
 // NativeLaunchpadConfigUpdatedIterator is returned from FilterConfigUpdated and is used to iterate over the raw logs and unpacked data for ConfigUpdated events raised by the NativeLaunchpad contract.
@@ -789,6 +1689,162 @@ func (_NativeLaunchpad *NativeLaunchpadFilterer) WatchFeeStrategyChanged(opts *b
 func (_NativeLaunchpad *NativeLaunchpadFilterer) ParseFeeStrategyChanged(log types.Log) (*NativeLaunchpadFeeStrategyChanged, error) {
 	event := new(NativeLaunchpadFeeStrategyChanged)
 	if err := _NativeLaunchpad.contract.UnpackLog(event, "FeeStrategyChanged", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// NativeLaunchpadLaunchedChainRetiredIterator is returned from FilterLaunchedChainRetired and is used to iterate over the raw logs and unpacked data for LaunchedChainRetired events raised by the NativeLaunchpad contract.
+type NativeLaunchpadLaunchedChainRetiredIterator struct {
+	Event *NativeLaunchpadLaunchedChainRetired // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *NativeLaunchpadLaunchedChainRetiredIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(NativeLaunchpadLaunchedChainRetired)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(NativeLaunchpadLaunchedChainRetired)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *NativeLaunchpadLaunchedChainRetiredIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *NativeLaunchpadLaunchedChainRetiredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// NativeLaunchpadLaunchedChainRetired represents a LaunchedChainRetired event raised by the NativeLaunchpad contract.
+type NativeLaunchpadLaunchedChainRetired struct {
+	Chain       uint32
+	Holder      common.Address
+	Bond        *big.Int
+	Timestamp   *big.Int
+	BlockNumber *big.Int
+	Raw         types.Log // Blockchain specific contextual infos
+}
+
+// FilterLaunchedChainRetired is a free log retrieval operation binding the contract event 0x562436e1654eaa173e7e0825a3f072b8d0f9056f0ae31ef5c72a894137a0392a.
+//
+// Solidity: event LaunchedChainRetired(uint32 indexed chain, address indexed holder, uint256 bond, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) FilterLaunchedChainRetired(opts *bind.FilterOpts, chain []uint32, holder []common.Address) (*NativeLaunchpadLaunchedChainRetiredIterator, error) {
+
+	var chainRule []interface{}
+	for _, chainItem := range chain {
+		chainRule = append(chainRule, chainItem)
+	}
+	var holderRule []interface{}
+	for _, holderItem := range holder {
+		holderRule = append(holderRule, holderItem)
+	}
+
+	logs, sub, err := _NativeLaunchpad.contract.FilterLogs(opts, "LaunchedChainRetired", chainRule, holderRule)
+	if err != nil {
+		return nil, err
+	}
+	return &NativeLaunchpadLaunchedChainRetiredIterator{contract: _NativeLaunchpad.contract, event: "LaunchedChainRetired", logs: logs, sub: sub}, nil
+}
+
+// WatchLaunchedChainRetired is a free log subscription operation binding the contract event 0x562436e1654eaa173e7e0825a3f072b8d0f9056f0ae31ef5c72a894137a0392a.
+//
+// Solidity: event LaunchedChainRetired(uint32 indexed chain, address indexed holder, uint256 bond, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) WatchLaunchedChainRetired(opts *bind.WatchOpts, sink chan<- *NativeLaunchpadLaunchedChainRetired, chain []uint32, holder []common.Address) (event.Subscription, error) {
+
+	var chainRule []interface{}
+	for _, chainItem := range chain {
+		chainRule = append(chainRule, chainItem)
+	}
+	var holderRule []interface{}
+	for _, holderItem := range holder {
+		holderRule = append(holderRule, holderItem)
+	}
+
+	logs, sub, err := _NativeLaunchpad.contract.WatchLogs(opts, "LaunchedChainRetired", chainRule, holderRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(NativeLaunchpadLaunchedChainRetired)
+				if err := _NativeLaunchpad.contract.UnpackLog(event, "LaunchedChainRetired", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseLaunchedChainRetired is a log parse operation binding the contract event 0x562436e1654eaa173e7e0825a3f072b8d0f9056f0ae31ef5c72a894137a0392a.
+//
+// Solidity: event LaunchedChainRetired(uint32 indexed chain, address indexed holder, uint256 bond, uint256 timestamp, uint256 blockNumber)
+func (_NativeLaunchpad *NativeLaunchpadFilterer) ParseLaunchedChainRetired(log types.Log) (*NativeLaunchpadLaunchedChainRetired, error) {
+	event := new(NativeLaunchpadLaunchedChainRetired)
+	if err := _NativeLaunchpad.contract.UnpackLog(event, "LaunchedChainRetired", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log

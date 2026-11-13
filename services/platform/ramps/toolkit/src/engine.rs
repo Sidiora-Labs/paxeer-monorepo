@@ -187,9 +187,10 @@ impl RampEngine<'_> {
         let expected = snapshot.stage;
         if !matches!(
             (snapshot.order.direction(), expected),
-            (RampDirection::OnRamp, WorkflowStage::ProviderSettled)
-                | (RampDirection::OnRamp, WorkflowStage::SourceSettledV2)
-                | (RampDirection::OffRamp, WorkflowStage::AwaitingLayerxPayment)
+            (
+                RampDirection::OnRamp,
+                WorkflowStage::ProviderSettled | WorkflowStage::SourceSettledV2
+            ) | (RampDirection::OffRamp, WorkflowStage::AwaitingLayerxPayment)
         ) {
             return Err(RampError::IllegalTransition);
         }
@@ -201,6 +202,8 @@ impl RampEngine<'_> {
     }
 
     /// Journals and submits the exact transaction authorized by the customer.
+    /// # Errors
+    /// Returns an error if the order is not awaiting payment or preparation, submission, or journaling fails.
     pub fn submit_customer_payment(
         &mut self,
         order_digest: [u8; 32],
@@ -332,11 +335,11 @@ impl RampEngine<'_> {
                 evidence.receipt_digest = Some(leg.receipt_digest);
                 evidence.receipt_height = Some(leg.height);
                 evidence.rung = Some(leg.rung);
-                if leg.rung != Rung::Committed {
+                if leg.rung == Rung::Committed {
+                    WorkflowStage::LayerxVerified
+                } else {
                     evidence.retry_at = Some(now.saturating_add(self.lease_seconds));
                     WorkflowStage::LayerxPending
-                } else {
-                    WorkflowStage::LayerxVerified
                 }
             }
         };
@@ -415,7 +418,7 @@ pub struct InventoryRebalancer<'a> {
     pub layerx: &'a LayerxClient,
 }
 
-impl<'InventoryRebalancer> InventoryRebalancer<'InventoryRebalancer> {
+impl InventoryRebalancer<'_> {
     /// # Errors
     /// Returns [`RampError::Conflict`] when the idempotency key has different terms,
     /// [`RampError::Paxeer`] when custody broadcast fails, and

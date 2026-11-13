@@ -1,90 +1,62 @@
 # Share refresh cadence
 
-`keys.refresh` replaces every holder's share of a key with a new share of the
-same key. The public key, the address and the DID do not change; every share
-issued before the refresh stops combining with the new ones. A refresh bounds
-how long a stolen share is worth anything.
+`POST /v1/keys/refresh` replaces each holder's share while preserving the key's
+public key, address and DID. The new shares use the next epoch and do not
+combine with shares from the previous epoch. The operation requires all current
+holders and an operator client certificate.
 
-## Trigger
-
-- The fixed cadence: every `<refresh-interval>` set by the owner, counted from
-  the last completed refresh in the operator's change record, which includes
-  the command, exit code and log path.
-- Immediately after any `keys.addshare` (see `node-replacement.md`), for the
-  key that gained a share.
-- Immediately, for every key, on a suspected compromise of any node's machine,
-  volume, node key, backup key or TLS material, or of the operations
-  application.
-- After an import during the migration ceremony; the ceremony tool triggers it
-  itself for every key it delivers.
+Refresh at the configured custody cadence, after add-share, and after importing
+a key through a ceremony. Isolate a suspected compromised participant and use
+[node replacement](node-replacement.md) before including a new holder.
 
 ## Preconditions
 
-- All five holders of the key answer ready: `keys.refresh` runs over every
-  holder the key lists, so one unreachable holder fails the session. A key
-  whose holder is lost is replaced first by `node-replacement.md`.
-- The operator shell of `node-replacement.md` (the `CHECK_LIVE_` variables and
-  `attestor_post`), inside the platform private network through
-  `flyctl ssh console --app <operations-app>`.
+All five current holders must be reachable and agree on the key's public
+identity, owner, participants and epoch. The current signed inventory must
+permit `refresh` for that key at its held epoch and approve those five members
+and pins. Use authenticated `/health` and `/v1/keys/describe` to inspect them.
+An unreachable holder must be recovered or replaced before refreshing.
 
-## Commands
+Use the operator client setup in [node replacement](node-replacement.md).
+The request types and durable recovery fields are defined in
+[`keys.go`](../../../../services/wallet/attestor/internal/server/keys.go).
 
-1. Check the network.
+## Refresh
 
-   ```sh
-   scripts/wallet/check-live.sh attestors
-   ```
+List the wallet's `attestor_key_id` and `layerx_key_id` values, including keys
+retained by provisioning operations. For an ordinary refresh, prepare:
 
-   Expected: five `pass node` lines with `peers=4/4` and
-   `pass quorum ready=5/5 need=3`. Note each node's `epoch=` and `audit=`.
-
-2. List the keys to refresh from the gateway database.
-
-   ```sh
-   psql "$DATABASE_URL" -Atc "select attestor_key_id from wallets where attestor_key_id is not null union all select layerx_key_id from wallets where layerx_key_id is not null"
-   ```
-
-   Expected: one key id per line.
-
-3. For each key, post the refresh body to all five nodes at once, with a
-   session id used for nothing else.
-
-   ```json
-   {"session_id": "<fresh-session-id>", "key_id": "<key-id>"}
-   ```
-
-   ```sh
-   for base in $(printf '%s' "$CHECK_LIVE_ATTESTOR_BASES" | tr ',' ' '); do
-     attestor_post "$base" /v1/keys/refresh <refresh-body-path> &
-   done; wait
-   ```
-
-   Expected: five key responses with the same `public_key` as before, `epoch`
-   one higher than before on every node, `refreshed` true, and one
-   `audit_sequence` each. An error body carries `error.code`; `session_timeout`
-   or `session_failed` leaves the key on its previous epoch and the same body
-   is retried with a new `session_id`.
-
-4. Refresh keys one at a time. Each session holds a per-key lock on every node,
-   so a refresh does not interleave with a signature of the same key; other
-   keys keep signing throughout.
-
-## Readiness check that proves completion
-
-```sh
-scripts/wallet/check-live.sh attestors
+```json
+{"session_id":"<refresh-session>","key_id":"<key-id>"}
 ```
 
-Every node passes, reports an `epoch=` no lower than in step 1, an `audit=`
-sequence advanced by at least the number of keys refreshed, and every key
-response of step 3 carried the raised epoch. Record the
-revision, the command, its exit code, the log path and the count of keys
-refreshed in the operator's change record.
+Submit the identical body concurrently to `/v1/keys/refresh` on all holders.
+Check every response for the original `public_key`, the same next `epoch`,
+`refreshed: true` and an `audit_sequence`. The operation holds a per-key lock;
+refresh keys one at a time.
 
-## Rollback
+Update the signed inventory to approve the new epoch, then compare key
+descriptions on every holder and verify a consented signature. The public
+identity and participant set must remain unchanged. See
+[inventory checks](../../../../services/wallet/attestor/internal/server/authority.go).
 
-A refresh is not reversed. A failed session stores nothing, so the key keeps
-its previous epoch and signs as before; the refresh is retried. A key that
-refuses to refresh repeatedly while all five nodes are ready is escalated with
-the error codes of every node; no share is exported or rebuilt to work around
-it.
+## Durable ceremony recovery
+
+Ceremony refresh requests also bind `ceremony_id`, `import_session_id`,
+`expected_epoch` and, for an existing held key, `existing_key`. The daemon
+retains prepared, staged and completed ceremony state. Recovery names the
+original attempt with `recovery_session_id`; the retained identities and base
+epoch must agree. The [ceremony tool](../cutover.md) coordinates these fields.
+
+After a timeout or interrupted response, describe the key on every participant
+and inspect its `refresh` and ceremony fields before continuing. Resume the
+retained ceremony through its journal. Do not discard the journal, assume all
+holders stayed at the old epoch, or start an unrelated refresh while a retained
+attempt needs reconciliation.
+
+## Completion
+
+A refresh is complete when all current holders describe the same new epoch and
+a signature combines their current shares. Refresh is not reversed by restoring
+an old snapshot or restarting a process. Keep the signed inventory and backup
+material consistent with the completed epoch.

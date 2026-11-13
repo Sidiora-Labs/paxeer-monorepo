@@ -1,22 +1,4 @@
-//! Task 22.33.1445 repair record, audit 22.30.82.
-//! names-unbounded-reads: names_history_refuses_over_limit,
-//! names_portfolios_refuse_over_limit, names_union_enforces_combined_limit.
-//! reverse-forward-binding: primary_names_require_valid_forward_binding.
-//! transport-total-deadline: framed_responses_finish_while_peer_stays_open,
-//! trickling_http_responses_obey_total_deadline, tls_handshake_obeys_total_deadline,
-//! request_writes_obey_total_deadline, malformed_frames_are_refused_before_peer_close.
-//! Baseline: no prior gate ledger or repair tests existed; no baseline was run because
-//! the explicit qualification order requires complete implementation before either gate.
-//! Attempt 1: qualification stopped before tests because the workspace member manifest
-//! services/platform/hosted/paxeer/Cargo.toml was absent. Attempt 2 retains all nine
-//! tests and the three repairs after task 22.31.465 restored that manifest.
-//! Attempt 3: eight cases passed; request_writes_obey_total_deadline failed at
-//! 1.68 s for plaintext. Attempt 4 bounds every plaintext/TLS write and rechecks
-//! the shared deadline between partial writes without changing any assertion.
-//! Wiring request: services/explorer/backend/apps/explorer/lib/explorer/microservice_interfaces/bens.ex
-//! (explorer domain) must surface HTTP 422 names_result_limit_exceeded and maximum_results=500.
-//! Wiring request: apps/wallet/src/lib/pns.ts (wallet domain) must surface the same explicit
-//! history/portfolio refusal instead of displaying it as an empty or complete result.
+//! Names result bounds, forward binding, and transport deadline cases.
 
 use std::io::{Read, Write};
 use std::net::TcpListener;

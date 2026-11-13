@@ -247,24 +247,7 @@ impl Webhooks {
             .unwrap_or_else(|| panic!("LAYERX_TEST_WEBHOOKS_BIN required"));
         let port = free_port();
         let redis_port = free_port();
-        fs::write(
-            root.join("redis.acl"),
-            "user default off\nuser producer on >integration-only ~* &* +@all\n",
-        )
-        .unwrap_or_else(|error| panic!("{error}"));
-        fs::write(root.join("redis.conf"), format!("bind 127.0.0.1\nport 0\ntls-port {redis_port}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\naclfile {}\nappendonly yes\nappendfsync always\ndir {}\n", root.join("cert.pem").display(), root.join("key.pem").display(), root.join("cert.pem").display(), root.join("redis.acl").display(), root.display())).unwrap_or_else(|error| panic!("{error}"));
-        let redis_log = root.join("redis.log");
-        let redis_output = process_log(&redis_log);
-        let redis = Command::new("redis-server")
-            .arg(root.join("redis.conf"))
-            .stdout(
-                redis_output
-                    .try_clone()
-                    .unwrap_or_else(|error| panic!("{error}")),
-            )
-            .stderr(redis_output)
-            .spawn()
-            .unwrap_or_else(|error| panic!("{error}"));
+        let (redis, redis_log) = start_redis(root, redis_port);
         let child_log = root.join("webhooks.log");
         let child_output = process_log(&child_log);
         let mut command = Command::new(executable);
@@ -309,21 +292,7 @@ impl Webhooks {
             fs::write(root.join(name), value).unwrap_or_else(|error| panic!("{error}"));
             command.env(format!("LAYERX_WEBHOOKS_{name}_FILE"), root.join(name));
         }
-        let chain_policy = root.join("chain-policy.json");
-        fs::write(
-            &chain_policy,
-            serde_json::to_vec(&serde_json::json!({
-                "chain_id": FIXTURE_CHAIN_ID,
-                "validators": [{
-                    "public_key": ed25519_dalek::SigningKey::from_bytes(&[11; 32])
-                        .verifying_key().to_bytes(),
-                    "voting_power": 1,
-                }],
-            }))
-            .unwrap_or_else(|error| panic!("{error}")),
-        )
-        .unwrap_or_else(|error| panic!("{error}"));
-        command.env("LAYERX_WEBHOOKS_CHAIN_POLICY_FILE", chain_policy);
+        configure_chain_policy(root, &mut command);
         let kms = kms_listener(root);
         command.env(
             "LAYERX_WEBHOOKS_KMS_URL",
@@ -385,6 +354,46 @@ impl Webhooks {
             &self.child_log,
         );
     }
+}
+
+fn configure_chain_policy(root: &Path, command: &mut Command) {
+    let chain_policy = root.join("chain-policy.json");
+    fs::write(
+        &chain_policy,
+        serde_json::to_vec(&serde_json::json!({
+            "chain_id": FIXTURE_CHAIN_ID,
+            "validators": [{
+                "public_key": ed25519_dalek::SigningKey::from_bytes(&[11; 32])
+                    .verifying_key().to_bytes(),
+                "voting_power": 1,
+            }],
+        }))
+        .unwrap_or_else(|error| panic!("{error}")),
+    )
+    .unwrap_or_else(|error| panic!("{error}"));
+    command.env("LAYERX_WEBHOOKS_CHAIN_POLICY_FILE", chain_policy);
+}
+
+fn start_redis(root: &Path, redis_port: u16) -> (std::process::Child, PathBuf) {
+    fs::write(
+        root.join("redis.acl"),
+        "user default off\nuser producer on >integration-only ~* &* +@all\n",
+    )
+    .unwrap_or_else(|error| panic!("{error}"));
+    fs::write(root.join("redis.conf"), format!("bind 127.0.0.1\nport 0\ntls-port {redis_port}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\naclfile {}\nappendonly yes\nappendfsync always\ndir {}\n", root.join("cert.pem").display(), root.join("key.pem").display(), root.join("cert.pem").display(), root.join("redis.acl").display(), root.display())).unwrap_or_else(|error| panic!("{error}"));
+    let redis_log = root.join("redis.log");
+    let redis_output = process_log(&redis_log);
+    let redis = Command::new("redis-server")
+        .arg(root.join("redis.conf"))
+        .stdout(
+            redis_output
+                .try_clone()
+                .unwrap_or_else(|error| panic!("{error}")),
+        )
+        .stderr(redis_output)
+        .spawn()
+        .unwrap_or_else(|error| panic!("{error}"));
+    (redis, redis_log)
 }
 
 fn kms_listener(root: &Path) -> Listener {

@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/jackc/pgx/v5"
 	"io"
+	"log"
 	"reflect"
 	"regexp"
 	"slices"
@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -27,7 +29,7 @@ func HistoryTable(service, schema string) (string, error) {
 		"core/indexer":                {"indexer", "migration_control.indexer_versions"},
 		"core/api":                    {"api_stream", "migration_control.api_versions"},
 		"core/trading-charts":         {"candles", "migration_control.trading_charts_versions"},
-		"core/stats-workers":          {"stats", "migration_control.stats_workers_versions"},
+		valueCoreStatsWorkers:         {"stats", "migration_control.stats_workers_versions"},
 		"core/pnl-tracker":            {"pnl", "migration_control.pnl_tracker_versions"},
 		"media/user":                  {"users", "migration_control.user_versions"},
 		"media/social":                {"chat", "migration_control.social_versions"},
@@ -38,9 +40,9 @@ func HistoryTable(service, schema string) (string, error) {
 		"platform/recovery":           {"recovery", "migration_control.recovery_versions"},
 		"security/control":            {"pnl", "migration_control.control_versions"},
 		"core/stats-workers/holdings": {"stats_transfer_holdings", "migration_control.stats_transfer_holdings_versions"},
-		"core/api/cache":              {"api_limits", "migration_control.api_limits_versions"},
-		"core/discovery":              {"narrative_discovery", "migration_control.narrative_discovery_versions"},
-		"core/notifications":          {"discovery_notifications", "migration_control.discovery_notifications_versions"},
+		valueCoreApiCache:             {valueApiLimits, "migration_control.api_limits_versions"},
+		valueCoreDiscovery:            {valueNarrativeDiscovery, "migration_control.narrative_discovery_versions"},
+		valueCoreNotifications:        {valueDiscoveryNotifications, "migration_control.discovery_notifications_versions"},
 		"media/gateway/audit-source":  {"gateway_audit_source", "migration_control.gateway_audit_source_versions"},
 		"media/gateway/audit-sink":    {"gateway_audit_sink", "migration_control.gateway_audit_sink_versions"},
 		"media/gateway/storage":       {"gateway", "migration_control.gateway_storage_versions"},
@@ -114,7 +116,7 @@ func (m MigrationManifest) Validate(sql []byte, registry map[int64]MigrationMani
 	if m.ReaderMinVersion < 1 || deployedReaderMin < m.ReaderMinVersion || m.EstimatedLockMS <= 0 || m.EstimatedLockMS > 2000 || m.RollbackStrategy == "" || m.BackfillStrategy == "" {
 		return fmt.Errorf("missing safety metadata or incompatible reader")
 	}
-	if m.TransactionMode != "transactional" && m.TransactionMode != "nontransactional" {
+	if m.TransactionMode != valueTransactional && m.TransactionMode != "nontransactional" {
 		return fmt.Errorf("unknown transaction mode")
 	}
 	if m.Destructive && !validDigest(m.ReaderCompatibilityProof) {
@@ -215,7 +217,7 @@ type LegacyMigrationAlias struct {
 }
 
 func (a LegacyMigrationAlias) Key() (string, error) {
-	if _, ok := map[string]bool{"core/indexer": true, "core/trading-charts": true, "core/stats-workers": true, "core/pnl-tracker": true, "media/user": true, "media/social": true, "media/metadata": true, "media/livestream": true}[a.Service]; !ok || a.OriginalVersion < 1 || !validDigest(a.SourceSHA256) || !validDigest(a.UpSHA256) || !validDigest(a.StructuralFingerprint) {
+	if _, ok := map[string]bool{"core/indexer": true, "core/trading-charts": true, valueCoreStatsWorkers: true, "core/pnl-tracker": true, "media/user": true, "media/social": true, "media/metadata": true, "media/livestream": true}[a.Service]; !ok || a.OriginalVersion < 1 || !validDigest(a.SourceSHA256) || !validDigest(a.UpSHA256) || !validDigest(a.StructuralFingerprint) {
 		return "", fmt.Errorf("legacy baseline requires exact reviewed source and structural fingerprints")
 	}
 	return fmt.Sprintf("%s:%d", a.Service, a.OriginalVersion), nil
@@ -280,7 +282,9 @@ func ApplyRegisteredMigration(ctx context.Context, conn *pgx.Conn, m MigrationMa
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		tx.Rollback(cleanup)
+		if cleanupErr := tx.Rollback(cleanup); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+			log.Printf("transaction rollback: %v", cleanupErr)
+		}
 	}()
 	if _, err = tx.Exec(ctx, "SET LOCAL lock_timeout='2s'"); err != nil {
 		return err
@@ -325,7 +329,7 @@ func ApplyRegisteredMigration(ctx context.Context, conn *pgx.Conn, m MigrationMa
 			return fmt.Errorf("legacy predecessor authority differs")
 		}
 	}
-	if m.TransactionMode != "transactional" {
+	if m.TransactionMode != valueTransactional {
 		return fmt.Errorf("nontransactional migration requires independently reviewed runner")
 	}
 	if _, err = tx.Exec(ctx, "SET LOCAL ROLE "+pgx.Identifier{m.Schema + "_owner"}.Sanitize()); err != nil {
@@ -424,7 +428,11 @@ func CheckReadiness(ctx context.Context, pool *pgxpool.Pool, want ExpectedSchema
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(bounded)
+	defer func() {
+		if cleanupErr := tx.Rollback(bounded); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+			log.Printf("transaction rollback: %v", cleanupErr)
+		}
+	}()
 	// Catalog fingerprints render object references relative to the
 	// search_path. The coordinator records them with the server default
 	// ("$user", public: no schema of an operator role exists); a runtime whose
@@ -511,10 +519,10 @@ func checkPrivilege(ctx context.Context, tx pgx.Tx, role string, g Grant) error 
 		var ok bool
 		var err error
 		switch g.ObjectKind {
-		case "function":
+		case valueFunction:
 			object = pgx.Identifier{g.Schema, g.Object}.Sanitize() + "(" + strings.Join(g.ArgumentTypes, ",") + ")"
 			err = tx.QueryRow(ctx, "SELECT has_function_privilege($1,$2,$3)", role, object, p).Scan(&ok)
-		case "sequence":
+		case valueSequence:
 			err = tx.QueryRow(ctx, "SELECT has_sequence_privilege($1,$2,$3)", role, object, p).Scan(&ok)
 		default:
 			if len(g.Columns) > 0 {
@@ -558,7 +566,11 @@ func ImportLegacyBaseline(ctx context.Context, conn *pgx.Conn, a LegacyMigration
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if cleanupErr := tx.Rollback(ctx); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+			log.Printf("transaction rollback: %v", cleanupErr)
+		}
+	}()
 	var coordinator bool
 	if err = tx.QueryRow(ctx, "SELECT pg_try_advisory_xact_lock($1)", CoordinatorKey).Scan(&coordinator); err != nil {
 		return err
@@ -598,7 +610,11 @@ func RecordRuntimeReadiness(ctx context.Context, conn *pgx.Conn, want ExpectedSc
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if cleanupErr := tx.Rollback(ctx); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+			log.Printf("transaction rollback: %v", cleanupErr)
+		}
+	}()
 	for id, expected := range want.Migrations {
 		if !validDigest(expected) {
 			return fmt.Errorf("invalid expected checksum")
@@ -689,12 +705,12 @@ func validateExpectedSchema(want ExpectedSchema) error {
 		}
 		kind := g.ObjectKind
 		if kind == "" {
-			kind = "table"
+			kind = valueTable
 		}
-		if kind != "table" && kind != "view" && kind != "function" && kind != "sequence" {
+		if kind != valueTable && kind != valueView && kind != valueFunction && kind != valueSequence {
 			return fmt.Errorf("invalid expected object kind")
 		}
-		if g.Schema == "migration_control" && (kind != "function" || g.Object != "readiness" || len(g.ArgumentTypes) != 1 || g.ArgumentTypes[0] != "text") {
+		if g.Schema == valueMigrationControl && (kind != valueFunction || g.Object != "readiness" || len(g.ArgumentTypes) != 1 || g.ArgumentTypes[0] != valueText) {
 			return fmt.Errorf("runtime history access forbidden")
 		}
 		key := g.Schema + "." + g.Object + ":" + kind + ":" + strings.Join(g.Privileges, ",") + ":" + strings.Join(g.Columns, ",") + ":" + strings.Join(g.ArgumentTypes, ",")
@@ -704,16 +720,16 @@ func validateExpectedSchema(want ExpectedSchema) error {
 		seen[key] = true
 		for _, p := range g.Privileges {
 			switch kind {
-			case "function":
-				if p != "EXECUTE" {
+			case valueFunction:
+				if p != valueEXECUTE {
 					return fmt.Errorf("invalid function privilege")
 				}
-			case "sequence":
-				if p != "USAGE" {
+			case valueSequence:
+				if p != valueUSAGE {
 					return fmt.Errorf("invalid sequence privilege")
 				}
 			default:
-				if p != "SELECT" && p != "INSERT" && p != "UPDATE" && p != "DELETE" {
+				if p != valueSELECT && p != "INSERT" && p != valueUPDATE && p != "DELETE" {
 					return fmt.Errorf("unsafe expected table privilege")
 				}
 			}
@@ -723,15 +739,15 @@ func validateExpectedSchema(want ExpectedSchema) error {
 				return fmt.Errorf("invalid expected column")
 			}
 		}
-		if len(g.Columns) > 0 && (kind == "function" || kind == "sequence" || len(g.Privileges) != 1 || (g.Privileges[0] != "SELECT" && g.Privileges[0] != "UPDATE")) {
+		if len(g.Columns) > 0 && (kind == valueFunction || kind == valueSequence || len(g.Privileges) != 1 || (g.Privileges[0] != valueSELECT && g.Privileges[0] != valueUPDATE)) {
 			return fmt.Errorf("invalid expected column privilege")
 		}
-		if kind != "function" && len(g.ArgumentTypes) > 0 {
+		if kind != valueFunction && len(g.ArgumentTypes) > 0 {
 			return fmt.Errorf("function signature on non-function")
 		}
 		for _, arg := range g.ArgumentTypes {
 			switch arg {
-			case "bigint", "text", "uuid", "bytea", "integer", "boolean", "jsonb":
+			case "bigint", valueText, "uuid", "bytea", "integer", "boolean", "jsonb":
 			default:
 				return fmt.Errorf("invalid expected function argument")
 			}
@@ -745,22 +761,22 @@ func checkUnexpectedPrivileges(ctx context.Context, tx pgx.Tx, role string, gran
 	columnAllowed := map[string]map[string]map[string]bool{}
 	functionAllowed := map[string]bool{}
 	sequenceAllowed := map[string]bool{}
-	scope := map[string]bool{"migration_control": true}
+	scope := map[string]bool{valueMigrationControl: true}
 	for schema := range schemas {
 		scope[schema] = true
 	}
 	for _, g := range grants {
 		scope[g.Schema] = true
 		kind := g.ObjectKind
-		if kind == "function" {
+		if kind == valueFunction {
 			functionAllowed[g.Schema+"."+g.Object+"("+strings.Join(g.ArgumentTypes, ",")+")"] = true
 			continue
 		}
-		if kind == "sequence" {
+		if kind == valueSequence {
 			sequenceAllowed[g.Schema+"."+g.Object] = true
 			continue
 		}
-		if kind != "" && kind != "table" && kind != "view" {
+		if kind != "" && kind != valueTable && kind != valueView {
 			continue
 		}
 		key := g.Schema + "." + g.Object
@@ -860,7 +876,7 @@ func checkUnexpectedPrivileges(ctx context.Context, tx pgx.Tx, role string, gran
 		if err = rows.Scan(&schema, &name, &priv, &effective, &grantOption); err != nil {
 			return err
 		}
-		if grantOption || (effective && (priv != "USAGE" || !sequenceAllowed[schema+"."+name])) {
+		if grantOption || (effective && (priv != valueUSAGE || !sequenceAllowed[schema+"."+name])) {
 			return fmt.Errorf("unexpected runtime sequence privilege")
 		}
 	}

@@ -15,6 +15,9 @@ import IconSvg from 'ui/shared/IconSvg';
 import ChartsLoadingErrorAlert from './ChartsLoadingErrorAlert';
 import ChartWidgetContainer from './ChartWidgetContainer';
 import { getStatsSectionAnchorId } from './constants';
+import { EXPLORER_CHARTS } from './explorerCharts';
+import ExplorerChartWidget from './ExplorerChartWidget';
+import useStatsService from './useStatsService';
 
 type Props = {
   initialFilterQuery: string;
@@ -27,6 +30,7 @@ type Props = {
 };
 
 const ChartsWidgetsList = ({ isError, isPlaceholderData, charts, interval, initialFilterQuery, sections, selectedSectionId }: Props) => {
+  const hasStatsService = useStatsService();
   const [ isSomeChartLoadingError, setIsSomeChartLoadingError ] = useState(false);
   const hasCharts = sections?.some((section) => section.charts.length > 0);
   const hasDisplayedCharts = charts?.some((section) => section.charts.length > 0);
@@ -115,18 +119,21 @@ const ChartsWidgetsList = ({ isError, isPlaceholderData, charts, interval, initi
                 templateColumns={{ base: 'repeat(1, minmax(0, 1fr))', lg: 'repeat(2, minmax(0, 1fr))' }}
                 gap={{ base: 3, lg: 4 }}
               >
-                { section.charts.map((chart) => (
-                  <ChartWidgetContainer
-                    key={ chart.id }
-                    id={ chart.id }
-                    title={ chart.title }
-                    description={ chart.description }
-                    interval={ interval }
-                    isPlaceholderData={ isPlaceholderData }
-                    onLoadingError={ handleChartLoadingError }
-                    href={{ pathname: '/stats/[id]', query: { id: chart.id, ...(chain?.id ? { chain_id: chain.id } : {}) } }}
-                  />
-                )) }
+                { section.charts.map((chart) => {
+                  const explorerChart = !hasStatsService && EXPLORER_CHARTS.find((item) => item.id === chart.id);
+                  return explorerChart ? <ExplorerChartWidget key={ chart.id } chart={ explorerChart } interval={ interval }/> : (
+                    <ChartWidgetContainer
+                      key={ chart.id }
+                      id={ chart.id }
+                      title={ chart.title }
+                      description={ chart.description }
+                      interval={ interval }
+                      isPlaceholderData={ isPlaceholderData }
+                      onLoadingError={ handleChartLoadingError }
+                      href={{ pathname: '/stats/[id]', query: { id: chart.id, ...(chain?.id ? { chain_id: chain.id } : {}) } }}
+                    />
+                  );
+                }) }
               </Grid>
             </Box>
           ))

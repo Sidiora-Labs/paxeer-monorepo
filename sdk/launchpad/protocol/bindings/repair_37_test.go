@@ -111,8 +111,8 @@ func TestRepair_37_native_family_events(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertProofABI(t, abi.ABI{Events: canonical.Events}, *native)
-	if len(native.Events) != 12 || len(native.Methods) != 0 {
+	assertProofABI(t, abi.ABI{Events: canonical.Events, Errors: canonical.Errors}, abi.ABI{Events: native.Events, Errors: native.Errors})
+	if len(native.Events) != len(canonical.Events) || len(native.Methods) != 13 {
 		t.Fatalf("native family inventory = %+v", native)
 	}
 	logFile := filepath.Join(t.TempDir(), "native-logs.json")

@@ -12,8 +12,10 @@ import NumberWidgetsList from '../stats/NumberWidgetsList';
 import RecentBlocks from '../stats/RecentBlocks';
 import StatsFilters from '../stats/StatsFilters';
 import useStats from '../stats/useStats';
+import useStatsService from '../stats/useStatsService';
 
 const Stats = () => {
+  const hasStatsService = useStatsService();
   const {
     isPlaceholderData,
     isError,
@@ -74,7 +76,7 @@ const Stats = () => {
   }, []);
 
   return (
-    <>
+    <Box data-stats-source={ hasStatsService ? 'stats' : 'explorer' }>
       <PageTitle
         title={ config.meta.seo.enhancedDataEnabled ? `${ config.chain.name } statistic & data` : `${ config.chain.name } stats` }
       />
@@ -98,6 +100,7 @@ const Stats = () => {
       <Flex flexDirection={{ base: 'column', lg: 'row' }} alignItems="flex-start" columnGap={ 6 } w="100%" minW={ 0 }>
         <chakra.nav
           data-stats-section-nav
+          aria-label="Statistics sections"
           position={{ base: 'static', lg: 'sticky' }}
           top={{ lg: 6 }}
           alignSelf="flex-start"
@@ -171,7 +174,7 @@ const Stats = () => {
           />
         </Box>
       </Flex>
-    </>
+    </Box>
   );
 };
 

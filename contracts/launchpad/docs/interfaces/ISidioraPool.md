@@ -4,6 +4,8 @@
 
 Interface for the core AMM pool contract (beacon proxy instances)
 
+Source: [ISidioraPool.sol](../../contracts/interfaces/ISidioraPool.sol).
+
 ### DeadlineExpired
 
 ```solidity
@@ -70,20 +72,24 @@ function swap(uint256 amountIn, uint256 minAmountOut, bool isBuy, address recipi
 
 Execute a swap
 
+Transfer the input tokens to the pool before calling `swap`, atomically in the same transaction.
+The pool checks that its unaccounted input balance covers amountIn. The same funding requirement
+applies to `swapFor`; neither method pulls tokens from the caller.
+
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| amountIn | uint256 | Amount of input token |
-| minAmountOut | uint256 | Minimum output (slippage protection) |
-| isBuy | bool | True = USDL→Token, False = Token→USDL |
-| recipient | address | Address to receive output tokens |
-| deadline | uint256 | Transaction deadline timestamp |
+| Name         | Type    | Description                           |
+| ------------ | ------- | ------------------------------------- |
+| amountIn     | uint256 | Amount of input token                 |
+| minAmountOut | uint256 | Minimum output (slippage protection)  |
+| isBuy        | bool    | True = USDL→Token, False = Token→USDL |
+| recipient    | address | Address to receive output tokens      |
+| deadline     | uint256 | Transaction deadline timestamp        |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description          |
+| --------- | ------- | -------------------- |
 | amountOut | uint256 | Actual output amount |
 
 ### syncReserves
@@ -96,9 +102,9 @@ Re-read actual token balances (used by LP_REWARDS strategy)
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| usdlBalance | uint256 | Current USDL balance |
+| Name         | Type    | Description           |
+| ------------ | ------- | --------------------- |
+| usdlBalance  | uint256 | Current USDL balance  |
 | tokenBalance | uint256 | Current token balance |
 
 ### getReserves
@@ -123,7 +129,8 @@ Get effective reserves (virtual + real USDL, token)
 function getPrice() external view returns (uint256)
 ```
 
-Get current token price in USDL (Q128 fixed-point)
+Get current token price in USDL with 18 decimal scaling; returns zero when the token reserve is
+zero.
 
 ### getPoolInfo
 
@@ -163,7 +170,7 @@ Get the pool's creation timestamp
 function cumulativeVolume() external view returns (uint256)
 ```
 
-Get cumulative volume
+Get cumulative USDL-denominated volume: gross USDL input on buys plus USDL output on sells.
 
 ### getPriceSnapshots
 
@@ -171,5 +178,22 @@ Get cumulative volume
 function getPriceSnapshots() external view returns (uint256[8])
 ```
 
-Get price snapshots for volatility calculation
+Get price snapshots for volatility calculation, ordered from oldest to newest. Unused entries in
+the eight-element array are zero.
 
+### swapFor
+
+```solidity
+function swapFor(uint256 amountIn, uint256 minAmountOut, bool isBuy, address trader, address recipient, uint256 deadline) external returns (uint256)
+```
+
+An authenticated router supplies the original trader separately from recipient. The caller must hold
+ROUTER_ROLE in the pool’s factory.
+
+### currentFeeBps
+
+```solidity
+function currentFeeBps() external view returns (uint256)
+```
+
+Returns the current dynamic fee in basis points.

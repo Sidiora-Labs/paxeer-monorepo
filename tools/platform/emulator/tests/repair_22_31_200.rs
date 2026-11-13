@@ -212,7 +212,7 @@ fn emulator_settlement_v2_retirement_and_current_authority_survive_restart() -> 
     Ok(())
 }
 
-const MIDDLEWARE_PATH: &str = r##"
+const MIDDLEWARE_PATH: &str = r"
 import assert from 'node:assert/strict';
 import { registerHooks, stripTypeScriptTypes } from 'node:module';
 import { existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
@@ -365,4 +365,4 @@ for (const changed of [
 await assert.rejects(seller.verifyPaymentReceipt({ ...proof, verificationLevel: 'committed' },
   { ...requirements, extra: { layerx: { ...requirements.extra.layerx, commitment: 'committed' } } }, [pin]));
 process.stdout.write('portable-v2-path-verified\n');
-"##;
+";

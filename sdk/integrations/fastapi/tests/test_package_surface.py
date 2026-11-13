@@ -10,7 +10,6 @@ from pathlib import Path
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.evm_transaction import decode_signed
 from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
 
@@ -129,7 +128,7 @@ def test_create_integration_uses_receipt_keys(tmp_path: Path, monkeypatch: pytes
         payload=layerx_evidence_wire(LayerXReceiptEvidence(
             raw_transaction=vector["rawTransaction"],
             signed_receipt=vector["signedReceipt"],
-            receipt_digest="0x" + keccak256(signed).hex(),
+            receipt_digest=vector["receiptDigest"],
             receipt_key=key,
         )),
     )
@@ -152,7 +151,7 @@ def test_create_integration_uses_receipt_keys(tmp_path: Path, monkeypatch: pytes
         assert settlement.transaction == "0x" + receipt.activity_id.hex()
         assert settlement.amount == mount.config.requirements.amount
         assert paid.headers["layerx-transaction"] == settlement.transaction
-        assert paid.headers["layerx-receipt-digest"] == keccak256(signed).hex()
+        assert paid.headers["layerx-receipt-digest"] == vector["receiptDigest"][2:]
         assert settlement.extensions["layerx"] == payload.payload
         replay_response = client.get("/paid", headers={"PAYMENT-SIGNATURE": header})
         assert replay_response.status_code == 200

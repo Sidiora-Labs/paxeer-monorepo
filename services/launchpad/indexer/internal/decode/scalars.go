@@ -2,19 +2,87 @@ package decode
 
 import (
 	"bytes"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"reflect"
 	"unicode/utf8"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+)
+
+const (
+	scalarTypeFailure   = "type"
+	scalarOffsetFailure = "offset_or_type"
 )
 
 func newBig(s string) (*big.Int, bool) { return new(big.Int).SetString(s, 10) }
 func exactArgs(ev abi.Event, topics []common.Hash, data []byte, approved []string) (map[string]any, string, error) {
+	if out, handled, reason, err := exactFixedScalars(ev, topics, data); handled {
+		return out, reason, err
+	}
+	return exactGeneralArgs(ev, topics, data, approved)
+}
+
+func exactFixedScalars(ev abi.Event, topics []common.Hash, data []byte) (map[string]any, bool, string, error) {
+	indexed, nonIndexed := 0, 0
+	for _, in := range ev.Inputs {
+		if in.Type.T != abi.AddressTy && (in.Type.T != abi.UintTy || in.Type.Size != 256) {
+			return nil, false, "", nil
+		}
+		if in.Indexed {
+			indexed++
+		} else {
+			nonIndexed++
+		}
+	}
+	if len(topics) != indexed+1 {
+		return nil, true, valueArity, fmt.Errorf("topic count %d, expected %d", len(topics), indexed+1)
+	}
+	if len(data) != nonIndexed*32 {
+		if nonIndexed == 0 {
+			return nil, true, valueArity, fmt.Errorf("unexpected data")
+		}
+		return nil, true, scalarOffsetFailure, fmt.Errorf("noncanonical event data")
+	}
+	out := make(map[string]any, len(ev.Inputs))
+	for _, indexedPass := range []bool{true, false} {
+		position := 0
+		for _, in := range ev.Inputs {
+			if in.Indexed != indexedPass {
+				continue
+			}
+			var word []byte
+			if indexedPass {
+				word = topics[position+1][:]
+			} else {
+				word = data[position*32 : (position+1)*32]
+			}
+			position++
+			if in.Type.T == abi.AddressTy {
+				for _, padding := range word[:12] {
+					if padding != 0 {
+						if indexedPass {
+							return nil, true, scalarTypeFailure, fmt.Errorf("noncanonical indexed %s", in.Name)
+						}
+						return nil, true, scalarOffsetFailure, fmt.Errorf("noncanonical event data")
+					}
+				}
+				out[in.Name] = "0x" + hex.EncodeToString(word[12:])
+			} else {
+				out[in.Name] = new(big.Int).SetBytes(word).String()
+			}
+		}
+	}
+	return out, true, "", nil
+}
+
+func exactGeneralArgs(ev abi.Event, topics []common.Hash, data []byte, approved []string) (map[string]any, string, error) {
 	indexed := indexedSubset(ev.Inputs)
 	if len(topics) != 1+len(indexed) {
-		return nil, "arity", fmt.Errorf("topic count %d, expected %d", len(topics), 1+len(indexed))
+		return nil, valueArity, fmt.Errorf("topic count %d, expected %d", len(topics), 1+len(indexed))
 	}
 	permitted := map[string]bool{}
 	for _, field := range approved {
@@ -33,11 +101,11 @@ func exactArgs(ev abi.Event, topics []common.Hash, data []byte, approved []strin
 		arg := abi.Arguments{{Name: in.Name, Type: typ}}
 		values, err := arg.Unpack(topics[i+1].Bytes())
 		if err != nil {
-			return nil, "type", err
+			return nil, scalarTypeFailure, err
 		}
 		packed, err := arg.Pack(values...)
 		if err != nil || !bytes.Equal(packed, topics[i+1].Bytes()) {
-			return nil, "type", fmt.Errorf("noncanonical indexed %s", in.Name)
+			return nil, scalarTypeFailure, fmt.Errorf("noncanonical indexed %s", in.Name)
 		}
 		value := values[0]
 		if in.Type.T == abi.BoolTy && permitted[in.Name] {
@@ -55,17 +123,17 @@ func exactArgs(ev abi.Event, topics []common.Hash, data []byte, approved []strin
 	}
 	if len(inputs) == 0 {
 		if len(data) != 0 {
-			return nil, "arity", fmt.Errorf("unexpected data")
+			return nil, valueArity, fmt.Errorf("unexpected data")
 		}
 		return out, "", nil
 	}
 	values, err := inputs.Unpack(data)
 	if err != nil {
-		return nil, "offset_or_type", err
+		return nil, scalarOffsetFailure, err
 	}
 	packed, err := inputs.Pack(values...)
 	if err != nil || !bytes.Equal(packed, data) {
-		return nil, "offset_or_type", fmt.Errorf("noncanonical event data")
+		return nil, scalarOffsetFailure, fmt.Errorf("noncanonical event data")
 	}
 	for i, in := range original {
 		if err := boundedValue(reflect.ValueOf(values[i])); err != nil {
@@ -138,4 +206,35 @@ func humanizeExact(v any, t abi.Type) any {
 		return out
 	}
 	return humanize(v, t)
+}
+
+func validateDecodedPayload(args map[string]any) error {
+	remaining := MaxEnvelopeBytes - 2
+	bounded := true
+	for name, value := range args {
+		text, ok := value.(string)
+		if !ok || remaining < 6 {
+			bounded = false
+			break
+		}
+		remaining -= 6
+		if len(name) > remaining/6 {
+			bounded = false
+			break
+		}
+		remaining -= 6 * len(name)
+		if len(text) > remaining/6 {
+			bounded = false
+			break
+		}
+		remaining -= 6 * len(text)
+	}
+	if bounded {
+		return nil
+	}
+	payload, err := json.Marshal(args)
+	if err != nil || len(payload) > MaxEnvelopeBytes {
+		return fmt.Errorf("decoded payload exceeds envelope limit")
+	}
+	return nil
 }

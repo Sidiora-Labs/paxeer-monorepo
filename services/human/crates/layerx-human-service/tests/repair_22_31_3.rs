@@ -4,7 +4,7 @@ use layerx_human_service as service;
 use serde_json::{json, Value};
 use service::auth::Passkeys;
 use service::custody::{CustodyError, KeyId, Keystore};
-use service::security::{KeyExportCeremony, SecurityError};
+use service::security::{KeyExportCeremony, KeyExportChallenge, SecurityError};
 use service::server::key_export::{acknowledge, KeyExportServices};
 use service::trace::TraceId;
 
@@ -380,15 +380,16 @@ impl Drop for Fixture {
     }
 }
 
-#[test]
-fn repair_3_export_handoff() {
-    let fixture = Fixture::new();
-    let (passkeys, _session, mut browser) = fixture.setup(100);
-    let trace = checked(TraceId::parse(TRACE));
+fn assert_expired_export(
+    fixture: &Fixture,
+    passkeys: &Passkeys,
+    browser: &mut Authenticator,
+    trace: &TraceId,
+) -> String {
     let keystore = fixture.keystore();
     let short = checked(KeyExportCeremony::new(fixture.key.clone(), 10));
     let expired = checked(short.begin(&keystore, &fixture.principal, 110));
-    let evidence = fixture.evidence(&passkeys, &mut browser, fixture.action(), 121);
+    let evidence = fixture.evidence(passkeys, browser, fixture.action(), 121);
     {
         let mut store = fixture.store();
         let mut scope = checked(store.principal(&fixture.principal));
@@ -398,7 +399,7 @@ fn repair_3_export_handoff() {
                 &mut scope,
                 &expired.export_id,
                 &evidence,
-                &trace,
+                trace,
                 121
             ),
             Err(SecurityError::Custody(CustodyError::StepUpExpired))
@@ -407,10 +408,17 @@ fn repair_3_export_handoff() {
             keystore.self_custodied(&fixture.principal, &fixture.key)
         ));
     }
-    let ceremony = checked(KeyExportCeremony::new(fixture.key.clone(), 300));
-    let challenge = checked(ceremony.begin(&keystore, &fixture.principal, 122));
-    assert_ne!(challenge.export_id, expired.export_id);
-    let evidence = fixture.evidence(&passkeys, &mut browser, challenge.confirms, 123);
+    expired.export_id
+}
+
+fn assert_staging_failures(
+    fixture: &Fixture,
+    ceremony: &KeyExportCeremony,
+    challenge: &KeyExportChallenge,
+    evidence: &StepUpEvidence,
+    trace: &TraceId,
+    keystore: &Keystore,
+) -> PathBuf {
     let mut store = fixture.store();
     let mut scope = checked(store.principal(&fixture.principal));
     let key_stage = fixture
@@ -419,11 +427,11 @@ fn repair_3_export_handoff() {
     checked(fs::create_dir(&key_stage));
     assert!(matches!(
         ceremony.finish(
-            &keystore,
+            keystore,
             &mut scope,
             &challenge.export_id,
-            &evidence,
-            &trace,
+            evidence,
+            trace,
             123
         ),
         Err(SecurityError::Custody(CustodyError::Io(_)))
@@ -440,11 +448,11 @@ fn repair_3_export_handoff() {
     checked(fs::create_dir(&audit_stage));
     assert!(matches!(
         ceremony.finish(
-            &keystore,
+            keystore,
             &mut scope,
             &challenge.export_id,
-            &evidence,
-            &trace,
+            evidence,
+            trace,
             124
         ),
         Err(SecurityError::Audit(service::audit::AuditError::Store(
@@ -456,14 +464,25 @@ fn repair_3_export_handoff() {
     ));
     drop(scope);
     drop(store);
-    drop(keystore);
     checked(fs::remove_dir(&audit_stage));
     assert!(matches!(
-        signing_attempt(&fixture, 125),
+        signing_attempt(fixture, 125),
         Err(CustodyError::SelfCustodied)
     ));
     assert_eq!(fixture.export_count(SecurityChangeKind::KeyExported), 0);
 
+    key_stage
+}
+
+fn assert_provider_resume(
+    fixture: &Fixture,
+    ceremony: &KeyExportCeremony,
+    challenge: &KeyExportChallenge,
+    evidence: &StepUpEvidence,
+    passkeys: &Passkeys,
+    trace: &TraceId,
+    key_stage: &std::path::Path,
+) {
     // Stop and reopen both stores; fail the provider after the audit was persisted.
     let keystore = fixture.keystore();
     let mut store = fixture.store();
@@ -476,7 +495,7 @@ fn repair_3_export_handoff() {
             &mut scope,
             &challenge.export_id,
             &durable,
-            &trace,
+            trace,
             125
         ),
         Err(SecurityError::Custody(CustodyError::Kms(
@@ -494,7 +513,7 @@ fn repair_3_export_handoff() {
             .create_new(true)
             .write(true)
             .mode(0o600)
-            .open(&key_stage),
+            .open(key_stage),
     );
     checked(interrupted.write_all(b"interrupted record"));
     checked(interrupted.sync_all());
@@ -507,7 +526,7 @@ fn repair_3_export_handoff() {
         &mut scope,
         &challenge.export_id,
         &durable,
-        &trace,
+        trace,
         126,
     ));
     assert_eq!(delivered.secret.expose(), "a5".repeat(32));
@@ -517,6 +536,88 @@ fn repair_3_export_handoff() {
     drop(scope);
     drop(store);
     drop(keystore);
+}
+
+fn assert_acknowledged_export(
+    fixture: &Fixture,
+    ceremony: &KeyExportCeremony,
+    resumed: &KeyExportChallenge,
+    fresh: &StepUpEvidence,
+    trace: &TraceId,
+    token: [u8; 32],
+) {
+    let keystore = fixture.keystore();
+    let mut store = fixture.store();
+    let mut scope = checked(store.principal(&fixture.principal));
+    checked(ceremony.acknowledge(
+        &keystore,
+        &mut scope,
+        &resumed.export_id,
+        token,
+        fresh,
+        trace,
+        501,
+    ));
+    assert!(matches!(
+        ceremony.begin(&keystore, &fixture.principal, 501),
+        Err(SecurityError::KeyExported)
+    ));
+    assert!(matches!(
+        ceremony.finish(&keystore, &mut scope, &resumed.export_id, fresh, trace, 501),
+        Err(SecurityError::Custody(CustodyError::SelfCustodied))
+    ));
+    drop(scope);
+    drop(store);
+    assert!(matches!(
+        signing_attempt(fixture, 501),
+        Err(CustodyError::SelfCustodied)
+    ));
+    let mut store = fixture.store();
+    let scope = checked(store.principal(&fixture.principal));
+    assert!(matches!(
+        keystore.rotate(&fixture.principal, &fixture.key),
+        Err(CustodyError::SelfCustodied)
+    ));
+    assert_eq!(
+        export_count_in_scope(&scope, SecurityChangeKind::KeyExported),
+        1
+    );
+    assert_eq!(
+        export_count_in_scope(&scope, SecurityChangeKind::KeyExportAcknowledged),
+        1
+    );
+    let audit = checked(checked(AuditChain::open(&scope)).export(&scope));
+    let sealed = checked(fs::read(
+        fixture
+            .root
+            .join(format!("custody/principals/{OWNER}/human-primary.key")),
+    ));
+    for bytes in [&audit, &sealed] {
+        assert!(!bytes.windows(32).any(|window| window == SEED));
+        assert!(!bytes
+            .windows(64)
+            .any(|window| window == "a5".repeat(32).as_bytes()));
+    }
+}
+
+#[test]
+fn repair_3_export_handoff() {
+    let fixture = Fixture::new();
+    let (passkeys, _session, mut browser) = fixture.setup(100);
+    let trace = checked(TraceId::parse(TRACE));
+    let expired_id = assert_expired_export(&fixture, &passkeys, &mut browser, &trace);
+    let keystore = fixture.keystore();
+    let ceremony = checked(KeyExportCeremony::new(fixture.key.clone(), 300));
+    let challenge = checked(ceremony.begin(&keystore, &fixture.principal, 122));
+    assert_ne!(challenge.export_id, expired_id);
+    let evidence = fixture.evidence(&passkeys, &mut browser, challenge.confirms, 123);
+    let key_stage = assert_staging_failures(
+        &fixture, &ceremony, &challenge, &evidence, &trace, &keystore,
+    );
+    drop(keystore);
+    assert_provider_resume(
+        &fixture, &ceremony, &challenge, &evidence, &passkeys, &trace, &key_stage,
+    );
     let fresh = fixture.evidence(&passkeys, &mut browser, challenge.confirms, 500);
     let keystore = fixture.keystore();
     let resumed = checked(ceremony.begin(&keystore, &fixture.principal, 500));
@@ -585,65 +686,7 @@ fn repair_3_export_handoff() {
     drop(scope);
     drop(store);
     drop(keystore);
-    let keystore = fixture.keystore();
-    let mut store = fixture.store();
-    let mut scope = checked(store.principal(&fixture.principal));
-    checked(ceremony.acknowledge(
-        &keystore,
-        &mut scope,
-        &resumed.export_id,
-        token,
-        &fresh,
-        &trace,
-        501,
-    ));
-    assert!(matches!(
-        ceremony.begin(&keystore, &fixture.principal, 501),
-        Err(SecurityError::KeyExported)
-    ));
-    assert!(matches!(
-        ceremony.finish(
-            &keystore,
-            &mut scope,
-            &resumed.export_id,
-            &fresh,
-            &trace,
-            501
-        ),
-        Err(SecurityError::Custody(CustodyError::SelfCustodied))
-    ));
-    drop(scope);
-    drop(store);
-    assert!(matches!(
-        signing_attempt(&fixture, 501),
-        Err(CustodyError::SelfCustodied)
-    ));
-    let mut store = fixture.store();
-    let scope = checked(store.principal(&fixture.principal));
-    assert!(matches!(
-        keystore.rotate(&fixture.principal, &fixture.key),
-        Err(CustodyError::SelfCustodied)
-    ));
-    assert_eq!(
-        export_count_in_scope(&scope, SecurityChangeKind::KeyExported),
-        1
-    );
-    assert_eq!(
-        export_count_in_scope(&scope, SecurityChangeKind::KeyExportAcknowledged),
-        1
-    );
-    let audit = checked(checked(AuditChain::open(&scope)).export(&scope));
-    let sealed = checked(fs::read(
-        fixture
-            .root
-            .join(format!("custody/principals/{OWNER}/human-primary.key")),
-    ));
-    for bytes in [&audit, &sealed] {
-        assert!(!bytes.windows(32).any(|window| window == SEED));
-        assert!(!bytes
-            .windows(64)
-            .any(|window| window == "a5".repeat(32).as_bytes()));
-    }
+    assert_acknowledged_export(&fixture, &ceremony, &resumed, &fresh, &trace, token);
 }
 
 struct RunningComponent {
@@ -727,16 +770,21 @@ impl RunningComponent {
         let body = checked(serde_json::to_string(body));
         let mut headers = String::new();
         if let Some(session) = session {
-            headers.push_str(&format!(
-                "Cookie: __Host-layerx_access={}; __Host-layerx_csrf={}\r\n",
-                session.access_token().expose(),
-                session.csrf_token().expose()
-            ));
-            if csrf {
-                headers.push_str(&format!(
-                    "X-LayerX-CSRF: {}\r\n",
+            std::fmt::Write::write_fmt(
+                &mut headers,
+                format_args!(
+                    "Cookie: __Host-layerx_access={}; __Host-layerx_csrf={}\r\n",
+                    session.access_token().expose(),
                     session.csrf_token().expose()
-                ));
+                ),
+            )
+            .unwrap_or_else(|_| unreachable!("writing to String"));
+            if csrf {
+                std::fmt::Write::write_fmt(
+                    &mut headers,
+                    format_args!("X-LayerX-CSRF: {}\r\n", session.csrf_token().expose()),
+                )
+                .unwrap_or_else(|_| unreachable!("writing to String"));
             }
         }
         checked(write!(stream, "POST {path} HTTP/1.1\r\nHost: paxportwallet.com\r\nOrigin: {ORIGIN}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nX-LayerX-Trace: {TRACE}\r\n{headers}Connection: close\r\n\r\n{body}", body.len()));
@@ -780,24 +828,99 @@ fn browser_decode(challenge: &Value) -> Value {
     let generated = include_str!("../../../../../apps/web/src/api/generated/index.ts");
     let decoder = generated
         .split_once("export function decodeKeyExportChallenge(")
-        .expect("generated decoder")
+        .or_fail("generated decoder")
         .1
         .split_once("export function encodeKeyExportChallenge(")
-        .expect("generated encoder")
+        .or_fail("generated encoder")
         .0;
     for field in ["export_id", "confirms", "expires_at"] {
         assert!(decoder.contains(&format!("{field}: expectString(object[\"{field}\"]")));
     }
-    let decoded: BrowserChallenge = checked(serde_json::from_value(challenge.clone()));
+    let challenge_value: BrowserChallenge = checked(serde_json::from_value(challenge.clone()));
     let schema = checked(service::server::schema::ApiSchema::v1());
     let operation = schema
         .operation("security.key-export.begin")
-        .expect("begin operation");
+        .or_fail("begin operation");
     checked(schema.encode_response(operation, challenge));
-    checked(OperationDigest::parse_schema(&decoded.confirms));
-    let encoded = checked(serde_json::to_value(decoded));
+    checked(OperationDigest::parse_schema(&challenge_value.confirms));
+    let encoded = checked(serde_json::to_value(challenge_value));
     assert_eq!(&encoded, challenge);
     encoded
+}
+
+fn assert_execution_authorization(
+    fixture: &Fixture,
+    passkeys: &Passkeys,
+    session: &SessionGrant,
+    evidence: &StepUpEvidence,
+    wrong: &StepUpEvidence,
+    expired: &StepUpEvidence,
+    now: u64,
+) {
+    // Exercise the production authorization reader as well as the shared handlers.
+    let index = checked(service::server::production_auth::AuthDiscoveryIndex::open(
+        fixture.root.join("auth-index"),
+        checked(service::server::production_auth::IndexAuthenticationKey::new([0x31; 32])),
+    ));
+    checked(index.bind_session(session, &fixture.principal));
+    let schema = checked(service::server::schema::ApiSchema::v1());
+    let operation = schema
+        .operation("security.key-export.finish")
+        .unwrap_or_else(|| panic!("finish operation"));
+    let parameters = std::collections::BTreeMap::new();
+    let authorized_body = json!({"export_id": "authorization-disclosure", "step_up": IdentityProjector::step_up(evidence)});
+    for (proof, admitted) in [
+        (Some(evidence), true),
+        (Some(wrong), false),
+        (Some(expired), false),
+        (None, false),
+    ] {
+        let mut store = fixture.store();
+        let result = service::server::production_auth::authorize_execution(
+            &mut store,
+            passkeys,
+            &index,
+            service::server::production_auth::ExecutionCredentials {
+                access: session.access_token().expose(),
+                csrf: Some(session.csrf_token().expose()),
+                step_up: proof,
+            },
+            service::server::production_auth::AuthorizationDisclosure {
+                operation,
+                destination: "/v1/security/key-export/finish",
+                path_parameters: &parameters,
+                body: &authorized_body,
+                idempotency_key: None,
+                trace: TRACE,
+            },
+            now,
+            30,
+        );
+        assert_eq!(result.is_ok(), admitted);
+    }
+}
+
+fn assert_refused_finish(
+    service: &RunningComponent,
+    fixture: &Fixture,
+    session: &SessionGrant,
+    decoded: &serde_json::Value,
+    proofs: [&StepUpEvidence; 2],
+) {
+    for refused in proofs {
+        let body = json!({"export_id": decoded["export_id"], "step_up": IdentityProjector::step_up(refused)});
+        assert_eq!(
+            service
+                .post("/v1/security/key-export/finish", &body, Some(session), true)
+                .0,
+            403
+        );
+        assert!(!checked(
+            fixture
+                .keystore()
+                .self_custodied(&fixture.principal, &fixture.key)
+        ));
+    }
 }
 
 #[test]
@@ -819,47 +942,9 @@ fn repair_3_export_challenge_wire() {
         now,
     );
     let evidence = fixture.evidence(&passkeys, &mut browser, fixture.action(), now);
-    // Exercise the production authorization reader as well as the shared handlers.
-    let index = checked(service::server::production_auth::AuthDiscoveryIndex::open(
-        fixture.root.join("auth-index"),
-        checked(service::server::production_auth::IndexAuthenticationKey::new([0x31; 32])),
-    ));
-    checked(index.bind_session(&session, &fixture.principal));
-    let schema = checked(service::server::schema::ApiSchema::v1());
-    let operation = schema
-        .operation("security.key-export.finish")
-        .unwrap_or_else(|| panic!("finish operation"));
-    let parameters = std::collections::BTreeMap::new();
-    let authorized_body = json!({"export_id": "authorization-disclosure", "step_up": IdentityProjector::step_up(&evidence)});
-    for (proof, admitted) in [
-        (Some(&evidence), true),
-        (Some(&wrong), false),
-        (Some(&expired), false),
-        (None, false),
-    ] {
-        let mut store = fixture.store();
-        let result = service::server::production_auth::authorize_execution(
-            &mut store,
-            &passkeys,
-            &index,
-            service::server::production_auth::ExecutionCredentials {
-                access: session.access_token().expose(),
-                csrf: Some(session.csrf_token().expose()),
-                step_up: proof,
-            },
-            service::server::production_auth::AuthorizationDisclosure {
-                operation,
-                destination: "/v1/security/key-export/finish",
-                path_parameters: &parameters,
-                body: &authorized_body,
-                idempotency_key: None,
-                trace: TRACE,
-            },
-            now,
-            30,
-        );
-        assert_eq!(result.is_ok(), admitted);
-    }
+    assert_execution_authorization(
+        &fixture, &passkeys, &session, &evidence, &wrong, &expired, now,
+    );
     let service = RunningComponent::start(&fixture, passkeys, Arc::clone(&clock));
     let begin_body = json!({"step_up": IdentityProjector::step_up(&evidence)});
     assert_eq!(
@@ -911,25 +996,7 @@ fn repair_3_export_challenge_wire() {
         true,
     );
     assert_eq!(status, 200, "{fresh}");
-    for refused in [&wrong, &expired] {
-        let body = json!({"export_id": decoded["export_id"], "step_up": IdentityProjector::step_up(refused)});
-        assert_eq!(
-            service
-                .post(
-                    "/v1/security/key-export/finish",
-                    &body,
-                    Some(&session),
-                    true
-                )
-                .0,
-            403
-        );
-        assert!(!checked(
-            fixture
-                .keystore()
-                .self_custodied(&fixture.principal, &fixture.key)
-        ));
-    }
+    assert_refused_finish(&service, &fixture, &session, &decoded, [&wrong, &expired]);
     let body = json!({"export_id": decoded["export_id"], "step_up": fresh["result"]});
     let (status, exported) = service.post(
         "/v1/security/key-export/finish",
@@ -1018,4 +1085,10 @@ fn signing_attempt(fixture: &Fixture, now: u64) -> Result<(), CustodyError> {
         Poll::Ready(result) => result.map(|_| ()),
         Poll::Pending => panic!("development signing unexpectedly blocked"),
     }
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

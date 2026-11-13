@@ -31,6 +31,8 @@ struct Verification {
 }
 
 impl Smtp {
+    /// # Errors
+    /// Refuses an invalid SMTP URL, credentials on plain SMTP, or an invalid sender.
     pub fn parse(url: &str, from: &str) -> Result<Self, String> {
         let (tls, rest) = if let Some(rest) = url.strip_prefix("smtps://") {
             (true, rest)
@@ -80,10 +82,15 @@ impl Smtp {
     /// Sends every queued verification in `outbox` and removes each one the
     /// server accepted. Returns how many were sent; the first failure stops
     /// the pass and leaves that file and the rest queued for the next pass.
+    ///
+    /// # Errors
+    /// Returns an error when a queued message cannot be read, sent, or removed.
     pub fn drain(&self, outbox: &Path) -> Result<usize, String> {
         self.drain_confirmed(outbox, |_| Ok(()))
     }
 
+    /// # Errors
+    /// Returns an error when delivery or its acceptance callback fails.
     pub fn drain_confirmed(
         &self,
         outbox: &Path,
@@ -280,18 +287,31 @@ mod tests {
     /// A minimal SMTP server on loopback: answers one session with the
     /// replies a real server gives and returns every line the client sent.
     fn listener() -> (u16, thread::JoinHandle<Vec<String>>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error:?}"));
+        let port = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .port();
         let server = thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            let mut writer = stream.try_clone().unwrap();
+            let (stream, _) = listener
+                .accept()
+                .unwrap_or_else(|error| panic!("{error:?}"));
+            let mut writer = stream
+                .try_clone()
+                .unwrap_or_else(|error| panic!("{error:?}"));
             let mut reader = BufReader::new(stream);
             let mut lines = Vec::new();
-            writer.write_all(b"220 loopback ESMTP\r\n").unwrap();
+            writer
+                .write_all(b"220 loopback ESMTP\r\n")
+                .unwrap_or_else(|error| panic!("{error:?}"));
             let mut in_data = false;
             loop {
                 let mut line = String::new();
-                if reader.read_line(&mut line).unwrap() == 0 {
+                if reader
+                    .read_line(&mut line)
+                    .unwrap_or_else(|error| panic!("{error:?}"))
+                    == 0
+                {
                     break;
                 }
                 let line = line.trim_end_matches("\r\n").to_owned();
@@ -313,7 +333,9 @@ mod tests {
                     b"250 ok\r\n"
                 };
                 lines.push(line);
-                writer.write_all(reply).unwrap();
+                writer
+                    .write_all(reply)
+                    .unwrap_or_else(|error| panic!("{error:?}"));
                 if lines.last().is_some_and(|line| line == "QUIT") {
                     break;
                 }
@@ -326,21 +348,25 @@ mod tests {
     #[test]
     fn mailer_delivers_a_queued_verification_to_smtp_and_clears_it() {
         let outbox = std::env::temp_dir().join(format!("mailer-outbox-{}", std::process::id()));
-        fs::create_dir_all(&outbox).unwrap();
+        fs::create_dir_all(&outbox).unwrap_or_else(|error| panic!("{error:?}"));
         fs::write(
             outbox.join("abc.json"),
             br#"{"kind":"signup_verification","email":"ada@example.com","token":"vfy_0123","expires_at":1790000000}"#,
         )
-        .unwrap();
-        fs::write(outbox.join("abc.tmp"), b"partial").unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        fs::write(outbox.join("abc.tmp"), b"partial").unwrap_or_else(|error| panic!("{error:?}"));
         let (port, server) = listener();
         let smtp = Smtp::parse(
             &format!("smtp://127.0.0.1:{port}"),
             "no-reply@paxeer.network",
         )
-        .unwrap();
-        assert_eq!(smtp.drain(&outbox).unwrap(), 1);
-        let lines = server.join().unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        assert_eq!(
+            smtp.drain(&outbox)
+                .unwrap_or_else(|error| panic!("{error:?}")),
+            1
+        );
+        let lines = server.join().unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(lines[0], "EHLO layerx-identity");
         assert_eq!(lines[1], "MAIL FROM:<no-reply@paxeer.network>");
         assert_eq!(lines[2], "RCPT TO:<ada@example.com>");
@@ -351,40 +377,60 @@ mod tests {
         assert_eq!(lines[lines.len() - 1], "QUIT");
         assert!(!outbox.join("abc.json").exists());
         assert!(outbox.join("abc.tmp").exists());
-        fs::remove_dir_all(&outbox).unwrap();
+        fs::remove_dir_all(&outbox).unwrap_or_else(|error| panic!("{error:?}"));
     }
 
     #[test]
     fn mailer_keeps_the_verification_queued_when_smtp_refuses() {
         let outbox = std::env::temp_dir().join(format!("mailer-refused-{}", std::process::id()));
-        fs::create_dir_all(&outbox).unwrap();
+        fs::create_dir_all(&outbox).unwrap_or_else(|error| panic!("{error:?}"));
         fs::write(
             outbox.join("abc.json"),
             br#"{"kind":"signup_verification","email":"ada@example.com","token":"vfy_0123","expires_at":1}"#,
         )
-        .unwrap();
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error:?}"));
+        let port = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .port();
         let server = thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
-            stream.write_all(b"554 no service\r\n").unwrap();
+            let (mut stream, _) = listener
+                .accept()
+                .unwrap_or_else(|error| panic!("{error:?}"));
+            stream
+                .write_all(b"554 no service\r\n")
+                .unwrap_or_else(|error| panic!("{error:?}"));
         });
-        let smtp = Smtp::parse(&format!("smtp://127.0.0.1:{port}"), "a@b.co").unwrap();
-        assert!(smtp.drain(&outbox).unwrap_err().contains("554"));
-        server.join().unwrap();
+        let smtp = Smtp::parse(&format!("smtp://127.0.0.1:{port}"), "a@b.co")
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        assert!(smtp
+            .drain(&outbox)
+            .err()
+            .unwrap_or_else(|| panic!("expected SMTP refusal"))
+            .contains("554"));
+        server.join().unwrap_or_else(|error| panic!("{error:?}"));
         assert!(outbox.join("abc.json").exists());
-        fs::remove_dir_all(&outbox).unwrap();
+        fs::remove_dir_all(&outbox).unwrap_or_else(|error| panic!("{error:?}"));
     }
 
     #[test]
     fn mailer_url_parsing_is_exact() {
-        let smtps = Smtp::parse("smtps://user%40x:p%3Ass@mail.example.com", "a@b.co").unwrap();
+        let smtps = Smtp::parse("smtps://user%40x:p%3Ass@mail.example.com", "a@b.co")
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert!(smtps.tls);
         assert_eq!(smtps.port, 465);
         assert_eq!(smtps.host, "mail.example.com");
-        let (user, password) = smtps.credentials.unwrap();
+        let (user, password) = smtps
+            .credentials
+            .unwrap_or_else(|| panic!("SMTP credentials missing"));
         assert_eq!((user.as_str(), password.as_str()), ("user@x", "p:ss"));
-        assert_eq!(Smtp::parse("smtp://relay", "a@b.co").unwrap().port, 25);
+        assert_eq!(
+            Smtp::parse("smtp://relay", "a@b.co")
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .port,
+            25
+        );
         assert!(Smtp::parse("smtp://u:p@relay", "a@b.co").is_err());
         assert!(Smtp::parse("http://relay", "a@b.co").is_err());
         assert!(Smtp::parse("smtp://relay:x", "a@b.co").is_err());

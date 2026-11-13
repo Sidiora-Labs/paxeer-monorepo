@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"sync"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/util"
 )
 
 type MeasurementBinding struct {
@@ -58,18 +60,15 @@ func (a BoundMeasurementArtifact) Open() (*os.File, error) {
 	}
 	opened, err := file.Stat()
 	if err != nil || !os.SameFile(info, opened) {
-		file.Close()
-		return nil, errors.New("measurement artifact changed while opening")
+		return nil, errors.Join(errors.New("measurement artifact changed while opening"), err, file.Close())
 	}
 	hash := sha256.New()
 	count, err := io.Copy(hash, io.LimitReader(file, a.MaxBytes+1))
 	if err != nil || count != info.Size() || count > a.MaxBytes || hex.EncodeToString(hash.Sum(nil)) != a.SHA256 {
-		file.Close()
-		return nil, errors.New("measurement artifact digest or size differs")
+		return nil, errors.Join(errors.New("measurement artifact digest or size differs"), err, file.Close())
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		file.Close()
-		return nil, err
+		return nil, errors.Join(err, file.Close())
 	}
 	return file, nil
 }
@@ -198,7 +197,7 @@ func NewMeasurementCapture(directory string, binding MeasurementBinding, maxRows
 	if err := os.Mkdir(directory, 0700); err != nil {
 		return nil, err
 	}
-	file, err := os.OpenFile(filepath.Join(directory, "chain-samples.ndjson"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	file, err := util.OpenFilePath(filepath.Join(directory, "chain-samples.ndjson"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -321,8 +320,7 @@ func (c *MeasurementCapture) Finish(passed bool, failureCode string) (Measuremen
 		}
 	}
 	if err := c.file.Sync(); err != nil {
-		c.file.Close()
-		return result, err
+		return result, errors.Join(err, c.file.Close())
 	}
 	if err := c.file.Close(); err != nil {
 		return result, err
@@ -333,7 +331,7 @@ func (c *MeasurementCapture) Finish(passed bool, failureCode string) (Measuremen
 	}
 	hash := sha256.New()
 	_, err = io.Copy(hash, file)
-	file.Close()
+	err = errors.Join(err, file.Close())
 	if err != nil {
 		return result, err
 	}
@@ -365,8 +363,7 @@ func (c *MeasurementCapture) Finish(passed bool, failureCode string) (Measuremen
 		if openErr != nil {
 			err = openErr
 		} else {
-			err = directory.Sync()
-			directory.Close()
+			err = errors.Join(directory.Sync(), directory.Close())
 		}
 	}
 	return result, err

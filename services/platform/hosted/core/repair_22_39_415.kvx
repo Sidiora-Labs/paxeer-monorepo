@@ -1,0 +1,78 @@
+[core]
+member = "layerx-platform-core"
+behavior = "The core boundary preserves funding, custody, receipt, and public read behavior across the library, binary, and integration tests."
+
+[lint.missing_errors_doc]
+files = ["src/lib.rs"]
+
+[lint.unwrap_used]
+files = ["tests/chain_fund.rs", "tests/did_gateway_account.rs", "tests/proof_core_env_vars.rs", "tests/repair_22_31_354.rs", "tests/repair_22_31_485.rs", "tests/repair_22_33_1451.rs", "tests/send.rs", "tests/support/native_funding.rs"]
+
+[lint.expect_used]
+files = ["src/chain_fund.rs", "src/main.rs", "src/public_reads.rs", "tests/chain_fund.rs", "tests/proof_core_env_vars.rs", "tests/repair_22_31_354.rs", "tests/repair_22_33_1451.rs", "tests/signer.rs", "tests/support/native_funding.rs"]
+
+[lint.items_after_statements]
+files = ["src/lib.rs", "src/main.rs", "tests/retired_client_modules.rs", "tests/send.rs"]
+
+[lint.similar_names]
+files = ["src/chain_fund.rs", "src/lib.rs", "tests/send.rs"]
+
+[lint.dead_code]
+files = ["src/main.rs", "src/public_reads.rs", "tests/chain_fund.rs", "tests/repair_22_33_1455.rs", "tests/send.rs", "tests/support/native_funding.rs"]
+
+[lint.too_many_lines]
+files = ["src/main.rs", "tests/chain_fund.rs", "tests/proof_core_env_vars.rs", "tests/repair_22_31_354.rs", "tests/support/native_funding.rs"]
+
+[lint.duplicate_mod]
+files = ["tests/chain_fund.rs", "tests/repair_22_33_1455.rs", "tests/send.rs", "tests/support/native_funding.rs"]
+
+[lint.doc_markdown]
+files = ["src/chain_fund.rs", "tests/proof_core_env_vars.rs"]
+
+[lint.unreadable_literal]
+files = ["tests/repair_22_31_354.rs", "tests/repair_22_33_1451.rs", "tests/support/native_funding.rs"]
+
+[lint.needless_pass_by_value]
+files = ["src/chain_fund.rs", "tests/repair_22_31_354.rs", "tests/repair_22_31_485.rs", "tests/repair_22_33_1451.rs", "tests/support/native_funding.rs"]
+
+[lint.ignored_unit_patterns]
+files = ["src/chain_fund.rs"]
+
+[lint.manual_let_else]
+files = ["src/main.rs"]
+
+[lint.single_match_else]
+files = ["src/main.rs"]
+
+[lint.checked_conversions]
+files = ["src/main.rs"]
+
+[lint.match_same_arms]
+files = ["src/main.rs"]
+
+[lint.semicolon_if_nothing_returned]
+files = ["tests/support/native_funding.rs"]
+
+[lint.bool_to_int_with_if]
+files = ["tests/repair_22_33_1451.rs"]
+
+[lint.err_expect]
+files = ["tests/repair_22_31_354.rs"]
+
+[lint.missing_panics_doc]
+files = ["tests/support/native_funding.rs"]
+
+[lint.needless_return]
+files = ["src/main.rs"]
+
+[lint.needless_borrow]
+files = ["tests/chain_fund.rs", "tests/repair_22_31_354.rs"]
+
+[lint.needless_borrows_for_generic_args]
+files = ["tests/chain_fund.rs"]
+
+[lint.map_unwrap_or]
+files = ["tests/repair_22_31_354.rs"]
+
+[lint.semicolon_if_nothing_returned]
+files = ["tests/repair_22_31_354.rs", "tests/repair_22_33_1451.rs", "tests/support/native_funding.rs"]

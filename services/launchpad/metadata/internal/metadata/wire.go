@@ -68,7 +68,7 @@ type WireResponse[T any] struct {
 
 func validHTTPS(s string) bool {
 	u, e := url.Parse(s)
-	return e == nil && regexp.MustCompile(`^https://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?(?:[/?#][^\s]*)?$`).MatchString(s) && len(s) <= 2048 && u.Scheme == "https" && u.Hostname() != "" && u.User == nil && !strings.ContainsAny(s, " \r\n\t")
+	return e == nil && regexp.MustCompile(`^https://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?(?:[/?#][^\s]*)?$`).MatchString(s) && len(s) <= 2048 && u.Scheme == metadataHTTPSScheme && u.Hostname() != "" && u.User == nil && !strings.ContainsAny(s, " \r\n\t")
 }
 func immutableURL(s string) bool {
 	if !validHTTPS(s) {
@@ -85,18 +85,18 @@ func AssetToWire(a AssetDomain) (WireAsset, error) {
 	if _, e := hex.DecodeString(a.Hash); e != nil {
 		return z, ErrUnrepresentable
 	}
-	if a.MIME != "image/png" && a.MIME != "image/jpeg" && a.MIME != "image/webp" {
+	if a.MIME != metadataMimePNG && a.MIME != metadataMimeJPEG && a.MIME != metadataMimeWebP {
 		return z, ErrUnrepresentable
 	}
-	states := map[string]string{"UPLOADING": "uploading", "QUARANTINED": "quarantined", "VALIDATING": "quarantined", "APPROVED": "approved", "REJECTED": "rejected"}
+	states := map[string]string{metadataStateUploading: metadataStateUploadingWire, metadataStateQuarantined: metadataStateQuarantinedWire, metadataStateValidating: metadataStateQuarantinedWire, metadataStateApproved: metadataStateApprovedWire, metadataStateRejected: metadataStateRejectedWire}
 	state, ok := states[a.State]
 	if !ok || a.Blocked {
 		return z, ErrUnrepresentable
 	}
-	if state != "approved" && a.ApprovedURL != nil {
+	if state != metadataStateApprovedWire && a.ApprovedURL != nil {
 		return z, ErrUnrepresentable
 	}
-	if state == "approved" && a.ApprovedURL == nil {
+	if state == metadataStateApprovedWire && a.ApprovedURL == nil {
 		return z, ErrUnrepresentable
 	}
 	if a.ApprovedURL != nil && (!immutableURL(*a.ApprovedURL) || !strings.HasPrefix(func() string { u, _ := url.Parse(*a.ApprovedURL); return u.Path }(), "/approved/"+a.Hash+"/")) {
@@ -121,8 +121,8 @@ func AssetResponse(request string, a AssetDomain, now time.Time) (WireResponse[W
 		return WireResponse[WireAssetData]{}, e
 	}
 	q := "partial"
-	if v.State == "quarantined" {
-		q = "quarantined"
+	if v.State == metadataStateQuarantinedWire {
+		q = metadataStateQuarantinedWire
 	}
 	return envelope(request, WireAssetData{v}, q, now)
 }
@@ -136,7 +136,7 @@ func UploadCreateResponse(request string, a AssetDomain, uploadURL string, expir
 	if e != nil {
 		return WireResponse[WireUploadData]{}, e
 	}
-	if expires.UTC().Year() < 1 || expires.UTC().Year() > 9999 || v.State != "uploading" || !validHTTPS(uploadURL) || !expires.After(now) || expires.Sub(now) > 15*time.Minute {
+	if expires.UTC().Year() < 1 || expires.UTC().Year() > 9999 || v.State != metadataStateUploadingWire || !validHTTPS(uploadURL) || !expires.After(now) || expires.Sub(now) > 15*time.Minute {
 		return WireResponse[WireUploadData]{}, ErrUnrepresentable
 	}
 	return envelope(request, WireUploadData{v, uploadURL, expires.UTC().Format("2006-01-02T15:04:05.000Z")}, "partial", now)
@@ -179,12 +179,12 @@ func MetadataResponse(request, address, name, symbol, description, revision stri
 		v := *logo
 		logo = &v
 	}
-	dq, sq := "unavailable", "unavailable"
+	dq, sq := metadataUnavailableQuality, metadataUnavailableQuality
 	if decimals != nil {
-		dq = "verified"
+		dq = metadataVerifiedQuality
 	}
 	if supply != nil {
-		sq = "verified"
+		sq = metadataVerifiedQuality
 	}
 	t := WireToken{address, name, symbol, decimals, supply, dq, sq, nil, revision, logo}
 	return envelope(request, WireMetadataData{t, description, owned, revision}, "partial", now)
@@ -196,7 +196,7 @@ type WireMetadataPatchData struct {
 }
 
 func MetadataPatchResponse(request string, token WireToken, revision string, now time.Time) (WireResponse[WireMetadataPatchData], error) {
-	if token.MetadataRevision != revision || token.SourcePosition != nil || (token.Decimals == nil && token.DecimalsQuality != "unavailable") || (token.Decimals != nil && token.DecimalsQuality != "verified") || (token.TotalSupplyRaw == nil && token.SupplyQuality != "unavailable") || (token.TotalSupplyRaw != nil && token.SupplyQuality != "verified") {
+	if token.MetadataRevision != revision || token.SourcePosition != nil || (token.Decimals == nil && token.DecimalsQuality != metadataUnavailableQuality) || (token.Decimals != nil && token.DecimalsQuality != metadataVerifiedQuality) || (token.TotalSupplyRaw == nil && token.SupplyQuality != metadataUnavailableQuality) || (token.TotalSupplyRaw != nil && token.SupplyQuality != metadataVerifiedQuality) {
 		return WireResponse[WireMetadataPatchData]{}, ErrUnrepresentable
 	}
 	// Only the canonical no-position projection supported here is accepted; quality
@@ -262,10 +262,10 @@ func ParseUploadCreate(raw []byte) (UploadCreateBody, error) {
 	if e := decodeUpload(raw, map[string]bool{"mediaType": true, "bytes": true, "sha256": true}, &b); e != nil {
 		return b, ErrValidation
 	}
-	if !wireHash(b.SHA256) || b.Bytes < 1 || b.Bytes > 6<<20 || (b.MediaType != "image/png" && b.MediaType != "image/jpeg" && b.MediaType != "image/webp") {
+	if !wireHash(b.SHA256) || b.Bytes < 1 || b.Bytes > 6<<20 || (b.MediaType != metadataMimePNG && b.MediaType != metadataMimeJPEG && b.MediaType != metadataMimeWebP) {
 		return b, ErrValidation
 	}
-	if b.MediaType == "image/webp" {
+	if b.MediaType == metadataMimeWebP {
 		return b, ErrUnrepresentable
 	}
 	return b, nil

@@ -1,3 +1,5 @@
+use layerx_platform_authority::assertion::Must;
+
 const BUDGET_READER_SOURCES: [(&str, &str); 2] = [
     (
         "src/human/budget_state.rs",
@@ -43,7 +45,7 @@ fn no_retired_layerx_client_module_paths() {
             let module = reference
                 .split(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_')
                 .next()
-                .expect("module after client path");
+                .must_with("module after client path");
             assert!(
                 !retired.contains(&module),
                 "{path} names retired path layerx_client::{module}"

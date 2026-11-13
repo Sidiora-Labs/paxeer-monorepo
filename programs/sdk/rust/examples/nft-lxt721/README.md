@@ -29,7 +29,7 @@ every mutation returns an empty payload. The guest refuses nested calls.
 Build from the repository root (the script builds from the example directory so
 `programs/.cargo/config.toml` applies, then runs `layerx-program-lint` on the artifact):
 
-```
+```sh
 sh programs/sdk/rust/examples/nft-lxt721/build.sh
 ```
 

@@ -3,6 +3,8 @@ use super::production_components::AccountBalance;
 use layerx_types::rung::Rung;
 
 impl AccountBalance {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn material_rung(bytes: &[u8]) -> Result<Option<Rung>, ApiFailure> {
         let invalid = ApiFailure::upstream_degraded;
         let (rung, offset) = match bytes.get(..5) {

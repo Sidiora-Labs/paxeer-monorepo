@@ -17,7 +17,7 @@ func CacheKey(wallet, verifiedWallet, revision string, private bool) (string, er
 	if e != nil || r.Sign() == 0 {
 		return "", ErrInvalid
 	}
-	scope := "public"
+	scope := visibilityPublic
 	if private {
 		if e = RequireOwner(w, verifiedWallet); e != nil {
 			return "", e

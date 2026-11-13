@@ -151,17 +151,27 @@ impl Recording {
         use sha2::Sha256;
         let document: Value =
             serde_json::from_str(include_str!("../fixtures/inbound_sequencer_receipt.json"))
-                .unwrap();
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let mut result = document["endpoints"]["paxeer"]["committed"]
             .as_array()
-            .unwrap()
+            .unwrap_or_else(|| panic!("expected Some value"))
             .iter()
             .find(|rule| rule["method"] == "pax_sequencerReceipt")
-            .unwrap()["result"]
+            .unwrap_or_else(|| panic!("expected Some value"))["result"]
             .clone();
-        let old_hash = hex::fixed::<32>(result["txHash"].as_str().unwrap()).unwrap();
+        let old_hash = hex::fixed::<32>(
+            result["txHash"]
+                .as_str()
+                .unwrap_or_else(|| panic!("expected Some value")),
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         let tx_hash: [u8; 32] = Keccak256::digest(raw).into();
-        let mut receipt = hex::decode(result["receipt"].as_str().unwrap()).unwrap();
+        let mut receipt = hex::decode(
+            result["receipt"]
+                .as_str()
+                .unwrap_or_else(|| panic!("expected Some value")),
+        )
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         assert_eq!(&receipt[10..42], &old_hash);
         receipt[10..42].copy_from_slice(&tx_hash);
         let unsigned_len = receipt.len() - 69;
@@ -180,7 +190,7 @@ impl Recording {
         self.lock()
             .endpoints
             .get_mut("paxeer")
-            .unwrap()
+            .unwrap_or_else(|| panic!("expected Some value"))
             .entry("restart".to_owned())
             .or_default()
             .push(rule);
@@ -206,9 +216,19 @@ impl Recording {
 }
 
 fn crate_receipt_check(value: &Value) {
-    let receipt = layerx_bridge_relayer::receipt::SequencerReceipt::decode(value).unwrap();
-    assert_eq!(receipt.view.as_ref().unwrap().payment_denom, "uhpx");
-    receipt.verify(&receipt_keys()).unwrap();
+    let receipt = layerx_bridge_relayer::receipt::SequencerReceipt::decode(value)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    assert_eq!(
+        receipt
+            .view
+            .as_ref()
+            .unwrap_or_else(|| panic!("expected Some value"))
+            .payment_denom,
+        "uhpx"
+    );
+    receipt
+        .verify(&receipt_keys())
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
 }
 
 fn substitute(value: &Value, submitted: &[String]) -> Value {

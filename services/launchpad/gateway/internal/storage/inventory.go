@@ -7,16 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	sharedstorage "github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+	sharedstorage "github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -47,21 +49,22 @@ func (a *Authority) ReconcileInventory(ctx context.Context, client *s3.Client, b
 
 func ReconcileInventory(ctx context.Context, store InventoryStore, client *s3.Client, bucket, prefix string, limit int) (InventoryReport, error) {
 	report := InventoryReport{Orphans: []string{}, GeneratedAt: time.Now().UTC()}
-	if store == nil || client == nil || bucket == "" || limit < 1 || limit > 100000 || (prefix != "approved/" && prefix != "private/" && prefix != "quarantine/" && prefix != "temporary/") {
+	if store == nil || client == nil || bucket == "" || limit < 1 || limit > 100000 || (prefix != approvedPrefix && prefix != privatePrefix && prefix != "quarantine/" && prefix != temporaryPrefix) {
 		return report, ErrConflict
 	}
 	pass, err := store.BeginInventory(ctx, bucket, prefix)
 	if err != nil {
 		return report, ErrUnavailable
 	}
-	defer pass.Rollback(context.WithoutCancel(ctx))
+	defer cleanup.Rollback(context.WithoutCancel(ctx), pass)
 	token, err := pass.Cursor(ctx)
 	if err != nil {
 		return report, ErrUnavailable
 	}
 	for report.Checked < limit {
 		maxKeys := min(1000, limit-report.Checked)
-		input := &s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(prefix), MaxKeys: aws.Int32(int32(maxKeys))}
+		// maxKeys is bounded to 1000 by the page limit above.
+		input := &s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(prefix), MaxKeys: aws.Int32(int32(maxKeys))} //nolint:gosec // S3's page field is int32 and this value is at most 1000.
 		if token != "" {
 			input.ContinuationToken = aws.String(token)
 		}
@@ -91,9 +94,9 @@ func ReconcileInventory(ctx context.Context, store InventoryStore, client *s3.Cl
 			if err != nil {
 				return report, ErrUnavailable
 			}
-			if kind == "variant" || kind == "original" {
+			if kind == variantKind || kind == originalKind {
 				expected := hash
-				if kind == "variant" {
+				if kind == variantKind {
 					if !ValidDeliveryKey(key) {
 						return report, ErrConflict
 					}
@@ -172,7 +175,7 @@ func (a *Authority) InventoryCursorSchemaDDL() string {
 
 func NewScopedObjectClient(ctx context.Context, config sharedstorage.Config) (*sharedstorage.Client, *s3.Client, error) {
 	endpoint, e := url.Parse(config.Endpoint)
-	if e != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.Path != "" || endpoint.RawQuery != "" || endpoint.Fragment != "" || config.Bucket == "" || config.Region == "" || config.AccessKeyID == "" || config.SecretAccessKey == "" {
+	if e != nil || endpoint.Scheme != httpsScheme || endpoint.Host == "" || endpoint.User != nil || endpoint.Path != "" || endpoint.RawQuery != "" || endpoint.Fragment != "" || config.Bucket == "" || config.Region == "" || config.AccessKeyID == "" || config.SecretAccessKey == "" {
 		return nil, nil, ErrUnavailable
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
@@ -194,7 +197,7 @@ func NewScopedObjectClient(ctx context.Context, config sharedstorage.Config) (*s
 	return sharedstorage.NewFromS3(raw, config.Bucket), raw, nil
 }
 func (a *Authority) PersistInventory(ctx context.Context, bucket, prefix string, report InventoryReport) error {
-	if bucket == "" || (prefix != "approved/" && prefix != "private/" && prefix != "temporary/" && prefix != "quarantine/") || report.Checked < 0 || report.Checked > 100000 || len(report.Orphans) > 100000 || report.GeneratedAt.IsZero() {
+	if bucket == "" || (prefix != approvedPrefix && prefix != privatePrefix && prefix != temporaryPrefix && prefix != "quarantine/") || report.Checked < 0 || report.Checked > 100000 || len(report.Orphans) > 100000 || report.GeneratedAt.IsZero() {
 		return ErrConflict
 	}
 	raw, e := json.Marshal(report.Orphans)
@@ -215,7 +218,11 @@ func verifyInventoryHash(ctx context.Context, client *s3.Client, bucket, key, ex
 	if object == nil || object.Body == nil {
 		return ErrUnavailable
 	}
-	defer object.Body.Close()
+	defer func() {
+		if closeErr := object.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
+	}()
 	size := aws.ToInt64(object.ContentLength)
 	if size < 1 || size > 32<<20 || !digest.MatchString(expected) {
 		return ErrConflict

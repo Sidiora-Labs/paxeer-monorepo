@@ -1,5 +1,4 @@
-//! Task 22.33.244: finding/test mapping and proof limits are recorded in
-//! ../src/repair_22_33_244.kvx. All execution is in-process with production code.
+//! Checks SDK capability and web answer boundaries with production code.
 
 use std::sync::Arc;
 
@@ -22,8 +21,8 @@ use layerx_programs_runtime::{
 
 fn transfer(maximum_amount: Amount) -> Capability {
     Capability::Transfer402 {
-        asset: AssetId::new([2; 32]).unwrap(),
-        to: AccountId::new([3; 32]).unwrap(),
+        asset: AssetId::new([2; 32]).unwrap_or_else(|error| panic!("test value: {error:?}")),
+        to: AccountId::new([3; 32]).unwrap_or_else(|error| panic!("test value: {error:?}")),
         maximum_amount,
     }
 }
@@ -32,15 +31,16 @@ fn transfer(maximum_amount: Amount) -> Capability {
 fn finding_012_direct_zero_ceiling_is_refused_without_mutating_either_set() {
     let invalid = transfer(Amount::ZERO);
     let error = ProgramError::value(Field::Amount, Reason::Zero);
-    let mut basic = CapabilitySet::<2>::from_grants(&[Capability::StorageRead]).unwrap();
+    let mut basic = CapabilitySet::<2>::from_grants(&[Capability::StorageRead])
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     let before = basic;
     assert_eq!(basic.insert(invalid), Err(error));
     assert_eq!(basic, before);
     assert_eq!(CapabilitySet::<1>::from_grants(&[invalid]), Err(error));
     assert_eq!(
         Capability::transfer(
-            AssetId::new([2; 32]).unwrap(),
-            AccountId::new([3; 32]).unwrap(),
+            AssetId::new([2; 32]).unwrap_or_else(|error| panic!("test value: {error:?}")),
+            AccountId::new([3; 32]).unwrap_or_else(|error| panic!("test value: {error:?}")),
             Amount::ZERO,
         ),
         Err(error)
@@ -49,7 +49,7 @@ fn finding_012_direct_zero_ceiling_is_refused_without_mutating_either_set() {
     let mut payments = ProgramPaymentCapabilities::<2>::empty();
     payments
         .insert(PaymentGrant::Basic(Capability::StorageRead))
-        .unwrap();
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     let before = payments;
     assert_eq!(payments.insert(PaymentGrant::Basic(invalid)), Err(error));
     assert_eq!(payments, before);
@@ -93,17 +93,20 @@ fn finding_012_all_public_variants_reach_the_real_runtime_codec() {
             Capability::SharedStorageWrite,
             Capability::SharedStorageRead,
             Capability::ReceiptRead {
-                receipt_digest: ReceiptDigest::new([4; 32]).unwrap(),
+                receipt_digest: ReceiptDigest::new([4; 32])
+                    .unwrap_or_else(|error| panic!("test value: {error:?}")),
             },
             transfer(Amount::from_u128(maximum)),
             Capability::Call {
-                program: ProgramId::new([1; 32]).unwrap(),
+                program: ProgramId::new([1; 32])
+                    .unwrap_or_else(|error| panic!("test value: {error:?}")),
             },
             Capability::EmitEvent,
             Capability::StorageWrite,
             Capability::StorageRead,
         ];
-        let set = CapabilitySet::<8>::from_grants(&grants).unwrap();
+        let set = CapabilitySet::<8>::from_grants(&grants)
+            .unwrap_or_else(|error| panic!("test value: {error:?}"));
         let mut encoded = vec![0; set.encoded_len()];
         assert_eq!(set.encode_into(&mut encoded), Ok(encoded.len()));
         let expected = HostCapabilities::new([
@@ -111,7 +114,8 @@ fn finding_012_all_public_variants_reach_the_real_runtime_codec() {
             HostCapability::StorageWrite,
             HostCapability::EmitEvent,
             HostCapability::Call {
-                program: HostProgramId::new([1; 32]).unwrap(),
+                program: HostProgramId::new([1; 32])
+                    .unwrap_or_else(|error| panic!("test value: {error:?}")),
             },
             HostCapability::Transfer402 {
                 asset: [2; 32],
@@ -124,7 +128,7 @@ fn finding_012_all_public_variants_reach_the_real_runtime_codec() {
             HostCapability::SharedStorageRead,
             HostCapability::SharedStorageWrite,
         ])
-        .unwrap();
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
         assert_eq!(encoded, expected.canonical_encoding());
         assert_eq!(
             HostCapabilities::decode_canonical(&encoded).and_then(HostCapabilities::new),
@@ -137,7 +141,9 @@ fn finding_012_all_public_variants_reach_the_real_runtime_codec() {
 
         let mut payments = ProgramPaymentCapabilities::<8>::empty();
         for grant in grants {
-            payments.insert(PaymentGrant::Basic(grant)).unwrap();
+            payments
+                .insert(PaymentGrant::Basic(grant))
+                .unwrap_or_else(|error| panic!("test value: {error:?}"));
         }
         let mut payment_bytes = vec![0; payments.encoded_len()];
         assert_eq!(payments.encode_into(&mut payment_bytes), Ok(encoded.len()));
@@ -147,7 +153,8 @@ fn finding_012_all_public_variants_reach_the_real_runtime_codec() {
             Err(ProgramError::value(Field::Capability, Reason::TooLarge))
         );
     }
-    let mut set = CapabilitySet::<2>::from_grants(&[transfer(Amount::from_u128(1))]).unwrap();
+    let mut set = CapabilitySet::<2>::from_grants(&[transfer(Amount::from_u128(1))])
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     assert_eq!(
         set.insert(transfer(Amount::from_u128(2))),
         Err(ProgramError::value(Field::Capability, Reason::Duplicate))
@@ -186,9 +193,11 @@ fn forwarding_guest(callee: HostProgramId, encoded: &[u8]) -> Vec<u8> {
 
 #[test]
 fn finding_012_real_host_still_rejects_a_zero_ceiling_on_the_wire() {
-    let set = CapabilitySet::<1>::from_grants(&[transfer(Amount::from_u128(1))]).unwrap();
+    let set = CapabilitySet::<1>::from_grants(&[transfer(Amount::from_u128(1))])
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     let mut encoded = vec![0; set.encoded_len()];
-    set.encode_into(&mut encoded).unwrap();
+    set.encode_into(&mut encoded)
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     let amount_offset = encoded.len() - 16;
     encoded[amount_offset..].fill(0);
     assert_eq!(
@@ -208,37 +217,40 @@ fn finding_012_real_host_still_rejects_a_zero_ceiling_on_the_wire() {
         Err(AbiError::InvalidCapability)
     );
 
-    let engine = WasmEngine::declared().unwrap();
+    let engine = WasmEngine::declared().unwrap_or_else(|error| panic!("test value: {error:?}"));
     let module = engine
         .validate(&forwarding_guest(
-            HostProgramId::new([5; 32]).unwrap(),
+            HostProgramId::new([5; 32]).unwrap_or_else(|error| panic!("test value: {error:?}")),
             &encoded,
         ))
-        .unwrap();
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     let abi = Abi::new(
         ABI_V1_VERSION,
-        HostProgramId::new([6; 32]).unwrap(),
+        HostProgramId::new([6; 32]).unwrap_or_else(|error| panic!("test value: {error:?}")),
         AuthorizationContext::new(
-            PrincipalId::new([7; 32]).unwrap(),
+            PrincipalId::new([7; 32]).unwrap_or_else(|error| panic!("test value: {error:?}")),
             HostCapabilities::empty(),
         ),
         Storage::new(),
         &UnavailableReceiptOracle,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("test value: {error:?}"));
     let mut instance = module
         .instantiate_sandbox(
             Meter::new(ResourceBudget::declared(), FeeSchedule::declared()),
             abi,
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     assert_eq!(
         instance
             .call(
                 "forward",
-                &[WasmValue::I32(i32::try_from(encoded.len()).unwrap())]
+                &[WasmValue::I32(
+                    i32::try_from(encoded.len())
+                        .unwrap_or_else(|error| panic!("test value: {error:?}"))
+                )]
             )
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("test value: {error:?}")),
         vec![WasmValue::I32(-2)]
     );
 }
@@ -246,14 +258,17 @@ fn finding_012_real_host_still_rejects_a_zero_ceiling_on_the_wire() {
 #[test]
 fn finding_017_retirement_guidance_names_refusal_query_and_ownership() {
     let source = include_str!("../src/web.rs");
-    let module_docs = source.split("use crate::error").next().unwrap();
+    let module_docs = source
+        .split("use crate::error")
+        .next()
+        .unwrap_or_else(|| panic!("module documentation"));
     let read_docs = source
         .split("/// Calls the retired")
         .nth(1)
-        .unwrap()
+        .unwrap_or_else(|| panic!("retired call documentation"))
         .split("#[cfg(target_arch")
         .next()
-        .unwrap();
+        .unwrap_or_else(|| panic!("retired call boundary"));
     for docs in [module_docs, read_docs] {
         for fact in [
             "compatibility-only",
@@ -281,8 +296,9 @@ fn finding_017_retirement_guidance_names_refusal_query_and_ownership() {
 
 #[test]
 fn finding_017_frozen_decoder_consumes_real_runtime_records_with_owner_isolation() {
-    let owner = HostProgramId::new([8; 32]).unwrap();
-    let foreign = HostProgramId::new([9; 32]).unwrap();
+    let owner = HostProgramId::new([8; 32]).unwrap_or_else(|error| panic!("test value: {error:?}"));
+    let foreign =
+        HostProgramId::new([9; 32]).unwrap_or_else(|error| panic!("test value: {error:?}"));
     let mut store = CommittedWebAnswers::new();
     let response = vec![0x5a; MAX_RESPONSE_BYTES];
     store
@@ -295,29 +311,35 @@ fn finding_017_frozen_decoder_consumes_real_runtime_records_with_owner_isolation
                 response: response.clone(),
             },
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     let store = Arc::new(store);
     let read = |program| {
         Abi::new(
             ABI_V4_VERSION,
             program,
             AuthorizationContext::new(
-                PrincipalId::new([7; 32]).unwrap(),
+                PrincipalId::new([7; 32]).unwrap_or_else(|error| panic!("test value: {error:?}")),
                 HostCapabilities::empty(),
             ),
             Storage::new(),
             &UnavailableReceiptOracle,
         )
-        .unwrap()
+        .unwrap_or_else(|error| panic!("test value: {error:?}"))
         .with_committed_web(store.clone())
     };
     let abi = read(owner);
     assert_eq!(abi.web_read(43), Ok(None));
     assert_eq!(read(foreign).web_read(42), Ok(None));
-    let committed = abi.web_read(42).unwrap().unwrap();
-    let record = committed.canonical_bytes().unwrap();
+    let committed = abi
+        .web_read(42)
+        .unwrap_or_else(|error| panic!("test value: {error:?}"))
+        .unwrap_or_else(|| panic!("committed web answer"));
+    let record = committed
+        .canonical_bytes()
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
     assert_eq!(record.len(), RECORD_BYTES);
-    let answer = Answer::from_record(&record).unwrap();
+    let answer =
+        Answer::from_record(&record).unwrap_or_else(|error| panic!("test value: {error:?}"));
     assert_eq!(answer.content_digest, committed.content_digest);
     assert_eq!(answer.full_length, committed.full_length);
     assert_eq!(answer.response, response);
@@ -343,6 +365,10 @@ fn finding_017_frozen_decoder_consumes_real_runtime_records_with_owner_isolation
         full_length: 0,
         response: vec![],
     };
-    let record = complete.canonical_bytes().unwrap();
-    assert!(!Answer::from_record(&record).unwrap().is_truncated());
+    let record = complete
+        .canonical_bytes()
+        .unwrap_or_else(|error| panic!("test value: {error:?}"));
+    assert!(!Answer::from_record(&record)
+        .unwrap_or_else(|error| panic!("test value: {error:?}"))
+        .is_truncated());
 }

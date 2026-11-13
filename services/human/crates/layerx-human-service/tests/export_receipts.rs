@@ -17,10 +17,10 @@ fn fixture(rung: Rung) -> (ActivityEntryId, ReceiptFact, Vec<ReceiptKeyEntry>) {
         Rung::Committed => ("act_receiptexport2", [2; 32], 21_u64),
         Rung::Receipted | Rung::Submitted => ("act_receiptexport1", [1; 32], 20_u64),
     };
-    let id = ActivityEntryId::new(id).expect("entry id");
+    let id = ActivityEntryId::new(id).or_fail("entry id");
     let key = SigningKey::from_bytes(&[3; 32]);
     let encode = |signature| {
-        let mut bytes = receipt_vector(signature).expect("receipt vector");
+        let mut bytes = receipt_vector(signature).or_fail("receipt vector");
         let positions = bytes
             .windows(32)
             .enumerate()
@@ -41,9 +41,9 @@ fn fixture(rung: Rung) -> (ActivityEntryId, ReceiptFact, Vec<ReceiptKeyEntry>) {
         bytes[positions[0]..positions[0] + 32].copy_from_slice(&tx_hash);
         bytes
     };
-    let digest = receipt_signing_digest(&encode(None)).expect("signing digest");
+    let digest = receipt_signing_digest(&encode(None)).or_fail("signing digest");
     let bytes = encode(Some(key.sign(&digest).to_bytes()));
-    let fact = EvidenceBundle::receipt_fact(&id, bytes, rung).expect("receipt fact");
+    let fact = EvidenceBundle::receipt_fact(&id, bytes, rung).or_fail("receipt fact");
     let keys = vec![ReceiptKeyEntry {
         key_id: [11; 32],
         public_key: key.verifying_key().to_bytes(),
@@ -61,15 +61,12 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
     let (mut store, _) =
         support::install_and_open(&root, &tenancy, support::retention_uniform(100));
     let principal = support::principal("alice");
-    let mut scope = store.principal(&principal).expect("principal scope");
+    let mut scope = store.principal(&principal).or_fail("principal scope");
     for (index, (id, fact, _)) in fixtures.iter().enumerate() {
-        let reference = fact
-            .receipt_hash
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>();
+        let reference = layerx_human_service::hex::lower((fact.receipt_hash).as_ref());
+        let index_byte = u8::try_from(index).unwrap_or_else(|_| panic!("event index fits u8"));
         let delivery = EventDelivery::new(
-            EventIdentity::new([index as u8 + 1; 32]),
+            EventIdentity::new([index_byte + 1; 32]),
             fact.canonical_receipt_bytes.clone(),
             Cursor {
                 block_height: index as u64 + 1,
@@ -77,11 +74,11 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
                 log_index: 0,
             },
             ReceiptReference::Verified {
-                receipt_ref: ReceiptRef::new(reference).expect("receipt reference"),
+                receipt_ref: ReceiptRef::new(reference).or_fail("receipt reference"),
                 rung: fact.rung,
             },
         )
-        .expect("delivery");
+        .or_fail("delivery");
         let activity = AgentActivity::new(
             id.clone(),
             ActivityKind::Movement,
@@ -90,8 +87,8 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
             PendingStatus::Processing,
             VerifiedStatus::Done,
         )
-        .expect("activity");
-        Feed::record_agent_event(&mut scope, &activity, &delivery, 22).expect("project receipt");
+        .or_fail("activity");
+        Feed::record_agent_event(&mut scope, &activity, &delivery, 22).or_fail("project receipt");
     }
     let protocol = fixtures
         .iter()
@@ -101,11 +98,11 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
             derived_aggregates: Vec::new(),
         })
         .collect();
-    let (bundle, report) = EvidenceExport::new(Feed::new(5).expect("feed"), 64 * 1024)
-        .expect("exporter")
+    let (bundle, report) = EvidenceExport::new(Feed::new(5).or_fail("feed"), 64 * 1024)
+        .or_fail("exporter")
         .evidence(
             &scope,
-            &Feed::apply_filters(FilterDraft::new()).expect("filters"),
+            &Feed::apply_filters(FilterDraft::new()).or_fail("filters"),
             &fixtures
                 .iter()
                 .map(|(id, _, _)| id.clone())
@@ -115,13 +112,13 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
             22,
             2,
         )
-        .expect("bundle");
+        .or_fail("bundle");
     assert_eq!(report.entries(), 2);
-    let bytes = bundle.encode().expect("encode");
+    let bytes = bundle.encode().or_fail("encode");
     assert_eq!(&bytes[..8], b"LXHEXPV2");
     assert_eq!(bytes[8], 2);
-    let decoded = EvidenceBundle::decode(&bytes).expect("decode v2");
-    assert_eq!(decoded.encode().expect("re-encode"), bytes);
+    let decoded = EvidenceBundle::decode(&bytes).or_fail("decode v2");
+    assert_eq!(decoded.encode().or_fail("re-encode"), bytes);
     assert_eq!(decoded.entries().len(), 2);
     assert_eq!(decoded.principal_binding(), bundle.principal_binding());
     for (id, fact, _) in &fixtures {
@@ -129,7 +126,7 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
             .entries()
             .iter()
             .find(|entry| entry.entry_id() == id)
-            .expect("entry");
+            .or_fail("entry");
         assert_eq!(entry.tx_hash(), fact.tx_hash);
         assert_eq!(
             entry.receipt_hash(),
@@ -145,11 +142,11 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
     assert_eq!(
         decoded
             .verify(
-                decoded.digest().expect("digest"),
+                decoded.digest().or_fail("digest"),
                 &principal,
                 &fixtures[0].2
             )
-            .expect("verify")
+            .or_fail("verify")
             .verified_receipts(),
         2
     );
@@ -188,7 +185,7 @@ fn tampered_receipt_hash_fails_verify_receipt() {
     let (_, mut fact, keys) = fixture(Rung::Receipted);
     assert_eq!(
         EvidenceBundle::verify_receipt(&fact, &keys)
-            .expect("valid receipt")
+            .or_fail("valid receipt")
             .verified_receipts(),
         1
     );
@@ -251,4 +248,10 @@ fn tampered_receipt_hash_fails_verify_receipt() {
             ExportError::AuthorityUnavailable { .. }
         ))
     ));
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

@@ -11,6 +11,10 @@ use super::{
 const TRUST_PERIOD_MS: i128 = 1_209_600_000;
 
 impl ChainProofVerifier {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn advance(
         &self,
         trusted: &VerifiedChainHead,

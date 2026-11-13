@@ -42,7 +42,7 @@ use layerx_proof::receipt::AuthorizedBatch;
 use layerx_sdk::{Call, Client as AgentClient};
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, IdempotencyKey};
 use layerx_types::intent::{
     AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
     SendAuthorizationKind, Sequence, TimestampSeconds,
@@ -184,15 +184,10 @@ enum FaultPoint {
     Lookup,
 }
 
-fn prepare_bound(
+fn prepare_calldata(
     request: &ApiPrepareRequest,
     activity: ActivityType,
-    actor_address: [u8; 20],
-) -> Result<layerx_agentd::prepare::EvmPrepared, AgentBoundaryError> {
-    use layerx_agentd::prepare::evm::{
-        AbiArgument, EvmPreparationState, PrecompileCall, PrecompileTarget,
-        PreparationDefaults as EvmDefaults, PrepareRequest as EvmRequest,
-    };
+) -> Result<([u8; 20], Vec<u8>), AgentBoundaryError> {
     use layerx_crypto::disclosure::call::{encode_payment_call, ledger_selector};
 
     let payload = &request.payload;
@@ -257,6 +252,19 @@ fn prepare_bound(
         }
         _ => return Err(AgentBoundaryError::Refused),
     };
+    Ok((to, data))
+}
+
+fn prepare_bound(
+    request: &ApiPrepareRequest,
+    activity: ActivityType,
+    actor_address: [u8; 20],
+) -> Result<layerx_agentd::prepare::EvmPrepared, AgentBoundaryError> {
+    use layerx_agentd::prepare::evm::{
+        AbiArgument, EvmPreparationState, PrecompileCall, PrecompileTarget,
+        PreparationDefaults as EvmDefaults, PrepareRequest as EvmRequest,
+    };
+    let (to, data) = prepare_calldata(request, activity)?;
     let target = match activity.module() {
         ModuleId::Budget => PrecompileTarget::Pay,
         ModuleId::Asset => PrecompileTarget::Ledger,
@@ -349,12 +357,12 @@ impl layerx_crypto::signer::Signer for TransactionSigner {
     }
 
     fn evm_address(&self) -> Option<[u8; 20]> {
-        let key = k256::ecdsa::SigningKey::from_slice(&[0x51; 32]).expect("fixture secp256k1 key");
+        let key = k256::ecdsa::SigningKey::from_slice(&[0x51; 32]).or_fail("fixture secp256k1 key");
         Some(
             layerx_crypto::secp256k1::evm_address(
                 key.verifying_key().to_encoded_point(false).as_bytes(),
             )
-            .expect("fixture wallet"),
+            .or_fail("fixture wallet"),
         )
     }
 
@@ -381,14 +389,14 @@ fn sign_disclosed_call(signing: &SigningPreparation) -> layerx_crypto::signer::A
         &signing.transaction.call,
         signing.actor_address,
     )
-    .expect("fixture call disclosure");
+    .or_fail("fixture call disclosure");
     ready(layerx_crypto::signer::sign_disclosed_call(
         &signer,
         &signing.transaction.call,
         &disclosure,
         signing.actor_address,
     ))
-    .expect("disclosure-bound transaction signature")
+    .or_fail("disclosure-bound transaction signature")
 }
 
 fn transaction_hash(raw: &[u8]) -> [u8; 32] {
@@ -542,24 +550,24 @@ impl RealAgentLayer {
                     .get(&key)
                     .unwrap_or_else(|| panic!("signed journey diagnostic preparation missing"));
                 let signing =
-                    signing_preparation(prepared, self.sender.expect("bound journey wallet"))
-                        .expect("journey diagnostic preparation");
+                    signing_preparation(prepared, self.sender.or_fail("bound journey wallet"))
+                        .or_fail("journey diagnostic preparation");
                 let signed = attach_external_signature(
                     &signing,
-                    signature
-                        .as_slice()
-                        .try_into()
-                        .expect("65-byte journey signature"),
+                    signature.as_slice().try_into().unwrap_or_else(|error| {
+                        panic!("{}: {error:?}", "65-byte journey signature")
+                    }),
                 )
-                .expect("journey diagnostic signed bytes");
+                .or_fail("journey diagnostic signed bytes");
                 let (signed_call, recovered_signature) =
-                    layerx_crypto::evm_transaction::decode_signed(&signed)
-                        .expect("journey diagnostic type-2 transaction");
+                    layerx_crypto::evm_transaction::decode_signed(&signed).unwrap_or_else(
+                        |error| panic!("{}: {error:?}", "journey diagnostic type-2 transaction"),
+                    );
                 let sender = layerx_crypto::evm_transaction::recover_sender(
                     &signed_call,
                     &recovered_signature,
                 )
-                .expect("journey diagnostic sender");
+                .or_fail("journey diagnostic sender");
                 let verified = verify_before_submit(&signed, &signing, &sender, &self.registry);
                 eprintln!(
                     "reclaim contract divergence: action_key={} pending_nonce={} prepared_nonce={} signed_nonce={} prepared_unsigned={} signing_preimage={} custody_signature={} custody_signature_length={} signed_transaction={} exact_signature_verification={:?}",
@@ -567,7 +575,7 @@ impl RealAgentLayer {
                     prepared.call.nonce, signed_call.nonce,
                     hex(&layerx_human_kms::attestor::unsigned_evm_transaction(&signing.transaction.call)),
                     hex(&signing.transaction.signing_hash), hex(&signature), signature.len(), hex(&signed),
-                    verified.as_ref().map(|verified| verified.activity_id()),
+                    verified.as_ref().map(layerx_agentd::sign::VerifiedSubmission::activity_id),
                 );
                 assert_eq!(signed_call.nonce, prepared.call.nonce);
                 assert_eq!(signed_call, signing.transaction.call);
@@ -578,6 +586,67 @@ impl RealAgentLayer {
                 );
             }
         }
+    }
+}
+
+impl RealAgentLayer {
+    fn observe_submission(
+        &mut self,
+        key: [u8; 32],
+        submission_id: [u8; 32],
+        activity_id: [u8; 32],
+    ) -> Result<AgentObservation, AgentBoundaryError> {
+        let receipt = receipt(activity_id, key[0], self.preparation_activities[&key]);
+        self.receipt_material.insert(key, receipt.clone());
+        Self::count(&mut self.effects, key);
+        let mode = self
+            .modes
+            .get(&key)
+            .copied()
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
+        let observation = match mode {
+            DeliveryMode::TrackThenReceipt => {
+                daemon_receipt::store(
+                    &mut self.store,
+                    self.tenant.clone(),
+                    key,
+                    &receipt.canonical_bytes,
+                    &receipt.authorised_batch,
+                )
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+                self.outbox
+                    .transition(
+                        &mut self.store,
+                        submission_id,
+                        OutboxState::Submitted,
+                        "core acknowledged",
+                        None,
+                    )
+                    .map_err(|_| AgentBoundaryError::Refused)?;
+                AgentObservation {
+                    submission: Self::tracked(key, SubmissionState::Submitted, None),
+                    activity_id,
+                    receipt: None,
+                }
+            }
+            DeliveryMode::UnknownThenLookup => {
+                self.outbox
+                    .transition(
+                        &mut self.store,
+                        submission_id,
+                        OutboxState::Unknown,
+                        "transport outcome unavailable",
+                        None,
+                    )
+                    .map_err(|_| AgentBoundaryError::Refused)?;
+                AgentObservation {
+                    submission: Self::tracked(key, SubmissionState::Unknown, None),
+                    activity_id,
+                    receipt: None,
+                }
+            }
+        };
+        Ok(observation)
     }
 }
 
@@ -744,56 +813,7 @@ impl AgentBoundary for RealAgentLayer {
                 None,
             )
             .map_err(|_| AgentBoundaryError::Refused)?;
-        let receipt = receipt(activity_id, key[0], self.preparation_activities[&key]);
-        self.receipt_material.insert(key, receipt.clone());
-        Self::count(&mut self.effects, key);
-        let mode = self
-            .modes
-            .get(&key)
-            .copied()
-            .ok_or(AgentBoundaryError::CorruptResponse)?;
-        let observation = match mode {
-            DeliveryMode::TrackThenReceipt => {
-                daemon_receipt::store(
-                    &mut self.store,
-                    self.tenant.clone(),
-                    key,
-                    &receipt.canonical_bytes,
-                    &receipt.authorised_batch,
-                )
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-                self.outbox
-                    .transition(
-                        &mut self.store,
-                        submission_id,
-                        OutboxState::Submitted,
-                        "core acknowledged",
-                        None,
-                    )
-                    .map_err(|_| AgentBoundaryError::Refused)?;
-                AgentObservation {
-                    submission: Self::tracked(key, SubmissionState::Submitted, None),
-                    activity_id,
-                    receipt: None,
-                }
-            }
-            DeliveryMode::UnknownThenLookup => {
-                self.outbox
-                    .transition(
-                        &mut self.store,
-                        submission_id,
-                        OutboxState::Unknown,
-                        "transport outcome unavailable",
-                        None,
-                    )
-                    .map_err(|_| AgentBoundaryError::Refused)?;
-                AgentObservation {
-                    submission: Self::tracked(key, SubmissionState::Unknown, None),
-                    activity_id,
-                    receipt: None,
-                }
-            }
-        };
+        let observation = self.observe_submission(key, submission_id, activity_id)?;
         self.submission_keys.insert(
             observation.submission.submission_ref.as_str().to_owned(),
             key,
@@ -1391,10 +1411,17 @@ fn repeated_start_repairs_initial_progress_after_restart() {
     );
 }
 
-#[path = "support/repair_22_33_63_bank.rs"]
-mod repair_bank;
+pub mod repair_bank {
+    include!("support/repair_22_33_63_bank.rs");
+}
 
 #[test]
 fn producer_outbox_and_consumer_reopen_at_every_durable_phase() {
     repair_bank::producer_outbox_and_consumer_reopen();
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

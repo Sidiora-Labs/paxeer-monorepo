@@ -59,12 +59,18 @@ pub struct JourneyLeg {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum JourneyInput {
-    Intent(Intent),
+    Intent(Box<Intent>),
     Bank {
         call: layerx_crypto::evm_transaction::Eip1559Call,
         sender: [u8; 20],
         denom: String,
     },
+}
+
+pub(super) struct BankLegCall {
+    pub call: layerx_crypto::evm_transaction::Eip1559Call,
+    pub sender: [u8; 20],
+    pub denom: String,
 }
 
 impl JourneyLeg {
@@ -95,7 +101,7 @@ impl JourneyLeg {
             return Err(JourneyError::InvalidPlan);
         }
         Ok(Self {
-            intent: JourneyInput::Intent(intent),
+            intent: JourneyInput::Intent(Box::new(intent)),
             action_key,
             actor,
             authority,
@@ -107,9 +113,7 @@ impl JourneyLeg {
         })
     }
     pub(super) fn bank(
-        call: layerx_crypto::evm_transaction::Eip1559Call,
-        sender: [u8; 20],
-        denom: String,
+        bank_call: BankLegCall,
         action_key: [u8; 32],
         actor: AgentDid,
         authority: AuthorityRef,
@@ -117,6 +121,11 @@ impl JourneyLeg {
         not_after: u64,
         fee_limit: u128,
     ) -> Result<Self, JourneyError> {
+        let BankLegCall {
+            call,
+            sender,
+            denom,
+        } = bank_call;
         if action_key == [0; 32]
             || sender == [0; 20]
             || denom.is_empty()
@@ -283,6 +292,14 @@ pub struct NativeJourneyAdmission {
     pub revocation_sequence: u64,
 }
 
+struct NativeRelease<'a> {
+    index: usize,
+    call: &'a Call<IdempotentMutation<PrepareRequest>>,
+    owner_public_key: [u8; 32],
+    sender: [u8; 20],
+    admission: NativeJourneyAdmission,
+}
+
 /// Canonical receipt bytes, independently supplied batch authority, and the
 /// verification rank authenticated by the agent boundary, together with the
 /// transaction identity, receipt digest, observed block height, and rung.
@@ -314,6 +331,8 @@ pub struct ChainReceiptMaterial {
 
 impl ReceiptMaterial {
     /// Adapts the retained agent frame, checking its redundant legacy fields.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn chain_material(&self) -> Result<ChainReceiptMaterial, JourneyError> {
         if self.signed_receipt != self.canonical_bytes
             || self.receipt_hash != <[u8; 32]>::from(Sha256::digest(&self.canonical_bytes))
@@ -325,7 +344,7 @@ impl ReceiptMaterial {
             tx_hash: self.tx_hash,
             block_height: self.block_height,
             rung: self.rung,
-            receipt_key: self.receipt_key.clone(),
+            receipt_key: self.receipt_key,
             inclusion_height: self.inclusion_height,
         };
         let authority = authenticate_chain_material(&material)?;
@@ -361,6 +380,7 @@ pub struct VerifiedLegEvidence {
 
 /// Result of the receipt-only resolution operation.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum ReceiptLookup {
     Absent,
     Submitted { tx_hash: [u8; 32], nonce: u64 },
@@ -388,16 +408,22 @@ pub enum AgentBoundaryError {
 /// the engine. Production adapters execute these typed SDK calls; tests bind
 /// the same contract to the real `layerx-agentd` implementation.
 pub trait AgentBoundary {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     fn bind_transaction_sender(&mut self, _sender: [u8; 20]) -> Result<(), AgentBoundaryError> {
         Err(AgentBoundaryError::Unavailable)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     fn native_journey_preview(
         &mut self,
         _call: &Call<IdempotentMutation<PrepareRequest>>,
     ) -> Result<NativeJourneyPreview, AgentBoundaryError> {
         Err(AgentBoundaryError::Unavailable)
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     fn native_journey_prepare(
         &mut self,
         _call: &Call<IdempotentMutation<PrepareRequest>>,
@@ -405,6 +431,8 @@ pub trait AgentBoundary {
     ) -> Result<NativeJourneyAdmission, AgentBoundaryError> {
         Err(AgentBoundaryError::Unavailable)
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     fn native_journey_resume(
         &mut self,
         _call: &Call<IdempotentMutation<PrepareRequest>>,
@@ -616,6 +644,17 @@ struct StoredBankCall {
     denom: String,
 }
 
+#[derive(Clone, Copy)]
+struct BankAdvance<'a> {
+    endpoint: &'a layerx_client::sequencer::SequencerEndpoint,
+    receipt_keys: &'a [ReceiptKeyEntry],
+    commit_evidence: &'a [super::BankCommitEvidence],
+    bank: &'a StoredBankCall,
+    call: &'a layerx_crypto::evm_transaction::Eip1559Call,
+    index: usize,
+    now: u64,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 struct StoredNativePreparation {
     purpose: Vec<u8>,
@@ -814,6 +853,7 @@ impl JourneyEngine {
             .audit_digest()
             .map_err(|_| JourneyError::PreparationMismatch)
     }
+    #[must_use]
     pub fn native_approval_binding(&self) -> Option<([u8; 32], [u8; 32])> {
         let native = self
             .record
@@ -824,10 +864,12 @@ impl JourneyEngine {
         Some((native.approval_id?, native.held_digest?))
     }
 
+    #[must_use]
     pub const fn native_profile(&self) -> bool {
         self.record.version == 2
     }
 
+    #[must_use]
     pub fn native_approval_state(&self) -> Option<NativeJourneyApprovalState> {
         self.record
             .legs
@@ -837,6 +879,8 @@ impl JourneyEngine {
             .approval_state
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_context_binding(&self) -> Result<Option<NativeSendPurposeV2>, JourneyError> {
         self.record
             .legs
@@ -866,6 +910,8 @@ impl JourneyEngine {
         Self::start_version(scope, plan, registry, now, RECORD_VERSION)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn start_native(
         scope: &mut PrincipalScope<'_>,
         plan: &JourneyPlan,
@@ -1021,6 +1067,7 @@ impl JourneyEngine {
         }
     }
 
+    #[must_use]
     pub fn historical_kind(&self) -> Option<&'static str> {
         match self.record.kind {
             StoredJourneyKind::Active(_) => None,
@@ -1032,6 +1079,8 @@ impl JourneyEngine {
     }
 
     /// Encodes retained retired journeys using the engine's closed state vocabulary.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn historical_response(&self) -> Result<Option<serde_json::Value>, JourneyError> {
         let Some(kind) = self.historical_kind() else {
             return Ok(None);
@@ -1158,35 +1207,9 @@ impl JourneyEngine {
                 let call = self.prepare_call(agent_contract, leg_index)?;
                 let prepared = agent.prepare(&call)?;
                 self.validate_preparation(leg_index, &prepared, registry)?;
-                let operation = operation_from_label(&self.record.signing_operation)?;
-                let key = KeyId::new(self.record.custody_key.clone())?;
-                let principal = scope.principal().clone();
-                let signature = custody
-                    .sign_in_scope(
-                        scope,
-                        SignRequest::new(
-                            &principal,
-                            &key,
-                            trace,
-                            SignAuthorization::new(operation, step_up),
-                            &prepared.unsigned_canonical_bytes,
-                            &prepared.disclosure,
-                            now,
-                        ),
-                    )
+                let signed = self
+                    .sign_legacy_prepared(scope, custody, trace, step_up, &prepared, now)
                     .await?;
-                let signed = SignedEvidence {
-                    preparation_ref: prepared.preparation_ref.as_str().to_owned(),
-                    canonical_digest: Sha256::digest(&prepared.unsigned_canonical_bytes).into(),
-                    signature: SignatureBytes::new(signature.signature().to_vec())?
-                        .as_bytes()
-                        .to_vec(),
-                    signer_public_key: signature.signer_public_key(),
-                    raw_transaction: Some(signed_transaction(
-                        &prepared.unsigned_canonical_bytes,
-                        signature.signature(),
-                    )?),
-                };
                 self.record.legs[leg_index].signed = Some(signed);
                 self.transition(scope, leg_index, JourneyPhase::Signed, now)?;
             }
@@ -1196,26 +1219,10 @@ impl JourneyEngine {
                 self.apply_observation(scope, leg_index, observation, now)?;
             }
             JourneyPhase::Submitted => {
-                let submission_ref = self.record.legs[leg_index].submission_ref.as_ref().ok_or(
-                    JourneyError::Corrupt("submitted leg has no submission reference"),
-                )?;
-                let call = agent_contract.track(TrackRequest {
-                    submission_ref: SubmissionRef::new(submission_ref.clone())?,
-                });
-                let observation = agent.track(&call)?;
-                self.apply_observation(scope, leg_index, observation, now)?;
+                self.track_submitted_leg(scope, agent_contract, agent, leg_index, now)?;
             }
             JourneyPhase::StillChecking => {
-                let leg = &self.record.legs[leg_index];
-                let activity_id = leg.activity_id.ok_or(JourneyError::Corrupt(
-                    "unknown leg has no activity identity",
-                ))?;
-                match agent.receipt_by_idempotency_key(leg.action_key, activity_id)? {
-                    ReceiptLookup::Absent | ReceiptLookup::Submitted { .. } => {}
-                    ReceiptLookup::Found(receipt) => {
-                        self.verify_and_complete(scope, leg_index, activity_id, &receipt, now)?;
-                    }
-                }
+                self.check_receipt_leg(scope, agent, leg_index, now)?;
             }
             JourneyPhase::AwaitingApproval => {
                 return Err(JourneyError::Corrupt(
@@ -1226,6 +1233,89 @@ impl JourneyEngine {
         }
         self.repair_events(scope)?;
         self.status()
+    }
+
+    async fn sign_legacy_prepared(
+        &self,
+        scope: &mut PrincipalScope<'_>,
+        custody: &CustodySigner,
+        trace: &TraceId,
+        step_up: Option<&StepUpEvidence>,
+        prepared: &AgentPreparation,
+        now: u64,
+    ) -> Result<SignedEvidence, JourneyError> {
+        let operation = operation_from_label(&self.record.signing_operation)?;
+        let key = KeyId::new(self.record.custody_key.clone())?;
+        let principal = scope.principal().clone();
+        let signature = custody
+            .sign_in_scope(
+                scope,
+                SignRequest::new(
+                    &principal,
+                    &key,
+                    trace,
+                    SignAuthorization::new(operation, step_up),
+                    &prepared.unsigned_canonical_bytes,
+                    &prepared.disclosure,
+                    now,
+                ),
+            )
+            .await?;
+        let signed = SignedEvidence {
+            preparation_ref: prepared.preparation_ref.as_str().to_owned(),
+            canonical_digest: Sha256::digest(&prepared.unsigned_canonical_bytes).into(),
+            signature: SignatureBytes::new(signature.signature().to_vec())?
+                .as_bytes()
+                .to_vec(),
+            signer_public_key: signature.signer_public_key(),
+            raw_transaction: Some(signed_transaction(
+                &prepared.unsigned_canonical_bytes,
+                signature.signature(),
+            )?),
+        };
+        Ok(signed)
+    }
+
+    fn track_submitted_leg(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        agent_contract: &AgentClient,
+        agent: &mut dyn AgentBoundary,
+        leg_index: usize,
+        now: u64,
+    ) -> Result<(), JourneyError> {
+        let submission_ref =
+            self.record.legs[leg_index]
+                .submission_ref
+                .as_ref()
+                .ok_or(JourneyError::Corrupt(
+                    "submitted leg has no submission reference",
+                ))?;
+        let call = agent_contract.track(TrackRequest {
+            submission_ref: SubmissionRef::new(submission_ref.clone())?,
+        });
+        let observation = agent.track(&call)?;
+        self.apply_observation(scope, leg_index, observation, now)
+    }
+
+    fn check_receipt_leg(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        agent: &mut dyn AgentBoundary,
+        leg_index: usize,
+        now: u64,
+    ) -> Result<(), JourneyError> {
+        let leg = &self.record.legs[leg_index];
+        let activity_id = leg.activity_id.ok_or(JourneyError::Corrupt(
+            "unknown leg has no activity identity",
+        ))?;
+        match agent.receipt_by_idempotency_key(leg.action_key, activity_id)? {
+            ReceiptLookup::Absent | ReceiptLookup::Submitted { .. } => {}
+            ReceiptLookup::Found(receipt) => {
+                self.verify_and_complete(scope, leg_index, activity_id, &receipt, now)?;
+            }
+        }
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1257,119 +1347,17 @@ impl JourneyEngine {
             )?;
         }
         if phase == JourneyPhase::Preparing {
-            if self.record.legs[index].native.is_none() {
-                let preview = agent.native_journey_preview(&call)?;
-                preview.purpose.check_current_owner(
-                    &call.request().operation.actor,
-                    &current_key.public_key,
-                    &sender,
-                )?;
-                self.validate_preparation(index, &preview.preparation, registry)?;
-                validate_native_send_purpose(
-                    &preview.preparation,
-                    &preview.purpose,
-                    preview.owner_public_key,
-                    registry,
-                )?;
-                let digest: [u8; 32] =
-                    Sha256::digest(&preview.preparation.unsigned_canonical_bytes).into();
-                let leg = &self.record.legs[index];
-                if preview.purpose.agent_did != preview.preparation.actor
-                    || preview.purpose.preparation_id != digest
-                    || preview.purpose.canonical_digest != digest
-                    || preview.owner_public_key == [0; 32]
-                    || preview.head_sequence == 0
-                    || preview.revocation_sequence == 0
-                    || preview.revocation_sequence > preview.head_sequence
-                    || preview.protocol_time_ms >= preview.purpose.expires_at_ms
-                    || preview.purpose.expires_at_ms
-                        > leg
-                            .preparation
-                            .not_after
-                            .checked_mul(1000)
-                            .ok_or(JourneyError::PreparationMismatch)?
-                {
-                    return Err(JourneyError::PreparationMismatch);
-                }
-                let purpose = preview.purpose.canonical_bytes()?;
-                let leg = &mut self.record.legs[index];
-                leg.prepared_ref = Some(preview.preparation.preparation_ref.as_str().to_owned());
-                leg.prepared_digest = Some(digest);
-                leg.native = Some(StoredNativePreparation {
-                    purpose,
-                    owner_public_key: None,
-                    purpose_signature: None,
-                    unsigned_canonical_bytes: preview.preparation.unsigned_canonical_bytes,
-                    signing_preimage: preview.preparation.signing_preimage,
-                    disclosure_digest: preview
-                        .preparation
-                        .disclosure
-                        .audit_digest()
-                        .map_err(|_| JourneyError::PreparationMismatch)?,
-                    owner_key: preview.owner_public_key,
-                    created_head_sequence: preview.head_sequence,
-                    created_protocol_time_ms: preview.protocol_time_ms,
-                    approval_id: None,
-                    held_digest: None,
-                    release_ref: None,
-                    approval_state: None,
-                });
-                self.persist(scope)?;
-            }
-            if self.record.legs[index]
-                .native
-                .as_ref()
-                .is_none_or(|native| native.purpose_signature.is_none())
-            {
-                let native = self.record.legs[index]
-                    .native
-                    .as_ref()
-                    .ok_or(JourneyError::PreparationMismatch)?;
-                let purpose = NativeSendPurposeV2::from_canonical_bytes(&native.purpose)?;
-                let owner_key = native.owner_key;
-                let principal = scope.principal().clone();
-                let key = KeyId::new(self.record.custody_key.clone())?;
-                let grant = custody
-                    .sign_native_consent_in_scope(
-                        scope,
-                        NativeConsentRequest::new(
-                            &principal,
-                            &key,
-                            NativeConsent::SendPurpose(&purpose),
-                            SignAuthorization::new(Operation::ProtocolMutation, step_up),
-                            now,
-                            trace.clone(),
-                        ),
-                    )
-                    .await?;
-                if grant.signer_public_key() != owner_key
-                    || grant.disclosure_digest() != NativeConsent::SendPurpose(&purpose).digest()?
-                {
-                    return Err(JourneyError::PreparationMismatch);
-                }
-                let native = self.record.legs[index]
-                    .native
-                    .as_mut()
-                    .ok_or(JourneyError::PreparationMismatch)?;
-                native.owner_public_key = Some(grant.signer_public_key());
-                native.purpose_signature = Some(grant.signature().to_vec());
-                self.persist(scope)?;
-            }
-            let native = self.record.legs[index]
-                .native
-                .as_ref()
-                .ok_or(JourneyError::PreparationMismatch)?;
-            let admission = agent.native_journey_prepare(&call, &native.signed_purpose()?)?;
-            self.validate_native_admission(index, &admission, registry)?;
-            let native = self.record.legs[index]
-                .native
-                .as_mut()
-                .ok_or(JourneyError::PreparationMismatch)?;
-            native.approval_id = Some(admission.approval_id);
-            native.held_digest = Some(admission.held_digest);
-            native.release_ref = admission.release_ref;
-            native.approval_state = Some(admission.state);
-            return self.transition_native_admission(scope, index, admission.state, now);
+            self.retain_native_preview(
+                scope,
+                &call,
+                agent,
+                registry,
+                (current_key.public_key, sender),
+                index,
+            )?;
+            self.sign_native_purpose(scope, custody, trace, step_up, now, index)
+                .await?;
+            return self.admit_native_prepared(scope, &call, agent, registry, index, now);
         }
         let native = self.record.legs[index]
             .native
@@ -1417,57 +1405,22 @@ impl JourneyEngine {
             return self.transition(scope, index, JourneyPhase::Prepared, now);
         }
         if phase == JourneyPhase::Prepared {
-            let prepared = admission.preparation;
-            let operation = operation_from_label(&self.record.signing_operation)?;
-            let key = KeyId::new(self.record.custody_key.clone())?;
-            let principal = scope.principal().clone();
-            let signature = custody
-                .sign_in_scope(
+            return self
+                .sign_native_release(
                     scope,
-                    SignRequest::new(
-                        &principal,
-                        &key,
-                        trace,
-                        SignAuthorization::new(operation, step_up),
-                        &prepared.unsigned_canonical_bytes,
-                        &prepared.disclosure,
-                        now,
-                    ),
+                    custody,
+                    trace,
+                    step_up,
+                    now,
+                    NativeRelease {
+                        index,
+                        call: &call,
+                        owner_public_key: current_key.public_key,
+                        sender,
+                        admission,
+                    },
                 )
-                .await?;
-            if signature.signer_public_key()
-                != self.record.legs[index]
-                    .native
-                    .as_ref()
-                    .ok_or(JourneyError::PreparationMismatch)?
-                    .owner_key
-            {
-                return Err(JourneyError::PreparationMismatch);
-            }
-            let raw_transaction =
-                signed_transaction(&prepared.unsigned_canonical_bytes, signature.signature())?;
-            let native = self.record.legs[index]
-                .native
-                .as_ref()
-                .ok_or(JourneyError::PreparationMismatch)?;
-            layerx_human_kms::attestor::validate_native_send_release(
-                &native.signed_purpose()?.canonical_bytes()?,
-                &call.request().operation.actor,
-                &current_key.public_key,
-                &sender,
-                &raw_transaction,
-            )
-            .map_err(|_| JourneyError::PreparationMismatch)?;
-            self.record.legs[index].signed = Some(SignedEvidence {
-                preparation_ref: prepared.preparation_ref.as_str().to_owned(),
-                canonical_digest: Sha256::digest(&prepared.unsigned_canonical_bytes).into(),
-                signature: SignatureBytes::new(signature.signature().to_vec())?
-                    .as_bytes()
-                    .to_vec(),
-                signer_public_key: signature.signer_public_key(),
-                raw_transaction: Some(raw_transaction),
-            });
-            return self.transition(scope, index, JourneyPhase::Signed, now);
+                .await;
         }
         if phase == JourneyPhase::Signed {
             let (call, key) = self.submit_call(contract, index)?;
@@ -1475,6 +1428,221 @@ impl JourneyEngine {
             return self.apply_observation(scope, index, observation, now);
         }
         Err(JourneyError::PreparationMismatch)
+    }
+
+    fn admit_native_prepared(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        call: &Call<IdempotentMutation<PrepareRequest>>,
+        agent: &mut dyn AgentBoundary,
+        registry: &ModuleRegistry,
+        index: usize,
+        now: u64,
+    ) -> Result<(), JourneyError> {
+        let native = self.record.legs[index]
+            .native
+            .as_ref()
+            .ok_or(JourneyError::PreparationMismatch)?;
+        let admission = agent.native_journey_prepare(call, &native.signed_purpose()?)?;
+        self.validate_native_admission(index, &admission, registry)?;
+        let native = self.record.legs[index]
+            .native
+            .as_mut()
+            .ok_or(JourneyError::PreparationMismatch)?;
+        native.approval_id = Some(admission.approval_id);
+        native.held_digest = Some(admission.held_digest);
+        native.release_ref = admission.release_ref;
+        native.approval_state = Some(admission.state);
+        self.transition_native_admission(scope, index, admission.state, now)
+    }
+
+    async fn sign_native_release(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        custody: &CustodySigner,
+        trace: &TraceId,
+        step_up: Option<&StepUpEvidence>,
+        now: u64,
+        release: NativeRelease<'_>,
+    ) -> Result<(), JourneyError> {
+        let NativeRelease {
+            index,
+            call,
+            owner_public_key,
+            sender,
+            admission,
+        } = release;
+        let prepared = admission.preparation;
+        let operation = operation_from_label(&self.record.signing_operation)?;
+        let key = KeyId::new(self.record.custody_key.clone())?;
+        let principal = scope.principal().clone();
+        let signature = custody
+            .sign_in_scope(
+                scope,
+                SignRequest::new(
+                    &principal,
+                    &key,
+                    trace,
+                    SignAuthorization::new(operation, step_up),
+                    &prepared.unsigned_canonical_bytes,
+                    &prepared.disclosure,
+                    now,
+                ),
+            )
+            .await?;
+        if signature.signer_public_key()
+            != self.record.legs[index]
+                .native
+                .as_ref()
+                .ok_or(JourneyError::PreparationMismatch)?
+                .owner_key
+        {
+            return Err(JourneyError::PreparationMismatch);
+        }
+        let raw_transaction =
+            signed_transaction(&prepared.unsigned_canonical_bytes, signature.signature())?;
+        let native = self.record.legs[index]
+            .native
+            .as_ref()
+            .ok_or(JourneyError::PreparationMismatch)?;
+        layerx_human_kms::attestor::validate_native_send_release(
+            &native.signed_purpose()?.canonical_bytes()?,
+            &call.request().operation.actor,
+            &owner_public_key,
+            &sender,
+            &raw_transaction,
+        )
+        .map_err(|_| JourneyError::PreparationMismatch)?;
+        self.record.legs[index].signed = Some(SignedEvidence {
+            preparation_ref: prepared.preparation_ref.as_str().to_owned(),
+            canonical_digest: Sha256::digest(&prepared.unsigned_canonical_bytes).into(),
+            signature: SignatureBytes::new(signature.signature().to_vec())?
+                .as_bytes()
+                .to_vec(),
+            signer_public_key: signature.signer_public_key(),
+            raw_transaction: Some(raw_transaction),
+        });
+        self.transition(scope, index, JourneyPhase::Signed, now)
+    }
+
+    async fn sign_native_purpose(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        custody: &CustodySigner,
+        trace: &TraceId,
+        step_up: Option<&StepUpEvidence>,
+        now: u64,
+        index: usize,
+    ) -> Result<(), JourneyError> {
+        if self.record.legs[index]
+            .native
+            .as_ref()
+            .is_none_or(|native| native.purpose_signature.is_none())
+        {
+            let native = self.record.legs[index]
+                .native
+                .as_ref()
+                .ok_or(JourneyError::PreparationMismatch)?;
+            let purpose = NativeSendPurposeV2::from_canonical_bytes(&native.purpose)?;
+            let owner_key = native.owner_key;
+            let principal = scope.principal().clone();
+            let key = KeyId::new(self.record.custody_key.clone())?;
+            let grant = custody
+                .sign_native_consent_in_scope(
+                    scope,
+                    NativeConsentRequest::new(
+                        &principal,
+                        &key,
+                        NativeConsent::SendPurpose(&purpose),
+                        SignAuthorization::new(Operation::ProtocolMutation, step_up),
+                        now,
+                        trace.clone(),
+                    ),
+                )
+                .await?;
+            if grant.signer_public_key() != owner_key
+                || grant.disclosure_digest() != NativeConsent::SendPurpose(&purpose).digest()?
+            {
+                return Err(JourneyError::PreparationMismatch);
+            }
+            let native = self.record.legs[index]
+                .native
+                .as_mut()
+                .ok_or(JourneyError::PreparationMismatch)?;
+            native.owner_public_key = Some(grant.signer_public_key());
+            native.purpose_signature = Some(grant.signature().to_vec());
+            self.persist(scope)?;
+        }
+        Ok(())
+    }
+
+    fn retain_native_preview(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        call: &Call<IdempotentMutation<PrepareRequest>>,
+        agent: &mut dyn AgentBoundary,
+        registry: &ModuleRegistry,
+        owner: ([u8; 32], [u8; 20]),
+        index: usize,
+    ) -> Result<(), JourneyError> {
+        if self.record.legs[index].native.is_some() {
+            return Ok(());
+        }
+        let preview = agent.native_journey_preview(call)?;
+        preview
+            .purpose
+            .check_current_owner(&call.request().operation.actor, &owner.0, &owner.1)?;
+        self.validate_preparation(index, &preview.preparation, registry)?;
+        validate_native_send_purpose(
+            &preview.preparation,
+            &preview.purpose,
+            preview.owner_public_key,
+            registry,
+        )?;
+        let digest: [u8; 32] = Sha256::digest(&preview.preparation.unsigned_canonical_bytes).into();
+        let leg = &self.record.legs[index];
+        if preview.purpose.agent_did != preview.preparation.actor
+            || preview.purpose.preparation_id != digest
+            || preview.purpose.canonical_digest != digest
+            || preview.owner_public_key == [0; 32]
+            || preview.head_sequence == 0
+            || preview.revocation_sequence == 0
+            || preview.revocation_sequence > preview.head_sequence
+            || preview.protocol_time_ms >= preview.purpose.expires_at_ms
+            || preview.purpose.expires_at_ms
+                > leg
+                    .preparation
+                    .not_after
+                    .checked_mul(1000)
+                    .ok_or(JourneyError::PreparationMismatch)?
+        {
+            return Err(JourneyError::PreparationMismatch);
+        }
+        let purpose = preview.purpose.canonical_bytes()?;
+        let leg = &mut self.record.legs[index];
+        leg.prepared_ref = Some(preview.preparation.preparation_ref.as_str().to_owned());
+        leg.prepared_digest = Some(digest);
+        leg.native = Some(StoredNativePreparation {
+            purpose,
+            owner_public_key: None,
+            purpose_signature: None,
+            unsigned_canonical_bytes: preview.preparation.unsigned_canonical_bytes,
+            signing_preimage: preview.preparation.signing_preimage,
+            disclosure_digest: preview
+                .preparation
+                .disclosure
+                .audit_digest()
+                .map_err(|_| JourneyError::PreparationMismatch)?,
+            owner_key: preview.owner_public_key,
+            created_head_sequence: preview.head_sequence,
+            created_protocol_time_ms: preview.protocol_time_ms,
+            approval_id: None,
+            held_digest: None,
+            release_ref: None,
+            approval_state: None,
+        });
+        self.persist(scope)?;
+        Ok(())
     }
 
     fn transition_native_admission(
@@ -1563,6 +1731,8 @@ impl JourneyEngine {
     /// The signed bytes are durable before the first network write, and recovery
     /// looks up that exact hash before considering resubmission.
     #[allow(clippy::too_many_arguments)]
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub async fn advance_bank(
         &mut self,
         scope: &mut PrincipalScope<'_>,
@@ -1578,6 +1748,8 @@ impl JourneyEngine {
 
     /// Advances bank legs and verifies consensus inclusion before promoting their rung.
     #[allow(clippy::too_many_arguments)]
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub async fn advance_bank_with_commit(
         &mut self,
         scope: &mut PrincipalScope<'_>,
@@ -1588,8 +1760,7 @@ impl JourneyEngine {
         trace: &TraceId,
         now: u64,
     ) -> Result<JourneyStatus, JourneyError> {
-        use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
-        use layerx_crypto::evm_transaction::{decode_unsigned, transaction_hash};
+        use layerx_crypto::evm_transaction::decode_unsigned;
         if self.record.legs.iter().any(|leg| leg.bank.is_none())
             || matches!(self.record.kind, StoredJourneyKind::Retired(_))
         {
@@ -1632,7 +1803,7 @@ impl JourneyEngine {
         }
         match self.record.legs[index].phase {
             JourneyPhase::Compiled => {
-                self.transition(scope, index, JourneyPhase::Preparing, now)?
+                self.transition(scope, index, JourneyPhase::Preparing, now)?;
             }
             JourneyPhase::Preparing => {
                 if endpoint
@@ -1649,135 +1820,25 @@ impl JourneyEngine {
                 self.transition(scope, index, JourneyPhase::Prepared, now)?;
             }
             JourneyPhase::Prepared => {
-                let leg = &self.record.legs[index];
-                if !(leg.preparation.not_before..=leg.preparation.not_after).contains(&now) {
-                    return Err(JourneyError::PreparationMismatch);
-                }
-                let disclosure = layerx_crypto::disclosure::call::bind_call(&call, bank.sender)
-                    .map_err(|_| JourneyError::PreparationMismatch)?;
-                let principal = scope.principal().clone();
-                let grant = custody
-                    .sign_in_scope(
-                        scope,
-                        SignRequest::new(
-                            &principal,
-                            &key,
-                            trace,
-                            SignAuthorization::new(
-                                operation_from_label(&self.record.signing_operation)?,
-                                None,
-                            ),
-                            &bank.unsigned,
-                            &disclosure,
-                            now,
-                        ),
-                    )
+                self.sign_bank_leg(scope, custody, trace, &bank, now)
                     .await?;
-                let raw = signed_transaction(&bank.unsigned, grant.signature())?;
-                self.record.legs[index].signed = Some(SignedEvidence {
-                    preparation_ref: self.record.legs[index]
-                        .prepared_ref
-                        .clone()
-                        .ok_or(JourneyError::PreparationMismatch)?,
-                    canonical_digest: Sha256::digest(&bank.unsigned).into(),
-                    signature: grant.signature().to_vec(),
-                    signer_public_key: grant.signer_public_key(),
-                    raw_transaction: Some(raw),
-                });
-                self.transition(scope, index, JourneyPhase::Signed, now)?;
             }
             JourneyPhase::Signed
             | JourneyPhase::Submitted
             | JourneyPhase::StillChecking
             | JourneyPhase::ReceiptVerified => {
-                let raw = self
-                    .signed_transaction(index)
-                    .ok_or(JourneyError::PreparationMismatch)?
-                    .to_vec();
-                let hash = transaction_hash(&raw);
-                let lookup = lookup_authenticated(endpoint, hash, LookupContext { receipt_keys })
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-                match lookup {
-                    Lookup::Absent if self.record.legs[index].phase == JourneyPhase::Signed => {
-                        if endpoint
-                            .pending_nonce(&bank.sender)
-                            .map_err(|_| AgentBoundaryError::Unavailable)?
-                            != call.nonce
-                        {
-                            return Err(JourneyError::PreparationMismatch);
-                        }
-                        // Store the identity before send: an uncertain send is reconciled by hash on reopen.
-                        self.record.legs[index].activity_id = Some(hash);
-                        self.record.legs[index].submission_ref =
-                            Some(format!("bank-{}", hex(&hash)));
-                        self.persist(scope)?;
-                        if endpoint
-                            .send_raw_transaction(&raw)
-                            .map_err(|_| AgentBoundaryError::Unavailable)?
-                            != hash
-                        {
-                            return Err(JourneyError::ObservationMismatch);
-                        }
-                        self.transition(scope, index, JourneyPhase::Submitted, now)?;
-                    }
-                    Lookup::Absent => {
-                        if self.record.legs[index].phase == JourneyPhase::ReceiptVerified {
-                            return Err(JourneyError::ReceiptMismatch);
-                        }
-                        self.transition(scope, index, JourneyPhase::StillChecking, now)?;
-                    }
-                    Lookup::Submitted { tx_hash, nonce } => {
-                        if tx_hash != hash
-                            || nonce != call.nonce
-                            || self.record.legs[index].phase == JourneyPhase::ReceiptVerified
-                        {
-                            return Err(JourneyError::ObservationMismatch);
-                        }
-                        self.record.legs[index].activity_id = Some(hash);
-                        self.record.legs[index].submission_ref =
-                            Some(format!("bank-{}", hex(&hash)));
-                        self.transition(scope, index, JourneyPhase::StillChecking, now)?;
-                    }
-                    Lookup::Verified(receipt) => {
-                        if !receipt.execution().success {
-                            return Err(JourneyError::ReceiptMismatch);
-                        }
-                        let key = receipt_key_for(&receipt, receipt_keys)?;
-                        let mut rung = receipt.rung();
-                        let committed =
-                            if self.record.legs[index].phase == JourneyPhase::ReceiptVerified {
-                                let mut matching = commit_evidence
-                                    .iter()
-                                    .filter(|proof| proof.activity_ids.contains(&hash));
-                                let proof = matching.next();
-                                if matching.next().is_some() {
-                                    return Err(JourneyError::ReceiptMismatch);
-                                }
-                                if let Some(proof) = proof {
-                                    proof.verify(endpoint, &receipt, receipt_keys)?;
-                                    rung = Rung::Committed;
-                                }
-                                proof.cloned()
-                            } else {
-                                None
-                            };
-                        let material = ChainReceiptMaterial {
-                            canonical_bytes: receipt.canonical_bytes().to_vec(),
-                            tx_hash: hash,
-                            block_height: receipt.height(),
-                            rung,
-                            receipt_key: key,
-                            inclusion_height: receipt.height(),
-                        };
-                        self.record.legs[index].activity_id = Some(hash);
-                        self.record.legs[index].submission_ref =
-                            Some(format!("bank-{}", hex(&hash)));
-                        if let Some(proof) = committed {
-                            self.record.legs[index].bank_commit = Some(proof);
-                        }
-                        self.complete_chain_receipt(scope, index, hash, &material, now)?;
-                    }
-                }
+                self.advance_signed_bank(
+                    scope,
+                    &BankAdvance {
+                        endpoint,
+                        receipt_keys,
+                        commit_evidence,
+                        bank: &bank,
+                        call: &call,
+                        index,
+                        now,
+                    },
+                )?;
             }
             JourneyPhase::Refused => return self.status(),
             JourneyPhase::AwaitingApproval => return Err(JourneyError::InvalidPlan),
@@ -1786,8 +1847,164 @@ impl JourneyEngine {
         self.status()
     }
 
+    async fn sign_bank_leg(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        custody: &CustodySigner,
+        trace: &TraceId,
+        bank: &StoredBankCall,
+        now: u64,
+    ) -> Result<(), JourneyError> {
+        use layerx_crypto::evm_transaction::decode_unsigned;
+        let index = self.record.current_leg;
+        let call = decode_unsigned(&bank.unsigned).map_err(|_| JourneyError::InvalidPlan)?;
+        let key = KeyId::new(self.record.custody_key.clone())?;
+        let leg = &self.record.legs[index];
+        if !(leg.preparation.not_before..=leg.preparation.not_after).contains(&now) {
+            return Err(JourneyError::PreparationMismatch);
+        }
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, bank.sender)
+            .map_err(|_| JourneyError::PreparationMismatch)?;
+        let principal = scope.principal().clone();
+        let grant = custody
+            .sign_in_scope(
+                scope,
+                SignRequest::new(
+                    &principal,
+                    &key,
+                    trace,
+                    SignAuthorization::new(
+                        operation_from_label(&self.record.signing_operation)?,
+                        None,
+                    ),
+                    &bank.unsigned,
+                    &disclosure,
+                    now,
+                ),
+            )
+            .await?;
+        let raw = signed_transaction(&bank.unsigned, grant.signature())?;
+        self.record.legs[index].signed = Some(SignedEvidence {
+            preparation_ref: self.record.legs[index]
+                .prepared_ref
+                .clone()
+                .ok_or(JourneyError::PreparationMismatch)?,
+            canonical_digest: Sha256::digest(&bank.unsigned).into(),
+            signature: grant.signature().to_vec(),
+            signer_public_key: grant.signer_public_key(),
+            raw_transaction: Some(raw),
+        });
+        self.transition(scope, index, JourneyPhase::Signed, now)?;
+        Ok(())
+    }
+
+    fn advance_signed_bank(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        advance: &BankAdvance<'_>,
+    ) -> Result<(), JourneyError> {
+        use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
+        use layerx_crypto::evm_transaction::transaction_hash;
+        let BankAdvance {
+            endpoint,
+            receipt_keys,
+            commit_evidence,
+            bank,
+            call,
+            index,
+            now,
+        } = *advance;
+        let raw = self
+            .signed_transaction(index)
+            .ok_or(JourneyError::PreparationMismatch)?
+            .to_vec();
+        let hash = transaction_hash(&raw);
+        let lookup = lookup_authenticated(endpoint, hash, LookupContext { receipt_keys })
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        match lookup {
+            Lookup::Absent if self.record.legs[index].phase == JourneyPhase::Signed => {
+                if endpoint
+                    .pending_nonce(&bank.sender)
+                    .map_err(|_| AgentBoundaryError::Unavailable)?
+                    != call.nonce
+                {
+                    return Err(JourneyError::PreparationMismatch);
+                }
+                // Store the identity before send: an uncertain send is reconciled by hash on reopen.
+                self.record.legs[index].activity_id = Some(hash);
+                self.record.legs[index].submission_ref = Some(format!("bank-{}", hex(&hash)));
+                self.persist(scope)?;
+                if endpoint
+                    .send_raw_transaction(&raw)
+                    .map_err(|_| AgentBoundaryError::Unavailable)?
+                    != hash
+                {
+                    return Err(JourneyError::ObservationMismatch);
+                }
+                self.transition(scope, index, JourneyPhase::Submitted, now)?;
+            }
+            Lookup::Absent => {
+                if self.record.legs[index].phase == JourneyPhase::ReceiptVerified {
+                    return Err(JourneyError::ReceiptMismatch);
+                }
+                self.transition(scope, index, JourneyPhase::StillChecking, now)?;
+            }
+            Lookup::Submitted { tx_hash, nonce } => {
+                if tx_hash != hash
+                    || nonce != call.nonce
+                    || self.record.legs[index].phase == JourneyPhase::ReceiptVerified
+                {
+                    return Err(JourneyError::ObservationMismatch);
+                }
+                self.record.legs[index].activity_id = Some(hash);
+                self.record.legs[index].submission_ref = Some(format!("bank-{}", hex(&hash)));
+                self.transition(scope, index, JourneyPhase::StillChecking, now)?;
+            }
+            Lookup::Verified(receipt) => {
+                if !receipt.execution().success {
+                    return Err(JourneyError::ReceiptMismatch);
+                }
+                let key = receipt_key_for(&receipt, receipt_keys)?;
+                let mut rung = receipt.rung();
+                let committed = if self.record.legs[index].phase == JourneyPhase::ReceiptVerified {
+                    let mut matching = commit_evidence
+                        .iter()
+                        .filter(|proof| proof.activity_ids.contains(&hash));
+                    let proof = matching.next();
+                    if matching.next().is_some() {
+                        return Err(JourneyError::ReceiptMismatch);
+                    }
+                    if let Some(proof) = proof {
+                        proof.verify(endpoint, &receipt, receipt_keys)?;
+                        rung = Rung::Committed;
+                    }
+                    proof.cloned()
+                } else {
+                    None
+                };
+                let material = ChainReceiptMaterial {
+                    canonical_bytes: receipt.canonical_bytes().to_vec(),
+                    tx_hash: hash,
+                    block_height: receipt.height(),
+                    rung,
+                    receipt_key: key,
+                    inclusion_height: receipt.height(),
+                };
+                self.record.legs[index].activity_id = Some(hash);
+                self.record.legs[index].submission_ref = Some(format!("bank-{}", hex(&hash)));
+                if let Some(proof) = committed {
+                    self.record.legs[index].bank_commit = Some(proof);
+                }
+                self.complete_chain_receipt(scope, index, hash, &material, now)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Refreshes an already retained signed bank submission using authenticated
     /// chain-state keys. This operation never signs or submits a transaction.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn refresh_bank_receipt(
         &mut self,
         scope: &mut PrincipalScope<'_>,
@@ -1802,6 +2019,8 @@ impl JourneyEngine {
     /// Refreshes a durable submission and optionally promotes it with verified
     /// consensus coverage, retaining that proof for independent reload checks.
     #[allow(clippy::too_many_arguments)]
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn refresh_bank_receipt_with_commit(
         &mut self,
         scope: &mut PrincipalScope<'_>,
@@ -1934,7 +2153,7 @@ impl JourneyEngine {
                 .map(|leg| {
                     leg.rung_evidence
                         .as_ref()
-                        .map(|evidence| evidence.rung())
+                        .map(StoredRungEvidence::rung)
                         .transpose()
                 })
                 .collect::<Result<Vec<_>, JourneyError>>()?,
@@ -2103,6 +2322,8 @@ impl JourneyEngine {
         ))
     }
 
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn validate_preparation(
         &self,
         index: usize,
@@ -2271,7 +2492,7 @@ impl JourneyEngine {
             leg.bank_commit
                 .as_ref()
                 .ok_or(JourneyError::ReceiptRequired)?
-                .verify_retained(receipt, &[material.receipt_key.clone()])?;
+                .verify_retained(receipt, &[material.receipt_key])?;
         }
         let canonical = material.canonical_bytes.clone();
         let digest: [u8; 32] = Sha256::digest(&canonical).into();
@@ -2648,6 +2869,16 @@ fn validate_native_record(leg: &LegRecord) -> Result<(), JourneyError> {
         )
         .map_err(|_| JourneyError::PreparationMismatch)?;
     }
+    validate_native_invariants(leg, native, &purpose, digest)?;
+    Ok(())
+}
+
+fn validate_native_invariants(
+    leg: &LegRecord,
+    native: &StoredNativePreparation,
+    purpose: &NativeSendPurposeV2,
+    digest: [u8; 32],
+) -> Result<(), JourneyError> {
     if purpose.agent_did.as_str() != leg.preparation.actor
         || purpose.preparation_id != digest
         || purpose.canonical_digest != digest
@@ -2718,7 +2949,7 @@ fn receipt_key_for(
     if matching.next().is_some() {
         return Err(JourneyError::ReceiptMismatch);
     }
-    Ok(key.clone())
+    Ok(*key)
 }
 
 fn authenticate_chain_material(
@@ -2805,6 +3036,62 @@ fn validate_verified_leg(leg: &LegRecord) -> Result<(), JourneyError> {
     Ok(())
 }
 
+fn validate_bank_leg(leg: &LegRecord) -> Result<(), JourneyError> {
+    if let Some(bank) = &leg.bank {
+        let call = layerx_crypto::evm_transaction::decode_unsigned(&bank.unsigned)
+            .map_err(|_| JourneyError::Corrupt("invalid bank call"))?;
+        if bank.sender == [0; 20]
+            || bank.denom.is_empty()
+            || bank.unsigned != leg.payload
+            || Sha256::digest(&leg.payload).as_slice() != leg.payload_hash
+            || Some(call.nonce) != leg.preparation.pending_nonce
+        {
+            return Err(JourneyError::Corrupt("bank plan binding changed"));
+        }
+        let committed = leg
+            .rung_evidence
+            .as_ref()
+            .is_some_and(|evidence| evidence.rung == Rung::Committed.wire_rank());
+        if committed != leg.bank_commit.is_some()
+            || leg.bank_commit.as_ref().is_some_and(|proof| {
+                leg.phase != JourneyPhase::ReceiptVerified
+                    || !leg
+                        .activity_id
+                        .is_some_and(|id| proof.activity_ids.contains(&id))
+            })
+        {
+            return Err(JourneyError::Corrupt(
+                "bank committed evidence is incomplete",
+            ));
+        }
+        if let Some(signed) = &leg.signed {
+            let raw = signed
+                .raw_transaction
+                .as_ref()
+                .ok_or(JourneyError::PreparationMismatch)?;
+            let signature: [u8; 65] = signed
+                .signature
+                .as_slice()
+                .try_into()
+                .map_err(|_| JourneyError::PreparationMismatch)?;
+            if signed.canonical_digest != <[u8; 32]>::from(Sha256::digest(&bank.unsigned))
+                || leg.prepared_digest != Some(signed.canonical_digest)
+                || leg.prepared_ref.as_deref() != Some(signed.preparation_ref.as_str())
+                || signed_transaction(&bank.unsigned, &signature)? != *raw
+                || layerx_crypto::evm_transaction::decode_signed(raw)
+                    .and_then(|(call, signature)| {
+                        layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                    })
+                    .map_err(|_| JourneyError::PreparationMismatch)?
+                    != bank.sender
+            {
+                return Err(JourneyError::PreparationMismatch);
+            }
+        }
+    }
+    Ok(())
+}
+
 fn validate_record(record: &JourneyRecord) -> Result<(), JourneyError> {
     if !matches!(record.version, RECORD_VERSION | 2)
         || JourneyId::new(record.journey_id.clone()).is_err()
@@ -2820,58 +3107,7 @@ fn validate_record(record: &JourneyRecord) -> Result<(), JourneyError> {
     }
     let mut keys = BTreeSet::new();
     for (index, leg) in record.legs.iter().enumerate() {
-        if let Some(bank) = &leg.bank {
-            let call = layerx_crypto::evm_transaction::decode_unsigned(&bank.unsigned)
-                .map_err(|_| JourneyError::Corrupt("invalid bank call"))?;
-            if bank.sender == [0; 20]
-                || bank.denom.is_empty()
-                || bank.unsigned != leg.payload
-                || Sha256::digest(&leg.payload).as_slice() != leg.payload_hash
-                || Some(call.nonce) != leg.preparation.pending_nonce
-            {
-                return Err(JourneyError::Corrupt("bank plan binding changed"));
-            }
-            let committed = leg
-                .rung_evidence
-                .as_ref()
-                .is_some_and(|evidence| evidence.rung == Rung::Committed.wire_rank());
-            if committed != leg.bank_commit.is_some()
-                || leg.bank_commit.as_ref().is_some_and(|proof| {
-                    leg.phase != JourneyPhase::ReceiptVerified
-                        || !leg
-                            .activity_id
-                            .is_some_and(|id| proof.activity_ids.contains(&id))
-                })
-            {
-                return Err(JourneyError::Corrupt(
-                    "bank committed evidence is incomplete",
-                ));
-            }
-            if let Some(signed) = &leg.signed {
-                let raw = signed
-                    .raw_transaction
-                    .as_ref()
-                    .ok_or(JourneyError::PreparationMismatch)?;
-                let signature: [u8; 65] = signed
-                    .signature
-                    .as_slice()
-                    .try_into()
-                    .map_err(|_| JourneyError::PreparationMismatch)?;
-                if signed.canonical_digest != <[u8; 32]>::from(Sha256::digest(&bank.unsigned))
-                    || leg.prepared_digest != Some(signed.canonical_digest)
-                    || leg.prepared_ref.as_deref() != Some(signed.preparation_ref.as_str())
-                    || signed_transaction(&bank.unsigned, &signature)? != *raw
-                    || layerx_crypto::evm_transaction::decode_signed(raw)
-                        .and_then(|(call, signature)| {
-                            layerx_crypto::evm_transaction::recover_sender(&call, &signature)
-                        })
-                        .map_err(|_| JourneyError::PreparationMismatch)?
-                        != bank.sender
-                {
-                    return Err(JourneyError::PreparationMismatch);
-                }
-            }
-        }
+        validate_bank_leg(leg)?;
         if record.version == RECORD_VERSION
             && (leg.native.is_some() || leg.phase == JourneyPhase::AwaitingApproval)
         {

@@ -10,12 +10,9 @@ using public accounts.
 
 Paxeer mainnet-beta is one BFT network running `paxd`, with the kernel inside
 the network proposing blocks, EVM chain ID `125` (`0x7d`), and finality when a
-block is committed. Public JSON-RPC is at the root of
-`https://api-mainnet-beta.paxeer.network` and the numbered node hosts
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. The `px_` methods described below
-belong to the hosted gateway application, not those public node endpoints.
-See [Public JSON-RPC](PublicRpc.md).
+block is committed. Use a root node URL from
+[Public JSON-RPC](PublicRpc.md) for chain calls. The funding method below
+belongs to a configured hosted gateway.
 
 `layerx-faucet`, from crate `layerx-platform-faucet`, authenticates claims,
 reserves quota and idempotency state in Redis, and asks
@@ -36,10 +33,8 @@ The faucet has three replicas, image
 443 to container port 9443. “Public” in this Service name does not publish a
 mainnet faucet. The source manifest has no faucet Ingress.
 
-The cluster helper can render a faucet Ingress and port-forward the Service;
-the default local port is `19445`, exported as `LAYERX_FAUCET_URL`. Such a
-private deployment does not establish a public endpoint. The library defaults
-in `testnet/src/lib.rs` use private cluster Service origins.
+Deploy the faucet with its configured identity, control and Redis dependencies.
+[Hosted node](HostedNode.md) describes the native chain deployment.
 
 ## TLS
 
@@ -210,9 +205,8 @@ shared across the faucet replicas, not scoped to a single process.
 
 The faucet posts `funding_id`, `did`, `public_key`, and numeric `amount` to
 `LAYERX_TESTNET_FUNDING_URL` using the control-admin Bearer and the funding ID
-as the upstream idempotency key. Set this URL to an operator-supplied private
-endpoint, for example
-`https://OPERATOR-CONTROL-ADMIN-ORIGIN/admin/v1/testnet/fund`.
+as the upstream idempotency key. Set this URL to the private control-admin HTTPS origin followed by
+`/admin/v1/testnet/fund`.
 Control validates and proxies the command to core-admin.
 
 New core funding resolves the signer key's bound chain address and sends a
@@ -248,7 +242,7 @@ testnet deployment manifest.
 | `LAYERX_FAUCET_SERVICE_CLAIM_TOKEN_FILE` | Optional; `/run/layerx/gateway-faucet/token` in the manifest |
 | `LAYERX_TESTNET_FUNDING_URL` | HTTPS control-admin funding URL including path |
 | `LAYERX_TESTNET_ADMIN_TOKEN_FILE` | `/run/layerx/control-admin/token` |
-| `LAYERX_FAUCET_REDIS_URL` | Operator-supplied, for example `rediss://OPERATOR-FAUCET-REDIS:6379` |
+| `LAYERX_FAUCET_REDIS_URL` | Configured Redis TLS origin |
 | `LAYERX_FAUCET_REDIS_USERNAME_FILE` | `/run/layerx/redis-auth/username` |
 | `LAYERX_FAUCET_REDIS_PASSWORD_FILE` | `/run/layerx/redis-auth/password` |
 | `LAYERX_FAUCET_IDENTITY_LIMIT` | `10000000` amount units per window |

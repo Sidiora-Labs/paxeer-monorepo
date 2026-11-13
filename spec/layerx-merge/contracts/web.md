@@ -2,19 +2,17 @@
 
 | Field | Value |
 |---|---|
-| Domain | 6 (chain-modules), feature manager fm-chain-modules |
 | Module / store | `xweb` / `modules/xweb` |
 | Precompile | `0x0000000000000000000000000000000000001019` |
-| Source baseline | `4edaf4fff3f943e154c8337c0bcc16fe4dd9dd3c` |
-| Contract status | Current implementation reference; limitations are stated below. |
+| Contract | Paid requests, attested answers and result reads. |
 
 ## Scope and reading guide
 
 Paxeer mainnet-beta is one BFT network, with EVM chain id `125` (`0x7d`). The kernel runs within the network and proposes blocks; a receipt is final when its block is committed. xweb records paid requests and attested answers in chain state. Its attestor threshold establishes agreement about external data, not another layer of transaction finality. Sub-chains are tenant domains in the database.
 
-Public node JSON-RPC uses the root URL, for example `https://api1.mainnet-beta.paxeer.network` or `https://api-mainnet-beta.paxeer.network`; numbered nodes run from `api1` through `api14.mainnet-beta.paxeer.network`. Use `eth_call`, transactions and receipt logs to access the precompile. The module gRPC service and its REST gateway routes below are separate node API transports, whose availability depends on node configuration. See [public RPC endpoints](../../../docs/site/docs/reference/public-rpc.md), the [programs contract](programs.md) and the [web client contract](web-client.md).
+Public node JSON-RPC uses the configured node root. Use `eth_call`, transactions and receipt logs to access the precompile. The module gRPC service and REST gateway routes below are separate transports whose availability depends on node configuration. See the [programs contract](programs.md) and [web client contract](web-client.md).
 
-This page documents methods, events, governance messages, queries, genesis, storage and Solidity consumers against the source baseline above. The previous contract was pinned to `2a1033aa2`; its `stable`, `change` and `new` counts described that historical snapshot, not current availability. That snapshot remains in Git history, including `git show 4edaf4fff3f943e154c8337c0bcc16fe4dd9dd3c:spec/layerx-merge/contracts/web.md`. Existing section headings remain contract anchors. Source links point to declarations and implementations rather than frozen line numbers. Test references describe checked-in coverage, not gates run for this documentation change.
+This page describes methods, events, governance messages, queries, genesis, storage and Solidity consumers. Source links identify their declarations and implementations.
 
 ### Surface summary
 
@@ -70,7 +68,7 @@ The kernel network id is `params.kernel_network_id`; it must not be inferred fro
 
 Fulfilment stores the answer and splits the recorded fee equally among signing attestors' bank payout accounts, with the remainder going to the lowest signer. The EVM entry then calls `onXWebResponse(uint64,bytes32,uint32,bytes)` on the requester from address `0x1019`, records the callback outcome and emits `XWebFulfilled`. Callback values are `0` pending, `1` delivered, `2` reverted and `3` out of gas. A callback revert or out-of-gas result leaves the accepted fulfilment standing. Direct `Execute` dispatch of origin-1 `fulfil` refuses with `LXP_XWEB_FULFIL_EVM_ONLY`; `RunAndCalculateGas` owns the metered EVM path.
 
-[Keeper.Refund](../../../modules/xweb/keeper/refund.go) is callable by anyone at or after the stored timeout height for a still-pending origin-1 request. Payment returns only to its requester, exactly once. Refund remains available while paused. A fulfilled request cannot be refunded, and a refunded request cannot be fulfilled. Timeout eligibility does not itself expire or delete a pending request. The current timeout configuration accepts any nonzero `uint64`, and admission adds `int64(timeout_blocks)` to the block height without an overflow check; the implementation does not guarantee a future representable height for every allowed setting.
+[Keeper.Refund](../../../modules/xweb/keeper/refund.go) is callable by anyone at or after the stored timeout height for a still-pending origin-1 request. Payment returns only to its requester, exactly once. Refund remains available while paused. A fulfilled request cannot be refunded, and a refunded request cannot be fulfilled. Timeout eligibility does not itself expire or delete a pending request. `timeout_blocks` is bounded to `1` through `9223372036854775807` (`math.MaxInt64`). Request admission checks that the block height is nonnegative and its sum with the timeout fits `int64` before accepting payment, then records that sum as the timeout height.
 
 **Origin 2.** [Keeper.RequestFromProgram](../../../modules/xweb/keeper/program.go) consumes guest events with topic `PAXEERX_WEB_REQUEST_V1`. Other topics return without recording anything. For a matching topic it checks activation, pause, call identity, one request per call, canonical event data, unused `(programId,requestId)`, pending capacity and fee legs. Admission supports fetch/search only; API and storage receipts have no origin-2 request lifecycle.
 
@@ -83,8 +81,6 @@ Admission reserves a renewable hot-answer slot in a cached context, writes a 123
 Attestors sign `keccak256` of the 188-byte [preimage](../../../modules/xweb/types/attestation.go): `"PAXEERX_WEB_V1" || u8 origin || u256 networkId || bytes32 requester || u64 requestId || u8 kind || bytes32 payloadHash || bytes32 contentDigest || bytes32 responseHash || u32 fullLength`, with big-endian integers. Origin 1 uses a zero-left-padded EVM requester and EVM chain id; origin 2 uses the program id and governed kernel network id. Signatures are 65-byte `r || s || v`; recovery rejects malformed and high-s signatures.
 
 The [observation codec](../../../modules/xweb/types/observation.go) encodes an origin-2 header of 146 bytes, response bytes, a one-byte signature count and that many 65-byte signatures. It requires zero high 28 bytes in the network-id word, a nonzero `uint32` network id, nonzero program id, at most 4096 response bytes, `fullLength >= responseLength`, 1–16 signatures and no trailing bytes. The codec also recognizes kind 4, but `ProgramKind`, pending-record decoding and genesis validation restrict admitted origin-2 requests to kinds 1 and 2; codec acceptance alone does not enable program storage receipts.
-
-Checked-in coverage includes [program dispatch](../../../precompiles/xweb/program_dispatch_test.go), [origin-two flow](../../../precompiles/xweb/origin_two_flow_test.go), [keeper repair coverage](../../../modules/xweb/keeper/repair_128_test.go) and [origin policy coverage](../../../modules/xweb/types/repair_129_test.go).
 
 ### section-b-views
 
@@ -117,7 +113,7 @@ Query request types are `Query<Method>Request` and responses are `Query<Method>R
 
 Nil query requests and wrong-width program ids return gRPC `InvalidArgument`. Absent requests/results, missing program records or missing recorded fee denoms return `NotFound`; malformed program records/answers return `DataLoss`. Unexpected program-result errors map to `Internal`. Program counters expose pending capacity 256 and hot committed capacity 64, not a lifetime total of answered requests.
 
-The former successful-response codec gap is repaired in [sdk/baseapp/grpcrouter.go](../../../sdk/baseapp/grpcrouter.go): the registered `sdkProtoCodec` uses generated `Marshal`/`Unmarshal` for SDK custom protobuf types and resets reused destinations before decoding. Other protobuf messages retain the standard codec. [types/codec.go](../../../modules/xweb/types/codec.go) supplies binary `Address20`/`Hash32` methods and JSONPB methods for custom state messages. State/genesis JSON represents fixed hashes/addresses as unprefixed hex; ordinary byte slices are base64. `Params`, `Request`, `Result` and `Attestor` JSONPB methods use their state JSON shapes, so clients must not assume generic protobuf JSON formatting for those nested types. [proof_go_api_test.go](../../../modules/xweb/keeper/proof_go_api_test.go) now retrieves successful program results through the real QueryClient after reopening state; this page makes no new live-endpoint qualification claim.
+The registered [sdkProtoCodec](../../../sdk/baseapp/grpcrouter.go) uses generated `Marshal`/`Unmarshal` methods for SDK custom protobuf types and resets reused destinations before decoding. Other protobuf messages retain the standard codec. [types/codec.go](../../../modules/xweb/types/codec.go) supplies binary `Address20`/`Hash32` methods and JSONPB methods for custom state messages. State/genesis JSON represents fixed hashes and addresses as unprefixed hex; ordinary byte slices are base64. `Params`, `Request`, `Result` and `Attestor` JSONPB methods use their state JSON shapes.
 
 ### section-d-framework-fit-and-gas
 
@@ -142,12 +138,12 @@ Origin-1 fulfil requires remaining gas covering `min(request.callbackGas, curren
 | `0x02` | JSON AttestorSet |
 | `0x03` | pause marker |
 | `0x04` | JSON origin-1 nonce |
-| `0x05 || u64 id` | JSON origin-1 Request |
-| `0x06 || u64 id` | JSON origin-1 Result |
-| `web/pending || programId[32] || u64 requestId` | raw 123-byte program record, including fulfilled replay tombstones |
-| `web/answer || programId[32] || u64 requestId || u8 part` | hot answer header (part 0) or response chunk |
-| `web/archive/ || programId[32] || u64 requestId || u8 part` | archived answer with the same part layout |
-| `web/feedenom || asset[32]` | raw bank denom bytes |
+| `0x05 \|\| u64 id` | JSON origin-1 Request |
+| `0x06 \|\| u64 id` | JSON origin-1 Result |
+| `web/pending \|\| programId[32] \|\| u64 requestId` | raw 123-byte program record, including fulfilled replay tombstones |
+| `web/answer \|\| programId[32] \|\| u64 requestId \|\| u8 part` | hot answer header (part 0) or response chunk |
+| `web/archive/ \|\| programId[32] \|\| u64 requestId \|\| u8 part` | archived answer with the same part layout |
+| `web/feedenom \|\| asset[32]` | raw bank denom bytes |
 | `web/count/pending` | JSON count of unfulfilled program records, at most 256 |
 | `web/count/committed` | JSON count of hot committed answers, at most 64 |
 
@@ -155,7 +151,7 @@ Key integers are big-endian. A program record is version `1` at byte 0, kind at 
 
 The 256 pending bound and 64 hot-answer bound are independent. Admission and fulfilment call `reserveProgramAnswer(...,1)`: if hot state is full, it archives a completed answer in deterministic store-key order, retains the fulfilled tombstone and decrements hot committed count. Subsequent fulfilment can reuse the slot, including for previously accepted paid requests. Answer chunks and replay tombstones remain in consensus state indefinitely; 64 is not a lifetime limit or a bound on archive size. `ProgramCountersInvariant`, registered as `xweb/program-counters`, checks counts, hot headers, archived records and readable answers. It excludes archived tombstones from the hot committed count.
 
-[GenesisState](../../../modules/xweb/types/genesis.go) already carries the following fields; these are implemented rather than planned:
+[GenesisState](../../../modules/xweb/types/genesis.go) carries the following fields:
 
 | JSON field | Content |
 |---|---|
@@ -170,11 +166,11 @@ The 256 pending bound and 64 hot-answer bound are independent. Admission and ful
 
 The five program fields are omitted when empty/zero, preserving the six top-level origin-1 JSON keys in an origin-1-only export. Store iterators return owned entries in key order. [InitGenesis and ExportGenesis](../../../modules/xweb/keeper/genesis.go) import/export these records, hot answer parts, denom entries and counters. Validation rejects duplicate/malformed records, unsupported program kinds, counter/capacity disagreement and fulfilled records without fee denoms or matching answer headers. Init validates before writing and rechecks the program parameter pair for an unpaused genesis that supplies either field. It retains compatibility with older unpaused genesis carrying neither program setting.
 
-**Archive export limit:** the genesis schema has no archive entries and still counts all fulfilled genesis records against committed count. `ExportGenesis` explicitly panics with `ErrInvalidGenesis` and `program archive requires modules/xweb/types/genesis.go archive schema wiring` if an archive key exists. Normal store restart preserves archived answers; JSON genesis export/import of archived state is not supported. It must not be described as a lossless export path for all runtime states. This is separate from the repaired gRPC codec.
+Archived answers persist across a normal store restart. The JSON genesis schema contains no archive entries, so genesis export refuses state containing an archive key with `ErrInvalidGenesis`. JSON genesis export/import supports the unarchived state represented by its schema.
 
 ### xweb-errors
 
-[types/errors.go](../../../modules/xweb/types/errors.go) registers these SDK codes in codespace `xweb` and maps codes 2–25 through `LXPName` to the EVM revert names below. Reverts use `Error(string)` reasons, not ABI custom errors with these names.
+[types/errors.go](../../../modules/xweb/types/errors.go) maps SDK codes 2–26 in codespace `xweb` through `LXPName` to the EVM revert names below. The storage-receipt code is registered in [storage_receipt.go](../../../modules/xweb/types/storage_receipt.go). Reverts use `Error(string)` reasons, not ABI custom errors with these names.
 
 | Code | Go error | Revert name |
 |---|---|---|
@@ -202,7 +198,7 @@ The five program fields are omitted when empty/zero, preserving the six top-leve
 | 23 | `ErrInvalidApi` | `LXP_XWEB_INVALID_API` |
 | 24 | `ErrInvalidEnvelope` | `LXP_XWEB_INVALID_ENVELOPE` |
 | 25 | `ErrInvalidLevel` | `LXP_XWEB_INVALID_LEVEL` |
-| 26 | `ErrInvalidPayload` (storage receipt) | No `LXPName` mapping in the current tree; reason text is `invalid storage receipt payload` with context. |
+| 26 | `ErrInvalidPayload` (storage receipt) | `LXP_XWEB_INVALID_PAYLOAD` |
 
 Program paths additionally return literal names: `LXP_MODULE_DISABLED`, `LXP_DUPLICATE_ENTRY`, `LXP_SEQUENCE_REUSED`, `LXP_FEE_UNPAYABLE`, `LXP_ASSET_MISMATCH`, `LXP_AUTH_SCOPE`, `LXP_ARENA_EXHAUSTED`, `LXP_OVERFLOW`, `LXP_FATAL_INVARIANT`, `LXP_NON_CANONICAL`, `LXP_WRONG_NETWORK`, `LXP_UNKNOWN_FIELD`, `LXP_CONTEXT_MISMATCH`, `LXP_ATTESTATION_THRESHOLD`, `LXP_BAD_SIGNATURE`, `LXP_AUTH_DUPLICATE_SIGNER`, `LXP_UNSORTED_SEQUENCE` and `LXP_INVALID_ATTESTATION`. Bank transfer errors propagate rather than being replaced with an invented program error.
 
@@ -224,9 +220,9 @@ event XWebRefunded(uint64 indexed requestId, address indexed requester, uint256 
 
 `XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64)` is program-only. Its indexed fields are program id and program-local request id; its data is the accepted fetch/search kind, payload and stored call sequence. Sequence is not a deadline and kind is not origin `2`. No fee amount, asset, callback gas or timeout is encoded in this event. Program fee context comes from its stored record and denom query. The EVM adapter emits only this program event, never an origin-1 `XWebRequested` for the same admission. Consequently EVM and multiple program requests may share a numeric id without being the same work item.
 
-[services/interop/crates/x-websearch/src/watch.rs](../../../services/interop/crates/x-websearch/src/watch.rs) decodes program work as `program_id, request_id, kind, payload, sequence`; [repair_130_test.go](../../../precompiles/xweb/repair_130_test.go) contains real producer-to-Rust watcher, journal restart, signing and EVM fulfilment cases. The hosted direct-keeper forwarding caveat in [methods](#section-a-methods) still applies. A watcher needs an actual emitted log, not merely an ABI declaration.
+[The x-websearch watcher](../../../services/interop/crates/x-websearch/src/watch.rs) decodes program work as `program_id, request_id, kind, payload, sequence`. The direct-keeper forwarding behavior in [methods](#section-a-methods) applies: watcher delivery requires an emitted log.
 
-**Solidity label mismatch:** both [precompiles/xweb/XWeb.sol](../../../precompiles/xweb/XWeb.sol) and [contracts/src/precompiles/IXWeb.sol](../../../contracts/src/precompiles/IXWeb.sol) still label the non-indexed program fields `method, payload, deadline`. Their positional types, indexed flags and event topic match the producer, but generated named bindings retain those misleading labels. Decode positions as `kind, payload, sequence` according to the live JSON ABI; the final `uint64` is the recording sequence. The coordinated Solidity label rename remains outside this page's scope.
+The Solidity event declarations in [precompiles/xweb/XWeb.sol](../../../precompiles/xweb/XWeb.sol) and [contracts/src/precompiles/IXWeb.sol](../../../contracts/src/precompiles/IXWeb.sol) name the non-indexed program fields `kind, payload, sequence`, matching the JSON ABI. The final `uint64` is the recording sequence.
 
 Module SDK events are distinct from EVM logs. [types/events.go](../../../modules/xweb/types/events.go) defines:
 
@@ -244,7 +240,7 @@ Module SDK events are distinct from EVM logs. [types/events.go](../../../modules
 
 ## xweb module messages and Go API
 
-The service `paxprotocol.paxchain.xweb.Msg` in [api/xweb/tx.proto](../../../api/xweb/tx.proto) has six authority-only methods. [msg_server.go](../../../modules/xweb/keeper/msg_server.go) checks message validation and the stored authority. Ordinary requests, fulfilments and refunds are not governance RPC methods. The following anchors retain the message, protobuf and CLI cross references used by the programme.
+The service `paxprotocol.paxchain.xweb.Msg` in [api/xweb/tx.proto](../../../api/xweb/tx.proto) has six authority-only methods. [msg_server.go](../../../modules/xweb/keeper/msg_server.go) checks message validation and the stored authority. Ordinary requests, fulfilments and refunds are not governance RPC methods. The following sections describe messages, protobuf fields and CLI commands.
 
 ### msg-xweb-pause
 
@@ -347,7 +343,7 @@ paxd tx xweb set-params 1000000 8192 500000 3600 \
   --kernel-network-id 1 --program-fee-denoms uhpx,usid,uusdc,uusdl --from <authority-key>
 ```
 
-The kernel id `1` is an example setting, not the EVM chain id or an asserted deployed value. The four positional fields are fee, payload cap, callback cap and timeout blocks. `--kernel-network-id` must be nonzero; `--program-fee-denoms` is a nonempty comma-separated list without duplicates, restricted to `uhpx`, `usid`, `uusdc`, `uusdl`. The command populates fields 6 and 7, so the earlier claim that every generated message lacks the program pair is obsolete.
+The kernel id `1` is an example setting, not the EVM chain id or an asserted deployed value. The four positional fields are fee, payload cap, callback cap and timeout blocks. `--kernel-network-id` must be nonzero; `--program-fee-denoms` is a nonempty comma-separated list without duplicates, restricted to `uhpx`, `usid`, `uusdc`, `uusdl`. The command populates fields 6 and 7, including both program settings.
 
 ### cli-xweb-tx-set-threshold
 
@@ -383,15 +379,15 @@ The implemented parameter defaults and bounds in [types/state.go](../../../modul
 | `fee` | `1000000` base units | positive SDK Int |
 | `max_payload_bytes` | `8192` | 1–16384 |
 | `max_callback_gas` | `500000` | 1–5000000 |
-| `timeout_blocks` | `3600` | nonzero `uint64`; height-overflow limitation above |
+| `timeout_blocks` | `3600` | 1–9223372036854775807; request height plus timeout must fit `int64` |
 | `kernel_network_id` | `0` (unset) | nonzero when configured |
 | `program_fee_denoms` | empty (unset) | nonempty subset of the four mapped denoms, without duplicates, when configured |
 
-The unset program pair is accepted by `Params.Validate` for initial dormant state. `MsgSetParams` and `Unpause` require `ValidateProgramSettings`. Default genesis is paused, with no attestors or work. Program capacity constants, record types and genesis entries already exist; they are not future Go APIs.
+The unset program pair is accepted by `Params.Validate` for initial dormant state. `MsgSetParams` and `Unpause` require `ValidateProgramSettings`. Default genesis is paused, with no attestors or work. Program capacity constants, record types and genesis entries are defined by the module types.
 
 ## xweb Solidity interfaces
 
-Both Solidity `IXWeb` copies expose the served methods. Native precompiles have no deployed bytecode: void calls may require a low-level call instead of Solidity's typed external-call code-existence check. The consumer's program submission helper below demonstrates this. The event label mismatch is documented under [xweb-events](#xweb-events); identical event topics alone do not establish named-binding agreement.
+Both Solidity `IXWeb` copies expose the served methods. Native precompiles have no deployed bytecode: void calls may require a low-level call instead of Solidity's typed external-call code-existence check. The consumer's program submission helper below demonstrates this. The positional event fields are documented under [xweb-events](#xweb-events); identical event topics alone do not establish named-binding agreement.
 
 ### sol-apiconsumer
 

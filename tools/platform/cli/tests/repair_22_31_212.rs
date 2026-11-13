@@ -2,7 +2,7 @@
 //! their remote peers are bounded loopback services and committed ABI vectors.
 //!
 //! Task 22.39.118: Server publishes and asserts the root endpoint required by
-//! RpcClient::connect (src/rpc.rs:47-49); hosted-service clients accept it too.
+//! `RpcClient::connect` (src/rpc.rs:47-49); hosted-service clients accept it too.
 use layerx_platform_cli::{
     config::Configuration, credential, wallet_gateway as producer, wallet_reads, wallet_send,
     wallet_signing::SigningFacts,
@@ -11,6 +11,7 @@ use layerx_sdk::rpc::RpcClient as Sdk;
 use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::net::TcpListener;
+use std::os::unix::net::UnixListener;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -29,9 +30,12 @@ struct Server {
 }
 impl Server {
     fn start(mut answer: impl FnMut(Value) -> Value + Send + 'static) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let endpoint = format!("http://{}/", listener.local_addr().unwrap());
-        listener.set_nonblocking(true).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(panic_error);
+        let endpoint = format!(
+            "http://{}/",
+            listener.local_addr().unwrap_or_else(panic_error)
+        );
+        listener.set_nonblocking(true).unwrap_or_else(panic_error);
         let stop = Arc::new(AtomicBool::new(false));
         let closing = stop.clone();
         let thread = std::thread::spawn(move || {
@@ -46,33 +50,33 @@ impl Server {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                    .unwrap_or_else(panic_error);
                 let mut header = Vec::new();
                 while !header.ends_with(b"\r\n\r\n") {
                     assert!(header.len() < 8192);
                     let mut byte = [0];
-                    stream.read_exact(&mut byte).unwrap();
+                    stream.read_exact(&mut byte).unwrap_or_else(panic_error);
                     header.push(byte[0]);
                 }
-                let header = std::str::from_utf8(&header).unwrap();
+                let header = std::str::from_utf8(&header).unwrap_or_else(panic_error);
                 assert!(header.starts_with("POST / HTTP/1.1\r\n"));
                 let length = header
                     .lines()
                     .find_map(|line| {
                         let (key, value) = line.split_once(':')?;
                         key.eq_ignore_ascii_case("content-length")
-                            .then(|| value.trim().parse::<usize>().unwrap())
+                            .then(|| value.trim().parse::<usize>().unwrap_or_else(panic_error))
                     })
-                    .unwrap();
+                    .unwrap_or_else(panic_missing);
                 assert!(length < 1_048_576);
                 let mut body = vec![0; length];
-                stream.read_exact(&mut body).unwrap();
-                let request: Value = serde_json::from_slice(&body).unwrap();
+                stream.read_exact(&mut body).unwrap_or_else(panic_error);
+                let request: Value = serde_json::from_slice(&body).unwrap_or_else(panic_error);
                 let result = answer(request.clone());
                 let reply = json!({"jsonrpc":"2.0","id":request["id"],"result":result});
-                let body = serde_json::to_vec(&reply).unwrap();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap();
-                stream.write_all(&body).unwrap();
+                let body = serde_json::to_vec(&reply).unwrap_or_else(panic_error);
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap_or_else(panic_error);
+                stream.write_all(&body).unwrap_or_else(panic_error);
             }
         });
         Self {
@@ -86,12 +90,12 @@ impl Drop for Server {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(thread) = self.thread.take() {
-            thread.join().unwrap();
+            thread.join().unwrap_or_else(panic_error);
         }
     }
 }
 fn bytes(text: &str) -> Vec<u8> {
-    layerx_platform_cli::encoding::hex_decode("fixture", text).unwrap()
+    layerx_platform_cli::encoding::hex_decode("fixture", text).unwrap_or_else(panic_error)
 }
 fn word(value: u128) -> Vec<u8> {
     let mut out = vec![0; 16];
@@ -107,36 +111,39 @@ fn native() -> [u8; 32] {
     asset
 }
 fn account_id(did: &str, asset: [u8; 32]) -> [u8; 32] {
-    let name = layerx_wire::account::account_name_for_asset(did, asset, native()).unwrap();
-    layerx_wire::hash::account_id_for_protocol(&name, 3).unwrap()
+    let name = layerx_wire::account::account_name_for_asset(did, asset, native())
+        .unwrap_or_else(panic_error);
+    layerx_wire::hash::account_id_for_protocol(&name, 3).unwrap_or_else(panic_error)
 }
 fn abi_fixture(name: &str) -> Value {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../../services/platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
     ))
-    .unwrap();
+    .unwrap_or_else(panic_error);
     fixture["cases"]
         .as_array()
-        .unwrap()
+        .unwrap_or_else(panic_missing)
         .iter()
         .find(|row| row["name"] == name)
-        .unwrap()
+        .unwrap_or_else(panic_missing)
         .clone()
 }
 
 #[test]
 fn wallet_balance_shape() -> Outcome {
     let fixture = abi_fixture("bank.all_balances");
-    let coins = producer::evm::decode_coins(&bytes(fixture["result"].as_str().unwrap()))
-        .map_err(debug_error)?;
+    let coins = producer::evm::decode_coins(&bytes(
+        fixture["result"].as_str().unwrap_or_else(panic_missing),
+    ))
+    .map_err(debug_error)?;
     let rows = coins.into_iter().map(|(denom, amount)| json!({"denom":denom,"amount":producer::evm::uint256_decimal(&amount)})).collect();
     let address = layerx_platform_cli::encoding::fixed_hex::<20>(
         "fixture address",
         fixture["in"]["acc"]
             .as_str()
-            .unwrap()
+            .unwrap_or_else(panic_missing)
             .strip_prefix("0x")
-            .unwrap(),
+            .unwrap_or_else(panic_missing),
     )?;
     let document = producer::account_document(
         Some(address),
@@ -171,29 +178,25 @@ fn wallet_balance_shape() -> Outcome {
     Ok(())
 }
 
-#[test]
-fn wallet_account_shape() -> Outcome {
-    let owner = ed25519_dalek::SigningKey::from_bytes(&[0x11; 32])
-        .verifying_key()
-        .to_bytes();
-    let actor = format!("did:layerx:{}", producer::hex(&owner));
-    let asset = native();
-    let from = account_id(&actor, asset);
-    let source_actor = actor.clone();
+fn account_server(actor: String, owner: [u8; 32], asset: [u8; 32], from: [u8; 32]) -> Server {
+    let source_actor = actor;
     let mut source_sequence = 7;
-    let server = Server::start(move |request| match request["method"].as_str().unwrap() {
-        "eth_getTransactionCount" => {
-            assert_eq!(request["params"][1], "pending");
-            json!("0x29")
-        }
-        "px_getAccount" => {
-            assert_eq!(
-                request["params"],
-                json!([source_actor, producer::hex(&asset)])
-            );
-            let result =
-                producer::ledger_account(&source_actor, &producer::hex(&asset), 73, &mut |data| {
-                    match &data[..4] {
+    Server::start(
+        move |request| match request["method"].as_str().unwrap_or_else(panic_missing) {
+            "eth_getTransactionCount" => {
+                assert_eq!(request["params"][1], "pending");
+                json!("0x29")
+            }
+            "px_getAccount" => {
+                assert_eq!(
+                    request["params"],
+                    json!([source_actor, producer::hex(&asset)])
+                );
+                let result = producer::ledger_account(
+                    &source_actor,
+                    &producer::hex(&asset),
+                    73,
+                    &mut |data| match &data[..4] {
                         [0x3f, 0x05, 0x0c, 0xbc] => {
                             assert_eq!(&data[4..36], &owner);
                             assert_eq!(&data[36..], &asset);
@@ -210,14 +213,26 @@ fn wallet_account_shape() -> Outcome {
                         }
                         [0xb1, 0xff, 0xc0, 0x3e] => Ok(word(1_000)),
                         selector => panic!("unexpected native selector: {selector:?}"),
-                    }
-                })
-                .unwrap();
-            source_sequence += 1;
-            result
-        }
-        method => panic!("unexpected method {method}"),
-    });
+                    },
+                )
+                .unwrap_or_else(panic_error);
+                source_sequence += 1;
+                result
+            }
+            method => panic!("unexpected method {method}"),
+        },
+    )
+}
+
+#[test]
+fn wallet_account_shape() -> Outcome {
+    let owner = ed25519_dalek::SigningKey::from_bytes(&[0x11; 32])
+        .verifying_key()
+        .to_bytes();
+    let actor = format!("did:layerx:{}", producer::hex(&owner));
+    let asset = native();
+    let from = account_id(&actor, asset);
+    let server = account_server(actor.clone(), owner, asset, from);
     let sdk = Sdk::connect(&server.endpoint, None).map_err(debug_error)?;
     let evm_nonce = sdk
         .get_identity_sequence("0x102132435465768798a9bacbdcedfe0f1e2d3c4b")
@@ -281,12 +296,14 @@ fn wallet_assets_shape() -> Outcome {
     let source = assets.clone();
     let server = Server::start(move |request| {
         assert_eq!(request["method"], "px_listAssets");
-        let (cursor, limit) = producer::page_params(Some(&request["params"])).unwrap();
+        let (cursor, limit) =
+            producer::page_params(Some(&request["params"])).unwrap_or_else(panic_error);
         // Committed in-memory indexer peer: registration positions are independent of asset IDs.
-        let start = usize::try_from(cursor.unwrap_or(0)).unwrap();
+        let start = usize::try_from(cursor.unwrap_or(0)).unwrap_or_else(panic_error);
         let end = (start + limit).min(source.len());
         let next = (end < source.len()).then_some(end as u64);
-        producer::assets_page(source[start..end].to_vec(), 94, cursor, limit, next).unwrap()
+        producer::assets_page(source[start..end].to_vec(), 94, cursor, limit, next)
+            .unwrap_or_else(panic_error)
     });
     let sdk = Sdk::connect(&server.endpoint, None).map_err(debug_error)?;
     assert!(matches!(
@@ -298,7 +315,7 @@ fn wallet_assets_shape() -> Outcome {
         .map_err(debug_error)?;
     assert_eq!(first.assets, assets[..16]);
     assert_eq!(first.height, 94);
-    let next = first.next_cursor.unwrap();
+    let next = first.next_cursor.unwrap_or_else(panic_missing);
     assert_eq!(next, 16);
     let second = sdk
         .list_custody_assets_page(Some(next), None)
@@ -307,7 +324,11 @@ fn wallet_assets_shape() -> Outcome {
     assert_eq!(second.next_cursor, None);
     assert!(first.clone().into_value().get("state_root").is_none());
     let info = sdk
-        .get_custody_asset(producer::key(assets[17]["asset_id"].as_str().unwrap())?)
+        .get_custody_asset(producer::key(
+            assets[17]["asset_id"]
+                .as_str()
+                .unwrap_or_else(panic_missing),
+        )?)
         .map_err(debug_error)?;
     assert_eq!(info["asset"], assets[17]);
     assert_eq!(info["height"], 94);
@@ -343,6 +364,11 @@ fn wallet_assets_shape() -> Outcome {
         None
     )
     .is_err());
+    assert_native_asset_metadata()?;
+    Ok(())
+}
+
+fn assert_native_asset_metadata() -> Outcome {
     let id = [0x11; 32];
     let mut abi = Vec::new();
     for head in [
@@ -369,10 +395,10 @@ fn wallet_assets_shape() -> Outcome {
     abi.extend([0; 20]);
     abi.extend(word(0));
     let mut row = json!({"asset_id":producer::hex(&id),"kind":"ledger","denom":format!("layerx/{}",producer::hex(&id))});
-    row.as_object_mut().unwrap().extend(
+    row.as_object_mut().unwrap_or_else(panic_missing).extend(
         producer::ledger_asset_metadata(&abi, id)?
             .as_object()
-            .unwrap()
+            .unwrap_or_else(panic_missing)
             .clone(),
     );
     assert_eq!(row["paused"], true);
@@ -391,46 +417,26 @@ fn wallet_assets_shape() -> Outcome {
     Ok(())
 }
 
-#[test]
-fn wallet_bind_rpc() -> Outcome {
-    use layerx_client::account_binding::{plan_bind, sign_bind_transaction, BindFees, BindPlan};
-    use layerx_crypto::account_derivation::derive_from_mnemonic;
-    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
-    let account = derive_from_mnemonic("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", "", 0)?;
-    let BindPlan::Bind(call) = plan_bind(&account, 125, None, 7)? else {
-        panic!("unbound fixture")
-    };
-    call.signed_binding().verify().map_err(debug_error)?;
-    let expected = sign_bind_transaction(
-        &account,
-        125,
-        &call,
-        BindFees {
-            evm_nonce: 41,
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 5,
-            gas_limit: 200_000,
-        },
-    )?;
-    let hash = format!("0x{}", producer::hex(&transaction_hash(&expected)));
-    let expected_hash = hash.clone();
-    let raw = expected.clone();
-    let address = account.evm_address();
-    let public = account.layerx_public_key();
-    let calldata = call.data().to_vec();
-    let submitted = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let count = submitted.clone();
+fn bind_server(
+    raw: Vec<u8>,
+    address: [u8; 20],
+    public: [u8; 32],
+    calldata: Vec<u8>,
+    count: Arc<std::sync::atomic::AtomicUsize>,
+    expected_hash: String,
+) -> Server {
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
     let mut bound = false;
-    let server = Server::start(move |request| {
-        match request["method"].as_str().unwrap() {
+    Server::start(move |request| {
+        match request["method"].as_str().unwrap_or_else(panic_missing) {
             "eth_chainId" => json!("0x7d"),
             "eth_call" => {
                 let data = bytes(
                     request["params"][0]["data"]
                         .as_str()
-                        .unwrap()
+                        .unwrap_or_else(panic_missing)
                         .strip_prefix("0x")
-                        .unwrap(),
+                        .unwrap_or_else(panic_missing),
                 );
                 assert_eq!(&data[16..], &address);
                 assert_eq!(request["params"][1], "latest");
@@ -448,7 +454,7 @@ fn wallet_bind_rpc() -> Outcome {
                     [0xce, 0xdd, 0x9b, 0xa2] => bytes(
                         abi_fixture("addr.layerXBindNonce")["result"]
                             .as_str()
-                            .unwrap(),
+                            .unwrap_or_else(panic_missing),
                     ),
                     data => panic!("unexpected native read {data:?}"),
                 };
@@ -480,8 +486,11 @@ fn wallet_bind_rpc() -> Outcome {
                     request["params"],
                     json!([format!("0x{}", producer::hex(&raw))])
                 );
-                let (tx, signature) = decode_signed(&raw).unwrap();
-                assert_eq!(recover_sender(&tx, &signature).unwrap(), address);
+                let (tx, signature) = decode_signed(&raw).unwrap_or_else(panic_error);
+                assert_eq!(
+                    recover_sender(&tx, &signature).unwrap_or_else(panic_error),
+                    address
+                );
                 assert_eq!(tx.data, calldata);
                 assert_eq!(tx.nonce, 41);
                 bound = true;
@@ -490,7 +499,39 @@ fn wallet_bind_rpc() -> Outcome {
             }
             method => panic!("unexpected method {method}"),
         }
-    });
+    })
+}
+
+#[test]
+fn wallet_bind_rpc() -> Outcome {
+    use layerx_client::account_binding::{plan_bind, sign_bind_transaction, BindFees, BindPlan};
+    use layerx_crypto::account_derivation::derive_from_mnemonic;
+    use layerx_crypto::evm_transaction::transaction_hash;
+    let account = derive_from_mnemonic("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", "", 0)?;
+    let BindPlan::Bind(call) = plan_bind(&account, 125, None, 7)? else {
+        panic!("unbound fixture")
+    };
+    call.signed_binding().verify().map_err(debug_error)?;
+    let expected = sign_bind_transaction(
+        &account,
+        125,
+        &call,
+        BindFees {
+            evm_nonce: 41,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 5,
+            gas_limit: 200_000,
+        },
+    )?;
+    let hash = format!("0x{}", producer::hex(&transaction_hash(&expected)));
+    let expected_hash = hash.clone();
+    let raw = expected.clone();
+    let address = account.evm_address();
+    let public = account.layerx_public_key();
+    let calldata = call.data().to_vec();
+    let submitted = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let count = submitted.clone();
+    let server = bind_server(raw, address, public, calldata, count, expected_hash);
     let client = layerx_platform_cli::rpc::RpcClient::new(&server.endpoint, None)?;
     let result = layerx_platform_cli::wallet_derive::bind(&client, &account)?;
     assert_eq!(result["transaction_hash"], hash);
@@ -498,6 +539,11 @@ fn wallet_bind_rpc() -> Outcome {
     let again = layerx_platform_cli::wallet_derive::bind(&client, &account)?;
     assert_eq!(again["status"], "already_bound");
     assert_eq!(submitted.load(Ordering::SeqCst), 1);
+    assert_bind_rpc_refusals();
+    Ok(())
+}
+
+fn assert_bind_rpc_refusals() {
     assert!(layerx_platform_cli::rpc::request(
         "eth_call",
         &json!([{"to":"0x01","data":"0x"},"latest"])
@@ -513,7 +559,6 @@ fn wallet_bind_rpc() -> Outcome {
         &json!({"jsonrpc":"2.0","id":1,"result":"0x0"})
     )
     .is_err());
-    Ok(())
 }
 
 // A Secret Service wire peer. The native zbus/keyring backend and its DH/AES codec
@@ -577,18 +622,26 @@ impl BusValue {
             Self::Bool(value) => Self::Uint(u32::from(*value)).encode(out),
             Self::Text(text) | Self::Path(text) => {
                 pad(out, 4);
-                out.extend_from_slice(&(text.len() as u32).to_le_bytes());
+                out.extend_from_slice(
+                    &u32::try_from(text.len())
+                        .unwrap_or_else(panic_error)
+                        .to_le_bytes(),
+                );
                 out.extend_from_slice(text.as_bytes());
                 out.push(0);
             }
             Self::Signature(text) => {
-                out.push(text.len() as u8);
+                out.push(u8::try_from(text.len()).unwrap_or_else(panic_error));
                 out.extend_from_slice(text.as_bytes());
                 out.push(0);
             }
             Self::Bytes(bytes) => {
                 pad(out, 4);
-                out.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+                out.extend_from_slice(
+                    &u32::try_from(bytes.len())
+                        .unwrap_or_else(panic_error)
+                        .to_le_bytes(),
+                );
                 out.extend_from_slice(bytes);
             }
             Self::Tuple(values) => {
@@ -610,19 +663,19 @@ impl BusValue {
                 for value in values {
                     value.encode(out);
                 }
-                let length = (out.len() - start) as u32;
+                let length = u32::try_from(out.len() - start).unwrap_or_else(panic_error);
                 out[size..size + 4].copy_from_slice(&length.to_le_bytes());
             }
         }
     }
 }
 fn pad(out: &mut Vec<u8>, align: usize) {
-    while out.len() % align != 0 {
+    while !out.len().is_multiple_of(align) {
         out.push(0);
     }
 }
 fn aligned(offset: usize, align: usize) -> usize {
-    (offset + align - 1) / align * align
+    offset.div_ceil(align) * align
 }
 fn alignment(kind: u8) -> usize {
     match kind {
@@ -656,7 +709,11 @@ fn parse_value(sig: &[u8], pos: &mut usize, data: &[u8], offset: &mut usize) -> 
             BusValue::Byte(value)
         }
         b'u' | b'b' => {
-            let value = u32::from_le_bytes(data[*offset..*offset + 4].try_into().unwrap());
+            let value = u32::from_le_bytes(
+                data[*offset..*offset + 4]
+                    .try_into()
+                    .unwrap_or_else(panic_error),
+            );
             *offset += 4;
             if kind == b'u' {
                 BusValue::Uint(value)
@@ -670,12 +727,16 @@ fn parse_value(sig: &[u8], pos: &mut usize, data: &[u8], offset: &mut usize) -> 
                 *offset += 1;
                 length
             } else {
-                let length =
-                    u32::from_le_bytes(data[*offset..*offset + 4].try_into().unwrap()) as usize;
+                let length = u32::from_le_bytes(
+                    data[*offset..*offset + 4]
+                        .try_into()
+                        .unwrap_or_else(panic_error),
+                ) as usize;
                 *offset += 4;
                 length
             };
-            let text = String::from_utf8(data[*offset..*offset + length].to_vec()).unwrap();
+            let text = String::from_utf8(data[*offset..*offset + length].to_vec())
+                .unwrap_or_else(panic_error);
             *offset += length + 1;
             match kind {
                 b's' => BusValue::Text(text),
@@ -702,8 +763,11 @@ fn parse_value(sig: &[u8], pos: &mut usize, data: &[u8], offset: &mut usize) -> 
             BusValue::Tuple(values)
         }
         b'a' => {
-            let length =
-                u32::from_le_bytes(data[*offset..*offset + 4].try_into().unwrap()) as usize;
+            let length = u32::from_le_bytes(
+                data[*offset..*offset + 4]
+                    .try_into()
+                    .unwrap_or_else(panic_error),
+            ) as usize;
             *offset += 4;
             let start = *pos;
             let end = type_end(sig, start);
@@ -721,7 +785,9 @@ fn parse_value(sig: &[u8], pos: &mut usize, data: &[u8], offset: &mut usize) -> 
             }
             assert_eq!(*offset, limit);
             BusValue::Array(
-                std::str::from_utf8(&sig[start..end]).unwrap().to_owned(),
+                std::str::from_utf8(&sig[start..end])
+                    .unwrap_or_else(panic_error)
+                    .to_owned(),
                 values,
             )
         }
@@ -751,7 +817,7 @@ fn lookup<'a>(value: &'a BusValue, key: &str) -> &'a BusValue {
         .iter()
         .map(BusValue::values)
         .find(|row| row[0].text() == key)
-        .unwrap()[1]
+        .unwrap_or_else(panic_missing)[1]
         .inner()
 }
 fn reply_bus(
@@ -775,13 +841,21 @@ fn reply_bus(
         value.encode(&mut body);
     }
     let mut out = vec![b'l', 2, 0, 1];
-    out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+    out.extend_from_slice(
+        &u32::try_from(body.len())
+            .unwrap_or_else(panic_error)
+            .to_le_bytes(),
+    );
     out.extend_from_slice(&serial.to_le_bytes());
-    out.extend_from_slice(&(headers.len() as u32).to_le_bytes());
+    out.extend_from_slice(
+        &u32::try_from(headers.len())
+            .unwrap_or_else(panic_error)
+            .to_le_bytes(),
+    );
     out.extend(headers);
     pad(&mut out, 8);
     out.extend(body);
-    stream.write_all(&out).unwrap();
+    stream.write_all(&out).unwrap_or_else(panic_error);
 }
 struct SecretBus {
     _directory: tempfile::TempDir,
@@ -791,187 +865,13 @@ struct SecretBus {
 }
 impl SecretBus {
     fn start() -> Self {
-        use std::os::unix::net::UnixListener;
-        let directory = tempfile::tempdir().unwrap();
+        let directory = tempfile::tempdir().unwrap_or_else(panic_error);
         let path = directory.path().join("bus");
-        let listener = UnixListener::bind(&path).unwrap();
-        listener.set_nonblocking(true).unwrap();
+        let listener = UnixListener::bind(&path).unwrap_or_else(panic_error);
+        listener.set_nonblocking(true).unwrap_or_else(panic_error);
         let stop = Arc::new(AtomicBool::new(false));
         let closing = stop.clone();
-        let thread = std::thread::spawn(move || {
-            let mut stream = loop {
-                if closing.load(Ordering::Acquire) {
-                    return;
-                }
-                match listener.accept() {
-                    Ok((stream, _)) => break stream,
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        std::thread::sleep(Duration::from_millis(1))
-                    }
-                    Err(error) => panic!("{error}"),
-                }
-            };
-            stream
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .unwrap();
-            let mut byte = [0];
-            stream.read_exact(&mut byte).unwrap();
-            assert_eq!(byte, [0]);
-            loop {
-                let mut line = Vec::new();
-                while !line.ends_with(b"\r\n") {
-                    stream.read_exact(&mut byte).unwrap();
-                    line.push(byte[0]);
-                }
-                let line = std::str::from_utf8(&line).unwrap();
-                if line.starts_with("AUTH ") {
-                    stream
-                        .write_all(b"OK 0123456789abcdef0123456789abcdef\r\n")
-                        .unwrap();
-                } else if line.starts_with("NEGOTIATE_UNIX_FD") {
-                    stream
-                        .write_all(b"ERROR Unix FD passing is not supported\r\n")
-                        .unwrap();
-                } else if line == "BEGIN\r\n" {
-                    break;
-                } else {
-                    panic!("unexpected SASL: {line}");
-                }
-            }
-            stream
-                .set_read_timeout(Some(Duration::from_millis(100)))
-                .unwrap();
-            // path -> (attributes, encrypted Secret tuple)
-            let mut items = std::collections::BTreeMap::<String, (BusValue, BusValue)>::new();
-            let mut serial = 1;
-            let mut item_id = 1;
-            loop {
-                let mut header = [0; 16];
-                let mut got = 0;
-                while got < header.len() {
-                    match stream.read(&mut header[got..]) {
-                        Ok(0) => return,
-                        Ok(count) => got += count,
-                        Err(error)
-                            if matches!(
-                                error.kind(),
-                                std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
-                            ) =>
-                        {
-                            if closing.load(Ordering::Acquire) {
-                                return;
-                            }
-                        }
-                        Err(error) => panic!("bus header: {error}"),
-                    }
-                }
-                assert_eq!(header[0], b'l');
-                let size = u32::from_le_bytes(header[4..8].try_into().unwrap()) as usize;
-                let reply = u32::from_le_bytes(header[8..12].try_into().unwrap());
-                let fields = u32::from_le_bytes(header[12..16].try_into().unwrap()) as usize;
-                assert!(size < 1_048_576 && fields < 8192);
-                let mut data = vec![0; aligned(16 + fields, 8) + size];
-                data[..16].copy_from_slice(&header);
-                stream.read_exact(&mut data[16..]).unwrap();
-                let mut cursor = 16;
-                let mut method = String::new();
-                let mut object = String::new();
-                let mut signature = String::new();
-                while cursor < 16 + fields {
-                    let field = parse_value(b"(yv)", &mut 0, &data, &mut cursor);
-                    let values = field.values();
-                    match values[0] {
-                        BusValue::Byte(1) => object = values[1].inner().text().into(),
-                        BusValue::Byte(3) => method = values[1].inner().text().into(),
-                        BusValue::Byte(8) => signature = values[1].inner().text().into(),
-                        _ => (),
-                    }
-                }
-                if header[1] != 1 {
-                    continue;
-                }
-                let mut args = Vec::new();
-                let mut pos = 0;
-                cursor = aligned(16 + fields, 8);
-                while pos < signature.len() {
-                    args.push(parse_value(
-                        signature.as_bytes(),
-                        &mut pos,
-                        &data,
-                        &mut cursor,
-                    ));
-                }
-                let result = match method.as_str() {
-                    "Hello" => vec![bus_text(":1.1")],
-                    "GetNameOwner" => vec![bus_text(":1.0")],
-                    "NameHasOwner" => vec![BusValue::Bool(true)],
-                    "AddMatch" | "RemoveMatch" => vec![],
-                    "OpenSession" => {
-                        assert_eq!(args[0].text(), "dh-ietf1024-sha256-aes128-cbc-pkcs7");
-                        vec![
-                            variant(BusValue::Bytes(vec![2])),
-                            bus_path("/org/freedesktop/secrets/session/s1"),
-                        ]
-                    }
-                    "ReadAlias" => vec![bus_path("/org/freedesktop/secrets/collection/default")],
-                    "SearchItems" => {
-                        let found = items
-                            .iter()
-                            .filter(|(_, (attrs, _))| {
-                                args[0]
-                                    .values()
-                                    .iter()
-                                    .all(|query| attrs.values().contains(query))
-                            })
-                            .map(|(path, _)| bus_path(path))
-                            .collect();
-                        vec![
-                            BusValue::Array("o".into(), found),
-                            BusValue::Array("o".into(), vec![]),
-                        ]
-                    }
-                    "Get" => {
-                        assert_eq!(args[1].text(), "Locked");
-                        vec![variant(BusValue::Bool(false))]
-                    }
-                    "GetAll" => vec![dict(vec![("Locked", BusValue::Bool(false))])],
-                    "CreateItem" => {
-                        let attrs =
-                            lookup(&args[0], "org.freedesktop.Secret.Item.Attributes").clone();
-                        let path = items
-                            .iter()
-                            .find(|(_, (existing, _))| existing == &attrs)
-                            .map(|(path, _)| path.clone())
-                            .unwrap_or_else(|| {
-                                let path = format!("/org/freedesktop/secrets/item/i{item_id}");
-                                item_id += 1;
-                                path
-                            });
-                        items.insert(path.clone(), (attrs, args[1].clone()));
-                        vec![bus_path(&path), bus_path("/")]
-                    }
-                    "GetSecret" => vec![items
-                        .get(&object)
-                        .expect("existing Secret Service item")
-                        .1
-                        .clone()],
-                    "SetSecret" => {
-                        items.get_mut(&object).unwrap().1 = args[0].clone();
-                        vec![]
-                    }
-                    "Delete" => {
-                        assert!(items.remove(&object).is_some());
-                        vec![bus_path("/")]
-                    }
-                    "Close" => vec![],
-                    method => {
-                        panic!("unhandled Secret Service operation {method}({args:?}) on {object}")
-                    }
-                };
-                reply_bus(&mut stream, reply, serial, result);
-                serial += 1;
-            }
-        });
+        let thread = std::thread::spawn(move || secret_bus_worker(&listener, &closing));
         Self {
             _directory: directory,
             path,
@@ -980,11 +880,209 @@ impl SecretBus {
         }
     }
 }
+fn authenticate_secret_bus(
+    listener: &std::os::unix::net::UnixListener,
+    closing: &AtomicBool,
+) -> Option<std::os::unix::net::UnixStream> {
+    let mut stream = loop {
+        if closing.load(Ordering::Acquire) {
+            return None;
+        }
+        match listener.accept() {
+            Ok((stream, _)) => break stream,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            Err(error) => panic!("{error}"),
+        }
+    };
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .unwrap_or_else(panic_error);
+    let mut byte = [0];
+    stream.read_exact(&mut byte).unwrap_or_else(panic_error);
+    assert_eq!(byte, [0]);
+    loop {
+        let mut line = Vec::new();
+        while !line.ends_with(b"\r\n") {
+            stream.read_exact(&mut byte).unwrap_or_else(panic_error);
+            line.push(byte[0]);
+        }
+        let line = std::str::from_utf8(&line).unwrap_or_else(panic_error);
+        if line.starts_with("AUTH ") {
+            stream
+                .write_all(b"OK 0123456789abcdef0123456789abcdef\r\n")
+                .unwrap_or_else(panic_error);
+        } else if line.starts_with("NEGOTIATE_UNIX_FD") {
+            stream
+                .write_all(b"ERROR Unix FD passing is not supported\r\n")
+                .unwrap_or_else(panic_error);
+        } else if line == "BEGIN\r\n" {
+            break;
+        } else {
+            panic!("unexpected SASL: {line}");
+        }
+    }
+    stream
+        .set_read_timeout(Some(Duration::from_millis(100)))
+        .unwrap_or_else(panic_error);
+    Some(stream)
+}
+
+fn answer_secret_bus(
+    method: &str,
+    object: &str,
+    args: &[BusValue],
+    items: &mut std::collections::BTreeMap<String, (BusValue, BusValue)>,
+    item_id: &mut u64,
+) -> Vec<BusValue> {
+    match method {
+        "Hello" => vec![bus_text(":1.1")],
+        "GetNameOwner" => vec![bus_text(":1.0")],
+        "NameHasOwner" => vec![BusValue::Bool(true)],
+        "AddMatch" | "RemoveMatch" | "Close" => vec![],
+        "OpenSession" => {
+            assert_eq!(args[0].text(), "dh-ietf1024-sha256-aes128-cbc-pkcs7");
+            vec![
+                variant(BusValue::Bytes(vec![2])),
+                bus_path("/org/freedesktop/secrets/session/s1"),
+            ]
+        }
+        "ReadAlias" => vec![bus_path("/org/freedesktop/secrets/collection/default")],
+        "SearchItems" => {
+            let found = items
+                .iter()
+                .filter(|(_, (attrs, _))| {
+                    args[0]
+                        .values()
+                        .iter()
+                        .all(|query| attrs.values().contains(query))
+                })
+                .map(|(path, _)| bus_path(path))
+                .collect();
+            vec![
+                BusValue::Array("o".into(), found),
+                BusValue::Array("o".into(), vec![]),
+            ]
+        }
+        "Get" => {
+            assert_eq!(args[1].text(), "Locked");
+            vec![variant(BusValue::Bool(false))]
+        }
+        "GetAll" => vec![dict(vec![("Locked", BusValue::Bool(false))])],
+        "CreateItem" => {
+            let attrs = lookup(&args[0], "org.freedesktop.Secret.Item.Attributes").clone();
+            let path = items
+                .iter()
+                .find(|(_, (existing, _))| existing == &attrs)
+                .map_or_else(
+                    || {
+                        let path = format!("/org/freedesktop/secrets/item/i{item_id}");
+                        *item_id += 1;
+                        path
+                    },
+                    |(path, _)| path.clone(),
+                );
+            items.insert(path.clone(), (attrs, args[1].clone()));
+            vec![bus_path(&path), bus_path("/")]
+        }
+        "GetSecret" => vec![items
+            .get(object)
+            .unwrap_or_else(|| panic!("{}", "existing Secret Service item"))
+            .1
+            .clone()],
+        "SetSecret" => {
+            items.get_mut(object).unwrap_or_else(panic_missing).1 = args[0].clone();
+            vec![]
+        }
+        "Delete" => {
+            assert!(items.remove(object).is_some());
+            vec![bus_path("/")]
+        }
+        method => {
+            panic!("unhandled Secret Service operation {method}({args:?}) on {object}")
+        }
+    }
+}
+
+fn secret_bus_worker(listener: &UnixListener, closing: &AtomicBool) {
+    let Some(mut stream) = authenticate_secret_bus(listener, closing) else {
+        return;
+    };
+    // path -> (attributes, encrypted Secret tuple)
+    let mut items = std::collections::BTreeMap::<String, (BusValue, BusValue)>::new();
+    let mut serial = 1;
+    let mut item_id = 1;
+    loop {
+        let mut header = [0; 16];
+        let mut got = 0;
+        while got < header.len() {
+            match stream.read(&mut header[got..]) {
+                Ok(0) => return,
+                Ok(count) => got += count,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                    ) =>
+                {
+                    if closing.load(Ordering::Acquire) {
+                        return;
+                    }
+                }
+                Err(error) => panic!("bus header: {error}"),
+            }
+        }
+        assert_eq!(header[0], b'l');
+        let size = u32::from_le_bytes(header[4..8].try_into().unwrap_or_else(panic_error)) as usize;
+        let reply = u32::from_le_bytes(header[8..12].try_into().unwrap_or_else(panic_error));
+        let fields =
+            u32::from_le_bytes(header[12..16].try_into().unwrap_or_else(panic_error)) as usize;
+        assert!(size < 1_048_576 && fields < 8192);
+        let mut data = vec![0; aligned(16 + fields, 8) + size];
+        data[..16].copy_from_slice(&header);
+        stream
+            .read_exact(&mut data[16..])
+            .unwrap_or_else(panic_error);
+        let mut cursor = 16;
+        let mut method = String::new();
+        let mut object = String::new();
+        let mut signature = String::new();
+        while cursor < 16 + fields {
+            let field = parse_value(b"(yv)", &mut 0, &data, &mut cursor);
+            let values = field.values();
+            match values[0] {
+                BusValue::Byte(1) => object = values[1].inner().text().into(),
+                BusValue::Byte(3) => method = values[1].inner().text().into(),
+                BusValue::Byte(8) => signature = values[1].inner().text().into(),
+                _ => (),
+            }
+        }
+        if header[1] != 1 {
+            continue;
+        }
+        let mut args = Vec::new();
+        let mut pos = 0;
+        cursor = aligned(16 + fields, 8);
+        while pos < signature.len() {
+            args.push(parse_value(
+                signature.as_bytes(),
+                &mut pos,
+                &data,
+                &mut cursor,
+            ));
+        }
+        let result = answer_secret_bus(&method, &object, &args, &mut items, &mut item_id);
+        reply_bus(&mut stream, reply, serial, result);
+        serial += 1;
+    }
+}
+
 impl Drop for SecretBus {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(thread) = self.thread.take() {
-            thread.join().unwrap();
+            thread.join().unwrap_or_else(panic_error);
         }
     }
 }
@@ -1092,4 +1190,12 @@ fn credential_profile_key_loss() -> Outcome {
         credential::profile_namespace(&directory.path().join("profile.json"))?
     );
     Ok(())
+}
+
+fn panic_error<T, E: std::fmt::Debug>(error: E) -> T {
+    panic!("{error:?}")
+}
+
+fn panic_missing<T>() -> T {
+    panic!("expected value")
 }

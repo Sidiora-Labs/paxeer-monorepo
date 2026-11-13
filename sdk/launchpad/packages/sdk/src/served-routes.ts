@@ -2,6 +2,13 @@ import type { OperationName } from './operations.js';
 
 export type RouteDisposition = 'served' | 'development' | 'unrouted';
 
+export const CHAIN_ROUTE_STATUS = Object.freeze({
+  IF_CHAINS: 'served',
+  IF_CHAIN_DETAIL: 'served',
+  IF_CHAIN_REVENUE: 'served',
+} as const);
+export type ChainRouteName = keyof typeof CHAIN_ROUTE_STATUS;
+
 export const ROUTE_STATUS = Object.freeze({
   IF_ACCOUNT_DELETE: 'unrouted',
   IF_ACCOUNT_DELETE_STATUS: 'unrouted',
@@ -210,6 +217,8 @@ export type ServedOperationName = {
   [Name in OperationName]: (typeof ROUTE_STATUS)[Name] extends 'served' ? Name : never;
 }[OperationName];
 
-export function routeStatus(name: OperationName): (typeof ROUTE_STATUS)[OperationName] {
-  return ROUTE_STATUS[name];
+export function routeStatus(name: OperationName | ChainRouteName): RouteDisposition {
+  return name in CHAIN_ROUTE_STATUS
+    ? CHAIN_ROUTE_STATUS[name as ChainRouteName]
+    : ROUTE_STATUS[name as OperationName];
 }

@@ -1,5 +1,6 @@
 use chain_readiness_tests::{base64, must as fixture_must};
 use ed25519_dalek::Signer as _;
+use layerx_crypto::session::{issue_session_key, SessionKeyRequest, SessionPurpose};
 use serde_json::{json as document, Value};
 use sha2::{Digest, Sha256};
 use std::io::{BufRead as _, BufReader};
@@ -14,10 +15,10 @@ fn hash(bytes: &[u8]) -> [u8; 32] {
 fn varint(mut value: u64) -> Vec<u8> {
     let mut bytes = Vec::new();
     while value >= 128 {
-        bytes.push((value as u8 & 127) | 128);
+        bytes.push((value.to_le_bytes()[0] & 127) | 128);
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(value.to_le_bytes()[0]);
     bytes
 }
 
@@ -53,11 +54,14 @@ fn leaf_proof(key: &[u8], value: &[u8], prefix: &[u8], path: &[(Vec<u8>, Vec<u8>
     field(1, &existence)
 }
 
+type StorePath = Vec<(Vec<u8>, Vec<u8>)>;
+type StoreRow = (Vec<u8>, Vec<u8>, StorePath);
+
 struct StoreNode {
     root: [u8; 32],
     height: u64,
     size: u64,
-    rows: Vec<(Vec<u8>, Vec<u8>, Vec<(Vec<u8>, Vec<u8>)>)>,
+    rows: Vec<StoreRow>,
 }
 
 impl StoreNode {
@@ -156,7 +160,7 @@ fn wire_proof(proof: &layerx_proof::merkle::Proof) -> String {
     fixture_must(writer.structure_header(0x4d50));
     fixture_must(writer.u32(proof.leaf_index()));
     fixture_must(writer.u32(proof.leaf_count()));
-    fixture_must(writer.u8(u8::try_from(proof.siblings().len()).unwrap()));
+    fixture_must(writer.u8(u8::try_from(proof.siblings().len()).must()));
     fixture_must(writer.bytes(&proof.siblings().concat(), 1024));
     hex::encode(&writer.finish())
 }
@@ -167,23 +171,23 @@ fn seal_fixture(mut row: Value) -> Value {
     let public = signer.verifying_key().to_bytes();
     assert_eq!(hex::encode(&public), row["sequencer_public_key"]);
     let key_id = hash(&public);
-    let bytes = fixture_must(hex::decode(row["receipt"].as_str().unwrap()));
+    let bytes = fixture_must(hex::decode(row["receipt"].as_str().must()));
     let original = fixture_must(layerx_proof::receipt::verify_sequencer_signature(
         &bytes, public,
     ));
-    let protocol = original.protocol().unwrap();
+    let protocol = original.protocol().must();
     assert_eq!(protocol.context_hash(), [0; 32]);
-    let maintenance = fixture_must(hex::decode(row["maintenance"].as_str().unwrap()));
+    let maintenance = fixture_must(hex::decode(row["maintenance"].as_str().must()));
     let leaves = [&bytes[..], &maintenance[..]];
     let (proof, root) = fixture_must(layerx_proof::merkle::build_proof(&leaves, 0));
     let (maintenance_proof, _) = fixture_must(layerx_proof::merkle::build_proof(&leaves, 1));
-    let mut header = fixture_must(hex::decode(row["header"].as_str().unwrap()));
+    let mut header = fixture_must(hex::decode(row["header"].as_str().must()));
     let original = fixture_must(layerx_wire::receipt::decode_batch_header(&header));
     for (old, new) in [
         (original.sequencer_id(), key_id),
         (original.receipt_merkle_root(), root),
     ] {
-        let offset = header.windows(32).position(|value| value == old).unwrap();
+        let offset = header.windows(32).position(|value| value == old).must();
         header[offset..offset + 32].copy_from_slice(&new);
     }
     row["header_signature"] = document!(hex::encode(
@@ -218,7 +222,7 @@ fn seal_fixture(mut row: Value) -> Value {
     row
 }
 
-struct Fixture {
+pub struct Fixture {
     did: String,
     owner: [u8; 32],
     budget: [u8; 32],
@@ -265,7 +269,7 @@ impl Fixture {
         let corpus: Value = fixture_must(serde_json::from_str(include_str!(
             "../fixtures/native-module-outcomes.json"
         )));
-        let receipts: Vec<_> = corpus["receipts"].as_array().unwrap()[..2]
+        let receipts: Vec<_> = corpus["receipts"].as_array().must()[..2]
             .iter()
             .cloned()
             .map(seal_fixture)
@@ -276,14 +280,14 @@ impl Fixture {
                     "receipt_proof_hex":row["receipt_proof"],"batch_identity":{"kind":"batch_maintenance_v1",
                         "receipt_hex":row["maintenance"],"receipt_proof_hex":row["maintenance_proof"],
                         "activity_receipts_hex":[row["receipt"]]}}}})).collect();
-        let header = fixture_must(hex::decode(receipts[1]["header"].as_str().unwrap()));
+        let header = fixture_must(hex::decode(receipts[1]["header"].as_str().must()));
         let sequence = if receipt_head {
             fixture_must(layerx_wire::receipt::decode_batch_header(&header)).last_sequence()
         } else {
             31
         };
         let public = fixture_must(hex::decode32(
-            receipts[0]["sequencer_public_key"].as_str().unwrap(),
+            receipts[0]["sequencer_public_key"].as_str().must(),
         ));
         let key_id = hash(&public);
         let store = NativeStore::commit(vec![
@@ -297,13 +301,13 @@ impl Fixture {
         )));
         let original = answers
             .as_array()
-            .unwrap()
+            .must()
             .iter()
             .find(|row| row["method"] == "eth_call")
-            .unwrap()["result"]
+            .must()["result"]
             .as_str()
-            .unwrap();
-        let mut budget_call = fixture_must(hex::decode(original.strip_prefix("0x").unwrap()));
+            .must();
+        let mut budget_call = fixture_must(hex::decode(original.strip_prefix("0x").must()));
         budget_call[32..64].copy_from_slice(&owner);
         budget_call[64..96].copy_from_slice(&budget);
         budget_call[96..128].copy_from_slice(&asset);
@@ -348,7 +352,7 @@ struct PeerState {
     exchanges: Vec<Value>,
 }
 
-struct Node {
+pub struct Node {
     url: String,
     address: SocketAddr,
     state: Arc<Mutex<PeerState>>,
@@ -357,16 +361,16 @@ struct Node {
 }
 
 fn block(height: u64, app_hash: [u8; 32], changed: bool) -> Value {
-    let now = std::time::SystemTime::now()
+    let now: u64 = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .must()
         .as_secs();
-    let mut hash = [height as u8; 32];
+    let mut hash = [height.to_le_bytes()[0]; 32];
     if changed {
         hash[0] ^= 1;
     }
     document!({"number":format!("0x{height:x}"),"hash":format!("0x{}",hex::encode(&hash)),
-        "parentHash":format!("0x{}",hex::encode(&[(height-1) as u8;32])),"timestamp":format!("0x{now:x}"),
+        "parentHash":format!("0x{}",hex::encode(&[(height-1).to_le_bytes()[0];32])),"timestamp":format!("0x{now:x}"),
         "transactionsRoot":format!("0x{}",hex::encode(&[3;32])),"receiptsRoot":format!("0x{}",hex::encode(&[4;32])),
         "stateRoot":format!("0x{}",hex::encode(&app_hash)),"transactions":[]})
 }
@@ -374,6 +378,238 @@ fn block(height: u64, app_hash: [u8; 32], changed: bool) -> Value {
 impl Node {
     fn start(fixture: Arc<Fixture>) -> Self {
         Self::with_transcript(fixture, None)
+    }
+
+    fn query_response(
+        fixture: &Fixture,
+        request: &Value,
+        state: &PeerState,
+        path: &str,
+        height: u64,
+    ) -> Value {
+        assert_eq!(path, "/comet");
+        assert_eq!(request["params"]["path"], "/store/lxphost/key");
+        assert_eq!(request["params"]["height"], (height - 1).to_string());
+        assert_eq!(request["params"]["prove"], true);
+        let key = request["params"]["data"]
+            .as_str()
+            .must()
+            .strip_prefix("0x")
+            .must();
+        let mut reply = fixture
+            .store
+            .queries
+            .get(key)
+            .must_with("real native store key")
+            .clone();
+        reply["height"] = document!((height - 1).to_string());
+        if state.fault == "balance-proof" && key == format!("06{}", hex::encode(&fixture.budget)) {
+            reply["proofOps"]["ops"][0]["data"] = document!(base64(&[1, 2, 3]));
+        }
+        match state.fault {
+            "proof" => {
+                reply["proofOps"]["ops"][0]["data"] = document!(base64(&[1, 2, 3]));
+            }
+            "value" => reply["value"] = document!(base64(&[0xff; 8])),
+            "key" => reply["key"] = document!(base64(&[0xff; 33])),
+            "height" => reply["height"] = document!((height - 2).to_string()),
+            "store" => {
+                reply["proofOps"]["ops"][1]["key"] = document!(base64(b"evm"));
+            }
+            _ => {}
+        }
+        document!({"response":reply})
+    }
+
+    fn call_response(fixture: &Fixture, request: &Value, state: &mut PeerState) -> Value {
+        state.called = true;
+        let to = request["params"][0]["to"].as_str().must();
+        let data = request["params"][0]["data"].as_str().must();
+        let answer = if to.ends_with("1004") {
+            assert_eq!(
+                data,
+                format!(
+                    "0x{}{}",
+                    hex::encode(&layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX),
+                    fixture.did.strip_prefix("did:layerx:").must()
+                )
+            );
+            let mut answer = vec![0; 32];
+            if state.fault != "unbound" {
+                answer[12..].fill(0x11);
+            }
+            answer
+        } else if to.ends_with("101a") {
+            let data = fixture_must(hex::decode(data.strip_prefix("0x").must()));
+            assert_eq!(&data[..4], &[0xb1, 0xff, 0xc0, 0x3e]);
+            assert_eq!(data.len(), 68);
+            assert_eq!(&data[36..], &fixture.asset);
+            let key = format!("06{}", hex::encode(&data[4..36]));
+            let row = fixture.store.queries.get(&key).must_with("ledger account");
+            let bytes = fixture_must(crate::committed::base64(row["value"].as_str().must()));
+            let mut reader = layerx_wire::decode::Decoder::new(&bytes, 2048);
+            assert_eq!(fixture_must(reader.bytes(32)), &data[4..36]);
+            fixture_must(reader.bytes(512));
+            fixture_must(reader.u8());
+            let balance = fixture_must(reader.u128());
+            let mut answer = vec![0; 32];
+            answer[16..].copy_from_slice(&balance.to_be_bytes());
+            match state.fault {
+                "ledger-mismatch" => answer[31] ^= 1,
+                "ledger-overflow" => answer[0] = 1,
+                "ledger-truncated" => {
+                    answer.pop();
+                }
+                _ => {}
+            }
+            answer
+        } else {
+            assert!(to.ends_with("101b"));
+            let get = hex::encode(
+                &layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")[..4],
+            );
+            let remaining = hex::encode(
+                &layerx_crypto::evm_transaction::transaction_hash(b"budgetRemaining(bytes32)")[..4],
+            );
+            assert!(data.ends_with(&hex::encode(&fixture.id)));
+            if data[2..].starts_with(&get) {
+                fixture.budget_call.clone()
+            } else {
+                assert!(data[2..].starts_with(&remaining));
+                let mut amount = vec![0; 32];
+                amount[31] = 77;
+                amount
+            }
+        };
+        document!(format!("0x{}", hex::encode(&answer)))
+    }
+
+    fn request_head(reader: &mut BufReader<TcpStream>) -> (String, usize) {
+        let mut line = String::new();
+        fixture_must(reader.read_line(&mut line));
+        let path = line.split_whitespace().nth(1).must().to_owned();
+        let mut length = 0;
+        loop {
+            line.clear();
+            assert_ne!(fixture_must(reader.read_line(&mut line)), 0);
+            if line == "\r\n" {
+                break;
+            }
+            if let Some((name, value)) = line.split_once(':') {
+                if name.eq_ignore_ascii_case("content-length") {
+                    length = fixture_must(value.trim().parse::<usize>());
+                }
+            }
+        }
+        assert!(length < 65536);
+        (path, length)
+    }
+
+    fn run_node(
+        listener: &TcpListener,
+        thread_state: &Mutex<PeerState>,
+        thread_stopped: &AtomicBool,
+        fixture: &Fixture,
+        transcript: Option<&[Value]>,
+    ) {
+        while !thread_stopped.load(Ordering::Acquire) {
+            let (stream, _) = match listener.accept() {
+                Ok(pair) => pair,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(1));
+                    continue;
+                }
+                Err(e) => panic!("node: {e}"),
+            };
+            fixture_must(stream.set_read_timeout(Some(Duration::from_secs(5))));
+            let mut reader = BufReader::new(stream);
+            let (path, length) = Self::request_head(&mut reader);
+            let mut bytes = vec![0; length];
+            fixture_must(reader.read_exact(&mut bytes));
+            let request: Value = fixture_must(serde_json::from_slice(&bytes));
+            let mut state = thread_state.lock().must();
+            state.calls.push(request.clone());
+            let height = state.height;
+            let result = if let Some(transcript) = transcript {
+                transcript
+                    .iter()
+                    .find(|answer| {
+                        answer["method"] == request["method"]
+                            && answer["params"] == request["params"]
+                    })
+                    .unwrap_or_else(|| panic!("required corpus exchange missing: {request}"))
+                    ["result"]
+                    .clone()
+            } else {
+                match request["method"].as_str().must() {
+                    "eth_chainId" => document!("0x7d"),
+                    "eth_blockNumber" => document!(format!("0x{height:x}")),
+                    "eth_getBlockByNumber" => {
+                        let number = u64::from_str_radix(
+                            request["params"][0]
+                                .as_str()
+                                .must()
+                                .strip_prefix("0x")
+                                .must(),
+                            16,
+                        )
+                        .must();
+                        block(
+                            number,
+                            fixture.store.app_hash,
+                            state.fault == "reorg" && state.called && number == height,
+                        )
+                    }
+                    "px_getCommit" => {
+                        assert_eq!(request["params"], document!([height.to_string()]));
+                        let app = if state.fault == "apphash" {
+                            [0xff; 32]
+                        } else {
+                            fixture.store.app_hash
+                        };
+                        document!({"height":height.to_string(),"signedHeader":{"header":{"height":height.to_string(),"chain_id":"125","app_hash":hex::encode(&app)},
+                            "commit":{"height":height.to_string(),"signatures":[],"block_id":{"hash":hex::encode(&[height.to_le_bytes()[0];32])}}}})
+                    }
+                    "abci_query" => Self::query_response(fixture, &request, &state, &path, height),
+                    "eth_call" => {
+                        if request["params"][0]["to"].as_str().must().ends_with("1014") {
+                            let answer = document!({"jsonrpc":"2.0","id":request["id"],
+                                "error":{"code":-32000,"message":"ErrModuleRetired"}})
+                            .to_string();
+                            let mut stream = reader.into_inner();
+                            fixture_must(write!(stream,"HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",answer.len()));
+                            continue;
+                        }
+                        assert_eq!(request["params"][1], format!("0x{:x}", height - 1));
+                        Self::call_response(fixture, &request, &mut state)
+                    }
+                    "pax_sequencerReceipt" => {
+                        let activity = request["params"][0]
+                            .as_str()
+                            .must()
+                            .strip_prefix("0x")
+                            .must();
+                        let row = fixture
+                            .receipts
+                            .iter()
+                            .find(|row| row["activity_id"] == activity)
+                            .must();
+                        document!({"txHash":format!("0x{activity}"),"rung":if state.fault == "uncommitted" {"receipted"} else {"committed"},
+                            "height":if state.fault == "receipt-height" {"0x3e9"} else {"0x3"},"blockNumber":"0x3","blockHash":format!("0x{}",hex::encode(&[if state.fault == "landing" {0xff} else {3};32])),
+                            "receipt":format!("0x{}",row["receipt"].as_str().must()),"keyId":format!("0x{}",hex::encode(&if state.fault == "key-id" {[0xff;32]} else {fixture.key_id})),
+                            "signingKey":format!("0x{}",hex::encode(&if state.fault == "signing-key" {[0xff;32]} else {fixture.public}))})
+                    }
+                    method => panic!("node does not produce hosted gateway joins: {method}"),
+                }
+            };
+            state.exchanges.push(
+                document!({"method":request["method"],"params":request["params"],"result":result}),
+            );
+            let answer =
+                document!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
+            let mut stream = reader.into_inner();
+            fixture_must(write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",answer.len()));
+        }
     }
 
     fn with_transcript(fixture: Arc<Fixture>, transcript: Option<Vec<Value>>) -> Self {
@@ -390,226 +626,13 @@ impl Node {
         let stopped = Arc::new(AtomicBool::new(false));
         let (thread_state, thread_stopped) = (state.clone(), stopped.clone());
         let worker = thread::spawn(move || {
-            while !thread_stopped.load(Ordering::Acquire) {
-                let (stream, _) = match listener.accept() {
-                    Ok(pair) => pair,
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(1));
-                        continue;
-                    }
-                    Err(e) => panic!("node: {e}"),
-                };
-                fixture_must(stream.set_read_timeout(Some(Duration::from_secs(5))));
-                let mut reader = BufReader::new(stream);
-                let mut line = String::new();
-                fixture_must(reader.read_line(&mut line));
-                let path = line.split_whitespace().nth(1).unwrap().to_owned();
-                let mut length = 0;
-                loop {
-                    line.clear();
-                    assert_ne!(fixture_must(reader.read_line(&mut line)), 0);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    if let Some((name, value)) = line.split_once(':') {
-                        if name.eq_ignore_ascii_case("content-length") {
-                            length = fixture_must(value.trim().parse::<usize>());
-                        }
-                    }
-                }
-                assert!(length < 65536);
-                let mut bytes = vec![0; length];
-                fixture_must(reader.read_exact(&mut bytes));
-                let request: Value = fixture_must(serde_json::from_slice(&bytes));
-                let mut state = thread_state.lock().unwrap();
-                state.calls.push(request.clone());
-                let height = state.height;
-                let result = if let Some(transcript) = &transcript {
-                    transcript
-                        .iter()
-                        .find(|answer| {
-                            answer["method"] == request["method"]
-                                && answer["params"] == request["params"]
-                        })
-                        .unwrap_or_else(|| panic!("required corpus exchange missing: {request}"))
-                        ["result"]
-                        .clone()
-                } else {
-                    match request["method"].as_str().unwrap() {
-                        "eth_chainId" => document!("0x7d"),
-                        "eth_blockNumber" => document!(format!("0x{height:x}")),
-                        "eth_getBlockByNumber" => {
-                            let number = u64::from_str_radix(
-                                request["params"][0]
-                                    .as_str()
-                                    .unwrap()
-                                    .strip_prefix("0x")
-                                    .unwrap(),
-                                16,
-                            )
-                            .unwrap();
-                            block(
-                                number,
-                                fixture.store.app_hash,
-                                state.fault == "reorg" && state.called && number == height,
-                            )
-                        }
-                        "px_getCommit" => {
-                            assert_eq!(request["params"], document!([height.to_string()]));
-                            let app = if state.fault == "apphash" {
-                                [0xff; 32]
-                            } else {
-                                fixture.store.app_hash
-                            };
-                            document!({"height":height.to_string(),"signedHeader":{"header":{"height":height.to_string(),"chain_id":"125","app_hash":hex::encode(&app)},
-                            "commit":{"height":height.to_string(),"signatures":[],"block_id":{"hash":hex::encode(&[height as u8;32])}}}})
-                        }
-                        "abci_query" => {
-                            assert_eq!(path, "/comet");
-                            assert_eq!(request["params"]["path"], "/store/lxphost/key");
-                            assert_eq!(request["params"]["height"], (height - 1).to_string());
-                            assert_eq!(request["params"]["prove"], true);
-                            let key = request["params"]["data"]
-                                .as_str()
-                                .unwrap()
-                                .strip_prefix("0x")
-                                .unwrap();
-                            let mut reply = fixture
-                                .store
-                                .queries
-                                .get(key)
-                                .expect("real native store key")
-                                .clone();
-                            reply["height"] = document!((height - 1).to_string());
-                            if state.fault == "balance-proof"
-                                && key == format!("06{}", hex::encode(&fixture.budget))
-                            {
-                                reply["proofOps"]["ops"][0]["data"] = document!(base64(&[1, 2, 3]));
-                            }
-                            match state.fault {
-                                "proof" => {
-                                    reply["proofOps"]["ops"][0]["data"] =
-                                        document!(base64(&[1, 2, 3]))
-                                }
-                                "value" => reply["value"] = document!(base64(&[0xff; 8])),
-                                "key" => reply["key"] = document!(base64(&[0xff; 33])),
-                                "height" => reply["height"] = document!((height - 2).to_string()),
-                                "store" => {
-                                    reply["proofOps"]["ops"][1]["key"] = document!(base64(b"evm"))
-                                }
-                                _ => {}
-                            }
-                            document!({"response":reply})
-                        }
-                        "eth_call" => {
-                            if request["params"][0]["to"]
-                                .as_str()
-                                .unwrap()
-                                .ends_with("1014")
-                            {
-                                let answer = document!({"jsonrpc":"2.0","id":request["id"],
-                                "error":{"code":-32000,"message":"ErrModuleRetired"}})
-                                .to_string();
-                                let mut stream = reader.into_inner();
-                                fixture_must(write!(stream,"HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",answer.len()));
-                                continue;
-                            }
-                            assert_eq!(request["params"][1], format!("0x{:x}", height - 1));
-                            state.called = true;
-                            let to = request["params"][0]["to"].as_str().unwrap();
-                            let data = request["params"][0]["data"].as_str().unwrap();
-                            let answer = if to.ends_with("1004") {
-                                assert_eq!(
-                                    data,
-                                    format!(
-                                        "0x{}{}",
-                                        hex::encode(
-                                            &layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX
-                                        ),
-                                        fixture.did.strip_prefix("did:layerx:").unwrap()
-                                    )
-                                );
-                                let mut answer = vec![0; 32];
-                                if state.fault != "unbound" {
-                                    answer[12..].fill(0x11);
-                                }
-                                answer
-                            } else if to.ends_with("101a") {
-                                let data =
-                                    fixture_must(hex::decode(data.strip_prefix("0x").unwrap()));
-                                assert_eq!(&data[..4], &[0xb1, 0xff, 0xc0, 0x3e]);
-                                assert_eq!(data.len(), 68);
-                                assert_eq!(&data[36..], &fixture.asset);
-                                let key = format!("06{}", hex::encode(&data[4..36]));
-                                let row = fixture.store.queries.get(&key).expect("ledger account");
-                                let bytes = fixture_must(crate::committed::base64(
-                                    row["value"].as_str().unwrap(),
-                                ));
-                                let mut reader = layerx_wire::decode::Decoder::new(&bytes, 2048);
-                                assert_eq!(fixture_must(reader.bytes(32)), &data[4..36]);
-                                fixture_must(reader.bytes(512));
-                                fixture_must(reader.u8());
-                                let balance = fixture_must(reader.u128());
-                                let mut answer = vec![0; 32];
-                                answer[16..].copy_from_slice(&balance.to_be_bytes());
-                                match state.fault {
-                                    "ledger-mismatch" => answer[31] ^= 1,
-                                    "ledger-overflow" => answer[0] = 1,
-                                    "ledger-truncated" => {
-                                        answer.pop();
-                                    }
-                                    _ => {}
-                                }
-                                answer
-                            } else {
-                                assert!(to.ends_with("101b"));
-                                let get = hex::encode(
-                                    &layerx_crypto::evm_transaction::transaction_hash(
-                                        b"getBudget(bytes32)",
-                                    )[..4],
-                                );
-                                let remaining = hex::encode(
-                                    &layerx_crypto::evm_transaction::transaction_hash(
-                                        b"budgetRemaining(bytes32)",
-                                    )[..4],
-                                );
-                                assert!(data.ends_with(&hex::encode(&fixture.id)));
-                                if data[2..].starts_with(&get) {
-                                    fixture.budget_call.clone()
-                                } else {
-                                    assert!(data[2..].starts_with(&remaining));
-                                    let mut amount = vec![0; 32];
-                                    amount[31] = 77;
-                                    amount
-                                }
-                            };
-                            document!(format!("0x{}", hex::encode(&answer)))
-                        }
-                        "pax_sequencerReceipt" => {
-                            let activity = request["params"][0]
-                                .as_str()
-                                .unwrap()
-                                .strip_prefix("0x")
-                                .unwrap();
-                            let row = fixture
-                                .receipts
-                                .iter()
-                                .find(|row| row["activity_id"] == activity)
-                                .unwrap();
-                            document!({"txHash":format!("0x{activity}"),"rung":if state.fault == "uncommitted" {"receipted"} else {"committed"},
-                            "height":if state.fault == "receipt-height" {"0x3e9"} else {"0x3"},"blockNumber":"0x3","blockHash":format!("0x{}",hex::encode(&[if state.fault == "landing" {0xff} else {3};32])),
-                            "receipt":format!("0x{}",row["receipt"].as_str().unwrap()),"keyId":format!("0x{}",hex::encode(&if state.fault == "key-id" {[0xff;32]} else {fixture.key_id})),
-                            "signingKey":format!("0x{}",hex::encode(&if state.fault == "signing-key" {[0xff;32]} else {fixture.public}))})
-                        }
-                        method => panic!("node does not produce hosted gateway joins: {method}"),
-                    }
-                };
-                state.exchanges.push(document!({"method":request["method"],"params":request["params"],"result":result}));
-                let answer =
-                    document!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
-                let mut stream = reader.into_inner();
-                fixture_must(write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",answer.len()));
-            }
+            Self::run_node(
+                &listener,
+                &thread_state,
+                &thread_stopped,
+                &fixture,
+                transcript.as_deref(),
+            );
         });
         Self {
             url: format!("http://{address}/evm"),
@@ -620,8 +643,8 @@ impl Node {
         }
     }
 
-    fn fault(&self, fault: &'static str) {
-        let mut state = self.state.lock().unwrap();
+    pub fn fault(&self, fault: &'static str) {
+        let mut state = self.state.lock().must();
         state.fault = fault;
         state.called = false;
     }
@@ -630,7 +653,7 @@ impl Node {
 impl Drop for Node {
     fn drop(&mut self) {
         self.stopped.store(true, Ordering::Release);
-        self.worker.take().unwrap().join().unwrap();
+        self.worker.take().must().join().must();
     }
 }
 
@@ -712,10 +735,10 @@ fn config_fixture(node: &Node, fixture: &Fixture, directory: &Path) -> Config {
 }
 
 fn retain_records(config: &Config, records: &[Value]) {
-    let human = config.human.as_ref().unwrap();
+    let human = config.human.as_ref().must();
     for record in records {
         fixture_must(human.retain(
-            &fixture_must(hex::decode(record["receipt_hex"].as_str().unwrap())),
+            &fixture_must(hex::decode(record["receipt_hex"].as_str().must())),
             &fixture_must(serde_json::to_vec(&record["replica_document"])),
             config,
         ));
@@ -746,10 +769,10 @@ fn tls_request(config: Arc<Config>, path: &str, token: &str) -> (u16, Value) {
     fixture_must(write!(stream,"GET {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\nConnection: close\r\n\r\n"));
     let mut answer = Vec::new();
     fixture_must(stream.read_to_end(&mut answer));
-    server.join().unwrap();
-    let offset = answer.windows(4).position(|v| v == b"\r\n\r\n").unwrap();
-    let header = std::str::from_utf8(&answer[..offset]).unwrap();
-    let status = header.split_whitespace().nth(1).unwrap().parse().unwrap();
+    server.join().must();
+    let offset = answer.windows(4).position(|v| v == b"\r\n\r\n").must();
+    let header = std::str::from_utf8(&answer[..offset]).must();
+    let status = header.split_whitespace().nth(1).must().parse().must();
     (
         status,
         fixture_must(serde_json::from_slice(&answer[offset + 4..])),
@@ -776,123 +799,99 @@ fn replace_fixture_bytes(bytes: &mut [u8], original: &[u8], replacement: &[u8]) 
 // the production issuer; the captured native receipt supplies its canonical
 // layout and identity state. Reseal the peer's envelope for this validity window
 // rather than changing any consumer clock, lifetime bound or refusal check.
-fn identity_fixture(capability: bool) -> Fixture {
-    let mut fixture = Fixture::new(false);
-    let mut bytes = if capability {
-        include_bytes!("../fixtures/native-sessions/legacy.receipt").to_vec()
-    } else {
-        include_bytes!("../../../../../../tests/fixtures/governance/owner-rotation/receipt")
-            .to_vec()
-    };
-    let captured_key = if capability {
-        *include_bytes!("../fixtures/native-sessions/legacy.sequencer-public")
-    } else {
-        *include_bytes!(
-            "../../../../../../tests/fixtures/governance/owner-rotation/sequencer-public"
-        )
-    };
-    fixture_must(layerx_proof::receipt::verify_sequencer_signature(
-        &bytes,
-        captured_key,
-    ));
-    let original = fixture_must(layerx_wire::receipt::decode(&bytes));
-    let original = original.protocol().unwrap();
-    let state = original
+type CapabilityRows = (Vec<u8>, Vec<(Vec<u8>, Vec<u8>)>);
+
+fn capability_rows(bytes: &mut [u8], did_id: [u8; 32], revocation: u64) -> CapabilityRows {
+    let original = fixture_must(layerx_wire::receipt::decode(bytes));
+    let original = original.protocol().must();
+    let mut additions = Vec::new();
+    let now: u64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .must()
+        .as_millis()
+        .try_into()
+        .must();
+    let issued = fixture_must(issue_session_key(&SessionKeyRequest {
+        grantor: did_id,
+        session_public_key: ed25519_dalek::SigningKey::from_bytes(&[0x63; 32])
+            .verifying_key()
+            .to_bytes(),
+        not_before: now - 1000,
+        expires_at: Some(now + 3_600_000),
+        permitted_activity_types: vec![fixture_must(layerx_types::payload::ActivityType::new(
+            layerx_types::payload::ModuleId::Asset,
+            3,
+        ))],
+        revocation_sequence: Some(revocation),
+        fee_budget: None,
+        purpose: SessionPurpose::Activity,
+    }));
+    let original_summary = original
         .effects()
         .iter()
-        .find(|e| e.event_type() == 0x7110)
-        .unwrap()
-        .body()
-        .to_vec();
-    let did = if capability {
-        format!("did:layerx:{}", hex::encode(&state[37..69]))
-    } else {
-        "did:layerx:042bb23f93d99cf87ee8cd5428a149217a94200afce832589629d75f309c833a".to_owned()
-    };
-    let did_id = fixture_must(layerx_wire::hash::did_id_for_protocol(
-        &fixture_must(layerx_types::ids::Did::new(did.as_bytes())),
-        3,
-    ));
-    assert_eq!(&state[5..37], &did_id);
-    let number = |offset| u64::from_be_bytes(state[offset..offset + 8].try_into().unwrap());
-    let mut rows = vec![([vec![1, 0, 7], did_id.to_vec()].concat(), state.clone())];
-    let mut scope = None;
-    if capability {
-        use layerx_crypto::session::{issue_session_key, SessionKeyRequest, SessionPurpose};
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
-        let issued = fixture_must(issue_session_key(&SessionKeyRequest {
-            grantor: did_id,
-            session_public_key: ed25519_dalek::SigningKey::from_bytes(&[0x63; 32])
-                .verifying_key()
-                .to_bytes(),
-            not_before: now - 1000,
-            expires_at: Some(now + 3_600_000),
-            permitted_activity_types: vec![fixture_must(layerx_types::payload::ActivityType::new(
-                layerx_types::payload::ModuleId::Asset,
-                3,
-            ))],
-            revocation_sequence: Some(number(69)),
-            fee_budget: None,
-            purpose: SessionPurpose::Activity,
-        }));
-        let original_summary = original
-            .effects()
-            .iter()
-            .find(|e| e.event_type() == 0x7145)
-            .unwrap()
-            .body();
-        let mut summary = original_summary.to_vec();
-        summary[5..37].copy_from_slice(&issued.grant_id);
-        summary[133..165].copy_from_slice(&issued.session_public_key);
-        summary[173..181].copy_from_slice(&2_u64.to_be_bytes());
-        summary[181..183].copy_from_slice(&3_u16.to_be_bytes());
-        summary[183..185].copy_from_slice(&3_u16.to_be_bytes());
-        summary[185..193].copy_from_slice(&issued.not_before.to_be_bytes());
-        summary[193..201].copy_from_slice(&issued.expires_at.to_be_bytes());
-        replace_fixture_bytes(&mut bytes, original_summary, &summary);
-        let original_payload: Vec<_> = original
-            .effects()
-            .iter()
-            .filter(|e| matches!(e.event_type(), 0x7105 | 0x7125))
-            .flat_map(|e| e.body().iter().copied())
-            .collect();
-        assert_eq!(original_payload.len(), issued.registration_payload.len());
-        let mut offset = 0;
-        for effect in original
-            .effects()
-            .iter()
-            .filter(|e| matches!(e.event_type(), 0x7105 | 0x7125))
-        {
-            let next = offset + effect.body().len();
-            replace_fixture_bytes(
-                &mut bytes,
-                effect.body(),
-                &issued.registration_payload[offset..next],
-            );
-            offset = next;
-        }
-        // Native fixtures have neither supply nor Programs outcomes.
-        assert!(original.total_units().is_none() && original.program_outcome().is_none());
-        let timestamp = bytes.len() - 1 - 4 - 64 - 8;
-        bytes[timestamp..timestamp + 8].copy_from_slice(&now.to_be_bytes());
-        rows.push((
-            [vec![1, 0, 7, 0x15], issued.grant_id.to_vec()].concat(),
-            summary.clone(),
-        ));
-        rows.push((
-            [vec![1, 0, 7, 5], issued.grant_id.to_vec()].concat(),
-            issued.registration_payload,
-        ));
-        scope = Some(summary);
+        .find(|e| e.event_type() == 0x7145)
+        .must()
+        .body();
+    let mut summary = original_summary.to_vec();
+    summary[5..37].copy_from_slice(&issued.grant_id);
+    summary[133..165].copy_from_slice(&issued.session_public_key);
+    summary[173..181].copy_from_slice(&2_u64.to_be_bytes());
+    summary[181..183].copy_from_slice(&3_u16.to_be_bytes());
+    summary[183..185].copy_from_slice(&3_u16.to_be_bytes());
+    summary[185..193].copy_from_slice(&issued.not_before.to_be_bytes());
+    summary[193..201].copy_from_slice(&issued.expires_at.to_be_bytes());
+    replace_fixture_bytes(bytes, original_summary, &summary);
+    let original_payload: Vec<_> = original
+        .effects()
+        .iter()
+        .filter(|e| matches!(e.event_type(), 0x7105 | 0x7125))
+        .flat_map(|e| e.body().iter().copied())
+        .collect();
+    assert_eq!(original_payload.len(), issued.registration_payload.len());
+    let mut offset = 0;
+    for effect in original
+        .effects()
+        .iter()
+        .filter(|e| matches!(e.event_type(), 0x7105 | 0x7125))
+    {
+        let next = offset + effect.body().len();
+        replace_fixture_bytes(
+            bytes,
+            effect.body(),
+            &issued.registration_payload[offset..next],
+        );
+        offset = next;
     }
+    // Native fixtures have neither supply nor Programs outcomes.
+    assert!(original.total_units().is_none() && original.program_outcome().is_none());
+    let timestamp = bytes.len() - 1 - 4 - 64 - 8;
+    bytes[timestamp..timestamp + 8].copy_from_slice(&now.to_be_bytes());
+    additions.push((
+        [vec![1, 0, 7, 0x15], issued.grant_id.to_vec()].concat(),
+        summary.clone(),
+    ));
+    additions.push((
+        [vec![1, 0, 7, 5], issued.grant_id.to_vec()].concat(),
+        issued.registration_payload,
+    ));
+
+    (summary, additions)
+}
+
+fn seal_identity_receipt(
+    bytes: &mut [u8],
+) -> (
+    Value,
+    layerx_platform_authority::ReceiptLocator,
+    u64,
+    [u8; 32],
+    [u8; 32],
+) {
     let signer = ed25519_dalek::SigningKey::from_bytes(&[0x22; 32]);
     let public = signer.verifying_key().to_bytes();
     let key_id = hash(&public);
     let unsigned = fixture_must(layerx_wire::receipt::encode_unsigned(&fixture_must(
-        layerx_wire::receipt::decode(&bytes),
+        layerx_wire::receipt::decode(bytes),
     )));
     let end = bytes.len();
     bytes[end - 64..].copy_from_slice(
@@ -901,9 +900,9 @@ fn identity_fixture(capability: bool) -> Fixture {
             .to_bytes(),
     );
     let decoded = fixture_must(layerx_proof::receipt::verify_sequencer_signature(
-        &bytes, public,
+        bytes, public,
     ));
-    let receipt = decoded.protocol().unwrap();
+    let receipt = decoded.protocol().must();
     let batch = (1..=1000)
         .find(|batch| {
             fixture_must(layerx_wire::hash::program_execution_batch_id(
@@ -914,7 +913,7 @@ fn identity_fixture(capability: bool) -> Fixture {
                 *batch,
             )) == receipt.batch_id()
         })
-        .expect("captured native execution batch");
+        .must_with("captured native execution batch");
     let mut encoder = layerx_wire::encode::Encoder::new(354);
     fixture_must(encoder.structure_header_version(0x1701, 3));
     fixture_must(encoder.u8(15));
@@ -935,7 +934,7 @@ fn identity_fixture(capability: bool) -> Fixture {
         (7, receipt.previous_state_root()),
         (8, receipt.resulting_state_root()),
         (9, receipt.activity_root()),
-        (10, fixture_must(layerx_wire::hash::merkle_leaf(&bytes))),
+        (10, fixture_must(layerx_wire::hash::merkle_leaf(bytes))),
         (11, [0; 32]),
         (12, [0; 32]),
         (13, [0; 32]),
@@ -949,21 +948,66 @@ fn identity_fixture(capability: bool) -> Fixture {
     fixture_must(encoder.bytes(&key_id, 32));
     let header = encoder.finish();
     assert_eq!(header.len(), 354);
-    let (proof, _) = fixture_must(layerx_proof::merkle::build_proof(&[&bytes], 0));
+    let (proof, _) = fixture_must(layerx_proof::merkle::build_proof(&[bytes], 0));
     let document = document!({"authority_replica_id":hex::encode(&[9;32]),"sequencer_public_key":hex::encode(&public),
         "batch_evidence":{"header_hex":hex::encode(&header),"header_signature":hex::encode(&signer.sign(&fixture_must(layerx_wire::hash::batch_header_digest(&header))).to_bytes()),"receipt_proof_hex":wire_proof(&proof)}});
-    let locator = fixture_must(layerx_platform_authority::receipt_locator(&bytes));
+    let locator = fixture_must(layerx_platform_authority::receipt_locator(bytes));
+    (document, locator, receipt.global_sequence(), public, key_id)
+}
+
+fn identity_fixture(capability: bool) -> Fixture {
+    let mut fixture = Fixture::new(false);
+    let mut bytes = if capability {
+        include_bytes!("../fixtures/native-sessions/legacy.receipt").to_vec()
+    } else {
+        include_bytes!("../../../../../../tests/fixtures/governance/owner-rotation/receipt")
+            .to_vec()
+    };
+    let captured_key = *include_bytes!("../fixtures/native-sessions/legacy.sequencer-public");
+    fixture_must(layerx_proof::receipt::verify_sequencer_signature(
+        &bytes,
+        captured_key,
+    ));
+    let original = fixture_must(layerx_wire::receipt::decode(&bytes));
+    let original = original.protocol().must();
+    let state = original
+        .effects()
+        .iter()
+        .find(|e| e.event_type() == 0x7110)
+        .must()
+        .body()
+        .to_vec();
+    let did = if capability {
+        format!("did:layerx:{}", hex::encode(&state[37..69]))
+    } else {
+        "did:layerx:042bb23f93d99cf87ee8cd5428a149217a94200afce832589629d75f309c833a".to_owned()
+    };
+    let did_id = fixture_must(layerx_wire::hash::did_id_for_protocol(
+        &fixture_must(layerx_types::ids::Did::new(did.as_bytes())),
+        3,
+    ));
+    assert_eq!(&state[5..37], &did_id);
+    let number = |offset| u64::from_be_bytes(state[offset..offset + 8].try_into().must());
+    let mut rows = vec![([vec![1, 0, 7], did_id.to_vec()].concat(), state.clone())];
+    let scope = if capability {
+        let (summary, additions) = capability_rows(&mut bytes, did_id, number(69));
+        rows.extend(additions);
+        Some(summary)
+    } else {
+        None
+    };
+    let (document, locator, sequence, public, key_id) = seal_identity_receipt(&mut bytes);
     let reference = document!({"activity_id":hex::encode(&locator.activity_id),"receipt_digest":hex::encode(&locator.receipt_digest)});
     let rotation = if capability {
         document!({"policy_revision":1,"required_delay_seconds":1,"maximum_delay_seconds":1,
-            "effective_sequence":receipt.global_sequence(),"evidence":reference})
+            "effective_sequence":sequence,"evidence":reference})
     } else {
         document!({"policy_revision":number(167),"required_delay_seconds":number(199).div_ceil(1000),
-            "maximum_delay_seconds":number(207)/1000,"effective_sequence":receipt.global_sequence(),"evidence":reference})
+            "maximum_delay_seconds":number(207)/1000,"effective_sequence":sequence,"evidence":reference})
     };
     let capabilities = scope.iter().map(|summary| document!({"authority":hex::encode(&summary[69..101]),"action_key":hex::encode(&summary[101..133]),
         "capability_id":hex::encode(&summary[5..37]),"activity_types":[3],"counterparties":[],"assets":[],"amount_ceiling":"0",
-        "expiry_sequence":u64::from_be_bytes(summary[165..173].try_into().unwrap()),"enforceable_dimensions":[],"evidence":reference})).collect::<Vec<_>>();
+        "expiry_sequence":u64::from_be_bytes(summary[165..173].try_into().must()),"enforceable_dimensions":[],"evidence":reference})).collect::<Vec<_>>();
     let mut policy = fixture.policy();
     policy["activities"] = document!([hex::encode(&locator.activity_id)]);
     // Keep the original identity TLS test's historical-receipt freshness bound.
@@ -971,7 +1015,7 @@ fn identity_fixture(capability: bool) -> Fixture {
     policy["identities"] = document!([{"did":did,"authorities":[{"kind":"primary_key","id":hex::encode(&state[37..69])}],
         "revocation_sequence":number(69),"frozen":false,"evidence":reference,"rotation":rotation,"recovery":rotation,"capabilities":capabilities}]);
     fixture.did = did;
-    fixture.sequence = receipt.global_sequence();
+    fixture.sequence = sequence;
     fixture.public = public;
     fixture.key_id = key_id;
     fixture.store = NativeStore::commit(rows);
@@ -988,7 +1032,8 @@ fn human_path(name: &str) -> String {
     format!("/v1/agent/{name}?tenant=repair-tenant&principal=repair-principal")
 }
 
-fn budget_path(name: &str, fixture: &Fixture) -> String {
+#[must_use]
+pub fn budget_path(name: &str, fixture: &Fixture) -> String {
     format!(
         "{}&budget_id={}",
         human_path(name),

@@ -91,13 +91,13 @@ func (b *Builder) foldSwap(tx developmentKV, swap SwapEvent) error {
 			return ErrUnsupportedResolution
 		}
 		start := swap.BlockTimestamp / interval * interval
-		key := developmentKey("candle", swap.PoolAddress, tf, strconv.FormatInt(start, 10))
+		key := developmentKey(developmentCandleKind, swap.PoolAddress, tf, strconv.FormatInt(start, 10))
 		var candle developmentCandle
 		found, err := loadDevelopment(tx, key, &candle)
 		if err != nil {
 			return err
 		}
-		cursorKey := developmentKey("cursor", swap.PoolAddress, tf)
+		cursorKey := developmentKey(developmentCursorKind, swap.PoolAddress, tf)
 		var cursor store.CursorRow
 		hasCursor, err := loadDevelopment(tx, cursorKey, &cursor)
 		if err != nil {

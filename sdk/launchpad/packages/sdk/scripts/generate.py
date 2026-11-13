@@ -16,7 +16,7 @@ def repository_root():
 
 
 def default_contracts(major):
-    return repository_root() / ('launchpad/spec/production-system/integration/contracts/v' + str(major))
+    return repository_root() / ('sdk/launchpad/protocol/contracts/v' + str(major))
 
 
 def read_manifest(contracts, manifest_path=None):
@@ -124,7 +124,7 @@ def main():
         raise ValueError('positive schema major required')
     contracts = (args.contracts or default_contracts(args.major)).resolve()
     manifest_path = (args.manifest or contracts / 'codegen-manifest.json').resolve()
-    if not contracts.is_relative_to((root / 'launchpad/spec/production-system/integration/contracts').resolve()) or not manifest_path.is_relative_to(contracts):
+    if not contracts.is_relative_to((root / 'sdk/launchpad/protocol/contracts').resolve()) or not manifest_path.is_relative_to(contracts):
         raise ValueError('bundle/manifest outside contract allowlist')
     if args.operations_only:
         if args.major != 2: raise ValueError('--operations-only requires --major2')

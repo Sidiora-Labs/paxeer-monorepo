@@ -31,7 +31,7 @@ func ParseWALPosition(value string) (WALPosition, error) {
 	}
 	for _, part := range parts {
 		for _, char := range part {
-			if !(char >= '0' && char <= '9' || char >= 'A' && char <= 'F' || char >= 'a' && char <= 'f') {
+			if (char < '0' || char > '9') && (char < 'A' || char > 'F') && (char < 'a' || char > 'f') {
 				return 0, fmt.Errorf("invalid WAL position")
 			}
 		}

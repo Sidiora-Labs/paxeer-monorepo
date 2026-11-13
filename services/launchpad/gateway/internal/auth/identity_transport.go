@@ -9,10 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"io"
 	"net"
 	"net/http"
@@ -20,6 +16,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // SessionCookie uses a host-only secure transport. Refresh is never serialized in the public JSON.
@@ -50,7 +52,7 @@ func (s *Identity) AuthenticateRequest(ctx context.Context, r *http.Request) (Pr
 	}
 	cookieAuth := false
 	if token == "" {
-		cookie, e := r.Cookie("__Host-kindle_access")
+		cookie, e := r.Cookie(accessCookieName)
 		if e != nil {
 			return Principal{}, unauthorized()
 		}
@@ -159,7 +161,7 @@ func (s *Identity) consumeBoundTicket(ctx context.Context, secret string, bindin
 	if err != nil {
 		return sharedauth.StreamPrincipal{}, unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	err = tx.QueryRow(ctx, `UPDATE identity_tickets t SET consumed_at=clock_timestamp() FROM identity_sessions s JOIN identity_accounts a USING(account_id) WHERE t.ticket_hash=$1 AND t.session_id=s.session_id AND t.origin=$2 AND t.endpoint=$3 AND t.binding=$4::jsonb AND t.consumed_at IS NULL AND t.expires_at>clock_timestamp() AND s.revoked_at IS NULL AND s.auth_epoch=a.auth_epoch AND s.access_expires_at>clock_timestamp() RETURNING a.account_id::text,s.session_id::text,s.wallet,s.auth_epoch,s.reauthenticated_at`, digest(secret), binding.Origin, binding.Endpoint, raw).Scan(&p.accountID, &p.sessionID, &p.wallet, &p.epoch, &p.reauthenticatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return sharedauth.StreamPrincipal{}, unauthorized()
@@ -186,7 +188,7 @@ func (s *Identity) CheckStreamSession(ctx context.Context, principal sharedauth.
 	if err != nil {
 		return unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	if err = s.AuthorizeTx(ctx, tx, p); err != nil {
 		return err
 	}
@@ -202,7 +204,7 @@ func (s *Identity) writeIdentity(w http.ResponseWriter, data any) {
 	if id := w.Header().Get("X-Request-Id"); validUUID(id) {
 		envelope.RequestID = id
 	}
-	json.NewEncoder(w).Encode(envelope)
+	cleanup.Report("encode identity response", json.NewEncoder(w).Encode(envelope))
 }
 func (s *Identity) writeIdentityError(w http.ResponseWriter, err error) {
 	var p *PublicError
@@ -224,12 +226,12 @@ func (s *Identity) writeIdentityError(w http.ResponseWriter, err error) {
 		w.Header().Set("Retry-After", strconv.Itoa(seconds))
 	}
 	w.WriteHeader(p.Status)
-	json.NewEncoder(w).Encode(p)
+	cleanup.Report("encode identity response", json.NewEncoder(w).Encode(p))
 }
 func (s *Identity) cookieCredentials(w http.ResponseWriter, c Credentials) {
-	http.SetCookie(w, SessionCookie("__Host-kindle_access", c.AccessToken, c.Session.AccessExpiresAt))
-	http.SetCookie(w, SessionCookie("__Host-kindle_refresh", c.RefreshSecret, c.Session.RefreshExpiresAt))
-	csrf := SessionCookie("__Host-kindle_csrf", c.CSRFSecret, c.Session.RefreshExpiresAt)
+	http.SetCookie(w, SessionCookie(accessCookieName, c.AccessToken, c.Session.AccessExpiresAt))
+	http.SetCookie(w, SessionCookie(refreshCookieName, c.RefreshSecret, c.Session.RefreshExpiresAt))
+	csrf := SessionCookie(csrfCookieName, c.CSRFSecret, c.Session.RefreshExpiresAt) //nolint:gosec // CSRF cookie stays readable to the client while SessionCookie sets Secure and SameSite.
 	csrf.HttpOnly = false
 	http.SetCookie(w, csrf)
 	w.Header().Set("X-CSRF-Token", c.CSRFSecret)
@@ -280,9 +282,9 @@ func (s *Identity) RegisterV2Routes(router chi.Router, cfg IdentityHTTPConfig) e
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(s.Envelope(struct {
+		cleanup.Report("encode identity response", json.NewEncoder(w).Encode(s.Envelope(struct {
 			Challenge Challenge `json:"challenge"`
-		}{challenge}))
+		}{challenge})))
 	})
 	router.Post("/v2/auth/sessions", func(w http.ResponseWriter, r *http.Request) {
 		if !s.origins[r.Header.Get("Origin")] {
@@ -308,7 +310,7 @@ func (s *Identity) RegisterV2Routes(router chi.Router, cfg IdentityHTTPConfig) e
 			s.writeIdentityError(w, err)
 			return
 		}
-		cookie, err := r.Cookie("__Host-kindle_refresh")
+		cookie, err := r.Cookie(refreshCookieName)
 		if err != nil {
 			s.writeIdentityError(w, unauthorized())
 			return
@@ -342,7 +344,7 @@ func (s *Identity) RegisterV2Routes(router chi.Router, cfg IdentityHTTPConfig) e
 		envelope.NextCursor = next
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
-		json.NewEncoder(w).Encode(envelope)
+		cleanup.Report("encode identity response", json.NewEncoder(w).Encode(envelope))
 	})
 	// GET /v2/auth/session resolves the caller's current session from the
 	// bearer or the __Host-kindle_access cookie (a page bootstrap after a
@@ -374,8 +376,8 @@ func (s *Identity) RegisterV2Routes(router chi.Router, cfg IdentityHTTPConfig) e
 			return
 		}
 		if id == p.sessionID {
-			for _, name := range []string{"__Host-kindle_refresh", "__Host-kindle_csrf", "__Host-kindle_access"} {
-				cookie := SessionCookie(name, "", time.Unix(0, 0))
+			for _, name := range []string{refreshCookieName, csrfCookieName, accessCookieName} {
+				cookie := SessionCookie(name, "", time.Unix(0, 0)) //nolint:gosec // SessionCookie sets the security attributes of response cookies.
 				cookie.MaxAge = -1
 				http.SetCookie(w, cookie)
 			}
@@ -441,7 +443,7 @@ func (s *Identity) RegisterV2Routes(router chi.Router, cfg IdentityHTTPConfig) e
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(p)
+		cleanup.Report("encode identity response", json.NewEncoder(w).Encode(p))
 	}))
 	router.Post("/internal/v2/identity/request:authenticate", internal(func(w http.ResponseWriter, r *http.Request) {
 		var request sharedauth.IdentityAuthenticationRequest
@@ -459,7 +461,7 @@ func (s *Identity) RegisterV2Routes(router chi.Router, cfg IdentityHTTPConfig) e
 		forwarded.Header.Set("Origin", request.Origin)
 		forwarded.Header.Set("X-CSRF-Token", request.CSRFToken)
 		if request.AccessCookie != "" {
-			forwarded.AddCookie(&http.Cookie{Name: "__Host-kindle_access", Value: request.AccessCookie})
+			forwarded.AddCookie(&http.Cookie{Name: accessCookieName, Value: request.AccessCookie, Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode})
 		}
 		p, err := s.AuthenticateRequest(r.Context(), forwarded)
 		if err != nil {
@@ -473,7 +475,7 @@ func (s *Identity) RegisterV2Routes(router chi.Router, cfg IdentityHTTPConfig) e
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
-		json.NewEncoder(w).Encode(verified)
+		cleanup.Report("encode identity response", json.NewEncoder(w).Encode(verified))
 	}))
 	router.Post("/internal/v2/identity/session:check", internal(func(w http.ResponseWriter, r *http.Request) {
 		var p sharedauth.StreamPrincipal
@@ -579,7 +581,7 @@ func (s *Identity) listSessions(ctx context.Context, p Principal, r *http.Reques
 			next = &encoded
 			break
 		}
-		session.Scopes = []string{"account:owner"}
+		session.Scopes = []string{accountOwnerScope}
 		items = append(items, session)
 		last = issued
 	}
@@ -595,7 +597,7 @@ func validateIdentityTransport(r *http.Request) error {
 	}
 	counts := map[string]int{}
 	for _, cookie := range r.Cookies() {
-		if cookie.Name == "__Host-kindle_access" || cookie.Name == "__Host-kindle_csrf" || cookie.Name == "__Host-kindle_refresh" {
+		if cookie.Name == accessCookieName || cookie.Name == csrfCookieName || cookie.Name == refreshCookieName {
 			counts[cookie.Name]++
 			if counts[cookie.Name] > 1 {
 				return unauthorized()

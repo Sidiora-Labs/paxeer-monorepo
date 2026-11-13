@@ -94,10 +94,14 @@ func repair995AssertManifest(t *testing.T, options receipt.RPCOptions) {
 			t.Fatalf("recorded role %s must retain the current address and kind", name)
 		}
 		role.RuntimeHash = ""
+		role.StagedRuntimeHash = ""
+		role.StagedUpgrade = ""
 		recorded.Roles[name] = role
 	}
 	for name, role := range currentRoles {
 		role.RuntimeHash = ""
+		role.StagedRuntimeHash = ""
+		role.StagedUpgrade = ""
 		current.Roles[name] = role
 	}
 	if !reflect.DeepEqual(recorded, current) {

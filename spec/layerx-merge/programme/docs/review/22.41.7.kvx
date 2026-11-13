@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.7"
+pages = 40
+
+[page.1]
+path = "contracts/launchpad/docs/test/MockERC20.md"
+status = "corrected"
+
+[page.2]
+path = "contracts/launchpad/docs/test/MockERC20Base.md"
+status = "corrected"
+
+[page.3]
+path = "contracts/launchpad/docs/test/MockERC721Base.md"
+status = "corrected"
+
+[page.4]
+path = "contracts/launchpad/docs/test/MockERC721Enumerable.md"
+status = "corrected"
+
+[page.5]
+path = "contracts/launchpad/docs/test/MockEventEmitter.md"
+status = "corrected"
+
+[page.6]
+path = "contracts/launchpad/docs/test/MockInitializable.md"
+status = "corrected"
+
+[page.7]
+path = "contracts/launchpad/docs/test/MockMulticall.md"
+status = "corrected"
+
+[page.8]
+path = "contracts/launchpad/docs/test/MockNonStandardERC20.md"
+status = "corrected"
+
+[page.9]
+path = "contracts/launchpad/docs/test/MockOptical.md"
+status = "corrected"
+
+[page.10]
+path = "contracts/launchpad/docs/test/MockOpticalRegistry.md"
+status = "corrected"
+
+[page.11]
+path = "contracts/launchpad/docs/test/MockPausable.md"
+status = "corrected"
+
+[page.12]
+path = "contracts/launchpad/docs/test/MockPoolForOptical.md"
+status = "corrected"
+
+[page.13]
+path = "contracts/launchpad/docs/test/MockPoolRegistry.md"
+status = "corrected"
+
+[page.14]
+path = "contracts/launchpad/docs/test/MockProxy.md"
+status = "corrected"
+
+[page.15]
+path = "contracts/launchpad/docs/test/MockReentrancy.md"
+status = "corrected"
+
+[page.16]
+path = "contracts/launchpad/docs/test/MockRevertingERC20.md"
+status = "corrected"
+
+[page.17]
+path = "contracts/launchpad/docs/test/MockUUPS.md"
+status = "corrected"
+
+[page.18]
+path = "contracts/launchpad/docs/test/PoolAddressWrapper.md"
+status = "corrected"
+
+[page.19]
+path = "contracts/launchpad/docs/test/ReserveLibWrapper.md"
+status = "corrected"
+
+[page.20]
+path = "contracts/launchpad/docs/test/SidioraMathWrapper.md"
+status = "corrected"
+
+[page.21]
+path = "contracts/launchpad/docs/test/TokenAddressWrapper.md"
+status = "corrected"
+
+[page.22]
+path = "contracts/launchpad/docs/test/TransferHelperWrapper.md"
+status = "corrected"
+
+[page.23]
+path = "contracts/launchpad/operations/README.md"
+status = "corrected"
+
+[page.24]
+path = "contracts/markets.md"
+status = "corrected"
+
+[page.25]
+path = "contracts/operations.md"
+status = "corrected"
+
+[page.26]
+path = "contracts/perps-client.md"
+status = "corrected"
+
+[page.27]
+path = "contracts/perps-data.md"
+status = "corrected"
+
+[page.28]
+path = "contracts/platform-cli.md"
+status = "corrected"
+
+[page.29]
+path = "contracts/platform-gateway.md"
+status = "corrected"
+
+[page.30]
+path = "contracts/platform-hosted.md"
+status = "corrected"
+
+[page.31]
+path = "contracts/platform-middleware.md"
+status = "corrected"
+
+[page.32]
+path = "contracts/platform-ramps.md"
+status = "corrected"
+
+[page.33]
+path = "contracts/platform-relay-archive.md"
+status = "corrected"
+
+[page.34]
+path = "contracts/platform-sdk.md"
+status = "corrected"
+
+[page.35]
+path = "contracts/programs.md"
+status = "corrected"
+
+[page.36]
+path = "contracts/proto-api.md"
+status = "corrected"
+
+[page.37]
+path = "contracts/rpc.md"
+status = "corrected"
+
+[page.38]
+path = "contracts/sdk-js.md"
+status = "corrected"
+
+[page.39]
+path = "contracts/sequencer.md"
+status = "corrected"
+
+[page.40]
+path = "contracts/services.md"
+status = "corrected"

@@ -36,7 +36,8 @@ fn decode_hex(text: &str) -> Vec<u8> {
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex text"), 16).expect("hex byte")
+            u8::from_str_radix(std::str::from_utf8(pair).or_fail("hex text"), 16)
+                .or_fail("hex byte")
         })
         .collect()
 }
@@ -61,44 +62,58 @@ fn state_profile() -> SpendProfile {
 }
 
 fn checkpoint(replay: &Replay) -> ServedCheckpoint {
-    let document: Value = serde_json::from_slice(EXPORT).expect("recorded budget export");
-    let hash = decode_hex(document["head"]["block_hash"].as_str().expect("block hash"))
-        .try_into()
-        .expect("block hash width");
+    let document: Value = serde_json::from_slice(EXPORT).or_fail("recorded budget export");
+    let hash = decode_hex(
+        document["head"]["block_hash"]
+            .as_str()
+            .or_fail("block hash"),
+    )
+    .try_into()
+    .or_fail("block hash width");
     ServedCheckpoint::acquire_at_committed_block(&replay.endpoint, 8, Some(hash), "125")
-        .expect("verify recorded node consensus over real HTTP")
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "verify recorded node consensus over real HTTP"
+            )
+        })
 }
 
 fn committed_protocol(replay: &Replay, checkpoint: &ServedCheckpoint) -> ProtocolBudgetState {
     let reads =
-        CommittedReads::at_checkpoint(&replay.endpoint, checkpoint).expect("committed reads");
-    let document: Value = serde_json::from_slice(EXPORT).expect("budget export");
+        CommittedReads::at_checkpoint(&replay.endpoint, checkpoint).or_fail("committed reads");
+    let document: Value = serde_json::from_slice(EXPORT).or_fail("budget export");
     let call = &document["proofs"]["budget_call"];
     let committed = reads
         .budget_state(
-            decode_hex(call["to"].as_str().expect("precompile"))
+            decode_hex(call["to"].as_str().or_fail("precompile"))
                 .try_into()
-                .expect("address width"),
-            &decode_hex(call["data"].as_str().expect("calldata")),
+                .or_fail("address width"),
+            &decode_hex(call["data"].as_str().or_fail("calldata")),
         )
-        .expect("read and independently repeat getBudget at committed block");
+        .unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "read and independently repeat getBudget at committed block"
+            )
+        });
     ProtocolBudgetState {
         evidence: RawStateEvidence::budget_witness(committed, profile().budget_id)
-            .expect("canonical budget witness"),
+            .or_fail("canonical budget witness"),
     }
 }
 
 #[test]
 fn committed_state_is_served_as_committed_and_survives_reopen() {
-    let replay = Replay::new(serde_json::from_str(ANSWERS).expect("recorded node answers"));
+    let replay = Replay::new(serde_json::from_str(ANSWERS).or_fail("recorded node answers"));
     let checkpoint = checkpoint(&replay);
     let protocol = committed_protocol(&replay, &checkpoint);
     let verifier =
-        EvidenceAuthority::pinned_to_handshake(3, 125, [7; 32]).expect("pinned authority");
+        EvidenceAuthority::pinned_to_handshake(3, 125, [7; 32]).or_fail("pinned authority");
     assert_eq!(
         verifier
             .verify_state(&protocol.evidence)
-            .expect("verify state")
+            .or_fail("verify state")
             .level(),
         VerificationLevel::COMMITTED
     );
@@ -110,29 +125,32 @@ fn committed_state_is_served_as_committed_and_survives_reopen() {
         retention,
     );
     let operator = support::principal("operator");
-    let mut scope = store.principal(&operator).expect("principal scope");
-    let mut spend = SpendReconciliation::new(state_profile()).expect("spend service");
+    let mut scope = store.principal(&operator).or_fail("principal scope");
+    let mut spend = SpendReconciliation::new(state_profile()).or_fail("spend service");
     let view = spend
         .observe(&mut scope, &protocol, &[], &verifier, NOW)
-        .expect("serve committed budget state");
+        .or_fail("serve committed budget state");
     assert_eq!(view.verification_level(), Rung::Committed);
     assert_eq!(
         (view.spent(), view.limit(), view.remaining()),
         (23, 100, 77)
     );
-    let surfaces = spend.both_shells(&operator).expect("served spend surfaces");
+    let surfaces = spend
+        .both_shells(&operator)
+        .or_fail("served spend surfaces");
     assert_eq!(surfaces.mobile().spend(), &view);
     assert_eq!(surfaces.desktop().spend(), &view);
     drop(scope);
     drop(store);
-    let mut store = PrincipalStore::open(&root, retention, digest).expect("reopen principal store");
-    let scope = store.principal(&operator).expect("reopened scope");
+    let mut store =
+        PrincipalStore::open(&root, retention, digest).or_fail("reopen principal store");
+    let scope = store.principal(&operator).or_fail("reopened scope");
     let recovered =
-        SpendReconciliation::open(&scope, state_profile()).expect("recover spend evidence");
+        SpendReconciliation::open(&scope, state_profile()).or_fail("recover spend evidence");
     assert_eq!(
         recovered
             .both_shells(&operator)
-            .expect("recovered surfaces"),
+            .or_fail("recovered surfaces"),
         surfaces
     );
     drop(scope);
@@ -141,12 +159,12 @@ fn committed_state_is_served_as_committed_and_survives_reopen() {
         replay.finish() >= 2,
         "committed read independently repeats getBudget"
     );
-    std::fs::remove_dir_all(root).expect("remove test state");
+    std::fs::remove_dir_all(root).or_fail("remove test state");
 }
 
 #[test]
 fn state_proven_state_cannot_promote_served_spend() {
-    let replay = Replay::new(serde_json::from_str(ANSWERS).expect("recorded node answers"));
+    let replay = Replay::new(serde_json::from_str(ANSWERS).or_fail("recorded node answers"));
     let checkpoint = checkpoint(&replay);
     let committed = committed_protocol(&replay, &checkpoint);
     let protocol = ProtocolBudgetState {
@@ -156,7 +174,7 @@ fn state_proven_state_cannot_promote_served_spend() {
     assert_eq!(
         verifier
             .verify_state(&protocol.evidence)
-            .expect("verify state leaf")
+            .or_fail("verify state leaf")
             .level(),
         VerificationLevel::STATE_PROVEN
     );
@@ -167,16 +185,16 @@ fn state_proven_state_cannot_promote_served_spend() {
         support::retention_uniform(100_000),
     );
     let operator = support::principal("operator");
-    let mut scope = store.principal(&operator).expect("scope");
-    let mut spend = SpendReconciliation::new(state_profile()).expect("spend service");
+    let mut scope = store.principal(&operator).or_fail("scope");
+    let mut spend = SpendReconciliation::new(state_profile()).or_fail("spend service");
     let view = spend
         .observe(&mut scope, &protocol, &[], &verifier, NOW)
-        .expect("serve state-proven spend");
+        .or_fail("serve state-proven spend");
     assert_eq!(view.verification_level(), Rung::Receipted);
     assert_eq!(
         spend
             .both_shells(&operator)
-            .expect("surfaces")
+            .or_fail("surfaces")
             .mobile()
             .spend(),
         &view
@@ -184,14 +202,14 @@ fn state_proven_state_cannot_promote_served_spend() {
     drop(scope);
     drop(store);
     assert!(replay.finish() >= 2, "real canonical state producer");
-    std::fs::remove_dir_all(root).expect("remove state-proven store");
+    std::fs::remove_dir_all(root).or_fail("remove state-proven store");
 }
 
 #[test]
 fn committed_budget_proof_is_accepted_and_state_proven_proof_is_refused_at_ingress() {
-    let replay = Replay::new(serde_json::from_str(ANSWERS).expect("recorded node answers"));
+    let replay = Replay::new(serde_json::from_str(ANSWERS).or_fail("recorded node answers"));
     let checkpoint = checkpoint(&replay);
-    let owner = Did::new(OWNER.as_bytes()).expect("owner DID");
+    let owner = Did::new(OWNER.as_bytes()).or_fail("owner DID");
     let trust = BudgetProofTrust {
         tenant: "tenant",
         principal: "operator",
@@ -204,11 +222,11 @@ fn committed_budget_proof_is_accepted_and_state_proven_proof_is_refused_at_ingre
         now_ms: NOW,
         maximum_age_seconds: 60,
     };
-    let mut export: Value = serde_json::from_slice(EXPORT).expect("recorded export");
+    let mut export: Value = serde_json::from_slice(EXPORT).or_fail("recorded export");
     export["budget_state"]["verification"] = json!(VerificationLevel::COMMITTED.wire_rank());
-    let bytes = serde_json::to_vec(&export).expect("current committed label");
+    let bytes = serde_json::to_vec(&export).or_fail("current committed label");
     let proof = verify_budget_proof(&bytes, profile().budget_id, &trust)
-        .expect("real committed proof verifier");
+        .or_fail("real committed proof verifier");
     assert_eq!(proof.verification(), VerificationLevel::COMMITTED);
     let root = support::directory("repair-22-31-540-proof");
     let (mut store, _) = support::install_and_open(
@@ -217,18 +235,18 @@ fn committed_budget_proof_is_accepted_and_state_proven_proof_is_refused_at_ingre
         support::retention_uniform(100_000),
     );
     let operator = support::principal("operator");
-    let mut scope = store.principal(&operator).expect("scope");
-    let verifier = EvidenceAuthority::pinned_to_handshake(3, 125, [7; 32]).expect("authority");
-    let mut spend = SpendReconciliation::new(profile()).expect("spend service");
+    let mut scope = store.principal(&operator).or_fail("scope");
+    let verifier = EvidenceAuthority::pinned_to_handshake(3, 125, [7; 32]).or_fail("authority");
+    let mut spend = SpendReconciliation::new(profile()).or_fail("spend service");
     let view = spend
         .observe_budget_proof(&mut scope, &proof, &[], &verifier, NOW)
-        .expect("spend guard accepts COMMITTED proof");
+        .or_fail("spend guard accepts COMMITTED proof");
     assert_eq!(view.verification_level(), Rung::Committed);
     assert_eq!((view.spent(), view.remaining()), (23, 77));
     export["budget_state"]["verification"] = json!(VerificationLevel::STATE_PROVEN.wire_rank());
     assert!(matches!(
         verify_budget_proof(
-            &serde_json::to_vec(&export).expect("state-proven export"),
+            &serde_json::to_vec(&export).or_fail("state-proven export"),
             profile().budget_id,
             &trust
         ),
@@ -237,7 +255,7 @@ fn committed_budget_proof_is_accepted_and_state_proven_proof_is_refused_at_ingre
     assert_eq!(
         spend
             .both_shells(&operator)
-            .expect("retained spend")
+            .or_fail("retained spend")
             .desktop()
             .spend(),
         &view
@@ -248,7 +266,64 @@ fn committed_budget_proof_is_accepted_and_state_proven_proof_is_refused_at_ingre
         replay.finish() >= 2,
         "proof verifies independent budget calls"
     );
-    std::fs::remove_dir_all(root).expect("remove proof state");
+    std::fs::remove_dir_all(root).or_fail("remove proof state");
+}
+
+fn record_committed_activity(
+    scope: &mut layerx_human_service::store::PrincipalScope<'_>,
+    id: &layerx_human_service::notify::ActivityEntryId,
+    fact: &layerx_human_service::activity::ReceiptFact,
+) -> String {
+    let activity = AgentActivity::new(
+        id.clone(),
+        ActivityKind::AgentAction,
+        None,
+        10,
+        PendingStatus::Processing,
+        VerifiedStatus::Done,
+    )
+    .or_fail("activity meaning");
+    let reference: String = layerx_human_service::hex::lower((fact.receipt_hash).as_ref());
+    let delivery = EventDelivery::new(
+        EventIdentity::new(fact.receipt_hash),
+        fact.canonical_receipt_bytes.clone(),
+        Cursor {
+            block_height: fact.block_height,
+            tx_index: 1,
+            log_index: 0,
+        },
+        ReceiptReference::Verified {
+            receipt_ref: ReceiptRef::new(reference.clone()).or_fail("receipt ref"),
+            rung: fact.rung,
+        },
+    )
+    .or_fail("recorded receipt delivery");
+    Feed::record_agent_event(scope, &activity, &delivery, 100).or_fail("record actual receipt");
+    reference
+}
+
+fn assert_material_schema(material: &Value) {
+    let schema = ApiSchema::v1().or_fail("executable schema");
+    let operation = schema
+        .operation("evidence.get")
+        .or_fail("evidence operation");
+    schema
+        .encode_response(operation, material)
+        .unwrap_or_else(|error| {
+            panic!("{}: {error:?}", "current label crosses response validation")
+        });
+    for retired in [
+        "checkpoint-finalised",
+        "settlement-anchored",
+        "paxeer-finalised",
+    ] {
+        let mut invalid = material.clone();
+        invalid["verification"] = json!(retired);
+        assert!(
+            schema.encode_response(operation, &invalid).is_err(),
+            "retired output {retired}"
+        );
+    }
 }
 
 #[test]
@@ -259,8 +334,14 @@ fn real_committed_receipt_exports_committed_verification_and_statement_label() {
         inclusions: Vec::new(),
         derived_aggregates: Vec::new(),
     };
-    let report = verify_receipt_export_with_consensus(&artifact, &keys, &consensus)
-        .expect("verify recorded signed receipt and consensus");
+    let report = verify_receipt_export_with_consensus(&artifact, &keys, &consensus).unwrap_or_else(
+        |error| {
+            panic!(
+                "{}: {error:?}",
+                "verify recorded signed receipt and consensus"
+            )
+        },
+    );
     assert_eq!(report.achieved_levels, [VerificationLevel::COMMITTED]);
     assert_eq!(report.verified_receipts, 1);
     assert_eq!(
@@ -268,8 +349,8 @@ fn real_committed_receipt_exports_committed_verification_and_statement_label() {
         "committed"
     );
     let decoded_receipt =
-        layerx_wire::receipt::decode(&fact.canonical_receipt_bytes).expect("recorded receipt");
-    let protocol = decoded_receipt.protocol().expect("protocol receipt");
+        layerx_wire::receipt::decode(&fact.canonical_receipt_bytes).or_fail("recorded receipt");
+    let protocol = decoded_receipt.protocol().or_fail("protocol receipt");
     let evidence = VerifiedLegEvidence {
         action_key: [1; 32],
         activity_id: fact.tx_hash,
@@ -291,33 +372,12 @@ fn real_committed_receipt_exports_committed_verification_and_statement_label() {
     };
     let evidence_id = format!(
         "evd_{}",
-        fact.receipt_hash
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
+        layerx_human_service::hex::lower((fact.receipt_hash).as_ref())
     );
     let material = ProductionComponents::managed_receipt_material(&evidence_id, &evidence)
-        .expect("real owner receipt material producer");
+        .or_fail("real owner receipt material producer");
     assert_eq!(material["verification"], "committed");
-    let schema = ApiSchema::v1().expect("executable schema");
-    let operation = schema
-        .operation("evidence.get")
-        .expect("evidence operation");
-    schema
-        .encode_response(operation, &material)
-        .expect("current label crosses response validation");
-    for retired in [
-        "checkpoint-finalised",
-        "settlement-anchored",
-        "paxeer-finalised",
-    ] {
-        let mut invalid = material.clone();
-        invalid["verification"] = json!(retired);
-        assert!(
-            schema.encode_response(operation, &invalid).is_err(),
-            "retired output {retired}"
-        );
-    }
+    assert_material_schema(&material);
     let root = support::directory("repair-22-31-540-export");
     let (mut store, _) = support::install_and_open(
         &root,
@@ -325,39 +385,11 @@ fn real_committed_receipt_exports_committed_verification_and_statement_label() {
         support::retention_uniform(100_000),
     );
     let operator = support::principal("operator");
-    let mut scope = store.principal(&operator).expect("scope");
-    let activity = AgentActivity::new(
-        id.clone(),
-        ActivityKind::AgentAction,
-        None,
-        10,
-        PendingStatus::Processing,
-        VerifiedStatus::Done,
-    )
-    .expect("activity meaning");
-    let reference: String = fact
-        .receipt_hash
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
-    let delivery = EventDelivery::new(
-        EventIdentity::new(fact.receipt_hash),
-        fact.canonical_receipt_bytes.clone(),
-        Cursor {
-            block_height: fact.block_height,
-            tx_index: 1,
-            log_index: 0,
-        },
-        ReceiptReference::Verified {
-            receipt_ref: ReceiptRef::new(reference.clone()).expect("receipt ref"),
-            rung: fact.rung,
-        },
-    )
-    .expect("recorded receipt delivery");
-    Feed::record_agent_event(&mut scope, &activity, &delivery, 100).expect("record actual receipt");
-    let filters = Feed::apply_filters(FilterDraft::new()).expect("filters");
-    let (bundle, _) = EvidenceExport::new(Feed::new(5).expect("feed"), 1024 * 1024)
-        .expect("exporter")
+    let mut scope = store.principal(&operator).or_fail("scope");
+    let reference = record_committed_activity(&mut scope, &id, &fact);
+    let filters = Feed::apply_filters(FilterDraft::new()).or_fail("filters");
+    let (bundle, _) = EvidenceExport::new(Feed::new(5).or_fail("feed"), 1024 * 1024)
+        .or_fail("exporter")
         .evidence_with_consensus(
             &scope,
             &filters,
@@ -368,17 +400,17 @@ fn real_committed_receipt_exports_committed_verification_and_statement_label() {
             100,
             fact.block_height,
         )
-        .expect("real activity export");
-    let decoded = EvidenceBundle::decode(&bundle.encode().expect("encode")).expect("decode");
+        .or_fail("real activity export");
+    let decoded = EvidenceBundle::decode(&bundle.encode().or_fail("encode")).or_fail("decode");
     let report =
         verify_receipt_export_with_consensus(&decoded.protocol_evidence()[0], &keys, &consensus)
-            .expect("verify transported export");
+            .or_fail("verify transported export");
     assert_eq!(report.achieved_levels, [VerificationLevel::COMMITTED]);
-    let statement = EvidenceExport::new(Feed::new(5).expect("feed"), 1024 * 1024)
-        .expect("statement exporter")
+    let statement = EvidenceExport::new(Feed::new(5).or_fail("feed"), 1024 * 1024)
+        .or_fail("statement exporter")
         .statement(&scope, &filters, 100, fact.block_height)
-        .expect("statement");
-    let csv = std::str::from_utf8(statement.content()).expect("CSV");
+        .or_fail("statement");
+    let csv = std::str::from_utf8(statement.content()).or_fail("CSV");
     assert_eq!(
         csv,
         format!(
@@ -389,5 +421,11 @@ fn real_committed_receipt_exports_committed_verification_and_statement_label() {
     assert_eq!(statement.entries(), 1);
     drop(scope);
     drop(store);
-    std::fs::remove_dir_all(root).expect("remove export state");
+    std::fs::remove_dir_all(root).or_fail("remove export state");
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

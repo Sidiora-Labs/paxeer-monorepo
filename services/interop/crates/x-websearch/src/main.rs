@@ -420,6 +420,71 @@ struct Assembled {
     probe: ReadinessProbe,
 }
 
+fn register_status_routes(
+    routes: &mut RouteTable,
+    readiness: &Arc<Readiness>,
+    network_id: u32,
+    keys: &Keys,
+    pipeline_enabled: bool,
+    relay_enabled: bool,
+) -> Result<(), String> {
+    let eligibility = Arc::clone(readiness);
+    routes
+        .set_serving_eligibility(move || eligibility.snapshot().0)
+        .map_err(|error| format!("readiness eligibility: {error}"))?;
+    let ready_view = Arc::clone(readiness);
+    routes
+        .set_readiness(move |_| {
+            let (ready, body) = ready_view.snapshot();
+            x_websearch::server::Response::json(
+                if ready { 200 } else { 503 },
+                body.to_string().into_bytes(),
+            )
+        })
+        .map_err(|error| format!("readiness route: {error}"))?;
+    let mut health = serde_json::json!({
+        "status": "ok",
+        "live": true,
+        "readiness_scope": "process-liveness",
+        "upstream_payment_verified": false,
+        "network_id": network_id,
+        "wire_version": x_websearch::payment::PROTOCOL_VERSION.to_string(),
+        "protocol_version": x_websearch::payment::PROTOCOL_VERSION,
+        "source_revision": option_env!("PAXEER_X_SOURCE_REVISION"),
+        "evm_attestation_enabled": pipeline_enabled,
+        "program_attestation_enabled": relay_enabled
+    });
+    let attestor_key = keys.attestor().cloned();
+    let signer = attestor_key.as_ref().map(attest::signer_address);
+    health["attestor_signer"] = signer.map_or(serde_json::Value::Null, |signer| {
+        serde_json::json!(x_websearch::payment::hex(&signer))
+    });
+    let health_view = Arc::clone(readiness);
+    let network = network_id;
+    routes
+        .set_health(move |request| {
+            let mut body = health.clone();
+            let (_, view) = health_view.snapshot();
+            let usable = view["roles"].as_array().is_some_and(|roles| roles.iter().any(|role| {
+                role["role"] == "evm_attestor" && role["dependencies"].as_array().is_some_and(|dependencies| dependencies.iter()
+                    .filter(|row| row["dependency"] != "registered_peer_quorum").all(|row| row["state"] == "ready"))
+            }));
+            body["peer_exchange_usable"] = serde_json::json!(usable);
+            if let (Some(key), Some(signer), Ok(Some(nonce))) = (&attestor_key, signer, request.query_param("readiness_nonce")) {
+                if let Some(nonce) = x_websearch::payment::unhex(&nonce).and_then(|bytes| <[u8;32]>::try_from(bytes).ok()) {
+                    let checked = now_ms();
+                    let digest = peer_readiness_digest(network, signer, nonce, usable, checked);
+                    if let Ok(signature) = attest::sign_digest(key, &digest) {
+                        body["peer_readiness"] = serde_json::json!({"nonce":x_websearch::payment::hex(&nonce),"checked_at_unix_ms":checked,"network_id":network,"signature":x_websearch::payment::hex(&signature)});
+                    }
+                }
+            }
+            x_websearch::server::Response::json(200, body.to_string().into_bytes())
+        })
+        .map_err(|error| format!("health route: {error}"))?;
+    Ok(())
+}
+
 /// The routes and the crawler built from the configuration and the keys.
 /// Every refusal names the configuration field or key it concerns.
 fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
@@ -484,60 +549,15 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
         pipeline.is_some(),
         relay.is_some(),
     ));
-    let eligibility = Arc::clone(&readiness);
-    routes
-        .set_serving_eligibility(move || eligibility.snapshot().0)
-        .map_err(|error| format!("readiness eligibility: {error}"))?;
-    let ready_view = Arc::clone(&readiness);
-    routes
-        .set_readiness(move |_| {
-            let (ready, body) = ready_view.snapshot();
-            x_websearch::server::Response::json(
-                if ready { 200 } else { 503 },
-                body.to_string().into_bytes(),
-            )
-        })
-        .map_err(|error| format!("readiness route: {error}"))?;
-    let mut health = serde_json::json!({
-        "status": "ok",
-        "live": true,
-        "readiness_scope": "process-liveness",
-        "upstream_payment_verified": false,
-        "network_id": network_id,
-        "wire_version": x_websearch::payment::PROTOCOL_VERSION.to_string(),
-        "protocol_version": x_websearch::payment::PROTOCOL_VERSION,
-        "source_revision": option_env!("PAXEER_X_SOURCE_REVISION"),
-        "evm_attestation_enabled": pipeline.is_some(),
-        "program_attestation_enabled": relay.is_some()
-    });
-    let attestor_key = keys.attestor().cloned();
-    let signer = attestor_key.as_ref().map(attest::signer_address);
-    health["attestor_signer"] = signer.map_or(serde_json::Value::Null, |signer| {
-        serde_json::json!(x_websearch::payment::hex(&signer))
-    });
-    let health_view = Arc::clone(&readiness);
-    let network = network_id;
-    routes
-        .set_health(move |request| {
-            let mut body = health.clone();
-            let (_, view) = health_view.snapshot();
-            let usable = view["roles"].as_array().is_some_and(|roles| roles.iter().any(|role| {
-                role["role"] == "evm_attestor" && role["dependencies"].as_array().is_some_and(|dependencies| dependencies.iter()
-                    .filter(|row| row["dependency"] != "registered_peer_quorum").all(|row| row["state"] == "ready"))
-            }));
-            body["peer_exchange_usable"] = serde_json::json!(usable);
-            if let (Some(key), Some(signer), Ok(Some(nonce))) = (&attestor_key, signer, request.query_param("readiness_nonce")) {
-                if let Some(nonce) = x_websearch::payment::unhex(&nonce).and_then(|bytes| <[u8;32]>::try_from(bytes).ok()) {
-                    let checked = now_ms();
-                    let digest = peer_readiness_digest(network, signer, nonce, usable, checked);
-                    if let Ok(signature) = attest::sign_digest(key, &digest) {
-                        body["peer_readiness"] = serde_json::json!({"nonce":x_websearch::payment::hex(&nonce),"checked_at_unix_ms":checked,"network_id":network,"signature":x_websearch::payment::hex(&signature)});
-                    }
-                }
-            }
-            x_websearch::server::Response::json(200, body.to_string().into_bytes())
-        })
-        .map_err(|error| format!("health route: {error}"))?;
+    register_status_routes(
+        &mut routes,
+        &readiness,
+        network_id,
+        keys,
+        pipeline.is_some(),
+        relay.is_some(),
+    )?;
+    let signer = keys.attestor().map(attest::signer_address);
     Ok(Assembled {
         routes,
         crawler,
@@ -689,6 +709,217 @@ fn pipeline(
     }))
 }
 
+fn resume_submission(pipeline: &mut Pipeline, request_id: u64) -> bool {
+    if let Some(submitter) = &pipeline.submitter {
+        match submitter.journal().load(request_id) {
+            Ok(Some(row)) => {
+                if row.state == submit::JournalState::Signed {
+                    if let Err(error) = pipeline.watcher.transition(request_id, WorkStage::Signed) {
+                        eprintln!("x-websearch request {request_id}: {error}");
+                        return true;
+                    }
+                }
+                match submitter.resume_request(request_id) {
+                    Ok(Some(outcome)) if outcome.completed() => {
+                        retire_closed(pipeline, request_id);
+                        return true;
+                    }
+                    Ok(Some(Outcome::Reverted)) => {}
+                    Ok(_) => return true,
+                    Err(error) => {
+                        let _ = pipeline.watcher.fail(request_id, false, &error.to_string());
+                        eprintln!("x-websearch restored submission {request_id}: {error}");
+                        return true;
+                    }
+                }
+                if row.state != submit::JournalState::Signed {
+                    return true;
+                }
+                if submitter
+                    .journal()
+                    .load(request_id)
+                    .ok()
+                    .flatten()
+                    .is_some()
+                {
+                    return true;
+                }
+            }
+            Ok(None) => {}
+            Err(error) => {
+                eprintln!("x-websearch submission journal {request_id}: {error}");
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn attest_new_request(pipeline: &mut Pipeline, request: &WebRequest, head: u64) {
+    let request_id = request.request_id;
+    if request.timeout_height < head {
+        retire_closed(pipeline, request_id);
+        return;
+    }
+    if !pipeline.watcher.eligible(request_id) || !still_canonical(pipeline, request) {
+        return;
+    }
+    match submit::request_status_at_depth(
+        &pipeline.rpc,
+        request_id,
+        pipeline.watcher.confirmations(),
+    ) {
+        Ok(status) if status != submit::STATUS_PENDING => {
+            retire_closed(pipeline, request_id);
+            return;
+        }
+        Ok(_) => {}
+        Err(error) => {
+            eprintln!("x-websearch request {request_id} final status: {error}");
+            return;
+        }
+    }
+    if resume_submission(pipeline, request_id) {
+        return;
+    }
+    if let Some(answer) = pipeline.exchange.answer(request_id) {
+        if !pipeline.attestor.binds(request, &answer)
+            && pipeline
+                .watcher
+                .fail(request_id, true, "retained attestation request binding")
+                .is_ok()
+        {
+            pipeline.exchange.forget(request_id);
+        }
+        return;
+    }
+    if let Err(error) = pipeline
+        .watcher
+        .transition(request_id, WorkStage::Attesting)
+    {
+        eprintln!("x-websearch request {request_id}: {error}");
+        return;
+    }
+    match pipeline.attestor.attest(request) {
+        Ok(answer) => {
+            if pipeline.exchange.record(answer) {
+                if let Err(error) = pipeline.watcher.transition(request_id, WorkStage::Attested) {
+                    eprintln!("x-websearch request {request_id}: {error}");
+                }
+            } else if let Err(error) =
+                pipeline
+                    .watcher
+                    .fail(request_id, false, "attestation persistence failed")
+            {
+                eprintln!("x-websearch request {request_id}: {error}");
+            }
+        }
+        Err(error) => {
+            match pipeline
+                .watcher
+                .fail(request_id, error.is_terminal(), &error.to_string())
+            {
+                Ok(true) => eprintln!("x-websearch refused request {request_id}: {error}"),
+                Ok(false) => eprintln!("x-websearch will retry request {request_id}: {error}"),
+                Err(journal) => eprintln!("x-websearch request {request_id}: {journal}"),
+            }
+        }
+    }
+}
+
+fn settle_pending_request(
+    pipeline: &mut Pipeline,
+    journal: &[x_websearch::watch::Pending],
+    set: &attest::AttestorSet,
+    request_id: u64,
+) {
+    let Some(entry) = journal
+        .iter()
+        .find(|entry| entry.request.request_id == request_id)
+    else {
+        pipeline.exchange.forget(request_id);
+        return;
+    };
+    if !pipeline.watcher.eligible(request_id) || !still_canonical(pipeline, &entry.request) {
+        return;
+    }
+    if let Some(submitter) = &pipeline.submitter {
+        let binding = pipeline
+            .watcher
+            .journal()
+            .into_iter()
+            .find(|row| row.request.request_id == request_id);
+        let Some(binding) = binding else {
+            return;
+        };
+        let Some(source) = &binding.source else {
+            return;
+        };
+        if let Err(error) = submitter.bind_source(&binding.request, source) {
+            eprintln!("x-websearch request {request_id}: {error}");
+            return;
+        }
+    }
+    let signature_count = pipeline.exchange.collect(request_id, set);
+    if pipeline.exchange.ready(request_id, set).is_some() {
+        if let Err(error) = pipeline.watcher.transition(request_id, WorkStage::Quorum) {
+            eprintln!("x-websearch request {request_id}: {error}");
+            return;
+        }
+    }
+    let settled = match &pipeline.submitter {
+        Some(submitter) => settle(submitter, &pipeline.exchange, request_id, set),
+        None => submit::request_status_at_depth(
+            &pipeline.rpc,
+            request_id,
+            pipeline.watcher.confirmations(),
+        )
+        .map(|status| status != submit::STATUS_PENDING)
+        .map_err(|error| error.to_string()),
+    };
+    match settled {
+        Ok(true) => {
+            pipeline.exchange.forget(request_id);
+            if let Err(error) = pipeline.watcher.retire(request_id) {
+                eprintln!("x-websearch request {request_id}: {error}");
+            }
+        }
+        Ok(false) => {
+            let signed = pipeline.submitter.as_ref().is_some_and(|submitter| {
+                submitter
+                    .journal()
+                    .load(request_id)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|row| row.state == submit::JournalState::Signed)
+            });
+            if signed {
+                let _ = pipeline.watcher.transition(request_id, WorkStage::Signed);
+            } else if pipeline.exchange.ready(request_id, set).is_none() {
+                let _ = pipeline
+                    .watcher
+                    .fail(request_id, false, "peer quorum unavailable");
+            }
+        }
+        Err(error) => {
+            if pipeline.submitter.as_ref().is_some_and(|submitter| {
+                submitter
+                    .journal()
+                    .load(request_id)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|row| row.state == submit::JournalState::Signed)
+            }) {
+                let _ = pipeline.watcher.transition(request_id, WorkStage::Signed);
+            }
+            let _ = pipeline.watcher.fail(request_id, false, &error);
+            eprintln!(
+                "x-websearch request {request_id} with {signature_count} signatures: {error}"
+            );
+        }
+    }
+}
+
 /// One attestation round: answer the newly confirmed requests, drop the
 /// timed-out ones, exchange signatures and submit or settle each request.
 fn attest_round(pipeline: &mut Pipeline) -> bool {
@@ -701,118 +932,7 @@ fn attest_round(pipeline: &mut Pipeline) -> bool {
     };
     let head = pipeline.watcher.last_head();
     for request in pipeline.watcher.work() {
-        let request_id = request.request_id;
-        if request.timeout_height < head {
-            retire_closed(pipeline, request_id);
-            continue;
-        }
-        if !pipeline.watcher.eligible(request_id) || !still_canonical(pipeline, &request) {
-            continue;
-        }
-        match submit::request_status_at_depth(
-            &pipeline.rpc,
-            request_id,
-            pipeline.watcher.confirmations(),
-        ) {
-            Ok(status) if status != submit::STATUS_PENDING => {
-                retire_closed(pipeline, request_id);
-                continue;
-            }
-            Ok(_) => {}
-            Err(error) => {
-                eprintln!("x-websearch request {request_id} final status: {error}");
-                continue;
-            }
-        }
-        if let Some(submitter) = &pipeline.submitter {
-            match submitter.journal().load(request_id) {
-                Ok(Some(row)) => {
-                    if row.state == submit::JournalState::Signed {
-                        if let Err(error) =
-                            pipeline.watcher.transition(request_id, WorkStage::Signed)
-                        {
-                            eprintln!("x-websearch request {request_id}: {error}");
-                            continue;
-                        }
-                    }
-                    match submitter.resume_request(request_id) {
-                        Ok(Some(outcome)) if outcome.completed() => {
-                            retire_closed(pipeline, request_id);
-                            continue;
-                        }
-                        Ok(Some(Outcome::Reverted)) => {}
-                        Ok(_) => continue,
-                        Err(error) => {
-                            let _ = pipeline.watcher.fail(request_id, false, &error.to_string());
-                            eprintln!("x-websearch restored submission {request_id}: {error}");
-                            continue;
-                        }
-                    }
-                    if row.state != submit::JournalState::Signed {
-                        continue;
-                    }
-                    if submitter
-                        .journal()
-                        .load(request_id)
-                        .ok()
-                        .flatten()
-                        .is_some()
-                    {
-                        continue;
-                    }
-                }
-                Ok(None) => {}
-                Err(error) => {
-                    eprintln!("x-websearch submission journal {request_id}: {error}");
-                    continue;
-                }
-            }
-        }
-        if let Some(answer) = pipeline.exchange.answer(request_id) {
-            if !pipeline.attestor.binds(&request, &answer) {
-                if pipeline
-                    .watcher
-                    .fail(request_id, true, "retained attestation request binding")
-                    .is_ok()
-                {
-                    pipeline.exchange.forget(request_id);
-                }
-            }
-            continue;
-        }
-        if let Err(error) = pipeline
-            .watcher
-            .transition(request_id, WorkStage::Attesting)
-        {
-            eprintln!("x-websearch request {request_id}: {error}");
-            continue;
-        }
-        match pipeline.attestor.attest(&request) {
-            Ok(answer) => {
-                if pipeline.exchange.record(answer) {
-                    if let Err(error) = pipeline.watcher.transition(request_id, WorkStage::Attested)
-                    {
-                        eprintln!("x-websearch request {request_id}: {error}");
-                    }
-                } else if let Err(error) =
-                    pipeline
-                        .watcher
-                        .fail(request_id, false, "attestation persistence failed")
-                {
-                    eprintln!("x-websearch request {request_id}: {error}");
-                }
-            }
-            Err(error) => {
-                match pipeline
-                    .watcher
-                    .fail(request_id, error.is_terminal(), &error.to_string())
-                {
-                    Ok(true) => eprintln!("x-websearch refused request {request_id}: {error}"),
-                    Ok(false) => eprintln!("x-websearch will retry request {request_id}: {error}"),
-                    Err(journal) => eprintln!("x-websearch request {request_id}: {journal}"),
-                }
-            }
-        }
+        attest_new_request(pipeline, &request, head);
     }
     for entry in pipeline.watcher.journal() {
         if entry.refused.is_some() && entry.stage != WorkStage::Reorged {
@@ -829,89 +949,7 @@ fn attest_round(pipeline: &mut Pipeline) -> bool {
     };
     let journal = pipeline.watcher.journal();
     for request_id in pipeline.exchange.pending() {
-        let Some(entry) = journal
-            .iter()
-            .find(|entry| entry.request.request_id == request_id)
-        else {
-            pipeline.exchange.forget(request_id);
-            continue;
-        };
-        if !pipeline.watcher.eligible(request_id) || !still_canonical(pipeline, &entry.request) {
-            continue;
-        }
-        if let Some(submitter) = &pipeline.submitter {
-            let binding = pipeline
-                .watcher
-                .journal()
-                .into_iter()
-                .find(|row| row.request.request_id == request_id);
-            let Some(binding) = binding else {
-                continue;
-            };
-            let Some(source) = &binding.source else {
-                continue;
-            };
-            if let Err(error) = submitter.bind_source(&binding.request, source) {
-                eprintln!("x-websearch request {request_id}: {error}");
-                continue;
-            }
-        }
-        let held = pipeline.exchange.collect(request_id, &set);
-        if pipeline.exchange.ready(request_id, &set).is_some() {
-            if let Err(error) = pipeline.watcher.transition(request_id, WorkStage::Quorum) {
-                eprintln!("x-websearch request {request_id}: {error}");
-                continue;
-            }
-        }
-        let settled = match &pipeline.submitter {
-            Some(submitter) => settle(submitter, &pipeline.exchange, request_id, &set),
-            None => submit::request_status_at_depth(
-                &pipeline.rpc,
-                request_id,
-                pipeline.watcher.confirmations(),
-            )
-            .map(|status| status != submit::STATUS_PENDING)
-            .map_err(|error| error.to_string()),
-        };
-        match settled {
-            Ok(true) => {
-                pipeline.exchange.forget(request_id);
-                if let Err(error) = pipeline.watcher.retire(request_id) {
-                    eprintln!("x-websearch request {request_id}: {error}");
-                }
-            }
-            Ok(false) => {
-                let signed = pipeline.submitter.as_ref().is_some_and(|submitter| {
-                    submitter
-                        .journal()
-                        .load(request_id)
-                        .ok()
-                        .flatten()
-                        .is_some_and(|row| row.state == submit::JournalState::Signed)
-                });
-                if signed {
-                    let _ = pipeline.watcher.transition(request_id, WorkStage::Signed);
-                } else if pipeline.exchange.ready(request_id, &set).is_none() {
-                    let _ = pipeline
-                        .watcher
-                        .fail(request_id, false, "peer quorum unavailable");
-                }
-            }
-            Err(error) => {
-                if pipeline.submitter.as_ref().is_some_and(|submitter| {
-                    submitter
-                        .journal()
-                        .load(request_id)
-                        .ok()
-                        .flatten()
-                        .is_some_and(|row| row.state == submit::JournalState::Signed)
-                }) {
-                    let _ = pipeline.watcher.transition(request_id, WorkStage::Signed);
-                }
-                let _ = pipeline.watcher.fail(request_id, false, &error);
-                eprintln!("x-websearch request {request_id} with {held} signatures: {error}");
-            }
-        }
+        settle_pending_request(pipeline, &journal, &set, request_id);
     }
     watched
 }

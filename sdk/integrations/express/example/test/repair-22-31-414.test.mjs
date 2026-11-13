@@ -141,7 +141,7 @@ async function repair_22_31_414_paid_route_reopens_and_replays_receipt(t) {
   const stored = JSON.parse(persisted);
   assert.match(stored.requestDigest, /^[0-9a-f]{64}$/u);
   assert.deepEqual(stored, {
-    ...receipt, idempotencyKey, requestDigest: stored.requestDigest,
+    ...payload.payload, txHash: receipt.txHash, idempotencyKey, requestDigest: stored.requestDigest,
     resource: { contentType: "application/json", body: resourceBody },
   });
   assert.deepEqual(await repository.get(idempotencyKey), stored);

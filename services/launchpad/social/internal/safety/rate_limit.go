@@ -5,10 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"github.com/redis/go-redis/v9"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type RateLimited struct {
@@ -57,7 +58,7 @@ func (l *AbuseLimiter) Take(ctx context.Context, wallet, kind, resource string, 
 		args = append(args, limit, span.Milliseconds())
 	}
 	switch kind {
-	case "pool":
+	case poolResource:
 		add("room:"+suffix, 10, time.Minute)
 		add("global", 60, time.Minute)
 	case "dm":

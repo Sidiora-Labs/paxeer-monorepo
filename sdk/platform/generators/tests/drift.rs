@@ -3,6 +3,7 @@
 mod pipeline;
 
 use std::collections::BTreeSet;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -112,49 +113,7 @@ fn repo_fixture(label: &str) -> PathBuf {
         "sdk/platform/generators/receipt.kvx",
         "[receipt]\nprogram_outcome = \"optional\"\nprograms_module_id = 9\nprogram_outcome_tags = [\"50524731\", \"50524732\", \"50524733\", \"50524734\"]\nrequired_nonzero = [\"global-sequence\", \"module-id\", \"module-version\", \"timestamp\", \"activity-id\", \"resulting-state-root\"]\nfailure_checks = [\"decode\", \"canonical-encoding\", \"receipt-shape\", \"missing-signature\", \"protocol-version\", \"result-code\", \"operation\", \"activity-id\", \"global-sequence\", \"module-id\", \"module-version\", \"timestamp\", \"batch-id\", \"asset\", \"previous-state-root\", \"resulting-state-root\", \"debit-balance\", \"credit-balance\", \"program-outcome\", \"sequencer-signature\"]\n",
     );
-    place(&root, "services/agent/schema/agent-api/v1.kvx", "[schema]\nincludes = [\"errors.kvx\",\"approval.kvx\",\"stream.kvx\",\"programs.kvx\"]\n\n[scalar.Amount]\nrust = \"u128\"\n");
-    place(&root, "services/agent/schema/agent-api/errors.kvx", "[operation.agent.register]\nrequest = \"Register\"\nresponse = \"Registered\"\n\n[mutation.agent.register]\nenvelope = \"IdempotentMutation\"\n\n[type.ErrorClass]\nvariants = [\"TransportFailure\"]\n\n[type.Retriability]\nvariants = [\"Terminal\"]\n");
-    place(
-        &root,
-        "services/agent/schema/agent-api/approval.kvx",
-        "[type.ApprovalLifecycleEvent]\nvariants = [\"Created\"]\n\n[type.ApprovalState]\nvariants = [\"Held\"]\n\n[type.ApprovalDecisionOutcome]\nvariants = [\"Granted\"]\n",
-    );
-    place(
-        &root,
-        "services/agent/schema/agent-api/stream.kvx",
-        "[type.Delivery]\nvariants = [\"Event\"]\n",
-    );
-    place(
-        &root,
-        "services/agent/schema/agent-api/programs.kvx",
-        "[operation.program.discover]\nrequest = \"ProgramSelector\"\nresponse = \"VerifiedProgramDiscovery\"\n\n[operation.program.interface]\nrequest = \"ProgramSelector\"\nresponse = \"VerifiedProgramInterface\"\n\n[operation.program.simulate]\nrequest = \"ProgramCallRequest\"\nresponse = \"ProgramSimulation\"\n\n[operation.program.call]\nrequest = \"ProgramCallRequest\"\nrequired = [\"idempotency_key\"]\nresponse = \"ProgramSubmission\"\n\n[operation.program.receipt]\nrequest = \"ProgramReceiptSelector\"\nresponse = \"ProgramSubmission\"\n\n[operation.program.activity]\nrequest = \"ProgramActivitySelector\"\nresponse = \"ProgramSubmission\"\n\n[type.ProgramGuestAbi]\nvariants = [\"ABI_V1_VERSION\",\"ABI_V2_VERSION\",\"ABI_V3_VERSION\",\"ABI_V4_VERSION\",\"ABI_V5_VERSION\"]\nwire_values = [\"1\",\"2\",\"3\",\"4\",\"5\"]\nsource_policy = \"programs/sdk/rust/src/abi_policy.rs\"\ncapability_encoding = [\"V1\",\"V2\",\"V2\",\"V2\",\"V2\"]\n\n[type.ProgramExecutionV4]\nencoding_version = 4\ndomain = \"LXP/program-execution/v4\"\ndomain_terminator_hex = \"00\"\nallowed_guest_abis = [\"ABI_V2_VERSION\"]\n\n[type.ProgramExecutionV5]\nencoding_version = 5\ndomain = \"LXP/program-execution/v5\"\ndomain_terminator_hex = \"00\"\nallowed_guest_abis = [\"ABI_V3_VERSION\",\"ABI_V4_VERSION\",\"ABI_V5_VERSION\"]\n",
-    );
-    place(
-        &root,
-        "services/agent/schema/agent-api/golden/version-request.hex",
-        "00ff\n",
-    );
-    place(&root, "services/human/schema/human-api/v1.kvx", "[schema]\nincludes = [\"errors.kvx\",\"journeys.kvx\",\"stream.kvx\"]\n\n[operation.version]\nmethod = \"GET\"\npath = \"/v1/version\"\nrequest = \"Empty\"\nresponse = \"VersionInfo\"\n");
-    place(
-        &root,
-        "services/human/schema/human-api/errors.kvx",
-        "[type.ErrorCode]\nvariants = [\"unavailable\"]\n\n[type.Retriability]\nvariants = [\"retriable\"]\n",
-    );
-    place(
-        &root,
-        "services/human/schema/human-api/journeys.kvx",
-        "[type.JourneyKind]\nvariants = [\"onboarding\"]\n\n[type.JourneyState]\nvariants = [\"processing\"]\n\n[type.VerificationLevel]\nvariants = [\"unverified\"]\n\n[type.ApprovalState]\nvariants = [\"pending\"]\n",
-    );
-    place(
-        &root,
-        "services/human/schema/human-api/stream.kvx",
-        "[type.StreamEventKind]\nvariants = [\"journey-progress\"]\n",
-    );
-    place(
-        &root,
-        "services/human/schema/human-api/golden/account.create.request.json",
-        "{}\n",
-    );
+    place_schema_fixture(&root);
     let contract = include_str!("../../../../services/agent/schema/agent-api/v1.kvx")
         .split("\n[record.VerificationStatus]\n")
         .nth(1)
@@ -163,10 +122,57 @@ fn repo_fixture(label: &str) -> PathBuf {
     let schema_path = root.join("services/agent/schema/agent-api/v1.kvx");
     let mut schema = fs::read_to_string(&schema_path)
         .unwrap_or_else(|error| panic!("read fixture schema: {error}"));
-    schema.push_str(&format!("\n[record.VerificationStatus]\n{contract}\n"));
+    write!(schema, "\n[record.VerificationStatus]\n{contract}\n")
+        .unwrap_or_else(|error| panic!("append fixture schema: {error}"));
     fs::write(schema_path, schema).unwrap_or_else(|error| panic!("write fixture schema: {error}"));
     place_generated_fixture(&root);
     root
+}
+
+fn place_schema_fixture(root: &Path) {
+    place(root, "services/agent/schema/agent-api/v1.kvx", "[schema]\nincludes = [\"errors.kvx\",\"approval.kvx\",\"stream.kvx\",\"programs.kvx\"]\n\n[scalar.Amount]\nrust = \"u128\"\n");
+    place(root, "services/agent/schema/agent-api/errors.kvx", "[operation.agent.register]\nrequest = \"Register\"\nresponse = \"Registered\"\n\n[mutation.agent.register]\nenvelope = \"IdempotentMutation\"\n\n[type.ErrorClass]\nvariants = [\"TransportFailure\"]\n\n[type.Retriability]\nvariants = [\"Terminal\"]\n");
+    place(
+        root,
+        "services/agent/schema/agent-api/approval.kvx",
+        "[type.ApprovalLifecycleEvent]\nvariants = [\"Created\"]\n\n[type.ApprovalState]\nvariants = [\"Held\"]\n\n[type.ApprovalDecisionOutcome]\nvariants = [\"Granted\"]\n",
+    );
+    place(
+        root,
+        "services/agent/schema/agent-api/stream.kvx",
+        "[type.Delivery]\nvariants = [\"Event\"]\n",
+    );
+    place(
+        root,
+        "services/agent/schema/agent-api/programs.kvx",
+        "[operation.program.discover]\nrequest = \"ProgramSelector\"\nresponse = \"VerifiedProgramDiscovery\"\n\n[operation.program.interface]\nrequest = \"ProgramSelector\"\nresponse = \"VerifiedProgramInterface\"\n\n[operation.program.simulate]\nrequest = \"ProgramCallRequest\"\nresponse = \"ProgramSimulation\"\n\n[operation.program.call]\nrequest = \"ProgramCallRequest\"\nrequired = [\"idempotency_key\"]\nresponse = \"ProgramSubmission\"\n\n[operation.program.receipt]\nrequest = \"ProgramReceiptSelector\"\nresponse = \"ProgramSubmission\"\n\n[operation.program.activity]\nrequest = \"ProgramActivitySelector\"\nresponse = \"ProgramSubmission\"\n\n[type.ProgramGuestAbi]\nvariants = [\"ABI_V1_VERSION\",\"ABI_V2_VERSION\",\"ABI_V3_VERSION\",\"ABI_V4_VERSION\",\"ABI_V5_VERSION\"]\nwire_values = [\"1\",\"2\",\"3\",\"4\",\"5\"]\nsource_policy = \"programs/sdk/rust/src/abi_policy.rs\"\ncapability_encoding = [\"V1\",\"V2\",\"V2\",\"V2\",\"V2\"]\n\n[type.ProgramExecutionV4]\nencoding_version = 4\ndomain = \"LXP/program-execution/v4\"\ndomain_terminator_hex = \"00\"\nallowed_guest_abis = [\"ABI_V2_VERSION\"]\n\n[type.ProgramExecutionV5]\nencoding_version = 5\ndomain = \"LXP/program-execution/v5\"\ndomain_terminator_hex = \"00\"\nallowed_guest_abis = [\"ABI_V3_VERSION\",\"ABI_V4_VERSION\",\"ABI_V5_VERSION\"]\n",
+    );
+    place(
+        root,
+        "services/agent/schema/agent-api/golden/version-request.hex",
+        "00ff\n",
+    );
+    place(root, "services/human/schema/human-api/v1.kvx", "[schema]\nincludes = [\"errors.kvx\",\"journeys.kvx\",\"stream.kvx\"]\n\n[operation.version]\nmethod = \"GET\"\npath = \"/v1/version\"\nrequest = \"Empty\"\nresponse = \"VersionInfo\"\n");
+    place(
+        root,
+        "services/human/schema/human-api/errors.kvx",
+        "[type.ErrorCode]\nvariants = [\"unavailable\"]\n\n[type.Retriability]\nvariants = [\"retriable\"]\n",
+    );
+    place(
+        root,
+        "services/human/schema/human-api/journeys.kvx",
+        "[type.JourneyKind]\nvariants = [\"onboarding\"]\n\n[type.JourneyState]\nvariants = [\"processing\"]\n\n[type.VerificationLevel]\nvariants = [\"unverified\"]\n\n[type.ApprovalState]\nvariants = [\"pending\"]\n",
+    );
+    place(
+        root,
+        "services/human/schema/human-api/stream.kvx",
+        "[type.StreamEventKind]\nvariants = [\"journey-progress\"]\n",
+    );
+    place(
+        root,
+        "services/human/schema/human-api/golden/account.create.request.json",
+        "{}\n",
+    );
 }
 
 fn place_generated_fixture(root: &Path) {
@@ -234,6 +240,10 @@ fn place_generated_fixture(root: &Path) {
         "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java",
         include_str!("../../jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"),
     );
+    place_generated_conformance_fixture(root);
+}
+
+fn place_generated_conformance_fixture(root: &Path) {
     place(
         root,
         "sdk/platform/conformance/jvm.kvx",
@@ -472,9 +482,11 @@ fn lock_missing_an_output_fails_the_gate() {
 fn declare_handwritten(root: &Path, output: &str, relative: &str) {
     let path = lock_path(root);
     let mut text = fs::read_to_string(&path).unwrap_or_else(|error| panic!("read lock: {error}"));
-    text.push_str(&format!(
+    write!(
+        text,
         "\n[handwritten.{output}]\n\"{relative}\" = \"handwritten\"\n"
-    ));
+    )
+    .unwrap_or_else(|error| panic!("append handwritten declaration: {error}"));
     fs::write(&path, text).unwrap_or_else(|error| panic!("declare handwritten: {error}"));
 }
 
@@ -730,9 +742,9 @@ fn rust_operation_catalogue_matches_the_repository_schema() {
     let transport = sections
         .iter()
         .filter(|(_, entries)| {
-            !entries
+            entries
                 .get("disposition")
-                .is_some_and(|disposition| disposition == "\"retired\"")
+                .is_none_or(|disposition| disposition != "\"retired\"")
         })
         .map(|(section, _)| section)
         .filter_map(|section| section.strip_prefix("transport.agent_http.operation."))
@@ -883,6 +895,47 @@ fn repository_python_discovery_files_are_declared() {
     }
 }
 
+fn conformance_output(pipeline: &pipeline::Pipeline) -> pipeline::OutputState {
+    let mut output = pipeline
+        .outputs
+        .iter()
+        .find(|output| output.name == "platform-conformance")
+        .unwrap_or_else(|| panic!("no platform-conformance output"))
+        .clone();
+    output.files.sort_by(|left, right| left.0.cmp(&right.0));
+    output
+}
+
+fn assert_conformance_preserved(
+    root: &Path,
+    declared: &pipeline::OutputState,
+    fixtures: &[(String, Vec<u8>)],
+) {
+    let source = fs::read_to_string(lock_path(root))
+        .unwrap_or_else(|error| panic!("read copied inventory: {error}"));
+    let inventory =
+        parse_lock(&source).unwrap_or_else(|error| panic!("parse copied inventory: {error}"));
+    assert_eq!(
+        conformance_output(&inventory),
+        *declared,
+        "regeneration must preserve conformance outputs and handwritten declarations"
+    );
+    let live = capture(root).unwrap_or_else(|error| panic!("capture real pipeline copy: {error}"));
+    assert_eq!(
+        conformance_output(&live),
+        *declared,
+        "capture must classify the real corpora as handwritten"
+    );
+    for (relative, bytes) in fixtures {
+        assert_eq!(
+            &fs::read(root.join(relative))
+                .unwrap_or_else(|error| panic!("read copied fixture {relative}: {error}")),
+            bytes,
+            "producer fixture {relative} must remain byte-identical"
+        );
+    }
+}
+
 #[test]
 fn ucp_checkout_fixture_classification_survives_check_and_write() {
     let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
@@ -890,23 +943,13 @@ fn ucp_checkout_fixture_classification_survives_check_and_write() {
         .unwrap_or_else(|error| panic!("read committed pipeline: {error}"));
     let committed =
         parse_lock(&source).unwrap_or_else(|error| panic!("parse committed pipeline: {error}"));
-    let conformance = |pipeline: &pipeline::Pipeline| {
-        let mut output = pipeline
-            .outputs
-            .iter()
-            .find(|output| output.name == "platform-conformance")
-            .unwrap_or_else(|| panic!("no platform-conformance output"))
-            .clone();
-        output.files.sort_by(|left, right| left.0.cmp(&right.0));
-        output
-    };
     let receipts = [
         "fixtures/receipt-sequencer-v1.json",
         "fixtures/sequencer-receipt-fee-token-v1.json",
         "fixtures/sequencer-receipt-v1.json",
         "fixtures/ucp-checkout-receipt-v1.json",
     ];
-    let declared = conformance(&committed);
+    let declared = conformance_output(&committed);
     for relative in receipts {
         assert!(
             declared.handwritten.iter().any(|path| path == relative),
@@ -919,62 +962,16 @@ fn ucp_checkout_fixture_classification_survives_check_and_write() {
     }
 
     let root = directory("ucp-checkout-classification");
-    let listing = Command::new("git")
-        .arg("-C")
-        .arg(&repository)
-        .args([
-            "ls-files",
-            "-z",
-            "--",
-            "services/agent/schema/agent-api",
-            "services/human/schema/human-api",
-            "services/agent/tools/sdk-gen",
-            "services/human/tools/api-gen",
-            "services/agent/crates/layerx-agent-api/src",
-            "services/agent/crates/layerx-sdk/src",
-            "services/agent/sdk",
-            "apps/web/src/api/generated",
-            "sdk/platform",
-            "programs/sdk/rust/src/abi_policy.rs",
-            "precompiles/layerxprograms/abi.json",
-        ])
-        .output()
-        .unwrap_or_else(|error| panic!("list real pipeline inputs: {error}"));
-    assert!(
-        listing.status.success(),
-        "list real pipeline inputs: {listing:?}"
-    );
-    let listing = String::from_utf8(listing.stdout)
-        .unwrap_or_else(|error| panic!("decode real pipeline paths: {error}"));
-    let mut fixtures = Vec::new();
-    for relative in listing.split('\0').filter(|path| !path.is_empty()) {
-        let destination = root.join(relative);
-        fs::create_dir_all(
-            destination
-                .parent()
-                .unwrap_or_else(|| panic!("no parent for {relative}")),
-        )
-        .unwrap_or_else(|error| panic!("create parent for {relative}: {error}"));
-        fs::copy(repository.join(relative), destination)
-            .unwrap_or_else(|error| panic!("copy real pipeline input {relative}: {error}"));
-        if relative.starts_with("sdk/platform/conformance/fixtures/") {
-            let bytes = fs::read(repository.join(relative))
+    copy_real_pipeline_inputs(&repository, &root);
+    let fixtures = receipts
+        .iter()
+        .map(|relative| {
+            let path = format!("sdk/platform/conformance/{relative}");
+            let bytes = fs::read(repository.join(&path))
                 .unwrap_or_else(|error| panic!("read producer fixture {relative}: {error}"));
-            fixtures.push((relative.to_owned(), bytes));
-        }
-    }
-    for arguments in [
-        ["init", "-q"].as_slice(),
-        ["add", "--force", "--", "."].as_slice(),
-    ] {
-        let output = Command::new("git")
-            .arg("-C")
-            .arg(&root)
-            .args(arguments)
-            .output()
-            .unwrap_or_else(|error| panic!("git {arguments:?}: {error}"));
-        assert!(output.status.success(), "git {arguments:?}: {output:?}");
-    }
+            (path, bytes)
+        })
+        .collect::<Vec<_>>();
     for relative in receipts {
         assert!(
             fixtures
@@ -992,38 +989,12 @@ fn ucp_checkout_fixture_classification_survives_check_and_write() {
         "UCP corpus must come from the sequencer receipt producer"
     );
 
-    let assert_preserved = || {
-        let source = fs::read_to_string(lock_path(&root))
-            .unwrap_or_else(|error| panic!("read copied inventory: {error}"));
-        let inventory =
-            parse_lock(&source).unwrap_or_else(|error| panic!("parse copied inventory: {error}"));
-        assert_eq!(
-            conformance(&inventory),
-            declared,
-            "regeneration must preserve conformance outputs and handwritten declarations"
-        );
-        let live =
-            capture(&root).unwrap_or_else(|error| panic!("capture real pipeline copy: {error}"));
-        assert_eq!(
-            conformance(&live),
-            declared,
-            "capture must classify the real corpora as handwritten"
-        );
-        for (relative, bytes) in &fixtures {
-            assert_eq!(
-                &fs::read(root.join(relative))
-                    .unwrap_or_else(|error| panic!("read copied fixture {relative}: {error}")),
-                bytes,
-                "producer fixture {relative} must remain byte-identical"
-            );
-        }
-    };
-    assert_preserved();
+    assert_conformance_preserved(&root, &declared, &fixtures);
     check(&root, &lock_path(&root))
         .unwrap_or_else(|error| panic!("check before regeneration: {error}"));
     write_lock(&root, &lock_path(&root))
         .unwrap_or_else(|error| panic!("regenerate with UCP declaration: {error}"));
-    assert_preserved();
+    assert_conformance_preserved(&root, &declared, &fixtures);
     check(&root, &lock_path(&root))
         .unwrap_or_else(|error| panic!("check after regeneration: {error}"));
     let regenerated = fs::read_to_string(lock_path(&root))
@@ -1172,13 +1143,10 @@ fn jvm_verification_status_regeneration_preserves_other_models() {
     fs::remove_dir_all(root).unwrap_or_else(|error| panic!("remove fixture: {error}"));
 }
 
-#[test]
-fn jvm_generators_agree_on_verification_status() {
-    let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
-    let root = directory("jvm-generators-agree");
+fn copy_real_pipeline_inputs(repository: &Path, root: &Path) {
     let listing = Command::new("git")
         .arg("-C")
-        .arg(&repository)
+        .arg(repository)
         .args([
             "ls-files",
             "-z",
@@ -1216,7 +1184,7 @@ fn jvm_generators_agree_on_verification_status() {
     }
     let initialized = Command::new("git")
         .arg("-C")
-        .arg(&root)
+        .arg(root)
         .args(["init", "-q"])
         .output()
         .unwrap_or_else(|error| panic!("initialize real pipeline copy: {error}"));
@@ -1226,7 +1194,7 @@ fn jvm_generators_agree_on_verification_status() {
     );
     let indexed = Command::new("git")
         .arg("-C")
-        .arg(&root)
+        .arg(root)
         .args(["add", "--force", "--", "."])
         .output()
         .unwrap_or_else(|error| panic!("index real pipeline copy: {error}"));
@@ -1234,6 +1202,90 @@ fn jvm_generators_agree_on_verification_status() {
         indexed.status.success(),
         "index real pipeline copy: {indexed:?}"
     );
+}
+
+fn assert_unsupported_jvm_contracts(
+    root: &Path,
+    python: &impl Fn(&[&str]) -> std::process::Output,
+) {
+    let schema_path = root.join("services/agent/schema/agent-api/v1.kvx");
+    let schema = fs::read_to_string(&schema_path)
+        .unwrap_or_else(|error| panic!("read live VerificationStatus contract: {error}"));
+    for (supported, unsupported) in [
+        (r#"state:\"pending\""#, r#"state:\"unknown\""#),
+        (
+            "submitted, receipted, committed",
+            "submitted, receipted, finalized",
+        ),
+        (
+            "achieved strictly below requested",
+            "achieved at or below requested",
+        ),
+    ] {
+        let changed = schema.replace(supported, unsupported);
+        assert_ne!(
+            changed, schema,
+            "unsupported-contract mutation must change the real schema"
+        );
+        fs::write(&schema_path, changed).unwrap_or_else(|error| {
+            panic!("write unsupported VerificationStatus contract: {error}")
+        });
+        let rejected = python(&["--verification-status"]);
+        assert!(
+            !rejected.status.success(),
+            "Python accepted an unsupported contract"
+        );
+        assert!(String::from_utf8_lossy(&rejected.stderr)
+            .contains("unsupported VerificationStatus contract"));
+        let rejected = pipeline::jvm_verification_status(root)
+            .err()
+            .unwrap_or_else(|| panic!("Rust accepted an unsupported contract"));
+        assert!(rejected.contains("unsupported VerificationStatus contract"));
+    }
+}
+
+fn assert_missing_jvm_verification_status(
+    root: &Path,
+    relative: &str,
+    fresh: &str,
+    declaration: &str,
+    python: &impl Fn(&[&str]) -> std::process::Output,
+    sdkgen: &impl Fn(&str) -> std::process::Output,
+) {
+    let removed = fresh.replace(declaration, "");
+    assert_eq!(
+        missing_jvm_component_types(&removed),
+        BTreeSet::from(["AgentModels.VerificationStatus".to_owned()])
+    );
+    place(root, relative, &removed);
+    let python_check = python(&["--check"]);
+    assert!(
+        !python_check.status.success(),
+        "Python accepted missing VerificationStatus"
+    );
+    assert!(
+        String::from_utf8_lossy(&python_check.stderr).contains("generated JVM schema is stale"),
+        "Python must report JVM output drift: {python_check:?}"
+    );
+    let rust_check = sdkgen("--check");
+    assert!(
+        !rust_check.status.success(),
+        "sdkgen accepted missing VerificationStatus"
+    );
+    let diagnostic = String::from_utf8_lossy(&rust_check.stderr);
+    assert!(
+        diagnostic.contains("generated jvm file")
+            && diagnostic.contains("GeneratedSchema.java")
+            && diagnostic.contains("stale or hand-edited"),
+        "sdkgen must report JVM output drift: {rust_check:?}"
+    );
+}
+
+#[test]
+fn jvm_generators_agree_on_verification_status() {
+    let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let root = directory("jvm-generators-agree");
+    copy_real_pipeline_inputs(&repository, &root);
 
     let python = |arguments: &[&str]| {
         Command::new("python3")
@@ -1305,67 +1357,7 @@ fn jvm_generators_agree_on_verification_status() {
         "sdkgen --check: {rust_check:?}"
     );
 
-    let removed = fresh.replace(&declaration, "");
-    assert_eq!(
-        missing_jvm_component_types(&removed),
-        BTreeSet::from(["AgentModels.VerificationStatus".to_owned()])
-    );
-    place(&root, relative, &removed);
-    let python_check = python(&["--check"]);
-    assert!(
-        !python_check.status.success(),
-        "Python accepted missing VerificationStatus"
-    );
-    assert!(
-        String::from_utf8_lossy(&python_check.stderr).contains("generated JVM schema is stale"),
-        "Python must report JVM output drift: {python_check:?}"
-    );
-    let rust_check = sdkgen("--check");
-    assert!(
-        !rust_check.status.success(),
-        "sdkgen accepted missing VerificationStatus"
-    );
-    let diagnostic = String::from_utf8_lossy(&rust_check.stderr);
-    assert!(
-        diagnostic.contains("generated jvm file")
-            && diagnostic.contains("GeneratedSchema.java")
-            && diagnostic.contains("stale or hand-edited"),
-        "sdkgen must report JVM output drift: {rust_check:?}"
-    );
-
-    let schema_path = root.join("services/agent/schema/agent-api/v1.kvx");
-    let schema = fs::read_to_string(&schema_path)
-        .unwrap_or_else(|error| panic!("read live VerificationStatus contract: {error}"));
-    for (supported, unsupported) in [
-        (r#"state:\"pending\""#, r#"state:\"unknown\""#),
-        (
-            "submitted, receipted, committed",
-            "submitted, receipted, finalized",
-        ),
-        (
-            "achieved strictly below requested",
-            "achieved at or below requested",
-        ),
-    ] {
-        let changed = schema.replace(supported, unsupported);
-        assert_ne!(
-            changed, schema,
-            "unsupported-contract mutation must change the real schema"
-        );
-        fs::write(&schema_path, changed).unwrap_or_else(|error| {
-            panic!("write unsupported VerificationStatus contract: {error}")
-        });
-        let rejected = python(&["--verification-status"]);
-        assert!(
-            !rejected.status.success(),
-            "Python accepted an unsupported contract"
-        );
-        assert!(String::from_utf8_lossy(&rejected.stderr)
-            .contains("unsupported VerificationStatus contract"));
-        let rejected = pipeline::jvm_verification_status(&root)
-            .err()
-            .unwrap_or_else(|| panic!("Rust accepted an unsupported contract"));
-        assert!(rejected.contains("unsupported VerificationStatus contract"));
-    }
+    assert_missing_jvm_verification_status(&root, relative, &fresh, &declaration, &python, &sdkgen);
+    assert_unsupported_jvm_contracts(&root, &python);
     fs::remove_dir_all(root).unwrap_or_else(|error| panic!("remove real pipeline copy: {error}"));
 }

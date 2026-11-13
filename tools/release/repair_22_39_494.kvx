@@ -1,0 +1,4 @@
+[repair.22.39.494]
+role = "ChainLaunch is served by the launchpad precompile at 0x1017."
+readers = ["check_launchpad_interface", "test_launchpad_abis_match_golden", "test_zero_argument_calldata_of_every_function"]
+expectation = "The thirteen ChainLaunch selectors in the ABI match the launchpad golden file and participate in calldata checks."

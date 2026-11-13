@@ -12,9 +12,7 @@ mod application {
         }
 
         pub(super) fn state_clock(mut self, clock: fn() -> Result<u64, String>) -> Self {
-            Arc::get_mut(&mut self.0)
-                .expect("configuration has not been shared")
-                .state_clock = clock;
+            Arc::get_mut(&mut self.0).unwrap_or_else(|| panic!("configuration has not been shared")).state_clock = clock;
             self
         }
 
@@ -28,6 +26,10 @@ pub struct Server(application::Application);
 
 impl Server {
     /// Loads the production gateway configuration, including independent identity credentials.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when required gateway configuration is unavailable or invalid.
     pub fn from_environment() -> Result<Self, String> {
         application::Application::configured().map(Self)
     }
@@ -40,6 +42,10 @@ impl Server {
     }
 
     /// Serves an accepted connection through the production parser, authentication and router.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the connection cannot be served by the gateway.
     pub fn serve_connection(&self, tcp: std::net::TcpStream) -> Result<(), String> {
         self.0.serve(tcp)
     }

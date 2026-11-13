@@ -4,6 +4,7 @@ pub use layerx_programs_ai_market::{codec, errors, types, MAX_STATE_BYTES};
 pub mod reputation;
 #[path = "../src/reputation_codec.rs"]
 mod reputation_codec;
+#[allow(dead_code)]
 #[path = "../src/reputation_transition.rs"]
 mod reputation_transition;
 use errors::*;

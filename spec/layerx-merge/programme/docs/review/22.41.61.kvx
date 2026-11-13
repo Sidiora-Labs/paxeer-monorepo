@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.61"
+pages = 20
+
+[page.1]
+path = "docs/hyperfide/runtime/sidebar-warning-banners.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/hyperfide/runtime/source-control.md"
+status = "reviewed"
+
+[page.3]
+path = "docs/hyperfide/runtime/system-overview.md"
+status = "corrected"
+
+[page.4]
+path = "docs/hyperfide/runtime/testing.md"
+status = "reviewed"
+
+[page.5]
+path = "docs/hyperfide/runtime/timeline-pagination.md"
+status = "reviewed"
+
+[page.6]
+path = "docs/hyperfide/runtime/ui-code-splitting.md"
+status = "reviewed"
+
+[page.7]
+path = "docs/hyperfide/runtime/vcs-process-admission.md"
+status = "reviewed"
+
+[page.8]
+path = "docs/hyperfide/runtime/windows-ci.md"
+status = "reviewed"
+
+[page.9]
+path = "docs/hyperfide/runtime/worktrees.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/hyperfide/sync.md"
+status = "corrected"
+
+[page.11]
+path = "docs/hyperfide/verification/manual-runbook.md"
+status = "corrected"
+
+[page.12]
+path = "docs/hyperfide/verification/provider-permission-mode-runbook.md"
+status = "corrected"
+
+[page.13]
+path = "docs/interop/PORTABILITY.md"
+status = "corrected"
+
+[page.14]
+path = "docs/launchpad/chain-launch.md"
+status = "corrected"
+
+[page.15]
+path = "docs/launchpad/production-checklist.md"
+status = "corrected"
+
+[page.16]
+path = "docs/paxeer-chain-docs.md"
+status = "corrected"
+
+[page.17]
+path = "docs/paxeer-network.md"
+status = "corrected"
+
+[page.18]
+path = "docs/perps-abi-change-history.md"
+status = "corrected"
+
+[page.19]
+path = "docs/perps/data-api.md"
+status = "corrected"
+
+[page.20]
+path = "docs/platform/README.md"
+status = "corrected"

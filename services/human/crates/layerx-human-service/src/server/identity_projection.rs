@@ -12,7 +12,18 @@ use sha2::Digest as _;
 // Keep the provider client source reusable without a parent server module.
 // Both contexts use the same checked UTC conversion implementation.
 #[path = "../time.rs"]
-mod api_time;
+pub(crate) mod api_time;
+
+fn hex_lower(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut result = String::with_capacity(bytes.len().saturating_mul(2));
+    for byte in bytes {
+        result.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        result.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    result
+}
+
 fn corrupt() -> IdentityDispatchError {
     IdentityDispatchError::Corrupt
 }
@@ -60,7 +71,7 @@ pub(crate) fn onboarding_status(
         let evidence = stage.evidence().iter().map(|item| {
             let stored = scope.get(Table::Journeys, item.row()).ok_or_else(corrupt)?;
             let digest = sha2::Sha256::digest(stored.bytes());
-            let id = digest.iter().map(|byte| format!("{byte:02x}")).collect::<String>();
+            let id = hex_lower(&digest);
             Ok(json!({"evidence_id": format!("evd_{id}"),
                 "class": match item.class() { EvidenceClass::LocalJourneyState | EvidenceClass::CustodyKey => "local-journey-state",
                     EvidenceClass::LayerxReceipt => "layerx-receipt", EvidenceClass::SubmissionRecord => "submission-record" },
@@ -85,10 +96,7 @@ pub(crate) fn onboarding_status(
             .ok_or_else(corrupt)
             .and_then(unix_time)
     };
-    let action = action
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let action = hex_lower(&action);
     Ok(
         json!({"journey_id": format!("jrn_{action}"), "kind":"onboarding", "state":state,
         "state_copy_key":format!("journey.state.{state}"), "stages":stages,"evidence":all_evidence,
@@ -98,11 +106,9 @@ pub(crate) fn onboarding_status(
 
 fn stage_state(value: StageState) -> &'static str {
     match value {
-        StageState::GettingReady => "getting-ready",
-        StageState::LocalComplete => "processing",
-        StageState::Queued { .. } => "getting-ready",
+        StageState::GettingReady | StageState::Queued { .. } => "getting-ready",
         StageState::Sending => "sending",
-        StageState::Processing => "processing",
+        StageState::Processing | StageState::LocalComplete => "processing",
         StageState::StillChecking => "still-checking",
         StageState::ReceiptVerified => "done",
         StageState::Refused { .. } => "refused",

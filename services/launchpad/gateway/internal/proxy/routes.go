@@ -6,6 +6,30 @@ import (
 	"strings"
 )
 
+const (
+	putDeleteMethods      = "PUT DELETE"
+	userServiceName       = "user"
+	batchProfilesRoute    = "/v2/profiles:batch"
+	getPatchMethods       = "GET PATCH"
+	getPostMethods        = "GET POST"
+	patchDeleteMethods    = "PATCH DELETE"
+	postMethod            = "POST"
+	metadataServiceName   = "metadata"
+	streamSubprotocol     = "sidiora.v2"
+	followingRoute        = "/v2/me/following/{wallet}"
+	profileRoute          = "/v2/profiles/{wallet}"
+	streamSocketRoute     = "/v2/stream"
+	streamsRoute          = "/v2/streams"
+	ingestKeyRoute        = "/v2/streams/{streamId}/ingest-key"
+	v3ProfileRoute        = "/v3/profiles/{wallet}"
+	getMethod             = "GET"
+	putMethod             = "PUT"
+	gatewayServiceName    = "gateway"
+	httpsScheme           = "https"
+	livestreamServiceName = "livestream"
+	socialServiceName     = "social"
+)
+
 // RouteInventory is compiled from the frozen API by the serial integrator.
 // There is no wildcard catch-all and public admin routes are never permitted.
 type Route struct{ Method, Template string }
@@ -21,7 +45,7 @@ func NewInventoried(next http.Handler, prefix string, routes []Route) (*Inventor
 	}
 	copyRoutes := append([]Route(nil), routes...)
 	for _, r := range copyRoutes {
-		if !strings.HasPrefix(r.Template, "/") || strings.ContainsAny(r.Template, "*?%") || strings.Contains(r.Template, "..") || strings.HasPrefix(r.Template, "/admin") || (r.Method != "GET" && r.Method != "POST" && r.Method != "PUT" && r.Method != "DELETE" && r.Method != "PATCH") {
+		if !strings.HasPrefix(r.Template, "/") || strings.ContainsAny(r.Template, "*?%") || strings.Contains(r.Template, "..") || strings.HasPrefix(r.Template, "/admin") || (r.Method != getMethod && r.Method != postMethod && r.Method != putMethod && r.Method != "DELETE" && r.Method != "PATCH") {
 			return nil, errors.New("invalid public route")
 		}
 	}

@@ -1,13 +1,16 @@
 include!("repair_22_33_1471.rs");
 
-#[path = "../src/human/budget_state/record.rs"]
-mod record;
+use std::os::unix::fs::OpenOptionsExt as _;
+
+mod record {
+    include!("../src/human/budget_state/record.rs");
+}
 
 fn protected(path: &Path, maximum: u64) -> Vec<u8> {
-    let metadata = fs::symlink_metadata(path).expect("real corpus metadata");
+    let metadata = fs::symlink_metadata(path).must_with("real corpus metadata");
     assert!(metadata.is_file() && metadata.len() > 0 && metadata.len() <= maximum);
     assert_eq!(metadata.permissions().mode() & 0o077, 0);
-    fs::read(path).expect("real protected corpus")
+    fs::read(path).must_with("real protected corpus")
 }
 
 fn bytes(value: &Value) -> Result<Vec<u8>, ()> {
@@ -17,6 +20,30 @@ fn bytes(value: &Value) -> Result<Vec<u8>, ()> {
         return Err(());
     }
     Ok(decoded)
+}
+
+fn verify_fixture_export_digest(
+    state: &Value,
+    proofs: &Value,
+    budget: &[u8],
+    remaining: &[u8],
+    block_hash: [u8; 32],
+) -> Result<(), ()> {
+    let mut evidence = Sha256::new();
+    evidence.update(b"layerx-human/rpc-budget-evidence/v2\0");
+    evidence.update(block_hash);
+    let join = serde_json::to_vec(&proofs["account_join"]).map_err(|_| ())?;
+    for material in [budget, remaining, &join] {
+        evidence.update(u64::try_from(material.len()).map_err(|_| ())?.to_be_bytes());
+        evidence.update(material);
+    }
+    let digest: [u8; 32] = evidence.finalize().into();
+    if bytes(&state["evidence_digest"])? != digest
+        || bytes(&state["receipt_digest"])? != Sha256::digest(budget).as_slice()
+    {
+        return Err(());
+    }
+    Ok(())
 }
 
 fn verify_export(document: &Value, expected_finality: &Value) -> Result<(), ()> {
@@ -112,28 +139,14 @@ fn verify_export(document: &Value, expected_finality: &Value) -> Result<(), ()> 
     {
         return Err(());
     }
-    let mut evidence = Sha256::new();
-    evidence.update(b"layerx-human/rpc-budget-evidence/v2\0");
-    evidence.update(block_hash);
-    let join = serde_json::to_vec(&proofs["account_join"]).map_err(|_| ())?;
-    for material in [&budget, &remaining, &join] {
-        evidence.update(u64::try_from(material.len()).map_err(|_| ())?.to_be_bytes());
-        evidence.update(material);
-    }
-    let digest: [u8; 32] = evidence.finalize().into();
-    if bytes(&state["evidence_digest"])? != digest
-        || bytes(&state["receipt_digest"])? != Sha256::digest(&budget).as_slice()
-    {
-        return Err(());
-    }
-    Ok(())
+    verify_fixture_export_digest(state, proofs, &budget, &remaining, block_hash)
 }
 
 #[test]
 fn real_budget_exports_bind_each_selector_finality_and_tamper_refusals() {
     let corpus = produced_export_corpus();
     let fixture: Value =
-        serde_json::from_slice(&protected(&corpus.path, 65_536)).expect("produced corpus JSON");
+        serde_json::from_slice(&protected(&corpus.path, 65_536)).must_with("produced corpus JSON");
     assert_export_corpus(&fixture);
 }
 
@@ -142,15 +155,17 @@ fn budget_abi_matches_node_precompile_types() {
     let abi: Value = serde_json::from_str(include_str!(
         "../../../../../precompiles/layerxpay/abi.json"
     ))
-    .expect("node ABI");
+    .must_with("node ABI");
     let get = abi
         .as_array()
-        .expect("ABI")
+        .must_with("ABI")
         .iter()
         .find(|row| row["name"] == "getBudget")
-        .expect("getBudget");
+        .must_with("getBudget");
     assert_eq!(get["inputs"][0]["type"], "bytes32");
-    let fields = get["outputs"][0]["components"].as_array().expect("tuple");
+    let fields = get["outputs"][0]["components"]
+        .as_array()
+        .must_with("tuple");
     assert_eq!(fields.len(), 18);
     assert_eq!(fields[16]["type"], "bytes32[]");
     assert_eq!(fields[17]["name"], "sourceAccount");
@@ -167,23 +182,23 @@ impl BudgetReplay {
     fn start(mut answers: Value) -> Self {
         let chain_id: u64 = answers
             .as_array()
-            .expect("fixture answers")
+            .must_with("fixture answers")
             .iter()
             .find(|answer| answer["method"] == "px_getCommit")
-            .expect("fixture signed header")["result"]["signedHeader"]["header"]["chain_id"]
+            .must_with("fixture signed header")["result"]["signedHeader"]["header"]["chain_id"]
             .as_str()
-            .expect("fixture chain ID")
+            .must_with("fixture chain ID")
             .parse()
-            .expect("numeric chain ID");
+            .must_with("numeric chain ID");
         answers
             .as_array_mut()
-            .expect("fixture answers")
+            .must_with("fixture answers")
             .push(serde_json::json!({
                 "method":"eth_chainId", "params":[], "result":format!("{chain_id:#x}")
             }));
-        let listener = TcpListener::bind("127.0.0.1:0").expect("fixture RPC listener");
-        listener.set_nonblocking(true).expect("nonblocking RPC");
-        let address = listener.local_addr().expect("RPC address");
+        let listener = TcpListener::bind("127.0.0.1:0").must_with("fixture RPC listener");
+        listener.set_nonblocking(true).must_with("nonblocking RPC");
+        let address = listener.local_addr().must_with("RPC address");
         let stopped = Arc::new(AtomicBool::new(false));
         let stop = Arc::clone(&stopped);
         let calls = Arc::new(Mutex::new(Vec::new()));
@@ -200,42 +215,42 @@ impl BudgetReplay {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("read deadline");
+                    .must_with("read deadline");
                 stream
                     .set_write_timeout(Some(Duration::from_secs(5)))
-                    .expect("write deadline");
+                    .must_with("write deadline");
                 let mut headers = Vec::new();
                 while !headers.ends_with(b"\r\n\r\n") {
                     assert!(headers.len() < 32_768, "bounded HTTP header");
                     let mut byte = [0];
-                    stream.read_exact(&mut byte).expect("HTTP header");
+                    stream.read_exact(&mut byte).must_with("HTTP header");
                     headers.push(byte[0]);
                 }
-                let headers = String::from_utf8(headers).expect("HTTP text");
+                let headers = String::from_utf8(headers).must_with("HTTP text");
                 let length: usize = headers
                     .lines()
                     .find_map(|line| {
                         let (name, value) = line.split_once(':')?;
                         name.eq_ignore_ascii_case("content-length")
-                            .then(|| value.trim().parse().expect("HTTP length"))
+                            .then(|| value.trim().parse().must_with("HTTP length"))
                     })
-                    .expect("content length");
+                    .must_with("content length");
                 assert!(length <= 1_048_576, "bounded RPC request");
                 let mut body = vec![0; length];
-                stream.read_exact(&mut body).expect("RPC body");
-                let request: Value = serde_json::from_slice(&body).expect("RPC JSON");
+                stream.read_exact(&mut body).must_with("RPC body");
+                let request: Value = serde_json::from_slice(&body).must_with("RPC JSON");
                 let answer = answers
                     .as_array()
-                    .expect("fixture answers")
+                    .must_with("fixture answers")
                     .iter()
                     .find(|answer| {
                         answer["method"] == request["method"]
                             && answer["params"] == request["params"]
                     })
                     .unwrap_or_else(|| panic!("unrecorded RPC: {request}"));
-                requests.lock().expect("calls").push(request.clone());
+                requests.lock().must_with("calls").push(request.clone());
                 let body = serde_json::json!({"jsonrpc":"2.0", "id":request["id"], "result":answer["result"]}).to_string();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).expect("RPC response");
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).must_with("RPC response");
             }
         });
         Self {
@@ -250,9 +265,9 @@ impl BudgetReplay {
         self.stopped.store(true, Ordering::SeqCst);
         self.worker
             .take()
-            .expect("RPC worker")
+            .must_with("RPC worker")
             .join()
-            .expect("fixture RPC replay");
+            .must_with("fixture RPC replay");
     }
 }
 
@@ -265,74 +280,84 @@ impl Drop for BudgetReplay {
     }
 }
 
-#[test]
-fn budget_export_from_the_fixture_answers_equals_the_committed_export() {
+struct BudgetExportFixture {
+    config: Config,
+    replay: BudgetReplay,
+    budget: record::Record,
+    id: String,
+    owner: String,
+    block: Value,
+    vectors: std::path::PathBuf,
+}
+
+fn budget_export_fixture() -> BudgetExportFixture {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(4)
-        .expect("repository root");
+        .must_with("repository root");
     let vectors = root.join("tests/vectors/budget-proof-v2");
     let answers: Value = serde_json::from_slice(
-        &fs::read(vectors.join("node-answers.json")).expect("committed RPC answers"),
+        &fs::read(vectors.join("node-answers.json")).must_with("committed RPC answers"),
     )
-    .expect("fixture JSON");
-    let rows = answers.as_array().expect("answers");
+    .must_with("fixture JSON");
+    let rows = answers.as_array().must_with("answers");
     let budget_answer = rows
         .iter()
         .find(|row| row["method"] == "eth_call")
-        .expect("budget call");
+        .must_with("budget call");
     let calldata = budget_answer["params"][0]["data"]
         .as_str()
-        .expect("budget calldata");
-    let id = &calldata[10..];
+        .must_with("budget calldata");
+    let id = calldata[10..].to_owned();
     let budget = record::Record::from_call(
-        hex::decode32(id).expect("budget id"),
+        hex::decode32(&id).must_with("budget id"),
         &hex::decode(
             budget_answer["result"]
                 .as_str()
-                .expect("budget result")
+                .must_with("budget result")
                 .strip_prefix("0x")
-                .expect("hex prefix"),
+                .must_with("hex prefix"),
         )
-        .expect("result bytes"),
+        .must_with("result bytes"),
     )
-    .expect("fixture budget");
+    .must_with("fixture budget");
     let owner = rows
         .iter()
         .find(|row| row["method"] == "px_getAccount")
-        .expect("owner answer")["params"][0]
+        .must_with("owner answer")["params"][0]
         .as_str()
-        .expect("owner DID");
-    let block = &rows
+        .must_with("owner DID")
+        .to_owned();
+    let block = rows
         .iter()
         .find(|row| row["method"] == "eth_getBlockByNumber")
-        .expect("committed block")["result"];
-    let mut replay = BudgetReplay::start(answers.clone());
+        .must_with("committed block")["result"]
+        .clone();
+    let replay = BudgetReplay::start(answers.clone());
     let url = format!("http://{}", replay.address);
     let mut nonce = [0; 16];
-    getrandom::fill(&mut nonce).expect("temporary file nonce");
+    getrandom::fill(&mut nonce).must_with("temporary file nonce");
     let keys = std::env::temp_dir().join(format!(
         "budget-export-{}-{}.json",
         std::process::id(),
         hex::encode(&nonce)
     ));
-    use std::os::unix::fs::OpenOptionsExt as _;
     let mut file = fs::OpenOptions::new()
         .write(true)
         .create_new(true)
         .mode(0o600)
         .open(&keys)
-        .expect("receipt key file");
+        .must_with("receipt key file");
     let key = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=";
     write!(
         file,
         "{}",
         serde_json::json!([{"keyId":key,"publicKey":key,"firstHeight":0,"lastHeight":u64::MAX}])
     )
-    .expect("receipt key list");
+    .must_with("receipt key list");
     drop(file);
-    let chain_receipts = ChainReceipts::load(&url, &keys).expect("receipt source configuration");
-    fs::remove_file(keys).expect("remove temporary key list");
+    let chain_receipts = ChainReceipts::load(&url, &keys).must_with("receipt source configuration");
+    fs::remove_file(keys).must_with("remove temporary key list");
     let _ = rustls::crypto::ring::default_provider().install_default();
     let tls = ServerConfig::builder()
         .with_no_client_auth()
@@ -355,6 +380,28 @@ fn budget_export_from_the_fixture_answers_equals_the_committed_export() {
         authorization: SequencerAuthorization::new([1; 32], [1; 32], 0, u64::MAX),
         sequencer_public_key: [1; 32],
     };
+    BudgetExportFixture {
+        config,
+        replay,
+        budget,
+        id,
+        owner,
+        block,
+        vectors,
+    }
+}
+
+#[test]
+fn budget_export_from_the_fixture_answers_equals_the_committed_export() {
+    let BudgetExportFixture {
+        config,
+        mut replay,
+        budget,
+        id,
+        owner,
+        block,
+        vectors,
+    } = budget_export_fixture();
     let reference = serde_json::json!({"activity_id":hex::encode(&[1;32]), "receipt_digest":hex::encode(&[1;32])});
     let key_policy = serde_json::json!({"policy_revision":1,"required_delay_seconds":1,"maximum_delay_seconds":1,"effective_sequence":1,"evidence":reference});
     let policy = serde_json::json!({
@@ -367,15 +414,15 @@ fn budget_export_from_the_fixture_answers_equals_the_committed_export() {
         u64::from_str_radix(
             block["timestamp"]
                 .as_str()
-                .expect("block timestamp")
+                .must_with("block timestamp")
                 .strip_prefix("0x")
-                .expect("timestamp prefix"),
+                .must_with("timestamp prefix"),
             16,
         )
-        .expect("timestamp quantity"),
+        .must_with("timestamp quantity"),
     ) * 1000;
     let response = config
-        .fixture_budget_export(&policy, id, timestamp_ms)
+        .fixture_budget_export(&policy, &id, timestamp_ms)
         .unwrap_or_else(|response| {
             panic!(
                 "export refused: {}",
@@ -383,23 +430,23 @@ fn budget_export_from_the_fixture_answers_equals_the_committed_export() {
             )
         });
     assert_eq!(response.status, 200);
-    let document: Value = serde_json::from_slice(&response.body).expect("export JSON");
+    let document: Value = serde_json::from_slice(&response.body).must_with("export JSON");
     let height = u64::from_str_radix(
         block["number"]
             .as_str()
-            .expect("height")
+            .must_with("height")
             .strip_prefix("0x")
-            .expect("height prefix"),
+            .must_with("height prefix"),
         16,
     )
-    .expect("height quantity");
-    let finality = serde_json::json!({"height":height, "block_hash":block["hash"].as_str().expect("hash").strip_prefix("0x").expect("hash prefix"), "app_hash":block["stateRoot"].as_str().expect("root").strip_prefix("0x").expect("root prefix")});
+    .must_with("height quantity");
+    let finality = serde_json::json!({"height":height, "block_hash":block["hash"].as_str().must_with("hash").strip_prefix("0x").must_with("hash prefix"), "app_hash":block["stateRoot"].as_str().must_with("root").strip_prefix("0x").must_with("root prefix")});
     assert!(verify_export(&document, &finality).is_ok());
     assert!(document["proofs"].get("checkpoint_call").is_none());
     assert_eq!(document["budget_state"]["budget_id"], id);
     assert_eq!(document["accounts"]["owner"], hex::encode(&budget.owner));
     let boundary = config
-        .fixture_budget_export(&policy, id, timestamp_ms + 60_000)
+        .fixture_budget_export(&policy, &id, timestamp_ms + 60_000)
         .unwrap_or_else(|response| {
             panic!(
                 "freshness boundary refused: {}",
@@ -408,13 +455,13 @@ fn budget_export_from_the_fixture_answers_equals_the_committed_export() {
         });
     assert_eq!(boundary.body, response.body);
     assert!(config
-        .fixture_budget_export(&policy, id, timestamp_ms + 60_001)
+        .fixture_budget_export(&policy, &id, timestamp_ms + 60_001)
         .is_err());
     assert!(config
-        .fixture_budget_export(&policy, id, timestamp_ms - 1)
+        .fixture_budget_export(&policy, &id, timestamp_ms - 1)
         .is_err());
     replay.finish();
-    let calls = replay.calls.lock().expect("calls");
+    let calls = replay.calls.lock().must_with("calls");
     assert_eq!(
         calls
             .iter()
@@ -428,10 +475,10 @@ fn budget_export_from_the_fixture_answers_equals_the_committed_export() {
         .all(|call| call["params"][1] == format!("{height:#x}")));
     let path = vectors.join("export.json");
     if std::env::var("LAYERX_WRITE_VECTORS").as_deref() == Ok("1") {
-        fs::write(&path, &response.body).expect("write authority export");
+        fs::write(&path, &response.body).must_with("write authority export");
     }
     assert_eq!(
-        fs::read(path).expect("committed authority export"),
+        fs::read(path).must_with("committed authority export"),
         response.body
     );
 }

@@ -240,6 +240,9 @@ struct ModuleDeclaration {
     ordinals: Vec<u16>,
 }
 
+///
+/// # Errors
+/// Returns an error when the requested operation fails validation or storage.
 pub fn load() -> Result<Config, String> {
     validate_listener_mode()?;
     let (sequencer_url, private_network) = sequencer_url()?;
@@ -288,13 +291,7 @@ pub fn load() -> Result<Config, String> {
         .receipt_keys()
         .map_err(|error| format!("sequencer px_getReceiptKeys failed: {error:?}"))?;
     check_receipt_keys(&receipt_keys, &published_receipt_keys)?;
-    let idempotency_seconds = env::var("LAYERX_INTEROP_IDEMPOTENCY_SECONDS")
-        .unwrap_or_else(|_| "604800".to_owned())
-        .parse::<u64>()
-        .map_err(|_| "interop idempotency retention is invalid".to_owned())?;
-    if idempotency_seconds == 0 || idempotency_seconds > MAX_IDEMPOTENCY_SECONDS {
-        return Err("interop idempotency retention exceeds its bound".to_owned());
-    }
+    let idempotency_seconds = idempotency_seconds()?;
     let network_id = required_label("LAYERX_INTEROP_NETWORK_ID", 128)?;
     let wire_version = required_label("LAYERX_INTEROP_WIRE_VERSION", 64)?;
     let protocol_version = wire_version
@@ -310,20 +307,7 @@ pub fn load() -> Result<Config, String> {
     if protocol_network_id == 0 {
         return Err("interop protocol network identifier must be nonzero".to_owned());
     }
-    let readiness_chain_id = env::var("LAYERX_INTEROP_CHAIN_ID")
-        .map_err(|_| "LAYERX_INTEROP_CHAIN_ID is required".to_owned())?
-        .parse::<u64>()
-        .map_err(|_| "interop chain identifier is invalid".to_owned())?;
-    if readiness_chain_id != PAXEER_CHAIN_ID {
-        return Err("interop chain identifier must select Paxeer chain 125".to_owned());
-    }
-    let readiness_max_age_ms = env::var("LAYERX_INTEROP_READINESS_MAX_AGE_MS")
-        .map_err(|_| "LAYERX_INTEROP_READINESS_MAX_AGE_MS is required".to_owned())?
-        .parse::<u64>()
-        .map_err(|_| "interop readiness maximum age is invalid".to_owned())?;
-    if !(1..=30_000).contains(&readiness_max_age_ms) {
-        return Err("interop readiness maximum age exceeds its bound".to_owned());
-    }
+    let (readiness_chain_id, readiness_max_age_ms) = readiness_config()?;
     validate_x402_binding(&manifest.x402_supported, &network_id, &receipt_keys)?;
     let modules = module_registry()?;
     let tap_clock_skew_seconds = env::var("LAYERX_INTEROP_TAP_CLOCK_SKEW_SECONDS")
@@ -357,6 +341,35 @@ pub fn load() -> Result<Config, String> {
         migration_v2: migration_v2_config()?,
         ap2_receipt_signers: ap2_receipt_signers()?,
     })
+}
+
+fn readiness_config() -> Result<(u64, u64), String> {
+    let readiness_chain_id = env::var("LAYERX_INTEROP_CHAIN_ID")
+        .map_err(|_| "LAYERX_INTEROP_CHAIN_ID is required".to_owned())?
+        .parse::<u64>()
+        .map_err(|_| "interop chain identifier is invalid".to_owned())?;
+    if readiness_chain_id != PAXEER_CHAIN_ID {
+        return Err("interop chain identifier must select Paxeer chain 125".to_owned());
+    }
+    let readiness_max_age_ms = env::var("LAYERX_INTEROP_READINESS_MAX_AGE_MS")
+        .map_err(|_| "LAYERX_INTEROP_READINESS_MAX_AGE_MS is required".to_owned())?
+        .parse::<u64>()
+        .map_err(|_| "interop readiness maximum age is invalid".to_owned())?;
+    if !(1..=30_000).contains(&readiness_max_age_ms) {
+        return Err("interop readiness maximum age exceeds its bound".to_owned());
+    }
+    Ok((readiness_chain_id, readiness_max_age_ms))
+}
+
+fn idempotency_seconds() -> Result<u64, String> {
+    let seconds = env::var("LAYERX_INTEROP_IDEMPOTENCY_SECONDS")
+        .unwrap_or_else(|_| "604800".to_owned())
+        .parse::<u64>()
+        .map_err(|_| "interop idempotency retention is invalid".to_owned())?;
+    if seconds == 0 || seconds > MAX_IDEMPOTENCY_SECONDS {
+        return Err("interop idempotency retention exceeds its bound".to_owned());
+    }
+    Ok(seconds)
 }
 
 fn ap2_receipt_signers() -> Result<Option<Mutex<crate::ap2_export::Ap2ReceiptSigners>>, String> {
@@ -473,7 +486,7 @@ fn sequencer_url() -> Result<(String, bool), String> {
         _ => {
             Endpoint::parse(&value)?;
         }
-    };
+    }
     Ok((value, private_network))
 }
 
@@ -710,6 +723,16 @@ fn runtime_manifest(file: ManifestFile) -> Result<RuntimeManifest, String> {
     Ok(manifest)
 }
 
+fn lowercase_hex(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        encoded.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    encoded
+}
+
 fn validate_x402_binding(
     supported: &SupportedResponse,
     network_id: &str,
@@ -721,15 +744,7 @@ fn validate_x402_binding(
     let network = format!("{namespace}:{reference}");
     let signers: BTreeSet<_> = receipt_keys
         .iter()
-        .map(|key| {
-            format!(
-                "did:layerx:{}",
-                key.public_key()
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect::<String>()
-            )
-        })
+        .map(|key| format!("did:layerx:{}", lowercase_hex(&key.public_key())))
         .collect();
     let signers: Vec<_> = signers.into_iter().collect();
     let mut declared = supported.signers.get(&network).cloned().unwrap_or_default();
@@ -1078,6 +1093,9 @@ fn required_label(name: &str, maximum: usize) -> Result<String, String> {
     Ok(value)
 }
 
+///
+/// # Errors
+/// Returns an error when the requested operation fails validation or storage.
 pub fn parse_hex32(value: &str) -> Result<[u8; 32], String> {
     if value.len() != 64 {
         return Err("expected a 32-byte hexadecimal value".to_owned());
@@ -1091,6 +1109,9 @@ pub fn parse_hex32(value: &str) -> Result<[u8; 32], String> {
     Ok(bytes)
 }
 
+///
+/// # Errors
+/// Returns an error when the requested operation fails validation or storage.
 pub fn decode_hex(value: &str, maximum: usize) -> Result<Vec<u8>, String> {
     if !value.len().is_multiple_of(2) || value.len() / 2 > maximum {
         return Err("hexadecimal payload exceeds its bound".to_owned());
@@ -1124,11 +1145,13 @@ mod tests {
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
         )))
-        .expect("sequencer receipt fixture");
+        .unwrap_or_else(|error| panic!("sequencer receipt fixture: {error:?}"));
         let pinned_key = fixture["cases"][0]["pinnedKey"].clone();
         assert!(pinned_key.is_object());
-        let bytes = serde_json::to_vec(&vec![pinned_key]).expect("receipt keys JSON array");
-        let keys = super::parse_receipt_keys(&bytes).expect("pinned receipt keys");
+        let bytes = serde_json::to_vec(&vec![pinned_key])
+            .unwrap_or_else(|error| panic!("receipt keys JSON array: {error:?}"));
+        let keys = super::parse_receipt_keys(&bytes)
+            .unwrap_or_else(|error| panic!("pinned receipt keys: {error:?}"));
         assert_eq!(keys.len(), 1);
         assert_eq!(keys[0].sequencer_id(), [0x6b; 32]);
         assert_eq!(
@@ -1145,7 +1168,9 @@ mod tests {
 
     #[test]
     fn refuses_an_empty_receipt_keys_file() {
-        let error = super::parse_receipt_keys(b"[]").expect_err("empty keys must be refused");
+        let error = super::parse_receipt_keys(b"[]")
+            .err()
+            .unwrap_or_else(|| panic!("empty keys must be refused"));
         assert!(
             error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
             "{error}"
@@ -1158,7 +1183,7 @@ mod tests {
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
         )))
-        .expect("sequencer receipt fixture");
+        .unwrap_or_else(|error| panic!("sequencer receipt fixture: {error:?}"));
         let parse = |ranges: &[(u64, u64)]| {
             let entries: Vec<_> = ranges
                 .iter()
@@ -1171,7 +1196,8 @@ mod tests {
                     entry
                 })
                 .collect();
-            let bytes = serde_json::to_vec(&entries).expect("receipt keys JSON array");
+            let bytes = serde_json::to_vec(&entries)
+                .unwrap_or_else(|error| panic!("receipt keys JSON array: {error:?}"));
             super::parse_receipt_keys(&bytes)
         };
 
@@ -1185,7 +1211,9 @@ mod tests {
             vec![(30, 40), (10, 20), (15, 25)],
             vec![(u64::MAX, u64::MAX), (0, u64::MAX)],
         ] {
-            let error = parse(&ranges).expect_err("overlapping keys must be refused");
+            let error = parse(&ranges)
+                .err()
+                .unwrap_or_else(|| panic!("overlapping keys must be refused"));
             assert!(
                 error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
                 "{error}"
@@ -1196,15 +1224,21 @@ mod tests {
             );
         }
 
-        let error = parse(&[(20, 10)]).expect_err("inverted range must be refused");
+        let error = parse(&[(20, 10)])
+            .err()
+            .unwrap_or_else(|| panic!("inverted range must be refused"));
         assert!(
             error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
             "{error}"
         );
         assert!(error.contains("reversed height range"), "{error}");
 
-        let keys = parse(&[(11, u64::MAX), (0, 0), (1, 10)])
-            .expect("unsorted disjoint ranges, including adjacent ranges, are accepted");
+        let keys = parse(&[(11, u64::MAX), (0, 0), (1, 10)]).unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "unsorted disjoint ranges, including adjacent ranges, are accepted"
+            )
+        });
         assert_eq!(keys.len(), 3);
         for (key, (first, last, id)) in keys.iter().zip([(0, 0, 2), (1, 10, 3), (11, u64::MAX, 1)])
         {
@@ -1221,10 +1255,11 @@ mod tests {
             env!("CARGO_MANIFEST_DIR"),
             "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
         )))
-        .expect("sequencer receipt fixture");
+        .unwrap_or_else(|error| panic!("sequencer receipt fixture: {error:?}"));
         let bytes = serde_json::to_vec(&vec![fixture["cases"][0]["pinnedKey"].clone()])
-            .expect("receipt keys JSON array");
-        let pins = super::parse_receipt_keys(&bytes).expect("pinned receipt keys");
+            .unwrap_or_else(|error| panic!("receipt keys JSON array: {error:?}"));
+        let pins = super::parse_receipt_keys(&bytes)
+            .unwrap_or_else(|error| panic!("pinned receipt keys: {error:?}"));
         let published = super::ReceiptKeyEntry {
             key_id: pins[0].sequencer_id(),
             public_key: pins[0].public_key(),
@@ -1237,16 +1272,24 @@ mod tests {
     #[test]
     fn a_pinned_key_missing_from_the_sequencer_is_refused() {
         let (mut pins, published) = receipt_key_pins();
-        super::check_receipt_keys(&pins, &[published]).expect("matching pin is accepted");
+        super::check_receipt_keys(&pins, &[published])
+            .unwrap_or_else(|error| panic!("matching pin is accepted: {error:?}"));
         let error = super::check_receipt_keys(&pins, &[])
-            .expect_err("an empty published list must refuse the pin");
+            .err()
+            .unwrap_or_else(|| panic!("an empty published list must refuse the pin"));
         assert!(error.contains("absent from px_getReceiptKeys"), "{error}");
 
         let other_pin =
             super::SequencerAuthorization::new([0x6c; 32], published.public_key, 2000, 2999);
         pins.push(other_pin);
         let error = super::check_receipt_keys(&pins, &[published])
-            .expect_err("a matching first pin must not hide a missing second pin");
+            .err()
+            .unwrap_or_else(|| {
+                panic!(
+                    "{}",
+                    "a matching first pin must not hide a missing second pin"
+                )
+            });
         assert!(error.contains("absent from px_getReceiptKeys"), "{error}");
 
         for changed in [
@@ -1266,7 +1309,13 @@ mod tests {
             },
         ] {
             let error = super::check_receipt_keys(&pins[..1], &[changed])
-                .expect_err("a changed public key or height bound must refuse the pin");
+                .err()
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{}",
+                        "a changed public key or height bound must refuse the pin"
+                    )
+                });
             assert!(
                 error.contains("pin differs from px_getReceiptKeys"),
                 "{error}"
@@ -1286,8 +1335,12 @@ mod tests {
             first_height: 2000,
             last_height: 2999,
         };
-        super::check_receipt_keys(&pins, &[rotated, published])
-            .expect("an additional published key must allow start");
+        super::check_receipt_keys(&pins, &[rotated, published]).unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "an additional published key must allow start"
+            )
+        });
         assert_eq!(
             pins, original_pins,
             "published keys must not change the file pins"
@@ -1297,36 +1350,62 @@ mod tests {
     }
 
     fn certificate() -> Certificate {
-        let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).expect("curve");
-        let key = PKey::from_ec_key(EcKey::generate(&group).expect("key")).expect("pkey");
-        let mut builder = X509::builder().expect("builder");
-        builder.set_pubkey(&key).expect("public key");
+        let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1)
+            .unwrap_or_else(|error| panic!("curve: {error:?}"));
+        let key = PKey::from_ec_key(
+            EcKey::generate(&group).unwrap_or_else(|error| panic!("key: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("pkey: {error:?}"));
+        let mut builder = X509::builder().unwrap_or_else(|error| panic!("builder: {error:?}"));
         builder
-            .set_not_before(&Asn1Time::days_from_now(0).expect("time"))
-            .expect("not before");
+            .set_pubkey(&key)
+            .unwrap_or_else(|error| panic!("public key: {error:?}"));
         builder
-            .set_not_after(&Asn1Time::days_from_now(1).expect("time"))
-            .expect("not after");
-        builder.sign(&key, MessageDigest::sha256()).expect("sign");
-        Certificate::from_der(&builder.build().to_der().expect("der")).expect("certificate")
+            .set_not_before(
+                &Asn1Time::days_from_now(0).unwrap_or_else(|error| panic!("time: {error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("not before: {error:?}"));
+        builder
+            .set_not_after(
+                &Asn1Time::days_from_now(1).unwrap_or_else(|error| panic!("time: {error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("not after: {error:?}"));
+        builder
+            .sign(&key, MessageDigest::sha256())
+            .unwrap_or_else(|error| panic!("sign: {error:?}"));
+        Certificate::from_der(
+            &builder
+                .build()
+                .to_der()
+                .unwrap_or_else(|error| panic!("der: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("certificate: {error:?}"))
     }
 
     #[test]
     fn plain_endpoint_carries_a_request_without_tls() {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
-        let port = listener.local_addr().expect("address").port();
+        let listener =
+            TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("listener: {error:?}"));
+        let port = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("address: {error:?}"))
+            .port();
         let server = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().expect("accept");
+            let (mut stream, _) = listener
+                .accept()
+                .unwrap_or_else(|error| panic!("accept: {error:?}"));
             let mut request = Vec::new();
             let mut byte = [0_u8; 1];
             while !request.ends_with(b"\r\n\r\n") {
-                stream.read_exact(&mut byte).expect("request byte");
+                stream
+                    .read_exact(&mut byte)
+                    .unwrap_or_else(|error| panic!("request byte: {error:?}"));
                 request.push(byte[0]);
             }
             stream
                 .write_all(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 11\r\nConnection: close\r\n\r\n{\"ok\":true}")
-                .expect("response");
-            String::from_utf8(request).expect("utf-8 request")
+                .unwrap_or_else(|error| panic!("response: {error:?}"));
+            String::from_utf8(request).unwrap_or_else(|error| panic!("utf-8 request: {error:?}"))
         });
         let response = Client::without_identity(certificate())
             .request(
@@ -1340,8 +1419,10 @@ mod tests {
                     body: &[],
                 },
             )
-            .expect("plain upstream answers");
-        let request = server.join().expect("server thread");
+            .unwrap_or_else(|error| panic!("plain upstream answers: {error:?}"));
+        let request = server
+            .join()
+            .unwrap_or_else(|error| panic!("server thread: {error:?}"));
         assert!(
             request.starts_with("GET /readyz/core HTTP/1.1\r\n"),
             "{request}"

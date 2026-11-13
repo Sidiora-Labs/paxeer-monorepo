@@ -128,7 +128,7 @@ func (s *Service) trending(ctx context.Context) error {
 		if ValidatePool(p) != nil {
 			continue
 		}
-		score, err := finiteScore("trending", p)
+		score, err := finiteScore(categoryTrending, p)
 		if err == nil {
 			scored = append(scored, Scored{Address: p.PoolAddress, Score: score})
 		}
@@ -210,7 +210,7 @@ func (s *Service) Movers(ctx context.Context) error {
 		if _, ok := trendingSet[strings.ToLower(p.PoolAddress)]; ok {
 			continue
 		}
-		if score, err := finiteScore("movers", p); err == nil && score > 0 {
+		if score, err := finiteScore(categoryMovers, p); err == nil && score > 0 {
 			scored = append(scored, Scored{Address: p.PoolAddress, Score: score})
 		}
 	}
@@ -341,7 +341,7 @@ func (s *Service) publishRanking(ctx context.Context, key string, entries []Scor
 	}
 	items := make([]rankingItem, len(entries))
 	for i, e := range entries {
-		items[i] = rankingItem{Address: e.Address, Score: e.Score}
+		items[i] = rankingItem(e)
 	}
 	payload, err := json.Marshal(rankingUpdate{
 		Category: strings.TrimPrefix(key, "ranking:"),

@@ -24,7 +24,7 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
                 } else {
                     prefix - 0xf7
                 });
-                let length = input[1..1 + width]
+                let length = input[1..=width]
                     .iter()
                     .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
                 (1 + width, length)
@@ -51,7 +51,7 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
     std::array::from_fn(|index| {
         calldata[4 + index * 32..4 + (index + 1) * 32]
             .try_into()
-            .unwrap()
+            .or_panic("expected Ok value")
     })
 }
 
@@ -164,32 +164,7 @@ fn settlement() -> Result<
         .collect::<Vec<_>>());
     let data = unhex(&text(&log["data"])?)?;
     let amount = AtomicAmount::from_u128(1_000_000);
-    let payment = BuiltPayment {
-        header: String::new(),
-        payload: PaymentPayload {
-            x402_version: X402_VERSION,
-            resource: None,
-            accepted: PaymentRequirements {
-                scheme: "exact".to_owned(),
-                network: "eip155:125".to_owned(),
-                amount,
-                asset: format!(
-                    "0x{}",
-                    hex(&data[..32]
-                        .try_into()
-                        .map_err(|_| X402Error::EvidenceMismatch)?)
-                ),
-                pay_to: format!("0x{}", hex(&topics[3])),
-                max_timeout_seconds: 90,
-                extra: Some(
-                    json!({"layerx": {"account": "agent:did:layerx:payee:main", "currency": "LXP"}}),
-                ),
-            },
-            payload: json!({}),
-            extensions: BTreeMap::new(),
-        },
-        idempotency_key: topics[1],
-    };
+    let payment = settlement_payment(&data, &topics, amount)?;
     let response = SettlementResponse {
         success: true,
         error_reason: None,
@@ -218,6 +193,39 @@ fn settlement() -> Result<
             .ok_or(X402Error::EvidenceMismatch)?,
     )];
     Ok((payment, response, keys))
+}
+
+fn settlement_payment(
+    data: &[u8],
+    topics: &[[u8; 32]],
+    amount: AtomicAmount,
+) -> Result<BuiltPayment, X402Error> {
+    Ok(BuiltPayment {
+        header: String::new(),
+        payload: PaymentPayload {
+            x402_version: X402_VERSION,
+            resource: None,
+            accepted: PaymentRequirements {
+                scheme: "exact".to_owned(),
+                network: "eip155:125".to_owned(),
+                amount,
+                asset: format!(
+                    "0x{}",
+                    hex(&data[..32]
+                        .try_into()
+                        .map_err(|_| X402Error::EvidenceMismatch)?)
+                ),
+                pay_to: format!("0x{}", hex(&topics[3])),
+                max_timeout_seconds: 90,
+                extra: Some(
+                    json!({"layerx": {"account": "agent:did:layerx:payee:main", "currency": "LXP"}}),
+                ),
+            },
+            payload: json!({}),
+            extensions: BTreeMap::new(),
+        },
+        idempotency_key: topics[1],
+    })
 }
 
 #[test]
@@ -310,6 +318,15 @@ fn committed_evidence_without_block_fields_is_refused() -> Result<(), X402Error>
             "{number}"
         );
     }
+    assert_block_hash_refusals(&payment, &committed, &batch)?;
+    Ok(())
+}
+
+fn assert_block_hash_refusals(
+    payment: &BuiltPayment,
+    committed: &SettlementResponse,
+    batch: &[SequencerAuthorization],
+) -> Result<(), X402Error> {
     for hash in [
         String::new(),
         "0x".to_owned(),
@@ -320,13 +337,13 @@ fn committed_evidence_without_block_fields_is_refused() -> Result<(), X402Error>
         format!("0x{}", "AB".repeat(32)),
         format!("0x{}", "gg".repeat(32)),
     ] {
-        response = committed.clone();
+        let mut response = committed.clone();
         response
             .extensions
             .get_mut("layerx")
             .ok_or(X402Error::EvidenceMissing)?["blockHash"] = json!(hash);
         assert_eq!(
-            capture(&payment, &response, &batch),
+            capture(payment, &response, batch),
             Err(X402Error::EvidenceMismatch),
             "{hash}"
         );
@@ -358,4 +375,26 @@ fn receipted_evidence_with_a_block_hash_is_refused() -> Result<(), X402Error> {
         );
     }
     Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

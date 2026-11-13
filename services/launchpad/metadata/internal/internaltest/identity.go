@@ -58,6 +58,7 @@ func buildGateway(t *testing.T) string {
 			return
 		}
 		gatewayBinary = filepath.Join(out, "mediagatewayd")
+		//nolint:gosec // The output is a temporary test directory and the source package is fixed.
 		cmd := exec.Command("go", "build", "-o", gatewayBinary, "./cmd/mediagatewayd")
 		cmd.Dir = dir
 		gatewayBuildLogs, gatewayBuildErr = cmd.CombinedOutput()
@@ -152,6 +153,7 @@ func NewGateway(t *testing.T, databaseURL, redisURL string, objects MinIO, origi
 		"IDENTITY_SERVICE_TOKEN=" + serviceToken,
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	//nolint:gosec // The binary is built from the fixed gateway source package into a temporary test directory.
 	cmd := exec.CommandContext(ctx, binary)
 	cmd.Env = env
 	logs := &lockedBuffer{}
@@ -206,7 +208,11 @@ func (g Gateway) send(t *testing.T, path string, body any, headers map[string]st
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Errorf("close gateway response: %v", closeErr)
+		}
+	}()
 	out, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, out
 }

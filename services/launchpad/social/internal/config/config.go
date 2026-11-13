@@ -17,12 +17,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
-	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
-	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
-	pgxpool "github.com/jackc/pgx/v5/pgxpool"
 	"io"
+	"math"
 	"net"
 	"net/url"
 	"os"
@@ -30,6 +26,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	runtimedb "github.com/Sidiora-Technologies/KindleLaunch/shared/db"
+	dbproduction "github.com/Sidiora-Technologies/KindleLaunch/shared/db/production"
+	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
+	pgxpool "github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/caarlos0/env/v11"
 )
@@ -144,7 +146,7 @@ const PlatformProfile = "platform"
 
 // Platform reports whether c selects the production platform runtime.
 func (c *Config) Platform() bool {
-	return c.NodeEnv == "production" && c.RuntimeProfile == PlatformProfile
+	return c.NodeEnv == productionEnvironment && c.RuntimeProfile == PlatformProfile
 }
 
 // PlatformIdentityEndpoint returns the gateway identity authority origin:
@@ -219,7 +221,7 @@ func (c *Config) PlatformCursorKey() ([]byte, error) {
 func (c *Config) ValidatePlatform() error {
 	var errs []error
 	if c.BindAddress != "" && c.BindAddress != "0.0.0.0" && c.BindAddress != "::" {
-		errs = append(errs, errors.New("BIND_ADDRESS must be empty, 0.0.0.0 or ::"))
+		errs = append(errs, errors.New("BIND_ADDRESS must be empty, 0.0.0.0 or ::")) //nolint:staticcheck // Keep the address guidance shown to operators.
 	}
 	if _, err := c.PlatformIdentityEndpoint(); err != nil {
 		errs = append(errs, err)
@@ -357,7 +359,7 @@ func requireURL(name, raw string) error {
 }
 
 func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Context) error, context.CancelFunc, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != productionEnvironment {
 		if c.NodeEnv != "" && c.NodeEnv != "test" && c.NodeEnv != "development" {
 			return nil, nil, fmt.Errorf("environment_invalid")
 		}
@@ -446,10 +448,13 @@ func (c *Config) ResolveProductionSecrets(ctx context.Context) (func(context.Con
 }
 
 func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtimedb.PoolOptions) (*pgxpool.Pool, error) {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != productionEnvironment {
 		return runtimedb.NewPool(ctx, c.DatabaseURL, legacy)
 	}
 	if c.Platform() {
+		if c.DBMaxConns < 1 || c.DBMaxConns > math.MaxInt32 {
+			return nil, fmt.Errorf("runtime_pool_connection_limit_invalid")
+		}
 		pool, err := runtimedb.NewPool(ctx, c.DatabaseURL, runtimedb.PoolOptions{MaxConns: int32(c.DBMaxConns), StatementTimeout: 10 * time.Second, LockTimeout: 5 * time.Second})
 		if err != nil {
 			return nil, err
@@ -460,15 +465,16 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 		}
 		return pool, nil
 	}
-	if c.RuntimeProfile == "container" {
+	switch c.RuntimeProfile {
+	case "container":
 		if c.Port != 8080 || c.BindAddress != "0.0.0.0" {
 			return nil, fmt.Errorf("container_bind_mismatch")
 		}
-	} else if c.RuntimeProfile == "owned_local" {
+	case "owned_local":
 		if c.BindAddress != "127.0.0.1" {
 			return nil, fmt.Errorf("owned_loopback_required")
 		}
-	} else {
+	default:
 		return nil, fmt.Errorf("runtime_profile_required")
 	}
 	if (c.RuntimeBudgetFile == "" && c.RuntimeBudgetDocument == "") || c.RuntimePoolID == "" || c.RuntimeInstanceID == "" {
@@ -500,7 +506,7 @@ func (c *Config) OpenRuntimePool(ctx context.Context, role string, legacy runtim
 	return pool, nil
 }
 func (c *Config) CheckRuntimeSchema(ctx context.Context, pool *pgxpool.Pool) error {
-	if c.NodeEnv != "production" {
+	if c.NodeEnv != productionEnvironment {
 		return pool.Ping(ctx)
 	}
 	if (c.ExpectedSchemaFile == "" && c.ExpectedSchemaDocument == "") || len(c.ExpectedSchemaSHA256) != 64 {
@@ -567,7 +573,7 @@ func boundBytes(path, inline, digest string) ([]byte, error) {
 		if !info.Mode().IsRegular() || info.Size() > 1048576 {
 			return nil, fmt.Errorf("runtime_document_invalid")
 		}
-		if raw, err = os.ReadFile(path); err != nil {
+		if raw, err = readRegularFile(path, 0, 1048576); err != nil {
 			return nil, err
 		}
 	} else {
@@ -683,5 +689,5 @@ func Material(path, inline string) ([]byte, error) {
 	if err != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > 1<<20 {
 		return nil, errors.New("material file unavailable")
 	}
-	return os.ReadFile(path)
+	return readRegularFile(path, 1, 1<<20)
 }

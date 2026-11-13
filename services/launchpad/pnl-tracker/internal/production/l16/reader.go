@@ -9,9 +9,9 @@ func ProjectPosition(wallet, token string, state Inventory, watermark l17.Waterm
 	if err != nil {
 		return l17.Position{}, err
 	}
-	realizedQuality := "complete"
+	realizedQuality := statusComplete
 	if state.IncompleteRealized {
-		realizedQuality = "partial"
+		realizedQuality = statusPartial
 	}
 	p := l17.Position{PositionID: "125:" + wallet + ":" + token, ChainID: "125", Wallet: wallet, TokenAddress: token, BalanceRaw: add(values[0], values[1]).String(), KnownQuantityRaw: state.Known, UnknownQuantityRaw: state.Unknown, KnownRemainingCostUsdlRaw: state.Cost, KnownRealizedSubtotalUsdlRaw: state.Realized, RealizedBasisQuality: realizedQuality, PricingQuality: quality, MarkPrice: mark, SourceWatermark: watermark}
 	derived, _, err := l17.Derive(p)

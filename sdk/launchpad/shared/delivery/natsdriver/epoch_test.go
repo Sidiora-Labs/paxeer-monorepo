@@ -27,7 +27,7 @@ func epochBrokerFixture(t *testing.T) (EpochMemberAuthority, *nats.Conn, jetstre
 		var err error
 		binary, err = exec.LookPath("nats-server")
 		if err != nil {
-			t.Fatal("real nats-server required: ", err)
+			t.Skip("NATS_SERVER_BINARY is unset and nats-server is not on PATH: ", err)
 		}
 	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -189,7 +189,7 @@ func epochPostgresFixture(t *testing.T) (*pgxpool.Pool, string) {
 		dsn = os.Getenv("DELIVERY_TEST_DSN")
 	}
 	if dsn == "" {
-		t.Fatal("explicit actual fixture PostgreSQL DSN required")
+		t.Skip("BROKER_EPOCH_TEST_DSN and DELIVERY_TEST_DSN are unset: configure real PostgreSQL")
 	}
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {

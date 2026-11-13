@@ -1,22 +1,16 @@
 # Native source control: verification and qualification
 
-Status: **design draft; all product cases SCM-001 through SCM-029 are UNRUN.** No latency, throughput, S3, fleet, recovery, migration, or publication result is asserted by this document. Structural validation of the specification establishes authoring consistency only.
+## 1. Qualification interfaces
 
-## 1. Existing qualification seams and required changes
+The [qualification runner](../../../tools/hyperfide/tests/hyperfide/qualify.py) executes registered subprocesses, captures source and environment inputs and invokes the [independent evidence checker](../../../tools/hyperfide/tests/hyperfide/check-evidence.py). The [manifest schema](../../../tools/hyperfide/tests/hyperfide/manifest.schema.json) supports native-source evidence and registry schema v2 accepts `V-NNN` and `SCM-NNN` case identities.
 
-The existing [qualification runner](../../tests/hyperfide/qualify.py) executes registered subprocesses, captures source and environment inputs, checks exact assertion inventories, invokes an [independent evidence checker](../../tests/hyperfide/check-evidence.py), and distinguishes task-component receipts from full-case outcomes. The [manifest schema](../../tests/hyperfide/manifest.schema.json) and [original verification plan](../hyperfide/verification.md) establish useful evidence conventions.
+Feature registrations live under [tests/hyperfide/source-control](../../../tools/hyperfide/tests/hyperfide/source-control/). Executable drivers live under [cases/source_control](../../../tools/hyperfide/tests/hyperfide/cases/source_control/). From `tools/hyperfide/`, the runner accepts:
 
-Current runner support is insufficient for this feature: `load_registry` accepts only `V-NNN` case identities; the manifest schema has the same restriction; source capture and checking include Git-based worktree inventories. Task 0.2 must add a versioned native-source evidence variant and explicit `SCM-NNN` namespace while preserving existing registrations. It must not relabel a native tree hash as a Git commit or require a full native checkout to fingerprint a campaign. Native evidence identifies the revision, tree root, scoped manifest, changed objects, toolchain, and input closure. A full-file inventory remains permitted for a deliberately materialized test fixture, with that cost recorded separately.
-
-Proposed feature-local registrations live under `tests/hyperfide/source-control/`, with `registry.json`, `registrations/`, `manifests/tasks/`, `manifests/full/`, and `manifests/campaigns/`. Registered case drivers live under `tests/hyperfide/cases/source_control/`. The planned runner invocation is:
-
-```text
+```sh
 python3 tests/hyperfide/qualify.py --registry tests/hyperfide/source-control/registry.json --case SCM-020 --manifest <immutable-campaign-manifest.json>
 ```
 
-This command is a future interface until task 0.2 implements the adaptations and relevant tasks supply registrations and drivers. A task's `python3 tests/hyperfide/cases/source_control/W_N.py` command is its focused behavioral gate; the registration invokes that exact executable. Direct task execution cannot substitute for independently checked full-case or campaign evidence.
-
-The harness must reject unknown/empty selectors, duplicate cases/assertions, missing drivers, missing expected assertions, wrong native identities, changed campaign inputs, absent required artifacts, failed child commands, timeouts, unsupported required backend capability, and incomplete cleanup. Missing credentials or configured capacity produces BLOCKED with a nonzero exit. It never falls back from real S3 or a real fleet to a substitute backend and labels that result live qualification.
+The manifest pins the actual campaign inputs. Component, full-case and campaign evidence have separate scopes. Native revision and tree identities remain distinct from Git commits. Backend and provider profiles are explicit; a local component result does not establish live backend or fleet capacity.
 
 ## 2. Evidence contract
 
@@ -36,50 +30,31 @@ An acknowledged checkpoint must be retrievable after every fault within the conf
 
 Case state starts UNRUN. A real attempt yields PASS, FAIL, or BLOCKED; historical records remain immutable. A component PASS never automatically marks the parent case, requirement, integrated revision, or release PASS. Changing relevant source, storage policy, authorization rules, dependency manifests, environment or toolchain invalidates affected evidence reuse. Reuse of unaffected receipts requires an explicit comparison of their inputs.
 
-## 3. Workload dimensions and proposed capacity profiles
+## 3. Executable workload profiles
 
-These are design qualification targets, not measured capacity or provider entitlements. Campaign configuration binds the targets to concrete resources before execution. Inability to provision the required profile is BLOCKED rather than permission to silently lower its numbers.
+The [campaign driver](../../../tools/hyperfide/tests/hyperfide/source-control/workloads/campaign.mjs) validates explicit corpus sizes, changed-file and byte counts, clients, operations, arrival rate, duration, hardware digest and backend identity. Its campaign kinds are `component`, `growth`, `mixed`, `admission` and `endurance`.
 
-| Profile | Proposed target and interpretation |
+| Kind | Admission requirements |
 |---|---|
-| Active workspaces | At least 5,000 concurrently active native workspaces against one monorepo. Record actual leases, API activity, pinned snapshots, dirty overlays and physical hosts; inactive placeholder rows do not establish this target. |
-| Sustained revisions | At least 100,000 newly authored, durably acknowledged native revisions per 24 hours for 72 real elapsed hours, with at least 300,000 total. Imported history and retries of the same revision are excluded. Acceptance and external-publication rates are reported separately. |
-| Submission burst | Offer 100 distinct revision submissions per second for five consecutive minutes while queries, workspace reads and qualification traffic remain active. Report admission, upload and acknowledgment separately; do not count HTTP acceptance of a queued job as a durable revision. |
-| Logical workspace opens | At least 20,000,000 successful lightweight workspace-open operations per 24 hours, approximately 232/s on average, in a separately identified admission profile. Open/close retention is bounded. This does not imply twenty million hydrated directories, build jobs, or active agents. |
-| Physical materialization | Separate measured runs for cold sparse, warm sparse, virtual on-demand, and explicitly requested full-source materialization. Pin requested path counts and bytes; report objects/bytes read, cache reuse, metadata operations, wall time and local disk amplification. No minimum full-tree checkout rate is inferred from logical opens. |
-| Growth | The same fixed-change workload against 10,000, 1,000,000 and 10,000,000 logical files, with independently varied unique objects, directory fan-out, file sizes and revision-history depth. Each corpus is within one repository; adding repositories cannot satisfy within-repository scale. |
+| `component` | Positive bounded workload inputs and explicit corpus sizes |
+| `growth` | File counts 10,000, 1,000,000 and 10,000,000; ten modified files and 1,048,576 modified bytes |
+| `mixed` | At least 5,000 clients, 100 submissions per second, 300 seconds and 30,000 operations |
+| `admission` | At least 20,000,000 actual workspace-open operations |
+| `endurance` | At least 259,200 seconds and 300,000 operations, a real backend, a worker canary and throttle, credential-rotation, collection and recovery hooks |
 
-Each manifest defines source bytes, unique content bytes, file-size and changed-file distributions, directory shape, rename/delete frequency, history depth/breadth, dependency fan-out, text/binary proportions, and compressibility. A logical million-file corpus consisting of one deduplicated byte sequence must disclose that fact and cannot qualify million-object storage behavior. Conversely, the ability to store many unique blobs does not qualify a hot million-entry directory.
+Every non-component kind requires `real_backend = true`. These are input requirements for the selected workload, not measured service capacity. [Campaign manifests](../../../tools/hyperfide/tests/hyperfide/source-control/manifests/campaigns/) provide the selected workload inputs. The registry also contains workload summaries; the selected executable registration and manifest define the run.
 
-The baseline mixed operation distribution is proposed as 45% snapshot-pinned file/range reads and paged listings, 20% ancestry/history/diff/blame queries, 15% workspace open/renew/change reporting, 10% durable new-revision submissions, 5% merge/rebase/revert operations, and 5% candidate acceptance/qualification metadata. The submission-burst and workspace-open profiles intentionally override their relevant arrival rate. Each profile records the resulting total offered load and resource use; the percentages do not silently redefine the fixed targets.
+The [deployment driver](../../../tools/hyperfide/tests/hyperfide/source-control/workloads/deployment.mjs) reads pinned corpus revisions and measures requests against a configured source authority. Its [workload documentation](../../../tools/hyperfide/tests/hyperfide/source-control/workloads/README.md) describes deployment inputs, renewable credential transports, observers and recovery hooks. Logical opens, hydrated bytes, newly authored revisions and worker revisions have separate accounting.
 
-Correctness mixes include 80% independent changes and 20% deliberately overlapping or dependency-related changes. Separate skew runs direct 50% of writes to a 1% path set, and separate shared-interface runs affect consumers outside the edited project. These are controlled benchmark distributions, not asserted production statistics. Include small text edits, large multi-file changes, renames across directory shards, deletes, mode/symlink changes and incompressible binary updates. Record distributions rather than replacing them with an average commit size.
+## 4. Measurement results
 
-Capacity drivers use real requests and real persisted objects. Actual Hyperfide coding-agent campaigns use real assigned tasks and produce independently qualified changes. A 5,000-client load generator can establish API concurrency while actual agent concurrency remains a separately measured number; the report must state both.
+Campaign results include offered and completed work, latency distributions and resource observations. Deployment inputs supply `max_checkpoint_p95_ms` and `max_growth_ratio`. Growth compares the same ten-file, one-MiB change across the selected corpora. Hardware and deployment identity accompany the measurements.
 
-## 4. Proposed latency and resource budgets
-
-The following provisional budgets make the initial target falsifiable. They are recommendations for implementation-time qualification, not achieved service levels. The approved benchmark manifest states hardware, region, topology and corpus dimensions. Upload size, result size, cache state, queue wait and client/server boundaries must accompany every sample.
-
-| Operation class | Proposed p95 / p99 budget | Boundary and rationale |
-|---|---|---|
-| Durable revision finalization | 1 s / 3 s | From finalization request to durable response with content already uploaded, at most 50 modified paths and 1 MiB of new content. Measures metadata publication without hiding content upload latency. |
-| Lightweight workspace open | 500 ms / 2 s | From authenticated request to pinned manifest handle; no source hydration. Keeps scheduling independent of repository download size. |
-| Indexed metadata query | 500 ms / 2 s | First page of at most 100 results for manifest-declared bounded ancestry/history/diff queries. Full-history enumeration and large blame traversals use resumable operation budgets. |
-| Qualified candidate acceptance | 1 s / 3 s | From submission of already prepared candidate/evidence to transactional decision. Merge preparation, qualification and invalidated-candidate retry are separately timed. |
-| Cancellation/overload response | 2 s / 5 s | A saturated worker returns bounded admission or cancellation state instead of an unbounded client wait. Successful throughput and refusals remain separate. |
-
-The finalization budget is evaluated during the burst profile as well as steady load. Report all operation classes independently, including errors and timeouts; do not remove failed samples from latency accounting or merge fast cache hits with slow uploads. Intentionally injected outages have separate unavailable/recovery intervals, rather than falsely satisfying latency budgets by excluding them from the report.
-
-Record p50/p95/p99/max and histograms with coordinated-omission-resistant offered schedules, queue age/depth, retry rate, lock waits, database connections, event lag, object GET/PUT/HEAD/LIST counts, transferred bytes, CPU, resident memory, disk/cache occupancy and publication lag. Request costs use the actual campaign's billed units when available; no provider price is hardcoded as a permanent constant.
-
-Growth qualification holds touched files/content, client placement and supported hardware constant while repository file count and history grow. For a bounded 10-file, 1 MiB change, the proposed initial gate is no more than 2x p95 finalization latency between the smallest and largest file-count corpus, with no enumeration of unrelated paths or full history. Report actual tree-height/path-node work separately; the ratio is an empirical budget, not a mathematical constant-time claim. Operation traces must show content/tree work bounded by changed objects and affected ancestor nodes. Ancestry, merge and graph invalidation report their relevant traversal/dependency scope separately.
-
-Scale services independently and repeat representative workloads after increasing one tier. Record the limiting partition and any change in queueing, hot keys or throughput; linear speedup is not assumed. A single accepted trunk has a sequencing point: measure its contention and transaction duration separately from lock-free creation of independent revisions. Provider throttling is observable backpressure and cannot become silent data loss or unbounded worker accumulation.
+The campaign driver validates latency samples and records p50, p95, p99 and maximum values. Missing backend capabilities produce a typed blocked outcome. The [durable ledger](../../../tools/hyperfide/tests/hyperfide/source-control/workloads/durable.mjs) retains operation and revision identities for resumed runs. Workload results remain bound to their source, backend and configuration inputs.
 
 ## 5. Stable product case registry
 
-All cases below remain **UNRUN**. The case identity covers the complete observable outcome; component tasks may implement registered subsets without qualifying the entire case. Requirement links below name categories; exact clauses and task ownership are recorded in `spec.kvx` and the generated traceability view.
+The case identity covers the complete observable outcome; component tasks may implement registered subsets without qualifying the entire case. The [registry](../../../tools/hyperfide/tests/hyperfide/source-control/registry.json) records each case's assertion inventory, requirement clauses, tasks and oracle.
 
 | Case | Scenario and fault schedule | Required independent oracle |
 |---|---|---|
@@ -110,27 +85,17 @@ All cases below remain **UNRUN**. The case identity covers the complete observab
 
 SCM-015 needs a real qualification variant for each required remote provider; a local Git receiver proves only protocol behavior. SCM-022 requires real object-storage requests and actual elapsed time; accelerated replay is a distinct variant. SCM-014 and SCM-023 require real Hyperfide assignment and qualification rather than a sequence of direct SCM API calls labeled orchestration. A missing live credential blocks that variant without invalidating any separately established component result.
 
-## 6. Ordered execution and closure
+## 6. Evidence closure
 
-| Stage | Work | Exit requirement |
-|---|---|---|
-| A: authoring | Strict KVX parsing, dependency and clause coverage, links and current-source baseline. | Reviewable design; tasks pending and SCM cases UNRUN. |
-| B: contract and persistent component behavior | Implement native schemas, assertion registry, independent model/checker, disposable metadata and object backend contracts, client and operation fault boundaries. | Exact component inventories pass through real implemented code paths. Local backend tests do not claim S3 or remote-provider qualification. |
-| C: real backend canary | Small real S3 namespace, current metadata durability settings, one-revision crash recovery, native sparse workspace and Git remote variants. | Supported backend semantics evidenced; unsupported required behavior blocks larger execution. |
-| D: growth and mixed-load ramps | 10, 100, 1,000, then 5,000 active workspace clients; declared growth corpora; separate admission and hydration profiles. | Each ramp meets correctness, resource and latency budgets; rollback/drain works before proceeding. |
-| E: actual Hyperfide journey | Real worker assignments, qualified changes, candidate races, conflict resolution, accepted source and provider publication. | SCM-014/SCM-023 and applicable dependency cases pass with actual worker and source identities. |
-| F: endurance and recovery | 72 real elapsed hours, sustained and burst profiles, metadata failover, storage interruption and backup restore. | SCM-018–SCM-022 pass for the declared failure model; all temporary resources accounted for. |
-| G: release qualification | Consolidation/cutover rehearsal, native UI/CLI/SDK journey, current docs and evidence closure. | Required full cases/variants are current, unresolved blocking defects are absent, cleanup is verified and release acceptance is recorded. |
+The [closure checker](../../../tools/hyperfide/tests/hyperfide/source-control/closure.py) reads registered case and assertion inventories and their evidence. Component, full-case and campaign results retain their own scopes and pinned inputs. The [full-case registrations](../../../tools/hyperfide/tests/hyperfide/source-control/full_case/) define the executable full-case inputs.
 
-The gate order controls qualification; implementation tasks still follow their declared dependency graph. Task 6.2 owns growth/load/endurance execution, task 6.3 owns cross-case integrated evidence closure, and task 7.2 owns final release acceptance. Product verification is future work. No campaign, S3 bucket, remote destination or production migration is created by specification authoring.
+## 7. Repository-layout coverage
 
-## 7. Repository-layout prerequisite
+SCM-025 covers category layout and package preservation. [Repository layout](repository-layout.md) describes the package boundaries; the [mapping](repository-layout.json) defines source-to-category identities. Layout drivers use the product's build and runtime interfaces independently of S3 source storage.
 
-SCM-025 covers requirement 15 and tasks 0.3 through 0.9. [repository-layout.md](repository-layout.md) and [repository-layout.json](repository-layout.json) define the move and preservation oracle. Layout drivers use the current build/runtime stack and Git source evidence; they do not require the future native source-control harness, S3 or task 0.2. The final layout receipt gates fleet task 0.10; fleet receipt 0.14 subsequently gates native task 0.1. Task 0.2 subsequently registers this case with its original evidence identities. All layout behavior checks remain UNRUN.
+## 8. Fleet and sandbox coverage
 
-## 8. Final fleet and sandbox prerequisite
-
-Tasks 0.10–0.14 qualify independently of future native source services and task 0.2, using current Git source evidence and an explicit existing-source adapter. Case IDs describe planned coverage; all remain UNRUN. Task 0.2 later imports original evidence identities into the native case registry.
+The fleet and sandbox cases bind source mode, environment installation, planning authority and recovery to their actual execution inputs.
 
 | Case | Required exercise | Independent oracle |
 |---|---|---|
@@ -139,4 +104,4 @@ Tasks 0.10–0.14 qualify independently of future native source services and tas
 | SCM-028 | Actual Primary and two Wave Managers on the same box delegate waves, choose provider sandboxes and revise a plan after changed observations. | Persisted agent-selected actions and observed provider/worker effects agree; policy violations are rejected without a hidden deterministic planner. |
 | SCM-029 | Manager and whole supervisory-box interruption, stale-owner commands, unknown provider outcomes, model unavailability and final receipt closure. | Current ownership is unique, persisted effects reconcile, active resource accounting is complete, and no missing required assertion is labeled successful. |
 
-Scripted planners or parser-only checks do not qualify agent-led fleet execution. Record actual model/provider profiles, host/process/sandbox boot identities, environment generations, exact contract versions, action receipts and runtime outcomes. Do not record private model reasoning as required evidence. The complete existing-source journey releases task 0.1 only after 0.14; native source adoption later repeats relevant installation and worker journeys with native source identities.
+Scripted planners or parser-only checks do not qualify agent-led fleet execution. Record actual model/provider profiles, host/process/sandbox boot identities, environment generations, exact contract versions, action receipts and runtime outcomes. Do not record private model reasoning as required evidence. Source modes retain their own installation and worker evidence identities.

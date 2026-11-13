@@ -88,3 +88,31 @@ func TestConnectedDeleteRecoversAfterRealStorageFailure(t *testing.T) {
 		t.Fatal("completed delete replayed", worked, e)
 	}
 }
+
+func TestConnectedExpiredOriginalRemovesStoredObject(t *testing.T) {
+	a, ctx := connectedAuthority(t)
+	hash, _ := seedConnectedAsset(t, a, ctx)
+	store := internaltest.NewStore(t, "l41-original-expiry")
+	key := "quarantine/asset"
+	body := []byte("expired owned original bytes")
+	if err := store.Put(ctx, key, bytes.NewReader(body), int64(len(body)), "image/png"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Pool.Exec(ctx, "INSERT INTO "+a.table("lineage")+"(hash,object_key,kind,retain_until) VALUES($1,$2,'original',$3)", hash, key, time.Now().Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	worker := DeleteWorker{Authority: a, Stores: map[string]*sharedstorage.Client{"original": store}}
+	if worked, err := worker.ExpireOriginal(ctx); err != nil || !worked {
+		t.Fatalf("original retention: worked=%v err=%v", worked, err)
+	}
+	if _, err := store.Head(ctx, key); !errors.Is(err, sharedstorage.ErrNotFound) {
+		t.Fatalf("expired original remained in storage: %v", err)
+	}
+	var removed bool
+	if err := a.Pool.QueryRow(ctx, "SELECT removed_at IS NOT NULL FROM "+a.table("lineage")+" WHERE hash=$1 AND object_key=$2", hash, key).Scan(&removed); err != nil || !removed {
+		t.Fatalf("expired original removal record: removed=%v err=%v", removed, err)
+	}
+	if worked, err := worker.ExpireOriginal(ctx); err != nil || worked {
+		t.Fatalf("expired original replay: worked=%v err=%v", worked, err)
+	}
+}

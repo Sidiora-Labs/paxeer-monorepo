@@ -4,11 +4,12 @@ package voice
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"time"
 )
 
 var ErrUnavailable = errors.New("voice unavailable: provider and operational qualification required")
@@ -121,7 +122,7 @@ func (c *Control) Start(ctx context.Context, id string, expected int64) (Room, e
 	if r.HostWallet != p.Wallet {
 		return r, safety.ErrForbidden
 	}
-	if r.State != "draft" || r.Revision != expected {
+	if r.State != draftState || r.Revision != expected {
 		return r, safety.ErrConflict
 	}
 	if !c.ready() {
@@ -135,14 +136,14 @@ func (c *Control) Start(ctx context.Context, id string, expected int64) (Room, e
 	if e != nil {
 		return r, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var state string
 	var revision int64
 	e = tx.QueryRow(ctx, `SELECT state,revision FROM voice_rooms WHERE id=$1 FOR UPDATE`, id).Scan(&state, &revision)
 	if e != nil {
 		return r, e
 	}
-	if state != "draft" || revision != expected {
+	if state != draftState || revision != expected {
 		return r, safety.ErrConflict
 	}
 	call, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -178,10 +179,10 @@ func (c *Control) End(ctx context.Context, id string, expected int64) (Room, err
 	if r.State == "ended" {
 		return r, nil
 	}
-	if r.State != "live" && r.State != "ending" {
+	if r.State != liveState && r.State != endingState {
 		return r, safety.ErrConflict
 	}
-	if r.State == "live" {
+	if r.State == liveState {
 		tag, e := c.DB.Exec(ctx, `UPDATE voice_rooms SET state='ending',revision=revision+1,updated_at=$3 WHERE id=$1 AND revision=$2 AND state='live'`, id, expected, c.now())
 		if e != nil {
 			return r, e
@@ -208,13 +209,13 @@ func (c *Control) End(ctx context.Context, id string, expected int64) (Room, err
 	if e != nil {
 		return r, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var revision int64
 	var state string
 	if e = tx.QueryRow(ctx, `SELECT revision,state FROM voice_rooms WHERE id=$1 FOR UPDATE`, id).Scan(&revision, &state); e != nil {
 		return r, e
 	}
-	if state != "ending" || revision != r.Revision {
+	if state != endingState || revision != r.Revision {
 		return r, safety.ErrConflict
 	}
 	if _, e = tx.Exec(ctx, `UPDATE voice_participants SET revoked=true,muted=true,grant_state='revoked',revision=revision+1 WHERE room_id=$1 AND (NOT revoked OR grant_state<>'revoked')`, id); e != nil {
@@ -246,7 +247,7 @@ func (c *Control) JoinWithConsent(ctx context.Context, id string, consent *JoinC
 	if e != nil {
 		return e
 	}
-	if r.State != "live" || !c.ready() {
+	if r.State != liveState || !c.ready() {
 		return ErrUnavailable
 	}
 	if e = c.permission(ctx, p.Wallet, id, r.PoolID); e != nil {
@@ -256,14 +257,14 @@ func (c *Control) JoinWithConsent(ctx context.Context, id string, consent *JoinC
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	// Lock parent row so concurrent joins cannot exceed participant capacity.
 	var state string
 	e = tx.QueryRow(ctx, `SELECT state FROM voice_rooms WHERE id=$1 FOR UPDATE`, id).Scan(&state)
 	if e != nil {
 		return e
 	}
-	if state != "live" {
+	if state != liveState {
 		return ErrUnavailable
 	}
 	if consent != nil {
@@ -324,7 +325,7 @@ func (c *Control) ApproveSpeaker(ctx context.Context, id, wallet string, expecte
 	if p.Wallet != r.HostWallet && !safety.Authorized(p, r.PoolID, true, c.now()) {
 		return safety.ErrForbidden
 	}
-	if !c.ready() || r.State != "live" {
+	if !c.ready() || r.State != liveState {
 		return ErrUnavailable
 	}
 	if e = c.permission(ctx, wallet, id, r.PoolID); e != nil {
@@ -334,12 +335,12 @@ func (c *Control) ApproveSpeaker(ctx context.Context, id, wallet string, expecte
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var state string
 	if e = tx.QueryRow(ctx, `SELECT state FROM voice_rooms WHERE id=$1 FOR UPDATE`, id).Scan(&state); e != nil {
 		return e
 	}
-	if state != "live" {
+	if state != liveState {
 		return ErrUnavailable
 	}
 	var count int
@@ -401,12 +402,12 @@ func (c *Control) Mute(ctx context.Context, id, wallet string, expected int64, e
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var state string
 	if e = tx.QueryRow(ctx, `SELECT state FROM voice_rooms WHERE id=$1 FOR UPDATE`, id).Scan(&state); e != nil {
 		return e
 	}
-	if state != "live" {
+	if state != liveState {
 		return ErrUnavailable
 	}
 	tag, e := tx.Exec(ctx, `UPDATE voice_participants SET muted=true,revoked=$4,grant_state='revoking',revision=revision+1 WHERE room_id=$1 AND wallet=$2 AND revision=$3 AND NOT revoked`, id, wallet, expected, eject)
@@ -450,7 +451,7 @@ func (c *Control) Ticket(ctx context.Context, id string) (string, error) {
 	if e != nil {
 		return "", e
 	}
-	if !c.ready() || r.State != "live" {
+	if !c.ready() || r.State != liveState {
 		return "", ErrUnavailable
 	}
 	if e = c.permission(ctx, p.Wallet, id, r.PoolID); e != nil {
@@ -461,13 +462,13 @@ func (c *Control) Ticket(ctx context.Context, id string) (string, error) {
 	if e != nil {
 		return "", e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var currentState string
 	e = tx.QueryRow(ctx, `SELECT state FROM voice_rooms WHERE id=$1 FOR UPDATE`, id).Scan(&currentState)
 	if e != nil {
 		return "", e
 	}
-	if currentState != "live" {
+	if currentState != liveState {
 		return "", ErrUnavailable
 	}
 	if e = c.consentAdmission(ctx, tx, id, p.Wallet); e != nil {
@@ -512,7 +513,7 @@ func (c *Control) StartRecording(context.Context, string) error { return ErrUnav
 
 // APIState preserves the frozen wire contract without exposing internal draft.
 func (r Room) APIState() string {
-	if r.State == "draft" {
+	if r.State == draftState {
 		return "scheduled"
 	}
 	return r.State

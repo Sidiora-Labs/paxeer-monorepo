@@ -92,7 +92,7 @@ export async function currentReceiptLink(transactionHash: string): Promise<strin
   return destination;
 }
 
-async function nativeGet(path: string, cursor?: string): Promise<unknown | undefined> {
+async function nativeGet(path: string, cursor?: string): Promise<unknown> {
   const url = new URL(path, explorerBaseUrl());
   if (cursor !== undefined) url.searchParams.set("cursor", nativeCursor(cursor));
   let response: Response;
@@ -198,14 +198,15 @@ export function decodeReceiptRecordForIdentifier(value: unknown, identifier: str
   return record;
 }
 
-export async function unifiedAccountAvailability(
+export function unifiedAccountAvailability(
   identifier: string,
-  _beforeBlock?: string,
-  _before?: string,
-  _limit = 25,
-): Promise<UnifiedAccountAvailabilityRecord | undefined> {
+  beforeBlock?: string,
+  before?: string,
+  limit?: number,
+): Promise<UnifiedAccountAvailabilityRecord | undefined>;
+export async function unifiedAccountAvailability(): Promise<UnifiedAccountAvailabilityRecord | undefined> {
   explorerBaseUrl();
-  throw new ExplorerInterfaceUnavailableError("legacy-account-projection");
+  return Promise.reject(new ExplorerInterfaceUnavailableError("legacy-account-projection"));
 }
 
 export class UnifiedAccountUnavailableError extends ExplorerUnavailableError {
@@ -220,13 +221,13 @@ export class UnifiedAccountUnavailableError extends ExplorerUnavailableError {
 export async function programRecord(identifier: string): Promise<ProgramRecord | undefined> {
   if (!validExplorerIdentifier(identifier)) throw new TypeError("Invalid program identifier");
   explorerBaseUrl();
-  throw new ExplorerInterfaceUnavailableError("program-read");
+  return Promise.reject(new ExplorerInterfaceUnavailableError("program-read"));
 }
 
 export async function resolveName(name: string): Promise<NameResolutionRecord | undefined> {
   if (!validExplorerName(name)) throw new TypeError("Invalid name");
   explorerBaseUrl();
-  throw new ExplorerInterfaceUnavailableError("naming-program-read");
+  return Promise.reject(new ExplorerInterfaceUnavailableError("naming-program-read"));
 }
 
 export interface NativeReceiptTransaction {

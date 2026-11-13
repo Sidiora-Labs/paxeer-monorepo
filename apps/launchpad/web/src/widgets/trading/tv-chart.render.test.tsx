@@ -14,7 +14,7 @@ import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
-interface BrowserDom { window: Window & typeof globalThis }
+interface BrowserDom { window: Window & typeof globalThis; reconfigure(options: { url: string }): void }
 type JsdomModule = { JSDOM: new (html: string, options: { url: string; pretendToBeVisual: boolean }) => BrowserDom };
 const { JSDOM } = createRequire(import.meta.url)('jsdom') as JsdomModule;
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>', { url: 'http://localhost:3000', pretendToBeVisual: true });
@@ -58,6 +58,7 @@ const server = createServer((request, response) => {
   answerOutage(response);
 });
 const origin = await new Promise<string>(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)));
+dom.reconfigure({ url: origin });
 for (const name of ['DATA_API_URL', 'GATEWAY_URL', 'USER_API_URL', 'METADATA_API_URL', 'PNL_API_URL', 'SOCIAL_API_URL', 'RPC_URL']) process.env[`NEXT_PUBLIC_${name}`] = origin;
 process.env.NEXT_PUBLIC_STREAM_ORIGIN = 'ws://127.0.0.1:1';
 

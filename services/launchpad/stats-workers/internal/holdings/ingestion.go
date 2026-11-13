@@ -5,13 +5,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"math/big"
+	"strconv"
+	"strings"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jackc/pgx/v5"
-	"math/big"
-	"strconv"
-	"strings"
 )
 
 func TransferFromLog(log types.Log) (Transfer, error) {
@@ -32,7 +33,7 @@ func TransferFromLog(log types.Log) (Transfer, error) {
 }
 func (r *Repository) ApplyCanonicalTransfer(ctx context.Context, event Transfer, stream string) (result ApplyResult, err error) {
 	defer func() {
-		if err != nil && !(result.Incident && errors.Is(err, ErrIntegrity)) {
+		if err != nil && (!result.Incident || !errors.Is(err, ErrIntegrity)) {
 			r.observeFailure(ctx, event, err)
 		}
 	}()
@@ -40,7 +41,7 @@ func (r *Repository) ApplyCanonicalTransfer(ctx context.Context, event Transfer,
 	if err != nil {
 		return result, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), tx)
 	result, err = r.ApplyCanonicalTransferTx(ctx, tx, event, stream)
 	if err != nil {
 		return result, err
@@ -291,13 +292,13 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 	if err != nil {
 		return out, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), tx)
 	var creation string
 	var previous []byte
 	if err = tx.QueryRow(ctx, "SELECT creation_height::text,last_event,revision,coverage FROM "+r.schema+".tokens WHERE token=$1 FOR UPDATE", token).Scan(&creation, &previous, &out.Revision, &out.Coverage); err != nil {
 		return out, err
 	}
-	if out.Coverage == "quarantined" {
+	if out.Coverage == valueQuarantined {
 		out.Incident = true
 		return out, tx.Commit(ctx)
 	}
@@ -319,7 +320,7 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 	if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".tokens SET coverage='incomplete' WHERE token=$1", token); err != nil {
 		return out, err
 	}
-	out.Coverage = "incomplete"
+	out.Coverage = valueIncomplete
 	height, ti, li := "-1", "-1", "-1"
 	if len(previous) > 0 {
 		var e Transfer
@@ -385,7 +386,7 @@ func (r *Repository) CatchUpCanonicalAt(ctx context.Context, token, stream, thro
 				if _, err = tx.Exec(ctx, "UPDATE "+r.schema+".tokens SET coverage='complete' WHERE token=$1", token); err != nil {
 					return out, err
 				}
-				out.Coverage = "complete"
+				out.Coverage = valueComplete
 			}
 		}
 	}

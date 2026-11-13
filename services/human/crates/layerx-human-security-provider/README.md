@@ -77,7 +77,7 @@ All disclosures remask after 60 seconds; timestamp overflow is refused.
 | Environment variable | Requirement |
 | --- | --- |
 | `LAYERX_HUMAN_SECURITY_PROVIDER_STATE_ROOT` | Required absolute provider-owned state directory; created mode 0700 if absent, parent must exist. |
-| `LAYERX_HUMAN_SECURITY_PROVIDER_TRUST_HISTORY` | Required absolute protected binary chain `TrustRoot` file, mode 0600, owned by provider UID; the environment variable retains its historical name. |
+| `LAYERX_HUMAN_SECURITY_PROVIDER_TRUST_HISTORY` | Required absolute protected binary chain `TrustRoot` file, mode 0600, owned by provider UID. |
 | `LAYERX_HUMAN_SECURITY_PROVIDER_SOCKET` | Required absolute UDS path, for example `/run/layerx/human/security.sock`. Existing paths are refused. Parent must be owned by provider UID and not group/other writable. |
 | `LAYERX_HUMAN_SECURITY_PROVIDER_ALLOWED_UID` | Required decimal UID of the human service; no default. Checked using Linux SO_PEERCRED. |
 | `LAYERX_HUMAN_SECURITY_PROVIDER_DEADLINE_SECONDS` | Optional integer 1–60, default 5; total request/response I/O deadline. |

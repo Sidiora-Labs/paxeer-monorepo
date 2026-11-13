@@ -67,6 +67,8 @@ pub struct MarketSandboxProfile {
 }
 
 impl MarketSandboxProfile {
+    /// # Errors
+    /// Returns a malformed-value error when the entrypoint is empty, padded incorrectly, or invalid UTF-8.
     pub fn entrypoint(&self) -> Result<&str, ProgramError> {
         let length = usize::from(self.entrypoint_length);
         if length == 0
@@ -81,6 +83,8 @@ impl MarketSandboxProfile {
         core::str::from_utf8(&self.entrypoint_bytes[..length]).map_err(|_| malformed())
     }
 
+    /// # Errors
+    /// Returns a malformed-value error when a required field or bound is invalid.
     pub fn validate(&self) -> Result<(), ProgramError> {
         self.entrypoint()?;
         let identifiers = [
@@ -99,7 +103,7 @@ impl MarketSandboxProfile {
             self.initial_execution_state_root,
         ];
         if self.network_id == 0
-            || identifiers.iter().any(|value| *value == [0; 32])
+            || identifiers.contains(&[0; 32])
             || self.runtime_version == 0
             || !(1..=4).contains(&self.abi_version)
             || self.fee_schedule_version == 0
@@ -125,6 +129,8 @@ impl MarketSandboxProfile {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error when the value is invalid or the output buffer is too small.
     pub fn encode(&self, output: &mut [u8]) -> Result<usize, ProgramError> {
         self.validate()?;
         let mut writer = Writer {
@@ -174,6 +180,8 @@ impl MarketSandboxProfile {
         Ok(writer.offset)
     }
 
+    /// # Errors
+    /// Returns a malformed-value error when the input is truncated or noncanonical.
     pub fn decode(input: &[u8]) -> Result<Self, ProgramError> {
         let mut reader = Reader(input);
         if reader.take(MARKET_SANDBOX_PROFILE_DOMAIN.len())? != MARKET_SANDBOX_PROFILE_DOMAIN
@@ -241,6 +249,8 @@ pub struct MarketBillingCommitment {
 }
 
 impl MarketBillingCommitment {
+    /// # Errors
+    /// Returns a malformed-value error when a required field or bound is invalid.
     pub fn validate(&self) -> Result<(), ProgramError> {
         if [
             self.profile_digest,
@@ -248,8 +258,7 @@ impl MarketBillingCommitment {
             self.final_execution_state_root,
             self.output_digest,
         ]
-        .iter()
-        .any(|value| *value == [0; 32])
+        .contains(&[0; 32])
             || self.usage[0] == 0
             || self.usage.iter().any(|value| *value > 1_000_000_000_000)
             || self.payable == 0
@@ -263,6 +272,8 @@ impl MarketBillingCommitment {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error when the value is invalid or the output buffer is too small.
     pub fn encode(&self, output: &mut [u8]) -> Result<usize, ProgramError> {
         self.validate()?;
         let mut writer = Writer {
@@ -289,6 +300,8 @@ impl MarketBillingCommitment {
         Ok(writer.offset)
     }
 
+    /// # Errors
+    /// Returns a malformed-value error when the input is truncated or noncanonical.
     pub fn decode(input: &[u8]) -> Result<Self, ProgramError> {
         let mut reader = Reader(input);
         if reader.take(MARKET_SANDBOX_BILLING_DOMAIN.len())? != MARKET_SANDBOX_BILLING_DOMAIN
@@ -345,6 +358,8 @@ pub struct MarketStepRequest<'a> {
 }
 
 impl<'a> MarketStepRequest<'a> {
+    /// # Errors
+    /// Returns an error when the value is invalid or the output buffer is too small.
     pub fn encode(&self, output: &mut [u8]) -> Result<usize, ProgramError> {
         if !(MARKET_STEP_OPEN..=MARKET_STEP_TERMINAL).contains(&self.mode)
             || self.profile.len() > MARKET_SANDBOX_PROFILE_CAPACITY
@@ -365,6 +380,8 @@ impl<'a> MarketStepRequest<'a> {
         Ok(writer.offset)
     }
 
+    /// # Errors
+    /// Returns a malformed-value error when the input is truncated or noncanonical.
     pub fn decode(input: &'a [u8]) -> Result<Self, ProgramError> {
         let mut reader = Reader(input);
         let mode = reader.array::<1>()?[0];
@@ -411,6 +428,8 @@ impl MarketStepOutcome {
         output
     }
 
+    /// # Errors
+    /// Returns a malformed-value error when the input is truncated or noncanonical.
     pub fn decode(input: &[u8]) -> Result<Self, ProgramError> {
         if input.len() != MARKET_STEP_OUTCOME_BYTES {
             return Err(malformed());

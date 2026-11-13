@@ -36,7 +36,13 @@ fn protected(path: &Path) -> Result<Vec<u8>, u8> {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut result = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        result.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        result.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    result
 }
 
 fn run() -> Result<(), u8> {
@@ -122,7 +128,7 @@ fn run() -> Result<(), u8> {
         .write(true)
         .create_new(true)
         .mode(0o600)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .custom_flags(i32::try_from(rustix::fs::OFlags::NOFOLLOW.bits()).map_err(|_| 2_u8)?)
         .open(output)
         .map_err(|_| 2_u8)?;
     let write = (|| {

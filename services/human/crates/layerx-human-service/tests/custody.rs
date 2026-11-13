@@ -397,20 +397,16 @@ fn contains(haystack: &[u8], needle: &[u8]) -> bool {
             .any(|window| window == needle)
 }
 
-#[test]
-fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant() {
-    let fixture = Fixture::new("custody-real");
-    let key = key_id("primary");
-    let seed = [0xa5; 32];
+fn assert_sealed_key(fixture: &Fixture, key: &KeyId, seed: [u8; 32]) -> (Keystore, [u8; 32]) {
     let keystore = fixture.keystore();
-    let public_key = generate(&keystore, &fixture.alice, &key, seed, 0x11, 0x22);
+    let public_key = generate(&keystore, &fixture.alice, key, seed, 0x11, 0x22);
     let record = fs::read(fixture.custody_root.join("principals/alice/primary.key"))
         .unwrap_or_else(|error| panic!("sealed record: {error}"));
     assert!(!contains(&record, &seed));
     assert!(!contains(&record, &[0x42; 64]));
     assert_eq!(
         keystore
-            .describe(&fixture.alice, &key)
+            .describe(&fixture.alice, key)
             .unwrap_or_else(|error| panic!("describe: {error}"))
             .public_key,
         public_key
@@ -422,29 +418,21 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
         vec![key.clone()]
     );
 
-    let prepared = prepared(public_key, seed, 25, 4);
+    (keystore, public_key)
+}
+
+fn real_signing_preparation(
+    fixture: &Fixture,
+    key: &KeyId,
+    signer: &CustodySigner,
+    prepared: &EvmSigningSubject,
+    public_key: [u8; 32],
+    seed: [u8; 32],
+) -> SigningPreparation {
     let authorization = compile(&send_intent(public_key, seed, 25, 4), &registry())
         .unwrap_or_else(|error| panic!("compile signing payload: {error:?}"));
-    let signer = CustodySigner::new(
-        keystore,
-        fixture.store(),
-        registry(),
-        SigningLimits::new(10, 60).unwrap_or_else(|error| panic!("limits: {error}")),
-    );
-    let grant = ready(signer.sign(SignRequest::new(
-        &fixture.alice,
-        &key,
-        &fixture.trace,
-        SignAuthorization::new(Operation::ProtocolMutation, None),
-        &prepared.canonical_bytes,
-        &prepared.disclosure,
-        100,
-    )))
-    .unwrap_or_else(|error| panic!("custody sign: {error}"));
-    assert_eq!(grant.signer_public_key(), public_key);
-    assert_eq!(grant.disclosure_digest(), prepared.disclosure_digest);
     let from = signer
-        .evm_wallet(&fixture.alice, &key)
+        .evm_wallet(&fixture.alice, key)
         .unwrap_or_else(|error| panic!("EVM wallet: {error}"));
     let call = ledger_payment_call(
         authorization.payload().as_bytes(),
@@ -464,7 +452,7 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
     let disclosure_digest = disclosure
         .signing_digest()
         .unwrap_or_else(|error| panic!("disclosure digest: {error:?}"));
-    let preparation = SigningPreparation {
+    SigningPreparation {
         transaction: EvmPrepared {
             signing_hash: call.signing_hash(),
             call,
@@ -474,7 +462,32 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
             observed_head_height: 88,
         },
         actor_address: from,
-    };
+    }
+}
+
+fn assert_custody_audit(fixture: &Fixture, prepared: &EvmSigningSubject, seed: [u8; 32]) {
+    let audits = fixture.audits(&fixture.alice);
+    assert_eq!(
+        audits,
+        vec![AuditEvent::SigningDecision {
+            operation: SigningOperation::ProtocolMutation,
+            disclosure_digest: prepared.disclosure_digest,
+            step_up: AuditStepUpEvidence::NotRequired,
+            outcome: Decision::Granted,
+        }]
+    );
+    let export = fixture.audit_export(&fixture.alice);
+    assert!(!contains(&export, &seed));
+    assert!(!contains(&export, &prepared.canonical_bytes));
+}
+
+fn plan_authorization(
+    fixture: &Fixture,
+    key: &KeyId,
+    signer: &CustodySigner,
+    prepared: &EvmSigningSubject,
+    preparation: &SigningPreparation,
+) -> EvmPlanAuthorization {
     let call = &preparation.transaction.call;
     let clock_directory =
         TestDirectory::new().unwrap_or_else(|error| panic!("private clock directory: {error}"));
@@ -487,13 +500,13 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
         .sample(Duration::from_secs(1))
         .unwrap_or_else(|error| panic!("plan time: {error}"))
         .unix_seconds();
-    let authorization = EvmPlanAuthorization {
+    EvmPlanAuthorization {
         plan_id: prepared.disclosure_digest,
         action_key: preparation.transaction.signing_hash,
         tenant: "tenant-a".into(),
         principal: fixture.alice.as_str().into(),
         binding_digest: signer
-            .evm_binding(&fixture.alice, &key)
+            .evm_binding(&fixture.alice, key)
             .unwrap_or_else(|error| panic!("EVM binding: {error}"))
             .digest(),
         wallet: preparation.actor_address,
@@ -515,7 +528,37 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
             value: [0; 32],
             calldata: call.data.clone(),
         },
-    };
+    }
+}
+
+#[test]
+fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant() {
+    let fixture = Fixture::new("custody-real");
+    let key = key_id("primary");
+    let seed = [0xa5; 32];
+    let (keystore, public_key) = assert_sealed_key(&fixture, &key, seed);
+    let prepared = prepared(public_key, seed, 25, 4);
+    let signer = CustodySigner::new(
+        keystore,
+        fixture.store(),
+        registry(),
+        SigningLimits::new(10, 60).unwrap_or_else(|error| panic!("limits: {error}")),
+    );
+    let grant = ready(signer.sign(SignRequest::new(
+        &fixture.alice,
+        &key,
+        &fixture.trace,
+        SignAuthorization::new(Operation::ProtocolMutation, None),
+        &prepared.canonical_bytes,
+        &prepared.disclosure,
+        100,
+    )))
+    .unwrap_or_else(|error| panic!("custody sign: {error}"));
+    assert_eq!(grant.signer_public_key(), public_key);
+    assert_eq!(grant.disclosure_digest(), prepared.disclosure_digest);
+    let preparation =
+        real_signing_preparation(&fixture, &key, &signer, &prepared, public_key, seed);
+    let authorization = plan_authorization(&fixture, &key, &signer, &prepared, &preparation);
     signer
         .authorize_evm_plan(&fixture.alice, &key, &authorization)
         .unwrap_or_else(|error| panic!("authorize EVM plan: {error}"));
@@ -552,19 +595,7 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
     );
     drop(signer);
 
-    let audits = fixture.audits(&fixture.alice);
-    assert_eq!(
-        audits,
-        vec![AuditEvent::SigningDecision {
-            operation: SigningOperation::ProtocolMutation,
-            disclosure_digest: prepared.disclosure_digest,
-            step_up: AuditStepUpEvidence::NotRequired,
-            outcome: Decision::Granted,
-        }]
-    );
-    let export = fixture.audit_export(&fixture.alice);
-    assert!(!contains(&export, &seed));
-    assert!(!contains(&export, &prepared.canonical_bytes));
+    assert_custody_audit(&fixture, &prepared, seed);
 }
 
 #[test]

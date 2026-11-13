@@ -1,13 +1,13 @@
 use ed25519_dalek::{Signer, SigningKey};
 
+#[allow(dead_code)]
 #[path = "../src"]
 mod source {
     pub mod chain_proof;
 }
 
 use chain_proof::{
-    ed25519, header, validators, vote, ChainProofError, ChainProofVerifier, Commit,
-    VerifiedChainHead,
+    header, validators, vote, ChainProofError, ChainProofVerifier, Commit, VerifiedChainHead,
 };
 use header::{ChainHeader, HeaderBlockId, HeaderTime, HeaderVersion};
 use source::chain_proof;
@@ -118,11 +118,95 @@ fn trusted_head(
     Ok((verifier, header, trusted))
 }
 
-fn assert_error(result: Result<ChainProofVerifier, ChainProofError>, expected: ChainProofError) {
+fn assert_error(result: &Result<ChainProofVerifier, ChainProofError>, expected: ChainProofError) {
     match result {
-        Err(error) => assert_eq!(error, expected),
+        Err(error) => assert_eq!(*error, expected),
         Ok(_) => panic!("accepted an invalid trust transition"),
     }
+}
+
+fn verify_skip_transitions(
+    verifier: &ChainProofVerifier,
+    trusted: &VerifiedChainHead,
+    adjacent: &ChainHeader,
+) -> Result<(), ChainProofError> {
+    for (seeds, expected) in [
+        ([1, 4, 5], None),
+        ([2, 4, 5], Some(ChainProofError::InsufficientPower)),
+        ([3, 4, 5], Some(ChainProofError::InsufficientPower)),
+        ([4, 5, 6], Some(ChainProofError::InsufficientPower)),
+    ] {
+        let skip_keys = keys(&seeds);
+        let skip_set = validator_set(&skip_keys, &[1, 4, 4])?;
+        let mut skipped = adjacent.clone();
+        skipped.height += 20;
+        skipped.validators_hash = skip_set.hash().to_vec();
+        let skip_commit = signed_commit(&skipped, &skip_keys)?;
+        if let Some(error) = expected {
+            assert_error(
+                &verifier.advance(trusted, &skipped, &skip_commit, skip_set.clone()),
+                error,
+            );
+        } else {
+            let advanced = verifier.advance(trusted, &skipped, &skip_commit, skip_set.clone())?;
+            assert_eq!(advanced.validators, skip_set);
+            assert_eq!(
+                advanced.verify_head(&skipped, &skip_commit)?.height(),
+                skipped.height
+            );
+
+            let mut forged = skip_commit.clone();
+            forged.signatures[0].signature[0] ^= 1;
+            assert_error(
+                &verifier.advance(trusted, &skipped, &forged, skip_set.clone()),
+                ChainProofError::Mismatch,
+            );
+            let mut duplicate = skip_commit.clone();
+            duplicate.signatures.push(skip_commit.signatures[0].clone());
+            assert_error(
+                &verifier.advance(trusted, &skipped, &duplicate, skip_set.clone()),
+                ChainProofError::Mismatch,
+            );
+            let mut nil = skip_commit.clone();
+            nil.signatures[0] = sign_vote(&skipped, &nil, &skip_keys[0], BlockIdFlag::Nil)?;
+            assert_error(
+                &verifier.advance(trusted, &skipped, &nil, skip_set.clone()),
+                ChainProofError::InsufficientPower,
+            );
+            let mut absent = skip_commit.clone();
+            absent.signatures[0] = CommitSig {
+                flag: BlockIdFlag::Absent,
+                validator_address: Vec::new(),
+                timestamp: Timestamp::ZERO,
+                signature: Vec::new(),
+            };
+            assert_error(
+                &verifier.advance(trusted, &skipped, &absent, skip_set.clone()),
+                ChainProofError::InsufficientPower,
+            );
+            assert_error(
+                &verifier.advance(
+                    trusted,
+                    &skipped,
+                    &signed_commit(&skipped, &skip_keys[..1])?,
+                    skip_set.clone(),
+                ),
+                ChainProofError::InsufficientPower,
+            );
+            let mut wrong_block = skip_commit.clone();
+            wrong_block.block_id.hash[0] ^= 1;
+            wrong_block.signatures = skip_keys
+                .iter()
+                .map(|key| sign_vote(&skipped, &wrong_block, key, BlockIdFlag::Commit))
+                .collect::<Result<_, _>>()?;
+            assert_error(
+                &verifier.advance(trusted, &skipped, &wrong_block, skip_set.clone()),
+                ChainProofError::Mismatch,
+            );
+        }
+    }
+
+    Ok(())
 }
 
 #[test]
@@ -160,7 +244,7 @@ fn chain_trust_advances_adjacent_and_one_third_skips() -> Result<(), ChainProofE
     let mut wrong_adjacent = adjacent.clone();
     wrong_adjacent.validators_hash = verifier.validators.hash().to_vec();
     assert_error(
-        verifier.advance(
+        &verifier.advance(
             &trusted,
             &wrong_adjacent,
             &signed_commit(&wrong_adjacent, &old_keys)?,
@@ -169,11 +253,11 @@ fn chain_trust_advances_adjacent_and_one_third_skips() -> Result<(), ChainProofE
         ChainProofError::Mismatch,
     );
     assert_error(
-        verifier.advance(&trusted, &adjacent, &commit, verifier.validators.clone()),
+        &verifier.advance(&trusted, &adjacent, &commit, verifier.validators.clone()),
         ChainProofError::Mismatch,
     );
     assert_error(
-        verifier.advance(
+        &verifier.advance(
             &trusted,
             &adjacent,
             &signed_commit(&adjacent, &next_keys[..2])?,
@@ -182,83 +266,7 @@ fn chain_trust_advances_adjacent_and_one_third_skips() -> Result<(), ChainProofE
         ChainProofError::InsufficientPower,
     );
 
-    for (seeds, expected) in [
-        ([1, 4, 5], None),
-        ([2, 4, 5], Some(ChainProofError::InsufficientPower)),
-        ([3, 4, 5], Some(ChainProofError::InsufficientPower)),
-        ([4, 5, 6], Some(ChainProofError::InsufficientPower)),
-    ] {
-        let skip_keys = keys(&seeds);
-        let skip_set = validator_set(&skip_keys, &[1, 4, 4])?;
-        let mut skipped = adjacent.clone();
-        skipped.height += 20;
-        skipped.validators_hash = skip_set.hash().to_vec();
-        let skip_commit = signed_commit(&skipped, &skip_keys)?;
-        match expected {
-            Some(error) => assert_error(
-                verifier.advance(&trusted, &skipped, &skip_commit, skip_set.clone()),
-                error,
-            ),
-            None => {
-                let advanced =
-                    verifier.advance(&trusted, &skipped, &skip_commit, skip_set.clone())?;
-                assert_eq!(advanced.validators, skip_set);
-                assert_eq!(
-                    advanced.verify_head(&skipped, &skip_commit)?.height(),
-                    skipped.height
-                );
-
-                let mut forged = skip_commit.clone();
-                forged.signatures[0].signature[0] ^= 1;
-                assert_error(
-                    verifier.advance(&trusted, &skipped, &forged, skip_set.clone()),
-                    ChainProofError::Mismatch,
-                );
-                let mut duplicate = skip_commit.clone();
-                duplicate.signatures.push(skip_commit.signatures[0].clone());
-                assert_error(
-                    verifier.advance(&trusted, &skipped, &duplicate, skip_set.clone()),
-                    ChainProofError::Mismatch,
-                );
-                let mut nil = skip_commit.clone();
-                nil.signatures[0] = sign_vote(&skipped, &nil, &skip_keys[0], BlockIdFlag::Nil)?;
-                assert_error(
-                    verifier.advance(&trusted, &skipped, &nil, skip_set.clone()),
-                    ChainProofError::InsufficientPower,
-                );
-                let mut absent = skip_commit.clone();
-                absent.signatures[0] = CommitSig {
-                    flag: BlockIdFlag::Absent,
-                    validator_address: Vec::new(),
-                    timestamp: Timestamp::ZERO,
-                    signature: Vec::new(),
-                };
-                assert_error(
-                    verifier.advance(&trusted, &skipped, &absent, skip_set.clone()),
-                    ChainProofError::InsufficientPower,
-                );
-                assert_error(
-                    verifier.advance(
-                        &trusted,
-                        &skipped,
-                        &signed_commit(&skipped, &skip_keys[..1])?,
-                        skip_set.clone(),
-                    ),
-                    ChainProofError::InsufficientPower,
-                );
-                let mut wrong_block = skip_commit.clone();
-                wrong_block.block_id.hash[0] ^= 1;
-                wrong_block.signatures = skip_keys
-                    .iter()
-                    .map(|key| sign_vote(&skipped, &wrong_block, key, BlockIdFlag::Commit))
-                    .collect::<Result<_, _>>()?;
-                assert_error(
-                    verifier.advance(&trusted, &skipped, &wrong_block, skip_set.clone()),
-                    ChainProofError::Mismatch,
-                );
-            }
-        }
-    }
+    verify_skip_transitions(&verifier, &trusted, &adjacent)?;
 
     let boundary_keys = keys(&[2, 4, 5]);
     let boundary_set = validator_set(&boundary_keys, &[1, 1, 1])?;
@@ -268,7 +276,7 @@ fn chain_trust_advances_adjacent_and_one_third_skips() -> Result<(), ChainProofE
     let mut duplicate = signed_commit(&skipped, &boundary_keys)?;
     duplicate.signatures.push(duplicate.signatures[0].clone());
     assert_error(
-        verifier.advance(&trusted, &skipped, &duplicate, boundary_set),
+        &verifier.advance(&trusted, &skipped, &duplicate, boundary_set),
         ChainProofError::Mismatch,
     );
     assert_eq!(verifier.validators, validator_set(&old_keys, &[4, 3, 2])?);
@@ -285,7 +293,7 @@ fn chain_trust_refuses_backwards_and_expired_heads() -> Result<(), ChainProofErr
         candidate.height = height;
         candidate.time.seconds += 1;
         assert_error(
-            verifier.advance(
+            &verifier.advance(
                 &trusted,
                 &candidate,
                 &signed_commit(&candidate, &keys)?,
@@ -301,7 +309,8 @@ fn chain_trust_refuses_backwards_and_expired_heads() -> Result<(), ChainProofErr
             let time_ms = trusted.time_ms() + elapsed_ms;
             candidate.time = HeaderTime {
                 seconds: time_ms.div_euclid(1_000),
-                nanos: (time_ms.rem_euclid(1_000) * 1_000_000) as i32,
+                nanos: i32::try_from(time_ms.rem_euclid(1_000) * 1_000_000)
+                    .unwrap_or_else(|error| panic!("{error:?}")),
             };
             let commit = signed_commit(&candidate, &keys)?;
             let result = verifier.advance(&trusted, &candidate, &commit, validators.clone());
@@ -313,7 +322,7 @@ fn chain_trust_refuses_backwards_and_expired_heads() -> Result<(), ChainProofErr
                 );
                 assert_eq!(advanced.validators, validators);
             } else {
-                assert_error(result, ChainProofError::Expired);
+                assert_error(&result, ChainProofError::Expired);
             }
         }
     }
@@ -323,7 +332,7 @@ fn chain_trust_refuses_backwards_and_expired_heads() -> Result<(), ChainProofErr
     other_chain.height += 1;
     other_chain.time.seconds += 1;
     assert_error(
-        verifier.advance(
+        &verifier.advance(
             &trusted,
             &other_chain,
             &signed_commit(&other_chain, &keys)?,
@@ -336,7 +345,7 @@ fn chain_trust_refuses_backwards_and_expired_heads() -> Result<(), ChainProofErr
         validators: validators.clone(),
     };
     assert_error(
-        other_verifier.advance(
+        &other_verifier.advance(
             &trusted,
             &other_chain,
             &signed_commit(&other_chain, &keys)?,
@@ -350,7 +359,7 @@ fn chain_trust_refuses_backwards_and_expired_heads() -> Result<(), ChainProofErr
         candidate.height += 1;
         candidate.time.seconds = seconds;
         assert_error(
-            verifier.advance(
+            &verifier.advance(
                 &trusted,
                 &candidate,
                 &signed_commit(&original, &keys)?,

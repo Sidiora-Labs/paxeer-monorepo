@@ -17,6 +17,9 @@ import (
 	"strings"
 	"time"
 
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/safefile"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
@@ -113,13 +116,9 @@ func boundedDocument(path, digest string, maximum int64, value any) error {
 	if !filepath.IsAbs(path) || !hash.MatchString(digest) {
 		return errors.New("absolute digest-bound input required")
 	}
-	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Size() > maximum {
-		return errors.New("bounded regular input required")
-	}
-	raw, err := os.ReadFile(path)
+	raw, err := safefile.ReadRegular(path, maximum)
 	if err != nil {
-		return err
+		return errors.New("bounded regular input required")
 	}
 	sum := sha256.Sum256(raw)
 	if hex.EncodeToString(sum[:]) != digest {
@@ -184,7 +183,7 @@ func capture(ctx context.Context, pool *pgxpool.Pool, c config, broker jetstream
 	if err != nil {
 		return result, err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	if _, err = tx.Exec(ctx, `SET LOCAL statement_timeout='5s'`); err != nil {
 		return result, err
 	}
@@ -265,7 +264,7 @@ func reconcile(ctx context.Context, pool *pgxpool.Pool, c config, output measure
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	if _, err = tx.Exec(ctx, `SET LOCAL statement_timeout='15min'`); err != nil {
 		return nil, err
 	}
@@ -376,7 +375,36 @@ func reconcile(ctx context.Context, pool *pgxpool.Pool, c config, output measure
 	}
 	return map[string]any{"acceptedUniqueFills": accepted, "referenceDigest": expectedDigest, "actualDigest": actualDigest, "barCount": len(actual), "algorithmVersion": engine.SeriesAlgorithm, "timeframes": 7, "exactParity": true}, nil
 }
-func run() error {
+
+func verifyStagingArchive(ctx context.Context, release bool, retention retentionConfig, objects *storage.Client, reader store.ArchiveReader, st *store.ExactStore, manifests []store.ArchiveManifest) (bool, error) {
+	if !release || !retention.StagingDeletionAdmitted {
+		return false, nil
+	}
+	if !regexp.MustCompile(`^[a-zA-Z0-9_-]*staging[a-zA-Z0-9_-]*$`).MatchString(objects.Bucket()) || retention.DeleteStagingObject == "" {
+		return false, errors.New("explicit isolated staging archive mutation authority required")
+	}
+	matched := false
+	for _, manifest := range manifests {
+		if manifest.ObjectKey == retention.DeleteStagingObject {
+			matched = true
+		}
+	}
+	if !matched {
+		return false, errors.New("exact verified staging object required")
+	}
+	if err := objects.Delete(ctx, retention.DeleteStagingObject); err != nil {
+		return false, err
+	}
+	_, guardErr := st.RetentionDryRun(ctx, reader, retention.Pool, retention.Interval, retention.From, retention.To, manifests)
+	if !errors.Is(guardErr, storage.ErrNotFound) {
+		return false, errors.New("deleted staging archive did not fail retention closed with actual missing object")
+	}
+	return true, nil
+}
+
+func run() error { return runWithContext(context.Background(), 24*time.Hour) }
+
+func runWithContext(parent context.Context, releaseDuration time.Duration) error {
 	var configPath, configHash, output string
 	var release bool
 	flag.StringVar(&configPath, "config", "", "absolute provider configuration")
@@ -397,31 +425,36 @@ func run() error {
 	if err := os.Mkdir(output, 0700); err != nil {
 		return err
 	}
+	outputRoot, err := os.OpenRoot(output)
+	if err != nil {
+		return err
+	}
+	defer chartcleanup.Close(outputRoot)
 	makeFile := func(name string) (*os.File, error) {
-		return os.OpenFile(filepath.Join(output, name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		return outputRoot.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	}
 	samples, err := makeFile("samples.ndjson")
 	if err != nil {
 		return err
 	}
-	defer samples.Close()
+	defer chartcleanup.Close(samples)
 	latencies, err := makeFile("latencies.ndjson")
 	if err != nil {
 		return err
 	}
-	defer latencies.Close()
+	defer chartcleanup.Close(latencies)
 	locks, err := makeFile("locks.ndjson")
 	if err != nil {
 		return err
 	}
-	defer locks.Close()
+	defer chartcleanup.Close(locks)
 	budget := &rawBudget{maximum: c.RawArtifactBudgetBytes}
 	files := measurements{boundedArtifact{samples, budget}, boundedArtifact{latencies, budget}, boundedArtifact{locks, budget}}
 	timeout := 25 * time.Minute
 	if release {
 		timeout = 24*time.Hour + time.Duration(c.RecoverySeconds)*time.Second + 30*time.Minute
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	db, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -511,7 +544,7 @@ func run() error {
 	last := first
 	duration := 3 * time.Second
 	if release {
-		duration = 24 * time.Hour
+		duration = releaseDuration
 	}
 	ticker := time.NewTicker(time.Duration(c.SampleMillis) * time.Millisecond)
 	defer ticker.Stop()
@@ -549,28 +582,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	missingBlocked := false
-	if release && c.Retention.StagingDeletionAdmitted {
-		if !regexp.MustCompile(`^[a-zA-Z0-9_-]*staging[a-zA-Z0-9_-]*$`).MatchString(objects.Bucket()) || c.Retention.DeleteStagingObject == "" {
-			return errors.New("explicit isolated staging archive mutation authority required")
-		}
-		matched := false
-		for _, manifest := range manifests {
-			if manifest.ObjectKey == c.Retention.DeleteStagingObject {
-				matched = true
-			}
-		}
-		if !matched {
-			return errors.New("exact verified staging object required")
-		}
-		if err = objects.Delete(ctx, c.Retention.DeleteStagingObject); err != nil {
-			return err
-		}
-		_, guardErr := st.RetentionDryRun(ctx, reader, c.Retention.Pool, c.Retention.Interval, c.Retention.From, c.Retention.To, manifests)
-		if !errors.Is(guardErr, storage.ErrNotFound) {
-			return errors.New("deleted staging archive did not fail retention closed with actual missing object")
-		}
-		missingBlocked = true
+	missingBlocked, err := verifyStagingArchive(ctx, release, c.Retention, objects, reader, st, manifests)
+	if err != nil {
+		return err
 	}
 	result := map[string]any{"task": "4.10", "candidateDigest": candidateDigest, "interfaceDigest": c.InterfaceDigest, "captureStarted": started.UTC(), "captureEnded": time.Now().UTC(), "captureDurationNanos": last.ElapsedNanos, "rawArtifactBytes": budget.used, "rawArtifactBudgetBytes": budget.maximum, "coordinatedStartAt": c.StartAt, "first": first, "last": last, "parity": parity, "retention": retention, "retentionMissingObjectBlocked": missingBlocked, "recoveryThroughHeight": recoveryThroughHeight, "recoveryNanos": recoveryNanos, "steadyTargetCanonicalEventsPerSecond": 2000, "burstTargetCanonicalEventsPerSecond": 10000, "burstSeconds": 300, "hotPoolTargetPercent": 10, "chainThroughputInferred": false, "capacityQualified": false, "globalAcceptance": "serial9.1", "profile": "actual_provider_probe"}
 	if release {
@@ -580,7 +594,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer chartcleanup.Close(file)
 	return json.NewEncoder(file).Encode(result)
 }
 func main() {

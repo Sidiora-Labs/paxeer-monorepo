@@ -15,6 +15,8 @@ use crate::trace::TraceId;
 
 use super::{CustodyError, KeyId, Keystore};
 
+/// # Errors
+/// Returns an error if validation or a required operation fails.
 pub fn attach_call_signature(
     call: &Eip1559Call,
     signature: [u8; 65],
@@ -267,6 +269,7 @@ pub struct NativeConsentRequest<'a> {
 }
 
 impl<'a> NativeConsentRequest<'a> {
+    #[must_use]
     pub const fn new(
         principal: &'a PrincipalId,
         key: &'a KeyId,
@@ -903,6 +906,8 @@ fn hex(bytes: [u8; 32]) -> String {
 }
 
 impl CustodySigner {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn public_wallet_identity(
         &self,
         principal: &PrincipalId,
@@ -977,6 +982,8 @@ impl CustodySigner {
 }
 
 impl CustodySigner {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub async fn sign_native_consent_in_scope(
         &self,
         scope: &mut PrincipalScope<'_>,
@@ -1000,8 +1007,8 @@ impl CustodySigner {
         };
         let event = AuditEvent::SigningDecision {
             operation: match request.consent {
-                super::NativeConsent::PreparationPurpose(_) => SigningOperation::ProtocolMutation,
-                super::NativeConsent::SendPurpose(_) => SigningOperation::ProtocolMutation,
+                super::NativeConsent::PreparationPurpose(_)
+                | super::NativeConsent::SendPurpose(_) => SigningOperation::ProtocolMutation,
                 super::NativeConsent::LocalGrant(_) => SigningOperation::SecuritySettings,
             },
             disclosure_digest: digest.unwrap_or([0; 32]),
@@ -1027,8 +1034,9 @@ impl CustodySigner {
     ) -> Result<NativeConsentSignatureGrant, CustodyError> {
         let digest = digest.ok_or(CustodyError::InvalidEvidence)?;
         let expected_operation = match request.consent {
-            super::NativeConsent::PreparationPurpose(_) => Operation::ProtocolMutation,
-            super::NativeConsent::SendPurpose(_) => Operation::ProtocolMutation,
+            super::NativeConsent::PreparationPurpose(_) | super::NativeConsent::SendPurpose(_) => {
+                Operation::ProtocolMutation
+            }
             super::NativeConsent::LocalGrant(_) => Operation::SecuritySettings,
         };
         if request.authorization.operation != expected_operation {

@@ -1,6 +1,7 @@
 use layerx_program_sdk::{BindgenError, BindingGenerator};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::fmt::Write;
 use std::{fs, path::Path};
 
 #[path = "support/bytes_call_boundary.rs"]
@@ -548,6 +549,26 @@ fn emit_additional_consumers(root: &Path, rust: &str, guest: &str, typescript: &
     let generator = BindingGenerator::from_interface(&exhaustive_interface())
         .unwrap_or_else(|e| panic!("canonical fixture refused: {e}"));
     let all = generator.generate_all();
+    emit_language_consumers(root, rust, guest, typescript, &generator, &all);
+    emit_nested_consumers(root);
+    write_consumer(root,"forged.rs",format!("mod bindings{{{rust}}}\nfn main(){{let _:bindings::Call<u8,u8>=bindings::Call{{bytes:vec![1],_type:core::marker::PhantomData}};}}"));
+    let rows = consumer_plan_rows(&roundtrip_cases());
+    write_consumer(
+        root,
+        "consumer-plan.json",
+        serde_json::to_vec_pretty(&json!({"schema":1,"consumers":rows}))
+            .unwrap_or_else(|e| panic!("serialize consumers: {e}")),
+    );
+}
+
+fn emit_language_consumers(
+    root: &Path,
+    rust: &str,
+    guest: &str,
+    typescript: &str,
+    generator: &BindingGenerator,
+    all: &layerx_program_sdk::GeneratedBindings,
+) {
     write_consumer(
         root,
         "malformed.rs",
@@ -643,6 +664,9 @@ fn emit_additional_consumers(root: &Path, rust: &str, guest: &str, typescript: &
     for (project, consumer) in [("consumer", "consumer.cs"), ("malformed", "malformed.cs")] {
         write_consumer(root, &format!("csharp/{project}.csproj"), format!("<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><StartupObject>Program</StartupObject><AssemblyName>{project}</AssemblyName></PropertyGroup><ItemGroup><Compile Include=\"bindings.cs\"/><Compile Include=\"{consumer}\"/></ItemGroup></Project>\n"));
     }
+}
+
+fn emit_nested_consumers(root: &Path) {
     let mut nested_bytes = Vec::from(DOMAIN);
     nested_bytes.extend_from_slice(&CODE_HASH);
     nested_bytes.extend_from_slice(&2_u16.to_be_bytes());
@@ -678,16 +702,17 @@ fn main(){
         format!(
             "{}{}",
             nested.typescript,
-            r#"
+            r"
 const values:NestedInput[]=[null,{some:null},{some:7}];
 const frames=[[1,0x40,0],[1,0x40,1,0x40,0],[1,0x40,1,0x40,1,0x10,7]];
 for(let i=0;i<values.length;i++){const call=encodeNested(values[i],CODE_HASH,INTERFACE_DIGEST);if(JSON.stringify(Array.from(call.bytes.slice(4)))!==JSON.stringify(frames[i]))throw new Error('nested golden mismatch');if(JSON.stringify(decodeNestedOutput(Uint8Array.from(frames[i])))!==JSON.stringify(values[i]))throw new Error('nested roundtrip mismatch');decodeNestedFailure(7,Uint8Array.from(frames[i]));}
 console.log('BINDING_CASE roundtrip_nested_option');
-"#
+"
         ),
     );
-    write_consumer(root,"forged.rs",format!("mod bindings{{{rust}}}\nfn main(){{let _:bindings::Call<u8,u8>=bindings::Call{{bytes:vec![1],_type:core::marker::PhantomData}};}}"));
-    let cases = roundtrip_cases();
+}
+
+fn consumer_plan_rows(cases: &[String]) -> Vec<Value> {
     let rows = vec![
         json!({"id":"rust","language":"rust","sources":["client.rs"],"compile":["rustc","+1.91.1","--edition=2021","{root}/client.rs","-o","{root}/client"],"expect_success":true,"run":["{root}/client"],"cases":cases,"artifacts":["client"]}),
         json!({"id":"rust_malformed","language":"rust","sources":["malformed.rs"],"compile":["rustc","+1.91.1","--edition=2021","{root}/malformed.rs","-o","{root}/malformed"],"expect_success":false,"diagnostic":"mismatched types","run":[],"cases":["malformed_call"],"artifacts":[]}),
@@ -712,12 +737,7 @@ console.log('BINDING_CASE roundtrip_nested_option');
         json!({"id":"typescript_nested_option","language":"typescript","sources":["nested.ts"],"compile":["{repo}/programs/sdk/rust/node_modules/.bin/tsc","--strict","--target","ES2020","--module","commonjs","--outDir","{root}/ts-nested","{root}/nested.ts"],"expect_success":true,"run":["node","{root}/ts-nested/nested.js"],"cases":["roundtrip_nested_option"],"artifacts":["ts-nested/nested.js"]}),
         json!({"id":"rust_forged","language":"rust","sources":["forged.rs"],"compile":["rustc","+1.91.1","--edition=2021","{root}/forged.rs","-o","{root}/forged"],"expect_success":false,"diagnostic":"private","run":[],"cases":["forged_call"],"artifacts":[]}),
     ];
-    write_consumer(
-        root,
-        "consumer-plan.json",
-        serde_json::to_vec_pretty(&json!({"schema":1,"consumers":rows}))
-            .unwrap_or_else(|e| panic!("serialize consumers: {e}")),
-    );
+    rows
 }
 
 fn read_json(path: &Path) -> Value {
@@ -818,10 +838,10 @@ fn verify_artifact_hash(root: &Path, artifact: &Value) {
     );
     let bytes = fs::read(actual).unwrap_or_else(|e| panic!("read artifact {relative}: {e}"));
     assert_eq!(artifact["bytes"].as_u64(), Some(bytes.len() as u64));
-    let hash: String = Sha256::digest(&bytes)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    let mut hash = String::new();
+    for byte in Sha256::digest(&bytes) {
+        let _ = write!(hash, "{byte:02x}");
+    }
     assert_eq!(
         artifact["sha256"].as_str(),
         Some(hash.as_str()),
@@ -838,7 +858,7 @@ fn versioned_interface(abi: u16, version: u8, capability: Option<&[u8]>) -> Vec<
     bytes.extend_from_slice(&[1, 2, 3, 4]);
     bytes.extend_from_slice(&layerx(0x10));
     bytes.extend_from_slice(&layerx(0x10));
-    bytes.extend_from_slice(&(if capability.is_some() { 1_u16 } else { 0_u16 }).to_be_bytes());
+    bytes.extend_from_slice(&u16::from(capability.is_some()).to_be_bytes());
     if let Some(value) = capability {
         bytes.extend_from_slice(value);
     }

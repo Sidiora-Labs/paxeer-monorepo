@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/chain.rs"]
 mod chain;
 
@@ -41,6 +42,110 @@ fn sign_height(
     Ok(())
 }
 
+fn protocol_proof<'a>(
+    fixture: &'a ChainFixture,
+    ops: &'a [chain_proof::decode::ProofOp],
+) -> ChainProtocolHeadProof<'a> {
+    ChainProtocolHeadProof {
+        ops,
+        kernel_key: KERNEL_KEY,
+        value: VALUE,
+        store_name: STORE_NAME,
+        verifier: &fixture.verifier,
+        header: &fixture.header,
+        commit: &fixture.commit,
+    }
+}
+
+fn verify_other_protocol_heads(
+    fixture: &ChainFixture,
+    ops: &[chain_proof::decode::ProofOp],
+    next: &chain_proof::VerifiedChainHead,
+) -> Result<(), chain_proof::ChainProofError> {
+    let key = chain_evidence::programs_state_key(KERNEL_KEY);
+    let proof = protocol_proof(fixture, ops);
+    let foreign = ChainFixture::new("other-chain", &SEEDS, vec![(key.clone(), VALUE.to_vec())])?;
+    let foreign_head = foreign
+        .verifier
+        .verify_head(&foreign.header, &foreign.commit)?;
+    assert_eq!(
+        proof.verify(&foreign_head),
+        Err(ProtocolEvidenceError::ProtocolDomain)
+    );
+    assert_eq!(
+        ChainProtocolHeadProof {
+            verifier: &foreign.verifier,
+            ..proof
+        }
+        .verify(next),
+        Err(ProtocolEvidenceError::ProtocolDomain)
+    );
+
+    let changed = ChainFixture::new(CHAIN_ID, &SEEDS, vec![(key.clone(), b"new state".to_vec())])?;
+    let changed_head = changed
+        .verifier
+        .verify_head(&changed.header, &changed.commit)?;
+    assert_ne!(changed_head.app_hash(), next.app_hash());
+    assert_eq!(
+        proof.verify(&changed_head),
+        Err(ProtocolEvidenceError::StateRoot)
+    );
+    assert_eq!(
+        ChainProtocolHeadProof {
+            header: &changed.header,
+            commit: &changed.commit,
+            ..proof
+        }
+        .verify(&changed_head),
+        Err(ProtocolEvidenceError::StateProof)
+    );
+    let changed_ops = changed.prove(&key)?;
+    let changed_proof = ChainProtocolHeadProof {
+        ops: &changed_ops,
+        value: b"new state",
+        verifier: &changed.verifier,
+        header: &changed.header,
+        commit: &changed.commit,
+        ..proof
+    };
+    let changed_protocol_head = changed_proof
+        .verify(&changed_head)
+        .unwrap_or_else(|error| panic!("changed protocol head: {error}"));
+    assert_eq!(changed_protocol_head.state_root(), changed_head.app_hash());
+    assert_eq!(changed_protocol_head.height(), changed_head.height() - 1);
+    assert_eq!(changed_protocol_head.header_hash(), changed.header.hash()?);
+
+    Ok(())
+}
+
+fn verify_later_protocol_head(
+    fixture: &mut ChainFixture,
+    ops: &[chain_proof::decode::ProofOp],
+    head: &chain_evidence::protocol_head::VerifiedProtocolHead,
+) -> Result<(), chain_proof::ChainProofError> {
+    sign_height(fixture, 13)?;
+    let later = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)?;
+    let later_head = ChainProtocolHeadProof {
+        ops,
+        kernel_key: KERNEL_KEY,
+        value: VALUE,
+        store_name: STORE_NAME,
+        verifier: &fixture.verifier,
+        header: &fixture.header,
+        commit: &fixture.commit,
+    }
+    .verify(&later)
+    .unwrap_or_else(|error| panic!("later protocol head: {error}"));
+    assert_eq!(later_head.state_root(), head.state_root());
+    assert_eq!(later_head.height(), 12);
+    assert_eq!(later_head.header_height(), 13);
+    assert_eq!(later_head.header_hash(), fixture.header.hash()?);
+    assert_ne!(later_head.header_hash(), head.header_hash());
+    Ok(())
+}
+
 #[test]
 fn chain_protocol_head_binds_app_hash_and_height() -> Result<(), chain_proof::ChainProofError> {
     let key = chain_evidence::programs_state_key(KERNEL_KEY);
@@ -50,15 +155,7 @@ fn chain_protocol_head_binds_app_hash_and_height() -> Result<(), chain_proof::Ch
         .verifier
         .verify_head(&fixture.header, &fixture.commit)?;
     let ops = fixture.prove(&key)?;
-    let proof = ChainProtocolHeadProof {
-        ops: &ops,
-        kernel_key: KERNEL_KEY,
-        value: VALUE,
-        store_name: STORE_NAME,
-        verifier: &fixture.verifier,
-        header: &fixture.header,
-        commit: &fixture.commit,
-    };
+    let proof = protocol_proof(&fixture, &ops);
     let head = proof
         .verify(&next)
         .unwrap_or_else(|error| panic!("protocol head proof: {error}"));
@@ -129,76 +226,8 @@ fn chain_protocol_head_binds_app_hash_and_height() -> Result<(), chain_proof::Ch
         Err(ProtocolEvidenceError::StateRoot)
     );
 
-    let foreign = ChainFixture::new("other-chain", &SEEDS, vec![(key.clone(), VALUE.to_vec())])?;
-    let foreign_head = foreign
-        .verifier
-        .verify_head(&foreign.header, &foreign.commit)?;
-    assert_eq!(
-        proof.verify(&foreign_head),
-        Err(ProtocolEvidenceError::ProtocolDomain)
-    );
-    assert_eq!(
-        ChainProtocolHeadProof {
-            verifier: &foreign.verifier,
-            ..proof
-        }
-        .verify(&next),
-        Err(ProtocolEvidenceError::ProtocolDomain)
-    );
+    verify_other_protocol_heads(&fixture, &ops, &next)?;
 
-    let changed = ChainFixture::new(CHAIN_ID, &SEEDS, vec![(key.clone(), b"new state".to_vec())])?;
-    let changed_head = changed
-        .verifier
-        .verify_head(&changed.header, &changed.commit)?;
-    assert_ne!(changed_head.app_hash(), next.app_hash());
-    assert_eq!(
-        proof.verify(&changed_head),
-        Err(ProtocolEvidenceError::StateRoot)
-    );
-    assert_eq!(
-        ChainProtocolHeadProof {
-            header: &changed.header,
-            commit: &changed.commit,
-            ..proof
-        }
-        .verify(&changed_head),
-        Err(ProtocolEvidenceError::StateProof)
-    );
-    let changed_ops = changed.prove(&key)?;
-    let changed_proof = ChainProtocolHeadProof {
-        ops: &changed_ops,
-        value: b"new state",
-        verifier: &changed.verifier,
-        header: &changed.header,
-        commit: &changed.commit,
-        ..proof
-    };
-    let changed_protocol_head = changed_proof
-        .verify(&changed_head)
-        .unwrap_or_else(|error| panic!("changed protocol head: {error}"));
-    assert_eq!(changed_protocol_head.state_root(), changed_head.app_hash());
-    assert_eq!(changed_protocol_head.height(), changed_head.height() - 1);
-    assert_eq!(changed_protocol_head.header_hash(), changed.header.hash()?);
-
-    sign_height(&mut fixture, 13)?;
-    let later = fixture
-        .verifier
-        .verify_head(&fixture.header, &fixture.commit)?;
-    let later_head = ChainProtocolHeadProof {
-        ops: &ops,
-        kernel_key: KERNEL_KEY,
-        value: VALUE,
-        store_name: STORE_NAME,
-        verifier: &fixture.verifier,
-        header: &fixture.header,
-        commit: &fixture.commit,
-    }
-    .verify(&later)
-    .unwrap_or_else(|error| panic!("later protocol head: {error}"));
-    assert_eq!(later_head.state_root(), head.state_root());
-    assert_eq!(later_head.height(), 12);
-    assert_eq!(later_head.header_height(), 13);
-    assert_eq!(later_head.header_hash(), fixture.header.hash()?);
-    assert_ne!(later_head.header_hash(), head.header_hash());
+    verify_later_protocol_head(&mut fixture, &ops, &head)?;
     Ok(())
 }

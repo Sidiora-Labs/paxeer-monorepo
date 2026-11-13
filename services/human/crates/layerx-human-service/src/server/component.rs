@@ -349,168 +349,186 @@ impl Dispatcher {
     fn dispatch(&self, request: &mut ComponentRequest) -> Result<Vec<u8>, ApiFailure> {
         request.validate()?;
         match request {
-            ComponentRequest::Authorize {
-                operation,
-                access_token,
-                csrf_token,
-                intended_destination,
-                refresh,
-                request_digest,
-                disclosure_digest,
-                path_parameters,
-                body,
-                idempotency_key,
-                trace,
-                ..
-            } => {
-                let operation = self
-                    .schema
-                    .operation(operation)
-                    .ok_or_else(ApiFailure::not_found)?;
-                if operation.retired() {
-                    return Err(ApiFailure::operation_retired());
-                }
-                validate_execute(operation, path_parameters, idempotency_key.as_deref())?;
-                let request_digest = parse_digest(request_digest, "request_digest")?;
-                let disclosure_digest = parse_digest(disclosure_digest, "disclosure_digest")?;
-                if disclosure_digest != json_digest(body)?
-                    || request_digest
-                        != authorized_request_digest(
-                            operation,
-                            intended_destination,
-                            path_parameters,
-                            body,
-                            idempotency_key.as_deref(),
-                            trace,
-                        )?
-                {
-                    return Err(ApiFailure::unauthenticated());
-                }
-                let context = self.backend.authorize(
-                    operation,
-                    SessionCredentials {
-                        access_token,
-                        csrf_token: csrf_token.as_deref(),
-                        intended_destination,
-                        refresh: *refresh,
-                        request_digest,
-                        disclosure_digest,
-                        path_parameters,
-                        body,
-                        idempotency_key: idempotency_key.as_deref(),
-                    },
-                    trace,
-                )?;
-                encode_authorized(&context)
-            }
-            ComponentRequest::Bearer {
-                operation,
-                assertion,
-                wallet_binding,
-                intended_destination,
-                request_digest,
-                disclosure_digest,
-                path_parameters,
-                body,
-                idempotency_key,
-                trace,
-                ..
-            } => {
-                let operation = self
-                    .schema
-                    .operation(operation)
-                    .ok_or_else(ApiFailure::not_found)?;
-                if operation.retired() {
-                    return Err(ApiFailure::operation_retired());
-                }
-                validate_execute(operation, path_parameters, idempotency_key.as_deref())?;
-                let request_digest = parse_digest(request_digest, "request_digest")?;
-                let disclosure_digest = parse_digest(disclosure_digest, "disclosure_digest")?;
-                if disclosure_digest != json_digest(body)?
-                    || request_digest
-                        != authorized_request_digest(
-                            operation,
-                            intended_destination,
-                            path_parameters,
-                            body,
-                            idempotency_key.as_deref(),
-                            trace,
-                        )?
-                {
-                    return Err(ApiFailure::unauthenticated());
-                }
-                let context = self.backend.admit_bearer_assertion(
-                    operation,
-                    BearerCredentials {
-                        assertion,
-                        wallet_binding: wallet_binding.as_deref(),
-                        intended_destination,
-                        request_digest,
-                        disclosure_digest,
-                        path_parameters,
-                        body,
-                        idempotency_key: idempotency_key.as_deref(),
-                    },
-                    trace,
-                )?;
-                encode_authorized(&context)
-            }
-            ComponentRequest::Execute {
-                component,
-                operation,
-                principal,
-                path_parameters,
-                body,
-                idempotency_key,
-                trace,
-                ..
-            } => {
-                let operation = self
-                    .schema
-                    .operation(operation)
-                    .ok_or_else(ApiFailure::not_found)?;
-                if operation.retired() {
-                    return Err(ApiFailure::operation_retired());
-                }
-                let owner = component_owner(&operation.name)?;
-                if component != owner {
-                    return Err(ApiFailure::forbidden());
-                }
-                validate_execute(operation, path_parameters, idempotency_key.as_deref())?;
-                if operation.is_public_bootstrap() != principal.is_none() {
-                    return Err(ApiFailure::forbidden());
-                }
-                if let Some(principal) = principal.as_ref() {
-                    principal.validate_disclosure(
-                        operation,
-                        path_parameters,
-                        body,
-                        idempotency_key.as_deref(),
-                        trace,
-                    )?;
-                }
-                let principal = principal_context(principal.as_ref())?;
-                let body = self
-                    .schema
-                    .decode_request(operation, Some(std::mem::take(body)))
-                    .map_err(|_| ApiFailure::invalid_request(Some("body")))?;
-                let response = self.backend.execute(ScopedRequest {
-                    operation,
-                    principal,
-                    path_parameters: std::mem::take(path_parameters),
-                    body,
-                    idempotency_key: idempotency_key.take(),
-                    trace: std::mem::take(trace),
-                })?;
-                self.schema
-                    .encode_response(operation, &response.result)
-                    .map_err(|_| ApiFailure::upstream_degraded())?;
-                encode_backend(&response)
-            }
+            ComponentRequest::Authorize { .. } => self.dispatch_authorize(request),
+            ComponentRequest::Bearer { .. } => self.dispatch_bearer(request),
+            ComponentRequest::Execute { .. } => self.dispatch_execute(request),
             ComponentRequest::Readiness { trace, .. } => {
                 encode_readiness(self.backend.readiness(trace)?)
             }
         }
+    }
+
+    fn dispatch_authorize(&self, request: &mut ComponentRequest) -> Result<Vec<u8>, ApiFailure> {
+        let ComponentRequest::Authorize {
+            operation,
+            access_token,
+            csrf_token,
+            intended_destination,
+            refresh,
+            request_digest,
+            disclosure_digest,
+            path_parameters,
+            body,
+            idempotency_key,
+            trace,
+            ..
+        } = request
+        else {
+            return Err(ApiFailure::invalid_request(None));
+        };
+        let operation = self
+            .schema
+            .operation(operation)
+            .ok_or_else(ApiFailure::not_found)?;
+        if operation.retired() {
+            return Err(ApiFailure::operation_retired());
+        }
+        validate_execute(operation, path_parameters, idempotency_key.as_deref())?;
+        let request_digest = parse_digest(request_digest, "request_digest")?;
+        let disclosure_digest = parse_digest(disclosure_digest, "disclosure_digest")?;
+        if disclosure_digest != json_digest(body)?
+            || request_digest
+                != authorized_request_digest(
+                    operation,
+                    intended_destination,
+                    path_parameters,
+                    body,
+                    idempotency_key.as_deref(),
+                    trace,
+                )?
+        {
+            return Err(ApiFailure::unauthenticated());
+        }
+        let context = self.backend.authorize(
+            operation,
+            SessionCredentials {
+                access_token,
+                csrf_token: csrf_token.as_deref(),
+                intended_destination,
+                refresh: *refresh,
+                request_digest,
+                disclosure_digest,
+                path_parameters,
+                body,
+                idempotency_key: idempotency_key.as_deref(),
+            },
+            trace,
+        )?;
+        encode_authorized(&context)
+    }
+
+    fn dispatch_bearer(&self, request: &mut ComponentRequest) -> Result<Vec<u8>, ApiFailure> {
+        let ComponentRequest::Bearer {
+            operation,
+            assertion,
+            wallet_binding,
+            intended_destination,
+            request_digest,
+            disclosure_digest,
+            path_parameters,
+            body,
+            idempotency_key,
+            trace,
+            ..
+        } = request
+        else {
+            return Err(ApiFailure::invalid_request(None));
+        };
+        let operation = self
+            .schema
+            .operation(operation)
+            .ok_or_else(ApiFailure::not_found)?;
+        if operation.retired() {
+            return Err(ApiFailure::operation_retired());
+        }
+        validate_execute(operation, path_parameters, idempotency_key.as_deref())?;
+        let request_digest = parse_digest(request_digest, "request_digest")?;
+        let disclosure_digest = parse_digest(disclosure_digest, "disclosure_digest")?;
+        if disclosure_digest != json_digest(body)?
+            || request_digest
+                != authorized_request_digest(
+                    operation,
+                    intended_destination,
+                    path_parameters,
+                    body,
+                    idempotency_key.as_deref(),
+                    trace,
+                )?
+        {
+            return Err(ApiFailure::unauthenticated());
+        }
+        let context = self.backend.admit_bearer_assertion(
+            operation,
+            BearerCredentials {
+                assertion,
+                wallet_binding: wallet_binding.as_deref(),
+                intended_destination,
+                request_digest,
+                disclosure_digest,
+                path_parameters,
+                body,
+                idempotency_key: idempotency_key.as_deref(),
+            },
+            trace,
+        )?;
+        encode_authorized(&context)
+    }
+
+    fn dispatch_execute(&self, request: &mut ComponentRequest) -> Result<Vec<u8>, ApiFailure> {
+        let ComponentRequest::Execute {
+            component,
+            operation,
+            principal,
+            path_parameters,
+            body,
+            idempotency_key,
+            trace,
+            ..
+        } = request
+        else {
+            return Err(ApiFailure::invalid_request(None));
+        };
+        let operation = self
+            .schema
+            .operation(operation)
+            .ok_or_else(ApiFailure::not_found)?;
+        if operation.retired() {
+            return Err(ApiFailure::operation_retired());
+        }
+        let owner = component_owner(&operation.name)?;
+        if component != owner {
+            return Err(ApiFailure::forbidden());
+        }
+        validate_execute(operation, path_parameters, idempotency_key.as_deref())?;
+        if operation.is_public_bootstrap() != principal.is_none() {
+            return Err(ApiFailure::forbidden());
+        }
+        if let Some(principal) = principal.as_ref() {
+            principal.validate_disclosure(
+                operation,
+                path_parameters,
+                body,
+                idempotency_key.as_deref(),
+                trace,
+            )?;
+        }
+        let principal = principal_context(principal.as_deref())?;
+        let body = self
+            .schema
+            .decode_request(operation, Some(std::mem::take(body)))
+            .map_err(|_| ApiFailure::invalid_request(Some("body")))?;
+        let response = self.backend.execute(ScopedRequest {
+            operation,
+            principal,
+            path_parameters: std::mem::take(path_parameters),
+            body,
+            idempotency_key: idempotency_key.take(),
+            trace: std::mem::take(trace),
+        })?;
+        self.schema
+            .encode_response(operation, &response.result)
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        encode_backend(&response)
     }
 
     fn dispatch_stream(
@@ -558,7 +576,7 @@ impl Dispatcher {
                 trace,
             )?;
         }
-        let principal = principal_context(principal.as_ref())?;
+        let principal = principal_context(principal.as_deref())?;
         let body = self
             .schema
             .decode_request(operation, Some(std::mem::take(body)))
@@ -737,85 +755,7 @@ fn serve_one(
         result
     });
     if is_stream {
-        let parsed = serde_json::from_slice::<ComponentRequest>(&frame);
-        frame.zeroize();
-        let mut request = parsed.map_err(|_| ComponentServerError::Protocol)?;
-        let expiry = match &request {
-            ComponentRequest::Execute {
-                principal: Some(principal),
-                ..
-            } => principal.expires_at,
-            _ => 0,
-        };
-        let now = Duration::from_millis(
-            clock
-                .sample(Duration::from_secs(1))
-                .map_err(|_| ComponentServerError::Protocol)?
-                .unix_milliseconds,
-        );
-        let remaining = Duration::from_secs(expiry)
-            .checked_sub(now)
-            .filter(|remaining| !remaining.is_zero() && *remaining <= Duration::from_secs(60))
-            .ok_or(ComponentServerError::Protocol)?;
-        let mut deadline =
-            Deadline::start(clock, remaining).map_err(|_| ComponentServerError::Protocol)?;
-        let cancellation = super::StreamCancellation::watch(
-            stream.try_clone().map_err(ComponentServerError::Io)?,
-            Arc::clone(&dispatcher.clock),
-        )
-        .map_err(ComponentServerError::Io)?;
-        cancellation
-            .set_deadline(deadline)
-            .map_err(ComponentServerError::Io)?;
-        let trace = match &request {
-            ComponentRequest::Execute { trace, .. } => trace.clone(),
-            _ => return Err(ComponentServerError::Protocol),
-        };
-        let mut budget =
-            super::backend::StreamBudget::new(limits.maximum_frame_bytes.min(1_048_576));
-        let result = dispatcher.dispatch_stream(
-            &mut request,
-            limits.maximum_frame_bytes.min(1_048_576),
-            &mut |mut response| {
-                let page = serde_json::from_slice::<serde_json::Value>(&response)
-                    .map_err(|_| ApiFailure::upstream_degraded())?;
-                budget.accept(
-                    page.get("result")
-                        .ok_or_else(ApiFailure::upstream_degraded)?,
-                    &trace,
-                )?;
-                let remaining = deadline
-                    .remaining(clock)
-                    .map_err(|_| ApiFailure::unavailable())?;
-                if remaining.is_zero() {
-                    return Err(ApiFailure::session_expired());
-                }
-                stream
-                    .set_write_timeout(Some(remaining))
-                    .map_err(|_| ApiFailure::unavailable())?;
-                let written = write_frame(stream, &response, limits.maximum_frame_bytes);
-                response.zeroize();
-                written.map_err(|_| ApiFailure::unavailable())
-            },
-            &|| cancellation.cancelled(),
-        );
-        request.zeroize();
-        let mut response = match result {
-            Ok(()) => serde_json::to_vec(&serde_json::json!({
-                "version": super::backend::COMPONENT_PROTOCOL_VERSION, "ok": true, "kind": "stream.end"
-            })).map_err(|_| ComponentServerError::Protocol)?,
-            Err(failure) => {
-                budget.accept_failure(&failure, &trace).map_err(|_| ComponentServerError::Protocol)?;
-                encode_failure(&failure).map_err(|_| ComponentServerError::Protocol)?
-            },
-        };
-        stream
-            .set_write_timeout(Some(limits.deadline.min(Duration::from_secs(1))))
-            .map_err(ComponentServerError::Io)?;
-        let written = write_frame(stream, &response, limits.maximum_frame_bytes)
-            .map_err(|_| ComponentServerError::Protocol);
-        response.zeroize();
-        return written;
+        return serve_stream(stream, dispatcher, limits, frame, clock);
     }
     let mut response = dispatcher.dispatch_frame(&mut frame);
     let result = write_frame(
@@ -830,6 +770,96 @@ fn serve_one(
     .map_err(|_| ComponentServerError::Protocol);
     response.zeroize();
     result
+}
+
+fn serve_stream(
+    stream: &mut UnixStream,
+    dispatcher: &Dispatcher,
+    limits: Limits,
+    mut frame: Vec<u8>,
+    clock: &dyn Clock,
+) -> Result<(), ComponentServerError> {
+    let parsed = serde_json::from_slice::<ComponentRequest>(&frame);
+    frame.zeroize();
+    let mut request = parsed.map_err(|_| ComponentServerError::Protocol)?;
+    let expiry = match &request {
+        ComponentRequest::Execute {
+            principal: Some(principal),
+            ..
+        } => principal.expires_at,
+        _ => 0,
+    };
+    let now = Duration::from_millis(
+        clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| ComponentServerError::Protocol)?
+            .unix_milliseconds,
+    );
+    let remaining = Duration::from_secs(expiry)
+        .checked_sub(now)
+        .filter(|remaining| !remaining.is_zero() && *remaining <= Duration::from_secs(60))
+        .ok_or(ComponentServerError::Protocol)?;
+    let mut deadline =
+        Deadline::start(clock, remaining).map_err(|_| ComponentServerError::Protocol)?;
+    let cancellation = super::StreamCancellation::watch(
+        stream.try_clone().map_err(ComponentServerError::Io)?,
+        Arc::clone(&dispatcher.clock),
+    )
+    .map_err(ComponentServerError::Io)?;
+    cancellation
+        .set_deadline(deadline)
+        .map_err(ComponentServerError::Io)?;
+    let trace = match &request {
+        ComponentRequest::Execute { trace, .. } => trace.clone(),
+        _ => return Err(ComponentServerError::Protocol),
+    };
+    let mut budget = super::backend::StreamBudget::new(limits.maximum_frame_bytes.min(1_048_576));
+    let result = dispatcher.dispatch_stream(
+        &mut request,
+        limits.maximum_frame_bytes.min(1_048_576),
+        &mut |mut response| {
+            let page = serde_json::from_slice::<serde_json::Value>(&response)
+                .map_err(|_| ApiFailure::upstream_degraded())?;
+            budget.accept(
+                page.get("result")
+                    .ok_or_else(ApiFailure::upstream_degraded)?,
+                &trace,
+            )?;
+            let remaining = deadline
+                .remaining(clock)
+                .map_err(|_| ApiFailure::unavailable())?;
+            if remaining.is_zero() {
+                return Err(ApiFailure::session_expired());
+            }
+            stream
+                .set_write_timeout(Some(remaining))
+                .map_err(|_| ApiFailure::unavailable())?;
+            let written = write_frame(stream, &response, limits.maximum_frame_bytes);
+            response.zeroize();
+            written.map_err(|_| ApiFailure::unavailable())
+        },
+        &|| cancellation.cancelled(),
+    );
+    request.zeroize();
+    let mut response = match result {
+        Ok(()) => serde_json::to_vec(&serde_json::json!({
+            "version": super::backend::COMPONENT_PROTOCOL_VERSION, "ok": true, "kind": "stream.end"
+        }))
+        .map_err(|_| ComponentServerError::Protocol)?,
+        Err(failure) => {
+            budget
+                .accept_failure(&failure, &trace)
+                .map_err(|_| ComponentServerError::Protocol)?;
+            encode_failure(&failure).map_err(|_| ComponentServerError::Protocol)?
+        }
+    };
+    stream
+        .set_write_timeout(Some(limits.deadline.min(Duration::from_secs(1))))
+        .map_err(ComponentServerError::Io)?;
+    let written = write_frame(stream, &response, limits.maximum_frame_bytes)
+        .map_err(|_| ComponentServerError::Protocol);
+    response.zeroize();
+    written
 }
 
 struct DeadlineStream<'a> {

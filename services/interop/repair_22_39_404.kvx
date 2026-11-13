@@ -1,0 +1,1069 @@
+[interop_lint.lib]
+file = "services/interop/crates/layerx-committed-proof/src/lib.rs"
+lint = "unreadable_literal, doc_markdown, cast_sign_loss, too_many_lines, needless_pass_by_value"
+change = "The proof verifier groups round constants, validates block heights and separates receipt parsing and verification steps."
+
+[interop_lint.commit]
+file = "services/interop/crates/layerx-committed-proof/src/commit.rs"
+lint = "cast_sign_loss"
+change = "Vote power is converted after validation, and signed timestamps retain their protobuf bit representation."
+
+[interop_lint.header]
+file = "services/interop/crates/layerx-committed-proof/src/header.rs"
+lint = "cast_sign_loss"
+change = "Signed header and validator fields retain their protobuf bit representation."
+
+[interop_lint.proto]
+file = "services/interop/crates/layerx-committed-proof/src/proto.rs"
+lint = "cast_possible_truncation"
+change = "Varint bytes are converted after their bounds are established."
+
+[interop_lint.gateway_error]
+file = "services/interop/crates/layerx-interop-gateway/src/error.rs"
+lint = "match_same_arms"
+change = "Retriable receipt failures share one match arm."
+
+[interop_lint.mirror_committed]
+file = "services/interop/crates/layerx-mirror/src/committed.rs"
+lint = "missing_errors_doc, needless_pass_by_value"
+change = "Committed source methods document refusals and classify RPC errors by reference."
+
+[interop_lint.mirror_publisher]
+file = "services/interop/crates/layerx-mirror/src/publisher.rs"
+lint = "unnecessary_wraps, dead_code, missing_errors_doc, must_use_candidate"
+change = "Archive coordinates reflect block identity, and test encoding stays with its unit cases."
+
+[interop_lint.mirror_rpc]
+file = "services/interop/crates/layerx-mirror/src/rpc.rs"
+lint = "missing_errors_doc, needless_pass_by_value"
+change = "RPC construction documents refusals and assigns the supplied resolver to an endpoint."
+
+[interop_lint.mirror_runtime]
+file = "services/interop/crates/layerx-mirror/src/runtime.rs"
+lint = "unused_imports, dead_code, missing_errors_doc, assigning_clones, single_match_else, must_use_candidate, redundant_closure_for_method_calls"
+change = "Runtime acquisition and lane progress retain their error behavior with scoped test helpers."
+
+[interop_lint.mirror_signer]
+file = "services/interop/crates/layerx-mirror/src/signer.rs"
+lint = "missing_errors_doc"
+change = "TLS connector documentation names its refusal conditions."
+
+[interop_lint.mirror_source]
+file = "services/interop/crates/layerx-mirror/src/source.rs"
+lint = "missing_errors_doc"
+change = "Archive observation documentation names identity refusals."
+
+[interop_lint.mirror_store]
+file = "services/interop/crates/layerx-mirror/src/store.rs"
+lint = "missing_errors_doc, op_ref"
+change = "Spool operations document storage refusals and compare cursor digests directly."
+
+[interop_lint.mirror_verify]
+file = "services/interop/crates/layerx-mirror/src/verify.rs"
+lint = "missing_errors_doc, unnecessary_wraps"
+change = "Archive admission documents source refusals, and committed lookup rejects an absent coordinate."
+
+[interop_lint.ap2_settlement_tests]
+file = "services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs"
+lint = "too_many_lines"
+change = "assert_signed_settlement_payloads, assert_recorded_evidence and assert_pending_payment keep receipt and gateway assertions in focused functions."
+
+[interop_lint.gateway_identity_tests]
+file = "services/interop/crates/layerx-interop-gateway/tests/repair_22_33_67.rs"
+lint = "too_many_lines"
+change = "assert_recorded_identity checks the producer signature, logs and canonical digest."
+
+[interop_lint.gateway_translation_tests]
+file = "services/interop/crates/layerx-interop-gateway/tests/gateway.rs"
+lint = "too_many_lines"
+change = "unproved_cases and invalid_authorities prepare the identity and authority refusal cases."
+
+[interop_lint.migrate_transcript_tests]
+file = "services/interop/crates/layerx-migrate/tests/repair_22_31_163.rs"
+lint = "too_many_lines"
+change = "rpc_result applies recorded migration head requests to the transcript state."
+
+[interop_lint.migrate_authority_tests]
+file = "services/interop/crates/layerx-migrate/tests/repair_22_33_72.rs"
+lint = "too_many_lines, needless_borrow"
+change = "recorded_custody_code_hash and assert_rollback_refusal separate code identity and journal rollback assertions."
+
+[interop_lint.migrate_context_tests]
+file = "services/interop/crates/layerx-migrate/tests/repair_22_33_74.rs"
+lint = "too_many_lines, needless_borrow"
+change = "migration_gateway, assert_context_hash and assert_bad_pins_rejected separate gateway setup and receipt checks."
+
+[interop_lint.mirror_recovery_tests]
+file = "services/interop/crates/layerx-mirror/tests/repair_22_31_166.rs"
+lint = "too_many_lines, needless_borrow"
+change = "create_test_ca, make_tls_acceptor, ethereum_receipt and record_solana separate peer setup and transaction recording."
+
+[interop_lint.mirror_rpc_support]
+file = "services/interop/crates/layerx-mirror/tests/support/mod.rs"
+lint = "too_many_lines, needless_pass_by_value"
+change = "create_test_ca, make_tls_acceptor and serve_rpc provide reusable authenticated peer setup and response handling."
+
+[interop_lint.mirror_committed_tests]
+file = "services/interop/crates/layerx-mirror/tests/committed_source.rs"
+lint = "too_many_lines"
+change = "Shared RPC support serves committed blocks, and block field, hash and number assertions run in focused functions."
+
+[interop_lint.mirror_root_tests]
+file = "services/interop/crates/layerx-mirror/tests/repair_22_33_104.rs"
+lint = "too_many_lines"
+change = "assert_rpc_requests checks the documented native source request sequence."
+
+[interop_lint.mirror_vector_tests]
+file = "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs"
+lint = "too_many_lines"
+change = "assert_tampered_log checks signed log effects against the altered JSON view."
+
+[interop_lint.mirror_state_tests]
+file = "services/interop/crates/layerx-mirror/tests/state_directory.rs"
+lint = "too_many_lines"
+change = "assert_journal_lanes checks cursor recovery and record encoding for both chains."
+
+[interop_lint.mirror_documented_tests]
+file = "services/interop/crates/layerx-mirror/tests/repair_22_33_106/cases.rs"
+lint = "too_many_lines, needless_borrow"
+change = "assert_documented_output, assert_receipt_key_windows and assert_damaged_receipt_refused check the documented consumer answers."
+
+[interop_lint.mirror_acquisition_tests]
+file = "services/interop/crates/layerx-mirror/tests/repair_22_33_100.rs"
+lint = "too_many_lines, needless_borrow"
+change = "Peer TLS and response helpers, assert_archive_receipts, assert_backlog_and_refusal, assert_bounded_lane_windows and assert_index_recovery separate acquisition checks."
+
+[interop_lint.mirror_solana_tests]
+file = "services/interop/crates/layerx-mirror/tests/repair_22_33_101.rs"
+lint = "too_many_lines, needless_borrow"
+change = "Peer TLS helpers, send_transaction, record_solana and assert_incompatible_retained_state separate Solana recording and retained state checks."
+
+[interop_lint.gas_rotation_tests]
+file = "services/interop/crates/layerx-gas-station/tests/repair_22_33_70.rs"
+lint = "too_many_lines, needless_borrow"
+change = "settle_first_quote records the finalized first quote before service rotation checks."
+
+[interop_lint.ucp_native_checkout_tests]
+file = "services/interop/crates/layerx-ucp/tests/repair_22_31_168.rs"
+lint = "too_many_lines"
+change = "receipt_keys, assert_completed_order and assert_underpaid_receipt_refused separate producer checkout assertions."
+
+[interop_lint.ucp_vector_tests]
+file = "services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs"
+lint = "too_many_lines, needless_borrow"
+change = "recorded_payment and assert_source_recording verify signed vector fields and producer checkout input."
+
+[interop_lint.x402_buyer_tests]
+file = "services/interop/crates/layerx-x402/tests/buyer.rs"
+lint = "too_many_lines"
+change = "recorded_log_body, recorded_receipt_identity and assert_pinned_authorities separate recorded payment checks."
+
+[interop_lint.websearch_payment_tests]
+file = "services/interop/crates/x-websearch/tests/payment.rs"
+lint = "too_many_lines"
+change = "assert_exact_client_exchange, assert_type_two_signer and assert_recovered_receipt separate exchange, signature and recovery assertions."
+
+[interop_lint.websearch_payment_support]
+file = "services/interop/crates/x-websearch/tests/support/payment_repair.rs"
+lint = "too_many_lines, needless_borrow"
+change = "assert_supported_offer_case and assert_persisted_deliveries check offer refusals and recovery records."
+
+[interop_lint.websearch_keys]
+file = "services/interop/crates/x-websearch/src/keys.rs"
+lint = "missing_fields_in_debug"
+change = "Loaded keys report the receiver role while keeping key material out of debug output."
+
+[interop_lint.websearch_application_proof]
+file = "services/interop/crates/x-websearch/tests/support/application_proof.rs"
+lint = "clippy::all"
+change = "Application proof fixtures use unique scratch directories across concurrent tests."
+
+[interop_lint.x402_transport_matrix]
+file = "services/interop/crates/layerx-x402/tests/repair_22_33_107.rs"
+lint = "too_many_lines"
+change = "assert_role_transport checks each conformance role while the matrix test checks role and refusal coverage."
+
+[interop_lint.websearch_attestation_tests]
+file = "services/interop/crates/x-websearch/tests/attest.rs"
+lint = "too_many_lines"
+change = "spawn_storage_bucket and assert_invalid_storage_payloads separate storage serving and payload validation from receipt assertions."
+
+[interop_lint.file_001]
+file = "services/interop/crates/layerx-ap2/src/adapter.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_002]
+file = "services/interop/crates/layerx-ap2/tests/mandates.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_003]
+file = "services/interop/crates/layerx-ap2/tests/portability_v2.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_004]
+file = "services/interop/crates/layerx-ap2/tests/repair_22_33_88.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_005]
+file = "services/interop/crates/layerx-ap2/tests/repair_22_33_92.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_006]
+file = "services/interop/crates/layerx-ap2/tests/support/source_receipt.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_007]
+file = "services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_008]
+file = "services/interop/crates/layerx-bridge-relayer/src/config.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_009]
+file = "services/interop/crates/layerx-bridge-relayer/src/cosign.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_010]
+file = "services/interop/crates/layerx-bridge-relayer/src/journal.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_011]
+file = "services/interop/crates/layerx-bridge-relayer/src/main.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The implementation uses explicit values and types in its existing code paths."
+
+[interop_lint.file_012]
+file = "services/interop/crates/layerx-bridge-relayer/src/receipt.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_013]
+file = "services/interop/crates/layerx-bridge-relayer/src/relayer.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_014]
+file = "services/interop/crates/layerx-bridge-relayer/src/rpc.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_015]
+file = "services/interop/crates/layerx-bridge-relayer/src/solana/journal.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_016]
+file = "services/interop/crates/layerx-bridge-relayer/src/solana/observe.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_017]
+file = "services/interop/crates/layerx-bridge-relayer/src/transport.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_018]
+file = "services/interop/crates/layerx-bridge-relayer/tests/attestation_api.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_019]
+file = "services/interop/crates/layerx-bridge-relayer/tests/attestation_server.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_020]
+file = "services/interop/crates/layerx-bridge-relayer/tests/cosign_transport.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_021]
+file = "services/interop/crates/layerx-bridge-relayer/tests/loops.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_022]
+file = "services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_023]
+file = "services/interop/crates/layerx-bridge-relayer/tests/operator_cosign_contract.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_024]
+file = "services/interop/crates/layerx-bridge-relayer/tests/outbound_isolation.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_025]
+file = "services/interop/crates/layerx-bridge-relayer/tests/paxeer_rpc.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_026]
+file = "services/interop/crates/layerx-bridge-relayer/tests/paxeer_transport.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_027]
+file = "services/interop/crates/layerx-bridge-relayer/tests/proof_bridge_relayer.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_028]
+file = "services/interop/crates/layerx-bridge-relayer/tests/repair_22_31_160.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_029]
+file = "services/interop/crates/layerx-bridge-relayer/tests/repair_22_31_161.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_030]
+file = "services/interop/crates/layerx-bridge-relayer/tests/repair_22_33_65.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_031]
+file = "services/interop/crates/layerx-bridge-relayer/tests/repair_22_33_66.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_032]
+file = "services/interop/crates/layerx-bridge-relayer/tests/repair_22_33_68.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_033]
+file = "services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_034]
+file = "services/interop/crates/layerx-bridge-relayer/tests/support/capture_prerequisite.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_035]
+file = "services/interop/crates/layerx-bridge-relayer/tests/support/evm_dependencies.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_036]
+file = "services/interop/crates/layerx-bridge-relayer/tests/support/mod.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_037]
+file = "services/interop/crates/layerx-bridge-relayer/tests/support/repair_22_33_68.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_038]
+file = "services/interop/crates/layerx-bridge-relayer/tests/support/signer_binary.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_039]
+file = "services/interop/crates/layerx-committed-proof/tests/commit.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_040]
+file = "services/interop/crates/layerx-committed-proof/tests/committed.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_041]
+file = "services/interop/crates/layerx-committed-proof/tests/committed_vectors.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_042]
+file = "services/interop/crates/layerx-committed-proof/tests/merkle.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_043]
+file = "services/interop/crates/layerx-committed-proof/tests/proof_rs_committed_proof_crate.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_044]
+file = "services/interop/crates/layerx-committed-proof/tests/receipted.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_045]
+file = "services/interop/crates/layerx-committed-proof/tests/repair_22_33_90.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_046]
+file = "services/interop/crates/layerx-committed-proof/tests/support/recording.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_047]
+file = "services/interop/crates/layerx-fiat/src/lib.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_048]
+file = "services/interop/crates/layerx-fiat/tests/adapter.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_049]
+file = "services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_050]
+file = "services/interop/crates/layerx-fiat/tests/sequencer_settlement.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_051]
+file = "services/interop/crates/layerx-fiat/tests/support/payment_node.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_052]
+file = "services/interop/crates/layerx-fiat/tests/support/producer_path.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_053]
+file = "services/interop/crates/layerx-gas-station/Cargo.toml"
+lint = "clippy::all, clippy::pedantic"
+change = "The crate declares dependencies used by its library and test targets."
+
+[interop_lint.file_054]
+file = "services/interop/crates/layerx-gas-station/src/journal.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_055]
+file = "services/interop/crates/layerx-gas-station/src/journal_storage.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_056]
+file = "services/interop/crates/layerx-gas-station/src/rate.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_057]
+file = "services/interop/crates/layerx-gas-station/src/service.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_058]
+file = "services/interop/crates/layerx-gas-station/tests/rate.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_059]
+file = "services/interop/crates/layerx-gas-station/tests/repair_22_31_162.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_060]
+file = "services/interop/crates/layerx-gas-station/tests/repair_22_33_71.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_061]
+file = "services/interop/crates/layerx-gas-station/tests/resolution_policy.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_062]
+file = "services/interop/crates/layerx-gas-station/tests/sequencer_receipt.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_063]
+file = "services/interop/crates/layerx-gas-station/tests/service.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_064]
+file = "services/interop/crates/layerx-gas-station/tests/station.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_065]
+file = "services/interop/crates/layerx-gas-station/tests/support/journal_entries.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_066]
+file = "services/interop/crates/layerx-gas-station/tests/support/journal_remove.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_067]
+file = "services/interop/crates/layerx-gas-station/tests/support/node_tape.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_068]
+file = "services/interop/crates/layerx-gas-station/tests/support/rate_harness.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_069]
+file = "services/interop/crates/layerx-gas-station/tests/support/rate_repairs.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_070]
+file = "services/interop/crates/layerx-gas-station/tests/support/service_harness.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_071]
+file = "services/interop/crates/layerx-gas-station/tests/support/service_recording.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_072]
+file = "services/interop/crates/layerx-gas-station/tests/support/service_repairs.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_073]
+file = "services/interop/crates/layerx-interop-gateway/src/gateway.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_074]
+file = "services/interop/crates/layerx-interop-gateway/tests/evidence.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_075]
+file = "services/interop/crates/layerx-interop-gateway/tests/proof_gateway_sequencer_evidence.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_076]
+file = "services/interop/crates/layerx-interop-gateway/tests/repair_22_33_69.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_077]
+file = "services/interop/crates/layerx-interop-gateway/tests/route_freeze.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_078]
+file = "services/interop/crates/layerx-interop-gateway/tests/sequencer_evidence.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_079]
+file = "services/interop/crates/layerx-interop-service/src/ap2_export.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The implementation uses explicit values and types in its existing code paths."
+
+[interop_lint.file_080]
+file = "services/interop/crates/layerx-interop-service/src/config.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_081]
+file = "services/interop/crates/layerx-interop-service/src/operations.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_082]
+file = "services/interop/crates/layerx-interop-service/src/payer_tx.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The implementation uses explicit values and types in its existing code paths."
+
+[interop_lint.file_083]
+file = "services/interop/crates/layerx-interop-service/src/relay.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_084]
+file = "services/interop/crates/layerx-interop-service/src/server.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_085]
+file = "services/interop/crates/layerx-interop-service/tests/plain_listener.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_086]
+file = "services/interop/crates/layerx-interop-service/tests/private_network.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_087]
+file = "services/interop/crates/layerx-interop-service/tests/repair_22_31_164.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "Recovery scenarios and mounted payment assertions remain in focused functions."
+
+[interop_lint.file_088]
+file = "services/interop/crates/layerx-interop-service/tests/repair_22_33_86.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_089]
+file = "services/interop/crates/layerx-interop-service/tests/repair_22_33_87.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "Payment replay assertions remain in a focused function."
+
+[interop_lint.file_090]
+file = "services/interop/crates/layerx-interop-service/tests/sequencer_start.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_091]
+file = "services/interop/crates/layerx-interop-service/tests/support/payment_fixture.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_092]
+file = "services/interop/crates/layerx-interop-service/tests/support/settlement_fixture.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_093]
+file = "services/interop/crates/layerx-migrate/src/ethereum.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_094]
+file = "services/interop/crates/layerx-migrate/src/gateway_client.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_095]
+file = "services/interop/crates/layerx-migrate/src/history.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_096]
+file = "services/interop/crates/layerx-migrate/src/journal.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_097]
+file = "services/interop/crates/layerx-migrate/src/main.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_098]
+file = "services/interop/crates/layerx-migrate/src/mapping_v2.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_099]
+file = "services/interop/crates/layerx-migrate/src/migration_head.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_100]
+file = "services/interop/crates/layerx-migrate/src/ramp_v2.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_101]
+file = "services/interop/crates/layerx-migrate/src/rpc.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_102]
+file = "services/interop/crates/layerx-migrate/src/solana.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_103]
+file = "services/interop/crates/layerx-migrate/src/tests.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The implementation uses explicit values and types in its existing code paths."
+
+[interop_lint.file_104]
+file = "services/interop/crates/layerx-migrate/tests/testnets.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_105]
+file = "services/interop/crates/layerx-mirror-signer/src/lib.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_106]
+file = "services/interop/crates/layerx-mirror-signer/tests/repair_22_33_108.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_107]
+file = "services/interop/crates/layerx-mirror/Cargo.toml"
+lint = "clippy::all, clippy::pedantic"
+change = "The crate declares dependencies used by its library and test targets."
+
+[interop_lint.file_108]
+file = "services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The implementation uses explicit values and types in its existing code paths."
+
+[interop_lint.file_109]
+file = "services/interop/crates/layerx-mirror/src/ethereum.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The implementation uses explicit values and types in its existing code paths."
+
+[interop_lint.file_110]
+file = "services/interop/crates/layerx-mirror/tests/proof_mirror_archive.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_111]
+file = "services/interop/crates/layerx-mirror/tests/publish.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_112]
+file = "services/interop/crates/layerx-mirror/tests/repair_22_33_103.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_113]
+file = "services/interop/crates/layerx-mirror/tests/repair_22_33_99.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_114]
+file = "services/interop/crates/layerx-portable/tests/external_verification.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_115]
+file = "services/interop/crates/layerx-portable/tests/independent_verifier.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_116]
+file = "services/interop/crates/layerx-portable/tests/proof_portable_receipt.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_117]
+file = "services/interop/crates/layerx-portable/tests/receipt_vectors.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_118]
+file = "services/interop/crates/layerx-portable/tests/repair_22_31_167.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_119]
+file = "services/interop/crates/layerx-portable/tests/repair_22_33_114.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_120]
+file = "services/interop/crates/layerx-portable/tests/repair_22_33_117.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_121]
+file = "services/interop/crates/layerx-portable/tests/repair_22_33_95.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_122]
+file = "services/interop/crates/layerx-portable/tests/sequencer_vectors.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_123]
+file = "services/interop/crates/layerx-portable/tests/support/ap2_external.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_124]
+file = "services/interop/crates/layerx-ucp/src/config.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The implementation uses explicit values and types in its existing code paths."
+
+[interop_lint.file_125]
+file = "services/interop/crates/layerx-ucp/src/lib.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_126]
+file = "services/interop/crates/layerx-ucp/tests/conformance_vectors.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_127]
+file = "services/interop/crates/layerx-ucp/tests/e2e_client_seller.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_128]
+file = "services/interop/crates/layerx-ucp/tests/merchant_profile.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_129]
+file = "services/interop/crates/layerx-ucp/tests/repair_22_33_115.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_130]
+file = "services/interop/crates/layerx-ucp/tests/sequencer_checkout.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_131]
+file = "services/interop/crates/layerx-ucp/tests/support/producer_checkout.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_132]
+file = "services/interop/crates/layerx-visa-tap/tests/middleware.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_133]
+file = "services/interop/crates/layerx-visa-tap/tests/repair_22_33_116.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_134]
+file = "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_135]
+file = "services/interop/crates/layerx-x402/src/buyer.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_136]
+file = "services/interop/crates/layerx-x402/src/facilitator.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_137]
+file = "services/interop/crates/layerx-x402/src/seller.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_138]
+file = "services/interop/crates/layerx-x402/src/store.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The implementation uses explicit values and types in its existing code paths."
+
+[interop_lint.file_139]
+file = "services/interop/crates/layerx-x402/tests/buyer_sequencer.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_140]
+file = "services/interop/crates/layerx-x402/tests/errors.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_141]
+file = "services/interop/crates/layerx-x402/tests/evidence_format.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_142]
+file = "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_143]
+file = "services/interop/crates/layerx-x402/tests/layerx_evidence.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_144]
+file = "services/interop/crates/layerx-x402/tests/repair_22_31_165.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_145]
+file = "services/interop/crates/layerx-x402/tests/repair_22_33_102.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_146]
+file = "services/interop/crates/layerx-x402/tests/repair_22_33_105.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_147]
+file = "services/interop/crates/layerx-x402/tests/seller.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_148]
+file = "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_149]
+file = "services/interop/crates/layerx-x402/tests/support/repair_22_33_105.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_150]
+file = "services/interop/crates/layerx-x402/tests/transports.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_151]
+file = "services/interop/crates/x-websearch/src/fetch.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_152]
+file = "services/interop/crates/x-websearch/src/main.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The implementation groups validation and conversion steps in focused functions."
+
+[interop_lint.file_153]
+file = "services/interop/crates/x-websearch/src/payment.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_154]
+file = "services/interop/crates/x-websearch/src/program.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_155]
+file = "services/interop/crates/x-websearch/src/resolve.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_156]
+file = "services/interop/crates/x-websearch/src/search.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_157]
+file = "services/interop/crates/x-websearch/src/server.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_158]
+file = "services/interop/crates/x-websearch/src/settlement.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_159]
+file = "services/interop/crates/x-websearch/src/submit.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_160]
+file = "services/interop/crates/x-websearch/src/watch.rs"
+lint = "missing_errors_doc, clippy::all, clippy::pedantic"
+change = "Public operations describe their error results."
+
+[interop_lint.file_161]
+file = "services/interop/crates/x-websearch/tests/config.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_162]
+file = "services/interop/crates/x-websearch/tests/example_config.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_163]
+file = "services/interop/crates/x-websearch/tests/program.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_164]
+file = "services/interop/crates/x-websearch/tests/program_server.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_165]
+file = "services/interop/crates/x-websearch/tests/program_watch.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_166]
+file = "services/interop/crates/x-websearch/tests/proof_x_websearch_payment.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_167]
+file = "services/interop/crates/x-websearch/tests/proof_x_websearch_program_requests.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_168]
+file = "services/interop/crates/x-websearch/tests/repair_22_31_169.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_169]
+file = "services/interop/crates/x-websearch/tests/repair_22_33_118.rs"
+lint = "clippy::all, clippy::pedantic"
+change = "The test uses explicit values and types in its existing assertions."
+
+[interop_lint.file_170]
+file = "services/interop/crates/x-websearch/tests/repair_22_33_120.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_171]
+file = "services/interop/crates/x-websearch/tests/sequencer_vectors.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_172]
+file = "services/interop/crates/x-websearch/tests/settlement.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_173]
+file = "services/interop/crates/x-websearch/tests/submit.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_174]
+file = "services/interop/crates/x-websearch/tests/support/gateway.rs"
+lint = "too_many_lines, clippy::all, clippy::pedantic"
+change = "The test keeps its assertions in focused functions."
+
+[interop_lint.file_175]
+file = "services/interop/crates/layerx-interop-service/tests/repair_22_33_91.rs"
+lint = "dead_code, clippy::all, clippy::pedantic"
+change = "The shared fixture exposes its test entry points to each integration target."
+
+[interop_lint.file_176]
+file = "services/interop/crates/layerx-interop-service/tests/support/active_inputs.rs"
+lint = "missing_panics_doc, clippy::all, clippy::pedantic"
+change = "Listener input checks document their asserted configuration requirements."

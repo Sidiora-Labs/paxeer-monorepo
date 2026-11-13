@@ -1,0 +1,10 @@
+[precompile_abi]
+typescript_added_types = ["uint32"]
+python_added_types = ["bytes16", "int256", "uint32"]
+typescript_event_types = ["address", "bool", "bytes16", "bytes32", "int256", "string", "uint8", "uint32", "uint64", "uint256"]
+python_event_types = ["address", "bool", "bytes32", "string", "uint8", "uint32", "uint64", "uint256"]
+uint32_width = 32
+
+[cases]
+chain_events = ["ChainLaunched", "ChainRevenueEpochOpened", "ChainRevenueClaimed", "LaunchedChainRetired"]
+codec = ["uint32 upper bound encodes and decodes", "uint32 overflow is refused on encode and decode", "signed integer and fixed bytes preserve canonical words"]

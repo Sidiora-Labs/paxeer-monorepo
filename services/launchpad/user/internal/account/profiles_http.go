@@ -53,7 +53,7 @@ func (h HTTP) profileV2Get(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
-	h.respond(w, id, map[string]PublicProfile{"profile": profile}, profile.Revision, nil)
+	h.respond(w, id, map[string]PublicProfile{fieldProfile: profile}, profile.Revision, nil)
 }
 
 func batchWallets(query url.Values) ([]string, error) {
@@ -64,18 +64,18 @@ func batchWallets(query url.Values) ([]string, error) {
 	}
 	raw := query.Get("wallets")
 	if raw == "" {
-		return nil, ValidationError{"/wallets", ErrInvalid}
+		return nil, ValidationError{pathWallets, ErrInvalid}
 	}
 	parts := strings.Split(raw, ",")
 	if len(parts) > profilesBatchLimit {
-		return nil, ValidationError{"/wallets", ErrInvalid}
+		return nil, ValidationError{pathWallets, ErrInvalid}
 	}
 	seen := make(map[string]bool, len(parts))
 	wallets := make([]string, 0, len(parts))
 	for _, part := range parts {
 		wallet, e := Wallet(part)
 		if e != nil || seen[wallet] {
-			return nil, ValidationError{"/wallets", ErrInvalid}
+			return nil, ValidationError{pathWallets, ErrInvalid}
 		}
 		seen[wallet] = true
 		wallets = append(wallets, wallet)
@@ -103,5 +103,5 @@ func (h HTTP) profilesBatchGet(w http.ResponseWriter, r *http.Request) {
 		items = append(items, profile)
 	}
 	w.Header().Set("Cache-Control", "public, max-age=1")
-	h.respond(w, id, map[string][]PublicProfile{"items": items}, "0", nil)
+	h.respond(w, id, map[string][]PublicProfile{fieldItems: items}, "0", nil)
 }

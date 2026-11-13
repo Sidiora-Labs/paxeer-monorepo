@@ -18,6 +18,7 @@ pub const ABI_V4_VERSION: u16 = 4;
 /// Frozen version-five program ABI.
 pub const ABI_V5_VERSION: u16 = 5;
 
+#[must_use]
 pub const fn account_profile2_guest_supported(requested: u16) -> bool {
     matches!(
         requested,

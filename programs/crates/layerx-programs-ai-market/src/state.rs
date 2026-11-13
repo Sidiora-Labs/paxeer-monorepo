@@ -605,30 +605,38 @@ pub(crate) fn encode_room_market_parts(
     w.put(b"PAXAI/F11")?;
     Ok(w.len())
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn room_market_parts(bytes: &[u8]) -> CodecResult<(&[u8], &[u8])> {
+    if !bytes.ends_with(b"PAXAI/F11") {
+        return Ok((bytes, &[]));
+    }
+    let footer = bytes
+        .len()
+        .checked_sub(ROOM_MARKET_FRAMING_BYTES)
+        .ok_or(NON_CANONICAL)?;
+    let len = u32::from_be_bytes(
+        bytes
+            .guest_index(footer..footer + 4)
+            .try_into()
+            .map_err(|_| NON_CANONICAL)?,
+    ) as usize;
+    let at = footer.checked_sub(len).ok_or(NON_CANONICAL)?;
+    Ok((bytes.guest_index(..at), bytes.guest_index(at..footer)))
+}
 impl<'s> SharedState<'s> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn room_market(&self) -> CodecResult<(&'s [u8], &'s [u8])> {
-        let bytes = *self
-            .feature_sections
-            .guest_index(Section::SettlementClaims.index());
-        if !bytes.ends_with(b"PAXAI/F11") {
-            return Ok((bytes, &[]));
-        }
-        let footer = bytes
-            .len()
-            .checked_sub(ROOM_MARKET_FRAMING_BYTES)
-            .ok_or(NON_CANONICAL)?;
-        let len = u32::from_be_bytes(
-            bytes
-                .guest_index(footer..footer + 4)
-                .try_into()
-                .map_err(|_| NON_CANONICAL)?,
-        ) as usize;
-        let at = footer.checked_sub(len).ok_or(NON_CANONICAL)?;
-        Ok((bytes.guest_index(..at), bytes.guest_index(at..footer)))
+        room_market_parts(
+            self.feature_sections
+                .guest_index(Section::SettlementClaims.index()),
+        )
     }
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode_room_market(&self, book: &[u8], out: &mut [u8]) -> CodecResult<usize> {
         let (prefix, _) = self.room_market()?;
         encode_room_market_parts(prefix, book, out)
@@ -705,6 +713,7 @@ impl<'s> SharedState<'s> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for `Section::Control`, which is not a feature section.
+    #[inline]
     pub fn section(&self, section: Section) -> CodecResult<&'s [u8]> {
         self.feature_sections
             .get(section.index())
@@ -786,8 +795,8 @@ pub fn settlement_rewards<'a>(
     known: Option<RewardState<'a>>,
 ) -> CodecResult<RewardState<'a>> {
     let bytes = state
-        .feature_sections
-        .guest_index(Section::SettlementClaims.index())
+        .room_market()?
+        .0
         .get(..REWARD_STATE_BYTES)
         .ok_or(WRONG_EPOCH)?;
     match known {
@@ -803,6 +812,7 @@ static SHARED: crate::guest_cell::GuestOnce<SharedState<'static>> =
     crate::guest_cell::GuestOnce::new();
 
 pub(crate) struct SectionReader<'a> {
+    #[cfg(target_arch = "wasm32")]
     input: &'a [u8],
     frame: StateFrame<'a>,
 }
@@ -819,6 +829,7 @@ impl<'a> SectionReader<'a> {
             }
         }
         Ok(Self {
+            #[cfg(target_arch = "wasm32")]
             input,
             frame: codec::decode_state(input)?,
         })
@@ -896,7 +907,7 @@ fn shared_from_frame(frame: StateFrame<'_>) -> CodecResult<SharedState<'_>> {
             *frame.sections.guest_index(3),
             *frame.sections.guest_index(4),
         ],
-        control: decode_control(*frame.sections.guest_index(5))?,
+        control: decode_control(frame.sections.guest_index(5))?,
     };
     state.encoded_len()?;
     Ok(state)

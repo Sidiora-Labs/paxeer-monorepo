@@ -2,7 +2,7 @@
 order: 6
 -->
 
-# Tags
+# Events
 
 The slashing module emits the following events/tags:
 
@@ -17,7 +17,7 @@ The slashing module emits the following events/tags:
 
 ## Keeper
 
-## BeginBlocker: HandleValidatorSignature
+### BeginBlocker: HandleValidatorSignatureConcurrent
 
 | Type  | Attribute Key | Attribute Value             |
 | ----- | ------------- | --------------------------- |
@@ -36,7 +36,7 @@ The slashing module emits the following events/tags:
 
 ### Slash
 
-+ same as `"slash"` event from `HandleValidatorSignature`, but without the `jailed` attribute.
++ Same as the `slash` event from `SlashJailAndUpdateSigningInfo`, but without the `jailed` attribute.
 
 ### Jail
 

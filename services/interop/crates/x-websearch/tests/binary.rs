@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 #[path = "support/gateway.rs"]
 mod gateway;
 use gateway::Gateway;
@@ -40,6 +44,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new(name: &str) -> std::io::Result<Self> {
+        test_network::isolate()?;
         let path =
             std::env::temp_dir().join(format!("x-websearch-binary-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&path);
@@ -256,7 +261,7 @@ fn launch_with(
 }
 
 fn wait_exit(child: &mut Child) -> TestResult<ExitStatus> {
-    let deadline = Instant::now() + WAIT;
+    let deadline = Instant::now() + Duration::from_secs(30);
     loop {
         if let Some(status) = child.try_wait()? {
             return Ok(status);

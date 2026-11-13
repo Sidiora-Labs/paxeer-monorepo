@@ -35,7 +35,7 @@ use layerx_human_service::approvals::{
     AgentDecisionResolution, AgentDecisionStatus, ApprovalActivityClass, ApprovalBoundary,
     ApprovalBoundaryError, ApprovalEvent, ApprovalNotification, ApprovalPresentation,
     BudgetVerification, DecisionError, Decisions, DisclosureRenderError, DisclosureRenderer, Inbox,
-    InboxError, InboxState, RenderedCounterparty, VerifiedBudgetAfter,
+    InboxError, InboxSnapshot, InboxState, RenderedCounterparty, VerifiedBudgetAfter,
 };
 use layerx_human_service::audit::AuditChain;
 use layerx_human_service::auth::{
@@ -285,11 +285,7 @@ fn checked<T, E: Debug>(result: Result<T, E>) -> T {
 }
 
 fn hex(bytes: impl AsRef<[u8]>) -> String {
-    bytes
-        .as_ref()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    layerx_human_service::hex::lower(bytes.as_ref())
 }
 
 fn tenant() -> TenantId {
@@ -470,7 +466,7 @@ impl ApprovalBoundary for AgentPeer<'_> {
     }
 }
 
-fn normalize(decision: ApprovalDecision) -> Result<AgentDecision, ApprovalBoundaryError> {
+fn normalize(decision: &ApprovalDecision) -> Result<AgentDecision, ApprovalBoundaryError> {
     let status = match decision.winning_outcome.unwrap_or(decision.outcome) {
         ApprovalOutcome::Granted => AgentDecisionStatus::Approved {
             submission_ref: decision.submission_ref,
@@ -505,7 +501,8 @@ impl AgentDecisionBoundary for AgentPeer<'_> {
         }
         let key = DecisionKey::new(key).map_err(|_| ApprovalBoundaryError::Corrupt)?;
         normalize(
-            self.service
+            &self
+                .service
                 .approve(
                     DecisionRequest {
                         tenant: &tenant(),
@@ -535,7 +532,8 @@ impl AgentDecisionBoundary for AgentPeer<'_> {
         }
         let key = DecisionKey::new(key).map_err(|_| ApprovalBoundaryError::Corrupt)?;
         normalize(
-            self.service
+            &self
+                .service
                 .reject(DecisionRequest {
                     tenant: &tenant(),
                     approval_id: id,
@@ -589,6 +587,283 @@ fn produce_event(root: &std::path::Path, prepared: &Prepared) -> ApprovalEvent {
         prepared.disclosure.canonical_digest
     );
     event
+}
+
+fn assert_rendered_disclosure(
+    disclosure: &layerx_crypto::disclosure::Disclosure,
+    budget: VerifiedBudgetAfter,
+    digest: [u8; 32],
+    rung: Rung,
+    verification: BudgetVerification,
+) {
+    assert_eq!(
+        <[u8; 32]>::from(Sha256::digest(checked(disclosure.reencode()))),
+        digest,
+        "renderer and inbox must bind the same producer canonical bytes",
+    );
+    let presentation = checked(DisclosureRenderer::render(disclosure, digest, budget));
+    assert_eq!(presentation.can_approve(), rung == Rung::Committed);
+    let ApprovalPresentation::Rendered(rendered) = presentation else {
+        panic!("known prepared transfer must remain viewable");
+    };
+    assert_eq!(rendered.class, ApprovalActivityClass::MoveMoney);
+    assert_eq!(rendered.budget_after, budget);
+    assert_eq!(rendered.budget_after.verification(), verification);
+    assert_eq!(rendered.disclosure_digest, digest);
+    assert_eq!(rendered.facts.amount, Some(25));
+    assert_eq!(
+        rendered.facts.counterparty,
+        RenderedCounterparty::Account(disclosure.counterparties[0].account,)
+    );
+    assert_eq!(rendered.facts.asset, Some(disclosure.asset));
+    assert_eq!(rendered.facts.fee_limit, 30);
+    assert_eq!(rendered.facts.expires_at, u64::MAX);
+    assert_eq!(rendered.copy_key, "approval.activity.move_money");
+    assert_eq!(
+        rendered.plain_copy,
+        format!(
+            "Move 25 {} to {}. Fees can be up to 30.",
+            hex(disclosure.asset),
+            hex(disclosure.counterparties[0].account),
+        )
+    );
+    let mut changed_digest = digest;
+    changed_digest[0] ^= 1;
+    assert_eq!(
+        DisclosureRenderer::render(disclosure, changed_digest, budget),
+        Err(DisclosureRenderError::DigestMismatch)
+    );
+    for field in 0..6 {
+        let mut changed = disclosure.clone();
+        match field {
+            0 => changed.amounts[0].value += 1,
+            1 => changed.counterparties[0].account[0] ^= 1,
+            2 => changed.asset[0] ^= 1,
+            3 => changed.fee_limit += 1,
+            4 => changed.expiry.payload_expires_at -= 1,
+            _ => changed.actor[0] ^= 1,
+        }
+        assert!(
+            DisclosureRenderer::render(&changed, digest, budget).is_err(),
+            "changed disclosure field {field} must not render at {rung:?}"
+        );
+    }
+    let mut no_evidence = budget;
+    no_evidence.evidence_digest = [0; 32];
+    assert_eq!(
+        DisclosureRenderer::render(disclosure, digest, no_evidence),
+        Err(DisclosureRenderError::UnverifiedBudget)
+    );
+}
+
+fn assert_approval_snapshot(
+    snapshot: &InboxSnapshot<'_>,
+    prepared: &Prepared,
+    disclosure: &layerx_crypto::disclosure::Disclosure,
+    rung: Rung,
+) -> BudgetVerification {
+    assert_eq!(snapshot.awaiting_count(), 1);
+    assert_eq!(snapshot.items().len(), 1);
+    assert_eq!(snapshot.observed_sequence(), SEQUENCE);
+    let item = snapshot.items()[0];
+    assert_eq!(item.state(), &InboxState::AwaitingApproval);
+    assert_eq!(item.amount(), 25);
+    assert_eq!(
+        item.counterparty(),
+        prepared.disclosure.counterparties.values()[0].as_str()
+    );
+    assert_eq!(item.asset(), hex(disclosure.asset));
+    assert_eq!(item.fee_limit(), 30);
+    assert_eq!(item.activity_expiry(), 200);
+    assert_eq!(item.hold_expiry(), HOLD_EXPIRY);
+    assert_eq!(
+        item.disclosure_digest(),
+        prepared.disclosure.canonical_digest
+    );
+    assert_eq!(item.budget_after().remaining, 945);
+    assert_eq!(item.budget_after().rung, rung);
+    assert_eq!(item.budget_after().observed_at_sequence, SEQUENCE);
+    let verification = if rung == Rung::Committed {
+        BudgetVerification::Verified
+    } else {
+        BudgetVerification::Unverified
+    };
+    assert_eq!(item.budget_verification(), verification);
+    assert_eq!(item.can_approve(), rung == Rung::Committed);
+    assert_eq!(
+        verification.label(),
+        if rung == Rung::Committed {
+            "Verified budget"
+        } else {
+            "Unverified budget"
+        }
+    );
+    verification
+}
+
+fn assert_inbox_refusals(
+    event: ApprovalEvent,
+    peer: &mut AgentPeer<'_>,
+    scope: &mut PrincipalScope<'_>,
+    audit: &mut AuditChain,
+    inbox: &mut Inbox,
+    deliveries: &[layerx_human_service::notify::Delivery],
+) {
+    assert_eq!(inbox.next_sequence(), SEQUENCE + 1);
+    assert!(matches!(
+        inbox.consume(&[event], peer, scope, audit, &TraceId::mint([2; 16])),
+        Err(InboxError::EventOrder {
+            expected: 11,
+            actual: 10
+        })
+    ));
+    let mut bad_event = event;
+    bad_event.disclosure_digest[0] ^= 1;
+    let mut unchanged = checked(Inbox::new(SEQUENCE, 3));
+    assert!(matches!(
+        unchanged.consume(&[bad_event], peer, scope, audit, &TraceId::mint([3; 16])),
+        Err(InboxError::DisclosureChanged)
+    ));
+    assert_eq!(unchanged.next_sequence(), SEQUENCE);
+    assert_eq!(
+        checked(Dispatcher::deliveries(scope)).as_slice(),
+        deliveries
+    );
+    for (observed, present) in [(SEQUENCE + 1, true), (SEQUENCE, false)] {
+        peer.observed_sequence = observed;
+        peer.evidence_present = present;
+        let mut refused = checked(Inbox::new(SEQUENCE, 3));
+        assert!(matches!(
+            refused.consume(&[event], peer, scope, audit, &TraceId::mint([6; 16])),
+            Err(InboxError::UnverifiedBudget)
+        ));
+        assert_eq!(refused.next_sequence(), SEQUENCE);
+        assert_eq!(
+            checked(Dispatcher::deliveries(scope)).as_slice(),
+            deliveries
+        );
+    }
+    peer.observed_sequence = SEQUENCE;
+    peer.evidence_present = true;
+}
+
+fn step_up_for_budget(
+    scope: &mut PrincipalScope<'_>,
+    digest: [u8; 32],
+) -> (
+    Passkeys,
+    SessionGrant,
+    layerx_human_service::auth::StepUpEvidence,
+) {
+    let passkeys = required(Passkeys::new(auth_config()), "passkeys");
+    let mut authenticator = SoftwareAuthenticator::new();
+    let session = register_session(&passkeys, scope, &mut authenticator, NOW);
+    let challenge = required(
+        passkeys.begin_step_up(
+            scope,
+            session.access_token().expose(),
+            session.csrf_token().expose(),
+            OperationDigest::new(digest),
+            110,
+        ),
+        "begin step-up",
+    );
+    let assertion = authenticator.assert(&challenge.ceremony);
+    let evidence = required(
+        passkeys.finish_step_up(scope, &challenge.challenge_id, &assertion, 111),
+        "finish step-up",
+    );
+    (passkeys, session, evidence)
+}
+
+fn assert_decision_refusals(
+    rung: Rung,
+    peer: &mut AgentPeer<'_>,
+    scope: &mut PrincipalScope<'_>,
+    audit: &mut AuditChain,
+    passkeys: &Passkeys,
+    session: &SessionGrant,
+    evidence: &layerx_human_service::auth::StepUpEvidence,
+) {
+    if rung != Rung::Committed {
+        let before = scope.keys(Table::Journeys);
+        assert!(matches!(
+            Decisions::approve(
+                scope,
+                passkeys,
+                session.access_token().expose(),
+                session.csrf_token().expose(),
+                evidence,
+                peer,
+                [1; 32],
+                "submitted-must-not-release",
+                SEQUENCE,
+                112,
+                audit,
+                &TraceId::mint([4; 16]),
+            ),
+            Err(DecisionError::UnverifiedBudget)
+        ));
+        assert_eq!(scope.keys(Table::Journeys), before);
+    }
+    peer.rung = Rung::Committed;
+    for (observed, present) in [(SEQUENCE + 1, true), (SEQUENCE, false)] {
+        peer.observed_sequence = observed;
+        peer.evidence_present = present;
+        assert!(matches!(
+            Decisions::approve(
+                scope,
+                passkeys,
+                session.access_token().expose(),
+                session.csrf_token().expose(),
+                evidence,
+                peer,
+                [1; 32],
+                "committed-must-have-bound-evidence",
+                SEQUENCE,
+                112,
+                audit,
+                &TraceId::mint([7; 16]),
+            ),
+            Err(DecisionError::UnverifiedBudget)
+        ));
+    }
+    peer.observed_sequence = SEQUENCE;
+    peer.evidence_present = true;
+    // Even a committed budget supplies no passkey/session authority of its own.
+    assert!(matches!(
+        Decisions::approve(
+            scope,
+            passkeys,
+            session.access_token().expose(),
+            "wrong-csrf",
+            evidence,
+            peer,
+            [1; 32],
+            "committed-still-needs-auth",
+            SEQUENCE,
+            112,
+            audit,
+            &TraceId::mint([5; 16]),
+        ),
+        Err(DecisionError::Auth(_))
+    ));
+}
+
+fn assert_unspent_budget(
+    registry: &ApprovalRegistry,
+    queue: &ApprovalSubmissionQueue,
+    limiter: &BudgetLimiter,
+) {
+    assert_eq!(
+        checked(registry.ticket([1; 32]))
+            .or_fail("held ticket")
+            .state,
+        ApprovalState::AwaitingApproval
+    );
+    assert!(queue.is_empty());
+    assert_eq!(checked(limiter.consumed(LIMIT)), 0);
+    assert_eq!(checked(limiter.held_reservations()), 1);
 }
 
 fn exercise_path(rung: Rung) {
@@ -650,101 +925,14 @@ fn exercise_path(rung: Rung) {
         &TraceId::mint([1; 16]),
     ));
     let snapshot = checked(inbox.snapshot(SEQUENCE));
-    assert_eq!(snapshot.awaiting_count(), 1);
-    assert_eq!(snapshot.items().len(), 1);
-    assert_eq!(snapshot.observed_sequence(), SEQUENCE);
+    let verification = assert_approval_snapshot(&snapshot, &prepared, &disclosure, rung);
     let item = snapshot.items()[0];
-    assert_eq!(item.state(), &InboxState::AwaitingApproval);
-    assert_eq!(item.amount(), 25);
-    assert_eq!(
-        item.counterparty(),
-        prepared.disclosure.counterparties.values()[0].as_str()
-    );
-    assert_eq!(item.asset(), hex(disclosure.asset));
-    assert_eq!(item.fee_limit(), 30);
-    assert_eq!(item.activity_expiry(), 200);
-    assert_eq!(item.hold_expiry(), HOLD_EXPIRY);
-    assert_eq!(
-        item.disclosure_digest(),
-        prepared.disclosure.canonical_digest
-    );
-    assert_eq!(item.budget_after().remaining, 945);
-    assert_eq!(item.budget_after().rung, rung);
-    assert_eq!(item.budget_after().observed_at_sequence, SEQUENCE);
-    let verification = if rung == Rung::Committed {
-        BudgetVerification::Verified
-    } else {
-        BudgetVerification::Unverified
-    };
-    assert_eq!(item.budget_verification(), verification);
-    assert_eq!(item.can_approve(), rung == Rung::Committed);
-    assert_eq!(
-        verification.label(),
-        if rung == Rung::Committed {
-            "Verified budget"
-        } else {
-            "Unverified budget"
-        }
-    );
-    let budget = item.budget_after();
-    let digest = prepared.disclosure.canonical_digest;
-    assert_eq!(
-        <[u8; 32]>::from(Sha256::digest(checked(disclosure.reencode()))),
-        digest,
-        "renderer and inbox must bind the same producer canonical bytes",
-    );
-    let presentation = checked(DisclosureRenderer::render(&disclosure, digest, budget));
-    assert_eq!(presentation.can_approve(), rung == Rung::Committed);
-    let ApprovalPresentation::Rendered(rendered) = presentation else {
-        panic!("known prepared transfer must remain viewable");
-    };
-    assert_eq!(rendered.class, ApprovalActivityClass::MoveMoney);
-    assert_eq!(rendered.budget_after, budget);
-    assert_eq!(rendered.budget_after.verification(), verification);
-    assert_eq!(rendered.disclosure_digest, digest);
-    assert_eq!(rendered.facts.amount, Some(25));
-    assert_eq!(
-        rendered.facts.counterparty,
-        RenderedCounterparty::Account(disclosure.counterparties[0].account,)
-    );
-    assert_eq!(rendered.facts.asset, Some(disclosure.asset));
-    assert_eq!(rendered.facts.fee_limit, 30);
-    assert_eq!(rendered.facts.expires_at, u64::MAX);
-    assert_eq!(rendered.copy_key, "approval.activity.move_money");
-    assert_eq!(
-        rendered.plain_copy,
-        format!(
-            "Move 25 {} to {}. Fees can be up to 30.",
-            hex(disclosure.asset),
-            hex(disclosure.counterparties[0].account),
-        )
-    );
-    let mut changed_digest = digest;
-    changed_digest[0] ^= 1;
-    assert_eq!(
-        DisclosureRenderer::render(&disclosure, changed_digest, budget),
-        Err(DisclosureRenderError::DigestMismatch)
-    );
-    for field in 0..6 {
-        let mut changed = disclosure.clone();
-        match field {
-            0 => changed.amounts[0].value += 1,
-            1 => changed.counterparties[0].account[0] ^= 1,
-            2 => changed.asset[0] ^= 1,
-            3 => changed.fee_limit += 1,
-            4 => changed.expiry.payload_expires_at -= 1,
-            _ => changed.actor[0] ^= 1,
-        }
-        assert!(
-            DisclosureRenderer::render(&changed, digest, budget).is_err(),
-            "changed disclosure field {field} must not render at {rung:?}"
-        );
-    }
-    let mut no_evidence = budget;
-    no_evidence.evidence_digest = [0; 32];
-    assert_eq!(
-        DisclosureRenderer::render(&disclosure, digest, no_evidence),
-        Err(DisclosureRenderError::UnverifiedBudget)
+    assert_rendered_disclosure(
+        &disclosure,
+        item.budget_after(),
+        prepared.disclosure.canonical_digest,
+        rung,
+        verification,
     );
     let deliveries = checked(Dispatcher::deliveries(&scope));
     assert!(!deliveries.is_empty());
@@ -754,148 +942,23 @@ fn exercise_path(rung: Rung) {
         assert_eq!(notification.asset(), item.asset());
         assert_eq!(notification.disclosure_digest(), event.disclosure_digest);
     }
-    assert_eq!(inbox.next_sequence(), SEQUENCE + 1);
-    assert!(matches!(
-        inbox.consume(
-            &[event],
-            &mut peer,
-            &mut scope,
-            &mut audit,
-            &TraceId::mint([2; 16])
-        ),
-        Err(InboxError::EventOrder {
-            expected: 11,
-            actual: 10
-        })
-    ));
-    let mut bad_event = event;
-    bad_event.disclosure_digest[0] ^= 1;
-    let mut unchanged = checked(Inbox::new(SEQUENCE, 3));
-    assert!(matches!(
-        unchanged.consume(
-            &[bad_event],
-            &mut peer,
-            &mut scope,
-            &mut audit,
-            &TraceId::mint([3; 16])
-        ),
-        Err(InboxError::DisclosureChanged)
-    ));
-    assert_eq!(unchanged.next_sequence(), SEQUENCE);
-    assert_eq!(checked(Dispatcher::deliveries(&scope)), deliveries);
-    for (observed, present) in [(SEQUENCE + 1, true), (SEQUENCE, false)] {
-        peer.observed_sequence = observed;
-        peer.evidence_present = present;
-        let mut refused = checked(Inbox::new(SEQUENCE, 3));
-        assert!(matches!(
-            refused.consume(
-                &[event],
-                &mut peer,
-                &mut scope,
-                &mut audit,
-                &TraceId::mint([6; 16])
-            ),
-            Err(InboxError::UnverifiedBudget)
-        ));
-        assert_eq!(refused.next_sequence(), SEQUENCE);
-        assert_eq!(checked(Dispatcher::deliveries(&scope)), deliveries);
-    }
-    peer.observed_sequence = SEQUENCE;
-    peer.evidence_present = true;
-
-    let passkeys = required(Passkeys::new(auth_config()), "passkeys");
-    let mut authenticator = SoftwareAuthenticator::new();
-    let session = register_session(&passkeys, &mut scope, &mut authenticator, NOW);
-    let challenge = required(
-        passkeys.begin_step_up(
-            &mut scope,
-            session.access_token().expose(),
-            session.csrf_token().expose(),
-            OperationDigest::new(prepared.disclosure.canonical_digest),
-            110,
-        ),
-        "begin step-up",
+    assert_inbox_refusals(
+        event,
+        &mut peer,
+        &mut scope,
+        &mut audit,
+        &mut inbox,
+        &deliveries,
     );
-    let assertion = authenticator.assert(&challenge.ceremony);
-    let evidence = required(
-        passkeys.finish_step_up(&mut scope, &challenge.challenge_id, &assertion, 111),
-        "finish step-up",
+    let (passkeys, session, evidence) =
+        step_up_for_budget(&mut scope, prepared.disclosure.canonical_digest);
+    assert_decision_refusals(
+        rung, &mut peer, &mut scope, &mut audit, &passkeys, &session, &evidence,
     );
-    if rung != Rung::Committed {
-        let before = scope.keys(Table::Journeys);
-        assert!(matches!(
-            Decisions::approve(
-                &mut scope,
-                &passkeys,
-                session.access_token().expose(),
-                session.csrf_token().expose(),
-                &evidence,
-                &mut peer,
-                [1; 32],
-                "submitted-must-not-release",
-                SEQUENCE,
-                112,
-                &mut audit,
-                &TraceId::mint([4; 16]),
-            ),
-            Err(DecisionError::UnverifiedBudget)
-        ));
-        assert_eq!(scope.keys(Table::Journeys), before);
-    }
-    peer.rung = Rung::Committed;
-    for (observed, present) in [(SEQUENCE + 1, true), (SEQUENCE, false)] {
-        peer.observed_sequence = observed;
-        peer.evidence_present = present;
-        assert!(matches!(
-            Decisions::approve(
-                &mut scope,
-                &passkeys,
-                session.access_token().expose(),
-                session.csrf_token().expose(),
-                &evidence,
-                &mut peer,
-                [1; 32],
-                "committed-must-have-bound-evidence",
-                SEQUENCE,
-                112,
-                &mut audit,
-                &TraceId::mint([7; 16]),
-            ),
-            Err(DecisionError::UnverifiedBudget)
-        ));
-    }
-    peer.observed_sequence = SEQUENCE;
-    peer.evidence_present = true;
-    // Even a committed budget supplies no passkey/session authority of its own.
-    assert!(matches!(
-        Decisions::approve(
-            &mut scope,
-            &passkeys,
-            session.access_token().expose(),
-            "wrong-csrf",
-            &evidence,
-            &mut peer,
-            [1; 32],
-            "committed-still-needs-auth",
-            SEQUENCE,
-            112,
-            &mut audit,
-            &TraceId::mint([5; 16]),
-        ),
-        Err(DecisionError::Auth(_))
-    ));
-    assert_eq!(
-        checked(registry.ticket([1; 32]))
-            .expect("held ticket")
-            .state,
-        ApprovalState::AwaitingApproval
-    );
-    assert!(queue.is_empty());
-    assert_eq!(checked(limiter.consumed(LIMIT)), 0);
-    assert_eq!(checked(limiter.held_reservations()), 1);
+    assert_unspent_budget(&registry, &queue, &limiter);
     drop(scope);
     drop(store);
-    drop(peer);
+    let _ = peer;
     drop(expiry);
     checked(fs::remove_dir_all(root));
 }
@@ -915,4 +978,10 @@ fn renderer_submitted_budget_refused_real_producer_transport_consumer() {
 #[test]
 fn committed_budget_keeps_exact_disclosure_presentation_and_authentication() {
     exercise_path(Rung::Committed);
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

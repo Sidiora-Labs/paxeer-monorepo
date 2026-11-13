@@ -1,0 +1,36 @@
+[meta]
+member = "layerx-network-gateway"
+location_count = 263
+
+[lint.missing_errors_doc]
+locations = 1
+
+[lint.cast_possible_truncation]
+locations = 4
+
+[lint.doc_markdown]
+locations = 34
+
+[lint.duplicate_mod]
+locations = 2
+
+[lint.needless_pass_by_value]
+locations = 1
+
+[lint.unwrap_used]
+locations = 128
+
+[lint.expect_used]
+locations = 84
+
+[lint.semicolon_if_nothing_returned]
+locations = 1
+
+[lint.too_many_lines]
+locations = 3
+
+[lint.unreadable_literal]
+locations = 4
+
+[lint.unusual_byte_groupings]
+locations = 1

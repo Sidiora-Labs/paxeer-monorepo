@@ -26,18 +26,23 @@ fn exported_fixture(name: &str, receipt: &[u8], with_evidence: bool) -> Fixture 
     let (mut store, digest) = install_and_open(&root, &map, retention_uniform(100));
     let id = principal(name);
     let (empty, empty_head, prefix, bundle, head) = {
-        let mut scope = store.principal(&id).unwrap();
+        let mut scope = store
+            .principal(&id)
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
         let key = row_key("receipt-1");
         scope
             .put(Table::Journeys, key.clone(), 1, receipt.to_vec())
-            .unwrap();
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
         let references = if with_evidence {
             vec![EvidenceRef::new(Table::Journeys, key)]
         } else {
             Vec::new()
         };
-        let mut chain = AuditChain::open(&scope).unwrap();
-        let empty = chain.export(&scope).unwrap();
+        let mut chain =
+            AuditChain::open(&scope).unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+        let empty = chain
+            .export(&scope)
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
         let empty_head = chain.head();
         chain
             .append(
@@ -50,8 +55,10 @@ fn exported_fixture(name: &str, receipt: &[u8], with_evidence: bool) -> Fixture 
                 },
                 &references,
             )
-            .unwrap();
-        let prefix = chain.export(&scope).unwrap();
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+        let prefix = chain
+            .export(&scope)
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
         chain
             .append(
                 &mut scope,
@@ -63,24 +70,35 @@ fn exported_fixture(name: &str, receipt: &[u8], with_evidence: bool) -> Fixture 
                 },
                 &references,
             )
-            .unwrap();
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
         (
             empty,
             empty_head,
             prefix,
-            chain.export(&scope).unwrap(),
+            chain
+                .export(&scope)
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
             chain.head(),
         )
     };
     drop(store);
-    let mut reopened = PrincipalStore::open(&root, retention_uniform(100), digest).unwrap();
+    let mut reopened = PrincipalStore::open(&root, retention_uniform(100), digest)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     {
-        let scope = reopened.principal(&id).unwrap();
-        let chain = AuditChain::open_anchored(&scope, head).unwrap();
-        assert_eq!(chain.export(&scope).unwrap(), bundle);
+        let scope = reopened
+            .principal(&id)
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+        let chain = AuditChain::open_anchored(&scope, head)
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+        assert_eq!(
+            chain
+                .export(&scope)
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+            bundle
+        );
     }
     drop(reopened);
-    std::fs::remove_dir_all(root).unwrap();
+    std::fs::remove_dir_all(root).unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     Fixture {
         principal: id,
         empty,
@@ -92,7 +110,11 @@ fn exported_fixture(name: &str, receipt: &[u8], with_evidence: bool) -> Fixture 
 }
 
 fn read_count(bytes: &[u8], offset: usize) -> usize {
-    u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize
+    u32::from_be_bytes(
+        bytes[offset..offset + 4]
+            .try_into()
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+    ) as usize
 }
 
 fn skip_frame(bytes: &[u8], offset: usize) -> usize {
@@ -114,7 +136,11 @@ fn evidence_count_offset(bytes: &[u8]) -> usize {
 }
 
 fn set_count(bytes: &mut [u8], offset: usize, count: usize) {
-    bytes[offset..offset + 4].copy_from_slice(&u32::try_from(count).unwrap().to_be_bytes());
+    bytes[offset..offset + 4].copy_from_slice(
+        &u32::try_from(count)
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+            .to_be_bytes(),
+    );
 }
 
 fn assert_refused(fixture: &Fixture, bytes: &[u8], reason: &'static str) {
@@ -132,14 +158,19 @@ fn assert_refused(fixture: &Fixture, bytes: &[u8], reason: &'static str) {
 #[test]
 fn audit_export_authentication_anchor_accepts_retained_commitment_after_reopen() {
     let fixture = exported_fixture("alice", b"committed-receipt", true);
-    let report = verify_export_anchored(&fixture.bundle, &fixture.principal, fixture.head).unwrap();
+    let report = verify_export_anchored(&fixture.bundle, &fixture.principal, fixture.head)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert_eq!(report.principal(), &fixture.principal);
     assert_eq!(report.head(), fixture.head);
     assert_eq!(report.entries(), 2);
     assert_eq!(report.evidence_rows(), 1);
-    assert_eq!(report, verify_export(&fixture.bundle).unwrap());
-    let empty =
-        verify_export_anchored(&fixture.empty, &fixture.principal, fixture.empty_head).unwrap();
+    assert_eq!(
+        report,
+        verify_export(&fixture.bundle)
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+    );
+    let empty = verify_export_anchored(&fixture.empty, &fixture.principal, fixture.empty_head)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert_eq!(empty.entries(), 0);
     assert_eq!(empty.evidence_rows(), 0);
 }
@@ -277,7 +308,9 @@ fn audit_export_count_allocation_refuses_nested_binding_counts() {
 fn audit_export_authentication_anchor_keeps_evidence_and_framing_checks() {
     let fixture = exported_fixture("alice", b"committed-receipt", true);
     let mut altered = fixture.bundle.clone();
-    *altered.last_mut().unwrap() ^= 1;
+    *altered
+        .last_mut()
+        .unwrap_or_else(|| panic!("missing value")) ^= 1;
     assert!(matches!(
         verify_export_anchored(&altered, &fixture.principal, fixture.head),
         Err(AuditError::EvidenceDigestMismatch { sequence: 0 })

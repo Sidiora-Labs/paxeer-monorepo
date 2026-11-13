@@ -37,15 +37,99 @@ struct Chain {
     worker: Option<JoinHandle<()>>,
 }
 
+fn bound_recipient_response(request: &Value, state: &ChainState) -> Value {
+    assert_eq!(
+        request["params"][0]["to"],
+        "0x0000000000000000000000000000000000001004"
+    );
+    assert_eq!(
+        request["params"][0]["data"],
+        format!("0xc413bad3{PUBLIC_KEY}")
+    );
+    assert_eq!(request["params"][1], "latest");
+    let recipient = if state.unbound { [0; 20] } else { RECIPIENT };
+    json!(format!("0x{}{}", "00".repeat(12), hex_encode(&recipient)))
+}
+
+fn nonce_response(request: &Value, state: &ChainState) -> Value {
+    assert_eq!(
+        request["params"][0],
+        "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf"
+    );
+    assert_eq!(request["params"][1], "pending");
+    let count = state
+        .requests
+        .iter()
+        .filter(|request| request["method"] == "eth_getTransactionCount")
+        .count();
+    json!(format!("0x{:x}", 6 + count))
+}
+
+fn estimate_gas_response(request: &Value) -> Value {
+    assert_eq!(
+        request["params"][0]["to"],
+        format!("0x{}", hex_encode(&RECIPIENT))
+    );
+    assert_eq!(request["params"][0]["value"], "0x1e240");
+    assert_eq!(request["params"][0]["data"], "0x");
+    json!("0x5208")
+}
+
+fn send_raw_response(request: &Value, state: &mut ChainState) -> Option<Value> {
+    let raw = hex_decode(
+        request["params"][0]
+            .as_str()
+            .unwrap_or_else(|| panic!("required value"))
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("required value")),
+    )
+    .unwrap_or_else(|error| panic!("required value: {error:?}"));
+    let records = fs::read_to_string(&state.journal).unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "signed transaction must be journaled before broadcast"
+        )
+    });
+    let record: Value = serde_json::from_str(
+        records
+            .lines()
+            .last()
+            .unwrap_or_else(|| panic!("required value")),
+    )
+    .unwrap_or_else(|error| panic!("required value: {error:?}"));
+    let signed: Value = serde_json::from_str(
+        record["body"]
+            .as_str()
+            .unwrap_or_else(|| panic!("required value")),
+    )
+    .unwrap_or_else(|error| panic!("required value: {error:?}"));
+    assert_eq!(signed["raw"], json!(raw));
+    assert_eq!(
+        signed["transaction_hash"],
+        format!("0x{}", hex_encode(&transaction_hash(&raw)))
+    );
+    state.submissions.push(raw.clone());
+    if state.lose_response {
+        state.lose_response = false;
+        return None;
+    }
+    Some(json!(format!("0x{}", hex_encode(&transaction_hash(&raw)))))
+}
+
 impl Chain {
     fn start(journal: PathBuf) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         Self::listen(journal, listener)
     }
 
     fn listen(journal: PathBuf, listener: TcpListener) -> Self {
-        let address = listener.local_addr().unwrap();
-        listener.set_nonblocking(true).unwrap();
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        listener
+            .set_nonblocking(true)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let state = Arc::new(Mutex::new(ChainState {
             journal,
             ..ChainState::default()
@@ -65,85 +149,38 @@ impl Chain {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
-                let request =
-                    layerx_platform_internal::http::parse_client_request(&mut stream).unwrap();
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
+                let request = layerx_platform_internal::http::parse_client_request(&mut stream)
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
                 assert_eq!(request.method, "POST");
-                let request: Value = serde_json::from_slice(&request.body).unwrap();
-                let mut state = shared.lock().unwrap();
+                let request: Value = serde_json::from_slice(&request.body)
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
+                let mut state = shared
+                    .lock()
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
                 state.requests.push(request.clone());
-                let result = match request["method"].as_str().unwrap() {
+                let result = match request["method"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("required value"))
+                {
                     "eth_chainId" => json!("0x7d"),
                     "eth_blockNumber" => json!("0x0"),
-                    "eth_call" => {
-                        assert_eq!(
-                            request["params"][0]["to"],
-                            "0x0000000000000000000000000000000000001004"
-                        );
-                        assert_eq!(
-                            request["params"][0]["data"],
-                            format!("0xc413bad3{PUBLIC_KEY}")
-                        );
-                        assert_eq!(request["params"][1], "latest");
-                        let recipient = if state.unbound { [0; 20] } else { RECIPIENT };
-                        json!(format!("0x{}{}", "00".repeat(12), hex_encode(&recipient)))
-                    }
-                    "eth_getTransactionCount" => {
-                        assert_eq!(
-                            request["params"][0],
-                            "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf"
-                        );
-                        assert_eq!(request["params"][1], "pending");
-                        let count = state
-                            .requests
-                            .iter()
-                            .filter(|request| request["method"] == "eth_getTransactionCount")
-                            .count();
-                        json!(format!("0x{:x}", 6 + count))
-                    }
+                    "eth_call" => bound_recipient_response(&request, &state),
+                    "eth_getTransactionCount" => nonce_response(&request, &state),
                     "eth_gasPrice" => json!("0xa"),
                     "eth_maxPriorityFeePerGas" => json!("0x2"),
-                    "eth_estimateGas" => {
-                        assert_eq!(
-                            request["params"][0]["to"],
-                            format!("0x{}", hex_encode(&RECIPIENT))
-                        );
-                        assert_eq!(request["params"][0]["value"], "0x1e240");
-                        assert_eq!(request["params"][0]["data"], "0x");
-                        json!("0x5208")
-                    }
+                    "eth_estimateGas" => estimate_gas_response(&request),
                     "eth_sendRawTransaction" => {
-                        let raw = hex_decode(
-                            request["params"][0]
-                                .as_str()
-                                .unwrap()
-                                .strip_prefix("0x")
-                                .unwrap(),
-                        )
-                        .unwrap();
-                        let records = fs::read_to_string(&state.journal)
-                            .expect("signed transaction must be journaled before broadcast");
-                        let record: Value =
-                            serde_json::from_str(records.lines().last().unwrap()).unwrap();
-                        let signed: Value =
-                            serde_json::from_str(record["body"].as_str().unwrap()).unwrap();
-                        assert_eq!(signed["raw"], json!(raw));
-                        assert_eq!(
-                            signed["transaction_hash"],
-                            format!("0x{}", hex_encode(&transaction_hash(&raw)))
-                        );
-                        state.submissions.push(raw.clone());
-                        if state.lose_response {
-                            state.lose_response = false;
+                        let Some(result) = send_raw_response(&request, &mut state) else {
                             continue;
-                        }
-                        json!(format!("0x{}", hex_encode(&transaction_hash(&raw))))
+                        };
+                        result
                     }
                     "eth_getTransactionReceipt" => {
                         let raw = state
                             .submissions
                             .last()
-                            .expect("receipt queried after submission");
+                            .unwrap_or_else(|| panic!("{}", "receipt queried after submission"));
                         let hash = format!("0x{}", hex_encode(&transaction_hash(raw)));
                         assert_eq!(request["params"][0], hash);
                         if state.mined {
@@ -156,7 +193,7 @@ impl Chain {
                 };
                 let body =
                     json!({"jsonrpc": "2.0", "id": request["id"], "result": result}).to_string();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).unwrap();
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).unwrap_or_else(|error| panic!("required value: {error:?}"));
             }
         });
         Self {
@@ -174,7 +211,7 @@ impl Drop for Chain {
         if let Some(worker) = self.worker.take() {
             let result = worker.join();
             if !thread::panicking() {
-                result.unwrap();
+                result.unwrap_or_else(|error| panic!("required value: {error:?}"));
             }
         }
     }
@@ -191,8 +228,9 @@ struct Harness {
 }
 
 fn private_file(path: &Path, bytes: &[u8]) {
-    fs::write(path, bytes).unwrap();
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(path, bytes).unwrap_or_else(|error| panic!("required value: {error:?}"));
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
 }
 
 fn openssl(root: &Path, arguments: &[&str]) {
@@ -200,7 +238,7 @@ fn openssl(root: &Path, arguments: &[&str]) {
         .current_dir(root)
         .args(arguments)
         .output()
-        .unwrap();
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
     assert!(
         output.status.success(),
         "openssl: {}",
@@ -210,10 +248,62 @@ fn openssl(root: &Path, arguments: &[&str]) {
 
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
-        .unwrap()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
         .local_addr()
-        .unwrap()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
         .port()
+}
+
+fn prepare_harness_files(root: &Path) {
+    fs::create_dir(root).unwrap_or_else(|error| panic!("required value: {error:?}"));
+    fs::set_permissions(root, fs::Permissions::from_mode(0o700))
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
+    fs::create_dir(root.join("state")).unwrap_or_else(|error| panic!("required value: {error:?}"));
+    fs::set_permissions(root.join("state"), fs::Permissions::from_mode(0o700))
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
+    private_file(&root.join("treasury.key"), &[9; 32]);
+    private_file(&root.join("sender.key"), format!("{:064x}", 1).as_bytes());
+    private_file(&root.join("token"), TOKEN.as_bytes());
+    openssl(
+        root,
+        &[
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            "tls.key",
+            "-out",
+            "tls.pem",
+            "-days",
+            "1",
+            "-subj",
+            "/CN=localhost",
+            "-addext",
+            "subjectAltName=DNS:localhost",
+        ],
+    );
+    openssl(
+        root,
+        &[
+            "x509", "-in", "tls.pem", "-outform", "DER", "-out", "tls.der",
+        ],
+    );
+    openssl(
+        root,
+        &[
+            "pkcs8",
+            "-topk8",
+            "-nocrypt",
+            "-in",
+            "tls.key",
+            "-outform",
+            "DER",
+            "-out",
+            "tls-key.der",
+        ],
+    );
 }
 
 impl Harness {
@@ -231,65 +321,23 @@ impl Harness {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&root).unwrap();
-        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
-        fs::create_dir(root.join("state")).unwrap();
-        fs::set_permissions(root.join("state"), fs::Permissions::from_mode(0o700)).unwrap();
-        private_file(&root.join("treasury.key"), &[9; 32]);
-        private_file(&root.join("sender.key"), format!("{:064x}", 1).as_bytes());
-        private_file(&root.join("token"), TOKEN.as_bytes());
-        openssl(
-            &root,
-            &[
-                "req",
-                "-x509",
-                "-newkey",
-                "rsa:2048",
-                "-nodes",
-                "-keyout",
-                "tls.key",
-                "-out",
-                "tls.pem",
-                "-days",
-                "1",
-                "-subj",
-                "/CN=localhost",
-                "-addext",
-                "subjectAltName=DNS:localhost",
-            ],
-        );
-        openssl(
-            &root,
-            &[
-                "x509", "-in", "tls.pem", "-outform", "DER", "-out", "tls.der",
-            ],
-        );
-        openssl(
-            &root,
-            &[
-                "pkcs8",
-                "-topk8",
-                "-nocrypt",
-                "-in",
-                "tls.key",
-                "-outform",
-                "DER",
-                "-out",
-                "tls-key.der",
-            ],
-        );
+        prepare_harness_files(&root);
         let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
             .ancestors()
             .nth(4)
-            .unwrap();
+            .unwrap_or_else(|| panic!("required value"));
         let uid = fs::read_to_string("/proc/self/status")
-            .unwrap()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
             .lines()
             .find_map(|line| {
-                line.strip_prefix("Uid:")
-                    .map(|line| line.split_whitespace().nth(1).unwrap().to_owned())
+                line.strip_prefix("Uid:").map(|line| {
+                    line.split_whitespace()
+                        .nth(1)
+                        .unwrap_or_else(|| panic!("required value"))
+                        .to_owned()
+                })
             })
-            .unwrap();
+            .unwrap_or_else(|| panic!("required value"));
         let signer = Command::new("python3")
             .arg(repository.join("services/platform/hosted/node/signer/signer.py"))
             .arg("--socket")
@@ -301,15 +349,19 @@ impl Harness {
             .arg("--key-file")
             .arg(root.join("treasury.key"))
             .stdout(Stdio::null())
-            .stderr(fs::File::create(root.join("signer.log")).unwrap())
+            .stderr(
+                fs::File::create(root.join("signer.log"))
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
+            )
             .spawn()
-            .unwrap();
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let deadline = Instant::now() + Duration::from_secs(10);
         while UnixStream::connect(root.join("signer.sock")).is_err() {
             assert!(
                 Instant::now() < deadline,
                 "signer startup: {}",
-                fs::read_to_string(root.join("signer.log")).unwrap()
+                fs::read_to_string(root.join("signer.log"))
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"))
             );
             thread::sleep(Duration::from_millis(20));
         }
@@ -321,12 +373,21 @@ impl Harness {
                 root.join("state/journal")
                     .join(format!("{}.json", hex_encode(&digest.finalize()))),
             );
-            chain.state.lock().unwrap().lose_response = lose_response;
+            chain
+                .state
+                .lock()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"))
+                .lose_response = lose_response;
             Some(chain)
         } else {
             None
         };
-        let chain_address = chain_address.unwrap_or_else(|| chain.as_ref().unwrap().address);
+        let chain_address = chain_address.unwrap_or_else(|| {
+            chain
+                .as_ref()
+                .unwrap_or_else(|| panic!("required value"))
+                .address
+        });
         let mut harness = Self {
             root,
             signer,
@@ -341,13 +402,17 @@ impl Harness {
     }
 
     fn chain(&self) -> &Chain {
-        self.chain.as_ref().unwrap()
+        self.chain
+            .as_ref()
+            .unwrap_or_else(|| panic!("required value"))
     }
 
     fn restart(&mut self, endpoint: bool, sender: bool) {
         if let Some(mut core) = self.core.take() {
-            core.kill().unwrap();
-            core.wait().unwrap();
+            core.kill()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            core.wait()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
         }
         let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-core-boundary"));
         command
@@ -413,21 +478,31 @@ impl Harness {
         self.core = Some(
             command
                 .stdout(Stdio::null())
-                .stderr(fs::File::create(self.root.join("core.log")).unwrap())
+                .stderr(
+                    fs::File::create(self.root.join("core.log"))
+                        .unwrap_or_else(|error| panic!("required value: {error:?}")),
+                )
                 .spawn()
-                .unwrap(),
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
         );
         let deadline = Instant::now() + Duration::from_secs(10);
         while TcpStream::connect(("127.0.0.1", self.admin)).is_err() {
             assert!(
-                self.core.as_mut().unwrap().try_wait().unwrap().is_none(),
+                self.core
+                    .as_mut()
+                    .unwrap_or_else(|| panic!("required value"))
+                    .try_wait()
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"))
+                    .is_none(),
                 "core exited: {}",
-                fs::read_to_string(self.root.join("core.log")).unwrap()
+                fs::read_to_string(self.root.join("core.log"))
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"))
             );
             assert!(
                 Instant::now() < deadline,
                 "core startup: {}",
-                fs::read_to_string(self.root.join("core.log")).unwrap()
+                fs::read_to_string(self.root.join("core.log"))
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"))
             );
             thread::sleep(Duration::from_millis(20));
         }
@@ -452,23 +527,37 @@ impl Harness {
     fn request_on(&self, port: u16, request: &str) -> (u16, Value) {
         let connector = TlsConnector::builder()
             .add_root_certificate(
-                Certificate::from_der(&fs::read(self.root.join("tls.der")).unwrap()).unwrap(),
+                Certificate::from_der(
+                    &fs::read(self.root.join("tls.der"))
+                        .unwrap_or_else(|error| panic!("required value: {error:?}")),
+                )
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
             )
             .build()
-            .unwrap();
-        let tcp = TcpStream::connect(("127.0.0.1", port)).unwrap();
-        tcp.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
-        let mut stream = connector.connect("localhost", tcp).unwrap();
-        stream.write_all(request.as_bytes()).unwrap();
-        let response =
-            layerx_platform_internal::http::read_http_message(&mut stream, 64 * 1024).unwrap();
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let tcp = TcpStream::connect(("127.0.0.1", port))
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        tcp.set_read_timeout(Some(Duration::from_secs(10)))
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let mut stream = connector
+            .connect("localhost", tcp)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        stream
+            .write_all(request.as_bytes())
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let response = layerx_platform_internal::http::read_http_message(&mut stream, 64 * 1024)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let status = response.headers[""]
             .split_whitespace()
             .nth(1)
-            .unwrap()
+            .unwrap_or_else(|| panic!("required value"))
             .parse()
-            .unwrap();
-        (status, serde_json::from_slice(&response.body).unwrap())
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        (
+            status,
+            serde_json::from_slice(&response.body)
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+        )
     }
 }
 
@@ -536,20 +625,25 @@ fn assert_transfer(raw: &[u8]) {
     assert_eq!(encoded[8], &[0xc0]);
     let unsigned = encoded[..9].concat();
     assert!(unsigned.len() < 56);
-    let mut preimage = vec![2, 0xc0 + u8::try_from(unsigned.len()).unwrap()];
+    let mut preimage = vec![
+        2,
+        0xc0 + u8::try_from(unsigned.len())
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
+    ];
     preimage.extend(unsigned);
     let mut signature = [0; 64];
     signature[32 - fields[10].len()..32].copy_from_slice(fields[10]);
     signature[64 - fields[11].len()..].copy_from_slice(fields[11]);
-    let public =
-        hex_decode("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798").unwrap();
+    let public = hex_decode("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
     layerx_crypto::secp256k1::verify_recoverable_digest(
         &public,
         &signature,
-        27 + u8::try_from(number(fields[9])).unwrap(),
+        27 + u8::try_from(number(fields[9]))
+            .unwrap_or_else(|error| panic!("required value: {error:?}")),
         &transaction_hash(&preimage),
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("required value: {error:?}"));
 }
 
 #[test]
@@ -560,7 +654,11 @@ fn testnet_fund_sends_one_bank_transfer_to_the_bound_address() {
     assert_eq!(pending["funding_id"], "funding-8109");
     assert_eq!(pending["state"], "pending");
     {
-        let state = harness.chain().state.lock().unwrap();
+        let state = harness
+            .chain()
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         assert_eq!(state.submissions.len(), 1);
         assert_transfer(&state.submissions[0]);
         assert_eq!(
@@ -570,19 +668,33 @@ fn testnet_fund_sends_one_bank_transfer_to_the_bound_address() {
     }
     assert_eq!(harness.fund("one-transfer", 1).0, 409);
     assert_eq!(harness.fund("invalid-amount", 0).0, 400);
-    harness.chain().state.lock().unwrap().mined = true;
+    harness
+        .chain()
+        .state
+        .lock()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
+        .mined = true;
     let (status, funded) = harness.fund("one-transfer", 123_456);
     assert_eq!(status, 200);
     assert_eq!(funded["state"], "funded");
     assert_eq!(funded["transaction_id"], pending["transaction_id"]);
     assert_eq!(funded["funding_id"], "funding-8109");
     assert_eq!(harness.fund("one-transfer", 123_456), (200, funded));
-    harness.chain().state.lock().unwrap().unbound = true;
+    harness
+        .chain()
+        .state
+        .lock()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
+        .unbound = true;
     let (status, refusal) = harness.fund("unbound", 123_456);
     assert_eq!(status, 409);
     assert_eq!(refusal["error"]["code"], "identity_binding_unavailable");
     {
-        let state = harness.chain().state.lock().unwrap();
+        let state = harness
+            .chain()
+            .state
+            .lock()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         assert_eq!(state.submissions.len(), 2);
         assert_eq!(state.submissions[0], state.submissions[1]);
     }
@@ -602,7 +714,13 @@ fn testnet_fund_replays_the_journaled_transaction() {
     let (status, refusal) = harness.fund("replay-transfer", 123_456);
     assert_eq!(status, 503);
     assert_eq!(refusal["error"]["code"], "treasury_unavailable");
-    let original = harness.chain().state.lock().unwrap().submissions[0].clone();
+    let original = harness
+        .chain()
+        .state
+        .lock()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
+        .submissions[0]
+        .clone();
     assert_transfer(&original);
     private_file(
         &harness.root.join("sender.key"),
@@ -616,13 +734,22 @@ fn testnet_fund_replays_the_journaled_transaction() {
         pending["transaction_id"],
         format!("0x{}", hex_encode(&transaction_hash(&original)))
     );
-    harness.chain().state.lock().unwrap().mined = true;
+    harness
+        .chain()
+        .state
+        .lock()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
+        .mined = true;
     let (status, funded) = harness.fund("replay-transfer", 123_456);
     assert_eq!(status, 200);
     assert_eq!(funded["state"], "funded");
     assert_eq!(funded["transaction_id"], pending["transaction_id"]);
     assert_eq!(harness.fund("replay-transfer", 123_457).0, 409);
-    let state = harness.chain().state.lock().unwrap();
+    let state = harness
+        .chain()
+        .state
+        .lock()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
     assert_eq!(state.submissions.len(), 3);
     for raw in &state.submissions {
         assert_eq!(raw, &original);
@@ -656,12 +783,19 @@ fn testnet_fund_replays_the_journaled_transaction() {
 
 #[test]
 fn readyz_and_funding_recover_after_startup_chain_outage() {
-    let reserved = TcpListener::bind("127.0.0.1:0").unwrap();
-    let address = reserved.local_addr().unwrap();
+    let reserved = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
+    let address = reserved
+        .local_addr()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
     drop(reserved);
     let key = "startup-outage";
     let mut harness = Harness::with_chain(key, false, Some(address));
-    let core_pid = harness.core.as_ref().unwrap().id();
+    let core_pid = harness
+        .core
+        .as_ref()
+        .unwrap_or_else(|| panic!("required value"))
+        .id();
 
     for _ in 0..2 {
         let (status, document) = harness.readiness();
@@ -684,7 +818,10 @@ fn readyz_and_funding_recover_after_startup_chain_outage() {
         .root
         .join("state/journal")
         .join(format!("{}.json", hex_encode(&digest.finalize())));
-    harness.chain = Some(Chain::listen(journal, TcpListener::bind(address).unwrap()));
+    harness.chain = Some(Chain::listen(
+        journal,
+        TcpListener::bind(address).unwrap_or_else(|error| panic!("required value: {error:?}")),
+    ));
 
     let (status, document) = harness.readiness();
     assert_eq!(status, 503);
@@ -702,7 +839,11 @@ fn readyz_and_funding_recover_after_startup_chain_outage() {
     assert_eq!(status, 202);
     assert_eq!(pending["funding_id"], "funding-8109");
     assert_eq!(pending["state"], "pending");
-    let state = harness.chain().state.lock().unwrap();
+    let state = harness
+        .chain()
+        .state
+        .lock()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
     assert_eq!(state.submissions.len(), 1);
     assert_transfer(&state.submissions[0]);
     assert_eq!(
@@ -710,8 +851,21 @@ fn readyz_and_funding_recover_after_startup_chain_outage() {
         format!("0x{}", hex_encode(&transaction_hash(&state.submissions[0])))
     );
     drop(state);
-    assert_eq!(harness.core.as_ref().unwrap().id(), core_pid);
-    assert!(harness.core.as_mut().unwrap().try_wait().unwrap().is_none());
+    assert_eq!(
+        harness
+            .core
+            .as_ref()
+            .unwrap_or_else(|| panic!("required value"))
+            .id(),
+        core_pid
+    );
+    assert!(harness
+        .core
+        .as_mut()
+        .unwrap_or_else(|| panic!("required value"))
+        .try_wait()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
+        .is_none());
 }
 
 struct ReadinessChain {
@@ -735,7 +889,12 @@ impl ReadinessChain {
             ])
             .stdout(Stdio::null())
             .spawn()
-            .expect("Anvil must be installed to run the real funding chain readiness test");
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{}: {error:?}",
+                    "Anvil must be installed to run the real funding chain readiness test"
+                )
+            });
         let mut chain = Self {
             child,
             address: ([127, 0, 0, 1], port).into(),
@@ -743,7 +902,11 @@ impl ReadinessChain {
         let deadline = Instant::now() + Duration::from_secs(10);
         while TcpStream::connect(chain.address).is_err() {
             assert!(
-                chain.child.try_wait().unwrap().is_none(),
+                chain
+                    .child
+                    .try_wait()
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"))
+                    .is_none(),
                 "Anvil exited before listening"
             );
             assert!(Instant::now() < deadline, "Anvil did not start");
@@ -755,24 +918,36 @@ impl ReadinessChain {
 
     fn rpc(&self, method: &str) -> Value {
         let body = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": []}).to_string();
-        let mut stream = TcpStream::connect(self.address).unwrap();
+        let mut stream = TcpStream::connect(self.address)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
-        write!(stream, "POST / HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", self.address, body.len()).unwrap();
-        let response =
-            layerx_platform_internal::http::read_http_message(&mut stream, 64 * 1024).unwrap();
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        write!(stream, "POST / HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", self.address, body.len()).unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let response = layerx_platform_internal::http::read_http_message(&mut stream, 64 * 1024)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         assert_eq!(response.headers[""].split_whitespace().nth(1), Some("200"));
-        let response: Value = serde_json::from_slice(&response.body).unwrap();
+        let response: Value = serde_json::from_slice(&response.body)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         assert_eq!(response["jsonrpc"], "2.0");
         assert_eq!(response["id"], 1);
         assert!(response.get("error").is_none(), "{response}");
-        response.get("result").unwrap().clone()
+        response
+            .get("result")
+            .unwrap_or_else(|| panic!("required value"))
+            .clone()
     }
 
     fn stop(&mut self) {
-        self.child.kill().unwrap();
-        assert!(self.child.wait().unwrap().code().is_none());
+        self.child
+            .kill()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        assert!(self
+            .child
+            .wait()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"))
+            .code()
+            .is_none());
     }
 }
 
@@ -799,7 +974,10 @@ fn readyz_reports_the_funding_chain_and_sender() {
             "sender": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
         })
     );
-    document.as_object_mut().unwrap().remove("funding");
+    document
+        .as_object_mut()
+        .unwrap_or_else(|| panic!("required value"))
+        .remove("funding");
     let kernel = document;
 
     chain.rpc("evm_mine");
@@ -808,7 +986,10 @@ fn readyz_reports_the_funding_chain_and_sender() {
     assert_eq!(status, 503);
     assert_eq!(document["funding"]["ready"], true);
     assert_eq!(document["funding"]["latest_block"], 1);
-    document.as_object_mut().unwrap().remove("funding");
+    document
+        .as_object_mut()
+        .unwrap_or_else(|| panic!("required value"))
+        .remove("funding");
     assert_eq!(document, kernel);
 
     for valid_key in [false, true] {
@@ -822,7 +1003,10 @@ fn readyz_reports_the_funding_chain_and_sender() {
             document["funding"],
             json!({"ready": false, "reason": "sender_unavailable"})
         );
-        document.as_object_mut().unwrap().remove("funding");
+        document
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("required value"))
+            .remove("funding");
         assert_eq!(document, kernel);
     }
     private_file(
@@ -836,7 +1020,10 @@ fn readyz_reports_the_funding_chain_and_sender() {
         document["funding"],
         json!({"ready": false, "reason": "chain_unavailable"})
     );
-    document.as_object_mut().unwrap().remove("funding");
+    document
+        .as_object_mut()
+        .unwrap_or_else(|| panic!("required value"))
+        .remove("funding");
     assert_eq!(document, kernel);
 
     harness.restart(true, true);
@@ -848,7 +1035,10 @@ fn readyz_reports_the_funding_chain_and_sender() {
         document["funding"],
         json!({"ready": false, "reason": "chain_unavailable"})
     );
-    document.as_object_mut().unwrap().remove("funding");
+    document
+        .as_object_mut()
+        .unwrap_or_else(|| panic!("required value"))
+        .remove("funding");
     assert_eq!(document, kernel);
     harness.restart(true, true);
     assert_eq!(
@@ -890,10 +1080,13 @@ fn retired_activity_and_program_routes_answer_not_found() {
     assert_eq!(document["error"]["code"], "node_unavailable");
 }
 
-#[path = "support/native_funding.rs"]
-mod native_funding;
+pub mod native_funding {
+    include!("../src/main.rs");
+    include!("support/native_funding.rs");
+}
 
 #[test]
 fn native_funding_transfer_commits_and_recovers_after_response_loss() {
     native_funding::native_funding_lost_response_reopen_archive_import();
+    native_funding::native_funding_intent_producer_import_replay_and_refusals();
 }

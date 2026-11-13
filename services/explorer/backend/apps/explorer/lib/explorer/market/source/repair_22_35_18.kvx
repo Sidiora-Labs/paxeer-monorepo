@@ -1,0 +1,12 @@
+[secondary_coin]
+non_circulating_addresses_setting = "MARKET_CHAINFLOW_SECONDARY_COIN_NON_CIRCULATING_ADDRESSES"
+non_circulating_addresses_default = ""
+non_circulating_addresses_format = "Comma-separated addresses holding non-circulating SID; whitespace and empty entries are removed."
+market_cap = "Use market_data.market_cap.usd when present, including zero; otherwise multiply market_data.current_price.usd by circulating supply."
+circulating_supply = "Use market_data.circulating_supply when present, including zero; otherwise use the indexed total supply of the SID token selected by MARKET_CHAINFLOW_TOKENS less its indexed current balances at the listed addresses."
+indexed_supply = "Total supply and balances are divided by ten to the token decimals; the circulating result is bounded below by zero."
+empty_list = "Circulating supply equals indexed total supply when no addresses are listed."
+missing_supply = "When feed circulating supply and indexed total supply are absent, available supply and derived market cap remain empty."
+consumers = "The secondary quote available supply, statistics market cap and SID token row use the resolved circulating supply."
+history = "Secondary history points multiply each candle closing price by the same resolved circulating supply; absent supply leaves market cap empty."
+native_coin = "PAX retains feed market cap or price times native circulating supply; WPAX retains feed market cap or price times its indexed total supply."

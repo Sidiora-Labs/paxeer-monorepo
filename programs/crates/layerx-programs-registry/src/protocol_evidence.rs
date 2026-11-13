@@ -185,14 +185,12 @@ impl std::error::Error for ProgramBundleError {}
 /// Verifier bound to a persisted chain validator set and a header freshness limit.
 #[derive(Clone, Debug)]
 pub struct ProtocolDeploymentVerifier {
-    pub(crate) anchors: Vec<core::convert::Infallible>,
-    pub(crate) current_anchor: usize,
     pub(crate) staleness_limit_ms: u64,
-    pub(crate) signed_history: Option<core::convert::Infallible>,
     pub(crate) chain_verifier: Option<ChainProofVerifier>,
 }
 
 impl ProtocolDeploymentVerifier {
+    #[must_use]
     pub fn chain_trust(&self) -> Option<&ChainProofVerifier> {
         self.chain_verifier.as_ref()
     }
@@ -316,10 +314,10 @@ use crate::chain_proof::{
 };
 
 #[path = "chain_evidence/verify_head.rs"]
-mod head_helpers;
+pub mod head_helpers;
 #[path = "chain_evidence/verify_program.rs"]
-mod program_helpers;
-mod bundle_helpers {
+pub mod program_helpers;
+pub(crate) mod bundle_helpers {
     include!("chain_evidence/verify_bundle.rs");
 
     pub(super) fn commitment_head(
@@ -408,6 +406,10 @@ pub struct VerifiedDeploymentEvidence {
 
 impl VerifiedDeploymentEvidence {
     /// Uses the runtime's admission policy for live and durable deployment readers.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn admit_abi_version(version: u16) -> Result<(), ProtocolEvidenceError> {
         layerx_programs_runtime::admit_abi_version(version)
             .map_err(|_| ProtocolEvidenceError::DeploymentMismatch)
@@ -416,48 +418,63 @@ impl VerifiedDeploymentEvidence {
     pub(crate) fn into_record(self) -> DeploymentRecord {
         self.record
     }
+    #[must_use]
     pub const fn program(&self) -> ProgramId {
         self.record.program
     }
+    #[must_use]
     pub const fn version(&self) -> u32 {
         self.record.version
     }
+    #[must_use]
     pub const fn code_hash(&self) -> [u8; 32] {
         self.record.new_code_hash
     }
+    #[must_use]
     pub const fn abi_version(&self) -> u16 {
         self.record.abi_version
     }
+    #[must_use]
     pub const fn interface_present(&self) -> bool {
         self.interface.is_some()
     }
+    #[must_use]
     pub const fn interface(&self) -> Option<&crate::ProgramInterface> {
         self.interface.as_ref()
     }
+    #[must_use]
     pub const fn receipt_digest(&self) -> [u8; 32] {
         self.transaction_hash
     }
+    #[must_use]
     pub const fn activity_id(&self) -> [u8; 32] {
         self.transaction_hash
     }
+    #[must_use]
     pub const fn state_root(&self) -> [u8; 32] {
         self.header.app_hash()
     }
+    #[must_use]
     pub const fn programs_root(&self) -> [u8; 32] {
         self.header.app_hash()
     }
+    #[must_use]
     pub const fn freshness(&self) -> ReadFreshness {
         self.freshness
     }
+    #[must_use]
     pub const fn lifecycle(&self) -> ProgramLifecycle {
         self.lifecycle
     }
+    #[must_use]
     pub fn module(&self) -> &[u8] {
         &self.record.module
     }
+    #[must_use]
     pub const fn record(&self) -> &DeploymentRecord {
         &self.record
     }
+    #[must_use]
     pub const fn proof(&self) -> &DeploymentProof {
         &self.proof
     }
@@ -480,36 +497,47 @@ impl VerifiedProgramHead {
     pub(crate) fn chain_header(&self) -> &VerifiedHeader {
         &self.header
     }
+    #[must_use]
     pub const fn program(&self) -> ProgramId {
         self.program
     }
+    #[must_use]
     pub const fn version(&self) -> u32 {
         self.version
     }
+    #[must_use]
     pub const fn code_hash(&self) -> [u8; 32] {
         self.code_hash
     }
+    #[must_use]
     pub const fn abi_version(&self) -> u16 {
         self.abi_version
     }
+    #[must_use]
     pub const fn policy(&self) -> UpgradePolicy {
         self.policy
     }
+    #[must_use]
     pub const fn lifecycle(&self) -> ProgramLifecycle {
         self.lifecycle
     }
+    #[must_use]
     pub const fn receipt_digest(&self) -> [u8; 32] {
         self.transaction_hash
     }
+    #[must_use]
     pub const fn state_root(&self) -> [u8; 32] {
         self.header.app_hash()
     }
+    #[must_use]
     pub const fn programs_root(&self) -> [u8; 32] {
         self.header.app_hash()
     }
+    #[must_use]
     pub const fn freshness(&self) -> ReadFreshness {
         self.freshness
     }
+    #[must_use]
     pub const fn valid_until_ms(&self) -> u64 {
         self.valid_until_ms
     }
@@ -522,18 +550,23 @@ pub struct VerifiedProtocolHead {
     freshness: ReadFreshness,
 }
 impl VerifiedProtocolHead {
+    #[must_use]
     pub const fn activity_id(&self) -> [u8; 32] {
         self.transaction_hash
     }
+    #[must_use]
     pub const fn receipt_digest(&self) -> [u8; 32] {
         self.transaction_hash
     }
+    #[must_use]
     pub const fn state_root(&self) -> [u8; 32] {
         self.header.app_hash()
     }
+    #[must_use]
     pub const fn programs_root(&self) -> [u8; 32] {
         self.header.app_hash()
     }
+    #[must_use]
     pub const fn freshness(&self) -> ReadFreshness {
         self.freshness
     }
@@ -545,21 +578,27 @@ pub struct VerifiedChainHead {
     evidence_digest: ReceiptEvidenceDigest,
 }
 impl VerifiedChainHead {
+    #[must_use]
     pub const fn head_kind(&self) -> ProgramHeadKind {
         self.evidence_digest.head_kind()
     }
+    #[must_use]
     pub const fn receipt_evidence_digest(&self) -> ReceiptEvidenceDigest {
         self.evidence_digest
     }
+    #[must_use]
     pub const fn receipt_digest(&self) -> [u8; 32] {
         self.protocol.receipt_digest()
     }
+    #[must_use]
     pub const fn state_root(&self) -> [u8; 32] {
         self.protocol.state_root()
     }
+    #[must_use]
     pub const fn programs_root(&self) -> [u8; 32] {
         self.protocol.programs_root()
     }
+    #[must_use]
     pub const fn freshness(&self) -> ReadFreshness {
         self.protocol.freshness()
     }
@@ -583,9 +622,17 @@ impl ProgramStateBundle {
             wind_down: self.wind_down.clone(),
         }
     }
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn canonical_encoding(&self) -> Result<Vec<u8>, ProgramBundleError> {
         self.chain_bundle().canonical_encoding()
     }
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn decode(bytes: &[u8]) -> Result<Self, ProgramBundleError> {
         let bundle = bundle_helpers::ProgramStateBundle::decode(bytes)?;
         Ok(Self {
@@ -605,17 +652,24 @@ pub struct VerifiedProgramBundle {
     interface: VerifiedInterfaceRead,
 }
 impl VerifiedProgramBundle {
+    #[must_use]
     pub const fn program_head(&self) -> &VerifiedProgramHead {
         &self.program
     }
+    #[must_use]
     pub const fn chain_head(&self) -> &VerifiedChainHead {
         &self.chain
     }
+    #[must_use]
     pub const fn interface(&self) -> &VerifiedInterfaceRead {
         &self.interface
     }
 
     /// Applies the authenticated metadata checks used before agent discovery.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_discovery(
         &self,
         expected_program: ProgramId,
@@ -673,6 +727,10 @@ impl ProtocolDeploymentVerifier {
         Ok(head)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_deployment(
         &self,
         proof: &DeploymentProof,
@@ -684,9 +742,13 @@ impl ProtocolDeploymentVerifier {
         }
         chain_freshness(&head, now_ms, self.staleness_limit_ms)?;
         let deployment = proof.deployment.verify(&head)?;
-        self.bind_chain_deployment(proof, head, deployment, now_ms)
+        self.bind_chain_deployment(proof, head, &deployment, now_ms)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_historical_deployment(
         &self,
         proof: &DeploymentProof,
@@ -726,14 +788,14 @@ impl ProtocolDeploymentVerifier {
         let deployment = proof.deployment.verify(&head)?;
         let historical_time =
             u64::try_from(head.time_ms()).map_err(|_| ProtocolEvidenceError::Stale)?;
-        self.bind_chain_deployment(proof, head, deployment, historical_time)
+        self.bind_chain_deployment(proof, head, &deployment, historical_time)
     }
 
     fn bind_chain_deployment(
         &self,
         proof: &DeploymentProof,
         header: VerifiedHeader,
-        deployment: crate::chain_evidence::deployment::VerifiedDeploymentEvidence,
+        deployment: &crate::chain_evidence::deployment::VerifiedDeploymentEvidence,
         now_ms: u64,
     ) -> Result<VerifiedDeploymentEvidence, ProtocolEvidenceError> {
         if proof.state.state != proof.deployment.program_state {
@@ -756,7 +818,7 @@ impl ProtocolDeploymentVerifier {
             self.require_chain_trust()?,
             &proof.state,
             &header,
-            &deployment,
+            deployment,
         )?;
         let freshness = chain_freshness(&header, now_ms, self.staleness_limit_ms)?;
         let record = DeploymentRecord {
@@ -785,6 +847,10 @@ impl ProtocolDeploymentVerifier {
         })
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_current_program(
         &self,
         proof: &ProgramStateProof,
@@ -818,6 +884,10 @@ impl ProtocolDeploymentVerifier {
         })
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_current_protocol_head(
         &self,
         proof: &ProtocolHeadProof<'_>,
@@ -844,6 +914,10 @@ impl ProtocolDeploymentVerifier {
         })
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_current_protocol_head_proof(
         &self,
         proof: &ProtocolHeadProof<'_>,
@@ -852,6 +926,10 @@ impl ProtocolDeploymentVerifier {
         self.verify_current_protocol_head(proof, now_ms)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_historical_protocol_head(
         &self,
         proof: &ProtocolHeadProof<'_>,
@@ -891,6 +969,10 @@ impl ProtocolDeploymentVerifier {
         })
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_historical_protocol_head_proof(
         &self,
         proof: &ProtocolHeadProof<'_>,
@@ -901,6 +983,10 @@ impl ProtocolDeploymentVerifier {
         self.verify_historical_protocol_head(proof, trusted_header, trusted_commit, history)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_current_chain_head(
         &self,
         kind: ProgramHeadKind,
@@ -940,6 +1026,10 @@ impl ProtocolDeploymentVerifier {
     }
 
     /// Authenticates deployment state and either interface membership or absence.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_current_deployment_head(
         &self,
         bundle: &ProgramStateBundle,
@@ -1019,6 +1109,10 @@ impl ProtocolDeploymentVerifier {
     }
 
     /// Decodes the node answer before applying the protected bundle verifier.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_current_program_bundle_bytes(
         &self,
         payload: &[u8],
@@ -1030,6 +1124,10 @@ impl ProtocolDeploymentVerifier {
         self.verify_current_program_bundle(&bundle, chain, expected_program, now_ms)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify_current_program_bundle(
         &self,
         bundle: &ProgramStateBundle,
@@ -1052,13 +1150,17 @@ impl ProtocolDeploymentVerifier {
             .observed_at
             .checked_add(self.staleness_limit_ms)
             .ok_or(ProgramBundleError::Evidence(ProtocolEvidenceError::Stale))?;
-        let status = verified.wind_down().ok_or(ProgramBundleError::Evidence(
-            ProtocolEvidenceError::LifecycleProof,
-        ))?;
-        let lifecycle = match status {
-            None => ProgramLifecycle::Active,
-            Some(value) if value[1] == 2 => ProgramLifecycle::Deprecated,
-            _ => {
+        let lifecycle = match verified.wind_down() {
+            bundle_helpers::VerifiedWindDown::Missing => {
+                return Err(ProgramBundleError::Evidence(
+                    ProtocolEvidenceError::LifecycleProof,
+                ));
+            }
+            bundle_helpers::VerifiedWindDown::Active => ProgramLifecycle::Active,
+            bundle_helpers::VerifiedWindDown::Deprecated(value) if value[1] == 2 => {
+                ProgramLifecycle::Deprecated
+            }
+            bundle_helpers::VerifiedWindDown::Deprecated(_) => {
                 return Err(ProgramBundleError::Evidence(
                     ProtocolEvidenceError::LifecycleProof,
                 ))
@@ -1087,7 +1189,11 @@ impl ProtocolDeploymentVerifier {
 
 impl DeploymentProof {
     /// Returns an untrusted projection for local record/proof consistency checks.
-    /// Only verify_deployment authenticates these claims against chain trust.
+    /// Only `verify_deployment` authenticates these claims against chain trust.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn claimed_record(&self) -> Result<DeploymentRecord, ProtocolEvidenceError> {
         let execution = DeploymentExecutionProof::decode(&self.state.transaction)?;
         let header =
@@ -1130,7 +1236,9 @@ impl DeploymentProof {
             observed_at: u64::try_from(header.time.seconds)
                 .ok()
                 .and_then(|seconds| seconds.checked_mul(1000))
-                .and_then(|time| time.checked_add((header.time.nanos / 1_000_000) as u64))
+                .and_then(|time| {
+                    time.checked_add(u64::try_from(header.time.nanos / 1_000_000).ok()?)
+                })
                 .ok_or(ProtocolEvidenceError::Encoding)?,
             module: self.deployment.code.clone(),
             migration: execution.migration,
@@ -1141,6 +1249,10 @@ impl DeploymentProof {
         Ok(record)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn bind_execution(
         &mut self,
         execution: &DeploymentExecutionProof,
@@ -1151,6 +1263,10 @@ impl DeploymentProof {
 
     /// Publishes canonical admission bytes durably, without replacing an existing
     /// admission. Repeating identical bytes is idempotent; different bytes refuse.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn publish_canonical(&self, path: &std::path::Path) -> std::io::Result<()> {
         use std::io::Write as _;
         use std::os::unix::fs::OpenOptionsExt as _;
@@ -1186,6 +1302,10 @@ impl DeploymentProof {
 
     /// Commits a fully synced journal file without overwriting accepted evidence.
     /// The caller syncs the parent directory after this commit point.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn commit_staged_file(
         temporary: &std::path::Path,
         path: &std::path::Path,
@@ -1207,6 +1327,10 @@ impl DeploymentProof {
 
     /// Reopens a journal admission with the same bounded canonical decoder used
     /// by live consumers. Decoding never grants trust; verification is required.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn read_canonical(path: &std::path::Path) -> std::io::Result<Self> {
         use std::io::Read as _;
         let file = std::fs::File::open(path)?;
@@ -1217,6 +1341,10 @@ impl DeploymentProof {
             .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn canonical_encoding(&self) -> Result<Vec<u8>, ProtocolEvidenceError> {
         let mut bytes = b"LXDP\x02".to_vec();
         put_chain_field(
@@ -1242,7 +1370,7 @@ impl DeploymentProof {
         bytes.extend_from_slice(&proof.total.to_be_bytes());
         bytes.extend_from_slice(&proof.index.to_be_bytes());
         bytes.extend_from_slice(&proof.leaf_hash);
-        bytes.push(proof.aunts.len() as u8);
+        bytes.push(u8::try_from(proof.aunts.len()).map_err(|_| ProtocolEvidenceError::Encoding)?);
         for aunt in &proof.aunts {
             bytes.extend_from_slice(aunt);
         }
@@ -1259,6 +1387,10 @@ impl DeploymentProof {
         Ok(bytes)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn decode(bytes: &[u8]) -> Result<Self, ProtocolEvidenceError> {
         if bytes.len() > MAX_EVIDENCE_BYTES || bytes.get(..5) != Some(b"LXDP\x02") {
             return Err(ProtocolEvidenceError::Encoding);
@@ -1331,6 +1463,10 @@ impl DeploymentProof {
         Ok(proof)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn claimed_receipt_digest(&self) -> Result<[u8; 32], ProtocolEvidenceError> {
         if self.state.transaction.is_empty() || self.state.transaction.len() > MAX_EVIDENCE_BYTES {
             return Err(ProtocolEvidenceError::Encoding);
@@ -1374,7 +1510,7 @@ fn put_chain_ops(bytes: &mut Vec<u8>, ops: &[ProofOp]) -> Result<(), ProtocolEvi
     if ops.len() > crate::chain_proof::decode::MAX_PROOF_OPS {
         return Err(ProtocolEvidenceError::Encoding);
     }
-    bytes.push(ops.len() as u8);
+    bytes.push(u8::try_from(ops.len()).map_err(|_| ProtocolEvidenceError::Encoding)?);
     for op in ops {
         for value in [op.op_type.as_bytes(), &op.key, &op.data] {
             if value.len() > crate::chain_proof::decode::MAX_FIELD_BYTES {

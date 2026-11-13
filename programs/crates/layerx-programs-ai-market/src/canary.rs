@@ -42,6 +42,8 @@ pub struct CanaryRoomProfile {
 }
 impl CanaryRoomProfile {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn validate(&self) -> CodecResult<()> {
         self.room.validate()
     }
@@ -61,6 +63,8 @@ pub struct CanaryTask {
 }
 impl CanaryTask {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self) -> CodecResult<[u8; CANARY_COMMIT_BYTES]> {
         self.profile.validate()?;
         let mut out = [0; CANARY_COMMIT_BYTES];
@@ -79,6 +83,8 @@ impl CanaryTask {
         Ok(out)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         if r.take(8)? != CANARY_TASK_KIND {
@@ -101,6 +107,8 @@ impl CanaryTask {
         Ok(value)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn commitment(&self, binding: &FrozenBinding, host: PrincipalId) -> CodecResult<Digest32> {
         let mut out = [0; 160 + 32 + CANARY_COMMIT_BYTES];
         let mut w = Writer::new(&mut out);
@@ -111,6 +119,8 @@ impl CanaryTask {
         codec::domain_hash("PAXAI/canary-commit/v2", out.guest_index(..n))
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn answer_attestation(&self, binding: &FrozenBinding) -> CodecResult<Digest32> {
         let mut out = [0; 160 + 32 + 8 + 32 + 32 + 32];
         let mut w = Writer::new(&mut out);
@@ -128,13 +138,14 @@ impl CanaryTask {
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+#[must_use]
 pub fn encode_logits(logits: &CanaryLogits) -> [u8; 32] {
     let mut bytes = [0; 32];
     for (chunk, value) in bytes
-        .as_chunks_mut::<{ 4 }>()
+        .as_chunks_mut::<4>()
         .0
         .iter_mut()
-        .map(|chunk| chunk.as_mut_slice())
+        .map(<[u8; 4]>::as_mut_slice)
         .zip(logits)
     {
         chunk.guest_copy_from_slice(&value.to_be_bytes());
@@ -142,27 +153,30 @@ pub fn encode_logits(logits: &CanaryLogits) -> [u8; 32] {
     bytes
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn decode_logits(bytes: &[u8]) -> CodecResult<CanaryLogits> {
     if bytes.len() != 32 {
         return Err(NON_CANONICAL);
     }
     let mut logits = [0; TOP_LOGITS];
-    for (value, chunk) in logits.iter_mut().zip(
-        bytes
-            .as_chunks::<{ 4 }>()
-            .0
-            .iter()
-            .map(|chunk| chunk.as_slice()),
-    ) {
+    for (value, chunk) in logits
+        .iter_mut()
+        .zip(bytes.as_chunks::<4>().0.iter().map(<[u8; 4]>::as_slice))
+    {
         *value = i32::from_be_bytes(chunk.try_into().map_err(|_| NON_CANONICAL)?);
     }
     Ok(logits)
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn logits_digest(logits: &CanaryLogits) -> CodecResult<Digest32> {
     codec::domain_hash("PAXAI/canary-logits/q16/v1", &encode_logits(logits))
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn relative_tolerance_hit(
     expected: &CanaryLogits,
     answer: &CanaryLogits,
@@ -186,6 +200,8 @@ pub struct CanaryReveal {
 }
 impl CanaryReveal {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self) -> CodecResult<[u8; CANARY_REVEAL_BYTES]> {
         let mut out = [0; CANARY_REVEAL_BYTES];
         let mut w = Writer::new(&mut out);
@@ -198,6 +214,8 @@ impl CanaryReveal {
         Ok(out)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(bytes);
         if r.take(8)? != CANARY_TASK_KIND {
@@ -244,9 +262,11 @@ pub struct CanaryCommitment {
     pub resolved_height: u64,
 }
 impl CanaryCommitment {
+    #[must_use]
     pub fn peer_at_fault(&self) -> bool {
         self.status == ChallengeStatus::Miss
     }
+    #[must_use]
     pub fn refundable_deposit(&self) -> u128 {
         if self.status == ChallengeStatus::Hit {
             self.deposit
@@ -378,6 +398,8 @@ pub struct CanaryRegion<'a> {
 }
 impl<'a> CanaryRegion<'a> {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(features: &'a [u8]) -> CodecResult<Self> {
         let seals = SealRegion::decode(features)?;
         let challenges = ChallengeRegion::decode(seals.rest())?;
@@ -404,7 +426,7 @@ impl<'a> CanaryRegion<'a> {
             .as_chunks::<{ RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 632]>::as_slice)
             .enumerate()
         {
             let record = CanaryCommitment::decode(row)?;
@@ -413,7 +435,7 @@ impl<'a> CanaryRegion<'a> {
                 .as_chunks::<{ RECORD_BYTES }>()
                 .0
                 .iter()
-                .map(|chunk| chunk.as_slice())
+                .map(<[u8; 632]>::as_slice)
             {
                 let previous = CanaryCommitment::decode(previous)?;
                 if previous.id == record.id
@@ -437,10 +459,12 @@ impl<'a> CanaryRegion<'a> {
             .as_chunks::<{ RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 632]>::as_slice)
             .map(CanaryCommitment::decode)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn get(&self, id: Digest32) -> CodecResult<Option<CanaryCommitment>> {
         for record in self.records() {
             let record = record?;
@@ -479,7 +503,7 @@ impl<'a> CanaryRegion<'a> {
             .as_chunks::<{ RECORD_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 632]>::as_slice)
         {
             if CanaryCommitment::decode(row)?.id == record.id {
                 w.put(&record.encode()?)?;
@@ -494,7 +518,10 @@ impl<'a> CanaryRegion<'a> {
         Ok(w.len())
     }
 }
+
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn commitment_from_state(current: &[u8], id: Digest32) -> CodecResult<CanaryCommitment> {
     let state = decode_shared_state(current)?;
     CanaryRegion::decode(state.control.feature_bytes)?
@@ -502,6 +529,10 @@ pub fn commitment_from_state(current: &[u8], id: Digest32) -> CodecResult<Canary
         .ok_or(NOT_FOUND)
 }
 
+#[allow(
+    clippy::large_enum_variant,
+    reason = "The public outcome carries the applied commitment inline."
+)]
 pub enum Outcome {
     Applied {
         record: CanaryCommitment,
@@ -520,7 +551,7 @@ pub(crate) fn check_call<'a>(
     state: &SharedState<'a>,
 ) -> CodecResult<PolicySection<'a>> {
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -560,8 +591,10 @@ pub(crate) fn commit_task(
     ctx: &CallContext,
     e: &Envelope<'_>,
     state: &SharedState<'_>,
-    task: CanaryTask,
+    task: &CanaryTask,
 ) -> CodecResult<CanaryCommitment> {
+    let task = *task;
+
     let section = check_call(ctx, e, state)?;
     if e.actor != section.header.owner_principal {
         return Err(UNAUTHORIZED);
@@ -666,13 +699,10 @@ pub(crate) fn persist(
     e: &Envelope<'_>,
     digest: RequestDigest,
     current: &[u8],
-    record: CanaryCommitment,
-    request: Option<&ReplayRequest>,
-    payload: &[u8],
-    next: &mut [u8],
-    scratch: &mut [u8],
-    event: &mut [u8],
+    context: PersistContext<'_>,
 ) -> CodecResult<Outcome> {
+    let (record, request, payload, next, scratch, event) = context;
+
     let state = decode_shared_state(current)?;
     let section = check_call(ctx, e, &state)?;
     let (policy, rest) = scratch.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;
@@ -682,7 +712,13 @@ pub(crate) fn persist(
     candidate.control.feature_bytes = features.guest_index(..n);
     let result = codec::result_digest(payload)?;
     let (revision, state_len) = crate::rewards::finish_feature_transition(
-        candidate, section, request, ctx.height, result, CONFLICT, policy, control, next,
+        candidate,
+        &section,
+        request,
+        ctx.height,
+        result,
+        CONFLICT,
+        (policy, control, next),
     )?;
     let common = EventCommon {
         market: e.market,
@@ -709,7 +745,7 @@ pub(crate) fn persist(
                 evaluator: crate::types::EvaluatorId::new(record.host.bytes())?,
                 report: crate::types::ReportDigest::new(record.id.bytes())?,
                 evidence: crate::types::EvidenceRoot::new(record.task.prompt_digest.bytes())?,
-                vector_count: TOP_LOGITS as u16,
+                vector_count: u16::try_from(TOP_LOGITS).map_err(|_| crate::errors::CAPACITY)?,
                 admitted_height: ctx.height,
             },
             event,
@@ -734,6 +770,8 @@ pub struct ChallengeLapPayload {
 }
 impl ChallengeLapPayload {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self) -> CodecResult<[u8; 88]> {
         let mut out = [0; 88];
         let mut w = Writer::new(&mut out);
@@ -766,6 +804,8 @@ pub struct ResolveChallengePayload {
 }
 impl ResolveChallengePayload {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self) -> CodecResult<[u8; 104]> {
         let mut out = [0; 104];
         let mut w = Writer::new(&mut out);
@@ -808,6 +848,8 @@ fn named_record(
     Ok(record)
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn challenge_window(origin: u64, record: &CanaryCommitment) -> CodecResult<HeightWindow> {
     let reveal = crate::commit_reveal::canary_window(origin, record.epoch, true)?;
     Ok(HeightWindow {
@@ -819,6 +861,8 @@ pub fn challenge_window(origin: u64, record: &CanaryCommitment) -> CodecResult<H
     })
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn apply_challenge_lap(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -865,15 +909,12 @@ pub fn apply_challenge_lap(
         e,
         digest,
         current,
-        record,
-        None,
-        &record.id.bytes(),
-        next,
-        scratch,
-        event,
+        (record, None, &record.id.bytes(), next, scratch, event),
     )
 }
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn apply_resolve_challenge(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -924,10 +965,16 @@ pub fn apply_resolve_challenge(
         .guest_copy_from_slice(record.id.as_bytes());
     *result.guest_index_mut(32) = record.status as u8;
     persist(
-        ctx, e, digest, current, record, None, &result, next, scratch, event,
+        ctx,
+        e,
+        digest,
+        current,
+        (record, None, &result, next, scratch, event),
     )
 }
 
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn value_action(
     operation: dispatch::Operation,
     before: &[u8],
@@ -1015,3 +1062,12 @@ pub fn stage_value(
     }
     Ok(())
 }
+
+type PersistContext<'a> = (
+    CanaryCommitment,
+    Option<&'a ReplayRequest>,
+    &'a [u8],
+    &'a mut [u8],
+    &'a mut [u8],
+    &'a mut [u8],
+);

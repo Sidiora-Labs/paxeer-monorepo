@@ -1,14 +1,7 @@
-//! Proves: RampOrder + encode_pay_exact/encode_budget_spend -> LedgerCall -> Eip1559Call::sign/decode_signed; SequencerLog + decode_ledger_payment -> LedgerPayment -> public Rust consumer.
-//!
-//! This contract's consumer is this integration crate, importing the public
-//! items exactly as a ramp caller does. Native ABI entries define the input
-//! words and indexed event fields independently of the Rust encoders/decoder.
-//! Event inputs exercise the decoder boundary, without claiming node execution
-//! or signature authentication from an unauthenticated SequencerLog. There is
-//! no persistent state here: fresh calls must produce fresh, owned results.
-//!
-//! The on-ramp ABI carries checked Unix milliseconds; off-ramp compilation
-//! targets the customer's maintained budget authority at 0x101b.
+//! Ledger payment encoding and decoding preserve the native ABI fields.
+//! Customer budget payment and operator payment use their bound account authorities.
+
+include!("support/required.rs");
 
 use layerx_client::sequencer::SequencerLog;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
@@ -25,7 +18,8 @@ use serde_json::Value;
 use sha3::{Digest as _, Keccak256};
 
 #[path = "support/repair_22_33_1490.rs"]
-mod repair_1490;
+pub mod repair_1490;
+pub use repair_1490::*;
 
 #[test]
 fn maintained_customer_authority_refuses_retired_draw_before_broadcast() {
@@ -42,26 +36,26 @@ fn abi_entry(kind: &str, name: &str) -> Value {
         }
         _ => panic!("unexpected ABI entry: {kind} {name}"),
     };
-    let abi: Value = serde_json::from_str(document).expect("native payment ABI");
+    let abi: Value = serde_json::from_str(document).required("native payment ABI");
     abi.as_array()
-        .expect("ABI entries")
+        .required("ABI entries")
         .iter()
         .find(|entry| entry["type"] == kind && entry["name"] == name)
-        .expect("native ABI entry")
+        .required("native ABI entry")
         .clone()
 }
 
 fn signature(entry: &Value) -> [u8; 32] {
     let types = entry["inputs"]
         .as_array()
-        .expect("ABI inputs")
+        .required("ABI inputs")
         .iter()
-        .map(|input| input["type"].as_str().expect("ABI type"))
+        .map(|input| input["type"].as_str().required("ABI type"))
         .collect::<std::vec::Vec<_>>()
         .join(",");
     Keccak256::digest(format!(
         "{}({types})",
-        entry["name"].as_str().expect("name")
+        entry["name"].as_str().required("name")
     ))
     .into()
 }
@@ -74,10 +68,10 @@ fn word(value: u128) -> [u8; 32] {
 
 fn account(value: &str) -> [u8; 32] {
     layerx_wire::hash::account_id_for_protocol(
-        &AccountId::parse(value).expect("account"),
+        &AccountId::parse(value).required("account"),
         layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
     )
-    .expect("ledger account hash")
+    .required("ledger account hash")
 }
 
 fn order(direction: RampDirection, amount: u128) -> RampOrder {
@@ -115,12 +109,12 @@ fn order(direction: RampDirection, amount: u128) -> RampOrder {
         },
         1_000,
     )
-    .expect("real bound order")
+    .required("real bound order")
 }
 
 fn observe_call(call: &LedgerCall, name: &str, fields: &[(&str, [u8; 32])]) {
     let abi = abi_entry("function", name);
-    let inputs = abi["inputs"].as_array().expect("function inputs");
+    let inputs = abi["inputs"].as_array().required("function inputs");
     assert_eq!(inputs.len(), fields.len());
     let (address, suffix) = match name {
         "payExact" => (LEDGER_ADDRESS, 0x1a),
@@ -141,11 +135,13 @@ fn observe_call(call: &LedgerCall, name: &str, fields: &[(&str, [u8; 32])]) {
         to: call.to,
         data: call.data.clone(),
     };
-    let raw = transaction.sign(&[1; 32]).expect("real transaction signer");
-    let (observed, signed) = decode_signed(&raw).expect("real transaction decoder");
+    let raw = transaction
+        .sign(&[1; 32])
+        .required("real transaction signer");
+    let (observed, signed) = decode_signed(&raw).required("real transaction decoder");
     assert_eq!(observed, transaction);
     assert_eq!(
-        recover_sender(&observed, &signed).expect("recover signer"),
+        recover_sender(&observed, &signed).required("recover signer"),
         [
             0x1a, 0x64, 0x2f, 0x0e, 0x3c, 0x3a, 0xf5, 0x45, 0xe7, 0xac, 0xbd, 0x38, 0xb0, 0x72,
             0x51, 0xb3, 0x99, 0x09, 0x14, 0xf1,
@@ -169,6 +165,36 @@ fn observe_call(call: &LedgerCall, name: &str, fields: &[(&str, [u8; 32])]) {
     );
 }
 
+fn assert_invalid_expiry(bound: &RampOrder, direction: RampDirection) {
+    for expires_at in [u64::MAX / 1_000 + 1, u64::MAX] {
+        let mut invalid = bound.clone();
+        invalid.quote.expires_at = expires_at;
+        invalid.order_digest = invalid.digest();
+        assert_eq!(invalid.quote.validate(1_000), Err(RampError::InvalidOrder));
+        assert_eq!(
+            RampOrder::bind(
+                CreateOrder {
+                    order_id: invalid.order_id.clone(),
+                    quote_id: invalid.quote.quote_id.clone(),
+                    payer_grant: invalid.payer_grant,
+                    payer_grant_purpose: invalid.payer_grant_purpose,
+                },
+                invalid.quote.clone(),
+                invalid.customer.clone(),
+                invalid.operator.clone(),
+                1_000,
+            ),
+            Err(RampError::InvalidOrder)
+        );
+        if direction == RampDirection::OnRamp {
+            assert_eq!(
+                compile_operator_send(&invalid),
+                Err(RampError::InvalidOrder)
+            );
+        }
+    }
+}
+
 // The graph contract explicitly requires a declared symbol named Vec. This
 // test checks the Vec<u8> carried by LedgerCall across the public boundary.
 #[test]
@@ -178,39 +204,13 @@ fn Vec() {
         for amount in [1, (1_u128 << 100) + 19, u128::MAX] {
             let bound = order(direction, amount);
             let sequence = u64::MAX;
-            for expires_at in [u64::MAX / 1_000 + 1, u64::MAX] {
-                let mut invalid = bound.clone();
-                invalid.quote.expires_at = expires_at;
-                invalid.order_digest = invalid.digest();
-                assert_eq!(invalid.quote.validate(1_000), Err(RampError::InvalidOrder));
-                assert_eq!(
-                    RampOrder::bind(
-                        CreateOrder {
-                            order_id: invalid.order_id.clone(),
-                            quote_id: invalid.quote.quote_id.clone(),
-                            payer_grant: invalid.payer_grant,
-                            payer_grant_purpose: invalid.payer_grant_purpose,
-                        },
-                        invalid.quote.clone(),
-                        invalid.customer.clone(),
-                        invalid.operator.clone(),
-                        1_000,
-                    ),
-                    Err(RampError::InvalidOrder)
-                );
-                if direction == RampDirection::OnRamp {
-                    assert_eq!(
-                        compile_operator_send(&invalid),
-                        Err(RampError::InvalidOrder)
-                    );
-                }
-            }
+            assert_invalid_expiry(&bound, direction);
             for _ in 0..2 {
                 let mut call = match direction {
                     RampDirection::OnRamp => compile_operator_send(&bound),
                     RampDirection::OffRamp => compile_payer_grant_draw(&bound, sequence),
                 }
-                .expect("compile fresh public LedgerCall");
+                .required("compile fresh public LedgerCall");
                 match direction {
                     RampDirection::OnRamp => {
                         let from = account(&bound.operator.account);
@@ -245,12 +245,12 @@ fn Vec() {
                         );
                     }
                     RampDirection::OffRamp => {
-                        let grant = bound.payer_grant.expect("grant");
+                        let grant = bound.payer_grant.required("grant");
                         let recipient = account(&bound.operator.account);
-                        let purpose = bound.payer_grant_purpose.expect("purpose");
+                        let purpose = bound.payer_grant_purpose.required("purpose");
                         let authorization = bound
                             .customer_payment_authorization()
-                            .expect("customer budget authorization");
+                            .required("customer budget authorization");
                         assert_eq!(authorization.budget_id, grant);
                         assert_eq!(authorization.purpose_hash, purpose);
                         assert_eq!(call.data, encode_budget_spend(grant, recipient, amount));
@@ -290,7 +290,7 @@ fn Vec() {
 
 fn event_input(name: &str, fields: &[(&str, [u8; 32])]) -> SequencerLog {
     let abi = abi_entry("event", name);
-    let inputs = abi["inputs"].as_array().expect("event inputs");
+    let inputs = abi["inputs"].as_array().required("event inputs");
     assert_eq!(inputs.len(), fields.len());
     let mut log = SequencerLog {
         address: LEDGER_ADDRESS,
@@ -300,7 +300,7 @@ fn event_input(name: &str, fields: &[(&str, [u8; 32])]) -> SequencerLog {
     };
     for (input, (name, value)) in inputs.iter().zip(fields) {
         assert_eq!(input["name"], *name);
-        if input["indexed"].as_bool().expect("indexed") {
+        if input["indexed"].as_bool().required("indexed") {
             log.topics.push(*value);
         } else {
             log.data.extend_from_slice(value);
@@ -366,7 +366,7 @@ fn proof_precompile_1_layerxledger_0x101a() {
                 ),
             ] {
                 let observed: LedgerPayment =
-                    decode_ledger_payment(&input).expect("public consumer observes payment");
+                    decode_ledger_payment(&input).required("public consumer observes payment");
                 assert_eq!(observed, expected);
                 for byte in 32..48 {
                     let mut malformed = input.clone();

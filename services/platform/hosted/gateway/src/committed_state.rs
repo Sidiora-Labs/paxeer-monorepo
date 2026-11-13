@@ -37,64 +37,54 @@ pub struct CurrentState {
 }
 
 impl Authority {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the validator configuration cannot be read or validated.
     pub fn configured() -> Result<Option<Self>, String> {
         let Some(path) = std::env::var_os("LAYERX_GATEWAY_STATE_VALIDATORS_FILE") else {
             return Ok(None);
         };
         let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
         let mut bytes = Vec::new();
-        std::io::Read::read_to_end(&mut std::io::Read::take(file, 65_537), &mut bytes)
-            .map_err(|e| e.to_string())?;
+        std::io::Read::read_to_end(&mut std::io::Read::take(file, 65_537), &mut bytes).map_err(|e| e.to_string())?;
         Self::from_config(&bytes).map(Some).map_err(str::to_owned)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the validator configuration is invalid.
     pub fn from_config(bytes: &[u8]) -> Result<Self, &'static str> {
         if bytes.len() > 65_536 {
             return Err("invalid state authority");
         }
-        let document: AuthorityConfig =
-            serde_json::from_slice(bytes).map_err(|_| "invalid state authority")?;
-        if document.chain_id.is_empty()
-            || document.chain_id.len() > 50
-            || document.validators.is_empty()
-            || document.validators.len() > 256
-        {
+        let document: AuthorityConfig = serde_json::from_slice(bytes).map_err(|_| "invalid state authority")?;
+        if document.chain_id.is_empty() || document.chain_id.len() > 50 || document.validators.is_empty() || document.validators.len() > 256 {
             return Err("invalid state authority");
         }
         let mut validators = Vec::new();
         let mut keys = std::collections::BTreeSet::new();
         let mut total = 0_i64;
         for validator in document.validators {
-            let public_key: [u8; 32] = hex(&validator.public_key)?
-                .try_into()
-                .map_err(|_| "invalid state authority")?;
-            if validator.voting_power <= 0
-                || !keys.insert(public_key)
-                || ed25519_dalek::VerifyingKey::from_bytes(&public_key).is_err()
-            {
+            let public_key: [u8; 32] = hex(&validator.public_key)?.try_into().map_err(|_| "invalid state authority")?;
+            if validator.voting_power <= 0 || !keys.insert(public_key) || ed25519_dalek::VerifyingKey::from_bytes(&public_key).is_err() {
                 return Err("invalid state authority");
             }
-            total = total
-                .checked_add(validator.voting_power)
-                .filter(|v| *v <= i64::MAX / 8)
-                .ok_or("invalid state authority")?;
+            total = total.checked_add(validator.voting_power).filter(|v| *v <= i64::MAX / 8).ok_or("invalid state authority")?;
             validators.push(Validator {
                 pub_key: public_key,
                 voting_power: validator.voting_power,
             });
         }
-        Ok(Self {
-            chain_id: document.chain_id,
-            validators,
-        })
+        Ok(Self { chain_id: document.chain_id, validators })
     }
 
-    pub fn verify(
-        &self,
-        status: &Value,
-        document: &Value,
-        now: u64,
-    ) -> Result<CurrentState, &'static str> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the committed state proof cannot be verified.
+    pub fn verify(&self, status: &Value, document: &Value, now: u64) -> Result<CurrentState, &'static str> {
         let bad = "state_proof_unverified";
         let signed = &document["signed_header"];
         let header = header(&signed["header"]).ok_or(bad)?;
@@ -104,20 +94,9 @@ impl Authority {
         }
         let height = u64::try_from(header.height).map_err(|_| bad)?;
         let block_hash = verify_header(&header, &self.validators).map_err(|_| bad)?;
-        verify_commit(
-            &self.chain_id,
-            &self.validators,
-            block_hash,
-            height,
-            &commit,
-        )
-        .map_err(|_| bad)?;
+        verify_commit(&self.chain_id, &self.validators, block_hash, height, &commit).map_err(|_| bad)?;
         let sync = &status["sync_info"];
-        if sync["catching_up"] != false
-            || number(&sync["latest_block_height"]) != Some(height)
-            || bytes(&sync["latest_block_hash"]).as_deref() != Some(block_hash.as_slice())
-            || bytes(&sync["latest_app_hash"]).as_deref() != Some(header.app_hash.as_slice())
-        {
+        if sync["catching_up"] != false || number(&sync["latest_block_height"]) != Some(height) || bytes(&sync["latest_block_hash"]).as_deref() != Some(block_hash.as_slice()) || bytes(&sync["latest_app_hash"]).as_deref() != Some(header.app_hash.as_slice()) {
             return Err("state_proof_stale");
         }
         let timestamp = u64::try_from(header.time.seconds).map_err(|_| bad)?;
@@ -128,23 +107,17 @@ impl Authority {
             height,
             block_hash,
             state_root: header.app_hash.try_into().map_err(|_| bad)?,
-            timestamp_ms: timestamp
-                .checked_mul(1000)
-                .and_then(|n| n.checked_add(u64::from(header.time.nanos / 1_000_000)))
-                .ok_or(bad)?,
+            timestamp_ms: timestamp.checked_mul(1000).and_then(|n| n.checked_add(u64::from(header.time.nanos / 1_000_000))).ok_or(bad)?,
         })
     }
 }
 
 fn hex(value: &str) -> Result<Vec<u8>, &'static str> {
     let value = value.strip_prefix("0x").unwrap_or(value);
-    if value.len() > 128 || value.len() % 2 != 0 || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
+    if value.len() > 128 || !value.len().is_multiple_of(2) || !value.bytes().all(|b| b.is_ascii_hexdigit()) {
         return Err("invalid proof hex");
     }
-    (0..value.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&value[i..i + 2], 16).map_err(|_| "invalid proof hex"))
-        .collect()
+    (0..value.len()).step_by(2).map(|i| u8::from_str_radix(&value[i..i + 2], 16).map_err(|_| "invalid proof hex")).collect()
 }
 fn bytes(value: &Value) -> Option<Vec<u8>> {
     hex(value.as_str()?).ok()
@@ -202,15 +175,7 @@ fn commit(value: &Value) -> Option<Commit> {
             block_id_flag: flag,
             validator_address: bytes(&vote["validator_address"])?,
             timestamp: timestamp(vote["timestamp"].as_str()?)?,
-            signature: if vote["signature"].is_null() {
-                None
-            } else {
-                Some(
-                    layerx_platform_internal::base64::decode(vote["signature"].as_str()?)?
-                        .try_into()
-                        .ok()?,
-                )
-            },
+            signature: if vote["signature"].is_null() { None } else { Some(layerx_platform_internal::base64::decode(vote["signature"].as_str()?)?.try_into().ok()?) },
         });
     }
     Some(Commit {
@@ -226,35 +191,14 @@ fn timestamp(value: &str) -> Option<Timestamp> {
         return None;
     }
     let (date, time) = value.strip_suffix('Z')?.split_once('T')?;
-    let date: Vec<u32> = date
-        .split('-')
-        .map(str::parse)
-        .collect::<Result<_, _>>()
-        .ok()?;
+    let date: Vec<u32> = date.split('-').map(str::parse).collect::<Result<_, _>>().ok()?;
     let [year, month, day] = date.as_slice() else {
         return None;
     };
     if !(1..=9999).contains(year) || !(1..=12).contains(month) {
         return None;
     }
-    let months = [
-        31,
-        if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
-            29
-        } else {
-            28
-        },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
+    let months = [31, if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     if *day == 0 || *day > months[*month as usize - 1] {
         return None;
     }
@@ -262,11 +206,7 @@ fn timestamp(value: &str) -> Option<Timestamp> {
     if fraction.len() > 9 || !fraction.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
-    let time: Vec<u32> = whole
-        .split(':')
-        .map(str::parse)
-        .collect::<Result<_, _>>()
-        .ok()?;
+    let time: Vec<u32> = whole.split(':').map(str::parse).collect::<Result<_, _>>().ok()?;
     let [hour, minute, second] = time.as_slice() else {
         return None;
     };
@@ -277,15 +217,9 @@ fn timestamp(value: &str) -> Option<Timestamp> {
         let p = i64::from(y) - 1;
         365 * p + p / 4 - p / 100 + p / 400
     };
-    let days = before(*year) - before(1970)
-        + i64::from(months[..*month as usize - 1].iter().sum::<u32>())
-        + i64::from(*day - 1);
+    let days = before(*year) - before(1970) + i64::from(months[..*month as usize - 1].iter().sum::<u32>()) + i64::from(*day - 1);
     Some(Timestamp {
         seconds: days * 86_400 + i64::from(hour * 3600 + minute * 60 + second),
-        nanos: if fraction.is_empty() {
-            0
-        } else {
-            fraction.parse::<u32>().ok()? * 10_u32.pow(9 - fraction.len() as u32)
-        },
+        nanos: if fraction.is_empty() { 0 } else { fraction.parse::<u32>().ok()? * 10_u32.pow(9 - u32::try_from(fraction.len()).ok()?) },
     })
 }

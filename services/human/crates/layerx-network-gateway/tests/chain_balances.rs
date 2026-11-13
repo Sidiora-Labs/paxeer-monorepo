@@ -1,11 +1,15 @@
+include!("support/required.rs");
+
 use layerx_network_gateway::{
     decode_account, decode_account_balances, AssetBalance, Evidence, GatewayError,
     WalletObservation,
 };
 use serde_json::{json, Value};
 
-#[path = "support/hosted_gateway.rs"]
-mod hosted_gateway;
+#[allow(dead_code)]
+mod hosted_gateway {
+    include!("support/hosted_gateway.rs");
+}
 
 fn account_document() -> Value {
     json!({
@@ -31,7 +35,7 @@ fn balance_answer() -> Value {
 #[test]
 fn balances_decode_bank_coins_at_one_height() {
     let mut answer = balance_answer();
-    let balances = decode_account_balances(&answer).expect("chain balances decode");
+    let balances = decode_account_balances(&answer).required_with("chain balances decode");
     assert_eq!(balances.height, 812);
     assert_eq!(balances.evidence, Evidence::GatewayReported);
     assert!(balances.account.bound);
@@ -60,17 +64,21 @@ fn balances_decode_bank_coins_at_one_height() {
     assert_eq!(balances.asset("missing"), None);
 
     answer = hosted_gateway::balances();
-    let recorded = decode_account_balances(&answer).expect("recorded uint256 balances decode");
+    let recorded =
+        decode_account_balances(&answer).required_with("recorded uint256 balances decode");
     let bank = hosted_gateway::vector("bank.all_balances");
     assert_eq!(recorded.height, 16);
     assert_eq!(recorded.balances.len(), 2);
     for (row, expected) in recorded
         .balances
         .iter()
-        .zip(bank["out"]["response"].as_array().unwrap())
+        .zip(bank["out"]["response"].as_array().required())
     {
-        assert_eq!(row.denom, expected["denom"].as_str().unwrap());
-        assert_eq!(row.amount.to_string(), expected["amount"].as_str().unwrap());
+        assert_eq!(row.denom, expected["denom"].as_str().required());
+        assert_eq!(
+            row.amount.to_string(),
+            expected["amount"].as_str().required()
+        );
     }
     assert_eq!(
         recorded.balances[1].amount.for_operation("native-send"),
@@ -79,10 +87,11 @@ fn balances_decode_bank_coins_at_one_height() {
         })
     );
 
-    let observed = WalletObservation::accept(recorded).expect("real production wallet consumer");
+    let observed =
+        WalletObservation::accept(recorded).required_with("real production wallet consumer");
     let denom = &hosted_gateway::coins()[1].0;
     assert_eq!(
-        observed.balance(denom).unwrap().to_string(),
+        observed.balance(denom).required().to_string(),
         hosted_gateway::TWO_TO_200
     );
     assert_eq!(observed.joined().balances.len(), 2);
@@ -90,11 +99,13 @@ fn balances_decode_bank_coins_at_one_height() {
     assert_eq!(observed.balance("missing"), None);
     assert_eq!(
         observed.joined().account,
-        decode_account(&hosted_gateway::account()).unwrap().account
+        decode_account(&hosted_gateway::account())
+            .required()
+            .account
     );
 
     answer["balances"][1]["amount"] = json!("340282366920938463463374607431768211456");
-    let large = decode_account_balances(&answer).expect("valid 2^128 balance decodes");
+    let large = decode_account_balances(&answer).required_with("valid 2^128 balance decodes");
     assert_eq!(
         large.balances[1].amount.to_string(),
         "340282366920938463463374607431768211456"
@@ -108,11 +119,11 @@ fn balances_decode_bank_coins_at_one_height() {
 
     answer["height"] = json!(u64::MAX.to_string());
     answer["balances"] = json!([{"denom": "upax", "amount": u128::MAX.to_string()}]);
-    let maximum = decode_account_balances(&answer).expect("exact integer bounds decode");
+    let maximum = decode_account_balances(&answer).required_with("exact integer bounds decode");
     assert_eq!(maximum.height, u64::MAX);
     assert_eq!(maximum.balances[0].amount, u128::MAX.into());
     answer["balances"] = json!([]);
-    let empty = decode_account_balances(&answer).expect("empty bank answer decodes");
+    let empty = decode_account_balances(&answer).required_with("empty bank answer decodes");
     assert_eq!(empty.height, u64::MAX);
     assert!(empty.balances.is_empty());
 }
@@ -122,7 +133,7 @@ fn balances_refuse_row_without_denom() {
     let mut answer = balance_answer();
     answer["balances"][1]
         .as_object_mut()
-        .unwrap()
+        .required()
         .remove("denom");
     assert_eq!(
         decode_account_balances(&answer),
@@ -138,7 +149,7 @@ fn balances_refuse_row_without_denom() {
     answer = balance_answer();
     answer["balances"][1]
         .as_object_mut()
-        .unwrap()
+        .required()
         .remove("amount");
     assert_eq!(
         decode_account_balances(&answer),
@@ -183,9 +194,9 @@ fn account_decodes_paxeer_account_with_height() {
             "height": 812
         }
     });
-    let account = decode_account(&answer).expect("chain account decodes");
+    let account = decode_account(&answer).required_with("chain account decodes");
     assert_eq!(account.evidence, Evidence::GatewayReported);
-    let paxeer = account.paxeer.expect("Paxeer chain account");
+    let paxeer = account.paxeer.required_with("Paxeer chain account");
     assert_eq!(Some(paxeer.address), account.account.evm_address);
     assert_eq!(paxeer.balance, 9.into());
     assert_eq!(paxeer.nonce, 3);
@@ -194,9 +205,9 @@ fn account_decodes_paxeer_account_with_height() {
     answer["paxeer"]["balance"] = json!("0x123456789abcdef");
     answer["paxeer"]["nonce"] = json!("0x2a");
     answer["paxeer"]["height"] = json!(16);
-    let recorded = decode_account(&answer).expect("task 8.5.1 account answer decodes");
-    let recorded = recorded.paxeer.expect("recorded Paxeer account");
-    assert_eq!(recorded.balance, 0x123456789abcdef.into());
+    let recorded = decode_account(&answer).required_with("task 8.5.1 account answer decodes");
+    let recorded = recorded.paxeer.required_with("recorded Paxeer account");
+    assert_eq!(recorded.balance, 0x0123_4567_89ab_cdef.into());
     assert_eq!(recorded.nonce, 42);
     assert_eq!(recorded.height, 16);
 
@@ -208,7 +219,7 @@ fn account_decodes_paxeer_account_with_height() {
     answer["account"]["evm_address"] = Value::Null;
     answer["account"]["pax_address"] = Value::Null;
     answer["account"]["bound"] = json!(false);
-    let unbound = decode_account(&answer).expect("unbound account decodes");
+    let unbound = decode_account(&answer).required_with("unbound account decodes");
     assert_eq!(unbound.paxeer, None);
     assert_eq!(unbound.account.evm_address, None);
     assert!(!unbound.account.bound);

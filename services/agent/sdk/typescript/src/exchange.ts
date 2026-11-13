@@ -43,6 +43,7 @@ export type PrecompileAbiType =
   | "int256"
   | "string"
   | "uint8"
+  | "uint32"
   | "uint64"
   | "uint256";
 
@@ -137,7 +138,7 @@ function dynamicBytes(bytes: Uint8Array): Uint8Array {
 }
 
 function bits(type: PrecompileAbiType): number {
-  return type === "uint8" ? 8 : type === "uint64" ? 64 : 256;
+  return type === "uint8" ? 8 : type === "uint32" ? 32 : type === "uint64" ? 64 : 256;
 }
 
 function encodeStatic(type: PrecompileAbiType, value: PrecompileAbiValue, label: string): Uint8Array {

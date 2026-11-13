@@ -22,22 +22,20 @@ import (
 
 func RegisterV2SearchProxy(r chi.Router, origin string) error {
 	target, err := url.Parse(origin)
-	if err != nil || target.Host == "" || target.User != nil || target.RawQuery != "" || target.Fragment != "" || target.Path != "" && target.Path != "/" || (target.Scheme != "https" && target.Scheme != "http") {
+	if err != nil || target.Host == "" || target.User != nil || target.RawQuery != "" || target.Fragment != "" || target.Path != "" && target.Path != "/" || (target.Scheme != literalHttps && target.Scheme != literalHttp) {
 		return fmt.Errorf("stats_service_origin_invalid")
 	}
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = &http.Transport{ResponseHeaderTimeout: 2 * time.Second, MaxIdleConnsPerHost: 8}
-	original := proxy.Director
-	proxy.Director = func(req *http.Request) {
-		original(req)
-		req.Header.Del("Authorization")
-		req.Header.Del("Cookie")
-		req.Header.Del("X-Actor-Wallet")
-		req.Header.Del("X-Forwarded-Host")
-		req.Host = target.Host
+	proxy := &httputil.ReverseProxy{Transport: &http.Transport{ResponseHeaderTimeout: 2 * time.Second, MaxIdleConnsPerHost: 8}}
+	proxy.Rewrite = func(req *httputil.ProxyRequest) {
+		req.SetURL(target)
+		req.SetXForwarded()
+		req.Out.Header.Del("Authorization")
+		req.Out.Header.Del("Cookie")
+		req.Out.Header.Del("X-Actor-Wallet")
+		req.Out.Header.Del("X-Forwarded-Host")
 	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, err error) {
-		WriteV2APIError(w, req, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, req, http.StatusServiceUnavailable, literalDEPENDENCYUNAVAILABLE)
 	}
 	r.Method(http.MethodGet, "/v2/search", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		id := responseRequestID(w)
@@ -65,7 +63,7 @@ type searchTimeoutResponse struct {
 func (w *searchTimeoutResponse) WriteHeader(status int) {
 	if status == http.StatusServiceUnavailable && w.request.Context().Err() != nil {
 		w.timedOut = true
-		WriteV2APIError(w.ResponseWriter, w.request, status, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w.ResponseWriter, w.request, status, literalDEPENDENCYUNAVAILABLE)
 		return
 	}
 	w.ResponseWriter.WriteHeader(status)

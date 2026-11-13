@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"sort"
 	"time"
+
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+	"github.com/jackc/pgx/v5"
 )
 
 func RetentionFloor(now time.Time, interval string) (time.Time, error) {
@@ -27,7 +29,7 @@ func (s *ExactStore) DeleteRetainedRange(ctx context.Context, pool, interval str
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	var now time.Time
 	if err = tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&now); err != nil {
 		return 0, err
@@ -76,7 +78,7 @@ func (s *ExactStore) HoldReplayRange(ctx context.Context, id, pool string, from,
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	if _, err = tx.Exec(ctx, `LOCK TABLE `+s.Schema+`.chart_replay_references IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 		return err
 	}
@@ -154,7 +156,7 @@ func (s *ExactStore) RetentionDryRun(ctx context.Context, reader ArchiveReader, 
 	if err != nil {
 		return report, err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	if err = tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&report.VerifiedAt); err != nil {
 		return report, err
 	}

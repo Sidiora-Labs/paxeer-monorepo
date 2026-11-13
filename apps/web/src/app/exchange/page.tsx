@@ -1,3 +1,4 @@
+import { copyEntry } from "../../../copy/runtime";
 import { Badge } from "../../kit/collection";
 
 import {
@@ -62,7 +63,7 @@ export default async function ExchangePage({ searchParams }: Readonly<{ searchPa
   );
   if (!capability.live) {
     return (
-      <MarketFrame title="Exchange" description={DESCRIPTION} account={account}>
+      <MarketFrame title={copyEntry("exchange.copy.exchange").message} description={DESCRIPTION} account={account}>
         <SurfaceCapabilityGate surface="exchange" live={false} detail={capability.detail} />
         {feed}
       </MarketFrame>
@@ -82,12 +83,12 @@ export default async function ExchangePage({ searchParams }: Readonly<{ searchPa
     problem = error.message;
   }
   return (
-    <MarketFrame title="Exchange" description={DESCRIPTION} account={account}>
+    <MarketFrame title={copyEntry("exchange.copy.exchange").message} description={DESCRIPTION} account={account}>
       <SurfaceCapabilityGate surface="exchange" live detail={null} />
       {problem === undefined ? null : <MarketUnavailable detail={problem} />}
-      <ExplorerPanel title="Markets">
+      <ExplorerPanel title={copyEntry("exchange.copy.markets").message}>
         {markets.length === 0 ? (
-          <StateEmpty title="No markets" description="Markets the perps precompile lists appear here." />
+          <StateEmpty title={copyEntry("exchange.copy.no_markets").message} description="Markets the perps precompile lists appear here." />
         ) : (
           <ExplorerTable
             caption="Markets"
@@ -109,7 +110,7 @@ export default async function ExchangePage({ searchParams }: Readonly<{ searchPa
         )}
       </ExplorerPanel>
       {state === undefined ? null : (
-        <ExplorerPanel title="Margin account">
+        <ExplorerPanel title={copyEntry("exchange.copy.margin_account").message}>
           <ExplorerTable
             caption="Margin account"
             columns={["Idle", "Locked in positions"]}
@@ -117,9 +118,9 @@ export default async function ExchangePage({ searchParams }: Readonly<{ searchPa
           />
         </ExplorerPanel>
       )}
-      <ExplorerPanel title="Positions">
+      <ExplorerPanel title={copyEntry("exchange.copy.positions").message}>
         {state === undefined || state.positions.length === 0 ? (
-          <StateEmpty title="No open positions" description="Positions this wallet holds on the perps venue appear here." />
+          <StateEmpty title={copyEntry("exchange.copy.no_open_positions").message} description="Positions this wallet holds on the perps venue appear here." />
         ) : (
           <ExplorerTable
             caption="Positions"
@@ -138,9 +139,9 @@ export default async function ExchangePage({ searchParams }: Readonly<{ searchPa
           />
         )}
       </ExplorerPanel>
-      <ExplorerPanel title="Open orders">
+      <ExplorerPanel title={copyEntry("exchange.copy.open_orders").message}>
         {state === undefined || state.orders.length === 0 ? (
-          <StateEmpty title="No open orders" description="Active orders this wallet holds on the perps venue appear here." />
+          <StateEmpty title={copyEntry("exchange.copy.no_open_orders").message} description="Active orders this wallet holds on the perps venue appear here." />
         ) : (
           <ExplorerTable
             caption="Open orders"

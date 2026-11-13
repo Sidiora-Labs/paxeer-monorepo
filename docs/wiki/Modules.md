@@ -76,8 +76,7 @@ These names describe account namespaces, not a list of accounts provisioned at
 genesis. `lx_account` in `include/layerx/lxp_ledger.h` holds one account ID, one
 asset binding, one balance and one `next_sequence`. A per-asset principal account
 is `LX_ACCOUNT_AGENT_ASSET` (`14`); `agent:<did>:main` is
-`LX_ACCOUNT_AGENT_MAIN` (`1`). The parser distinguishes these kinds even though
-an older comment beside the main-account enum still groups both names together.
+`LX_ACCOUNT_AGENT_MAIN` (`1`). The parser distinguishes these account kinds.
 A balance lookup for the wrong bound asset returns `LXP_ERR_ASSET_MISMATCH`.
 
 Named accounts use the `LX:ACCOUNT:v1` derivation. The issuance account ID derives
@@ -112,8 +111,8 @@ require a new chain or a second module execution service.
 
 **Asset.** The current `activity_types` list in
 `src/modules/asset/lx_asset_registry.c` contains register (`1`), pause (`2`),
-unpause (`3`), account_open (`4`), send (`5`), withdraw (`9`), mint (`10`) and
-burn (`11`). The old receive/grant_issue/grant_revoke ordinals (`6`–`8`) are
+unpause (`3`), account_open (`4`), send (`5`), mint (`10`) and burn (`11`).
+The old receive/grant_issue/grant_revoke ordinals (`6`–`8`) are
 retired and are not registered activities. Do not build a receive-grant flow
 from the older ordinal constants.
 
@@ -124,13 +123,6 @@ The persisted `lx_asset_custody_kind` now uses the same values:
 asset. Their payload is `version:u16=1 || asset_id32`; a redundant change returns
 `LXP_ERR_PAUSED_SCOPE`. Paused transfers and supply operations are refused with
 `LXP_ERR_ASSET_PAUSED`.
-
-The C withdrawal transition takes
-`asset_id32 || amount16 || payout_recipient20 || checkpoint_id32 || fee8`
-(108 bytes), stages a withdrawal record, and moves the debit into
-`system:paxeer-withdrawals`. This describes the kernel operation, not a promise
-that a particular hosted submission API exposes it. The retained checkpoint
-field is a wire field; it does not introduce a second network-finality step.
 
 **Escrow.** Lock, capture and release money under stored terms. Monetary effects
 use kernel transfer sets.
@@ -154,9 +146,9 @@ state also participates in the evidence that consumers verify.
 
 **Bridge.** The old C Bridge ID is not in the active registration set. The
 network's native EVM integration is a different surface; see
-[Unified Network Architecture](UnifiedNetwork.md). The optional
-[custody credit profile](Custody.md) describes external-deposit-backed credit,
-not a separate settlement chain for ordinary module operations.
+[Unified Network Architecture](UnifiedNetwork.md). The former
+[custody credit profile](Custody.md) and external-deposit-backed credit path
+are retired.
 
 **Spot.** Match two-asset orders and settle the fill's legs through kernel
 monetary transfers. See [Spot](Spot.md).

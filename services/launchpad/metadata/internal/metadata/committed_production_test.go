@@ -5,17 +5,28 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
 	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	raster "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/internaltest"
 )
 
 func signEIP191(t *testing.T, message string) (wallet, signature string) {
@@ -117,5 +128,74 @@ func TestProductionReportedCommittedProofVerifierOnPaxeer(t *testing.T) {
 	}
 	if (ReportedCommittedProofVerifier{}).Verify(ctx, wallet, message, signature) == nil {
 		t.Fatal("unconfigured verifier accepted")
+	}
+}
+
+func TestReportedCommittedHeadTracksStoredChainHash(t *testing.T) {
+	ctx := context.Background()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	chainConfig := *params.AllDevChainProtocolChanges
+	chainConfig.ChainID = big.NewInt(125)
+	chain := simulated.NewBackend(types.GenesisAlloc{}, func(n *node.Config, e *ethconfig.Config) {
+		n.HTTPHost = "127.0.0.1"
+		n.HTTPPort = port
+		n.HTTPModules = []string{"eth"}
+		e.Genesis.Config = &chainConfig
+		e.NetworkId = 125
+	})
+	defer chain.Close()
+	client, err := gethrpc.DialContext(ctx, "http://127.0.0.1:"+strconv.Itoa(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	block, err := sharedauth.NewReportedHashBackend(client).ReportedBlockByNumber(ctx, big.NewInt(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	admin, dsn := internaltest.NewPostgresURL(t)
+	const schema = "committed_head"
+	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+schema+"; CREATE TABLE "+schema+".auth_committed_blocks(chain_id integer NOT NULL,height bigint NOT NULL,block_hash text NOT NULL,integrity text NOT NULL)"); err != nil {
+		t.Fatal(err)
+	}
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.ConnConfig.RuntimeParams["search_path"] = schema + ",pg_catalog"
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if _, err := admin.Exec(ctx, "INSERT INTO "+schema+".auth_committed_blocks VALUES(125,0,$1,'healthy')", strings.ToLower(block.Hash.Hex())); err != nil {
+		t.Fatal(err)
+	}
+	verifier := ReportedCommittedProofVerifier{RPC: client, Blocks: sharedauth.PostgresCommittedBlockProvider{Pool: pool}}
+	if err := verifier.CheckCommittedHead(ctx); err != nil {
+		t.Fatalf("stored committed hash = %v", err)
+	}
+	if err := (ReportedCommittedProofVerifier{}).CheckCommittedHead(ctx); err != raster.ErrUnavailable {
+		t.Fatalf("unconfigured committed head = %v", err)
+	}
+	if _, err := admin.Exec(ctx, "UPDATE "+schema+".auth_committed_blocks SET block_hash=$1", "0x"+strings.Repeat("1", 64)); err != nil {
+		t.Fatal(err)
+	}
+	var verification *sharedauth.VerificationError
+	if err := verifier.CheckCommittedHead(ctx); !errors.As(err, &verification) || !verification.Retryable {
+		t.Fatalf("changed committed hash = %v", err)
+	}
+	if _, err := admin.Exec(ctx, "UPDATE "+schema+".auth_committed_blocks SET integrity='quarantined'"); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifier.CheckCommittedHead(ctx); !errors.As(err, &verification) || !verification.Retryable {
+		t.Fatalf("quarantined committed head = %v", err)
 	}
 }

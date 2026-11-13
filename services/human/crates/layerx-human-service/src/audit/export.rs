@@ -147,66 +147,9 @@ pub fn verify_export_anchored(
     verify(bytes, Some((expected_principal, expected_head)))
 }
 
-fn verify(
-    bytes: &[u8],
-    anchor: Option<(&PrincipalId, ChainHead)>,
-) -> Result<ExportReport, AuditError> {
-    if bytes.len() > EXPORT_IMPORT_MAX_BYTES {
-        return Err(AuditError::Corrupt(
-            "audit export exceeds import byte budget",
-        ));
-    }
-    let mut reader = Reader::new(bytes);
-    if reader.take(4)? != EXPORT_MAGIC {
-        return Err(AuditError::Corrupt("invalid audit export header"));
-    }
-    if reader.byte()? != EXPORT_VERSION {
-        return Err(AuditError::Corrupt("unknown audit export version"));
-    }
-    let principal_text = std::str::from_utf8(reader.bytes()?)
-        .map_err(|_| AuditError::Corrupt("export principal is not UTF-8"))?;
-    let principal = PrincipalId::new(principal_text)
-        .map_err(|_| AuditError::Corrupt("invalid export principal"))?;
-    let head = ChainHead::decode(reader.bytes()?)?;
-
-    if let Some((expected_principal, expected_head)) = anchor {
-        if &principal != expected_principal {
-            return Err(AuditError::Corrupt(
-                "export principal does not match anchor",
-            ));
-        }
-        if head != expected_head {
-            return Err(AuditError::HeadMismatch {
-                expected: expected_head,
-                found: head,
-            });
-        }
-    }
-
-    let entry_count = reader.length()?;
-    // Every entry needs its four-byte frame, followed by the evidence count.
-    if entry_count > EXPORT_IMPORT_MAX_ENTRIES {
-        return Err(AuditError::Corrupt(
-            "audit export exceeds import entry budget",
-        ));
-    }
-    let entry_frames = reader
-        .remaining()
-        .checked_sub(4)
-        .ok_or(AuditError::Corrupt("missing export evidence count"))?;
-    if entry_count > entry_frames / 4 {
-        return Err(AuditError::Corrupt(
-            "export entry count exceeds framed bytes",
-        ));
-    }
-    let mut entry_bytes = Vec::new();
-    entry_bytes
-        .try_reserve_exact(entry_count)
-        .map_err(|_| AuditError::SizeOverflow)?;
-    for _ in 0..entry_count {
-        entry_bytes.push(reader.bytes()?);
-    }
-
+fn read_evidence<'a>(
+    reader: &mut Reader<'a>,
+) -> Result<(usize, Vec<ImportedEvidence<'a>>), AuditError> {
     let evidence_count = reader.length()?;
     if evidence_count > EXPORT_IMPORT_MAX_EVIDENCE_ROWS {
         return Err(AuditError::Corrupt(
@@ -245,6 +188,79 @@ fn verify(
     if evidence.windows(2).any(|rows| rows[0].key == rows[1].key) {
         return Err(AuditError::Corrupt("duplicate export evidence"));
     }
+    Ok((evidence_count, evidence))
+}
+
+fn verify_anchor(
+    principal: &PrincipalId,
+    head: ChainHead,
+    anchor: Option<(&PrincipalId, ChainHead)>,
+) -> Result<(), AuditError> {
+    if let Some((expected_principal, expected_head)) = anchor {
+        if principal != expected_principal {
+            return Err(AuditError::Corrupt(
+                "export principal does not match anchor",
+            ));
+        }
+        if head != expected_head {
+            return Err(AuditError::HeadMismatch {
+                expected: expected_head,
+                found: head,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn verify(
+    bytes: &[u8],
+    anchor: Option<(&PrincipalId, ChainHead)>,
+) -> Result<ExportReport, AuditError> {
+    if bytes.len() > EXPORT_IMPORT_MAX_BYTES {
+        return Err(AuditError::Corrupt(
+            "audit export exceeds import byte budget",
+        ));
+    }
+    let mut reader = Reader::new(bytes);
+    if reader.take(4)? != EXPORT_MAGIC {
+        return Err(AuditError::Corrupt("invalid audit export header"));
+    }
+    if reader.byte()? != EXPORT_VERSION {
+        return Err(AuditError::Corrupt("unknown audit export version"));
+    }
+    let principal_text = std::str::from_utf8(reader.bytes()?)
+        .map_err(|_| AuditError::Corrupt("export principal is not UTF-8"))?;
+    let principal = PrincipalId::new(principal_text)
+        .map_err(|_| AuditError::Corrupt("invalid export principal"))?;
+    let head = ChainHead::decode(reader.bytes()?)?;
+
+    verify_anchor(&principal, head, anchor)?;
+
+    let entry_count = reader.length()?;
+    // Every entry needs its four-byte frame, followed by the evidence count.
+    if entry_count > EXPORT_IMPORT_MAX_ENTRIES {
+        return Err(AuditError::Corrupt(
+            "audit export exceeds import entry budget",
+        ));
+    }
+    let entry_frames = reader
+        .remaining()
+        .checked_sub(4)
+        .ok_or(AuditError::Corrupt("missing export evidence count"))?;
+    if entry_count > entry_frames / 4 {
+        return Err(AuditError::Corrupt(
+            "export entry count exceeds framed bytes",
+        ));
+    }
+    let mut entry_bytes = Vec::new();
+    entry_bytes
+        .try_reserve_exact(entry_count)
+        .map_err(|_| AuditError::SizeOverflow)?;
+    for _ in 0..entry_count {
+        entry_bytes.push(reader.bytes()?);
+    }
+
+    let (evidence_count, mut evidence) = read_evidence(&mut reader)?;
 
     if u64::try_from(entry_count).map_err(|_| AuditError::SizeOverflow)? != head.length() {
         return Err(AuditError::HeadMismatch {

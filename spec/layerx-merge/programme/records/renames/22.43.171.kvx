@@ -1,0 +1,164 @@
+[manifest]
+task = "22.43.171"
+records_moved = 19
+files_renamed = 21
+
+[file.1]
+from = "services/platform/middleware/agent/test/repair-22-31-435.test.mjs"
+to = "services/platform/middleware/agent/test/daemon-grant-recovery.test.mjs"
+
+[file.2]
+from = "services/platform/middleware/agent/test/repair-22-31-457.test.mjs"
+to = "services/platform/middleware/agent/test/grant-resolution.test.mjs"
+
+[file.3]
+from = "services/platform/middleware/agent/test/repair-22-33-1476.kvx"
+to = "services/platform/middleware/qualification/records/agent/agent-spend-example.kvx"
+
+[file.4]
+from = "services/platform/middleware/agent/test/repair-22-33-1476.test.mjs"
+to = "services/platform/middleware/agent/test/agent-spend-example.test.mjs"
+
+[file.5]
+from = "services/platform/middleware/buyer/test/repair-22-31-436.test.mjs"
+to = "services/platform/middleware/buyer/test/draw-recipient.test.mjs"
+
+[file.6]
+from = "services/platform/middleware/buyer/test/repair-22-33-1477.kvx"
+to = "services/platform/middleware/qualification/records/buyer/grant-draw-consumers.kvx"
+
+[file.7]
+from = "services/platform/middleware/buyer/test/repair-22-33-1477.test.mjs"
+to = "services/platform/middleware/buyer/test/grant-draw-consumers.test.mjs"
+
+[file.8]
+from = "services/platform/middleware/conformance/pay6/repair-22-33-1479.kvx"
+to = "services/platform/middleware/qualification/records/conformance/committed-inclusion-transport.kvx"
+
+[file.9]
+from = "services/platform/middleware/conformance/pay6/repair_22_39_146.kvx"
+to = "services/platform/middleware/qualification/records/conformance/payment-fixture-digest.kvx"
+
+[file.10]
+from = "services/platform/middleware/conformance/repair_22_31_362.kvx"
+to = "services/platform/middleware/qualification/records/conformance/connected-balance-recovery.kvx"
+
+[file.11]
+from = "services/platform/middleware/conformance/repair_22_31_477.kvx"
+to = "services/platform/middleware/qualification/records/conformance/committed-rung-offer.kvx"
+
+[file.12]
+from = "services/platform/middleware/conformance/repair_22_31_492.kvx"
+to = "services/platform/middleware/qualification/records/conformance/receipt-digest-round-trip.kvx"
+
+[file.13]
+from = "services/platform/middleware/conformance/repair_22_33_1480.kvx"
+to = "services/platform/middleware/qualification/records/conformance/node-daemon-recovery.kvx"
+
+[file.14]
+from = "services/platform/middleware/conformance/src/repair-22-33-1481.kvx"
+to = "services/platform/middleware/qualification/records/conformance/fulfillment-concurrency-recovery.kvx"
+
+[file.15]
+from = "services/platform/middleware/conformance/test/repair-22-31-362.test.mjs"
+to = "services/platform/middleware/conformance/test/connected-balance-recovery.test.mjs"
+
+[file.16]
+from = "services/platform/middleware/conformance/test/repair-22-31-477.test.mjs"
+to = "services/platform/middleware/conformance/test/committed-rung-offer.test.mjs"
+
+[file.17]
+from = "services/platform/middleware/conformance/test/repair-22-33-1479.test.mjs"
+to = "services/platform/middleware/conformance/test/committed-inclusion-transport.test.mjs"
+
+[file.18]
+from = "services/platform/middleware/conformance/test/repair-22-33-1480.test.mjs"
+to = "services/platform/middleware/conformance/test/node-daemon-recovery.test.mjs"
+
+[file.19]
+from = "services/platform/middleware/conformance/test/repair-22-33-1481.test.mjs"
+to = "services/platform/middleware/conformance/test/fulfillment-concurrency-recovery.test.mjs"
+
+[file.20]
+from = "services/platform/middleware/conformance/test/repair_22_31_492.test.mjs"
+to = "services/platform/middleware/conformance/test/receipt-digest-round-trip.test.mjs"
+
+[file.21]
+from = "services/platform/middleware/examples/repair_22_31_361.kvx"
+to = "services/platform/middleware/qualification/records/examples/public-rpc-origins.kvx"
+
+[file.22]
+from = "services/platform/middleware/examples/test_repair_22_31_361.py"
+to = "services/platform/middleware/examples/test_public_rpc_origins.py"
+
+[file.23]
+from = "services/platform/middleware/merchant/repair_22_31_525.kvx"
+to = "services/platform/middleware/qualification/records/merchant/paid-order-recovery.kvx"
+
+[file.24]
+from = "services/platform/middleware/merchant/test/repair-22-31-525.test.mjs"
+to = "services/platform/middleware/merchant/test/paid-order-recovery.test.mjs"
+
+[file.25]
+from = "services/platform/middleware/repair_22_39_429.kvx"
+to = "services/platform/middleware/qualification/records/middleware-suites.kvx"
+
+[file.26]
+from = "services/platform/middleware/seller/src/repair-22-31-434.kvx"
+to = "services/platform/middleware/qualification/records/seller/payment-boundaries.kvx"
+
+[file.27]
+from = "services/platform/middleware/seller/src/repair-22-31-457.kvx"
+to = "services/platform/middleware/qualification/records/seller/committed-evidence-recovery.kvx"
+
+[file.28]
+from = "services/platform/middleware/seller/src/repair-22-33-1475.kvx"
+to = "services/platform/middleware/qualification/records/seller/ledger-draw-wire.kvx"
+
+[file.29]
+from = "services/platform/middleware/seller/test/repair-22-31-434.test.mjs"
+to = "services/platform/middleware/seller/test/payment-boundaries.test.mjs"
+
+[file.30]
+from = "services/platform/middleware/seller/test/repair-22-31-457.test.mjs"
+to = "services/platform/middleware/seller/test/committed-evidence-recovery.test.mjs"
+
+[file.31]
+from = "services/platform/middleware/seller/test/repair-22-31-524.kvx"
+to = "services/platform/middleware/qualification/records/seller/absent-vote-decoding.kvx"
+
+[file.32]
+from = "services/platform/middleware/seller/test/repair-22-31-524.test.mjs"
+to = "services/platform/middleware/seller/test/absent-vote-decoding.test.mjs"
+
+[file.33]
+from = "services/platform/middleware/seller/test/repair-22-31-530.kvx"
+to = "services/platform/middleware/qualification/records/seller/receipt-reuse-authentication.kvx"
+
+[file.34]
+from = "services/platform/middleware/seller/test/repair-22-31-530.test.mjs"
+to = "services/platform/middleware/seller/test/receipt-reuse-authentication.test.mjs"
+
+[file.35]
+from = "services/platform/middleware/seller/test/repair-22-31-533.kvx"
+to = "services/platform/middleware/qualification/records/seller/receipt-signature-digest.kvx"
+
+[file.36]
+from = "services/platform/middleware/seller/test/repair-22-31-591.test.mjs"
+to = "services/platform/middleware/seller/test/hosted-gateway-routing.test.mjs"
+
+[file.37]
+from = "services/platform/middleware/seller/test/repair-22-33-1475.test.mjs"
+to = "services/platform/middleware/seller/test/ledger-draw-wire.test.mjs"
+
+[file.38]
+from = "services/platform/middleware/seller/test/repair-22-33-1478-support.mjs"
+to = "services/platform/middleware/seller/test/committed-payment-fixture.mjs"
+
+[file.39]
+from = "services/platform/middleware/seller/test/repair-22-33-1478.record.json"
+to = "services/platform/middleware/qualification/records/seller/committed-payment.json"
+
+[file.40]
+from = "services/platform/middleware/seller/test/repair-22-33-1478.test.mjs"
+to = "services/platform/middleware/seller/test/committed-payment-recovery.test.mjs"

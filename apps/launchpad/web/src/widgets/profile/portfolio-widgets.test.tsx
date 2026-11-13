@@ -209,7 +209,7 @@ describe('portfolio widgets against a real pnl-tracker origin (visitor)', () => 
 
   it('TopTrades ranks closed positions and shows the empty sentence for a fresh wallet', async () => {
     const ranked = mount(<TopTrades wallet={trader} />);
-    await waitFor(() => ranked.container.textContent?.includes('+2.50 USDL') ?? false);
+    await waitFor(() => ranked.container.textContent?.includes('+2.50 USDL') === true && ranked.container.textContent.includes('Lantern'));
     expect(ranked.container.querySelectorAll('ol[aria-label="Top trades"] > li')).toHaveLength(1);
     expect(ranked.container.textContent).toContain('Lantern');
     expect(ranked.container.textContent).not.toMatch(/\dx\b/);

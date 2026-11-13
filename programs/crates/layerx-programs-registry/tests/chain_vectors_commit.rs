@@ -32,17 +32,7 @@ fn vector_timestamp(text: &str) -> Result<Timestamp, Box<dyn Error>> {
     })
 }
 
-#[test]
-fn chain_commit_matches_consensus_vector() -> Result<(), Box<dyn Error>> {
-    assert_eq!(
-        Sha256::digest(LIGHT_COMMIT_VECTOR).as_slice(),
-        json::decode_hex(&format!("0x{LIGHT_COMMIT_SHA256}"))?,
-        "consensus light commit vector changed; review its provenance before updating the pin"
-    );
-    let vector = json::parse(std::str::from_utf8(LIGHT_COMMIT_VECTOR)?)?;
-    assert_eq!(vector.u64_at("version")?, 1);
-    assert_eq!(vector.str_at("bytes_encoding")?, "hex");
-
+fn verified_vector_header(vector: &JsonValue) -> Result<(ChainHeader, Timestamp), Box<dyn Error>> {
     let recorded_header = vector.path("header")?;
     let time = vector_timestamp(recorded_header.str_at("time")?)?;
     let header = ChainHeader {
@@ -74,7 +64,7 @@ fn chain_commit_matches_consensus_vector() -> Result<(), Box<dyn Error>> {
         proposer_address: hex_field(recorded_header, "proposer_address")?,
     };
     assert_eq!(
-        ChainHeader::decode(&hex_field(&vector, "header_protobuf")?)
+        ChainHeader::decode(&hex_field(vector, "header_protobuf")?)
             .map_err(|error| format!("decode consensus header: {error:?}"))?,
         header
     );
@@ -83,8 +73,24 @@ fn chain_commit_matches_consensus_vector() -> Result<(), Box<dyn Error>> {
             .hash()
             .map_err(|error| format!("hash consensus header: {error:?}"))?
             .as_slice(),
-        hex_field(&vector, "header_hash")?
+        hex_field(vector, "header_hash")?
     );
+
+    Ok((header, time))
+}
+
+#[test]
+fn chain_commit_matches_consensus_vector() -> Result<(), Box<dyn Error>> {
+    assert_eq!(
+        Sha256::digest(LIGHT_COMMIT_VECTOR).as_slice(),
+        json::decode_hex(&format!("0x{LIGHT_COMMIT_SHA256}"))?,
+        "consensus light commit vector changed; review its provenance before updating the pin"
+    );
+    let vector = json::parse(std::str::from_utf8(LIGHT_COMMIT_VECTOR)?)?;
+    assert_eq!(vector.u64_at("version")?, 1);
+    assert_eq!(vector.str_at("bytes_encoding")?, "hex");
+
+    let (header, time) = verified_vector_header(&vector)?;
 
     let mut validators = Vec::new();
     for recorded in vector.array_at("validators")? {

@@ -1,0 +1,114 @@
+[repair]
+member = "layerx-platform-cli"
+description = "CLI source and test targets use checked conversions, explicit error handling, and focused helpers."
+
+[lint.assigning_clones]
+files = ["src/a2a.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1494.rs"]
+
+[lint.bool_to_int_with_if]
+files = ["tests/repair_22_33_1496.rs"]
+
+[lint.cast_lossless]
+files = ["src/wallet.rs"]
+
+[lint.cast_possible_truncation]
+files = ["tests/repair_22_31_212.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1494.rs", "tests/repair_22_33_1495.rs", "tests/repair_22_33_1497.rs", "tests/repair_22_33_1499.rs", "tests/wallet_derive.rs", "tests/wallet_evm_writes.rs"]
+
+[lint.cast_possible_wrap]
+files = ["src/a2a.rs"]
+
+[lint.cmp_owned]
+files = ["src/wallet.rs"]
+
+[lint.dead_code]
+files = ["src/a2a.rs", "src/install/mcp.rs", "src/programs.rs", "src/register.rs", "src/scaffold.rs", "src/toolset.rs", "src/wallet.rs", "tests/wallet_evm_writes.rs"]
+
+[lint.doc_markdown]
+files = ["src/wallet.rs", "tests/program_evm_lifecycle.rs", "tests/proof_cli_cli_commands.rs", "tests/repair_22_31_212.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1493.rs", "tests/repair_22_33_1494.rs", "tests/repair_22_33_1496.rs", "tests/repair_22_33_1497.rs", "tests/repair_22_33_1498.rs", "tests/repair_22_33_1499.rs"]
+
+[lint.duplicate_mod]
+files = ["tests/common/mod.rs", "tests/mcp_evm_submit.rs", "tests/program_evm_calls.rs", "tests/program_evm_lifecycle.rs", "tests/program_evm_registry.rs"]
+
+[lint.expect_used]
+files = ["src/a2a.rs", "src/programs.rs", "src/register.rs", "src/toolset.rs", "tests/common/daemon_gateway.rs", "tests/credential.rs", "tests/lx_switch_off.rs", "tests/mcp_daemon_bound.rs", "tests/proof_cli_cli_commands.rs", "tests/repair_22_31_212.rs", "tests/repair_22_31_213.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1493.rs", "tests/repair_22_33_1494.rs", "tests/repair_22_33_1495.rs", "tests/repair_22_33_1496.rs", "tests/repair_22_33_1497.rs", "tests/repair_22_33_1498.rs", "tests/repair_22_33_1499.rs", "tests/wallet_derive.rs", "tests/wallet_evm_writes.rs", "tests/wallet_px_reads.rs"]
+
+[lint.format_collect]
+files = ["tests/common/daemon_gateway.rs", "tests/faucet_route.rs", "tests/mcp_daemon_bound.rs", "tests/repair_22_31_213.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1494.rs", "tests/repair_22_33_1495.rs", "tests/wallet_estimate_fee.rs", "tests/wallet_evm_writes.rs", "tests/wallet_send.rs"]
+
+[lint.if_not_else]
+files = ["tests/repair_22_33_1497.rs"]
+
+[lint.if_same_then_else]
+files = ["tests/repair_22_33_1494.rs"]
+
+[lint.implicit_clone]
+files = ["tests/wallet_evm_writes.rs"]
+
+[lint.items_after_statements]
+files = ["tests/credential.rs", "tests/program_evm_lifecycle.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1495.rs", "tests/repair_22_33_1497.rs"]
+
+[lint.large_enum_variant]
+files = ["src/main.rs"]
+
+[lint.manual_div_ceil]
+files = ["src/programs.rs", "tests/repair_22_31_212.rs", "tests/repair_22_33_1495.rs"]
+
+[lint.manual_is_multiple_of]
+files = ["src/programs.rs", "tests/repair_22_31_212.rs", "tests/repair_22_33_1495.rs"]
+
+[lint.manual_let_else]
+files = ["tests/repair_22_31_213.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1495.rs", "tests/repair_22_33_1498.rs"]
+
+[lint.manual_range_patterns]
+files = ["src/programs.rs"]
+
+[lint.manual_string_new]
+files = ["tests/wallet_estimate_fee.rs"]
+
+[lint.map_unwrap_or]
+files = ["tests/repair_22_31_212.rs", "tests/repair_22_33_1495.rs"]
+
+[lint.match_same_arms]
+files = ["tests/repair_22_31_212.rs", "tests/repair_22_33_1495.rs"]
+
+[lint.missing_errors_doc]
+files = ["tests/repair_22_33_1496.rs"]
+
+[lint.missing_panics_doc]
+files = ["tests/repair_22_33_1495.rs", "tests/repair_22_33_1496.rs"]
+
+[lint.needless_pass_by_value]
+files = ["src/a2a.rs", "src/main.rs", "src/programs.rs", "tests/chains_commands.rs", "tests/common/daemon_gateway.rs", "tests/mcp_daemon_bound.rs", "tests/repair_22_31_213.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1493.rs", "tests/repair_22_33_1495.rs", "tests/repair_22_33_1499.rs"]
+
+[lint.needless_borrow]
+files = ["tests/wallet_evm_writes.rs"]
+
+[lint.needless_raw_string_hashes]
+files = ["tests/common/daemon_gateway.rs", "tests/mcp_daemon_bound.rs", "tests/proof_cli_cli_commands.rs", "tests/repair_22_31_213.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1495.rs"]
+
+[lint.semicolon_if_nothing_returned]
+files = ["src/programs.rs", "tests/chains_commands.rs", "tests/common/daemon_gateway.rs", "tests/mcp_daemon_bound.rs", "tests/repair_22_31_212.rs", "tests/repair_22_31_213.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1495.rs"]
+
+[lint.similar_names]
+files = ["tests/mcp_daemon_bound.rs", "tests/repair_22_31_213.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1495.rs", "tests/repair_22_33_1498.rs", "tests/wallet_send.rs"]
+
+[lint.to_string_in_format_args]
+files = ["src/scaffold.rs"]
+
+[lint.too_many_lines]
+files = ["src/a2a.rs", "src/install/mcp.rs", "src/programs.rs", "src/wallet.rs", "tests/chains_commands.rs", "tests/common/daemon_gateway.rs", "tests/credential.rs", "tests/faucet_route.rs", "tests/mcp_daemon_bound.rs", "tests/mcp_evm_submit.rs", "tests/program_evm_registry.rs", "tests/proof_cli_cli_commands.rs", "tests/repair_22_31_212.rs", "tests/repair_22_31_213.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1495.rs", "tests/repair_22_33_1496.rs", "tests/repair_22_33_1497.rs", "tests/repair_22_33_1499.rs", "tests/wallet_estimate_fee.rs", "tests/wallet_evm_writes.rs", "tests/wallet_px_reads.rs"]
+
+[lint.type_complexity]
+files = ["src/programs.rs"]
+
+[lint.unreadable_literal]
+files = ["tests/repair_22_33_1495.rs"]
+
+[lint.unused_imports]
+files = ["tests/common/mod.rs", "tests/repair_22_33_1495.rs", "tests/wallet_evm_writes.rs"]
+
+[lint.unwrap_used]
+files = ["src/programs.rs", "tests/mcp_evm_submit.rs", "tests/repair_22_31_212.rs", "tests/repair_22_33_1492.rs", "tests/repair_22_33_1493.rs", "tests/repair_22_33_1495.rs", "tests/repair_22_33_1497.rs", "tests/repair_22_33_1499.rs", "tests/wallet_commands.rs"]
+
+[module_declarations]
+dead_code = ["src/main.rs::a2a", "src/main.rs::programs", "src/main.rs::toolset", "src/main.rs::wallet", "tests/mcp_evm_submit.rs::config", "tests/proof_cli_cli_commands.rs::common", "tests/repair_22_33_1492.rs::a2a", "tests/repair_22_33_1492.rs::config", "tests/repair_22_33_1492.rs::credential", "tests/repair_22_33_1492.rs::faucet", "tests/repair_22_33_1492.rs::http", "tests/repair_22_33_1492.rs::install", "tests/repair_22_33_1492.rs::mcp", "tests/repair_22_33_1492.rs::output", "tests/repair_22_33_1492.rs::programs", "tests/repair_22_33_1492.rs::toolset", "tests/repair_22_33_1493.rs::faucet", "tests/repair_22_33_1493.rs::programs", "tests/repair_22_33_1493.rs::register", "tests/repair_22_33_1493.rs::scaffold", "tests/repair_22_33_1493.rs::toolset"]

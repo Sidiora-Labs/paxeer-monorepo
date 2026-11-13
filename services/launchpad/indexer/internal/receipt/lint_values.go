@@ -1,0 +1,26 @@
+package receipt
+
+const (
+	valueEventEmitter        = "EventEmitter"
+	valueMarketCreated       = "MarketCreated"
+	valueRouter              = "Router"
+	valueSidioraERC20        = "SidioraERC20"
+	valueSidioraPool         = "SidioraPool"
+	valueBeacon              = "beacon"
+	valueBeaconProxy         = "beacon_proxy"
+	valueDecoded             = "decoded"
+	valueDirect              = "direct"
+	valueErc1967             = "erc1967"
+	valueEthCall             = "eth_call"
+	valueEthGetBlockByHash   = "eth_getBlockByHash"
+	valueEthGetBlockByNumber = "eth_getBlockByNumber"
+	valueNative              = "native"
+	valuePrecompile          = "precompile"
+	valueSurface             = "surface"
+	valueUnavailable         = "unavailable"
+	valueSidioraFactory      = "SidioraFactory"
+	valueEthGetBlockReceipts = "eth_getBlockReceipts"
+	valueEthGetCode          = "eth_getCode"
+	valueEthGetStorageAt     = "eth_getStorageAt"
+	valueUSDL                = "USDL"
+)

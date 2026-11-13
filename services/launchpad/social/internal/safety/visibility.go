@@ -3,6 +3,7 @@ package safety
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -25,14 +26,14 @@ func (s *Store) SetVisibility(ctx context.Context, caseID string, expected int64
 	if e != nil {
 		return Visibility{}, e
 	}
-	if expected < 0 || !contains([]string{"removed", "restored"}, status) || !Bounded(reason, 1000) {
+	if expected < 0 || !contains([]string{removedState, restoredState}, status) || !Bounded(reason, 1000) {
 		return Visibility{}, ErrInvalid
 	}
 	tx, e := s.DB.Begin(ctx)
 	if e != nil {
 		return Visibility{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var v Visibility
 	var pool, affected string
 	v.CaseID = caseID
@@ -42,7 +43,7 @@ func (s *Store) SetVisibility(ctx context.Context, caseID string, expected int64
 		return v, e
 	}
 	if !Authorized(p, pool, true, s.now()) {
-		tx.Rollback(ctx)
+		rollbackTx(ctx, tx)
 		return v, s.denial(ctx, p, "visibility")
 	}
 	// The target key is locked even when another case references the same target.
@@ -55,10 +56,10 @@ func (s *Store) SetVisibility(ctx context.Context, caseID string, expected int64
 	if e != nil && e != pgx.ErrNoRows {
 		return v, e
 	}
-	if revision != expected || (revision == 0 && status == "restored") {
+	if revision != expected || (revision == 0 && status == restoredState) {
 		return v, ErrConflict
 	}
-	if status == "restored" && affected != "" {
+	if status == restoredState && affected != "" {
 		decision := s.CheckTx(ctx, tx, affected, "global", "")
 		if decision == Unavailable {
 			return v, ErrUnavailable
@@ -67,7 +68,7 @@ func (s *Store) SetVisibility(ctx context.Context, caseID string, expected int64
 			return v, ErrForbidden
 		}
 		if pool != "" {
-			decision = s.CheckTx(ctx, tx, affected, "pool", pool)
+			decision = s.CheckTx(ctx, tx, affected, poolResource, pool)
 			if decision == Unavailable {
 				return v, ErrUnavailable
 			}
@@ -110,7 +111,7 @@ func ApplyVisibility(current, incoming Visibility) Visibility {
 	if current.TargetType != incoming.TargetType || current.TargetID != incoming.TargetID {
 		return current
 	}
-	if incoming.Revision > current.Revision && incoming.Revision > 0 && contains([]string{"removed", "restored"}, incoming.Status) {
+	if incoming.Revision > current.Revision && incoming.Revision > 0 && contains([]string{removedState, restoredState}, incoming.Status) {
 		return incoming
 	}
 	return current
@@ -140,10 +141,10 @@ func (s *Store) ProjectReplay(ctx context.Context, event ReplayContent) (ReplayC
 		return public, ErrUnavailable
 	}
 	public.VisibilityRevision = current.Revision
-	if current.Status == "removed" {
+	if current.Status == removedState {
 		return public, nil
 	}
-	if current.Status != "restored" || event.VisibilityRevision != current.Revision {
+	if current.Status != restoredState || event.VisibilityRevision != current.Revision {
 		return public, ErrConflict
 	}
 	return event, nil

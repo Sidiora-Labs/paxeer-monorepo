@@ -54,6 +54,9 @@ const (
 
 // EVMRPC Config defines configurations for EVM RPC server on this node
 type Config struct {
+	PxInferenceProgram string `mapstructure:"px_inference_program"`
+	PxInferenceReader  string `mapstructure:"px_inference_reader"`
+
 	// PxIndexerURL supplies px_listAssets and history reads from one indexer; empty means unavailable.
 	PxIndexerURL string `mapstructure:"px_indexer_url"`
 
@@ -315,6 +318,8 @@ func duration(value interface{}) (time.Duration, error) {
 
 func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	cfg := DefaultConfig // copy
+	cfg.PxInferenceProgram, _ = cast.ToStringE(opts.Get("evm.px_inference_program"))
+	cfg.PxInferenceReader, _ = cast.ToStringE(opts.Get("evm.px_inference_reader"))
 	var err error
 	if v := opts.Get("evm.px_indexer_url"); v != nil {
 		if cfg.PxIndexerURL, err = cast.ToStringE(v); err != nil {

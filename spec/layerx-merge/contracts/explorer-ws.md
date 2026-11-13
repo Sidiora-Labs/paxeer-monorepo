@@ -2,7 +2,7 @@
 
 The explorer publishes indexed Paxeer mainnet-beta data through Phoenix channels. Paxeer is one BFT network: the kernel participates in the network and proposes blocks, the EVM chain id is `125` (`0x7d`), and a receipt is final once its block is committed. Explorer notifications report indexer progress and data; they do not establish consensus commitment. For receipt and block evidence, see the [interop committed proof contract](interop-committed-proof.md).
 
-This page describes the checked-in producer and consumers, replacing the old pinned interface snapshot. Paths below are repository-relative source links. Channel registration alone does not guarantee that a particular deployment publishes an event.
+Channel registration and event publication are separate: a deployment publishes notifications only when the corresponding producer runs.
 
 ## channels
 
@@ -98,11 +98,11 @@ The legacy socket retains its own wire format. Its channel `handle_out` function
 
 Topic names are exact strings. Use `0x` followed by 40 lowercase hex digits for an address suffix, matching [Explorer.Chain.Hash](../../../services/explorer/backend/apps/explorer/lib/explorer/chain/hash.ex) string conversion. Token transfer topics use the **token contract address**, including for an NFT instance page; a token id and a transaction hash are not topic suffixes for these subscriptions.
 
-[V2.TokenChannel](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/token_channel.ex) still names its wildcard variable `_transaction_hash`, but accepts any suffix without validation. [TokenTransfer.tsx](../../../apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx) joins `tokens:${router.query.hash.toLowerCase()}` on a token page, and the notifier broadcasts by `token_contract_address_hash`. A successful join with an individual transaction hash can remain silent. The historical registry identifier `interface.14.ws-explorer-join-socket-v2-tokens-transaction-hash` must be interpreted using this corrected contract.
+[V2.TokenChannel](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/channels/v2/token_channel.ex) still names its wildcard variable `_transaction_hash`, but accepts any suffix without validation. [TokenTransfer.tsx](../../../apps/explorer/ui/token/TokenTransfer/TokenTransfer.tsx) joins `tokens:${router.query.hash.toLowerCase()}` on a token page, and the notifier broadcasts by `token_contract_address_hash`. A successful join with an individual transaction hash can remain silent.
 
 Payload address fields have a separate representation. [API.V2.Helper](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/helper.ex) renders address `hash` values with `Explorer.Chain.Address.checksum`, so `from.hash` and `to.hash` can contain mixed-case hex. Compare decoded addresses or normalize both sides for identity comparisons, while preserving checksum casing for display.
 
-The current [address token-transfer consumer](../../../apps/explorer/ui/address/useAddressTokenTransfersSocket.ts) lowercases its topic but compares `transfer.from.hash` and `transfer.to.hash` to the supplied address with case-sensitive equality in directional filters. This remains a consumer limitation: a casing mismatch can hide a transfer even though delivery succeeded. The [address transaction consumer](../../../apps/explorer/ui/txs/socket/useTxsSocketTypeAddress.tsx) already lowercases both sides of its directional comparisons. Documentation does not imply that the token-transfer consumer repair has landed.
+The current [address token-transfer consumer](../../../apps/explorer/ui/address/useAddressTokenTransfersSocket.ts) lowercases its topic but compares `transfer.from.hash` and `transfer.to.hash` to the supplied address with case-sensitive equality in directional filters. Directional filters therefore require matching address casing. The [address transaction consumer](../../../apps/explorer/ui/txs/socket/useTxsSocketTypeAddress.tsx) already lowercases both sides of its directional comparisons.
 
 ## rust-phoenix-channel
 
@@ -112,7 +112,7 @@ The [actix-phoenix-channel library](../../../services/explorer/services/libs/act
 
 [BlockScoutWeb.Endpoint](../../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/endpoint.ex) mounts `/socket` and `/socket/v2` when `:block_scout_web, :disable_api?` is false. Both specify a WebSocket timeout of `45_000` milliseconds. The legacy `UserSocket.connect/2` optionally assigns `locale`; supply `locale` for legacy HTML renderers that read `socket.assigns.locale`. The V2 socket accepts connection params without assigning a locale. Both return `nil` from `id/1`.
 
-The frontend [getSocketUrl](../../../apps/explorer/lib/api/getSocketUrl.ts) combines `config.apis.general.socketEndpoint`, its optional `basePath`, and `/socket/v2`. These are explorer service URLs. Public EVM JSON-RPC uses the root path on the mainnet-beta node hosts (`api1` through `api14.mainnet-beta.paxeer.network` and `api-mainnet-beta.paxeer.network`); Phoenix channels use the explorer backend's own host and protocol.
+The frontend [getSocketUrl](../../../apps/explorer/lib/api/getSocketUrl.ts) combines `config.apis.general.socketEndpoint`, its optional `basePath`, and `/socket/v2`. These are explorer service URLs. Public EVM JSON-RPC uses the node root path; Phoenix channels use the explorer backend's own host and protocol.
 
 ## topics
 

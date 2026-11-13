@@ -123,7 +123,7 @@ func (s *Service) Public(ctx context.Context, r IntegratedRequest) (IntegratedPa
 	if err != nil {
 		return IntegratedPage{}, err
 	}
-	if r.Kind == "profile" {
+	if r.Kind == valueProfile {
 		return s.Store.SearchIntegrated(ctx, r)
 	}
 	s.counters.requests.Add(1)
@@ -214,7 +214,7 @@ func (s *Service) Public(ctx context.Context, r IntegratedRequest) (IntegratedPa
 			err = e
 		} else {
 			ttl := 10 * time.Second
-			if q.Kind == "exact_address" && len(page.Items) == 0 {
+			if q.Kind == valueExactAddress && len(page.Items) == 0 {
 				ttl = 2 * time.Second
 			}
 			bounded, cancel := context.WithTimeout(ctx, 40*time.Millisecond)

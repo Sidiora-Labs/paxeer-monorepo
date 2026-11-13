@@ -1,4 +1,5 @@
 include!("../src/main.rs");
+use layerx_platform_authority::assertion::Must;
 include!("support/committed_human_fixture.rs");
 
 #[path = "../../runtime-clock/src/server.rs"]
@@ -13,7 +14,7 @@ fn assert_committed_label(config: Arc<Config>, path: &str) -> Value {
     assert_eq!(status, 200, "{path}: {document}");
     let label = document["verification_level"]
         .as_str()
-        .expect("verification label");
+        .must_with("verification label");
     assert_eq!(label, VerificationLevel::COMMITTED.wire_label());
     assert_eq!(
         VerificationLevel::from_wire_label(label),
@@ -39,7 +40,7 @@ fn repair_22_31_549_policy_identity_emits_committed_label_through_tls() {
         assert_eq!(document["head_sequence"], fixture.sequence);
         assert!(!document["authorities"]
             .as_array()
-            .expect("native authorities")
+            .must_with("native authorities")
             .is_empty());
         assert_eq!(
             document["finality"]["app_hash"],
@@ -120,7 +121,7 @@ impl SubjectBindingPeer {
                 );
                 let mut frame = b"LXIB\x01".to_vec();
                 frame.extend(fixture_must(serde_json::to_vec(&document!({"status":"bound","tenant":"repair-tenant","principal":"repair-principal","did":did}))));
-                fixture_must(stream.write_all(&(frame.len() as u32).to_be_bytes()));
+                fixture_must(stream.write_all(&(u32::try_from(frame.len()).must()).to_be_bytes()));
                 fixture_must(stream.write_all(&frame));
             }
         });
@@ -136,8 +137,8 @@ impl SubjectBindingPeer {
 impl Drop for SubjectBindingPeer {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        fixture_must(self.worker.take().expect("binding worker").join());
-        fixture_must(self.clock_worker.take().expect("clock worker").join());
+        fixture_must(self.worker.take().must_with("binding worker").join());
+        fixture_must(self.clock_worker.take().must_with("clock worker").join());
     }
 }
 
@@ -155,8 +156,8 @@ fn dynamic_identity_fixture() -> Fixture {
         .values()
         .map(|row| {
             (
-                fixture_must(committed::base64(row["key"].as_str().unwrap())),
-                fixture_must(committed::base64(row["value"].as_str().unwrap())),
+                fixture_must(committed::base64(row["key"].as_str().must())),
+                fixture_must(committed::base64(row["value"].as_str().must())),
             )
         })
         .collect();
@@ -209,6 +210,6 @@ fn repair_22_31_549_dynamic_identity_and_context_emit_committed_label_through_tl
     assert_eq!(context["state_height"], identity["state_height"]);
     assert!(!identity["authorities"]
         .as_array()
-        .expect("native authorities")
+        .must_with("native authorities")
         .is_empty());
 }

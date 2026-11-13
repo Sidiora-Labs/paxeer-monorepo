@@ -1,8 +1,4 @@
-// Repair record 22.33.1437: release-git-fetch-timeout is proven by the tests below.
-// Baseline: not run, because the explicit bounded gate order forbids pre-change verification.
-// Wiring: none. The real Git subprocess requirement takes precedence over the generic
-// no-external-binary clause; the only tools used are the production Git/POSIX shell.
-// The runner's gate evidence binds these tests to the verified candidate revision.
+// Git artifact fetching keeps its timeout, output and checkout bounds.
 
 use std::fs;
 use std::io::Read as _;
@@ -27,7 +23,7 @@ impl Fixture {
             std::process::id(),
             SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&root).unwrap();
+        fs::create_dir(&root).unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
         Self(root)
     }
 
@@ -36,7 +32,8 @@ impl Fixture {
         git(Command::new("git")
             .args(["init", "--quiet"])
             .arg(&repository));
-        fs::write(repository.join("Package.swift"), bytes).unwrap();
+        fs::write(repository.join("Package.swift"), bytes)
+            .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
         git(Command::new("git")
             .arg("-C")
             .arg(&repository)
@@ -68,8 +65,12 @@ impl Fixture {
 
     fn clean(&self) {
         let consumer = self.0.join("consumer");
-        for entry in fs::read_dir(&consumer).unwrap() {
-            let name = entry.unwrap().file_name();
+        for entry in fs::read_dir(&consumer)
+            .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"))
+        {
+            let name = entry
+                .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"))
+                .file_name();
             assert_eq!(
                 name, "package.tar",
                 "incomplete Git checkout or archive survived"
@@ -80,12 +81,15 @@ impl Fixture {
 
 impl Drop for Fixture {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        fs::remove_dir_all(&self.0)
+            .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
     }
 }
 
 fn git(command: &mut Command) -> Output {
-    let output = command.output().unwrap();
+    let output = command
+        .output()
+        .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
     assert!(
         output.status.success(),
         "{command:?}: {}",
@@ -138,7 +142,8 @@ fn release_git_fetch_preserves_the_real_tagged_archive_and_cleans_checkout() {
             .args(["archive", "--format=tar", "v1"]))
         .stdout;
     // HEAD differs from the published tag, so fetching HEAD cannot satisfy this proof.
-    fs::write(repository.join("Package.swift"), b"unreleased\n").unwrap();
+    fs::write(repository.join("Package.swift"), b"unreleased\n")
+        .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
     git(Command::new("git")
         .arg("-C")
         .arg(&repository)
@@ -158,12 +163,14 @@ fn release_git_fetch_preserves_the_real_tagged_archive_and_cleans_checkout() {
         "Next release",
     ]));
     let destination = fixture.destination();
-    fetch(&local(&repository, "v1"), &destination).unwrap();
-    let actual = fs::read(&destination).unwrap();
+    fetch(&local(&repository, "v1"), &destination)
+        .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
+    let actual =
+        fs::read(&destination).unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
     assert_eq!(actual, expected);
     assert_eq!(Sha256::digest(&actual), Sha256::digest(&expected));
     fixture.clean();
-    fs::remove_file(destination).unwrap();
+    fs::remove_file(destination).unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
     // The exact archive boundary is accepted, not truncated or rejected.
     fetch_with_git_limits(
         &local(&repository, "v1"),
@@ -173,17 +180,26 @@ fn release_git_fetch_preserves_the_real_tagged_archive_and_cleans_checkout() {
             ..limits()
         },
     )
-    .unwrap();
-    assert_eq!(fs::read(fixture.destination()).unwrap(), expected);
+    .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
+    assert_eq!(
+        fs::read(fixture.destination())
+            .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}")),
+        expected
+    );
     fixture.clean();
 }
 
 #[test]
 fn release_git_fetch_deadline_kills_transport_reaps_clone_and_cleans_checkout() {
     let fixture = Fixture::new();
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let address = listener.local_addr().unwrap();
-    listener.set_nonblocking(true).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
+    let address = listener
+        .local_addr()
+        .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
+    listener
+        .set_nonblocking(true)
+        .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
     let server = std::thread::spawn(move || {
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut socket = loop {
@@ -201,17 +217,24 @@ fn release_git_fetch_deadline_kills_transport_reaps_clone_and_cleans_checkout() 
         };
         socket
             .set_read_timeout(Some(Duration::from_secs(3)))
-            .unwrap();
+            .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
         let mut request = Vec::new();
         let mut byte = [0];
         while !request.ends_with(b"\r\n\r\n") {
-            assert_eq!(socket.read(&mut byte).unwrap(), 1);
+            assert_eq!(
+                socket
+                    .read(&mut byte)
+                    .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}")),
+                1
+            );
             request.push(byte[0]);
         }
         assert!(String::from_utf8_lossy(&request).contains("info/refs?service=git-upload-pack"));
         // A real server withholding its response must lose the helper's connection on timeout.
         assert_eq!(
-            socket.read(&mut byte).unwrap(),
+            socket
+                .read(&mut byte)
+                .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}")),
             0,
             "Git transport survived cancellation"
         );
@@ -225,10 +248,13 @@ fn release_git_fetch_deadline_kills_transport_reaps_clone_and_cleans_checkout() 
             ..limits()
         },
     )
-    .unwrap_err();
+    .err()
+    .unwrap_or_else(|| panic!("expected Git fetch refusal"));
     assert!(error.contains("total deadline exceeded"), "{error}");
     assert!(started.elapsed() < Duration::from_secs(3));
-    server.join().unwrap();
+    server
+        .join()
+        .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
     assert!(!fixture.destination().exists());
     fixture.clean();
 }
@@ -245,7 +271,8 @@ fn release_git_fetch_refuses_unbounded_subprocess_diagnostics() {
             ..limits()
         },
     )
-    .unwrap_err();
+    .err()
+    .unwrap_or_else(|| panic!("expected Git fetch refusal"));
     assert!(
         error.contains("subprocess output exceeds 512 bytes"),
         "{error}"
@@ -262,8 +289,15 @@ fn release_git_fetch_refuses_unbounded_subprocess_diagnostics() {
 fn release_git_fetch_refuses_archive_overflow_without_publishing_partial_bytes() {
     let fixture = Fixture::new();
     let repository = fixture.producer(&vec![b'x'; 64 * 1024]);
-    fs::create_dir_all(fixture.destination().parent().unwrap()).unwrap();
-    fs::write(fixture.destination(), b"previous verified artifact").unwrap();
+    fs::create_dir_all(
+        fixture
+            .destination()
+            .parent()
+            .unwrap_or_else(|| panic!("destination parent")),
+    )
+    .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
+    fs::write(fixture.destination(), b"previous verified artifact")
+        .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
     let error = fetch_with_git_limits(
         &local(&repository, "v1"),
         &fixture.destination(),
@@ -272,10 +306,12 @@ fn release_git_fetch_refuses_archive_overflow_without_publishing_partial_bytes()
             ..limits()
         },
     )
-    .unwrap_err();
+    .err()
+    .unwrap_or_else(|| panic!("expected Git fetch refusal"));
     assert!(error.contains("archive exceeds 1024 bytes"), "{error}");
     assert_eq!(
-        fs::read(fixture.destination()).unwrap(),
+        fs::read(fixture.destination())
+            .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}")),
         b"previous verified artifact"
     );
     fixture.clean();
@@ -297,7 +333,8 @@ fn release_git_fetch_refuses_checkout_disk_overflow_and_removes_incomplete_clone
             ..limits()
         },
     )
-    .unwrap_err();
+    .err()
+    .unwrap_or_else(|| panic!("expected Git fetch refusal"));
     assert!(
         error.contains("checkout exceeds disk budget")
             || error.contains("File size limit")
@@ -317,11 +354,15 @@ fn release_git_fetch_failed_clone_cleans_up_and_can_be_retried() {
         &fixture.destination(),
         limits(),
     )
-    .unwrap_err();
+    .err()
+    .unwrap_or_else(|| panic!("expected Git fetch refusal"));
     assert!(error.contains("git exited with"), "{error}");
     assert!(!fixture.destination().exists());
     fixture.clean();
-    fetch_with_git_limits(&local(&repository, "v1"), &fixture.destination(), limits()).unwrap();
-    assert!(!fs::read(fixture.destination()).unwrap().is_empty());
+    fetch_with_git_limits(&local(&repository, "v1"), &fixture.destination(), limits())
+        .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"));
+    assert!(!fs::read(fixture.destination())
+        .unwrap_or_else(|error| panic!("Git fixture operation: {error:?}"))
+        .is_empty());
     fixture.clean();
 }

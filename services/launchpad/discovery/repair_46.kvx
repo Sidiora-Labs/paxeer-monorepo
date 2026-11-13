@@ -25,11 +25,11 @@ request = "Domain 4 contract owner: reconcile launchpad/spec/interfaces and sdk/
 [wiring.notifications]
 request = "Domain 4 notifications owner: mount /v2/me/squad-invitations and its child routes in services/launchpad/notifications/runtime.go; its existing discovery.Runtime.Run now evaluates price rules before publishing threshold-crossing-v2."
 [wiring.price-grant]
-request = "Domain 4 stream/data owner: grant discovery's runtime role EXECUTE on api_stream.market_projection_head(text) in launchpad/spec/production-system/integration/migrations/grants.json; the existing canonical owner function supplies pool-bound committed price and asset provenance."
+request = "Domain 4 stream/data owner: grant discovery's runtime role EXECUTE on api_stream.market_projection_head(text) in migrations/grants.json; the existing canonical owner function supplies pool-bound committed price and asset provenance."
 
 [proof-boundary]
 observed = "The scoped runtime test proves real canonical SQL producer -> committed frame -> Runtime.Run -> durable checkpoint/threshold-crossing-v2 outbox across restart and delivery failure; downstream in-app delivery uses the existing notifications publisher and requires its owning domain's integration qualification."
 request = "Domain 4 notifications owner: qualify Runtime.Run with the production eventPublisher/TriggerConsumer and real D11 target authority through services/launchpad/notifications to prove final in-app delivery and duplicate suppression."
 
 [wiring.schema-owner]
-request = "Domain 4 data owner: register the new invitation_deliveries/evaluation_cursor DDL and runtime privileges in launchpad/spec/production-system/integration/migrations/210000.sql and grants.json; the scoped source remains services/launchpad/discovery/schema.sql."
+request = "Domain 4 data owner: register the new invitation_deliveries/evaluation_cursor DDL and runtime privileges in migrations/210000.sql and grants.json; the scoped source remains services/launchpad/discovery/schema.sql."

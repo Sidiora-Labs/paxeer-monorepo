@@ -15,6 +15,8 @@ pub struct Resolver {
 }
 
 impl Resolver {
+    /// # Errors
+    /// Returns an error when DNS configuration or lookup is unavailable.
     pub fn system() -> Result<Self, FetchError> {
         let configuration =
             std::fs::read_to_string("/etc/resolv.conf").map_err(|_| FetchError::Resolve)?;
@@ -36,10 +38,10 @@ impl Resolver {
                         .iter()
                         .take(6)
                         .map(|domain| (*domain).to_owned())
-                        .collect()
+                        .collect();
                 }
                 ["domain", domain] if resolver.search.is_empty() => {
-                    resolver.search.push((*domain).to_owned())
+                    resolver.search.push((*domain).to_owned());
                 }
                 ["options", options @ ..] => {
                     for option in options {
@@ -77,6 +79,8 @@ impl Resolver {
 
     /// Explicit DNS peers are useful for private DNS deployments as well as
     /// loopback transcript servers. Literal destinations still bypass DNS.
+    /// # Errors
+    /// Returns an error when DNS configuration or lookup is unavailable.
     pub fn from_nameservers(servers: &[SocketAddr]) -> Result<Self, FetchError> {
         if servers.len() > 8 || servers.iter().any(|server| server.port() == 0) {
             return Err(FetchError::Resolve);
@@ -89,6 +93,8 @@ impl Resolver {
         })
     }
 
+    /// # Errors
+    /// Returns an error when DNS configuration or lookup is unavailable.
     pub fn resolve(
         &self,
         host: &str,
@@ -205,7 +211,11 @@ fn exchange(server: &SocketAddr, query: &[u8], deadline: Instant) -> Result<Vec<
         socket
             .set_read_timeout(Some(left(deadline)?))
             .map_err(|_| FetchError::Resolve)?;
-        let count = socket.recv(&mut packet).map_err(|_| FetchError::Resolve)?;
+        let count = match socket.recv(&mut packet) {
+            Ok(count) => count,
+            Err(error) if retry_read(&error) => continue,
+            Err(_) => return Err(FetchError::Resolve),
+        };
         if count >= 12 && packet[..2] == query[..2] {
             packet.truncate(count);
             break;
@@ -238,6 +248,15 @@ fn exchange(server: &SocketAddr, query: &[u8], deadline: Instant) -> Result<Vec<
     Ok(packet)
 }
 
+fn retry_read(error: &std::io::Error) -> bool {
+    matches!(
+        error.kind(),
+        std::io::ErrorKind::Interrupted
+            | std::io::ErrorKind::WouldBlock
+            | std::io::ErrorKind::TimedOut
+    )
+}
+
 fn read_exact(
     stream: &mut TcpStream,
     mut output: &mut [u8],
@@ -247,7 +266,11 @@ fn read_exact(
         stream
             .set_read_timeout(Some(left(deadline)?))
             .map_err(|_| FetchError::Resolve)?;
-        let count = stream.read(output).map_err(|_| FetchError::Resolve)?;
+        let count = match stream.read(output) {
+            Ok(count) => count,
+            Err(error) if retry_read(&error) => continue,
+            Err(_) => return Err(FetchError::Resolve),
+        };
         if count == 0 {
             return Err(FetchError::Resolve);
         }
@@ -352,7 +375,7 @@ fn decode(packet: &[u8], query: &[u8], name: &str, kind: u16) -> Result<Answer, 
         if class == 1 {
             match (record_kind, data) {
                 (1, [a, b, c, d]) if kind == 1 => {
-                    addresses.push((owner, IpAddr::V4(Ipv4Addr::new(*a, *b, *c, *d))))
+                    addresses.push((owner, IpAddr::V4(Ipv4Addr::new(*a, *b, *c, *d))));
                 }
                 (28, data) if kind == 28 && data.len() == 16 => {
                     addresses.push((
@@ -387,7 +410,7 @@ fn decode(packet: &[u8], query: &[u8], name: &str, kind: u16) -> Result<Answer, 
     let mut canonical = name.to_owned();
     for _ in 0..8 {
         if let Some((_, target)) = aliases.iter().find(|(owner, _)| *owner == canonical) {
-            canonical = target.clone();
+            canonical.clone_from(target);
         } else {
             let addresses: Vec<_> = addresses
                 .into_iter()

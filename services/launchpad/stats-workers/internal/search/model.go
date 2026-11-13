@@ -47,7 +47,7 @@ func Normalize(raw string) (Query, error) {
 			if body != strings.ToLower(body) && body != strings.ToUpper(body) && common.HexToAddress(s).Hex() != s {
 				return Query{}, fmt.Errorf("%w: checksum", ErrInvalid)
 			}
-			return Query{strings.ToLower(s), "exact_address"}, nil
+			return Query{strings.ToLower(s), valueExactAddress}, nil
 		}
 		if len(s) == 66 {
 			return Query{}, fmt.Errorf("%w: transaction lookup unsupported", ErrInvalid)
@@ -61,7 +61,7 @@ func Normalize(raw string) (Query, error) {
 		if _, err := hex.DecodeString(s[2:] + strings.Repeat("0", len(s[2:])%2)); err != nil {
 			return Query{}, fmt.Errorf("%w: partial address", ErrInvalid)
 		}
-		return Query{strings.ToLower(s), "partial_address"}, nil
+		return Query{strings.ToLower(s), valuePartialAddress}, nil
 	}
 	s = strings.Map(func(r rune) rune {
 		if r == 0x061c || r == 0x200e || r == 0x200f || (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069) {
@@ -102,12 +102,12 @@ func (d Document) Key() string { return d.ChainID + ":" + strings.ToLower(d.Pool
 
 // Only allowlisted canonical pool state is public. Unknown authority fails closed.
 func (d Document) Validate() error {
-	if d.Version != Version || d.ChainID != "125" || d.CreationEventID == "" || d.MetadataRevision < 1 || d.VisibilityRevision < 1 || (d.PoolStatus != "active" && d.PoolStatus != "paused") {
+	if d.Version != Version || d.ChainID != "125" || d.CreationEventID == "" || d.MetadataRevision < 1 || d.VisibilityRevision < 1 || (d.PoolStatus != valueActive && d.PoolStatus != valuePaused) {
 		return ErrInvalid
 	}
 	for _, a := range []string{d.PoolAddress, d.TokenAddress} {
 		q, e := Normalize(a)
-		if e != nil || q.Kind != "exact_address" || common.HexToAddress(a) == (common.Address{}) {
+		if e != nil || q.Kind != valueExactAddress || common.HexToAddress(a) == (common.Address{}) {
 			return ErrInvalid
 		}
 	}
@@ -140,7 +140,7 @@ func (d Document) Validate() error {
 		return ErrInvalid
 	}
 	for _, r := range d.CreationEventID {
-		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("-_:./", r)) {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && !strings.ContainsRune("-_:./", r) {
 			return ErrInvalid
 		}
 	}
@@ -198,7 +198,7 @@ func ValidateRequest(r Request) (Query, error) {
 	if e != nil {
 		return q, e
 	}
-	if r.Limit < 1 || r.Limit > InternalMaxLimit || r.Kind != "pool" && r.Kind != "token" {
+	if r.Limit < 1 || r.Limit > InternalMaxLimit || r.Kind != valuePool && r.Kind != valueToken {
 		return q, ErrInvalid
 	}
 	if e := r.Filter.Validate(); e != nil {
@@ -266,7 +266,7 @@ func ParsePublicRequest(values url.Values) (Request, error) {
 	if _, err := Normalize(r.Query); err != nil {
 		return invalid(422, "FIELD_INVALID")
 	}
-	if r.Kind != "pool" && r.Kind != "token" && r.Kind != "profile" {
+	if r.Kind != valuePool && r.Kind != valueToken && r.Kind != valueProfile {
 		return invalid(422, "FIELD_INVALID")
 	}
 	if raw, ok := values["limit"]; ok {
@@ -298,7 +298,7 @@ func ParsePublicRequest(values url.Values) (Request, error) {
 			return invalid(400, "CURSOR_INVALID")
 		}
 	}
-	if r.Kind == "profile" {
+	if r.Kind == valueProfile {
 		return invalid(412, "PRECONDITION_FAILED")
 	}
 	if _, err := ValidateRequest(r); err != nil {

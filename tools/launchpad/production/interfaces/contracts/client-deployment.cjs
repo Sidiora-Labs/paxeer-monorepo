@@ -23,10 +23,16 @@ function deriveDeployment(contractRoot) {
     assert.match(identity.runtimeHash, /^0x[0-9a-fA-F]{64}$/, `${role}:missing runtime hash`);
     if (identity.kind === 'surface') {
       assert.equal(identity.runtimeHash, '0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f', `${role}:surface runtime hash mismatch`);
+      assert.match(identity.stagedRuntimeHash, /^0x[0-9a-fA-F]{64}$/, `${role}:missing staged runtime hash`);
+      assert.match(identity.stagedUpgrade, /^v[0-9]+\.[0-9]+$/, `${role}:missing staged upgrade`);
     } else {
       assert.equal(identity.runtimeHash, record.runtimeHash, `${role}:runtime hash mismatch`);
     }
     roleIdentity[key] = { kind: identity.kind, runtimeHash: identity.runtimeHash };
+    if (identity.kind === 'surface') {
+      roleIdentity[key].stagedRuntimeHash = identity.stagedRuntimeHash;
+      roleIdentity[key].stagedUpgrade = identity.stagedUpgrade;
+    }
     if (identity.kind === 'erc1967' || identity.kind === 'beacon') {
       assert.match(identity.implementationAddress, /^0x[0-9a-fA-F]{40}$/, `${role}:missing implementation address`);
       assert.match(identity.implementationHash, /^0x[0-9a-fA-F]{64}$/, `${role}:missing implementation hash`);

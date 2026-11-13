@@ -24,6 +24,8 @@ impl StoreKey {
         }
     }
 
+    /// # Errors
+    /// Refuses oversized plaintext or unavailable entropy.
     pub fn seal(&self, plaintext: &[u8]) -> Result<String, String> {
         if plaintext.len() > MAX_PLAINTEXT_BYTES {
             return Err("sealed value exceeds its bound".to_owned());
@@ -40,6 +42,8 @@ impl StoreKey {
         Ok(hex(&sealed))
     }
 
+    /// # Errors
+    /// Refuses malformed, oversized, or unauthenticated sealed values.
     pub fn open(&self, sealed: &str) -> Result<Zeroizing<Vec<u8>>, String> {
         let bytes =
             Zeroizing::new(unhex(sealed).ok_or_else(|| "sealed value is not hex".to_owned())?);
@@ -86,6 +90,7 @@ fn labelled_digest(label: &[u8], secret: &[u8]) -> [u8; 32] {
     digest.finalize().into()
 }
 
+#[must_use]
 pub fn hmac_sha256(key: &[u8; 32], parts: &[&[u8]]) -> [u8; 32] {
     let mut inner_key = [0x36_u8; 64];
     let mut outer_key = [0x5c_u8; 64];

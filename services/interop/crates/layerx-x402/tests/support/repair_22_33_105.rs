@@ -60,12 +60,20 @@ const TRANSPORTS: [TransportKind; 3] =
     [TransportKind::Http, TransportKind::Mcp, TransportKind::A2a];
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut output = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        output.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    output
 }
 
 fn word(text: &str) -> [u8; 32] {
     assert_eq!(text.len(), 64);
-    std::array::from_fn(|index| u8::from_str_radix(&text[index * 2..index * 2 + 2], 16).unwrap())
+    std::array::from_fn(|index| {
+        u8::from_str_radix(&text[index * 2..index * 2 + 2], 16).or_panic("expected Ok value")
+    })
 }
 
 fn offer(scheme: &str) -> PaymentRequirements {
@@ -78,7 +86,7 @@ fn offer(scheme: &str) -> PaymentRequirements {
         network: "eip155:125".to_owned(),
         amount: AtomicAmount::from_u128(1000),
         asset: hex(&ASSET),
-        pay_to: hex(&account_identifiers(ACCOUNT).unwrap()[1]),
+        pay_to: hex(&account_identifiers(ACCOUNT).or_panic("expected Ok value")[1]),
         max_timeout_seconds: 90,
         extra: Some(json!({"layerx": profile})),
     }
@@ -95,9 +103,11 @@ fn payment(accepted: PaymentRequirements, reference: [u8; 32]) -> BuiltPayment {
         }),
         extensions: BTreeMap::new(),
     };
-    payload.validate().unwrap();
+    payload.validate().or_panic("expected Ok value");
     BuiltPayment {
-        header: header_value(encode_payment_payload(TransportKind::Http, &payload).unwrap()),
+        header: header_value(
+            encode_payment_payload(TransportKind::Http, &payload).or_panic("expected Ok value"),
+        ),
         payload,
         idempotency_key: reference,
     }
@@ -125,7 +135,7 @@ fn payment_log(scheme: &str, reference: [u8; 32]) -> SequencerLog {
             topic,
             if scheme == "exact" { reference } else { GRANT },
             PAYER,
-            account_identifiers(ACCOUNT).unwrap()[1],
+            account_identifiers(ACCOUNT).or_panic("expected Ok value")[1],
         ],
         data,
         0,
@@ -148,66 +158,83 @@ fn encoded_receipt(logs: &[SequencerLog], signature: Option<[u8; 64]>) -> Vec<u8
     let mut summary = vec![0; 8 * 3 + 4 + 20 * 2];
     summary.extend_from_slice(&Sha256::digest(b""));
     summary.extend_from_slice(&0_u32.to_be_bytes());
-    summary.extend_from_slice(&u32::try_from(logs.len()).unwrap().to_be_bytes());
+    summary.extend_from_slice(
+        &u32::try_from(logs.len())
+            .or_panic("expected Ok value")
+            .to_be_bytes(),
+    );
     summary.push(4);
     summary.extend_from_slice(b"uhpx");
     let mut encoder = Encoder::new(16384);
     encoder
         .structure_header_version(0x5201, PROTOCOL_VERSION)
-        .unwrap();
-    encoder.u16(PROTOCOL_VERSION).unwrap();
-    encoder.bytes(&TRANSACTION, 32).unwrap();
-    encoder.u64(9).unwrap();
+        .or_panic("expected Ok value");
+    encoder.u16(PROTOCOL_VERSION).or_panic("expected Ok value");
+    encoder
+        .bytes(&TRANSACTION, 32)
+        .or_panic("expected Ok value");
+    encoder.u64(9).or_panic("expected Ok value");
     for value in [[0x62; 32], sequence_hash(), [0x64; 32]] {
-        encoder.bytes(&value, 32).unwrap();
+        encoder.bytes(&value, 32).or_panic("expected Ok value");
     }
-    encoder.i32(0).unwrap();
+    encoder.i32(0).or_panic("expected Ok value");
     let mut effects = vec![(1, summary)];
     for log in logs {
         let mut body = log.address().to_vec();
-        body.push(u8::try_from(log.topics().len()).unwrap());
+        body.push(u8::try_from(log.topics().len()).or_panic("expected Ok value"));
         for topic in log.topics() {
             body.extend_from_slice(topic);
         }
         body.extend_from_slice(&Sha256::digest(log.data()));
         effects.push((3, body));
     }
-    encoder.sequence_length(effects.len(), 4096).unwrap();
+    encoder
+        .sequence_length(effects.len(), 4096)
+        .or_panic("expected Ok value");
     for (ordinal, (kind, body)) in effects.into_iter().enumerate() {
-        encoder.u16(12).unwrap();
-        encoder.u16(u16::try_from(ordinal).unwrap()).unwrap();
-        encoder.u16(0).unwrap();
-        encoder.u8(kind).unwrap();
-        encoder.u8(0).unwrap();
-        encoder.bytes(&[0; 32], 32).unwrap();
-        encoder.bytes(&body, 256).unwrap();
+        encoder.u16(12).or_panic("expected Ok value");
+        encoder
+            .u16(u16::try_from(ordinal).or_panic("expected Ok value"))
+            .or_panic("expected Ok value");
+        encoder.u16(0).or_panic("expected Ok value");
+        encoder.u8(kind).or_panic("expected Ok value");
+        encoder.u8(0).or_panic("expected Ok value");
+        encoder.bytes(&[0; 32], 32).or_panic("expected Ok value");
+        encoder.bytes(&body, 256).or_panic("expected Ok value");
     }
     let mut height = [0; 32];
     height[24..].copy_from_slice(&HEIGHT.to_be_bytes());
-    encoder.u128(1).unwrap();
-    encoder.bytes(&height, 32).unwrap();
-    encoder.u16(12).unwrap();
-    encoder.u32(1).unwrap();
-    encoder.u32(0).unwrap();
-    encoder.u8(2).unwrap();
-    encoder.bytes(&ASSET, 32).unwrap();
-    encoder.u128(1000).unwrap();
-    encoder.bytes(&PAYER, 32).unwrap();
-    encoder.u128(5000).unwrap();
-    encoder.u128(4000).unwrap();
-    encoder.u64(1).unwrap();
+    encoder.u128(1).or_panic("expected Ok value");
+    encoder.bytes(&height, 32).or_panic("expected Ok value");
+    encoder.u16(12).or_panic("expected Ok value");
+    encoder.u32(1).or_panic("expected Ok value");
+    encoder.u32(0).or_panic("expected Ok value");
+    encoder.u8(2).or_panic("expected Ok value");
+    encoder.bytes(&ASSET, 32).or_panic("expected Ok value");
+    encoder.u128(1000).or_panic("expected Ok value");
+    encoder.bytes(&PAYER, 32).or_panic("expected Ok value");
+    encoder.u128(5000).or_panic("expected Ok value");
+    encoder.u128(4000).or_panic("expected Ok value");
+    encoder.u64(1).or_panic("expected Ok value");
     encoder
-        .bytes(&account_identifiers(ACCOUNT).unwrap()[1], 32)
-        .unwrap();
-    encoder.u128(0).unwrap();
-    encoder.u128(1000).unwrap();
+        .bytes(
+            &account_identifiers(ACCOUNT).or_panic("expected Ok value")[1],
+            32,
+        )
+        .or_panic("expected Ok value");
+    encoder.u128(0).or_panic("expected Ok value");
+    encoder.u128(1000).or_panic("expected Ok value");
     for value in [0x66, 0x67, 0x68] {
-        encoder.bytes(&[value; 32], 32).unwrap();
+        encoder
+            .bytes(&[value; 32], 32)
+            .or_panic("expected Ok value");
     }
-    encoder.u64(HEIGHT).unwrap();
-    encoder.u8(u8::from(signature.is_some())).unwrap();
+    encoder.u64(HEIGHT).or_panic("expected Ok value");
+    encoder
+        .u8(u8::from(signature.is_some()))
+        .or_panic("expected Ok value");
     if let Some(signature) = signature {
-        encoder.bytes(&signature, 64).unwrap();
+        encoder.bytes(&signature, 64).or_panic("expected Ok value");
     }
     encoder.finish()
 }
@@ -226,17 +253,23 @@ fn receipt_keys() -> Vec<SequencerAuthorization> {
 fn evidence(scheme: &str, reference: [u8; 32]) -> SequencerEvidence {
     let logs = vec![payment_log(scheme, reference)];
     let unsigned = encoded_receipt(&logs, None);
-    let digest = layerx_wire::hash::receipt_digest(&unsigned).unwrap();
+    let digest = layerx_wire::hash::receipt_digest(&unsigned).or_panic("expected Ok value");
     let signature = SigningKey::from_bytes(&[0x72; 32]).sign(&digest).to_bytes();
     let signed_receipt = encoded_receipt(&logs, Some(signature));
-    let decoded = layerx_wire::receipt::decode(&signed_receipt).unwrap();
+    let decoded = layerx_wire::receipt::decode(&signed_receipt).or_panic("expected Ok value");
     assert_eq!(
-        layerx_wire::receipt::encode(&decoded).unwrap(),
+        layerx_wire::receipt::encode(&decoded).or_panic("expected Ok value"),
         signed_receipt
     );
     let keys = receipt_keys();
-    let receipt = verify_sequencer_signature(&signed_receipt, keys.as_slice()).unwrap();
-    assert_eq!(verify_logs(&receipt, logs.clone()).unwrap().logs(), logs);
+    let receipt =
+        verify_sequencer_signature(&signed_receipt, keys.as_slice()).or_panic("expected Ok value");
+    assert_eq!(
+        verify_logs(&receipt, logs.clone())
+            .or_panic("expected Ok value")
+            .logs(),
+        logs
+    );
     SequencerEvidence {
         transaction_hash: TRANSACTION,
         signed_receipt,
@@ -247,12 +280,21 @@ fn evidence(scheme: &str, reference: [u8; 32]) -> SequencerEvidence {
 
 fn gateway() -> (GatewayCore, PrincipalId, TraceId) {
     let trace = TraceId::mint([0x73; 16]);
-    let principal = PrincipalId::new("repair-buyer").unwrap();
-    let suite = ConformanceSuite::new(AdapterId::new("x402-v2").unwrap(), 1, [0x75; 32]).unwrap();
+    let principal = PrincipalId::new("repair-buyer").or_panic("expected Ok value");
+    let suite = ConformanceSuite::new(
+        AdapterId::new("x402-v2").or_panic("expected Ok value"),
+        1,
+        [0x75; 32],
+    )
+    .or_panic("expected Ok value");
     let mut gateway = GatewayCore::new();
     gateway
-        .register_adapter(x402_adapter_descriptor(suite).unwrap(), &trace, 0)
-        .unwrap();
+        .register_adapter(
+            x402_adapter_descriptor(suite).or_panic("expected Ok value"),
+            &trace,
+            0,
+        )
+        .or_panic("expected Ok value");
     (gateway, principal, trace)
 }
 
@@ -276,23 +318,27 @@ fn seller_settlement(
         extensions: BTreeMap::new(),
     };
     let seller = Seller::new(required)
-        .unwrap()
+        .or_panic("expected Ok value")
         .with_receipt_keys(receipt_keys());
     assert_eq!(
-        seller.payment_required().unwrap().body.accepts[0],
+        seller
+            .payment_required()
+            .or_panic("expected Ok value")
+            .body
+            .accepts[0],
         payment.payload.accepted
     );
     let (mut gateway, principal, trace) = gateway();
     let translation = TranslationRequest::new(
-        AdapterId::new("x402").unwrap(),
+        AdapterId::new("x402").or_panic("expected Ok value"),
         TranslationKind::StateChanging,
         payment.idempotency_key,
         [0x75; 32],
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     gateway
         .begin_translation(&principal, &translation, &trace, 0)
-        .unwrap();
+        .or_panic("expected Ok value");
     let executed = ExecutedPayment {
         evidence,
         committed: commitment.map(|value| CommittedSettlementProof {
@@ -312,7 +358,7 @@ fn seller_settlement(
         &trace,
         1,
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     let SellerOutcome::Settled {
         response,
         receipt_digest,
@@ -336,9 +382,9 @@ fn header_value(wire: TransportValue) -> String {
 }
 
 fn received(transport: TransportKind, response: &SettlementResponse) -> String {
-    let wire = encode_settlement(transport, response).unwrap();
-    let response = decode_settlement(transport, &wire).unwrap();
-    header_value(encode_settlement(TransportKind::Http, &response).unwrap())
+    let wire = encode_settlement(transport, response).or_panic("expected Ok value");
+    let response = decode_settlement(transport, &wire).or_panic("expected Ok value");
+    header_value(encode_settlement(TransportKind::Http, &response).or_panic("expected Ok value"))
 }
 
 fn validators(key: &SigningKey) -> Vec<Validator> {
@@ -358,9 +404,9 @@ fn header(
     Header {
         version: ConsensusVersion { block: 11, app: 0 },
         chain_id: chain.to_owned(),
-        height: height as i64,
+        height: i64::from_ne_bytes(height.to_ne_bytes()),
         time: Timestamp {
-            seconds: 1700000000 + height as i64,
+            seconds: 1_700_000_000 + i64::from_ne_bytes(height.to_ne_bytes()),
             nanos: 0,
         },
         last_block_id: BlockId {
@@ -397,11 +443,15 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
     encode_length_delimited(1, &block_id.hash, &mut id);
     encode_length_delimited(2, &parts, &mut id);
     let mut time = Vec::new();
-    encode_varint_field(1, header.time.seconds as u64, &mut time);
+    encode_varint_field(
+        1,
+        u64::from_ne_bytes(header.time.seconds.to_ne_bytes()),
+        &mut time,
+    );
     let mut vote = Vec::new();
     encode_varint_field(1, 2, &mut vote);
     vote.push(0x11);
-    vote.extend_from_slice(&(header.height as u64).to_le_bytes());
+    vote.extend_from_slice(&(u64::from_ne_bytes(header.height.to_ne_bytes())).to_le_bytes());
     encode_length_delimited(4, &id, &mut vote);
     encode_length_delimited(5, &time, &mut vote);
     encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
@@ -409,7 +459,7 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
     encode_varint(vote.len() as u64, &mut sign_bytes);
     sign_bytes.extend(vote);
     let commit = Commit {
-        height: header.height as u64,
+        height: u64::from_ne_bytes(header.height.to_ne_bytes()),
         round: 0,
         block_id,
         signatures: vec![CommitSig {
@@ -423,7 +473,7 @@ fn signed_commit(header: &Header, key: &SigningKey) -> Commit {
         &header.chain_id,
         &validators(key),
         header.hash(),
-        header.height as u64,
+        u64::from_ne_bytes(header.height.to_ne_bytes()),
         &commit
     )
     .is_ok());
@@ -465,8 +515,8 @@ fn commitment(
         signed_receipt: evidence.signed_receipt.clone(),
         activity_ids: vec![TRANSACTION],
     };
-    let digest = canonical_receipt_digest(&evidence.signed_receipt).unwrap();
-    let block = verify_committed(digest, &proof, &set, chain).unwrap();
+    let digest = canonical_receipt_digest(&evidence.signed_receipt).or_panic("expected Ok value");
+    let block = verify_committed(digest, &proof, &set, chain).or_panic("expected Ok value");
     evidence.rung = SettlementRung::Committed {
         block_number: block.number,
         block_hash: block.hash,
@@ -492,7 +542,7 @@ fn facilitator(schemes: &[&str]) -> Facilitator {
         extensions: vec![],
         signers: BTreeMap::new(),
     })
-    .unwrap()
+    .or_panic("expected Ok value")
 }
 
 fn facilitator_settlement(
@@ -512,14 +562,14 @@ fn facilitator_settlement(
         payment_requirements: offer(scheme),
     };
     let stable = [0x42; 32];
-    let identity =
-        SettlementIdentity::derive(&principal, &request, stable, SettlementStep::Single).unwrap();
+    let identity = SettlementIdentity::derive(&principal, &request, stable, SettlementStep::Single)
+        .or_panic("expected Ok value");
     request.payment_payload.payload["idempotencyKey"] = json!(hex(&identity.idempotency_key));
     let request = decode_facilitator_request(
         transport,
-        &encode_facilitator_request(transport, &request).unwrap(),
+        &encode_facilitator_request(transport, &request).or_panic("expected Ok value"),
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     let mut evidence = evidence(scheme, identity.idempotency_key);
     let mut plane_commitment = None;
     let mut anchor = None;
@@ -543,29 +593,33 @@ fn facilitator_settlement(
             &trace,
             1,
         )
-        .unwrap();
+        .or_panic("expected Ok value");
     assert!(response.success);
     assert_eq!(
         gateway.translation(&principal, identity.idempotency_key),
         Some(TranslationStatus::ReceiptVerified {
-            receipt_digest: canonical_receipt_digest(&evidence.signed_receipt).unwrap()
+            receipt_digest: canonical_receipt_digest(&evidence.signed_receipt)
+                .or_panic("expected Ok value")
         })
     );
-    let wire = encode_facilitator_settlement(transport, &response).unwrap();
-    let response = decode_facilitator_settlement(transport, &wire).unwrap();
+    let wire = encode_facilitator_settlement(transport, &response).or_panic("expected Ok value");
+    let response = decode_facilitator_settlement(transport, &wire).or_panic("expected Ok value");
     let payload = decode_payment_payload(
         transport,
-        &encode_payment_payload(transport, &request.payment_payload).unwrap(),
+        &encode_payment_payload(transport, &request.payment_payload).or_panic("expected Ok value"),
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     let payment = BuiltPayment {
-        header: header_value(encode_payment_payload(TransportKind::Http, &payload).unwrap()),
+        header: header_value(
+            encode_payment_payload(TransportKind::Http, &payload).or_panic("expected Ok value"),
+        ),
         payload,
         idempotency_key: identity.idempotency_key,
     };
     (payment, response, anchor)
 }
 
+#[test]
 pub fn consensus_anchor_progression() {
     let payment = payment(offer("exact"), REFERENCE);
     let trace = TraceId::mint([0x7a; 16]);
@@ -585,32 +639,56 @@ pub fn consensus_anchor_progression() {
         }],
         receipt_keys(),
     )
-    .unwrap()
+    .or_panic("expected Ok value")
     .with_consensus_anchors(vec![anchor.clone()])
-    .unwrap();
+    .or_panic("expected Ok value");
+    assert_consensus_responses(
+        &payment,
+        &trace,
+        &response,
+        &buyer,
+        &good_commitment,
+        &good_evidence,
+        &good_key,
+    );
+    assert_consensus_transitions(&payment, &trace, good_commitment, good_evidence, &good_key);
+}
+
+fn assert_consensus_responses(
+    payment: &BuiltPayment,
+    trace: &TraceId,
+    response: &SettlementResponse,
+    buyer: &Buyer,
+    good_commitment: &FacilitatorCommitment,
+    good_evidence: &SequencerEvidence,
+    good_key: &SigningKey,
+) {
     for transport in TRANSPORTS {
-        let header = received(transport, &response);
+        let header = received(transport, response);
         assert_eq!(
-            buyer.capture(&header, &payment, &trace).unwrap().rung,
+            buyer
+                .capture(&header, payment, trace)
+                .or_panic("expected Ok value")
+                .rung,
             "committed"
         );
-        assert!(Buyer::capture_settlement(&header, &payment, &receipt_keys(), &trace).is_err());
+        assert!(Buyer::capture_settlement(&header, payment, &receipt_keys(), trace).is_err());
         let wrong_network = TrustedConsensusAnchor::new(
             "eip155:126".to_owned(),
             good_commitment.proof.execution_header.clone(),
-            validators(&good_key),
+            validators(good_key),
         )
-        .unwrap();
+        .or_panic("expected Ok value");
         assert!(Buyer::capture_settlement_with_consensus(
             &header,
-            &payment,
+            payment,
             &receipt_keys(),
             &[wrong_network],
-            &trace
+            trace
         )
         .is_err());
         for (chain, signer) in [
-            ("response-selected-chain", good_key.clone()),
+            ("response-selected-chain", good_key.to_owned()),
             (CHAIN, SigningKey::from_bytes(&[0x52; 32])),
         ] {
             let mut hostile_evidence = evidence("exact", REFERENCE);
@@ -620,36 +698,79 @@ pub fn consensus_anchor_progression() {
                 good_evidence.signed_receipt
             );
             let hostile_response =
-                seller_settlement(&payment, hostile_evidence, Some(hostile_commitment));
+                seller_settlement(payment, hostile_evidence, Some(hostile_commitment));
             assert!(hostile_response.success);
             assert!(buyer
-                .capture(&received(transport, &hostile_response), &payment, &trace)
+                .capture(&received(transport, &hostile_response), payment, trace)
                 .is_err());
         }
         for field in ["signature", "inclusion", "coordinates"] {
             let mut changed = response.clone();
-            let evidence = changed.extensions.get_mut("layerx").unwrap();
+            let evidence = changed
+                .extensions
+                .get_mut("layerx")
+                .or_panic("expected Some value");
             match field {
                 "signature" => {
                     evidence["proof"]["commit"]["signatures"][0]["signature"] =
-                        json!(format!("0x{}", "00".repeat(64)))
+                        json!(format!("0x{}", "00".repeat(64)));
                 }
                 "inclusion" => {
                     evidence["proof"]["batchProof"]["aunts"][0] =
-                        json!(format!("0x{}", "00".repeat(32)))
+                        json!(format!("0x{}", "00".repeat(32)));
                 }
                 "coordinates" => evidence["blockNumber"] = json!("0x3e9"),
                 _ => unreachable!(),
             }
             assert!(
                 buyer
-                    .capture(&received(transport, &changed), &payment, &trace)
+                    .capture(&received(transport, &changed), payment, trace)
                     .is_err(),
                 "{field}"
             );
         }
     }
+}
 
+fn assert_invalid_anchor_advances(
+    checkpoint: &mut TrustedConsensusAnchor,
+    root: &Header,
+    intermediate: &Header,
+    good_key: &SigningKey,
+    middle: &SigningKey,
+) {
+    let rogue_key = SigningKey::from_bytes(&[0x56; 32]);
+    let rogue = header(
+        CHAIN,
+        HEIGHT - 1,
+        &validators(&rogue_key),
+        &validators(good_key),
+        root.hash().to_vec(),
+    );
+    assert!(checkpoint
+        .advance(
+            rogue.clone(),
+            &signed_commit(&rogue, &rogue_key),
+            validators(&rogue_key)
+        )
+        .is_err());
+    let mut bad_commit = signed_commit(intermediate, middle);
+    bad_commit.signatures[0]
+        .signature
+        .as_mut()
+        .or_panic("expected Some value")[0] ^= 1;
+    assert!(checkpoint
+        .advance(intermediate.clone(), &bad_commit, validators(middle))
+        .is_err());
+}
+
+fn assert_consensus_transitions(
+    payment: &BuiltPayment,
+    trace: &TraceId,
+    good_commitment: FacilitatorCommitment,
+    good_evidence: SequencerEvidence,
+    good_key: &SigningKey,
+) {
     // Two independently signed validator changes lead from the trusted root
     // to the actual execution header. No response can choose that root.
     let old = SigningKey::from_bytes(&[0x53; 32]);
@@ -665,7 +786,7 @@ pub fn consensus_anchor_progression() {
         CHAIN,
         HEIGHT - 1,
         &validators(&middle),
-        &validators(&good_key),
+        &validators(good_key),
         root.hash().to_vec(),
     );
     let mut execution = good_commitment.proof.execution_header.clone();
@@ -673,106 +794,100 @@ pub fn consensus_anchor_progression() {
     let successor = header(
         CHAIN,
         HEIGHT + 1,
-        &validators(&good_key),
-        &validators(&good_key),
+        &validators(good_key),
+        &validators(good_key),
         execution.hash().to_vec(),
     );
     let mut moved_commitment = good_commitment;
     moved_commitment.proof.execution_header = execution.clone();
     moved_commitment.proof.header = successor.clone();
-    moved_commitment.proof.commit = signed_commit(&successor, &good_key);
+    moved_commitment.proof.commit = signed_commit(&successor, good_key);
     let mut moved_evidence = good_evidence;
     moved_evidence.rung = SettlementRung::Committed {
         block_number: HEIGHT,
         block_hash: execution.hash(),
     };
-    let moved_response = seller_settlement(&payment, moved_evidence, Some(moved_commitment));
+    let moved_response = seller_settlement(payment, moved_evidence, Some(moved_commitment));
     let mut checkpoint =
         TrustedConsensusAnchor::new("eip155:125".to_owned(), root.clone(), validators(&old))
-            .unwrap();
+            .or_panic("expected Ok value");
     let capture = |checkpoint: &TrustedConsensusAnchor| {
         Buyer::capture_settlement_with_consensus(
             &received(TransportKind::Http, &moved_response),
-            &payment,
+            payment,
             &receipt_keys(),
-            &[checkpoint.clone()],
-            &trace,
+            std::slice::from_ref(checkpoint),
+            trace,
         )
     };
     assert!(capture(&checkpoint).is_err());
     assert!(checkpoint
         .advance(
             execution.clone(),
-            &signed_commit(&execution, &good_key),
-            validators(&good_key)
+            &signed_commit(&execution, good_key),
+            validators(good_key)
         )
         .is_err());
-    let rogue_key = SigningKey::from_bytes(&[0x56; 32]);
-    let rogue = header(
-        CHAIN,
-        HEIGHT - 1,
-        &validators(&rogue_key),
-        &validators(&good_key),
-        root.hash().to_vec(),
-    );
-    assert!(checkpoint
-        .advance(
-            rogue.clone(),
-            &signed_commit(&rogue, &rogue_key),
-            validators(&rogue_key)
-        )
-        .is_err());
-    let mut bad_commit = signed_commit(&intermediate, &middle);
-    bad_commit.signatures[0].signature.as_mut().unwrap()[0] ^= 1;
-    assert!(checkpoint
-        .advance(intermediate.clone(), &bad_commit, validators(&middle))
-        .is_err());
+    assert_invalid_anchor_advances(&mut checkpoint, &root, &intermediate, good_key, &middle);
     checkpoint
         .advance(
             intermediate.clone(),
             &signed_commit(&intermediate, &middle),
             validators(&middle),
         )
-        .unwrap();
+        .or_panic("expected Ok value");
     assert!(capture(&checkpoint).is_err());
     checkpoint
         .advance(
             execution.clone(),
-            &signed_commit(&execution, &good_key),
-            validators(&good_key),
+            &signed_commit(&execution, good_key),
+            validators(good_key),
         )
-        .unwrap();
-    assert_eq!(capture(&checkpoint).unwrap().rung, "committed");
+        .or_panic("expected Ok value");
+    assert_eq!(
+        capture(&checkpoint).or_panic("expected Ok value").rung,
+        "committed"
+    );
     checkpoint
         .advance(
             successor.clone(),
-            &signed_commit(&successor, &good_key),
-            validators(&good_key),
+            &signed_commit(&successor, good_key),
+            validators(good_key),
         )
-        .unwrap();
-    assert_eq!(capture(&checkpoint).unwrap().rung, "committed");
+        .or_panic("expected Ok value");
+    assert_eq!(
+        capture(&checkpoint).or_panic("expected Ok value").rung,
+        "committed"
+    );
 }
 
 fn configured_anchor() -> TrustedConsensusAnchor {
     let config: Value =
-        serde_json::from_str(include_str!("../fixtures/repair_22_33_105/consensus.json")).unwrap();
+        serde_json::from_str(include_str!("../fixtures/repair_22_33_105/consensus.json"))
+            .or_panic("expected Ok value");
     let set = validators(&SigningKey::from_bytes(&word(
-        config["validatorSeed"].as_str().unwrap(),
+        config["validatorSeed"]
+            .as_str()
+            .or_panic("expected Some value"),
     )));
     let mut checkpoint = header(
-        config["chainId"].as_str().unwrap(),
-        config["height"].as_u64().unwrap(),
+        config["chainId"].as_str().or_panic("expected Some value"),
+        config["height"].as_u64().or_panic("expected Some value"),
         &set,
         &set,
         vec![0x49; 32],
     );
-    checkpoint.data_hash = word(config["dataHash"].as_str().unwrap()).to_vec();
+    checkpoint.data_hash =
+        word(config["dataHash"].as_str().or_panic("expected Some value")).to_vec();
     TrustedConsensusAnchor::new(
-        config["network"].as_str().unwrap().to_owned(),
+        config["network"]
+            .as_str()
+            .or_panic("expected Some value")
+            .to_owned(),
         checkpoint,
         set,
     )
-    .unwrap()
+    .or_panic("expected Ok value")
 }
 
 // These peers replay committed plane transcripts. Buyer, Seller, Facilitator,
@@ -790,7 +905,8 @@ impl BuyerPaymentPlane for PaymentTranscript {
 }
 
 fn plane_output() -> Value {
-    serde_json::from_str(include_str!("../fixtures/repair_22_33_105/payment.json")).unwrap()
+    serde_json::from_str(include_str!("../fixtures/repair_22_33_105/payment.json"))
+        .or_panic("expected Ok value")
 }
 
 struct ExecutionTranscript {
@@ -817,11 +933,11 @@ impl PaymentPlane for ExecutionTranscript {
                 transaction_hash: TRANSACTION,
             })
         } else {
-            Ok(PlanePaymentOutcome::Executed(
+            Ok(PlanePaymentOutcome::Executed(Box::new(
                 self.executed
                     .take()
-                    .expect("one recorded execution per transcript"),
-            ))
+                    .or_panic("one recorded execution per transcript"),
+            )))
         }
     }
 }
@@ -851,23 +967,27 @@ fn buyer() -> Buyer {
         }],
         receipt_keys(),
     )
-    .unwrap()
+    .or_panic("expected Ok value")
 }
 
 fn built() -> BuiltPayment {
-    let seller = Seller::new(required()).unwrap();
+    let seller = Seller::new(required()).or_panic("expected Ok value");
     buyer()
         .build_payment(
-            &seller.payment_required().unwrap().header,
+            &seller
+                .payment_required()
+                .or_panic("expected Ok value")
+                .header,
             REFERENCE,
             &mut PaymentTranscript {
                 output: plane_output(),
             },
             &TraceId::mint([0x91; 16]),
         )
-        .unwrap()
+        .or_panic("expected Ok value")
 }
 
+#[test]
 pub fn buyer_wire_identity() {
     let payment = built();
     assert_eq!(payment.idempotency_key, REFERENCE);
@@ -878,18 +998,20 @@ pub fn buyer_wire_identity() {
             value: payment.header.clone(),
         },
     )
-    .unwrap();
+    .or_panic("expected Ok value");
     assert_eq!(decoded, payment.payload);
     assert_eq!(decoded.payload["idempotencyKey"], hex(&REFERENCE));
     for transport in TRANSPORTS {
         let decoded = decode_payment_payload(
             transport,
-            &encode_payment_payload(transport, &decoded).unwrap(),
+            &encode_payment_payload(transport, &decoded).or_panic("expected Ok value"),
         )
-        .unwrap();
-        let header = header_value(encode_payment_payload(TransportKind::Http, &decoded).unwrap());
+        .or_panic("expected Ok value");
+        let header = header_value(
+            encode_payment_payload(TransportKind::Http, &decoded).or_panic("expected Ok value"),
+        );
         let seller = Seller::new(required())
-            .unwrap()
+            .or_panic("expected Ok value")
             .with_receipt_keys(receipt_keys());
         let (mut gateway, principal, trace) = gateway();
         let native = evidence("exact", REFERENCE);
@@ -908,13 +1030,13 @@ pub fn buyer_wire_identity() {
             ..
         } = seller
             .settle(&mut gateway, &principal, &header, &mut plane, &trace, 1)
-            .unwrap()
+            .or_panic("expected Ok value")
         else {
             panic!("native payment settles");
         };
         let captured = buyer()
             .capture(&received(transport, &response), &payment, &trace)
-            .unwrap();
+            .or_panic("expected Ok value");
         assert_eq!(captured.response, response);
         assert_eq!(captured.transaction_hash, TRANSACTION);
         assert_eq!(captured.canonical_receipt, native.signed_receipt);
@@ -927,14 +1049,18 @@ pub fn buyer_wire_identity() {
     }
 }
 
+#[test]
 pub fn buyer_refuses_missing_plane_key() {
     let mut output = plane_output();
-    output.as_object_mut().unwrap().remove("idempotencyKey");
+    output
+        .as_object_mut()
+        .or_panic("expected Some value")
+        .remove("idempotencyKey");
     let result = buyer().build_payment(
         &Seller::new(required())
-            .unwrap()
+            .or_panic("expected Ok value")
             .payment_required()
-            .unwrap()
+            .or_panic("expected Ok value")
             .header,
         REFERENCE,
         &mut PaymentTranscript { output },
@@ -944,7 +1070,7 @@ pub fn buyer_refuses_missing_plane_key() {
         result.is_err(),
         "Buyer must refuse construction when the plane omits the native idempotency key"
     );
-    let error = result.unwrap_err();
+    let error = result.err().or_panic("expected Err value");
     assert_eq!(error.trace(), &TraceId::mint([0x92; 16]));
     assert_eq!(error.into_error(), X402Error::PaymentIdentityMissing);
     for malformed in [
@@ -960,44 +1086,47 @@ pub fn buyer_refuses_missing_plane_key() {
         let error = buyer()
             .build_payment(
                 &Seller::new(required())
-                    .unwrap()
+                    .or_panic("expected Ok value")
                     .payment_required()
-                    .unwrap()
+                    .or_panic("expected Ok value")
                     .header,
                 REFERENCE,
                 &mut PaymentTranscript { output },
                 &trace,
             )
-            .unwrap_err();
+            .err()
+            .or_panic("expected Err value");
         assert_eq!(error.trace(), &trace);
         assert_eq!(error.into_error(), X402Error::PaymentIdentityMalformed);
     }
 }
 
+#[test]
 pub fn buyer_refuses_conflicting_plane_key() {
     let mut output = plane_output();
     output["idempotencyKey"] = json!(hex(&[0x75; 32]));
     let result = buyer().build_payment(
         &Seller::new(required())
-            .unwrap()
+            .or_panic("expected Ok value")
             .payment_required()
-            .unwrap()
+            .or_panic("expected Ok value")
             .header,
         REFERENCE,
         &mut PaymentTranscript { output },
         &TraceId::mint([0x93; 16]),
     );
     assert!(result.is_err(), "Buyer must refuse construction when the plane selects a conflicting native idempotency key");
-    let error = result.unwrap_err();
+    let error = result.err().or_panic("expected Err value");
     assert_eq!(error.trace(), &TraceId::mint([0x93; 16]));
     assert_eq!(error.into_error(), X402Error::PaymentIdentityMismatch);
 }
 
+#[test]
 pub fn end_to_end_native_settlement() {
     let seller = Seller::new(required())
-        .unwrap()
+        .or_panic("expected Ok value")
         .with_receipt_keys(receipt_keys());
-    let signal = seller.payment_required().unwrap();
+    let signal = seller.payment_required().or_panic("expected Ok value");
     let payment = buyer()
         .build_payment(
             &signal.header,
@@ -1007,13 +1136,18 @@ pub fn end_to_end_native_settlement() {
             },
             &TraceId::mint([0x94; 16]),
         )
-        .unwrap();
+        .or_panic("expected Ok value");
     let native = evidence("exact", REFERENCE);
-    let independent_digest = canonical_receipt_digest(&native.signed_receipt).unwrap();
-    let decoded = layerx_wire::receipt::decode(&native.signed_receipt).unwrap();
-    let decoded = decoded.protocol().expect("full native protocol receipt");
+    let independent_digest =
+        canonical_receipt_digest(&native.signed_receipt).or_panic("expected Ok value");
+    let decoded =
+        layerx_wire::receipt::decode(&native.signed_receipt).or_panic("expected Ok value");
+    let decoded = decoded.protocol().or_panic("full native protocol receipt");
     assert_eq!(decoded.from(), PAYER);
-    assert_eq!(decoded.to(), account_identifiers(ACCOUNT).unwrap()[1]);
+    assert_eq!(
+        decoded.to(),
+        account_identifiers(ACCOUNT).or_panic("expected Ok value")[1]
+    );
     assert_eq!(
         decoded.debit_balance_before() - decoded.debit_balance_after(),
         1000
@@ -1025,10 +1159,12 @@ pub fn end_to_end_native_settlement() {
     for transport in TRANSPORTS {
         let payload = decode_payment_payload(
             transport,
-            &encode_payment_payload(transport, &payment.payload).unwrap(),
+            &encode_payment_payload(transport, &payment.payload).or_panic("expected Ok value"),
         )
-        .unwrap();
-        let header = header_value(encode_payment_payload(TransportKind::Http, &payload).unwrap());
+        .or_panic("expected Ok value");
+        let header = header_value(
+            encode_payment_payload(TransportKind::Http, &payload).or_panic("expected Ok value"),
+        );
         let (mut gateway, principal, trace) = gateway();
         let mut plane = ExecutionTranscript {
             executed: Some(ExecutedPayment {
@@ -1040,7 +1176,7 @@ pub fn end_to_end_native_settlement() {
         };
         let pending = seller
             .settle(&mut gateway, &principal, &header, &mut plane, &trace, 1)
-            .unwrap();
+            .or_panic("expected Ok value");
         assert!(
             matches!(pending, SellerOutcome::Pending { transaction } if transaction == format!("0x{}", hex(&TRANSACTION)))
         );
@@ -1050,13 +1186,13 @@ pub fn end_to_end_native_settlement() {
         );
         let SellerOutcome::Settled { response, .. } = seller
             .settle(&mut gateway, &principal, &header, &mut plane, &trace, 2)
-            .unwrap()
+            .or_panic("expected Ok value")
         else {
             panic!("confirmed settlement");
         };
         let captured = buyer()
             .capture(&received(transport, &response), &payment, &trace)
-            .unwrap();
+            .or_panic("expected Ok value");
         assert_eq!(captured.receipt_digest, independent_digest);
         assert_eq!(captured.canonical_receipt, native.signed_receipt);
         assert_eq!(captured.response, response);
@@ -1065,6 +1201,7 @@ pub fn end_to_end_native_settlement() {
     }
 }
 
+#[test]
 pub fn identifier_matrix() {
     let trace = TraceId::mint([0x95; 16]);
     for asset_upper in [false, true] {
@@ -1080,11 +1217,14 @@ pub fn identifier_matrix() {
                     }
                     accepted.asset.insert_str(0, asset_prefix);
                     accepted.pay_to.insert_str(0, payee_prefix);
-                    accepted.validate().unwrap();
-                    accepted.layerx_terms().unwrap();
+                    accepted.validate().or_panic("expected Ok value");
+                    accepted.layerx_terms().or_panic("expected Ok value");
                     assert_eq!(
-                        accepted.layerx_facts().unwrap(),
-                        (ASSET, account_identifiers(ACCOUNT).unwrap()[1])
+                        accepted.layerx_facts().or_panic("expected Ok value"),
+                        (
+                            ASSET,
+                            account_identifiers(ACCOUNT).or_panic("expected Ok value")[1]
+                        )
                     );
                     let payment = payment(accepted, REFERENCE);
                     let response = seller_settlement(&payment, evidence("exact", REFERENCE), None);
@@ -1092,7 +1232,7 @@ pub fn identifier_matrix() {
                         let header = received(transport, &response);
                         let captured =
                             Buyer::capture_settlement(&header, &payment, &receipt_keys(), &trace)
-                                .unwrap();
+                                .or_panic("expected Ok value");
                         assert_eq!(captured.response, response);
                         assert_eq!(captured.transaction_hash, TRANSACTION);
                         for field in ["asset", "payTo"] {
@@ -1127,14 +1267,17 @@ pub fn identifier_matrix() {
     }
 }
 
+#[test]
 pub fn facilitator_capture() {
     let trace = TraceId::mint([0x96; 16]);
     for transport in TRANSPORTS {
         for committed in [false, true] {
             let (payment, response, anchor) = facilitator_settlement(transport, "exact", committed);
             let anchors = anchor.into_iter().collect::<Vec<_>>();
-            let wire = encode_facilitator_settlement(transport, &response).unwrap();
-            let decoded = decode_facilitator_settlement(transport, &wire).unwrap();
+            let wire =
+                encode_facilitator_settlement(transport, &response).or_panic("expected Ok value");
+            let decoded =
+                decode_facilitator_settlement(transport, &wire).or_panic("expected Ok value");
             assert_eq!(decoded, response);
             let captured = Buyer::capture_settlement_with_consensus(
                 &received(transport, &decoded),
@@ -1143,7 +1286,7 @@ pub fn facilitator_capture() {
                 &anchors,
                 &trace,
             )
-            .unwrap();
+            .or_panic("expected Ok value");
             assert_eq!(captured.response, response);
             assert_eq!(
                 captured.rung,
@@ -1161,9 +1304,9 @@ pub fn facilitator_capture() {
                 *malformed
                     .extensions
                     .get_mut("layerx")
-                    .unwrap()
+                    .or_panic("expected Some value")
                     .pointer_mut(path)
-                    .unwrap() = value;
+                    .or_panic("expected Some value") = value;
                 assert!(
                     Buyer::capture_settlement_with_consensus(
                         &received(transport, &malformed),
@@ -1185,9 +1328,9 @@ pub fn facilitator_capture() {
                     *malformed
                         .extensions
                         .get_mut("layerx")
-                        .unwrap()
+                        .or_panic("expected Some value")
                         .pointer_mut(path)
-                        .unwrap() = json!("0xgg");
+                        .or_panic("expected Some value") = json!("0xgg");
                     assert!(
                         Buyer::capture_settlement_with_consensus(
                             &received(transport, &malformed),
@@ -1236,14 +1379,14 @@ pub fn rendered_vectors() -> Vec<(
             &trace,
             1,
         )
-        .unwrap();
+        .or_panic("expected Ok value");
     let mut missing = committed.clone();
     missing
         .extensions
         .get_mut("layerx")
-        .unwrap()
+        .or_panic("expected Some value")
         .as_object_mut()
-        .unwrap()
+        .or_panic("expected Some value")
         .remove("proof");
     vec![
         (
@@ -1257,17 +1400,18 @@ pub fn rendered_vectors() -> Vec<(
             "committed_without_proof".to_owned(),
             committed_payment.clone(),
             missing,
-            vec![anchor.clone().unwrap()],
+            vec![anchor.clone().or_panic("expected Some value")],
         ),
         (
             "committed_settlement".to_owned(),
             committed_payment,
             committed,
-            vec![anchor.unwrap()],
+            vec![anchor.or_panic("expected Some value")],
         ),
     ]
 }
 
+#[test]
 pub fn vector_capture() {
     let trace = TraceId::mint([0x97; 16]);
     for (name, payment, response, anchors) in rendered_vectors() {
@@ -1283,7 +1427,7 @@ pub fn vector_capture() {
             if name == "submitted_settlement" || name == "committed_without_proof" {
                 assert!(result.is_err(), "{name}");
             } else {
-                let captured = result.unwrap();
+                let captured = result.or_panic("expected Ok value");
                 assert_eq!(captured.response, response, "{name}");
                 assert_eq!(captured.transaction_hash, TRANSACTION);
                 assert_eq!(
@@ -1303,52 +1447,36 @@ pub fn vector_capture() {
 
 // Restart the production capture store as well as the loopback transcript peer.
 // Economic observations come from the authenticated native protocol receipt.
+#[test]
 pub fn reopened_transport_consumer() {
-    use std::io::{Read as _, Write as _};
-    use std::net::{TcpListener, TcpStream};
-    use std::time::Duration;
     let directory = std::env::temp_dir().join(format!(
         "x402-22-33-105-{}-{:?}",
         std::process::id(),
         std::thread::current().id()
     ));
-    std::fs::create_dir(&directory).unwrap();
+    std::fs::create_dir(&directory).or_panic("expected Ok value");
     let path = directory.join("settlement.json");
     let (payment, response, _) = facilitator_settlement(TransportKind::Http, "exact", false);
     let expected_digest =
         canonical_receipt_digest(&evidence("exact", payment.idempotency_key).signed_receipt)
-            .unwrap();
-    let mut file = std::fs::File::create(&path).unwrap();
-    serde_json::to_writer(&mut file, &response).unwrap();
-    file.sync_all().unwrap();
+            .or_panic("expected Ok value");
+    let mut file = std::fs::File::create(&path).or_panic("expected Ok value");
+    serde_json::to_writer(&mut file, &response).or_panic("expected Ok value");
+    file.sync_all().or_panic("expected Ok value");
     drop(file);
     let pending = rendered_vectors()
         .into_iter()
         .find(|(name, _, _, _)| name == "submitted_settlement")
-        .unwrap()
+        .or_panic("expected Some value")
         .2;
     let trace = TraceId::mint([0x98; 16]);
     let store_path = directory.join("native-captures");
-    let mut store =
-        layerx_x402::store::SettlementStore::open(&store_path, &buyer(), &trace).unwrap();
-    assert!(store.get(&payment.idempotency_key).is_none());
-    assert!(!pending.success);
-    assert_eq!(pending.transaction, response.transaction);
-    assert_eq!(
-        pending.extensions["layerx"]["verificationLevel"],
-        "submitted"
-    );
-    assert!(buyer()
-        .capture(&received(TransportKind::Http, &pending), &payment, &trace)
-        .is_err());
-    assert!(matches!(
-        store.capture(&buyer(), &received(TransportKind::Http, &pending), &payment, &trace),
-        Err(layerx_x402::store::SettlementStoreError::Payment(error))
-            if error.error() == &X402Error::PaymentPending
-    ));
+    let mut store = layerx_x402::store::SettlementStore::open(&store_path, &buyer(), &trace)
+        .or_panic("expected Ok value");
+    assert_pending_response(&mut store, &payment, &response, &pending, &trace);
     drop(store);
-    let mut store =
-        layerx_x402::store::SettlementStore::open(&store_path, &buyer(), &trace).unwrap();
+    let mut store = layerx_x402::store::SettlementStore::open(&store_path, &buyer(), &trace)
+        .or_panic("expected Ok value");
     assert!(store.get(&payment.idempotency_key).is_none());
 
     // A stored success exists before the peer loses the acknowledgement.
@@ -1359,96 +1487,31 @@ pub fn reopened_transport_consumer() {
             &payment,
             &trace,
         )
-        .unwrap();
+        .or_panic("expected Ok value");
     assert_eq!(stored.receipt_digest, expected_digest);
     assert_eq!(store.get(&payment.idempotency_key), Some(&stored));
     drop(store);
     let stored_files: Vec<_> = std::fs::read_dir(&store_path)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
+        .or_panic("expected Ok value")
+        .map(|entry| entry.or_panic("expected Ok value").path())
         .collect();
     assert_eq!(stored_files.len(), 1);
-    let stored_bytes = std::fs::read(&stored_files[0]).unwrap();
+    let stored_bytes = std::fs::read(&stored_files[0]).or_panic("expected Ok value");
     let untrusted = Buyer::new(vec![SupportedKind {
         scheme: "exact".to_owned(),
         network: "eip155:125".to_owned(),
     }])
-    .unwrap();
+    .or_panic("expected Ok value");
     assert!(layerx_x402::store::SettlementStore::open(&store_path, &untrusted, &trace).is_err());
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let address = listener.local_addr().unwrap();
-    let lost = std::thread::spawn(move || {
-        let (mut stream, _) = listener.accept().unwrap();
-        let mut request = [0; 1];
-        stream.read_exact(&mut request).unwrap();
-        assert_eq!(request, [1]);
-        // End the peer before delivering its already persisted success.
-    });
-    let mut stream = TcpStream::connect(address).unwrap();
-    stream
-        .set_read_timeout(Some(Duration::from_secs(5)))
-        .unwrap();
-    stream.write_all(&[1]).unwrap();
-    let mut byte = [0];
-    assert_eq!(stream.read(&mut byte).unwrap(), 0);
-    lost.join().unwrap();
-    drop(stream);
+    assert_lost_acknowledgement();
 
     for transport in TRANSPORTS {
         for _delivery in 0..2 {
-            let path = path.clone();
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            let address = listener.local_addr().unwrap();
-            let server = std::thread::spawn(move || {
-                let response: SettlementResponse =
-                    serde_json::from_reader(std::fs::File::open(path).unwrap()).unwrap();
-                let wire = encode_settlement(transport, &response).unwrap();
-                let bytes = match wire {
-                    TransportValue::HttpHeader { value, .. } => value.into_bytes(),
-                    TransportValue::Json(value) => serde_json::to_vec(&value).unwrap(),
-                };
-                let (mut stream, _) = listener.accept().unwrap();
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
-                stream
-                    .set_write_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
-                let mut request = [0; 1];
-                stream.read_exact(&mut request).unwrap();
-                assert_eq!(request, [1]);
-                stream
-                    .write_all(&(bytes.len() as u64).to_be_bytes())
-                    .unwrap();
-                stream.write_all(&bytes).unwrap();
-            });
-            let mut stream = TcpStream::connect(address).unwrap();
-            stream
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .unwrap();
-            stream
-                .set_write_timeout(Some(Duration::from_secs(5)))
-                .unwrap();
-            stream.write_all(&[1]).unwrap();
-            let mut length = [0; 8];
-            stream.read_exact(&mut length).unwrap();
-            let length = usize::try_from(u64::from_be_bytes(length)).unwrap();
-            assert!(length <= 65536);
-            let mut bytes = vec![0; length];
-            stream.read_exact(&mut bytes).unwrap();
-            server.join().unwrap();
-            let wire = match transport {
-                TransportKind::Http => TransportValue::HttpHeader {
-                    name: layerx_x402::model::PAYMENT_RESPONSE_HEADER,
-                    value: String::from_utf8(bytes).unwrap(),
-                },
-                _ => TransportValue::Json(serde_json::from_slice(&bytes).unwrap()),
-            };
-            let recovered = decode_settlement(transport, &wire).unwrap();
+            let recovered = replay_peer_response(path.clone(), transport);
             let reopened_buyer = buyer();
             let mut store =
                 layerx_x402::store::SettlementStore::open(&store_path, &reopened_buyer, &trace)
-                    .unwrap();
+                    .or_panic("expected Ok value");
             assert_eq!(store.get(&payment.idempotency_key), Some(&stored));
             let captured = store
                 .capture(
@@ -1457,38 +1520,193 @@ pub fn reopened_transport_consumer() {
                     &payment,
                     &trace,
                 )
-                .unwrap();
+                .or_panic("expected Ok value");
             assert_eq!(store.get(&payment.idempotency_key), Some(&captured));
-            assert_eq!(std::fs::read_dir(&store_path).unwrap().count(), 1);
-            assert_eq!(std::fs::read(&stored_files[0]).unwrap(), stored_bytes);
-            drop(store);
-            assert_eq!(captured.response, response);
-            assert_eq!(captured.receipt_digest, expected_digest);
-            assert_eq!(captured.transaction_hash, TRANSACTION);
-            let receipt = layerx_wire::receipt::decode(&captured.canonical_receipt).unwrap();
-            let receipt = receipt.protocol().expect("full native protocol receipt");
-            assert_eq!(receipt.debit_balance_before(), 5000);
-            assert_eq!(receipt.debit_balance_after(), 4000);
-            assert_eq!(receipt.credit_balance_before(), 0);
-            assert_eq!(receipt.credit_balance_after(), 1000);
-            assert_eq!(receipt.debit_sequence(), 1);
-            let verified = verify_sequencer_signature(
-                &captured.canonical_receipt,
-                reopened_buyer.receipt_keys(),
-            )
-            .unwrap();
-            let native = evidence("exact", payment.idempotency_key);
             assert_eq!(
-                verify_logs(&verified, native.logs).unwrap().logs()[0].topics()[1],
-                payment.idempotency_key
+                std::fs::read_dir(&store_path)
+                    .or_panic("expected Ok value")
+                    .count(),
+                1
+            );
+            assert_eq!(
+                std::fs::read(&stored_files[0]).or_panic("expected Ok value"),
+                stored_bytes
+            );
+            drop(store);
+            assert_native_capture(
+                &captured,
+                &reopened_buyer,
+                &payment,
+                &response,
+                expected_digest,
             );
         }
     }
     // A corrupt committed record must refuse reopen, never disappear as a cache miss.
-    std::fs::write(&stored_files[0], b"{}").unwrap();
+    std::fs::write(&stored_files[0], b"{}").or_panic("expected Ok value");
     assert!(layerx_x402::store::SettlementStore::open(&store_path, &buyer(), &trace).is_err());
-    std::fs::remove_file(&stored_files[0]).unwrap();
-    std::fs::remove_dir(store_path).unwrap();
-    std::fs::remove_file(path).unwrap();
-    std::fs::remove_dir(directory).unwrap();
+    std::fs::remove_file(&stored_files[0]).or_panic("expected Ok value");
+    std::fs::remove_dir(store_path).or_panic("expected Ok value");
+    std::fs::remove_file(path).or_panic("expected Ok value");
+    std::fs::remove_dir(directory).or_panic("expected Ok value");
+}
+
+fn assert_pending_response(
+    store: &mut layerx_x402::store::SettlementStore,
+    payment: &BuiltPayment,
+    response: &SettlementResponse,
+    pending: &SettlementResponse,
+    trace: &TraceId,
+) {
+    assert!(store.get(&payment.idempotency_key).is_none());
+    assert!(!pending.success);
+    assert_eq!(pending.transaction, response.transaction);
+    assert_eq!(
+        pending.extensions["layerx"]["verificationLevel"],
+        "submitted"
+    );
+    assert!(buyer()
+        .capture(&received(TransportKind::Http, pending), payment, trace)
+        .is_err());
+    assert!(matches!(
+        store.capture(&buyer(), &received(TransportKind::Http, pending), payment, trace),
+        Err(layerx_x402::store::SettlementStoreError::Payment(error))
+            if error.error() == &X402Error::PaymentPending
+    ));
+}
+
+fn assert_lost_acknowledgement() {
+    use std::io::{Read as _, Write as _};
+    use std::net::{TcpListener, TcpStream};
+    use std::time::Duration;
+    let listener = TcpListener::bind("127.0.0.1:0").or_panic("expected Ok value");
+    let address = listener.local_addr().or_panic("expected Ok value");
+    let lost = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().or_panic("expected Ok value");
+        let mut request = [0; 1];
+        stream
+            .read_exact(&mut request)
+            .or_panic("expected Ok value");
+        assert_eq!(request, [1]);
+        // End the peer before delivering its already persisted success.
+    });
+    let mut stream = TcpStream::connect(address).or_panic("expected Ok value");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .or_panic("expected Ok value");
+    stream.write_all(&[1]).or_panic("expected Ok value");
+    let mut byte = [0];
+    assert_eq!(stream.read(&mut byte).or_panic("expected Ok value"), 0);
+    lost.join().or_panic("expected Ok value");
+    drop(stream);
+}
+
+fn replay_peer_response(path: std::path::PathBuf, transport: TransportKind) -> SettlementResponse {
+    use std::io::{Read as _, Write as _};
+    use std::net::{TcpListener, TcpStream};
+    use std::time::Duration;
+    let listener = TcpListener::bind("127.0.0.1:0").or_panic("expected Ok value");
+    let address = listener.local_addr().or_panic("expected Ok value");
+    let server = std::thread::spawn(move || {
+        let response: SettlementResponse =
+            serde_json::from_reader(std::fs::File::open(path).or_panic("expected Ok value"))
+                .or_panic("expected Ok value");
+        let wire = encode_settlement(transport, &response).or_panic("expected Ok value");
+        let bytes = match wire {
+            TransportValue::HttpHeader { value, .. } => value.into_bytes(),
+            TransportValue::Json(value) => serde_json::to_vec(&value).or_panic("expected Ok value"),
+        };
+        let (mut stream, _) = listener.accept().or_panic("expected Ok value");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .or_panic("expected Ok value");
+        stream
+            .set_write_timeout(Some(Duration::from_secs(5)))
+            .or_panic("expected Ok value");
+        let mut request = [0; 1];
+        stream
+            .read_exact(&mut request)
+            .or_panic("expected Ok value");
+        assert_eq!(request, [1]);
+        stream
+            .write_all(&(bytes.len() as u64).to_be_bytes())
+            .or_panic("expected Ok value");
+        stream.write_all(&bytes).or_panic("expected Ok value");
+    });
+    let mut stream = TcpStream::connect(address).or_panic("expected Ok value");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .or_panic("expected Ok value");
+    stream
+        .set_write_timeout(Some(Duration::from_secs(5)))
+        .or_panic("expected Ok value");
+    stream.write_all(&[1]).or_panic("expected Ok value");
+    let mut length = [0; 8];
+    stream.read_exact(&mut length).or_panic("expected Ok value");
+    let length = usize::try_from(u64::from_be_bytes(length)).or_panic("expected Ok value");
+    assert!(length <= 65536);
+    let mut bytes = vec![0; length];
+    stream.read_exact(&mut bytes).or_panic("expected Ok value");
+    server.join().or_panic("expected Ok value");
+    let wire = match transport {
+        TransportKind::Http => TransportValue::HttpHeader {
+            name: layerx_x402::model::PAYMENT_RESPONSE_HEADER,
+            value: String::from_utf8(bytes).or_panic("expected Ok value"),
+        },
+        _ => TransportValue::Json(serde_json::from_slice(&bytes).or_panic("expected Ok value")),
+    };
+    decode_settlement(transport, &wire).or_panic("expected Ok value")
+}
+
+fn assert_native_capture(
+    captured: &layerx_x402::buyer::CapturedSettlement,
+    reopened_buyer: &Buyer,
+    payment: &BuiltPayment,
+    response: &SettlementResponse,
+    expected_digest: [u8; 32],
+) {
+    assert_eq!(&captured.response, response);
+    assert_eq!(captured.receipt_digest, expected_digest);
+    assert_eq!(captured.transaction_hash, TRANSACTION);
+    let receipt =
+        layerx_wire::receipt::decode(&captured.canonical_receipt).or_panic("expected Ok value");
+    let receipt = receipt.protocol().or_panic("full native protocol receipt");
+    assert_eq!(receipt.debit_balance_before(), 5000);
+    assert_eq!(receipt.debit_balance_after(), 4000);
+    assert_eq!(receipt.credit_balance_before(), 0);
+    assert_eq!(receipt.credit_balance_after(), 1000);
+    assert_eq!(receipt.debit_sequence(), 1);
+    let verified =
+        verify_sequencer_signature(&captured.canonical_receipt, reopened_buyer.receipt_keys())
+            .or_panic("expected Ok value");
+    let native = evidence("exact", payment.idempotency_key);
+    assert_eq!(
+        verify_logs(&verified, native.logs)
+            .or_panic("expected Ok value")
+            .logs()[0]
+            .topics()[1],
+        payment.idempotency_key
+    );
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

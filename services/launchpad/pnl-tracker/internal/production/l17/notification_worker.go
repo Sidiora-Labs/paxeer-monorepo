@@ -2,10 +2,11 @@ package l17
 
 import (
 	"context"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"strings"
 	"sync"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 )
 
 type NotificationWorker struct{ Relay delivery.Relay }

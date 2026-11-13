@@ -1,0 +1,20 @@
+[manifest]
+task = "22.43.228"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "tools/v6120-halt-export/repair_m867.kvx"
+to = "spec/layerx-merge/programme/records/tools/v6120-halt-export/repair_m867.kvx"
+
+[file.2]
+from = "tools/v6120-halt-export/repair_m867_test.go"
+to = "tools/v6120-halt-export/snapshot_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m867_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_867_"

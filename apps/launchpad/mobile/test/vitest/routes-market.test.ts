@@ -59,7 +59,7 @@ async function marketReadsUseV2PoolRoutes() {
   const detail = {
     ...envelope,
     data: {
-      pool,
+      pool: { ...pool, homeChain: '0' },
       token: {
         address: tokenAddress,
         decimals: null,

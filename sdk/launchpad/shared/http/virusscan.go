@@ -7,8 +7,10 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"regexp"
@@ -85,8 +87,16 @@ func ScanBuffer(ctx context.Context, data []byte, opts ScanOptions) ScanResult {
 	if err != nil {
 		return fail(ScanUnavailable, "clamav-unreachable")
 	}
-	defer conn.Close()
-	stop := context.AfterFunc(ctx, func() { conn.Close() })
+	defer func() {
+		if cleanupErr := conn.Close(); cleanupErr != nil && !errors.Is(cleanupErr, net.ErrClosed) {
+			log.Printf("scanner connection close: %v", cleanupErr)
+		}
+	}()
+	stop := context.AfterFunc(ctx, func() {
+		if cleanupErr := conn.Close(); cleanupErr != nil && !errors.Is(cleanupErr, net.ErrClosed) {
+			log.Printf("scanner connection close: %v", cleanupErr)
+		}
+	})
 	defer stop()
 	deadline, _ := ctx.Deadline()
 	if conn.SetDeadline(deadline) != nil {
@@ -173,8 +183,16 @@ func ScannerVersion(ctx context.Context, opts ScanOptions) (ScanOptions, error) 
 	if e != nil {
 		return opts, fmt.Errorf("scanner unavailable")
 	}
-	defer conn.Close()
-	stop := context.AfterFunc(bounded, func() { conn.Close() })
+	defer func() {
+		if cleanupErr := conn.Close(); cleanupErr != nil && !errors.Is(cleanupErr, net.ErrClosed) {
+			log.Printf("scanner connection close: %v", cleanupErr)
+		}
+	}()
+	stop := context.AfterFunc(bounded, func() {
+		if cleanupErr := conn.Close(); cleanupErr != nil && !errors.Is(cleanupErr, net.ErrClosed) {
+			log.Printf("scanner connection close: %v", cleanupErr)
+		}
+	})
 	defer stop()
 	deadline, _ := bounded.Deadline()
 	if conn.SetDeadline(deadline) != nil {
@@ -187,21 +205,32 @@ func ScannerVersion(ctx context.Context, opts ScanOptions) (ScanOptions, error) 
 	if e != nil || len(reply) > 1024 {
 		return opts, fmt.Errorf("scanner unavailable")
 	}
-	parts := strings.Split(strings.TrimSuffix(reply, "\x00"), "/")
-	if len(parts) != 3 || !strings.HasPrefix(parts[0], "ClamAV ") {
-		return opts, fmt.Errorf("scanner unavailable")
-	}
-	engine := strings.TrimPrefix(parts[0], "ClamAV ")
-	if !regexp.MustCompile(`^[0-9]+(?:\.[0-9]+){1,3}(?:[-a-zA-Z0-9.]*)$`).MatchString(engine) || !regexp.MustCompile(`^[1-9][0-9]{0,15}$`).MatchString(parts[1]) || strings.TrimSpace(parts[2]) == "" {
-		return opts, fmt.Errorf("scanner unavailable")
+	engine, revision, e := parseScannerVersionReply(reply)
+	if e != nil {
+		return opts, e
 	}
 	opts.Host = host
 	opts.Port = port
 	opts.Timeout = timeout
-	opts.Engine = "ClamAV " + engine
-	opts.SignatureRevision = parts[1]
+	opts.Engine = engine
+	opts.SignatureRevision = revision
 	return opts, nil
 }
+func parseScannerVersionReply(reply string) (string, string, error) {
+	if len(reply) > 1024 || !strings.HasSuffix(reply, "\x00") {
+		return "", "", fmt.Errorf("scanner unavailable")
+	}
+	parts := strings.Split(strings.TrimSuffix(reply, "\x00"), "/")
+	if len(parts) != 3 || !strings.HasPrefix(parts[0], "ClamAV ") {
+		return "", "", fmt.Errorf("scanner unavailable")
+	}
+	engine := strings.TrimPrefix(parts[0], "ClamAV ")
+	if !regexp.MustCompile(`^[0-9]+(?:\.[0-9]+){1,3}(?:[-a-zA-Z0-9.]*)$`).MatchString(engine) || !regexp.MustCompile(`^[1-9][0-9]{0,15}$`).MatchString(parts[1]) || strings.TrimSpace(parts[2]) == "" {
+		return "", "", fmt.Errorf("scanner unavailable")
+	}
+	return "ClamAV " + engine, parts[1], nil
+}
+
 func ScanVerifiedBuffer(ctx context.Context, data []byte, opts ScanOptions) ScanResult {
 	verified, e := ScannerVersion(ctx, opts)
 	if e != nil {

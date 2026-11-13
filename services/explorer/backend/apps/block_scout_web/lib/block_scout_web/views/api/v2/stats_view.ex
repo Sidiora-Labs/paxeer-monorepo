@@ -10,6 +10,10 @@ defmodule BlockScoutWeb.API.V2.StatsView do
     }
   end
 
+  def render("secondary_coin_market_chart.json", %{history: history}) do
+    %{chart_data: Enum.map(history, &Map.take(&1, [:closing_price, :market_cap, :date]))}
+  end
+
   defp prepare_hot_contract(hot_contract) do
     balance =
       hot_contract.contract_address.fetched_coin_balance && hot_contract.contract_address.fetched_coin_balance.value

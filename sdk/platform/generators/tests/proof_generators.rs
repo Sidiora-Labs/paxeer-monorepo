@@ -1,13 +1,7 @@
-//! Proves: ReceiptContract/programs_contracts -> layerx-platform-sdkgen subprocess -> 104.38.6.sh::check_program_contracts/run.
-//!
-//! The writer reads the real receipt.kvx, Programs schema and canonical ABI policy;
-//! the gate invokes the built checker and consumes its exit status and diagnostics.
-//! Every check is a new gate and binary process. Regeneration after source changes
-//! and refusal after output corruption prove that no successful check is cached.
-//! Repair: sdk/platform/generators/src/main.rs::run silently ignored excess
-//! program-contract arguments; both modes now refuse them before any I/O.
-//! The gate's focused mode shares check_program_contracts with its full suite,
-//! so this proof uses its production subprocess and refusal handling directly.
+//! Exercises the receipt contract generator and the production contract checker.
+//! The writer reads the receipt schema, Programs schema, and canonical ABI policy.
+//! Each check launches a new process and reads its exit status and diagnostics.
+//! The focused mode shares `check_program_contracts` with the full suite.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -233,7 +227,10 @@ fn proof_generators_write_crosses_real_gate_repeatedly_and_refuses_corrupt_outpu
     root.write();
     let regenerated = root.snapshot();
     for ((relative, before), after) in OUTPUTS.iter().zip(&original).zip(&regenerated) {
-        if relative.ends_with(".pyi") {
+        if Path::new(relative)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("pyi"))
+        {
             assert_eq!(
                 before, after,
                 "stub declarations do not carry domain values"

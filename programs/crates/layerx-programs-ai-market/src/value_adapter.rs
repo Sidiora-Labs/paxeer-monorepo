@@ -145,7 +145,7 @@ impl RewardsAccount {
     /// `F06_INVALID_AMOUNT` for a zero amount.
     pub fn deposit(&self, amount: Amount) -> CodecResult<ProgramDeposit<'static>> {
         ProgramDeposit::new(
-            self.seed()?,
+            Self::seed()?,
             self.sdk_account()?,
             self.sdk_asset()?,
             sdk_amount(amount)?,
@@ -166,7 +166,7 @@ impl RewardsAccount {
         let to =
             layerx_program_sdk::AccountId::new(recipient.bytes()).map_err(|_| ACCOUNT_BINDING)?;
         ProgramAccountPayment::new(
-            self.seed()?,
+            Self::seed()?,
             self.sdk_account()?,
             self.sdk_asset()?,
             to,
@@ -174,7 +174,7 @@ impl RewardsAccount {
         )
         .map_err(|_| F06_INVALID_AMOUNT)
     }
-    fn seed(&self) -> CodecResult<layerx_program_sdk::ProgramAccountSeed<'static>> {
+    fn seed() -> CodecResult<layerx_program_sdk::ProgramAccountSeed<'static>> {
         layerx_program_sdk::ProgramAccountSeed::new(REWARDS_ACCOUNT_SEED)
             .map_err(|_| ACCOUNT_BINDING)
     }
