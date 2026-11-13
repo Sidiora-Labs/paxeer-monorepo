@@ -7,7 +7,7 @@ proposal stops the render; successful output contains unsigned transactions.
 
 Paxeer is one BFT network: the kernel is part of the network and proposes blocks,
 and a receipt is final when its block is committed. These are native chain
-governance proposals. The kit retains the `v6.12.0` plan name from
+governance proposals. The renderer uses the `v6.12.0` plan name declared in
 [`node/upgrades_v6120.go`](../../../node/upgrades_v6120.go).
 
 ## Render
@@ -33,8 +33,8 @@ overriding `--from` does not change that message authority.
 `--kernel-network-id` is a positive uint32 used by the xweb proposal; use `125`
 for mainnet-beta.
 
-The selected bridge manifest must exist even when no `--bridge-config` is
-supplied: the renderer resolves its path before generating proposals.
+The renderer resolves the bridge manifest path before generating proposals.
+Bridge generation reads that manifest when `--bridge-config` is supplied.
 
 ## Outputs
 

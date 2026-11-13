@@ -12,9 +12,7 @@ is committed. Public JSON-RPC uses the root URL of
 [public RPC reference](../../docs/site/docs/reference/public-rpc.md).
 
 The checked-in [profiles](profiles/) target operator-owned loopback nodes on chain
-125. Qualification tests use isolated loopback JSON-RPC transcripts; those results
-do not qualify a live chain's throughput. A different chain ID requires an
-explicitly isolated node and a matching profile.
+125. A different chain ID requires an isolated node and a matching profile.
 Before any deployment or traffic, the executable calls `eth_chainId` on **every**
 configured endpoint, including entries excluded by `--nodes`, and refuses a
 mismatch. The CLI has no chain-ID override flag. All endpoints must serve the
@@ -111,14 +109,14 @@ The `settings` column gives the nested JSON key.
 | `--debug` | `false` | `debug` | Enable detailed transaction and endpoint logging |
 | `--track-receipts` | `false` | `trackReceipts` | Poll submitted transaction receipts |
 | `--track-blocks` | `false` | `trackBlocks` | Subscribe to new heads using the first endpoint |
-| `--track-user-latency` | `false` | `trackUserLatency` | Read timestamp-valued transactions from the first endpoint's latest block |
+| `--track-user-latency` | `false` | `trackUserLatency` | Start a receipt-observation loop on the first endpoint |
 | `--prewarm` | `false` | `prewarm` | Queue account self-transactions before the main workload |
 | `--ramp-up` | `false` | `rampUp` | Adjust the shared limiter using the built-in ramp curve and block observations |
 | `--metricsListenAddr` | `0.0.0.0:9090` | — | Prometheus HTTP listener; serves `/metrics` |
 | `--report-path` | Empty | `reportPath` | Write final statistics as JSON |
 | `--min-tps` | `0` | `minTps` | Minimum overall average submission TPS; 0 disables |
 | `--max-p99-latency` | `0s` | `maxP99Latency` | Maximum send p99 per reported endpoint; 0 disables |
-| `--min-total-txs` | `0` | `minTotalTxs` | Minimum total submission attempts; 0 disables |
+| `--min-total-txs` | `0` | `minTotalTxs` | Minimum accepted submissions; 0 disables |
 | `--txs-dir` | Empty | `txsDir` | Dispatch transactions to files instead of the sender |
 | `--target-gas` | `10000000` | `targetGas` | Gas budget per transaction-file batch |
 | `--num-blocks-to-write` | `100` | `numBlocksToWrite` | Transaction-file batch limit |
@@ -140,11 +138,7 @@ adds a minimum total, and writes a JSON report after graceful shutdown:
 It requires the fixture's funding behavior described above. Thresholds are
 examples, not network guarantees.
 
-The following profile invocation is qualified by
-`TestRepairM_817_LoadtestReadme`: the test runs the actual executable against an
-isolated chain-125 loopback transcript, retaining the shipped profile and overriding
-only endpoint addresses in a temporary copy. In your environment, provide the
-profile's local chain-125 RPC node before running:
+For a simulation, provide the profile's local chain-125 RPC node and run:
 
 ```bash
 ./build/paxload --config profiles/evm_transfer.json --dry-run \
@@ -153,12 +147,9 @@ profile's local chain-125 RPC node before running:
   --report-path fixture-report.json --metricsListenAddr 127.0.0.1:0
 ```
 
-After a statistics interval, Ctrl+C yields exit status 0 once at least one
-simulated submission completes. `--min-total-txs 18446744073709551615` produces a
-regression with exit status 1 on shutdown. The signal tests separately qualify
-successful, regressed, and refused live submissions with actual process exit
-codes for SIGINT and SIGTERM. This qualifies CLI generation and reporting;
-`--dry-run` does not measure chain execution performance and still checks identity.
+After a statistics interval, Ctrl+C requests shutdown and bound evaluation.
+Dry-run statistics describe simulated sends; the executable still checks chain
+identity before generation.
 
 ### High Throughput Test
 
@@ -196,9 +187,10 @@ use the root WebSocket URL. See [utils/endpoint.go](utils/endpoint.go).
   --track-user-latency --stats-interval 5s
 ```
 
-This tracker interprets positive transaction values as Unix timestamps, matching
-the `EVMTransfer` workload. It scans the latest block, not just this process's
-transactions, and is meaningful only for a controlled workload with that encoding.
+The [tracker](stats/user_latency_tracker.go) measures elapsed time from a
+registered send to observation of its committed receipt, checking the receipt's
+block and transaction index. Only hashes registered with `TrackTransaction`
+contribute samples; transaction values do not supply timing data.
 
 ## Configuration
 
@@ -305,10 +297,14 @@ failed bound (`min_average_tps`, `min_total_txs`, or
 failing performance run can still leave its statistics for inspection. Successful
 shutdown with satisfied bounds and no run/report error returns exit **0**.
 
-Total transactions and average TPS count completed **submission attempts, including
-failed sends**. The p99 check uses successful send-call latency samples retained
-per endpoint, not receipt or commit latency, and only checks endpoints present in
-the final endpoint map. Receipt failures are logged; submission failures survive draining and cause
+`load_test_statistics.total_txs` and scenario counts include failed submission
+attempts. `overall_performance.total_transactions` and average TPS count
+**accepted submissions**. The p99 check uses successful send-call latency samples
+retained per endpoint, rather than receipt or commit latency. Enabled success
+bounds require at least one accepted sample; the p99 bound also requires samples
+for every endpoint named in `required_endpoints` or `endpoint_performance`.
+An incomplete report fails any enabled bound. Receipt failures are logged;
+submission failures survive draining and cause
 exit status 1, as do metrics startup/serve failures, drain timeouts, writer
 finalization failures, and report write failures. Inspect errors and sample counts
 alongside bounds when judging a live run. Dry-run samples measure simulated sends;
@@ -324,7 +320,8 @@ The [scenario factory](generator/scenarios/factory.go) registers:
 - **ERC20Noop**: Calls a test token whose transfer returns without changing balances.
 - **ERC20Conflict**: Test-token transfers that also update a shared counter.
 - **ERC721**: Mints using the bundled test NFT contract.
-- **Disperse**: Calls the bundled disperse contract with 100 generated recipients.
+- **Disperse**: Calls the bundled disperse contract with up to four fresh
+  recipients, limited by the transaction gas budget.
 
 Contract scenarios deploy their own test contracts unless deployment is simulated.
 These are workload contracts, not production token or module addresses. Scenario
@@ -346,29 +343,27 @@ selected by `--metricsListenAddr`.
 
 ### User Latency (with --track-user-latency)
 
-```text
-user latency height=5191 txs=32 min=1s p50=2s max=5s
-```
-
-This is the timestamp-value estimate described above, separate from send latency.
+The observation log reports the scope, sample count, missing receipts and
+per-endpoint outcomes. The scope is
+`full_run_send_to_committed_receipt_observation`; an empty sample set is reported
+as `insufficient_samples=true`.
 
 ### Block Stats (with --track-blocks)
 
-```text
-blocks height=5191 time(p50=2s p99=5s max=8s) gas(p50=21000 p99=50000 max=100000)
-```
-
-Block time here measures time between observed headers. It does not measure a
-separate settlement stage.
+The final block statistics report committed-header timestamp intervals, gas
+usage and delivery lag separately. The collector backfills missing heights and
+checks parent hashes. Its scope is `full_run_committed_headers`.
 
 ### JSON Report
 
-Reports contain `load_test_statistics`, `scenario_distribution`,
+Reports contain `required_endpoints`, `outcomes`, `throughput_basis`,
+`commit_evidence`, `incomplete`, `load_test_statistics`, `scenario_distribution`,
 `endpoint_performance`, `overall_tps`, and `overall_performance`, plus optional
-`block_statistics` and `gas_statistics`. Go duration fields, including
+`user_latency`, `evidence_errors`, `block_statistics` and `gas_statistics`.
+`throughput_basis` is `node_accepted_submissions`. Go duration fields, including
 `endpoint_performance.<endpoint>.latency_p99` and
 `overall_performance.total_runtime`, are JSON integers in **nanoseconds**.
-`start_time` is a timestamp string. The report is final statistics, not a list of
+`load_test_statistics.start_time` is a timestamp string. The report is final statistics, not a list of
 bound verdicts. See [stats/logger.go](stats/logger.go) for the exact schema.
 
 ## Development

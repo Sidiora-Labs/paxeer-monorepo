@@ -4,9 +4,7 @@ The sidecar opens a Cosmos SDK keyring at startup when configured to do so.
 The keyring is the entry point for all transaction-signing tasks (governance
 votes, software-upgrade proposals and deposits).
 
-This document covers the operator-facing contract. Operators must provide the
-keyring directory in the pod through a Kubernetes Secret projection and configure
-the environment variables below.
+Configure the keyring directory and backend with the environment variables below.
 
 ## Environment contract
 
@@ -34,9 +32,8 @@ When `SEI_KEYRING_BACKEND` is set, the sidecar:
 1. Reads and unsets `SEI_KEYRING_PASSPHRASE` before checking the backend, then
    reads `SEI_KEYRING_BACKEND` and `SEI_KEYRING_DIR`.
 2. Validates the backend value and (for `file`) the presence of a passphrase.
-   A missing passphrase on the file backend is a startup error — operators
-   see a clear `SEI_KEYRING_PASSPHRASE required when SEI_KEYRING_BACKEND=file`
-   message and the pod CrashLoopBackOffs.
+   A missing passphrase on the file backend stops `serve` with
+   `SEI_KEYRING_PASSPHRASE required when SEI_KEYRING_BACKEND=file`.
 3. Opens the keyring through the Cosmos SDK.
 4. Runs a structural liveness check (`kr.List()`) with a bounded retry of 3
    attempts, 2 seconds between attempts. The retry absorbs the rare kubelet
@@ -71,8 +68,7 @@ no keyring object and live in different packages.
 
 ## Operator runbook
 
-Create the keyring locally, project its files into the validator pod using a
-Kubernetes Secret, and set `SEI_KEYRING_BACKEND` and `SEI_KEYRING_DIR` according to
-the environment contract above. For the `file` backend, supply
-`SEI_KEYRING_PASSPHRASE` from a Secret. Mount the keyring read-only and restart the
-sidecar after rotating the projected keyring or passphrase.
+Populate the configured keyring directory from the deployment's secret storage
+and set `SEI_KEYRING_BACKEND` and `SEI_KEYRING_DIR` according to the environment
+contract above. For the `file` backend, supply `SEI_KEYRING_PASSPHRASE` from a
+Secret. Restart the sidecar after rotating the keyring or passphrase.
