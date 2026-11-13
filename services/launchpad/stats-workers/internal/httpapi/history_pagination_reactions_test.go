@@ -46,7 +46,7 @@ import (
 // signature codec and reaction authority are production implementations. Only
 // the peer executes these explicitly supported transcript statements; this is
 // not PostgreSQL execution-plan or production capacity evidence.
-type repair1039Tables struct {
+type historyPaginationTables struct {
 	Transactions  map[string]store.TransactionRow
 	Cross         map[string]store.CrossTokenSwapRow
 	Pools         map[string]store.PoolStatsRow
@@ -59,10 +59,10 @@ type repair1039Tables struct {
 	Outbox        []string
 	Audit         []string
 }
-type repair1039DB struct {
+type historyPaginationDB struct {
 	t            *testing.T
 	mu           sync.Mutex
-	Tables       repair1039Tables
+	Tables       historyPaginationTables
 	Now          time.Time
 	File         string
 	Listener     net.Listener
@@ -75,16 +75,16 @@ type repair1039DB struct {
 	Queries      []string
 }
 
-func repair1039Database(t *testing.T) (*repair1039DB, *pgxpool.Pool) {
+func historyPaginationDatabase(t *testing.T) (*historyPaginationDB, *pgxpool.Pool) {
 	t.Helper()
-	d := &repair1039DB{t: t, File: filepath.Join(t.TempDir(), "tables.json"), Now: time.Now().UTC()}
-	d.Tables = repair1039Tables{Transactions: map[string]store.TransactionRow{}, Cross: map[string]store.CrossTokenSwapRow{}, Pools: map[string]store.PoolStatsRow{}, Votes: map[string]analytics.ReactionResult{}, Nonces: map[string][]string{}, Ledger: map[string][]string{}, WalletChanges: map[string]time.Time{}}
+	d := &historyPaginationDB{t: t, File: filepath.Join(t.TempDir(), "tables.json"), Now: time.Now().UTC()}
+	d.Tables = historyPaginationTables{Transactions: map[string]store.TransactionRow{}, Cross: map[string]store.CrossTokenSwapRow{}, Pools: map[string]store.PoolStatsRow{}, Votes: map[string]analytics.ReactionResult{}, Nonces: map[string][]string{}, Ledger: map[string][]string{}, WalletChanges: map[string]time.Time{}}
 	d.start()
 	pool := d.openPool()
 	t.Cleanup(func() { pool.Close(); d.Listener.Close(); d.Connections.Wait() })
 	return d, pool
 }
-func (d *repair1039DB) start() {
+func (d *historyPaginationDB) start() {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		d.t.Fatal(err)
@@ -101,7 +101,7 @@ func (d *repair1039DB) start() {
 		}
 	}()
 }
-func (d *repair1039DB) openPool() *pgxpool.Pool {
+func (d *historyPaginationDB) openPool() *pgxpool.Pool {
 	cfg, err := pgxpool.ParseConfig("postgres://fixture:fixture@" + d.Listener.Addr().String() + "/fixture?sslmode=disable")
 	if err != nil {
 		d.t.Fatal(err)
@@ -115,7 +115,7 @@ func (d *repair1039DB) openPool() *pgxpool.Pool {
 	}
 	return pool
 }
-func (d *repair1039DB) restart(pool *pgxpool.Pool) *pgxpool.Pool {
+func (d *historyPaginationDB) restart(pool *pgxpool.Pool) *pgxpool.Pool {
 	pool.Close()
 	d.Listener.Close()
 	d.Connections.Wait()
@@ -123,7 +123,7 @@ func (d *repair1039DB) restart(pool *pgxpool.Pool) *pgxpool.Pool {
 	if err != nil {
 		d.t.Fatal(err)
 	}
-	d.Tables = repair1039Tables{}
+	d.Tables = historyPaginationTables{}
 	if err = json.Unmarshal(raw, &d.Tables); err != nil {
 		d.t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func (d *repair1039DB) restart(pool *pgxpool.Pool) *pgxpool.Pool {
 	d.t.Cleanup(next.Close)
 	return next
 }
-func (d *repair1039DB) save() {
+func (d *historyPaginationDB) save() {
 	body, err := json.Marshal(d.Tables)
 	if err != nil {
 		d.t.Error(err)
@@ -143,17 +143,17 @@ func (d *repair1039DB) save() {
 	}
 }
 
-type repair1039Result struct {
+type historyPaginationResult struct {
 	rows    [][]any
 	columns []uint32
 	tag     string
 	err     string
 }
 
-func repair1039Rows(rows ...[]any) repair1039Result {
-	return repair1039Result{rows: rows, tag: fmt.Sprintf("SELECT %d", len(rows))}
+func historyPaginationRows(rows ...[]any) historyPaginationResult {
+	return historyPaginationResult{rows: rows, tag: fmt.Sprintf("SELECT %d", len(rows))}
 }
-func repair1039Fields(result repair1039Result) []pgproto3.FieldDescription {
+func historyPaginationFields(result historyPaginationResult) []pgproto3.FieldDescription {
 	count := len(result.columns)
 	if len(result.rows) > 0 {
 		count = len(result.rows[0])
@@ -185,7 +185,7 @@ func repair1039Fields(result repair1039Result) []pgproto3.FieldDescription {
 	}
 	return fields
 }
-func repair1039Wire(value any) []byte {
+func historyPaginationWire(value any) []byte {
 	if value == nil {
 		return nil
 	}
@@ -202,7 +202,7 @@ func repair1039Wire(value any) []byte {
 	}
 	return []byte(fmt.Sprint(value))
 }
-func (d *repair1039DB) connection(connection net.Conn) {
+func (d *historyPaginationDB) connection(connection net.Conn) {
 	defer d.Connections.Done()
 	defer connection.Close()
 	backend := pgproto3.NewBackend(connection, connection)
@@ -217,36 +217,36 @@ func (d *repair1039DB) connection(connection net.Conn) {
 		return
 	}
 	statements := map[string]*pgproto3.Parse{}
-	var result repair1039Result
+	var result historyPaginationResult
 	locked := false
-	var rollback repair1039Tables
+	var rollback historyPaginationTables
 	defer func() {
 		if locked {
 			d.Tables = rollback
 			d.mu.Unlock()
 		}
 	}()
-	execute := func(sql string, args []string) repair1039Result {
+	execute := func(sql string, args []string) historyPaginationResult {
 		lower := strings.ToLower(strings.TrimSpace(sql))
 		if strings.HasPrefix(lower, "begin") {
 			d.mu.Lock()
 			locked = true
 			raw, _ := json.Marshal(d.Tables)
-			rollback = repair1039Tables{}
+			rollback = historyPaginationTables{}
 			_ = json.Unmarshal(raw, &rollback)
-			return repair1039Result{tag: "BEGIN"}
+			return historyPaginationResult{tag: "BEGIN"}
 		}
 		if lower == "commit" {
 			d.save()
 			locked = false
 			d.mu.Unlock()
-			return repair1039Result{tag: "COMMIT"}
+			return historyPaginationResult{tag: "COMMIT"}
 		}
 		if lower == "rollback" {
 			d.Tables = rollback
 			locked = false
 			d.mu.Unlock()
-			return repair1039Result{tag: "ROLLBACK"}
+			return historyPaginationResult{tag: "ROLLBACK"}
 		}
 		if !locked {
 			d.mu.Lock()
@@ -295,7 +295,7 @@ func (d *repair1039DB) connection(connection net.Conn) {
 			result = execute(statement.Query, args)
 			backend.Send(&pgproto3.BindComplete{})
 		case *pgproto3.Describe:
-			if fields := repair1039Fields(result); len(fields) > 0 {
+			if fields := historyPaginationFields(result); len(fields) > 0 {
 				backend.Send(&pgproto3.RowDescription{Fields: fields})
 			} else {
 				backend.Send(&pgproto3.NoData{})
@@ -307,7 +307,7 @@ func (d *repair1039DB) connection(connection net.Conn) {
 				for _, row := range result.rows {
 					values := make([][]byte, len(row))
 					for i, v := range row {
-						values[i] = repair1039Wire(v)
+						values[i] = historyPaginationWire(v)
 					}
 					backend.Send(&pgproto3.DataRow{Values: values})
 				}
@@ -322,13 +322,13 @@ func (d *repair1039DB) connection(connection net.Conn) {
 			if result.err != "" {
 				backend.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: "XX000", Message: result.err})
 			} else {
-				if fields := repair1039Fields(result); len(fields) > 0 {
+				if fields := historyPaginationFields(result); len(fields) > 0 {
 					backend.Send(&pgproto3.RowDescription{Fields: fields})
 				}
 				for _, row := range result.rows {
 					values := make([][]byte, len(row))
 					for i, v := range row {
-						values[i] = repair1039Wire(v)
+						values[i] = historyPaginationWire(v)
 					}
 					backend.Send(&pgproto3.DataRow{Values: values})
 				}
@@ -361,56 +361,56 @@ func (d *repair1039DB) connection(connection net.Conn) {
 		}
 	}
 }
-func repair1039Int(s string) int64 { v, _ := strconv.ParseInt(s, 10, 64); return v }
-func repair1039JSON(v any) []byte {
+func historyPaginationInt(s string) int64 { v, _ := strconv.ParseInt(s, 10, 64); return v }
+func historyPaginationJSON(v any) []byte {
 	raw, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
 	return raw
 }
-func repair1039TxValues(v store.TransactionRow) []any {
+func historyPaginationTxValues(v store.TransactionRow) []any {
 	return []any{v.ID, v.PoolAddress, v.Sender, v.IsBuy, v.AmountIn, v.AmountOut, v.Price, v.Fee, v.BlockTimestamp, v.TxHash}
 }
-func repair1039CrossValues(v store.CrossTokenSwapRow) []any {
+func historyPaginationCrossValues(v store.CrossTokenSwapRow) []any {
 	return []any{v.ID, v.Sender, v.TokenIn, v.TokenOut, v.PoolIn, v.PoolOut, v.AmountIn, v.IntermediateUsdl, v.AmountOut, v.FeeIn, v.FeeOut, v.BlockTimestamp, v.TxHash}
 }
-func repair1039Before(ts int64, id string, boundTS int64, boundID string) bool {
+func historyPaginationBefore(ts int64, id string, boundTS int64, boundID string) bool {
 	return ts < boundTS || ts == boundTS && id < boundID
 }
 
-func (d *repair1039DB) query(sql string, a []string) repair1039Result {
+func (d *historyPaginationDB) query(sql string, a []string) historyPaginationResult {
 	q := strings.Join(strings.Fields(sql), " ")
 	d.Queries = append(d.Queries, q)
 	if q == "-- ping" {
-		return repair1039Result{tag: "SELECT 0"}
+		return historyPaginationResult{tag: "SELECT 0"}
 	}
 	if strings.Contains(q, "pg_advisory_xact_lock") {
-		return repair1039Result{tag: "SELECT 1"}
+		return historyPaginationResult{tag: "SELECT 1"}
 	}
 	if q == "SELECT clock_timestamp()" {
-		return repair1039Rows([]any{d.Now})
+		return historyPaginationRows([]any{d.Now})
 	}
 	if strings.Contains(q, "INSERT INTO stats.pool_transactions") {
-		d.Tables.Transactions[a[0]] = store.TransactionRow{ID: a[0], PoolAddress: a[1], Sender: a[2], IsBuy: repair1039Bool(a[3]), AmountIn: a[4], AmountOut: a[5], Price: a[6], Fee: a[7], BlockTimestamp: repair1039Int(a[8]), TxHash: a[9]}
+		d.Tables.Transactions[a[0]] = store.TransactionRow{ID: a[0], PoolAddress: a[1], Sender: a[2], IsBuy: historyPaginationBool(a[3]), AmountIn: a[4], AmountOut: a[5], Price: a[6], Fee: a[7], BlockTimestamp: historyPaginationInt(a[8]), TxHash: a[9]}
 		d.save()
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.Contains(q, "INSERT INTO stats.cross_token_swaps") {
-		d.Tables.Cross[a[0]] = store.CrossTokenSwapRow{ID: a[0], Sender: a[1], TokenIn: a[2], TokenOut: a[3], PoolIn: a[4], PoolOut: a[5], AmountIn: a[6], IntermediateUsdl: a[7], AmountOut: a[8], FeeIn: a[9], FeeOut: a[10], BlockTimestamp: repair1039Int(a[11]), TxHash: a[12]}
+		d.Tables.Cross[a[0]] = store.CrossTokenSwapRow{ID: a[0], Sender: a[1], TokenIn: a[2], TokenOut: a[3], PoolIn: a[4], PoolOut: a[5], AmountIn: a[6], IntermediateUsdl: a[7], AmountOut: a[8], FeeIn: a[9], FeeOut: a[10], BlockTimestamp: historyPaginationInt(a[11]), TxHash: a[12]}
 		d.save()
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.Contains(q, "INSERT INTO stats.pool_stats") {
 		creator := a[2]
 		d.Tables.Pools[a[0]] = store.PoolStatsRow{PoolAddress: a[0], TokenAddress: a[1], CreatorAddress: &creator, CreatorHoldingsPct: "0"}
 		d.save()
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.Contains(q, "FROM stats.pool_stats WHERE pool_address") {
 		row, ok := d.Tables.Pools[a[0]]
 		if !ok {
-			return repair1039Rows()
+			return historyPaginationRows()
 		}
 		values := make([]any, 32)
 		for i := range values {
@@ -427,39 +427,39 @@ func (d *repair1039DB) query(sql string, a []string) repair1039Result {
 			values[27] = nil
 		}
 		values = values[:30]
-		return repair1039Rows(values)
+		return historyPaginationRows(values)
 	}
 	if strings.Contains(q, "FROM stats.pool_holders") {
 		if strings.Contains(q, "COUNT(*)") {
-			return repair1039Rows([]any{int64(len(d.Tables.Holders))})
+			return historyPaginationRows([]any{int64(len(d.Tables.Holders))})
 		}
 		if strings.HasPrefix(q, "SELECT balance FROM") {
-			return repair1039Rows()
+			return historyPaginationRows()
 		}
 		if !strings.Contains(q, "LIMIT $2 OFFSET $3") {
-			return repair1039Result{err: "unbounded holder read refused by fixture"}
+			return historyPaginationResult{err: "unbounded holder read refused by fixture"}
 		}
-		limit, offset := int(repair1039Int(a[1])), int(repair1039Int(a[2]))
+		limit, offset := int(historyPaginationInt(a[1])), int(historyPaginationInt(a[2]))
 		var rows [][]any
 		for i := offset; i < len(d.Tables.Holders) && len(rows) < limit; i++ {
 			v := d.Tables.Holders[i]
 			rows = append(rows, []any{v.PoolAddress, v.HolderAddress, v.Balance, v.PctOfSupply, v.LastUpdated})
 		}
 		d.RowsReturned += len(rows)
-		return repair1039Rows(rows...)
+		return historyPaginationRows(rows...)
 	}
 	if strings.Contains(q, "WITH summary AS") {
 		if !strings.Contains(q, "LIMIT $8 OFFSET $3") || !strings.Contains(q, "sum(amount_out::numeric)") || !strings.Contains(q, "block_timestamp,id") {
-			return repair1039Result{err: "creator SQL contract missing"}
+			return historyPaginationResult{err: "creator SQL contract missing"}
 		}
 		all := []store.TransactionRow{}
 		for _, v := range d.Tables.Transactions {
-			if v.PoolAddress == a[0] && v.Sender == a[1] && (a[6] == "" || !repair1039Before(repair1039Int(a[5]), a[6], v.BlockTimestamp, v.ID)) {
+			if v.PoolAddress == a[0] && v.Sender == a[1] && (a[6] == "" || !historyPaginationBefore(historyPaginationInt(a[5]), a[6], v.BlockTimestamp, v.ID)) {
 				all = append(all, v)
 			}
 		}
 		sort.Slice(all, func(i, j int) bool {
-			return repair1039Before(all[j].BlockTimestamp, all[j].ID, all[i].BlockTimestamp, all[i].ID)
+			return historyPaginationBefore(all[j].BlockTimestamp, all[j].ID, all[i].BlockTimestamp, all[i].ID)
 		})
 		bought, sold := new(big.Int), new(big.Int)
 		var buys, sells int64
@@ -475,10 +475,10 @@ func (d *repair1039DB) query(sql string, a []string) repair1039Result {
 			}
 		}
 		page := []store.TransactionRow{}
-		skip := int(repair1039Int(a[2]))
-		limit := int(repair1039Int(a[7]))
+		skip := int(historyPaginationInt(a[2]))
+		limit := int(historyPaginationInt(a[7]))
 		for _, v := range all {
-			if a[4] != "" && !repair1039Before(v.BlockTimestamp, v.ID, repair1039Int(a[3]), a[4]) {
+			if a[4] != "" && !historyPaginationBefore(v.BlockTimestamp, v.ID, historyPaginationInt(a[3]), a[4]) {
 				continue
 			}
 			if skip > 0 {
@@ -494,11 +494,11 @@ func (d *repair1039DB) query(sql string, a []string) repair1039Result {
 			topTime, topID = all[0].BlockTimestamp, all[0].ID
 		}
 		d.RowsReturned += len(page)
-		return repair1039Rows([]any{buys, sells, bought.String(), sold.String(), new(big.Int).Sub(bought, sold).String(), topTime, topID, repair1039JSON(page)})
+		return historyPaginationRows([]any{buys, sells, bought.String(), sold.String(), new(big.Int).Sub(bought, sold).String(), topTime, topID, historyPaginationJSON(page)})
 	}
 	if strings.Contains(q, "FROM stats.pool_transactions") {
 		if !strings.Contains(q, "ORDER BY block_timestamp DESC, id DESC LIMIT $2 OFFSET $3") {
-			return repair1039Result{err: "transaction SQL order/bound missing"}
+			return historyPaginationResult{err: "transaction SQL order/bound missing"}
 		}
 		data := []store.TransactionRow{}
 		for _, v := range d.Tables.Transactions {
@@ -507,18 +507,18 @@ func (d *repair1039DB) query(sql string, a []string) repair1039Result {
 			}
 		}
 		sort.Slice(data, func(i, j int) bool {
-			return repair1039Before(data[j].BlockTimestamp, data[j].ID, data[i].BlockTimestamp, data[i].ID)
+			return historyPaginationBefore(data[j].BlockTimestamp, data[j].ID, data[i].BlockTimestamp, data[i].ID)
 		})
 		var rows [][]any
-		for i := int(repair1039Int(a[2])); i < len(data) && len(rows) < int(repair1039Int(a[1])); i++ {
-			rows = append(rows, repair1039TxValues(data[i]))
+		for i := int(historyPaginationInt(a[2])); i < len(data) && len(rows) < int(historyPaginationInt(a[1])); i++ {
+			rows = append(rows, historyPaginationTxValues(data[i]))
 		}
 		d.RowsReturned += len(rows)
-		return repair1039Rows(rows...)
+		return historyPaginationRows(rows...)
 	}
 	if strings.Contains(q, "FROM stats.cross_token_swaps") {
 		if !strings.Contains(q, "ORDER BY block_timestamp DESC,id DESC LIMIT $2 OFFSET $3") || !strings.Contains(q, "(block_timestamp,id)<($4,$5)") {
-			return repair1039Result{err: "cross SQL cursor/order/bound missing"}
+			return historyPaginationResult{err: "cross SQL cursor/order/bound missing"}
 		}
 		data := []store.CrossTokenSwapRow{}
 		for _, v := range d.Tables.Cross {
@@ -526,22 +526,22 @@ func (d *repair1039DB) query(sql string, a []string) repair1039Result {
 			if strings.Contains(q, "token_in=$1") {
 				match = v.TokenIn == a[0] || v.TokenOut == a[0]
 			}
-			if match && (a[4] == "" || repair1039Before(v.BlockTimestamp, v.ID, repair1039Int(a[3]), a[4])) {
+			if match && (a[4] == "" || historyPaginationBefore(v.BlockTimestamp, v.ID, historyPaginationInt(a[3]), a[4])) {
 				data = append(data, v)
 			}
 		}
 		sort.Slice(data, func(i, j int) bool {
-			return repair1039Before(data[j].BlockTimestamp, data[j].ID, data[i].BlockTimestamp, data[i].ID)
+			return historyPaginationBefore(data[j].BlockTimestamp, data[j].ID, data[i].BlockTimestamp, data[i].ID)
 		})
 		var rows [][]any
-		for i := int(repair1039Int(a[2])); i < len(data) && len(rows) < int(repair1039Int(a[1])); i++ {
-			rows = append(rows, repair1039CrossValues(data[i]))
+		for i := int(historyPaginationInt(a[2])); i < len(data) && len(rows) < int(historyPaginationInt(a[1])); i++ {
+			rows = append(rows, historyPaginationCrossValues(data[i]))
 		}
 		d.RowsReturned += len(rows)
-		return repair1039Rows(rows...)
+		return historyPaginationRows(rows...)
 	}
 	if strings.Contains(q, `.tokens WHERE token=$1`) {
-		return repair1039Rows([]any{d.Distribution.Supply, "complete", int64(7)})
+		return historyPaginationRows([]any{d.Distribution.Supply, "complete", int64(7)})
 	}
 	if strings.Contains(q, `.aggregates WHERE token=$1`) {
 		var rows [][]any
@@ -551,36 +551,36 @@ func (d *repair1039DB) query(sql string, a []string) repair1039Result {
 			}
 		}
 		d.RowsReturned += len(rows)
-		return repair1039Rows(rows...)
+		return historyPaginationRows(rows...)
 	}
 	if strings.Contains(q, "COALESCE(sum(balance),0)") {
 		if !strings.Contains(q, "ORDER BY balance DESC,address ASC LIMIT 10") {
-			return repair1039Result{err: "unbounded leader query"}
+			return historyPaginationResult{err: "unbounded leader query"}
 		}
 		sum := new(big.Int)
 		for i := 0; i < 10 && i < len(d.Canonical); i++ {
 			n, _ := new(big.Int).SetString(d.Canonical[i].Raw, 10)
 			sum.Add(sum, n)
 		}
-		return repair1039Rows([]any{sum.String()})
+		return historyPaginationRows([]any{sum.String()})
 	}
 	if strings.HasPrefix(q, "SELECT balance::text,category FROM") {
 		for _, v := range d.Canonical {
 			if v.Address == a[1] {
-				return repair1039Rows([]any{v.Raw, v.Category})
+				return historyPaginationRows([]any{v.Raw, v.Category})
 			}
 		}
-		return repair1039Rows()
+		return historyPaginationRows()
 	}
 	if strings.Contains(q, `.balances WHERE token=$1`) {
 		if !strings.Contains(q, "ORDER BY balance DESC,address ASC LIMIT $6 OFFSET $7") || !strings.Contains(q, "balance>=$2::numeric") {
-			return repair1039Result{err: "indexed wallet query missing"}
+			return historyPaginationResult{err: "indexed wallet query missing"}
 		}
-		limit, offset := int(repair1039Int(a[5])), int(repair1039Int(a[6]))
+		limit, offset := int(historyPaginationInt(a[5])), int(historyPaginationInt(a[6]))
 		threshold, _ := new(big.Int).SetString(a[1], 10)
 		bound, _ := new(big.Int).SetString(a[2], 10)
 		start := 0
-		if !repair1039Bool(a[4]) {
+		if !historyPaginationBool(a[4]) {
 			start = sort.Search(len(d.Canonical), func(i int) bool {
 				v, _ := new(big.Int).SetString(d.Canonical[i].Raw, 10)
 				c := v.Cmp(bound)
@@ -598,62 +598,62 @@ func (d *repair1039DB) query(sql string, a []string) repair1039Result {
 			rows = append(rows, []any{v.Address, v.Raw})
 		}
 		d.RowsReturned += len(rows)
-		return repair1039Rows(rows...)
+		return historyPaginationRows(rows...)
 	}
 	// The reaction transcript persists every committed ledger/vote/outbox operation.
 	if strings.Contains(q, `INSERT INTO "stats"."reaction_wallets"`) {
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.Contains(q, "SELECT last_change,clock_timestamp()") {
 		var last any
 		if v, ok := d.Tables.WalletChanges[a[0]]; ok {
 			last = v
 		}
-		return repair1039Rows([]any{last, d.Now})
+		return historyPaginationRows([]any{last, d.Now})
 	}
 	if strings.Contains(q, "SELECT envelope_digest,body_digest,response,response_digest FROM operation_ledger") {
 		if v, ok := d.Tables.Ledger[a[0]+a[1]+a[2]]; ok {
-			return repair1039Rows([]any{v[3], v[4], []byte(v[6]), v[7]})
+			return historyPaginationRows([]any{v[3], v[4], []byte(v[6]), v[7]})
 		}
-		return repair1039Rows()
+		return historyPaginationRows()
 	}
 	if strings.HasPrefix(q, "INSERT INTO operation_ledger") {
 		if d.FailLedger {
 			d.FailLedger = false
-			return repair1039Result{err: "injected failure before durable ledger commit"}
+			return historyPaginationResult{err: "injected failure before durable ledger commit"}
 		}
 		response, decodeErr := hex.DecodeString(strings.TrimPrefix(a[6], "\\x"))
 		if !strings.HasPrefix(a[6], "\\x") || decodeErr != nil {
-			return repair1039Result{err: "invalid bytea transcript parameter"}
+			return historyPaginationResult{err: "invalid bytea transcript parameter"}
 		}
 		saved := append([]string(nil), a...)
 		saved[6] = string(response)
 		d.Tables.Ledger[a[0]+a[1]+a[2]] = saved
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.HasPrefix(q, "INSERT INTO security_audit_outbox") {
 		d.Tables.Audit = append(d.Tables.Audit, strings.Join(a, "|"))
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.Contains(q, "SELECT digest,result FROM") {
 		if v, ok := d.Tables.Nonces[a[0]+a[1]]; ok {
-			return repair1039Rows([]any{v[2], []byte(v[3])})
+			return historyPaginationRows([]any{v[2], []byte(v[3])})
 		}
-		return repair1039Rows()
+		return historyPaginationRows()
 	}
 	if strings.Contains(q, "SELECT revision FROM") && strings.Contains(q, "reaction_votes") {
 		if v, ok := d.Tables.Votes[a[0]+a[1]]; ok {
-			return repair1039Rows([]any{v.Revision})
+			return historyPaginationRows([]any{v.Revision})
 		}
-		return repair1039Rows()
+		return historyPaginationRows()
 	}
 	if strings.Contains(q, "INSERT INTO") && strings.Contains(q, "reaction_pools") {
 		d.Tables.PoolRevision++
-		return repair1039Rows([]any{d.Tables.PoolRevision})
+		return historyPaginationRows([]any{d.Tables.PoolRevision})
 	}
 	if strings.Contains(q, "INSERT INTO") && strings.Contains(q, "reaction_votes") {
-		d.Tables.Votes[a[0]+a[1]] = analytics.ReactionResult{Vote: a[2], Revision: repair1039Int(a[3])}
-		return repair1039Result{tag: "INSERT 0 1"}
+		d.Tables.Votes[a[0]+a[1]] = analytics.ReactionResult{Vote: a[2], Revision: historyPaginationInt(a[3])}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.HasPrefix(q, "SELECT reaction,count(*)") {
 		counts := map[string]int64{}
@@ -666,34 +666,34 @@ func (d *repair1039DB) query(sql string, a []string) repair1039Result {
 		for k, n := range counts {
 			rows = append(rows, []any{k, n})
 		}
-		return repair1039Rows(rows...)
+		return historyPaginationRows(rows...)
 	}
 	if strings.Contains(q, "INSERT INTO") && strings.Contains(q, "reaction_nonces") {
 		d.Tables.Nonces[a[0]+a[1]] = append([]string(nil), a...)
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.Contains(q, "INSERT INTO") && strings.Contains(q, "reaction_outbox") {
 		d.Tables.Outbox = append(d.Tables.Outbox, a[1])
-		return repair1039Result{tag: "INSERT 0 1"}
+		return historyPaginationResult{tag: "INSERT 0 1"}
 	}
 	if strings.Contains(q, "UPDATE") && strings.Contains(q, "reaction_wallets") {
 		d.Tables.WalletChanges[a[0]] = d.Now
-		return repair1039Result{tag: "UPDATE 1"}
+		return historyPaginationResult{tag: "UPDATE 1"}
 	}
 	if strings.HasPrefix(q, "SELECT revision::text") && strings.Contains(q, "reaction_pools") {
-		return repair1039Rows([]any{strconv.FormatInt(d.Tables.PoolRevision, 10)})
+		return historyPaginationRows([]any{strconv.FormatInt(d.Tables.PoolRevision, 10)})
 	}
 	d.t.Errorf("unexpected database transcript: %s args=%q", q, a)
-	return repair1039Result{err: "unexpected database transcript"}
+	return historyPaginationResult{err: "unexpected database transcript"}
 }
 
-func repair1039Pool(t *testing.T, st *store.Store, pool string, creator *string) {
+func historyPaginationPool(t *testing.T, st *store.Store, pool string, creator *string) {
 	t.Helper()
 	if _, err := st.InsertInitialPoolStats(context.Background(), store.InitialPoolStats{PoolAddress: pool, TokenAddress: "0x" + strings.Repeat("3", 40), CreatorAddress: creator, Price: "1", MarketCap: "1", High24h: "1", Low24h: "1"}); err != nil {
 		t.Fatal(err)
 	}
 }
-func repair1039Get(t *testing.T, router http.Handler, path string) map[string]json.RawMessage {
+func historyPaginationGet(t *testing.T, router http.Handler, path string) map[string]json.RawMessage {
 	t.Helper()
 	response := serve(t, router, "GET", path, nil, nil)
 	if response.Code != 200 {
@@ -703,7 +703,7 @@ func repair1039Get(t *testing.T, router http.Handler, path string) map[string]js
 	decode(t, response, &result)
 	return result
 }
-func repair1039Next(t *testing.T, response map[string]json.RawMessage) string {
+func historyPaginationNext(t *testing.T, response map[string]json.RawMessage) string {
 	t.Helper()
 	var next *string
 	if err := json.Unmarshal(response["nextCursor"], &next); err != nil {
@@ -714,7 +714,7 @@ func repair1039Next(t *testing.T, response map[string]json.RawMessage) string {
 	}
 	return *next
 }
-func repair1039InvalidPages(t *testing.T, router http.Handler, path string, maximum int) {
+func historyPaginationInvalidPages(t *testing.T, router http.Handler, path string, maximum int) {
 	t.Helper()
 	for _, q := range []string{"limit=-1", "offset=-1", "limit=" + strconv.Itoa(maximum+1), "limit=NaN", "offset=no", "limit=1&limit=2", "offset=10001", "cursor=garbage", "limit=99999999999999999999999999999999999", "limit="} {
 		response := serve(t, router, "GET", path+"?"+q, nil, nil)
@@ -724,8 +724,8 @@ func repair1039InvalidPages(t *testing.T, router http.Handler, path string, maxi
 	}
 }
 
-func TestRepairM_1039_CrossHistoryPageBound(t *testing.T) {
-	d, pool := repair1039Database(t)
+func TestHistoryPaginationCrossHistoryPageBound(t *testing.T) {
+	d, pool := historyPaginationDatabase(t)
 	st := store.New(pool)
 	router := chi.NewRouter()
 	httpapi.RegisterCrossTokenSwaps(router, st)
@@ -737,7 +737,7 @@ func TestRepairM_1039_CrossHistoryPageBound(t *testing.T) {
 		}
 	}
 	for _, path := range []string{"/stats/cross-token-swaps/0xWALLET", "/stats/cross-token-swaps/token/0xTOKEN"} {
-		repair1039InvalidPages(t, router, path, 500)
+		historyPaginationInvalidPages(t, router, path, 500)
 		seen := map[string]bool{}
 		cursor := ""
 		last := int64(1 << 62)
@@ -747,7 +747,7 @@ func TestRepairM_1039_CrossHistoryPageBound(t *testing.T) {
 			if cursor != "" {
 				target += "&cursor=" + url.QueryEscape(cursor)
 			}
-			response := repair1039Get(t, router, target)
+			response := historyPaginationGet(t, router, target)
 			var swaps []store.CrossTokenSwapRow
 			if err := json.Unmarshal(response["swaps"], &swaps); err != nil {
 				t.Fatal(err)
@@ -766,7 +766,7 @@ func TestRepairM_1039_CrossHistoryPageBound(t *testing.T) {
 				seen[v.ID] = true
 				last, lastID = v.BlockTimestamp, v.ID
 			}
-			cursor = repair1039Next(t, response)
+			cursor = historyPaginationNext(t, response)
 			if cursor == "" {
 				break
 			}
@@ -780,8 +780,8 @@ func TestRepairM_1039_CrossHistoryPageBound(t *testing.T) {
 	}
 }
 
-func TestRepairM_1039_TransactionPageBound(t *testing.T) {
-	_, pool := repair1039Database(t)
+func TestHistoryPaginationTransactionPageBound(t *testing.T) {
+	_, pool := historyPaginationDatabase(t)
 	st := store.New(pool)
 	router := chi.NewRouter()
 	httpapi.RegisterPoolTransactions(router, st)
@@ -789,9 +789,9 @@ func TestRepairM_1039_TransactionPageBound(t *testing.T) {
 		insertTx(t, context.Background(), st, fmt.Sprintf("tx-%04d", i), "0xpool", "wallet", i%2 == 0, "4", "10", int64(i/3))
 	}
 	path := "/stats/0xPOOL/transactions"
-	repair1039InvalidPages(t, router, path, 500)
+	historyPaginationInvalidPages(t, router, path, 500)
 	for _, offset := range []int{0, 500, 1000, 1003} {
-		result := repair1039Get(t, router, fmt.Sprintf("%s?limit=500&offset=%d", path, offset))
+		result := historyPaginationGet(t, router, fmt.Sprintf("%s?limit=500&offset=%d", path, offset))
 		var rows []store.TransactionRow
 		if err := json.Unmarshal(result["transactions"], &rows); err != nil {
 			t.Fatal(err)
@@ -807,25 +807,25 @@ func TestRepairM_1039_TransactionPageBound(t *testing.T) {
 			t.Fatal("transaction page", offset, len(rows))
 		}
 		for i := 1; i < len(rows); i++ {
-			if !repair1039Before(rows[i].BlockTimestamp, rows[i].ID, rows[i-1].BlockTimestamp, rows[i-1].ID) {
+			if !historyPaginationBefore(rows[i].BlockTimestamp, rows[i].ID, rows[i-1].BlockTimestamp, rows[i-1].ID) {
 				t.Fatal("transaction tie ordering")
 			}
 		}
 	}
 }
 
-func TestRepairM_1039_CreatorHistoryUnbounded(t *testing.T) {
-	d, pool := repair1039Database(t)
+func TestHistoryPaginationCreatorHistoryUnbounded(t *testing.T) {
+	d, pool := historyPaginationDatabase(t)
 	st := store.New(pool)
 	router := chi.NewRouter()
 	httpapi.RegisterPoolAnalytics(router, st)
 	creator := "0xcreator"
-	repair1039Pool(t, st, "0xpool", &creator)
+	historyPaginationPool(t, st, "0xpool", &creator)
 	for i := 0; i < 307; i++ {
 		insertTx(t, context.Background(), st, fmt.Sprintf("tx-%04d", i), "0xpool", creator, i%2 == 0, "4", "10", int64(i/3))
 	}
 	path := "/stats/0xpool/creator-activity"
-	repair1039InvalidPages(t, router, path, 100)
+	historyPaginationInvalidPages(t, router, path, 100)
 	seen := map[string]bool{}
 	cursor := ""
 	pages := 0
@@ -835,7 +835,7 @@ func TestRepairM_1039_CreatorHistoryUnbounded(t *testing.T) {
 		if cursor != "" {
 			target += "&cursor=" + url.QueryEscape(cursor)
 		}
-		result := repair1039Get(t, router, target)
+		result := historyPaginationGet(t, router, target)
 		var rows []store.TransactionRow
 		var summary store.CreatorSummary
 		if err := json.Unmarshal(result["transactions"], &rows); err != nil {
@@ -851,14 +851,14 @@ func TestRepairM_1039_CreatorHistoryUnbounded(t *testing.T) {
 			if seen[v.ID] {
 				t.Fatal("duplicate creator transaction")
 			}
-			if last.ID != "" && !repair1039Before(v.BlockTimestamp, v.ID, last.BlockTimestamp, last.ID) {
+			if last.ID != "" && !historyPaginationBefore(v.BlockTimestamp, v.ID, last.BlockTimestamp, last.ID) {
 				t.Fatal("creator ordering")
 			}
 			seen[v.ID] = true
 			last = v
 		}
 		pages++
-		cursor = repair1039Next(t, result)
+		cursor = historyPaginationNext(t, result)
 		if pages == 1 {
 			done := make(chan struct{})
 			go func() {
@@ -877,7 +877,7 @@ func TestRepairM_1039_CreatorHistoryUnbounded(t *testing.T) {
 	if len(seen) != 307 || pages != 9 {
 		t.Fatal("creator page boundary", len(seen), pages)
 	}
-	result := repair1039Get(t, router, path+"?limit=100")
+	result := historyPaginationGet(t, router, path+"?limit=100")
 	var summary store.CreatorSummary
 	_ = json.Unmarshal(result["summary"], &summary)
 	if summary.BuyCount != 155 || summary.TotalBoughtTokens != "1560" {
@@ -888,8 +888,8 @@ func TestRepairM_1039_CreatorHistoryUnbounded(t *testing.T) {
 	}
 }
 
-func TestRepairM_1039_LegacyHolderPageBound(t *testing.T) {
-	d, pool := repair1039Database(t)
+func TestHistoryPaginationLegacyHolderPageBound(t *testing.T) {
+	d, pool := historyPaginationDatabase(t)
 	st := store.New(pool)
 	router := chi.NewRouter()
 	httpapi.RegisterPoolHolders(router, st)
@@ -898,9 +898,9 @@ func TestRepairM_1039_LegacyHolderPageBound(t *testing.T) {
 		d.Tables.Holders = append(d.Tables.Holders, store.HolderRow{PoolAddress: "pool", HolderAddress: fmt.Sprintf("wallet-%05d", i), Balance: strconv.Itoa(999999 - i), PctOfSupply: "1", LastUpdated: 1})
 	}
 	path := "/stats/pool/holders"
-	repair1039InvalidPages(t, router, path, 500)
+	historyPaginationInvalidPages(t, router, path, 500)
 	for _, offset := range []int{0, 500, 10000} {
-		result := repair1039Get(t, router, fmt.Sprintf("%s?limit=500&offset=%d", path, offset))
+		result := historyPaginationGet(t, router, fmt.Sprintf("%s?limit=500&offset=%d", path, offset))
 		var holders []struct {
 			store.HolderRow
 			Rank int `json:"rank"`
@@ -920,12 +920,12 @@ func TestRepairM_1039_LegacyHolderPageBound(t *testing.T) {
 	}
 }
 
-func repair1039Distribution(t *testing.T) {
+func historyPaginationDistribution(t *testing.T) {
 	t.Helper()
-	d, pool := repair1039Database(t)
+	d, pool := historyPaginationDatabase(t)
 	st := store.New(pool)
 	creator := "0x" + strings.Repeat("4", 40)
-	repair1039Pool(t, st, "0xpool", &creator)
+	historyPaginationPool(t, st, "0xpool", &creator)
 	const population = 1000000
 	accumulator, err := holdings.NewAccumulator(strconv.Itoa(population))
 	if err != nil {
@@ -946,9 +946,9 @@ func repair1039Distribution(t *testing.T) {
 	router := chi.NewRouter()
 	httpapi.RegisterPoolHolders(router, st)
 	path := "/stats/0xpool/holders/distribution"
-	repair1039InvalidPages(t, router, path, 500)
+	historyPaginationInvalidPages(t, router, path, 500)
 	before := d.WalletVisits
-	first := repair1039Get(t, router, path+"?limit=7")
+	first := historyPaginationGet(t, router, path+"?limit=7")
 	var wallets []struct {
 		Address string `json:"address"`
 		Rank    int    `json:"rank"`
@@ -959,11 +959,11 @@ func repair1039Distribution(t *testing.T) {
 	if len(wallets) != 7 || aggregate.AllPositiveCount != population || aggregate.Bands[0].Count != population || aggregate.Bands[0].Raw != "1000000" || aggregate.Top10.BasisPoints == nil || *aggregate.Top10.BasisPoints != "0" {
 		t.Fatalf("canonical distribution: wallets=%d aggregate=%+v", len(wallets), aggregate)
 	}
-	cursor := repair1039Next(t, first)
+	cursor := historyPaginationNext(t, first)
 	if cursor == "" {
 		t.Fatal("missing distribution cursor")
 	}
-	second := repair1039Get(t, router, path+"?limit=7&cursor="+url.QueryEscape(cursor))
+	second := historyPaginationGet(t, router, path+"?limit=7&cursor="+url.QueryEscape(cursor))
 	_ = json.Unmarshal(second["walletMap"], &wallets)
 	if len(wallets) != 7 || wallets[0].Rank != 8 || wallets[0].Address != fmt.Sprintf("0x%040x", 8) {
 		t.Fatal("numeric wallet cursor continuity", wallets)
@@ -973,35 +973,35 @@ func repair1039Distribution(t *testing.T) {
 	}
 	t.Logf("million-wallet fixture: two limit=7 pages, %d wallet visits including lookahead; production SQL plan/capacity remains an owning-domain qualification", d.WalletVisits-before)
 	// Changing a revision invalidates continuation instead of mixing snapshots.
-	raw, _ := base64DecodeRepair1039(cursor)
+	raw, _ := base64DecodeHistoryPagination(cursor)
 	var c map[string]any
 	_ = json.Unmarshal(raw, &c)
 	c["revision"] = float64(6)
-	bad := encodeRepair1039(repair1039JSON(c))
+	bad := encodeHistoryPagination(historyPaginationJSON(c))
 	response := serve(t, router, "GET", path+"?cursor="+bad, nil, nil)
 	if response.Code != 409 {
 		t.Fatal("ownership cursor mixed revisions", response.Code)
 	}
-	zero := repair1039Get(t, router, path+"?limit=0")
+	zero := historyPaginationGet(t, router, path+"?limit=0")
 	_ = json.Unmarshal(zero["walletMap"], &wallets)
 	if len(wallets) != 0 {
 		t.Fatal("zero wallet page not empty")
 	}
 }
-func TestRepairM_1039_DistributionUnbounded(t *testing.T) { repair1039Distribution(t) }
-func repair1039Whales(t *testing.T) {
+func TestHistoryPaginationDistributionUnbounded(t *testing.T) { historyPaginationDistribution(t) }
+func historyPaginationWhales(t *testing.T) {
 	t.Helper()
-	d, pool := repair1039Database(t)
+	d, pool := historyPaginationDatabase(t)
 	st := store.New(pool)
 	creator := "0x" + strings.Repeat("1", 40)
-	repair1039Pool(t, st, "0xpool", &creator)
+	historyPaginationPool(t, st, "0xpool", &creator)
 	d.Canonical = []holdings.Balance{{Address: creator, Raw: "700", Category: "external_wallet"}, {Address: "0x" + strings.Repeat("2", 40), Raw: "299", Category: "external_wallet"}, {Address: "0x" + strings.Repeat("4", 40), Raw: "1", Category: "external_wallet"}}
 	d.Distribution.Supply = "1000"
 	router := chi.NewRouter()
 	httpapi.RegisterPoolAnalytics(router, st)
 	path := "/stats/0xpool/whales"
-	repair1039InvalidPages(t, router, path, 100)
-	first := repair1039Get(t, router, path+"?limit=1")
+	historyPaginationInvalidPages(t, router, path, 100)
+	first := historyPaginationGet(t, router, path+"?limit=1")
 	var whales []struct {
 		HolderAddress string `json:"holderAddress"`
 		IsCreator     bool   `json:"isCreator"`
@@ -1011,20 +1011,20 @@ func repair1039Whales(t *testing.T) {
 	if len(whales) != 1 || whales[0].HolderAddress != creator || !whales[0].IsCreator || whales[0].PctOfSupply != 7000 {
 		t.Fatal("canonical whale/creator", whales)
 	}
-	cursor := repair1039Next(t, first)
+	cursor := historyPaginationNext(t, first)
 	if cursor == "" {
 		t.Fatal("missing whale cursor")
 	}
-	second := repair1039Get(t, router, path+"?limit=1&cursor="+url.QueryEscape(cursor))
+	second := historyPaginationGet(t, router, path+"?limit=1&cursor="+url.QueryEscape(cursor))
 	_ = json.Unmarshal(second["whales"], &whales)
-	if len(whales) != 1 || whales[0].PctOfSupply != 2990 || repair1039Next(t, second) != "" {
+	if len(whales) != 1 || whales[0].PctOfSupply != 2990 || historyPaginationNext(t, second) != "" {
 		t.Fatal("whale threshold or page bound", whales)
 	}
 }
-func TestRepairM_1039_WhalePageBound(t *testing.T) { repair1039Whales(t) }
+func TestHistoryPaginationWhalePageBound(t *testing.T) { historyPaginationWhales(t) }
 
 // Admission uses a recorded RESP peer; Redis never supplies vote/tally state.
-func repair1039Admission(t *testing.T) *redis.Client {
+func historyPaginationAdmission(t *testing.T) *redis.Client {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -1089,8 +1089,8 @@ func repair1039Admission(t *testing.T) *redis.Client {
 	return client
 }
 
-type repair1039Reactions struct {
-	d         *repair1039DB
+type historyPaginationReactions struct {
+	d         *historyPaginationDB
 	pool      *pgxpool.Pool
 	key       *ecdsa.PrivateKey
 	wallet    string
@@ -1100,9 +1100,9 @@ type repair1039Reactions struct {
 	router    http.Handler
 }
 
-func repair1039ReactionPath(t *testing.T) *repair1039Reactions {
+func historyPaginationReactionPath(t *testing.T) *historyPaginationReactions {
 	t.Helper()
-	d, pool := repair1039Database(t)
+	d, pool := historyPaginationDatabase(t)
 	key, wallet := newWallet(t)
 	wallet = strings.ToLower(wallet)
 	principal := auth.IdentityPrincipal{AccountID: uuid.NewString(), SessionID: uuid.NewString(), Wallet: wallet, AuthEpoch: 1, ProofAt: time.Now().Add(-time.Minute), AccessExpiresAt: time.Now().Add(time.Hour)}
@@ -1167,11 +1167,11 @@ func repair1039ReactionPath(t *testing.T) *repair1039Reactions {
 		t.Fatal(err)
 	}
 	t.Cleanup(rpcClient.Close)
-	path := &repair1039Reactions{d: d, pool: pool, key: key, wallet: wallet, identity: auth.HTTPIdentityAuthority{Endpoint: identity.URL, ServiceToken: strings.Repeat("s", 32)}, verifier: auth.WalletOperationVerifier{Backend: auth.NewReportedHashBackend(rpcClient)}, admission: &httpapi.ReactionAdmission{Redis: repair1039Admission(t), Namespace: "repair1039", WalletPerMinute: 12, IPPerMinute: 100}}
+	path := &historyPaginationReactions{d: d, pool: pool, key: key, wallet: wallet, identity: auth.HTTPIdentityAuthority{Endpoint: identity.URL, ServiceToken: strings.Repeat("s", 32)}, verifier: auth.WalletOperationVerifier{Backend: auth.NewReportedHashBackend(rpcClient)}, admission: &httpapi.ReactionAdmission{Redis: historyPaginationAdmission(t), Namespace: "repair1039", WalletPerMinute: 12, IPPerMinute: 100}}
 	path.register(t)
 	return path
 }
-func (p *repair1039Reactions) register(t *testing.T) {
+func (p *historyPaginationReactions) register(t *testing.T) {
 	router := chi.NewRouter()
 	httpapi.RegisterReactions(router, nil)
 	policies := auth.PolicyRegistry{Version: "repair1039", Actions: map[string]auth.Policy{"reaction.replace": {Scope: "wallet", OwnerRequired: true, RouteTemplate: "/v2/stats/{poolAddress}/reactions"}}}
@@ -1181,12 +1181,12 @@ func (p *repair1039Reactions) register(t *testing.T) {
 	p.router = router
 }
 
-const repair1039ReactionPool = "0x1111111111111111111111111111111111111111"
+const historyPaginationReactionPool = "0x1111111111111111111111111111111111111111"
 
-func (p *repair1039Reactions) operation(t *testing.T, reaction string, revision int64, nonceByte byte) (analytics.Intent, auth.OperationEnvelope, string) {
+func (p *historyPaginationReactions) operation(t *testing.T, reaction string, revision int64, nonceByte byte) (analytics.Intent, auth.OperationEnvelope, string) {
 	t.Helper()
-	intent := analytics.Intent{ChainID: "125", Pool: repair1039ReactionPool, Wallet: p.wallet, Reaction: reaction, Nonce: strings.Repeat(string(nonceByte), 64), Expiry: time.Now().Add(4 * time.Minute).Unix(), ExpectedRevision: revision}
-	body := repair1039JSON(intent)
+	intent := analytics.Intent{ChainID: "125", Pool: historyPaginationReactionPool, Wallet: p.wallet, Reaction: reaction, Nonce: strings.Repeat(string(nonceByte), 64), Expiry: time.Now().Add(4 * time.Minute).Unix(), ExpectedRevision: revision}
+	body := historyPaginationJSON(intent)
 	hash, err := auth.BodyDigest(body)
 	if err != nil {
 		t.Fatal(err)
@@ -1198,44 +1198,44 @@ func (p *repair1039Reactions) operation(t *testing.T, reaction string, revision 
 	}
 	return intent, envelope, signWallet(t, p.key, message)
 }
-func (p *repair1039Reactions) send(t *testing.T, method, path string, intent analytics.Intent, envelope auth.OperationEnvelope, signature string) *httptest.ResponseRecorder {
+func (p *historyPaginationReactions) send(t *testing.T, method, path string, intent analytics.Intent, envelope auth.OperationEnvelope, signature string) *httptest.ResponseRecorder {
 	t.Helper()
-	return serve(t, p.router, method, path, repair1039JSON(intent), map[string]string{"Content-Type": "application/json", "Authorization": "Bearer wallet-session", "X-Operation-Envelope": string(repair1039JSON(envelope)), "X-Operation-Signature": signature})
+	return serve(t, p.router, method, path, historyPaginationJSON(intent), map[string]string{"Content-Type": "application/json", "Authorization": "Bearer wallet-session", "X-Operation-Envelope": string(historyPaginationJSON(envelope)), "X-Operation-Signature": signature})
 }
-func repair1039RequireStatus(t *testing.T, response *httptest.ResponseRecorder, status int) {
+func historyPaginationRequireStatus(t *testing.T, response *httptest.ResponseRecorder, status int) {
 	t.Helper()
 	if response.Code != status {
 		t.Fatalf("status %d want %d: %s", response.Code, status, response.Body.String())
 	}
 }
-func repair1039LegacyRetirement(t *testing.T) {
+func historyPaginationLegacyRetirement(t *testing.T) {
 	t.Helper()
 	router := chi.NewRouter()
 	httpapi.RegisterReactions(router, nil)
 	key, wallet := newWallet(t)
 	for _, reaction := range []string{"bullish", "hot", "clear"} {
-		intent := analytics.Intent{ChainID: "125", Pool: repair1039ReactionPool, Wallet: strings.ToLower(wallet), Reaction: reaction, Nonce: strings.Repeat("a", 64), Expiry: time.Now().Add(time.Minute).Unix()}
+		intent := analytics.Intent{ChainID: "125", Pool: historyPaginationReactionPool, Wallet: strings.ToLower(wallet), Reaction: reaction, Nonce: strings.Repeat("a", 64), Expiry: time.Now().Add(time.Minute).Unix()}
 		raw, err := intent.Canonical()
 		if err != nil {
 			t.Fatal(err)
 		}
 		message := "KindleLaunch reaction v1\n" + string(raw)
-		response := serve(t, router, "POST", "/stats/"+repair1039ReactionPool+"/reactions", mustJSON(t, map[string]string{"walletAddress": wallet, "reaction": reaction, "message": message, "signature": signWallet(t, key, message)}), nil)
-		repair1039RequireStatus(t, response, 410)
+		response := serve(t, router, "POST", "/stats/"+historyPaginationReactionPool+"/reactions", mustJSON(t, map[string]string{"walletAddress": wallet, "reaction": reaction, "message": message, "signature": signWallet(t, key, message)}), nil)
+		historyPaginationRequireStatus(t, response, 410)
 		if response.Header().Get("Cache-Control") != "no-store" || !strings.Contains(response.Header().Get("Link"), "/v2/stats/") || !strings.Contains(response.Body.String(), "fresh signed") {
 			t.Fatal("missing explicit signed-operation migration", response.Body.String())
 		}
 	}
 	for _, method := range []string{"GET", "POST"} {
-		repair1039RequireStatus(t, serve(t, router, method, "/stats/"+repair1039ReactionPool+"/reactions", nil, nil), 410)
+		historyPaginationRequireStatus(t, serve(t, router, method, "/stats/"+historyPaginationReactionPool+"/reactions", nil, nil), 410)
 	}
 }
-func TestRepairM_1039_LegacyReactionSignature(t *testing.T) {
-	repair1039LegacyRetirement(t)
-	p := repair1039ReactionPath(t)
+func TestHistoryPaginationLegacyReactionSignature(t *testing.T) {
+	historyPaginationLegacyRetirement(t)
+	p := historyPaginationReactionPath(t)
 	intent, envelope, signature := p.operation(t, "bullish", 0, 'a')
 	path := envelope.Path
-	repair1039RequireStatus(t, p.send(t, "POST", path, intent, envelope, signature), 200)
+	historyPaginationRequireStatus(t, p.send(t, "POST", path, intent, envelope, signature), 200)
 	for _, field := range []string{"pool", "reaction", "method", "expiry", "nonce", "environment"} {
 		t.Run(field, func(t *testing.T) {
 			changed, wrapped, target, method := intent, envelope, path, "POST"
@@ -1254,23 +1254,23 @@ func TestRepairM_1039_LegacyReactionSignature(t *testing.T) {
 			case "environment":
 				wrapped.Environment = "other"
 			}
-			repair1039RequireStatus(t, p.send(t, method, target, changed, wrapped, signature), 403)
+			historyPaginationRequireStatus(t, p.send(t, method, target, changed, wrapped, signature), 403)
 		})
 	}
-	repair1039RequireStatus(t, p.send(t, "DELETE", path, intent, envelope, signature), 405)
+	historyPaginationRequireStatus(t, p.send(t, "DELETE", path, intent, envelope, signature), 405)
 	response := p.send(t, "POST", path, intent, envelope, signature)
-	repair1039RequireStatus(t, response, 200)
+	historyPaginationRequireStatus(t, response, 200)
 	if response.Header().Get("Idempotency-Replayed") != "true" {
 		t.Fatal("identical replay mutated vote")
 	}
 }
 
-func repair1039DurableReplacement(t *testing.T) {
+func historyPaginationDurableReplacement(t *testing.T) {
 	t.Helper()
-	p := repair1039ReactionPath(t)
+	p := historyPaginationReactionPath(t)
 	intent, envelope, signature := p.operation(t, "bullish", 0, 'a')
 	first := p.send(t, "POST", envelope.Path, intent, envelope, signature)
-	repair1039RequireStatus(t, first, 200)
+	historyPaginationRequireStatus(t, first, 200)
 	// Signed replacements contend through the real authority and ledger. The
 	// committed table fixture serializes transactions and injects commit failure.
 	p.d.mu.Lock()
@@ -1300,12 +1300,12 @@ func repair1039DurableReplacement(t *testing.T) {
 	p.d.Now = p.d.Now.Add(6 * time.Second)
 	p.d.mu.Unlock()
 	stale, staleEnv, staleSig := p.operation(t, "trash", 1, 'e')
-	repair1039RequireStatus(t, p.send(t, "POST", staleEnv.Path, stale, staleEnv, staleSig), 409)
+	historyPaginationRequireStatus(t, p.send(t, "POST", staleEnv.Path, stale, staleEnv, staleSig), 409)
 	p.d.mu.Lock()
 	p.d.FailLedger = true
 	p.d.mu.Unlock()
 	clear, clearEnv, clearSig := p.operation(t, "clear", 2, 'd')
-	repair1039RequireStatus(t, p.send(t, "POST", clearEnv.Path, clear, clearEnv, clearSig), 503)
+	historyPaginationRequireStatus(t, p.send(t, "POST", clearEnv.Path, clear, clearEnv, clearSig), 503)
 	p.d.mu.Lock()
 	after := p.d.Tables.Votes[intent.Pool+p.wallet]
 	p.d.mu.Unlock()
@@ -1325,7 +1325,7 @@ func repair1039DurableReplacement(t *testing.T) {
 	if len(p.d.Tables.Outbox) != 2 || len(p.d.Tables.Audit) != 2 || len(p.d.Tables.Ledger) != 2 {
 		t.Fatal("outbox, audit or ledger lost across reopen")
 	}
-	read := repair1039Get(t, p.router, envelope.Path)
+	read := historyPaginationGet(t, p.router, envelope.Path)
 	var counts map[string]int64
 	_ = json.Unmarshal(read["reactions"], &counts)
 	total := int64(0)
@@ -1336,12 +1336,12 @@ func repair1039DurableReplacement(t *testing.T) {
 		t.Fatal("recovered tally disagrees with durable vote", counts, prior)
 	}
 	replay := p.send(t, "POST", envelope.Path, intent, envelope, signature)
-	repair1039RequireStatus(t, replay, 200)
+	historyPaginationRequireStatus(t, replay, 200)
 	if !bytes.Equal(replay.Body.Bytes(), first.Body.Bytes()) || replay.Header().Get("Idempotency-Replayed") != "true" {
 		t.Fatal("operation replay lost after reopen", replay.Body.String())
 	}
-	repair1039RequireStatus(t, p.send(t, "POST", clearEnv.Path, clear, clearEnv, clearSig), 200)
-	final := repair1039Get(t, p.router, envelope.Path)
+	historyPaginationRequireStatus(t, p.send(t, "POST", clearEnv.Path, clear, clearEnv, clearSig), 200)
+	final := historyPaginationGet(t, p.router, envelope.Path)
 	_ = json.Unmarshal(final["reactions"], &counts)
 	for _, n := range counts {
 		if n != 0 {
@@ -1350,20 +1350,22 @@ func repair1039DurableReplacement(t *testing.T) {
 	}
 	// A changed intent with the old signature never authorizes replacement.
 	clear.Reaction = "hot"
-	repair1039RequireStatus(t, p.send(t, "POST", clearEnv.Path, clear, clearEnv, clearSig), 403)
+	historyPaginationRequireStatus(t, p.send(t, "POST", clearEnv.Path, clear, clearEnv, clearSig), 403)
 }
-func TestRepairM_1039_LegacyReactionState(t *testing.T) {
-	repair1039LegacyRetirement(t)
-	repair1039DurableReplacement(t)
+func TestHistoryPaginationLegacyReactionState(t *testing.T) {
+	historyPaginationLegacyRetirement(t)
+	historyPaginationDurableReplacement(t)
 }
-func TestRepairM_1039_ReactionTestWrongIntent(t *testing.T) { repair1039DurableReplacement(t) }
+func TestHistoryPaginationReactionTestWrongIntent(t *testing.T) {
+	historyPaginationDurableReplacement(t)
+}
 
-func base64DecodeRepair1039(raw string) ([]byte, error) {
+func base64DecodeHistoryPagination(raw string) ([]byte, error) {
 	return base64.RawURLEncoding.DecodeString(raw)
 }
-func encodeRepair1039(raw []byte) string { return base64.RawURLEncoding.EncodeToString(raw) }
+func encodeHistoryPagination(raw []byte) string { return base64.RawURLEncoding.EncodeToString(raw) }
 
-func repair1039Bool(raw string) bool {
+func historyPaginationBool(raw string) bool {
 	value, err := strconv.ParseBool(raw)
 	if err != nil {
 		panic(fmt.Sprintf("invalid PostgreSQL boolean transcript %q", raw))

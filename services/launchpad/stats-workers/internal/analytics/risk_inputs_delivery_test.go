@@ -43,34 +43,34 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-const repair1038Version = "market-v1"
-const repair1038Stream = "archive-125"
+const riskInputsVersion = "market-v1"
+const riskInputsStream = "archive-125"
 
-type repair1038Creation struct {
+type riskInputsCreation struct {
 	Pool, Token, Creator, Height, Transaction, Hash, Supply string
 	CreatedAt                                               int64
 }
-type repair1038Progress struct{ Height, TI, LI, Hash, Revision, Observed string }
-type repair1038Trade struct {
+type riskInputsProgress struct{ Height, TI, LI, Hash, Revision, Observed string }
+type riskInputsTrade struct {
 	Fill   accounting.FillV1
 	Digest string
 }
-type repair1038InputRow struct {
+type riskInputsInputRow struct {
 	Height, Hash string
 	Inputs       analytics.RiskInputs
 }
 
 // This is the database peer's transactional fixture state, not an alternate
 // implementation of the projector or of the canonical input producer.
-type repair1038State struct {
-	Creation       repair1038Creation
+type riskInputsState struct {
+	Creation       riskInputsCreation
 	Source         []accounting.FillV1
 	Transfers      []holdings.Transfer
 	HolderEvents   []holdings.Transfer
 	Committed      map[string]accounting.FillV1
-	Progress       map[string]repair1038Progress
-	Trades         map[string]repair1038Trade
-	Inputs         map[string]repair1038InputRow
+	Progress       map[string]riskInputsProgress
+	Trades         map[string]riskInputsTrade
+	Inputs         map[string]riskInputsInputRow
 	Snapshots      map[string]analytics.Snapshot
 	Outbox         []analytics.Snapshot
 	Complete       bool
@@ -78,21 +78,21 @@ type repair1038State struct {
 	Now            time.Time
 }
 
-func repair1038JSON(v any) []byte {
+func riskInputsJSON(v any) []byte {
 	b, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
 	return b
 }
-func repair1038Clone(s repair1038State) repair1038State {
-	var copy repair1038State
-	if err := json.Unmarshal(repair1038JSON(s), &copy); err != nil {
+func riskInputsClone(s riskInputsState) riskInputsState {
+	var copy riskInputsState
+	if err := json.Unmarshal(riskInputsJSON(s), &copy); err != nil {
 		panic(err)
 	}
 	return copy
 }
-func repair1038Fixture(t *testing.T) repair1038State {
+func riskInputsFixture(t *testing.T) riskInputsState {
 	t.Helper()
 	directory := filepath.Join("..", "..", "..", "..", "..", "sdk", "launchpad", "protocol", "contracts", "v1", "chain")
 	authority, err := projectionstats.OpenHistoricalCoreAuthority(directory)
@@ -131,10 +131,10 @@ func repair1038Fixture(t *testing.T) repair1038State {
 		}
 		return strings.ToLower(s)
 	}
-	s := repair1038State{Complete: true, Committed: map[string]accounting.FillV1{}, Progress: map[string]repair1038Progress{}, Trades: map[string]repair1038Trade{}, Inputs: map[string]repair1038InputRow{}, Snapshots: map[string]analytics.Snapshot{}}
+	s := riskInputsState{Complete: true, Committed: map[string]accounting.FillV1{}, Progress: map[string]riskInputsProgress{}, Trades: map[string]riskInputsTrade{}, Inputs: map[string]riskInputsInputRow{}, Snapshots: map[string]analytics.Snapshot{}}
 	for _, d := range archive.DecodedLogs {
 		if d.Name == "MarketCreated" && strings.EqualFold(d.Address, archive.Addresses["factory"]) && d.BlockNumber == 57 {
-			s.Creation = repair1038Creation{Token: text(d.Args[0]), Pool: text(d.Args[1]), Creator: text(d.Args[2]), Height: "57", Transaction: strings.ToLower(d.TransactionHash), Hash: strings.ToLower(d.BlockHash), Supply: "1000000000000000", CreatedAt: 1791504057}
+			s.Creation = riskInputsCreation{Token: text(d.Args[0]), Pool: text(d.Args[1]), Creator: text(d.Args[2]), Height: "57", Transaction: strings.ToLower(d.TransactionHash), Hash: strings.ToLower(d.BlockHash), Supply: "1000000000000000", CreatedAt: 1791504057}
 		}
 	}
 	if s.Creation.Token == "" {
@@ -199,17 +199,17 @@ func repair1038Fixture(t *testing.T) repair1038State {
 	s.Now = time.Unix(timestamp+10, 0).UTC()
 	return s
 }
-func repair1038Envelope(t *testing.T, fill accounting.FillV1, sequence int, now time.Time) (delivery.Envelope, []byte) {
+func riskInputsEnvelope(t *testing.T, fill accounting.FillV1, sequence int, now time.Time) (delivery.Envelope, []byte) {
 	t.Helper()
 	digest, err := accounting.FillDigest(fill)
 	if err != nil {
 		t.Fatal(err)
 	}
-	position := accounting.PartitionPosition{ProjectionVersion: repair1038Version, PartitionKind: "market", PartitionKey: "125:" + fill.PoolAddress, Sequence: strconv.Itoa(sequence), SourceEventID: fill.SourceFillID, PayloadDigest: digest, SourceOrder: fill.Position}
+	position := accounting.PartitionPosition{ProjectionVersion: riskInputsVersion, PartitionKind: "market", PartitionKey: "125:" + fill.PoolAddress, Sequence: strconv.Itoa(sequence), SourceEventID: fill.SourceFillID, PayloadDigest: digest, SourceOrder: fill.Position}
 	if sequence > 1 {
 		position.PreviousEffectIdentity = accounting.HashTuple("archive-previous", strconv.Itoa(sequence-1))
 	}
-	position.EffectIdentity = accounting.EffectIdentity(fill.SourceFillID, "market", repair1038Version, "", "market", position.PartitionKey)
+	position.EffectIdentity = accounting.EffectIdentity(fill.SourceFillID, "market", riskInputsVersion, "", "market", position.PartitionKey)
 	publication, err := accounting.NewMarketPublication(fill, []accounting.PartitionPosition{position})
 	if err != nil {
 		t.Fatal(err)
@@ -219,34 +219,34 @@ func repair1038Envelope(t *testing.T, fill accounting.FillV1, sequence int, now 
 		t.Fatal(err)
 	}
 	e := delivery.Envelope{EventID: publication.PublicationID, EventType: "accounting.market.v1", SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: fill.Position.Height, TransactionIndex: fill.Position.TransactionIndex, LogIndex: fill.Position.LogIndex}, EmittedAt: now, TraceID: "repair-m1038", Payload: payload, PayloadHash: delivery.Hash(payload)}
-	wire, err := e.Encode(repair1038Policy(), accounting.MarketSubject)
+	wire, err := e.Encode(riskInputsPolicy(), accounting.MarketSubject)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return e, wire
 }
-func repair1038Policy() delivery.Policy {
+func riskInputsPolicy() delivery.Policy {
 	return delivery.Policy{Subjects: map[string]bool{accounting.MarketSubject: true}, EventTypes: map[string]bool{"accounting.market.v1": true}}
 }
 
 // The loopback peer speaks PostgreSQL's wire protocol to real pgx connections.
 // Its source rows are the committed receipt transcript above; its small store
 // commits atomically to a journal so reopen tests exercise durable recovery.
-type repair1038Database struct {
+type riskInputsDatabase struct {
 	mu          sync.Mutex
-	state       repair1038State
+	state       riskInputsState
 	listener    net.Listener
 	connections map[net.Conn]bool
 	file        string
 	wg          sync.WaitGroup
 }
 
-func repair1038OpenDatabase(t *testing.T, file string, initial *repair1038State) *repair1038Database {
+func riskInputsOpenDatabase(t *testing.T, file string, initial *riskInputsState) *riskInputsDatabase {
 	t.Helper()
-	d := &repair1038Database{file: file, connections: map[net.Conn]bool{}}
+	d := &riskInputsDatabase{file: file, connections: map[net.Conn]bool{}}
 	if initial != nil {
-		d.state = repair1038Clone(*initial)
-		if err := os.WriteFile(file, repair1038JSON(d.state), 0600); err != nil {
+		d.state = riskInputsClone(*initial)
+		if err := os.WriteFile(file, riskInputsJSON(d.state), 0600); err != nil {
 			t.Fatal(err)
 		}
 	} else {
@@ -288,7 +288,7 @@ func repair1038OpenDatabase(t *testing.T, file string, initial *repair1038State)
 	t.Cleanup(d.Close)
 	return d
 }
-func (d *repair1038Database) Close() {
+func (d *riskInputsDatabase) Close() {
 	_ = d.listener.Close()
 	d.mu.Lock()
 	for c := range d.connections {
@@ -297,21 +297,21 @@ func (d *repair1038Database) Close() {
 	d.mu.Unlock()
 	d.wg.Wait()
 }
-func (d *repair1038Database) snapshot() repair1038State {
+func (d *riskInputsDatabase) snapshot() riskInputsState {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return repair1038Clone(d.state)
+	return riskInputsClone(d.state)
 }
-func (d *repair1038Database) change(t *testing.T, fn func(*repair1038State)) {
+func (d *riskInputsDatabase) change(t *testing.T, fn func(*riskInputsState)) {
 	t.Helper()
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	fn(&d.state)
-	if err := os.WriteFile(d.file, repair1038JSON(d.state), 0600); err != nil {
+	if err := os.WriteFile(d.file, riskInputsJSON(d.state), 0600); err != nil {
 		t.Fatal(err)
 	}
 }
-func (d *repair1038Database) pool(t *testing.T) *pgxpool.Pool {
+func (d *riskInputsDatabase) pool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	cfg, err := pgxpool.ParseConfig("postgres://fixture@" + d.listener.Addr().String() + "/fixture?sslmode=disable")
 	if err != nil {
@@ -327,17 +327,17 @@ func (d *repair1038Database) pool(t *testing.T) *pgxpool.Pool {
 	return p
 }
 
-type repair1038Result struct {
+type riskInputsResult struct {
 	Rows [][]any
 	Tag  string
 	Err  error
 }
 
-func repair1038Rows(values ...any) repair1038Result {
-	return repair1038Result{Rows: [][]any{values}, Tag: "SELECT 1"}
+func riskInputsRows(values ...any) riskInputsResult {
+	return riskInputsResult{Rows: [][]any{values}, Tag: "SELECT 1"}
 }
-func repair1038Empty() repair1038Result { return repair1038Result{Tag: "SELECT 0"} }
-func repair1038Args(bind *pgproto3.Bind) []string {
+func riskInputsEmpty() riskInputsResult { return riskInputsResult{Tag: "SELECT 0"} }
+func riskInputsArgs(bind *pgproto3.Bind) []string {
 	result := make([]string, len(bind.Parameters))
 	for i, b := range bind.Parameters {
 		format := int16(0)
@@ -365,7 +365,7 @@ func repair1038Args(bind *pgproto3.Bind) []string {
 	}
 	return result
 }
-func (d *repair1038Database) serve(c net.Conn) {
+func (d *riskInputsDatabase) serve(c net.Conn) {
 	backend := pgproto3.NewBackend(c, c)
 	if _, err := backend.ReceiveStartupMessage(); err != nil {
 		return
@@ -379,49 +379,49 @@ func (d *repair1038Database) serve(c net.Conn) {
 	if backend.Flush() != nil {
 		return
 	}
-	var state *repair1038State
+	var state *riskInputsState
 	status := byte('I')
 	parsed := map[string]string{}
 	query := ""
 	args := []string{}
-	result := repair1038Result{}
-	run := func(sql string, args []string) repair1038Result {
+	result := riskInputsResult{}
+	run := func(sql string, args []string) riskInputsResult {
 		lower := strings.ToLower(strings.TrimSpace(sql))
 		switch {
 		case strings.HasPrefix(lower, "begin"):
 			copy := d.snapshot()
 			state = &copy
 			status = 'T'
-			return repair1038Result{Tag: "BEGIN"}
+			return riskInputsResult{Tag: "BEGIN"}
 		case lower == "commit":
 			if state == nil {
-				return repair1038Result{Err: errors.New("fixture commit without transaction")}
+				return riskInputsResult{Err: errors.New("fixture commit without transaction")}
 			}
 			d.mu.Lock()
-			data := repair1038JSON(*state)
+			data := riskInputsJSON(*state)
 			err := os.WriteFile(d.file+".next", data, 0600)
 			if err == nil {
 				err = os.Rename(d.file+".next", d.file)
 			}
 			if err == nil {
-				d.state = repair1038Clone(*state)
+				d.state = riskInputsClone(*state)
 			}
 			d.mu.Unlock()
 			state = nil
 			status = 'I'
-			return repair1038Result{Tag: "COMMIT", Err: err}
+			return riskInputsResult{Tag: "COMMIT", Err: err}
 		case lower == "rollback":
 			state = nil
 			status = 'I'
-			return repair1038Result{Tag: "ROLLBACK"}
+			return riskInputsResult{Tag: "ROLLBACK"}
 		}
 		if state != nil {
-			return repair1038Query(state, sql, args)
+			return riskInputsQuery(state, sql, args)
 		}
 		copy := d.snapshot()
-		return repair1038Query(&copy, sql, args)
+		return riskInputsQuery(&copy, sql, args)
 	}
-	sendDescription := func(r repair1038Result) {
+	sendDescription := func(r riskInputsResult) {
 		if len(r.Rows) == 0 {
 			backend.Send(&pgproto3.NoData{})
 			return
@@ -443,7 +443,7 @@ func (d *repair1038Database) serve(c net.Conn) {
 		}
 		backend.Send(&pgproto3.RowDescription{Fields: fields})
 	}
-	sendRows := func(r repair1038Result) {
+	sendRows := func(r riskInputsResult) {
 		if r.Err != nil {
 			backend.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: "XX000", Message: r.Err.Error()})
 			if status == 'T' {
@@ -490,7 +490,7 @@ func (d *repair1038Database) serve(c net.Conn) {
 			backend.Send(&pgproto3.ParseComplete{})
 		case *pgproto3.Bind:
 			query = parsed[m.PreparedStatement]
-			args = repair1038Args(m)
+			args = riskInputsArgs(m)
 			backend.Send(&pgproto3.BindComplete{})
 			result = run(query, args)
 		case *pgproto3.Describe:
@@ -519,7 +519,7 @@ func (d *repair1038Database) serve(c net.Conn) {
 	}
 }
 
-func repair1038LE(a, b string) bool {
+func riskInputsLE(a, b string) bool {
 	x, ok := new(big.Int).SetString(a, 10)
 	if !ok {
 		return false
@@ -527,11 +527,11 @@ func repair1038LE(a, b string) bool {
 	y, ok := new(big.Int).SetString(b, 10)
 	return ok && x.Cmp(y) <= 0
 }
-func repair1038BalanceRows(events []holdings.Transfer, height string) ([][]any, error) {
+func riskInputsBalanceRows(events []holdings.Transfer, height string) ([][]any, error) {
 	supply := "0"
 	balances := map[string]string{}
 	for _, e := range events {
-		if !repair1038LE(e.Height, height) {
+		if !riskInputsLE(e.Height, height) {
 			continue
 		}
 		from, to := balances[e.From], balances[e.To]
@@ -566,7 +566,7 @@ func repair1038BalanceRows(events []holdings.Transfer, height string) ([][]any, 
 	}
 	return rows, nil
 }
-func repair1038Query(s *repair1038State, sql string, args []string) repair1038Result {
+func riskInputsQuery(s *riskInputsState, sql string, args []string) riskInputsResult {
 	q := strings.Join(strings.Fields(strings.ReplaceAll(sql, `"`, "")), " ")
 	a := func(i int) string {
 		if i < 1 || i > len(args) {
@@ -574,53 +574,53 @@ func repair1038Query(s *repair1038State, sql string, args []string) repair1038Re
 		}
 		return args[i-1]
 	}
-	fail := func(err error) repair1038Result { return repair1038Result{Err: err} }
+	fail := func(err error) riskInputsResult { return riskInputsResult{Err: err} }
 	key := func(pool, model string) string { return pool + ":" + model }
 	switch {
 	case q == "SELECT clock_timestamp()":
-		return repair1038Rows(s.Now)
+		return riskInputsRows(s.Now)
 	case strings.HasPrefix(q, "SELECT pg_advisory_xact_lock("):
-		return repair1038Result{Tag: "SELECT 1"}
+		return riskInputsResult{Tag: "SELECT 1"}
 	case strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM indexer.indexer_block_completeness_v1"):
-		good := s.Complete && a(1) == repair1038Stream
+		good := s.Complete && a(1) == riskInputsStream
 		found := false
 		for _, f := range s.Source {
 			if f.Position.Height == a(2) && f.Position.BlockHash == a(3) {
 				found = true
 			}
 		}
-		return repair1038Rows(good && found)
+		return riskInputsRows(good && found)
 	case strings.HasPrefix(q, "SELECT token,lower(creator),block_timestamp,height::text,transaction_hash,payload FROM indexer.indexer_canonical_creations_v1"):
 		c := s.Creation
-		if a(1) != c.Pool || !repair1038LE(c.Height, a(2)) {
-			return repair1038Empty()
+		if a(1) != c.Pool || !riskInputsLE(c.Height, a(2)) {
+			return riskInputsEmpty()
 		}
-		return repair1038Rows(c.Token, c.Creator, c.CreatedAt, c.Height, c.Transaction, repair1038JSON(map[string]any{"metadata": map[string]any{"totalSupply": c.Supply}}))
+		return riskInputsRows(c.Token, c.Creator, c.CreatedAt, c.Height, c.Transaction, riskInputsJSON(map[string]any{"metadata": map[string]any{"totalSupply": c.Supply}}))
 	case strings.HasPrefix(q, "SELECT EXISTS(SELECT 1 FROM holders.tokens"):
-		healthy := s.HolderComplete && s.Complete && a(1) == s.Creation.Token && a(3) == repair1038Stream && a(4) == s.Creation.Supply && a(5) == s.Creation.Transaction && a(6) == s.Creation.Height
+		healthy := s.HolderComplete && s.Complete && a(1) == s.Creation.Token && a(3) == riskInputsStream && a(4) == s.Creation.Supply && a(5) == s.Creation.Transaction && a(6) == s.Creation.Height
 		source := map[string]holdings.Transfer{}
 		local := map[string]holdings.Transfer{}
 		for _, e := range s.Transfers {
-			if repair1038LE(e.Height, a(2)) {
+			if riskInputsLE(e.Height, a(2)) {
 				source[e.Identity()] = e
 			}
 		}
 		for _, e := range s.HolderEvents {
-			if repair1038LE(e.Height, a(2)) {
+			if riskInputsLE(e.Height, a(2)) {
 				local[e.Identity()] = e
 			}
 		}
-		return repair1038Rows(healthy && reflect.DeepEqual(source, local))
+		return riskInputsRows(healthy && reflect.DeepEqual(source, local))
 	case strings.HasPrefix(q, "WITH deltas AS ("):
 		if a(1) != s.Creation.Token || a(3) != holdings.Zero {
 			return fail(errors.New("wrong ownership source"))
 		}
-		rows, err := repair1038BalanceRows(s.HolderEvents, a(2))
-		return repair1038Result{Rows: rows, Err: err}
+		rows, err := riskInputsBalanceRows(s.HolderEvents, a(2))
+		return riskInputsResult{Rows: rows, Err: err}
 	case strings.HasPrefix(q, "SELECT f.payload,f.source_fact_digest,COALESCE(c.fill"):
-		r := repair1038Result{}
+		r := riskInputsResult{}
 		for _, f := range s.Source {
-			if f.PoolAddress != a(1) || !repair1038LE(f.Position.Height, a(2)) {
+			if f.PoolAddress != a(1) || !riskInputsLE(f.Position.Height, a(2)) {
 				continue
 			}
 			digest, err := accounting.FillDigest(f)
@@ -629,21 +629,21 @@ func repair1038Query(s *repair1038State, sql string, args []string) repair1038Re
 			}
 			raw := []byte("null")
 			cd := ""
-			if c, ok := s.Committed[f.SourceFillID]; ok && a(3) == repair1038Version {
-				raw = repair1038JSON(c)
+			if c, ok := s.Committed[f.SourceFillID]; ok && a(3) == riskInputsVersion {
+				raw = riskInputsJSON(c)
 				d, err := accounting.FillDigest(c)
 				if err != nil {
 					return fail(err)
 				}
 				cd = string(d)
 			}
-			r.Rows = append(r.Rows, []any{repair1038JSON(f), string(digest), raw, cd})
+			r.Rows = append(r.Rows, []any{riskInputsJSON(f), string(digest), raw, cd})
 		}
 		return r
 	case strings.HasPrefix(q, "SELECT NOT EXISTS(SELECT 1 FROM stats.accounting_market_commits"):
-		good := a(3) == repair1038Version
+		good := a(3) == riskInputsVersion
 		for id, c := range s.Committed {
-			if c.PoolAddress != a(1) || !repair1038LE(c.Position.Height, a(2)) {
+			if c.PoolAddress != a(1) || !riskInputsLE(c.Position.Height, a(2)) {
 				continue
 			}
 			found := false
@@ -654,50 +654,50 @@ func repair1038Query(s *repair1038State, sql string, args []string) repair1038Re
 			}
 			good = good && found
 		}
-		return repair1038Rows(good)
+		return riskInputsRows(good)
 	case strings.HasPrefix(q, "SELECT block_hash,payload FROM stats.analytics_risk_inputs"):
 		r, ok := s.Inputs[a(1)]
 		if !ok || r.Height != a(2) {
-			return repair1038Empty()
+			return riskInputsEmpty()
 		}
-		return repair1038Rows(r.Hash, repair1038JSON(r.Inputs))
+		return riskInputsRows(r.Hash, riskInputsJSON(r.Inputs))
 	case strings.HasPrefix(q, "INSERT INTO stats.analytics_risk_inputs"):
 		var in analytics.RiskInputs
 		if err := json.Unmarshal([]byte(a(4)), &in); err != nil {
 			return fail(err)
 		}
 		old, ok := s.Inputs[a(1)]
-		advance := !ok || !repair1038LE(a(2), old.Height)
+		advance := !ok || !riskInputsLE(a(2), old.Height)
 		if ok && a(2) == old.Height && a(3) == old.Hash && in.ProjectionRevision != "" {
-			advance = !repair1038LE(in.ProjectionRevision, old.Inputs.ProjectionRevision) || old.Inputs.ProjectionRevision == ""
+			advance = !riskInputsLE(in.ProjectionRevision, old.Inputs.ProjectionRevision) || old.Inputs.ProjectionRevision == ""
 		}
 		if !advance {
-			return repair1038Result{Tag: "INSERT 0 0"}
+			return riskInputsResult{Tag: "INSERT 0 0"}
 		}
-		s.Inputs[a(1)] = repair1038InputRow{Height: a(2), Hash: a(3), Inputs: in}
-		return repair1038Result{Tag: "INSERT 0 1"}
+		s.Inputs[a(1)] = riskInputsInputRow{Height: a(2), Hash: a(3), Inputs: in}
+		return riskInputsResult{Tag: "INSERT 0 1"}
 	case strings.HasPrefix(q, "SELECT payload FROM stats.analytics_risk_inputs"):
 		r, ok := s.Inputs[a(1)]
 		if !ok || r.Height != a(2) || r.Hash != a(3) {
-			return repair1038Empty()
+			return riskInputsEmpty()
 		}
-		return repair1038Rows(repair1038JSON(r.Inputs))
+		return riskInputsRows(riskInputsJSON(r.Inputs))
 	case strings.HasPrefix(q, "SELECT digest FROM stats.analytics_trades"):
 		r, ok := s.Trades[a(1)]
 		if !ok {
-			return repair1038Empty()
+			return riskInputsEmpty()
 		}
-		return repair1038Rows(r.Digest)
+		return riskInputsRows(r.Digest)
 	case strings.HasPrefix(q, "SELECT block_hash=$3 FROM stats.analytics_progress"):
 		r, ok := s.Progress[a(1)]
 		if !ok || r.Height != a(2) {
-			return repair1038Empty()
+			return riskInputsEmpty()
 		}
-		return repair1038Rows(r.Hash == a(3))
+		return riskInputsRows(r.Hash == a(3))
 	case strings.HasPrefix(q, "INSERT INTO stats.analytics_trades"):
 		f := accounting.FillV1{SourceFillID: a(1), PoolAddress: a(2), Position: accounting.SourcePosition{Height: a(3), TransactionIndex: a(4), LogIndex: a(5), BlockHash: a(6)}, BlockTimestampSeconds: a(7), Side: a(8), USDLAmountRaw: a(9)}
-		s.Trades[a(1)] = repair1038Trade{Fill: f, Digest: a(10)}
-		return repair1038Result{Tag: "INSERT 0 1"}
+		s.Trades[a(1)] = riskInputsTrade{Fill: f, Digest: a(10)}
+		return riskInputsResult{Tag: "INSERT 0 1"}
 	case strings.HasPrefix(q, "INSERT INTO stats.analytics_progress"):
 		old, ok := s.Progress[a(1)]
 		if ok {
@@ -712,7 +712,7 @@ func repair1038Query(s *repair1038State, sql string, args []string) repair1038Re
 				return 0
 			}()
 			if cmp <= 0 {
-				return repair1038Empty()
+				return riskInputsEmpty()
 			}
 		}
 		rev := big.NewInt(1)
@@ -720,19 +720,19 @@ func repair1038Query(s *repair1038State, sql string, args []string) repair1038Re
 			rev.SetString(old.Revision, 10)
 			rev.Add(rev, big.NewInt(1))
 		}
-		s.Progress[a(1)] = repair1038Progress{Height: a(2), TI: a(3), LI: a(4), Hash: a(5), Revision: rev.String(), Observed: a(6)}
-		return repair1038Rows(rev.String())
+		s.Progress[a(1)] = riskInputsProgress{Height: a(2), TI: a(3), LI: a(4), Hash: a(5), Revision: rev.String(), Observed: a(6)}
+		return riskInputsRows(rev.String())
 	case strings.HasPrefix(q, "UPDATE stats.analytics_progress SET revision=revision+1"):
 		p, ok := s.Progress[a(1)]
 		if !ok {
-			return repair1038Empty()
+			return riskInputsEmpty()
 		}
 		n, _ := new(big.Int).SetString(p.Revision, 10)
 		p.Revision = n.Add(n, big.NewInt(1)).String()
 		s.Progress[a(1)] = p
-		return repair1038Rows(p.Height, p.Hash, p.Revision, p.Observed)
+		return riskInputsRows(p.Height, p.Hash, p.Revision, p.Observed)
 	case strings.HasPrefix(q, "SELECT p.pool FROM stats.analytics_progress"):
-		r := repair1038Result{}
+		r := riskInputsResult{}
 		if a(1) == s.Creation.Token {
 			if _, ok := s.Progress[s.Creation.Pool]; ok {
 				r.Rows = append(r.Rows, []any{s.Creation.Pool})
@@ -759,34 +759,34 @@ func repair1038Query(s *repair1038State, sql string, args []string) repair1038Re
 				sn.Add(sn, n)
 			}
 		}
-		return repair1038Rows(buy, sell, bn.String(), sn.String())
+		return riskInputsRows(buy, sell, bn.String(), sn.String())
 	case strings.HasPrefix(q, "SELECT payload->'inputs_watermark'->>'blockHash' FROM stats.analytics_snapshots"):
 		r, ok := s.Snapshots[key(a(1), a(2))]
 		if !ok || r.Watermark.Height != a(3) {
-			return repair1038Empty()
+			return riskInputsEmpty()
 		}
-		return repair1038Rows(r.Watermark.BlockHash)
+		return riskInputsRows(r.Watermark.BlockHash)
 	case strings.HasPrefix(q, "SELECT payload=$3::jsonb FROM stats.analytics_snapshots"):
 		r, ok := s.Snapshots[key(a(1), a(2))]
 		if !ok || r.Watermark.Height != a(4) || r.Watermark.ProjectionRevision != a(5) {
-			return repair1038Empty()
+			return riskInputsEmpty()
 		}
 		var expected analytics.Snapshot
 		if err := json.Unmarshal([]byte(a(3)), &expected); err != nil {
 			return fail(err)
 		}
-		return repair1038Rows(reflect.DeepEqual(r, expected))
+		return riskInputsRows(reflect.DeepEqual(r, expected))
 	case strings.HasPrefix(q, "INSERT INTO stats.analytics_snapshots"):
 		var in analytics.Snapshot
 		if err := json.Unmarshal([]byte(a(5)), &in); err != nil {
 			return fail(err)
 		}
 		old, ok := s.Snapshots[key(a(1), a(2))]
-		if ok && repair1038LE(a(3), old.Watermark.Height) && (a(3) != old.Watermark.Height || repair1038LE(a(4), old.Watermark.ProjectionRevision)) {
-			return repair1038Result{Tag: "INSERT 0 0"}
+		if ok && riskInputsLE(a(3), old.Watermark.Height) && (a(3) != old.Watermark.Height || riskInputsLE(a(4), old.Watermark.ProjectionRevision)) {
+			return riskInputsResult{Tag: "INSERT 0 0"}
 		}
 		s.Snapshots[key(a(1), a(2))] = in
-		return repair1038Result{Tag: "INSERT 0 1"}
+		return riskInputsResult{Tag: "INSERT 0 1"}
 	case strings.HasPrefix(q, "INSERT INTO stats.analytics_outbox"):
 		var in analytics.Snapshot
 		if err := json.Unmarshal([]byte(a(4)), &in); err != nil {
@@ -798,20 +798,20 @@ func repair1038Query(s *repair1038State, sql string, args []string) repair1038Re
 			}
 		}
 		s.Outbox = append(s.Outbox, in)
-		return repair1038Result{Tag: "INSERT 0 1"}
+		return riskInputsResult{Tag: "INSERT 0 1"}
 	case strings.HasPrefix(q, "SELECT height::text,revision::text,payload FROM stats.analytics_snapshots"):
 		r, ok := s.Snapshots[key(a(1), a(2))]
 		if !ok {
-			return repair1038Empty()
+			return riskInputsEmpty()
 		}
-		return repair1038Rows(r.Watermark.Height, r.Watermark.ProjectionRevision, repair1038JSON(r))
+		return riskInputsRows(r.Watermark.Height, r.Watermark.ProjectionRevision, riskInputsJSON(r))
 	case strings.HasPrefix(q, "SELECT id::text,model,revision::text,payload FROM stats.analytics_outbox"):
-		r := repair1038Result{}
+		r := riskInputsResult{}
 		after, _ := strconv.Atoi(a(2))
 		limit, _ := strconv.Atoi(a(3))
 		for i, item := range s.Outbox {
 			if item.Pool == a(1) && i+1 > after && len(r.Rows) < limit {
-				r.Rows = append(r.Rows, []any{strconv.Itoa(i + 1), item.Model, item.Watermark.ProjectionRevision, repair1038JSON(item)})
+				r.Rows = append(r.Rows, []any{strconv.Itoa(i + 1), item.Model, item.Watermark.ProjectionRevision, riskInputsJSON(item)})
 			}
 		}
 		return r
@@ -820,10 +820,10 @@ func repair1038Query(s *repair1038State, sql string, args []string) repair1038Re
 	}
 }
 
-func repair1038Projector(t *testing.T, d *repair1038Database) (*analytics.Projector, *pgxpool.Pool) {
+func riskInputsProjector(t *testing.T, d *riskInputsDatabase) (*analytics.Projector, *pgxpool.Pool) {
 	t.Helper()
 	pool := d.pool(t)
-	p, err := app.NewAnalyticsProjector(analytics.ReactionAuthority{Pool: pool, Schema: "stats"}, "holders", "indexer", repair1038Stream, repair1038Version)
+	p, err := app.NewAnalyticsProjector(analytics.ReactionAuthority{Pool: pool, Schema: "stats"}, "holders", "indexer", riskInputsStream, riskInputsVersion)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -832,19 +832,19 @@ func repair1038Projector(t *testing.T, d *repair1038Database) (*analytics.Projec
 	}
 	return p, pool
 }
-func repair1038Apply(t *testing.T, p *analytics.Projector, d *repair1038Database, index int, commit bool) error {
+func riskInputsApply(t *testing.T, p *analytics.Projector, d *riskInputsDatabase, index int, commit bool) error {
 	t.Helper()
 	s := d.snapshot()
 	fill := s.Source[index]
-	e, wire := repair1038Envelope(t, fill, index+1, s.Now)
-	decoded, err := delivery.Decode(wire, repair1038Policy(), accounting.MarketSubject)
+	e, wire := riskInputsEnvelope(t, fill, index+1, s.Now)
+	decoded, err := delivery.Decode(wire, riskInputsPolicy(), accounting.MarketSubject)
 	if err != nil {
 		return err
 	}
 	if !reflect.DeepEqual(e, decoded) {
 		return errors.New("real delivery codec changed the producer publication")
 	}
-	d.change(t, func(s *repair1038State) { s.Committed[fill.SourceFillID] = fill })
+	d.change(t, func(s *riskInputsState) { s.Committed[fill.SourceFillID] = fill })
 	tx, err := p.Authority.Pool.Begin(context.Background())
 	if err != nil {
 		return err
@@ -858,7 +858,7 @@ func repair1038Apply(t *testing.T, p *analytics.Projector, d *repair1038Database
 	}
 	return nil
 }
-func repair1038Serve(t *testing.T, a analytics.ReactionAuthority) *httptest.Server {
+func riskInputsServe(t *testing.T, a analytics.ReactionAuthority) *httptest.Server {
 	t.Helper()
 	router := chi.NewRouter()
 	httpapi.RegisterDurableAnalytics(router, a)
@@ -866,7 +866,7 @@ func repair1038Serve(t *testing.T, a analytics.ReactionAuthority) *httptest.Serv
 	t.Cleanup(server.Close)
 	return server
 }
-func repair1038Read(t *testing.T, server *httptest.Server, pool string) analytics.Snapshot {
+func riskInputsRead(t *testing.T, server *httptest.Server, pool string) analytics.Snapshot {
 	t.Helper()
 	response, err := server.Client().Get(server.URL + "/v2/stats/" + pool + "/risk")
 	if err != nil {
@@ -886,7 +886,7 @@ func repair1038Read(t *testing.T, server *httptest.Server, pool string) analytic
 	}
 	return read.Snapshot
 }
-func repair1038Risk(t *testing.T, s analytics.Snapshot) risk.V1Result {
+func riskInputsRisk(t *testing.T, s analytics.Snapshot) risk.V1Result {
 	t.Helper()
 	var result risk.V1Result
 	if err := json.Unmarshal(s.Payload, &result); err != nil {
@@ -895,13 +895,13 @@ func repair1038Risk(t *testing.T, s analytics.Snapshot) risk.V1Result {
 	return result
 }
 
-func TestRepairM_1038_RiskInputsAppWiringLateHoldersAndRestart(t *testing.T) {
-	initial := repair1038Fixture(t)
+func TestRiskAuthorityRiskInputsAppWiringLateHoldersAndRestart(t *testing.T) {
+	initial := riskInputsFixture(t)
 	file := filepath.Join(t.TempDir(), "committed.json")
-	d := repair1038OpenDatabase(t, file, &initial)
-	projector, pool := repair1038Projector(t, d)
+	d := riskInputsOpenDatabase(t, file, &initial)
+	projector, pool := riskInputsProjector(t, d)
 	for i := range initial.Source {
-		if err := repair1038Apply(t, projector, d, i, true); err != nil {
+		if err := riskInputsApply(t, projector, d, i, true); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -910,28 +910,28 @@ func TestRepairM_1038_RiskInputsAppWiringLateHoldersAndRestart(t *testing.T) {
 	if !ok || input.Inputs.CreatedAt != initial.Creation.CreatedAt || input.Inputs.HolderCount != -1 || input.Inputs.UniqueTraders24h < 1 || input.Inputs.SupplyRaw != "" {
 		t.Fatal("missing genuine source coverage was not disclosed", input)
 	}
-	server := repair1038Serve(t, projector.Authority)
-	before := repair1038Read(t, server, initial.Creation.Pool)
-	partial := repair1038Risk(t, before)
+	server := riskInputsServe(t, projector.Authority)
+	before := riskInputsRead(t, server, initial.Creation.Pool)
+	partial := riskInputsRisk(t, before)
 	if partial.Score != nil || partial.Coverage != "incomplete" || !reflect.DeepEqual(partial.Unavailable, []string{"top10_concentration", "creator_holdings", "holders", "supply"}) {
 		t.Fatal(partial)
 	}
 	// Transfer ingestion advances after the final market fill. No new trade is
 	// supplied to make the risk route complete.
-	d.change(t, func(s *repair1038State) {
+	d.change(t, func(s *riskInputsState) {
 		s.HolderEvents = append([]holdings.Transfer(nil), s.Transfers...)
 		s.HolderComplete = true
 	})
 	if err := projector.RefreshTokenInputs(context.Background(), initial.Creation.Token); err != nil {
 		t.Fatal(err)
 	}
-	after := repair1038Read(t, server, initial.Creation.Pool)
-	complete := repair1038Risk(t, after)
-	if complete.Score == nil || complete.Coverage != "complete" || len(complete.Unavailable) != 0 || after.Watermark.Height != before.Watermark.Height || after.Watermark.BlockHash != before.Watermark.BlockHash || repair1038LE(after.Watermark.ProjectionRevision, before.Watermark.ProjectionRevision) {
+	after := riskInputsRead(t, server, initial.Creation.Pool)
+	complete := riskInputsRisk(t, after)
+	if complete.Score == nil || complete.Coverage != "complete" || len(complete.Unavailable) != 0 || after.Watermark.Height != before.Watermark.Height || after.Watermark.BlockHash != before.Watermark.BlockHash || riskInputsLE(after.Watermark.ProjectionRevision, before.Watermark.ProjectionRevision) {
 		t.Fatal("late holder catchup was not projected", before, after, complete)
 	}
 	persisted := d.snapshot()
-	if err := repair1038Apply(t, projector, d, len(initial.Source)-1, true); err != nil {
+	if err := riskInputsApply(t, projector, d, len(initial.Source)-1, true); err != nil {
 		t.Fatal(err)
 	}
 	duplicate := d.snapshot()
@@ -952,37 +952,37 @@ func TestRepairM_1038_RiskInputsAppWiringLateHoldersAndRestart(t *testing.T) {
 	server.Close()
 	pool.Close()
 	d.Close()
-	reopened := repair1038OpenDatabase(t, file, nil)
-	recovered, recoveredPool := repair1038Projector(t, reopened)
+	reopened := riskInputsOpenDatabase(t, file, nil)
+	recovered, recoveredPool := riskInputsProjector(t, reopened)
 	_ = recoveredPool
-	resumed := repair1038Serve(t, recovered.Authority)
-	got := repair1038Read(t, resumed, initial.Creation.Pool)
+	resumed := riskInputsServe(t, recovered.Authority)
+	got := riskInputsRead(t, resumed, initial.Creation.Pool)
 	if !reflect.DeepEqual(got, after) || !reflect.DeepEqual(reopened.snapshot().Inputs, persisted.Inputs) {
 		t.Fatal("restart lost the durable canonical snapshot", got, after)
 	}
 	if err := recovered.RefreshTokenInputs(context.Background(), initial.Creation.Token); err != nil {
 		t.Fatal(err)
 	}
-	refreshed := repair1038Read(t, resumed, initial.Creation.Pool)
-	if !reflect.DeepEqual(repair1038Risk(t, refreshed).Factors, complete.Factors) || refreshed.Watermark.Height != after.Watermark.Height {
+	refreshed := riskInputsRead(t, resumed, initial.Creation.Pool)
+	if !reflect.DeepEqual(riskInputsRisk(t, refreshed).Factors, complete.Factors) || refreshed.Watermark.Height != after.Watermark.Height {
 		t.Fatal("restart refresh changed canonical inputs")
 	}
 }
 
-func TestRepairM_1038_RiskInputsAtomicRollbackAndConflicts(t *testing.T) {
-	initial := repair1038Fixture(t)
+func TestRiskAuthorityRiskInputsAtomicRollbackAndConflicts(t *testing.T) {
+	initial := riskInputsFixture(t)
 	initial.HolderComplete = true
 	initial.HolderEvents = append([]holdings.Transfer(nil), initial.Transfers...)
-	d := repair1038OpenDatabase(t, filepath.Join(t.TempDir(), "committed.json"), &initial)
-	p, _ := repair1038Projector(t, d)
-	if err := repair1038Apply(t, p, d, 0, false); err != nil {
+	d := riskInputsOpenDatabase(t, filepath.Join(t.TempDir(), "committed.json"), &initial)
+	p, _ := riskInputsProjector(t, d)
+	if err := riskInputsApply(t, p, d, 0, false); err != nil {
 		t.Fatal(err)
 	}
 	state := d.snapshot()
 	if len(state.Inputs) != 0 || len(state.Progress) != 0 || len(state.Trades) != 0 || len(state.Snapshots) != 0 || len(state.Outbox) != 0 {
 		t.Fatal("risk input escaped projection rollback")
 	}
-	if err := repair1038Apply(t, p, d, 0, true); err != nil {
+	if err := riskInputsApply(t, p, d, 0, true); err != nil {
 		t.Fatal(err)
 	}
 	committed := d.snapshot()
@@ -1002,7 +1002,7 @@ func TestRepairM_1038_RiskInputsAtomicRollbackAndConflicts(t *testing.T) {
 	if err = tx.Rollback(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	d.change(t, func(s *repair1038State) { s.Complete = false })
+	d.change(t, func(s *riskInputsState) { s.Complete = false })
 	if err = p.RefreshTokenInputs(context.Background(), initial.Creation.Token); !errors.Is(err, analytics.ErrDependencyUnavailable) {
 		t.Fatal("uncommitted source accepted", err)
 	}
@@ -1010,7 +1010,7 @@ func TestRepairM_1038_RiskInputsAtomicRollbackAndConflicts(t *testing.T) {
 	if !reflect.DeepEqual(after.Inputs, committed.Inputs) || !reflect.DeepEqual(after.Snapshots, committed.Snapshots) || !reflect.DeepEqual(after.Progress, committed.Progress) || len(after.Outbox) != len(committed.Outbox) {
 		t.Fatal("failed source refresh committed partial state")
 	}
-	d.change(t, func(s *repair1038State) {
+	d.change(t, func(s *riskInputsState) {
 		s.Complete = true
 		c := s.Committed[initial.Source[0].SourceFillID]
 		if c.Attribution.TransactionSender == s.Creation.Creator {
@@ -1027,20 +1027,20 @@ func TestRepairM_1038_RiskInputsAtomicRollbackAndConflicts(t *testing.T) {
 	}
 }
 
-func TestRepairM_1038_RiskInputsPositionAndExpiry(t *testing.T) {
-	initial := repair1038Fixture(t)
+func TestRiskAuthorityRiskInputsPositionAndExpiry(t *testing.T) {
+	initial := riskInputsFixture(t)
 	initial.HolderComplete = true
 	initial.HolderEvents = append([]holdings.Transfer(nil), initial.Transfers...)
-	d := repair1038OpenDatabase(t, filepath.Join(t.TempDir(), "committed.json"), &initial)
-	p, _ := repair1038Projector(t, d)
-	if err := repair1038Apply(t, p, d, 0, true); err != nil {
+	d := riskInputsOpenDatabase(t, filepath.Join(t.TempDir(), "committed.json"), &initial)
+	p, _ := riskInputsProjector(t, d)
+	if err := riskInputsApply(t, p, d, 0, true); err != nil {
 		t.Fatal(err)
 	}
 	first := d.snapshot()
 	in := first.Inputs[initial.Creation.Pool].Inputs
 	// Later genuine transfers are already in the holder store. They must not
 	// alter an earlier position's risk snapshot.
-	expectedRows, err := repair1038BalanceRows(initial.Transfers, initial.Source[0].Position.Height)
+	expectedRows, err := riskInputsBalanceRows(initial.Transfers, initial.Source[0].Position.Height)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1059,7 +1059,7 @@ func TestRepairM_1038_RiskInputsPositionAndExpiry(t *testing.T) {
 		t.Fatal("wrong block hash admitted", err)
 	}
 	_ = tx.Rollback(context.Background())
-	d.change(t, func(s *repair1038State) { s.Now = s.Now.Add(24 * time.Hour) })
+	d.change(t, func(s *riskInputsState) { s.Now = s.Now.Add(24 * time.Hour) })
 	if err = p.RefreshTokenInputs(context.Background(), initial.Creation.Token); err != nil {
 		t.Fatal(err)
 	}
@@ -1069,7 +1069,7 @@ func TestRepairM_1038_RiskInputsPositionAndExpiry(t *testing.T) {
 	}
 	// Missing committed facts at the same height are reported as unknown, never
 	// counted as either a measured zero or an inferred wallet.
-	d.change(t, func(s *repair1038State) { delete(s.Committed, initial.Source[0].SourceFillID) })
+	d.change(t, func(s *riskInputsState) { delete(s.Committed, initial.Source[0].SourceFillID) })
 	if err = p.RefreshTokenInputs(context.Background(), initial.Creation.Token); err != nil {
 		t.Fatal(err)
 	}
@@ -1081,7 +1081,7 @@ func TestRepairM_1038_RiskInputsPositionAndExpiry(t *testing.T) {
 // A small loopback NATS protocol peer supplies the broker side of the pause
 // interface. Publications queue while the named durable is paused; resumption
 // drains the identical encoded publications through a real NATS connection.
-type repair1038Broker struct {
+type riskInputsBroker struct {
 	listener  net.Listener
 	mu        sync.Mutex
 	pending   [][]byte
@@ -1091,13 +1091,13 @@ type repair1038Broker struct {
 	wg        sync.WaitGroup
 }
 
-func repair1038OpenBroker(t *testing.T) *repair1038Broker {
+func riskInputsOpenBroker(t *testing.T) *riskInputsBroker {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := &repair1038Broker{listener: listener}
+	b := &riskInputsBroker{listener: listener}
 	b.wg.Add(1)
 	go func() {
 		defer b.wg.Done()
@@ -1122,12 +1122,12 @@ func repair1038OpenBroker(t *testing.T) *repair1038Broker {
 	})
 	return b
 }
-func (b *repair1038Broker) backlog() (int, int) {
+func (b *riskInputsBroker) backlog() (int, int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return len(b.pending), b.delivered
 }
-func (b *repair1038Broker) serve(c net.Conn) {
+func (b *riskInputsBroker) serve(c net.Conn) {
 	_, _ = fmt.Fprintf(c, "INFO {\"server_id\":\"receipt-peer\",\"version\":\"2.12.2\",\"proto\":1,\"max_payload\":1048576}\r\n")
 	reader := bufio.NewReader(c)
 	subscriptions := map[string]string{}
@@ -1187,7 +1187,7 @@ func (b *repair1038Broker) serve(c net.Conn) {
 				}
 				b.mu.Lock()
 				b.paused = !request.Until.IsZero()
-				response := repair1038JSON(map[string]any{"type": "io.nats.jetstream.api.v1.consumer_pause_response", "paused": b.paused, "pause_until": request.Until})
+				response := riskInputsJSON(map[string]any{"type": "io.nats.jetstream.api.v1.consumer_pause_response", "paused": b.paused, "pause_until": request.Until})
 				send(reply, response)
 				if !b.paused {
 					for _, queued := range b.pending {
@@ -1215,21 +1215,21 @@ func (b *repair1038Broker) serve(c net.Conn) {
 	}
 }
 
-func TestRepairM_1038_CapacityPauseSLOConflict(t *testing.T) {
-	initial := repair1038Fixture(t)
+func TestRiskAuthorityCapacityPauseSLOConflict(t *testing.T) {
+	initial := riskInputsFixture(t)
 	initial.HolderComplete = true
 	initial.HolderEvents = append([]holdings.Transfer(nil), initial.Transfers...)
-	d := repair1038OpenDatabase(t, filepath.Join(t.TempDir(), "paused.json"), &initial)
-	p, _ := repair1038Projector(t, d)
-	if err := repair1038Apply(t, p, d, 0, true); err != nil {
+	d := riskInputsOpenDatabase(t, filepath.Join(t.TempDir(), "paused.json"), &initial)
+	p, _ := riskInputsProjector(t, d)
+	if err := riskInputsApply(t, p, d, 0, true); err != nil {
 		t.Fatal(err)
 	}
-	server := repair1038Serve(t, p.Authority)
+	server := riskInputsServe(t, p.Authority)
 	plan := phase4Plan{Origin: server.URL, Processes: []phase4Process{{Role: "stats", PID: os.Getpid()}}}
 	if err := phase4BindOrigin(plan); err != nil {
 		t.Fatal("origin is not bound to the actual serving process", err)
 	}
-	broker := repair1038OpenBroker(t)
+	broker := riskInputsOpenBroker(t)
 	nc, err := nats.Connect("nats://"+broker.listener.Addr().String(), nats.NoReconnect(), nats.Timeout(time.Second))
 	if err != nil {
 		t.Fatal(err)
@@ -1252,7 +1252,7 @@ func TestRepairM_1038_CapacityPauseSLOConflict(t *testing.T) {
 		if i == 0 {
 			continue
 		}
-		_, wire := repair1038Envelope(t, fill, i+1, initial.Now)
+		_, wire := riskInputsEnvelope(t, fill, i+1, initial.Now)
 		if err = nc.Publish(accounting.MarketSubject, wire); err != nil {
 			t.Fatal(err)
 		}
@@ -1268,7 +1268,7 @@ func TestRepairM_1038_CapacityPauseSLOConflict(t *testing.T) {
 	before := d.snapshot()
 	for n := 0; n < 40; n++ {
 		start := time.Now()
-		snapshot := repair1038Read(t, server, initial.Creation.Pool)
+		snapshot := riskInputsRead(t, server, initial.Creation.Pool)
 		latencies = append(latencies, time.Since(start))
 		if snapshot.Watermark != before.Snapshots[initial.Creation.Pool+":risk-v1"].Watermark {
 			t.Fatal("paused consumer changed served durable state")
@@ -1287,7 +1287,7 @@ func TestRepairM_1038_CapacityPauseSLOConflict(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		envelope, err := delivery.Decode(message.Data, repair1038Policy(), accounting.MarketSubject)
+		envelope, err := delivery.Decode(message.Data, riskInputsPolicy(), accounting.MarketSubject)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1295,7 +1295,7 @@ func TestRepairM_1038_CapacityPauseSLOConflict(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		d.change(t, func(s *repair1038State) { s.Committed[publication.Fill.SourceFillID] = *publication.Fill })
+		d.change(t, func(s *riskInputsState) { s.Committed[publication.Fill.SourceFillID] = *publication.Fill })
 		tx, err := p.Authority.Pool.Begin(context.Background())
 		if err != nil {
 			t.Fatal(err)
@@ -1312,10 +1312,10 @@ func TestRepairM_1038_CapacityPauseSLOConflict(t *testing.T) {
 	if pending != 0 || delivered != len(initial.Source)-1 || time.Since(recovery) > 2*time.Second {
 		t.Fatal("measured backlog catchup failed", pending, delivered, time.Since(recovery))
 	}
-	control := repair1038OpenDatabase(t, filepath.Join(t.TempDir(), "uninterrupted.json"), &initial)
-	reference, _ := repair1038Projector(t, control)
+	control := riskInputsOpenDatabase(t, filepath.Join(t.TempDir(), "uninterrupted.json"), &initial)
+	reference, _ := riskInputsProjector(t, control)
 	for i := range initial.Source {
-		if err := repair1038Apply(t, reference, control, i, true); err != nil {
+		if err := riskInputsApply(t, reference, control, i, true); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1326,7 +1326,7 @@ func TestRepairM_1038_CapacityPauseSLOConflict(t *testing.T) {
 	t.Logf("maximum backlog=%d recovered=%d recovery=%s reads=%d failures=0 p95=%s p99=%s", len(initial.Source)-1, delivered, time.Since(recovery), len(latencies), latencies[(len(latencies)-1)*95/100], latencies[(len(latencies)-1)*99/100])
 }
 
-func TestRepairM_1038_OriginAndConsumerBindingsFailClosed(t *testing.T) {
+func TestRiskAuthorityOriginAndConsumerBindingsFailClosed(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
 	defer server.Close()
 	plan := phase4Plan{Origin: server.URL, Processes: []phase4Process{{Role: "stats", PID: os.Getpid()}}}
@@ -1342,14 +1342,14 @@ func TestRepairM_1038_OriginAndConsumerBindingsFailClosed(t *testing.T) {
 		t.Fatal("absent consumer transport admitted")
 	}
 	authority := analytics.ReactionAuthority{Schema: "stats"}
-	if _, err := app.NewAnalyticsProjector(authority, "holders", "indexer", repair1038Stream, repair1038Version); err == nil {
+	if _, err := app.NewAnalyticsProjector(authority, "holders", "indexer", riskInputsStream, riskInputsVersion); err == nil {
 		t.Fatal("missing production authority admitted")
 	}
-	initial := repair1038Fixture(t)
-	d := repair1038OpenDatabase(t, filepath.Join(t.TempDir(), "binding.json"), &initial)
+	initial := riskInputsFixture(t)
+	d := riskInputsOpenDatabase(t, filepath.Join(t.TempDir(), "binding.json"), &initial)
 	pool := d.pool(t)
 	authority.Pool = pool
-	for _, bad := range [][4]string{{"holders;DROP SCHEMA stats", "indexer", repair1038Stream, repair1038Version}, {"holders", "indexer", "", repair1038Version}, {"holders", "indexer", repair1038Stream, ""}} {
+	for _, bad := range [][4]string{{"holders;DROP SCHEMA stats", "indexer", riskInputsStream, riskInputsVersion}, {"holders", "indexer", "", riskInputsVersion}, {"holders", "indexer", riskInputsStream, ""}} {
 		if _, err := app.NewAnalyticsProjector(authority, bad[0], bad[1], bad[2], bad[3]); err == nil {
 			t.Fatal("incomplete source binding admitted", bad)
 		}

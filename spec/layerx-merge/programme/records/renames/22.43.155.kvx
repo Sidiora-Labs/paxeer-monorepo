@@ -1,0 +1,408 @@
+[manifest]
+task = "22.43.155"
+records_moved = 17
+files_renamed = 10
+
+[file.1]
+from = "services/launchpad/stats-workers/internal/analytics/repair_m1038_test.go"
+to = "services/launchpad/stats-workers/internal/analytics/risk_inputs_delivery_test.go"
+
+[file.2]
+from = "services/launchpad/stats-workers/internal/app/repair_70_test.go"
+to = "services/launchpad/stats-workers/internal/app/canonical_multihop_projection_test.go"
+
+[file.3]
+from = "services/launchpad/stats-workers/internal/consumer/repair_71_test.go"
+to = "services/launchpad/stats-workers/internal/consumer/canonical_multihop_delivery_test.go"
+
+[file.4]
+from = "services/launchpad/stats-workers/internal/consumer/repair_m1042_test.go"
+to = "services/launchpad/stats-workers/internal/consumer/swap_transaction_recovery_test.go"
+
+[file.5]
+from = "services/launchpad/stats-workers/internal/httpapi/repair_69_test.go"
+to = "services/launchpad/stats-workers/internal/httpapi/public_search_delivery_test.go"
+
+[file.6]
+from = "services/launchpad/stats-workers/internal/httpapi/repair_m1039_test.go"
+to = "services/launchpad/stats-workers/internal/httpapi/history_pagination_reactions_test.go"
+
+[file.7]
+from = "services/launchpad/stats-workers/internal/httpapi/repair_m1040_test.go"
+to = "services/launchpad/stats-workers/internal/httpapi/webhook_transaction_bounds_test.go"
+
+[file.8]
+from = "services/launchpad/stats-workers/internal/projectionstats/repair_m1043_test.go"
+to = "services/launchpad/stats-workers/internal/projectionstats/public_stats_checkpoints_test.go"
+
+[file.9]
+from = "services/launchpad/stats-workers/internal/search/repair_m1044_test.go"
+to = "services/launchpad/stats-workers/internal/search/generation_delivery_recovery_test.go"
+
+[file.10]
+from = "services/launchpad/stats-workers/internal/store/repair_m1041_test.go"
+to = "services/launchpad/stats-workers/internal/store/market_aggregation_units_test.go"
+
+[file.11]
+from = "services/launchpad/repair_22_39_168.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx"
+
+[file.12]
+from = "services/launchpad/repair_22_39_170.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_170.kvx"
+
+[file.13]
+from = "services/launchpad/repair_22_39_458.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_458.kvx"
+
+[file.14]
+from = "services/launchpad/repair_22_39_75.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_75.kvx"
+
+[file.15]
+from = "services/launchpad/stats-workers/internal/analytics/repair_m1038.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/internal/analytics/repair_m1038.kvx"
+
+[file.16]
+from = "services/launchpad/stats-workers/internal/app/repair_70.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/internal/app/repair_70.kvx"
+
+[file.17]
+from = "services/launchpad/stats-workers/internal/consumer/repair_71.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/internal/consumer/repair_71.kvx"
+
+[file.18]
+from = "services/launchpad/stats-workers/internal/consumer/repair_m1042.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/internal/consumer/repair_m1042.kvx"
+
+[file.19]
+from = "services/launchpad/stats-workers/internal/httpapi/repair_69.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/internal/httpapi/repair_69.kvx"
+
+[file.20]
+from = "services/launchpad/stats-workers/internal/httpapi/repair_m1039.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/internal/httpapi/repair_m1039.kvx"
+
+[file.21]
+from = "services/launchpad/stats-workers/internal/httpapi/repair_m1040.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/internal/httpapi/repair_m1040.kvx"
+
+[file.22]
+from = "services/launchpad/stats-workers/internal/projectionstats/repair_m1043.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/internal/projectionstats/repair_m1043.kvx"
+
+[file.23]
+from = "services/launchpad/stats-workers/internal/search/repair_m1044.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/internal/search/repair_m1044.kvx"
+
+[file.24]
+from = "services/launchpad/stats-workers/internal/store/repair_m1041.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/internal/store/repair_m1041.kvx"
+
+[file.25]
+from = "services/launchpad/stats-workers/repair_22_39_465.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/repair_22_39_465.kvx"
+
+[file.26]
+from = "services/launchpad/stats-workers/repair_22_39_481.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/repair_22_39_481.kvx"
+
+[file.27]
+from = "services/launchpad/stats-workers/repair_22_39_75.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/stats-workers/repair_22_39_75.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "TestRepair_70_CrossWalletCatchupAndRestart"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair_70_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/programme/records/renames/22.43.110.kvx"
+name = "services/launchpad/repair_22_39_168.kvx"
+
+[reference.4]
+file = "spec/layerx-merge/programme/records/renames/22.43.110.kvx"
+name = "services/launchpad/repair_22_39_75.kvx"
+
+[reference.5]
+file = "spec/layerx-merge/programme/records/renames/22.43.156.kvx"
+name = "repair_22_39_168.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/programme/records/renames/22.43.156.kvx"
+name = "repair_22_39_75.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/programme/records/renames/22.43.156.kvx"
+name = "services/launchpad/repair_22_39_168.kvx"
+
+[reference.8]
+file = "spec/layerx-merge/programme/records/renames/22.43.156.kvx"
+name = "services/launchpad/repair_22_39_75.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/programme/records/renames/22.43.157.kvx"
+name = "services/launchpad/repair_22_39_168.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/programme/records/renames/22.43.157.kvx"
+name = "services/launchpad/repair_22_39_75.kvx"
+
+[reference.11]
+file = "spec/layerx-merge/programme/records/renames/22.43.159.kvx"
+name = "repair_22_39_168.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/programme/records/renames/22.43.159.kvx"
+name = "repair_22_39_75.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/programme/records/renames/22.43.159.kvx"
+name = "services/launchpad/repair_22_39_168.kvx"
+
+[reference.14]
+file = "spec/layerx-merge/programme/records/renames/22.43.159.kvx"
+name = "services/launchpad/repair_22_39_75.kvx"
+
+[reference.15]
+file = "spec/layerx-merge/programme/records/renames/22.43.162.kvx"
+name = "services/launchpad/repair_22_39_168.kvx"
+
+[reference.16]
+file = "spec/layerx-merge/programme/records/renames/22.43.163.kvx"
+name = "repair_22_39_75.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/programme/records/renames/22.43.163.kvx"
+name = "services/launchpad/repair_22_39_168.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/programme/records/renames/22.43.163.kvx"
+name = "services/launchpad/repair_22_39_75.kvx"
+
+[reference.19]
+file = "spec/layerx-merge/programme/records/services/launchpad/discovery/repair_22_39_168.kvx"
+name = "services/launchpad/repair_22_39_168.kvx"
+
+[reference.20]
+file = "spec/layerx-merge/programme/records/services/launchpad/notifications/repair_22_39_168.kvx"
+name = "services/launchpad/repair_22_39_168.kvx"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1040_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1041_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/launchpad/stats-workers/internal/httpapi/repair_m1040_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/launchpad/stats-workers/internal/store/repair_m1041_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_465.kvx"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_481.kvx"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_69_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_70_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_71_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1038_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1039_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1040_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1041_test.go"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1042_test.go"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1043_test.go"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1044_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/repair_22_39_168.kvx"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/repair_22_39_170.kvx"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/repair_22_39_458.kvx"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/repair_22_39_75.kvx"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/internal/analytics/repair_m1038_test.go"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/internal/app/repair_70_test.go"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/internal/consumer/repair_71_test.go"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/internal/consumer/repair_m1042_test.go"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/internal/httpapi/repair_69_test.go"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/internal/httpapi/repair_m1039_test.go"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/internal/httpapi/repair_m1040_test.go"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/internal/projectionstats/repair_m1043_test.go"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/internal/search/repair_m1044_test.go"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/internal/store/repair_m1041_test.go"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/repair_22_39_465.kvx"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/launchpad/stats-workers/repair_22_39_481.kvx"
+
+[reference.53]
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+name = "repair_22_39_75.kvx"
+
+[reference.54]
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+name = "services/launchpad/repair_22_39_168.kvx"
+
+[reference.55]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_69_FrozenQueriesAndCursorBounds"
+
+[reference.56]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_69_PublicSearchSourceDeliveryAndRestart"
+
+[reference.57]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_70_CheckpointAndWalletRowBecomeVisibleTogether"
+
+[reference.58]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_70_CheckpointFailureRollsBackAndRecovers"
+
+[reference.59]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_70_CrossWalletCatchupAndRestart"
+
+[reference.60]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_70_DoesNotInventRoutesFromPoolFills"
+
+[reference.61]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_70_ProductionJobRequiresCanonicalDependencies"
+
+[reference.62]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_70_RecoveryEpochFencesProjection"
+
+[reference.63]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_70_RedeliveryRejectsIdentityConflict"
+
+[reference.64]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_70_RejectsExistingConflictingWalletRow"
+
+[reference.65]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_70_RejectsUnboundRouteEvidence"
+
+[reference.66]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_71_CanonicalTransactionAtomicity"
+
+[reference.67]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_71_CrossTokenHistoryDuplicateAndRestart"
+
+[reference.68]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_71_RejectsUnboundRouteEvidence"
+
+[reference.69]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_71_RequiresCompleteCanonicalSource"
+
+[reference.70]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_71_RouteRollbackAndRestartRecovery"
+
+[reference.71]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_71_WaitsForBothCommittedLegs"
+
+[reference.72]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/stats-workers/internal/app/repair_70_test.go"
+
+[reference.73]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/stats-workers/internal/consumer/repair_71_test.go"
+
+[reference.74]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "services/launchpad/stats-workers/internal/httpapi/repair_69_test.go"

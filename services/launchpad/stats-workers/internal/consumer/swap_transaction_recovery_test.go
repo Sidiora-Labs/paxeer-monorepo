@@ -36,13 +36,13 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// repairM1042SQL exposes a real file-backed SQLite database over the PostgreSQL
+// swapTransactionSQL exposes a real file-backed SQLite database over the PostgreSQL
 // simple-query protocol. Production pgx, Store, projection and holder arithmetic
 // run unchanged. Only schema qualification and lock syntax are translated:
 // BEGIN IMMEDIATE supplies a database-wide writer lock instead of advisory locks.
 // Savepoints, conflicts, reads, writes and crash recovery execute in SQLite.
 // This fixture does not certify PostgreSQL-specific concurrency behaviour.
-type repairM1042SQL struct {
+type swapTransactionSQL struct {
 	db          *sql.DB
 	listener    net.Listener
 	accepted    chan struct{}
@@ -51,7 +51,7 @@ type repairM1042SQL struct {
 	hits        atomic.Int32
 }
 
-func repairM1042OpenSQL(t *testing.T, path string) *repairM1042SQL {
+func swapTransactionOpenSQL(t *testing.T, path string) *swapTransactionSQL {
 	t.Helper()
 	db, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(5000)")
 	if err != nil {
@@ -62,7 +62,7 @@ func repairM1042OpenSQL(t *testing.T, path string) *repairM1042SQL {
 		_ = db.Close()
 		t.Fatal(err)
 	}
-	s := &repairM1042SQL{db: db, listener: listener, accepted: make(chan struct{})}
+	s := &swapTransactionSQL{db: db, listener: listener, accepted: make(chan struct{})}
 	s.drop.Store("")
 	go func() {
 		defer close(s.accepted)
@@ -78,14 +78,14 @@ func repairM1042OpenSQL(t *testing.T, path string) *repairM1042SQL {
 	return s
 }
 
-func (s *repairM1042SQL) close() {
+func (s *swapTransactionSQL) close() {
 	_ = s.listener.Close()
 	<-s.accepted
 	s.connections.Wait()
 	_ = s.db.Close()
 }
 
-func (s *repairM1042SQL) serve(conn net.Conn) {
+func (s *swapTransactionSQL) serve(conn net.Conn) {
 	defer conn.Close()
 	backend := pgproto3.NewBackend(conn, conn)
 	if _, err := backend.ReceiveStartupMessage(); err != nil {
@@ -130,7 +130,7 @@ func (s *repairM1042SQL) serve(conn net.Conn) {
 			if status == 'E' && !strings.HasPrefix(normalized, "ROLLBACK") {
 				err = fmt.Errorf("current transaction is aborted")
 			} else if strings.HasPrefix(strings.ToUpper(translated), "SELECT") {
-				err = repairM1042Rows(ctx, backend, dbconn, translated)
+				err = swapTransactionRows(ctx, backend, dbconn, translated)
 			} else {
 				var result sql.Result
 				result, err = dbconn.ExecContext(ctx, translated)
@@ -183,7 +183,7 @@ func (s *repairM1042SQL) serve(conn net.Conn) {
 	}
 }
 
-func repairM1042Rows(ctx context.Context, backend *pgproto3.Backend, conn *sql.Conn, query string) error {
+func swapTransactionRows(ctx context.Context, backend *pgproto3.Backend, conn *sql.Conn, query string) error {
 	rows, err := conn.QueryContext(ctx, query)
 	if err != nil {
 		return err
@@ -250,9 +250,9 @@ func repairM1042Rows(ctx context.Context, backend *pgproto3.Backend, conn *sql.C
 	return nil
 }
 
-type repairM1042Fixture struct {
+type swapTransactionFixture struct {
 	path   string
-	db     *repairM1042SQL
+	db     *swapTransactionSQL
 	pool   *pgxpool.Pool
 	store  *store.Store
 	swap   *consumer.SwapConsumer
@@ -260,9 +260,9 @@ type repairM1042Fixture struct {
 	redis  *goredis.Client
 }
 
-func newRepairM1042Fixture(t *testing.T) *repairM1042Fixture {
+func newSwapTransactionFixture(t *testing.T) *swapTransactionFixture {
 	t.Helper()
-	f := &repairM1042Fixture{path: filepath.Join(t.TempDir(), "stats.sqlite")}
+	f := &swapTransactionFixture{path: filepath.Join(t.TempDir(), "stats.sqlite")}
 	f.open(t)
 	t.Cleanup(f.close)
 	ddl, err := migrations.FS.ReadFile("00001_init.sql")
@@ -290,9 +290,9 @@ func newRepairM1042Fixture(t *testing.T) *repairM1042Fixture {
 	return f
 }
 
-func (f *repairM1042Fixture) open(t *testing.T) {
+func (f *swapTransactionFixture) open(t *testing.T) {
 	t.Helper()
-	f.db = repairM1042OpenSQL(t, f.path)
+	f.db = swapTransactionOpenSQL(t, f.path)
 	cfg, err := pgxpool.ParseConfig("postgres://fixture@" + f.db.listener.Addr().String() + "/stats?sslmode=disable")
 	if err != nil {
 		t.Fatal(err)
@@ -315,19 +315,19 @@ func (f *repairM1042Fixture) open(t *testing.T) {
 	f.holder = consumer.NewHolderTracker(f.store, f.redis, discardLogger(), time.Hour)
 }
 
-func (f *repairM1042Fixture) close() {
+func (f *swapTransactionFixture) close() {
 	f.holder.Close()
 	f.pool.Close()
 	f.db.close()
 }
 
-func (f *repairM1042Fixture) restart(t *testing.T) {
+func (f *swapTransactionFixture) restart(t *testing.T) {
 	t.Helper()
 	f.close()
 	f.open(t) // reopen the on-disk database and create all consumer/store instances anew
 }
 
-func repairM1042Events(t *testing.T) []consumer.SwapEvent {
+func swapTransactionEvents(t *testing.T) []consumer.SwapEvent {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join("..", "projectionstats", "testdata", "real_pool_125.json"))
 	if err != nil {
@@ -368,7 +368,7 @@ func repairM1042Events(t *testing.T) []consumer.SwapEvent {
 	return events
 }
 
-func (f *repairM1042Fixture) assertEmpty(t *testing.T) {
+func (f *swapTransactionFixture) assertEmpty(t *testing.T) {
 	t.Helper()
 	for _, table := range []string{"pool_transactions", "volume_buckets", "bucket_traders", "price_snapshots", "pool_holders"} {
 		var count int
@@ -381,7 +381,7 @@ func (f *repairM1042Fixture) assertEmpty(t *testing.T) {
 	}
 }
 
-func (f *repairM1042Fixture) assertBuy(t *testing.T, ev consumer.SwapEvent, holders bool) {
+func (f *swapTransactionFixture) assertBuy(t *testing.T, ev consumer.SwapEvent, holders bool) {
 	t.Helper()
 	var count, buys, sells int
 	var volume string
@@ -413,20 +413,20 @@ func (f *repairM1042Fixture) assertBuy(t *testing.T, ev consumer.SwapEvent, hold
 	}
 }
 
-func repairM1042CacheFailure(t *testing.T, err error) {
+func swapTransactionCacheFailure(t *testing.T, err error) {
 	t.Helper()
 	if err == nil || !strings.Contains(err.Error(), "consumer: cache pool stats: redis: client is closed") {
 		t.Fatalf("want post-commit closed-cache failure, got %v", err)
 	}
 }
 
-func TestRepairM_1042_RedeliveryAndRestart(t *testing.T) {
+func TestSwapTransactionRedeliveryAndRestart(t *testing.T) {
 	ctx := context.Background()
-	f := newRepairM1042Fixture(t)
-	ev := repairM1042Events(t)[0]
+	f := newSwapTransactionFixture(t)
+	ev := swapTransactionEvents(t)[0]
 	seedPoolStats(t, ctx, f.store, ev.PoolAddress, nil, "10000000000000")
 	for delivery := 0; delivery < 3; delivery++ {
-		repairM1042CacheFailure(t, f.swap.ProcessWebhookEvent(ctx, ev, f.holder))
+		swapTransactionCacheFailure(t, f.swap.ProcessWebhookEvent(ctx, ev, f.holder))
 		f.assertBuy(t, ev, true)
 		row, err := f.store.GetPoolStats(ctx, ev.PoolAddress)
 		if err != nil || row == nil || row.Price != ev.Price {
@@ -436,9 +436,9 @@ func TestRepairM_1042_RedeliveryAndRestart(t *testing.T) {
 		f.assertBuy(t, ev, true)
 	}
 	// A distinct recorded sell applies exactly once to that recovered balance.
-	sell := repairM1042Events(t)[1]
+	sell := swapTransactionEvents(t)[1]
 	for delivery := 0; delivery < 2; delivery++ {
-		repairM1042CacheFailure(t, f.swap.ProcessWebhookEvent(ctx, sell, f.holder))
+		swapTransactionCacheFailure(t, f.swap.ProcessWebhookEvent(ctx, sell, f.holder))
 		balance, ok, err := f.store.GetHolderBalance(ctx, sell.PoolAddress, sell.Sender)
 		if err != nil || !ok || balance != "4803406952560" {
 			t.Fatalf("recovered buy/sell balance=%s exists=%v err=%v", balance, ok, err)
@@ -447,7 +447,7 @@ func TestRepairM_1042_RedeliveryAndRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_1042_FailureAfterEachWrite(t *testing.T) {
+func TestSwapTransactionFailureAfterEachWrite(t *testing.T) {
 	boundaries := []string{
 		"INSERT INTO STATS.POOL_TRANSACTIONS", "INSERT INTO STATS.VOLUME_BUCKETS",
 		"INSERT INTO STATS.BUCKET_TRADERS", "UPDATE STATS.POOL_STATS SET VOLUME_5M",
@@ -457,8 +457,8 @@ func TestRepairM_1042_FailureAfterEachWrite(t *testing.T) {
 	for _, boundary := range boundaries {
 		t.Run(boundary, func(t *testing.T) {
 			ctx := context.Background()
-			f := newRepairM1042Fixture(t)
-			ev := repairM1042Events(t)[0]
+			f := newSwapTransactionFixture(t)
+			ev := swapTransactionEvents(t)[0]
 			seedPoolStats(t, ctx, f.store, ev.PoolAddress, nil, "10000000000000")
 			f.db.drop.Store(boundary)
 			if err := f.swap.ProcessWebhookEvent(ctx, ev, f.holder); err == nil {
@@ -473,16 +473,16 @@ func TestRepairM_1042_FailureAfterEachWrite(t *testing.T) {
 			if err != nil || row == nil || row.Price != "10000000000000" {
 				t.Fatalf("partial pool update survived: %+v %v", row, err)
 			}
-			repairM1042CacheFailure(t, f.swap.ProcessWebhookEvent(ctx, ev, f.holder))
+			swapTransactionCacheFailure(t, f.swap.ProcessWebhookEvent(ctx, ev, f.holder))
 			f.assertBuy(t, ev, true)
 		})
 	}
 }
 
-func TestRepairM_1042_CommitAcknowledgementLost(t *testing.T) {
+func TestSwapTransactionCommitAcknowledgementLost(t *testing.T) {
 	ctx := context.Background()
-	f := newRepairM1042Fixture(t)
-	ev := repairM1042Events(t)[0]
+	f := newSwapTransactionFixture(t)
+	ev := swapTransactionEvents(t)[0]
 	seedPoolStats(t, ctx, f.store, ev.PoolAddress, nil, "10000000000000")
 	f.db.drop.Store("COMMIT")
 	if err := f.swap.ProcessWebhookEvent(ctx, ev, f.holder); err == nil || !strings.Contains(err.Error(), "consumer: commit swap:") {
@@ -493,14 +493,14 @@ func TestRepairM_1042_CommitAcknowledgementLost(t *testing.T) {
 	}
 	f.restart(t)
 	f.assertBuy(t, ev, true)
-	repairM1042CacheFailure(t, f.swap.ProcessWebhookEvent(ctx, ev, f.holder))
+	swapTransactionCacheFailure(t, f.swap.ProcessWebhookEvent(ctx, ev, f.holder))
 	f.assertBuy(t, ev, true)
 }
 
-func TestRepairM_1042_ProcessEventAtomicRecovery(t *testing.T) {
+func TestSwapTransactionProcessEventAtomicRecovery(t *testing.T) {
 	ctx := context.Background()
-	f := newRepairM1042Fixture(t)
-	ev := repairM1042Events(t)[0]
+	f := newSwapTransactionFixture(t)
+	ev := swapTransactionEvents(t)[0]
 	f.db.drop.Store("INSERT INTO STATS.VOLUME_BUCKETS")
 	if err := f.swap.ProcessEvent(ctx, ev); err == nil {
 		t.Fatal("interrupted standalone projection acknowledged")
@@ -519,12 +519,11 @@ func TestRepairM_1042_ProcessEventAtomicRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_1042_DevelopmentWebhookStatsRedelivery(t *testing.T) {
-	f := newRepairM1042Fixture(t)
-	// A recorded sell with no tracked holder needs no balance mutation. This
-	// exercises the currently wired handler's stats path; buy/holder wiring is
-	// explicitly requested in repair_m1042.kvx, outside this task's scope.
-	ev := repairM1042Events(t)[1]
+func TestSwapTransactionDevelopmentWebhookStatsRedelivery(t *testing.T) {
+	f := newSwapTransactionFixture(t)
+	// A recorded sell with no tracked holder exercises the webhook stats path
+	// without a balance mutation.
+	ev := swapTransactionEvents(t)[1]
 	const secret = "repair-m1042-recorded-development-webhook"
 	body, err := json.Marshal(httpapi.WebhookBody{Events: []httpapi.WebhookEvent{{EventName: "Swap", BlockTimestamp: ev.BlockTimestamp, TxHash: ev.TxHash, LogIndex: ev.LogIndex, Args: map[string]any{"poolAddress": ev.PoolAddress, "sender": ev.Sender, "isBuy": ev.IsBuy, "amountIn": ev.AmountIn, "amountOut": ev.AmountOut, "price": ev.Price, "fee": ev.Fee}}}})
 	if err != nil {
@@ -575,10 +574,10 @@ func TestRepairM_1042_DevelopmentWebhookStatsRedelivery(t *testing.T) {
 	}
 }
 
-func TestRepairM_1042_HolderFailureRollsBackInbox(t *testing.T) {
+func TestSwapTransactionHolderFailureRollsBackInbox(t *testing.T) {
 	ctx := context.Background()
-	f := newRepairM1042Fixture(t)
-	ev := repairM1042Events(t)[0]
+	f := newSwapTransactionFixture(t)
+	ev := swapTransactionEvents(t)[0]
 	broken := ev
 	broken.AmountOut = "invalid-token-amount"
 	if err := f.swap.ProcessWebhookEvent(ctx, broken, f.holder); err == nil || !strings.Contains(err.Error(), "store: holder pct:") {
@@ -592,11 +591,11 @@ func TestRepairM_1042_HolderFailureRollsBackInbox(t *testing.T) {
 	f.assertBuy(t, ev, true)
 }
 
-func TestRepairM_1042_ConcurrentRedelivery(t *testing.T) {
+func TestSwapTransactionConcurrentRedelivery(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	f := newRepairM1042Fixture(t)
-	ev := repairM1042Events(t)[0]
+	f := newSwapTransactionFixture(t)
+	ev := swapTransactionEvents(t)[0]
 	const deliveries = 8
 	results := make(chan error, deliveries)
 	for i := 0; i < deliveries; i++ {

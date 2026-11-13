@@ -27,17 +27,17 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type repair71Log struct {
+type canonicalRouteLog struct {
 	Address, BlockHash, TransactionHash, Data string
 	BlockNumber, TransactionIndex, Index      int64
 	Topics                                    []string
 }
-type repair71Decoded struct {
+type canonicalRouteDecoded struct {
 	Name, Signature, Address, TransactionHash, BlockHash string
 	BlockNumber, TransactionIndex, LogIndex              int64
 	Args                                                 []json.RawMessage
 }
-type repair71Fixture struct {
+type canonicalRouteFixture struct {
 	dsn          string
 	pg           *pgxpool.Pool
 	st           *store.Store
@@ -47,7 +47,7 @@ type repair71Fixture struct {
 	fills        []accounting.FillV1
 }
 
-func repair71JSON(t *testing.T, v any) []byte {
+func canonicalRouteJSON(t *testing.T, v any) []byte {
 	t.Helper()
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -55,7 +55,7 @@ func repair71JSON(t *testing.T, v any) []byte {
 	}
 	return b
 }
-func repair71Text(t *testing.T, raw json.RawMessage) string {
+func canonicalRouteText(t *testing.T, raw json.RawMessage) string {
 	t.Helper()
 	var s string
 	if err := json.Unmarshal(raw, &s); err != nil {
@@ -63,13 +63,13 @@ func repair71Text(t *testing.T, raw json.RawMessage) string {
 	}
 	return strings.ToLower(s)
 }
-func (f *repair71Fixture) exec(t *testing.T, sql string, args ...any) {
+func (f *canonicalRouteFixture) exec(t *testing.T, sql string, args ...any) {
 	t.Helper()
 	if _, err := f.pg.Exec(context.Background(), sql, args...); err != nil {
 		t.Fatalf("%v: %.180s", err, sql)
 	}
 }
-func (f *repair71Fixture) open(t *testing.T) {
+func (f *canonicalRouteFixture) open(t *testing.T) {
 	t.Helper()
 	f.st = store.New(f.pg)
 	rdb := internaltest.NewRedis(t)
@@ -81,7 +81,7 @@ func (f *repair71Fixture) open(t *testing.T) {
 	t.Cleanup(holder.Close)
 	f.bridge = &consumer.CanonicalLegacyBridge{Pool: f.pg, ProjectionSchema: "stats", SourceSchema: "indexer", SourceStream: legacyStream, ProjectionVersion: legacyVersion, Market: market, Swap: consumer.NewSwapConsumer(f.st, rdb, discardLogger()), Holder: holder, Batch: 100}
 }
-func (f *repair71Fixture) restart(t *testing.T) {
+func (f *canonicalRouteFixture) restart(t *testing.T) {
 	t.Helper()
 	f.bridge.Holder.Close()
 	f.pg.Close()
@@ -93,21 +93,21 @@ func (f *repair71Fixture) restart(t *testing.T) {
 	f.pg = pg
 	f.open(t)
 }
-func (f *repair71Fixture) commitLeg(t *testing.T, fill accounting.FillV1, sequence int) {
+func (f *canonicalRouteFixture) commitLeg(t *testing.T, fill accounting.FillV1, sequence int) {
 	t.Helper()
 	digest, err := accounting.FillDigest(fill)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.exec(t, `INSERT INTO stats.accounting_market_commits(publication_id,source_fill_id,source_fact_digest,projection_version,pool,bucket_start,position,fill,sequence,revision) VALUES($1,$2,$3,$4,$5,$6,'{}',$7,$8,1)`, "publication-"+fill.SourceFillID, fill.SourceFillID, string(digest), legacyVersion, fill.PoolAddress, int64(1791504060), string(repair71JSON(t, fill)), sequence)
+	f.exec(t, `INSERT INTO stats.accounting_market_commits(publication_id,source_fill_id,source_fact_digest,projection_version,pool,bucket_start,position,fill,sequence,revision) VALUES($1,$2,$3,$4,$5,$6,'{}',$7,$8,1)`, "publication-"+fill.SourceFillID, fill.SourceFillID, string(digest), legacyVersion, fill.PoolAddress, int64(1791504060), string(canonicalRouteJSON(t, fill)), sequence)
 }
-func (f *repair71Fixture) deliverRoute(t *testing.T) {
+func (f *canonicalRouteFixture) deliverRoute(t *testing.T) {
 	t.Helper()
 	// Re-deliver the archived producer's identical route identity and payload.
 	f.exec(t, `INSERT INTO indexer.indexer_ingest_outbox(chain_id,transaction_hash,log_index,event_kind,payload) VALUES(125,$1,12,'MultihopSwap',$2) ON CONFLICT DO NOTHING`, f.expected.TxHash, string(f.routePayload))
 }
 
-func newRepair71Fixture(t *testing.T) *repair71Fixture {
+func newCanonicalRouteFixture(t *testing.T) *canonicalRouteFixture {
 	t.Helper()
 	ctx := context.Background()
 	dir := filepath.Join("..", "..", "..", "..", "..", "sdk", "launchpad", "protocol", "contracts", "v1", "chain")
@@ -128,14 +128,14 @@ func newRepair71Fixture(t *testing.T) *repair71Fixture {
 		Receipts       []struct {
 			Label, Hash, BlockHash, From string
 			BlockNumber, Index           int64
-			Logs                         []repair71Log
+			Logs                         []canonicalRouteLog
 		}
-		DecodedLogs []repair71Decoded
+		DecodedLogs []canonicalRouteDecoded
 	}
 	if err = json.Unmarshal(raw, &archive); err != nil || archive.ChainID != 125 || !archive.ReplayVerified {
 		t.Fatal(err)
 	}
-	f := &repair71Fixture{}
+	f := &canonicalRouteFixture{}
 	f.dsn, f.pg = internaltest.NewPostgresWithDSN(t)
 	f.exec(t, "CREATE SCHEMA indexer")
 	for _, id := range []string{"60000", "80000", "190001"} {
@@ -167,20 +167,20 @@ func newRepair71Fixture(t *testing.T) *repair71Fixture {
 			for i, s := range l.Topics {
 				topics[i] = strings.ToLower(s)
 			}
-			f.exec(t, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES(125,$1,$2,$3,$4,$5,$6,$7,$8)`, receiptHash, l.Index, r.BlockNumber, r.Index, blockHash, strings.ToLower(l.Address), string(repair71JSON(t, topics)), data)
+			f.exec(t, `INSERT INTO indexer.indexer_raw_logs(chain_id,transaction_hash,log_index,height,transaction_index,block_hash,emitter,topics,data) VALUES(125,$1,$2,$3,$4,$5,$6,$7,$8)`, receiptHash, l.Index, r.BlockNumber, r.Index, blockHash, strings.ToLower(l.Address), string(canonicalRouteJSON(t, topics)), data)
 		}
 		f.exec(t, `INSERT INTO indexer.indexer_block_completeness(chain_id,stream_id,height,block_hash,raw_count,fetch_complete,required_decode_complete) VALUES(125,$1,$2,$3,$4,true,true)`, legacyStream, r.BlockNumber, blockHash, len(r.Logs))
 	}
 	if receiptHash == "" {
 		t.Fatal("mined multihop receipt missing")
 	}
-	var route repair71Decoded
+	var route canonicalRouteDecoded
 	tokensByPool := map[string]string{}
 	for _, d := range archive.DecodedLogs {
 		if d.Name == "MarketCreated" && strings.EqualFold(d.Address, archive.Addresses["factory"]) && d.BlockNumber < 68 {
-			token, pool, creator := repair71Text(t, d.Args[0]), repair71Text(t, d.Args[1]), repair71Text(t, d.Args[2])
+			token, pool, creator := canonicalRouteText(t, d.Args[0]), canonicalRouteText(t, d.Args[1]), canonicalRouteText(t, d.Args[2])
 			tokensByPool[pool] = token
-			f.exec(t, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'{}',$13)`, token, pool, creator, strings.ToLower(d.Address), repair71Text(t, d.Args[4]), repair71Text(t, d.Args[3]), d.BlockNumber, strings.ToLower(d.BlockHash), strings.ToLower(d.TransactionHash), d.TransactionIndex, d.LogIndex, int64(1791504000)+d.BlockNumber, string(repair71JSON(t, d)))
+			f.exec(t, `INSERT INTO indexer.indexer_canonical_creations(token,pool,creator,factory,optical,nft_id,height,block_hash,transaction_hash,transaction_index,log_index,block_timestamp,provenance,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'{}',$13)`, token, pool, creator, strings.ToLower(d.Address), canonicalRouteText(t, d.Args[4]), canonicalRouteText(t, d.Args[3]), d.BlockNumber, strings.ToLower(d.BlockHash), strings.ToLower(d.TransactionHash), d.TransactionIndex, d.LogIndex, int64(1791504000)+d.BlockNumber, string(canonicalRouteJSON(t, d)))
 		}
 		if d.Name == "MultihopSwap" && strings.EqualFold(d.TransactionHash, receiptHash) {
 			route = d
@@ -191,11 +191,11 @@ func newRepair71Fixture(t *testing.T) *repair71Fixture {
 	}
 	args := map[string]string{}
 	for i, k := range []string{"sender", "tokenIn", "tokenOut", "amountIn", "intermediateUsdl", "amountOut"} {
-		args[k] = repair71Text(t, route.Args[i])
+		args[k] = canonicalRouteText(t, route.Args[i])
 	}
 	// Preserve the real indexer Event DTO, derived only from the recorded
 	// producer's decoded log and its original receipt coordinates.
-	f.routePayload = repair71JSON(t, struct {
+	f.routePayload = canonicalRouteJSON(t, struct {
 		EventName, Sig string
 		Args           map[string]string
 		BlockNumber    int64
@@ -207,7 +207,7 @@ func newRepair71Fixture(t *testing.T) *repair71Fixture {
 		if _, err = authority.Account(trade); err != nil {
 			t.Fatal(err)
 		}
-		var swapLog repair71Log
+		var swapLog canonicalRouteLog
 		for _, r := range archive.Receipts {
 			if r.Label == "multihop" {
 				for _, l := range r.Logs {
@@ -239,7 +239,7 @@ func newRepair71Fixture(t *testing.T) *repair71Fixture {
 		if err != nil {
 			t.Fatal(err)
 		}
-		f.exec(t, `INSERT INTO indexer.indexer_accounting_fills(source_fill_id,source_fact_digest,chain_id,transaction_hash,log_index,pool_address,payload) VALUES($1,$2,125,$3,$4,$5,$6)`, fill.SourceFillID, string(digest), receiptHash, index, fill.PoolAddress, string(repair71JSON(t, fill)))
+		f.exec(t, `INSERT INTO indexer.indexer_accounting_fills(source_fill_id,source_fact_digest,chain_id,transaction_hash,log_index,pool_address,payload) VALUES($1,$2,125,$3,$4,$5,$6)`, fill.SourceFillID, string(digest), receiptHash, index, fill.PoolAddress, string(canonicalRouteJSON(t, fill)))
 		f.commitLeg(t, fill, i+1)
 		f.fills = append(f.fills, fill)
 	}
@@ -255,7 +255,7 @@ func newRepair71Fixture(t *testing.T) *repair71Fixture {
 	return f
 }
 
-func (f *repair71Fixture) assertHistory(t *testing.T, want int) {
+func (f *canonicalRouteFixture) assertHistory(t *testing.T, want int) {
 	t.Helper()
 	router := chi.NewRouter()
 	httpapi.RegisterCrossTokenSwaps(router, f.st)
@@ -276,8 +276,8 @@ func (f *repair71Fixture) assertHistory(t *testing.T, want int) {
 	}
 }
 
-func TestRepair_71_CrossTokenHistoryDuplicateAndRestart(t *testing.T) {
-	f := newRepair71Fixture(t)
+func TestCanonicalMultihopConsumerCrossTokenHistoryDuplicateAndRestart(t *testing.T) {
+	f := newCanonicalRouteFixture(t)
 	f.deliverRoute(t)
 	if n, err := f.bridge.RunOnce(context.Background()); err != nil || n != 1 {
 		t.Fatal(n, err)
@@ -295,8 +295,8 @@ func TestRepair_71_CrossTokenHistoryDuplicateAndRestart(t *testing.T) {
 	f.assertHistory(t, 1)
 }
 
-func TestRepair_71_WaitsForBothCommittedLegs(t *testing.T) {
-	f := newRepair71Fixture(t)
+func TestCanonicalMultihopConsumerWaitsForBothCommittedLegs(t *testing.T) {
+	f := newCanonicalRouteFixture(t)
 	f.deliverRoute(t)
 	f.exec(t, `DELETE FROM stats.accounting_market_commits WHERE source_fill_id=$1`, f.fills[1].SourceFillID)
 	if n, err := f.bridge.RunOnce(context.Background()); err != nil || n != 0 {
@@ -311,10 +311,10 @@ func TestRepair_71_WaitsForBothCommittedLegs(t *testing.T) {
 	f.assertHistory(t, 1)
 }
 
-func TestRepair_71_RejectsUnboundRouteEvidence(t *testing.T) {
+func TestCanonicalMultihopConsumerRejectsUnboundRouteEvidence(t *testing.T) {
 	for _, caseName := range []string{"route-amount", "route-token", "typed-route", "leg-fee", "leg-position", "token-pool", "receipt-provenance", "unqualified-marker"} {
 		t.Run(caseName, func(t *testing.T) {
-			f := newRepair71Fixture(t)
+			f := newCanonicalRouteFixture(t)
 			f.deliverRoute(t)
 			switch caseName {
 			case "route-amount":
@@ -333,7 +333,7 @@ func TestRepair_71_RejectsUnboundRouteEvidence(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				f.exec(t, `UPDATE indexer.indexer_accounting_fills SET payload=$2,source_fact_digest=$3 WHERE source_fill_id=$1`, f.fills[0].SourceFillID, string(repair71JSON(t, fill)), string(digest))
+				f.exec(t, `UPDATE indexer.indexer_accounting_fills SET payload=$2,source_fact_digest=$3 WHERE source_fill_id=$1`, f.fills[0].SourceFillID, string(canonicalRouteJSON(t, fill)), string(digest))
 			case "token-pool":
 				f.exec(t, `UPDATE indexer.indexer_canonical_creations SET token=$2 WHERE pool=$1`, f.expected.PoolOut, "0x"+strings.Repeat("f", 40))
 			case "receipt-provenance":
@@ -343,8 +343,8 @@ func TestRepair_71_RejectsUnboundRouteEvidence(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				f.exec(t, `UPDATE indexer.indexer_accounting_fills SET payload=$2,source_fact_digest=$3 WHERE source_fill_id=$1`, fill.SourceFillID, string(repair71JSON(t, fill)), string(digest))
-				f.exec(t, `UPDATE stats.accounting_market_commits SET fill=$2,source_fact_digest=$3 WHERE source_fill_id=$1`, fill.SourceFillID, string(repair71JSON(t, fill)), string(digest))
+				f.exec(t, `UPDATE indexer.indexer_accounting_fills SET payload=$2,source_fact_digest=$3 WHERE source_fill_id=$1`, fill.SourceFillID, string(canonicalRouteJSON(t, fill)), string(digest))
+				f.exec(t, `UPDATE stats.accounting_market_commits SET fill=$2,source_fact_digest=$3 WHERE source_fill_id=$1`, fill.SourceFillID, string(canonicalRouteJSON(t, fill)), string(digest))
 			case "unqualified-marker":
 				f.exec(t, `DELETE FROM indexer.indexer_ingest_outbox WHERE transaction_hash=$1`, f.expected.TxHash)
 				if n, err := f.bridge.RunOnce(context.Background()); err != nil || n != 0 {
@@ -361,8 +361,8 @@ func TestRepair_71_RejectsUnboundRouteEvidence(t *testing.T) {
 	}
 }
 
-func TestRepair_71_RouteRollbackAndRestartRecovery(t *testing.T) {
-	f := newRepair71Fixture(t)
+func TestCanonicalMultihopConsumerRouteRollbackAndRestartRecovery(t *testing.T) {
+	f := newCanonicalRouteFixture(t)
 	f.deliverRoute(t)
 	f.exec(t, `ALTER TABLE stats.cross_token_swaps ADD CONSTRAINT repair71_block CHECK(fee_in <> '44909917255')`)
 	if _, err := f.bridge.RunOnce(context.Background()); err == nil {
@@ -377,8 +377,8 @@ func TestRepair_71_RouteRollbackAndRestartRecovery(t *testing.T) {
 	f.assertHistory(t, 1)
 }
 
-func TestRepair_71_RequiresCompleteCanonicalSource(t *testing.T) {
-	f := newRepair71Fixture(t)
+func TestCanonicalMultihopConsumerRequiresCompleteCanonicalSource(t *testing.T) {
+	f := newCanonicalRouteFixture(t)
 	f.deliverRoute(t)
 	f.exec(t, `UPDATE indexer.indexer_block_completeness SET required_decode_complete=false`)
 	if _, err := f.bridge.RunOnce(context.Background()); !errors.Is(err, consumer.ErrAccountingSourceUnavailable) {
@@ -404,8 +404,8 @@ func TestRepair_71_RequiresCompleteCanonicalSource(t *testing.T) {
 	f.assertHistory(t, 1)
 }
 
-func TestRepair_71_CanonicalTransactionAtomicity(t *testing.T) {
-	f := newRepair71Fixture(t)
+func TestCanonicalMultihopConsumerCanonicalTransactionAtomicity(t *testing.T) {
+	f := newCanonicalRouteFixture(t)
 	ctx := context.Background()
 	c := consumer.NewMultihopConsumer(f.st, discardLogger())
 	ev := consumer.MultihopEvent{Sender: f.expected.Sender, TokenIn: f.expected.TokenIn, TokenOut: f.expected.TokenOut, PoolIn: f.expected.PoolIn, PoolOut: f.expected.PoolOut, AmountIn: f.expected.AmountIn, IntermediateUsdl: f.expected.IntermediateUsdl, AmountOut: f.expected.AmountOut, FeeIn: f.expected.FeeIn, FeeOut: f.expected.FeeOut, BlockTimestamp: f.expected.BlockTimestamp, TxHash: f.expected.TxHash, LogIndex: 12}
