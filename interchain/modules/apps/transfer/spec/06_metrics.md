@@ -40,7 +40,7 @@ strings: `uhpx` for exactly `uhpx`, `ibc` for an `ibc/` prefix, `factory` for a
 representation is an IBC voucher. The last observation is per class, so it
 cannot be used to calculate per-denomination totals.
 
-`TestRepairM_1206_Metrics` collects the real legacy and OpenTelemetry series
+`TestTransferContractMetrics` collects the real legacy and OpenTelemetry series
 after sends and receives, including amounts on both sides of the int64 boundary.
 
 ## Transfer counters

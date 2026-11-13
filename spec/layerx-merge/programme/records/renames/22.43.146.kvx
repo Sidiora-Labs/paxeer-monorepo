@@ -1,0 +1,368 @@
+[manifest]
+task = "22.43.146"
+records_moved = 15
+files_renamed = 23
+
+[file.1]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_31_275.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/launcher_http_round_trip.rs"
+
+[file.2]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_31_276.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/health_error_contract.rs"
+
+[file.3]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_33_459.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/http_client_deadlines.rs"
+
+[file.4]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_33_460.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/http_client_response_contract.rs"
+
+[file.5]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_31_280.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/source_path_validation.rs"
+
+[file.6]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_582.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/compiler_cache_and_downloads.rs"
+
+[file.7]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_583.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/compiler_execution_and_auxdata_bounds.rs"
+
+[file.8]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_584.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/metadata_address_validation.rs"
+
+[file.9]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_585.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/compiler_version_validation.rs"
+
+[file.10]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_591.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/sourcify_settings_conversion.rs"
+
+[file.11]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/fixtures/repair_22_33_591_files.json"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/fixtures/contract_files.json"
+
+[file.12]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_281.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/solidity_post_actions.rs"
+
+[file.13]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/source_paths_and_health.rs"
+
+[file.14]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/verification_service_boundaries.rs"
+
+[file.15]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_594.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/service_admission_and_startup.rs"
+
+[file.16]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_595.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/verification_response_validation.rs"
+
+[file.17]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_596.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/sourcify_routes_and_nightly_catalogue.rs"
+
+[file.18]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_598.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/documentation_contracts.rs"
+
+[file.19]
+from = "services/explorer/services/smart-contract-verifier/verification-common/tests/repair_22_33_412.rs"
+to = "services/explorer/services/smart-contract-verifier/verification-common/tests/artifact_offset_validation.rs"
+
+[file.20]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/repair_22_33_596/c1.json"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/sourcify_transcripts/c1.json"
+
+[file.21]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/repair_22_33_596/nightly-list.json"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/sourcify_transcripts/nightly-list.json"
+
+[file.22]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/repair_22_33_596/storage.json"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/sourcify_transcripts/storage.json"
+
+[file.23]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/support/repair_22_33_596/mod.rs"
+to = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/support/sourcify_transcripts/mod.rs"
+
+[file.24]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/repair_22_33_582.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/compiler/repair_22_33_582.kvx"
+
+[file.25]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/solidity/repair_22_33_585.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/solidity/repair_22_33_585.kvx"
+
+[file.26]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/repair_22_33_591.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/sourcify/repair_22_33_591.kvx"
+
+[file.27]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/repair_22_31_280.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/repair_22_31_280.kvx"
+
+[file.28]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/repair_22_33_583.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/verify/repair_22_33_583.kvx"
+
+[file.29]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2/repair_22_31_276.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2/repair_22_31_276.kvx"
+
+[file.30]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/repair_22_31_275.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/repair_22_31_275.kvx"
+
+[file.31]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/repair_22_33_459.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/repair_22_33_459.kvx"
+
+[file.32]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_33_460.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_33_460.kvx"
+
+[file.33]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_31_282.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_31_282.kvx"
+
+[file.34]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_33_593.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_33_593.kvx"
+
+[file.35]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/repair_22_31_281.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/repair_22_31_281.kvx"
+
+[file.36]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/repair_22_33_595.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/repair_22_33_595.kvx"
+
+[file.37]
+from = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_596.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_596.kvx"
+
+[file.38]
+from = "services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/repair_22_33_412.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/repair_22_33_412.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_31_275.rs"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_22_31_282.rs"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_31_275.rs"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_31_280.rs"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_33_593.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/repair_22_33_596"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_595.rs"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_596.rs"
+
+[reference.11]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_275.rs"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_280.rs"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_281.rs"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_31_282.rs"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_412.rs"
+
+[reference.16]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_593.rs"
+
+[reference.17]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_595.rs"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_596.rs"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_31_275.rs"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_281.rs"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs"
+
+[reference.23]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_595.rs"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_596.rs"
+
+[reference.25]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_31_280.rs"
+
+[reference.26]
+file = "spec/layerx-merge/qualification.kvx"
+name = "services/explorer/services/smart-contract-verifier/verification-common/tests/repair_22_33_412.rs"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_593.kvx"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_596"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_31_275.rs"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_31_276.rs"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_33_459.rs"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/tests/repair_22_33_460.rs"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/repair_22_33_593.kvx"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/repair_22_33_595.kvx"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/repair_22_33_596/c1.json"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/repair_22_33_596/nightly-list.json"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/fixtures/repair_22_33_596/storage.json"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_281.rs"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_31_282.rs"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_593.rs"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_594.rs"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_595.rs"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_596.kvx"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_596.rs"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/repair_22_33_598.rs"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/support/repair_22_33_596/mod.rs"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_31_280.rs"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_582.rs"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_583.rs"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_584.rs"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_585.rs"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/tests/repair_22_33_591.rs"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "services/explorer/services/smart-contract-verifier/verification-common/tests/repair_22_33_412.rs"

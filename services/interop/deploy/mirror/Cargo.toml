@@ -1,5 +1,5 @@
 [package]
-name = "mirror-deployment-repair-22-31-233"
+name = "mirror-deployment-verification"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
@@ -8,8 +8,8 @@ authors = ["Sidiora Labs"]
 [workspace]
 
 [[bin]]
-name = "repair-driver"
-path = "tests/repair_22_31_233/driver.rs"
+name = "deployment-driver"
+path = "tests/deployment/driver.rs"
 
 [[bin]]
 name = "layerx-mirror-verify"

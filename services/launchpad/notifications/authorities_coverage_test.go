@@ -10,7 +10,7 @@ import (
 
 func TestCanonicalPoolAuthorityRejectsUnboundCanonicalRows(t *testing.T) {
 	ctx := context.Background()
-	db, _ := repair958Open(t, t.TempDir())
+	db, _ := notificationDeliveryOpen(t, t.TempDir())
 	if _, err := db.ExecContext(ctx, `CREATE SCHEMA indexer; CREATE TABLE indexer.indexer_canonical_creations_v1(pool text,token text,creator text,height bigint,block_hash text,transaction_hash text,log_index bigint,block_timestamp bigint)`); err != nil {
 		t.Fatal(err)
 	}

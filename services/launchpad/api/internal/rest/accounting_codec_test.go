@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -88,7 +88,9 @@ func TestAccountingCodecParsesAndEncodesPages(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var envelope struct{ NextCursor *string `json:"nextCursor"` }
+		var envelope struct {
+			NextCursor *string `json:"nextCursor"`
+		}
 		if err := json.Unmarshal(body, &envelope); err != nil || envelope.NextCursor == nil || *envelope.NextCursor == "" {
 			t.Fatalf("page cursor: %s, %v", body, err)
 		}

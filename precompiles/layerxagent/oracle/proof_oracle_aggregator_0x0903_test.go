@@ -27,14 +27,14 @@ import (
 type proofOracleHarness struct {
 	f          *oracleFixture
 	keepers    *app.PrecompileKeepers
-	node       *repairM1425Node
+	node       *persistedOracleNode
 	p          precompiles.IPrecompile
 	dispatches int
 }
 
 func newProofOracleHarness(t *testing.T) *proofOracleHarness {
 	t.Helper()
-	node := newRepairM1425Node(t)
+	node := newPersistedOracleNode(t)
 	f := &oracleFixture{ctx: node.ctx, caller: [2]common.Address{node.signer.EvmAddress, node.other.EvmAddress}}
 	h := &proofOracleHarness{f: f, keepers: node.a.GetPrecompileKeepers().(*app.PrecompileKeepers), node: node}
 	// Use the production constructor registry, including its merge version alias.
@@ -190,5 +190,5 @@ func TestProofOracleAggregator0x0903(t *testing.T) {
 		require.ErrorIs(t, cause, agentcommon.ErrABIDecode)
 		require.Contains(t, revertText(t, output), agentcommon.ErrABIDecode.Error())
 	})
-	t.Run("signed submission application reopen and committed reads", repairM1425RecoveryProof)
+	t.Run("signed submission application reopen and committed reads", proveOracleApplicationRecovery)
 }

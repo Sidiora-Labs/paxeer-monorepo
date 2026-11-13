@@ -240,7 +240,7 @@ public final class SequencerReceiptTest {
     @Test
     void sequencerRecordedNodeDenominationMutationsAreRefusedIndependently() throws Exception {
         JsonNode vector = fixture("vector-v4-committed.json").required("positive");
-        JsonNode node = Repair22331391Test.fixture("daemon/committed-fixture/vectors/vector-v4-committed.json")
+        JsonNode node = RetainedTransactionReceiptTest.fixture("daemon/committed-fixture/vectors/vector-v4-committed.json")
             .required("settlement").required("receipt");
         assertRecordedNodeDenominations(vector, node);
     }
@@ -250,9 +250,9 @@ public final class SequencerReceiptTest {
         byte[] hash = ProgramsClient.Programs.transactionHash(raw);
         byte[] snapshot = JSON.writeValueAsBytes(node);
         var keys = new LocalVerifier.ReceiptKeys(List.of(key(vector)));
-        try (var archive = new Repair22331391Test.RecordedReceiptArchive(node);
+        try (var archive = new RetainedTransactionReceiptTest.RecordedReceiptArchive(node);
                 var connection = new ProgramsClient.Programs(archive.uri())) {
-            var client = Repair22331391Test.client(connection, vector);
+            var client = RetainedTransactionReceiptTest.client(connection, vector);
             var verified = client.sequencerReceipt(raw).toCompletableFuture().get(10, TimeUnit.SECONDS);
             assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, verified.level());
             assertEquals(1, verified.status());

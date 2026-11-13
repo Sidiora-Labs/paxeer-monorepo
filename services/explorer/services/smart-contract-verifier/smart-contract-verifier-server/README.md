@@ -339,7 +339,7 @@ and solc `v0.8.17+commit.8df45f5f`. Its response family is the ZkSync
 Select the response decoder by endpoint. Solo verification, Solidity batch
 verification and ZkSync verification have distinct envelopes. The success
 examples below are valid JSON excerpts using values from the linked compiler
-fixtures; large source, bytecode and artifact fields are omitted. The [response tests](tests/repair_22_33_598.rs) compare these fields with
+fixtures; large source, bytecode and artifact fields are omitted. The [response tests](tests/documentation_contracts.rs) compare these fields with
 production response conversion and decode both protobuf and HTTP JSON,
 without executing a compiler.
 
@@ -551,7 +551,7 @@ configuration; its output covers the example's shape, not every fetcher variant.
 
 ## Configuration and API coverage
 
-The [configuration, startup, request and response tests](tests/repair_22_33_598.rs)
+The [configuration, startup, request and response tests](tests/documentation_contracts.rs)
 check the behavior described above:
 
 | Behavior | Test |

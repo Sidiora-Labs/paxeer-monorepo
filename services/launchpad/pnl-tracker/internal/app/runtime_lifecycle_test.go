@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -29,19 +30,24 @@ func assertProductionLifecycle(t *testing.T, cfg config.Config) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	done := make(chan error, 1)
 	go func() { done <- runConfigured(ctx, cfg, logger) }()
 	ready := false
+	lastResponse := "no response"
 	client := &http.Client{Timeout: 200 * time.Millisecond}
 	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
 		response, err := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health/ready", cfg.Port))
 		if err == nil {
+			body, readErr := io.ReadAll(io.LimitReader(response.Body, 4096))
 			response.Body.Close()
+			lastResponse = fmt.Sprintf("status=%d body=%s read=%v", response.StatusCode, body, readErr)
 			if response.StatusCode == 200 {
 				ready = true
 				break
 			}
+		} else {
+			lastResponse = err.Error()
 		}
 		select {
 		case err := <-done:
@@ -50,7 +56,7 @@ func assertProductionLifecycle(t *testing.T, cfg config.Config) {
 		}
 	}
 	if !ready {
-		t.Fatal("production runtime did not become ready")
+		t.Fatalf("production runtime did not become ready: %s", lastResponse)
 	}
 	cancel()
 	select {

@@ -1183,7 +1183,7 @@ func TestRedelegateFromUnbondedValidator(t *testing.T) {
 func testUnbondingRetryRestart(t *testing.T) {
 	t.Helper()
 	directory := t.TempDir()
-	f := repair310Open(t, directory)
+	f := stakingTransitionOpen(t, directory)
 	closed := false
 	t.Cleanup(func() {
 		if !closed {
@@ -1192,7 +1192,7 @@ func testUnbondingRetryRestart(t *testing.T) {
 	})
 	f.ctx = f.ctx.WithBlockHeight(1)
 	delegator := sdk.AccAddress(PKs[230].Address())
-	validator := repair310Validator(t, f.staking, f.ctx, 231)
+	validator := stakingTransitionValidator(t, f.staking, f.ctx, 231)
 	tokens := f.staking.TokensFromConsensusPower(f.ctx, 10)
 	f.fund(t, delegator, tokens)
 	server := keeper.NewMsgServerImpl(f.staking)
@@ -1234,7 +1234,7 @@ func testUnbondingRetryRestart(t *testing.T) {
 	require.NoError(t, f.store.Close())
 	closed = true
 
-	f = repair310Open(t, directory)
+	f = stakingTransitionOpen(t, directory)
 	closed = false
 	require.Equal(t, committed, f.store.LastCommitID())
 	f.ctx = f.ctx.WithBlockHeight(3).WithBlockTime(completion.Add(time.Second))

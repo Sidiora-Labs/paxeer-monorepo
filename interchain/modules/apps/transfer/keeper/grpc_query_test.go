@@ -24,26 +24,26 @@ import (
 )
 
 func (suite *KeeperTestSuite) TestQueryDenomTrace() {
-	repairM1205QueryTransport(suite.T())
+	transferStateQueryTransport(suite.T())
 }
 
 func (suite *KeeperTestSuite) TestQueryDenomTraces() {
-	repairM1205QueryTransport(suite.T())
+	transferStateQueryTransport(suite.T())
 }
 
 func (suite *KeeperTestSuite) TestQueryDenomHash() {
-	repairM1205QueryTransport(suite.T())
+	transferStateQueryTransport(suite.T())
 }
 
-func repairM1205QueryTransport(t *testing.T) {
+func transferStateQueryTransport(t *testing.T) {
 	t.Helper()
-	s := repairM1205Suite(t)
+	s := transferStateSuite(t)
 	empty, err := s.queryClient.DenomTraces(context.Background(), &types.QueryDenomTracesRequest{})
 	require.NoError(t, err)
 	require.Empty(t, empty.DenomTraces)
 	traces := types.Traces{
-		repairM1205Produce(t, s, sdk.DefaultBondDenom),
-		repairM1205Produce(t, s, "factory/creator/sub/denom"),
+		transferStateProduce(t, s, sdk.DefaultBondDenom),
+		transferStateProduce(t, s, "factory/creator/sub/denom"),
 	}
 	chain := s.chainC
 	listener, err := net.Listen("tcp", "127.0.0.1:0")

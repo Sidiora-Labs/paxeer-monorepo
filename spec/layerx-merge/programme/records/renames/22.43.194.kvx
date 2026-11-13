@@ -1,0 +1,100 @@
+[manifest]
+task = "22.43.194"
+records_moved = 4
+files_renamed = 7
+
+[file.1]
+from = "tests/integration/evm_module/rpc_io_test/repair_m743_test.go"
+to = "tests/integration/evm_module/rpc_io_test/rpc_response_validation_test.go"
+
+[file.2]
+from = "tests/integration/evm_module/ws_test/repair_m745_test.go"
+to = "tests/integration/evm_module/ws_test/committed_head_test.go"
+
+[file.3]
+from = "tests/integration/runner/repair_m757_test.go"
+to = "tests/integration/runner/command_execution_test.go"
+
+[file.4]
+from = "tests/integration/runner/testdata/repair_m757.yaml"
+to = "tests/integration/runner/testdata/command_execution.yaml"
+
+[file.5]
+from = "tests/integration/runner/testdata/repair_m757_regex.yaml"
+to = "tests/integration/runner/testdata/regex_prefix.yaml"
+
+[file.6]
+from = "tests/integration/runner/testdata/repair_m757_unexpected.yaml"
+to = "tests/integration/runner/testdata/unexpected_exit.yaml"
+
+[file.7]
+from = "tests/integration/scripts/test_repair_22_33_758.py"
+to = "tests/integration/scripts/test_runner_boundaries.py"
+
+[file.8]
+from = "tests/integration/evm_module/ws_test/repair_m745.kvx"
+to = "spec/layerx-merge/programme/records/tests/integration/evm_module/ws_test/repair_m745.kvx"
+
+[file.9]
+from = "tests/integration/repair_22_39_508.kvx"
+to = "spec/layerx-merge/programme/records/tests/integration/repair_22_39_508.kvx"
+
+[file.10]
+from = "tests/integration/runner/repair_m757.kvx"
+to = "spec/layerx-merge/programme/records/tests/integration/runner/repair_m757.kvx"
+
+[file.11]
+from = "tests/integration/scripts/repair_22_33_758.kvx"
+to = "spec/layerx-merge/programme/records/tests/integration/scripts/repair_22_33_758.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "tests/integration/scripts/test_repair_22_33_758.py"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-31.kvx"
+name = "tests/integration/scripts/test_repair_22_33_758.py"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tests/integration/scripts/test_repair_22_33_758.py"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/integration/evm_module/rpc_io_test/repair_m743_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/integration/evm_module/ws_test/repair_m745_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/integration/repair_22_39_508.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/integration/runner/repair_m757_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/integration/scripts/test_repair_22_33_758.py"
+
+[reference.9]
+file = "tests/conformance/repair_22_39_131.kvx"
+name = "tests/integration/scripts/test_repair_22_33_758.py"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_743"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_745"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_757"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-m757"

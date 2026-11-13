@@ -228,7 +228,7 @@ func descriptorJSONName(field *descriptorpb.FieldDescriptorProto) string {
 }
 
 func TestDescriptorShapeJSONNameDefaults(t *testing.T) {
-	file := repairM1300Parse(t, `syntax = "proto3"; message M {
+	file := parseDescriptorShapeFixture(t, `syntax = "proto3"; message M {
 		string request_id = 1; string _leading_name = 2;
 		string consecutive__underscores = 3; string digit_2_name = 4;
 	}`)
@@ -248,10 +248,10 @@ func TestDescriptorShapeJSONNameDefaults(t *testing.T) {
 }
 
 func TestDescriptorShapeReservationOrder(t *testing.T) {
-	source := repairM1300Parse(t, `syntax = "proto3";
+	source := parseDescriptorShapeFixture(t, `syntax = "proto3";
 		message M { reserved 10 to 12, 20; reserved "old", "retired"; }
 		enum E { ZERO = 0; reserved 10 to 12, 20; reserved "OLD", "RETIRED"; }`)
-	generated := repairM1300Parse(t, `syntax = "proto3";
+	generated := parseDescriptorShapeFixture(t, `syntax = "proto3";
 		message M { reserved 20, 10 to 12; reserved "retired", "old"; }
 		enum E { ZERO = 0; reserved 20, 10 to 12; reserved "RETIRED", "OLD"; }`)
 	if differences := compareShapes(source.GetName(), shapeOf(source), shapeOf(generated)); len(differences) != 0 {

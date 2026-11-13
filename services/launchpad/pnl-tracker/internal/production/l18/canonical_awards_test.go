@@ -62,7 +62,7 @@ func recordedAwardAuthority(t *testing.T) (*Ledger, *CanonicalAuthority, []accou
 		}
 		fills = append(fills, fill)
 	}
-	headers, err := os.ReadFile(filepath.Join(path, "repair_63_headers.jsonl"))
+	headers, err := os.ReadFile(filepath.Join(path, "recorded_replay_headers.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -43,7 +43,7 @@ const defaultChainID = "hyperpax_125-1"
 // are the stores an activation plan has to declare as added, taken from each
 // module's own types package.
 // The retained stores and historical contracts below are required replay inputs;
-// their catalogue allowance requirements are recorded in ../repair_22_39_275.kvx.
+// their catalogue allowance requirements are recorded in ../../../spec/layerx-merge/programme/records/tools/chain/repair_22_39_275.kvx.
 var forkStoreKeys = []string{
 	layerxcustodytypes.StoreKey,
 	layerxanchortypes.StoreKey,

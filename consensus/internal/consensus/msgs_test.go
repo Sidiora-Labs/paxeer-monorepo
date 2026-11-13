@@ -216,7 +216,7 @@ func TestMsgToProto(t *testing.T) {
 }
 
 func TestWALMsgProto(t *testing.T) {
-	t.Run("producer timed proposal", testRepairM1082WALProto)
+	t.Run("producer timed proposal", testConsensusNetworkWALProto)
 
 	parts := types.Part{
 		Index: 1,
@@ -721,9 +721,9 @@ func TestHasVoteMessageValidateBasic(t *testing.T) {
 
 // The inner protobuf carries Msg/PeerID; the timed WAL envelope carries the
 // reactor/producer receive clock. Exercise both representations of one message.
-func testRepairM1082WALProto(t *testing.T) {
+func testConsensusNetworkWALProto(t *testing.T) {
 	t.Helper()
-	f := newRepair80Fixture(t)
+	f := newProposalReplayFixture(t)
 	mi := f.messages[0]
 	require.False(t, mi.ReceiveTime.IsZero())
 	inner := NewWALMessage(mi).toProto()
