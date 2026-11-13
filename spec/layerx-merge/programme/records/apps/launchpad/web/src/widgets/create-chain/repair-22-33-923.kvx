@@ -1,7 +1,7 @@
 [repair.22.33.923]
 finding = "chain-launch-path-proof"
 test = "chain_launch_path_proof_recovers_the_submitted_journal_with_one_submission"
-test_path = "apps/launchpad/web/src/widgets/create-chain/repair-22-33-923.test.ts"
+test_path = "apps/launchpad/web/src/widgets/create-chain/chain-launch-recovery.test.ts"
 proof = "The mounted production wizard uses real wagmi providers, an injected connector and viem HTTP clients against a loopback transcript server. Requests must match Go-generated createChain ABI vectors, including creator, payable value and all arguments. Committed ChainCreated log bytes are decoded and matched to the committed getChain tuple at the receipt block. Registry readback is interrupted after submission; the entire component, wallet provider, connector and query cache are closed and reopened with only the submitted journal retained. Retry reaches readiness and wallet registration with exactly one eth_sendTransaction."
 fixtures = "tests/vectors/chains/abi-vectors.json (Go ABI producer: precompiles/layerxchains/abi_test.go, TestChainsVectorFileIsCurrent); services/platform/hosted/indexer/tests/fixtures/chains_blocks.json (scope block 42 and its single-creation receipt). Receipt envelope identity is joined from the committed block and transaction; log topics and data are never synthesized or re-encoded."
 preserved = "Existing focused UI, adapter timeout/revert and hydration suites are unchanged. The repair test registers an explicit name and function so Vitest 4 executes its assertions."

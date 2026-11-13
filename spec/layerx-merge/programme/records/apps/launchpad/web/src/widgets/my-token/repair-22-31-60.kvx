@@ -1,6 +1,6 @@
 [repair.22.31.60]
 finding = "metadata-token-identity"
-proof = "repair-22-31-60.test.ts: metadata_token_identity_creator_discovery_through_gateway"
+proof = "creator-discovery.test.ts: metadata_token_identity_creator_discovery_through_gateway"
 implementation = "Resolve creator-discovered pools through the canonical PoolRegistry, retain pool and token addresses, fetch metadata by token, and reject unknown or mismatched token/pool responses before rendering names."
 producer = "Shipped Quoter and PoolRegistry contracts on an owned EVM; pool registration events and deployed SidioraERC20 name/symbol reads seed the real metadata database."
 transport = "Production gateway Connected MetadataConnectedRoutes over mutually authenticated TLS to metadata Handlers.RegisterRoutes with sqlc queries and real PostgreSQL/Redis."

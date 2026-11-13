@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
 import React, { act } from 'react';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from 'vitest';
-import { positionPage, positionPool, positionToken } from './repair-22-33-935.fixture';
+import { positionPage, positionPool, positionToken } from './position-pagination.fixture';
 
 interface BrowserDom { window: Window & typeof globalThis }
 type JsdomModule = { JSDOM: new (html: string, options: { url?: string; pretendToBeVisual?: boolean; storageQuota?: number }) => BrowserDom };

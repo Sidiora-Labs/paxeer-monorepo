@@ -11,7 +11,7 @@ import { useBountyAttemptRecovery, useEvidenceUploads } from './use-bounty-mutat
 import { BountyTransactionStatus } from './funding-step';
 import { BountyTransactionAttempt, bountyIntentId, freezeBountyReview, sendReviewedBountyTransaction } from './bounty-transaction-attempt';
 import { createFundingIntent, createSettlementIntent, validatePreparedEnvelope, type ValidatedTransaction } from './prepared-transaction';
-import { BountyAssetGateway, BountyRpcTranscript, transcriptProvider, bounty, creator, winner, deployment, broadcastHash, receiptTranscript, preparedTokenRequest, selection } from './repair-22-33-985.fixtures';
+import { BountyAssetGateway, BountyRpcTranscript, transcriptProvider, bounty, creator, winner, deployment, broadcastHash, receiptTranscript, preparedTokenRequest, selection } from './bounty-transaction.fixtures';
 // The focused gate also executes the updated preparation-to-review refusal suite.
 import './prepared-transaction.test';
 

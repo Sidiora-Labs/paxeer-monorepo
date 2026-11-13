@@ -1,6 +1,6 @@
 [repair.22.33.1010]
 finding = "creator-wallet-lifecycle"
-proof = "repair-22-33-1010.test.ts: creator_wallet_lifecycle_cancels_obsolete_metadata_and_selects_current_pools"
+proof = "creator-wallet-lifecycle.test.ts: creator_wallet_lifecycle_cancels_obsolete_metadata_and_selects_current_pools"
 implementation = "Key the creator view and metadata queries by wallet, derive selection from current pool identities, reset missing or empty selections, and let consumed query abort signals cancel metadata when wallet or pool observers unmount."
 producer_transport_consumer = "Committed in-memory creator registry encodes real Quoter ABI results through the injected EIP-1193 provider and Wagmi hooks; committed PoolRegistry and metadata recordings travel through real contract decoding and loopback HTTP into MyTokenView under the real query provider."
 coverage = "Two wallets with equal-sized disjoint lists, delayed metadata cancellation on wallet switch, late response rejection, same-wallet same-sized pool replacement, pool-removal cancellation, empty-list selection reset, and pending metadata cancellation on disconnect."

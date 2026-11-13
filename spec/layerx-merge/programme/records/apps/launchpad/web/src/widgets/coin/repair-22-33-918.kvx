@@ -1,6 +1,6 @@
 [repair.22.33.918]
 audit = "22.30.21"
-test_file = "apps/launchpad/web/src/widgets/coin/repair-22-33-918.test.ts"
+test_file = "apps/launchpad/web/src/widgets/coin/coin-pagination-risk.test.ts"
 holder-page-refresh = "holder_page_refresh_replaces_balances_and_cursor_chain"
 holder-page-retry = "holder_page_retry_click_requests_the_failed_continuation"
 risk-unknown-booleans = "risk_unknown_booleans_preserve_unknown_and_valid_verdicts"
