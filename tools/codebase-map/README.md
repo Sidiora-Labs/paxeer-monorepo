@@ -52,4 +52,8 @@ repository root with the required Node.js version:
 npm --prefix tools/codebase-map run test:portable
 ```
 
-For the existing snapshot-dependent [checks](test/map.test.mjs), generate a fresh map first, then run `npm --prefix tools/codebase-map run check`. Those checks skip snapshot-dependent cases if `data/codebase-map.json` is absent. Their live-source comparisons require the same Git commit, compatible index and `cg spec status --json` inputs used to generate the snapshot.
+Run `npm --prefix tools/codebase-map run check` for all checks, including the
+[live-source checks](test/map.test.mjs). They read the current Git inventory,
+compatible Codify index and active specification, generate a fresh snapshot in
+a temporary directory, and serve it to the consumer. They do not require a
+previously generated `data/codebase-map.json`.

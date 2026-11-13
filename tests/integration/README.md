@@ -6,10 +6,10 @@ drivers consume the same YAML files, but their expression evaluators differ.
 
 Paxeer mainnet-beta is one BFT network, with the kernel participating in block
 proposal. A receipt is final when its block is committed. Its EVM chain ID is
-125 (`0x7d`). Public JSON-RPC uses the root URL of the node hosts
-`api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network` and `api-mainnet-beta.paxeer.network`, for
-example `https://api1.mainnet-beta.paxeer.network/`. The commands below target a
-disposable local cluster; local genesis settings can differ from mainnet.
+125 (`0x7d`). Public JSON-RPC uses the root path of the nodes listed in the
+[public RPC reference](../../docs/site/docs/reference/public-rpc.md). The commands
+below target a disposable local cluster; local genesis settings can differ from
+mainnet.
 
 Related suites:
 

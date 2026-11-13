@@ -26,12 +26,14 @@ manifest paths to package minimums:
 Manifest paths are relative to the current working directory; absolute paths also
 work. `package.json` resolves through the nearest ancestor directory containing
 `package-lock.json`, Yarn v1 `yarn.lock`, or `pnpm-lock.yaml`. If `packageManager`
-is declared, its lock format is used; otherwise multiple locks in that directory
-are an error. `Cargo.toml` uses the nearest ancestor `Cargo.lock`. Lock files may
+declares `npm`, `yarn` or `pnpm`, the search uses only that manager's lock format;
+otherwise multiple locks in the nearest matching directory are an error.
+`Cargo.toml` uses the nearest ancestor `Cargo.lock`. Lock files may
 also be named directly. `go.mod`, `pom.xml`, and `requirements.txt` are read
 directly. Maven packages can use `artifactId` or `groupId:artifactId`; properties
 must resolve from that POM's own `properties` block. Requirements use `==` pins.
-Go replacements use the replacement version; local replacements cannot establish
+Python package names compare case-insensitively with runs of `-`, `_` and `.`
+treated as equivalent. Go replacements use the replacement version; local replacements cannot establish
 a version floor and fail if selected.
 
 Each package floor may also be an object such as
@@ -43,8 +45,9 @@ and violations report the minimum in the same tab-separated format.
 
 Every resolved copy within a floor's range must meet its minimum. Dotted numeric
 segments compare numerically, prereleases sort below releases, and `v` prefixes
-and build metadata are ignored. Exit status is 0 when all floors pass and 1 on
-violations or input errors. Each violation is one tab-separated line containing
+and build metadata are ignored; trailing numeric zeroes compare equally. Exit
+status is 0 when all floors pass and 1 on floor violations or data errors;
+invalid command-line arguments exit 2. Each violation is one tab-separated line containing
 manifest, package, resolved version, and floor. Missing packages report
 `<unresolved>`; input errors go to stderr. The checker reads manifests and locks
 without changing them.

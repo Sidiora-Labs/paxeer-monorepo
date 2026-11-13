@@ -22,7 +22,7 @@ Commands:
 | `prune` | Prune a DB at a given height |
 | `replay-changelog` | Scan the changelog to replay and recover PebbleDB data |
 | `memiavl-latest-version` | Print the latest memiavl version of a stopped node |
-| `import-flatkv-from-memiavl` | Import selected memiavl modules into FlatKV |
+| `import-flatkv-from-memiavl` | Import memiavl EVM rows into FlatKV at the latest memiavl height; `--modules` accepts only `evm` |
 | `migrate-evm-status` | Report the on-disk FlatKV EVM migration status as JSON |
 | `trace-profile-report` | Run `debug_traceTransactionProfile` across a block range and generate a report |
 | `benchmark-write`, `benchmark-read`, `benchmark-iteration`, `benchmark-reverse-iteration` | Measure write, read, and iteration performance of the DB backends |
@@ -39,7 +39,11 @@ go run ./rpc_bench -endpoint <rpc-url> [-concurrency 16] [-blocks 20] [-start-bl
   [-requests 100] [-methods m1,m2] [-trace-discover 5] [-plot-dir DIR] [-output-file FILE]
 ```
 
-`-endpoint` is required; the other flags show their defaults.
+`-endpoint` is required. Defaults are 16 workers, 20 recent blocks, 100 requests
+per method per phase and five transactions for storage-slot discovery. An empty
+`-methods` selects all methods; plots and output-file duplication are disabled
+unless their paths are set. `-start-block` and `-end-block` select an inclusive
+range; an omitted end uses the starting block.
 
 ## Other packages
 

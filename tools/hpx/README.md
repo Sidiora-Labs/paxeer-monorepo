@@ -7,11 +7,9 @@ part of this BFT network and proposes blocks; a receipt is final when its block
 is committed. Generated executables, native libraries, live chain configuration,
 registry data and TLS material are published outside Git.
 
-Artifact and library mirror: `https://node.hyperpaxeer.com`.
-The mirror distributes node software and peer information. Public JSON-RPC uses
-the root HTTPS path on `api1.mainnet-beta.paxeer.network` through
-`api14.mainnet-beta.paxeer.network` and `api-mainnet-beta.paxeer.network`.
-See the [public RPC reference](../../docs/site/docs/reference/public-rpc.md).
+`HPX_MIRROR` selects the artifact and library mirror, which distributes node
+software and peer information. Public JSON-RPC uses the root HTTPS paths listed
+in the [public RPC reference](../../docs/site/docs/reference/public-rpc.md).
 
 ## Install a node
 
@@ -19,14 +17,15 @@ Use a Linux host with systemd and an x86-64 or AArch64 CPU. Installation and
 node lifecycle changes require root privileges.
 
 ```bash
-export HPX_MIRROR=https://node.hyperpaxeer.com
+: "${HPX_MIRROR:?set the trusted artifact mirror URL}"
 curl -fsSL "$HPX_MIRROR/get-hpx.sh" | sudo env HPX_MIRROR="$HPX_MIRROR" bash
 ```
 
 The [web installer](get-hpx.sh) verifies the HPX CLI against `checksums.txt`.
-The [setup flow](hpx) then verifies `chain-info.json`, `paxd`, the three
-libwasmvm runtimes for the host architecture, genesis and the selected fullnode
-or validator configuration before installing them. These checks establish
+The [setup flow](hpx) verifies downloads against that manifest in stages:
+`chain-info.json`, then `paxd` and the three libwasmvm runtimes for the host
+architecture, then genesis and the selected fullnode or validator configuration.
+The executable and libraries are installed before the chain files. These checks establish
 integrity against the selected mirror's manifest; use `HPX_MIRROR` only for an
 explicitly trusted alternate mirror.
 
@@ -55,6 +54,10 @@ The default node home is `/root/.paxeer` (`HPX_HOME` overrides it), and the
 systemd service is `paxd.service`. If the registry requires registration
 authentication, set the CLI's `HPX_TOKEN` to the registry's `HPX_REGISTER_TOKEN`.
 
+`hpx statesync` stops the service and applies trust parameters from the mirror.
+It invokes `paxd tendermint unsafe-reset-all --home` with the node home, trying
+`paxd comet unsafe-reset-all --home` if needed, then starts the service.
+
 ## Publish artifacts
 
 The mirror deployment is described by [tools/hpx/hosting/fly.toml](hosting/fly.toml)
@@ -71,7 +74,7 @@ The [publisher](publish.sh) takes these inputs:
 | `SRC_CFG` | `HPX_RUNTIME_CONFIG_DIR`, otherwise `/root/.paxeer/config` |
 | `HPX_ARTIFACTS_ROOT` | `/srv/hpx/artifacts` |
 | `HPX_PAXD_VERSION` | Defaults to `tools/release/version.json`; an override must equal that version |
-| `HPX_BUILD_PROVENANCE` | Required reviewed build record; defaults to `${SRC_BIN}.provenance.json` |
+| `HPX_BUILD_PROVENANCE` | Required build provenance JSON; defaults to `${SRC_BIN}.provenance.json` |
 | `HPX_RELEASE_ID` | UTC timestamp followed by the first 12 hex characters of the supplied binary's SHA-256 |
 | `HPX_SEED_PEERS` | Required: at least three distinct `40-hex-node-id@host:port` entries, comma-separated |
 | `HPX_CHAIN_ID` / `HPX_EVM_CHAIN_ID` | `hyperpax_125-1` / `125` |
@@ -86,7 +89,7 @@ The publisher reads `tools/release/version.json` and checks the staged executabl
 override, and its `commit` must equal the checkout's full `git rev-parse HEAD`.
 The `server_name` must be `paxd`.
 
-Supply a reviewed build provenance JSON file through `HPX_BUILD_PROVENANCE`
+Supply a build provenance JSON file through `HPX_BUILD_PROVENANCE`
 (default `${SRC_BIN}.provenance.json`).
 The `version` value is read from `tools/release/version.json`.
 It must contain these three fields:
@@ -100,11 +103,7 @@ It must contain these three fields:
 ```
 
 The provenance version and source revision must match the manifest, executable
-and checkout, and its digest must match the exact staged executable. Generate
-this record at the reviewed build, retain it with that artifact, and publish
-from the matching checkout. Do not reconstruct provenance to relabel an
-unidentified executable. These checks establish agreement with a trusted build
-record; they do not replace review or authenticate an untrusted build machine.
+and checkout, and its digest must match the exact staged executable.
 Missing or inconsistent identity data aborts publication. The release includes
 `binary-info.json`, `build-provenance.json` and `version.json` in its checksums.
 `chain-info.json` records the validated version, commit, source revision and
@@ -114,7 +113,7 @@ After supplying seed peers from the private deployment configuration:
 
 ```bash
 sudo env \
-  HPX_BUILD_PROVENANCE="${HPX_BUILD_PROVENANCE:?set the reviewed build record}" \
+  HPX_BUILD_PROVENANCE="${HPX_BUILD_PROVENANCE:?set the build provenance JSON}" \
   HPX_SEED_PEERS="${HPX_SEED_PEERS:?set at least three distinct seed peers}" \
   tools/hpx/publish.sh
 ```
