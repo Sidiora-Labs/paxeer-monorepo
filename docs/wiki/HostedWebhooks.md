@@ -14,10 +14,8 @@ an outgoing webhook signature nor a successful HTTP delivery creates finality.
 See [Modules](Modules.md) for execution and [Hosted dashboard](HostedDashboard.md)
 for developer views of delivery health, keys and test payments.
 
-The public node JSON-RPC endpoints use the root path, for example
-`https://api1.mainnet-beta.paxeer.network/`, with numbered hosts `api1` through
-`api14` and `https://api-mainnet-beta.paxeer.network/`. Hosted webhook REST routes
-are a separate application surface from the node JSON-RPC namespaces.
+Public node JSON-RPC uses the root path; see [Public JSON-RPC](PublicRpc.md).
+Hosted webhook REST routes use their configured application service.
 
 ---
 
@@ -47,11 +45,8 @@ or `[::]:8080` for ingress. `PORT` moves only the health listener. When launchin
 the binary directly, set `LAYERX_WEBHOOKS_HEALTH_LISTEN` explicitly if needed;
 its application listener default is `0.0.0.0:9444` for either role.
 
-Configure Redis at `rediss://OPERATOR_HOST:6379`, KMS at
-`https://OPERATOR_HOST:9443`, identity at `https://OPERATOR_HOST:9443`, and
-each journey, payment, approval and program event source at
-`https://OPERATOR_HOST:9443`.
-Replace `OPERATOR_HOST` with the operator-supplied hostname for each URL's Redis, KMS, identity or individual event-source service.
+Configure the Redis TLS origin, KMS, identity and all four event-source HTTPS
+origins through the keys below.
 
 The Kubernetes manifest `services/platform/hosted/webhooks/deployment.yaml`
 exposes only the public role through the `/v1/webhooks` Ingress prefix. Its
@@ -80,24 +75,9 @@ Provision the policy from the same network identity and validator authority as
 the node. Tenant domains are database namespaces, not independent consensus
 networks requiring their own infrastructure.
 
-The checked-in Railway example and Kubernetes webhook manifest still carry
-older component/authority settings and key-file rows, but omit these four live
-node-verifier inputs. They are not complete ingress startup recipes for this
-binary. Supply the node URLs, node token and chain policy as well as the shared
-and role-specific credentials described here. Do not copy the old deployment
-interpolation as network authority.
-
-The legacy `LAYERX_WEBHOOKS_NETWORK_ID` setting in the Kubernetes manifest now
-matches `layerx-testnet`, correcting the older `testnet` mismatch. That setting
-belongs to the older authority flow; it does not configure the active node
-verifier. If maintaining that older adapter, its network name must exactly match
-the receipt authority's name. `src/deployment.rs::bind_network` derives it from
-the node's `layerx-node-config/network-name`, the same ConfigMap key consumed by
-`LAYERX_AUTHORITY_NETWORK_ID`, and refuses ambiguous bindings. The current
-verifier instead binds the policy's consensus chain name, pinned validators,
-governance proof and committed block. In the node manifest, `chain-id` is
-`hyperpax_125-1`; it is distinct from both `network-name: layerx-testnet` and the
-numeric EVM chain ID `125`.
+Ingress receipt verification uses the configured consensus chain name, pinned
+validators, governance proof and committed block. The consensus chain ID is
+`hyperpax_125-1`; the EVM chain ID is `125`.
 
 ### Credential files
 
@@ -113,8 +93,7 @@ provisioning and certificate issuance helpers live in
 
 Public additionally needs its identity-introspection bearer. Ingress needs four
 source-reader bearers, distinct source-trigger and operator bearers, and the
-node verifier's token and policy. Ensure those live verifier files are mounted
-and readable; the existing env-file table does not provision them automatically.
+node verifier's token and policy. Mount the verifier token and policy at the paths configured by their file keys.
 
 ---
 
@@ -436,10 +415,8 @@ contain paths, not inline secrets. Shared settings are read by both roles.
 | `MAXIMUM_ATTEMPTS`, `SPREAD_PERCENT` | Default `8`, `20` |
 | `SUSPEND_AFTER_DEAD_LETTERS`, `LEASE_SECONDS` | Default `20`, `120` |
 
-Older authority URL/token, network-name, wire-version and batch signing-key
-settings in deployment examples are not substitutes for the active verifier's
-node URLs and chain policy. Use `TrustedSources::from_environment` and
-`ReceiptVerifier::from_environment` as the startup contract.
+`TrustedSources::from_environment` and `ReceiptVerifier::from_environment`
+read the active source and node-verification configuration.
 
 ---
 

@@ -4,8 +4,6 @@
 
 [English](../../README.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Русский](README.ru.md) · [简体中文](README.zh-CN.md) · [Português](README.pt-BR.md) · Deutsch · [Français](README.fr.md)
 
-*Diese Fassung beschreibt das zusammengeführte Netzwerk gemäß [`spec/layerx-merge/spec.kvx`](../../spec/layerx-merge/spec.kvx).*
-
 <p align="center">
   <!-- ═══ Network Identity ═══ -->
   <img src="https://img.shields.io/badge/Paxeer%20X-Network-6C3BFF?style=for-the-badge" alt="Paxeer X Network" />
@@ -36,7 +34,7 @@
 
 Paxeer X Network ist ein BFT-Netzwerk mit einem Ausführungsbereich im Knoten `paxd` und der EVM-Chain-ID **125** (`0x7d`). Der LayerX-Kernel ist in den Knoten integriert: Er führt Agentenaktivitäten deterministisch aus und ist Teil der Blockvorschlagserstellung. Eine signierte Ausführungsquittung ist final, sobald ihr Block durch den BFT-Konsens committed wurde. Offizielle Website: [paxeer.network](https://paxeer.network/). Dokumentation: [docs.paxeer.app](https://docs.paxeer.app/).
 
-Der Go-Knoten bindet den C17-Kernel über [`modules/lxphost/host.go`](../../modules/lxphost/host.go) ein. EVM, native Module und Kernel arbeiten innerhalb desselben Netzwerks. Die früheren Custody- und Anchor-Precompiles an `0x1013` und `0x1014` sind seit dem Merge stillgelegt; sie sind kein Betriebsweg für Einzahlung oder Checkpoint-Abwicklung. Für die nativen Konstrukte führt die Merge-Adresstabelle in [`precompiles/setup.go`](../../precompiles/setup.go) folgende Precompiles auf (Adressen hier gekürzt):
+Der Go-Knoten bindet den C17-Kernel über [`modules/lxphost/host.go`](../../modules/lxphost/host.go) ein. EVM, native Module und Kernel arbeiten innerhalb desselben Netzwerks. Für die nativen Konstrukte führt die Merge-Adresstabelle in [`precompiles/setup.go`](../../precompiles/setup.go) folgende Precompiles auf (Adressen hier gekürzt):
 
 | Precompile | Adresse |
 | --- | --- |
@@ -68,7 +66,7 @@ curl -sS --max-time 15 https://api1.mainnet-beta.paxeer.network \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-Die öffentlichen Knoten-Namensräume sind `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` und `txpool`; die verfügbare Methodenauswahl hängt von der Knotenkonfiguration ab. Der Namensraum `px` antwortet aus dem Knotenzustand; `px_register` und `px_requestFunds` sind Operationen der gehosteten Identitäts- und Faucet-Dienste, deren Vertrag in [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json) steht. Der Bibliotheksmirror `node.hyperpaxeer.com` wird von hpx-Build-Skripten verwendet und ist kein JSON-RPC-Endpunkt.
+Die HTTP-Registrierungen des Knotens umfassen `debug`, `echo`, `eth`, `net`, `pax`, `pax2`, `px`, `txpool` und `web3`; die verfügbare Methodenauswahl hängt von der Knotenkonfiguration ab. Die API `test` wird nur bei aktivierter Konfiguration `EnableTestAPI` und einer nicht als live registrierten Chain-ID angeboten; auf `hyperpax_125-1` ist sie nicht verfügbar. Maßgeblich sind [`rpc/server.go`](../../rpc/server.go) und [`modules/evm/config/config.go`](../../modules/evm/config/config.go). Der Namensraum `px` antwortet aus dem Knotenzustand; `px_register` und `px_requestFunds` verweisen nach gültigen Parametern mit Fehler `-32004` und Code `hosted_gateway_service_required` auf den gehosteten Dienst. Dessen Vertrag steht in [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).
 
 Die Checkliste ist [`Getting-Started-Beta.md`](../wiki/Getting-Started-Beta.md); Wallet, Finanzierung und Zahlungen beschreibt [`PaymentsQuickstart.md`](../wiki/PaymentsQuickstart.md). Weitere Einstiege: [`Assets.md`](../wiki/Assets.md), [`PublicRpc.md`](../wiki/PublicRpc.md), [`CommitmentLevels.md`](../wiki/CommitmentLevels.md) und [`PublicAPI.md`](../wiki/PublicAPI.md). Hinweise zur lokalen Entwicklung stehen in [`Quickstart.md`](../wiki/Quickstart.md). Eine lokale Entwicklungsumgebung und öffentliches Mainnet sind unterschiedliche Betriebsumgebungen.
 

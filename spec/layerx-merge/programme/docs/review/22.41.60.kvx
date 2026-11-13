@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.60"
+pages = 20
+
+[page.1]
+path = "docs/hyperfide/runtime/README.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/hyperfide/runtime/VISION.md"
+status = "reviewed"
+
+[page.3]
+path = "docs/hyperfide/runtime/api_to_audit.md"
+status = "corrected"
+
+[page.4]
+path = "docs/hyperfide/runtime/ci-performance.md"
+status = "corrected"
+
+[page.5]
+path = "docs/hyperfide/runtime/cli-guide-and-skill.md"
+status = "reviewed"
+
+[page.6]
+path = "docs/hyperfide/runtime/configuration.md"
+status = "corrected"
+
+[page.7]
+path = "docs/hyperfide/runtime/debugging-and-qa.md"
+status = "corrected"
+
+[page.8]
+path = "docs/hyperfide/runtime/environment-provisioning.md"
+status = "reviewed"
+
+[page.9]
+path = "docs/hyperfide/runtime/events-table-pruning.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/hyperfide/runtime/filing-issues.md"
+status = "reviewed"
+
+[page.11]
+path = "docs/hyperfide/runtime/forkable-plugins.md"
+status = "corrected"
+
+[page.12]
+path = "docs/hyperfide/runtime/hyperfide-release-process.md"
+status = "reviewed"
+
+[page.13]
+path = "docs/hyperfide/runtime/lifecycle-diagrams.md"
+status = "reviewed"
+
+[page.14]
+path = "docs/hyperfide/runtime/multiple-devices.md"
+status = "reviewed"
+
+[page.15]
+path = "docs/hyperfide/runtime/official-plugin-release-process.md"
+status = "reviewed"
+
+[page.16]
+path = "docs/hyperfide/runtime/platform-support.md"
+status = "corrected"
+
+[page.17]
+path = "docs/hyperfide/runtime/postgresql-storage.md"
+status = "reviewed"
+
+[page.18]
+path = "docs/hyperfide/runtime/provider-bridge-protocol.md"
+status = "corrected"
+
+[page.19]
+path = "docs/hyperfide/runtime/provider-plugin-api.md"
+status = "corrected"
+
+[page.20]
+path = "docs/hyperfide/runtime/repository-overview.md"
+status = "reviewed"

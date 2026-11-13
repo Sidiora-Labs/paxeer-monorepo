@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.73"
+pages = 20
+
+[page.1]
+path = "docs/wiki/Sandbox.md"
+status = "corrected"
+
+[page.2]
+path = "docs/wiki/SdkQuickstartDotNet.md"
+status = "reviewed"
+
+[page.3]
+path = "docs/wiki/SdkQuickstartGo.md"
+status = "reviewed"
+
+[page.4]
+path = "docs/wiki/SdkQuickstartJvm.md"
+status = "reviewed"
+
+[page.5]
+path = "docs/wiki/SdkQuickstartPython.md"
+status = "reviewed"
+
+[page.6]
+path = "docs/wiki/SdkQuickstartRust.md"
+status = "reviewed"
+
+[page.7]
+path = "docs/wiki/SdkQuickstartSwift.md"
+status = "reviewed"
+
+[page.8]
+path = "docs/wiki/SdkQuickstartTypeScript.md"
+status = "corrected"
+
+[page.9]
+path = "docs/wiki/SdkQuickstarts.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/wiki/SdkTerminalVerification.md"
+status = "corrected"
+
+[page.11]
+path = "docs/wiki/Sequencing.md"
+status = "corrected"
+
+[page.12]
+path = "docs/wiki/Service.md"
+status = "corrected"
+
+[page.13]
+path = "docs/wiki/SettlementEvidence.md"
+status = "reviewed"
+
+[page.14]
+path = "docs/wiki/Spot.md"
+status = "corrected"
+
+[page.15]
+path = "docs/wiki/StorageScan.md"
+status = "corrected"
+
+[page.16]
+path = "docs/wiki/Stream.md"
+status = "corrected"
+
+[page.17]
+path = "docs/wiki/Ucp.md"
+status = "reviewed"
+
+[page.18]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "corrected"
+
+[page.19]
+path = "docs/wiki/VirtualChains.md"
+status = "corrected"
+
+[page.20]
+path = "docs/wiki/VisaTap.md"
+status = "reviewed"

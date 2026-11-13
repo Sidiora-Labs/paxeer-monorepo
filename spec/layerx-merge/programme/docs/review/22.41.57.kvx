@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.57"
+pages = 20
+
+[page.1]
+path = "docs/explorer/CONTRIBUTING.md"
+status = "corrected"
+
+[page.2]
+path = "docs/explorer/CUSTOM_BUILD.md"
+status = "corrected"
+
+[page.3]
+path = "docs/explorer/DEPRECATED_ENVS.md"
+status = "corrected"
+
+[page.4]
+path = "docs/explorer/ENVS.md"
+status = "corrected"
+
+[page.5]
+path = "docs/explorer/PULL_REQUEST_TEMPLATE.md"
+status = "reviewed"
+
+[page.6]
+path = "docs/explorer/RELEASE_NOTES.md"
+status = "corrected"
+
+[page.7]
+path = "docs/explorer/UPSTREAM.md"
+status = "corrected"
+
+[page.8]
+path = "docs/hyperfide/ANCHORS.md"
+status = "reviewed"
+
+[page.9]
+path = "docs/hyperfide/ARCHITECTURE.md"
+status = "corrected"
+
+[page.10]
+path = "docs/hyperfide/DOCUMENTATION.md"
+status = "corrected"
+
+[page.11]
+path = "docs/hyperfide/SOURCE-REFERENCE.md"
+status = "corrected"
+
+[page.12]
+path = "docs/hyperfide/TEST-REFERENCE.md"
+status = "corrected"
+
+[page.13]
+path = "docs/hyperfide/branches.md"
+status = "corrected"
+
+[page.14]
+path = "docs/hyperfide/codemap.md"
+status = "corrected"
+
+[page.15]
+path = "docs/hyperfide/config.md"
+status = "corrected"
+
+[page.16]
+path = "docs/hyperfide/drift.md"
+status = "corrected"
+
+[page.17]
+path = "docs/hyperfide/events.md"
+status = "corrected"
+
+[page.18]
+path = "docs/hyperfide/hierarchy.md"
+status = "corrected"
+
+[page.19]
+path = "docs/hyperfide/history/runtime-port.md"
+status = "reviewed"
+
+[page.20]
+path = "docs/hyperfide/hyperfide/cli.md"
+status = "reviewed"

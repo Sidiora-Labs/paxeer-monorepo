@@ -34,8 +34,9 @@ built-ins held to this rule. Two checks read it:
   change how many run at once. Use `--shard=<index>/<count>` (one-based) to
   partition the selected plugins across runners; `--list` prints that shard.
 
-`--changed-from=<sha>` compares changed paths against the specified Git base
-(see [plugin selection](ci-performance.md)). When every changed path (renames count both paths) belongs to a
+`--changed-from=<sha>` takes a full hexadecimal commit ID (40–64 characters)
+and compares that commit with `HEAD` (see [plugin selection](ci-performance.md)).
+When every changed path (renames count both paths) belongs to a
 listed plugin, only those plugins run; any shared, unknown, or unlisted-plugin
 change, or missing history, runs the full list. With no selection flags, the full list is checked. Add
 `--list` to print the selection, including the `--shard` partition, without

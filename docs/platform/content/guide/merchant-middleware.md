@@ -10,12 +10,12 @@
 |---|---|
 | Empty cart, more than 256 lines, duplicate SKU, quantity outside 1–1,000,000 or not a safe integer | `invalid-cart` |
 | A SKU the catalog does not have | `catalog-item-missing` |
-| Two lines whose asset, `payTo`, scheme or network differ | `mixed-payment-facts` |
+| Two lines whose asset, `payTo`, scheme, network or serialized `extra` facts differ | `mixed-payment-facts` |
 | A total that would exceed the 128-bit amount range | `amount-overflow` |
 
 Amounts are integer strings and are multiplied and summed as `bigint`. No line total is ever computed in floating point, and no rounding step exists to argue about.
 
-`mixed-payment-facts` is the rule people are surprised by. A cart is one payment; a payment has one asset and one recipient. If your catalog mixes them, split the cart into separate checkouts.
+A cart produces one payment offer with one asset, recipient, scheme, network and set of extension facts. Use separate checkouts for items with different payment facts. The offer uses the first item's `maxTimeoutSeconds`.
 
 Offers use `eip155:<chain-id>` networks and carry `extra.layerx` payment facts, including commitment, account and currency. The seller validates that the advertised account derives the offered `payTo`; buyers verify the same binding before paying.
 
@@ -26,13 +26,13 @@ Offers use `eip155:<chain-id>` networks and carry `extra.layerx` payment facts, 
 | Result | What happened |
 |---|---|
 | `payment-required` | The order is open and unpaid. Send `decision.headers` and `402` |
-| `pending` | The payment is real and still settling |
+| `pending` | Settlement is pending, or an already paid order was opened without a payment header |
 | `refused` | The payment was refused; the order is marked `refused` |
 | `paid` | The receipt verified, the order is `paid-verified`, and it carries the receipt digest and transaction |
 
-The order store is asked to `open` the order before the seller decision, and every store response is re-checked: if `open`, `markPaid` or `markRefused` returns an order whose `checkoutKey` or `requestDigest` does not match, the middleware raises `order-conflict` rather than continuing on a mismatched row. Your store cannot quietly swap the order under it.
+The order store is asked to `open` the order before the seller decision. The returned order must match the checkout key, request digest and quote. The middleware also checks `markPaid` and `markRefused` responses and raises `order-conflict` on a mismatch. Resource release is delegated to the supplied store's `releaseResource` method.
 
-The request digest is computed over the quote itself - lines, total, asset, recipient, scheme, network, timeout. Re-quoting the same cart against an unchanged catalog gives the same digest and therefore the same order. A catalog price change gives a different digest, so it is a different order, which is what you want.
+The request digest covers the lines, total, asset, recipient, scheme, network, timeout and complete payment offer, including its resource URL and extension facts. Identical quotes produce the same digest. A price or resource-URL change changes the digest; the supplied order store decides how checkout keys and digests map to orders.
 
 ## Late settlement
 

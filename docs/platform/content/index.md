@@ -1,12 +1,12 @@
 # Paxeer X Network for developers
 
-Paxeer X Network moves money between software at machine speed and hands you evidence you can check without trusting the people who ran the transaction. LayerX is the kernel domain inside Paxeer X Network. This site is the developer surface: how to add payments to something you already have, what each guarantee is actually worth, and which layer is holding it up.
+Paxeer X Network executes transactions in the BFT node `paxd`, with EVM chain ID 125 (`0x7d`) and the LayerX kernel integrated into execution and block proposals. A receipt is final once its block is committed. This site describes payment integrations, receipt verification and the components that enforce each capability.
 
 ## Integration surfaces
 
 The SDKs below provide clients for human-payment services and native transaction or receipt operations. Configure the service and trust policy required by the API you use. Package coordinates identify the packages in this repository; use your release's published artifacts or build from the source directories.
 
-The [samples page](reference/samples.md) lists the integration regions and their line counts. The complete applications also supply configuration, transport, error handling and receipt checks.
+The [samples page](reference/samples.md) lists the integration regions and their line counts. Human-payment samples configure a service transport, poll its journey state and report evidence references. The Rust sample performs local receipt verification. Native payment applications use signed transactions and independently pinned receipt keys; see [reference applications](guide/reference-applications.md).
 
 ## Start in your language
 
@@ -48,8 +48,8 @@ The four labels on this site are not stylistic. They tell you what survives a co
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Atomic settlement | `protocol` | A payment applies completely or not at all, whatever your client, the daemon or a gateway does. |
-| Offline receipt verification | `protocol` | You can check a settlement claim with no LayerX component in the path. |
+| Atomic settlement | `protocol` | A payment applies as one state transition. |
+| Offline receipt verification | `protocol` | Local verification checks receipt bytes against supplied trust inputs; finality requires authenticated committed block evidence. |
 | Quote then commit | `service` | The ordering is enforced by `layerx-human-service`; it binds callers of that service. |
 | API keys, usage and request logs | `hosted-surface` | An operational control of the hosted deployment, not a protocol property. |
 

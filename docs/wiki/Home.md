@@ -5,12 +5,8 @@ with EVM chain ID **125** (`0x7d`). The LayerX kernel and deterministic
 Programs runtime execute inside the node. The kernel is part of the network
 that proposes blocks; a transaction receipt is final when its block commits.
 
-The public JSON-RPC is served at the root of
-`https://api-mainnet-beta.paxeer.network` and
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. Use the node origin itself as the
-RPC URL. `node.hyperpaxeer.com` is only the build-time hpx library mirror.
-See [Public JSON-RPC](PublicRpc.md) for node and hosted API ownership.
+Use a root node URL from [Public JSON-RPC](PublicRpc.md) for chain access.
+Hosted identity and faucet methods use the configured hosted gateway.
 LayerX source is licensed under the Apache License, Version 2.0.
 
 ## Repository and monorepo structure
@@ -74,11 +70,12 @@ storage also carries deterministic occupancy charges. See
 [Programs](Programs.md#occupancy-and-committed-state), [Fees](Fees.md), and
 [Assets and tokens](Assets.md).
 
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`,
-`test`, and `txpool`. The `px` namespace answers from node state; `px_register`
-and `px_requestFunds` are hosted identity and faucet operations whose contract
-is `services/platform/hosted/gateway/openrpc.json`. Obtain hosted service
-availability from its operator.
+The node's registered API set is defined in
+[`rpc/server.go`](../../rpc/server.go), with serving filtered by configuration.
+It includes native `px_*` reads alongside EVM methods. The test namespace is
+restricted to non-live chains with the test API enabled. Hosted `px_register`
+and `px_requestFunds` are identity and faucet operations; the hosted schema is
+served at `GET /openrpc.json` by the [gateway](HostedGateway.md).
 
 ## Resources
 
@@ -118,10 +115,10 @@ availability from its operator.
 - [Human journeys](HumanJourneys.md)
 - [Human custody](HumanCustody.md)
 - [Human owner registration](HumanOwnerRegistration.md)
-- [Contributing guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md)
-- [Security policy](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md)
-- [Qualification documentation](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/QUALIFICATION.md)
-- [Monorepo layout](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/MONOREPO.md)
+- [Contributing guide](../../CONTRIBUTING.md)
+- [Security policy](../../SECURITY.md)
+- [Qualification documentation](../QUALIFICATION.md)
+- [Monorepo layout](../MONOREPO.md)
 - [Programs](Programs.md): native WASM execution, guest ABIs, LXT-20, simulation, and committed receipts
 - [Sandbox](Sandbox.md)
 - [Storage scan](StorageScan.md)

@@ -117,8 +117,9 @@ keeper's addresses are declared in
 | `0x0000000000000000000000000000000000001025` | Liquidity vault |
 
 The served ABI files live in
-[`precompiles/spot/abi/`](../../precompiles/spot/abi/), and registration is gated
-by the `v6.12.0` activation plan. The kernel's activity capacities and binary
+[`precompiles/spot/abi/`](../../precompiles/spot/abi/). `GetVersioned` in
+`precompiles/spot/setup.go` registers the served set under both `v6.12.0`
+and the supplied latest upgrade name. The kernel's activity capacities and binary
 payloads do not define those ABI contracts. Both surfaces execute on Paxeer;
 there is no extra settlement network to configure.
 

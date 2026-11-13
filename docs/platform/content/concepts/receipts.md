@@ -2,7 +2,7 @@
 
 A receipt records protocol execution. A receipt is final once its block is committed. Paxeer is one BFT network.
 
-For independent finality verification, authenticate the block header and CometBFT commit, then verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+For independent finality verification, authenticate the block header and CometBFT commit, then verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
 
 The batch-based Rust sample and `layerx receipt verify` below are a local compatibility verifier. They check receipt bytes against caller-supplied batch facts without a network connection. Their success does not establish the merged network's committed rung or qualify a deployed service.
 
@@ -31,7 +31,7 @@ The current network reports achieved evidence rungs:
 
 ## Verifying one yourself
 
-The Rust sample below checks the compatibility receipt bytes against the five batch facts you supply. It returns the local verification level, amount, protocol result code and receipt digest, or the exact check that refused. Obtain the batch facts from an independently trusted source; internally consistent inputs alone do not authenticate chain evidence.
+The Rust sample below checks a successful compatibility receipt against the five batch facts you supply. It returns the local verification level, amount, protocol result code and receipt digest, or the exact check that refused. Obtain the batch facts from an independently trusted source; internally consistent inputs alone do not authenticate chain evidence.
 
 ```rust sample=verify-receipt-rust
 use layerx_proof::receipt::AuthorizedBatch;
@@ -45,7 +45,7 @@ fn settlement(receipt: &[u8], batch: &BatchFacts) -> Result<Settlement, String> 
 }
 ```
 
-The same local compatibility check from a shell, with the CLI:
+The CLI verifies compatibility receipt structure and signatures while preserving either a successful or refused protocol result. Inspect `result_code` as well as the verification result:
 
 ```sh
 layerx receipt verify --receipt ./receipt.bin \
@@ -57,7 +57,7 @@ layerx receipt verify --receipt ./receipt.bin \
 
 ## Where the bytes come from
 
-On the human plane, a journey carries evidence references. A reference whose class is `layerx-receipt` can be fetched as evidence material - the canonical bytes exactly as the protocol produced them, plus its content type and verification level. On the agent plane, `read.proof_bundle` and `export.offline` expose proof material. The [portable receipt guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/interop/PORTABILITY.md) describes the `PortableReceiptV2` format and independently pinned height-ranged keys.
+On the human plane, a journey carries evidence references. Fetch a `layerx-receipt` reference through `evidence.get` and inspect its `content_type` before decoding `bytes_base64`. Material with type `application/vnd.layerx.receipt-proof-v2+json` is a JSON proof containing the signed receipt and key metadata. Other receipt material can carry canonical receipt bytes directly. On the agent plane, `read.proof_bundle` and `export.offline` expose proof material. The [portable receipt guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/interop/PORTABILITY.md) describes the `PortableReceiptV2` format and independently pinned height-ranged keys.
 
 You can also check compatibility receipts from an untrusted mirror archive. That path returns freshness with the result instead of implying it; it does not replace committed block evidence for finality.
 

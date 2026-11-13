@@ -4,9 +4,7 @@ A LayerX kernel program is deterministic WASM that runs against protocol state. 
 
 ## The monetary law
 
-This is the single most important thing about programs, and it is structural rather than advisory.
-
-Guest code never mutates a balance. What guest code can produce is a typed 402LXP transfer request, and it can only produce one through a `TransferCapability` it was actually granted. The capability authorises the effect set; the kernel transfer primitive applies it.
+Guest code stages typed 402LXP transfer requests without mutating balances. The host's `TransferCapability` checks those requests against the invocation's granted authority and authorizes an atomic effect set. The kernel transfer primitive applies that set.
 
 ## Program-owned value
 
@@ -40,22 +38,27 @@ refusals where their source semantics are not representable.
 ```text
 guest program  ->  AbiEffects
 TransferCapability::authorize  ->  AtomicTransferSet
-KernelTransferPrimitive::apply_and_verify_402lxp_set  ->  VerifiedProgramSettlement
+KernelTransferPrimitive::apply_and_verify_402lxp_set  ->  KernelTransferEvidence
+KernelTransferPrimitive::verify_402lxp_transfer_set_root  ->  verified root
+TransferCapability::settle_authorized_set  ->  VerifiedProgramSettlement
 ```
 
-The kernel owns all balance mutation, conservation enforcement, atomic rollback, receipt emission and receipt verification. `VerifiedProgramSettlement` has no successful constructor that bypasses the verifier: there is no way to produce one except by the kernel having actually applied and verified the set.
+The kernel applies the transfer set atomically and verifies its commitment root. `VerifiedProgramSettlement` records that root, the leg count and total amount after they match the authorized set. The surrounding activity constructs the signed receipt after this transfer commitment; the settlement value is not itself a signed receipt.
 
 The refusal taxonomy is closed and each variant means one thing:
 
 | Refusal | Cause |
 |---|---|
 | `UnverifiedAuthority` | The invocation authority was not verified |
+| `InvalidProgramAuthority` | The program-account debit authority is invalid |
+| `InvalidProgramFunding` | The program funding destination is invalid |
 | `InvalidTransfer` / `InvalidTransferSet` | The request or the set is malformed |
 | `AmountOverflow` | The set's total exceeded the amount range |
 | `InvariantViolation` | A monetary bypass was detected - the guest tried to move value outside the law |
 | `CapabilityEscalation` | A child call's transfer exceeded the narrowed authority it was called with |
-| `KernelRefused` | The kernel refused the set |
-| `ReceiptInvalid` / `ReceiptMismatch` | The settlement receipt is invalid, or does not bind this exact set |
+| `KernelRefused` / `Kernel(i32)` | The kernel refused the set, optionally preserving its result code |
+| `ReceiptInvalid` / `ReceiptMismatch` | Settlement evidence is invalid, or does not bind this exact transfer set |
+| `StaleStorage` | The prepared storage snapshot is stale |
 
 `CapabilityEscalation` makes composition safe. Principal-scoped transfer authority
 can narrow across calls. Program-owned spending stays in the deriving program's
@@ -75,11 +78,11 @@ Replay is first-class: a recorded execution can be replayed and any divergence r
 
 ## Building and deploying
 
-ABI 2 is the current guest ABI. ABI 1 remains supported; ProgramSpend and BalanceView grants require ABI 2.
+The runtime admits guest ABI versions 1 through 5. The Rust SDK's default `ABI_VERSION` is 4; the CLI's artifact fallback and call default are 2. Declare the ABI required by the artifact and use the deployed program's ABI for calls. `ProgramSpend` and `BalanceView` grants use the ABI-2 capability encoding, which is also used by ABI versions 3 through 5.
 
-Program transactions require a funded EVM sender. Follow the [network quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/site/docs/overview/quickstart.md#2-derive-an-account-and-fund-it) and confirm the funding in committed chain state before spending.
+Program transactions require a funded EVM sender. Follow the [network quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/overview/quickstart.md#2-derive-an-account-and-fund-it) and confirm the funding in committed chain state before spending.
 
-Before an escrow's `OPEN`, register its derived value account using `registerAccount(bytes32,uint8,bytes32,bytes)` on the [Programs precompile](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/precompiles/layerxprograms/LayerXPrograms.sol). Deployment does not register that account automatically. Use the same program, asset and seed as the escrow call.
+Before an escrow's `OPEN`, register its derived value account using `registerAccount(bytes32,uint8,bytes32,bytes)` on the [Programs precompile](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/precompiles/layerxprograms/LayerXPrograms.sol). Deployment does not register that account automatically. Use the same program, asset and seed as the escrow call.
 
 Run the CLI with a configured node RPC URL. Lifecycle commands require a local, owner-only EVM key file and an independently configured receipt policy:
 
@@ -111,7 +114,7 @@ The lifecycle receipt policy is a closed JSON object with `protocol_version: 2`,
 
 Deployment and upgrade read `abi_version` (or `abi`) from the enclosing `LayerX.toml` and `layerx-program.json`, defaulting to ABI 2. Conflicting declarations are refused. Omitting `--upgrade-authority` makes deployment immutable. The caller chooses the 32-byte hex program identifier.
 
-`--interface` takes canonical binary interface encoding, rather than `interface.kvx` source. Its code hash and ABI must match the artifact. Upgrade preserves the existing interface unless given a replacement or `--clear-interface`; those options are mutually exclusive. `--allow-breaking-interface` requires a replacement interface. `--migration-hook` reads the exact hook bytes from a file.
+`--interface` takes canonical binary interface encoding, rather than `interface.kvx` source. Its code hash and ABI must match the artifact. Upgrade preserves the existing interface unless given a replacement or `--clear-interface`; those options are mutually exclusive. `--allow-breaking-interface` requires a replacement interface. `--migration-hook` reads the exact hook bytes from a nonempty file.
 
 The wind-down subcommands share `--program-id`, `--evm-key-file`, `--receipt-policy` and optional `--fee-limit`. `route` adds `--account`, `--asset`, `--destination` and optional hex `--seed` (at most 128 bytes, empty by default). `deprecate` adds `--exit-program` and `--deadline-batch`; `exit` adds `--account`; `tombstone` has no additional arguments.
 
@@ -158,8 +161,8 @@ After a restore the artifact resolver locates and hash-checks a program exactly 
 | Capability | Layer | What that means here |
 |---|---|---|
 | Programs never write balances | `protocol` | Guest code produces typed transfer requests; the kernel owns every balance mutation. |
-| Typed program failure with rollback | `protocol` | A refused or faulted execution leaves no partial state. |
+| Typed program failure with rollback | `protocol` | A refused or faulted execution rolls back program effects; the activity can still consume its sequence and charge metered fees. |
 | Deterministic program execution | `protocol` | Validation, metering and composition bounds are enforced at build and at execution. |
 | Conserved supply | `protocol` | Conservation is checked by the kernel primitive, not by the program. |
 | Atomic settlement | `protocol` | The transfer set applies whole or not at all. |
-| Offline receipt verification | `protocol` | The settlement result is bound to a verified receipt digest. |
+| Offline receipt verification | `protocol` | Consumers verify the signed activity receipt separately from the kernel transfer commitment. |

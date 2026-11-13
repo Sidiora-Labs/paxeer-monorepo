@@ -97,10 +97,11 @@ with its ABI, submit writes as locally signed type-2 transactions for chain
 The Asset identifier is
 `SHA-256("LX:ASSET:v1" || issuer_did_id32 || salt32)`.
 A DID id32 is a derived identity identifier, not the raw public key. Derive
-account identifiers with `accountId(bytes32 owner,bytes32 assetId)` and read
-`accountOwner(bytes32 accountId)` to check ownership. Derivation alone does
-not open or fund an account. Use the `AccountOpened` event and a subsequent
-read to confirm registration.
+account identifiers with `accountId(bytes32 owner,bytes32 assetId)`, passing
+the raw 32-byte Ed25519 DID public key as `owner`. Read
+`accountOwner(bytes32 accountId)` to obtain the derived DID id32 and check
+ownership. Derivation alone does not open or fund an account. Use the
+`AccountOpened` event and a subsequent read to confirm registration.
 
 For a payment, `payExact` checks the binding and source ownership, reads the
 source sequence, constructs the native SEND payload and applies its ledger

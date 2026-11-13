@@ -6,8 +6,8 @@ read endpoints; its default is the canonical public mainnet-beta node alias.
 `RPC_LAG_THRESHOLD_BLOCKS` defaults to `20`, `RPC_HEALTH_INTERVAL_MS` to `5000`
 and `RPC_TIMEOUT_MS` to `8000`.
 
-Health probes check chain ID and head. An endpoint that trails the best head
-beyond the threshold is `lagging`; an endpoint that cannot answer is `down`.
+Health probes check the configured `HYPERPAXEER_CHAIN_ID` (default `125`)
+and head. An endpoint that trails the best head beyond the threshold is `lagging`; an endpoint that cannot answer is `down`.
 Healthy endpoints are selected by latency, with transport failover for reads.
 Unknown endpoints remain eligible before their first probe. A JSON-RPC error
 is returned to the caller rather than retried on another endpoint.
@@ -16,7 +16,9 @@ is returned to the caller rather than retried on another endpoint.
 which defaults to the first `RPC_URLS` entry. That setting names the node
 submission endpoint within the merged network. Submission sends once to that
 endpoint; read-pool failover does not rebroadcast a transaction. Balance and
-chain reads in `src/chainReads.ts` and `src/chain.ts` use
+chain reads in
+[`chainReads.ts`](../../../../services/wallet/gateway/src/chainReads.ts) and
+[`chain.ts`](../../../../services/wallet/gateway/src/chain.ts) use
 `HYPERPAXEER_RPC_URL`; attestor binding reads use `ATTESTOR_RPC_URL`.
 
 ## Diagnose

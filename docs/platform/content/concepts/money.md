@@ -14,11 +14,11 @@ SDKs retain exact amounts using integer or validated decimal-string types. Keep 
 
 ## Principals and accounts
 
-A principal is who the protocol thinks is acting. An account is the balance record that principal owns. On the human plane you never see either directly: you see your own profile, the counterparties you move money to, and journeys describing what happened. On the agent plane you address accounts directly through `read.account` and `read.balance`.
+A principal identifies the actor, and an account holds balances under the applicable authority. The human API scopes profiles, activity and journeys to the authenticated principal; payment quotes accept source and destination identifiers. On the agent plane, `read.account` and `read.balance` address accounts directly.
 
 ## Movements
 
-Money inside the LayerX kernel moves as one of four mechanisms, and the vocabulary is fixed everywhere - API, logs and user-facing copy alike:
+Human payment quotes use these movement labels:
 
 | Mechanism | What it does |
 |---|---|
@@ -29,7 +29,7 @@ Money inside the LayerX kernel moves as one of four mechanisms, and the vocabula
 
 Funding on the network uses chain transfers. Transfers to external chains use the bridge module; an external-chain outcome must be verified under that chain's rules. Program wind-down exits release program-owned value within the network.
 
-You do not choose a mechanism. You say who gets how much, and the route resolver picks. See [Paying for things](paying.md).
+The current human `move.quote` operation prepares a bank transfer and reports `transfer`. Protocol budget and program operations have their own APIs. See [Paying for things](paying.md).
 
 ## What the protocol will refuse
 
@@ -38,7 +38,7 @@ You do not choose a mechanism. You say who gets how much, and the route resolver
 - An EVM transaction whose sender nonce has already been consumed, or a kernel activity with an already-consumed sequence.
 - A spend past a funded budget in the budget module.
 
-None of those are checks your code performs. They are transitions that do not exist.
+The protocol enforces these checks independently of client-side validation.
 
 ## Enforced by
 

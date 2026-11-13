@@ -4,7 +4,7 @@ Module ID `1` (`LXP_MODULE_ASSET`). Activity types are `0x0001xxxx`
 (`include/layerx/lx_asset.h`). The module emits `402LXP` transfer sets; it
 does not call `set_balance`.
 
-The registry holds at most `LX_ASSET_REGISTRY_CAPACITY` (64) records
+The registry holds at most `LX_ASSET_REGISTRY_CAPACITY` (1024) records
 (`include/layerx/lx_asset.h`). Integers on the wire are big-endian. Trailing
 bytes are an error.
 
@@ -30,9 +30,7 @@ Sources: `include/layerx/lx_asset.h`, `src/modules/asset/lx_asset_registry.c`,
 | `LX_ASSET_BURN` | `0x0001000b` | 11 |
 
 These seven ordinals are registered on the module iface
-(`src/modules/asset/lx_asset_registry.c`). RECEIVE (6), GRANT_ISSUE (7),
-GRANT_REVOKE (8) and WITHDRAW (9) are not registered. Their retained
-constants do not make the historical payment paths available.
+(`src/modules/asset/lx_asset_registry.c`).
 
 Unknown ordinals decode as `LXP_ERR_UNKNOWN_ACTIVITY`.
 
@@ -53,7 +51,7 @@ version:u16=1 || asset_id32 || salt32 || symbol_len:u8 || symbol
 | `symbol` | 1–16 ASCII (`LX_ASSET_SYMBOL_MAX`) |
 | `name` | 1–32 UTF-8 (`LX_ASSET_NAME_MAX`) |
 | `decimals` | ≤ 38 |
-| `issuer_kind` | `1` native, `2` `paxeer_custody` (not `lx_asset_custody_kind`) |
+| `issuer_kind` | `1` native, `2` `paxeer_custody` |
 | `custody_ref` | ≤ 128 bytes; empty for native |
 
 Refusals include `LXP_ERR_NON_CANONICAL`, `LXP_ERR_INVALID_AMOUNT`,
@@ -68,7 +66,7 @@ Payload (`asset_pause_decode`): `version:u16=1 || asset_id32` (34 bytes).
 
 Only the recorded issuer may submit. The `paused` flag is written on the
 canonical asset record. A paused asset refuses send, mint, burn,
-account_open, grant_issue, and withdraw with `LXP_ERR_ASSET_PAUSED`.
+and account_open with `LXP_ERR_ASSET_PAUSED`.
 Pausing an already paused asset, or unpausing one that is not paused, is
 `LXP_ERR_PAUSED_SCOPE`. Wrong issuer is `LXP_ERR_UNAUTHORIZED_DEBIT`.
 
@@ -111,61 +109,9 @@ Refusals include `LXP_ERR_ASSET_PAUSED`, `LXP_ERR_ASSET_MISMATCH`,
 `LXP_ERR_UNAUTHORIZED_DEBIT`, `LXP_ERR_INSUFFICIENT_BALANCE`,
 `LXP_ERR_INVALID_AMOUNT`, `LXP_FATAL_SUPPLY_MISMATCH`.
 
-Every executed asset ordinal binds
+Every successfully executed asset ordinal binds
 `total_units_before` / `total_units_after` on the receipt through
 `lxp_ctx_bind_asset_supply`.
-
----
-
-## Historical payloads
-
-The following pre-merge layouts are retained only for decoding archived
-artifacts. They do not authorize current grant issuance, receive or submission.
-See [Historical payment payloads](../site/docs/concepts/assets.md#historical-payment-payloads).
-
-### RECEIVE
-
-The historical RECEIVE payload used tag `0x5201`, ten fields and an
-embedded payer grant binding one recipient, one account, caps, purpose and
-expiry, with no wildcards.
-
-Historical refusals included `LXP_ERR_MALFORMED_RECEIVE`, `LXP_ERR_NO_PAYER_GRANT`,
-`LXP_ERR_GRANT_SCOPE_VIOLATION`, `LXP_ERR_GRANT_EXPIRED`,
-`LXP_ERR_GRANT_REVOKED`, `LXP_ERR_UNAUTHORIZED_DEBIT`.
-
----
-
-### GRANT_ISSUE / GRANT_REVOKE
-
-GRANT_ISSUE carried a full payer-grant body.
-GRANT_REVOKE used `version:u16=1 || grant_id32 || revocation_sequence:u64`
-(42 bytes).
-
-Historical refusals included `LXP_ERR_SEQUENCE_REUSED`, `LXP_ERR_NO_PAYER_GRANT`,
-`LXP_ERR_STALE_REVOCATION`, `LXP_ERR_UNAUTHORIZED_DEBIT`,
-`LXP_ERR_ASSET_PAUSED`.
-
----
-
-### WITHDRAW
-
-The historical kernel payload was 108 bytes with no version prefix:
-
-```text
-asset_id32 || amount:u128 || payout_recipient20 || checkpoint_id32 || fee:u64
-```
-
-`fee` had to equal the activity `fee_limit` low 64 bits. The actor's
-`agent:<did>:main` account for that asset was debited into
-`system:paxeer-withdrawals` under `LXP_REASON_WITHDRAWAL`. A second
-submission of the same request was `LXP_ERR_WITHDRAWAL_ALREADY_SETTLED`.
-A withdraw receipt did not bind supply (`lxp_receipt_validate_supply`
-does not describe operation 9).
-
-Historical refusals also included `LXP_ERR_NON_CANONICAL` (length ≠ 108),
-`LXP_ERR_UNAUTHORIZED_DEBIT`, `LXP_ERR_ASSET_MISMATCH`,
-`LXP_ERR_ASSET_PAUSED`, `LXP_ERR_GRANT_SCOPE_VIOLATION`,
-`LXP_ERR_CONTEXT_MISMATCH`.
 
 ---
 

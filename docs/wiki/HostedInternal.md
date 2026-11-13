@@ -31,29 +31,13 @@ explicitly. The image's environment-initializing entrypoint instead uses
 `services/platform/hosted/internal/env-init.sh`, stores state under `/data`,
 and drops to UID/GID `4020`. Its entrypoint is not directly `layerx-kms`.
 
-The beta installation path includes these workloads:
-
-- `services/platform/hosted/tests/beta-images.sh` lists `layerx-internal`,
-  `layerx-human` and `layerx-human-web` in `IMAGE_NAMES`.
-- `beta-cluster.sh` in that directory renders `internal.yaml`, `human.yaml`
-  and `human-web.yaml`. `internal_apply` applies the internal manifest;
-  `manifests_apply` applies Human; `human_web_apply` applies its web manifest.
-- `topology-check.sh` includes the internal, Human and webhooks manifests in
-  its default set.
-
-`services/platform/hosted/human/deployment.yaml` declares the `layerx-human`
-Service in `layerx-testnet`. It selects **`app=layerx-node`**, forwarding Service
-port `9443` to the pod's named `human-https` port. Its policy allows journey
-and approval adapters to the Human listener in the node pod. Do not infer the
-backend pod selector from the Service name.
-
-The internal aliases `component` and `authority` resolve through
-`internal-component` and `internal-authority` Services selecting
-`app=layerx-node`, with target ports `agent-tls` and `authority-tls`.
-`identity` resolves to `internal-identity`, selecting `app=layerx-identity`.
-The authority alias is a retained transport name for the node boundary; the
-standalone batch receipt authority is retired. It is not an additional
-finality service.
+The deployment also declares compatibility aliases `component` and `authority`
+through Services `internal-component` and `internal-authority`, selecting
+`app=layerx-node` with target ports `agent-tls` and `authority-tls`.
+The `identity` alias uses `internal-identity`, selecting `app=layerx-identity`.
+The native node's available Services and ports are documented in
+[Hosted node](HostedNode.md). Configure event-source upstreams for their actual
+Human or gateway service listeners.
 
 ## TLS and HTTP
 
@@ -93,8 +77,8 @@ Production observation and enrollment calls require producer mTLS and token.
 
 NetworkPolicies admit webhooks and testnet control to the internal services.
 Additional producer policies admit gateway pods to payments, program-registry
-pods to programs, and node pods to journeys and approvals. Human adapter egress
-to the node listener is declared in the Human manifest. KMS has no egress;
+pods to programs, and node pods to journeys and approvals. The Human manifest declares adapter
+egress to pods selected by `app=layerx-node`. KMS has no egress;
 event adapters have DNS and upstream allowances (`deployment.yaml`,
 `services/platform/hosted/human/deployment.yaml`). Policies are additive, so
 inspect both producer and reader policies when diagnosing an edge.
@@ -275,7 +259,7 @@ Environment-initialized deployments use the `/data` paths described above.
 | `LAYERX_EVENTS_PRODUCERS_FILE` | JSON array of `token_file`, `allow_principal_digest` entries |
 | `LAYERX_EVENTS_UPSTREAM_TOKEN_FILE`, `LAYERX_EVENTS_UPSTREAM_COOKIE_FILE` | Optional default upstream credentials; principal binding uses enrolled credentials |
 | `LAYERX_EVENTS_UPSTREAM_CLIENT_IDENTITY_PKCS12`, `LAYERX_EVENTS_UPSTREAM_CLIENT_IDENTITY_PASSWORD_FILE` | Optional upstream client identity and its required password file |
-| `LAYERX_HEALTH_ADDR` | Optional plain HTTP health listener bind; `/healthz` is liveness, not dependency readiness |
+| `LAYERX_HEALTH_ADDR` | Plain HTTP health bind, default `[::]:8080`; `/healthz` is liveness |
 
 Human producer configuration uses `LAYERX_EVENTS_JOURNEY_*`,
 `LAYERX_EVENTS_APPROVAL_*` and `LAYERX_EVENTS_WEBHOOKS_*`, each with

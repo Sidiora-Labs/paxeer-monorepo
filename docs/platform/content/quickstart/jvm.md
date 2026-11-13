@@ -1,11 +1,11 @@
 # Java and Kotlin quickstart
 
-Add a payment to a JVM service. Six lines, no protocol vocabulary, no key handling.
+Use the human-payment client from a JVM service. The integration region has six lines; the complete sample supplies configuration and journey polling.
 
 ## Before you start
 
 Use JDK 21 and Maven. Configure an authenticated human-payment service that supports
-`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator retires
+`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator does not implement
 these payment-write routes. For native node transactions, follow the
 [reference applications](../guide/reference-applications.md).
 
@@ -62,22 +62,24 @@ Use `path` rather than `get` when reading a field out of a response node. `path`
 
 ## Handling refusals
 
-`PlatformSdkException` carries the machine code and the retry class.
+`PlatformSdkException` exposes `code()` and `retry()` enum values. `code().wire()` returns the strings in the table. When joining a stage, unwrap `CompletionException` to recover the SDK exception.
 
 | Code | What to do |
 |---|---|
 | `idempotency-required` | Pass `Options.idempotent(...)` |
 | `idempotency-conflict` | Same key, different body |
 | `rate-limit` | Wait for the carried retry timing |
-| `unknown-outcome` | Do not retry. Resolve by receipt lookup under your key |
-| `budget-refusal` | The payment exceeded a funded budget |
+| `unknown-outcome` | Reconcile the original journey and its evidence before another payment |
+| `budget-refusal` | The service reported a budget or limit refusal; inspect its evidence for the enforcement layer |
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
 | Atomic settlement | `protocol` | The committed move applies completely or not at all. |
-| Replay refusal | `protocol` | A retried submission cannot apply twice. |
+| Replay refusal | `protocol` | Rebroadcasting the same signed transaction cannot apply twice. |
 | Idempotent money moves | `service` | Repeating the commit with the same key returns the original journey. |
 | Quote then commit | `service` | The quote you committed is the one that executes. |
 | Done means verified | `service` | The `done` state is backed by receipt evidence. |
+
+The sample reports the service's journey state and evidence references. It does not independently verify receipt bytes or block commitment.

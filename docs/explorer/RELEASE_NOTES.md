@@ -41,7 +41,7 @@ the app and backend API hosts,
 It uses HTTPS for the app/API and WSS for the API socket connection. The
 [development preset](../../apps/explorer/configs/envs/paxeer-x-dev.env) uses HTTP/WS and requires
 replacement of its app and API host placeholders before use. Both presets
-disable marketplace and ad providers and hide the native coin price.
+disable marketplace and ad providers. The public preset shows the native coin price; the development preset hides it.
 
 For wallet interactions on this network, supply `NEXT_PUBLIC_NETWORK_RPC_URL`
 with a root-path public node URL. Neither tracked preset supplies this
@@ -51,11 +51,9 @@ value. Account and wallet availability also depends on the
 The [environment reference](./ENVS.md) documents the available inputs;
 [the app README](../../apps/explorer/README.md#paxeer-x) explains preset loading.
 
-## Compatibility and provenance
+## API compatibility
 
-The [import record](./UPSTREAM.md) identifies the frontend
-baseline as Blockscout `v2.7.2` and the backend baseline as Blockscout `v10.2.6`.
-These identify the upstream baselines. Current API resource paths and payload types are
+Current API resource paths and payload types are
 maintained in [lib/api](../../apps/explorer/lib/api); deployments must provide the APIs used by
 their enabled features. Optional service configuration lives in
 [configs/app/apis.ts](../../apps/explorer/configs/app/apis.ts).

@@ -1,10 +1,10 @@
 # Android quickstart
 
-Pay from an Android app. Eight lines, and the app holds no long-lived credential at any point.
+Use the human payment API from an Android app with brokered session tokens.
 
 ## The credential model
 
-Identical to [iOS](ios.md), and for the same reason: anything in an APK is public.
+The binding uses the same credential model as [iOS](ios.md):
 
 - The app carries a **publishable configuration** only - service URL, session broker URL, event public keys, timeouts.
 - The binding exchanges it for **short-lived session tokens** from a broker you run, re-fetching when a capability refusal says the token is stale.
@@ -47,11 +47,13 @@ static JsonNode pay(LayerXAndroid layerx, ObjectNode move, String paymentKey) {
 
 `LayerXAndroid` is `AutoCloseable`; closing it shuts the transport and the session provider down together, so a session token does not outlive the object that fetched it. On devices whose platform provider lacks Ed25519 the binding installs Bouncy Castle at position one, so event verification behaves identically across API levels.
 
-`layerx.client()` covers the same human-plane surface as iOS: `version`, `profile`, `activity`, `activityEntry`, `journeys`, `journey`, `quote`, `commit` and a resumable stream. Every call returns a `CompletionStage`, so it composes with whatever concurrency your app already uses.
+`layerx.client()` provides `version`, `profile`, `activity`, `activityEntry`, `journeys`, `journey`, `quote` and `commit`, plus stream operations. Request methods return `CompletionStage`; `streamSource()` supplies the resumable stream source.
 
 ## Receipt checks
 
 Configure `LAYERX_RECEIPT_KEYS_JSON` independently of received proofs before using `gate()`. It verifies signed receipt evidence and matches payment facts before the app treats a journey as paid.
+
+This setting is a JSON array whose entries contain `keyId` and `publicKey` as `0x`-prefixed 32-byte hex strings and `firstHeight` and `lastHeight` as JSON integers. The height range is inclusive. Receipt verification establishes execution evidence; finality also requires committed block evidence.
 
 ## Verified push and webhook events
 
@@ -63,13 +65,15 @@ Configure `LAYERX_RECEIPT_KEYS_JSON` independently of received proofs before usi
 
 ## Run the sample
 
+Set the service and session-broker URLs, at least one event public key, and
+`LAYERX_SOURCE`, `LAYERX_DESTINATION`, `LAYERX_AMOUNT`, `LAYERX_CURRENCY` and
+`LAYERX_PAYMENT_KEY` before running. The service URL must identify the human
+API; local emulator inspection routes do not submit payments.
+
 ```sh
 cd services/platform/examples/samples/mobile-payment-android
 mvn -q package
-LAYERX_SERVICE_URL=http://127.0.0.1:9402 LAYERX_SESSION_BROKER_URL=http://127.0.0.1:9410 \
-LAYERX_EVENT_PUBLIC_KEY_PRIMARY=$(cat ./event-key.hex) \
-LAYERX_SOURCE=did:layerx:alice LAYERX_DESTINATION=did:layerx:bob LAYERX_AMOUNT=1250000 LAYERX_CURRENCY=USD \
-LAYERX_PAYMENT_KEY=order-2f9c1b7e4a10 mvn -q exec:java
+mvn -q exec:java
 ```
 
 The sample runs on a plain JVM so it needs no device or emulator, and the API it uses is the one an `Activity` uses.
@@ -79,8 +83,7 @@ The sample runs on a plain JVM so it needs no device or emulator, and the API it
 | Capability | Layer | What that means here |
 |---|---|---|
 | Atomic settlement | `protocol` | The committed move applies completely or not at all. |
-| Replay refusal | `protocol` | A retried submission from a flaky mobile network cannot apply twice. |
+| Replay refusal | `protocol` | The same signed transaction cannot apply twice with the same sender nonce. |
 | Refusal to publish a secret | `service` | The configuration accepts publishable values only, and the bundled scanner checks the built artifact. |
 | Verified, replay-protected webhooks | `service` | Event envelopes are signature-checked, age-checked and lease-claimed on device. |
 | Idempotent money moves | `service` | `commit` requires the key, so a retry after a dropped connection returns the original journey. |
-| Agent tenancy isolation | `agent-layer` | Session tokens are scoped by the broker you run. |

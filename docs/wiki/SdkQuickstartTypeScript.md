@@ -57,8 +57,9 @@ Its `Commitment` type is `"submitted" | "receipted" | "committed"`.
 Other exposed methods include `getAccount`, `getBalance`, `getBalances`,
 `getSequence`, `getIdentitySequence`, `getBatchHeader`, `getNodeInfo`,
 `listAssets`, `listAssetsPage`, `getAsset`, `estimateFee`, `getProof`,
-`subscribe`, and `subscribeFrom`. Check `src/rpc.ts` for their actual wire
-methods; these wrappers do not all target public-node namespaces.
+`subscribe`, and `subscribeFrom`. The request methods use the node's `eth_`,
+`pax_` and `px_` namespaces; `src/rpc.ts` defines their parameters and decoders.
+Subscription support also depends on the endpoint's transport capabilities.
 
 The `JsonRpcClient` constructor in `src/rpc.ts` accepts an HTTPS URL (or
 loopback HTTP) without credentials, query or fragment, and posts to that URL

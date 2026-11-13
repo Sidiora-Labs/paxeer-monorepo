@@ -24,8 +24,7 @@ events(seq INTEGER PRIMARY KEY AUTOINCREMENT, at, kind, subject, run, node, bran
 
 `at` is milliseconds since the epoch, `subject` is what the event is about
 (`alpha/2.1`, a feature, an agent, a run id), `node` is the agent that
-caused it when one did, and `payload` is JSON. The table is additive: it
-needed no schema version bump, so no project's graph is rebuilt to get it.
+caused it when one did, and `payload` is JSON. Events commit with their associated database changes.
 
 Three ways in, one table:
 

@@ -1,6 +1,6 @@
 # FastAPI quickstart
 
-Charge for a FastAPI route. Seven lines mount a payment gate and a verified webhook endpoint on an app you already have.
+Mount a payment gate and a verified webhook endpoint on a FastAPI application.
 
 ## Before you start
 
@@ -93,7 +93,11 @@ class FileFulfillmentRepository:
 
 It creates records with `xb`, syncs before returning, and raises `MiddlewareError(FULFILLMENT_CONFLICT)` for a different request digest. The resource callback runs before record creation. Use an idempotent callback and shared storage that coordinates fulfilment across workers and restarts.
 
+The sample's `SingleProcessWebhookDeliveryStore` keeps delivery claims in memory. Supply a shared durable delivery store when claims must survive restarts or coordinate multiple workers.
+
 ## Run it
+
+Supply the required seller and webhook configuration before starting:
 
 ```sh
 cd services/platform/examples/samples/paid-endpoint-fastapi

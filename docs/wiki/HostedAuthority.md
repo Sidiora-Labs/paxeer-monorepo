@@ -9,36 +9,21 @@ Paxeer mainnet-beta is one BFT network, run by `paxd`; the kernel is part of
 that network and proposes blocks. EVM chain id is **125** (`0x7d`). A receipt
 is final when its block is committed. Hosted authority supplies verified facts
 for hosted consumers; it does not create another settlement or finality layer.
-Public JSON-RPC uses the root path on `api1.mainnet-beta.paxeer.network`
-through `api14.mainnet-beta.paxeer.network` and
-`api-mainnet-beta.paxeer.network`; see [Public RPC](PublicRpc.md).
+See [Public RPC](PublicRpc.md) for node access.
 
-Receipt lookup now uses node JSON-RPC. The pre-merge LNI receipt socket and
-standalone replica deployment instructions are retired. The current authority
-still requires a loopback batch-evidence HTTP adapter, using configuration and
-JSON names containing `replica`. These names describe its evidence contract,
-not another network. The authority's by-activity handler verifies signed
-receipt inclusion but does not itself require the node's `committed` rung.
-Consumers that require finality must also bind evidence to a committed block.
+Receipt lookup uses node JSON-RPC. Batch evidence is read through a loopback
+HTTP adapter configured with the `REPLICA` keys below. The by-activity handler
+verifies signed receipt inclusion. Consumers requiring finality also bind that
+evidence to a committed block.
 
 ## Deployment
 
-The image entrypoint runs `/usr/local/bin/layerx-runtime-clock --runtime-dir
-/tmp -- /usr/local/bin/layerx-receipt-authority`
-([Dockerfile](../../docker/platform-authority/Dockerfile)). The node
-[deployment template](../../services/platform/hosted/node/deployment.yaml)
-runs container `receipt-authority` as UID 4021, GID 4020, through
-`generation_client.py` and `layerx-runtime-clock`. It listens on container port
-`authority-tls` (9445); Service `layerx-receipt-authority` exposes port 9443.
-The image's default UID/GID is 4020:4020; the container overrides the UID.
-
-Provide the chain URL and protected receipt-key file required by the binary,
-as well as the evidence adapter, TLS material and service credentials below.
-The template supplies `LAYERX_AUTHORITY_REPLICA_URL=http://127.0.0.1:8545` but
-does not explicitly set `LAYERX_AUTHORITY_CHAIN_RPC_URL` or
-`LAYERX_AUTHORITY_RECEIPT_KEYS_FILE`. Do not treat that environment block alone
-as a complete standalone launch configuration. The binary refuses startup
-without its required inputs.
+The [Dockerfile](../../docker/platform-authority/Dockerfile) starts
+`/usr/local/bin/layerx-runtime-clock --runtime-dir /tmp -- /usr/local/bin/layerx-receipt-authority`
+as user `4020:4020`. The default listener is `0.0.0.0:9445`.
+Provide the chain URL, protected receipt-key file, batch-evidence adapter,
+TLS material and service credentials listed below. The native node deployment
+is described in [Hosted node](HostedNode.md).
 
 [Hosted identity](HostedIdentity.md) authenticates hosted principals and
 sessions. Authority's general bearer files authenticate calling services;
@@ -56,7 +41,7 @@ Unless marked optional or given a default, they are required.
 | `LAYERX_AUTHORITY_TLS_CERT_DER` | Server certificate file in DER; bounded regular file, 1–65536 bytes. |
 | `LAYERX_AUTHORITY_TLS_KEY_DER` | Server private key file in PKCS#8 DER, with the same file bound. |
 | `LAYERX_AUTHORITY_CLIENT_CA_DER` | Optional client CA DER. Clients may omit a certificate; a presented certificate must validate against this CA. Bearer authentication still applies. |
-| `LAYERX_AUTHORITY_TOKEN_FILES` | Colon-separated paths, one general bearer per file; at least one file. The template lists gateway, registry and webhooks credentials. |
+| `LAYERX_AUTHORITY_TOKEN_FILES` | Colon-separated paths, one general bearer per file; at least one file. Each calling service receives its own credential. |
 | `LAYERX_AUTHORITY_CHAIN_RPC_URL` | Loopback HTTP node JSON-RPC URL serving `pax_sequencerReceipt`. Use the node's root JSON-RPC path. |
 | `LAYERX_AUTHORITY_RECEIPT_KEYS_FILE` | Protected JSON array of governed receipt-key entries, described below; loaded at startup. |
 | `LAYERX_AUTHORITY_REPLICA_URL` | Loopback HTTP origin serving the batch-evidence route. Accepted hosts are `127.0.0.1`, `localhost`, and `[::1]`, with an explicit nonzero port. |
@@ -84,9 +69,12 @@ The optional human authority is configured by
 `LAYERX_AUTHORITY_HUMAN_AGENT_TOKEN_FILE` also requires the
 `LAYERX_AUTHORITY_` keys `HUMAN_AGENT_TENANT`, `HUMAN_AGENT_PRINCIPAL`,
 `PRINCIPAL_POLICY_FILE`, `MODULE_REGISTRY_FILE`, `CORE_CLOCK_HORIZON`, and
-`STATE_ROOT`, plus the identity-binding socket credentials described in
-[Hosted human](HostedHuman.md). Partial configuration refuses startup.
-The state root must already be a protected authority-owned directory.
+`STATE_ROOT`. Partial configuration refuses startup. The state root must
+already be a protected authority-owned directory. Optional identity binding
+uses all three `LAYERX_AUTHORITY_` keys `IDENTITY_BINDING_SOCKET`,
+`IDENTITY_BINDING_UID` and `IDENTITY_BINDING_GID`; partial binding configuration
+refuses startup. Subject-bound requests require this binding client. See
+[`human/dynamic.rs`](../../services/platform/hosted/authority/src/human/dynamic.rs).
 
 ## Receipt keys and committed blocks
 

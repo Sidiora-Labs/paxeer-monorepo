@@ -6,22 +6,16 @@ hosted HTTPS reads and administrative funding/reset operations for the merged
 Paxeer network. The kernel runs inside the network and proposes blocks through
 `paxd`; a receipt is final once its block is committed. Core is an HTTP boundary,
 not a second execution or settlement system.
-The standalone `layerxd` daemon and its LNI/replica operating model are retired.
 
-Public node JSON-RPC uses the root HTTPS URL of `api1.mainnet-beta.paxeer.network`
-through `api14.mainnet-beta.paxeer.network`, or
-`api-mainnet-beta.paxeer.network`, with EVM chain id **125** (`0x7d`). The node
-namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
-The node answers the `px` namespace from node state; the hosted gateway
-also implements the `px_` contract, including the hosted `px_register` and
-`px_requestFunds` operations, and accepts JSON-RPC at `POST /`. Its declared
-contract is [openrpc.json](../../services/platform/hosted/gateway/openrpc.json),
-and its dispatch lives in
-[gateway main.rs](../../services/platform/hosted/gateway/src/main.rs) and its
-`rpc.rs` module. Submit signed chain
-transactions with `eth_sendRawTransaction`; consult `px_getCapabilities` for
-hosted surface availability. Sub-chains are tenant domains in the database,
-without a new node deployment for each tenant.
+Use the root node URL for EVM chain id **125** (`0x7d`); see
+[Public JSON-RPC](PublicRpc.md). The node serves native chain reads through
+`eth_*` and `px_*` methods. Hosted `px_register` and `px_requestFunds` use
+identity and faucet services. The hosted gateway accepts JSON-RPC at `POST /`
+and serves its schema at `GET /openrpc.json`; its dispatch is implemented in
+[gateway main.rs](../../services/platform/hosted/gateway/src/main.rs) and
+[`rpc.rs`](../../services/platform/hosted/gateway/src/rpc.rs).
+Submit signed chain transactions with `eth_sendRawTransaction`.
+Sub-chains are tenant domains in the database.
 
 Core has separate TLS listeners, defaulting to `0.0.0.0:9443` and
 `0.0.0.0:9444`. Core routes use the first; admin routes use the second. Configuring
@@ -31,12 +25,10 @@ authentication; its protected routes require a bearer token. These are the
 `server_tls_config`, `config` and `platform_core` functions in
 [core main.rs](../../services/platform/hosted/core/src/main.rs).
 
-The [node deployment](../../services/platform/hosted/node/deployment.yaml) runs
-`paxd`, the treasury signer and `core-boundary`. The core container runs as user
-4021, group 4020, under `generation_client.py core`, which supplies generation
-configuration before starting the binary. HTTPS probes use `/readyz` and
-`/livez`. The manifest is a hosted testnet configuration, not a declaration that
-all hosted facilities are deployed on the public network.
+The [core Dockerfile](../../docker/platform-core/Dockerfile) starts
+`/usr/local/bin/layerx-core-boundary` as user `4020:4020`. Core requires its
+own TLS material, signer, durable state and configured endpoints. The native
+node has a separate [deployment](HostedNode.md).
 
 ---
 
@@ -53,7 +45,7 @@ The authoritative startup parser is `config` in
 | `LAYERX_CORE_ADMIN_TLS_CERT_DER`, `LAYERX_CORE_ADMIN_TLS_KEY_DER` | Required admin certificate and PKCS#8 private-key file paths, both DER |
 | `LAYERX_CORE_CLIENT_CA_DER` | Optional core client CA file; client certificates remain optional |
 | `LAYERX_CORE_NETWORK_ID` | Required nonzero `u32` protocol network id; distinct from the EVM chain id |
-| `LAYERX_CORE_SEQUENCER_ENDPOINT` | Required HTTPS JSON-RPC endpoint used by `SequencerEndpoint` and `PxEndpoint`; the deployment selects the hosted gateway |
+| `LAYERX_CORE_SEQUENCER_ENDPOINT` | Required HTTPS JSON-RPC endpoint used by `SequencerEndpoint` and `PxEndpoint` |
 | `LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER` | Required DER trust anchor for that endpoint; nonempty, at most 1 MiB |
 | `LAYERX_CORE_SEQUENCER_ID` | Required 32-byte hex identity retained by the funding recovery contract; its name does not imply a separate service |
 | `LAYERX_CORE_TREASURY_SIGNER_SOCKET` | Required treasury signer socket; startup connects before opening listeners |
@@ -65,7 +57,7 @@ The authoritative startup parser is `config` in
 | `LAYERX_CORE_STATE_DIR` | Required durable directory; startup creates `journal/`, `funding-intents/` and `funding-receipts/` with mode `0700` |
 | `LAYERX_CORE_FEE_LIMIT` | Parsed `u64`, default `1000`, retained in core configuration; not the gas-price setting for native funding |
 | `LAYERX_CORE_RECEIPT_DEADLINE_MS` | Receipt wait for retained ledger-funding recovery; default `15000` milliseconds |
-| `LAYERX_CORE_CHAIN_RPC_URL` | Funding JSON-RPC URL; plaintext HTTP on `127.0.0.1` or `localhost`, explicit port, no non-root path; deployment uses `http://127.0.0.1:8545` |
+| `LAYERX_CORE_CHAIN_RPC_URL` | Funding JSON-RPC URL; plaintext HTTP on `127.0.0.1` or `localhost`, explicit port, no non-root path |
 | `LAYERX_CORE_FUNDING_SENDER_KEY_FILE` or `LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID` | Alternative EVM sender sources; configuring both is refused |
 
 Secret-file loading strips trailing CR/LF and rejects empty values or values over
@@ -73,12 +65,6 @@ Secret-file loading strips trailing CR/LF and rejects empty values or values ove
 [custody.rs](../../services/platform/hosted/core/src/custody.rs); the EVM funding
 sender is configured separately through
 [chain_fund.rs](../../services/platform/hosted/core/src/chain_fund.rs).
-
-The retired LNI socket configuration is no longer read. Although the deployment
-still carries `LAYERX_CORE_NODE_URL`, `LAYERX_CORE_NODE_BEARER_TOKEN_FILE`,
-`LAYERX_CORE_REPLICA_URL` and `LAYERX_CORE_REPLICA_BEARER_TOKEN_FILE`, `config`
-initializes those internal endpoint/token fields empty. They do not establish a
-replica connection or a second execution path.
 
 ---
 

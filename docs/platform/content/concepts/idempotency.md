@@ -12,26 +12,28 @@ Choose a key that is stable for the payment, not for the attempt. A good key is 
 
 ## What a retry is allowed to do
 
-Every refusal carries a retriability class, and the SDKs surface it on the error rather than making you parse a message.
+Human API refusals carry a retriability class in their error record:
 
 | Class | What it means |
 |---|---|
 | `retriable` | Retry the same request as-is |
 | `retriable-after` | Retry once the carried `retry_after_ms` has elapsed. Rate-limit refusals always classify here and always carry the timing |
 | `structural` | Retrying cannot help until something around it changes - re-authenticate, reload |
-| `final` | The outcome is settled. Retrying will not produce a different one |
+| `final` | The refusal is final for this request; do not retry it unchanged |
+
+The TypeScript production SDK uses `safe`, `after`, `never` and `unknown-outcome` in `PlatformSdkError.retry`. Its delay field is `retryAfterMs`; the human API error field is `retry_after_ms`. Keep those vocabularies separate when handling errors.
 
 ## Unknown
 
 Sometimes a submission genuinely cannot be classified: the request left, the response did not come back, and nothing yet proves which side of the transition it landed on. LayerX answers `Unknown` on the agent plane and `still-checking` on the human plane.
 
-`Unknown` is terminal-pending, not an error. The correct handling is:
+An unknown outcome requires reconciliation, including when an SDK surfaces it as an `unknown-outcome` error:
 
 1. Do not retry the payment. The idempotency key already protects you, but a retry does not answer the question either.
 2. Resolve it using the stored payment identity. The human plane reconciles by idempotency key; agent `track` and `wait` use the submission reference for the signed transaction.
 3. Keep every duplicate-capable control locked while it lasts. The human plane does this for you; do it in your own UI too.
 
-What you must not do is render it as either a success or a failure. A payment that might have happened is a different fact from one that did not, and the whole system is built to preserve that distinction rather than round it away.
+Display the outcome as unresolved until evidence establishes whether the payment applied.
 
 ## Protocol-level replay
 

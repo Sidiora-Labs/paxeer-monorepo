@@ -12,18 +12,14 @@ The current native read client is
 [`programs_chain.rs`](../../services/platform/hosted/registry/src/programs_chain.rs).
 It calls the Programs precompile at
 `0x000000000000000000000000000000000000101d` using JSON-RPC at the node's root
-URL. Public node names are `api1.mainnet-beta.paxeer.network` through
-`api14.mainnet-beta.paxeer.network`, plus `api-mainnet-beta.paxeer.network`.
-For example, `LAYERX_REGISTRY_CHAIN_RPC_URL=https://api1.mainnet-beta.paxeer.network`.
-The hosted gateway's REST routes and `px_` methods are separate API transports;
-their contract is
-[`openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).
+URL. Configure `LAYERX_REGISTRY_CHAIN_RPC_URL` with the selected node origin;
+see [Public JSON-RPC](PublicRpc.md). The hosted gateway exposes a separate
+application API, with its schema at `GET /openrpc.json`.
 
 The retained Kubernetes Service is `layerx-program-registry` in `layerx-testnet`,
 on port `9420`. Its mTLS listener serves the registry routes below. The manifest
-also declares a pod health port, `9421`. The checked-in manifest still contains
-pre-merge transport settings; see [Current implementation limits](#current-implementation-limits)
-before treating it as deployment instructions.
+also declares a pod health port, `9421`. Configure native chain trust and
+projection inputs as described under [Chain and projection configuration](#chain-and-projection-configuration).
 
 ---
 
@@ -56,9 +52,6 @@ alone does not establish that principal. Identity client configuration uses the
 `_TOKEN_FILE`, `_CLIENT_IDENTITY_PKCS12` and `_CLIENT_IDENTITY_PASSWORD_FILE`.
 
 The public node JSON-RPC URL does not use these hosted registry bearer roles.
-The pre-merge independent receipt-authority provisioning procedure is retired;
-remaining compatibility fields in the binary are described below as limits of
-the current implementation.
 
 ---
 
@@ -186,8 +179,7 @@ Source-verification idempotency is durable across workers and restart. Opening
 the registrar reconciles request records and resumes pending publications.
 Transient `503` outcomes remain retryable with the same key; completed outcomes
 can replay. Publication is queued durably before its terminal response is
-acknowledged. Preserve defective/interrupted records for diagnosis instead of
-manually fabricating a completed verdict.
+acknowledged. Preserve interrupted request records for recovery.
 
 Build workspaces use quota-backed ext4 slots provisioned by
 [`node-provision-build-boundary.sh`](../../services/platform/hosted/registry/node-provision-build-boundary.sh).
@@ -281,34 +273,29 @@ must be supplied along with the native chain URL. Consult `config()` in
 
 TLS and bearer keys are listed under [Identity and credentials](#identity-and-credentials).
 
-### Current implementation limits
+### Chain and projection configuration
 
-The retained `config()` and `NodeProgramStateSource` still require compatibility
+`config()` and `NodeProgramStateSource` require projection
 fields named `LAYERX_REGISTRY_NODE_ENDPOINT`, `LAYERX_REGISTRY_NODE_AUTHORIZATION`,
 `LAYERX_REGISTRY_RECEIPT_AUTHORITY_ENDPOINT`,
 `LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION` and
 `LAYERX_REGISTRY_RECEIPT_AUTHORITY_REPLICA_ID`, plus
 `LAYERX_REGISTRY_OUTBOUND_CA_DER`. The adapter validates two distinct HTTPS or
 loopback URLs, nonempty authorizations and a nonzero 32-byte replica identifier.
-It still fetches protocol projections through those transports while verifying
-committed-chain evidence. This is a remaining compatibility dependency in the
-code, not a second execution or settlement network. The old topology is retired;
-this page does not prescribe provisioning its independent services.
+It fetches protocol projections through those transports while verifying
+committed-chain evidence.
 
 `LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY` also remains a required configuration
-name, but `persisted_chain_trust` decodes its contents as a native `TrustRoot`
+name. `persisted_chain_trust` decodes its contents as a native `TrustRoot`
 (chain identity and validator trust). It requires a private, nonsymlink regular
-file of at most 524288 bytes. The old sequencer-history provisioning procedure
-is retired. Optional outbound mTLS uses
+file of at most 524288 bytes. Optional outbound mTLS uses
 `LAYERX_REGISTRY_CLIENT_IDENTITY_PKCS12` together with
 `LAYERX_REGISTRY_CLIENT_IDENTITY_PASSWORD_FILE`; either both are supplied or neither.
 
-The checked-in Kubernetes manifest omits the required
-`LAYERX_REGISTRY_CHAIN_RPC_URL` and still supplies pre-merge endpoint/trust
-material. It cannot be treated as a complete merged-network deployment recipe.
-Likewise, the native head worker bypasses opening the compatibility state adapter,
-but normal registrar startup, projection reads and source verification still
-open it. Supplying the chain URL alone does not remove that dependency.
+The Kubernetes manifest supplies `LAYERX_REGISTRY_CHAIN_RPC_URL`, projection
+endpoints and a protected trust-material generation. The native head worker
+reads the chain directly; normal registrar startup, projection reads and source
+verification also open the configured projection adapter.
 
 ---
 

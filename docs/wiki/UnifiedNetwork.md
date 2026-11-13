@@ -101,7 +101,7 @@ This address serves the native perpetuals precompile. Its exact signatures and o
 | Orders | `placeOrder`, `placeLimitOrder`, `cancelOrder`, `cancelByCloid` |
 | Views | `getAccount`, `getMarket`, `getPosition`, `getOrder`, `getMarkPrice`, `totalMarkets` |
 
-All methods are nonpayable. Use the ABI's collateral arguments rather than
+State-changing methods are nonpayable; read methods are `view`. Use the ABI's collateral arguments rather than
 sending native value with the call. These method groups are a starting point;
 the ABI includes further margin, funding, order and liquidation operations.
 See [Perps](Perps.md) for the product workflow.

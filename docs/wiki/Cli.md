@@ -13,12 +13,10 @@ tenant domains in the database, without separate node infrastructure.
 See [Public RPC](PublicRpc.md) for node access and
 [Programs](Programs.md) for program concepts.
 
-This reference describes the commands present in the tree, including their
-explicit refusals and remaining transport limitations. A command's presence
-in the parser does not establish that a public deployment supports its
-backend. The public node API and the hosted gateway API have distinct
-contracts; the CLI still contains legacy transport assumptions described
-[below](#emulator-hosted-gateway-and-node).
+The public node API and hosted gateway API have distinct contracts. Select
+the endpoint required by each command as described
+[below](#emulator-hosted-gateway-and-node). Backend availability depends on
+the selected deployment.
 
 ## Commands
 
@@ -50,8 +48,7 @@ Use the selected command's `--help` for its complete option list.
 ### Wallet and token commands
 
 The definitions and handlers are in
-[wallet.rs](../../tools/platform/cli/src/wallet.rs). These groups are
-implemented; they are not a proposed command surface.
+[wallet.rs](../../tools/platform/cli/src/wallet.rs).
 
 | Command | Behavior and inputs |
 | --- | --- |
@@ -59,12 +56,12 @@ implemented; they are not a proposed command surface.
 | `wallet import <name>` | Import a 32-byte hexadecimal Ed25519 seed from stdin; optional `--did`. Does not register or fund an account. |
 | `wallet derive` | Derive an EVM address and native DID from a BIP-39 phrase on stdin, or `--mnemonic-file`. Optional `--passphrase-file`, `--index` (default `0`), `--export-private-keys <new-file>`, and `--bind`. |
 | `wallet list` | List local public key metadata without opening private seed material. |
-| `wallet balance` | Read the selected DID's accounts; optional `--did` and `--asset`. The emulator reads local state; the hosted path requires a state-proven account snapshot. |
+| `wallet balance` | Read the selected DID's accounts; optional `--did` and `--asset`. The emulator reads local state. Hosted reads require `--gateway-rpc` and report `unverified_node_observation`; alternatively supply both `--proof-snapshot` and `--proof-policy` for an independently pinned committed snapshot. |
 | `wallet send` | Sign and submit a native transfer in an EIP-1559 transaction. Requires `--to`, `--asset`, `--amount`, and the wallet write inputs below. |
 | `wallet open-account` | Open the selected wallet's account for `--asset`; requires wallet write inputs. |
 | `wallet estimate-fee <transaction_hex> --from <address>` | Decode unsigned EIP-1559 bytes and call `eth_estimateGas` at `pending`, then `eth_gasPrice`. Return decimal strings for `gas`, `gas_price`, and their product `fee`. |
 | `wallet watch <topic>` | Read one unverified notification. The parser accepts `receipts`, `checkpoints`, and `account`; the current transport supports only `account --account-id <EVM-address>` as an Ethereum logs subscription. Requires explicit RPC transport and a gateway credential. Optional `--timeout-seconds`, default `60`, range `1–300`. |
-| `wallet receipt <tx_hash>` | Retrieve and verify evidence for a `0x`-prefixed 32-byte transaction hash. Requires `--receipt-policy` at runtime; optional `--wait` defaults to `executed`. |
+| `wallet receipt <tx_hash>` | Retrieve and verify evidence for a `0x`-prefixed 32-byte transaction hash. Requires `--receipt-policy` at runtime; optional `--wait` defaults to `receipted`. |
 | `wallet history` | Hidden compatibility command; always refuses with `wallet_history_unavailable` after resolving the optional `--did` or default wallet DID. |
 | `token create` | Register a native asset. Requires `--symbol`, `--name`, `--decimals`, `--salt`, and wallet write inputs; `--supply-cap` defaults to `0`. |
 | `token mint` | Mint to an existing asset account. Requires `--asset`, `--to`, `--amount`, and wallet write inputs. |
@@ -75,27 +72,31 @@ implemented; they are not a proposed command surface.
 
 Wallet write inputs are `--evm-key-file`, `--receipt-policy`, and
 `--fee-limit`; `--key` selects local Ed25519 metadata, otherwise the configured
-default is used. `--wait` accepts `executed`, `batched`, or `finalised`, with
-`executed` the default. Write timeouts use `--timeout-seconds`, default `60`,
-range `1–300`. Transfer options are parser-optional but the handler requires
-all three write inputs before submission.
+default is used. `--wait` accepts `submitted`, `receipted` (default), or
+`committed`. `executed` aliases `receipted`; `batched` and `finalised` alias
+`committed`. `--gateway-rpc` supplies the explicit hosted endpoint for
+`px_` source-account reads when required. Write timeouts use
+`--timeout-seconds`, default `60`, range `1–300`. Transfer options are
+parser-optional but the handler requires all three write inputs before
+submission.
 
 The EVM key file comes from `wallet derive --export-private-keys` and must
 match the selected native identity. Derivation returns public metadata and
 does not import the derived Ed25519 seed into the CLI credential store. Use
 `wallet import` or `key import` when that local signing key is needed. Private
 key export creates a new owner-only file and refuses an existing path; secrets
-are not printed in the normal derivation output. `--bind` requires an RPC
-argument, but is subject to the transport and method limitations below.
+are not printed in the normal derivation output. `--bind` requires `--rpc`,
+checks chain ID `125` and the current binding, then signs and submits a bind
+transaction if needed. It returns `submitted` or `already_bound`; establish
+committed success before using a newly submitted binding.
 See [wallet_derive.rs](../../tools/platform/cli/src/wallet_derive.rs) and
 [wallet_signing.rs](../../tools/platform/cli/src/wallet_signing.rs).
 
 Writes fetch the identity nonce, quote gas, check the fee limit, disclose the
 prepared transaction, sign it, and compare the returned transaction hash with
 the locally computed hash. Transfers also authenticate the source account and
-its independent debit sequence before signing the native debit. They are no
-longer unconditional pre-signing refusals. Missing authenticated evidence or
-credentials still causes a refusal.
+its independent debit sequence before signing the native debit. Missing
+authenticated evidence or credentials causes a refusal.
 
 ### Project, workspace, environment, and credentials
 
@@ -110,6 +111,7 @@ credentials still causes a refusal.
 | `environment use <name>` | Select `emulator`, `beta`, or `production`; legacy `testnet` is normalized to `beta`. To configure a profile, supply `--endpoint`, `--network-id`, and exactly one of `--sequencer-trust-anchor` or `--sequencer-trust-anchor-file` together. Otherwise use an existing profile. Emulator selection verifies its advertised identity. |
 | `key create <name>` | Generate and store an OS-random Ed25519 seed; optional `--did`. |
 | `key import <name>` | Read a 32-byte hexadecimal Ed25519 seed from stdin; optional `--did`. |
+| `key migrate-legacy <name>` | Copy an unscoped OS-stored key into the selected configuration's OS key entry after verifying its public key. Requires the OS backend and existing public metadata. |
 | `key list`, `key show <name>` | Read public metadata without exposing private keys. |
 | `key default <name>`, `key delete <name>` | Select the default signing key or permanently delete a stored key. |
 | `auth set`, `auth status`, `auth delete` | Store a token from stdin, report whether one is held, or delete it. Optional `--environment`, otherwise the active profile. |
@@ -139,7 +141,7 @@ logs; writes submit signed EIP-1559 transactions. See
 | --- | --- |
 | `program discover <program_id>` | Read the registry record and refuse an inactive program. |
 | `program interface get <program_id>` | Read the code-bound interface from the precompile. |
-| `program interface publish <program_id>` | Republish the deployed artifact with an interface through upgrade. Requires `--interface`, `--artifact`, `--evm-key-file`, `--idempotency-key`; optional `--fee-limit`, default `0`. The artifact hash must match deployed code. |
+| `program interface publish <program_id>` | Republish the deployed artifact with an interface through upgrade. Requires `--interface`, `--artifact`, `--evm-key-file`, `--receipt-policy`, `--idempotency-key`; optional `--fee-limit`, default `0`. The artifact hash must match deployed code. |
 | `program build` | Build and inspect WASM locally. `--manifest-path` defaults to `Cargo.toml`; optional `--artifact`. A project toolchain descriptor selects its build and any declared determinism lint; otherwise use Cargo. |
 | `program bindings` | Verify a deployment proof and generate interface bindings. Requires `--interface`, `--digest`, `--code-hash`, `--deployment-proof`, and `--trust-history`. `--output` defaults to `bindings`. `--historical` verifies historical evidence without claiming current-head freshness. |
 | `program deploy <artifact>` | Inspect the artifact and submit deployment. Requires lifecycle inputs below; optional `--upgrade-authority` and `--interface`. |
@@ -157,9 +159,8 @@ logs; writes submit signed EIP-1559 transactions. See
 | `chains list`, `chains show <id_or_name>` | Read the chain registry's tenant-domain records. |
 | `chains create` | Require `--name`, `--tier` (`starter`, `growth`, `pro`), `--fee-share-bps` (`0–5000`), and `--evm-key-file` or `LAYERX_EVM_KEY_FILE`. Submit registry creation and check its transaction receipt/event. |
 
-Shared program lifecycle inputs are `--program-id` and `--evm-key-file`, with
-`--fee-limit` defaulting to `0`. The old account-sequence, validity-window,
-and idempotency flags are not lifecycle inputs in the current parser.
+Shared program lifecycle inputs are `--program-id`, `--evm-key-file` and
+`--receipt-policy`, with `--fee-limit` defaulting to `0`.
 Native call defaults include ABI `2`, entrypoint `layerx_call`, and
 `--memory-bytes 16777216`; the guest ABI must match the deployed program.
 Tenant-domain CLI definitions and registry operations are in
@@ -174,8 +175,8 @@ Tenant-domain CLI definitions and registry operations are in
 | `emulator up` | Run the local real-transition emulator. Require `--sequencer-seed-file`; optional `--listen`, `--network-id`, `--protocol-version`, `--time-ms`, repeatable `--prefund`. |
 | `install mcp` | Select at least one `--host`: `layerx`, `claude-code`, `claude-desktop`, `cursor`, `vscode`. Use `--daemon-binding` or the default `mcp/binding.json` beside CLI config; optional `--read-only`. Open and authenticate the enrolled agent daemon's binding before installing its tool catalogue. |
 | `mcp serve` | Serve the enrolled agent daemon's tools on stdin/stdout; require `--daemon-binding`, optional `--read-only`. |
-| `install a2a` | Install a hosted payment-capable A2A runtime; optional `--environment`, `--key`, `--listen` (default `127.0.0.1:9433`), `--well-known`, `--read-only`, `--token-stdin`, `--rotate`, `--source-account`, `--asset`. |
-| `a2a serve` | Require `--gateway-credential` and `--authorization-file`; optional `--environment`, `--key`, `--source-account`, `--asset`, `--listen` (same loopback default), `--read-only`. |
+| `install a2a` | Install a hosted payment-capable A2A runtime; optional `--environment`, `--key`, `--listen` (default loopback port `9433`), `--well-known`, `--read-only`, `--token-stdin`, `--rotate`, `--source-account`, `--asset`. |
+| `a2a serve` | Require `--gateway-credential` and `--authorization-file`; optional `--environment`, `--key`, `--source-account`, `--asset`, `--listen` (same loopback default), `--faucet-endpoint`, `--receipt-policy`, `--read-only`. |
 | `a2a start`, `a2a stop`, `a2a status` | Manage the installed runtime recorded in `a2a/runtime.json`. |
 
 The agent daemon used by MCP is an off-chain agent runtime. MCP installation
@@ -189,7 +190,10 @@ its own authorization file; installation refuses an emulator environment.
 ## Credentials
 
 The OS credential store is the default. Keyring service `dev.layerx.cli`
-uses entry names `key:<name>`, `token:<environment>`, and `gateway:<alias>`.
+uses `key:v2:<profile_namespace>:<name>` for signing keys, where the namespace
+is the SHA-256 of the resolved configuration path. Tokens use
+`token:<environment>` and gateway credentials use `gateway:<alias>`. The file
+store uses `key:<name>` within its configuration-local vault.
 Config JSON stores public key/DID metadata and endpoint profiles, not these
 secrets. Key creation uses OS randomness; key import and `auth set` read
 secrets from stdin with a 16 KiB bound. Tokens must contain visible ASCII.
@@ -230,7 +234,9 @@ incorrect ownership, bad passphrases, and damaged vaults are refused. Updates
 use a process lock and atomic replacement. This backend requires Unix
 owner-only permissions; see [file_store.rs](../../tools/platform/cli/src/file_store.rs).
 
-There is no automatic migration between stores. Unset
+`key migrate-legacy` copies an unscoped OS key into a configuration-scoped OS
+entry after matching its public metadata; it requires the OS backend.
+Switching backends does not migrate credentials automatically. Unset
 `LAYERX_CREDENTIAL_STORE` or set it to `os` to select the OS store. Back up the
 passphrase and encrypted vault through your normal secret backup procedure;
 a lost passphrase cannot be recovered. Changing the environment passphrase
@@ -266,22 +272,19 @@ Workspace children receive `LAYERX_ENVIRONMENT`, `LAYERX_ENDPOINT`, and
 Those token variables do not replace `layerx auth set`.
 
 With no config file, [config.rs](../../tools/platform/cli/src/config.rs)
-selects `emulator`, endpoint `http://127.0.0.1:9402`, network ID `402`, and no
-trust anchor. Config version is `1`. This local default is not the public
+selects `emulator`, an HTTP endpoint on loopback port `9402`, network ID `402`,
+and no trust anchor. Config version is `1`. This local default is not the public
 network's chain ID. The retained `sequencer_trust_anchor` config field and
 similarly named environment flags identify signing trust; they do not
 configure another production network service.
 
 ## Emulator, hosted gateway, and node
 
-The public JSON-RPC endpoint is the root URL of a mainnet-beta node:
-`https://api-mainnet-beta.paxeer.network` or
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. For example, this request should
-return chain ID `0x7d`:
+Choose a public mainnet-beta node from [Public RPC](PublicRpc.md) and set
+`RPC_URL` to its root URL. This request should return chain ID `0x7d`:
 
 ```bash
-curl -sS https://api1.mainnet-beta.paxeer.network \
+curl -sS "$RPC_URL" \
   -H 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
@@ -293,11 +296,11 @@ Transport and legacy-method settings limit availability; see
 [EVM JSON-RPC](../system/rpc.md). The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in [the gateway OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json).
-The retired router and `/rpc`, `/rpc/ws`, and `/rpc/schema` paths are not public node endpoints.
 
 [rpc.rs](../../tools/platform/cli/src/rpc.rs) requires a node URL at the root
-path and refuses any other path. The program and chain helpers and A2A
-submission post to `/`, and
+path. Its hosted-service constructors also accept an explicit service path.
+The client requires hosted mode for `px_` requests. The program and chain
+helpers and A2A submission post to `/`, and
 [the subscription transport](../../tools/platform/cli/src/rpc_subscription.rs)
 upgrades the configured URL itself. Registration and faucet take an explicit
 hosted service URL (`--gateway-endpoint`, `--service-endpoint`) and post to
@@ -345,14 +348,12 @@ checked against the selected endpoint's contract.
 | `network_id_mismatch`, `sequencer_trust_anchor_mismatch` | Emulator identity disagrees with the explicitly bound profile. |
 | `environment_input_missing`, `network_id_reserved` | Partial environment binding inputs, or reserved network ID `0`. |
 | `sequencer_seed_exists`, `sequencer_trust_anchor_exists` | Emulator provisioning refuses to overwrite existing material without `--force`. |
-| `command_failed` | Prose errors, including missing keys, unusable credential storage, rejected endpoint syntax, absent MCP binding, source verification unavailability, or unsupported finality trust. Read `error.detail`. |
+| `command_failed` | Prose errors, including missing keys, unusable credential storage, rejected endpoint syntax, absent MCP binding, source verification unavailability, or an invalid receipt policy. Read `error.detail`. |
 
-The generic CLI RPC validator is intentionally bounded to the methods in
-its match table; it is not a general-purpose node RPC client. For example,
-`wallet derive --bind` currently attempts `eth_chainId`, which that validator
-does not admit. The watch parser's `receipts` and `checkpoints` choices also
-have no supported transport mapping. Neither should be presented as a
-working public-network journey.
+The generic CLI RPC validator admits a bounded method set, including
+`eth_chainId` and `eth_maxPriorityFeePerGas` for wallet binding. The watch
+parser's `receipts` and `checkpoints` choices have no supported transport
+mapping; use `account` with an explicit account ID for its log subscription.
 
 ## Receipt verification before success
 
@@ -362,11 +363,10 @@ network finality. `pax_sequencerReceipt` is the retained method name for this
 network evidence, not evidence of a separate execution or settlement chain.
 See [sequencer_receipt.go](../../rpc/sequencer_receipt.go).
 
-The wallet keeps compatibility option names: `--wait executed` requests the
-`receipted` rung, while `--wait batched` requests `committed`. Its default is
-`executed`, so a successful default wallet command does not claim committed
-block inclusion. `--wait finalised` is parsed but refused by the EVM wallet
-path with missing finality trust. It is not an extra network finality stage.
+The wallet defaults to `--wait receipted`. Select `--wait committed` for
+committed-block checks or `--wait submitted` for an unverified submission
+acknowledgment. `executed` aliases `receipted`; `batched` and `finalised`
+alias `committed`. These aliases do not introduce additional network rungs.
 
 Wallet writes and `wallet receipt` require an independently pinned policy
 with `protocol_version: 2`, `network_id: 125`, 32-byte hex `sequencer_id` and
@@ -376,20 +376,24 @@ field names are retained wire names; the bounds scope the trusted receipt
 signing key. Obtain actual trust material independently of the receipt
 being checked; do not copy untrusted response values into a policy.
 
-The wallet checks the receipt signature and signed logs, transaction hash,
-nonce, execution fields, and return-data commitments. For `batched`, it also
-checks the reported committed block against `eth_getTransactionReceipt`.
-Notifications are explicitly unverified. A `submitted` hash or a live event
-is not a committed receipt. After timeout, look up the existing hash rather
-than submit another transfer.
+For `receipted` and `committed`, the wallet checks the receipt signature and
+signed logs, transaction hash, nonce, execution fields and return-data
+commitments. For `committed`, it also matches the block number, block hash,
+status and transaction index against `eth_getTransactionReceipt`. The output
+labels this trust as `pinned_receipt_key_and_authenticated_node`; the wallet
+does not independently verify a BFT commit. Notifications and `submitted`
+outputs carry no verified execution claim. After timeout, look up the existing
+hash before authorizing another transfer.
 
 `receipt get` fetches material without independently verifying it. Program
 calls return `{tx_hash, rung: "submitted"}` after checking the endpoint's hash
 against the locally signed transaction. Lifecycle writes additionally fetch
-transaction status and check its hash and rung; that handler does not run the
-old local program-outcome proof verifier. Simulation decodes a pending
-`eth_call` outcome and submits no transaction. These outputs must not be
-read as automatic cryptographic proof of committed success.
+transaction status and verify terminal signed receipts under the required
+policy, including Programs target, execution result, sender and nonce. A
+successful result must also match the requested lifecycle event. An absent
+receipt remains pending. Simulation
+decodes a pending `eth_call` outcome and submits no transaction. Receipt
+verification alone does not independently verify a BFT commit.
 
 `receipt verify` is a separate local verifier for canonical receipt bytes
 and caller-supplied batch facts. It accepts raw bytes or unprefixed hex text,
@@ -397,7 +401,7 @@ constructs `AuthorizedBatch`, and calls `layerx_proof::receipt::verify_outcome`.
 It returns `verified`, verification level, digest, activity/batch IDs, result
 code, and canonical byte length. A verified failure receipt still carries
 its nonzero result code. This helper does not obtain consensus trust or
-block inclusion from the network, and its old batch-fact inputs are not a
+block inclusion from the network, and its batch-fact inputs are not a
 replacement for current transaction commitment verification.
 See [receipt.rs](../../tools/platform/cli/src/receipt.rs) and
 [Portable receipt verifier](PortableVerifier.md).

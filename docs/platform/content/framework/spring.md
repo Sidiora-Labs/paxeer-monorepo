@@ -19,12 +19,18 @@ layerx:
   storage-directory: ${LAYERX_STORAGE_DIRECTORY}
   principal: ${LAYERX_PRINCIPAL}
   protected-path: ${LAYERX_PROTECTED_PATH:/paid}
+  resource:
+    url: ${LAYERX_RESOURCE_URL}
+    description: ${LAYERX_RESOURCE_DESCRIPTION:}
+    mime-type: ${LAYERX_RESOURCE_MIME_TYPE:application/json}
+    service-name: ${LAYERX_RESOURCE_SERVICE_NAME:}
   payment:
     scheme: ${LAYERX_X402_SCHEME}
     network: ${LAYERX_X402_NETWORK}
     price: ${LAYERX_PRICE}
     asset: ${LAYERX_ASSET}
     pay-to: ${LAYERX_PAY_TO}
+    timeout-seconds: ${LAYERX_PAYMENT_TIMEOUT_SECONDS:120}
   receipt-keys:
     entries:
       - key-id: ${LAYERX_RECEIPT_KEY_ID}
@@ -37,11 +43,11 @@ layerx:
       ${LAYERX_WEBHOOK_KEY_ID:primary}: ${LAYERX_WEBHOOK_PUBLIC_KEY}
 ```
 
-Supply the `resource` fields and payment timeout as declared by `LayerXProperties`. Receipt key identifiers and public keys are 32-byte hex values; the height bounds are inclusive. Non-exact schemes also require `layerx.payment.purpose-hash`.
+`resource.url` and a positive payment timeout are required by `LayerXProperties`; the example configuration supplies the timeout default shown above. Receipt key identifiers and public keys are 32-byte hex values; the height bounds are inclusive. Non-exact schemes also require `layerx.payment.purpose-hash` as a nonzero 64-character lowercase hex string without a prefix.
 
 The `receipt-keys.entries` configuration supplies the independently trusted receipt keys. Signed receipt verification authenticates execution; finality additionally requires committed block evidence.
 
-A receipt is final once its block is committed. The network rungs are `submitted`, `receipted` and `committed`; `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. For finality, authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+A receipt is final once its block is committed. The network rungs are `submitted`, `receipted` and `committed`; `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. For finality, authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
 
 ## The integration
 
@@ -57,7 +63,7 @@ LayerXWebhookEventHandler layerXWebhookEventHandler() {
 }
 ```
 
-That is the whole integration. The auto-configuration supplies the declared config, the payment authority, the seller middleware, the webhook consumer, and both filter registrations. It backs off from any bean you define yourself, so replacing the fulfilment repository or the delivery store is a matter of declaring one.
+The auto-configuration supplies the declared config, payment authority, seller middleware and webhook consumer when their corresponding beans are absent. It registers the payment filter when a `LayerXResourceHandler` exists and the webhook filter when a `LayerXWebhookEventHandler` exists. Declare fulfilment-repository or delivery-store beans to replace the corresponding default stores.
 
 | Bean you declare | Effect |
 |---|---|

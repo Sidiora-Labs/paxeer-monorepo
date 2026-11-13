@@ -36,9 +36,9 @@ and [reference applications](https://github.com/Sidiora-Labs/paxeer-monorepo/blo
 for the distinct service bindings.
 
 The emulator provides local inspection, prefunding, clock and snapshot
-operations. Its payment and program write routes are retired; `/v1/settle`
-returns HTTP 410. Native payments use signed transactions submitted to the
-node and independently verified receipts.
+operations. `/v1/settle` returns HTTP 410; `/v1/moves`, `/v1/moves/quote`
+and program write routes return HTTP 404. Native payments use signed
+transactions submitted to the node and independently verified receipts.
 
 ### Local bootstrap
 
@@ -125,8 +125,7 @@ supported hosts:
 layerx install mcp --host claude-code --json
 ```
 
-The binding records `core_height`; the retired `core_sequence` field is refused
-with `mcp.binding_retired_key`. Installation and serving require
+The binding records `core_height`. Installation and serving require
 `agent.readiness` to identify the authenticated HTTPS gateway and its protected
 credential file. `--daemon-binding <path>` selects a binding explicitly.
 `--read-only` narrows the live catalogue without rewriting the binding.
@@ -172,7 +171,7 @@ fetched bytes alone are not a verification or finality claim.
 A receipt is final once its block is committed. For independent finality
 verification, authenticate the block header and CometBFT commit, then verify
 transaction or state inclusion at the relevant height. See
-[Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+[Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
 
 The installation result names an owner-only `authorization.credential_file`.
 Send its value as `Authorization: Bearer <value>` on every loopback JSON-RPC

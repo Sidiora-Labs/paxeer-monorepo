@@ -8,8 +8,7 @@ where Hyperfide keeps its files, whether it syncs the graph on its own, how
 many parse workers an index pass uses, how a pass finds changed files, and how
 the projection, fleet discovery and the Bash hook behave. Every key in the
 file is optional. If the file or a key is missing, Hyperfide uses the
-default, so a repository without the file works exactly as it did before the
-file existed.
+default.
 
 The implementation is in `core/native/src/config.c`. Tests are in
 `tests/unit/test_config.c` and `tests/integration/40_config.sh`.
@@ -197,12 +196,12 @@ an asked-for count, at least one, in place of a quarter of the cores.
 
 `hyperfide info` prints the count and where it came from, for example
 `sized pipeline: 24 workers (hyperfide.kvx), …`; `hyperfide info --json` carries
-`"workers"`, `"workers_origin"` (`flag`, `CG_INDEX_WORKERS` for either
-variable name, the configuration file name, or `machine`) and `"machine_workers"`. The index summary's `[N workers]` and
+`"workers"`, `"workers_origin"` (`flag`, `HYPERFIDE_INDEX_WORKERS` when supplied under that name,
+`CG_INDEX_WORKERS` for the legacy variable, the configuration file name, or `machine`) and `"machine_workers"`. The index summary's `[N workers]` and
 `hyperfide sync --json`'s `"workers"` report what a pass actually used.
 
 A value that is not a whole number from 0 to 64 (`65`, `-1`, `2.5`, `many`)
-is a bad value like any other: one stderr line (prefixed `cg:`) names the
+is a bad value like any other: one stderr line (prefixed `hyperfide:`) names the
 key and the file,
 the machine's choice stands in, `hyperfide config check` lists it and exits 1, and
 `hyperfide check` warns. A bad `--workers` on the command line is an error instead
@@ -258,8 +257,7 @@ coalesced pass that did not run). `hyperfide config set index.walk git` writes
 ## hyperfide config
 
 `hyperfide config` works before `hyperfide init`, in a repository that has only a spec
-directory, and in a directory with no project at all. Its messages still
-name the command `cg config`.
+directory, and in a directory with no project at all.
 
 | Command | Does |
 |---|---|
@@ -287,16 +285,16 @@ an array, and `default` is the schema default — `.codify` for
  "warnings":[]}
 ```
 
-## Problems never stop a command
+## Invalid settings use defaults
 
 Unknown sections and keys are ignored, and Hyperfide does not mention them
 unprompted. A bad value falls back to its default and gets one stderr line per
-process. Neither stops a command.
+process. These setting errors do not stop the command. The configuration-file conflict described above is refused with exit 2.
 
 `hyperfide check` reports any problems as a warning:
 
 ```text
-  warn  N hyperfide.kvx problem(s) — defaults used (cg config check):
+  warn  N hyperfide.kvx problem(s) — defaults used (hyperfide config check):
 ```
 
 This adds to the warning count and never to the failure count. The file name in the line is the one that was read. The `--json`

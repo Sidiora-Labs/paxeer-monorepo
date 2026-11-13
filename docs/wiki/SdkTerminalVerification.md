@@ -35,9 +35,12 @@ commitment. V4 demonstrates how to verify that claim against chain evidence.
 Obtain receipt-key authorization and chain trust independently of the receipt
 response. Governed receipt pins bind `keyId`, `publicKey`, `firstHeight` and
 `lastHeight`; both bounds are inclusive. The node's receipt-key API is named
-`px_getReceiptKeys`, and the gateway relays it. Endpoint configuration controls
-whether these APIs are served locally or forwarded; an unconfigured node can
-return JSON-RPC error `-32000` with `served by sequencer`.
+`px_getReceiptKeys`, and the gateway relays it. The node reads these pins from
+its latest local committed state; unavailable key state returns JSON-RPC error
+`-32003` with `data.code = "receipt_keys_unavailable"`.
+`pax_sequencerReceipt` can use a local receipt source or a configured forwarding
+endpoint. Without either, it returns `-32000` with
+`pax_sequencerReceipt served by sequencer`.
 The `signingKey` beside a receipt is not its own trust anchor.
 
 The fixtures' `receiptKeys`, `authorization` and validator sets authorize their
@@ -58,9 +61,13 @@ All file paths below are relative to
 | `vector-v3-receipt-refusals.json` | Positive baseline and six named mutations with expected refusals. Provenance identifies the source receipt and its re-signing under an ephemeral test key. | `vector_v3_test.go`: `TestVectorV3EveryRefusalIsRefused` |
 | `vector-v4-committed.json` | Recorded `payExact` receipt, a recorder-built signed inclusion envelope, two envelope refusals and BFT block evidence in the `settlement` field. | `vector_v4_test.go`: `TestVectorV4CommittedVerifies` |
 
-V1's current recorder covers contract creation; it does not record the Programs
-call and authenticated `ProgramCallOutcome` needed for broader Programs
-conformance. Do not infer that coverage from this positive vector.
+The stored V1 positive vector covers contract creation. A separate Programs
+recorder, `recordV1ProgramsRPC` in
+[`vector_v1_programs.go`](../../daemon/committed-fixture/vector_v1_programs.go),
+records deployment and a Programs call with an authenticated
+`ProgramCallOutcome` log. `TestVectorV1ProgramsRecorder` in `vector_v1_test.go`
+verifies that evidence and refuses changes to the call, deployment, log,
+signature or key pin.
 
 The stored V2 and V3 identify cases in
 [`sequencer-receipt-v1.json`](../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json).
@@ -182,9 +189,10 @@ go test -count=1 ./daemon/committed-fixture/ -run '^(TestVectorV1ReceiptedPositi
 ```
 
 This command checks stored receipt evidence, named refusals and V4 block
-proofs. It does not regenerate fixtures, exercise every producer path, prove
-Programs-call coverage or establish live public-node readiness. For the SDK's
-adapted vectors and verification entry points, see the
+proofs. The V3 test also derives and checks refusal cases under two distinct
+per-run receipt keys. The selected tests do not include
+`TestVectorV1ProgramsRecorder` or establish live public-node readiness.
+For the SDK's adapted vectors and verification entry points, see the
 [platform conformance guide](../../sdk/platform/conformance/README.md).
 
 [Human owner registration](HumanOwnerRegistration.md) · [Home](Home.md)
