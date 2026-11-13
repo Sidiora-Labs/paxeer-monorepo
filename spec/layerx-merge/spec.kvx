@@ -13720,6 +13720,24 @@ value = "Task 22.41.100 corrects the link in the header of the pages implementat
 basis = "A reader follows the header of a generated page to its source."
 affects = []
 
+[decision.3435]
+title = "The site under docs/site is the main documentation site"
+value = "The directory docs/site holds the Paxeer X documentation site and replaces the former generated wiki. Tasks 22.41.101 to 22.41.112 read every page under docs/site/paxeer-docs/src/app against the tree and correct its text content, and change no component, layout or style. Task 22.41.113 builds the site in the workflow .github/workflows/docs-site.yml and corrects the references of the tree to the former generator. Task 22.41.114 regenerates the derived files and builds the site."
+basis = "One site documents the network, and its text follows the tree."
+affects = []
+
+[decision.3436]
+title = "The migrations of the launchpad services move to the migrations directory at the repository root"
+value = "Task 22.41.115 moves every file of launchpad/spec/production-system/integration/migrations into the directory migrations at the repository root, byte for byte and under the same file names, removes the directory launchpad at the repository root and writes every reference of the tree to the former path as the new path. The file migrations/README.md states both groups of files."
+basis = "The directory launchpad at the repository root held nothing else."
+affects = []
+
+[decision.3437]
+title = "The repository root carries a source configuration and an environment package"
+value = "Task 22.41.116 writes the files .neron and package.kvx at the repository root in the formats that the contract pages and the example files of spec/layerx-merge/source-control define. A value that the tree determines is written from the tree. A value that only an installation determines, namely the endpoint, the revision, every digest, the identities and the authority epoch, keeps the placeholder form of the example, and the key example stays true while such a value is unresolved. The files state no host, no address, no account and no credential."
+basis = "A digest or a revision written into the tree goes stale with the next change, and an installation resolves it."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43380,6 +43398,150 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.41.116]
+title = "Write the source configuration and the environment package of the repository root"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/source-control"]
+tests = []
+verification_contract = "test -s .neron && test -s package.kvx && grep -q neron.source-config .neron && grep -q schema_version package.kvx"
+do_1 = "do_1 Decision 3437. Write two files at the repository root: .neron, the source configuration of this repository, and package.kvx, the environment package of this repository. The example files under the examples directory of spec/layerx-merge/source-control show both formats, and the contract pages of that directory define them. Read them first."
+symbols = []
+
+[capability.22.41.115]
+title = "Move the migrations of the launchpad services to the migrations directory at the repository root"
+reqs = ["22998.1"]
+touches = ["launchpad", "migrations", "services/launchpad", "sdk/launchpad", "deploy/launchpad", "tools/launchpad", "tools/qualification", "tests/ci", "spec/layerx-merge/dispositions", "spec/layerx-merge/programme", "spec/release-v6-12-0"]
+tests = []
+verification_contract = "test ! -e launchpad && test -s migrations/registry.json && test -s migrations/100000.sql && test -s migrations/0001_projection.sql && (cd services/launchpad/api && go build ./... && go vet ./internal/internaltest/) && (cd services/launchpad/gateway && go build ./...) && (cd sdk/launchpad/shared && go build ./...)"
+do_1 = "do_1 Decision 3436, gotcha 4354. The directory launchpad at the repository root holds one directory of files, launchpad/spec/production-system/integration/migrations: the SQL migrations of the launchpad services and the JSON files beside them. Move every file of it into the directory migrations at the repository root with git mv, keeping each file name and each file byte for byte, and leave no directory launchpad at the repository root."
+symbols = []
+
+[capability.22.41.114]
+title = "Regenerate the derived files of the documentation site and build it"
+reqs = ["22998.1"]
+touches = ["docs/site"]
+tests = []
+verification_contract = "npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html"
+do_1 = "do_1 Decision 3435, gotcha 4353. Tasks 22.41.101 to 22.41.113 corrected the pages and the surrounding files of the site; their changes are on the base revision. In docs/site/paxeer-docs run npm ci and then npm run prepare:docs, and commit the derived files under docs/site/paxeer-docs/public and docs/site/paxeer-docs/.generated as the generators write them, with no edit by hand."
+symbols = []
+
+[capability.22.41.113]
+title = "Build the documentation site in its workflow and correct the references to the former generator"
+reqs = ["22998.1"]
+touches = [".github/workflows/docs-site.yml", "docs/site/paxeer-docs/README.md", "docs/site/docs-assistant/README.md", "docs/site/paxeer-docs/src/components", "docs/site/paxeer-docs/src/app/layout.tsx", "README.md", "CONTRIBUTING.md", "RELEASE.md", "tests/ci", "tools/deps/floors", "tools/qualification/audit_repairs", "spec/layerx-merge/programme/tests", "docs"]
+tests = []
+verification_contract = "! grep -q mkdocs .github/workflows/docs-site.yml && grep -q paxeer-docs .github/workflows/docs-site.yml"
+do_1 = "do_1 Decision 3435. The directory docs/site holds the documentation site: the site in docs/site/paxeer-docs, a static export built with npm, and its assistant in docs/site/docs-assistant. It replaces the former generated wiki, whose generator script, configuration file and requirements file the tree no longer holds."
+symbols = []
+
+[capability.22.41.112]
+title = "Correct the text of pages 95 to 97 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.112.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.112.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 95 to 97 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.111]
+title = "Correct the text of pages 86 to 94 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.111.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.111.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 86 to 94 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.110]
+title = "Correct the text of pages 78 to 85 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.110.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.110.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 78 to 85 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.109]
+title = "Correct the text of pages 68 to 77 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.109.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.109.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 68 to 77 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.108]
+title = "Correct the text of pages 60 to 67 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.108.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.108.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 60 to 67 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.107]
+title = "Correct the text of pages 53 to 59 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.107.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.107.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 53 to 59 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.106]
+title = "Correct the text of pages 43 to 52 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.106.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.106.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 43 to 52 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.105]
+title = "Correct the text of pages 35 to 42 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.105.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.105.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 35 to 42 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.104]
+title = "Correct the text of pages 26 to 34 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.104.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.104.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 26 to 34 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.103]
+title = "Correct the text of pages 17 to 25 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.103.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.103.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 17 to 25 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.102]
+title = "Correct the text of pages 9 to 16 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.102.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.102.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 9 to 16 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
+
+[capability.22.41.101]
+title = "Correct the text of pages 1 to 8 of the documentation site against the tree"
+reqs = ["22998.1"]
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+verification_contract = "test -s spec/layerx-merge/programme/docs/review/22.41.101.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.101.kvx"
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 1 to 8 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+symbols = []
 
 [capability.22.41.100]
 title = "Correct the header of two generated pages under spec/layerx-merge/source-control"
@@ -165637,6 +165799,67 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.41.114]
+title = "Regenerate the derived files of the documentation site and build it"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.41.101", "22.41.102", "22.41.103", "22.41.104", "22.41.105", "22.41.106", "22.41.107", "22.41.108", "22.41.109", "22.41.110", "22.41.111", "22.41.112", "22.41.113"]
+reqs = ["22998.1"]
+capabilities = ["22.41.114"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. Tasks 22.41.101 to 22.41.113 corrected the pages and the surrounding files of the site; their changes are on the base revision. In docs/site/paxeer-docs run npm ci and then npm run prepare:docs, and commit the derived files under docs/site/paxeer-docs/public and docs/site/paxeer-docs/.generated as the generators write them, with no edit by hand."
+do_2 = "do_2 Run npm run lint and npm run build. Where the build or its check of the exported pages reports a fault of a page, of the navigation or of a generator script, correct the cause in that file and regenerate. Do not commit the directories that the build writes."
+do_3 = "do_3 Read the regenerated Markdown exports once against the tree for a statement that the tree does not bear out, and correct the page, never the export, then regenerate. Change no file outside docs/site. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site"]
+tests = []
+planned_paths = []
+build_cmd = "npm ci --prefix docs/site/paxeer-docs"
+verify_cmd = "npm --prefix docs/site/paxeer-docs run build && test -s docs/site/paxeer-docs/out/index.html"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 75
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.113]
+title = "Build the documentation site in its workflow and correct the references to the former generator"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.113"]
+interfaces = []
+do_1 = "do_1 Decision 3435. The directory docs/site holds the documentation site: the site in docs/site/paxeer-docs, a static export built with npm, and its assistant in docs/site/docs-assistant. It replaces the former generated wiki, whose generator script, configuration file and requirements file the tree no longer holds."
+do_2 = "do_2 In .github/workflows/docs-site.yml replace the steps that install and run the former generator with steps that set up Node, run npm ci in docs/site/paxeer-docs and run npm run build there, and upload the directory that the build writes. Keep the triggers, the permissions, the concurrency group, the runner expression and every step after the build as they are, apart from the path of the uploaded directory. Pin each action by commit as the workflow files of the tree do, with a pin that another workflow of the tree already uses."
+do_3 = "do_3 Find every reference of the tree to the former generator, its configuration file, its requirements file and its pages, outside the vendored tree under tools and outside the root files CHANGELOG.md and CODEMAP.md, and correct it to the site as it is now. A test or a floor file that covers only the former generator is removed together with its references. A test that asserts a fact about the documentation that still applies is rewritten over the pages of the site. A record of earlier work under spec/layerx-merge/programme keeps its text unless a check of the tree reads a path from it."
+do_4 = "do_4 Correct the text of docs/site/paxeer-docs/README.md, of docs/site/docs-assistant/README.md, of the navigation file under docs/site/paxeer-docs/src/components and of docs/site/paxeer-docs/src/app/layout.tsx where it states a path, a name or a command that the tree does not bear out, and state in the first README that the directory is the documentation site of this repository. Keep the canonical origin of the site as the site states it. Leave the files named page.tsx to tasks 22.41.101 to 22.41.112 and the derived files under docs/site/paxeer-docs/public to task 22.41.114. Run the checks under tests/ci that read the workflow files. Before each commit read the output of git status and confirm that it names only files of this task. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/docs-site.yml", "docs/site/paxeer-docs/README.md", "docs/site/docs-assistant/README.md", "docs/site/paxeer-docs/src/components", "docs/site/paxeer-docs/src/app/layout.tsx", "README.md", "CONTRIBUTING.md", "RELEASE.md", "tests/ci", "tools/deps/floors", "tools/qualification/audit_repairs", "spec/layerx-merge/programme/tests", "docs"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "! grep -q mkdocs .github/workflows/docs-site.yml && grep -q paxeer-docs .github/workflows/docs-site.yml"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.508]
 title = "Bring the compile step of the integration test packages in line"
 status = "pending"
@@ -231556,6 +231779,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.41.115]
+title = "Move the migrations of the launchpad services to the migrations directory at the repository root"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.115"]
+interfaces = []
+do_1 = "do_1 Decision 3436, gotcha 4354. The directory launchpad at the repository root holds one directory of files, launchpad/spec/production-system/integration/migrations: the SQL migrations of the launchpad services and the JSON files beside them. Move every file of it into the directory migrations at the repository root with git mv, keeping each file name and each file byte for byte, and leave no directory launchpad at the repository root."
+do_2 = "do_2 Find every reference to the former directory by its path from the repository root, in sources, tests, fixtures, scripts, Makefiles, workflow files, manifests and pages, outside the vendored tree under tools and outside spec/layerx-merge/spec.kvx, GOTCHA.kvx, CHANGELOG.md and CODEMAP.md, and write it as the new path. A path that only ends in the same words, such as a directory of the same name under services or tools, is a different directory and stays. Where a moved JSON file names files of the directory by path, write the new paths. Where a file records a digest of a changed file, recompute it with the tool of the tree that writes it. A record of earlier work under spec keeps its text unless a check of the tree reads a path from it."
+do_3 = "do_3 Extend migrations/README.md with a section that states what the moved files are, which services apply them and how the two groups of files in the directory differ, from what the sources show."
+do_4 = "do_4 Change nothing else. Run the tests of the launchpad services, of tools/launchpad and of tests/ci that read the directory, as far as the environment bears them. Before each commit read the output of git status. Add the changed files to the record. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["launchpad", "migrations", "services/launchpad", "sdk/launchpad", "deploy/launchpad", "tools/launchpad", "tools/qualification", "tests/ci", "spec/layerx-merge/dispositions", "spec/layerx-merge/programme", "spec/release-v6-12-0"]
+tests = []
+planned_paths = []
+build_cmd = "(cd services/launchpad/api && go build ./...) && (cd sdk/launchpad/shared && go build ./...)"
+verify_cmd = "test ! -e launchpad && test -s migrations/registry.json && test -s migrations/100000.sql && test -s migrations/0001_projection.sql && (cd services/launchpad/api && go build ./... && go vet ./internal/internaltest/) && (cd services/launchpad/gateway && go build ./...) && (cd sdk/launchpad/shared && go build ./...)"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.39.491]
 title = "Route the integer conversions of the launchpad indexer through checked conversion functions"
@@ -361904,6 +362158,409 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.41.116]
+title = "Write the source configuration and the environment package of the repository root"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.116"]
+interfaces = []
+do_1 = "do_1 Decision 3437. Write two files at the repository root: .neron, the source configuration of this repository, and package.kvx, the environment package of this repository. The example files under the examples directory of spec/layerx-merge/source-control show both formats, and the contract pages of that directory define them. Read them first."
+do_2 = "do_2 In .neron keep the sections and the keys of the example. The repository name, the source backend, the read scope and the write scope state this repository, and the scopes name directories and root files that the tree holds. In package.kvx keep the sections and the keys of the example. The mount paths, the tool sections, the dependency sections and the probes state what the tree holds: each tool with the version that the tree pins, each dependency manager with its lock file, and the catalogue of interfaces as spec/layerx-merge/interfaces.kvx with only identifiers that the catalogue holds."
+do_3 = "do_3 A value that only an installation determines keeps the placeholder form of the example: the endpoint, the revision, every digest, the identities of the workspace and of the environment, and the authority epoch. While such a value is unresolved the key example stays true, and the header comment of each file states which values are unresolved. Write no host, no address, no account and no credential."
+do_4 = "do_4 Change no other file. Before each commit read the output of git status and confirm that it names only the two files. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["spec/layerx-merge/source-control"]
+tests = []
+planned_paths = [".neron", "package.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s .neron && test -s package.kvx && grep -q neron.source-config .neron && grep -q schema_version package.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.112]
+title = "Correct the text of pages 95 to 97 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.112"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 95 to 97 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.112.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.112.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.112.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.112.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.111]
+title = "Correct the text of pages 86 to 94 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.111"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 86 to 94 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.111.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.111.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.111.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.111.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.110]
+title = "Correct the text of pages 78 to 85 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.110"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 78 to 85 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.110.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.110.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.110.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.110.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.109]
+title = "Correct the text of pages 68 to 77 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.109"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 68 to 77 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.109.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.109.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.109.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.109.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.108]
+title = "Correct the text of pages 60 to 67 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.108"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 60 to 67 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.108.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.108.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.108.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.108.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.107]
+title = "Correct the text of pages 53 to 59 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.107"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 53 to 59 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.107.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.107.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.107.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.107.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.106]
+title = "Correct the text of pages 43 to 52 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.106"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 43 to 52 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.106.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.106.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.106.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.106.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.105]
+title = "Correct the text of pages 35 to 42 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.105"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 35 to 42 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.105.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.105.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.105.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.105.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.104]
+title = "Correct the text of pages 26 to 34 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.104"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 26 to 34 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.104.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.104.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.104.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.104.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.103]
+title = "Correct the text of pages 17 to 25 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.103"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 17 to 25 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.103.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.103.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.103.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.103.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.102]
+title = "Correct the text of pages 9 to 16 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.102"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 9 to 16 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.102.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.102.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.102.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.102.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.41.101]
+title = "Correct the text of pages 1 to 8 of the documentation site against the tree"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.41.101"]
+interfaces = []
+do_1 = "do_1 Decision 3435, gotcha 4353. The site under docs/site/paxeer-docs is the main documentation site of this repository; its pages were written outside the tree. List the files named page.tsx under docs/site/paxeer-docs/src/app with git ls-files in the order of its output. The pages of this task are lines 1 to 8 of that list. Read spec/layerx-merge/programme/audit/BRIEF.kvx first; its network facts state how the merged network behaves."
+do_2 = "do_2 Read every page fully. For each thing a page states, look it up in the tree: each path of a file or a directory, each command with its options, each make target, each package and its install instruction, each name of a function, a type, a method, a route, a precompile, a configuration key and an environment variable, each port, chain identifier, endpoint, version and number, and each repository the page names. The sources, the manifests and the Makefiles govern; where the page differs, correct the page and never the source. A reference to a separate repository of a component that lies in this tree is written as the path in this tree. Remove a statement about a file, a command, a service or a feature that the tree does not hold. Write plainly and neutrally what the product does at present, with no history, no internal process, no credentials, no addresses of hosts and no personal data."
+do_3 = "do_3 Change the text content only: the prose, the tables, the code samples and the title and description strings of a page. Keep the components, the imports, the layout, the styling and the route of every page as they are, and keep each page valid TSX: a character that the page escapes inside text stays escaped the same way. Change no file other than the pages of this task and the manifest. Do not run the content generators: task 22.41.114 regenerates the derived files under docs/site/paxeer-docs/public. Delete, rename and move nothing. Run no formatter. Before each commit read the output of git status and confirm that it names only pages of this task and the manifest."
+do_4 = "do_4 Write the manifest spec/layerx-merge/programme/docs/review/22.41.101.kvx in the form of the manifest spec/layerx-merge/programme/docs/review/22.41.43.kvx: a manifest section with the task and the number of pages and one page section with the path and the status reviewed or corrected for each page. Commit the pages in small groups as the work proceeds. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/site/paxeer-docs/src/app"]
+tests = []
+planned_paths = ["spec/layerx-merge/programme/docs/review/22.41.101.kvx"]
+build_cmd = "python3 -m py_compile spec/layerx-merge/programme/docs_check.py"
+verify_cmd = "test -s spec/layerx-merge/programme/docs/review/22.41.101.kvx && python3 spec/layerx-merge/programme/docs_check.py spec/layerx-merge/programme/docs/review/22.41.101.kvx"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.41.100]
 title = "Correct the header of two generated pages under spec/layerx-merge/source-control"
