@@ -1,9 +1,9 @@
 - name: declared negative status and captured environment
   inputs:
-    - cmd: repair-m757:negative
+    - cmd: command-fixture:negative
       env: CAPTURE
       expected_exit_code: 7
-    - cmd: repair-m757:capture
+    - cmd: command-fixture:capture
       env: FORWARDED
   verifiers:
     - type: eval
@@ -13,7 +13,7 @@
       expr: '[0-9]+'
 - name: prefix regex and mixed expression precedence
   inputs:
-    - cmd: repair-m757:prefix
+    - cmd: command-fixture:prefix
       env: OUTPUT
   verifiers:
     - type: regex

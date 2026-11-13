@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-func repair743Fixture(t *testing.T, name string) ioFixture {
+func loadResponseValidationFixture(t *testing.T, name string) ioFixture {
 	t.Helper()
 	content, err := os.ReadFile(filepath.Join("testdata", filepath.FromSlash(name)))
 	if err != nil {
@@ -29,7 +29,7 @@ func repair743Fixture(t *testing.T, name string) ioFixture {
 
 // The peer replays committed transcripts over HTTP. The parser, substitutions,
 // transport, response validator and inventory consumer are the actual harness.
-func repair743Transport(t *testing.T, requests, responses [][]byte) (*rpcClient, *atomic.Int32) {
+func responseValidationTransport(t *testing.T, requests, responses [][]byte) (*rpcClient, *atomic.Int32) {
 	t.Helper()
 	calls := new(atomic.Int32)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +67,7 @@ func repair743Transport(t *testing.T, requests, responses [][]byte) (*rpcClient,
 	return &rpcClient{URL: server.URL, Client: server.Client()}, calls
 }
 
-func repair743Mutate(t *testing.T, body []byte, change func(map[string]any)) []byte {
+func mutateRPCMessage(t *testing.T, body []byte, change func(map[string]any)) []byte {
 	t.Helper()
 	value, err := decodeRPC(body)
 	if err != nil {
@@ -81,10 +81,10 @@ func repair743Mutate(t *testing.T, body []byte, change func(map[string]any)) []b
 	return encoded
 }
 
-func TestRepairM_743_UnpairedRequests(t *testing.T) {
+func TestRPCIOUnpairedRequests(t *testing.T) {
 	TestParseIOFile_UnpairedRequests(t)
 	// The real inventory loader also refuses corruption before any transport.
-	fixture := repair743Fixture(t, "eth_syncing/sync-status.iox")
+	fixture := loadResponseValidationFixture(t, "eth_syncing/sync-status.iox")
 	dir := t.TempDir()
 	content := string(fixture.Pairs[0].Request)
 	if err := os.WriteFile(filepath.Join(dir, "broken.io"), []byte(">> "+content+"\n<< "+string(fixture.Pairs[0].Expected)+"\n>> "+content), 0600); err != nil {
@@ -96,9 +96,9 @@ func TestRepairM_743_UnpairedRequests(t *testing.T) {
 	}
 }
 
-func TestRepairM_743_DeterministicValues(t *testing.T) {
+func TestRPCIODeterministicValues(t *testing.T) {
 	TestSpecOnly(t)
-	fixture := repair743Fixture(t, "eth_chainId/get-chain-id.io")
+	fixture := loadResponseValidationFixture(t, "eth_chainId/get-chain-id.io")
 	pair := fixture.Pairs[0]
 	for _, tc := range []struct {
 		name   string
@@ -116,8 +116,8 @@ func TestRepairM_743_DeterministicValues(t *testing.T) {
 		{"neither result nor error", func(m map[string]any) { delete(m, "result") }, "exactly one"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			response := repair743Mutate(t, pair.Expected, tc.change)
-			client, calls := repair743Transport(t, [][]byte{pair.Request}, [][]byte{response})
+			response := mutateRPCMessage(t, pair.Expected, tc.change)
+			client, calls := responseValidationTransport(t, [][]byte{pair.Request}, [][]byte{response})
 			executed, err := executeIOFixture(client, fixture, ioRunOptions{})
 			if calls.Load() != 1 || len(executed) != 1 {
 				t.Fatalf("case did not execute through HTTP: %v", executed)
@@ -135,34 +135,34 @@ func TestRepairM_743_DeterministicValues(t *testing.T) {
 	}
 }
 
-func TestRepairM_743_EnvelopeIDs(t *testing.T) {
-	fixture := repair743Fixture(t, "eth_chainId/get-chain-id.io")
+func TestRPCIOEnvelopeIDs(t *testing.T) {
+	fixture := loadResponseValidationFixture(t, "eth_chainId/get-chain-id.io")
 	for _, id := range []any{json.Number("9007199254740993"), "request-id", nil} {
 		pair := fixture.Pairs[0]
-		pair.Request = repair743Mutate(t, pair.Request, func(m map[string]any) { m["id"] = id })
-		pair.Expected = repair743Mutate(t, pair.Expected, func(m map[string]any) { m["id"] = id })
-		client, _ := repair743Transport(t, [][]byte{pair.Request}, [][]byte{pair.Expected})
+		pair.Request = mutateRPCMessage(t, pair.Request, func(m map[string]any) { m["id"] = id })
+		pair.Expected = mutateRPCMessage(t, pair.Expected, func(m map[string]any) { m["id"] = id })
+		client, _ := responseValidationTransport(t, [][]byte{pair.Request}, [][]byte{pair.Expected})
 		if _, err := executeIOFixture(client, ioFixture{Name: fixture.Name, Pairs: []ioxPair{pair}}, ioRunOptions{}); err != nil {
 			t.Fatal(err)
 		}
-		wrong := repair743Mutate(t, pair.Expected, func(m map[string]any) { m["id"] = json.Number("9007199254740992") })
+		wrong := mutateRPCMessage(t, pair.Expected, func(m map[string]any) { m["id"] = json.Number("9007199254740992") })
 		if err := validateRPCResponse(pair.Request, wrong, pair.Expected); err == nil {
 			t.Fatal("distinct request ID accepted")
 		}
 	}
 	for _, id := range []any{true, map[string]any{"id": 1}, json.Number("1.5")} {
 		pair := fixture.Pairs[0]
-		request := repair743Mutate(t, pair.Request, func(m map[string]any) { m["id"] = id })
-		response := repair743Mutate(t, pair.Expected, func(m map[string]any) { m["id"] = id })
+		request := mutateRPCMessage(t, pair.Request, func(m map[string]any) { m["id"] = id })
+		response := mutateRPCMessage(t, pair.Expected, func(m map[string]any) { m["id"] = id })
 		if err := validateRPCResponse(request, response, response); err == nil {
 			t.Fatalf("invalid matching id type accepted: %v", id)
 		}
 	}
 }
 
-func TestRepairM_743_MethodSchemas(t *testing.T) {
+func TestRPCIOMethodSchemas(t *testing.T) {
 	TestSpecOnly_MethodSchemas(t)
-	fee := repair743Fixture(t, "eth_feeHistory/fee-history.io")
+	fee := loadResponseValidationFixture(t, "eth_feeHistory/fee-history.io")
 	for _, tc := range []struct {
 		name   string
 		change func(map[string]any)
@@ -179,8 +179,8 @@ func TestRepairM_743_MethodSchemas(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			pair := fee.Pairs[0]
-			response := repair743Mutate(t, pair.Expected, func(m map[string]any) { tc.change(m["result"].(map[string]any)) })
-			client, _ := repair743Transport(t, [][]byte{pair.Request}, [][]byte{response})
+			response := mutateRPCMessage(t, pair.Expected, func(m map[string]any) { tc.change(m["result"].(map[string]any)) })
+			client, _ := responseValidationTransport(t, [][]byte{pair.Request}, [][]byte{response})
 			_, err := executeIOFixture(client, fee, ioRunOptions{})
 			if (err == nil) != tc.valid {
 				t.Fatalf("valid=%v got %v", tc.valid, err)
@@ -188,14 +188,14 @@ func TestRepairM_743_MethodSchemas(t *testing.T) {
 		})
 	}
 	// Empty result objects permit dynamic blocks only after the method schema passes.
-	fixture := repair743Fixture(t, "cross_check/get-block-by-number-then-by-hash.iox")
-	block := repair743Fixture(t, "eth_getBlockByNumber/get-genesis.io").Pairs[0].Expected
+	fixture := loadResponseValidationFixture(t, "cross_check/get-block-by-number-then-by-hash.iox")
+	block := loadResponseValidationFixture(t, "eth_getBlockByNumber/get-genesis.io").Pairs[0].Expected
 	hash, ok := getJSONPath(block, "result.hash")
 	if !ok {
 		t.Fatal("missing recorded block hash")
 	}
 	bound := substituteRequest(fixture.Pairs[1].Request, map[string]any{"blockHash": hash})
-	client, calls := repair743Transport(t, [][]byte{fixture.Pairs[0].Request, bound}, [][]byte{block, block})
+	client, calls := responseValidationTransport(t, [][]byte{fixture.Pairs[0].Request, bound}, [][]byte{block, block})
 	executed, err := executeIOFixture(client, fixture, ioRunOptions{})
 	if err != nil || calls.Load() != 2 {
 		t.Fatalf("binding/reference flow: %v", err)
@@ -208,20 +208,20 @@ func TestRepairM_743_MethodSchemas(t *testing.T) {
 		func(m map[string]any) { m["result"].(map[string]any)["gasUsed"] = "0x00" },
 		func(m map[string]any) { m["result"].(map[string]any)["hash"] = "0xaa" },
 	} {
-		malformed := repair743Mutate(t, block, change)
+		malformed := mutateRPCMessage(t, block, change)
 		if err := validateRPCResponse(fixture.Pairs[0].Request, malformed, fixture.Pairs[0].Expected); err == nil {
 			t.Fatal("malformed dynamic block accepted")
 		}
 	}
-	changed := repair743Mutate(t, block, func(m map[string]any) { m["result"].(map[string]any)["number"] = "0x1" })
-	client, _ = repair743Transport(t, [][]byte{fixture.Pairs[0].Request, bound}, [][]byte{block, changed})
+	changed := mutateRPCMessage(t, block, func(m map[string]any) { m["result"].(map[string]any)["number"] = "0x1" })
+	client, _ = responseValidationTransport(t, [][]byte{fixture.Pairs[0].Request, bound}, [][]byte{block, changed})
 	if _, err := executeIOFixture(client, fixture, ioRunOptions{}); err == nil || !strings.Contains(err.Error(), "ref_pair") {
 		t.Fatalf("reference mismatch accepted: %v", err)
 	}
 }
 
-func TestRepairM_743_ErrorSchemas(t *testing.T) {
-	fixture := repair743Fixture(t, "eth_call/call-revert-abi-error-pax.iox")
+func TestRPCIOErrorSchemas(t *testing.T) {
+	fixture := loadResponseValidationFixture(t, "eth_call/call-revert-abi-error-pax.iox")
 	pair := fixture.Pairs[0]
 	options := ioRunOptions{ReverterAddress: "0x0000000000000000000000000000000000000001"}
 	request, err := prepareIORequest(pair, nil, options)
@@ -246,8 +246,8 @@ func TestRepairM_743_ErrorSchemas(t *testing.T) {
 		{"arbitrary code", func(m map[string]any) { m["code"] = json.Number("42") }, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			response := repair743Mutate(t, pair.Expected, func(m map[string]any) { tc.change(m["error"].(map[string]any)) })
-			client, calls := repair743Transport(t, [][]byte{request}, [][]byte{response})
+			response := mutateRPCMessage(t, pair.Expected, func(m map[string]any) { tc.change(m["error"].(map[string]any)) })
+			client, calls := responseValidationTransport(t, [][]byte{request}, [][]byte{response})
 			_, err := executeIOFixture(client, fixture, options)
 			if calls.Load() != 1 || (err == nil) != tc.valid {
 				t.Fatalf("valid=%v calls=%d got %v", tc.valid, calls.Load(), err)
@@ -258,13 +258,13 @@ func TestRepairM_743_ErrorSchemas(t *testing.T) {
 		t.Fatal("undeclared error code accepted")
 	}
 	// Method-specific revert codes must not pass unrelated methods.
-	chain := repair743Fixture(t, "eth_chainId/get-chain-id.io").Pairs[0]
+	chain := loadResponseValidationFixture(t, "eth_chainId/get-chain-id.io").Pairs[0]
 	if err := validateRPCResponse(chain.Request, pair.Expected, nil); err == nil {
 		t.Fatal("revert accepted for eth_chainId")
 	}
 }
 
-func TestRepairM_743_EnabledInventory(t *testing.T) {
+func TestRPCIOEnabledInventory(t *testing.T) {
 	content, err := os.ReadFile("case_inventory.json")
 	if err != nil {
 		t.Fatal(err)
@@ -277,12 +277,12 @@ func TestRepairM_743_EnabledInventory(t *testing.T) {
 	if err != nil || len(fixtures) == 0 || !reflect.DeepEqual(selected, declared) {
 		t.Fatalf("committed inventory: %v", err)
 	}
-	fixture := repair743Fixture(t, "eth_syncing/sync-status.iox")
+	fixture := loadResponseValidationFixture(t, "eth_syncing/sync-status.iox")
 	chosen, ids, err := loadIOFixtures("testdata", declared, fixture.Name)
 	if err != nil || len(chosen) != 1 {
 		t.Fatalf("declared debug subset: %v", err)
 	}
-	client, _ := repair743Transport(t, [][]byte{fixture.Pairs[0].Request}, [][]byte{fixture.Pairs[0].Expected})
+	client, _ := responseValidationTransport(t, [][]byte{fixture.Pairs[0].Request}, [][]byte{fixture.Pairs[0].Expected})
 	executed, err := executeIOFixture(client, chosen[0], ioRunOptions{})
 	if err != nil {
 		t.Fatal(err)
@@ -329,21 +329,21 @@ func TestRepairM_743_EnabledInventory(t *testing.T) {
 	}
 }
 
-func TestRepairM_743_EnabledSetup(t *testing.T) {
-	reverter := repair743Fixture(t, "eth_call/call-revert-abi-error-pax.iox")
-	code := repair743Fixture(t, "eth_getCode/get-code-from-deploy.iox")
+func TestRPCIOEnabledSetup(t *testing.T) {
+	reverter := loadResponseValidationFixture(t, "eth_call/call-revert-abi-error-pax.iox")
+	code := loadResponseValidationFixture(t, "eth_getCode/get-code-from-deploy.iox")
 	for _, fixture := range []ioFixture{reverter, {Name: code.Name, Pairs: code.Pairs[1:2]}, {Name: "empty.io"}} {
-		client, calls := repair743Transport(t, nil, nil)
+		client, calls := responseValidationTransport(t, nil, nil)
 		executed, err := executeIOFixture(client, fixture, ioRunOptions{})
 		if err == nil || len(executed) != 0 || calls.Load() != 0 {
 			t.Fatalf("missing mandatory setup accepted: executed=%v calls=%d err=%v", executed, calls.Load(), err)
 		}
 	}
 	// A successful schema check cannot conceal a missing producer binding path.
-	fixture := repair743Fixture(t, "cross_check/get-block-by-number-then-by-hash.iox")
+	fixture := loadResponseValidationFixture(t, "cross_check/get-block-by-number-then-by-hash.iox")
 	fixture.Pairs[0].AfterBindings = append(fixture.Pairs[0].AfterBindings, binding{Var: "missing", Path: "result.missing"})
-	block := repair743Fixture(t, "eth_getBlockByNumber/get-genesis.io").Pairs[0].Expected
-	client, calls := repair743Transport(t, [][]byte{fixture.Pairs[0].Request}, [][]byte{block})
+	block := loadResponseValidationFixture(t, "eth_getBlockByNumber/get-genesis.io").Pairs[0].Expected
+	client, calls := responseValidationTransport(t, [][]byte{fixture.Pairs[0].Request}, [][]byte{block})
 	executed, err := executeIOFixture(client, fixture, ioRunOptions{})
 	if err == nil || !strings.Contains(err.Error(), "missing binding path") || calls.Load() != 1 {
 		t.Fatalf("binding producer failure: %v", err)
@@ -353,7 +353,7 @@ func TestRepairM_743_EnabledSetup(t *testing.T) {
 	}
 }
 
-func TestRepairM_743_ParityGuide(t *testing.T) {
+func TestRPCIOParityGuide(t *testing.T) {
 	content, err := os.ReadFile("RPC_IO_README.md")
 	if err != nil {
 		t.Fatal(err)
@@ -365,9 +365,9 @@ func TestRepairM_743_ParityGuide(t *testing.T) {
 	}
 	// Equal totals with different failures are insufficient; identities and each
 	// case's actual expectations must both be checked by the real harness.
-	fixture := repair743Fixture(t, "eth_chainId/get-chain-id.io")
-	wrong := repair743Mutate(t, fixture.Pairs[0].Expected, func(m map[string]any) { m["result"] = "0x2" })
-	client, _ := repair743Transport(t, [][]byte{fixture.Pairs[0].Request}, [][]byte{wrong})
+	fixture := loadResponseValidationFixture(t, "eth_chainId/get-chain-id.io")
+	wrong := mutateRPCMessage(t, fixture.Pairs[0].Expected, func(m map[string]any) { m["result"] = "0x2" })
+	client, _ := responseValidationTransport(t, [][]byte{fixture.Pairs[0].Request}, [][]byte{wrong})
 	executed, err := executeIOFixture(client, fixture, ioRunOptions{})
 	if err == nil {
 		t.Fatal("identity alone concealed a deterministic mismatch")
