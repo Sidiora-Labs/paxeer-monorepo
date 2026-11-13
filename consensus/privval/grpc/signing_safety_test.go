@@ -30,20 +30,20 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-type repair171Files struct {
+type signingSafetyFiles struct {
 	key, state string
 }
 
-func repair171FilePV(t *testing.T) (*privval.FilePV, repair171Files) {
+func newSigningSafetyValidator(t *testing.T) (*privval.FilePV, signingSafetyFiles) {
 	t.Helper()
 	dir := t.TempDir()
-	files := repair171Files{filepath.Join(dir, "key.json"), filepath.Join(dir, "state.json")}
+	files := signingSafetyFiles{filepath.Join(dir, "key.json"), filepath.Join(dir, "state.json")}
 	pv, err := privval.LoadOrGenFilePV(files.key, files.state)
 	require.NoError(t, err)
 	return pv, files
 }
 
-func repair171RPC(t *testing.T, pv *privval.FilePV, chain string, opts ...grpc.ServerOption) (*grpc.ClientConn, func()) {
+func startSigningSafetyRPC(t *testing.T, pv *privval.FilePV, chain string, opts ...grpc.ServerOption) (*grpc.ClientConn, func()) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func repair171RPC(t *testing.T, pv *privval.FilePV, chain string, opts ...grpc.S
 	return conn, stop
 }
 
-func repair171Vote(pv *privval.FilePV, height int64, block byte) *tmproto.Vote {
+func signingSafetyVote(pv *privval.FilePV, height int64, block byte) *tmproto.Vote {
 	hash := sha256.Sum256([]byte{block})
 	return (&types.Vote{
 		Type: tmproto.PrecommitType, Height: height, Round: 1,
@@ -83,7 +83,7 @@ func repair171Vote(pv *privval.FilePV, height int64, block byte) *tmproto.Vote {
 	}).ToProto()
 }
 
-func repair171Proposal(height int64, block byte) *tmproto.Proposal {
+func signingSafetyProposal(height int64, block byte) *tmproto.Proposal {
 	hash := sha256.Sum256([]byte{block})
 	proposal := (&types.Proposal{
 		Type: tmproto.ProposalType, Height: height, Round: 1, POLRound: -1,
@@ -96,21 +96,21 @@ func repair171Proposal(height int64, block byte) *tmproto.Proposal {
 	return proposal
 }
 
-func repair171Verify(t *testing.T, pk crypto.PubKey, signBytes, signature []byte) {
+func verifySigningSafetySignature(t *testing.T, pk crypto.PubKey, signBytes, signature []byte) {
 	t.Helper()
 	sig, err := ed25519.SignatureFromBytes(signature)
 	require.NoError(t, err)
 	require.NoError(t, pk.Verify(signBytes, sig))
 }
 
-func TestRepair_171_ConcurrentFilePV(t *testing.T) {
+func TestSignerSigningSafety_ConcurrentFilePV(t *testing.T) {
 	for _, kind := range []string{"vote", "proposal", "mixed"} {
 		t.Run(kind, func(t *testing.T) {
-			pv, files := repair171FilePV(t)
+			pv, files := newSigningSafetyValidator(t)
 			const requests = 32
 			var arrived atomic.Int32
 			release := make(chan struct{})
-			conn, stop := repair171RPC(t, pv, chainID, grpc.UnaryInterceptor(
+			conn, stop := startSigningSafetyRPC(t, pv, chainID, grpc.UnaryInterceptor(
 				func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 					if arrived.Add(1) == requests {
 						close(release)
@@ -129,9 +129,9 @@ func TestRepair_171_ConcurrentFilePV(t *testing.T) {
 			results := make([]error, requests)
 			for i := range requests {
 				if kind == "proposal" || (kind == "mixed" && i%2 == 0) {
-					proposals[i] = repair171Proposal(10, byte(i))
+					proposals[i] = signingSafetyProposal(10, byte(i))
 				} else {
-					votes[i] = repair171Vote(pv, 10, byte(i))
+					votes[i] = signingSafetyVote(pv, 10, byte(i))
 				}
 			}
 			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
@@ -163,11 +163,11 @@ func TestRepair_171_ConcurrentFilePV(t *testing.T) {
 				if votes[i] != nil {
 					require.Equal(t, -1, voteWinner, "two conflicting votes were accepted")
 					voteWinner = i
-					repair171Verify(t, pv.Key.PubKey, types.VoteSignBytes(chainID, votes[i]), votes[i].Signature)
+					verifySigningSafetySignature(t, pv.Key.PubKey, types.VoteSignBytes(chainID, votes[i]), votes[i].Signature)
 				} else {
 					require.Equal(t, -1, proposalWinner, "two conflicting proposals were accepted")
 					proposalWinner = i
-					repair171Verify(t, pv.Key.PubKey, types.ProposalSignBytes(chainID, proposals[i]), proposals[i].Signature)
+					verifySigningSafetySignature(t, pv.Key.PubKey, types.ProposalSignBytes(chainID, proposals[i]), proposals[i].Signature)
 				}
 			}
 			if kind == "proposal" {
@@ -192,14 +192,14 @@ func TestRepair_171_ConcurrentFilePV(t *testing.T) {
 			}
 			require.Equal(t, wantBytes, []byte(reopened.LastSignState.SignBytes))
 			require.Equal(t, wantSig, reopened.LastSignState.Signature)
-			conn, _ = repair171RPC(t, reopened, chainID)
+			conn, _ = startSigningSafetyRPC(t, reopened, chainID)
 			client, err = tmgrpc.NewSignerClient(conn, chainID)
 			require.NoError(t, err)
 			before, err := os.ReadFile(files.state)
 			require.NoError(t, err)
 			for i := range requests {
 				if votes[i] != nil {
-					vote := repair171Vote(reopened, 10, byte(i))
+					vote := signingSafetyVote(reopened, 10, byte(i))
 					err = client.SignVote(ctx, chainID, vote)
 					if i == voteWinner {
 						require.NoError(t, err)
@@ -209,7 +209,7 @@ func TestRepair_171_ConcurrentFilePV(t *testing.T) {
 						require.Empty(t, vote.Signature)
 					}
 				} else {
-					proposal := repair171Proposal(10, byte(i))
+					proposal := signingSafetyProposal(10, byte(i))
 					err = client.SignProposal(ctx, chainID, proposal)
 					if voteWinner < 0 && i == proposalWinner {
 						require.NoError(t, err)
@@ -227,13 +227,13 @@ func TestRepair_171_ConcurrentFilePV(t *testing.T) {
 	}
 }
 
-func TestRepair_171_ServerChainBoundary(t *testing.T) {
-	pv, files := repair171FilePV(t)
-	conn, stop := repair171RPC(t, pv, chainID)
+func TestSignerSigningSafety_ServerChainBoundary(t *testing.T) {
+	pv, files := newSigningSafetyValidator(t)
+	conn, stop := startSigningSafetyRPC(t, pv, chainID)
 	client := privvalproto.NewPrivValidatorAPIClient(conn)
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
-	seed, err := client.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: chainID, Vote: repair171Vote(pv, 10, 1)})
+	seed, err := client.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: chainID, Vote: signingSafetyVote(pv, 10, 1)})
 	require.NoError(t, err)
 	before, err := os.ReadFile(files.state)
 	require.NoError(t, err)
@@ -241,10 +241,10 @@ func TestRepair_171_ServerChainBoundary(t *testing.T) {
 		pub, err := client.GetPubKey(ctx, &privvalproto.PubKeyRequest{ChainId: rejectedChain})
 		require.Equal(t, codes.InvalidArgument, status.Code(err))
 		require.Nil(t, pub)
-		vote, err := client.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: rejectedChain, Vote: repair171Vote(pv, 100, 2)})
+		vote, err := client.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: rejectedChain, Vote: signingSafetyVote(pv, 100, 2)})
 		require.Equal(t, codes.InvalidArgument, status.Code(err))
 		require.Nil(t, vote)
-		proposal, err := client.SignProposal(ctx, &privvalproto.SignProposalRequest{ChainId: rejectedChain, Proposal: repair171Proposal(101, 3)})
+		proposal, err := client.SignProposal(ctx, &privvalproto.SignProposalRequest{ChainId: rejectedChain, Proposal: signingSafetyProposal(101, 3)})
 		require.Equal(t, codes.InvalidArgument, status.Code(err))
 		require.Nil(t, proposal)
 		after, err := os.ReadFile(files.state)
@@ -259,39 +259,39 @@ func TestRepair_171_ServerChainBoundary(t *testing.T) {
 	require.Equal(t, int8(3), reopened.LastSignState.Step)
 	require.Equal(t, types.VoteSignBytes(chainID, &seed.Vote), []byte(reopened.LastSignState.SignBytes))
 	require.Equal(t, seed.Vote.Signature, reopened.LastSignState.Signature)
-	conn, _ = repair171RPC(t, reopened, chainID)
+	conn, _ = startSigningSafetyRPC(t, reopened, chainID)
 	client = privvalproto.NewPrivValidatorAPIClient(conn)
 	pub, err := client.GetPubKey(ctx, &privvalproto.PubKeyRequest{ChainId: chainID})
 	require.NoError(t, err)
 	pk, err := crypto.PubKeyFromProto(pub.PubKey)
 	require.NoError(t, err)
 	require.Equal(t, pv.Key.PubKey, pk)
-	proposal, err := client.SignProposal(ctx, &privvalproto.SignProposalRequest{ChainId: chainID, Proposal: repair171Proposal(11, 4)})
+	proposal, err := client.SignProposal(ctx, &privvalproto.SignProposalRequest{ChainId: chainID, Proposal: signingSafetyProposal(11, 4)})
 	require.NoError(t, err)
-	repair171Verify(t, pk, types.ProposalSignBytes(chainID, &proposal.Proposal), proposal.Proposal.Signature)
-	vote, err := client.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: chainID, Vote: repair171Vote(reopened, 11, 4)})
+	verifySigningSafetySignature(t, pk, types.ProposalSignBytes(chainID, &proposal.Proposal), proposal.Proposal.Signature)
+	vote, err := client.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: chainID, Vote: signingSafetyVote(reopened, 11, 4)})
 	require.NoError(t, err)
-	repair171Verify(t, pk, types.VoteSignBytes(chainID, &vote.Vote), vote.Vote.Signature)
+	verifySigningSafetySignature(t, pk, types.VoteSignBytes(chainID, &vote.Vote), vote.Vote.Signature)
 }
 
-func TestRepair_171_ClientChainArgument(t *testing.T) {
-	pv, files := repair171FilePV(t)
-	conn, _ := repair171RPC(t, pv, chainID)
+func TestSignerSigningSafety_ClientChainArgument(t *testing.T) {
+	pv, files := newSigningSafetyValidator(t)
+	conn, _ := startSigningSafetyRPC(t, pv, chainID)
 	client, err := tmgrpc.NewSignerClient(conn, chainID)
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
 	pk, err := client.GetPubKey(ctx)
 	require.NoError(t, err)
-	proposal := repair171Proposal(1, 1)
+	proposal := signingSafetyProposal(1, 1)
 	require.NoError(t, client.SignProposal(ctx, chainID, proposal))
-	repair171Verify(t, pk, types.ProposalSignBytes(chainID, proposal), proposal.Signature)
+	verifySigningSafetySignature(t, pk, types.ProposalSignBytes(chainID, proposal), proposal.Signature)
 	proposalSig, err := ed25519.SignatureFromBytes(proposal.Signature)
 	require.NoError(t, err)
 	require.Error(t, pk.Verify(types.ProposalSignBytes("other-chain", proposal), proposalSig))
-	vote := repair171Vote(pv, 1, 1)
+	vote := signingSafetyVote(pv, 1, 1)
 	require.NoError(t, client.SignVote(ctx, chainID, vote))
-	repair171Verify(t, pk, types.VoteSignBytes(chainID, vote), vote.Signature)
+	verifySigningSafetySignature(t, pk, types.VoteSignBytes(chainID, vote), vote.Signature)
 	voteSig, err := ed25519.SignatureFromBytes(vote.Signature)
 	require.NoError(t, err)
 	require.Error(t, pk.Verify(types.VoteSignBytes("other-chain", vote), voteSig))
@@ -300,17 +300,17 @@ func TestRepair_171_ClientChainArgument(t *testing.T) {
 		// Also use a server that accepts the requested chain, so server validation
 		// cannot hide a missing client-side check on either signing method.
 		for _, serverChain := range []string{chainID, rejectedChain} {
-			otherPV, otherFiles := repair171FilePV(t)
-			otherConn, stop := repair171RPC(t, otherPV, serverChain)
+			otherPV, otherFiles := newSigningSafetyValidator(t)
+			otherConn, stop := startSigningSafetyRPC(t, otherPV, serverChain)
 			otherClient, err := tmgrpc.NewSignerClient(otherConn, chainID)
 			require.NoError(t, err)
 			before, err := os.ReadFile(otherFiles.state)
 			require.NoError(t, err)
-			v := repair171Vote(otherPV, 100, 2)
+			v := signingSafetyVote(otherPV, 100, 2)
 			vBefore := proto.Clone(v)
 			require.Equal(t, codes.InvalidArgument, status.Code(otherClient.SignVote(ctx, rejectedChain, v)))
 			require.True(t, proto.Equal(vBefore, v))
-			p := repair171Proposal(101, 3)
+			p := signingSafetyProposal(101, 3)
 			pBefore := proto.Clone(p)
 			require.Equal(t, codes.InvalidArgument, status.Code(otherClient.SignProposal(ctx, rejectedChain, p)))
 			require.True(t, proto.Equal(pBefore, p))

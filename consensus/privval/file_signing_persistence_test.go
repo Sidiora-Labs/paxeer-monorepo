@@ -17,32 +17,32 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func TestRepair_170_RetryReopen(t *testing.T) {
+func TestFilePVSigningPersistence_RetryReopen(t *testing.T) {
 	for _, kind := range []string{"prevote", "precommit", "proposal"} {
 		for _, failure := range []string{"create", "rename"} {
 			t.Run(kind+"/"+failure, func(t *testing.T) {
-				pv, keyPath, statePath := repair170Validator(t)
-				client, stop := repair170Client(t, pv)
-				previous := repair170Message(kind, 8, false)
+				pv, keyPath, statePath := newPersistenceValidator(t)
+				client, stop := newPersistenceSignerClient(t, pv)
+				previous := persistenceMessage(kind, 8, false)
 				require.NoError(t, previous.sign(t, client))
 				oldState, err := os.ReadFile(statePath)
 				require.NoError(t, err)
-				restore := repair170BlockWrites(t, statePath, failure)
+				restore := blockSigningStateWrites(t, statePath, failure)
 
-				first := repair170Message(kind, 10, false)
-				repair170Refused(t, first, client)
-				repair170Refused(t, repair170Message(kind, 10, false), client)
-				timestampRetry := repair170Message(kind, 10, false)
+				first := persistenceMessage(kind, 10, false)
+				requirePersistenceSigningRefused(t, first, client)
+				requirePersistenceSigningRefused(t, persistenceMessage(kind, 10, false), client)
+				timestampRetry := persistenceMessage(kind, 10, false)
 				if timestampRetry.vote != nil {
 					timestampRetry.vote.Timestamp = timestampRetry.vote.Timestamp.Add(time.Second)
 				}
-				repair170Refused(t, timestampRetry, client)
-				repair170Refused(t, repair170Message(kind, 10, true), client)
+				requirePersistenceSigningRefused(t, timestampRetry, client)
+				requirePersistenceSigningRefused(t, persistenceMessage(kind, 10, true), client)
 				otherKind := "proposal"
 				if kind == "proposal" {
 					otherKind = "prevote"
 				}
-				repair170Refused(t, repair170Message(otherKind, 11, false), client)
+				requirePersistenceSigningRefused(t, persistenceMessage(otherKind, 11, false), client)
 				require.EqualValues(t, 8, pv.LastSignState.Height)
 				require.Equal(t, previous.signature(), pv.LastSignState.Signature)
 
@@ -53,7 +53,7 @@ func TestRepair_170_RetryReopen(t *testing.T) {
 				require.NoError(t, timestampRetry.sign(t, client))
 				require.Equal(t, first.signBytes(), timestampRetry.signBytes())
 				signature := bytes.Clone(timestampRetry.signature())
-				repair170Verify(t, pv, timestampRetry)
+				verifyPersistenceSignature(t, pv, timestampRetry)
 				stop()
 
 				pv, err = LoadFilePV(keyPath, statePath)
@@ -62,46 +62,46 @@ func TestRepair_170_RetryReopen(t *testing.T) {
 				require.EqualValues(t, 2, pv.LastSignState.Round)
 				require.Equal(t, signature, pv.LastSignState.Signature)
 				require.Equal(t, first.signBytes(), []byte(pv.LastSignState.SignBytes))
-				client, _ = repair170Client(t, pv)
-				repair170Refused(t, repair170Message(kind, 10, true), client)
-				repair170Refused(t, repair170Message(kind, 8, false), client)
-				retry := repair170Message(kind, 10, false)
+				client, _ = newPersistenceSignerClient(t, pv)
+				requirePersistenceSigningRefused(t, persistenceMessage(kind, 10, true), client)
+				requirePersistenceSigningRefused(t, persistenceMessage(kind, 8, false), client)
+				retry := persistenceMessage(kind, 10, false)
 				require.NoError(t, retry.sign(t, client))
 				require.Equal(t, signature, retry.signature())
-				repair170Verify(t, pv, retry)
+				verifyPersistenceSignature(t, pv, retry)
 			})
 		}
 	}
 }
 
-func TestRepair_170_PendingConflictReopen(t *testing.T) {
+func TestFilePVSigningPersistence_PendingConflictReopen(t *testing.T) {
 	for _, kind := range []string{"prevote", "proposal"} {
 		t.Run(kind, func(t *testing.T) {
-			pv, keyPath, statePath := repair170Validator(t)
-			client, stop := repair170Client(t, pv)
-			restore := repair170BlockWrites(t, statePath, "rename")
-			repair170Refused(t, repair170Message(kind, 10, false), client)
+			pv, keyPath, statePath := newPersistenceValidator(t)
+			client, stop := newPersistenceSignerClient(t, pv)
+			restore := blockSigningStateWrites(t, statePath, "rename")
+			requirePersistenceSigningRefused(t, persistenceMessage(kind, 10, false), client)
 			restore()
-			repair170Refused(t, repair170Message(kind, 10, true), client)
+			requirePersistenceSigningRefused(t, persistenceMessage(kind, 10, true), client)
 			stop()
 
 			reopened, err := LoadFilePV(keyPath, statePath)
 			require.NoError(t, err)
 			require.EqualValues(t, 10, reopened.LastSignState.Height)
-			client, _ = repair170Client(t, reopened)
-			repair170Refused(t, repair170Message(kind, 10, true), client)
-			original := repair170Message(kind, 10, false)
+			client, _ = newPersistenceSignerClient(t, reopened)
+			requirePersistenceSigningRefused(t, persistenceMessage(kind, 10, true), client)
+			original := persistenceMessage(kind, 10, false)
 			require.NoError(t, original.sign(t, client))
 			require.Equal(t, reopened.LastSignState.Signature, original.signature())
-			repair170Verify(t, reopened, original)
+			verifyPersistenceSignature(t, reopened, original)
 		})
 	}
 }
 
-func TestRepair_170_SavePendingReopen(t *testing.T) {
-	pv, keyPath, statePath := repair170Validator(t)
-	restore := repair170BlockWrites(t, statePath, "create")
-	original := repair170Message("prevote", 10, false)
+func TestFilePVSigningPersistence_SavePendingReopen(t *testing.T) {
+	pv, keyPath, statePath := newPersistenceValidator(t)
+	restore := blockSigningStateWrites(t, statePath, "create")
+	original := persistenceMessage("prevote", 10, false)
 	err := original.sign(t, pv)
 	var pathError *os.PathError
 	require.ErrorAs(t, err, &pathError)
@@ -114,19 +114,19 @@ func TestRepair_170_SavePendingReopen(t *testing.T) {
 	reopened, err := LoadFilePV(keyPath, statePath)
 	require.NoError(t, err)
 	require.EqualValues(t, 10, reopened.LastSignState.Height)
-	conflict := repair170Message("prevote", 10, true)
+	conflict := persistenceMessage("prevote", 10, true)
 	require.Error(t, conflict.sign(t, reopened))
 	require.Empty(t, conflict.signature())
 	require.NoError(t, original.sign(t, reopened))
-	repair170Verify(t, reopened, original)
+	verifyPersistenceSignature(t, reopened, original)
 }
 
-func TestRepair_170_RestartBeforeRetry(t *testing.T) {
-	pv, keyPath, statePath := repair170Validator(t)
-	client, stop := repair170Client(t, pv)
-	restore := repair170BlockWrites(t, statePath, "rename")
-	repair170Refused(t, repair170Message("prevote", 10, false), client)
-	repair170Refused(t, repair170Message("prevote", 10, false), client)
+func TestFilePVSigningPersistence_RestartBeforeRetry(t *testing.T) {
+	pv, keyPath, statePath := newPersistenceValidator(t)
+	client, stop := newPersistenceSignerClient(t, pv)
+	restore := blockSigningStateWrites(t, statePath, "rename")
+	requirePersistenceSigningRefused(t, persistenceMessage("prevote", 10, false), client)
+	requirePersistenceSigningRefused(t, persistenceMessage("prevote", 10, false), client)
 	stop()
 	pv = nil
 	restore()
@@ -135,27 +135,27 @@ func TestRepair_170_RestartBeforeRetry(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, reopened.LastSignState.Height)
 	require.Empty(t, reopened.LastSignState.Signature)
-	client, stop = repair170Client(t, reopened)
-	vote := repair170Message("prevote", 10, true)
+	client, stop = newPersistenceSignerClient(t, reopened)
+	vote := persistenceMessage("prevote", 10, true)
 	require.NoError(t, vote.sign(t, client))
-	repair170Verify(t, reopened, vote)
+	verifyPersistenceSignature(t, reopened, vote)
 	stop()
 
 	reopened, err = LoadFilePV(keyPath, statePath)
 	require.NoError(t, err)
-	original := repair170Message("prevote", 10, false)
+	original := persistenceMessage("prevote", 10, false)
 	require.Error(t, original.sign(t, reopened))
 	require.Empty(t, original.signature())
 }
 
-const repair170ChainID = "repair-170"
+const signingPersistenceChainID = "repair-170"
 
-type repair170Signable struct {
+type persistenceSignable struct {
 	vote     *tmproto.Vote
 	proposal *tmproto.Proposal
 }
 
-func repair170Message(kind string, height int64, conflict bool) repair170Signable {
+func persistenceMessage(kind string, height int64, conflict bool) persistenceSignable {
 	blockByte := byte(1)
 	if conflict {
 		blockByte = 2
@@ -168,7 +168,7 @@ func repair170Message(kind string, height int64, conflict bool) repair170Signabl
 			POLRound: -1, BlockID: blockID, Timestamp: timestamp}
 		unsigned := proposal.ToProto()
 		unsigned.Signature = nil
-		return repair170Signable{proposal: unsigned}
+		return persistenceSignable{proposal: unsigned}
 	}
 	voteType := tmproto.PrevoteType
 	if kind == "precommit" {
@@ -176,46 +176,46 @@ func repair170Message(kind string, height int64, conflict bool) repair170Signabl
 	}
 	vote := types.Vote{Type: voteType, Height: height, Round: 2, BlockID: blockID,
 		Timestamp: timestamp, ValidatorAddress: bytes.Repeat([]byte{3}, crypto.AddressSize)}
-	return repair170Signable{vote: vote.ToProto()}
+	return persistenceSignable{vote: vote.ToProto()}
 }
 
-func (message repair170Signable) sign(t *testing.T, signer types.PrivValidator) error {
+func (message persistenceSignable) sign(t *testing.T, signer types.PrivValidator) error {
 	t.Helper()
 	if message.vote != nil {
-		return signer.SignVote(t.Context(), repair170ChainID, message.vote)
+		return signer.SignVote(t.Context(), signingPersistenceChainID, message.vote)
 	}
-	return signer.SignProposal(t.Context(), repair170ChainID, message.proposal)
+	return signer.SignProposal(t.Context(), signingPersistenceChainID, message.proposal)
 }
 
-func (message repair170Signable) signature() []byte {
+func (message persistenceSignable) signature() []byte {
 	if message.vote != nil {
 		return message.vote.Signature
 	}
 	return message.proposal.Signature
 }
 
-func (message repair170Signable) signBytes() []byte {
+func (message persistenceSignable) signBytes() []byte {
 	if message.vote != nil {
-		return types.VoteSignBytes(repair170ChainID, message.vote)
+		return types.VoteSignBytes(signingPersistenceChainID, message.vote)
 	}
-	return types.ProposalSignBytes(repair170ChainID, message.proposal)
+	return types.ProposalSignBytes(signingPersistenceChainID, message.proposal)
 }
 
-func repair170Refused(t *testing.T, message repair170Signable, client *SignerClient) {
+func requirePersistenceSigningRefused(t *testing.T, message persistenceSignable, client *SignerClient) {
 	t.Helper()
 	var remoteError *RemoteSignerError
 	require.ErrorAs(t, message.sign(t, client), &remoteError)
 	require.Empty(t, message.signature())
 }
 
-func repair170Verify(t *testing.T, pv *FilePV, message repair170Signable) {
+func verifyPersistenceSignature(t *testing.T, pv *FilePV, message persistenceSignable) {
 	t.Helper()
 	signature, err := crypto.SigFromBytes(message.signature())
 	require.NoError(t, err)
 	require.NoError(t, pv.Key.PubKey.Verify(message.signBytes(), signature))
 }
 
-func repair170Validator(t *testing.T) (*FilePV, string, string) {
+func newPersistenceValidator(t *testing.T) (*FilePV, string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	keyPath := filepath.Join(dir, "key.json")
@@ -228,7 +228,7 @@ func repair170Validator(t *testing.T) (*FilePV, string, string) {
 	return pv, keyPath, statePath
 }
 
-func repair170BlockWrites(t *testing.T, statePath, failure string) func() {
+func blockSigningStateWrites(t *testing.T, statePath, failure string) func() {
 	t.Helper()
 	blockedPath := statePath
 	if failure == "create" {
@@ -249,7 +249,7 @@ func repair170BlockWrites(t *testing.T, statePath, failure string) func() {
 	return restore
 }
 
-func repair170Client(t *testing.T, pv *FilePV) (*SignerClient, func()) {
+func newPersistenceSignerClient(t *testing.T, pv *FilePV) (*SignerClient, func()) {
 	t.Helper()
 	dir, err := os.MkdirTemp("", "pv170-")
 	require.NoError(t, err)
@@ -259,10 +259,10 @@ func repair170Client(t *testing.T, pv *FilePV) (*SignerClient, func()) {
 	require.NoError(t, err)
 	ctx, cancel := context.WithCancel(t.Context())
 	endpoint := NewSignerListenerEndpoint(listener)
-	client, err := NewSignerClient(ctx, endpoint, repair170ChainID)
+	client, err := NewSignerClient(ctx, endpoint, signingPersistenceChainID)
 	require.NoError(t, err)
 	dialer := NewSignerDialerEndpoint(DialUnixFn(socketPath))
-	server := NewSignerServer(dialer, repair170ChainID, pv)
+	server := NewSignerServer(dialer, signingPersistenceChainID, pv)
 	require.NoError(t, server.Start(ctx))
 	stop := sync.OnceFunc(func() {
 		cancel()
