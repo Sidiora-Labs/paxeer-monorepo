@@ -374022,7 +374022,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.164]
 title = "Write the page of the directory tests/codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374052,7 +374052,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.163]
 title = "Write the page of the directory tests/ci"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
