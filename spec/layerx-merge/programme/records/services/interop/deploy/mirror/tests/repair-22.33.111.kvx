@@ -16,8 +16,8 @@ repair = "The shared endpoint producer chooses root for Paxeer and /rpc for Ethe
 proof = "The fixture recorder executes the actual Python endpoint producer AST and production renderer main; Go verifies source/renderer provenance and both recorded configurations, then sends their exact Paxeer HTTPS URLs through real JSON-RPC client/transport/handler paths and asserts the observed POST target, Host and decoded rpc_modules result."
 
 [fixtures]
-recorder = "PYTHONDONTWRITEBYTECODE=1 python3 services/interop/deploy/mirror/tests/testdata/repair_m111/record.py"
-location = "services/interop/deploy/mirror/tests/testdata/repair_m111/rendered.json"
+recorder = "PYTHONDONTWRITEBYTECODE=1 python3 services/interop/deploy/mirror/tests/testdata/rpc_rendering/record.py"
+location = "services/interop/deploy/mirror/tests/testdata/rpc_rendering/rendered.json"
 runtime = "The qualification tests use committed production outputs and in-process TLS servers; they invoke no subprocess, Python, Cargo, native node runtime, credential, environment variable or live endpoint."
 limit = "The production node JSON-RPC HTTP handler is exercised at root using its real metadata service; the full native node startup and chain-state methods are outside this endpoint-fixture repair."
 

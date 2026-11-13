@@ -3,9 +3,9 @@ mode = "BUILD"
 base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
 acceptance = "22998.1"
 evidence = "The hf-build and hf-done ledgers retain the exact candidate revision, command, exit code and private evidence path; no gate result is asserted in this source record."
-baseline = "No unchanged-tree verification ran: the explicit implementation-first, wrapper-only gate order overrides step 7's contradictory baseline request; repair_m109_test.go was absent and no prior gate ledger existed. No baseline test failure is claimed."
+baseline = "No unchanged-tree verification ran: the explicit implementation-first, wrapper-only gate order overrides step 7's contradictory baseline request; manifest_conformance_test.go was absent and no prior gate ledger existed. No baseline test failure is claimed."
 proof_limit = "The declared Go gate checks all example suite pins, documented interfaces, complete signers and real Go receipt signature verification; it cannot execute the Python renderer or Rust key-list verifier without forbidden subprocesses or native artifacts. Native behavioral tests are supplied but are not qualified by this Go-only gate."
-wiring_requests = ["spec/layerx-merge/spec.kvx — spec workflow owner: wire tests/test_repair_m109.py into a native Python gate and tests/rotation/probe.rs::repair_m109 into the existing Rust proof gate; do not treat the Go-only gate as executing either component."]
+wiring_requests = ["spec/layerx-merge/spec.kvx — spec workflow owner: wire tests/test_manifest_conformance.py into a native Python gate and tests/rotation/probe.rs::repair_m109 into the existing Rust proof gate; do not treat the Go-only gate as executing either component."]
 
 [finding.gateway_readme_manifest]
 repair = "Document the current regenerated manifest, explicit example trust inputs, live receipt-key file, unique ids, complete signer set, merged node relay, startup pin lookup and authenticity versus committed-finality boundary; retain existing explicit retirement notices for out-of-scope deployment templates."

@@ -7,13 +7,13 @@ qualification = "Bounded hf-build and hf-done results, including the verified ca
 baseline = "No prior gate ledger or repair test existed; no baseline test was executed because the ordered instructions prohibit testing before implementation and prohibit running verify_cmd outside hf-done. No pre-change test failure is claimed."
 
 [finding.mirror_verify_shape]
-test = "services/interop/deploy/mirror/tests/test_repair_22_31_233.py::test_mirror_verify_shape"
+test = "services/interop/deploy/mirror/tests/test_deployment_verification.py::test_mirror_verify_shape"
 repair = "The strict verifier example uses receipt_keys and Paxeer network 125, matching the publisher's actual RuntimeConfig and key window."
 proof = "A real Archive producer consumes recorded signed node receipts; ethabi encodes the archive RPC responses; the unchanged Rust verifier binary reads them over authenticated TLS quorum RPC and verifies both receipts, refusing other height windows, wrong keys and obsolete fields."
 
 [finding.solana_mutable_deployment]
-test = "services/interop/deploy/mirror/tests/test_repair_22_31_233.py::test_solana_mutable_deployment"
-authorization_test = "services/interop/deploy/mirror/tests/test_repair_22_31_233.py::test_finalization_requires_explicit_authorization"
+test = "services/interop/deploy/mirror/tests/test_deployment_verification.py::test_solana_mutable_deployment"
+authorization_test = "services/interop/deploy/mirror/tests/test_deployment_verification.py::test_finalization_requires_explicit_authorization"
 repair = "Deployment requires explicit FINALIZE=YES authorization, checks the rooted ELF and publisher authority before removing it, runs set-upgrade-authority --final at finalized commitment, then re-fetches and checks immutable rooted loader accounts before writing readiness."
 proof = "The real loader bincode codec produces mutable and immutable account states around an actual ELF; the production readiness RPC client, Rust publisher and Rust reader consume the same states over TLS. Both Rust clients refuse mutable or different-code states and accept the verified immutable state; the readiness client also refuses stale roots, unsuccessful finality and incorrect account identities."
 limit = "The focused test exercises readiness and both production identity consumers against in-process RPC; it does not broadcast a deployment or irreversible finalization transaction to a live cluster."
