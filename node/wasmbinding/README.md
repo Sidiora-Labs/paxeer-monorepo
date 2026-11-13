@@ -17,7 +17,7 @@ Messages ([`encoder.go`](encoder.go), [`message_plugin.go`](message_plugin.go)):
 - Token Factory: `create_denom`, `mint_tokens`, `burn_tokens`, `change_admin`, `set_metadata`, and `set_denom_paused` (pause or unpause)
 - EVM: `call_evm` and `delegate_call_evm`, dispatched as `MsgInternalEVMCall` and `MsgInternalEVMDelegateCall`
 
-Custom messages select an operation by its top-level JSON key, with the operation's fields inside its value.
+Custom messages select one operation by its top-level JSON key, with the operation's fields inside its value. Multiple non-null operation keys are rejected. An empty object or an object containing only null operation values returns an unsupported-message error.
 
 ## Token Factory pause bindings
 

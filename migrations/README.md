@@ -2,7 +2,7 @@
 
 This directory retains SQLite schemas for C projection tooling and historical import bookkeeping. Paxeer is one network: the kernel runs inside `paxd` and participates in block proposal. Committed chain state is authoritative, and a receipt is final when its block is committed. The kernel host loads and commits module state through the chain store in [`modules/lxphost/host.go`](../modules/lxphost/host.go); these SQLite files do not migrate that store.
 
-The standalone `layerxd` daemon is retired. Its append-only activity log is no longer the network's source of truth. The retained projection code can rebuild a local SQLite projection from compatible log records; that operation is not chain recovery or a network upgrade.
+The projection code can rebuild a local SQLite projection from compatible log records. Committed chain state remains authoritative for network recovery and upgrades.
 
 | File | Creates | Current use |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ make test-projection
 make test-rebuild
 ```
 
-Run these from the repository root when working on the C projection tooling. They check local projection behavior, not committed network state. The former `make test-history` target and `src/replica/lxp_history.c` implementation are removed; [`TestRetiredHistorySymbolsAbsent`](../modules/lxphost/retired_history_test.go) checks that the retired history symbols are absent from the kernel archive.
+Run these from the repository root when working on the C projection tooling. They check local projection behavior, not committed network state.
 
 ## Related code
 

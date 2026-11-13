@@ -18,6 +18,7 @@ or without an applied plan, the historical acceptance behavior remains. Historic
 tracing continues to select the implementation recorded for the requested height;
 later activation does not change v6.0.5 replay. No deployment height is fixed here.
 
-`repair_m1255_test.go` exercises production version selection, ABI transport,
-distribution rewards and bank balances using in-memory chain stores. Its fixture
-activation heights are 10, 20 and 30, independent of any live network.
+[Routing and value tests](repair_m1255_test.go) exercise production version
+selection, ABI transport, distribution rewards and bank balances using
+in-memory chain stores. Their fixture activation heights are 10, 20 and 30,
+independent of any live network.

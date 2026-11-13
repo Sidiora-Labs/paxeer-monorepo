@@ -2,8 +2,8 @@
 
 LayerX programs execute inside `paxd` on the single Paxeer BFT network. The
 kernel is part of the network and proposes blocks; a receipt is final when its
-block commits. Public Ethereum JSON-RPC uses the root URL, for example
-`https://api-mainnet-beta.paxeer.network` or `https://api1.mainnet-beta.paxeer.network`,
+block commits. Public Ethereum JSON-RPC uses the root URL documented in the
+[public RPC reference](../../../docs/site/docs/reference/public-rpc.md),
 with chain ID 125 (`0x7d`). Program execution and monetary effects belong to the
 same chain transaction. Sub-chains are tenant domains in the database.
 
@@ -583,7 +583,7 @@ The descriptor-driven build is reproducible: `PortBuildRunner` reads the descrip
 command out of the archive, checks the published CosmWasm source is the
 contract this kit ports, parses the descriptor and re-emits the module.
 
-The local qualification helpers `execute_donate`, `execute_donations` and
+The execution helpers `execute_donate`, `execute_donations` and
 `execute_remaining` run the metered executor with explicit authorization.
 `authorize_transfers` prepares the atomic transfer set; `settle` calls
 `PreparedAuthorizedActivity::strict_settle` with a supplied

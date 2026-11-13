@@ -56,7 +56,7 @@ context and hashes its input through these bindings. Its
 passes it to the native `programs_call_activity` harness. It is a context and
 hashing example, not the mint-limit port. Consult the
 [ABI policy](../../sdk/rust/src/abi_policy.rs) for admitted versions; the
-runtime's current evidence version in
+runtime's default guest ABI in
 [`lib.rs`](../../crates/layerx-programs-runtime/src/lib.rs) is 4. Keep the guest
 imports, declared ABI and host admission consistent.
 
@@ -413,7 +413,7 @@ example is deployed or qualified on the current network. The version-one
 emitter and the explicit ABI v2 context guest are distinct artifacts. Verify
 ABI agreement and use the native deployment/call path for the selected guest.
 
-The qualification helper `settle` accepts a `PreparedAuthorizedActivity` and
+The library helper `settle` accepts a `PreparedAuthorizedActivity` and
 calls `strict_settle` with the kernel transfer primitive. This is an internal
 atomic application boundary within the merged network. Source verification
 establishes artifact reproducibility; it does not replace signed transaction
@@ -508,7 +508,7 @@ The committed `native-token/05-initialize.*` artifacts record successful
 initialization before approve and transfer calls; `08-transfer_from.*` records
 the refused missing-spend-authority case, `09-transfer_from.*` the paused-asset
 refusal and `10-transfer_from.*` the authorized delegated payment. The focused
-[repair integration test](tests/repair_22_33_241.rs) executes the committed token
+[integration test](tests/repair_22_33_241.rs) executes the committed token
 WASM in-process, including positive and refused initialization and later
 owner-bound payouts; it needs no native harness or live endpoint.
 Fixtures and runtime tests are not certification of a live deployment.
