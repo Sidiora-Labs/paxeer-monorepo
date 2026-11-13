@@ -138,7 +138,9 @@ Best quote across all active adapters (no side effects).
 function getAllQuotes(address tokenIn, address tokenOut, uint256 amountIn) external view returns (struct IProtocolAdapter.QuoteResult[] quotes, bytes32[] adapterIds, string[] names)
 ```
 
-Every adapter's quote for a pair. Parallel arrays.
+Returns parallel arrays for all registered adapters. Active adapters are queried for the pair;
+inactive adapters retain their ID and name with a zero-filled quote. A failed active-adapter
+query also yields a zero-filled quote.
 
 #### Return Values
 

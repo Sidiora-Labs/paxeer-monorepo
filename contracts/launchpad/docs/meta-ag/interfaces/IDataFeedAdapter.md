@@ -67,7 +67,7 @@ Check whether this adapter supports a given token
 
 | Name      | Type | Description                              |
 | --------- | ---- | ---------------------------------------- |
-| supported | bool | True if this adapter can price the token |
+| supported | bool | The adapter's token-support flag        |
 
 ### getFeedPrices
 
@@ -95,7 +95,8 @@ Get prices for multiple tokens in one call
 function sourceId() external view returns (bytes32 id)
 ```
 
-Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
+Unique identifier for this adapter source, such as `keccak256("PaxeerPriceOracle.v1")` for
+PriceOracleAdapter.
 
 #### Return Values
 
@@ -137,13 +138,14 @@ Maximum age in seconds before this adapter's prices are considered stale
 function getSupportedTokens() external view returns (address[] tokens)
 ```
 
-Get all tokens this adapter currently supports
+Get the adapter's token-discovery list. PriceOracleAdapter returns registered oracle tokens;
+SidioraFeedAdapter returns its configured known-token list.
 
 #### Return Values
 
 | Name   | Type      | Description                        |
 | ------ | --------- | ---------------------------------- |
-| tokens | address[] | Array of supported token addresses |
+| tokens | address[] | Token addresses for discovery      |
 
 ### AdapterRegistered
 
