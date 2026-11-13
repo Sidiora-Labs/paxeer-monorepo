@@ -28,7 +28,7 @@ pub mod web_hold;
 pub fn manifest_dir() -> &'static std::path::Path {
     match std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .find(|path| path.join("src/repair_22_39_224.kvx").is_file())
+        .find(|path| path.join("src/catalogue.rs").is_file())
     {
         Some(path) => path,
         None => panic!("owning MCP manifest directory"),

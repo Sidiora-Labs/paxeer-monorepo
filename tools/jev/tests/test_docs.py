@@ -39,7 +39,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "README.md"
 GERMAN = ROOT / "docs" / "readme" / "README.de.md"
 ENGLISH_TITLES = [
-    PREAMBLE_TITLE,
+    "Paxeer X Network",
     "What is Paxeer X Network?",
     "Integrated network topology",
     "Documentation",
@@ -62,7 +62,7 @@ ENGLISH_TITLES = [
     "Downloading and Shallow-Cloning the Monorepo",
     "License",
 ]
-ENGLISH_LEVELS = [0, 2, 3, 2, 3, 3, 3, 3, 3, 2, 3, 2, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2]
+ENGLISH_LEVELS = [1, 2, 3, 2, 3, 3, 3, 3, 3, 2, 3, 2, 2, 2, 2, 2, 3, 3, 3, 3, 2, 2]
 GERMAN_TITLES = [
     PREAMBLE_TITLE,
     "Was Paxeer X Network ist",
@@ -78,9 +78,8 @@ GERMAN_TITLES = [
 ]
 MAINTAINED_TRANSLATIONS = (
     ("README.md", "docs/readme/README.*.md"),
-    ("README.md", "docs/site/docs/overview/i18n/*.md"),
 )
-SITE_LANGUAGES = {"de", "es", "fr", "ja", "pt-br", "ru", "zh-cn"}
+README_LANGUAGES = {"de", "es", "fr", "ja", "pt-BR", "ru", "zh-CN"}
 OPERATIONAL_DRIFT_CASES = (
     ("command-drift.md", "make paxd-build", "make layerxd"),
     ("url-drift.md", "https://api1.mainnet-beta.paxeer.network",
@@ -141,14 +140,14 @@ def evaluation_for(same: float, drift: str, confidence: float) -> Evaluation:
 
 
 class SectionSplitterTests(unittest.TestCase):
-    def test_real_readme_splits_into_a_preamble_and_every_heading(self) -> None:
+    def test_real_readme_splits_into_every_heading(self) -> None:
         sections = split_sections(SOURCE)
         self.assertEqual([section.title for section in sections], ENGLISH_TITLES)
         self.assertEqual([section.index for section in sections], list(range(len(sections))))
         self.assertEqual([section.level for section in sections], ENGLISH_LEVELS)
         self.assertEqual(sections[0].line, 1)
         lines = SOURCE.read_text(encoding="utf-8").splitlines()
-        for section in sections[1:]:
+        for section in sections:
             self.assertEqual(lines[section.line - 1], f"{'#' * section.level} {section.title}")
 
     def test_bodies_hold_the_content_below_each_heading(self) -> None:
@@ -157,7 +156,7 @@ class SectionSplitterTests(unittest.TestCase):
         self.assertIn("eth_chainId", sections["Quick start: connect to chain 125"].body)
         self.assertIn("make paxd-build", sections["Build"].body)
         self.assertIn("`rust-toolchain.toml`", sections["Overview"].body)
-        self.assertIn("Paxeer X Network", sections[PREAMBLE_TITLE].body)
+        self.assertIn("Paxeer X Network", sections["Paxeer X Network"].body)
         for section in sections.values():
             self.assertFalse(section.body.startswith("#"))
             self.assertNotIn("\n## ", section.body)
@@ -195,9 +194,10 @@ class SanitizeTests(unittest.TestCase):
         quick_start = sanitize(sections["Quick start: connect to chain 125"].body)
         self.assertIn("curl --max-time 10", quick_start)
         self.assertIn("eth_chainId", quick_start)
-        self.assertIn("https://api1.mainnet-beta.paxeer.network", quick_start)
+        self.assertIn("PAXEER_RPC_URL", quick_start)
+        self.assertIn("docs/site/paxeer-docs/src/app/public-rpc/page.tsx", quick_start)
         self.assertNotIn("```", quick_start)
-        self.assertIn("Public node JSON-RPC uses the root URL", quick_start)
+        self.assertIn("node root URL", quick_start)
         self.assertIn("docs/wiki/Quickstart.md", documentation)
 
     def test_tables_keep_paths_and_link_targets(self) -> None:
@@ -339,7 +339,7 @@ class QuestionTests(unittest.TestCase):
 
 
 class PublishedCatalogTests(unittest.TestCase):
-    def test_both_maintained_trees_have_explicit_sources_and_separate_anchors(self) -> None:
+    def test_maintained_readmes_have_explicit_sources_and_separate_anchors(self) -> None:
         anchors = set()
         counts = []
         for source_name, pattern in MAINTAINED_TRANSLATIONS:
@@ -360,9 +360,10 @@ class PublishedCatalogTests(unittest.TestCase):
                 anchor = f"{relative(translation)}:{sections[0].line}"
                 self.assertNotIn(anchor, anchors)
                 anchors.add(anchor)
-        self.assertEqual(counts, [7, 7])
-        pages = resolve_translations(MAINTAINED_TRANSLATIONS[1][1])
-        self.assertEqual({path.stem for path in pages}, SITE_LANGUAGES)
+        self.assertEqual(counts, [7])
+        pages = resolve_translations(MAINTAINED_TRANSLATIONS[0][1])
+        self.assertEqual({path.stem.removeprefix("README.") for path in pages},
+                         README_LANGUAGES)
 
 
 class PairFindingTests(unittest.TestCase):

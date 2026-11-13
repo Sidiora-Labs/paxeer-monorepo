@@ -229,7 +229,7 @@ After securely retaining `seed`, finish with:
 remote.acknowledge_export(&binding, reference, &acknowledgement)?;
 ```
 
-[repair_22_33_31.rs](tests/repair_22_33_31.rs) executes these client sequences
+[documented_custody.rs](tests/documented_custody.rs) executes these client sequences
 against the production TLS handler, codec and durable store. It also checks the
 registry and credential lifecycle, retired encodings, signed bank calldata and
 sender, and recovery across store restarts. Its committed loopback signing peers

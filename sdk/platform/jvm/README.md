@@ -54,7 +54,7 @@ Once installed locally, depend on it as:
 
 Public node JSON-RPC uses HTTPS at the root path. Check `eth_chainId` for
 `0x7d` (decimal `125`) before signing or broadcasting. See
-[Public RPC endpoints](../../../docs/site/docs/reference/public-rpc.md).
+[Public RPC endpoints](../../../docs/readme/PUBLIC-RPC.md).
 Sub-chains are tenant domains in the database and share the network.
 
 `ProductionClient` uses schema-defined authenticated service APIs.

@@ -12,7 +12,7 @@ import (
 )
 
 func TestControlHTTPRoutesRejectUnqualifiedMutations(t *testing.T) {
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	operations := []string{"replays", "actions", "complete-action", "recover-incident", "bounty-submissions", "transition", controlCaps, "budget", "policies", "policy-state", "recommendations", "bounties", "bounty-state", controlInventory, "access", "incidents", "settlements", "unknown"}
 	for _, operation := range operations {
 		t.Run(operation, func(t *testing.T) {
@@ -120,7 +120,7 @@ func TestControlPublicViewsAndErrorMapping(t *testing.T) {
 }
 
 func TestControlWorkerLoopsObserveCancellation(t *testing.T) {
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	observed := 0
@@ -133,7 +133,7 @@ func TestControlWorkerLoopsObserveCancellation(t *testing.T) {
 			return (IncidentWorker{Store: env.store, Credential: env.credentials["infrastructure"], Observe: observe}).Run(ctx)
 		},
 		"replay": func() error {
-			return (ReplayWorker{Store: env.store, Provider: repairM1020ReplayProvider(t, nil), Credential: env.credentials["infrastructure"], Observe: observe}).Run(ctx)
+			return (ReplayWorker{Store: env.store, Provider: workflowRecoveryReplayProvider(t, nil), Credential: env.credentials["infrastructure"], Observe: observe}).Run(ctx)
 		},
 	} {
 		if err := run(); !errors.Is(err, context.Canceled) {
@@ -146,7 +146,7 @@ func TestControlWorkerLoopsObserveCancellation(t *testing.T) {
 }
 
 func TestControlSubmissionAndAwardRequireBoundAuthority(t *testing.T) {
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
 	credential := env.credentials["infrastructure"]
 	owner := env.actors["infrastructure"]
@@ -180,7 +180,7 @@ func TestControlSubmissionAndAwardRequireBoundAuthority(t *testing.T) {
 }
 
 func TestRuntimeCapabilityRoutesFollowFreshCapState(t *testing.T) {
-	env := repairM1020EnvironmentFor(t, nil)
+	env := workflowRecoveryEnvironmentFor(t, nil)
 	runtime := &Runtime{Store: env.store}
 	forwarded := 0
 	handler, err := runtime.RequireCapability("quote", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

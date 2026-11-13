@@ -1371,7 +1371,7 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 pub mod repair_bank {
-    include!("support/repair_22_33_63_bank.rs");
+    include!("support/bank_journey_fixture.rs");
 }
 
 #[test]
