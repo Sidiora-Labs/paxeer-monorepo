@@ -13630,6 +13630,12 @@ value = "A finding of a dependency check is settled first by moving the dependen
 basis = "The checks keep their meaning when every exception is single, dated and reasoned, and the source of a deployed contract stays byte for byte what was published."
 affects = ["22.39.500", "22.39.501", "22.39.503", "22.39.507"]
 
+[decision.3420]
+title = "The agent lint task carries the parameter structure of the function terms"
+value = "Task 22.39.497 moves the inputs of the function terms of services/agent/crates/layerx-agentd/src/main.rs into one parameter structure, without a lint allowance and without a change of behaviour, as decision 3415 states it. The wave 6 gate task takes that change from the base revision and keeps no second form of it."
+basis = "The lint target passes as a whole only when the entry file and the tests are in line at one revision, and one task owns the target."
+affects = ["22.39.497", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -197907,7 +197913,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 4337, decision 3418. The command make agent-lint passes on the whole agent workspace. The test function of services/agent/crates/layerx-agentd/tests/inference_deals.rs that is longer than the line limit of the lint configuration is divided into helper functions of the same file; every assertion of the case stays and no lint allowance is added. Any other point that the target reports in this file is settled the same way."
 do_2 = "do_2 Record in services/agent/crates/layerx-agentd/repair_22_39_497.kvx the rule, the changed file and the command. Run the build once and the verification once at the final revision."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/inference_deals.rs"]
+touches = ["services/agent/crates/layerx-agentd/tests/inference_deals.rs", "services/agent/crates/layerx-agentd/src/main.rs"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/repair_22_39_497.kvx"]
 build_cmd = "make -s agent-build"
@@ -197923,6 +197929,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "do_3 Decision 3420, gotcha 4338. In services/agent/crates/layerx-agentd/src/main.rs move the inputs of the function terms into one parameter structure that the callers of the function fill by field name, so that the function stays within the argument limit of the lint configuration. No lint allowance is added, the values that reach the native terms stay the same and every caller in the file follows. Add the entry file to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.495]
 title = "Bring the retired caller scan to exit 0 on the attestor source of the key management member"

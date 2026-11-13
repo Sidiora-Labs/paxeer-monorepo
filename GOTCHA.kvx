@@ -21510,3 +21510,8 @@ fix = "Decision 3417: the peer compares the fields of the context that its deal 
 title = "The aggregate commands of wave 6 span every area and each area keeps its own targets current"
 symptom = "The wave 6 gate runs the build, test and lint targets of every area of the repository in one pass. A lint limit, a dependency check, a generated file comparison or a test fixture of one area applies to files that lie outside the paths of the gate task."
 fix = "Each area brings its own make targets in line in a task of its own with the paths of that area, and the gate task requires those tasks and then runs the six wave commands once."
+
+[gotcha.4338]
+title = "The lint target of the agent workspace reads the entry file of the daemon together with its tests"
+symptom = "The command make agent-lint compiles every target of the agent workspace, so the argument limit of the lint configuration applies to the function terms of services/agent/crates/layerx-agentd/src/main.rs in the same run that reads the test files."
+fix = "The agent lint task carries the entry file in its paths and moves the inputs of the function into one parameter structure."
