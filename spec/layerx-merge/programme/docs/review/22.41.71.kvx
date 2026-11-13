@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.71"
+pages = 20
+
+[page.1]
+path = "docs/wiki/Guarantor.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/wiki/Home.md"
+status = "corrected"
+
+[page.3]
+path = "docs/wiki/HostedAgentBoundary.md"
+status = "corrected"
+
+[page.4]
+path = "docs/wiki/HostedAuthority.md"
+status = "corrected"
+
+[page.5]
+path = "docs/wiki/HostedBetaControl.md"
+status = "corrected"
+
+[page.6]
+path = "docs/wiki/HostedCore.md"
+status = "corrected"
+
+[page.7]
+path = "docs/wiki/HostedDashboard.md"
+status = "corrected"
+
+[page.8]
+path = "docs/wiki/HostedFaucet.md"
+status = "corrected"
+
+[page.9]
+path = "docs/wiki/HostedGateway.md"
+status = "corrected"
+
+[page.10]
+path = "docs/wiki/HostedHuman.md"
+status = "corrected"
+
+[page.11]
+path = "docs/wiki/HostedIdentity.md"
+status = "corrected"
+
+[page.12]
+path = "docs/wiki/HostedInternal.md"
+status = "corrected"
+
+[page.13]
+path = "docs/wiki/HostedNode.md"
+status = "corrected"
+
+[page.14]
+path = "docs/wiki/HostedRegistry.md"
+status = "corrected"
+
+[page.15]
+path = "docs/wiki/HostedWebhooks.md"
+status = "corrected"
+
+[page.16]
+path = "docs/wiki/HumanCustody.md"
+status = "corrected"
+
+[page.17]
+path = "docs/wiki/HumanJourneys.md"
+status = "corrected"
+
+[page.18]
+path = "docs/wiki/HumanOwnerRegistration.md"
+status = "corrected"
+
+[page.19]
+path = "docs/wiki/Interop.md"
+status = "corrected"
+
+[page.20]
+path = "docs/wiki/LNI.md"
+status = "corrected"

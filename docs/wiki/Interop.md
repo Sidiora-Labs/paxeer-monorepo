@@ -12,10 +12,7 @@ The `layerx-interop-gateway` library owns adapter registration, principal-scoped
 translation state and receipt verification. The executable composes that library
 with adapters and the payment relay.
 
-Public node JSON-RPC uses the root of
-`https://api-mainnet-beta.paxeer.network` or
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. See the
+Public node JSON-RPC uses the root URL listed in the
 [public RPC reference](../site/docs/reference/public-rpc.md).
 Interop's versioned HTTP routes below belong to the configured interop service;
 their presence in the code does not make them routes on every public node.

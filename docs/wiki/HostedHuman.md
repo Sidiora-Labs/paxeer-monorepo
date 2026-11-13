@@ -1,54 +1,45 @@
 # Hosted Human material
 
-End-user `/v1` journeys (onboarding, deposit, move, withdraw, exit,
-approvals, managed agents, security) are documented on
-[Human journeys](HumanJourneys.md). The custodial keystore model and
-verification levels are on [Human custody](HumanCustody.md). This page
-is the hosted-cluster material assembler, not the browser product
-contract.
+The Human application contract is documented in
+[Human journeys](HumanJourneys.md), with signing and verification described in
+[Human custody](HumanCustody.md). Human policy and evidence material is assembled
+by [`material.py`](../../services/platform/hosted/human/material.py) and
+[`provision.py`](../../services/platform/hosted/human/provision.py).
 
-Human policy assembly consumes the same generated schema-version-2 asset and
-module registry published to `layerx-core-module-registry`. The native producer
-uses the module interfaces registered by the integrated node and kernel host.
-The schema-version-2 registry supplies nonzero asset identifiers and optional
-`symbol`, `currency` and `decimals` metadata. The material assembler validates
-the selected asset against that registry. `services/platform/hosted/node/bootstrap.sh`
-delegates to the native runtime; it does not define fixed token metadata.
-Registry metadata alone does not constitute an on-chain asset proof.
+## Policy inputs
 
-A fresh cluster generates its Human KMS seal and policy material. Repeating
-`up` with `LAYERX_BETA_RETAIN_MATERIAL=1` reuses the complete saved material set.
-The driver refuses a missing inventory, missing or extra files, symbolic links,
-wrong ownership, files outside mode 0600, or directories outside mode 0700.
-Before applying Secrets it compares the live `layerx-human-kms-material`
-Secret's `kms-seal` digest with the retained disk file, without printing either
-seal or digest. A mismatch refuses bring-up.
+The assembler consumes a schema-version-2 asset and module registry. Asset
+identifiers are nonzero; optional metadata includes `symbol`, `currency` and
+`decimals`. The selected asset must be present in the registry. Registry metadata
+is configuration rather than an on-chain asset proof.
 
-The complete inventory is saved after policy assembly, principal provisioning,
-and the node registry comparison. A partial earlier bring-up has no complete
-inventory and is refused. Retained mode also preserves settlement bindings,
-builder digests and principal credentials; it does not regenerate Human policy
-or redeploy settlement contracts. `render` validates retained material and the
-live seal but only renders manifests, as in fresh mode.
+Owner evidence includes component and agent configuration, a purpose catalogue,
+authority policy, principal policy, recovery policy and movement policy. The
+authority's tenant and principal must identify exactly one entry in the principal
+policy. Protected material uses owner-controlled directories and files with
+modes `0700` and `0600` respectively.
 
-`down` still deletes the cluster (or owner namespaces), including the Human
-state PVC, and removes local material. Retention supports repeated `up` against
-a live cluster; it is not recovery after `down` or a backup protocol.
+The owner agent reads `LAYERX_AGENT_HUMAN_PEERS` as comma-separated
+`uid=<u32>;tenant=<tenant>;principal=<principal>` entries. The material assembler
+checks the named fields and their binding to the authority principal policy.
+The parser is
+[`human_peer_config.rs`](../../services/agent/crates/layerx-agentd/src/human_peer_config.rs).
 
-The owner agent consumes `LAYERX_AGENT_HUMAN_PEERS` from
-`layerx-human-agent-config`. Its encoding is comma-separated
-`uid=<u32>;tenant=<tenant>;principal=<principal>` entries. The component binding
-uses UID 4020 and the same tenant and DID as the authority principal policy.
-The material assembler validates that named-field encoding and refuses malformed,
-duplicate, additional or differently bound peer entries.
+## Evidence and recovery
 
-## Evidence provisioning
+The [hosted Human README](../../services/platform/hosted/human/README.md#evidence-provisioning)
+describes evidence inputs for owner identity, recovery, ledger funding, naming
+and program deployment. The assembler validates the producer manifest and
+paired admission/deployment journal records before publishing a protected
+owner bundle. Keep the complete material set with its matching KMS seal;
+[Human owner registration](HumanOwnerRegistration.md) describes the account and
+protocol bindings.
 
-The beta provisioning contract and output sources are documented in
-[the hosted Human README](../../services/platform/hosted/human/README.md#evidence-provisioning).
-Owner preparation and registration bind the identity, recovery policy and ledger
-account. Evidence assembly consumes authenticated ledger funding, naming and
-registry deployment evidence, journal pairs and the producer manifest. Retired
-custody references, checkpoint timing and guarantor keys are not assembly inputs.
-The assembler publishes one complete protected set and refuses unavailable inputs
-by path. The owner-provisioning Job mounts the runtime identity PVC.
+The node deployment runs the native chain described in
+[Hosted node](HostedNode.md). The beta helper's `up` and `render` entry points
+use [`beta-native.sh`](../../services/platform/hosted/tests/beta-native.sh) to
+prepare native material and the node manifest. Human policy assembly is a
+separate configuration step. Availability of a Human API operation depends on
+the service configuration and its required evidence.
+
+[Human journeys](HumanJourneys.md) · [Human custody](HumanCustody.md) · [Home](Home.md)

@@ -39,13 +39,9 @@ The control component's credential filename is **`testnet`**. A file called
 registry's resolver credential cannot introspect or provision principals.
 All nine files are required even if a caller is not deployed.
 
-The cluster bring-up script
-[`beta-cluster.sh`](../../services/platform/hosted/tests/beta-cluster.sh)
-creates `identity-tokens/gateway`, `registry`, `webhooks`, and `faucet` from
-component-specific credentials, then generates distinct `dashboard`, `testnet`,
-`ramp`, `provisioning`, and `registrar` tokens. These files populate Secret
-`layerx-identity-service-tokens`. Use the exact nine-file set for an independent
-installation; merely supplying the six introspection callers is insufficient.
+Service credentials are supplied through
+`LAYERX_IDENTITY_SERVICE_TOKENS_DIR`; keep the complete nine-file set distinct
+from end-user sessions.
 
 ## Credential and session model
 
@@ -281,15 +277,14 @@ set a client CA. These TLS settings do not remove bearer authorization.
 
 The [deployment](../../services/platform/hosted/identity/deployment.yaml) uses
 image `ghcr.io/sidiora-labs/layerx-identity:0.1.0`, UID/GID 4020:4020, one
-replica and `Recreate` strategy. The current
-[Dockerfile](../../docker/platform-identity/Dockerfile) ends with an `env-init`
-image whose entrypoint runs `layerx-env-files` and `identity-env-init`.
-The [initializer](../../services/platform/hosted/identity/env-init.sh) expects
-root to prepare the volume, then drops to UID/GID 4020:4020 and executes
-`/usr/local/bin/layerx-identity`. The Kubernetes template's nonroot security
-context does not supply that root initialization step; it must not be treated
-as interchangeable with the image's volume-preparation launch path. Service
-`layerx-identity` exposes TLS port 9443 in namespace `layerx-testnet`.
+replica and `Recreate` strategy. The
+[Dockerfile](../../docker/platform-identity/Dockerfile) also provides an
+`env-init` image whose entrypoint runs `layerx-env-files` and `identity-env-init`.
+The [initializer](../../services/platform/hosted/identity/env-init.sh) prepares
+the volume as root, drops to UID/GID 4020:4020 and executes
+`/usr/local/bin/layerx-identity`.
+
+Service `layerx-identity` exposes TLS port 9443 in namespace `layerx-testnet`.
 PVC `layerx-identity-state` is 5 GiB, ReadWriteOnce, mounted at
 `/var/lib/layerx/identity`. Runtime Secrets are `layerx-identity-server-tls`,
 `layerx-identity-service-tokens`, and `layerx-identity-store-key`.
@@ -298,8 +293,7 @@ The template's ingress policy admits TCP 9443 from testnet control, faucet and
 gateway pods and from namespace `layerx-developer`; egress allows DNS on 53.
 Network access and token permission are separate requirements: possessing a
 `registrar` or `registry` token does not change that ingress policy.
-Cluster provisioning now sends tenant-bearing principal bodies; see
-`identity_provision` in the bring-up script for the source/destination examples.
+Principal provisioning uses the tenant-bearing body shown above.
 
 ## Tests
 
