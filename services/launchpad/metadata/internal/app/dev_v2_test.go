@@ -35,6 +35,8 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/internaltest"
 )
 
+const eventEmitterFixturePath = "../../../../../sdk/launchpad/protocol/bindings/testdata/contract_events/EventEmitter.json"
+
 // The development v2 fixture builds app.New against Postgres and Redis,
 // replaying the deployed chain-125 factory receipt and its real indexer output.
 // Other creator-flow tests use the in-process geth helper below for wallets
@@ -94,7 +96,7 @@ func (c *devChain) emitTokenDeployed(t *testing.T, token, pool, creator string, 
 		t.Fatal(err)
 	}
 	height := new(big.Int).Add(head.Number, big.NewInt(1))
-	rawABI, err := os.ReadFile("../../../../../sdk/launchpad/protocol/bindings/testdata/contract_events/EventEmitter.json")
+	rawABI, err := os.ReadFile(eventEmitterFixturePath)
 	if err != nil {
 		t.Fatal(err)
 	}

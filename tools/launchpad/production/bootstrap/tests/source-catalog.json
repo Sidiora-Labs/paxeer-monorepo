@@ -622,7 +622,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/shared/chain/repair_26_test.go",
+          "path": "sdk/launchpad/shared/chain/receipt_projection_test.go",
           "sha256": "2221e1df3d8334d8b880356472d5b62dc4763fb625b20c45b34ecb879c80c23e",
           "declarations": [
             {
@@ -647,7 +647,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/shared/chain/repair_m912_test.go",
+          "path": "sdk/launchpad/shared/chain/rpc_correlation_test.go",
           "sha256": "27cc00d0975a87a9b5b4512380ec653c847b5992f45089152d8f05dc859ed356",
           "declarations": [
             {
@@ -818,7 +818,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/shared/config/capabilities/repair_38_test.go",
+          "path": "sdk/launchpad/shared/config/capabilities/preflight_pool_identity_test.go",
           "sha256": "bce803115f35cf0b6fc9ee1026c6c86b2aaf1f21ca1fe71878a8692a361f5fd4",
           "declarations": [
             {
@@ -847,7 +847,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/shared/config/capabilities/repair_m950_test.go",
+          "path": "sdk/launchpad/shared/config/capabilities/preflight_epoch_drift_test.go",
           "sha256": "858e6f667f322c43b66d6e9c5e0ca53e13ce78f3acbac279abefa36ec97b2d88",
           "declarations": [
             {
@@ -1038,7 +1038,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/shared/config/deployment/repair_m953_test.go",
+          "path": "sdk/launchpad/shared/config/deployment/rpc_export_test.go",
           "sha256": "d4c332652d164fd90559bb4db7bda70966b4740fe17620b0ed6088058a634fad",
           "declarations": [
             {
@@ -1480,7 +1480,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/shared/delivery/repair_41_test.go",
+          "path": "sdk/launchpad/shared/delivery/active_rebuild_recovery_test.go",
           "sha256": "ae4b2fbd4179ad9c254dd2aa0013ba704ba141c7ddfa274068b4dfceb9f174a6",
           "declarations": [
             {
@@ -2069,7 +2069,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/shared/storage/repair_m981_test.go",
+          "path": "sdk/launchpad/shared/storage/buffer_limits_test.go",
           "sha256": "44ef1be742016e600a8972a809edb8d6a8391353fa85afe3335b1993e1d0a97f",
           "declarations": [
             {
@@ -2272,7 +2272,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/protocol/bindings/repair_37_test.go",
+          "path": "sdk/launchpad/protocol/bindings/event_bindings_integration_test.go",
           "sha256": "29001ad03ccb8f34a89cf99058e15f472d278120c0908362ba31abe8d70789df",
           "declarations": [
             {
@@ -2407,7 +2407,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/protocol/catalog/repair_m924_test.go",
+          "path": "sdk/launchpad/protocol/catalog/optical_registry_review_test.go",
           "sha256": "5f7c641f921a7507e8e23be066febff4497cf01e9d25accd7b3f2bbc0a6f1b2c",
           "declarations": [
             {
@@ -2582,7 +2582,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/protocol/coverage/repair_28_test.go",
+          "path": "sdk/launchpad/protocol/coverage/emitter_caller_evidence_test.go",
           "sha256": "47f47277b614046e450a82bf61249a70ca74043823a2f2f6dbda1bbaf707e1c1",
           "declarations": [
             {
@@ -2624,7 +2624,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "sdk/launchpad/protocol/repair_61_test.go",
+          "path": "sdk/launchpad/protocol/event_schema_integration_test.go",
           "sha256": "31e7f5363615336b2d939974e15a39862e3f498231d684657ca05cb10644c128",
           "declarations": [
             {
@@ -2961,7 +2961,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/api/internal/app/repair_27_test.go",
+          "path": "services/launchpad/api/internal/app/receipt_evidence_test.go",
           "sha256": "c4d9bc1a05aa56d4b4687c2f7bb3087bd9453ea73084bf76e895ae09e9c16957",
           "declarations": [
             {
@@ -3469,7 +3469,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/api/internal/config/repair_m976_test.go",
+          "path": "services/launchpad/api/internal/config/credential_url_redaction_test.go",
           "sha256": "c4602f7529d6ffcbbfd7c7c712579176c8ed4a7e69af1357524d9dc7dfbcba00",
           "declarations": [
             {
@@ -3834,7 +3834,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/api/internal/rest/repair_58_test.go",
+          "path": "services/launchpad/api/internal/rest/search_errors_and_receipt_recovery_test.go",
           "sha256": "efab920bd6de8e6a6b5e83dd983992a023046d4cee35ce626ec27178b1be6933",
           "declarations": [
             {
@@ -3992,7 +3992,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/api/internal/store/repair_m984_test.go",
+          "path": "services/launchpad/api/internal/store/leaderboard_transfer_basis_test.go",
           "sha256": "fb35015fe14baf9a10182b93f81da7eb993b75cc19383b2509782ea5d70ccf50",
           "declarations": [
             {
@@ -4071,7 +4071,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/api/internal/ws/repair_m978_test.go",
+          "path": "services/launchpad/api/internal/ws/subscription_pool_limits_test.go",
           "sha256": "3df1163fe21ebffa2b2da8153bfcbc8244f091bf80961c17a515897a106cee40",
           "declarations": [
             {
@@ -4198,7 +4198,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/indexer/internal/app/repair_55_test.go",
+          "path": "services/launchpad/indexer/internal/app/market_recovery_test.go",
           "sha256": "1cad2963897f2ea4d6fac6f31317493d4aa4611d078f0fa2ef6896ff761b0de8",
           "declarations": [
             {
@@ -4829,7 +4829,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/indexer/internal/processor/repair_54_test.go",
+          "path": "services/launchpad/indexer/internal/processor/native_projection_test.go",
           "sha256": "1f721c5f46f1c8b05c424cd4142e805491a937439c43da33c2497161db8d1242",
           "declarations": [
             {
@@ -5357,7 +5357,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/indexer/internal/source/repair_56_exports_test.go",
+          "path": "services/launchpad/indexer/internal/source/explorer_discovery_exports_test.go",
           "sha256": "e7973132aa260c8089ebe438bd0a9710c42b4b484be24f607340272943196073",
           "declarations": [],
           "package": "github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source",
@@ -5365,7 +5365,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/indexer/internal/source/repair_56_postgres_test.go",
+          "path": "services/launchpad/indexer/internal/source/explorer_discovery_postgres_test.go",
           "sha256": "06ebb596e05d3c47f6e856d681ecb3e7b2a0a97c1692e73a5d31771c739480cf",
           "declarations": [
             {
@@ -5382,7 +5382,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/indexer/internal/source/repair_56_test.go",
+          "path": "services/launchpad/indexer/internal/source/explorer_discovery_test.go",
           "sha256": "5dd71be2e53dbcb64cfa12ff19c136c2bf6a2bcf38da5de2b86e89842001f942",
           "declarations": [
             {
@@ -5493,7 +5493,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/pnl-tracker/internal/app/repair_29_test.go",
+          "path": "services/launchpad/pnl-tracker/internal/app/reward_schema_recovery_test.go",
           "sha256": "00ce2c521ef517133e38eb63d1ca842bb09754091c08b7abbbd1a2c363d44dad",
           "declarations": [
             {
@@ -5552,7 +5552,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/pnl-tracker/internal/card/repair_45_test.go",
+          "path": "services/launchpad/pnl-tracker/internal/card/legacy_archive_test.go",
           "sha256": "778d233a25293fec08ce28f9b43a7a2242bf0d6b1f8fb8c5f4d6d3df1d08af3b",
           "declarations": [
             {
@@ -5569,7 +5569,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/pnl-tracker/internal/card/repair_m980_test.go",
+          "path": "services/launchpad/pnl-tracker/internal/card/snapshot_evidence_test.go",
           "sha256": "06f82bb5790329385a542e51989dbc2b9ac2c3ac3a5689fbb1d97ab8b75f7eb2",
           "declarations": [
             {
@@ -5627,7 +5627,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/pnl-tracker/internal/config/repair_m977_test.go",
+          "path": "services/launchpad/pnl-tracker/internal/config/reconcile_intervals_test.go",
           "sha256": "4417fb9aedf8637d89352b4663eb05d2ed3f7017cb0d2ff3a9007d33cc3b766d",
           "declarations": [
             {
@@ -5753,7 +5753,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/pnl-tracker/internal/httpapi/repair_m979_test.go",
+          "path": "services/launchpad/pnl-tracker/internal/httpapi/webhook_boundaries_test.go",
           "sha256": "11614dfde6e2ea29d7315d43e61130dc6c388def43cecd0b006978c8a22a738c",
           "declarations": [
             {
@@ -6333,7 +6333,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/pnl-tracker/internal/production/l17/repair_64_test.go",
+          "path": "services/launchpad/pnl-tracker/internal/production/l17/history_storage_grants_test.go",
           "sha256": "680ac0a9ef036d50ef19db7d3eb29b7ce61d4054acb475966b27eaf3ec41cc73",
           "declarations": [
             {
@@ -6447,7 +6447,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/pnl-tracker/internal/production/l18/repair_62_support_test.go",
+          "path": "services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go",
           "sha256": "db7cc5df5b29e400e9fa3d8c4f1425bc083634d131359d72a313d494821947fe",
           "declarations": [],
           "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
@@ -6455,7 +6455,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/pnl-tracker/internal/production/l18/repair_62_test.go",
+          "path": "services/launchpad/pnl-tracker/internal/production/l18/rewards_history_test.go",
           "sha256": "6ba1c2af5541b19fbd8ccaebc3bc1fe84e3dd4ec25899e861bd4386d49eeeba3",
           "declarations": [
             {
@@ -6668,7 +6668,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/pnl-tracker/internal/store/repair_m925_test.go",
+          "path": "services/launchpad/pnl-tracker/internal/store/journal_ordering_test.go",
           "sha256": "fe9778e231c3946ad7cf73d8fedac55408f37c51c24649f70e774c2e2a914f1b",
           "declarations": [
             {
@@ -6753,7 +6753,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/ranking-algo/internal/app/repair_m934_fixture_test.go",
+          "path": "services/launchpad/ranking-algo/internal/app/publication_recovery_fixture_test.go",
           "sha256": "226a2833d009567203f055d30b16407bf530e1a877029ec290c3582c55aa3ed0",
           "declarations": [],
           "package": "github.com/Sidiora-Technologies/KindleLaunch/core/ranking-algo/internal/app",
@@ -6761,7 +6761,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/ranking-algo/internal/app/repair_m934_test.go",
+          "path": "services/launchpad/ranking-algo/internal/app/publication_recovery_test.go",
           "sha256": "535789cbdf445d4d1d1893b910f26c20023014ff124544db5a3784e7bace3edf",
           "declarations": [
             {
@@ -6866,7 +6866,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/ranking-algo/internal/httpapi/repair_33_test.go",
+          "path": "services/launchpad/ranking-algo/internal/httpapi/snapshot_sdk_test.go",
           "sha256": "26559bedc8cc4abd289a2abb2b66a85933011def115d830c51508c5e0abe6d1b",
           "declarations": [
             {
@@ -6891,7 +6891,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/ranking-algo/internal/httpapi/repair_m933_test.go",
+          "path": "services/launchpad/ranking-algo/internal/httpapi/snapshot_categories_test.go",
           "sha256": "04d4ad4289b4c89e5d863b5edece2109de4a36b99fbf866e36abe813021e4fe8",
           "declarations": [
             {
@@ -7064,7 +7064,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/ranking-algo/internal/ranker/repair_m932_test.go",
+          "path": "services/launchpad/ranking-algo/internal/ranker/coordinator_category_count_test.go",
           "sha256": "e5b812fb6bd4449d9f2d161f1d2fdfbd3b9c04eb88be7bcbd84255ea960971f4",
           "declarations": [
             {
@@ -7253,7 +7253,7 @@
           ]
         },
         {
-          "path": "services/launchpad/ranking-algo/internal/store/repair_32_test.go",
+          "path": "services/launchpad/ranking-algo/internal/store/publication_recovery_test.go",
           "sha256": "59abb0d4b1430c48b7cb99a00321d0cd2590457de1b4bab5cdc02b094491ee94",
           "declarations": [
             {
@@ -7557,7 +7557,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/stats-workers/internal/app/repair_70_test.go",
+          "path": "services/launchpad/stats-workers/internal/app/canonical_multihop_projection_test.go",
           "sha256": "994fcad0706c6cf8567bff8f75552052106bcb76c94194ce6d5e01570a40bea4",
           "declarations": [
             {
@@ -7739,7 +7739,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/stats-workers/internal/consumer/repair_71_test.go",
+          "path": "services/launchpad/stats-workers/internal/consumer/canonical_multihop_delivery_test.go",
           "sha256": "68e04c585c7bb8538b403cbdcfc427669111520158afc1e0b5509cdc9e5b53c6",
           "declarations": [
             {
@@ -8132,7 +8132,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/stats-workers/internal/httpapi/repair_69_test.go",
+          "path": "services/launchpad/stats-workers/internal/httpapi/public_search_delivery_test.go",
           "sha256": "d95610c4b78fd182f74522bc3ca24bbfc758f46022722407c263acb6434a06c1",
           "declarations": [
             {
@@ -8814,7 +8814,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/trading-charts/internal/app/repair_73_test.go",
+          "path": "services/launchpad/trading-charts/internal/app/committed_candle_publication_test.go",
           "sha256": "0d3ecc5a896be16b5d0a0648d51645c0e58979eaa927bacd70003e0b3d3cc77d",
           "declarations": [
             {
@@ -9109,7 +9109,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/trading-charts/internal/engine/repair_74_test.go",
+          "path": "services/launchpad/trading-charts/internal/engine/archive_checkpoint_test.go",
           "sha256": "ac649e29e3bbe5324fb26b35be98045b0a6807f556f1566ec8df19c6b2d0ce6b",
           "declarations": [
             {
@@ -9588,7 +9588,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/trading-charts/internal/store/repair_75_test.go",
+          "path": "services/launchpad/trading-charts/internal/store/rebuild_publication_test.go",
           "sha256": "ecb66b4a4c1be802528b09d55ed988a5abeb03a321a21d9859c0d1b5827e7928",
           "declarations": [
             {
@@ -10146,7 +10146,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/gateway/internal/auth/repair_49_test.go",
+          "path": "services/launchpad/gateway/internal/auth/challenge_idempotency_test.go",
           "sha256": "e7086d3c734777c8e5816c07bf808c56781e7b68606f980c6950cb848972c2d4",
           "declarations": [
             {
@@ -10429,7 +10429,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/gateway/internal/proxy/repair_48_test.go",
+          "path": "services/launchpad/gateway/internal/proxy/connected_authority_workflows_test.go",
           "sha256": "45d292e11bc149c5d0036e2c7486d99913698276a3bf05de1837a6668413c70e",
           "declarations": [
             {
@@ -10589,7 +10589,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/gateway/internal/serve/repair_50_test.go",
+          "path": "services/launchpad/gateway/internal/serve/approved_response_cache_test.go",
           "sha256": "81bd11c3ff47fa9c2a19832fdf293c675765494e6339d168181bd0c68d06e0d7",
           "declarations": [
             {
@@ -10827,7 +10827,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/gateway/internal/storage/repair_51_test.go",
+          "path": "services/launchpad/gateway/internal/storage/initial_visibility_test.go",
           "sha256": "b9fde8669e7df01fb34802e636f69237a7d69ca11115a57bb1f8d85c4e762db7",
           "declarations": [
             {
@@ -10912,7 +10912,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/gateway/internal/upload/repair_52_test.go",
+          "path": "services/launchpad/gateway/internal/upload/connected_error_schema_test.go",
           "sha256": "8a72eec1017c3821342e4b1d0b6fa43348754cbdaecbdd4cb8515028ea88ae18",
           "declarations": [
             {
@@ -11462,7 +11462,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/livestream/internal/streams/repair_57_integration_test.go",
+          "path": "services/launchpad/livestream/internal/streams/stream_contract_recovery_integration_test.go",
           "sha256": "12dd979d2a910024e46b878d3251fba455f1150d681ca5e26ca4842288fabdaf",
           "declarations": [
             {
@@ -11491,7 +11491,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/livestream/internal/streams/repair_57_test.go",
+          "path": "services/launchpad/livestream/internal/streams/stream_contract_test.go",
           "sha256": "9efd091507a2d564e8162ee3c9eb11019dc8550421cfa31e49ff5a9b67fbaca4",
           "declarations": [
             {
@@ -12096,7 +12096,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/metadata/internal/metadata/repair_59_test.go",
+          "path": "services/launchpad/metadata/internal/metadata/visibility_revocation_test.go",
           "sha256": "2c5abe970d576cf4278f420520759ddea9dcdc690676a3aa3daf5f9c96c7e97f",
           "declarations": [
             {
@@ -12268,7 +12268,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/social/internal/app/repair_66_test.go",
+          "path": "services/launchpad/social/internal/app/frozen_contracts_test.go",
           "sha256": "82509f9d8a605d6feed03c2e6a5f1aedef668658238d9ef70604b3a6a8c39410",
           "declarations": [
             {
@@ -12650,7 +12650,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/social/internal/interactions/repair_67_test.go",
+          "path": "services/launchpad/social/internal/interactions/frozen_error_sdk_test.go",
           "sha256": "230fd84b361987c9c3b516e20599681a98cecf1fbfa4e24dad925cc0cc15f2c2",
           "declarations": [
             {
@@ -12843,7 +12843,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/social/internal/social/repair_68_peer_test.go",
+          "path": "services/launchpad/social/internal/social/durable_social_peer_test.go",
           "sha256": "7a060c00c084b87c1b4d73f8af5404cde5c012f5499bee138054181d5cbd131f",
           "declarations": [],
           "package": "github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/social",
@@ -12851,7 +12851,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/social/internal/social/repair_68_test.go",
+          "path": "services/launchpad/social/internal/social/frozen_social_contracts_test.go",
           "sha256": "253e803bcda18d1bed52cdc3ec2cc736de5c30868f069b701a660c26364ddf43",
           "declarations": [
             {
@@ -13229,7 +13229,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/user/internal/account/repair_76_test.go",
+          "path": "services/launchpad/user/internal/account/account_state_recovery_test.go",
           "sha256": "18868220ac578bccbeea9474f262e61bf1008b6b603cf1612723428d64e8bb31",
           "declarations": [
             {
@@ -13434,7 +13434,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/user/internal/app/repair_77_test.go",
+          "path": "services/launchpad/user/internal/app/notification_eligibility_test.go",
           "sha256": "de82c1918ef3c27f062cc34900afddb340f95c86a566d16ee47f5ee3473926be",
           "declarations": [
             {
@@ -13785,7 +13785,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/discovery/repair_46_test.go",
+          "path": "services/launchpad/discovery/squad_alert_contracts_test.go",
           "sha256": "f8e4d985e6c1f9cc444afab8205a09d6ece27ac386d693a533d155c6d7f3391c",
           "declarations": [
             {
@@ -14026,7 +14026,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/notifications/repair_40_test.go",
+          "path": "services/launchpad/notifications/notification_runtime_test.go",
           "sha256": "8df1d14be4edd633245b9932c050c26bdd51a2c3105061aefbe5aa94ada31619",
           "declarations": [
             {
@@ -14610,7 +14610,7 @@
           "skip_or_focus_markers": []
         },
         {
-          "path": "services/launchpad/security/control/repair_65_test.go",
+          "path": "services/launchpad/security/control/policy_recovery_test.go",
           "sha256": "c76af9ea3aa009e4f069a0c91a53ad360116807537a6b2c519fa124803d50685",
           "declarations": [
             {
@@ -15020,7 +15020,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/core/repair-22-31-22.test.ts",
+      "path": "apps/launchpad/web/src/core/runtime-authority-attestation.test.ts",
       "sha256": "bf5f84bbf1050ee046633048758d9f5bf0b9a75715b1d97196e00542f0413ac7",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -15097,7 +15097,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/repair-22-31-23.test.ts",
+      "path": "apps/launchpad/web/src/core/wallet-sdk/embedded_sdk/embedded/signing-contract.test.ts",
       "sha256": "36d84e78ed8324aceb46ac1f95d52fed05c2faf9017f942b1f53989c0c237048",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -15230,7 +15230,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/hooks/chat/repair-22-33-986.test.ts",
+      "path": "apps/launchpad/web/src/hooks/chat/conversation-read-markers.test.ts",
       "sha256": "f3a3b907d8b81b37a34e85e358c5f9e57e4231bb16e5e9f621ba0331893d313f",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -15497,7 +15497,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/ui/primitives/repair-22-33-910.test.ts",
+      "path": "apps/launchpad/web/src/ui/primitives/interaction-and-popover-position.test.ts",
       "sha256": "53afe2f64cda158d24c1373fc988a5d41f9e548c065bb5aa7d1b59299a8bfb77",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -15539,7 +15539,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/ui/shared/repair-22-33-911.test.ts",
+      "path": "apps/launchpad/web/src/ui/shared/token-logo-recovery.test.ts",
       "sha256": "a43df56034921acdbfa2837cb15e6847a53e6c5f312d944cbe873fea22088ea7",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -15688,7 +15688,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/widgets/bounties/repair-22-31-47.test.ts",
+      "path": "apps/launchpad/web/src/widgets/bounties/prepared-transaction-binding.test.ts",
       "sha256": "167bde2dd97323c35b12df7a99bef0a9d24b44a23c139e9d9f270aa2612362ce",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -15743,7 +15743,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/widgets/coin/repair-22-33-918.test.ts",
+      "path": "apps/launchpad/web/src/widgets/coin/coin-pagination-risk.test.ts",
       "sha256": "bb29b78845adf60900a8de41f3a0b58a7e351a43f3acbd8c137508ec4956c243",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -15889,7 +15889,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/widgets/create/repair-22-31-39.test.ts",
+      "path": "apps/launchpad/web/src/widgets/create/native-creation-approval.test.ts",
       "sha256": "9cf8f8229d8a18d907a13f95b52f2cfbb3d7e3bc725bdd2a8b53469a6d5bd59b",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -16093,7 +16093,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/widgets/leaderboard/cups/repair-22-33-920.test.ts",
+      "path": "apps/launchpad/web/src/widgets/leaderboard/cups/cup-standings-pagination.test.ts",
       "sha256": "3f4496d6526c56b1e74d748a9abee1539f6fa7b5daeb8082755183119d8ab19e",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -16189,7 +16189,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/widgets/live/repair-22-33-922.test.ts",
+      "path": "apps/launchpad/web/src/widgets/live/live-continuation-refresh.test.ts",
       "sha256": "e8e6748dd472b019038c6e392436f9c96c0d21f2edc78cb5cefc9968526f2e41",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -16285,7 +16285,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/widgets/my-token/repair-22-31-60.test.ts",
+      "path": "apps/launchpad/web/src/widgets/my-token/creator-discovery.test.ts",
       "sha256": "b9ce1d91831302a85c1071c08ca2f3d1eb8c69c147096519c60922d4112a5db8",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -16454,7 +16454,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/widgets/rewards/repair-22-31-44.test.ts",
+      "path": "apps/launchpad/web/src/widgets/rewards/reward-claim-route.test.ts",
       "sha256": "6a382b4188f7528faf72ede58545f7193b969aac44f0f9fbb6ba28eafb7c7d59",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -16499,7 +16499,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/widgets/swap/repair-22-31-43.test.ts",
+      "path": "apps/launchpad/web/src/widgets/swap/swap-quote-confirmation.test.ts",
       "sha256": "3dbc55f554551d23994eac1ed1ac9ecfce8a4be97adbfb6ce3f341ac6fcaaca0",
       "literal_declarations": [],
       "skip_or_focus_markers": []
@@ -16678,7 +16678,7 @@
       "skip_or_focus_markers": []
     },
     {
-      "path": "apps/launchpad/web/src/widgets/terminal/views/repair-22-33-937.test.ts",
+      "path": "apps/launchpad/web/src/widgets/terminal/views/following-pagination.test.ts",
       "sha256": "2f5d0f1ab7aec21ab048984dd018b2ce8a846ca725cfc28d9cd2311845e2b741",
       "literal_declarations": [],
       "skip_or_focus_markers": []
