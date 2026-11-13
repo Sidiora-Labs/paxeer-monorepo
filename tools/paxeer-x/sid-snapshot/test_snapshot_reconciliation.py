@@ -179,7 +179,7 @@ def balance_requests(chain):
             and call["params"][0]["data"].startswith("0x70a08231")]
 
 
-def test_f007_pins_all_reads_despite_transfer_during_reconciliation(peer, tmp_path, capsys):
+def test_pins_all_reads_despite_transfer_during_reconciliation(peer, tmp_path, capsys):
     chain, url = peer
     chain.send(1, ZERO, A, 100)
     chain.send(2, A, B, 40)
@@ -210,7 +210,7 @@ def test_f007_pins_all_reads_despite_transfer_during_reconciliation(peer, tmp_pa
     assert capsys.readouterr().out == "holders 3 sum 100\n"
 
 
-def test_f008_zero_history_candidate_is_read_and_stale_history_stops_export(peer, tmp_path):
+def test_zero_history_candidate_is_read_and_stale_history_stops_export(peer, tmp_path):
     chain, url = peer
     chain.send(1, ZERO, A, 100)
     chain.send(2, A, B, 100)
@@ -225,7 +225,7 @@ def test_f008_zero_history_candidate_is_read_and_stale_history_stops_export(peer
     assert not out.exists() and not Path(str(out) + ".evidence.json").exists()
 
 
-def test_f008_complete_history_queries_zero_candidates_and_emits_each_holder_once(peer, tmp_path):
+def test_complete_history_queries_zero_candidates_and_emits_each_holder_once(peer, tmp_path):
     chain, url = peer
     chain.send(1, ZERO, A, 100)
     chain.send(2, A, B, 100)
@@ -238,7 +238,7 @@ def test_f008_complete_history_queries_zero_candidates_and_emits_each_holder_onc
     assert ["0x" + call["params"][0]["data"][-40:] for call in balance_requests(chain)] == [A, B, C]
 
 
-def test_f008_missing_holder_stops_even_when_rpc_reconciliation_matches_supply(peer, tmp_path):
+def test_missing_holder_stops_even_when_rpc_reconciliation_matches_supply(peer, tmp_path):
     chain, url = peer
     chain.send(1, ZERO, A, 100)
     incomplete = write_source(tmp_path / "incomplete.csv", chain.events)
@@ -251,7 +251,7 @@ def test_f008_missing_holder_stops_even_when_rpc_reconciliation_matches_supply(p
     assert not out.exists()
 
 
-def test_f007_supply_mismatch_preserves_existing_output(peer, tmp_path):
+def test_supply_mismatch_preserves_existing_output(peer, tmp_path):
     chain, url = peer
     chain.send(1, ZERO, A, 100)
     source = write_source(tmp_path / "history.csv", chain.events)
@@ -269,7 +269,7 @@ def test_f007_supply_mismatch_preserves_existing_output(peer, tmp_path):
                                               ("rpc_error", "eth_call failed"),
                                               ("short_word", "invalid 32-byte hex"),
                                               ("removed_log", "invalid or removed")])
-def test_f007_unavailable_or_uncommitted_evidence_fails_closed(peer, tmp_path, failure, message):
+def test_unavailable_or_uncommitted_evidence_fails_closed(peer, tmp_path, failure, message):
     chain, url = peer
     chain.send(1, ZERO, A, 100)
     source = write_source(tmp_path / "history.csv", chain.events)
@@ -280,7 +280,7 @@ def test_f007_unavailable_or_uncommitted_evidence_fails_closed(peer, tmp_path, f
     assert not out.exists() and not Path(str(out) + ".evidence.json").exists()
 
 
-def test_f008_conflicting_sources_are_rejected(peer, tmp_path):
+def test_conflicting_sources_are_rejected(peer, tmp_path):
     chain, url = peer
     event = chain.send(1, ZERO, A, 100)
     source = write_source(tmp_path / "history.csv", [event])
@@ -291,7 +291,7 @@ def test_f008_conflicting_sources_are_rejected(peer, tmp_path):
     assert not out.exists()
 
 
-def test_f008_unbounded_legacy_csv_is_rejected(peer, tmp_path):
+def test_unbounded_legacy_csv_is_rejected(peer, tmp_path):
     _, url = peer
     source = tmp_path / "legacy.csv"
     source.write_text("transaction_hash,log_index,from_address,to_address,amount\n")
@@ -301,7 +301,7 @@ def test_f008_unbounded_legacy_csv_is_rejected(peer, tmp_path):
     assert not out.exists()
 
 
-def test_f007_burn_and_empty_supply_are_reconciled(peer, tmp_path):
+def test_burn_and_empty_supply_are_reconciled(peer, tmp_path):
     chain, url = peer
     chain.send(1, ZERO, A, 100)
     chain.send(2, A, ZERO, 100)

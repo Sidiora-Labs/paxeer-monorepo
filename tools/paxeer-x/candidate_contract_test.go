@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func repairM843Exchange(t *testing.T, request contractRequest, result any) error {
+func candidateContractExchange(t *testing.T, request contractRequest, result any) error {
 	t.Helper()
 	wire, err := json.Marshal(request)
 	if err != nil {
@@ -29,7 +29,7 @@ func repairM843Exchange(t *testing.T, request contractRequest, result any) error
 	return nil
 }
 
-func repairM843ReadyService(id string, deps ...string) candidateService {
+func candidateContractReadyService(id string, deps ...string) candidateService {
 	if deps == nil {
 		deps = []string{}
 	}
@@ -53,32 +53,32 @@ func repairM843ReadyService(id string, deps ...string) candidateService {
 	}
 }
 
-func repairM843Request(t *testing.T) contractRequest {
+func candidateContractRequest(t *testing.T) contractRequest {
 	t.Helper()
-	rows := []candidateService{repairM843ReadyService("agent-mcp", "agentd", "platform-identity"),
-		repairM843ReadyService("agentd"), repairM843ReadyService("platform-identity")}
+	rows := []candidateService{candidateContractReadyService("agent-mcp", "agentd", "platform-identity"),
+		candidateContractReadyService("agentd"), candidateContractReadyService("platform-identity")}
 	roster := map[string]declaration{}
 	for _, row := range rows {
 		roster[row.ID] = row.Declaration
 	}
 	var resolutions map[string]dependencyResolution
-	if err := repairM843Exchange(t, contractRequest{Operation: "resolve", Roster: roster}, &resolutions); err != nil {
+	if err := candidateContractExchange(t, contractRequest{Operation: "resolve", Roster: roster}, &resolutions); err != nil {
 		t.Fatal(err)
 	}
 	for i := range rows {
 		rows[i].DependencyIDs = resolutions[rows[i].ID].IDs
 	}
 	var network map[string]any
-	if err := repairM843Exchange(t, contractRequest{Operation: "foundation"}, &network); err != nil {
+	if err := candidateContractExchange(t, contractRequest{Operation: "foundation"}, &network); err != nil {
 		t.Fatal(err)
 	}
 	return contractRequest{Operation: "decisions", Roster: roster, Services: rows, Foundation: network}
 }
 
-func repairM843Decisions(t *testing.T, request contractRequest) map[string]string {
+func candidateContractDecisions(t *testing.T, request contractRequest) map[string]string {
 	t.Helper()
 	var decisions map[string]string
-	if err := repairM843Exchange(t, request, &decisions); err != nil {
+	if err := candidateContractExchange(t, request, &decisions); err != nil {
 		t.Fatal(err)
 	}
 	if len(decisions) != len(request.Services) {
@@ -87,7 +87,7 @@ func repairM843Decisions(t *testing.T, request contractRequest) map[string]strin
 	return decisions
 }
 
-func TestRepairM_843_RPCFoundation(t *testing.T) {
+func TestCandidateContractRPCFoundation(t *testing.T) {
 	var maintained struct {
 		RPCRecords      []string `json:"rpc_records"`
 		CanonicalOrigin string   `json:"canonical_origin"`
@@ -120,7 +120,7 @@ func TestRepairM_843_RPCFoundation(t *testing.T) {
 		Placement      string   `json:"wallet_placement"`
 		Relocation     bool     `json:"relocation"`
 	}
-	if err := repairM843Exchange(t, contractRequest{Operation: "foundation"}, &network); err != nil {
+	if err := candidateContractExchange(t, contractRequest{Operation: "foundation"}, &network); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(network.RPCRecords, maintained.RPCRecords) {
@@ -133,64 +133,64 @@ func TestRepairM_843_RPCFoundation(t *testing.T) {
 	}
 	for _, records := range [][]string{expected[:14], append(append([]string{}, expected...), "api15"),
 		{"api1", "api2", "api3", "api4", "api5", "api6", "api7", "api8", "api9", "api10", "api11", "api12", "api13", "api14", "api15", "api16"}} {
-		request := repairM843Request(t)
+		request := candidateContractRequest(t)
 		request.Foundation["rpc_records"] = records
 		var decisions map[string]string
-		if err := repairM843Exchange(t, request, &decisions); err == nil || !strings.Contains(err.Error(), "foundation") {
+		if err := candidateContractExchange(t, request, &decisions); err == nil || !strings.Contains(err.Error(), "foundation") {
 			t.Fatalf("changed RPC roster accepted: %v, %v", records, err)
 		}
 	}
 }
 
-func TestRepairM_843_CanonicalDependencies(t *testing.T) {
-	request := repairM843Request(t)
+func TestCandidateContractCanonicalDependencies(t *testing.T) {
+	request := candidateContractRequest(t)
 	if got := request.Services[0].DependencyIDs; !reflect.DeepEqual(got, []string{"agentd", "platform-identity"}) {
 		t.Fatalf("canonical ids = %v", got)
 	}
-	if got := repairM843Decisions(t, request)["agent-mcp"]; got != "preserved" {
+	if got := candidateContractDecisions(t, request)["agent-mcp"]; got != "preserved" {
 		t.Fatalf("ready declared dependencies: %s", got)
 	}
-	indexer := repairM843ReadyService("platform-indexer")
+	indexer := candidateContractReadyService("platform-indexer")
 	request.Roster[indexer.ID] = indexer.Declaration
 	request.Services = append(request.Services, indexer)
 	request.Services[0].Declaration.Dependencies = json.RawMessage(`["indexer", "platform-identity"]`)
 	request.Roster["agent-mcp"] = request.Services[0].Declaration
 	var resolutions map[string]dependencyResolution
-	if err := repairM843Exchange(t, contractRequest{Operation: "resolve", Roster: request.Roster}, &resolutions); err != nil {
+	if err := candidateContractExchange(t, contractRequest{Operation: "resolve", Roster: request.Roster}, &resolutions); err != nil {
 		t.Fatal(err)
 	}
 	request.Services[0].DependencyIDs = resolutions["agent-mcp"].IDs
 	if !reflect.DeepEqual(request.Services[0].DependencyIDs, []string{"platform-identity", "platform-indexer"}) {
 		t.Fatal(resolutions)
 	}
-	if got := repairM843Decisions(t, request)["agent-mcp"]; got != "preserved" {
+	if got := candidateContractDecisions(t, request)["agent-mcp"]; got != "preserved" {
 		t.Fatalf("canonical alias was not consumed: %s", got)
 	}
 	request.Services[0].DependencyIDs = []string{"indexer", "platform-identity"}
 	var decisions map[string]string
-	if err := repairM843Exchange(t, request, &decisions); err == nil {
+	if err := candidateContractExchange(t, request, &decisions); err == nil {
 		t.Fatal("noncanonical runtime dependency accepted")
 	}
 }
 
-func TestRepairM_843_MissingDependencies(t *testing.T) {
+func TestCandidateContractMissingDependencies(t *testing.T) {
 	for _, ids := range [][]string{nil, {}, {"agentd"}, {"platform-identity"}} {
-		request := repairM843Request(t)
+		request := candidateContractRequest(t)
 		request.Services[0].DependencyIDs = ids
 		var decisions map[string]string
-		err := repairM843Exchange(t, request, &decisions)
+		err := candidateContractExchange(t, request, &decisions)
 		if err == nil || !strings.Contains(err.Error(), "declared dependency omitted") {
 			t.Fatalf("omitted dependency accepted: %v, %v", ids, err)
 		}
 	}
 }
 
-func TestRepairM_843_DependencyReadiness(t *testing.T) {
+func TestCandidateContractDependencyReadiness(t *testing.T) {
 	for _, field := range []string{"owner_ref", "authority_ref", "membership_ref", "storage_ref", "data_ref"} {
 		t.Run(field, func(t *testing.T) {
-			request := repairM843Request(t)
+			request := candidateContractRequest(t)
 			request.Services[1].Bindings[field] = unknown
-			if got := repairM843Decisions(t, request)["agent-mcp"]; got != unknown {
+			if got := candidateContractDecisions(t, request)["agent-mcp"]; got != unknown {
 				t.Fatalf("unowned dependency admitted: %s", got)
 			}
 		})
@@ -207,45 +207,45 @@ func TestRepairM_843_DependencyReadiness(t *testing.T) {
 	}
 	for name, mutate := range mutations {
 		t.Run(name, func(t *testing.T) {
-			request := repairM843Request(t)
+			request := candidateContractRequest(t)
 			mutate(&request.Services[1])
-			if got := repairM843Decisions(t, request)["agent-mcp"]; got != unknown {
+			if got := candidateContractDecisions(t, request)["agent-mcp"]; got != unknown {
 				t.Fatalf("unproven dependency admitted: %s", got)
 			}
 		})
 	}
 }
 
-func TestRepairM_843_UnresolvedDeclarations(t *testing.T) {
+func TestCandidateContractUnresolvedDeclarations(t *testing.T) {
 	for _, value := range []string{`["agentd", "unlisted-provider"]`, `"chain JSON-RPC, local node relay"`, `"agentd and unlisted-provider"`} {
-		request := repairM843Request(t)
+		request := candidateContractRequest(t)
 		request.Services[0].Declaration.Dependencies = json.RawMessage(value)
 		request.Roster["agent-mcp"] = request.Services[0].Declaration
 		var resolutions map[string]dependencyResolution
-		if err := repairM843Exchange(t, contractRequest{Operation: "resolve", Roster: request.Roster}, &resolutions); err != nil {
+		if err := candidateContractExchange(t, contractRequest{Operation: "resolve", Roster: request.Roster}, &resolutions); err != nil {
 			t.Fatal(err)
 		}
 		if len(resolutions["agent-mcp"].Unresolved) == 0 {
 			t.Fatalf("unresolved requirement discarded: %s", value)
 		}
 		request.Services[0].DependencyIDs = resolutions["agent-mcp"].IDs
-		if got := repairM843Decisions(t, request)["agent-mcp"]; got != unknown {
+		if got := candidateContractDecisions(t, request)["agent-mcp"]; got != unknown {
 			t.Fatalf("opaque evidence hid unresolved declaration: %s", got)
 		}
 	}
 	for _, invalid := range []string{`null`, `42`, `{"agentd":true}`, `[""]`, `""`, `["agentd", "agentd"]`} {
-		request := repairM843Request(t)
+		request := candidateContractRequest(t)
 		row := request.Roster["agent-mcp"]
 		row.Dependencies = json.RawMessage(invalid)
 		request.Roster["agent-mcp"] = row
 		var resolutions map[string]dependencyResolution
-		if err := repairM843Exchange(t, contractRequest{Operation: "resolve", Roster: request.Roster}, &resolutions); err == nil {
+		if err := candidateContractExchange(t, contractRequest{Operation: "resolve", Roster: request.Roster}, &resolutions); err == nil {
 			t.Fatalf("invalid declaration accepted: %s", invalid)
 		}
 	}
 }
 
-func TestRepairM_843_DeploymentDecisions(t *testing.T) {
+func TestCandidateContractDeploymentDecisions(t *testing.T) {
 	cases := map[string]func(*candidateService){
 		"preserved": func(*candidateService) {},
 		"configure": func(row *candidateService) { row.Observations[0].ConfigDigest = "sha256:" + strings.Repeat("d", 64) },
@@ -258,22 +258,22 @@ func TestRepairM_843_DeploymentDecisions(t *testing.T) {
 	}
 	for want, mutate := range cases {
 		t.Run(want, func(t *testing.T) {
-			request := repairM843Request(t)
+			request := candidateContractRequest(t)
 			mutate(&request.Services[0])
-			if got := repairM843Decisions(t, request)["agent-mcp"]; got != want {
+			if got := candidateContractDecisions(t, request)["agent-mcp"]; got != want {
 				t.Fatalf("decision = %s, want %s", got, want)
 			}
 		})
 	}
-	request := repairM843Request(t)
+	request := candidateContractRequest(t)
 	request.Services[1].DependencyIDs = []string{"agent-mcp"}
 	var decisions map[string]string
-	if err := repairM843Exchange(t, request, &decisions); err == nil || !strings.Contains(err.Error(), "cyclic") {
+	if err := candidateContractExchange(t, request, &decisions); err == nil || !strings.Contains(err.Error(), "cyclic") {
 		t.Fatalf("dependency cycle not refused: %v", err)
 	}
 }
 
-func TestRepairM_843_CurrentCatalogue(t *testing.T) {
+func TestCandidateContractCurrentCatalogue(t *testing.T) {
 	data, err := os.ReadFile("../../spec/layerx-merge/spec.kvx")
 	if err != nil {
 		t.Fatal(err)
@@ -315,13 +315,13 @@ func TestRepairM_843_CurrentCatalogue(t *testing.T) {
 		t.Fatalf("committed catalogue fixture incomplete: %d", len(roster))
 	}
 	var resolutions map[string]dependencyResolution
-	if err := repairM843Exchange(t, contractRequest{Operation: "resolve", Roster: roster}, &resolutions); err != nil {
+	if err := candidateContractExchange(t, contractRequest{Operation: "resolve", Roster: roster}, &resolutions); err != nil {
 		t.Fatal(err)
 	}
-	request := repairM843Request(t)
+	request := candidateContractRequest(t)
 	request.Roster, request.Services = roster, nil
 	for name, declared := range roster {
-		row := repairM843ReadyService(name)
+		row := candidateContractReadyService(name)
 		row.Declaration = declared
 		row.DependencyIDs = resolutions[name].IDs
 		for field := range row.Bindings {
@@ -330,7 +330,7 @@ func TestRepairM_843_CurrentCatalogue(t *testing.T) {
 		row.Observations = nil
 		request.Services = append(request.Services, row)
 	}
-	decisions := repairM843Decisions(t, request)
+	decisions := candidateContractDecisions(t, request)
 	for name, action := range decisions {
 		if action != unknown {
 			t.Fatalf("unobserved current service %s got %s", name, action)
@@ -347,7 +347,7 @@ func TestRepairM_843_CurrentCatalogue(t *testing.T) {
 	}
 }
 
-func TestRepairM_843_TransportRefusals(t *testing.T) {
+func TestCandidateContractTransportRefusals(t *testing.T) {
 	for _, input := range []string{`{`, `{"operation":"unknown"}`, `{"operation":"foundation","extra":true}`,
 		`{"operation":"foundation"} {"operation":"foundation"}`, `{"operation":"decisions"}`} {
 		var response bytes.Buffer
@@ -357,7 +357,7 @@ func TestRepairM_843_TransportRefusals(t *testing.T) {
 	}
 }
 
-func TestRepairM_843_LNIGuidance(t *testing.T) {
+func TestCandidateContractLNIGuidance(t *testing.T) {
 	data, err := os.ReadFile("retired_callers.json")
 	if err != nil {
 		t.Fatal(err)

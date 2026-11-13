@@ -14,8 +14,8 @@ import pytest
 
 
 HERE = Path(__file__).resolve().parent
-FIXTURES = HERE / 'fixtures' / 'repair_22_33_852'
-SPEC = importlib.util.spec_from_file_location('routes_repair_22_33_852', HERE / 'routes_test.py')
+FIXTURES = HERE / 'fixtures' / 'route_transport_recovery'
+SPEC = importlib.util.spec_from_file_location('routes_transport_recovery', HERE / 'routes_test.py')
 routes = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(routes)
 
@@ -165,7 +165,7 @@ class TranscriptPeer:
         self.stop()
 
 
-def test_f030_root_rpc_drives_real_https_codec():
+def test_root_rpc_drives_real_https_codec():
     case = node_case('before')
     catalogue = product()
     case['route_ids'] = [route['id'] for route in catalogue['routes']]
@@ -181,7 +181,7 @@ def test_f030_root_rpc_drives_real_https_codec():
             assert not routes.route_matches(dict(route, endpoint_paths=['/', retired]), obsolete)
 
 
-def test_f030_root_websocket_drives_real_upgrade_and_masked_frames():
+def test_root_websocket_drives_real_upgrade_and_masked_frames():
     message = recording()['root_websocket'][0]
     route = {'service': 'node', 'transport': 'websocket', 'method': 'GET', 'path': 'eth_chainId'}
     case = {'service': 'node', 'transport': 'websocket', 'method': 'GET', 'path': '/',
@@ -195,7 +195,7 @@ def test_f030_root_websocket_drives_real_upgrade_and_masked_frames():
         assert peer.seen == [('GET', '/', message['send'])]
 
 
-def test_f030_retained_phoenix_gateway_transport_is_connected():
+def test_retained_phoenix_gateway_transport_is_connected():
     path = '/explorer/backend/socket/v2/websocket'
     route = {'service': 'explorer', 'transport': 'websocket', 'method': 'GET',
              'path': path, 'websocket_protocol': 'phoenix-v2'}
@@ -218,7 +218,7 @@ def test_f030_retained_phoenix_gateway_transport_is_connected():
 
 
 @pytest.mark.parametrize('transport', ['json-rpc', 'websocket'])
-def test_f030_retired_native_names_cannot_claim_coverage(transport):
+def test_retired_native_names_cannot_claim_coverage(transport):
     call = {'jsonrpc': '2.0', 'id': 1, 'method': 'lx_getAccount', 'params': []}
     route = {'service': 'node', 'transport': transport, 'path': 'lx_getAccount'}
     case = {'service': 'node', 'method': 'POST' if transport == 'json-rpc' else 'GET',
@@ -226,7 +226,7 @@ def test_f030_retired_native_names_cannot_claim_coverage(transport):
     assert not routes.route_matches(route, case)
 
 
-def test_f031_current_reads_refuse_degradation_and_recover_after_peer_restart():
+def test_current_reads_refuse_degradation_and_recover_after_peer_restart():
     recovery = routes.NodeRecovery(product())
     peer = TranscriptPeer()
     with peer:
@@ -248,7 +248,7 @@ def test_f031_current_reads_refuse_degradation_and_recover_after_peer_restart():
     assert recovery.completed == ['before', 'degraded', 'recovered']
 
 
-def test_f031_plan_runner_executes_every_current_node_observation():
+def test_plan_runner_executes_every_current_node_observation():
     with TranscriptPeer('sequence') as peer:
         plan = {'targets': {'node': peer.target},
                 'node_recovery_cases': [{phase: node_case(phase) for phase in routes.NodeRecovery.phases}]}
@@ -260,7 +260,7 @@ def test_f031_plan_runner_executes_every_current_node_observation():
 
 @pytest.mark.parametrize('fault', ['duplicate-id', 'unmatched-id', 'protocol', 'wrong-chain',
                                  'missing-state', 'height-mismatch', 'both-result-and-error'])
-def test_f031_rejects_invalid_connected_current_node_responses(fault):
+def test_rejects_invalid_connected_current_node_responses(fault):
     with TranscriptPeer() as peer:
         replies = peer.transcript['rpc']['before']
         if fault == 'duplicate-id':
@@ -288,7 +288,7 @@ def test_f031_rejects_invalid_connected_current_node_responses(fault):
 @pytest.mark.parametrize('code,data_code', [(-32601, 'invalid_paxeer_response'),
                                           (-32010, 'kernel_unavailable'),
                                           (-32001, 'kernel_unavailable')])
-def test_f031_method_not_found_and_retired_kernel_errors_are_not_degradation(code, data_code):
+def test_method_not_found_and_retired_kernel_errors_are_not_degradation(code, data_code):
     with TranscriptPeer() as peer:
         recovery = routes.NodeRecovery(product())
         recovery.observe('before', peer.target, node_case('before'))
@@ -302,7 +302,7 @@ def test_f031_method_not_found_and_retired_kernel_errors_are_not_degradation(cod
             recovery.observe('degraded', peer.target, case)
 
 
-def test_f031_recovered_balance_drift_is_refused():
+def test_recovered_balance_drift_is_refused():
     with TranscriptPeer() as peer:
         recovery = routes.NodeRecovery(product())
         recovery.observe('before', peer.target, node_case('before'))
@@ -318,7 +318,7 @@ def test_f031_recovered_balance_drift_is_refused():
             recovery.observe('recovered', peer.target, case)
 
 
-def test_f031_degradation_requires_exact_typed_assertions():
+def test_degradation_requires_exact_typed_assertions():
     with TranscriptPeer() as peer:
         recovery = routes.NodeRecovery(product())
         recovery.observe('before', peer.target, node_case('before'))
@@ -332,12 +332,12 @@ def test_f031_degradation_requires_exact_typed_assertions():
 @pytest.mark.parametrize('plan', [{}, {'chain_only_cases': [node_case('before')]},
                                   {'node_recovery_cases': []},
                                   {'node_recovery_cases': [{'before': node_case('before')}]}])
-def test_f031_old_or_incomplete_recovery_plans_are_refused(plan):
+def test_old_or_incomplete_recovery_plans_are_refused(plan):
     with pytest.raises(routes.Invalid):
         routes.run_node_recovery_cases(plan, product(), time.monotonic())
 
 
-def test_f031_recovery_cannot_skip_a_phase_or_change_the_target():
+def test_recovery_cannot_skip_a_phase_or_change_the_target():
     recovery = routes.NodeRecovery(product())
     with pytest.raises(routes.Invalid, match='phases must execute in order'):
         recovery.observe('recovered', {}, node_case('recovered'))
