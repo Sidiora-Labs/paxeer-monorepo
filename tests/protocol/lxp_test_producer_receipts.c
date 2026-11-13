@@ -6,7 +6,7 @@
 
 #include <string.h>
 
-#include "repair_22_33_18_receipts.h"
+#include "lxp_test_node_receipt_vectors.h"
 
 int market_receipt_codec(const uint8_t input[97], lxp_arena *arena,
                          lxp_byte_span *encoded);

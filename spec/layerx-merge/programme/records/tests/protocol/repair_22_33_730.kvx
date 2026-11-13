@@ -2,8 +2,8 @@
 mode = "BUILD"
 scope = "tests/protocol"
 findings = ["22.30.171/008", "22.30.171/009"]
-finding_008_tests = ["TestRepairM_730_ClockPrerequisites", "TestRepairM_730_ClockScanResults"]
-finding_009_tests = ["TestRepairM_730_RetainedNodePolicy"]
+finding_008_tests = ["TestClockScanPrerequisites", "TestClockScanResults"]
+finding_009_tests = ["TestRetainedNodeRejectionPolicy"]
 coverage_008 = "Both script entry points delegate to the shared in-process Go qualification implementation. Clock qualification requires executable rg, preflights all four roots and every C source including hidden and ignored paths, refuses missing, unreadable, unsearchable and symlink inputs, and distinguishes match, exhaustive no-match and error statuses. Tests drive actual filesystem inputs and the production exit classifier without a shell, rg process, toolchain subprocess or environment setup."
 coverage_009 = "Real retained App, FeeFloor and Executor produce signed transactions and observations; encoded MsgSequenceBatch and transaction bytes traverse FinalizeBlock and Commit; keeper sequence, balance, nonce, storage and persistent receipt observations feed the same JSON decoder and policy checker used by the Python entry point. Covers malformed bytes, wrong chain, invalid signature, nonce gaps and reuse, unpayable and below-floor fees, success, execution rollback and historical replay of identical signed bytes. Mutation cases prove incomplete, duplicate, stale and altered evidence refuses."
 historical_policy = "Preserved applicable assertions: admission refusals consume no sequence, account nonce, fee, effects or new receipt; committed successes and failures consume sequence and nonce once, pay the actual gas fee, and failures roll back storage and value. Historical replay must reproduce the original signed bytes, state, fee and outcome. Retired queue-disposition, kernel ordering and parameter-version table requirements no longer qualify the merged node."
