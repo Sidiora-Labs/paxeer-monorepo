@@ -19,9 +19,8 @@ on every customer surface.
 The Kubernetes deployment uses **`layerx-testnet`** for the ramp, identity,
 merged-chain TLS relay and private owner boundaries. Identity, compliance,
 provider egress, KMS and custody Services listen on 9443 and select their named
-`app` pods on 9443. The merged node endpoint is
-`https://layerx-gateway.layerx-testnet.svc.cluster.local/`: Service 443 forwards
-to gateway pod 9443. The gateway relays root JSON-RPC to the embedded-kernel
+`app` pods on 9443. The merged node endpoint uses the root path of the gateway Service: port 443
+forwards to gateway pod 9443. The gateway relays root JSON-RPC to the embedded-kernel
 `paxd` Service `layerx-native-chain` on 8545; it is not another chain.
 The ramp policy pairs an explicit `namespaceSelector` with each `podSelector`
 and permits TCP 9443 to these six peers plus cluster DNS. The upstream ingress
@@ -32,8 +31,8 @@ and TLS listeners; obtain and qualify those deployments before activation.
 
 Ingress admits the ingress controller namespace and same-namespace
 `app=layerx-ramp-worker` pods on 8443. API authentication must still protect
-internal routes. Apply the gateway-to-node and owner boundary wiring listed in
-the repair record before claiming a reachable runtime deployment.
+internal routes. Configure the gateway-to-node relay and the owner boundary Services
+for the routes being enabled.
 
 Set `layerx.rpc_endpoint` to that pinned merged root JSON-RPC endpoint and
 `chain_id` to 125. Project the DER CA for its TLS certificate as

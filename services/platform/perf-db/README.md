@@ -1,9 +1,11 @@
+# PerfDB
+
 <div align="center">
 
 <h3>Embedded Rust database engine for high-frequency trading systems</h3>
 
 <p>
-Time series storage · real-time state · relational data · event sourcing unified into a single in process library, replacing a four database stack with<br/>
+Time series storage · real-time state · relational data · event sourcing unified into a single in-process library with<br/>
 <strong>zero network hops</strong> and <strong>native Rust types on the hot path</strong>.
 </p>
 
@@ -17,7 +19,6 @@ Time series storage · real-time state · relational data · event sourcing unif
 <p align="center">
   <img src="https://img.shields.io/badge/Rust-1.85%2B-004CED?style=for-the-badge&amp;labelColor=000000&amp;logo=rust&amp;logoColor=white" alt="Rust 1.85+" />
   <img src="https://img.shields.io/badge/Engine-Zero_Network_Hops-00C896?style=for-the-badge&amp;labelColor=000000" alt="Zero network hops" />
-  <img src="https://img.shields.io/badge/Concurrency-Lock--free-004CED?style=for-the-badge&amp;labelColor=000000" alt="Lock-free reads" />
 </p>
 
 <p align="center">
@@ -30,7 +31,7 @@ Time series storage · real-time state · relational data · event sourcing unif
 
 ---
 
-## Table of Contents
+## Contents
 
 - [Overview](#overview)
 - [Performance](#performance)
@@ -49,41 +50,13 @@ Time series storage · real-time state · relational data · event sourcing unif
 
 ## Overview
 
-PerfDB is a purpose-built, embedded Rust database engine for high-frequency
-trading (HFT) and DeFi infrastructure. It consolidates four separate
-database systems into a single, zero-copy, lock-free engine optimized for
-the access patterns of a trading platform: append-only price ticks,
-pre-aggregated candles, hot in-memory state, and an immutable event log.
+PerfDB is an embedded Rust database library for trading applications. It
+coordinates mmap-backed price ticks and candles, in-memory state tables,
+relational stores, event indexes and typed broadcast channels. Engine mutations
+are serialized; position and order reads use read/write locks, balance reads
+use a sharded map, and latest-price reads use atomics.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              BEFORE: 4 DATABASES                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  PostgreSQL     QuestDB        ScyllaDB         DragonflyDB                 │
-│  (relational)   (time-series)  (event log)      (real-time cache)           │
-│       ↓              ↓              ↓                 ↓                     │
-│   Network hop    Network hop    Network hop      Network hop                │
-│   + JSON ser.    + ILP proto    + CQL driver     + RESP proto               │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                    ↓
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              AFTER: PerfDB                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                     Single embedded library                                 │
-│                     Zero network hops                                       │
-│                     Native Rust types (no serialization)                    │
-│                     Lock-free concurrent reads                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-| Challenge | Traditional approach | PerfDB |
-|---|---|---|
-| Network latency | ~500µs per Redis `GET` over TCP | <100ns direct memory access |
-| Serialization overhead | JSON encode/decode per operation | Zero-copy native Rust types |
-| Operational complexity | Four databases to deploy and scale | Single embedded library |
-| Data durability | In-memory cache lost on restart | WAL-backed with crash recovery |
-| Time-series performance | External `SAMPLE BY` queries | Pre-computed candles in-process |
-| Pub/sub | Separate Redis connection | Built-in `tokio::broadcast` channels |
+See [the architecture](ARCHITECTURE.md) for storage layouts and concurrency.
 
 ## Performance
 
@@ -103,35 +76,16 @@ dedicated hardware.
 
 ## Architecture
 
-PerfDB is organized into four specialized storage engines, each replacing a component of the legacy stack:
+`PerfDb` coordinates these components:
 
-```
-PerfDB
-├── TimeSeriesEngine        ← replaces QuestDB
-│   ├── TickStore           (mmap append-only, per-market files)
-│   ├── CandleStore         (fixed-record, per-market-per-timeframe)
-│   └── FundingStore        (append-only funding rate history)
-│
-├── StateEngine             ← replaces DragonflyDB/Redis
-│   ├── PositionTable       (in-memory HashMap, WAL-backed)
-│   ├── OrderTable          (in-memory HashMap + sorted sets for orderbook)
-│   ├── MarketState         (prices, funding rates, OI — atomic updates)
-│   ├── BalanceCache        (per-user-per-token balances)
-│   └── PubSubBus           (in-process broadcast channels)
-│
-├── RelationalEngine        ← replaces PostgreSQL
-│   ├── UserStore           (B-tree indexed by address)
-│   ├── TraderStatsStore    (in-memory with periodic flush)
-│   ├── DailyStatsStore     (date-partitioned)
-│   ├── ReferralStore       (relational lookups)
-│   ├── CompetitionStore    (small dataset, in-memory)
-│   └── CheckpointStore     (singleton, WAL-backed)
-│
-└── EventLogEngine          ← replaces ScyllaDB
-    ├── EventsByMarket      (append-only, partitioned by market_id)
-    ├── EventsByTrader      (append-only, partitioned by trader address)
-    └── TradeLog            (append-only, dual-indexed)
-```
+| Workload | Components |
+| --- | --- |
+| Time series | `TickStore`, `CandleStore`, `CandleBuilder` |
+| Market and account state | `MarketStateTable`, `PositionTable`, `OrderTable`, `BalanceCache` |
+| Relational state | `UserStore`, `ReferralEngine`, `CheckpointStore`, `AlertStore`, `ApiKeyStore`, `CompetitionStore` |
+| Statistics | `TraderStatsStore`, `DailyStatsStore`, `Leaderboard` |
+| Events and streaming | `EventStore`, `PubSubBus` |
+| Persistence | WAL segments, engine snapshots and mmap files |
 
 ## Quick Start
 
@@ -291,20 +245,23 @@ let candles = db.candles(market_id, Timeframe::Min15);
 
 ## Durability and Recovery
 
-**Write path**: every mutation is appended to the write-ahead log before it
-is applied to in-memory state, so an acknowledged write survives a crash.
+`ingest_tick` and `process_event` append to the WAL before applying updates.
+The default `SyncPolicy::Interval` checks for a sync on append at a 10 ms
+interval; it has no background timer. Acknowledged writes can be lost on a crash
+before sync. `SyncPolicy::EveryWrite` syncs each append; `SyncPolicy::None`
+relies on explicit syncing and rotation. Direct mutations of public state
+stores do not automatically append engine WAL entries.
 
-**Recovery on `PerfDb::open`**:
+`PerfDb::open` acquires an exclusive writer lease, restores the latest usable
+snapshot and recovery cursors, validates stores, rewinds uncommitted time-series
+suffixes, and replays WAL entries. It repairs a damaged final append; corruption
+before later valid records is refused. `PerfDb::open_read_only` inspects an
+existing database without acquiring a writer lease or modifying its files.
 
-1. Load the most recent snapshot, if one exists.
-2. Restore all stores from that snapshot.
-3. Replay WAL entries written after the snapshot's checkpoint.
-4. Seed the candle builder from the latest stored candles.
-
-`PerfDb::snapshot()` can be called periodically to bound WAL replay time;
-`PerfDb::shutdown()` flushes the candle builder, syncs the WAL, and writes
-a final snapshot. Recovery behavior is covered by `tests/recovery.rs`,
-including truncated and CRC-corrupted WAL segments.
+Call `sync_wal()` to sync the WAL and mmap stores and persist the tick checkpoint.
+`snapshot()` publishes an engine snapshot; `shutdown()` also upserts live candles,
+flushes stores and syncs the WAL. The embedding application schedules these
+operations. Recovery cases are in [`tests/recovery.rs`](tests/recovery.rs).
 
 ## Benchmarks
 

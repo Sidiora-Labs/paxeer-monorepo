@@ -1,6 +1,6 @@
 # Agent formats contract
 
-This inventory describes the code and schemas in the merged tree, reviewed against revision `4edaf4fff3f943e154c8337c0bcc16fe4dd9dd3c`. Source links identify the implementations; the former pinned inventory and its planned-task statuses are superseded. Existing section anchors are retained for specification links. Test references describe coverage in the tree, not a claim that those tests ran for this documentation change.
+This inventory describes agent API schemas, application framing and durable records. Source links identify each implementation.
 
 Paxeer mainnet-beta is one BFT network with EVM chain id **125** (`0x7d`). Its kernel participates in the network and proposes blocks. A receipt is final when its block is committed. Public node JSON-RPC uses HTTPS at the root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`. Agent operation envelopes and local durable records below are application formats, not additional public node endpoints. Tenant domains are database namespaces, without a new chain deployment for each tenant. See the [network audit brief](../programme/audit/BRIEF.kvx) and [public RPC reference](../../../docs/site/docs/reference/public-rpc.md).
 
@@ -20,7 +20,7 @@ The HTTP operation representation implemented by [agent_rpc.rs](../../../service
 
 ## agent-api-request-frame
 
-`agent_rpc::version_exchange` implements the binary version handshake. A major-2 request receives contract 2.0; other majors produce `ProtocolIncompatibility` with reason `envelope.version`. Malformed or trailing bytes produce `envelope.malformed`. This preserves the useful criterion `acceptance.9.2.2` / `req.9002.2`.
+`agent_rpc::version_exchange` implements the binary version handshake. A major-2 request receives contract 2.0; other majors produce `ProtocolIncompatibility` with reason `envelope.version`. Malformed or trailing bytes produce `envelope.malformed`.
 
 Coverage: [rpc_surface_major_two.rs](../../../services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs), function `version_exchange_reports_contract_major_two`. Its envelope tests separately cover JSON version 1 and the HTTP goldens.
 
@@ -54,7 +54,7 @@ Interface: `interface.9.fmt-agent-api-schema-identity`.
 
 Interface: `interface.9.fmt-agent-api-schema-programs`.
 
-[programs.kvx](../../../services/agent/schema/agent-api/programs.kvx) declares program operations using ABI calls, EIP-1559 transactions and the three transaction rungs. Its module-local major remains 1. Program operation results must be interpreted using the current operation declaration and its receipt evidence, rather than historical verification-level terminology.
+[programs.kvx](../../../services/agent/schema/agent-api/programs.kvx) declares program operations using ABI calls, EIP-1559 transactions and the three transaction rungs. Its module-local major is 1. Program results include receipt evidence and transaction rungs as defined by the operation declaration.
 
 ## agent-api-schema-read
 
@@ -74,9 +74,7 @@ Interface: `interface.9.fmt-agent-api-schema-stream`.
 
 Interface: `interface.9.fmt-agent-api-schema-v1`.
 
-[v1.kvx](../../../services/agent/schema/agent-api/v1.kvx) includes `identity.kvx`, `write.kvx`, `read.kvx`, `stream.kvx`, `errors.kvx`, `approval.kvx`, and `programs.kvx`. The API crate's `agent_api_schema_v1` retains its historical name while reporting contract 2.0. Consensus integers use fixed-width Rust types and decimal strings at dynamic-language boundaries.
-
-Historical migration criteria `req.9007` and `req.9008` describe the move to rungs and removal of settlement-domain vocabulary. They are not evidence that every legacy compatibility file has been rewritten. The current producer and consumer determine the format documented here.
+[v1.kvx](../../../services/agent/schema/agent-api/v1.kvx) includes `identity.kvx`, `write.kvx`, `read.kvx`, `stream.kvx`, `errors.kvx`, `approval.kvx`, and `programs.kvx`. The API crate's `agent_api_schema_v1` reports contract 2.0. Consensus integers use fixed-width Rust types and decimal strings at dynamic-language boundaries.
 
 ## agent-api-schema-write
 
@@ -119,13 +117,13 @@ Interface: `interface.9.fmt-audit-log`.
 
 Interface: `interface.9.fmt-audit-record`.
 
-[audit/record.rs](../../../services/agent/crates/layerx-agentd/src/audit/record.rs) writes `LXAR` version **3** and retains version **2** reading. Version 1 is refused. The useful v3 criterion is round-trip preservation of transaction hash, nonce and rung (`req.9028.1`); version-2 compatibility is `req.9028.2`. Coverage is in [audit_record_v3.rs](../../../services/agent/crates/layerx-agentd/tests/audit_record_v3.rs): `audit_entry_v3_records_transaction_hash_and_rung` and `version_two_audit_entries_stay_readable`.
+[audit/record.rs](../../../services/agent/crates/layerx-agentd/src/audit/record.rs) writes `LXAR` version **3** and retains version **2** reading. Version 1 is refused. Version 3 preserves transaction hash, nonce and rung. Coverage is in [audit_record_v3.rs](../../../services/agent/crates/layerx-agentd/tests/audit_record_v3.rs): `audit_entry_v3_records_transaction_hash_and_rung` and `version_two_audit_entries_stay_readable`.
 
 ## budget-proof
 
 Interface: `interface.9.fmt-budget-proof`.
 
-[budget/budget_proof.rs](../../../services/agent/crates/layerx-agentd/src/budget/budget_proof.rs) accepts schema **`layerx.human.budget-proof.v2`**. The bounded JSON export binds tenant, principal, protocol version, network id, a positive `head.committed_height`, and block hash to the supplied checkpoint. Verification checks the committed budget state, including the `getBudget` result; schema v1 is refused with `BudgetProofError::Refused`. The maximum proof document size is **1,048,576 bytes**. This retains the useful v2 criterion `req.9033.2` without advertising v1 as current.
+[budget/budget_proof.rs](../../../services/agent/crates/layerx-agentd/src/budget/budget_proof.rs) accepts schema **`layerx.human.budget-proof.v2`**. The bounded JSON export binds tenant, principal, protocol version, network id, a positive `head.committed_height`, and block hash to the supplied checkpoint. Verification checks the committed budget state, including the `getBudget` result; schema v1 is refused with `BudgetProofError::Refused`. The maximum proof document size is **1,048,576 bytes**.
 
 ## human-peer-frame
 
@@ -133,11 +131,11 @@ Interface: `interface.9.fmt-human-peer-frame`.
 
 [human.rs](../../../services/agent/crates/layerx-agentd/src/human.rs) retains magic `LXHAGT01`; traced envelopes use `LXHAGT02`. [human_frame.rs](../../../services/agent/crates/layerx-agentd/src/human_frame.rs) re-exports the shared client [frame codec](../../../services/agent/crates/layerx-client/src/frame/framing.rs) and transport as `HumanFrameTransport`. Frames have a four-byte unsigned big-endian length prefix, checked against the configured maximum before allocating the body. This is local peer framing, not the retired LNI protocol.
 
-`PREPARE` remains opcode 1, `HEAD` 7, and `EVIDENCE` 8. Preparation checks the pending nonce and returns `prepare.stale_nonce` on mismatch. Transaction evidence carries transaction and receipt hashes, observed height and rung; receipted is wire rank 1 and committed rank 2. Useful framing and rung criteria remain `req.9046` and `req.9047`; the opcode table in `human.rs` is authoritative rather than the old inventory's opcode count.
+`PREPARE` remains opcode 1, `HEAD` 7, and `EVIDENCE` 8. Preparation checks the pending nonce and returns `prepare.stale_nonce` on mismatch. Transaction evidence carries transaction and receipt hashes, observed height and rung; receipted is wire rank 1 and committed rank 2. The opcode table in `human.rs` defines the request codes.
 
 ## lni-capabilities
 
-Interface: `interface.9.fmt-lni-v1-capabilities` is retired. The former `services/agent/schema/lni/v1.kvx` is absent from this tree. Its capability list is not startup or node negotiation configuration for the merged network.
+Interface: `interface.9.fmt-lni-v1-capabilities` is retired. Node calls use JSON-RPC; local peer capabilities are defined by the Human peer protocol.
 
 ## lni-frame
 
@@ -203,7 +201,7 @@ The verifier binds raw transaction hash, signed receipt, receipt key and interva
 
 The older certificate/header vector layout is superseded in the live Rust mirror. The [golden read baseline](../../../services/agent/schema/agent-api/golden/read.kvx) still preserves that earlier declaration; do not send it as the current export. The portable proof format version is also distinct from the LXRE durable receipt-evidence version [below](#receipt-evidence).
 
-Coverage references: [export_v2.rs](../../../services/agent/crates/layerx-agentd/tests/export_v2.rs), `offline_export_verifies_with_only_receipt_keys_and_validator_set`; [export_offline_bounds.rs](../../../services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs), `export_frame_is_bounded_at_exactly_one_mebibyte` and `export_response_must_answer_every_requested_fact_at_the_requested_rung`. These are source references, not qualification results for this rewrite.
+Coverage references: [export_v2.rs](../../../services/agent/crates/layerx-agentd/tests/export_v2.rs), `offline_export_verifies_with_only_receipt_keys_and_validator_set`; [export_offline_bounds.rs](../../../services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs), `export_frame_is_bounded_at_exactly_one_mebibyte` and `export_response_must_answer_every_requested_fact_at_the_requested_rung`.
 
 ## program-budget-denominations
 
@@ -236,7 +234,7 @@ Interface: `interface.9.fmt-receipt-evidence`.
 
 LXRE version 1 is retired for this transaction-evidence reader and produces `receipt.evidence_version`; it is not silently upgraded or replaced. Legacy kernel evidence helpers remain in `receipt.rs` for recovery, but their record and indexes must not be confused with the transaction-hash v2 path.
 
-The useful criteria remain:
+Receipt storage behavior is covered by these source tests:
 
 | Criterion | Existing coverage and assertion |
 | --- | --- |
@@ -262,4 +260,4 @@ Interface: `interface.9.fmt-unknown-resolution-state`.
 
 [outbox/unknown.rs](../../../services/agent/crates/layerx-agentd/src/outbox/unknown.rs) writes magic **`LXU2`**, followed by transaction hash (32 bytes), first-observed time (u64), attempt count (u32), and next-attempt time (u64), for a total of **56 bytes**. Integers are big-endian. Loading validates the hash and time coordinate.
 
-The former `LXUR` state is retired and refused with `unknown.state_version`, preserving criterion `req.9016.3`; see [unknown_receipt_lookup.rs](../../../services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs), `legacy_lxur_resolution_state_is_refused`. Resolution uses authenticated receipt lookup for the retained signed transaction. It does not infer success from a missing response or create a new transaction merely to resolve an unknown outcome.
+The former `LXUR` state is retired and refused with `unknown.state_version`, see [unknown_receipt_lookup.rs](../../../services/agent/crates/layerx-agentd/tests/unknown_receipt_lookup.rs), `legacy_lxur_resolution_state_is_refused`. Resolution uses authenticated receipt lookup for the retained signed transaction. It does not infer success from a missing response or create a new transaction merely to resolve an unknown outcome.

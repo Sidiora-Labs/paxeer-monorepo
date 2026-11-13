@@ -73,9 +73,8 @@ to a particular token or the tokens listed in `caps` or `fee_caps`. The allowanc
 must be below `2^256-1` and satisfy the other applicable policy checks and any
 ordinary token cap.
 
-The current implementation imposes a stricter bound: it refuses every trusted
-allowance at or above `2^255` with `unlimited_approval`, including near-maximum
-values below `2^256-1`. Exact amounts below `2^255` pass these allowance checks.
+Trusted allowances at or above `2^255` are refused with
+`unlimited_approval`. Exact amounts below `2^255` pass these allowance checks.
 The permitted trusted-allowance range is therefore `0 <= amount < 2^255`,
 subject to the other checks described above.
 

@@ -1,1 +1,3 @@
-This material is generated test data with no production use.
+# Test fixtures
+
+This directory contains generated test data with no production use.
