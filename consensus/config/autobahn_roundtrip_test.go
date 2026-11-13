@@ -11,7 +11,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 )
 
-func repair172WriteAndReadConfig(t *testing.T, cfg *config.Config) {
+func writeAndReadAutobahnConfig(t *testing.T, cfg *config.Config) {
 	t.Helper()
 	viper.Reset()
 	t.Cleanup(viper.Reset)
@@ -23,12 +23,12 @@ func repair172WriteAndReadConfig(t *testing.T, cfg *config.Config) {
 	require.NoError(t, viper.ReadInConfig())
 }
 
-func TestRepair_172_AutobahnPathRoundTrip(t *testing.T) {
+func TestAutobahnPathRoundTrip(t *testing.T) {
 	for _, path := range []string{"", "config/autobahn network.json", filepath.Join(t.TempDir(), "autobahn.json")} {
 		t.Run(path, func(t *testing.T) {
 			cfg := config.DefaultConfig()
 			cfg.AutobahnConfigFile = path
-			repair172WriteAndReadConfig(t, cfg)
+			writeAndReadAutobahnConfig(t, cfg)
 
 			decoded, err := commands.ParseConfig(config.DefaultConfig())
 			require.NoError(t, err)
@@ -38,12 +38,12 @@ func TestRepair_172_AutobahnPathRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepair_172_SequencerAutobahnConflict(t *testing.T) {
+func TestSequencerAutobahnConflict(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Consensus.Sequencer.Enable = true
 	require.NoError(t, cfg.ValidateBasic())
 	cfg.AutobahnConfigFile = "config/autobahn.json"
-	repair172WriteAndReadConfig(t, cfg)
+	writeAndReadAutobahnConfig(t, cfg)
 
 	decoded := config.DefaultConfig()
 	require.NoError(t, viper.Unmarshal(decoded))
