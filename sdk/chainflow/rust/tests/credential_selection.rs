@@ -163,14 +163,14 @@ fn assert_key(request: &Request<Vec<u8>>, operation: Operation, key: Option<&str
 }
 
 #[tokio::test]
-async fn repair_133_rest_credential_selection() {
+async fn rest_credential_selection() {
     let request = capture(Operation::Rest, Some(REST_KEY), Some(MINT_KEY), Some(SCOPED_TOKEN)).await;
     assert_key(&request, Operation::Rest, Some(REST_KEY));
     assert_eq!(request.uri().query(), None, "REST read leaked a query credential");
 }
 
 #[tokio::test]
-async fn repair_133_mint_credential_selection() {
+async fn mint_credential_selection() {
     let request = capture(Operation::Mint, Some(REST_KEY), Some(MINT_KEY), Some(SCOPED_TOKEN)).await;
     assert_key(&request, Operation::Mint, Some(MINT_KEY));
     assert_eq!(request.uri().query(), None, "mint operation leaked a query credential");
@@ -179,7 +179,7 @@ async fn repair_133_mint_credential_selection() {
 }
 
 #[tokio::test]
-async fn repair_133_upgrade_credential_selection() {
+async fn upgrade_credential_selection() {
     for operation in [
         Operation::Price,
         Operation::Markets,
@@ -203,7 +203,7 @@ async fn repair_133_upgrade_credential_selection() {
 }
 
 #[tokio::test]
-async fn repair_133_no_credential_substitution() {
+async fn no_credential_substitution() {
     for operation in [
         Operation::Rest,
         Operation::Mint,

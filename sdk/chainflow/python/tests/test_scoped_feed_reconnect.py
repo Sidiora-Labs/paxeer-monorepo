@@ -14,7 +14,7 @@ Wiring requests: none; this repair changes only test coverage and path fixtures.
 
 The peer is an in-process contract server, not a patched SDK transport. Its
 payloads use the production Price and WsToken codecs, as in the committed
-credential contract test test_repair_22_31_341.py. Tokens are freshly issued
+credential contract test test_operation_credentials.py. Tokens are freshly issued
 opaque credentials bound to scope and expiry in the peer's in-memory store.
 """
 

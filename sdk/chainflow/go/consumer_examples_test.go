@@ -22,7 +22,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func repairM1306Read(t *testing.T, path string) string {
+func readConsumerExampleFile(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -31,9 +31,9 @@ func repairM1306Read(t *testing.T, path string) string {
 	return string(data)
 }
 
-func repairM1306Install(t *testing.T, path string) {
+func assertConsumerExampleInstallation(t *testing.T, path string) {
 	t.Helper()
-	doc := repairM1306Read(t, path)
+	doc := readConsumerExampleFile(t, path)
 	for _, required := range []string{
 		"module chainflow-data-gateway", "not a downloadable public module",
 		"CHAINFLOW_SDK=/absolute/path/to/paxeer-monorepo/sdk/chainflow/go",
@@ -48,12 +48,12 @@ func repairM1306Install(t *testing.T, path string) {
 	if strings.Contains(doc, "\ngo get chainflow-data-gateway\n") {
 		t.Fatalf("%s advertises a hostname-free public installation", path)
 	}
-	module := repairM1306Read(t, "go.mod")
+	module := readConsumerExampleFile(t, "go.mod")
 	if !strings.HasPrefix(module, "module chainflow-data-gateway\n") {
 		t.Fatal("documented module differs from production go.mod")
 	}
-	manifestPath := "testdata/repair_m1306_consumer/go.mod"
-	manifest := repairM1306Read(t, manifestPath)
+	manifestPath := "testdata/consumer_example/go.mod"
+	manifest := readConsumerExampleFile(t, manifestPath)
 	for _, directive := range []string{
 		"module example.com/chainflow-example\n", "chainflow-data-gateway v0.0.0\n",
 		"replace chainflow-data-gateway => ../..\n",
@@ -135,23 +135,23 @@ func repairM1306Install(t *testing.T, path string) {
 	}
 }
 
-func TestRepairM_1306_InstallREADME(t *testing.T) {
-	repairM1306Install(t, "README.md")
+func TestConsumerExampleInstallREADME(t *testing.T) {
+	assertConsumerExampleInstallation(t, "README.md")
 }
 
-func TestRepairM_1306_InstallSkill(t *testing.T) {
-	repairM1306Install(t, "SKILL.md")
+func TestConsumerExampleInstallSkill(t *testing.T) {
+	assertConsumerExampleInstallation(t, "SKILL.md")
 }
 
-func TestRepairM_1306_InstallAgentSkill(t *testing.T) {
-	repairM1306Install(t, ".claude/skills/chainflow-data-gateway-go-sdk/SKILL.md")
+func TestConsumerExampleInstallAgentSkill(t *testing.T) {
+	assertConsumerExampleInstallation(t, ".claude/skills/chainflow-data-gateway-go-sdk/SKILL.md")
 }
 
-func TestRepairM_1306_TokenHandshake(t *testing.T) {
+func TestConsumerExampleTokenHandshake(t *testing.T) {
 	// Compile and execute exactly the function printed in the API reference.
-	source := repairM1306Read(t, "testdata/repair_m1306_consumer/websocket.go")
+	source := readConsumerExampleFile(t, "testdata/consumer_example/websocket.go")
 	function := strings.TrimSpace(source[strings.Index(source, "func ConnectBTC"):])
-	doc := repairM1306Read(t, "api.md")
+	doc := readConsumerExampleFile(t, "api.md")
 	if !strings.Contains(doc, "```go\n"+function+"\n```") {
 		t.Fatal("API token example differs from the compiled consumer function")
 	}
@@ -257,7 +257,7 @@ func TestRepairM_1306_TokenHandshake(t *testing.T) {
 	}
 }
 
-func TestRepairM_1306_TokenFailuresDoNotExposeSecrets(t *testing.T) {
+func TestConsumerExampleTokenFailuresDoNotExposeSecrets(t *testing.T) {
 	for _, stage := range []string{"mint", "handshake"} {
 		t.Run(stage, func(t *testing.T) {
 			const secret = "fixture-secret-never-print"

@@ -16,7 +16,7 @@ import (
 	"chainflow-data-gateway/option"
 )
 
-func TestRepairM_1307_CompleteSyntax(t *testing.T) {
+func TestDecoderValidationCompleteSyntax(t *testing.T) {
 	inputs := []struct {
 		name string
 		body string
@@ -56,7 +56,7 @@ func TestRepairM_1307_CompleteSyntax(t *testing.T) {
 	}
 }
 
-func TestRepairM_1307_ObjectRoot(t *testing.T) {
+func TestDecoderValidationObjectRoot(t *testing.T) {
 	for name, decode := range map[string]func([]byte, any) error{
 		"Unmarshal":     apijson.Unmarshal,
 		"UnmarshalRoot": apijson.UnmarshalRoot,
@@ -92,7 +92,7 @@ func TestRepairM_1307_ObjectRoot(t *testing.T) {
 	}
 }
 
-func TestRepairM_1307_RequestRejectsMalformedAndTruncatedResponses(t *testing.T) {
+func TestDecoderValidationRequestRejectsMalformedAndTruncatedResponses(t *testing.T) {
 	for _, input := range []struct {
 		name string
 		body string
@@ -104,7 +104,7 @@ func TestRepairM_1307_RequestRejectsMalformedAndTruncatedResponses(t *testing.T)
 		{"truncated_array", `{"future":[1,2`},
 	} {
 		t.Run(input.name, func(t *testing.T) {
-			service := repairM1307HealthServer(t, input.body)
+			service := newHealthResponseService(t, input.body)
 			if _, err := service.ListHealth(context.Background(), "btc"); err == nil {
 				t.Fatal("invalid HTTP JSON response returned a successful model")
 			}
@@ -112,10 +112,10 @@ func TestRepairM_1307_RequestRejectsMalformedAndTruncatedResponses(t *testing.T)
 	}
 }
 
-func TestRepairM_1307_RequestRejectsScalarResponses(t *testing.T) {
+func TestDecoderValidationRequestRejectsScalarResponses(t *testing.T) {
 	for _, body := range []string{`"ok"`, `42`, `true`, `false`, `[]`, `[{"status":"ok"}]`} {
 		t.Run(body, func(t *testing.T) {
-			service := repairM1307HealthServer(t, body)
+			service := newHealthResponseService(t, body)
 			if _, err := service.ListHealth(context.Background(), "btc"); err == nil || !strings.Contains(err.Error(), "apijson: expected an object") {
 				t.Fatalf("request must propagate the production decoder's root error, got %v", err)
 			}
@@ -123,7 +123,7 @@ func TestRepairM_1307_RequestRejectsScalarResponses(t *testing.T) {
 	}
 }
 
-func TestRepairM_1307_RequestValidatesCompleteErrorBody(t *testing.T) {
+func TestDecoderValidationRequestValidatesCompleteErrorBody(t *testing.T) {
 	for _, body := range []string{
 		`{"error":invalid}`,
 		`{"error":"unfinished"`,
@@ -161,7 +161,7 @@ func TestRepairM_1307_RequestValidatesCompleteErrorBody(t *testing.T) {
 	}
 }
 
-func TestRepairM_1307_RequestRetainsUnknownFields(t *testing.T) {
+func TestDecoderValidationRequestRetainsUnknownFields(t *testing.T) {
 	for _, status := range []sdk.FeedHealthStatus{sdk.FeedHealthStatusOk, "warming"} {
 		t.Run(string(status), func(t *testing.T) {
 			extra := map[string]any{
@@ -219,7 +219,7 @@ func TestRepairM_1307_RequestRetainsUnknownFields(t *testing.T) {
 	}
 }
 
-func TestRepairM_1307_RequestUnionRequiresObject(t *testing.T) {
+func TestDecoderValidationRequestUnionRequiresObject(t *testing.T) {
 	for _, body := range []string{`[]`, `[{"error":"No price data available"}]`, `{"error":"No price data available"}`} {
 		t.Run(body, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -248,7 +248,7 @@ func TestRepairM_1307_RequestUnionRequiresObject(t *testing.T) {
 	}
 }
 
-func TestRepairM_1307_CompatibleRootKinds(t *testing.T) {
+func TestDecoderValidationCompatibleRootKinds(t *testing.T) {
 	var text string
 	if err := apijson.Unmarshal([]byte(`"ok"`), &text); err != nil || text != "ok" {
 		t.Fatalf("string root: %q, %v", text, err)
@@ -292,7 +292,7 @@ func TestRepairM_1307_CompatibleRootKinds(t *testing.T) {
 	}
 }
 
-func repairM1307HealthServer(t *testing.T, body string) *sdk.PriceFeedService {
+func newHealthResponseService(t *testing.T, body string) *sdk.PriceFeedService {
 	t.Helper()
 	requests := make(chan string, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

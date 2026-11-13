@@ -35,7 +35,7 @@ from chainflow_data_gateway.types.ws_token import WsToken
 
 # Reuse the committed HTTP contract peer, which checks real headers, JSON, scopes,
 # token expiry, and generated Price/WsToken codecs. No transport is replaced.
-from test_repair_22_31_341 import ContractGateway, ContractHandler, MINT_KEY, REST_KEY, assert_exchange
+from test_operation_credentials import ContractGateway, ContractHandler, MINT_KEY, REST_KEY, assert_exchange
 
 TOKEN = "opaque-ws-test-token-1326"
 HEADER_SECRET = "override-header-secret-1326"

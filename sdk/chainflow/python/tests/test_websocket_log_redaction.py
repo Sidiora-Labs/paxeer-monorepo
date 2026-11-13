@@ -16,7 +16,7 @@ from websockets.exceptions import InvalidStatus
 
 from chainflow_data_gateway import AsyncChainflowDataGateway, ChainflowDataGateway
 
-from test_repair_22_33_1330 import (
+from test_scoped_feed_reconnect import (
     DEADLINE,
     MINT_KEY,
     REST_KEY,
