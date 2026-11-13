@@ -1,15 +1,11 @@
 # Solidity API
 
+Source: [MockTxTracker.sol](../../../contracts/meta-ag/mocks/MockTxTracker.sol).
+
 ## MockTxTracker
 
-Deliberately-minimal stub for {ITransactionTracker} used by
-        {PECORVault} tests. Phase 3 exercises the vault's tracker wiring
-        (setTransactionTracker + event + zero-address accepted at
-        bootstrap); the full tracker surface lands in Phase 7 (Task 7.2).
-
-_The vault never reads back from the tracker during Phase 3, so this
-     mock exposes no-op recorders. It simply captures the last call on
-     each hook to keep future-phase compatibility trivial._
+Test recorder with a `record(bytes)` method. Each call stores the caller and payload, increments
+`callCount` and emits `Recorded`.
 
 ### lastCaller
 
@@ -41,5 +37,4 @@ event Recorded(address caller, bytes payload)
 function record(bytes payload) external
 ```
 
-_Generic catch-all recorder used by later phases; kept optional._
-
+Stores the caller and payload and increments the call count.

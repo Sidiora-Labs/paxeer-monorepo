@@ -1,23 +1,26 @@
 # Solidity API
 
+Source:
+[SidioraFeedAdapter.sol](../../../../contracts/meta-ag/oracle/adapters/SidioraFeedAdapter.sol).
+
 ## SidioraFeedAdapter
 
-{IDataFeedAdapter} wrapper that reads prices from Sidiora bonding-curve pools.
+`IDataFeedAdapter` wrapper for Sidiora pool spot prices. The administrator configures the pool
+registry, liquidity threshold, known-token list and USDL-to-USD reference oracle.
 
-_Non-upgradeable. Admin (Timelock) may rotate the registry pointer and adjust the
-     liquidity threshold, and may register "known tokens" so that `getSupportedTokens`
-     can enumerate without iterating the full `IPoolRegistry`.
+Feeds are disabled by default. `configureSpotReference` enables them with an oracle and USDL token.
+A feed multiplies the pool's USDL price by the reference oracle's USD price and scales by `1e18`.
+Missing pools, zero prices and failed pool or reference-oracle reads return an empty feed.
+Successful feeds use the current block timestamp and these confidence bands:
 
-Spec: docs/architecture/pecor-sidiora-aggregator-spec.md §7.4
+| Real USDL reserves                        | Confidence |
+| ----------------------------------------- | ---------- |
+| At least `minLiquidityThreshold`          | 7000       |
+| At least one quarter of the threshold     | 4000       |
+| Below one quarter, or reserves read fails | 1500       |
 
-Confidence banding (aligned with dev/adapters/SidioraFeedAdapter.sol):
-  - pool.realUsdl >= minLiquidityThreshold        -> 7000 (HIGH)
-  - minLiquidityThreshold/4 <= realUsdl < threshold -> 4000 (MEDIUM)
-  - otherwise (inc. `getReserves` revert)         -> 1500 (LOW)
-  - pool returned zero price or lookups reverted  -> 0 (I7)
-
-Per I9 documented exception: `feed.timestamp = block.timestamp` because Sidiora pool
-prices update implicitly on every trade — there is no external "last update" clock._
+The adapter is not upgradeable. `getSupportedTokens` enumerates the administrator-maintained
+known-token list; `supportsToken` checks for a pool in the configured registry.
 
 ### CONFIDENCE_HIGH
 
@@ -91,13 +94,13 @@ function registerKnownTokens(address[] tokens) external
 function sourceId() external pure returns (bytes32)
 ```
 
-Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
+Returns `keccak256("SidioraAMM.v1")`.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | bytes32 |             |
 
 ### adapterName
 
@@ -109,9 +112,9 @@ Human-readable name for this adapter
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
 ### maxStaleness
 
@@ -119,13 +122,13 @@ Human-readable name for this adapter
 function maxStaleness() external pure returns (uint256)
 ```
 
-Maximum age in seconds before this adapter's prices are considered stale
+Returns 120 seconds. Successful feeds are stamped with the current block timestamp.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | uint256 |             |
 
 ### supportsToken
 
@@ -137,15 +140,15 @@ Check whether this adapter supports a given token
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                |
+| ----- | ------- | -------------------------- |
 | token | address | The token address to check |
 
 #### Return Values
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | bool |  |
+| [0]  | bool |             |
 
 ### getSupportedTokens
 
@@ -157,8 +160,8 @@ Get all tokens this adapter currently supports
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type      | Description                        |
+| ------ | --------- | ---------------------------------- |
 | tokens | address[] | Array of supported token addresses |
 
 ### getFeedPrice
@@ -169,18 +172,19 @@ function getFeedPrice(address token) external view returns (struct IDataFeedAdap
 
 Get the latest price for a token from this adapter
 
-_MUST NOT revert on stale data — return confidence=0 instead_
+Returns a zero-price, zero-confidence feed when spot references are disabled or required data is
+unavailable.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                |
+| ----- | ------- | -------------------------- |
 | token | address | The token address to price |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type                              | Description                                       |
+| ---- | --------------------------------- | ------------------------------------------------- |
 | feed | struct IDataFeedAdapter.FeedPrice | The full FeedPrice struct; price=0 if unsupported |
 
 ### getFeedPrices
@@ -193,43 +197,74 @@ Get prices for multiple tokens in one call
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type      | Description              |
+| ------ | --------- | ------------------------ |
 | tokens | address[] | Array of token addresses |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type                                | Description                                           |
+| ----- | ----------------------------------- | ----------------------------------------------------- |
 | feeds | struct IDataFeedAdapter.FeedPrice[] | Array of FeedPrice structs (parallel to tokens array) |
 
-### _readFeed
+### \_readFeed
 
 ```solidity
 function _readFeed(address token) internal view returns (struct IDataFeedAdapter.FeedPrice feed)
 ```
 
-### _getPool
+### \_getPool
 
 ```solidity
 function _getPool(address token) internal view returns (address pool)
 ```
 
-### _safeGetPrice
+### \_safeGetPrice
 
 ```solidity
 function _safeGetPrice(address pool) internal view returns (uint256 price)
 ```
 
-### _computeConfidence
+### \_computeConfidence
 
 ```solidity
 function _computeConfidence(address pool) internal view returns (uint256)
 ```
 
-### _registerKnownToken
+### \_registerKnownToken
 
 ```solidity
 function _registerKnownToken(address token) internal
 ```
 
+### InvalidConfig
+
+```solidity
+error InvalidConfig()
+```
+
+### spotReferenceEnabled
+
+```solidity
+bool spotReferenceEnabled
+```
+
+### usdlUsdOracle
+
+```solidity
+contract IPriceOracle usdlUsdOracle
+```
+
+### usdlToken
+
+```solidity
+address usdlToken
+```
+
+### configureSpotReference
+
+```solidity
+function configureSpotReference(bool enabled, address usdOracle, address usdl) external
+```
+
+Administrator-only setter. Enabling requires an oracle with code and a nonzero USDL token address.

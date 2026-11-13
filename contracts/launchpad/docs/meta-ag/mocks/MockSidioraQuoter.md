@@ -1,15 +1,12 @@
 # Solidity API
 
+Source: [MockSidioraQuoter.sol](../../../contracts/meta-ag/mocks/MockSidioraQuoter.sol).
+
 ## MockSidioraQuoter
 
-Spy/stub for the live Sidiora IQuoter surface consumed by SidioraAdapter.
-
-_Only the two methods SidioraAdapter calls are implemented:
-      - quoteExactInput(pool, amountIn, isBuy) returns (QuoteResult)
-      - quoteMultihop(tokenIn, tokenOut, amountIn) returns (MultihopQuoteResult)
-
-     Used to exercise SidioraAdapter.getQuote() never-revert guarantees (I1) and
-     correctness of BUY / SELL / MULTIHOP quote paths._
+Configurable quote responses for `SidioraAdapter` tests. `quoteExactInput` returns the buy or sell
+response selected by `isBuy`. `quoteMultihop` returns the configured multihop response. Each quote
+path has an independent revert switch.
 
 ### QuoteResult
 
@@ -104,4 +101,3 @@ _isBuy=true returns the buy-side quote, false returns sell-side._
 ```solidity
 function quoteMultihop(address, address, uint256) external view returns (struct MockSidioraQuoter.MultihopQuoteResult result)
 ```
-

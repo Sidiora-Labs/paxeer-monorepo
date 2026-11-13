@@ -1,22 +1,20 @@
 # Solidity API
 
+Source: [LaunchpadOptical.sol](../../../contracts/opticals/presets/LaunchpadOptical.sol).
+
 ## LaunchpadOptical
 
-Preset optical for serious projects: cliff + linear vesting for team wallets,
-        plus a time-limited capital raise fee that diverts a portion of swap fees to the team as USDL.
+Non-upgradeable optical with cliff and linear vesting for the creator and team wallets, plus a
+time-limited diversion of the pool's fee share to a team claim address.
 
-_Immutable once deployed. One instance per pool (constructor params are pool-specific).
+Vesting is enforced by `beforeTokenTransfer`, called by the registered pool's token. It checks
+outbound transfers from vested wallets and records cumulative transferred amounts in `tokensSold`.
+Cliff, vesting and capital-raise periods start at PoolRegistry's `createdAt` timestamp. The pool's
+registered creator must match the configured creator when recording its start.
 
-     HOOKS USED:
-       - beforeSwap:             Enforce cliff lock + linear vesting on team sells
-       - afterSwap:              Track cumulative tokens sold per vested wallet (for vesting math)
-       - beforeFeeDistribution:  Divert capitalRaiseBps of pool fees to optical surplus for team
-
-     CAPITAL RAISE FLOW:
-       1. beforeFeeDistribution reduces the pool fee by capitalRaiseBps%
-       2. FeeAccumulator records the difference as opticalSurplus
-       3. Team calls claimCapital() → LaunchpadOptical calls FeeAccumulator.claimOpticalSurplus()
-       4. USDL is transferred to teamClaimAddress_
+`beforeSwap` records the start time and `afterSwap` returns its selector. `beforeFeeDistribution`
+records capital-raise amounts, with the fee accumulator holding the corresponding optical surplus.
+Only `teamClaimAddress` may call `claimCapital(pool)`; the accumulator transfers the claim there.
 
 ### CliffActive
 
@@ -204,7 +202,7 @@ Whether an address is subject to vesting restrictions
 mapping(address => uint256) poolStartTime
 ```
 
-Per-pool creation timestamp (recorded on first interaction)
+PoolRegistry creation timestamp, cached on first interaction.
 
 ### tokensSold
 
@@ -212,7 +210,7 @@ Per-pool creation timestamp (recorded on first interaction)
 mapping(address => mapping(address => uint256)) tokensSold
 ```
 
-Cumulative tokens sold per vested wallet per pool (for vesting math)
+Cumulative outbound token transfers from each vested wallet per pool, used in vesting calculations.
 
 _pool → wallet → amount sold_
 
@@ -240,18 +238,18 @@ constructor(address _poolRegistry, address _owner, address _creator, address[] _
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _poolRegistry | address | PoolRegistry address for pool validation |
-| _owner | address | Deployer/owner address |
-| _creator | address | Pool creator wallet (auto-vested) |
-| _teamWallets | address[] | Additional team wallets to vest |
-| _cliffDuration | uint256 | Hard lock period in seconds |
-| _vestingDuration | uint256 | Linear unlock period after cliff in seconds |
-| _capitalRaiseBps | uint256 | Fee percentage diverted to team (max 1000 = 10%) |
-| _capitalRaiseDuration | uint256 | How long the capital raise fee is active in seconds |
-| _teamClaimAddress | address | Where accumulated USDL is claimed to |
-| _feeAccumulator | address | FeeAccumulator contract address |
+| Name                   | Type      | Description                                         |
+| ---------------------- | --------- | --------------------------------------------------- |
+| \_poolRegistry         | address   | PoolRegistry address for pool validation            |
+| \_owner                | address   | Deployer/owner address                              |
+| \_creator              | address   | Pool creator wallet (auto-vested)                   |
+| \_teamWallets          | address[] | Additional team wallets to vest                     |
+| \_cliffDuration        | uint256   | Hard lock period in seconds                         |
+| \_vestingDuration      | uint256   | Linear unlock period after cliff in seconds         |
+| \_capitalRaiseBps      | uint256   | Fee percentage diverted to team (max 1000 = 10%)    |
+| \_capitalRaiseDuration | uint256   | How long the capital raise fee is active in seconds |
+| \_teamClaimAddress     | address   | Where accumulated USDL is claimed to                |
+| \_feeAccumulator       | address   | FeeAccumulator contract address                     |
 
 ### getFlags
 
@@ -268,7 +266,7 @@ function beforeSwap(address pool, address sender, bool isBuy, uint256 amountIn) 
 ### afterSwap
 
 ```solidity
-function afterSwap(address pool, address sender, bool isBuy, uint256 amountIn, uint256) external returns (bytes4)
+function afterSwap(address pool, address, bool, uint256, uint256) external returns (bytes4)
 ```
 
 ### beforeFeeDistribution
@@ -287,8 +285,8 @@ Claim accumulated USDL capital for a pool
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type    | Description                            |
+| ---- | ------- | -------------------------------------- |
 | pool | address | The pool address to claim capital from |
 
 ### getVestingInfo
@@ -315,7 +313,7 @@ function isTeamWallet(address wallet) external view returns (bool)
 
 Check if an address is a team wallet (vested)
 
-### _getTokenBalance
+### \_getTokenBalance
 
 ```solidity
 function _getTokenBalance(address pool, address wallet) internal view returns (uint256)
@@ -323,3 +321,19 @@ function _getTokenBalance(address pool, address wallet) internal view returns (u
 
 _Read token balance of a wallet via the pool's token address_
 
+### beforeTokenTransfer
+
+```solidity
+function beforeTokenTransfer(address pool, address from, address to, uint256 amount) external
+```
+
+Requires the registered pool's token as caller. Enforces cliff and vesting on transfers from vested
+wallets, excluding minting, self-transfers and zero amounts. Uses flag bit 4 (16).
+
+### \_recordStart
+
+```solidity
+function _recordStart(address pool) internal returns (uint256 start)
+```
+
+Validates the pool creator and caches the registry creation timestamp.

@@ -1,12 +1,12 @@
 # Solidity API
 
+Source: [MockReentrantERC20.sol](../../../contracts/meta-ag/mocks/MockReentrantERC20.sol).
+
 ## MockReentrantERC20
 
-Malicious ERC20 that re-enters a configurable target on transfer.
-
-_Used by {PECORVault} tests to prove `nonReentrant` guards fire on
-     emergencyWithdraw / pullTokens / pushTokens / deposit. Re-entry is
-     opt-in so the same mock can double as a plain ERC20 where desired._
+Test ERC20 with optional reentry after `transfer` or `transferFrom`. `armReentry` configures the
+target and calldata for the next transfer. The callback is disarmed before execution, and its
+success flag and return data are stored and emitted as `ReentryAttempted`.
 
 ### name
 
@@ -146,15 +146,14 @@ function transfer(address to, uint256 amount) external returns (bool)
 function transferFrom(address from, address to, uint256 amount) external returns (bool)
 ```
 
-### _transfer
+### \_transfer
 
 ```solidity
 function _transfer(address from, address to, uint256 amount) internal
 ```
 
-### _maybeReenter
+### \_maybeReenter
 
 ```solidity
 function _maybeReenter() internal
 ```
-

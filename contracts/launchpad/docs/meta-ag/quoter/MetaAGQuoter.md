@@ -1,40 +1,20 @@
 # Solidity API
 
+Source: [MetaAGQuoter.sol](../../../contracts/meta-ag/quoter/MetaAGQuoter.sol).
+
 ## MetaAGQuoter
 
-Rich quote view over the oracle-priced PECORVault swap path. All
-        functions are pure views — never mutates state. Frontends can build
-        a full swap UI from a single `batchQuote` round-trip (amounts, fee
-        breakdown, liquidity, price freshness).
+UUPS-upgradeable quoter for oracle-priced vault swaps. Quote methods return amounts, fees, liquidity
+and price freshness. `batchQuote` handles multiple requests and maps zero token addresses to the
+configured wrapped-native token.
 
-_Spec reference: `docs/architecture/pecor-sidiora-aggregator-spec.md` §7.11
-     (FROZEN 2026-04-24). Interface:
-     `contracts/meta-ag/interfaces/IMetaAGQuoter.sol`. Port of
-     `dev/PECORQuoter.sol` with the following frozen-surface divergences:
-       - Constructor-based replaced with UUPS `initialize(priceOracle, vault,
-         weth, pecor, admin)` (spec §7.11).
-       - Ownable admin implicitly via AccessControl.DEFAULT_ADMIN_ROLE on
-         Timelock (S1). No public admin surface; evolution goes through UUPS.
-       - OpenZeppelin Math.mulDiv replaced with `SidioraMath.mulDiv`.
+With a PECOR engine configured, exact-input quotes use `getDetailedQuote` and exact-output quotes
+use `getQuoteExactOut`. Otherwise, amounts are computed from oracle prices and token decimals. Quote
+liquidity uses the vault's available reserves after reservations and quarantine checks.
+Cross-adapter quote selection is provided by `MetaAGRouter.getBestQuote` and `getAllQuotes`.
 
-Scope note (spec §7.11):
-  MetaAGQuoter quotes ONLY vault-side (oracle-priced) swaps. Cross-adapter
-  aggregation (Sidiora AMM + future adapters) lives on
-  `MetaAGRouter.getBestQuote() / getAllQuotes()`.
-
-Inheritance (spec §7.11):
-  IMetaAGQuoter, Initializable, UUPSUpgradeable, AccessControl
-
-Roles:
-  - DEFAULT_ADMIN_ROLE → Timelock at deploy (invariant S1)
-
-Storage layout (append-only per S12):
-  slot 0:  AccessControl._roles   (mapping)
-  slot 1:  priceOracle            (IPriceOracle)
-  slot 2:  vault                  (IPECORVault)
-  slot 3:  weth                   (address; semantically immutable after init)
-  slot 4:  pecor                  (address; swapFeeBps read via staticcall)
-  slot 5..54: __gap[50]_
+Initialization sets the oracle, vault, wrapped-native token, optional engine and administrator.
+Upgrades require `DEFAULT_ADMIN_ROLE`.
 
 ### BPS_DENOMINATOR
 
@@ -66,8 +46,8 @@ contract IPECORVault vault
 address weth
 ```
 
-Canonical wrapped-native token. Semantically immutable — assigned
-        exactly once in {initialize} and never mutated afterwards.
+Canonical wrapped-native token. Semantically immutable — assigned exactly once in `initialize` and
+never mutated afterwards.
 
 ### pecor
 
@@ -75,8 +55,7 @@ Canonical wrapped-native token. Semantically immutable — assigned
 address pecor
 ```
 
-PECOR engine address. `swapFeeBps()` is read via staticcall so
-        the quoter doesn't depend on IPECOR's impl evolving.
+Optional PECOR engine used for detailed exact-input and exact-output quotes.
 
 ### constructor
 
@@ -90,19 +69,19 @@ constructor() public
 function initialize(address priceOracle_, address vault_, address weth_, address pecor_, address admin) external
 ```
 
-Initialize the UUPS proxy (spec §7.11)
+Initialize the UUPS proxy
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| priceOracle_ | address |  |
-| vault_ | address |  |
-| weth_ | address |  |
-| pecor_ | address |  |
-| admin | address | Timelock — granted DEFAULT_ADMIN_ROLE |
+| Name          | Type    | Description                        |
+| ------------- | ------- | ---------------------------------- |
+| priceOracle\_ | address |                                    |
+| vault\_       | address |                                    |
+| weth\_        | address |                                    |
+| pecor\_       | address |                                    |
+| admin         | address | Account granted DEFAULT_ADMIN_ROLE |
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
@@ -180,7 +159,7 @@ function getTokenPrices(address[] tokens) external view returns (uint256[] price
 function getTWAP(address token, uint256 period) external view returns (uint256)
 ```
 
-### _buildQuote
+### \_buildQuote
 
 ```solidity
 function _buildQuote(address tokenIn, address tokenOut, uint256 amount, bool isExactIn) internal view returns (struct IMetaAGQuoter.QuoteResult result)
@@ -188,43 +167,39 @@ function _buildQuote(address tokenIn, address tokenOut, uint256 amount, bool isE
 
 Builds a full QuoteResult for a vault-side swap.
 
-_Mirrors `PECOR._calculateSwapOutput/_calculateSwapInput` so the
-     quoter returns the same amounts the engine would execute. Never
-     reverts — unavailable prices return a partial result with
-     `sufficientLiquidity=false` and the `priceStale*` flags set._
+Calls `quoteChecked` and catches failures. Missing prices return partial metadata; caught failures
+return a zero quote with both stale flags set. `sufficientLiquidity` uses available output reserves.
 
-### _safeGetPrice
+### \_safeGetPrice
 
 ```solidity
 function _safeGetPrice(address token) internal view returns (uint256 price, uint256 timestamp, bool stale)
 ```
 
-_Non-reverting price fetch. Returns (0, 0, true) if the oracle
-     call reverts (missing token, stale past threshold, paused...)._
+_Non-reverting price fetch. Returns (0, 0, true) if the oracle call reverts (missing token or stale
+price)._
 
-### _calculateOutput
+### \_calculateOutput
 
 ```solidity
 function _calculateOutput(uint256 amountIn, uint256 priceIn, uint256 priceOut, uint256 decimalsIn, uint256 decimalsOut) internal pure returns (uint256)
 ```
 
-_Mirrors PECOR's oracle-priced output calculation (decimals-aware)._
+Converts input to output using oracle prices and token decimals.
 
-### _calculateInput
+### \_calculateInput
 
 ```solidity
 function _calculateInput(uint256 amountOut, uint256 priceIn, uint256 priceOut, uint256 decimalsIn, uint256 decimalsOut) internal pure returns (uint256)
 ```
 
-_Inverse of `_calculateOutput` — how much input is required to
-     realize `amountOut` of tokenOut at the given oracle prices._
+Computes the input required at the given prices and token decimals, rounding up.
 
-### _getFeeBps
+### quoteChecked
 
 ```solidity
-function _getFeeBps() internal view returns (uint256)
+function quoteChecked(address tokenIn, address tokenOut, uint256 amount, bool isExactIn) external view returns (struct IMetaAGQuoter.QuoteResult result)
 ```
 
-_Reads `swapFeeBps()` off the PECOR engine via low-level staticcall.
-     Returns 0 if pecor is unset or the call fails (upgrade-safe)._
-
+Builds a quote from oracle, vault and optional engine reads. Unlike the public quote wrappers, this
+method propagates failures from those reads and calculations.
