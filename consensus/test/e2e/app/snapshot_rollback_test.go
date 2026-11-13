@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1187_SnapshotPruneReopen(t *testing.T) {
+func TestSnapshotPruneReopen(t *testing.T) {
 	for _, keep := range []int{0, 2, 4, 5} {
 		t.Run(fmt.Sprintf("keep_%d", keep), func(t *testing.T) {
 			dir := t.TempDir()
@@ -77,7 +77,7 @@ func TestRepairM_1187_SnapshotPruneReopen(t *testing.T) {
 	}
 }
 
-func TestRepairM_1187_SnapshotInterruptedPrune(t *testing.T) {
+func TestSnapshotInterruptedPrune(t *testing.T) {
 	for _, restart := range []bool{true, false} {
 		t.Run(fmt.Sprintf("restart_%t", restart), func(t *testing.T) {
 			dir := t.TempDir()
@@ -144,7 +144,7 @@ func TestRepairM_1187_SnapshotInterruptedPrune(t *testing.T) {
 	}
 }
 
-func TestRepairM_1187_AppStateRollback(t *testing.T) {
+func TestAppStateRollback(t *testing.T) {
 	dir := t.TempDir()
 	state, err := app.NewState(dir, 1)
 	require.NoError(t, err)
@@ -195,7 +195,7 @@ func TestRepairM_1187_AppStateRollback(t *testing.T) {
 	assertRollback(state)
 }
 
-func TestRepairM_1187_RollbackRefusesInvalidTarget(t *testing.T) {
+func TestRollbackRefusesInvalidTarget(t *testing.T) {
 	for _, corruption := range []string{"json", "hash"} {
 		t.Run(corruption, func(t *testing.T) {
 			dir := t.TempDir()
@@ -238,7 +238,7 @@ func TestRepairM_1187_RollbackRefusesInvalidTarget(t *testing.T) {
 	}
 }
 
-func TestRepairM_1187_RollbackInstallFailure(t *testing.T) {
+func TestRollbackInstallFailure(t *testing.T) {
 	dir := t.TempDir()
 	state, err := app.NewState(dir, 1)
 	require.NoError(t, err)

@@ -31,7 +31,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-type repair1191DockerResource struct {
+type dockerTestResource struct {
 	ID     string `json:"Id"`
 	Name   string
 	Labels map[string]string
@@ -39,11 +39,11 @@ type repair1191DockerResource struct {
 
 // The Engine peer implements Docker's label conjunction and resource lifecycle
 // over HTTP; cleanup and its HTTP request path are production code.
-func repair1191Engine(t *testing.T) *httptest.Server {
+func cleanupEngine(t *testing.T) *httptest.Server {
 	t.Helper()
 	var mu sync.Mutex
-	networks := map[string]repair1191DockerResource{}
-	containers := map[string]repair1191DockerResource{
+	networks := map[string]dockerTestResource{}
+	containers := map[string]dockerTestResource{
 		"selected":   {ID: "selected", Labels: map[string]string{"e2e": "true", "com.docker.compose.project": "alphatest_net"}},
 		"other":      {ID: "other", Labels: map[string]string{"e2e": "true", "com.docker.compose.project": "beta"}},
 		"unlabelled": {ID: "unlabelled", Labels: map[string]string{"com.docker.compose.project": "alphatest_net"}},
@@ -72,16 +72,16 @@ func repair1191Engine(t *testing.T) *httptest.Server {
 		}
 		switch {
 		case r.Method == http.MethodPost && path == "/networks/create":
-			var request repair1191DockerResource
+			var request dockerTestResource
 			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			networks[request.Name] = repair1191DockerResource{ID: request.Name, Name: request.Name, Labels: request.Labels}
+			networks[request.Name] = dockerTestResource{ID: request.Name, Name: request.Name, Labels: request.Labels}
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(repair1191DockerResource{ID: request.Name})
+			_ = json.NewEncoder(w).Encode(dockerTestResource{ID: request.Name})
 		case r.Method == http.MethodGet && path == "/networks":
-			result := []repair1191DockerResource{}
+			result := []dockerTestResource{}
 			for _, resource := range networks {
 				if matches(resource.Labels) {
 					result = append(result, resource)
@@ -92,7 +92,7 @@ func repair1191Engine(t *testing.T) *httptest.Server {
 			if r.URL.Query().Get("all") != "1" {
 				t.Error("cleanup must include stopped containers")
 			}
-			result := []repair1191DockerResource{}
+			result := []dockerTestResource{}
 			for _, resource := range containers {
 				if matches(resource.Labels) {
 					result = append(result, resource)
@@ -124,29 +124,29 @@ func repair1191Engine(t *testing.T) *httptest.Server {
 	return server
 }
 
-func TestRepairM_1191_CleanupNetworkIsolation(t *testing.T) {
-	server := repair1191Engine(t)
+func TestCleanupNetworkIsolation(t *testing.T) {
+	server := cleanupEngine(t)
 	docker, endpoint := server.Client(), server.URL
 	ctx := t.Context()
 	for _, project := range []string{"alphatest_net", "beta"} {
-		request := repair1191DockerResource{
+		request := dockerTestResource{
 			Name: project + "_testnet", Labels: map[string]string{"e2e": "true", "com.docker.compose.project": project},
 		}
-		var created repair1191DockerResource
+		var created dockerTestResource
 		require.NoError(t, cleanupDockerRequest(ctx, docker, endpoint, http.MethodPost, "/networks/create", request, &created))
 		require.Equal(t, request.Name, created.ID)
 	}
-	var before []repair1191DockerResource
+	var before []dockerTestResource
 	require.NoError(t, cleanupDockerRequest(ctx, docker, endpoint, http.MethodGet, "/networks", nil, &before))
 	require.Len(t, before, 2)
 
 	testnet := &e2e.Testnet{Dir: filepath.Join(t.TempDir(), "Alpha.Test_Net")}
 	require.NoError(t, cleanupDocker(testnet, docker, endpoint))
-	var after []repair1191DockerResource
+	var after []dockerTestResource
 	require.NoError(t, cleanupDockerRequest(ctx, docker, endpoint, http.MethodGet, "/networks", nil, &after))
 	require.Len(t, after, 1)
 	require.Equal(t, "beta_testnet", after[0].ID)
-	var remaining []repair1191DockerResource
+	var remaining []dockerTestResource
 	require.NoError(t, cleanupDockerRequest(ctx, docker, endpoint, http.MethodGet, "/containers/json?all=1", nil, &remaining))
 	ids := make([]string, 0, len(remaining))
 	for _, resource := range remaining {
@@ -161,7 +161,7 @@ func TestRepairM_1191_CleanupNetworkIsolation(t *testing.T) {
 	require.Equal(t, "beta_testnet", after[0].ID)
 }
 
-func repair1191RPCNode(t *testing.T, routes map[string]*rpcserver.RPCFunc) *e2e.Node {
+func runnerRPCNode(t *testing.T, routes map[string]*rpcserver.RPCFunc) *e2e.Node {
 	t.Helper()
 	mux := http.NewServeMux()
 	rpcserver.RegisterRPCFuncs(mux, routes)
@@ -174,7 +174,7 @@ func repair1191RPCNode(t *testing.T, routes map[string]*rpcserver.RPCFunc) *e2e.
 	return &e2e.Node{Name: "validator01", Mode: e2e.ModeValidator, HasStarted: true, ProxyPort: uint32(number)}
 }
 
-func TestRepairM_1191_LoadRejectionCount(t *testing.T) {
+func TestLoadRejectionCount(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		txs      []types.Tx
@@ -193,9 +193,9 @@ func TestRepairM_1191_LoadRejectionCount(t *testing.T) {
 				result *coretypes.ResultBroadcastTx
 			}
 			observed := make(chan observation, len(tc.txs)+1)
-			node := repair1191RPCNode(t, map[string]*rpcserver.RPCFunc{
+			node := runnerRPCNode(t, map[string]*rpcserver.RPCFunc{
 				"status": rpcserver.NewRPCFunc(func(context.Context) (*coretypes.ResultStatus, error) {
-					return &coretypes.ResultStatus{NodeInfo: types.NodeInfo{Network: "repair-m1191"}}, nil
+					return &coretypes.ResultStatus{NodeInfo: types.NodeInfo{Network: "runner-load-wait"}}, nil
 				}),
 				"broadcast_tx_sync": rpcserver.NewRPCFunc(func(ctx context.Context, request *coretypes.RequestBroadcastTx) (*coretypes.ResultBroadcastTx, error) {
 					result, err := env.BroadcastTxSync(ctx, request)
@@ -252,20 +252,20 @@ func TestRepairM_1191_LoadRejectionCount(t *testing.T) {
 	}
 }
 
-func TestRepairM_1191_HeightBlockRetry(t *testing.T) {
+func TestHeightBlockRetry(t *testing.T) {
 	for _, empty := range []bool{false, true} {
 		t.Run(fmt.Sprintf("empty_block_%t", empty), func(t *testing.T) {
 			var statuses, blocks atomic.Int32
 			block := types.MakeBlock(7, []types.Tx{[]byte("load=committed")}, &types.Commit{}, nil)
-			block.ChainID = "repair-m1191"
+			block.ChainID = "runner-load-wait"
 			block.ValidatorsHash = types.Tx("validators").Hash().Bytes()
 			parts, err := block.MakePartSet(65536)
 			require.NoError(t, err)
 			blockID := types.BlockID{Hash: block.Hash(), PartSetHeader: parts.Header()}
-			node := repair1191RPCNode(t, map[string]*rpcserver.RPCFunc{
+			node := runnerRPCNode(t, map[string]*rpcserver.RPCFunc{
 				"status": rpcserver.NewRPCFunc(func(context.Context) (*coretypes.ResultStatus, error) {
 					statuses.Add(1)
-					return &coretypes.ResultStatus{NodeInfo: types.NodeInfo{Network: "repair-m1191"}, SyncInfo: coretypes.SyncInfo{LatestBlockHeight: 9}}, nil
+					return &coretypes.ResultStatus{NodeInfo: types.NodeInfo{Network: "runner-load-wait"}, SyncInfo: coretypes.SyncInfo{LatestBlockHeight: 9}}, nil
 				}),
 				"block": rpcserver.NewRPCFunc(func(_ context.Context, request *coretypes.RequestBlockInfo) (*coretypes.ResultBlock, error) {
 					if request.Height == nil || int64(*request.Height) != 7 {
@@ -293,13 +293,13 @@ func TestRepairM_1191_HeightBlockRetry(t *testing.T) {
 	}
 }
 
-func TestRepairM_1191_HeightBlockCancellation(t *testing.T) {
+func TestHeightBlockCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	var blocks atomic.Int32
-	node := repair1191RPCNode(t, map[string]*rpcserver.RPCFunc{
+	node := runnerRPCNode(t, map[string]*rpcserver.RPCFunc{
 		"status": rpcserver.NewRPCFunc(func(context.Context) (*coretypes.ResultStatus, error) {
-			return &coretypes.ResultStatus{NodeInfo: types.NodeInfo{Network: "repair-m1191"}, SyncInfo: coretypes.SyncInfo{LatestBlockHeight: 7}}, nil
+			return &coretypes.ResultStatus{NodeInfo: types.NodeInfo{Network: "runner-load-wait"}, SyncInfo: coretypes.SyncInfo{LatestBlockHeight: 7}}, nil
 		}),
 		"block": rpcserver.NewRPCFunc(func(context.Context, *coretypes.RequestBlockInfo) (*coretypes.ResultBlock, error) {
 			if blocks.Add(1) == 2 {
