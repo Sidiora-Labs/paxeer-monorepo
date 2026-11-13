@@ -256,6 +256,38 @@ def baseline_runner():
 
 def launchpad_current_test_name(name):
     return {
+        "TestRepair_55_RestartRecoversRealMarketBeyondLifetimeBounds": "TestMarketRecoveryRestartRecoversRealMarketBeyondLifetimeBounds",
+        "TestRepair_55_ReceiptHintsRejectTampering": "TestMarketRecoveryReceiptHintsRejectTampering",
+        "TestRepairM_999_ReceiptQualifiedBackfill": "TestReceiptQualifiedBackfill",
+        "TestRepairM_995_NativeReceiptAttribution": "TestNativeAttributionNativeReceiptAttribution",
+        "TestRepair_56_ExplorerDynamicDiscoveries": "TestExplorerDynamicDiscoveries",
+        "TestRepair_56_DiscoveryEpochBounds": "TestExplorerDiscoveryEpochBounds",
+        "TestRepairM_996_NoCompatibilityDeadLetterEscape": "TestDeliveryHealthNoCompatibilityDeadLetterEscape",
+        "TestRepair54Postgres_NativeReadModelProjection": "TestNativeReadModelPostgresProjection",
+        "TestRepair_54_RecordedLiveQualification": "TestNativeProjectionRecordedLiveQualification",
+        "TestRepair54Postgres_AmbiguousCommitLiveRecovery": "TestNativeProjectionPostgresAmbiguousCommitLiveRecovery",
+        "TestRepair_54_NativeReadModelProjection": "TestNativeReadModelProjection",
+        "TestRepair_54_AmbiguousCommitLiveRecovery": "TestNativeProjectionAmbiguousCommitLiveRecovery",
+        "TestRepair_53_native_swap_qualification": "TestReceiptReplayNativeSwapQualification",
+        "TestRepair_53_tenant_transaction_qualification": "TestReceiptReplayTenantTransactionQualification",
+        "TestRepair_53_approved_history_rehydration": "TestReceiptReplayApprovedHistoryRehydration",
+        "TestRepair56Postgres_ExplorerDynamicDiscoveries": "TestExplorerPostgresDynamicDiscoveries",
+        "TestRepair56Postgres_DiscoveryEpochBounds": "TestExplorerPostgresDiscoveryEpochBounds",
+        "TestRepair_27_log_free_receipts": "TestLogFreeReceipts",
+        "TestRepair_29_RewardRequestSchemaRecovery": "TestRewardRequestSchemaRecovery",
+        "TestRepairM_917_FreshInstallMigrationContract": "TestMigrationFreshInstallMigrationContract",
+        "TestRepairM_917_ExistingSchemaUpgradeMigrationContract": "TestMigrationExistingSchemaUpgradeMigrationContract",
+        "TestRepair_45_LegacyMintRetired": "TestArchiveLegacyMintRetired",
+        "TestRepairM_1032_LatePoolMetadataChangesSnapshotIdentity": "TestSnapshotLatePoolMetadataChangesSnapshotIdentity",
+        "TestRepairM_1032_ConcurrentFoldStaysWithinHistoryWatermark": "TestSnapshotConcurrentFoldStaysWithinHistoryWatermark",
+        "TestRepair_63_ActiveSnapshotUpdateGrant": "TestCoordinatorReplayActiveSnapshotUpdateGrant",
+        "TestRepair_63_WalletRangeSchemaMigrated": "TestCoordinatorReplayWalletRangeSchemaMigrated",
+        "TestRepairM_1018_ProductionGrantRendering": "TestCoordinatorRuntimeProductionGrantRendering",
+        "TestRepairM_1018_CompleteDependencyMigrations": "TestCoordinatorRuntimeCompleteDependencyMigrations",
+        "TestRepairM_1014_PoisonPrefixRecovery": "TestCursorPoisonPrefixRecovery",
+        "TestRepairM_1014_CursorFailureReplayDeduplicates": "TestCursorFailureReplayDeduplicates",
+        "TestRepairM_1014_RestartRefreshObligation": "TestCursorRecoveryRestartRefreshObligation",
+        "TestRepairM_1014_PoisonCursorFailureRecovery": "TestPoisonCursorFailureRecovery",
         "TestRepair_29_RewardSchemaReadiness": "TestProductionRewardSchemaReadiness",
         "TestRepair_63_MigrationFixturePaths": "TestProductionMigrationFixturePaths",
         "TestRepair_63_CoordinatorWalletContract": "TestProductionCoordinatorWalletContract",
@@ -549,13 +581,13 @@ def assert_indexer_runs_without_baseline(entries):
 def test_launchpad_baseline_records_only_approved_indexer_failures():
     runner = baseline_runner()
     assert_indexer_runs_without_baseline(runner.load_baseline())
-    record = tomllib.loads((ROOT / "services/launchpad/indexer/repair_22_39_162.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/indexer/repair_22_39_162.kvx").read_text())
     entries = list(record["repair"].values())
     assert len(entries) == 33
     for entry in entries:
         assert entry["producer"].strip()
         directory = ROOT / "services/launchpad/indexer" / entry["package"].removeprefix(runner.INDEXER)
-        assert any(re.search(r"^func " + entry["test"] + r"\(t \*testing.T\)",
+        assert any(re.search(r"^func " + launchpad_current_test_name(entry["test"]) + r"\(t \*testing.T\)",
                              source.read_text(), re.M)
                    for source in directory.glob("*_test.go")), entry["test"]
     expected = {
@@ -816,7 +848,7 @@ def test_launchpad_remaining_package_inventory_matches_module_sources():
 def test_launchpad_baseline_records_indexer_refusal_classes():
     runner = baseline_runner()
     assert_indexer_runs_without_baseline(runner.load_baseline())
-    record = tomllib.loads((ROOT / "services/launchpad/indexer/repair_22_39_162.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/indexer/repair_22_39_162.kvx").read_text())
     entries = {entry["test"]: entry for entry in record["repair"].values()}
     assert "foreign key constraint" in entries[
         "TestCanonicalProcessorConcurrentFencingPostgres"]["reason"]
@@ -845,7 +877,7 @@ def test_launchpad_baseline_rejects_wrong_remaining_module_owner(tmp_path, owner
     runner = baseline_runner()
     assert not any(entry["package"] in runner.REMAINING_PACKAGES
                    for entry in runner.load_baseline())
-    record = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx").read_text())
     for module, packages in runner.SERVICE_PACKAGES.items():
         retired = record["module"][module.replace("/", "_")]
         for index, case in enumerate(retired["cases"]):
@@ -1029,19 +1061,19 @@ def test_launchpad_go_job_builds_protocol_proofs_before_timed_tests():
     assert 'export GOTOOLCHAIN="go$(' in command
     assert "build_proof_dependencies precompiles/launchpad" in command
     download = (
-        "cd sdk/launchpad/protocol/bindings/testdata/repair37/contracts\n"
+        "cd sdk/launchpad/protocol/bindings/testdata/contract_events/contracts\n"
         "    go mod download all"
     )
     assert download in command
     assert command.index(download) < command.index(
-        "build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/repair37/contracts"
+        "build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/contract_events/contracts"
     )
-    assert "build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/repair37/contracts" in command
+    assert "build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/contract_events/contracts" in command
     assert "go list -mod=readonly -deps -test" in command
     assert '(not .Standard) (not .ForTest) (ne .Name "main") .GoFiles' in command
     assert 'test -s "$RUNNER_TEMP/launchpad-proof-dependencies.txt"' in command
     assert "xargs go build -mod=readonly" in command
-    assert "cd sdk/launchpad/protocol/coverage/testdata/repair28producer" in command
+    assert "cd sdk/launchpad/protocol/coverage/testdata/emitter_producer" in command
     assert 'cp go.mod "$RUNNER_TEMP/launchpad-repair28.mod"' in command
     assert 'go build -modfile="$RUNNER_TEMP/launchpad-repair28.mod" -mod=mod' in command
     assert "go test" not in command
@@ -1063,7 +1095,7 @@ def test_launchpad_baseline_records_user_profile_producer_conflicts():
     handlers = (root / "internal/user/handlers.go").read_text()
     assert "user.ProfileCacheKey(cfg.PublicURL, wallet)" in app
     assert "return ProfileCacheKey(h.publicURL, addr)" in handlers
-    record = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx").read_text())
     assert set(record["module"]["user"]["cases"]) >= {
         package + "::TestDevelopmentProfileWrite",
         package + "::TestDevelopmentProfileReads",
@@ -1080,7 +1112,7 @@ def test_launchpad_baseline_records_security_canonical_field_conflict():
     case = policy.split("func TestRequestParsing(t *testing.T) {", 1)[1].split("\nfunc ", 1)[0]
     assert 'strings.NewReader(`{"Name":"ok"}`)' in case
     assert 'strings.NewReader(`{"name":"ok"}`)' not in case
-    record = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx").read_text())
     assert record["module"]["security"]["cases"] == [package + "::TestRequestParsing"]
     assert record["repair"]["security_canonical_field"]["producer"] == "policy/policy.go"
     assert record["repair"]["security_canonical_field"]["canonical_key"] == "Name"
@@ -1090,12 +1122,12 @@ def test_launchpad_module_qualification_records_follow_runner_and_baseline():
     runner = baseline_runner()
     entries = runner.load_baseline()
     job = launchpad_go_workflow()["jobs"]["launchpad-go-test"]
-    retirement = tomllib.loads((ROOT / "services/launchpad/repair_22_39_168.kvx").read_text())
+    retirement = tomllib.loads((ROOT / "spec/layerx-merge/programme/records/services/launchpad/repair_22_39_168.kvx").read_text())
     for module in (
         "stats-workers", "trading-charts", "livestream", "metadata", "discovery"
     ):
         path = "services/launchpad/" + module
-        record = tomllib.loads((ROOT / path / "repair_22_39_75.kvx").read_text())
+        record = tomllib.loads((ROOT / "spec/layerx-merge/programme/records" / path / "repair_22_39_75.kvx").read_text())
         prefix = re.search(r"^module (.+)$", (ROOT / path / "go.mod").read_text(), re.M)[1]
         assert record["meta"] == {
             "task": "22.39.75", "module": path, "package_prefix": prefix,
