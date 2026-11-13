@@ -36,7 +36,7 @@ AUTH = 'LayerX-Key recorded:lxp_live_' + '17' * 32
 
 
 def component(name):
-    spec = importlib.util.spec_from_file_location('repair_808_' + name.replace('-', '_'), BASE / (name + '.py'))
+    spec = importlib.util.spec_from_file_location('program_qualification_' + name.replace('-', '_'), BASE / (name + '.py'))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

@@ -2,7 +2,7 @@
 audit = "22.30.170"
 acceptance = "22998.1"
 base_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
-verify = "python3 -m pytest -q scripts/replica/test_repair_22_33_721.py"
+verify = "python3 -m pytest -q scripts/replica/test_replay_fixture.py"
 baseline = "Not executed: the ordered gate instructions forbid tests before implementation and forbid running verify_cmd by hand. No prior gate ledger existed; no baseline runtime failures are claimed."
 revision_evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit and log. The final response copies the last gate evidence; no qualification is claimed before that evidence."
 

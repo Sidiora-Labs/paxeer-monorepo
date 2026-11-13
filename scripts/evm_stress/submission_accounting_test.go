@@ -20,7 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-type m872RPCFixture struct {
+type stressRPCFixture struct {
 	mu               sync.Mutex
 	transactions     []*types.Transaction
 	refusals         map[common.Address]string
@@ -33,7 +33,7 @@ type m872RPCFixture struct {
 	release          chan struct{}
 }
 
-func (f *m872RPCFixture) wait(ctx context.Context, method string) error {
+func (f *stressRPCFixture) wait(ctx context.Context, method string) error {
 	select {
 	case <-ctx.Done():
 		f.canceled <- method
@@ -43,7 +43,7 @@ func (f *m872RPCFixture) wait(ctx context.Context, method string) error {
 	}
 }
 
-func (f *m872RPCFixture) SendRawTransaction(ctx context.Context, raw hexutil.Bytes) (common.Hash, error) {
+func (f *stressRPCFixture) SendRawTransaction(ctx context.Context, raw hexutil.Bytes) (common.Hash, error) {
 	var tx types.Transaction
 	if err := tx.UnmarshalBinary(raw); err != nil {
 		return common.Hash{}, err
@@ -65,7 +65,7 @@ func (f *m872RPCFixture) SendRawTransaction(ctx context.Context, raw hexutil.Byt
 	return tx.Hash(), nil
 }
 
-func (f *m872RPCFixture) GetBalance(ctx context.Context, _ common.Address, block string) (*hexutil.Big, error) {
+func (f *stressRPCFixture) GetBalance(ctx context.Context, _ common.Address, block string) (*hexutil.Big, error) {
 	if block != "latest" {
 		return nil, fmt.Errorf("unexpected block %q", block)
 	}
@@ -84,7 +84,7 @@ func (f *m872RPCFixture) GetBalance(ctx context.Context, _ common.Address, block
 	return (*hexutil.Big)(balance), nil
 }
 
-func m872Client(t *testing.T, fixture *m872RPCFixture) *ethclient.Client {
+func newStressRPCClient(t *testing.T, fixture *stressRPCFixture) *ethclient.Client {
 	t.Helper()
 	fixture.started = make(chan string, 32)
 	fixture.canceled = make(chan string, 32)
@@ -108,7 +108,7 @@ func m872Client(t *testing.T, fixture *m872RPCFixture) *ethclient.Client {
 	return client
 }
 
-func m872Queue(n int) (<-chan *ecdsa.PrivateKey, <-chan time.Time) {
+func stressSubmissionQueue(n int) (<-chan *ecdsa.PrivateKey, <-chan time.Time) {
 	keys := make(chan *ecdsa.PrivateKey, n)
 	ticks := make(chan time.Time, n)
 	for i := 1; i <= n; i++ {
@@ -119,7 +119,7 @@ func m872Queue(n int) (<-chan *ecdsa.PrivateKey, <-chan time.Time) {
 	return keys, ticks
 }
 
-func m872Event(t *testing.T, events <-chan string, want string) {
+func requireStressRPCEvent(t *testing.T, events <-chan string, want string) {
 	t.Helper()
 	select {
 	case got := <-events:
@@ -131,23 +131,23 @@ func m872Event(t *testing.T, events <-chan string, want string) {
 	}
 }
 
-func TestRepairM_872_F005_SubmissionAccountingAndReasons(t *testing.T) {
+func TestStressSubmission_SubmissionAccountingAndReasons(t *testing.T) {
 	recipient := keyAddr(nextKey(0))
 	for _, mode := range []string{workloadModeTransfer, workloadModeContractStorage} {
 		for _, refused := range []int{0, 2, 4} {
 			t.Run(fmt.Sprintf("%s/refused_%d", mode, refused), func(t *testing.T) {
-				fixture := &m872RPCFixture{refusals: make(map[common.Address]string)}
+				fixture := &stressRPCFixture{refusals: make(map[common.Address]string)}
 				for i := 1; i <= refused; i++ {
 					fixture.refusals[keyAddr(nextKey(uint64(i)))] = fmt.Sprintf("LXP_SUBMISSION_REFUSED_%d", i)
 				}
-				client := m872Client(t, fixture)
+				client := newStressRPCClient(t, fixture)
 				makeTx := func(key *ecdsa.PrivateKey) *types.Transaction {
 					if mode == workloadModeContractStorage {
 						return deployStorageContract(0, key)
 					}
 					return transfer(0, recipient, key)
 				}
-				keys, ticks := m872Queue(4)
+				keys, ticks := stressSubmissionQueue(4)
 				var output bytes.Buffer
 				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 				defer cancel()
@@ -204,10 +204,10 @@ func TestRepairM_872_F005_SubmissionAccountingAndReasons(t *testing.T) {
 	}
 }
 
-func TestRepairM_872_F005_SendTimeoutReleasesWorkers(t *testing.T) {
-	fixture := &m872RPCFixture{hangSends: true}
-	client := m872Client(t, fixture)
-	keys, ticks := m872Queue(3)
+func TestStressSubmission_SendTimeoutReleasesWorkers(t *testing.T) {
+	fixture := &stressRPCFixture{hangSends: true}
+	client := newStressRPCClient(t, fixture)
+	keys, ticks := stressSubmissionQueue(3)
 	var output bytes.Buffer
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -221,16 +221,16 @@ func TestRepairM_872_F005_SendTimeoutReleasesWorkers(t *testing.T) {
 		t.Fatalf("timeouts were not reported as refused submissions: %s", output.String())
 	}
 	for range 3 {
-		m872Event(t, fixture.started, "send")
-		m872Event(t, fixture.canceled, "send")
+		requireStressRPCEvent(t, fixture.started, "send")
+		requireStressRPCEvent(t, fixture.canceled, "send")
 	}
 }
 
-func TestRepairM_872_F005_ParentCancellation(t *testing.T) {
+func TestStressSubmission_ParentCancellation(t *testing.T) {
 	t.Run("in_flight_send", func(t *testing.T) {
-		fixture := &m872RPCFixture{hangSends: true}
-		client := m872Client(t, fixture)
-		keys, ticks := m872Queue(2)
+		fixture := &stressRPCFixture{hangSends: true}
+		client := newStressRPCClient(t, fixture)
+		keys, ticks := stressSubmissionQueue(2)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		var output bytes.Buffer
@@ -239,7 +239,7 @@ func TestRepairM_872_F005_ParentCancellation(t *testing.T) {
 			done <- runStress(ctx, client, keys, ticks, 1, rpcTimeout,
 				func(key *ecdsa.PrivateKey) *types.Transaction { return transfer(0, keyAddr(nextKey(0)), key) }, &output)
 		}()
-		m872Event(t, fixture.started, "send")
+		requireStressRPCEvent(t, fixture.started, "send")
 		cancel()
 		select {
 		case counts := <-done:
@@ -251,12 +251,12 @@ func TestRepairM_872_F005_ParentCancellation(t *testing.T) {
 		case <-time.After(3 * time.Second):
 			t.Fatal("parent cancellation did not interrupt the in-flight RPC")
 		}
-		m872Event(t, fixture.canceled, "send")
+		requireStressRPCEvent(t, fixture.canceled, "send")
 	})
 	t.Run("rate_limiter", func(t *testing.T) {
-		fixture := &m872RPCFixture{}
-		client := m872Client(t, fixture)
-		keys, _ := m872Queue(1)
+		fixture := &stressRPCFixture{}
+		client := newStressRPCClient(t, fixture)
+		keys, _ := stressSubmissionQueue(1)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		done := make(chan submissionCounts, 1)
@@ -277,9 +277,9 @@ func TestRepairM_872_F005_ParentCancellation(t *testing.T) {
 	})
 }
 
-func TestRepairM_872_F005_BalanceRPCTimeoutAndRecovery(t *testing.T) {
-	fixture := &m872RPCFixture{hangFirstBalance: true}
-	client := m872Client(t, fixture)
+func TestStressSubmission_BalanceRPCTimeoutAndRecovery(t *testing.T) {
+	fixture := &stressRPCFixture{hangFirstBalance: true}
+	client := newStressRPCClient(t, fixture)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	if err := waitForBalance(ctx, client, keyAddr(nextKey(1)), 250*time.Millisecond); err != nil {
@@ -291,19 +291,19 @@ func TestRepairM_872_F005_BalanceRPCTimeoutAndRecovery(t *testing.T) {
 	if calls != 2 {
 		t.Fatalf("balance calls = %d, want one timeout then one successful retry", calls)
 	}
-	m872Event(t, fixture.canceled, "balance")
+	requireStressRPCEvent(t, fixture.canceled, "balance")
 }
 
-func TestRepairM_872_F005_BalanceCancellation(t *testing.T) {
+func TestStressSubmission_BalanceCancellation(t *testing.T) {
 	for _, hang := range []bool{false, true} {
 		t.Run(fmt.Sprintf("in_flight_%t", hang), func(t *testing.T) {
-			fixture := &m872RPCFixture{hangFirstBalance: hang, zeroBalance: true}
-			client := m872Client(t, fixture)
+			fixture := &stressRPCFixture{hangFirstBalance: hang, zeroBalance: true}
+			client := newStressRPCClient(t, fixture)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			done := make(chan error, 1)
 			go func() { done <- waitForBalance(ctx, client, keyAddr(nextKey(1)), rpcTimeout) }()
-			m872Event(t, fixture.started, "balance")
+			requireStressRPCEvent(t, fixture.started, "balance")
 			cancel()
 			select {
 			case err := <-done:
@@ -314,7 +314,7 @@ func TestRepairM_872_F005_BalanceCancellation(t *testing.T) {
 				t.Fatal("balance wait ignored cancellation")
 			}
 			if hang {
-				m872Event(t, fixture.canceled, "balance")
+				requireStressRPCEvent(t, fixture.canceled, "balance")
 			}
 		})
 	}

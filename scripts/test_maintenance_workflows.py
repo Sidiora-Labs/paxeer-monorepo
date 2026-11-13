@@ -31,7 +31,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
-FIXTURES = SCRIPTS / "fixtures/repair_22_31_320"
+FIXTURES = SCRIPTS / "fixtures/maintenance_rpc"
 spec = importlib.util.spec_from_file_location("node_maintenance", SCRIPTS / "node_maintenance.py")
 maintenance = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(maintenance)
