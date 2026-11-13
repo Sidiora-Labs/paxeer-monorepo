@@ -1,6 +1,6 @@
-# Code indexing in Hyperfide 2.0
+# Code indexing in Hyperfide
 
-Hyperfide (version `2.0.0-dev` in this tree) indexes source facts locally and records how it reached each graph
+Hyperfide `2.2.0` indexes source facts locally and records how it reached each graph
 relationship. Queries report the branch, extraction coverage, and a bounded
 check of the source files that contributed to the answer. A missing relation
 does not prove that a call or data flow cannot occur.
@@ -8,8 +8,7 @@ does not prove that a call or data flow cannot occur.
 Examples use `hyperfide`, the canonical command. `cg` is a deprecated
 compatibility alias installed from the same executable, with identical
 arguments, JSON and exit codes, kept for the compatibility window of the
-approved release. The pipeline first shipped in Codify 1.6; this guide
-describes it as built in this tree.
+approved release. Implementation paths and build commands are relative to `tools/hyperfide`.
 
 ```mermaid
 flowchart LR
@@ -46,13 +45,13 @@ file in `index_health.source_validation.files[].parser`.
 
 The grammars are vendored under `vendor/parsers/` in six families (`web`,
 `systems`, `dynamic`, `managed`, `extended`, `mixed`) with one adapter
-source each (`src/ast_web.c`, `src/ast_systems.c`, `src/ast_dynamic.c`,
-`src/ast_managed.c`, `src/ast_extended.c`, `src/ast_mixed.c`); `src/ast.c`
+source each (`core/native/src/ast_web.c`, `core/native/src/ast_systems.c`, `core/native/src/ast_dynamic.c`,
+`core/native/src/ast_managed.c`, `core/native/src/ast_extended.c`, `core/native/src/ast_mixed.c`); `core/native/src/ast.c`
 holds the shared runtime. The parser identity and status are stored per
 file. Native grammar support means that the file is parsed into syntax
 nodes; it does not mean that every language construct is modeled. If the
 syntax runtime cannot parse a file (source-size bound or parse timeout), the
-`src/lang.c` fallback records the parser as `heuristic`. A file whose
+`core/native/src/lang.c` fallback records the parser as `heuristic`. A file whose
 extension has no language entry is tracked with parser `none`, status
 `skipped` and reason `unsupported_language`. Syntax recovery, excessive depth or node count,
 unreadable files, and unsupported input appear as partial, skipped, or
@@ -144,33 +143,12 @@ cases; a file being parsed is not counted as a successful relationship. Set
 `CG` to the binary under test and `CG_SEMANTIC_REPORT_DIR` to keep the JSON
 reports. `tests/integration/77_index_resources.sh` checks cold, no-op and
 incremental operations on a small generated fixture against fixed peak-memory
-and database-size limits. `scripts/bench-indexing.py` emits the raw timings,
+and database-size limits. `tools/repository/bench-indexing.py` emits the raw timings,
 peak memory, database size, diagnostics and source-to-query latency for
 repeatable local inspection; its large profile is opt-in.
 
-The labelled conformance gate contains 43 adapter cases: 37 structural,
-two reference-only (Liquid and Razor), and four file-only. It also checks 37
-typed relation cases and 16 framework cases, each with a supported example
-and a decoy. Running it against this tree's `2.0.0-dev` binary passed with
-no labelled false positives or false negatives, every case reporting
-`complete` coverage under the parser identity in the matrix above, and no
-graph-set differences across its 13 incremental and rebuild checkpoints.
-These are narrow micro-fixtures; they do not measure recall or precision on
-arbitrary repositories.
-
-`tests/integration/78_v16_release.sh` is the Codify 1.6 release gate: a
-clean strict build, the unit and integration suites, `spec lint`, and a
-check that the binary and the VS Code extension report version `1.6.0`.
-That version check does not match this tree's `2.0.0-dev` binary, so the
-script is not a gate for this revision.
+The conformance corpus covers adapter extraction, typed relations and framework registrations, including supported examples and decoys. It also compares graph sets across incremental and rebuild checkpoints. These are bounded fixtures rather than measurements of recall or precision on arbitrary repositories.
 
 ## Resource measurements
 
-No indexing time, memory or database-size figure is qualified in this
-revision. Performance depends on the host, fixture, worker count and SQLite
-version; when reporting a run of `scripts/bench-indexing.py`, keep those
-together with the binary's SHA-256. In this checkout the vendored parser
-source tree (`vendor/parsers/`) occupies 340,628,206 bytes (about 325 MiB)
-and the built `hyperfide` executable 69,276,736 bytes (about 66 MiB); the
-grammars are compiled in and add no runtime parser package or service.
-These sizes describe this checkout, not limits on future builds.
+Performance depends on the host, fixture, worker count and SQLite version. Report those inputs with the binary digest when using `tools/repository/bench-indexing.py`. Vendored grammars are compiled into the binary and require no separate runtime parser service.

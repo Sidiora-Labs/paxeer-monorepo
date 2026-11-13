@@ -3,8 +3,8 @@
 Adapters at the edge of Paxeer X Network translate external protocols into
 evidence consumed by the kernel inside `paxd`. Native ledger and payment
 operations execute on the merged chain (EVM chain ID `125`); transaction
-finality is BFT block commit. Interop services provide the mirror archive,
-attestation bindings and sequencer receipts described below.
+finality is BFT block commit. Interop services publish mirror archives, verify
+external attestations and consume signed network receipts.
 
 This is the Rust workspace in `services/interop/` (members listed in [`Cargo.toml`](Cargo.toml)). It is not a second ledger.
 
@@ -14,7 +14,7 @@ This is the Rust workspace in `services/interop/` (members listed in [`Cargo.tom
 | --- | --- | --- |
 | Gateway | Transport-neutral routes, redaction, adapter host | `crates/layerx-interop-gateway`, executable composition in `crates/layerx-interop-service` |
 | MCP / A2A transports | Ingress labels `mcp` and `a2a` next to `http` | Gateway `IngressTransport`; x402 `TransportKind` |
-| x402 v2 | Buyer, seller, facilitator over HTTP, MCP, and A2A | `crates/layerx-x402` - [COMPATIBILITY.md](crates/layerx-x402/COMPATIBILITY.md). Commitment extras and metered/subscription grant draws: [`docs/wiki/X402Transport.md`](../../docs/wiki/X402Transport.md) |
+| x402 v2 | Buyer, seller, facilitator over HTTP, MCP, and A2A | `crates/layerx-x402` - [COMPATIBILITY.md](crates/layerx-x402/COMPATIBILITY.md). Payment profiles and settlement evidence: [`docs/wiki/X402Transport.md`](../../docs/wiki/X402Transport.md) |
 | Ethereum / Solana mirrors | Batch archive publication and verification. Pure archives: no vault, no portal, no custody | `crates/layerx-mirror`; contracts in `contracts/ethereum-mirror/` and `contracts/solana-mirror/`; deploy notes in `deploy/mirror/` |
 | Ethereum / Solana migration | Source-chain verifiers and the `migration` adapter | `crates/layerx-migrate` - [OPERATIONS.md](crates/layerx-migrate/OPERATIONS.md) |
 | Portable receipts | Verify signed `ProtocolReceipt` v2 bytes under independently pinned, height-ranged receipt keys without a live node | `crates/layerx-portable` - [PORTABILITY.md](../../docs/interop/PORTABILITY.md) |
@@ -24,14 +24,16 @@ This is the Rust workspace in `services/interop/` (members listed in [`Cargo.tom
 | Web search sidecar | `x-websearch`: paid `/search` and `/fetch`, free `/health` | `crates/x-websearch`; deploy files in `deploy/x-websearch/` and `deploy/search-front/` |
 | Other adapters | AP2, UCP, Visa TAP, fiat rails | `crates/layerx-ap2`, `crates/layerx-ucp`, `crates/layerx-visa-tap`, `crates/layerx-fiat` |
 
-There is no standalone `layerx-a2a` crate. A2A is a transport on the gateway and on x402, plus the CLI installer in `tools/platform/cli/`.
+A2A has a gateway ingress label and an x402 JSON binding. The developer CLI in
+`tools/platform/cli/` also provides an A2A installer and runtime.
 
-## Two MCP surfaces
+## MCP integrations
 
 | Surface | Role |
 | --- | --- |
-| `services/agent/crates/layerx-mcp` | Tenant- and scope-bound MCP server that routes every call through `layerx-agentd` |
-| This workspace + `tools/platform/cli/` | MCP as an interop ingress; `layerx install mcp` / `layerx mcp serve` from the developer CLI |
+| `services/agent/crates/layerx-mcp` | Tenant- and scope-bound MCP server backed by `layerx-agentd` |
+| `tools/platform/cli/` | `layerx install mcp` installs a daemon binding; `layerx mcp serve --daemon-binding <binding-file>` exposes that daemon's catalogue over stdio |
+| Interop gateway | HTTP routes under `/v1/mcp/x402/` select the x402 MCP JSON binding |
 
 MCP tool inventory: [`services/agent/crates/layerx-mcp/README.md`](../../services/agent/crates/layerx-mcp/README.md). CLI install copy: [`docs/platform/content/install.md`](../../docs/platform/content/install.md) and [`docs/platform/content/guide/interop.md`](../../docs/platform/content/guide/interop.md).
 
@@ -108,4 +110,4 @@ cargo build --locked --release --manifest-path services/interop/Cargo.toml --pac
 cargo build --locked --release --manifest-path services/interop/Cargo.toml --package layerx-mirror --bin layerx-mirror-verify
 ```
 
-`make mirror-live` and `make mirror-verify-live` build those binaries and run them against live networks through `scripts/qualify-mirror-live.sh` and `scripts/qualify-mirror-verification-live.sh`; they require operator configuration. Example configurations are `deploy/mirror/config.example.json` and `deploy/mirror/verify-config.example.json`.
+`make mirror-live` and `make mirror-verify-live` build those binaries and run them against live networks through `scripts/qualify-mirror-live.sh` and `scripts/qualify-mirror-verification-live.sh`; they require operator configuration. Example configurations are [the publisher template](deploy/mirror/config.example.json) and [the verifier example](crates/layerx-mirror/examples/verifier.json).

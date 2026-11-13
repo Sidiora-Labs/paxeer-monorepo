@@ -30,8 +30,10 @@ First distinguish the transports involved:
 | MCP | Local stdio, or the protected Unix listener declared by the binding; the client forwards tool calls to the authenticated daemon transport |
 | Agent program reads | The binding's loopback `agent.endpoint` and protected bearer; this is not the public node URL |
 
-The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and
-`txpool`. The `px` namespace answers from node state; `px_register` and
+The node's HTTP registration includes `debug`, `echo`, `eth`, `net`, `pax`,
+`pax2`, `px`, `txpool` and `web3`. The `test` namespace requires explicit
+enablement on a non-live chain ID. The `px` namespace answers from node state;
+`px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in `services/platform/hosted/gateway/openrpc.json`. Obtain the hosted origin and its credentials from the deployment
 operator; a node hostname alone does not establish an agent gateway.
@@ -54,7 +56,7 @@ the configured chain ID. `HumanNodeEnvironment::from_environment` also
 requires the Human network ID to match. Use HTTPS outside loopback. The
 [node transport](../../services/agent/crates/layerx-agentd/src/node_rpc.rs)
 loads TLS roots and applies a finite deadline; a chain mismatch is a refusal.
-See [public RPC endpoints](../site/docs/reference/public-rpc.md) for the node
+See [public RPC endpoints](../site/paxeer-docs/src/app/public-rpc/page.tsx) for the node
 list and root-path examples.
 
 MCP installation does not select or read a CLI environment profile. For
@@ -564,9 +566,11 @@ When `LAYERX_AGENT_MCP_BINDING_ROOT` is set, enrolment also requires:
 A configured web sidecar additionally uses `LAYERX_AGENT_MCP_WEB_ENDPOINT`,
 `LAYERX_AGENT_MCP_WEB_NETWORK`, `LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX`,
 `LAYERX_AGENT_MCP_WEB_TIMEOUT_MS`, `LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS`,
-and `LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD`. The index selects a receipt
-key from `px_getReceiptKeys` after checking the node chain ID. It does not
-imply that every public node exposes that hosted method.
+`LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD`, `LAYERX_AGENT_MCP_WEB_PAYER_ADDRESS`
+and `LAYERX_AGENT_MCP_WEB_RECEIVER_ADDRESS`. The last two configure the EVM
+payer and receiver addresses. The index selects a receipt key from the node's
+`px_getReceiptKeys` after checking chain ID `125`. Key discovery does not
+replace independently configured receipt trust.
 
 `LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY`,
 `LAYERX_AGENT_MCP_CORE_SEQUENCE`, and `LAYERX_AGENT_MCP_EXPIRY_SEQUENCE`

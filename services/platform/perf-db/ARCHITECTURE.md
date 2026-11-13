@@ -1,39 +1,10 @@
 # PerfDB Architecture
 
-## What This Replaces
+## Engine
 
-The Sidiora off-chain infra currently uses **4 separate databases**, each with distinct responsibilities:
-
-| DB | Role | Pain Points |
-|---|---|---|
-| **PostgreSQL** | Users, trader stats, positions (historical), orders (historical), referrals, competitions, alerts, API keys, daily stats, leaderboard materialized views, indexer checkpoint | Slow for high-frequency writes; materialized views need periodic REFRESH; no time-series optimization |
-| **QuestDB** | Price ticks (`price_ticks`), pre-computed candles (`candles_history`), trade volume, funding ticks | Separate process; ILP ingestion + PG wire for reads; extra infra to maintain |
-| **ScyllaDB** | Events by market, events by trader, trades by user, trades by market, funding history | Cassandra-style wide rows; complex deployment; overkill for this data volume |
-| **DragonflyDB** (Redis) | Real-time state: open positions, active orders, orderbook sorted sets, latest prices, funding rates, user balances, pub/sub streaming | JSON serialization overhead; no durability guarantees; data lost on restart |
-
-### Current Data Flow
-
-```
-Chain Events (Indexer)
-  ├──> PostgreSQL  (user/stats/positions/orders — persistent)
-  ├──> ScyllaDB    (event log + trade history — append-only)
-  ├──> QuestDB     (price ticks + volume — time-series)
-  └──> DragonflyDB (live state + pub/sub — cache)
-
-Price Feeds (Pyth/HyperLiquid/Custom)
-  ├──> QuestDB     (raw ticks + candle aggregation)
-  └──> DragonflyDB (latest price + pub/sub)
-
-API reads from all 4, WebSocket proxies DragonflyDB pub/sub.
-```
-
----
-
-## PerfDB: Unified Architecture
-
-`PerfDb` in `src/engine.rs` is an embedded library coordinating the stores below.
-`src/main.rs` provides a command-line inspector. The legacy database names above
-explain the workload; the implemented components and formats are described here.
+`PerfDb` in `src/engine.rs` is an embedded library coordinating time-series,
+state, relational and event stores. `src/main.rs` provides a command-line
+inspector. Embedding applications supply ingestion and network APIs.
 
 ### Stores and access paths
 

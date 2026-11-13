@@ -11,7 +11,7 @@ The Phoenix [Endpoint](../services/explorer/backend/apps/block_scout_web/lib/blo
 | `/metrics` | `BlockScoutWeb.Prometheus.Exporter` | Default Prometheus registry |
 | `/public-metrics` | `BlockScoutWeb.Prometheus.PublicExporter` | `:public` |
 
-The public exporter's [configuration](../services/explorer/backend/apps/block_scout_web/config/config.exs) explicitly sets `path: "/public-metrics"`, `format: :auto`, `registry: :public`, and `auth: false`. The private exporter uses `Prometheus.PlugExporter` defaults; inspect runtime configuration and edge access control before assuming it is protected. When the endpoint is compiled with `disable_api?`, only the default exporter and HealthRouter are mounted; the public exporter and sockets belong to the API-enabled branch. These are exporter paths, not REST API V2 resources. `GET /api/v2/config/public-metrics` instead returns public-metric configuration.
+The public exporter's [configuration](../services/explorer/backend/apps/block_scout_web/config/config.exs) explicitly sets `path: "/public-metrics"`, `format: :auto`, `registry: :public`, and `auth: false`. The default exporter uses `Prometheus.PlugExporter` defaults; its access policy belongs to runtime configuration and the deployment edge. When the endpoint is compiled with `disable_api?`, only the default exporter and HealthRouter are mounted; the public exporter and sockets belong to the API-enabled branch. These are exporter paths, not REST API V2 resources. `GET /api/v2/config/public-metrics` instead returns public-metric configuration.
 
 ## Apps
 
@@ -30,7 +30,12 @@ These are application metric names before Prometheus exposition adds histogram b
 | `json_rpc_throttle_wait_time_milliseconds` | histogram | `class`; milliseconds |
 | `json_rpc_throttle_coalesced_count` | counter | `class`; requests sharing an in-flight request |
 
-`class` is `default`, `archive`, or `trace`. Endpoint URLs are deliberately excluded from labels because they can contain credentials. Wait histogram buckets are 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, and 60000 ms. Preserve that unit when calculating quantiles.
+`class` is `default`, `archive`, or `trace`. The gauges aggregate endpoints within
+each class; queue depth includes coalesced callers waiting on the same in-flight
+result. Endpoint URLs are deliberately excluded from labels because they can
+contain credentials. Wait histogram buckets are 1, 5, 10, 25, 50, 100, 250, 500,
+1000, 2500, 5000, 10000, 30000, and 60000 ms. Preserve that unit when calculating
+quantiles.
 
 ### Indexer
 
@@ -79,7 +84,7 @@ Scrape-time collectors can query runtime/database state:
 
 ## Launcher
 
-Rust explorer services using [launcher::Metrics](../services/explorer/services/libs/blockscout-service-launcher/src/launcher/metrics.rs) expose a separate listener only when `<SERVICE>__METRICS__ENABLED` is true. Defaults are disabled, `0.0.0.0:6060`, and `/metrics`. Configure `METRICS__ADDR` and `METRICS__ROUTE` under the service's prefix as described in [shared settings](explorer-services-config.md#shared-server-settings).
+Rust explorer services using [launcher::Metrics](../services/explorer/services/libs/blockscout-service-launcher/src/launcher/metrics.rs) expose a separate listener only when `<SERVICE>__METRICS__ENABLED` is true. Defaults are disabled, all IPv4 interfaces on port 6060, and `/metrics`. Configure `METRICS__ADDR` and `METRICS__ROUTE` under the service's prefix as described in [shared settings](explorer-services-config.md#shared-server-settings).
 
 The metrics middleware uses namespace `rust_microservices` with constant label `service_name`. Application HTTP middleware uses the service-name namespace; actix-web-prom supplies HTTP request counts and duration histograms (`http_requests_total` and `http_requests_duration_seconds` within that namespace). Both use the default Prometheus registry. Service-specific registered metrics retain their declared names.
 

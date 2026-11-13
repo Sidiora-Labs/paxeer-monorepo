@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.85"
+pages = 20
+
+[page.1]
+path = "services/platform/hosted/registry/README.md"
+status = "corrected"
+
+[page.2]
+path = "services/platform/hosted/testnet/README.md"
+status = "reviewed"
+
+[page.3]
+path = "services/platform/perf-db/.github/PULL_REQUEST_TEMPLATE.md"
+status = "reviewed"
+
+[page.4]
+path = "services/platform/perf-db/ARCHITECTURE.md"
+status = "reviewed"
+
+[page.5]
+path = "services/platform/perf-db/README.md"
+status = "corrected"
+
+[page.6]
+path = "services/platform/perps-data/deploy/README.md"
+status = "reviewed"
+
+[page.7]
+path = "services/platform/ramps/OPERATIONS.md"
+status = "corrected"
+
+[page.8]
+path = "services/platform/ramps/README.md"
+status = "corrected"
+
+[page.9]
+path = "services/platform/ramps/reference/tests/fixtures/repair_fixtures/README.md"
+status = "reviewed"
+
+[page.10]
+path = "services/platform/ramps/toolkit/tests/fixtures/repair_22_33_1486/README.md"
+status = "reviewed"
+
+[page.11]
+path = "services/wallet/README.md"
+status = "corrected"
+
+[page.12]
+path = "services/wallet/demo/README.md"
+status = "corrected"
+
+[page.13]
+path = "services/wallet/deploy/attestor-policy.md"
+status = "corrected"
+
+[page.14]
+path = "services/wallet/gateway/loadtest/README.md"
+status = "corrected"
+
+[page.15]
+path = "spec/layerx-merge/contracts/README.md"
+status = "reviewed"
+
+[page.16]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "reviewed"
+
+[page.17]
+path = "spec/layerx-merge/contracts/address-table.md"
+status = "reviewed"
+
+[page.18]
+path = "spec/layerx-merge/contracts/agent-api.md"
+status = "corrected"
+
+[page.19]
+path = "spec/layerx-merge/contracts/agent-cli.md"
+status = "corrected"
+
+[page.20]
+path = "spec/layerx-merge/contracts/agent-config.md"
+status = "corrected"

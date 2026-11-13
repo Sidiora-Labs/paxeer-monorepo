@@ -13,24 +13,22 @@ gateway are identified separately below.
 
 ## Public node JSON-RPC
 
-The public node endpoints serve JSON-RPC at the root path:
+The public node endpoints serve JSON-RPC at the root path over HTTPS and
+WebSocket. Select a node URL from the [public RPC reference](../site/paxeer-docs/src/app/public-rpc/page.tsx).
 
-| Endpoint | HTTPS | WebSocket |
-| --- | --- | --- |
-| Canonical alias | `https://api-mainnet-beta.paxeer.network` | `wss://api-mainnet-beta.paxeer.network` |
-| Numbered nodes | `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network` | The same node names with `wss://` |
-
-The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
+The node registers `debug`, `echo`, `eth`, `net`, `pax`, `pax2`, `px`,
+`txpool` and `web3`. The `test` namespace is opt-in on non-live chains.
+Transport and legacy-method settings are described in [EVM JSON-RPC](rpc.md).
 Check `eth_chainId` for `0x7d` and compare `eth_blockNumber` across configured nodes.
 Node availability does not imply that every method in an upstream Geth namespace
-is supported. See [Public RPC endpoints](../site/docs/reference/public-rpc.md)
+is supported. See [Public RPC endpoints](../site/paxeer-docs/src/app/public-rpc/page.tsx)
 for the individual URLs and client examples. The root HTTP/WebSocket proxy mapping
 is in [the node installation template](../../tools/bringup/install-archive.sh).
 
 The old router and its `/rpc`, `/rpc/ws`, `/rpc/schema` and `/rpc/evm/ws` public topology are retired.
 There is no separate LayerX interface, sequencer service or independent guarantor finality.
 The `layerxd` binary is retired.
-`node.hyperpaxeer.com` is the hpx library mirror, never an RPC endpoint.
+The hpx library mirror distributes build libraries; it does not serve chain RPC.
 
 ## Sources and discovery
 
@@ -246,6 +244,7 @@ to `/explorer` with Secure. These routes do not require a generic gateway API ke
 | GET | `/api/v2/transactions/{transaction_hash_param}/internal-transactions` | Explorer origin/header checks |
 | GET | `/api/v2/transactions/{transaction_hash_param}/logs` | Explorer origin/header checks |
 | GET | `/api/v2/transactions/{transaction_hash_param}/raw-trace` | Explorer origin/header checks |
+| GET | `/api/v2/transactions/{transaction_hash_param}/signature` | Explorer origin/header checks |
 | GET | `/api/v2/transactions/{transaction_hash_param}/state-changes` | Explorer origin/header checks |
 | GET | `/api/v2/transactions/{transaction_hash_param}/status` | Explorer origin/header checks |
 | GET | `/api/v2/transactions/{transaction_hash_param}/summary` | Explorer origin/header checks |
@@ -285,7 +284,7 @@ page patterns include:
 | `/explorer/txs`, `/explorer/tx/[hash]` | Transactions |
 | `/explorer/accounts`, `/explorer/address/[hash]` | Accounts and address views |
 | `/explorer/tokens`, `/explorer/token/[hash]` | Tokens |
-| `/explorer/advanced-filter` | Advanced filter page; its additional backend routes are pending admission below |
+| `/explorer/advanced-filter` | Advanced filter page; its backend APIs are listed separately below |
 | `/explorer/account/api-key`, `/explorer/account/watchlist`, `/explorer/account/custom-abi` | Account pages with upstream account authorization |
 | `/explorer/paxeer-x/account/[hash]`, `/explorer/paxeer-x/receipts`, `/explorer/paxeer-x/receipts/[id]`, `/explorer/paxeer-x/anchors` | Retained native/history page registrations; names do not establish a separate network |
 | `/explorer/api/healthz`, `/explorer/node-api/healthz` | Frontend health API registrations, distinct from gateway readiness |
@@ -315,35 +314,26 @@ The overview carries `FeedView` markets and chain head; history carries items an
 `next_page_params`; detail carries the stored type-127 submission, observation
 acceptance flags and exact decimal price strings.
 
-#### Pending explorer route admission
+#### Backend-only explorer APIs
 
-The backend declares the following GET routes, but they are absent from the
-production Rust explorer proxy allowlist. Their hosted paths below are required
-wiring targets, not currently admitted routes.
+The backend declares the following GET routes. The hosted explorer proxy does
+not admit them.
 
-| Method | Required hosted path | Backend action |
+| Method | Backend path | Backend action |
 | --- | --- | --- |
-| GET | `/explorer/backend/api/v2/advanced-filters` | `AdvancedFilterController.list` |
-| GET | `/explorer/backend/api/v2/advanced-filters/csv` | `AdvancedFilterController.list_csv` |
-| GET | `/explorer/backend/api/v2/advanced-filters/methods` | `AdvancedFilterController.list_methods` |
-| GET | `/explorer/backend/api/v2/paxeer-x/feed/updates` | `FeedController.updates` |
+| GET | `/api/v2/advanced-filters` | `AdvancedFilterController.list` |
+| GET | `/api/v2/advanced-filters/csv` | `AdvancedFilterController.list_csv` |
+| GET | `/api/v2/advanced-filters/methods` | `AdvancedFilterController.list_methods` |
+| GET | `/api/v2/paxeer-x/feed/updates` | `FeedController.updates` |
 
 The feed page patterns `/explorer/feed`,
 `/explorer/feed/market/[id]` and `/explorer/feed/update/[hash]` are also absent from
 the hosted frontend page allowlist. The existing `/explorer/advanced-filter`
 page registration does not admit its backend API by implication.
 
-The [admission record](../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/hosted_route_admission.json)
-is not loaded by the Rust allowlists and requires reconciliation with the three
-API entries above. Domain 8 owns the outstanding `ui_proxy.rs` page admissions:
-`/explorer/feed`, `/explorer/feed/market/[id]` and `/explorer/feed/update/[hash]`,
-including their constrained Next data routes. Those page entries and a production
-gateway integration gate are required before claiming hosted feed pages render.
-The TypeScript gate checks API registrations against the real client
-and backend router and exercises the real fetch hook and feed renderers with
-committed response fixtures over loopback HTTP; it does not execute Rust or Elixir.
-The route catalogue at `tools/paxeer-x/route-catalogue.json` also needs regeneration
-by its owning gateway domain after that wiring is complete.
+The [backend admission inventory](../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/hosted_route_admission.json)
+is separate from the Rust frontend and backend allowlists. The hosted frontend
+serves only its admitted pages and constrained Next data routes.
 
 ### wallet-gateway
 
@@ -373,12 +363,11 @@ Current wallet transaction and approval routes include:
 | POST | `/v1/wallet/sponsored/status` | requireAuth | [wallet.ts](../../services/wallet/gateway/src/routes/wallet.ts) |
 | GET | `/healthz` | Public service health | [index.ts](../../services/wallet/gateway/src/index.ts) |
 | GET | `/readyz` | Service readiness | [readiness.ts](../../services/wallet/gateway/src/routes/readiness.ts) |
+| GET | `/v1/admin/readiness` | Bearer `GATEWAY_ADMIN_TOKEN` | [readiness.ts](../../services/wallet/gateway/src/routes/readiness.ts) |
 
-The hosted catalogue currently omits the EVM approval paths and
-`/v1/wallet/sponsored/quote`. Use their owning service contract when configuring
-clients; do not infer their availability through the hosted proxy from the
-older wallet table. Hosted sponsorship submit/status admission remains a
-separate check from successful upstream authorization.
+The hosted catalogue includes the EVM approval paths and
+`/v1/wallet/sponsored/quote`, together with sponsorship submit and status.
+Requests still require a healthy service binding and upstream authorization.
 
 Agent reads use `requireAgent`; value-moving/signing requests use
 `requireSignedAgentRequest`. The current

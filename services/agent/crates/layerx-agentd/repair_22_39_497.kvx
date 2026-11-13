@@ -1,0 +1,11 @@
+[agent_workspace_lint]
+rule = "clippy::too_many_lines"
+file = "services/agent/crates/layerx-agentd/tests/inference_deals.rs"
+command = "make -s agent-lint"
+behavior = "Deal acknowledgement, persisted submission, finalized terms and restart authority remain asserted in the crossing-deal case and its helpers."
+
+[inference_lap_terms]
+rule = "clippy::too_many_arguments"
+file = "services/agent/crates/layerx-agentd/src/main.rs"
+command = "make -s agent-lint"
+behavior = "Lap and stream meter signing use named inputs with the same native transaction terms."

@@ -1,0 +1,39 @@
+[gotcha.1]
+area = "content"
+symptom = "The documentation site and its shared assistant live in separate sibling directories."
+cause = "Page, search, Markdown, SEO and assistant corpus generation belong to paxeer-docs; the shared UI and server belong to docs-assistant."
+resolution = "Edit pages in src/app and regenerate all derived content with npm run prepare:docs."
+evidence = "scripts/docs-content.mjs; scripts/generate-llms.mjs; package.json"
+status = "documented"
+
+[gotcha.2]
+area = "css"
+symptom = "The supplied base stylesheet contains an unmatched closing brace."
+cause = "The source .scss/base.css line 4043 starts a selector with an extra closing brace."
+resolution = "Remove that brace in src/styles/supplied/base.css while retaining the original source asset."
+evidence = ".scss/base.css:4043; src/styles/supplied/base.css"
+status = "resolved"
+
+[gotcha.3]
+area = "css"
+symptom = "A prepended CSS layer declaration can change the supplied stylesheet's cascade priority."
+cause = "The Webpack processAssets hook declares the first layer order before globals.css."
+resolution = "Include supplied before theme in both layer declarations."
+evidence = "next.config.js; src/styles/globals.css"
+status = "resolved"
+
+[gotcha.4]
+area = "css"
+symptom = "CSS optimization reports four warnings about a malformed variable and supplied tab selectors."
+cause = "The supplied stylesheet contains padding: var(submenu-toggle) and selector spellings such as hover__title."
+resolution = "Retain the supplied selectors; documentation components use their own valid interaction selectors."
+evidence = "src/styles/supplied/base.css"
+status = "documented"
+
+[gotcha.5]
+area = "ui"
+symptom = "Pausing an interactive illustration leaves an SVG snapshot without its rendering styles."
+cause = "The Hairline destroy lifecycle removes attributes it owns, including data-hairline."
+resolution = "Let the React host own data-hairline so the paused snapshot retains the stylesheet scope."
+evidence = "src/components/DocFigure.tsx; src/lib/hairline/mount.ts"
+status = "resolved"

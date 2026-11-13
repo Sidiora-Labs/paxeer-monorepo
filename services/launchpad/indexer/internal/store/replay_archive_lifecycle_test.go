@@ -24,7 +24,7 @@ func TestReplayProjectsAndArchivesCommittedSource(t *testing.T) {
 	if !ok {
 		t.Fatal("test migration path unavailable")
 	}
-	ddl, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../launchpad/spec/production-system/integration/migrations/60001.sql"))
+	ddl, err := os.ReadFile(filepath.Join(filepath.Dir(file), "../../../../../migrations/60001.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

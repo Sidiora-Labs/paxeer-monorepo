@@ -84,7 +84,7 @@ fn f044_bulk_order_response_survives_periodic_mars_order() {
         let decoded: BulkOrderPlacementsResponse = from_binary(data).unwrap();
         assert!(decoded.unsuccessful_orders.is_empty());
 
-        if height % 10 == 0 {
+        if height.is_multiple_of(10) {
             assert_eq!(response.messages.len(), 1);
             assert_eq!(
                 serde_json::to_value(&response.messages[0].msg).unwrap(),

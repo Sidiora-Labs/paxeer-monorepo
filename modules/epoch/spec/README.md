@@ -1,4 +1,4 @@
-## Abstract
+# Epoch module specification
 
 The epoch module manages a fixed-duration schedule inside `paxd` on the single
 Paxeer network. The default duration is one minute, measured from the epoch
@@ -25,5 +25,5 @@ blocks process the remaining elapsed periods. See
 
 The module has no transaction messages and its parameter set is empty. Its
 [state and query](../README.md#state), [hooks](../README.md#hooks),
-[events](../README.md#events), and [package verification history](../README.md#package-verification)
+[events](../README.md#events), and [package checks](../README.md#package-verification)
 are described in the module README.

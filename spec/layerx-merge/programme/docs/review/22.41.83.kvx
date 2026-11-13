@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.83"
+pages = 20
+
+[page.1]
+path = "services/human/crates/layerx-human-service/README.md"
+status = "corrected"
+
+[page.2]
+path = "services/human/crates/layerx-human-test-support/README.md"
+status = "reviewed"
+
+[page.3]
+path = "services/human/crates/layerx-human-test-support/tests/fixtures/committed/README.md"
+status = "reviewed"
+
+[page.4]
+path = "services/human/schema/human-api/README.md"
+status = "reviewed"
+
+[page.5]
+path = "services/interop/README.md"
+status = "corrected"
+
+[page.6]
+path = "services/interop/crates/layerx-migrate/OPERATIONS.md"
+status = "corrected"
+
+[page.7]
+path = "services/interop/crates/layerx-migrate/README.md"
+status = "corrected"
+
+[page.8]
+path = "services/interop/crates/layerx-mirror/README.md"
+status = "corrected"
+
+[page.9]
+path = "services/interop/crates/layerx-portable/FORMAT.md"
+status = "reviewed"
+
+[page.10]
+path = "services/interop/crates/layerx-x402/COMPATIBILITY.md"
+status = "reviewed"
+
+[page.11]
+path = "services/interop/crates/x-websearch/README.md"
+status = "corrected"
+
+[page.12]
+path = "services/interop/deploy/bridge-relayer/README.md"
+status = "reviewed"
+
+[page.13]
+path = "services/interop/deploy/gateway/README.md"
+status = "corrected"
+
+[page.14]
+path = "services/interop/deploy/mirror/signer-protocol.md"
+status = "reviewed"
+
+[page.15]
+path = "services/interop/specs/conformance/ap2/README.md"
+status = "reviewed"
+
+[page.16]
+path = "services/interop/specs/conformance/fiat/README.md"
+status = "corrected"
+
+[page.17]
+path = "services/interop/specs/conformance/transport-a2a/README.md"
+status = "corrected"
+
+[page.18]
+path = "services/interop/specs/conformance/transport-http/README.md"
+status = "corrected"
+
+[page.19]
+path = "services/interop/specs/conformance/transport-mcp/README.md"
+status = "corrected"
+
+[page.20]
+path = "services/interop/specs/conformance/ucp/README.md"
+status = "corrected"

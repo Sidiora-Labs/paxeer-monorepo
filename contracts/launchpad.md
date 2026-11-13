@@ -2,13 +2,14 @@
 
 Launchpad executes on the single Paxeer mainnet-beta network, chain ID **125** (`0x7d`). The kernel is part of `paxd` and block proposal; BFT block commit makes execution final. Indexers and HTTP services project that committed state for [clients](clients.md); they do not provide a second settlement layer. Sub-chains are tenant domains in the database.
 
-Public JSON-RPC is the HTTPS root of `api1` through `api14.mainnet-beta.paxeer.network` and `api-mainnet-beta.paxeer.network`; for example, `https://api5.mainnet-beta.paxeer.network`. `node.hyperpaxeer.com` is only the build library mirror. Hosted `px_` calls follow the [platform gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
+Node JSON-RPC uses the configured [HTTPS root endpoint](evm-rpc.md#http-endpoint).
+Hosted service calls follow the [gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 
 ## Native execution
 
 The active Go module is [`modules/launchpad`](../modules/launchpad), with module/store name `launchpad` and treasury account `launchpad_treasury`. [keys.go](../modules/launchpad/types/keys.go) declares the launchpad precompile at **`0x0000000000000000000000000000000000001017`** and launched-token decimals as 6.
 
-[`precompiles/launchpad`](../precompiles/launchpad) exposes the module through [the direct ABI](../precompiles/launchpad/abi.json) and [role ABIs](../precompiles/launchpad/abi). Direct selectors resolve in the role order documented in [launchpad.go](../precompiles/launchpad/launchpad.go): `Router`, `SidioraFactory`, `Quoter`, `PoolRegistry`, `FeesRouter`, `FeeAccumulator`, `ProtocolConfig`. Registered role and pool surfaces forward calls with the original caller appended; [surface.go](../precompiles/launchpad/surface.go) installs the runtime owned by the keeper. A role named `Router` here is an on-chain launchpad ABI role. There is no network RPC router.
+[`precompiles/launchpad`](../precompiles/launchpad) exposes the module through [the direct ABI](../precompiles/launchpad/abi.json) and [role ABIs](../precompiles/launchpad/abi). Direct selectors resolve in the role order documented in [launchpad.go](../precompiles/launchpad/launchpad.go): `Router`, `SidioraFactory`, `Quoter`, `PoolRegistry`, `FeesRouter`, `FeeAccumulator`, `ProtocolConfig`, followed by the chain launch methods. Registered role and pool surfaces forward calls with the original caller appended; [surface.go](../precompiles/launchpad/surface.go) installs the runtime owned by the keeper. A role named `Router` here is an on-chain launchpad ABI role. There is no network RPC router.
 
 Use the reviewed manifest to select role addresses. Native surfaces are not Solidity implementation proxies to upgrade with UUPS. [The keeper's governance message server](../modules/launchpad/keeper/msg_server.go) implements `MsgUpdateParams`, role grants/revokes and treasury operations under the module governance authority. The [retired-address runtime](../precompiles/launchpad/retired.go) refuses calls with `Retired(address replacement)` instead of redirecting a write to another deployment.
 
@@ -16,7 +17,7 @@ The [swap keeper](../modules/launchpad/keeper/swap.go) computes fee and output a
 
 ## Launchpad errors
 
-The current [error registry](../modules/launchpad/types/errors.go) uses codespace `launchpad`, numeric codes 2–76 and `LXP_LAUNCHPAD_*` descriptions. Examples:
+The current [error registry](../modules/launchpad/types/errors.go) uses codespace `launchpad`, numeric codes 2–81 and `LXP_LAUNCHPAD_*` descriptions. Examples:
 
 | Code | Description | Contract custom error |
 | --- | --- | --- |
@@ -27,8 +28,19 @@ The current [error registry](../modules/launchpad/types/errors.go) uses codespac
 | 12 | `LXP_LAUNCHPAD_UNKNOWN_MARKET` | `PoolNotFound()` |
 | 16 | `LXP_LAUNCHPAD_NOT_FEE_RIGHTS_HOLDER` | `NotNftOwner()` |
 | 70 | `LXP_LAUNCHPAD_RETIRED` | `Retired(address)` |
+| 77 | `LXP_LAUNCHPAD_WRONG_CHAIN` | `WrongChain()` |
+| 78 | `LXP_LAUNCHPAD_NOT_LAUNCHED_CHAIN` | `NotLaunchedChain()` |
 
-The registry's `ContractErrorOf` table is the authority for custom error signatures and arguments. [errors.go](../precompiles/launchpad/errors.go) preserves nested revert bytes and encodes mapped contract errors; keeper-only failures use an ABI `Error(string)` reason. Do not assume every failure is a string or that module names map mechanically to Solidity error names. [run.go](../precompiles/launchpad/run.go) also handles unknown selectors with empty revert data. The `legacy/v610` registries describe historical replay, not the current error inventory.
+The registry's `ContractErrorOf` table and the precompile's
+[errors.go](../precompiles/launchpad/errors.go) define custom error signatures and
+arguments. The precompile additionally maps codes 77–81 to `WrongChain()`,
+`NotLaunchedChain()`, `NotFeeRightHolder()`, `EpochTooEarly()`, and
+`NothingToDistribute()`. It preserves nested revert bytes; keeper-only failures
+use an ABI `Error(string)` reason. Do not assume every failure is a string or
+that module names map mechanically to Solidity error names.
+[run.go](../precompiles/launchpad/run.go) also handles unknown selectors with
+empty revert data. The `legacy/v610` registries describe historical replay, not
+the current error inventory.
 
 ## Launchpad events
 
@@ -54,7 +66,7 @@ The retained Solidity project is [contracts/launchpad](launchpad), with its own 
 | `release:check` | Compiled artifact/layout checks |
 | `release:qualify` | The retained Solidity project's release qualification |
 
-The configured `paxeer-x-network` uses chain ID 125 and the api5 HTTPS root. `hardhat-network` uses local port 8545 and chain ID 31337. Select the actual network name from the configuration; do not use an invented alias. `PRIVATE_KEY` supplies deployment signers; it is not required by the standalone read-only health inspector. `RUN_DOCGEN=true` enables the documentation plugin; `REPORT_GAS=true` enables gas reporting.
+The configured `paxeer-x-network` uses chain ID 125 and a root-path HTTPS node endpoint. `hardhat-network` uses local port 8545 and chain ID 31337. Select the actual network name from the configuration; do not use an invented alias. `PRIVATE_KEY` supplies deployment signers; it is not required by the standalone read-only health inspector. `RUN_DOCGEN=true` enables the documentation plugin; `REPORT_GAS=true` enables gas reporting.
 
 [deploy.js](launchpad/scripts/deploy.js) defaults `GOVERNANCE_MODE` to `admin` and calls `initializeAdmin`. `GOVERNANCE_ADMIN_ADDRESS` overrides the deployment wallet as decision authority; choosing a multisig requires supplying that address. Token voting is an explicit `GOVERNANCE_MODE=token` choice requiring `SID_ADDRESS`. A deployment can remain `pending-beacon-acceptance`; a written address file does not prove the handoff completed.
 
@@ -64,17 +76,4 @@ The configured `paxeer-x-network` uses chain ID 125 and the api5 HTTPS root. `ha
 
 [`native-surface.js`](launchpad/scripts/lib/native-surface.js) recognizes one exact runtime byte string. Its recognition must not be treated as a general proof for every native surface version; compare against the runtime installed by the [current keeper](../modules/launchpad/keeper) and the selected deployment.
 
-[`planCreationFee`](launchpad/scripts/set-creation-fee.js) returns a governance message for the runtime it recognizes as native. In this branch, `LAUNCHPAD_AUTHORITY` is required and `LAUNCHPAD_PARAMS_JSON` names a file containing the full params object. The emitted message has type `/paxprotocol.paxchain.launchpad.MsgUpdateParams`, replaces `creation_fee` with `1000000`, and includes empty `role_grants` and `role_revokes`. It prints the message rather than submitting it. Its contract branch calls `setCreationFee` and checks readback. `LAUNCHPAD_MANIFEST` can select the address file. Verify the runtime branch before using this script against any deployed role.
-
-## Launchpad tools
-
-[`tools/launchpad`](../tools/launchpad) contains build, interface, delivery, recovery and qualification tooling. These tools describe service delivery and release evidence; they are not additional network runtimes.
-
-| Entry point | Input and responsibility |
-| --- | --- |
-| [Interface capability checker](../tools/launchpad/production/interfaces/capability_check.py) | `--check`, selected spec/bundles/catalog, `--evidence-root` and `--not-before`; checks capability evidence against the declared inputs |
-| [Qualification runner](../tools/launchpad/production/qualify.py) | `--task`, `--spec`, required `--require-current-source`, registry and evidence directory; records evidence tied to source inputs |
-| [Dispatcher CLI](../tools/launchpad/production/dispatcher/cli.py) | `--state-dir` plus explicit initialization, claim, heartbeat, status and staging operations; binds work to a spec, plan, source and interface digest |
-| [Service Makefile](../services/launchpad/Makefile) | Drives the declared leaf Go modules; see [workspace contract](services.md#launchpad-workspace) |
-
-Some retained production-tool defaults still name the removed `launchpad/spec/production-system` tree. Supply maintained explicit inputs where the tool supports them; a missing authority input is a failure, not an empty successful qualification. A checker or dispatcher state file is not proof of a live deployment. Retain exact source revision, command, exit code and evidence location for any claimed qualification, and keep raw operational evidence outside public client exports.
+[`planCreationFee`](launchpad/scripts/set-creation-fee.js) returns a governance message for the runtime it recognizes as native. For a recognized native surface, `LAUNCHPAD_AUTHORITY` is required and `LAUNCHPAD_PARAMS_JSON` names a file containing the full params object. The emitted message has type `/paxprotocol.paxchain.launchpad.MsgUpdateParams`, replaces `creation_fee` with `1000000`, and includes empty `role_grants` and `role_revokes`. It prints the message rather than submitting it. Its contract branch calls `setCreationFee` and checks readback. `LAUNCHPAD_MANIFEST` can select the address file. Verify the runtime branch before using this script against any deployed role.

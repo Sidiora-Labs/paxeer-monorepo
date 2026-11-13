@@ -31,7 +31,7 @@ The following variables use the `LAYERX_HUMAN_KMS_` prefix:
 | `LISTEN` | TCP socket address |
 | `STATE_DIR` | Absolute provider-owned private state directory |
 | `PROVIDER_REFERENCE` | Nonempty provider identity, at most 256 bytes, without NUL |
-| `DEADLINE_SECONDS` | Required integer 1–60 for socket I/O timeouts |
+| `DEADLINE_SECONDS` | Required integer 1–60 for the total connection deadline, including TLS and request handling |
 | `REGISTRY_FILE` | Protected JSON file containing exactly `{"chain_id":125}`; unknown fields and other chain ids are refused |
 | `CLIENT_CA_DER` | DER client CA certificate |
 | `CLIENT_CERT_DER` | DER leaf certificate pinned for the Human service |
@@ -68,10 +68,11 @@ address and EVM key id must each be unique across bindings. `config` is the
 | `timeout_seconds` | 1–60 |
 
 `assertion_file` supplies the owner assertion sent with EVM signing requests.
-The file is read and trimmed when the store opens; the running process does not
-refresh it. Renew the assertion through its issuer and restart the provider to
-load it. Provision a replacement assertion before its expiry, install it as a
-provider-owned private regular file, then restart with the same state and seal.
+The file is read and trimmed when the store opens and reread before relevant
+EVM wallet, authorization and signing operations. Renew the assertion through
+its issuer and install it as a provider-owned private regular file. Refresh
+requires the same assertion subject and an accepted validity window; a changed
+subject is refused. Renewal for that subject does not require a provider restart.
 An empty or unreadable assertion, or an invalid configured credential, prevents
 the store from opening. The standalone `EVM_ASSERTION_FILE` variable is not a
 source for this principal-bound store: use each binding's `assertion_file`.
@@ -84,7 +85,7 @@ assertions or substitute a local EVM key.
 
 Requests and responses have a four-byte big-endian body length prefix. The body
 starts with `LXKP`, a big-endian u16 version and a u8 operation. Requests then
-carry a length-prefixed provider reference. Except for probes, the common
+carry a length-prefixed provider reference. Except for the readiness and executor probes, the common
 custody fields are binding (32 bytes), network (u32), key class (u8) and a
 length-prefixed opaque reference. Class 1 is the human primary key; class 2 is
 an agent primary key. Create requires an empty reference; other custody
@@ -117,7 +118,9 @@ register a new signing authorization.
 
 Responses echo the version and operation, followed by a status byte and any
 success data. Statuses are 0 success, 1 `Refused`, 2 `NotFound`, 3 `Conflict`,
-4 `Unavailable`, 5 `Integrity` and 6 `SelfCustodied`. Framing and TLS failures
+4 `Unavailable`, 5 `Integrity`, 6 `SelfCustodied`, 7 `Capacity` and 8 `Expired`.
+`Capacity` reports a store limit; `Expired` reports an action or assertion outside
+its accepted validity window. Framing and TLS failures
 can close the connection before an operation response is available. In
 particular, operation 13 is refused by the decoder before dispatch: callers
 must handle a closed connection rather than expect a status-1 reply.
@@ -179,7 +182,7 @@ The exported [`attestor`](src/attestor.rs) library also implements pinned-TLS
 quorum signing, generation, wallet lookup and native consent operations. Those
 client APIs are separate from the LXKP version/operation table above.
 
-## Client examples and qualification
+## Client examples
 
 These fragments use the Human service's `RemoteKmsProvider` with its service
 mTLS identity, `KmsProvider` in scope, and an existing principal `binding` and

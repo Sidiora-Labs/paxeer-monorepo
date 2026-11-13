@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.58"
+pages = 20
+
+[page.1]
+path = "docs/hyperfide/hyperfide/console-evaluation.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/hyperfide/hyperfide/editors.md"
+status = "reviewed"
+
+[page.3]
+path = "docs/hyperfide/hyperfide/fleet.md"
+status = "corrected"
+
+[page.4]
+path = "docs/hyperfide/hyperfide/operations.md"
+status = "corrected"
+
+[page.5]
+path = "docs/hyperfide/hyperfide/platform.md"
+status = "corrected"
+
+[page.6]
+path = "docs/hyperfide/hyperfide/source-control-migration.md"
+status = "reviewed"
+
+[page.7]
+path = "docs/hyperfide/hyperfide/source-control-recovery.md"
+status = "corrected"
+
+[page.8]
+path = "docs/hyperfide/hyperfide/source-control.md"
+status = "reviewed"
+
+[page.9]
+path = "docs/hyperfide/hyperfide/source-engine-evaluation.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/hyperfide/hyperfide/source-measurement.md"
+status = "reviewed"
+
+[page.11]
+path = "docs/hyperfide/hyperfide/source-tracking.md"
+status = "reviewed"
+
+[page.12]
+path = "docs/hyperfide/i18n/README.ar.md"
+status = "corrected"
+
+[page.13]
+path = "docs/hyperfide/i18n/README.es.md"
+status = "corrected"
+
+[page.14]
+path = "docs/hyperfide/i18n/README.fr.md"
+status = "corrected"
+
+[page.15]
+path = "docs/hyperfide/i18n/README.hi.md"
+status = "corrected"
+
+[page.16]
+path = "docs/hyperfide/i18n/README.pt-BR.md"
+status = "corrected"
+
+[page.17]
+path = "docs/hyperfide/i18n/README.zh-CN.md"
+status = "corrected"
+
+[page.18]
+path = "docs/hyperfide/indexing.md"
+status = "reviewed"
+
+[page.19]
+path = "docs/hyperfide/integrate.md"
+status = "reviewed"
+
+[page.20]
+path = "docs/hyperfide/jev.md"
+status = "corrected"

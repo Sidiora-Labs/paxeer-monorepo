@@ -2,7 +2,7 @@
 
 Paxeer X Network recognises everyone who contributes to this repository: code, review, documentation and tests all count.
 
-The record of contributors is the git history. List the authors of commits on `main` with:
+The Git history records commit authors. From the repository root, list authors and their commit counts on `main`, excluding merge commits, with:
 
 ```sh
 git shortlog -sn --no-merges main

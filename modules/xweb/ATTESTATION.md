@@ -136,7 +136,7 @@ Vector `evm-fetch` (origin 1):
 - networkId `125`
 - requester `0x00000000000000000000000000000000000000000000000000000000000a11ce`
 - requestId `7`, kind `1`
-- payload `https://paxeer.app/`, payloadHash
+- payload bytes from the generator's `evm-fetch` vector, payloadHash
   `0x62da65e513a2dc07e8c56bb6e148a96d6d259e496ec215d58c89522fa9649ce1`
 - contentDigest `0x2222222222222222222222222222222222222222222222222222222222222222`
 - response `Paxeer X Network`, responseHash
@@ -154,7 +154,7 @@ Vector `program-search` (origin 2):
 - payload `paxeer x network`, payloadHash
   `0x637c790bf5fe77888f9696cd67ea9c582f9be57c0b16c9ee11d1cf62ee25c2f8`
 - contentDigest `0x3333333333333333333333333333333333333333333333333333333333333333`
-- response `[{"url":"https://paxeer.app/","title":"Paxeer","snippet":"Paxeer X Network"}]`,
+- response bytes from the generator's `program-search` vector,
   responseHash `0x09b4dc1f0fb623c5ffb240fef88176c4706aad87d7a63e622777c029d552fb3a`
 - fullLength `5000`
 - digest `0xc634942bc32e91ff577e48527c40c951d7f00b0808764b080540b57292343379`
@@ -179,12 +179,10 @@ Vector `evm-api-single` (origin 1):
 The shared
 [`types/testdata/preimage-vectors.json`](types/testdata/preimage-vectors.json)
 contains frozen compatibility vectors for the historical origin-1 test chain;
-origin-2 network id `1` is a fixture value. The M-1251 repair preserves this
-corpus byte for byte. Keeper compatibility tests explicitly configure that
+origin-2 network id `1` is a fixture value. Keeper compatibility tests configure that
 historical test chain, while live origin-1 signing reads the EVM chain id from
 chain state. The legacy digests and signatures below identify those archived
-bytes; they are not chain-125 signing examples. Updating that corpus and its
-cross-language consumers requires a separate scope.
+bytes; chain-125 signing uses the examples above.
 
 - `evm-fetch`: digest `0x21e2a70f243f13f7e2b72d14cc842c5f6b1779b532144b01c1d61d47b886a0be`, signature `0x1e95bb99402e2ae4b06e98eb3ce29a00973ce759afeac27c3d0253ebba3211a7555a8954e3d0d46bce57952e7648f08acbb3f84f2a1741056974a3e96c7961611b`.
 - `evm-api-single`: digest `0x18ef556323e81c5d30bff202abbf20910cc82809cf280e08279e658441ac865e`, signature `0x9144452b00ca7e3d2ff7909a87bc504d45409126175bee22aacf06eb64e8470e0ad0adf0f3c1b1c2ebb9887ae5fb5b293bdb0cbea5462f9bc54500064f7bbd9f1c`.

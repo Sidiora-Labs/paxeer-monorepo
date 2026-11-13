@@ -65,8 +65,8 @@ consumer's validation. An overlay does not supply a default credential.
 
 ## Scripts
 
-These are command interfaces, not commands executed by this documentation.
-Run them from the repository root with the intended environment supplied.
+Run these commands from the repository root with the intended environment
+supplied.
 
 | Tool | Interface and behavior |
 | --- | --- |
@@ -74,6 +74,10 @@ Run them from the repository root with the intended environment supplied.
 | [verify-evm-chain.sh](../services/bridge/deploy/verify-evm-chain.sh) | `[--preflight] <chain\|--all>`; submits explorer source verification using the recorded vault and constructor arguments |
 | [deploy-solana-program.sh](../services/bridge/deploy/deploy-solana-program.sh) | `[--preflight]`; builds, deploys, checks rooted program bytes and authority, initializes and registers configured assets |
 | [checklist.sh](../services/bridge/deploy/checklist.sh) | `<chain\|--all>`; compares foreign-chain state and Paxeer bridge views against records and generated governance expectations |
+
+EVM deployment requires `jq`, `forge`, `cast`, `git` and `python3`; broadcasting
+also requires `flock`. Its preflight derives the local signer and checks it
+against the configured deployer, when one is supplied.
 
 Preflight stops before a chain or explorer call; it is not evidence of a
 deployment. EVM `--all` visits the eight chains in the table's order and stops
@@ -118,8 +122,8 @@ must use the flags above.
 
 The attestor manifest defaults to
 [services/bridge/deploy/attestors.json](../services/bridge/deploy/attestors.json).
-Its placeholder set must be replaced with the reviewed set in the selected
-manifest. Membership, ordering and threshold must match the chain config.
+The committed set contains one attestor with threshold one. Membership,
+ordering and threshold in the selected manifest must match the chain config.
 The generator emits native protobuf message bodies for chain registration,
 the attestor set, and asset caps, using the bridge module's codec and types.
 Files are `01-register-chain.json`, `02-set-attestors.json`, and
@@ -141,7 +145,14 @@ EVM records include chain identity, configuration, vault, deployer, code hash,
 deployment block, observed/configured owner, ownership state, threshold,
 attestors and caps. Ownership can be recorded as `proposed` rather than
 `held`; a written file alone does not establish that ownership transfer is
-complete. The checklist reads back actual state.
+complete. The configured owner must call `acceptOwnership()` on the vault.
+The checklist reads back actual state.
+
+The EVM deployer retains a `.<chain>.run` journal and `.<chain>.deploy.lock`
+beside the output record. The journal stores the resolved configuration,
+signer, broadcast intent and transaction evidence. Repeating deployment
+reopens that same run and reads back its vault; it does not automatically
+create a replacement vault. Preserve the journal to retain that identity.
 
 Solana records include program ID, genesis hash, program-data account,
 upgradeable loader ID, ELF SHA-256 and size, deployment signature/slot, rooted
@@ -170,17 +181,11 @@ not the [explorer frontend](explorer-frontend-config.md).
 The Solana consumer requires `version: 1` and `phase: "ready"`; it recognizes
 `deployed` and `initialized` as earlier phases but refuses them for export.
 Ready records must include validated owner, attestors, threshold, and both SOL
-and SID registrations. **The current shell deployment script does not emit
-the required `version` or `phase` fields**, even in its final record, so its
-Solana output does not pass this consumer unchanged. This producer/consumer
-gap must be resolved before treating shell output as app-ready evidence;
-adding a phase label by hand does not establish the required verified state.
+and SID registrations. Only records satisfying these requirements are exported.
 
 ## CI
 
 The owning shell checks are in
 [services/bridge/deploy/tests](../services/bridge/deploy/tests/): checklist,
 deployment scripts, EVM and Solana dry runs, documentation and workflow checks.
-They describe coverage of these tools; this page makes no claim that a live
-deployment, verification submission, or post-deployment checklist has run.
 Explorer indexing configuration is documented [here](explorer-config.md).

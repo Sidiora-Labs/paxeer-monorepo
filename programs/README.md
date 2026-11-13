@@ -28,13 +28,8 @@ Where the rest of the system fits:
   (`0x7d`). The kernel runs inside `paxd` and participates in block proposal and
   execution. A receipt is final when its block is committed; a signed execution receipt
   before commitment is execution evidence, not finality. Programs do not require
-  periodic checkpoint settlement or a separate settlement deployment. The kernel runs
-  inside the node;
-  programs do not wait for settlement on another chain.
-- **Network access** uses public node JSON-RPC at the root URL, for example
-  `https://api1.mainnet-beta.paxeer.network` or
-  `https://api-mainnet-beta.paxeer.network`. The numbered nodes are `api1` through
-  `api14.mainnet-beta.paxeer.network`; see the
+  periodic checkpoint settlement or a separate settlement deployment.
+- **Network access** uses public node JSON-RPC at the root URL; see the
   [public endpoint reference](../docs/site/docs/reference/public-rpc.md).
   Hosted gateway `px_` methods have their own
   [OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
@@ -115,10 +110,7 @@ Registry reads use [`protocol_evidence.rs`](crates/layerx-programs-registry/src/
 and [`chain_proof/`](crates/layerx-programs-registry/src/chain_proof) to verify deployment,
 lifecycle and state evidence against chain commitments. `VerifiedProgramCatalog` in
 [`resolver.rs`](crates/layerx-programs-registry/src/resolver.rs) admits executable
-programs from verified bundles. The former protocol-adapter crate is retired.
-Any retained adapter sources are historical, not a deployed read interface.
-The former `layerx-programs-protocol-adapter` crate is retired. Current integration
-uses the registry chain-proof APIs below; do not add the retired adapter as a dependency.
+programs from verified bundles. Integration uses the registry chain-proof APIs below.
 
 Callers obtain program balances through node-root JSON-RPC `eth_call` to the Programs
 precompile at `0x101D` (`0x000000000000000000000000000000000000101D`). ABI-encode
@@ -165,7 +157,7 @@ A program can own accounts that no principal can claim. An account id is derived
 deterministically from the program and a seed - a pure function of public inputs, with no
 host state, clock, or entropy involved:
 
-```
+```text
 account_id = SHA-256(
     "LayerX/programs/program-account/v1\0"   // domain tag, distinct from principal ids
     || program_id                            // 32 bytes, bound before the seed
@@ -222,7 +214,7 @@ across protocol batches**, priced by the fee schedule. There is no wall-clock co
 
 For each occupied storage namespace over a batch interval:
 
-```
+```text
 byte_batches = recorded_bytes × (to_batch − from_batch)
 accrued_fee  = byte_batches × occupancy_byte_batch_price
 amount_due   = prior_arrears + accrued_fee
@@ -374,7 +366,7 @@ workspace build; it does not produce deployable WASM for every guest. The refere
 fixture target runs [`program-fixtures.sh`](../scripts/programs/program-fixtures.sh),
 which remaps source paths and regenerates interfaces and registry values alongside
 the artifacts. Native token and merchant fixture generation uses the separate driver
-above. Aggregate test targets cover more than a focused task's qualification gate.
+above.
 
 ### AI market guest packaging
 
@@ -401,7 +393,7 @@ interface is included, the decoder in [`deploy.c`](../src/modules/programs/deplo
 uses 108 fixed bytes plus the interface bytes, reducing the space for WASM further.
 The production `make paxai-host-boundary-build` target builds and packages through
 [`guest-recipe.sh`](crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh),
-the same recipe used by `build-guest.sh` and the historical and candidate RPC guests.
+the same recipe used by `build-guest.sh` and the RPC guests.
 It requires Binaryen 133, release `opt-level = "z"`, LTO and `cdylib`, with the
 compiler arguments and size pass list defined in that file. It checks that the
 resulting WASM is at most 524184 bytes before passing that same file to the native
@@ -419,12 +411,5 @@ lockstep. Deterministic cross-architecture replay and fault injection are descri
 This workspace targets Paxeer mainnet-beta, chain 125. Public node access and hosted
 gateway method contracts are documented separately in the references above; a method's
 presence in a hosted contract does not imply availability on every public node.
-Source is licensed under the Apache License, Version 2.0. Hosted documentation is at
-[docs.paxeer.app](https://docs.paxeer.app/).
-
-A successful local build is development evidence, not authorization to deploy, move
-custody, or handle real assets.
-
----
-
-Paxeer X Network is developed by [Sidiora Labs](https://github.com/Sidiora-Labs/paxeer-monorepo).
+Source is licensed under the Apache License, Version 2.0. The documentation site
+sources are in [`docs/site`](../docs/site).

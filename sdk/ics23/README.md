@@ -10,7 +10,7 @@ The repository root `go.mod` requires `github.com/confio/ics23/go v0.9.0` and
 replaces it with the maintained published replacement
 `github.com/cosmos/cosmos-sdk/ics23/go v0.8.0`. Root-module proof consumers use
 that published module, not this directory. Schema and generator maintenance
-belong to that published replacement. This task does not change root wiring.
+belong to that published replacement.
 
 The retained implementation is tested locally with `make test`. Its `Compress`
 and `Decompress` APIs now return `(*CommitmentProof, error)` so callers must

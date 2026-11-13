@@ -21510,3 +21510,108 @@ fix = "Decision 3417: the peer compares the fields of the context that its deal 
 title = "The aggregate commands of wave 6 span every area and each area keeps its own targets current"
 symptom = "The wave 6 gate runs the build, test and lint targets of every area of the repository in one pass. A lint limit, a dependency check, a generated file comparison or a test fixture of one area applies to files that lie outside the paths of the gate task."
 fix = "Each area brings its own make targets in line in a task of its own with the paths of that area, and the gate task requires those tasks and then runs the six wave commands once."
+
+[gotcha.4338]
+title = "The lint target of the agent workspace reads the entry file of the daemon together with its tests"
+symptom = "The command make agent-lint compiles every target of the agent workspace, so the argument limit of the lint configuration applies to the function terms of services/agent/crates/layerx-agentd/src/main.rs in the same run that reads the test files."
+fix = "The agent lint task carries the entry file in its paths and moves the inputs of the function into one parameter structure."
+
+[gotcha.4339]
+title = "Two binding cases of the Rust program SDK read directories that the binding program of the qualification tools prepares"
+symptom = "The cases generated_client_guest_and_typescript_are_compiler_inputs and immutable_published_interfaces_generate_all_language_families of programs/sdk/rust/tests/bindgen_conformance.rs read the directories named by the variables PAXEER_X_BINDINGS_ARTIFACTS and PAXEER_X_BINDINGS_FIXTURES. The binding program sets both variables; the test run of the programs workspace does not."
+fix = "The two cases run their assertions when the variable is set and print one line and return when it is not, without an ignore attribute."
+
+[gotcha.4340]
+title = "The interop service member links the platform gateway member, which keeps a SQLite store"
+symptom = "The dependency policy of the interop workspace reads the whole package list of the metadata, so the two SQLite crates that the platform gateway member uses appear in it through services/interop/crates/layerx-interop-service."
+fix = "The policy refuses the two crates on every dependency path that does not pass through the platform gateway member."
+
+[gotcha.4341]
+title = "The test target of the agent workspace starts a local chain for its native cases"
+symptom = "The command make agent-test prepares its native cases through services/agent/tools/run-real-node-tests.sh, which looks for forge, cast, anvil and go on the path before it builds the node."
+fix = "The verification of the agent test task names the local chain tool first, so that the gate shell provides the contract tools before the target runs."
+
+[gotcha.4342]
+title = "The test command of the interop workspace compiles and runs the cases of every member"
+symptom = "The command make interop-test runs the cases of every member under services/interop/crates. The payment cases of the fiat member convert a signature error with the question mark operator, the relay and server cases of the interop service member start a local store server from the path, and the receipt cases of the portable member run a Python verifier."
+fix = "Task 22.39.502 carries the test sources of every member under services/interop/crates, and the signature error is converted through a type that implements the standard error trait."
+
+[gotcha.4343]
+title = "The pinned cache size case of the runtime library compares against a fixed size"
+symptom = "The metrics case of wasm-runtime/libwasmvm/src/cache.rs compares the size of the pinned memory cache with a fixed number within a fifth. The size is made of the serialized size of the compiled module, an estimate of the engine and the size of the checksum, so it follows the engine version that the lock file pins."
+fix = "The number is the size measured with the engine version of the lock file, and the tolerance stays."
+
+[gotcha.4344]
+title = "The test command of the programs workspace runs the evaluator host cases of the AI market member"
+symptom = "The command make programs-test runs every test target of the members under programs/crates. The target f03_evaluator_host of programs/crates/layerx-programs-ai-market routes its calls through the program and, for one case, through the native harness that the recipe paxai-host-boundary-build of the Makefile writes under build/paxai-host-boundary."
+fix = "Task 22.39.509 carries the test sources of the members under programs/crates; each case prepares the state that the program requires, and the test recipe builds the native harness before the target that reads it."
+
+[gotcha.4345]
+title = "The test command of the agent workspace runs the cases of every member"
+symptom = "The command make agent-test runs every test target of the members under services/agent/crates. The export cases of services/agent/crates/layerx-agentd/tests/audit_export.rs read rows that carry a transaction hash, a nonce and a rung."
+fix = "Task 22.39.498 carries the test sources of every member under services/agent/crates, and a case builds its rows with every field the reader requires."
+
+[gotcha.4346]
+title = "The dependency check of the platform manifests names the SQLite crates and the indexer member keeps its store in SQLite"
+symptom = "The configuration of the dependency check of services/platform and tools/platform lists the two SQLite crates with the reason that the platform does not open the projections of a node. The indexer member under services/platform/hosted keeps a store of its own in SQLite through a direct dependency of its manifest."
+fix = "The entry admits the crate as a direct dependency of the indexer member and of no other package, and the system crate under that crate alone."
+
+[gotcha.4347]
+title = "The SDK check of the platform reads a digest of the generator sources, and the history cases of the indexer run the Go producers"
+symptom = "The file sdk/platform/pipeline.kvx records a digest of the sources of each generator, among them the API generator under services/human/tools/api-gen, so a change of a generator is followed by make platform-sdk-generate. The cases of services/platform/hosted/indexer/tests/history_position.rs run Go tests of the precompiles, which link the native archives that the chain build writes under build and under the target directory of the programs workspace."
+fix = "Task 22.39.504 regenerates the SDK outputs and the digest file, and the test recipe of the platform builds the native archives before the history cases run."
+
+[gotcha.4348]
+title = "The seal of the evidence of a batch has the commit window of its epoch and the settlement has the whole epoch"
+symptom = "The program admits the seal of the evidence of a batch from height 64 to height 80 of the epoch of the batch. The canary of a lap is revealed and resolved from height 80 on. The settlement of the batch is admitted until the epoch ends at height 128."
+fix = "The host submits the seal of a ready batch inside the commit window, and holds the settlement of the batch and the report of the meter until the canaries of its laps are resolved."
+
+[gotcha.4349]
+title = "The identity provider serves the operations 0 to 4 and the client of the service reads each answer by its operation"
+symptom = "The wire file of services/human/crates/layerx-human-identity-provider serves the operations 0 to 4. The client in the identity entry file of src/server of the member layerx-human-service checks the number of answer fields by operation, and the client cases of the provider send the operations 2 and 3 through that client."
+fix = "The client admits for each operation that the provider serves the number of answer fields that the provider writes for it."
+
+[gotcha.4350]
+title = "A documentation page names paths, commands, keys and endpoints of the tree"
+symptom = "The pages under docs, under the area directories and under the spec directories name paths, commands, configuration keys and endpoints of the tree, and the tree changes with every landed task."
+fix = "Tasks 22.41.1 to 22.41.40 read every page against the tree, correct it and list the pages of each task in a manifest."
+
+[gotcha.4351]
+title = "The pages under tools/wasm-tools derive from an upstream project"
+symptom = "The directory tools/wasm-tools holds the sources of an upstream project together with a file VENDOR.kvx that records its origin. Its Markdown pages are pages of the page list, among them lines 3157 to 3176."
+fix = "Task 22.41.41 reads the pages of lines 3157 to 3176 of the page list as pages that derive from an upstream project and lists them in a manifest."
+
+[gotcha.4352]
+title = "Two generated pages of the source-control directory name their source under an earlier file name"
+symptom = "The pages implementation-plan.md and traceability.md under spec/layerx-merge/source-control state in their header that they are generated from a file spec.kvx beside them, and the first names a script path for regeneration. The directory holds the specification as source-spec.kvx and the script under its tools directory."
+fix = "Task 22.41.100 corrects the header of both pages, and the header text of the script where the script writes it."
+
+[gotcha.4353]
+title = "The documentation site under docs/site is a static export and its public Markdown files are derived"
+symptom = "The directory docs/site holds the site in docs/site/paxeer-docs and its assistant in docs/site/docs-assistant. The pages are the files named page.tsx under docs/site/paxeer-docs/src/app. The Markdown exports, the search index, the sitemap and the two llms files under docs/site/paxeer-docs/public and the file under docs/site/paxeer-docs/.generated are written from the pages by npm run prepare:docs."
+fix = "A change of a page is followed by npm run prepare:docs. Tasks 22.41.101 to 22.41.112 correct pages and leave the derived files to task 22.41.114."
+
+[gotcha.4354]
+title = "The migrations of the launchpad services lie in the migrations directory at the repository root"
+symptom = "The directory migrations at the repository root holds the SQLite schemas of the projection tooling. Task 22.41.115 moves the SQL migrations of the launchpad services and the JSON files beside them into it from launchpad/spec/production-system/integration/migrations, and sources and tests name the directory by its path from the repository root."
+fix = "A reference to the former path is written as migrations, and a directory of the same name under services or tools is a different directory."
+
+[gotcha.4355]
+title = "The page list of the documentation site includes the home page"
+symptom = "The files named page.tsx under docs/site/paxeer-docs/src/app include the home page docs/site/paxeer-docs/src/app/page.tsx, which lies in no route directory, beside one page in each route directory."
+fix = "A reading of the pages of the site reads the home page as well. Task 22.41.117 reads the home page and the programs page."
+
+[gotcha.4356]
+title = "The page of a directory is the file README.md at its root"
+symptom = "The repository view shows the file README.md of a directory below the list of its files, so that file is the page a reader of the directory meets first."
+fix = "Tasks 22.42.34 and later write one page for each directory of sources in one order of sections: what the directory holds, its layout, its build and test commands, its configuration and its documentation."
+
+[gotcha.4357]
+title = "The files of the upgrade to version 7.0.0 lie under docs/release and tools/release"
+symptom = "The pages of the upgrade lie under docs/release with the prefix 7.0.0, and the scripts that stage, swap, snapshot, roll back and verify a release lie under tools/release."
+fix = "Tasks 22.42.1 to 22.42.26 add the inventory of systems, the pages of variables, the checks before and after the upgrade height, the example proposal, the release notes, the rollback page and an index of the whole."
+
+[gotcha.4358]
+title = "A file is named after what it holds and task records lie under the programme directory"
+symptom = "Files and directories across the tree carry the word repair with a task number in their names, and task records with the extension kvx lie beside the sources."
+fix = "Tasks 22.43.1 to 22.43.247 move the task records under spec/layerx-merge/programme/records and give the other files a name that states what they hold. A new test file is named after the behaviour it covers, and a new task record is written under that directory."

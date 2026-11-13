@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.72"
+pages = 20
+
+[page.1]
+path = "docs/wiki/MarketMakerRamps.md"
+status = "corrected"
+
+[page.2]
+path = "docs/wiki/Mcp.md"
+status = "reviewed"
+
+[page.3]
+path = "docs/wiki/Migration.md"
+status = "corrected"
+
+[page.4]
+path = "docs/wiki/Mirrors.md"
+status = "reviewed"
+
+[page.5]
+path = "docs/wiki/Modules.md"
+status = "corrected"
+
+[page.6]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "corrected"
+
+[page.7]
+path = "docs/wiki/PaymentsQuickstart.md"
+status = "corrected"
+
+[page.8]
+path = "docs/wiki/Perps.md"
+status = "corrected"
+
+[page.9]
+path = "docs/wiki/PortableVerifier.md"
+status = "reviewed"
+
+[page.10]
+path = "docs/wiki/Porting.md"
+status = "corrected"
+
+[page.11]
+path = "docs/wiki/Programs.md"
+status = "reviewed"
+
+[page.12]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "corrected"
+
+[page.13]
+path = "docs/wiki/Protocol.md"
+status = "corrected"
+
+[page.14]
+path = "docs/wiki/PublicAPI.md"
+status = "reviewed"
+
+[page.15]
+path = "docs/wiki/PublicRpc.md"
+status = "corrected"
+
+[page.16]
+path = "docs/wiki/Quickstart.md"
+status = "corrected"
+
+[page.17]
+path = "docs/wiki/README.md"
+status = "reviewed"
+
+[page.18]
+path = "docs/wiki/RegistryDeploymentJournal.md"
+status = "corrected"
+
+[page.19]
+path = "docs/wiki/Roadmap.md"
+status = "reviewed"
+
+[page.20]
+path = "docs/wiki/RunningAnAgent.md"
+status = "corrected"

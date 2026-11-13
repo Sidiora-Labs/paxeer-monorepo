@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.11"
+pages = 40
+
+[page.1]
+path = "docs/hyperfide/journal.md"
+status = "corrected"
+
+[page.2]
+path = "docs/hyperfide/memory-transport.md"
+status = "corrected"
+
+[page.3]
+path = "docs/hyperfide/projection.md"
+status = "corrected"
+
+[page.4]
+path = "docs/hyperfide/reference/core-agentic-and-fleet.md"
+status = "corrected"
+
+[page.5]
+path = "docs/hyperfide/reference/core-cli-and-help.md"
+status = "corrected"
+
+[page.6]
+path = "docs/hyperfide/reference/core-graph-and-index.md"
+status = "corrected"
+
+[page.7]
+path = "docs/hyperfide/reference/core-memory-and-spec.md"
+status = "corrected"
+
+[page.8]
+path = "docs/hyperfide/reference/core-native-components.md"
+status = "corrected"
+
+[page.9]
+path = "docs/hyperfide/reference/core-version-control.md"
+status = "corrected"
+
+[page.10]
+path = "docs/hyperfide/reference/editors-vscode.md"
+status = "corrected"
+
+[page.11]
+path = "docs/hyperfide/reference/kvx.md"
+status = "corrected"
+
+[page.12]
+path = "docs/hyperfide/reference/scripts-and-tooling.md"
+status = "corrected"
+
+[page.13]
+path = "docs/hyperfide/reference/services-artifacts-and-storage.md"
+status = "corrected"
+
+[page.14]
+path = "docs/hyperfide/reference/services-graph-and-spec.md"
+status = "corrected"
+
+[page.15]
+path = "docs/hyperfide/reference/services-identity-and-policy.md"
+status = "corrected"
+
+[page.16]
+path = "docs/hyperfide/reference/services-integration-and-review.md"
+status = "corrected"
+
+[page.17]
+path = "docs/hyperfide/reference/services-providers-and-preparation.md"
+status = "corrected"
+
+[page.18]
+path = "docs/hyperfide/reference/services-runtime.md"
+status = "corrected"
+
+[page.19]
+path = "docs/hyperfide/retrieval.md"
+status = "corrected"
+
+[page.20]
+path = "docs/hyperfide/runtime/CODE_REVIEW.md"
+status = "corrected"
+
+[page.21]
+path = "docs/hyperfide/runtime/README.md"
+status = "corrected"
+
+[page.22]
+path = "docs/hyperfide/runtime/VISION.md"
+status = "corrected"
+
+[page.23]
+path = "docs/hyperfide/runtime/api_to_audit.md"
+status = "corrected"
+
+[page.24]
+path = "docs/hyperfide/runtime/ci-performance.md"
+status = "corrected"
+
+[page.25]
+path = "docs/hyperfide/runtime/cli-guide-and-skill.md"
+status = "corrected"
+
+[page.26]
+path = "docs/hyperfide/runtime/configuration.md"
+status = "corrected"
+
+[page.27]
+path = "docs/hyperfide/runtime/debugging-and-qa.md"
+status = "corrected"
+
+[page.28]
+path = "docs/hyperfide/runtime/environment-provisioning.md"
+status = "reviewed"
+
+[page.29]
+path = "docs/hyperfide/runtime/events-table-pruning.md"
+status = "reviewed"
+
+[page.30]
+path = "docs/hyperfide/runtime/filing-issues.md"
+status = "corrected"
+
+[page.31]
+path = "docs/hyperfide/runtime/forkable-plugins.md"
+status = "corrected"
+
+[page.32]
+path = "docs/hyperfide/runtime/hyperfide-release-process.md"
+status = "corrected"
+
+[page.33]
+path = "docs/hyperfide/runtime/lifecycle-diagrams.md"
+status = "reviewed"
+
+[page.34]
+path = "docs/hyperfide/runtime/multiple-devices.md"
+status = "reviewed"
+
+[page.35]
+path = "docs/hyperfide/runtime/official-plugin-release-process.md"
+status = "corrected"
+
+[page.36]
+path = "docs/hyperfide/runtime/platform-support.md"
+status = "corrected"
+
+[page.37]
+path = "docs/hyperfide/runtime/postgresql-storage.md"
+status = "corrected"
+
+[page.38]
+path = "docs/hyperfide/runtime/provider-bridge-protocol.md"
+status = "corrected"
+
+[page.39]
+path = "docs/hyperfide/runtime/provider-plugin-api.md"
+status = "corrected"
+
+[page.40]
+path = "docs/hyperfide/runtime/repository-overview.md"
+status = "corrected"

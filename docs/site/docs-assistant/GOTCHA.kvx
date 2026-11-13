@@ -1,0 +1,7 @@
+[gotcha.1]
+area = "content"
+symptom = "Updating the shared assistant package alone does not expand its site knowledge."
+cause = "The server loads each site's generated assistant-docs.json corpus."
+resolution = "Generate the site's corpus from its published page source with its prepare:docs command."
+evidence = "server/index.mjs; ../paxeer-docs/scripts/generate-llms.mjs"
+status = "documented"

@@ -5,7 +5,7 @@
 `paxd` embeds the LayerX kernel as part of the network's block proposal and
 execution path. EVM execution, native balances, asset-ledger operations and
 programs run within the merged chain. A receipt is final once its block is
-committed. The separate execution/checkpoint-settlement architecture is retired.
+committed.
 
 This repository contains the node, chain modules, kernel, contracts, SDKs and
 hosted applications. [Monorepo layout](MONOREPO.md) maps their source paths;
@@ -35,36 +35,29 @@ responses do not replace committed chain evidence.
 
 The consensus chain identifier used by node distribution is
 `hyperpax_125-1`, configured by `tools/hpx/`; its EVM chain ID is `125`.
-The retired standalone `layerxd` daemon is not a deployment prerequisite.
 
 ## Public JSON-RPC and funding
 
-Use the node names at the root path:
-
-| Endpoint | HTTPS JSON-RPC | WebSocket |
-| --- | --- | --- |
-| Canonical alias | `https://api-mainnet-beta.paxeer.network` | `wss://api-mainnet-beta.paxeer.network` |
-| Numbered nodes, 1 through 14 | `https://api<N>.mainnet-beta.paxeer.network` | `wss://api<N>.mainnet-beta.paxeer.network` |
-
-Replace `<N>` with a number from 1 through 14. For example, this request
+Set `PAXEER_RPC_URL` to the selected node's root HTTPS URL. This request
 should return `"0x7d"` as its result:
 
 ```sh
-curl --max-time 15 -sS https://api1.mainnet-beta.paxeer.network \
+curl --max-time 15 -sS "$PAXEER_RPC_URL" \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
 Check chain identity before signing, use bounded timeouts, and compare
 `eth_blockNumber` across configured nodes when freshness matters. Consult
-[Public RPC endpoints](site/docs/reference/public-rpc.md) for the full list.
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`,
-`test` and `txpool`. The `px` namespace is served at the node root from node
-state; only `px_register` and `px_requestFunds` are hosted operations.
+[Public RPC endpoints](site/paxeer-docs/src/app/public-rpc/page.tsx) for the full list.
+The [HTTP server](../rpc/server.go) registers `debug`, `echo`, `eth`, `net`, `pax`, `pax2`, `px`,
+`txpool` and `web3`; method availability follows node configuration. The `test`
+namespace requires `EnableTestAPI` and a non-live chain ID. The `px` namespace is served at the node root from node
+state; `px_register` and `px_requestFunds` use the hosted services. For valid
+arguments, those two methods at the node root return JSON-RPC error `-32004`
+with data code `hosted_gateway_service_required`.
 The gateway's method contract is specified in
 [`services/platform/hosted/gateway/openrpc.json`](../services/platform/hosted/gateway/openrpc.json).
-
-The former router and its prefixed RPC routes are retired. `node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint.
 
 Mainnet-beta funding follows the operator's approved allocation process.
 Do not assume a public faucet. The hosted test-network faucet implementation
@@ -84,9 +77,9 @@ The registry precompile is
 `0x000000000000000000000000000000000000101E`
 (`precompiles/layerxchains/address.go`). For a nonzero domain ID `id`,
 the tenant EVM chain ID is `125000000 + id`
-(`modules/layerxchains/types/domain.go`). The node serves its HTTP and
+([`modules/layerxchains/types/domain.go`](../modules/layerxchains/types/domain.go)). The node serves its HTTP and
 WebSocket view at `/chain/<id>` on the same node host
-(`rpc/rpcstack.go`); these are scoped views, not additional networks.
+([`rpc/rpcstack.go`](../rpc/rpcstack.go)); these are scoped views, not additional networks.
 Each domain has gas and byte allowances, a base fee and an operator fee share.
 
 The launchpad's **Launch a chain** flow collects the name and size tier,
@@ -176,7 +169,7 @@ the selected network's release runbook.
 
 - [Monorepo layout](MONOREPO.md): current source and build boundaries
 - [Qualification](QUALIFICATION.md): evidence levels and release gates
-- [Public RPC endpoints](site/docs/reference/public-rpc.md): root node URLs and method guidance
+- [Public RPC endpoints](site/paxeer-docs/src/app/public-rpc/page.tsx): root node URLs and method guidance
 - [EVM JSON-RPC differences](evm_jsonrpc_unsupported.md): documented unsupported methods
 - [OpenAPI/Swagger generation](paxeer-chain-docs.md#openapiswagger-docs-generation): generating the node's API documentation
 - [Merged-network specification](../spec/layerx-merge/spec.kvx): acceptance criteria and current task status

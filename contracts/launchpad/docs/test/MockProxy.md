@@ -1,14 +1,16 @@
 # Solidity API
 
+Source: [MockProxy.sol](../../contracts/test/MockProxy.sol).
+
 ## MockERC1967Proxy
 
 ### constructor
 
 ```solidity
-constructor(address implementation, bytes data) public
+constructor(address implementation, bytes memory data)
 ```
 
-### _implementation
+### \_implementation
 
 ```solidity
 function _implementation() internal view returns (address)
@@ -21,7 +23,7 @@ Returns the current implementation address
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### setValue
@@ -41,13 +43,13 @@ function getValue() external view returns (uint256)
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### extra
 
 ```solidity
-uint256 extra
+uint256 public extra
 ```
 
 ### setValue
@@ -111,4 +113,3 @@ function getAdmin() external view returns (address)
 ```solidity
 function setAdmin(address admin) external
 ```
-
