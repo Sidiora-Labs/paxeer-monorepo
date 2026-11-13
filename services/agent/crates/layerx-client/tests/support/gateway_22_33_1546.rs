@@ -16,7 +16,7 @@ pub fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
 }
 pub fn records() -> Value {
     must(serde_json::from_str(include_str!(
-        "../fixtures/repair_22_33_1546_gateway.json"
+        "../fixtures/gateway_observations.json"
     )))
 }
 fn text(value: &Value) -> &str {
