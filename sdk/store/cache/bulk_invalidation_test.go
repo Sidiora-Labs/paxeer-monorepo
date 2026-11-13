@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_288_RangeRoundTrip(t *testing.T) {
+func TestCommitCacheRangeRoundTrip(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		start, end []byte
@@ -54,8 +54,8 @@ func TestRepair_288_RangeRoundTrip(t *testing.T) {
 					want[key] = "value:" + key
 				}
 			}
-			repair288AssertState(t, parent, want, keys, misses)
-			repair288AssertState(t, store, want, keys, misses)
+			assertCommitCacheState(t, parent, want, keys, misses)
+			assertCommitCacheState(t, store, want, keys, misses)
 
 			// Repeated deletion must also evict the negative entries read above.
 			require.NoError(t, store.DeleteAll(tc.start, tc.end))
@@ -73,13 +73,13 @@ func TestRepair_288_RangeRoundTrip(t *testing.T) {
 					want[key] = "replacement:" + key
 				}
 			}
-			repair288AssertState(t, parent, want, keys, misses)
-			repair288AssertState(t, store, want, keys, misses)
+			assertCommitCacheState(t, parent, want, keys, misses)
+			assertCommitCacheState(t, store, want, keys, misses)
 		})
 	}
 }
 
-func TestRepair_288_ResetRoundTrip(t *testing.T) {
+func TestCommitCacheResetRoundTrip(t *testing.T) {
 	parent := mem.NewStore()
 	t.Cleanup(func() { require.NoError(t, parent.DB.Close()) })
 	manager := NewCommitKVStoreCacheManager(64, types.DefaultCacheSizeLimit)
@@ -90,7 +90,7 @@ func TestRepair_288_ResetRoundTrip(t *testing.T) {
 	require.Equal(t, []byte("remove"), store.Get([]byte("b")))
 	require.Nil(t, store.Get([]byte("c")))
 	require.NoError(t, store.DeleteAll([]byte("b"), []byte("c")))
-	repair288AssertState(t, store, map[string]string{"a": "keep"}, []string{"a", "b", "c"})
+	assertCommitCacheState(t, store, map[string]string{"a": "keep"}, []string{"a", "b", "c"})
 
 	parent.Set([]byte("a"), []byte("updated"))
 	parent.Set([]byte("c"), []byte("created"))
@@ -99,16 +99,16 @@ func TestRepair_288_ResetRoundTrip(t *testing.T) {
 	require.Same(t, parent, manager.Unwrap(key))
 	require.Same(t, store, manager.GetStoreCache(key, parent))
 	want := map[string]string{"a": "updated", "c": "created"}
-	repair288AssertState(t, store, want, []string{"a", "b", "c"})
-	repair288AssertState(t, parent, want, []string{"a", "b", "c"})
+	assertCommitCacheState(t, store, want, []string{"a", "b", "c"})
+	assertCommitCacheState(t, parent, want, []string{"a", "b", "c"})
 
 	require.NoError(t, store.DeleteAll(nil, nil))
 	store.(*CommitKVStoreCache).Reset()
-	repair288AssertState(t, store, map[string]string{}, []string{"a", "b", "c"})
-	repair288AssertState(t, parent, map[string]string{}, []string{"a", "b", "c"})
+	assertCommitCacheState(t, store, map[string]string{}, []string{"a", "b", "c"})
+	assertCommitCacheState(t, parent, map[string]string{}, []string{"a", "b", "c"})
 }
 
-func repair288AssertState(t *testing.T, store types.KVStore, want map[string]string, keySets ...[]string) {
+func assertCommitCacheState(t *testing.T, store types.KVStore, want map[string]string, keySets ...[]string) {
 	t.Helper()
 	for _, keys := range keySets {
 		for _, key := range keys {

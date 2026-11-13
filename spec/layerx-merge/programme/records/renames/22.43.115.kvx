@@ -1,0 +1,200 @@
+[manifest]
+task = "22.43.115"
+records_moved = 15
+files_renamed = 15
+
+[file.1]
+from = "sdk/store/cache/repair_288_test.go"
+to = "sdk/store/cache/bulk_invalidation_test.go"
+
+[file.2]
+from = "sdk/store/cachekv/repair_289_test.go"
+to = "sdk/store/cachekv/range_merge_test.go"
+
+[file.3]
+from = "sdk/store/cachekv/repair_m635_test.go"
+to = "sdk/store/cachekv/iterator_errors_test.go"
+
+[file.4]
+from = "sdk/store/gaskv/repair_m637_test.go"
+to = "sdk/store/gaskv/bulk_gas_test.go"
+
+[file.5]
+from = "sdk/store/multiversion/repair_290_test.go"
+to = "sdk/store/multiversion/validation_version_test.go"
+
+[file.6]
+from = "sdk/store/multiversion/repair_m638_test.go"
+to = "sdk/store/multiversion/iterator_lifecycle_test.go"
+
+[file.7]
+from = "sdk/store/prefix/repair_291_test.go"
+to = "sdk/store/prefix/bulk_keyspace_test.go"
+
+[file.8]
+from = "sdk/store/prefix/repair_m639_test.go"
+to = "sdk/store/prefix/iterator_contract_test.go"
+
+[file.9]
+from = "sdk/store/repair_m636_test.go"
+to = "sdk/store/api_contract_test.go"
+
+[file.10]
+from = "sdk/store/rootmulti/repair_292_test.go"
+to = "sdk/store/rootmulti/historical_access_test.go"
+
+[file.11]
+from = "sdk/store/rootmulti/repair_m640_test.go"
+to = "sdk/store/rootmulti/rollback_recovery_test.go"
+
+[file.12]
+from = "sdk/store/types/repair_m641_test.go"
+to = "sdk/store/types/gas_multiplier_test.go"
+
+[file.13]
+from = "sdk/store/whitelist/kv/repair_m642_test.go"
+to = "sdk/store/whitelist/kv/access_policy_test.go"
+
+[file.14]
+from = "sdk/store/whitelist/cachemulti/repair_m643_test.go"
+to = "sdk/store/whitelist/cachemulti/access_policy_test.go"
+
+[file.15]
+from = "sdk/store/whitelist/multi/repair_m644_test.go"
+to = "sdk/store/whitelist/multi/access_policy_test.go"
+
+[file.16]
+from = "sdk/store/cache/repair_288.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/cache/repair_288.kvx"
+
+[file.17]
+from = "sdk/store/cachekv/repair_289.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/cachekv/repair_289.kvx"
+
+[file.18]
+from = "sdk/store/cachekv/repair_m635.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/cachekv/repair_m635.kvx"
+
+[file.19]
+from = "sdk/store/gaskv/repair_m637.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/gaskv/repair_m637.kvx"
+
+[file.20]
+from = "sdk/store/multiversion/repair_290.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/multiversion/repair_290.kvx"
+
+[file.21]
+from = "sdk/store/multiversion/repair_m638.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/multiversion/repair_m638.kvx"
+
+[file.22]
+from = "sdk/store/prefix/repair_291.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/prefix/repair_291.kvx"
+
+[file.23]
+from = "sdk/store/prefix/repair_m639.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/prefix/repair_m639.kvx"
+
+[file.24]
+from = "sdk/store/repair_m636.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/repair_m636.kvx"
+
+[file.25]
+from = "sdk/store/rootmulti/repair_292.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/rootmulti/repair_292.kvx"
+
+[file.26]
+from = "sdk/store/rootmulti/repair_m640.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/rootmulti/repair_m640.kvx"
+
+[file.27]
+from = "sdk/store/types/repair_m641.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/types/repair_m641.kvx"
+
+[file.28]
+from = "sdk/store/whitelist/cachemulti/repair_m643.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/whitelist/cachemulti/repair_m643.kvx"
+
+[file.29]
+from = "sdk/store/whitelist/kv/repair_m642.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/whitelist/kv/repair_m642.kvx"
+
+[file.30]
+from = "sdk/store/whitelist/multi/repair_m644.kvx"
+to = "spec/layerx-merge/programme/records/sdk/store/whitelist/multi/repair_m644.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_m635_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/programme/issues/1678.kvx"
+name = "TestRepair_292_ABCIHistoricalQuery"
+
+[reference.3]
+file = "spec/layerx-merge/programme/issues/1678.kvx"
+name = "repair_292_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_292_ABCIHistoricalQuery"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_288_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_289_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_290_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_291_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_292_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m635_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m636_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m637_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m638_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m639_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m640_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m641_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m642_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m643_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m644_test.go"

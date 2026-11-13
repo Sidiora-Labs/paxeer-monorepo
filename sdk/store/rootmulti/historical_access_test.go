@@ -13,7 +13,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair292Store(t *testing.T, typ storetypes.StoreType) (storetypes.CommitMultiStore, storetypes.StoreKey, []storetypes.CommitID) {
+func committedHistoricalStore(t *testing.T, typ storetypes.StoreType) (storetypes.CommitMultiStore, storetypes.StoreKey, []storetypes.CommitID) {
 	t.Helper()
 	var store storetypes.CommitMultiStore = rootmulti.NewStore(dbm.NewMemDB())
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
@@ -34,10 +34,10 @@ func repair292Store(t *testing.T, typ storetypes.StoreType) (storetypes.CommitMu
 	return store, key, commits
 }
 
-func TestRepair_292_VersionedQueryAndExport(t *testing.T) {
+func TestHistoricalStoreVersionedQueryAndExport(t *testing.T) {
 	for _, typ := range []storetypes.StoreType{storetypes.StoreTypeIAVL, storetypes.StoreTypeDB} {
 		t.Run(fmt.Sprint(typ), func(t *testing.T) {
-			store, key, commits := repair292Store(t, typ)
+			store, key, commits := committedHistoricalStore(t, typ)
 			var api storetypes.MultiStore = store
 			for _, dirty := range []bool{false, true} {
 				t.Run(fmt.Sprintf("uncommitted=%t", dirty), func(t *testing.T) {
@@ -65,8 +65,8 @@ func TestRepair_292_VersionedQueryAndExport(t *testing.T) {
 	}
 }
 
-func TestRepair_292_ABCIHistoricalQuery(t *testing.T) {
-	store, key, commits := repair292Store(t, storetypes.StoreTypeIAVL)
+func TestHistoricalStoreABCIHistoricalQuery(t *testing.T) {
+	store, key, commits := committedHistoricalStore(t, storetypes.StoreTypeIAVL)
 	queryable := store.(storetypes.Queryable)
 	for _, prove := range []bool{false, true} {
 		for _, height := range []int64{commits[0].Version, commits[1].Version, commits[1].Version + 1, -1} {

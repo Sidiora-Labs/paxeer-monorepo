@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM641AnteMeter(t *testing.T, numerator, denominator, limit uint64, mode string) storetypes.GasMeter {
+func anteMultiplierMeter(t *testing.T, numerator, denominator, limit uint64, mode string) storetypes.GasMeter {
 	t.Helper()
 	parent := sdk.NewInfiniteGasMeter(numerator, denominator)
 	ctx := sdk.Context{}.WithBlockHeight(1).WithGasMeter(parent)
@@ -34,7 +34,7 @@ func repairM641AnteMeter(t *testing.T, numerator, denominator, limit uint64, mod
 	return meter
 }
 
-func TestRepairM_641_FullWidthRatiosThroughAnte(t *testing.T) {
+func TestGasMultiplierFullWidthRatiosThroughAnte(t *testing.T) {
 	cases := []struct {
 		name                           string
 		amount, numerator, denominator uint64
@@ -52,7 +52,7 @@ func TestRepairM_641_FullWidthRatiosThroughAnte(t *testing.T) {
 	for _, mode := range []string{"finite", "simulation", "genesis"} {
 		for _, tc := range cases {
 			t.Run(mode+"/"+tc.name, func(t *testing.T) {
-				meter := repairM641AnteMeter(t, tc.numerator, tc.denominator, math.MaxUint64, mode)
+				meter := anteMultiplierMeter(t, tc.numerator, tc.denominator, math.MaxUint64, mode)
 				parent := mem.NewStore()
 				t.Cleanup(func() { require.NoError(t, parent.DB.Close()) })
 				key, value := []byte("ratio"), []byte("stored")
@@ -71,7 +71,7 @@ func TestRepairM_641_FullWidthRatiosThroughAnte(t *testing.T) {
 	}
 }
 
-func TestRepairM_641_RejectZeroDenominatorAtConstruction(t *testing.T) {
+func TestGasMultiplierRejectZeroDenominatorAtConstruction(t *testing.T) {
 	constructors := []struct {
 		name string
 		make func(uint64, uint64) storetypes.GasMeter
@@ -92,11 +92,11 @@ func TestRepairM_641_RejectZeroDenominatorAtConstruction(t *testing.T) {
 	}
 }
 
-func TestRepairM_641_QuotientOverflowSaturates(t *testing.T) {
+func TestGasMultiplierQuotientOverflowSaturates(t *testing.T) {
 	for _, mode := range []string{"finite", "simulation", "genesis"} {
 		t.Run(mode, func(t *testing.T) {
 			for _, ratio := range [][2]uint64{{2, 1}, {math.MaxUint64, math.MaxUint64 - 1}} {
-				meter := repairM641AnteMeter(t, ratio[0], ratio[1], 100, mode)
+				meter := anteMultiplierMeter(t, ratio[0], ratio[1], 100, mode)
 				require.PanicsWithValue(t, storetypes.ErrorGasOverflow{Descriptor: "scaled overflow"}, func() {
 					meter.ConsumeGas(math.MaxUint64, "scaled overflow")
 				})
@@ -121,10 +121,10 @@ func TestRepairM_641_QuotientOverflowSaturates(t *testing.T) {
 	}
 }
 
-func TestRepairM_641_AccumulationOverflowSaturates(t *testing.T) {
+func TestGasMultiplierAccumulationOverflowSaturates(t *testing.T) {
 	for _, mode := range []string{"finite", "simulation", "genesis"} {
 		t.Run(mode, func(t *testing.T) {
-			meter := repairM641AnteMeter(t, 2, 2, math.MaxUint64, mode)
+			meter := anteMultiplierMeter(t, 2, 2, math.MaxUint64, mode)
 			meter.ConsumeGas(1<<63, "first half")
 			require.Equal(t, uint64(1<<63), meter.GasConsumed())
 			require.PanicsWithValue(t, storetypes.ErrorGasOverflow{Descriptor: "total overflow"}, func() {
@@ -140,10 +140,10 @@ func TestRepairM_641_AccumulationOverflowSaturates(t *testing.T) {
 	}
 }
 
-func TestRepairM_641_RefundOverflowPreservesConsumption(t *testing.T) {
+func TestGasMultiplierRefundOverflowPreservesConsumption(t *testing.T) {
 	for _, mode := range []string{"finite", "simulation", "genesis"} {
 		t.Run(mode, func(t *testing.T) {
-			meter := repairM641AnteMeter(t, 2, 1, 100, mode)
+			meter := anteMultiplierMeter(t, 2, 1, 100, mode)
 			meter.ConsumeGas(5, "seed")
 			require.Equal(t, uint64(10), meter.GasConsumed())
 			require.PanicsWithValue(t, storetypes.ErrorGasOverflow{Descriptor: "refund overflow"}, func() {
@@ -160,8 +160,8 @@ func TestRepairM_641_RefundOverflowPreservesConsumption(t *testing.T) {
 	}
 }
 
-func TestRepairM_641_FractionalFiniteLimitThroughAnte(t *testing.T) {
-	meter := repairM641AnteMeter(t, 3, 2, 10, "finite")
+func TestGasMultiplierFractionalFiniteLimitThroughAnte(t *testing.T) {
+	meter := anteMultiplierMeter(t, 3, 2, 10, "finite")
 	meter.ConsumeGas(7, "at limit")
 	require.Equal(t, uint64(10), meter.GasConsumed())
 	require.False(t, meter.IsPastLimit())
@@ -175,7 +175,7 @@ func TestRepairM_641_FractionalFiniteLimitThroughAnte(t *testing.T) {
 	require.Equal(t, uint64(10), meter.GasConsumed())
 }
 
-func TestRepairM_641_InfiniteRefundRegression(t *testing.T) {
+func TestGasMultiplierInfiniteRefundRegression(t *testing.T) {
 	meter := storetypes.NewInfiniteMultiplierGasMeter(1, 1)
 	meter.ConsumeGas(10, "initial charge")
 	meter.RefundGas(1, "initial refund")

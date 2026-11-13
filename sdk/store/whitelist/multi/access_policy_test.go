@@ -14,7 +14,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM644Seed(parent storetypes.MultiStore, keys []storetypes.StoreKey) {
+func seedPolicyStores(parent storetypes.MultiStore, keys []storetypes.StoreKey) {
 	for _, key := range keys {
 		s := parent.GetKVStore(key)
 		s.Set([]byte("deny/existing"), []byte("protected"))
@@ -22,7 +22,7 @@ func repairM644Seed(parent storetypes.MultiStore, keys []storetypes.StoreKey) {
 	}
 }
 
-func repairM644Open(t *testing.T) (storetypes.MultiStore, storetypes.MultiStore, []storetypes.StoreKey) {
+func openPolicyStores(t *testing.T) (storetypes.MultiStore, storetypes.MultiStore, []storetypes.StoreKey) {
 	t.Helper()
 	parent := rootmulti.NewStore(dbm.NewMemDB())
 	t.Cleanup(func() { require.NoError(t, parent.Close()) })
@@ -31,11 +31,11 @@ func repairM644Open(t *testing.T) (storetypes.MultiStore, storetypes.MultiStore,
 		parent.MountStoreWithDB(key, storetypes.StoreTypeDB, nil)
 	}
 	require.NoError(t, parent.LoadLatestVersion())
-	repairM644Seed(parent, keys)
+	seedPolicyStores(parent, keys)
 	return parent, multi.NewStore(parent, map[string][]string{"bank": {"allow/", "exact"}}), keys
 }
 
-func repairM644Policy(t *testing.T, s storetypes.KVStore, allowed bool) {
+func assertStorePolicy(t *testing.T, s storetypes.KVStore, allowed bool) {
 	t.Helper()
 	require.Equal(t, []byte("protected"), s.Get([]byte("deny/existing")))
 	denied := []string{"deny/existing", "deny/new", "allow", "allowish/key", "xallow/key"}
@@ -59,7 +59,7 @@ func repairM644Policy(t *testing.T, s storetypes.KVStore, allowed bool) {
 	}
 }
 
-func repairM644Result(t *testing.T, parent storetypes.MultiStore, keys []storetypes.StoreKey) {
+func assertPolicyStoreState(t *testing.T, parent storetypes.MultiStore, keys []storetypes.StoreKey) {
 	t.Helper()
 	for i, key := range keys {
 		s := parent.GetKVStore(key)
@@ -77,7 +77,7 @@ func repairM644Result(t *testing.T, parent storetypes.MultiStore, keys []storety
 	}
 }
 
-func TestRepairM_644_Accessors(t *testing.T) {
+func TestWhitelistAccessors(t *testing.T) {
 	accessors := []struct {
 		name string
 		get  func(storetypes.MultiStore) storetypes.MultiStore
@@ -99,7 +99,7 @@ func TestRepairM_644_Accessors(t *testing.T) {
 		for _, accessor := range accessors {
 			for _, generic := range []bool{false, true} {
 				t.Run(fmt.Sprintf("cached=%t/%s/generic=%t", cached, accessor.name, generic), func(t *testing.T) {
-					parent, guarded, keys := repairM644Open(t)
+					parent, guarded, keys := openPolicyStores(t)
 					var outer storetypes.CacheMultiStore
 					if cached {
 						outer = guarded.CacheMultiStore()
@@ -111,7 +111,7 @@ func TestRepairM_644_Accessors(t *testing.T) {
 						if generic {
 							s = branch.GetStore(key).(storetypes.KVStore)
 						}
-						repairM644Policy(t, s, i == 0)
+						assertStorePolicy(t, s, i == 0)
 					}
 					if cache, ok := branch.(storetypes.CacheMultiStore); ok {
 						cache.Write()
@@ -121,18 +121,18 @@ func TestRepairM_644_Accessors(t *testing.T) {
 						outer.Write()
 						outer.Close()
 					}
-					repairM644Result(t, parent, keys)
+					assertPolicyStoreState(t, parent, keys)
 				})
 			}
 		}
 	}
 }
 
-func TestRepairM_644_KVBranches(t *testing.T) {
+func TestWhitelistKVBranches(t *testing.T) {
 	for _, generic := range []bool{false, true} {
 		for _, traced := range []bool{false, true} {
 			t.Run(fmt.Sprintf("generic=%t/traced=%t", generic, traced), func(t *testing.T) {
-				parent, guarded, keys := repairM644Open(t)
+				parent, guarded, keys := openPolicyStores(t)
 				outer := guarded.CacheMultiStore()
 				for i, key := range keys {
 					s := outer.GetKVStore(key)
@@ -143,11 +143,11 @@ func TestRepairM_644_KVBranches(t *testing.T) {
 					if traced {
 						first = s.CacheWrapWithTrace(key, &bytes.Buffer{}, storetypes.TraceContext{"test": "kv"})
 					}
-					repairM644Policy(t, first.(storetypes.KVStore), i == 0)
+					assertStorePolicy(t, first.(storetypes.KVStore), i == 0)
 					second := first.CacheWrapWithTrace(key, &bytes.Buffer{}, nil)
-					repairM644Policy(t, second.(storetypes.KVStore), i == 0)
+					assertStorePolicy(t, second.(storetypes.KVStore), i == 0)
 					third := second.CacheWrap(key)
-					repairM644Policy(t, third.(storetypes.KVStore), i == 0)
+					assertStorePolicy(t, third.(storetypes.KVStore), i == 0)
 					third.Write()
 					second.Write()
 					first.Write()
@@ -155,16 +155,16 @@ func TestRepairM_644_KVBranches(t *testing.T) {
 				require.False(t, parent.GetKVStore(keys[0]).Has([]byte("allow/new")), "branches must remain isolated until Write")
 				outer.Write()
 				outer.Close()
-				repairM644Result(t, parent, keys)
+				assertPolicyStoreState(t, parent, keys)
 			})
 		}
 	}
 }
 
-func TestRepairM_644_SetKVStores(t *testing.T) {
+func TestWhitelistSetKVStores(t *testing.T) {
 	for _, cached := range []bool{false, true} {
 		t.Run(fmt.Sprintf("cached=%t", cached), func(t *testing.T) {
-			parent, guarded, keys := repairM644Open(t)
+			parent, guarded, keys := openPolicyStores(t)
 			var outer storetypes.CacheMultiStore
 			if cached {
 				outer = guarded.CacheMultiStore()
@@ -175,21 +175,21 @@ func TestRepairM_644_SetKVStores(t *testing.T) {
 			transformed := guarded.SetKVStores(func(key storetypes.StoreKey, s storetypes.KVStore) storetypes.CacheWrap {
 				seen[key.Name()] = true
 				captured[key.Name()] = s
-				repairM644Policy(t, s, key == keys[0])
+				assertStorePolicy(t, s, key == keys[0])
 				cache := s.CacheWrapWithTrace(key, &bytes.Buffer{}, nil)
-				repairM644Policy(t, cache.(storetypes.KVStore), key == keys[0])
+				assertStorePolicy(t, cache.(storetypes.KVStore), key == keys[0])
 				cache.Write()
 				return s.(storetypes.CacheWrap)
 			})
 			require.Equal(t, map[string]bool{"bank": true, "blocked": true}, seen)
 			for i, key := range keys {
-				repairM644Policy(t, captured[key.Name()], i == 0)
-				repairM644Policy(t, transformed.GetStore(key).(storetypes.KVStore), i == 0)
-				repairM644Policy(t, transformed.GetKVStore(key), i == 0)
+				assertStorePolicy(t, captured[key.Name()], i == 0)
+				assertStorePolicy(t, transformed.GetStore(key).(storetypes.KVStore), i == 0)
+				assertStorePolicy(t, transformed.GetKVStore(key), i == 0)
 			}
 			branch := transformed.SetTracer(&bytes.Buffer{}).SetTracingContext(nil).CacheMultiStore()
 			for i, key := range keys {
-				repairM644Policy(t, branch.GetStore(key).(storetypes.KVStore), i == 0)
+				assertStorePolicy(t, branch.GetStore(key).(storetypes.KVStore), i == 0)
 			}
 			branch.Write()
 			branch.Close()
@@ -198,12 +198,12 @@ func TestRepairM_644_SetKVStores(t *testing.T) {
 				outer.Write()
 				outer.Close()
 			}
-			repairM644Result(t, parent, keys)
+			assertPolicyStoreState(t, parent, keys)
 		})
 	}
 }
 
-func TestRepairM_644_VersionAndExport(t *testing.T) {
+func TestWhitelistVersionAndExport(t *testing.T) {
 	sc := config.DefaultStateCommitConfig()
 	sc.WriteMode = config.MemiavlOnly
 	sc.MemIAVLConfig.AsyncCommitBuffer = 0
@@ -214,7 +214,7 @@ func TestRepairM_644_VersionAndExport(t *testing.T) {
 		parent.MountStoreWithDB(key, storetypes.StoreTypeIAVL, nil)
 	}
 	require.NoError(t, parent.LoadLatestVersion())
-	repairM644Seed(parent, keys)
+	seedPolicyStores(parent, keys)
 	commit := parent.Commit(true)
 	require.Equal(t, int64(1), commit.Version)
 	guarded := multi.NewStore(parent, map[string][]string{"bank": {"allow/", "exact"}})
@@ -227,12 +227,12 @@ func TestRepairM_644_VersionAndExport(t *testing.T) {
 			require.NoError(t, err)
 			defer branch.Close()
 			for i, key := range keys {
-				repairM644Policy(t, branch.GetKVStore(key), i == 0)
-				repairM644Policy(t, branch.GetStore(key).(storetypes.KVStore), i == 0)
+				assertStorePolicy(t, branch.GetKVStore(key), i == 0)
+				assertStorePolicy(t, branch.GetStore(key).(storetypes.KVStore), i == 0)
 			}
 			nested := branch.CacheMultiStore()
 			for i, key := range keys {
-				repairM644Policy(t, nested.GetStore(key).(storetypes.KVStore), i == 0)
+				assertStorePolicy(t, nested.GetStore(key).(storetypes.KVStore), i == 0)
 			}
 			nested.Write()
 			nested.Close()
@@ -240,13 +240,13 @@ func TestRepairM_644_VersionAndExport(t *testing.T) {
 			next := parent.Commit(true)
 			require.Equal(t, commit.Version+1, next.Version)
 			commit = next
-			repairM644Result(t, parent, keys)
+			assertPolicyStoreState(t, parent, keys)
 		})
 	}
 	branch, err := guarded.CacheMultiStoreWithVersion(commit.Version + 1)
 	require.ErrorContains(t, err, "unable to load historical state with SS disabled")
 	require.Nil(t, branch)
-	_, legacyGuard, _ := repairM644Open(t)
+	_, legacyGuard, _ := openPolicyStores(t)
 	for _, load := range []func(int64) (storetypes.CacheMultiStore, error){legacyGuard.CacheMultiStoreWithVersion, legacyGuard.CacheMultiStoreForExport} {
 		branch, err := load(1)
 		require.ErrorIs(t, err, rootmulti.ErrVersionedStateUnsupported)
@@ -254,8 +254,8 @@ func TestRepairM_644_VersionAndExport(t *testing.T) {
 	}
 }
 
-func TestRepairM_644_PolicySnapshot(t *testing.T) {
-	parent, _, keys := repairM644Open(t)
+func TestWhitelistPolicySnapshot(t *testing.T) {
+	parent, _, keys := openPolicyStores(t)
 	prefixes := []string{"allow/", "exact"}
 	policy := map[string][]string{"bank": prefixes}
 	guarded := multi.NewStore(parent, policy)
@@ -264,10 +264,10 @@ func TestRepairM_644_PolicySnapshot(t *testing.T) {
 	delete(policy, "bank")
 	branch := guarded.CacheMultiStore()
 	for i, key := range keys {
-		repairM644Policy(t, guarded.GetKVStore(key), i == 0)
-		repairM644Policy(t, branch.GetStore(key).(storetypes.KVStore), i == 0)
+		assertStorePolicy(t, guarded.GetKVStore(key), i == 0)
+		assertStorePolicy(t, branch.GetStore(key).(storetypes.KVStore), i == 0)
 	}
 	branch.Write()
 	branch.Close()
-	repairM644Result(t, parent, keys)
+	assertPolicyStoreState(t, parent, keys)
 }
