@@ -13,9 +13,9 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-// repair14Reopen commits the actual IAVL store, releases the keeper and opens
+// adlReopenCommittedStore commits the actual IAVL store, releases the keeper and opens
 // a new multistore and keeper against the same committed database.
-func repair14Reopen(t *testing.T, k *Keeper, ctx sdk.Context) (*Keeper, sdk.Context) {
+func adlReopenCommittedStore(t *testing.T, k *Keeper, ctx sdk.Context) (*Keeper, sdk.Context) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -35,7 +35,7 @@ func repair14Reopen(t *testing.T, k *Keeper, ctx sdk.Context) (*Keeper, sdk.Cont
 	return &Keeper{storeKey: k.storeKey, authority: k.authority, evm: k.evm, pricefeed: k.pricefeed}, sdk.NewContext(reopened, tmproto.Header{Height: ctx.BlockHeight(), Time: ctx.BlockTime()}, false)
 }
 
-func TestRepair_14_adl_uses_current_mark(t *testing.T) {
+func TestADLPersistenceUsesCurrentMark(t *testing.T) {
 	k, ctx := adlTestKeeper(t)
 	ctx = ctx.WithBlockHeight(1)
 	state, err := k.GetMarketState(ctx, 0)
@@ -59,7 +59,7 @@ func TestRepair_14_adl_uses_current_mark(t *testing.T) {
 	require.NoError(t, k.snapshotCommittedMark(ctx, state))
 	state.MarkPrice = adlUSD(65_000)
 	k.SetMarketState(ctx, state)
-	k, ctx = repair14Reopen(t, k, ctx)
+	k, ctx = adlReopenCommittedStore(t, k, ctx)
 	ids, marks, err := k.insuranceAdlInputs(ctx, k.InsuranceAccountAddress())
 	require.NoError(t, err)
 	require.Equal(t, adlUSD(60_000), marks[0])
@@ -73,7 +73,7 @@ func TestRepair_14_adl_uses_current_mark(t *testing.T) {
 	require.Equal(t, *uint256.NewInt(16_000_000_000), payer.Collateral)
 }
 
-func TestRepair_14_settlement_leaves_adl_rank(t *testing.T) {
+func TestADLPersistenceSettlementLeavesADLRank(t *testing.T) {
 	k, ctx := adlTestKeeper(t)
 	state, err := k.GetMarketState(ctx, 0)
 	require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestRepair_14_settlement_leaves_adl_rank(t *testing.T) {
 	ranked, err = k.RankADL(ctx, deficit.ID, adlUSD(60_000), 2)
 	require.NoError(t, err)
 	require.Equal(t, first.ID, ranked[0].ID)
-	k, ctx = repair14Reopen(t, k, ctx)
+	k, ctx = adlReopenCommittedStore(t, k, ctx)
 	ranked, err = k.RankADL(ctx, deficit.ID, adlUSD(60_000), 2)
 	require.NoError(t, err)
 	require.Equal(t, first.ID, ranked[0].ID)
@@ -125,7 +125,7 @@ func TestRepair_14_settlement_leaves_adl_rank(t *testing.T) {
 	require.Equal(t, new(big.Int).SetUint64(0), matches[0].Args[0])
 }
 
-func TestRepair_14_adl_index_visit_bound(t *testing.T) {
+func TestADLPersistenceIndexVisitBound(t *testing.T) {
 	k, ctx := adlTestKeeper(t)
 	params := types.DefaultParams()
 	params.AdlPositionsPerBlock = 2
@@ -158,7 +158,7 @@ func TestRepair_14_adl_index_visit_bound(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, events)
 		require.Equal(t, cursor, k.store(ctx).Get(adlCursorKey(deficit.ID)))
-		k, ctx = repair14Reopen(t, k, ctx)
+		k, ctx = adlReopenCommittedStore(t, k, ctx)
 		require.Equal(t, cursor, k.store(ctx).Get(adlCursorKey(deficit.ID)))
 		ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 1)
 	}

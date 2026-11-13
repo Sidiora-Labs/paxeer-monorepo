@@ -7,76 +7,76 @@ baseline = "Not run: explicit gate order requires complete implementation before
 evidence = "/out/run/gates.jsonl records each candidate revision, exact command, exit code and private log; hf-done is the sole verification authority."
 
 [repair.trigger-live-margin]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_trigger_live_margin"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperTriggerLiveMargin"
 
 [repair.pending-reduce-only-flip]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_pending_reduce_only_flip"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperPendingReduceOnlyFlip"
 
 [repair.cancelled-attachment-export]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_cancelled_attachment_export"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperCancelledAttachmentExport"
 
 [repair.adl-uses-current-mark]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_adl_previous_mark_endblock_recovery"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperADLPreviousMarkEndblockRecovery"
 
 [repair.settlement-leaves-adl-rank]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_settlement_rank_endblock_recovery"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperSettlementRankEndblockRecovery"
 
 [repair.adl-index-visit-bound]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_adl_visit_bound_endblock_recovery"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperADLVisitBoundEndblockRecovery"
 
 [repair.paused-trigger-visit-bound]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_paused_trigger_visit_bound"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperPausedTriggerVisitBound"
 
 [repair.trigger-fok-becomes-ioc]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_trigger_fok_becomes_ioc"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperTriggerFOKBecomesIOC"
 
 [repair.expired-orders-still-fill]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_expired_orders_still_fill"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperExpiredOrdersStillFill"
 
 [repair.open-fill-margin]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_open_fill_margin"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperOpenFillMargin"
 
 [repair.quote-open-base-rounding]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_quote_open_base_rounding"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperQuoteOpenBaseRounding"
 
 [repair.quote-short-self-bid]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_quote_short_self_bid"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperQuoteShortSelfBid"
 
 [repair.abci-keeper-core]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_keeper_core"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIKeeperCore"
 
 [repair.abci-governance-params]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_governance_params"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIGovernanceParams"
 
 [repair.abci-governance-market]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_governance_market"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIGovernanceMarket"
 
 [repair.abci-margin]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_margin"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIMargin"
 
 [repair.abci-freshness]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_freshness"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIFreshness"
 
 [repair.abci-positions]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_positions"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIPositions"
 
 [repair.abci-oi]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_oi"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIOI"
 
 [repair.abci-liquidation]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_liquidation"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCILiquidation"
 
 [repair.abci-fees]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_fees"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIFees"
 
 [repair.abci-insurance]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_insurance"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIInsurance"
 
 [repair.abci-funding]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_funding"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIFunding"
 
 [repair.abci-keeper-genesis]
-test = "modules/perps/keeper/repair_14_test.go:TestRepair_14_abci_keeper_genesis"
+test = "modules/perps/keeper/precompile_keeper_contract_test.go:TestPrecompileKeeperABCIKeeperGenesis"
 
 [wiring.previous-mark-genesis]
 request = "modules/perps/types/state.go and modules/perps/types/genesis.go, owning domain 3: add canonical genesis fields for previous committed marks; keeper-only persisted keys survive store reopen, but the current strict public state codec cannot export them."

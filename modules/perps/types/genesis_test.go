@@ -143,7 +143,7 @@ func TestGenesisValidateAccepts(t *testing.T) {
 			require.Equal(t, short, state.ShortOpenInterest)
 		}
 	}
-	received := repair15Clone(t, &gs)
+	received := validationClone(t, &gs)
 	require.NoError(t, keeper.ValidateGenesis(received))
 	target := newProofPerpsStore(t)
 	target.perps.InitGenesis(target.ctx, received)
@@ -219,9 +219,9 @@ func TestGenesisValidateRejectsProducedState(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			corrupted := repair15Clone(t, &gs)
+			corrupted := validationClone(t, &gs)
 			tc.mutate(&corrupted)
-			received := repair15Clone(t, &corrupted)
+			received := validationClone(t, &corrupted)
 			err := types.ValidateGenesis(received)
 			require.ErrorIs(t, err, types.ErrInvalidGenesis)
 			require.Contains(t, err.Error(), tc.reason)
