@@ -1,0 +1,232 @@
+[manifest]
+task = "22.43.172"
+records_moved = 7
+files_renamed = 15
+
+[file.1]
+from = "services/platform/perf-db/src/aggregation/repair_22_33_1372.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perf-db/src/aggregation/repair_22_33_1372.kvx"
+
+[file.2]
+from = "services/platform/perf-db/src/relational/repair_1376.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perf-db/src/relational/repair_1376.kvx"
+
+[file.3]
+from = "services/platform/perf-db/src/repair_1370.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perf-db/src/repair_1370.kvx"
+
+[file.4]
+from = "services/platform/perf-db/src/repair_140.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perf-db/src/repair_140.kvx"
+
+[file.5]
+from = "services/platform/perf-db/src/storage/repair_139.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perf-db/src/storage/repair_139.kvx"
+
+[file.6]
+from = "services/platform/perf-db/src/storage/repair_22_33_1371.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perf-db/src/storage/repair_22_33_1371.kvx"
+
+[file.7]
+from = "services/platform/perf-db/tests/repair_22_33_1374.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/perf-db/tests/repair_22_33_1374.kvx"
+
+[file.8]
+from = "services/platform/perf-db/src/fixtures/repair_1370_chain.json"
+to = "services/platform/perf-db/src/fixtures/chain_events.json"
+
+[file.9]
+from = "services/platform/perf-db/src/storage/repair_139_test.go"
+to = "services/platform/perf-db/src/storage/durability_test.go"
+
+[file.10]
+from = "services/platform/perf-db/src/storage/repair_139"
+to = "services/platform/perf-db/src/storage/durability_probe"
+
+[file.11]
+from = "services/platform/perf-db/src/storage/repair_139/Cargo.toml"
+to = "services/platform/perf-db/src/storage/durability_probe/Cargo.toml"
+
+[file.12]
+from = "services/platform/perf-db/src/storage/repair_139/main.rs"
+to = "services/platform/perf-db/src/storage/durability_probe/main.rs"
+
+[file.13]
+from = "services/platform/perf-db/tests/repair_22_31_140.rs"
+to = "services/platform/perf-db/tests/durable_recovery.rs"
+
+[file.14]
+from = "services/platform/perf-db/tests/repair_22_33_1370.rs"
+to = "services/platform/perf-db/tests/chain_event_accounting.rs"
+
+[file.15]
+from = "services/platform/perf-db/tests/repair_22_33_1371.rs"
+to = "services/platform/perf-db/tests/storage_admission.rs"
+
+[file.16]
+from = "services/platform/perf-db/tests/repair_22_33_1372.rs"
+to = "services/platform/perf-db/tests/candle_time_order.rs"
+
+[file.17]
+from = "services/platform/perf-db/tests/repair_22_33_1373.rs"
+to = "services/platform/perf-db/tests/query_ranges.rs"
+
+[file.18]
+from = "services/platform/perf-db/tests/repair_22_33_1374.rs"
+to = "services/platform/perf-db/tests/event_effects_recovery.rs"
+
+[file.19]
+from = "services/platform/perf-db/tests/repair_22_33_1375.rs"
+to = "services/platform/perf-db/tests/input_validation.rs"
+
+[file.20]
+from = "services/platform/perf-db/tests/repair_22_33_1376.rs"
+to = "services/platform/perf-db/tests/relational_consistency.rs"
+
+[file.21]
+from = "services/platform/perf-db/tests/repair_22_33_1377.rs"
+to = "services/platform/perf-db/tests/state_replacement_indexes.rs"
+
+[file.22]
+from = "services/platform/perf-db/tests/repair_22_33_1383.rs"
+to = "services/platform/perf-db/tests/documented_behavior.rs"
+
+[file.23]
+from = "services/platform/perf-db/tests/support/repair_22_33_1374.rs"
+to = "services/platform/perf-db/tests/support/event_recovery.rs"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_139"
+
+[reference.2]
+file = "scripts/workspace/check-platform-dependencies-test.sh"
+name = "repair_139"
+
+[reference.3]
+file = "scripts/workspace/check-platform-dependencies-test.sh"
+name = "repair_139_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "repair_22_31_140.rs"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair_22_33_1374.rs"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair_22_33_1375.rs"
+
+[reference.7]
+file = "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_871.kvx"
+name = "repair_139"
+
+[reference.8]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1374.rs"
+
+[reference.9]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1375.rs"
+
+[reference.10]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1376.rs"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_139"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_139_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_140"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_140.rs"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1370"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1370.rs"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1371"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1371.rs"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1372"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1372.rs"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1373"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1373.rs"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1374"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1374.rs"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1375"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1375.rs"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1376"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1376.rs"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1377"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1377.rs"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1383"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1383.rs"
+
+[reference.33]
+file = "tools/workspace/platform-dependency-roots.txt"
+name = "repair_139"
+
+[reference.34]
+file = "tools/workspace/platform-dependency-roots.txt"
+name = "repair_139_test.go"
