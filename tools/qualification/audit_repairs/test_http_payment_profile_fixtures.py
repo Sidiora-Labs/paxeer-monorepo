@@ -12,9 +12,6 @@ import re
 import tomllib
 from pathlib import Path
 
-import pytest
-
-
 ROOT = Path(__file__).resolve().parents[3]
 SUITE = ROOT / "services/interop/specs/conformance/transport-http"
 RECORD = (
@@ -325,13 +322,6 @@ def test_http_profile_fixture_settlement_uses_unchanged_signed_payer_bytes():
     assert '.relay(&hex(&request.idempotency_key), &raw, sender)' in settle
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "services/interop/specs/conformance/transport-http/README.md omits the "
-        "review-only semantic-case note"
-    ),
-)
 def test_http_profile_fixture_mounted_ingress_contract_and_proof_boundaries():
     cases = semantic_cases()
     server = source(SERVICE + "server.rs")
