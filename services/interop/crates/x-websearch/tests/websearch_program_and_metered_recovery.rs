@@ -33,8 +33,10 @@ const PROGRAM: [u8; 32] = [0x91; 32];
 struct Scratch(PathBuf);
 impl Scratch {
     fn new(label: &str) -> Checked<Self> {
-        let directory =
-            std::env::temp_dir().join(format!("repair-22-31-169-{}-{label}", std::process::id()));
+        let directory = std::env::temp_dir().join(format!(
+            "websearch-program-and-metered-recovery-{}-{label}",
+            std::process::id()
+        ));
         std::fs::create_dir(&directory)?;
         Ok(Self(directory))
     }
@@ -591,8 +593,7 @@ fn read_rpc(stream: &mut TcpStream) -> std::io::Result<Value> {
 #[test]
 fn metered_retired_offers_execute_exact_on_the_application_ledger() -> Checked {
     let scratch = Scratch::new("ledger")?;
-    let produced: Value =
-        serde_json::from_str(include_str!("../src/repair_22_31_169_ledger.json"))?;
+    let produced: Value = serde_json::from_str(include_str!("../src/metered_payment_ledger.json"))?;
     let transcript = LedgerTranscript::start(&produced)?;
     let endpoint = format!("http://{}", transcript.address);
     let config = Config::parse(&json!({

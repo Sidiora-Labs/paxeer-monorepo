@@ -1,7 +1,7 @@
 [repair.22.33.118]
 base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
 mode = "BUILD"
-verify_cmd = "cargo test --locked --manifest-path services/interop/crates/x-websearch/Cargo.toml --test repair_22_33_118"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/x-websearch/Cargo.toml --test websearch_http_and_authority"
 evidence = "The runner's hf-done ledger records the exact candidate revision, command, exit code and private log; this record makes no unexecuted qualification claim."
 baseline = "Not run: the ordered task instructions prohibit testing before complete implementation and allow verification only through the bounded hf-done gate; there was no earlier gate ledger or repair test at session start."
 

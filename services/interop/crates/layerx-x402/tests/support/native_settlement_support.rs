@@ -862,9 +862,10 @@ fn assert_consensus_transitions(
 }
 
 fn configured_anchor() -> TrustedConsensusAnchor {
-    let config: Value =
-        serde_json::from_str(include_str!("../fixtures/repair_22_33_105/consensus.json"))
-            .or_panic("expected Ok value");
+    let config: Value = serde_json::from_str(include_str!(
+        "../fixtures/native_settlement_transcripts/consensus.json"
+    ))
+    .or_panic("expected Ok value");
     let set = validators(&SigningKey::from_bytes(&word(
         config["validatorSeed"]
             .as_str()
@@ -905,8 +906,10 @@ impl BuyerPaymentPlane for PaymentTranscript {
 }
 
 fn plane_output() -> Value {
-    serde_json::from_str(include_str!("../fixtures/repair_22_33_105/payment.json"))
-        .or_panic("expected Ok value")
+    serde_json::from_str(include_str!(
+        "../fixtures/native_settlement_transcripts/payment.json"
+    ))
+    .or_panic("expected Ok value")
 }
 
 struct ExecutionTranscript {

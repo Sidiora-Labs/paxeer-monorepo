@@ -1,8 +1,7 @@
-//! Task 22.33.105; mapping, scope exceptions and qualification policy are in
-//! `repair_22_33_105.kvx`. Construction refusals name the native key defect;
-//! restart coverage reopens the production buyer settlement store.
+//! Native settlement preserves buyer identity and payment evidence across restart.
+//! Coverage: `spec/layerx-merge/programme/records/services/interop/crates/layerx-x402/tests/repair_22_33_105.kvx`.
 
-#[path = "support/repair_22_33_105.rs"]
+#[path = "support/native_settlement_support.rs"]
 mod path;
 
 #[test]

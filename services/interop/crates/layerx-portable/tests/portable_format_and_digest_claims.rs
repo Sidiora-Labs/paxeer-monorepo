@@ -1,5 +1,5 @@
-//! Audit 22.30.112: exercise the documented receipt and external evidence paths.
-//! Finding-to-test mapping and baseline limitations are in `repair_22_33_117.kvx`.
+//! Receipt formats and external evidence preserve authenticated digest claims.
+//! Coverage: `spec/layerx-merge/programme/records/services/interop/crates/layerx-portable/tests/repair_22_33_117.kvx`.
 
 #[path = "support/ap2_external.rs"]
 mod ap2_external;
