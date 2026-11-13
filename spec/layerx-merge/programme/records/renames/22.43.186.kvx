@@ -1,0 +1,20 @@
+[manifest]
+task = "22.43.186"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "storage/wal/repair_m1073.kvx"
+to = "spec/layerx-merge/programme/records/storage/wal/repair_m1073.kvx"
+
+[file.2]
+from = "storage/wal/repair_m1073_test.go"
+to = "storage/wal/restart_recovery_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1073_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1073_"

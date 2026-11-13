@@ -125,7 +125,7 @@ func TestInventoryDatabaseCancellationIsAtomic(t *testing.T) {
 					}
 				}
 				if mode == "interval" {
-					snapshot := repair63LiveReplay(t, ctx, s, 33963749)
+					snapshot := coordinatorReplayLiveReplay(t, ctx, s, 33963749)
 					summary, err := s.PublishRebuiltWallet(ctx, realMarketCreator, snapshot.Height, l17.Repository{Pool: s.authority.pool})
 					if err != nil || summary.SnapshotID == "" {
 						t.Fatal(summary, err)

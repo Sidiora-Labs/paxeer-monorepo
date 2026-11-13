@@ -1682,7 +1682,7 @@ func TestApplyChangeSetsErrorRecoveryPartialState(t *testing.T) {
 	}
 	offset, err := s.changelog.LastOffset()
 	require.NoError(t, err)
-	rows := repair124Rows(t, s)
+	rows := collectRawGlobalRows(t, s)
 	assertUnchanged := func() {
 		t.Helper()
 		require.Equal(t, accounts, s.accountWrites)
@@ -1699,7 +1699,7 @@ func TestApplyChangeSetsErrorRecoveryPartialState(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, offset, after)
 		require.Equal(t, int64(1), s.Version())
-		require.Equal(t, rows, repair124Rows(t, s))
+		require.Equal(t, rows, collectRawGlobalRows(t, s))
 		value, found := s.Get(keys.EVMStoreKey, noncePair(addr, 0).Key)
 		require.True(t, found)
 		require.Equal(t, nonceBytes(7), value)
@@ -1733,7 +1733,7 @@ func TestApplyChangeSetsErrorRecoveryPartialState(t *testing.T) {
 	require.Equal(t, int64(2), commitAndCheck(t, s))
 	require.NoError(t, VerifyLtHash(s))
 	verifyPerDBLtHash(t, s)
-	rows, root := repair124Rows(t, s), s.CommittedRootHash()
+	rows, root := collectRawGlobalRows(t, s), s.CommittedRootHash()
 	cfg := s.config
 	require.NoError(t, s.Close())
 
@@ -1748,7 +1748,7 @@ func TestApplyChangeSetsErrorRecoveryPartialState(t *testing.T) {
 	defer func() { require.NoError(t, reopened.Close()) }()
 	require.Equal(t, int64(2), reopened.Version())
 	require.Equal(t, root, reopened.CommittedRootHash())
-	require.Equal(t, rows, repair124Rows(t, reopened))
+	require.Equal(t, rows, collectRawGlobalRows(t, reopened))
 	for _, row := range []struct {
 		module     string
 		key, value []byte

@@ -445,7 +445,7 @@ func TestProofLaunchpadLivestream(t *testing.T) {
 		if event.State == "ENDED" {
 			kind = "stream.idle"
 		}
-		raw := repairM1001StudioBody(t, event.EventID, event.ProviderID, kind, event.ObservedAt, deliveredAt)
+		raw := studioRecoveryStudioBody(t, event.EventID, event.ProviderID, kind, event.ObservedAt, deliveredAt)
 		signingSecret := secret
 		if !valid {
 			signingSecret = strings.Repeat("x", 32)

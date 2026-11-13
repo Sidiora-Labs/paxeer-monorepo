@@ -10,8 +10,8 @@ import (
 
 func TestMigrateEip1559MaxBaseFee(t *testing.T) {
 	dir := t.TempDir()
-	k, ctx, ms, closeStore := repairM1243OpenStore(t, dir)
-	stored := repairM1243GovernedParams(t)
+	k, ctx, ms, closeStore := openMigrationStore(t, dir)
+	stored := governedMigrationParams(t)
 	require.NotEqual(t, types.DefaultParams().MaximumFeePerGas, stored.MaximumFeePerGas)
 	k.SetParams(ctx, stored)
 	require.Equal(t, stored, k.GetParams(ctx))
@@ -19,7 +19,7 @@ func TestMigrateEip1559MaxBaseFee(t *testing.T) {
 	require.Positive(t, before.Version)
 	closeStore()
 
-	k, ctx, ms, closeStore = repairM1243OpenStore(t, dir)
+	k, ctx, ms, closeStore = openMigrationStore(t, dir)
 	require.Equal(t, before, ms.LastCommitID())
 	require.Equal(t, stored, k.GetParams(ctx))
 
@@ -33,7 +33,7 @@ func TestMigrateEip1559MaxBaseFee(t *testing.T) {
 	after := ms.Commit(true)
 	require.Greater(t, after.Version, before.Version)
 	closeStore()
-	k, ctx, ms, _ = repairM1243OpenStore(t, dir)
+	k, ctx, ms, _ = openMigrationStore(t, dir)
 	require.Equal(t, after, ms.LastCommitID())
 	require.Equal(t, expected, k.GetParams(ctx), "migrated and preserved parameters must survive reopening")
 }

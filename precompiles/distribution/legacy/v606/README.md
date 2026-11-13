@@ -19,6 +19,6 @@ from the recorded `v7.0` done height, inclusive. A scheduled or absent merge
 plan does not activate that refusal. Tests use a committed in-memory merge
 height of 151573580; this is not a network deployment height.
 
-[Routing and value tests](repair_m1256_test.go) exercise the production keeper
+[Routing and value tests](rewards_value_test.go) exercise the production keeper
 routing, EVM value transfer, distribution query, ABI response and persisted
 balances. They also check zero-value `CALL` and `STATICCALL` on both implementations.

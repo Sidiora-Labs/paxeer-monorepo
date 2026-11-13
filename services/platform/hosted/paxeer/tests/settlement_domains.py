@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class SettlementDomains(unittest.TestCase):
     def test_committed_native_evidence_replaces_domain_writer(self):
-        fixture = json.loads((ROOT / 'tests/fixtures/repair_1321/committed_chain.json').read_text())
+        fixture = json.loads((ROOT / 'tests/fixtures/native_chain/committed_chain.json').read_text())
         requests = []
 
         class Peer(BaseHTTPRequestHandler):

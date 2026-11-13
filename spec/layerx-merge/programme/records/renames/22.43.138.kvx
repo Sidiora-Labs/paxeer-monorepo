@@ -1,0 +1,324 @@
+[manifest]
+task = "22.43.138"
+records_moved = 14
+files_renamed = 35
+
+[file.1]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/repair_22_33_440/empty_create.json"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/native_create_trace_fixtures/empty_create.json"
+
+[file.2]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/repair_22_33_440/empty_create2.json"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/native_create_trace_fixtures/empty_create2.json"
+
+[file.3]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/repair_22_33_440/extra_stack_create.json"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/native_create_trace_fixtures/extra_stack_create.json"
+
+[file.4]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/repair_22_33_440/invalid_create2.json"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/native_create_trace_fixtures/invalid_create2.json"
+
+[file.5]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/repair_22_33_440/minimal_create.json"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/native_create_trace_fixtures/minimal_create.json"
+
+[file.6]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/repair_22_33_440/minimal_create2.json"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/native_create_trace_fixtures/minimal_create2.json"
+
+[file.7]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/repair_22_33_440/nested_create.json"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/native_create_trace_fixtures/nested_create.json"
+
+[file.8]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/repair_22_33_440/rejected_code_create.json"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/native_create_trace_fixtures/rejected_code_create.json"
+
+[file.9]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/repair_22_33_440/reverted_create.json"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/native_create_trace_fixtures/reverted_create.json"
+
+[file.10]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/repair_22_33_440/zero_initialized_create.json"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/fixtures/native_create_trace_fixtures/zero_initialized_create.json"
+
+[file.11]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_31_397_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/websocket_subscription_failback_test.exs"
+
+[file.12]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_431_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/websocket_recovery_test.exs"
+
+[file.13]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_432_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/websocket_tls_reconnect_test.exs"
+
+[file.14]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_433_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/rpc_error_handling_test.exs"
+
+[file.15]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_434_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/coordinator_rate_limit_test.exs"
+
+[file.16]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_435_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/paxeer_x_capture_test.exs"
+
+[file.17]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_436_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/http_batch_metrics_test.exs"
+
+[file.18]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_437_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/trace_duration_test.exs"
+
+[file.19]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_438_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/finalized_block_tag_test.exs"
+
+[file.20]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_439_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/block_tag_error_test.exs"
+
+[file.21]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_440_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/native_create_stack_test.exs"
+
+[file.22]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_441_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/mixed_count_fixture_test.exs"
+
+[file.23]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_442_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/external_endpoint_geth_test.exs"
+
+[file.24]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_443_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/external_endpoint_nethermind_test.exs"
+
+[file.25]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_444_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/external_endpoint_validation_test.exs"
+
+[file.26]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_445_test.exs"
+to = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/readme_configuration_test.exs"
+
+[file.27]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/repair_22_33_440.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/geth/repair_22_33_440.kvx"
+
+[file.28]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/repair_22_33_436.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/http/repair_22_33_436.kvx"
+
+[file.29]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/utility/repair_22_33_437.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/utility/repair_22_33_437.kvx"
+
+[file.30]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/repair_22_31_397.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/repair_22_31_397.kvx"
+
+[file.31]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/repair_22_33_431.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/web_socket/repair_22_33_431.kvx"
+
+[file.32]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/lib/repair_22_33_438.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/lib/repair_22_33_438.kvx"
+
+[file.33]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/repair_22_33_435.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/repair_22_33_435.kvx"
+
+[file.34]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/web_socket/repair_22_33_432.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/web_socket/repair_22_33_432.kvx"
+
+[file.35]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_445.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/test/repair/repair_22_33_445.kvx"
+
+[file.36]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/geth/repair_22_33_442.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/geth/repair_22_33_442.kvx"
+
+[file.37]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/nethermind/repair_22_33_443.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/case/nethermind/repair_22_33_443.kvx"
+
+[file.38]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case/repair_22_33_444.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/test/support/ethereum_jsonrpc/web_socket/case/repair_22_33_444.kvx"
+
+[file.39]
+from = "services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/repair_22_33_441.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/paxeer_x/repair_22_33_441.kvx"
+
+[file.40]
+from = "services/explorer/backend/apps/explorer/config/repair_22_33_471/record.kvx"
+to = "spec/layerx-merge/programme/records/services/explorer/backend/apps/explorer/config/repair_22_33_471/record.kvx"
+
+[file.41]
+from = "services/explorer/backend/apps/explorer/config/repair_22_33_471/README.md"
+to = "services/explorer/backend/apps/explorer/config/database_tls/README.md"
+
+[file.42]
+from = "services/explorer/backend/apps/explorer/config/repair_22_33_471/fixtures/new_head_full.json"
+to = "services/explorer/backend/apps/explorer/config/database_tls/fixtures/new_head_full.json"
+
+[file.43]
+from = "services/explorer/backend/apps/explorer/config/repair_22_33_471/fixtures/trusted-ca.pem"
+to = "services/explorer/backend/apps/explorer/config/database_tls/fixtures/trusted-ca.pem"
+
+[file.44]
+from = "services/explorer/backend/apps/explorer/config/repair_22_33_471/fixtures/trusted-server-key.pem"
+to = "services/explorer/backend/apps/explorer/config/database_tls/fixtures/trusted-server-key.pem"
+
+[file.45]
+from = "services/explorer/backend/apps/explorer/config/repair_22_33_471/fixtures/trusted-server.pem"
+to = "services/explorer/backend/apps/explorer/config/database_tls/fixtures/trusted-server.pem"
+
+[file.46]
+from = "services/explorer/backend/apps/explorer/config/repair_22_33_471/fixtures/untrusted-server-key.pem"
+to = "services/explorer/backend/apps/explorer/config/database_tls/fixtures/untrusted-server-key.pem"
+
+[file.47]
+from = "services/explorer/backend/apps/explorer/config/repair_22_33_471/fixtures/untrusted-server.pem"
+to = "services/explorer/backend/apps/explorer/config/database_tls/fixtures/untrusted-server.pem"
+
+[file.48]
+from = "services/explorer/backend/apps/explorer/config/repair_22_33_471/fixtures/wrong-host-server-key.pem"
+to = "services/explorer/backend/apps/explorer/config/database_tls/fixtures/wrong-host-server-key.pem"
+
+[file.49]
+from = "services/explorer/backend/apps/explorer/config/repair_22_33_471/fixtures/wrong-host-server.pem"
+to = "services/explorer/backend/apps/explorer/config/database_tls/fixtures/wrong-host-server.pem"
+
+[reference.1]
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_473_test.exs"
+name = "repair_22_33_471/"
+
+[reference.2]
+file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_471_test.exs"
+name = "repair_22_33_471/"
+
+[reference.3]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_balance/repair_22_33_566.kvx"
+name = "repair_22_33_436_test.exs"
+
+[reference.4]
+file = "services/explorer/backend/repair-22-39-97.kvx"
+name = "repair_22_31_397_test.exs"
+
+[reference.5]
+file = "services/explorer/backend/repair-22-39-97.kvx"
+name = "repair_22_33_432_test.exs"
+
+[reference.6]
+file = "services/explorer/deploy/railway/README.md"
+name = "repair_22_33_471/"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "repair_22_33_435_test.exs"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "repair_22_33_440_test.exs"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-28.kvx"
+name = "repair_22_33_442_test.exs"
+
+[reference.10]
+file = "spec/layerx-merge/programme/docs/review/22.41.23.kvx"
+name = "repair_22_33_471/"
+
+[reference.11]
+file = "spec/layerx-merge/programme/docs/review/22.41.81.kvx"
+name = "repair_22_33_471/"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_435_test.exs"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_440_test.exs"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_442_test.exs"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_397_test.exs"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_431_test.exs"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_432_test.exs"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_433_test.exs"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_434_test.exs"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_435.kvx"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_435_test.exs"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_436_test.exs"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_437_test.exs"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_438_test.exs"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_439_test.exs"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_440_test.exs"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_441_test.exs"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_442_test.exs"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_443_test.exs"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_444_test.exs"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_445_test.exs"

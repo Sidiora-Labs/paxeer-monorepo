@@ -16,8 +16,8 @@ import (
 )
 
 func TestConnectedReadinessChecksProviderBudgetAndVault(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	if _, err := f.database.Exec(ctx, f.store.BudgetSchemaSQL()); err != nil {
 		t.Fatal(err)

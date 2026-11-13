@@ -99,7 +99,7 @@ func TestCacheRefreshAdmissionAndCounters(t *testing.T) {
 }
 
 func TestCanonicalCacheParameterRepresentation(t *testing.T) {
-	request := store.AccountingPageRequest{Pool: repairM992Pool, Limit: 20, Side: "sell", Interval: "1m", From: 0, To: 60000}
+	request := store.AccountingPageRequest{Pool: runtimeAdmissionPool, Limit: 20, Side: "sell", Interval: "1m", From: 0, To: 60000}
 	trades := canonicalParameters(request, url.Values{"cursor": {"token"}}, false)
 	if trades.Get("side") != "sell" || trades.Get("cursor") != "token" || trades.Get("limit") != "20" {
 		t.Fatalf("trade parameters: %v", trades)
@@ -127,7 +127,7 @@ func TestCanonicalCacheParameterRepresentation(t *testing.T) {
 }
 
 func TestAdapterRejectsIncompleteReadDependencies(t *testing.T) {
-	runtime := repairM992Runtime(t, repairM992Config(t, 0))
+	runtime := runtimeAdmissionRuntime(t, runtimeAdmissionConfig(t, 0))
 	a := runtime.adapter
 	ctx := context.Background()
 	scope := VerifiedScope{NetworkID: "127.0.0.1"}
@@ -138,7 +138,7 @@ func TestAdapterRejectsIncompleteReadDependencies(t *testing.T) {
 		t.Fatal("missing parameters accepted")
 	}
 	p, _ := a.policy(literalAccountingTrades)
-	q := url.Values{"poolAddress": {repairM992Pool}, "limit": {"1"}, "sourceRevision": {"unobserved"}}
+	q := url.Values{"poolAddress": {runtimeAdmissionPool}, "limit": {"1"}, "sourceRevision": {"unobserved"}}
 	if _, _, err := a.Read(ctx, p.ID, q, scope, nil); err == nil {
 		t.Fatal("missing projection provider accepted")
 	}

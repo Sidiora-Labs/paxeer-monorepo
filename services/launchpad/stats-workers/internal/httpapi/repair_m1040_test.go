@@ -466,7 +466,9 @@ func TestRepairM_1040_CommitAckLost(t *testing.T) {
 	f := newRepairM1040Fixture(t)
 	events := repairM1040Events(t)[:1]
 	body := mustJSON(t, httpapi.WebhookBody{Events: events})
+	f.db.mu.Lock()
 	f.db.DropCommit = true
+	f.db.mu.Unlock()
 	server := httptest.NewServer(f.router(t))
 	status, _, reply := repairM1040Post(t, server.Client(), server.URL, body)
 	server.Close()

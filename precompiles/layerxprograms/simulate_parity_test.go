@@ -102,7 +102,7 @@ func TestProgramsSimulateMatchesCallForEveryFixtureEntrypoint(t *testing.T) {
 				require.Equal(t, simulation[2], actual[2], "response")
 				require.Equal(t, simulated, called)
 				for _, frame := range [][]byte{simulated, called} {
-					decoded, err := lp.DecodeProgramExecutionResult(frame, args[6].(uint32), repair251TransferRoot(t, receipt))
+					decoded, err := lp.DecodeProgramExecutionResult(frame, args[6].(uint32), programsReceiptTransferRoot(t, receipt))
 					require.NoError(t, err)
 					require.Empty(t, decoded.GuestResponse)
 				}

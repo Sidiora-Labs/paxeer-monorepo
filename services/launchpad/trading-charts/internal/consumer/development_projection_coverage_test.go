@@ -19,7 +19,7 @@ import (
 func TestDevelopmentSourceProjectsCommittedSwap(t *testing.T) {
 	ctx := context.Background()
 	_, pool := internaltest.NewPostgres(t)
-	rpc, row := repair314Source(t)
+	rpc, row := developmentSwapSource(t)
 	opt, err := redis.ParseURL(internaltest.NewRedisURL(t))
 	if err != nil {
 		t.Fatal(err)
@@ -164,7 +164,7 @@ CREATE TABLE indexer.swaps(pool_id text,pool_address text,sender text,is_buy boo
 
 func TestDevelopmentSourceBindsIndexedRowsToCanonicalReceipt(t *testing.T) {
 	ctx := context.Background()
-	rpc, canonical := repair314Source(t)
+	rpc, canonical := developmentSwapSource(t)
 	source := NewDevelopmentSource(nil, rpc, nil, slog.Default())
 	frame, err := source.frame(ctx, canonical)
 	if err != nil || frame.TxHash != canonical.hash || frame.LogIndex == nil || *frame.LogIndex != uint64(canonical.logIndex) {

@@ -2,8 +2,8 @@
 """Check retained node admission, fee, committed execution and replay evidence.
 
 Usage: paxeer_x_rejection_policy.py --evidence FILE --revision SOURCE_REVISION
-The shared in-process checker also backs repair_m730_test.go. Evidence must
-cover every retained policy case; missing or stale evidence is a refusal.
+The shared in-process checker also backs clock_and_rejection_policy_test.go.
+Evidence must cover every retained policy case; missing or stale evidence is a refusal.
 """
 import os
 import sys

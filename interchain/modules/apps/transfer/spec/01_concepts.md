@@ -102,7 +102,7 @@ path with EVM chain id `125`.
 
 The denom-trace response above is checked against a packet-produced voucher,
 the registered query service and the generated HTTP gateway in
-`TestRepairM_1206_QueryShape` in [the repair tests](../repair_m1206_test.go).
+`TestTransferContractQueryShape` in [the transfer contract tests](../transfer_contract_test.go).
 
 ### Multiple hops
 

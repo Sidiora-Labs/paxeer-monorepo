@@ -1,0 +1,1758 @@
+package migrate
+
+import (
+	"bytes"
+	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"database/sql"
+	"database/sql/driver"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"math/big"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/attestor"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/envelope"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/ceremony/internal/testsupport"
+)
+
+type refreshRotationMember struct {
+	close         func() error
+	reopen        func()
+	adopt         func(string, string, string) error
+	record        func(string, func([]byte) ([]byte, error)) error
+	share         func(string) [32]byte
+	importReceipt func(string) []byte
+	epoch         func(string, uint64) error
+	interrupt     bool
+}
+
+func refreshRotationHTTP(t *testing.T, certFile, keyFile, caFile string) *http.Client {
+	t.Helper()
+	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(caFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(raw) {
+		t.Fatal("invalid ceremony CA")
+	}
+	transport := &http.Transport{TLSClientConfig: &tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: pool, MinVersion: tls.VersionTLS12}}
+	t.Cleanup(transport.CloseIdleConnections)
+	return &http.Client{Transport: transport, Timeout: 30 * time.Second}
+}
+
+func refreshRotationPost(ctx context.Context, client *http.Client, endpoint string, value any) ([]byte, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	raw, err = io.ReadAll(resp.Body)
+	if err == nil && resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, raw)
+	}
+	return raw, err
+}
+
+func TestRefreshRecoveryAfterRotation(t *testing.T) {
+	for _, held := range []bool{false, true} {
+		for _, adopted := range []int{0, 2} {
+			t.Run(fmt.Sprintf("held=%t/adopted=%d", held, adopted), func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+				defer cancel()
+				wallet := &migrationRecoveryWallet{Wallet: Wallet{ID: "rotation-wallet", UserID: "rotation-owner", Address: "0x4444444444444444444444444444444444444444", ChainID: 125, MainAccountID: strings.Repeat("11", 32)}}
+				wallet.original = originalIdentity{KeyID: "held-identity", Owner: wallet.UserID}
+				rpc := migrationRecoveryRPC(t, []*migrationRecoveryWallet{wallet})
+				authority := testsupport.StartWalletNodes(t, rpc)
+				token := authority.OwnerToken(t, wallet.UserID)
+				claims, err := base64.RawURLEncoding.DecodeString(strings.Split(token, ".")[1])
+				if err != nil {
+					t.Fatal(err)
+				}
+				var issuer struct {
+					Issuer string `json:"iss"`
+				}
+				if err = json.Unmarshal(claims, &issuer); err != nil {
+					t.Fatal(err)
+				}
+				cfg := authority.Config(t)
+				root := filepath.Dir(authority.GatewayAuthority()["WALLET_CUSTODY_INVENTORY_FILE"])
+				data := t.TempDir()
+				members := make([]refreshRotationMember, attestor.NodeCount)
+				peers, apis := make([]net.Listener, len(members)), make([]net.Listener, len(members))
+				peerAddresses := make([]string, len(members))
+				listen := func(address string) net.Listener {
+					l, e := net.Listen("tcp", address)
+					if e != nil {
+						t.Fatal(e)
+					}
+					return l
+				}
+				for i := range members {
+					peers[i], apis[i] = listen("127.0.0.1:0"), listen("127.0.0.1:0")
+					peerAddresses[i] = peers[i].Addr().String()
+					cfg.Nodes[i].URL = "https://" + apis[i].Addr().String()
+				}
+				var inventoryMu sync.Mutex
+				epochs := make([]uint64, len(members))
+				var approval testsupport.CeremonyInventoryKey
+				publish := func() {
+					all := make([][]testsupport.CeremonyInventoryKey, len(members))
+					for i := range all {
+						key := approval
+						key.Epoch = epochs[i]
+						all[i] = []testsupport.CeremonyInventoryKey{key}
+					}
+					authority.PublishInventory(t, all)
+				}
+				for i := range members {
+					i := i
+					member := &members[i]
+					nodeCfg := (dealer.ShareBundle{}).CeremonyNodeConfig()
+					nodeCfg.NodeID = cfg.Nodes[i].ID
+					nodeCfg.DataDir, nodeCfg.NodeKeyFile = filepath.Join(data, nodeCfg.NodeID), filepath.Join(root, nodeCfg.NodeID+"-store.key")
+					nodeCfg.CertFile, nodeCfg.KeyFile, nodeCfg.CAFile = filepath.Join(root, nodeCfg.NodeID+".pem"), filepath.Join(root, nodeCfg.NodeID+"-tls.pem"), cfg.CAFile
+					nodeCfg.OperatorCAFile, nodeCfg.GatewayCAFile = cfg.CAFile, filepath.Join(filepath.Dir(cfg.GatewayCertFile), "ca.pem")
+					nodeCfg.InventoryFile = filepath.Join(root, nodeCfg.NodeID+"-inventory.jwt")
+					nodeCfg.InventoryPublicKeyFile = authority.GatewayAuthority()["WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE"]
+					nodeCfg.Issuer, nodeCfg.Tenant, nodeCfg.ChainID = "http://127.0.0.1:1/auth/v1", "ceremony-fixture", 125
+					nodeCfg.JWKSURL, nodeCfg.TokenIssuer, nodeCfg.TokenAudience, nodeCfg.RPCURL = issuer.Issuer+"/jwks", issuer.Issuer, "authenticated", rpc
+					nodeCfg.KernelPolicyJSON = []byte(`{"version":1,"defaults":{"modules":{"asset":[5]}}}`)
+					nodeCfg.PolicyJSON = []byte(`{"version":1,"defaults":{"chain_id":125,"kinds":["operator_verification","lx_bind"],"rate_per_minute":1000}}`)
+					for j, peer := range cfg.Nodes {
+						nodeCfg.AddPeer(peer.ID, peerAddresses[j], hex.EncodeToString(peer.Pin[:]))
+					}
+					var closeStore func() error
+					nodeCfg.BeforeRefreshCommit = func() {
+						if member.interrupt {
+							member.interrupt = false
+							if e := closeStore(); e != nil {
+								t.Error(e)
+							}
+						}
+					}
+					nodeCfg.ApproveRefresh = func(_ string, epoch uint64) {
+						inventoryMu.Lock()
+						defer inventoryMu.Unlock()
+						epochs[i] = epoch
+						publish()
+					}
+					open := func(peer, api net.Listener) {
+						real, e := nodeCfg.Open(peer, api)
+						if e != nil {
+							t.Fatal(e)
+						}
+						member.close, closeStore = real.Close, real.Store.Close
+						member.adopt = real.Store.RestartCeremonyRefresh
+						member.importReceipt = func(key string) []byte {
+							receipt, e := real.Store.ImportReceipt(key)
+							if held {
+								if e == nil {
+									t.Fatal("held identity acquired an import receipt")
+								}
+								return nil
+							}
+							if e != nil {
+								t.Fatal(e)
+							}
+							raw, e := json.Marshal(receipt)
+							if e != nil {
+								t.Fatal(e)
+							}
+							return raw
+						}
+						member.record = func(key string, edit func([]byte) ([]byte, error)) error {
+							return real.Store.UpdateRecord("ceremony-refresh", key, edit)
+						}
+						member.share = func(key string) [32]byte {
+							var digest [32]byte
+							if e := real.Store.WithShare(key, func(raw []byte) error { digest = sha256.Sum256(raw); return nil }); e != nil {
+								t.Fatal(e)
+							}
+							return digest
+						}
+						member.epoch = func(key string, epoch uint64) error {
+							rec, e := real.Store.Get(key)
+							if e != nil {
+								return e
+							}
+							rec.Epoch = epoch
+							return real.Store.WithShare(key, func(raw []byte) error { return real.Store.Put(rec, raw) })
+						}
+					}
+					open(peers[i], apis[i])
+					apiAddress := strings.TrimPrefix(cfg.Nodes[i].URL, "https://")
+					member.reopen = func() {
+						if e := member.close(); e != nil {
+							t.Fatal(e)
+						}
+						open(listen(peerAddresses[i]), listen(apiAddress))
+					}
+					t.Cleanup(func() {
+						if e := member.close(); e != nil {
+							t.Error(e)
+						}
+					})
+				}
+				newClient := func() *attestor.Client {
+					c, e := attestor.New(cfg)
+					if e != nil {
+						t.Fatal(e)
+					}
+					t.Cleanup(c.Close)
+					return c
+				}
+				client := newClient()
+				operator := refreshRotationHTTP(t, cfg.CertFile, cfg.KeyFile, cfg.CAFile)
+				opts := Options{CeremonyID: "rotation", JournalDir: t.TempDir(), JournalKey: bytes.Repeat([]byte{0x73}, 32)}
+				if err = os.Chmod(opts.JournalDir, 0700); err != nil {
+					t.Fatal(err)
+				}
+				journal := walletJournal{Version: 1, CeremonyID: opts.CeremonyID, Members: client.Membership()}
+				c := &journal.Secp
+				if held {
+					gateway := refreshRotationHTTP(t, cfg.GatewayCertFile, cfg.GatewayKeyFile, cfg.CAFile)
+					approval = testsupport.CeremonyInventoryKey{KeyID: wallet.original.KeyID, Curve: attestor.CurveEd25519, Owner: wallet.UserID, Operations: []string{"generate"}}
+					publish()
+					var wg sync.WaitGroup
+					failures := make([]error, len(members))
+					for i := range members {
+						wg.Add(1)
+						go func(i int) {
+							defer wg.Done()
+							_, failures[i] = refreshRotationPost(ctx, gateway, cfg.Nodes[i].URL+"/v1/keys/generate", map[string]any{"session_id": "generate-original", "key_id": wallet.original.KeyID, "curve": "ed25519", "owner": wallet.UserID, "account": wallet.Address})
+						}(i)
+					}
+					wg.Wait()
+					for _, e := range failures {
+						if e != nil {
+							t.Fatal(e)
+						}
+					}
+					rows, e := client.DescribeCeremony(ctx, wallet.original.KeyID)
+					if e != nil {
+						t.Fatal(e)
+					}
+					wallet.original.PublicKey = rows[0].PublicKey
+					c = &journal.Identity
+					*c = curveJournal{KeyID: wallet.original.KeyID, Curve: attestor.CurveEd25519, PublicKey: wallet.original.PublicKey, RefreshSession: "aborted-attempt", VerifySession: "possession", PossessionMessage: wallet.original.message(wallet.Wallet)}
+				} else {
+					bundles, pub, e := dealer.Split(dealer.Ed25519, big.NewInt(71), client.NodeIDs())
+					if e != nil {
+						t.Fatal(e)
+					}
+					defer wipeBundles(bundles)
+					*c, e = newCurveJournal("imported-key", bundles, pub)
+					if e != nil {
+						t.Fatal(e)
+					}
+					approval = testsupport.CeremonyInventoryKey{KeyID: c.KeyID, Curve: c.Curve, PublicKey: c.PublicKey, Owner: wallet.UserID, Operations: []string{"import", "refresh", "sign"}}
+					publish()
+					if _, e = client.ImportCeremony(ctx, opts.CeremonyID, c.ImportSession, c.KeyID, wallet.UserID, wallet.Address, bundles, pub); e != nil {
+						t.Fatal(e)
+					}
+					c.Imported = true
+				}
+				approval = testsupport.CeremonyInventoryKey{KeyID: c.KeyID, Curve: c.Curve, PublicKey: c.PublicKey, Owner: wallet.UserID, Operations: []string{"import", "refresh", "sign"}}
+				publish()
+				previous := c.RefreshSession
+				request := attestor.RefreshRequest{ExistingKey: held, CeremonyID: opts.CeremonyID, ImportSessionID: c.ImportSession, SessionID: previous, KeyID: c.KeyID, ExpectedEpoch: &c.BaseEpoch}
+				// Interrupt real protocol runs before all participants join.
+				for _, indices := range [][]int{{0, 1, 2, 3}, {4}} {
+					attempt, stop := context.WithTimeout(ctx, 500*time.Millisecond)
+					var wg sync.WaitGroup
+					for _, i := range indices {
+						wg.Add(1)
+						go func(i int) {
+							defer wg.Done()
+							_, _ = refreshRotationPost(attempt, operator, cfg.Nodes[i].URL+attestor.PathRefresh, request)
+						}(i)
+					}
+					wg.Wait()
+					stop()
+				}
+				// Settle the interrupted attempt through the authenticated coordinator.
+				peerClient := func(i int) *http.Client {
+					id := cfg.Nodes[i].ID
+					return refreshRotationHTTP(t, filepath.Join(root, id+".pem"), filepath.Join(root, id+"-tls.pem"), cfg.CAFile)
+				}
+				vote := map[string]any{"key_id": c.KeyID, "session_id": previous, "epoch": uint64(1), "phase": "recover_abort"}
+				raw, err := refreshRotationPost(ctx, peerClient(1), "https://"+peerAddresses[0]+"/v1/peer/refresh", vote)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var decision struct {
+					Decision string `json:"decision"`
+				}
+				if err = json.Unmarshal(raw, &decision); err != nil || decision.Decision != "abort" {
+					t.Fatalf("coordinator did not abort: %s %v", raw, err)
+				}
+				vote["phase"] = decision.Decision
+				for i := 1; i < len(members); i++ {
+					if _, err = refreshRotationPost(ctx, peerClient(0), "https://"+peerAddresses[i]+"/v1/peer/refresh", vote); err != nil {
+						t.Fatal(err)
+					}
+				}
+				for i := range members {
+					members[i].reopen()
+				}
+				path := journalPath(opts, wallet.ID)
+				interrupted := errors.New("stopped after replacement journal save")
+				save := func() error {
+					if e := atomicSealed(path, opts.JournalKey, journalDomain(opts, wallet.ID), journal); e != nil {
+						return e
+					}
+					if c.RefreshRecoverySession != "" && !c.Refreshed {
+						return interrupted
+					}
+					return nil
+				}
+				resume := func() error {
+					if held {
+						return resumeHeldIdentity(ctx, client, opts, wallet.Wallet, c, wallet.original, save)
+					}
+					return resumeCurve(ctx, client, opts, wallet.Wallet, c, save)
+				}
+				if err = resume(); !errors.Is(err, interrupted) {
+					t.Fatalf("rotation save interruption: %v", err)
+				}
+				replacement := c.RefreshSession
+				if replacement == previous || c.RefreshRecoverySession != previous || c.Refreshed {
+					t.Fatal("replacement was not sealed before replay")
+				}
+				for i := 0; i < adopted; i++ {
+					if err = members[i].adopt(c.KeyID, previous, replacement); err != nil {
+						t.Fatal(err)
+					}
+				}
+				client.Close()
+				for i := range members {
+					members[i].reopen()
+				}
+				client = newClient()
+				load := func() {
+					raw, e := os.ReadFile(path)
+					if e != nil {
+						t.Fatal(e)
+					}
+					if e = openValue(opts.JournalKey, journalDomain(opts, wallet.ID), raw, &journal); e != nil {
+						t.Fatal(e)
+					}
+					c = &journal.Secp
+					if held {
+						c = &journal.Identity
+					}
+				}
+				load()
+				inspect := func() ([]attestor.DescribeResponse, error) {
+					return client.InspectRefreshRecoveryWithPreviousSession(ctx, opts.CeremonyID, c.ImportSession, c.RefreshSession, c.RefreshRecoverySession, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch)
+				}
+				rows, err := inspect()
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i, row := range rows {
+					want := previous
+					if i < adopted {
+						want = replacement
+					}
+					if row.RefreshSessionID != want {
+						t.Fatalf("unexpected durable attempt: %+v", row)
+					}
+				}
+				if _, err = client.InspectRefreshRecovery(ctx, opts.CeremonyID, c.ImportSession, replacement, c.KeyID, c.PublicKey, c.Curve, c.BaseEpoch); !errors.Is(err, attestor.ErrDisagree) {
+					t.Fatalf("strict inspection accepted previous attempt: %v", err)
+				}
+				if err = client.ReconcileCeremony(ctx, opts.CeremonyID, c.ImportSession, replacement, c.KeyID, c.PublicKey, c.Curve, 1); !errors.Is(err, attestor.ErrDisagree) {
+					t.Fatalf("incomplete final reconciliation accepted: %v", err)
+				}
+				sealedBefore, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				sharesBefore := make([][32]byte, len(members))
+				importsBefore := make([][]byte, len(members))
+				for i := range members {
+					sharesBefore[i] = members[i].share(c.KeyID)
+					importsBefore[i] = members[i].importReceipt(c.KeyID)
+				}
+				retained := func() {
+					raw, e := os.ReadFile(path)
+					if e != nil || !bytes.Equal(raw, sealedBefore) {
+						t.Fatal("refusal changed sealed journal")
+					}
+					for i := range members {
+						if members[i].share(c.KeyID) != sharesBefore[i] {
+							t.Fatal("refusal changed shares")
+						}
+					}
+					if c.Refreshed || c.RefreshSession != replacement || !held && len(c.Shares) != 5 {
+						t.Fatal("refusal discarded recovery material")
+					}
+				}
+				save = func() error { return atomicSealed(path, opts.JournalKey, journalDomain(opts, wallet.ID), journal) }
+				for _, field := range []string{"previous", "ceremony", "import", "key", "public", "curve", "base"} {
+					t.Run("journal-"+field, func(t *testing.T) {
+						before := *c
+						oldCeremony := opts.CeremonyID
+						switch field {
+						case "previous":
+							c.RefreshRecoverySession = "unrelated"
+						case "ceremony":
+							opts.CeremonyID = "unrelated"
+						case "import":
+							c.ImportSession = "unrelated"
+						case "key":
+							c.KeyID = "unrelated"
+						case "public":
+							c.PublicKey = "00"
+						case "curve":
+							c.Curve = attestor.CurveSecp256k1
+						case "base":
+							c.BaseEpoch = 1
+						}
+						if _, e := inspect(); e == nil {
+							t.Fatalf("accepted mismatched %s", field)
+						}
+						*c = before
+						opts.CeremonyID = oldCeremony
+						retained()
+					})
+				}
+				for _, mutation := range []struct {
+					name, field string
+					value       any
+				}{
+					{"session", "session_id", "unrelated"}, {"ceremony", "ceremony_id", "unrelated"}, {"import", "import_session_id", "unrelated"}, {"key", "key_id", "unrelated"}, {"public", "public_key", []byte{0}}, {"curve", "curve", "secp256k1"}, {"members", "participants", []string{"n1"}}, {"base", "base_epoch", uint64(1)}, {"state", "state", "complete"}, {"decision", "decision", ""}, {"commit", "decision", "commit"}, {"existing", "existing_key", !held},
+				} {
+					t.Run("previous-"+mutation.name, func(t *testing.T) {
+						var original []byte
+						if e := members[4].record(c.KeyID, func(raw []byte) ([]byte, error) {
+							original = append([]byte(nil), raw...)
+							var state map[string]any
+							if e := json.Unmarshal(raw, &state); e != nil {
+								return nil, e
+							}
+							state[mutation.field] = mutation.value
+							return json.Marshal(state)
+						}); e != nil {
+							t.Fatal(e)
+						}
+						// A non-aborted state must also lack the abort decision: describe
+						// correctly exposes any durable abort decision as aborted.
+						if mutation.name == "state" {
+							if e := members[4].record(c.KeyID, func(raw []byte) ([]byte, error) {
+								var state map[string]any
+								if e := json.Unmarshal(raw, &state); e != nil {
+									return nil, e
+								}
+								state["decision"] = "commit"
+								return json.Marshal(state)
+							}); e != nil {
+								t.Fatal(e)
+							}
+						}
+						if e := resume(); e == nil {
+							t.Fatalf("accepted previous %s", mutation.name)
+						}
+						retained()
+						if e := members[4].record(c.KeyID, func([]byte) ([]byte, error) { return original, nil }); e != nil {
+							t.Fatal(e)
+						}
+					})
+				}
+				if err = members[4].epoch(c.KeyID, 1); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = inspect(); !errors.Is(err, attestor.ErrDisagree) {
+					t.Fatalf("previous attempt at next epoch accepted: %v", err)
+				}
+				retained()
+				if err = members[4].epoch(c.KeyID, 0); err != nil {
+					t.Fatal(err)
+				}
+				if adopted > 0 {
+					var original []byte
+					if err = members[0].record(c.KeyID, func(raw []byte) ([]byte, error) {
+						original = append([]byte(nil), raw...)
+						var state map[string]any
+						if e := json.Unmarshal(raw, &state); e != nil {
+							return nil, e
+						}
+						state["state"] = "staged"
+						state["decision"] = "commit"
+						return json.Marshal(state)
+					}); err != nil {
+						t.Fatal(err)
+					}
+					if _, err = inspect(); !errors.Is(err, attestor.ErrDisagree) {
+						t.Fatalf("mixed commit and previous abort accepted: %v", err)
+					}
+					retained()
+					if err = members[0].record(c.KeyID, func([]byte) ([]byte, error) { return original, nil }); err != nil {
+						t.Fatal(err)
+					}
+				}
+				// A real commit interrupted on one store must retain the journal.
+				members[4].interrupt = true
+				if err = resume(); err == nil {
+					t.Fatal("missing final member interruption")
+				}
+				members[4].reopen()
+				inventoryMu.Lock()
+				epochs[4] = 0
+				publish()
+				inventoryMu.Unlock()
+				load()
+				if c.Refreshed || c.RefreshSession != replacement || c.RefreshRecoverySession != previous {
+					t.Fatal("partial completion changed recovery identity")
+				}
+				if held {
+					rows, err = client.DescribeCeremony(ctx, c.KeyID)
+				} else {
+					err = client.ReconcileCeremony(ctx, opts.CeremonyID, c.ImportSession, replacement, c.KeyID, c.PublicKey, c.Curve, 1)
+				}
+				if !errors.Is(err, attestor.ErrDisagree) {
+					t.Fatalf("incomplete commit reconciled: %v", err)
+				}
+				client.Close()
+				for i := range members {
+					members[i].reopen()
+				}
+				client = newClient()
+				if err = resume(); err != nil {
+					t.Fatalf("saved replacement did not resume: %v", err)
+				}
+				load()
+				if !c.Refreshed || c.Epoch != 1 || c.RefreshSession != replacement || c.RefreshRecoverySession != previous {
+					t.Fatal("replacement rotated again or failed to complete")
+				}
+				rows, err = client.InspectRefreshRecovery(ctx, opts.CeremonyID, c.ImportSession, replacement, c.KeyID, c.PublicKey, c.Curve, 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i, row := range rows {
+					if row.Epoch != 1 || row.RefreshState != "complete" || row.RefreshSessionID != replacement || row.Refresh.Decision != "commit" || row.Refresh.AuditSequence == 0 || row.PublicKey != c.PublicKey || members[i].share(c.KeyID) == sharesBefore[i] {
+						t.Fatalf("member did not refresh original key: %+v", row)
+					}
+				}
+				for i := range members {
+					if !bytes.Equal(importsBefore[i], members[i].importReceipt(c.KeyID)) {
+						t.Fatal("recovery re-imported shares")
+					}
+				}
+				if held && (c.KeyID != wallet.original.KeyID || c.PublicKey != wallet.original.PublicKey || c.Verification == nil || !ed25519.Verify(mustHex(wallet.original.PublicKey), c.Verification.Message, c.Verification.Signature)) {
+					t.Fatal("held identity replaced or original signature missing")
+				}
+				if !held && (!c.Imported || len(c.Shares) != 5 || c.Verification == nil) {
+					t.Fatal("imported recovery material or verification lost")
+				}
+			})
+		}
+	}
+}
+
+// These fixtures are peers of the production migration, not replacements for
+// its planner, client, binding verification, journal or recovery implementation.
+// They keep wallet rows in memory and serve the attestor HTTP contract over
+// pinned mutual TLS. No database daemon, toolchain subprocess or live RPC is used.
+type migrationRecoveryWallet struct {
+	Wallet
+	original      originalIdentity
+	secp          *ecdsa.PrivateKey
+	identity      ed25519.PrivateKey
+	fundedAccount bool
+	attestorID    string
+}
+
+type migrationRecoveryRows struct {
+	columns []string
+	values  [][]driver.Value
+	offset  int
+}
+
+func (r *migrationRecoveryRows) Columns() []string { return r.columns }
+func (r *migrationRecoveryRows) Close() error      { return nil }
+func (r *migrationRecoveryRows) Next(out []driver.Value) error {
+	if r.offset == len(r.values) {
+		return io.EOF
+	}
+	copy(out, r.values[r.offset])
+	r.offset++
+	return nil
+}
+func migrationRecoveryResult(values ...[]driver.Value) driver.Rows {
+	columns := make([]string, 0)
+	if len(values) != 0 {
+		for i := range values[0] {
+			columns = append(columns, fmt.Sprintf("column%d", i))
+		}
+	}
+	return &migrationRecoveryRows{columns: columns, values: values}
+}
+
+type migrationRecoveryDatabase struct {
+	mu      sync.Mutex
+	wallets []*migrationRecoveryWallet
+	schema  bool
+	locks   map[string]bool
+}
+type migrationRecoveryConnector struct{ data *migrationRecoveryDatabase }
+
+func (c migrationRecoveryConnector) Connect(context.Context) (driver.Conn, error) {
+	return &migrationRecoveryConn{data: c.data}, nil
+}
+func (c migrationRecoveryConnector) Driver() driver.Driver { return migrationRecoveryDriver{} }
+
+type migrationRecoveryDriver struct{}
+
+func (migrationRecoveryDriver) Open(string) (driver.Conn, error) {
+	return nil, errors.New("use the in-memory connector")
+}
+
+type migrationRecoveryConn struct {
+	data    *migrationRecoveryDatabase
+	updates map[string]string
+}
+
+func (c *migrationRecoveryConn) Prepare(string) (driver.Stmt, error) {
+	return nil, errors.New("fixture supports direct context queries only")
+}
+func (c *migrationRecoveryConn) Close() error { return nil }
+func (c *migrationRecoveryConn) Begin() (driver.Tx, error) {
+	return c.BeginTx(context.Background(), driver.TxOptions{})
+}
+func (c *migrationRecoveryConn) BeginTx(context.Context, driver.TxOptions) (driver.Tx, error) {
+	if c.updates != nil {
+		return nil, errors.New("nested transaction")
+	}
+	c.updates = map[string]string{}
+	return c, nil
+}
+func (c *migrationRecoveryConn) Commit() error {
+	c.data.mu.Lock()
+	defer c.data.mu.Unlock()
+	for _, w := range c.data.wallets {
+		if key, ok := c.updates[w.ID]; ok {
+			w.Migrated = true
+			w.attestorID = key
+		}
+	}
+	c.updates = nil
+	return nil
+}
+func (c *migrationRecoveryConn) Rollback() error { c.updates = nil; return nil }
+func (c *migrationRecoveryConn) row(w *migrationRecoveryWallet) []driver.Value {
+	migrated := w.Migrated
+	if _, ok := c.updates[w.ID]; ok {
+		migrated = true
+	}
+	return []driver.Value{w.ID, w.UserID, w.Address, w.EncryptedPrivateKey, int64(w.KeyVersion), w.ChainID, w.Kind, w.Kind == "funded" || w.fundedAccount, migrated, w.DID, w.MainAccountID, w.OriginalIdentityKeyID}
+}
+func (c *migrationRecoveryConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	c.data.mu.Lock()
+	defer c.data.mu.Unlock()
+	switch {
+	case strings.Contains(query, "from information_schema.columns"):
+		n := int64(0)
+		if c.data.schema {
+			n = 1
+		}
+		return migrationRecoveryResult([]driver.Value{n}), nil
+	case strings.Contains(query, "pg_try_advisory_lock"):
+		key := args[0].Value.(string)
+		free := !c.data.locks[key]
+		if free {
+			c.data.locks[key] = true
+		}
+		return migrationRecoveryResult([]driver.Value{free}), nil
+	case strings.Contains(query, "from wallets w order by"):
+		var rows [][]driver.Value
+		for _, w := range c.data.wallets {
+			rows = append(rows, c.row(w))
+		}
+		return migrationRecoveryResult(rows...), nil
+	case strings.Contains(query, "from account_provisioning"):
+		for _, w := range c.data.wallets {
+			if w.ID == args[0].Value && w.UserID == args[1].Value && w.Kind == args[2].Value {
+				return migrationRecoveryResult([]driver.Value{w.original.PublicKey, w.original.KeyID, w.DID, w.MainAccountID, fmt.Sprint(w.original.BindNonce), w.original.BindSignature, "active"}), nil
+			}
+		}
+		return migrationRecoveryResult(), nil
+	case strings.Contains(query, "from agent_principals"):
+		for _, w := range c.data.wallets {
+			if w.ID == args[0].Value {
+				return migrationRecoveryResult([]driver.Value{w.original.PublicKey, w.UserID}), nil
+			}
+		}
+		return migrationRecoveryResult(), nil
+	case strings.Contains(query, "from wallets w where id="):
+		for _, w := range c.data.wallets {
+			if w.ID == args[0].Value {
+				return migrationRecoveryResult(c.row(w)), nil
+			}
+		}
+		return migrationRecoveryResult(), nil
+	case strings.Contains(query, "select coalesce(attestor_key_id"):
+		for _, w := range c.data.wallets {
+			if w.ID == args[0].Value {
+				return migrationRecoveryResult([]driver.Value{w.attestorID, w.OriginalIdentityKeyID}), nil
+			}
+		}
+		return migrationRecoveryResult(), nil
+	default:
+		return nil, fmt.Errorf("unsupported fixture query: %s", query)
+	}
+}
+func (c *migrationRecoveryConn) ExecContext(_ context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	c.data.mu.Lock()
+	defer c.data.mu.Unlock()
+	switch {
+	case strings.Contains(query, "pg_advisory_unlock"):
+		delete(c.data.locks, args[0].Value.(string))
+		return driver.RowsAffected(1), nil
+	case strings.HasPrefix(query, "update wallets set migrated_at"):
+		if c.updates == nil {
+			return nil, errors.New("migration mark outside transaction")
+		}
+		for _, w := range c.data.wallets {
+			if w.ID == args[0].Value && !w.Migrated {
+				c.updates[w.ID] = args[1].Value.(string)
+				return driver.RowsAffected(1), nil
+			}
+		}
+		return driver.RowsAffected(0), nil
+	case query == "alter table wallets drop column migrated_at":
+		c.data.schema = false
+		return driver.RowsAffected(0), nil
+	default:
+		return nil, fmt.Errorf("unsupported fixture mutation: %s", query)
+	}
+}
+
+// Fixture peers persist descriptions between closes. The production consumer
+// must reopen its sealed journal and authenticate each member's base/base+1
+// transition before it can issue a refresh replay.
+type migrationRecoveryPeerKey struct {
+	Description   attestor.DescribeResponse
+	Imports       int
+	Refreshes     []string
+	Verifications int
+	OwnerSigns    int
+}
+type migrationRecoveryPeers struct {
+	mu             sync.Mutex
+	root           string
+	tls            *testsupport.TLSFiles
+	gateway        *testsupport.TLSFiles
+	certificates   []tls.Certificate
+	config         attestor.Config
+	servers        []*httptest.Server
+	states         []map[string]*migrationRecoveryPeerKey
+	keys           map[string]*migrationRecoveryWallet
+	interrupt      string
+	incomplete     string
+	corrupt        string
+	protocolErrors []string
+}
+
+func migrationRecoveryJSON(w http.ResponseWriter, value any) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(value)
+}
+func migrationRecoveryAPIError(w http.ResponseWriter, status int, code string) {
+	w.WriteHeader(status)
+	migrationRecoveryJSON(w, attestor.ErrorBody{Error: attestor.ErrorDetail{Category: "key", Code: code, Message: code}})
+}
+func (p *migrationRecoveryPeers) ids() []string { return []string{"n1", "n2", "n3", "n4", "n5"} }
+func (p *migrationRecoveryPeers) checkpoint(i int) error {
+	raw, err := json.Marshal(p.states[i])
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(p.root, fmt.Sprintf("member%d.json", i)), raw, 0600)
+}
+func (p *migrationRecoveryPeers) fail(w http.ResponseWriter, format string, args ...any) {
+	p.protocolErrors = append(p.protocolErrors, fmt.Sprintf(format, args...))
+	migrationRecoveryAPIError(w, 409, "fixture_contract_mismatch")
+}
+func (p *migrationRecoveryPeers) serve(i int, w http.ResponseWriter, r *http.Request) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	id := p.ids()[i]
+	if r.Method != http.MethodPost || r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+		p.fail(w, "unauthenticated request")
+		return
+	}
+	var body struct {
+		SessionID string `json:"session_id"`
+		KeyID     string `json:"key_id"`
+	}
+	raw, err := io.ReadAll(r.Body)
+	if err != nil || json.Unmarshal(raw, &body) != nil || body.SessionID == "" || body.KeyID == "" {
+		p.fail(w, "invalid request")
+		return
+	}
+	held := p.states[i][body.KeyID]
+	if r.URL.Path == attestor.PathImport {
+		var req attestor.ImportRequest
+		if strictJSON(raw, &req) != nil {
+			p.fail(w, "import codec")
+			return
+		}
+		bundle, e := attestor.DecodeBundle(req.Share)
+		if e != nil || bundle.Validate() != nil || req.Share.ParticipantID != id || req.Epoch != 0 || req.CeremonyID == "" || req.PublicKey == "" || req.Threshold != attestor.SignQuorum {
+			p.fail(w, "import authority")
+			return
+		}
+		public, e := attestor.PublicKeyHex(bundle.PublicKey)
+		if e != nil || public != req.PublicKey || !reflect.DeepEqual(req.Participants, p.ids()) {
+			p.fail(w, "import identity")
+			return
+		}
+		if held != nil && held.Description.ImportSessionID != req.SessionID {
+			p.fail(w, "replacement import")
+			return
+		}
+		if held == nil {
+			digest := sha256.Sum256(raw)
+			held = &migrationRecoveryPeerKey{Description: attestor.DescribeResponse{NodeID: id, KeyID: req.KeyID, Curve: req.Share.Curve, PublicKey: req.PublicKey, Owner: req.Owner, Account: req.Account, Participants: req.Participants, AuditSequence: 1, CeremonyID: req.CeremonyID, ImportSessionID: req.SessionID, ImportDigest: hex.EncodeToString(digest[:])}, Imports: 1}
+			p.states[i][body.KeyID] = held
+		}
+	} else if held == nil {
+		migrationRecoveryAPIError(w, 404, "key_not_found")
+		return
+	}
+	d := &held.Description
+	response := func() attestor.KeyResponse {
+		return attestor.KeyResponse{NodeID: id, KeyID: d.KeyID, Curve: d.Curve, PublicKey: d.PublicKey, Epoch: d.Epoch, Participants: d.Participants, Refreshed: d.Epoch > 0, AuditSequence: d.AuditSequence}
+	}
+	switch r.URL.Path {
+	case attestor.PathImport:
+		if err := p.checkpoint(i); err != nil {
+			p.fail(w, "checkpoint: %v", err)
+			return
+		}
+		migrationRecoveryJSON(w, response())
+	case attestor.PathDescribe:
+		migrationRecoveryJSON(w, *d)
+	case attestor.PathRefresh:
+		var req attestor.RefreshRequest
+		if strictJSON(raw, &req) != nil || req.ExpectedEpoch == nil || req.CeremonyID == "" || req.ImportSessionID != d.ImportSessionID || req.ExistingKey != (d.ImportSessionID == "") {
+			p.fail(w, "refresh identity")
+			return
+		}
+		if d.Refresh != nil && d.RefreshSessionID != req.SessionID && !(d.RefreshState == "aborted" && req.RecoverySessionID == d.RefreshSessionID) {
+			p.fail(w, "rotated live refresh session")
+			return
+		}
+		base := *req.ExpectedEpoch
+		if d.Epoch != base && d.Epoch != base+1 {
+			p.fail(w, "unexpected refresh epoch")
+			return
+		}
+		held.Refreshes = append(held.Refreshes, req.SessionID)
+		d.RefreshSessionID = req.SessionID
+		d.RefreshState = "complete"
+		d.Epoch = base + 1
+		d.AuditSequence++
+		d.Refresh = &attestor.RefreshDescription{ExistingKey: req.ExistingKey, CeremonyID: req.CeremonyID, ImportSessionID: req.ImportSessionID, SessionID: req.SessionID, KeyID: req.KeyID, BaseEpoch: base, Curve: d.Curve, PublicKey: d.PublicKey, Participants: d.Participants, Decision: "commit", AuditSequence: d.AuditSequence}
+		if i == 4 && p.interrupt == req.KeyID {
+			d.Epoch = base
+			d.RefreshState = "staged"
+			d.Refresh.AuditSequence = 0
+		}
+		if i == 4 && p.incomplete == req.KeyID {
+			d.RefreshState = "staged"
+			d.Refresh.AuditSequence = 0
+		}
+		if err := p.checkpoint(i); err != nil {
+			p.fail(w, "checkpoint: %v", err)
+			return
+		}
+		if i == 4 && p.interrupt == req.KeyID {
+			migrationRecoveryAPIError(w, 503, "refresh_interrupted")
+			return
+		}
+		migrationRecoveryJSON(w, response())
+	case attestor.PathSign:
+		var req attestor.SignRequest
+		if strictJSON(raw, &req) != nil || !reflect.DeepEqual(req.Signers, p.ids()[:attestor.SignQuorum]) || i >= attestor.SignQuorum {
+			p.fail(w, "sign identity")
+			return
+		}
+		material := p.keys[req.KeyID]
+		if material == nil {
+			p.fail(w, "missing committed signing fixture")
+			return
+		}
+		out := attestor.SignResponse{NodeID: id, KeyID: req.KeyID, Kind: req.Kind, AuditSequence: d.AuditSequence + 1}
+		if req.Kind == attestor.KindVerify {
+			if req.ImportSessionID != d.ImportSessionID || req.CeremonyID != d.CeremonyID || req.ExpectedEpoch == nil || *req.ExpectedEpoch != d.Epoch || d.RefreshState != "complete" || req.Message != "" || r.Header.Get("Authorization") != "" {
+				p.fail(w, "operator verification authority")
+				return
+			}
+			message := attestor.VerificationMessage(req.KeyID, mustHex(d.PublicKey), req.ImportSessionID)
+			secret := material.secp
+			if p.corrupt == req.KeyID {
+				secret, _ = crypto.HexToECDSA(fmt.Sprintf("%064x", 99))
+			}
+			signature, e := crypto.Sign(crypto.Keccak256(message), secret)
+			if e != nil {
+				p.fail(w, "fixture signature: %v", e)
+				return
+			}
+			out.Message = hex.EncodeToString(message)
+			out.SignedBytes = hex.EncodeToString(crypto.Keccak256(message))
+			out.Signature = hex.EncodeToString(signature)
+			recovery := signature[64]
+			out.RecoveryID = &recovery
+			held.Verifications++
+			d.VerificationSessionID = req.SessionID
+			d.VerificationState = "complete"
+		} else if req.Kind == "lx_bind" {
+			if r.Header.Get("Authorization") != "Bearer owner-"+material.UserID || attestor.SPKIHash(r.TLS.PeerCertificates[0]) != p.gateway.OperatorSPKI {
+				p.fail(w, "original owner authority")
+				return
+			}
+			message, e := hex.DecodeString(req.Message)
+			if e != nil || !bytes.Equal(message, material.original.message(material.Wallet)) {
+				p.fail(w, "original binding message")
+				return
+			}
+			out.SignedBytes = req.Message
+			out.Signature = hex.EncodeToString(ed25519.Sign(material.identity, message))
+			held.OwnerSigns++
+		} else {
+			p.fail(w, "unexpected signing kind %s", req.Kind)
+			return
+		}
+		d.AuditSequence++
+		if err := p.checkpoint(i); err != nil {
+			p.fail(w, "checkpoint: %v", err)
+			return
+		}
+		migrationRecoveryJSON(w, out)
+	default:
+		p.fail(w, "unexpected endpoint %s", r.URL.Path)
+	}
+}
+func (p *migrationRecoveryPeers) start(t *testing.T) {
+	t.Helper()
+	p.config.Nodes = nil
+	for i, id := range p.ids() {
+		index := i
+		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { p.serve(index, w, r) }))
+		clientCAs := p.tls.Pool()
+		gatewayCA, err := os.ReadFile(p.gateway.CAFile)
+		if err != nil || !clientCAs.AppendCertsFromPEM(gatewayCA) {
+			t.Fatal("gateway CA", err)
+		}
+		srv.TLS = &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{p.certificates[i]}, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: clientCAs}
+		srv.StartTLS()
+		p.servers = append(p.servers, srv)
+		p.config.Nodes = append(p.config.Nodes, attestor.NodeConfig{ID: id, URL: srv.URL, Pin: attestor.SPKIHash(p.certificates[i].Leaf)})
+	}
+}
+func (p *migrationRecoveryPeers) stop() {
+	for _, srv := range p.servers {
+		srv.Close()
+	}
+	p.servers = nil
+}
+func (p *migrationRecoveryPeers) reopen(t *testing.T) {
+	t.Helper()
+	p.stop()
+	p.states = nil
+	for i := range p.ids() {
+		raw, err := os.ReadFile(filepath.Join(p.root, fmt.Sprintf("member%d.json", i)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var state map[string]*migrationRecoveryPeerKey
+		if err := json.Unmarshal(raw, &state); err != nil {
+			t.Fatal(err)
+		}
+		p.states = append(p.states, state)
+	}
+	p.interrupt = ""
+	p.start(t)
+}
+func (p *migrationRecoveryPeers) client(t *testing.T) *attestor.Client {
+	t.Helper()
+	client, err := attestor.New(p.config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Close)
+	return client
+}
+
+type migrationRecoveryFixture struct {
+	db      *sql.DB
+	data    *migrationRecoveryDatabase
+	peers   *migrationRecoveryPeers
+	master  []byte
+	options Options
+}
+
+func newMigrationRecoveryFixture(t *testing.T, kinds ...string) *migrationRecoveryFixture {
+	t.Helper()
+	f := &migrationRecoveryFixture{data: &migrationRecoveryDatabase{schema: true, locks: map[string]bool{}}, master: bytes.Repeat([]byte{0x46}, 32)}
+	root := t.TempDir()
+	if err := os.Chmod(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	f.options = Options{CeremonyID: "repair-m160", JournalDir: root, JournalKey: bytes.Repeat([]byte{0x5a}, 32), RehearsalReceipt: filepath.Join(root, "receipt.sealed")}
+	p := &migrationRecoveryPeers{root: t.TempDir(), tls: testsupport.NewTLSFiles(t), keys: map[string]*migrationRecoveryWallet{}}
+	p.gateway = testsupport.NewTLSFiles(t)
+	p.config = attestor.Config{CertFile: p.tls.CertFile, KeyFile: p.tls.KeyFile, CAFile: p.tls.CAFile, GatewayCertFile: p.gateway.CertFile, GatewayKeyFile: p.gateway.KeyFile, OwnerTokensFile: filepath.Join(root, "owners.json")}
+	for _, id := range p.ids() {
+		cert, _ := p.tls.ServerCertificate(t, id)
+		p.certificates = append(p.certificates, cert)
+		p.states = append(p.states, map[string]*migrationRecoveryPeerKey{})
+	}
+	tokens := map[string]string{}
+	for i, kind := range kinds {
+		secp, err := crypto.HexToECDSA(fmt.Sprintf("%064x", i+1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		identity := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{byte(i + 1)}, 32))
+		pub := hex.EncodeToString(identity.Public().(ed25519.PublicKey))
+		w := &migrationRecoveryWallet{Wallet: Wallet{ID: fmt.Sprintf("00000000-0000-0000-0000-%012d", i+1), UserID: fmt.Sprintf("10000000-0000-0000-0000-%012d", i+1), Address: crypto.PubkeyToAddress(secp.PublicKey).Hex(), KeyVersion: 1, ChainID: 125, Kind: kind, DID: "did:layerx:" + pub}, secp: secp, identity: identity}
+		name := []byte("agent:" + w.DID + ":main")
+		hash := sha256.Sum256(append(append([]byte("LX:ACCOUNT:v1"), binary.BigEndian.AppendUint32(nil, uint32(len(name)))...), name...))
+		w.MainAccountID = hex.EncodeToString(hash[:])
+		w.OriginalIdentityKeyID = "original:" + w.ID
+		if kind == "agent" {
+			w.OriginalIdentityKeyID = ""
+		}
+		w.original = originalIdentity{KeyID: w.OriginalIdentityKeyID, PublicKey: pub, Owner: w.UserID, External: kind == "agent"}
+		w.original.BindSignature = hex.EncodeToString(ed25519.Sign(identity, w.original.message(w.Wallet)))
+		block, err := aes.NewCipher(f.master)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gcm, err := cipher.NewGCM(block)
+		if err != nil {
+			t.Fatal(err)
+		}
+		nonce := bytes.Repeat([]byte{byte(i + 1)}, gcm.NonceSize())
+		sealed := gcm.Seal(nil, nonce, crypto.FromECDSA(secp), nil)
+		encoded := append([]byte{envelope.Version1}, nonce...)
+		encoded = append(encoded, sealed[len(sealed)-gcm.Overhead():]...)
+		encoded = append(encoded, sealed[:len(sealed)-gcm.Overhead()]...)
+		w.EncryptedPrivateKey = base64.StdEncoding.EncodeToString(encoded)
+		f.data.wallets = append(f.data.wallets, w)
+		p.keys[SecpKeyID(w.ID)] = w
+		p.keys[w.original.KeyID] = w
+		tokens[w.UserID] = "owner-" + w.UserID
+		if kind != "agent" {
+			for j, id := range p.ids() {
+				p.states[j][w.original.KeyID] = &migrationRecoveryPeerKey{Description: attestor.DescribeResponse{NodeID: id, KeyID: w.original.KeyID, Curve: attestor.CurveEd25519, PublicKey: pub, DID: w.DID, Owner: w.UserID, Account: w.Address, Participants: p.ids(), AuditSequence: 1}}
+			}
+		}
+	}
+	raw, err := json.Marshal(tokens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p.config.OwnerTokensFile, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	for i := range p.ids() {
+		if err := p.checkpoint(i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Both client authorities authenticate to the same loopback peers.
+	p.start(t)
+	t.Cleanup(p.stop)
+	f.peers = p
+	f.db = sql.OpenDB(migrationRecoveryConnector{data: f.data})
+	t.Cleanup(func() { _ = f.db.Close() })
+	f.options.RPCURL = migrationRecoveryRPC(t, f.data.wallets)
+	return f
+}
+func migrationRecoveryRPC(t *testing.T, wallets []*migrationRecoveryWallet) string {
+	t.Helper()
+	contract, err := abi.JSON(strings.NewReader(`[{"type":"function","name":"getUnifiedAccount","stateMutability":"view","inputs":[{"name":"evm","type":"address"}],"outputs":[{"name":"evm","type":"address"},{"name":"paxAddr","type":"string"},{"name":"didPublicKey","type":"bytes32"},{"name":"layerxMainAccountId","type":"bytes32"}]},{"type":"function","name":"layerXBindNonce","stateMutability":"view","inputs":[{"name":"evm","type":"address"}],"outputs":[{"name":"nonce","type":"uint64"}]}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ID     json.RawMessage   `json:"id"`
+			Method string            `json:"method"`
+			Params []json.RawMessage `json:"params"`
+		}
+		if json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, "request", 400)
+			return
+		}
+		var result any
+		if req.Method == "eth_chainId" {
+			result = "0x7d"
+		} else if req.Method == "eth_call" && len(req.Params) == 2 {
+			var call struct {
+				To   string `json:"to"`
+				Data string `json:"data"`
+			}
+			if json.Unmarshal(req.Params[0], &call) != nil || call.To != "0x0000000000000000000000000000000000001004" {
+				http.Error(w, "contract", 400)
+				return
+			}
+			raw := mustHex(call.Data)
+			if len(raw) != 36 {
+				http.Error(w, "calldata", 400)
+				return
+			}
+			method, e := contract.MethodById(raw[:4])
+			if e != nil {
+				http.Error(w, "selector", 400)
+				return
+			}
+			address := common.BytesToAddress(raw[16:])
+			var encoded []byte
+			for _, held := range wallets {
+				if address == common.HexToAddress(held.Address) {
+					if method.Name == "getUnifiedAccount" {
+						var public, main [32]byte
+						copy(public[:], mustHex(held.original.PublicKey))
+						copy(main[:], mustHex(held.MainAccountID))
+						encoded, e = method.Outputs.Pack(address, "pax-test", public, main)
+					} else {
+						encoded, e = method.Outputs.Pack(held.original.BindNonce)
+					}
+					break
+				}
+			}
+			if e != nil || len(encoded) == 0 {
+				http.Error(w, "account", 400)
+				return
+			}
+			result = "0x" + hex.EncodeToString(encoded)
+		} else {
+			http.Error(w, "method", 400)
+			return
+		}
+		migrationRecoveryJSON(w, map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+func (f *migrationRecoveryFixture) plan(t *testing.T) *Plan {
+	t.Helper()
+	plan, err := PlanMigration(context.Background(), f.db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return plan
+}
+func (f *migrationRecoveryFixture) authorize(t *testing.T, client *attestor.Client, plan *Plan) {
+	t.Helper()
+	// Rehearse against an independent copy using the production delivery path.
+	// The receipt is sealed from the returned counts, never invented by the test.
+	data := &migrationRecoveryDatabase{schema: true, locks: map[string]bool{}}
+	for _, wallet := range f.data.wallets {
+		copied := *wallet
+		data.wallets = append(data.wallets, &copied)
+	}
+	db := sql.OpenDB(migrationRecoveryConnector{data: data})
+	defer db.Close()
+	peers := &migrationRecoveryPeers{root: t.TempDir(), tls: f.peers.tls, gateway: f.peers.gateway, certificates: f.peers.certificates, config: f.peers.config, keys: f.peers.keys}
+	raw, err := json.Marshal(f.peers.states)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &peers.states); err != nil {
+		t.Fatal(err)
+	}
+	peers.start(t)
+	defer peers.stop()
+	rehearsalClient, err := attestor.New(peers.config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rehearsalClient.Close()
+	if !reflect.DeepEqual(client.Membership(), rehearsalClient.Membership()) {
+		t.Fatal("rehearsal membership changed")
+	}
+	options := f.options
+	options.Rehearsal = true
+	options.JournalDir = t.TempDir()
+	if err := os.Chmod(options.JournalDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	report, err := Deliver(context.Background(), db, rehearsalClient, f.master, plan, options)
+	if err != nil {
+		t.Fatalf("rehearsal delivery: %v", err)
+	}
+	if err := WriteRehearsalReceipt(options, plan, rehearsalClient, report); err != nil {
+		t.Fatal(err)
+	}
+	if len(peers.protocolErrors) != 0 {
+		t.Fatalf("rehearsal peer contract: %v", peers.protocolErrors)
+	}
+}
+func (f *migrationRecoveryFixture) journal(t *testing.T, w Wallet) walletJournal {
+	t.Helper()
+	raw, err := protectedRead(journalPath(f.options, w.ID), 16<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer zero(raw)
+	var journal walletJournal
+	if err := openValue(f.options.JournalKey, journalDomain(f.options, w.ID), raw, &journal); err != nil {
+		t.Fatal(err)
+	}
+	return journal
+}
+func (f *migrationRecoveryFixture) assertProtocol(t *testing.T) {
+	t.Helper()
+	if len(f.peers.protocolErrors) != 0 {
+		t.Fatalf("peer contract: %v", f.peers.protocolErrors)
+	}
+}
+
+func TestMigrationRefreshResumeOrder(t *testing.T) {
+	migrationRecoveryRecovery(t, false)
+}
+func TestMigrationOriginalIdentityRefreshResumeOrder(t *testing.T) {
+	migrationRecoveryRecovery(t, true)
+}
+
+func TestMigrationRecoveryPublicKeyEncodings(t *testing.T) {
+	for _, encoding := range []string{"uncompressed", "compressed", "mixed"} {
+		t.Run(encoding, func(t *testing.T) {
+			f := newMigrationRecoveryFixture(t, "standard")
+			client := f.peers.client(t)
+			plan := f.plan(t)
+			f.authorize(t, client, plan)
+			wallet := plan.Eligible[0]
+			keyID := SecpKeyID(wallet.ID)
+			f.peers.interrupt = keyID
+			if _, err := Deliver(context.Background(), f.db, client, f.master, plan, f.options); err == nil {
+				t.Fatal("missing interruption")
+			}
+			journal := f.journal(t, wallet)
+			bundle, err := attestor.DecodeBundle(journal.Secp.Shares[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			uncompressed, err := attestor.PublicKeyHex(bundle.PublicKey)
+			if err != nil || uncompressed != journal.Secp.PublicKey || len(mustHex(uncompressed)) != 65 {
+				t.Fatalf("production public key: %q %v", uncompressed, err)
+			}
+			compressed, err := attestor.EncodePoint(bundle.PublicKey)
+			if err != nil || len(mustHex(compressed)) != 33 {
+				t.Fatalf("production compressed point: %q %v", compressed, err)
+			}
+			client.Close()
+			f.peers.stop()
+			for i := range f.peers.ids() {
+				d := &f.peers.states[i][keyID].Description
+				if encoding == "compressed" || encoding == "mixed" && i%2 == 0 {
+					d.PublicKey = compressed
+				}
+				if encoding == "compressed" || encoding == "mixed" && i%2 != 0 {
+					d.Refresh.PublicKey = compressed
+				}
+				if err := f.peers.checkpoint(i); err != nil {
+					t.Fatal(err)
+				}
+			}
+			f.peers.reopen(t)
+			client = f.peers.client(t)
+			inspect := func(publicKey string) ([]attestor.DescribeResponse, error) {
+				return client.InspectRefreshRecovery(context.Background(), f.options.CeremonyID, journal.Secp.ImportSession, journal.Secp.RefreshSession, keyID, publicKey, journal.Secp.Curve, journal.Secp.BaseEpoch)
+			}
+			for _, expected := range []string{uncompressed, compressed} {
+				rows, err := inspect(expected)
+				if err != nil || len(rows) != attestor.NodeCount {
+					t.Fatalf("inspect %d-byte key: %+v %v", len(mustHex(expected)), rows, err)
+				}
+				epochs := map[uint64]int{}
+				for i, row := range rows {
+					if !reflect.DeepEqual(row, f.peers.states[i][keyID].Description) || row.Refresh == nil || row.Refresh.SessionID != journal.Secp.RefreshSession || row.Refresh.Decision != "commit" {
+						t.Fatalf("inspection changed or lost the durable description: %+v", row)
+					}
+					epochs[row.Epoch]++
+				}
+				if epochs[0] != 1 || epochs[1] != 4 {
+					t.Fatalf("missing partial commit: %v", epochs)
+				}
+			}
+			other, err := crypto.HexToECDSA(fmt.Sprintf("%064x", 99))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, publicKey := range []string{
+				"", "not-hex", "05" + uncompressed[2:], uncompressed[:128], "04" + strings.Repeat("00", 64),
+				hex.EncodeToString(crypto.FromECDSAPub(&other.PublicKey)), hex.EncodeToString(crypto.CompressPubkey(&other.PublicKey)),
+			} {
+				if _, err := inspect(publicKey); err == nil {
+					t.Fatalf("accepted invalid or unrelated expected public key %q", publicKey)
+				}
+			}
+			for _, wrongKey := range []string{hex.EncodeToString(crypto.FromECDSAPub(&other.PublicKey)), hex.EncodeToString(crypto.CompressPubkey(&other.PublicKey)), "04" + strings.Repeat("00", 64)} {
+				d := &f.peers.states[4][keyID].Description
+				original := d.PublicKey
+				d.PublicKey = wrongKey
+				if _, err := inspect(uncompressed); !errors.Is(err, attestor.ErrDisagree) {
+					t.Fatalf("accepted unrelated member public key: %v", err)
+				}
+				d.PublicKey = original
+				original = d.Refresh.PublicKey
+				d.Refresh.PublicKey = wrongKey
+				if _, err := inspect(compressed); !errors.Is(err, attestor.ErrDisagree) {
+					t.Fatalf("accepted unrelated refresh public key: %v", err)
+				}
+				d.Refresh.PublicKey = original
+			}
+			if _, err := client.DescribeCeremony(context.Background(), keyID); !errors.Is(err, attestor.ErrDisagree) {
+				t.Fatalf("strict description accepted partial commit: %v", err)
+			}
+			if err := client.ReconcileCeremony(context.Background(), f.options.CeremonyID, journal.Secp.ImportSession, journal.Secp.RefreshSession, keyID, uncompressed, journal.Secp.Curve, 1); !errors.Is(err, attestor.ErrDisagree) {
+				t.Fatalf("reconciled partial commit: %v", err)
+			}
+			retained := f.journal(t, wallet)
+			if !reflect.DeepEqual(journal, retained) || retained.Matched || retained.Secp.Refreshed || f.data.wallets[0].Migrated {
+				t.Fatal("inspection changed recovery state or marked completion")
+			}
+			f.assertProtocol(t)
+		})
+	}
+}
+
+func migrationRecoveryRecovery(t *testing.T, identity bool) {
+	t.Helper()
+	f := newMigrationRecoveryFixture(t, "standard")
+	client := f.peers.client(t)
+	plan := f.plan(t)
+	f.authorize(t, client, plan)
+	wallet := plan.Eligible[0]
+	keyID := SecpKeyID(wallet.ID)
+	if identity {
+		keyID = wallet.OriginalIdentityKeyID
+	}
+	f.peers.interrupt = keyID
+	report, err := Deliver(context.Background(), f.db, client, f.master, plan, f.options)
+	if err == nil || report.Matched != 0 || f.data.wallets[0].Migrated {
+		t.Fatalf("interrupted delivery: %+v %v", report, err)
+	}
+	before := f.journal(t, wallet)
+	curve := before.Secp
+	if identity {
+		curve = before.Identity
+	}
+	if !before.Secp.Imported || curve.Refreshed || len(before.Secp.Shares) != 5 {
+		t.Fatalf("lost recovery material: %+v", curve)
+	}
+	if _, err := client.DescribeCeremony(context.Background(), keyID); !errors.Is(err, attestor.ErrDisagree) {
+		t.Fatalf("fixture lacks mixed epochs: %v", err)
+	}
+	for i := range f.peers.ids() {
+		want := uint64(1)
+		if i == 4 {
+			want = 0
+		}
+		if f.peers.states[i][keyID].Description.Epoch != want {
+			t.Fatalf("member %d epoch not %d", i, want)
+		}
+	}
+	client.Close()
+	f.peers.reopen(t)
+	client = f.peers.client(t)
+	// Nothing from the old journal struct or client is passed to the resumed run.
+	report, err = Deliver(context.Background(), f.db, client, f.master, f.plan(t), f.options)
+	if err != nil || report != (Report{Read: 1, Verified: 1, Imported: 1, Refreshed: 1, TestSigned: 1, HeldIdentity: 1, Matched: 1}) {
+		t.Fatalf("reopened delivery: %+v %v", report, err)
+	}
+	after := f.journal(t, wallet)
+	resumed := after.Secp
+	if identity {
+		resumed = after.Identity
+	}
+	if resumed.ImportSession != curve.ImportSession || resumed.RefreshSession != curve.RefreshSession || resumed.VerifySession != curve.VerifySession || resumed.RecoverySession != curve.RecoverySession || resumed.RefreshRecoverySession != curve.RefreshRecoverySession {
+		t.Fatal("recovery rotated the recorded sessions")
+	}
+	if !after.Matched || !after.Secp.Refreshed || !after.Identity.Refreshed || !f.data.wallets[0].Migrated || after.Original != before.Original || after.Identity.KeyID != wallet.OriginalIdentityKeyID {
+		t.Fatal("completion changed or lost original identity")
+	}
+	for i := range f.peers.ids() {
+		state := f.peers.states[i][keyID]
+		if state.Description.Epoch != curve.BaseEpoch+1 || state.Description.RefreshState != "complete" || len(state.Refreshes) != 2 {
+			t.Fatalf("member %d did not replay and reconcile: %+v", i, state)
+		}
+		for _, session := range state.Refreshes {
+			if session != curve.RefreshSession {
+				t.Fatal("refresh replay used replacement session")
+			}
+		}
+		if f.peers.states[i][SecpKeyID(wallet.ID)].Imports != 1 {
+			t.Fatal("recovery re-imported original shares")
+		}
+		if f.peers.states[i][IdentityKeyID(wallet.ID)] != nil {
+			t.Fatal("created a replacement identity")
+		}
+	}
+	f.assertProtocol(t)
+}
+
+func TestMigrationRequireEveryMemberComplete(t *testing.T) {
+	for _, identity := range []bool{false, true} {
+		t.Run(fmt.Sprint(identity), func(t *testing.T) {
+			f := newMigrationRecoveryFixture(t, "standard")
+			client := f.peers.client(t)
+			plan := f.plan(t)
+			f.authorize(t, client, plan)
+			keyID := SecpKeyID(plan.Eligible[0].ID)
+			if identity {
+				keyID = plan.Eligible[0].OriginalIdentityKeyID
+			}
+			f.peers.incomplete = keyID
+			report, err := Deliver(context.Background(), f.db, client, f.master, plan, f.options)
+			if !errors.Is(err, attestor.ErrDisagree) || report.Matched != 0 || f.data.wallets[0].Migrated {
+				t.Fatalf("accepted staged fifth member: %+v %v", report, err)
+			}
+			journal := f.journal(t, plan.Eligible[0])
+			curve := journal.Secp
+			if identity {
+				curve = journal.Identity
+			}
+			if curve.Refreshed || journal.Matched || len(journal.Secp.Shares) != 5 {
+				t.Fatal("recorded completion or discarded shares before reconciliation")
+			}
+			client.Close()
+			f.peers.reopen(t)
+			f.peers.incomplete = ""
+			client = f.peers.client(t)
+			report, err = Deliver(context.Background(), f.db, client, f.master, f.plan(t), f.options)
+			if err != nil || report.Matched != 1 {
+				t.Fatalf("reconcile recovery: %+v %v", report, err)
+			}
+			f.assertProtocol(t)
+		})
+	}
+}
+
+func TestMigrationRejectUnrelatedRecovery(t *testing.T) {
+	for _, identity := range []bool{false, true} {
+		for _, mutation := range []string{"session", "ceremony", "import", "epoch", "public", "decision", "members"} {
+			t.Run(fmt.Sprintf("%t/%s", identity, mutation), func(t *testing.T) {
+				f := newMigrationRecoveryFixture(t, "standard")
+				client := f.peers.client(t)
+				plan := f.plan(t)
+				f.authorize(t, client, plan)
+				wallet := plan.Eligible[0]
+				keyID := SecpKeyID(wallet.ID)
+				if identity {
+					keyID = wallet.OriginalIdentityKeyID
+				}
+				f.peers.interrupt = keyID
+				if _, err := Deliver(context.Background(), f.db, client, f.master, plan, f.options); err == nil {
+					t.Fatal("missing interruption")
+				}
+				saved, err := os.ReadFile(journalPath(f.options, wallet.ID))
+				if err != nil {
+					t.Fatal(err)
+				}
+				client.Close()
+				f.peers.reopen(t)
+				d := &f.peers.states[4][keyID].Description
+				switch mutation {
+				case "session":
+					d.Refresh.SessionID = "another-session"
+				case "ceremony":
+					d.Refresh.CeremonyID = "another-ceremony"
+				case "import":
+					d.Refresh.ImportSessionID = "another-import"
+				case "epoch":
+					d.Epoch = 2
+				case "public":
+					d.Refresh.PublicKey = "00"
+				case "decision":
+					d.Refresh.Decision = "abort"
+				case "members":
+					d.Refresh.Participants = []string{"n1"}
+				}
+				if err := f.peers.checkpoint(4); err != nil {
+					t.Fatal(err)
+				}
+				client = f.peers.client(t)
+				report, err := Deliver(context.Background(), f.db, client, f.master, f.plan(t), f.options)
+				if !errors.Is(err, attestor.ErrDisagree) || report.Matched != 0 || f.data.wallets[0].Migrated {
+					t.Fatalf("accepted unrelated recovery: %+v %v", report, err)
+				}
+				retained, err := os.ReadFile(journalPath(f.options, wallet.ID))
+				if err != nil || !bytes.Equal(saved, retained) {
+					t.Fatal("refusal changed the sealed recovery journal")
+				}
+				for i := range f.peers.ids() {
+					if len(f.peers.states[i][keyID].Refreshes) != 1 {
+						t.Fatal("replayed an invalid transition")
+					}
+				}
+				f.assertProtocol(t)
+			})
+		}
+	}
+}
+
+func TestMigrationPlanAndDelivery(t *testing.T) {
+	t.Run("funded-and-migrated", migrationRecoveryTestPlan)
+	t.Run("schema", migrationRecoveryTestSchema)
+	t.Run("completion-and-original-identity", migrationRecoveryTestCompleteDelivery)
+	t.Run("signature-mismatch-stops-run", migrationRecoveryTestSignatureMismatch)
+	t.Run("envelope-mismatch", migrationRecoveryTestEnvelopeMismatch)
+	t.Run("external-identity-refused", migrationRecoveryTestExternalIdentity)
+	t.Run("mandatory-rehearsal-and-journal", migrationRecoveryTestRehearsal)
+}
+
+func migrationRecoveryTestPlan(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard", "agent", "standard", "funded", "standard")
+	f.data.wallets[2].fundedAccount = true
+	f.data.wallets[4].Migrated = true
+	f.data.wallets[4].attestorID = SecpKeyID(f.data.wallets[4].ID)
+	wallets, err := ReadWallets(context.Background(), f.db)
+	if err != nil || len(wallets) != 5 {
+		t.Fatalf("read wallets: %d %v", len(wallets), err)
+	}
+	for _, w := range wallets {
+		if w.EncryptedPrivateKey == "" || !common.IsHexAddress(w.Address) || w.ChainID != 125 || w.KeyVersion != 1 || w.DID == "" {
+			t.Fatalf("incomplete wallet %s", w.ID)
+		}
+	}
+	plan := f.plan(t)
+	if plan.Total != 5 || plan.AlreadyMigrated != 1 || len(plan.Funded) != 2 || len(plan.Eligible) != 2 {
+		t.Fatalf("plan %+v", plan)
+	}
+	eligible := map[string]bool{}
+	for _, w := range plan.Eligible {
+		eligible[w.ID] = true
+	}
+	if !eligible[f.data.wallets[0].ID] || !eligible[f.data.wallets[1].ID] {
+		t.Fatal("standard and agent wallets are not the eligible set")
+	}
+	funded := map[string]bool{}
+	for _, w := range plan.Funded {
+		funded[w.ID] = true
+	}
+	if !funded[f.data.wallets[2].ID] || !funded[f.data.wallets[3].ID] {
+		t.Fatal("funded account and funded kind are not both excluded")
+	}
+}
+func migrationRecoveryTestSchema(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard")
+	if _, err := f.db.Exec(`alter table wallets drop column migrated_at`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PlanMigration(context.Background(), f.db); !errors.Is(err, ErrSchema) {
+		t.Fatalf("missing column: %v", err)
+	}
+}
+func migrationRecoveryTestCompleteDelivery(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard", "standard", "standard", "funded")
+	client := f.peers.client(t)
+	plan := f.plan(t)
+	f.authorize(t, client, plan)
+	original := make([]Wallet, len(f.data.wallets))
+	for i, w := range f.data.wallets {
+		original[i] = w.Wallet
+	}
+	report, err := Deliver(context.Background(), f.db, client, f.master, plan, f.options)
+	want := Report{Read: 3, Verified: 3, Imported: 3, Refreshed: 3, TestSigned: 3, HeldIdentity: 3, Matched: 3}
+	if err != nil || report != want {
+		t.Fatalf("report %+v want %+v: %v", report, want, err)
+	}
+	for j, w := range f.data.wallets[:3] {
+		if !w.Migrated || w.attestorID != SecpKeyID(w.ID) || w.DID != original[j].DID || w.MainAccountID != original[j].MainAccountID || w.OriginalIdentityKeyID != original[j].OriginalIdentityKeyID {
+			t.Fatal("completion replaced the original identity or failed to mark the wallet")
+		}
+		journal := f.journal(t, original[j])
+		if !journal.Matched || journal.Identity.PublicKey != w.original.PublicKey || journal.Identity.KeyID != w.original.KeyID || journal.Identity.Verification == nil || !ed25519.Verify(w.identity.Public().(ed25519.PublicKey), journal.Identity.Verification.Message, journal.Identity.Verification.Signature) {
+			t.Fatal("missing original identity evidence")
+		}
+		for i, id := range f.peers.ids() {
+			secp, identity := f.peers.states[i][SecpKeyID(w.ID)], f.peers.states[i][w.OriginalIdentityKeyID]
+			if secp == nil || identity == nil || secp.Description.Epoch != 1 || identity.Description.Epoch != 1 || secp.Description.RefreshState != "complete" || identity.Description.RefreshState != "complete" {
+				t.Fatalf("node %s lacks both refreshed shares of %s", id, w.ID)
+			}
+			if f.peers.states[i][IdentityKeyID(w.ID)] != nil {
+				t.Fatal("replacement identity generated")
+			}
+			if i < attestor.SignQuorum && (secp.Verifications != 1 || secp.OwnerSigns != 0 || identity.Verifications != 0 || identity.OwnerSigns != 2) {
+				t.Fatalf("node %s did not use operator verification and both original-owner signatures", id)
+			}
+		}
+	}
+	funded := f.data.wallets[3]
+	if funded.Migrated {
+		t.Fatal("funded wallet marked migrated")
+	}
+	for i := range f.peers.ids() {
+		if f.peers.states[i][SecpKeyID(funded.ID)] != nil || f.peers.states[i][funded.OriginalIdentityKeyID].Description.Epoch != 0 {
+			t.Fatal("funded wallet was delivered")
+		}
+	}
+	again := f.plan(t)
+	if len(again.Eligible) != 0 || again.AlreadyMigrated != 3 || len(again.Funded) != 1 {
+		t.Fatalf("second plan %+v", again)
+	}
+	f.assertProtocol(t)
+}
+func migrationRecoveryTestSignatureMismatch(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard", "standard", "standard")
+	client := f.peers.client(t)
+	plan := f.plan(t)
+	f.authorize(t, client, plan)
+	first, second, third := plan.Eligible[0], plan.Eligible[1], plan.Eligible[2]
+	f.peers.corrupt = SecpKeyID(second.ID)
+	report, err := Deliver(context.Background(), f.db, client, f.master, plan, f.options)
+	var mismatch *MismatchError
+	if !errors.As(err, &mismatch) || !errors.Is(err, ErrAddressMismatch) {
+		t.Fatalf("signature mismatch: %v", err)
+	}
+	if mismatch.WalletID != second.ID || mismatch.Stored != common.HexToAddress(second.Address) || mismatch.Recovered == mismatch.Stored {
+		t.Fatalf("mismatch %+v", mismatch)
+	}
+	if report.Read != 2 || report.TestSigned != 2 || report.Matched != 1 {
+		t.Fatalf("report %+v", report)
+	}
+	if !f.data.wallets[0].Migrated || f.data.wallets[1].Migrated || f.data.wallets[2].Migrated || f.data.wallets[0].ID != first.ID {
+		t.Fatal("wrong migrated set")
+	}
+	for i := range f.peers.ids() {
+		if f.peers.states[i][SecpKeyID(third.ID)] != nil {
+			t.Fatal("run continued past mismatch")
+		}
+	}
+	if f.journal(t, second).Matched {
+		t.Fatal("mismatch recorded as matched")
+	}
+	f.assertProtocol(t)
+}
+func migrationRecoveryTestEnvelopeMismatch(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard", "standard")
+	// The original identity producer and RPC bind this wallet to its stored
+	// address; only the encrypted EVM envelope belongs to another wallet.
+	f.data.wallets[0].EncryptedPrivateKey = f.data.wallets[1].EncryptedPrivateKey
+	client := f.peers.client(t)
+	plan := f.plan(t)
+	options := f.options
+	options.Rehearsal = true
+	report, err := Deliver(context.Background(), f.db, client, f.master, plan, options)
+	var walletError *WalletError
+	if !errors.As(err, &walletError) || walletError.WalletID != plan.Eligible[0].ID || walletError.Stage != "open" || !errors.Is(err, envelope.ErrAddressMismatch) {
+		t.Fatalf("envelope mismatch: %v", err)
+	}
+	if report.Verified != 0 || report.Imported != 0 {
+		t.Fatalf("report %+v", report)
+	}
+	for _, w := range f.data.wallets {
+		if w.Migrated {
+			t.Fatal("wallet marked migrated")
+		}
+		for i := range f.peers.ids() {
+			if f.peers.states[i][SecpKeyID(w.ID)] != nil {
+				t.Fatal("key delivered after envelope mismatch")
+			}
+		}
+	}
+	f.assertProtocol(t)
+}
+func migrationRecoveryTestExternalIdentity(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "agent")
+	client := f.peers.client(t)
+	plan := f.plan(t)
+	options := f.options
+	options.Rehearsal = true
+	report, err := Deliver(context.Background(), f.db, client, f.master, plan, options)
+	if !errors.Is(err, ErrExternalIdentity) || report.Imported != 0 || report.Matched != 0 || f.data.wallets[0].Migrated {
+		t.Fatalf("external custody accepted: %+v %v", report, err)
+	}
+	for i := range f.peers.ids() {
+		if len(f.peers.states[i]) != 0 {
+			t.Fatal("created replacement custody for external identity")
+		}
+	}
+	f.assertProtocol(t)
+}
+func migrationRecoveryTestRehearsal(t *testing.T) {
+	f := newMigrationRecoveryFixture(t, "standard")
+	client := f.peers.client(t)
+	plan := f.plan(t)
+	bad := f.options
+	bad.JournalKey = nil
+	if _, err := Deliver(context.Background(), f.db, client, f.master, plan, bad); !errors.Is(err, ErrJournal) {
+		t.Fatalf("unprotected journal: %v", err)
+	}
+	if _, err := Deliver(context.Background(), f.db, client, f.master, plan, f.options); !errors.Is(err, ErrRehearsal) {
+		t.Fatalf("missing rehearsal: %v", err)
+	}
+	incomplete := f.options
+	incomplete.Rehearsal = true
+	if err := WriteRehearsalReceipt(incomplete, plan, client, Report{Read: 1}); !errors.Is(err, ErrRehearsal) {
+		t.Fatalf("incomplete rehearsal accepted: %v", err)
+	}
+	f.authorize(t, client, plan)
+	changed := *plan
+	changed.Eligible = append([]Wallet(nil), plan.Eligible...)
+	changed.Eligible[0].DID = "did:layerx:" + strings.Repeat("00", 32)
+	if _, err := Deliver(context.Background(), f.db, client, f.master, &changed, f.options); !errors.Is(err, ErrRehearsal) {
+		t.Fatalf("changed identity rehearsal accepted: %v", err)
+	}
+	if err := os.Chmod(f.options.RehearsalReceipt, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Deliver(context.Background(), f.db, client, f.master, plan, f.options); !errors.Is(err, ErrRehearsal) {
+		t.Fatalf("readable receipt accepted: %v", err)
+	}
+	for i := range f.peers.ids() {
+		if f.peers.states[i][SecpKeyID(plan.Eligible[0].ID)] != nil {
+			t.Fatal("import before rehearsal validation")
+		}
+	}
+	f.assertProtocol(t)
+}

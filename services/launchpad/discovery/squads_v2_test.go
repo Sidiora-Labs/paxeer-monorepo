@@ -143,7 +143,7 @@ func TestAdaptV2SquadEnvelopesMatchFrozenSchema(t *testing.T) {
 	})
 }
 
-// Used with a reopened store's mutation result by TestRepairM_983_squad_revision_test_fixture.
+// Used with a reopened store's mutation result by TestSquadRevisionTestFixture.
 func assertSquadMembershipRevisions(t *testing.T, result MembershipMutation, at time.Time) {
 	t.Helper()
 	q, m := result.Squad, result.Membership

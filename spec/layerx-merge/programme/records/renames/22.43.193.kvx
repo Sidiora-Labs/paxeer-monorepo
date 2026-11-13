@@ -1,0 +1,16 @@
+[manifest]
+task = "22.43.193"
+records_moved = 1
+files_renamed = 1
+
+[file.1]
+from = "tests/explorer/repair_22_33_286.kvx"
+to = "spec/layerx-merge/programme/records/tests/explorer/repair_22_33_286.kvx"
+
+[file.2]
+from = "tests/explorer/test_repair_22_33_286.py"
+to = "tests/explorer/test_history_env_isolation.py"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/explorer/test_repair_22_33_286.py"

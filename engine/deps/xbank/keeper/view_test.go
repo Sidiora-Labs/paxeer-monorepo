@@ -63,12 +63,12 @@ func TestGigaBankKeeperViewAndTrace(t *testing.T) {
 			name = "regular_store"
 		}
 		t.Run(name, func(t *testing.T) {
-			f := repairM1125Open(t, t.TempDir())
-			repairM1125Seed(t, f)
+			f := openBankRecoveryFixture(t, t.TempDir())
+			seedBankRecoveryFixture(t, f)
 			k := f.giga
 			k.UseRegularStore = regular
 			ctx := f.ctx.WithMultiStore(f.cache)
-			from, to := repairM1125Addresses()
+			from, to := bankRecoveryAddresses()
 			_, isGiga := k.GetKVStore(ctx).(*gigastore.Store)
 			require.Equal(t, !regular, isGiga)
 			for _, addr := range []sdk.AccAddress{from, to} {
@@ -140,9 +140,9 @@ func TestGigaBankKeeperViewAndTrace(t *testing.T) {
 }
 
 func TestCanonicalBankKeeperViewAndTrace(t *testing.T) {
-	f := repairM1125Open(t, t.TempDir())
-	repairM1125Seed(t, f)
-	from, _ := repairM1125Addresses()
+	f := openBankRecoveryFixture(t, t.TempDir())
+	seedBankRecoveryFixture(t, f)
+	from, _ := bankRecoveryAddresses()
 	ctx := f.ctx.WithMultiStore(f.cache).WithIsTracing(true)
 	require.Equal(t, sdk.NewInt64Coin("foo", 50), f.bank.GetBalance(ctx, from, "foo"))
 	require.Equal(t, sdk.NewCoins(sdk.NewInt64Coin("bar", 30), sdk.NewInt64Coin("foo", 50), sdk.NewInt64Coin(sdk.MustGetBaseDenom(), 10)), f.bank.GetAllBalances(ctx, from))
