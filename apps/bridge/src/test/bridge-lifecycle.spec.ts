@@ -10,7 +10,7 @@ import {
   manifestTypegenPrecedesTypecheck,
   settlementSubmissionReopensThroughBroadcastRevertAndConfirmation,
   solanaRecipientFixtureReopensThroughRpcAndHook,
-} from './repair-22-33-266.proofs';
+} from './bridge-lifecycle.proofs';
 
 // These are executable callbacks; test(function) alone registers a todo in Vitest 4.
 test(manifestTypegenPrecedesTypecheck.name, manifestTypegenPrecedesTypecheck);
