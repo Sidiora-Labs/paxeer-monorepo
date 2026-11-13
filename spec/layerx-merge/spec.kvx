@@ -374041,7 +374041,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.289]
 title = "Bring the Python tests 1 to 27 of tools/qualification/paxeer-x, its tests directory and tools/qualification/tests to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
