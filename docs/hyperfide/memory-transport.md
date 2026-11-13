@@ -1,14 +1,15 @@
 # Memory transport
 
+Paths in this page are relative to the Hyperfide workspace,
+[`tools/hyperfide`](../../tools/hyperfide), unless shown as example project paths.
+
 `hyperfide memory export` and `hyperfide memory import` move agent memories from one Hyperfide
 graph to another: from an old checkout to a new one, from one repository to
 a sibling, or from a project you are retiring into the one that replaces it.
 The file between them is a contract between graphs and between versions of
-the executable, and this page specifies it. The format keeps its 1.x name,
-`codify-memories`, so files written by Codify 1.x and by this build read the
-same way.
+the executable, and this page specifies it. The format identifier is `codify-memories`.
 
-Implemented in `src/memory.c` (`cmd_memory_export`, `cmd_memory_import`);
+Implemented in `core/native/src/memory.c` (`cmd_memory_export`, `cmd_memory_import`);
 covered by `tests/integration/39_memory_port.sh`. Examples use `hyperfide`;
 `cg` is the deprecated compatibility alias of the same executable, with
 identical arguments, JSON and exit codes.
@@ -28,12 +29,12 @@ Writes the header line and one line per selected memory to stdout, or to
 `FILE` with `-o` (`-o -` is stdout). With `-o`, a one-line report names the
 count and the file (`--json`: `{"ok":true,"exported":N,"file":...}`).
 
-| Filter | Selects |
-|---|---|
-| `--task T` | memories whose task is `T`, or starts with `T/` — so `--task codify-v12` takes every task of that feature, `--task codify-v12/1.1` one task |
-| `--type T` | memories of that type, exactly |
-| `--branch B` | memories that carry branch `B`, exactly. The name need not be a branch this graph tracks, and a memory with no branch (visible on every branch) is not selected |
-| `--since DAYS` | memories created in the last `DAYS` days |
+| Filter         | Selects                                                                                                                                                         |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--task T`     | memories whose task is `T`, or starts with `T/` — so `--task codify-v12` takes every task of that feature, `--task codify-v12/1.1` one task                     |
+| `--type T`     | memories of that type, exactly                                                                                                                                  |
+| `--branch B`   | memories that carry branch `B`, exactly. The name need not be a branch this graph tracks, and a memory with no branch (visible on every branch) is not selected |
+| `--since DAYS` | memories created in the last `DAYS` days                                                                                                                        |
 
 Rows are ordered by `created`, then by row id, and the header carries no
 timestamp, so two exports of the same graph with the same filters are
@@ -42,7 +43,8 @@ byte-identical and can be committed and diffed.
 Exit status: 0, or 1 when the file cannot be written.
 
 ### `hyperfide memory import <FILE|-> [--dry-run] [--keep-branch] [--retask OLD=NEW]`
-### `hyperfide memory import --from DIR [...]`
+
+The alternate form is `hyperfide memory import --from DIR [...]`.
 
 Reads an export from `FILE`, from stdin with `-`, or — with `--from DIR` —
 straight out of the project that owns `DIR`. Every memory whose
@@ -50,13 +52,13 @@ content id the target does not hold is inserted; the ones it holds are
 skipped. Then supersession links are restored. All of it is one
 transaction.
 
-| Flag | Effect |
-|---|---|
-| `--dry-run` | Prints the same report, with the same counts and line errors, and writes nothing |
-| `--keep-branch` | Keep branch names the target does not track (see [Branches](#branches)) |
-| `--retask OLD=NEW` | Rewrite a task-tag prefix on the way in (see [Retasking](#retasking)) |
-| `--from DIR` | Read another project's graph instead of a file |
-| `--json` | The report as one JSON object |
+| Flag               | Effect                                                                           |
+| ------------------ | -------------------------------------------------------------------------------- |
+| `--dry-run`        | Prints the same report, with the same counts and line errors, and writes nothing |
+| `--keep-branch`    | Keep branch names the target does not track (see [Branches](#branches))          |
+| `--retask OLD=NEW` | Rewrite a task-tag prefix on the way in (see [Retasking](#retasking))            |
+| `--from DIR`       | Read another project's graph instead of a file                                   |
+| `--json`           | The report as one JSON object                                                    |
 
 The report:
 
@@ -65,9 +67,18 @@ memory import from alpha: 12 imported, 3 skipped (already present), 1 invalid, 2
 ```
 
 ```json
-{"ok":true,"dry_run":false,"project":"alpha","read":16,"imported":12,
- "skipped":3,"invalid":1,"relinked":2,"branches_cleared":1,
- "errors":[{"line":7,"reason":"bad JSON"}]}
+{
+  "ok": true,
+  "dry_run": false,
+  "project": "alpha",
+  "read": 16,
+  "imported": 12,
+  "skipped": 3,
+  "invalid": 1,
+  "relinked": 2,
+  "branches_cleared": 1,
+  "errors": [{ "line": 7, "reason": "bad JSON" }]
+}
 ```
 
 `skipped` counts memories already in the target and repeats of the same
@@ -76,12 +87,12 @@ stderr as `line N: reason`.
 
 Exit status:
 
-| Status | Meaning |
-|---|---|
-| 0 | The import ran (invalid lines are reported and skipped; they do not fail it) |
-| 1 | Nothing was written: unreadable input, an unknown format, a newer version, an unusable `--retask`, `--from` naming no project or this project, or a write that failed and was rolled back |
-| 75 | The database stayed busy past the lock wait; nothing was written, retry |
-| 78 | Refused before anything was read: the tree selects a distributed authority descriptor or an invalid `HYPERFIDE_MODE` (see [Authority mode](integrate.md#authority-mode)); `hyperfide memory export` refuses the same way |
+| Status | Meaning                                                                                                                                                                                                                  |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0      | The import ran (invalid lines are reported and skipped; they do not fail it)                                                                                                                                             |
+| 1      | Nothing was written: unreadable input, an unknown format, a newer version, an unusable `--retask`, `--from` naming no project or this project, or a write that failed and was rolled back                                |
+| 75     | The database stayed busy past the lock wait; nothing was written, retry                                                                                                                                                  |
+| 78     | Refused before anything was read: the tree selects a distributed authority descriptor or an invalid `HYPERFIDE_MODE` (see [Authority mode](integrate.md#authority-mode)); `hyperfide memory export` refuses the same way |
 
 ## The format
 
@@ -91,16 +102,22 @@ is tolerated on import). Blank lines are ignored.
 ### Header — the first non-blank line
 
 ```json
-{"format":"codify-memories","version":1,"project":"alpha","cg_version":"2.0.0-dev","count":3}
+{
+  "format": "codify-memories",
+  "version": 1,
+  "project": "alpha",
+  "cg_version": "2.2.0",
+  "count": 3
+}
 ```
 
-| Key | Type | Meaning |
-|---|---|---|
-| `format` | string | Always `codify-memories`. Anything else stops the import |
-| `version` | integer | The format version, `1` here. A version newer than the importing build reads stops the import |
-| `project` | string | The name (directory basename) of the exporting project; recorded as provenance on import |
-| `cg_version` | string | The version of the executable that wrote the file (`hyperfide version`). Informational |
-| `count` | integer | The number of memory lines that follow. Informational |
+| Key          | Type    | Meaning                                                                                       |
+| ------------ | ------- | --------------------------------------------------------------------------------------------- |
+| `format`     | string  | Always `codify-memories`. Anything else stops the import                                      |
+| `version`    | integer | The format version, `1` here. A version newer than the importing build reads stops the import |
+| `project`    | string  | The name (directory basename) of the exporting project; recorded as provenance on import      |
+| `cg_version` | string  | The version of the executable that wrote the file (`hyperfide version`). Informational        |
+| `count`      | integer | The number of memory lines that follow. Informational                                         |
 
 Readers ignore header keys they do not know.
 
@@ -110,24 +127,38 @@ Every exporter writes every key, in this order, with `null` for an absent
 value:
 
 ```json
-{"id":"8f1e…","created":1759700000,"type":"decision","task":"codify-v12/1.1","body":"Chose trigram FTS for symbol search","symbols":"cmd_search","files":"src/graph.c","source":"manual","branch":null,"class":"skill","confidence":0.85,"superseded_by":null,"superseded_at":null}
+{
+  "id": "8f1e…",
+  "created": 1759700000,
+  "type": "decision",
+  "task": "codify-v12/1.1",
+  "body": "Chose trigram FTS for symbol search",
+  "symbols": "cmd_search",
+  "files": "src/graph.c",
+  "source": "manual",
+  "branch": null,
+  "class": "skill",
+  "confidence": 0.85,
+  "superseded_by": null,
+  "superseded_at": null
+}
 ```
 
-| Key | Type | Required on import | Meaning |
-|---|---|---|---|
-| `id` | string | no | The memory's content id in the exporting graph (below). Used to resolve `superseded_by` within the file; computed when absent |
-| `created` | integer | no | Unix seconds when the memory was written. Kept as is; the import time when absent |
-| `type` | string | **yes** | `decision`, `constraint`, `outcome`, `preference`, `fact`, `handoff`, … — any lowercase word of letters, digits, `_` or `-`, at most 32 bytes |
-| `task` | string or null | no | The spec task tag, `feature/id` |
-| `body` | string | **yes** | The note itself; never empty |
-| `symbols` | string or null | no | Comma-separated symbol anchors |
-| `files` | string or null | no | Comma-separated file anchors |
-| `source` | string or null | no | How the memory was written: `manual`, `auto`, or an earlier import's provenance |
-| `branch` | string or null | no | The branch the decision was made on; null means every branch sees it |
-| `class` | string or null | no | Jev's verdict (`skill`, `decision`, `constraint`, `fact`, `noise`), null when unclassified |
-| `confidence` | number or null | no | Jev's confidence in `class`; kept only with a class |
-| `superseded_by` | string or null | no | The content id of the memory that replaced this one |
-| `superseded_at` | integer or null | no | Unix seconds when it was replaced |
+| Key             | Type            | Required on import | Meaning                                                                                                                                       |
+| --------------- | --------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`            | string          | no                 | The memory's content id in the exporting graph (below). Used to resolve `superseded_by` within the file; computed when absent                 |
+| `created`       | integer         | no                 | Unix seconds when the memory was written. Kept as is; the import time when absent                                                             |
+| `type`          | string          | **yes**            | `decision`, `constraint`, `outcome`, `preference`, `fact`, `handoff`, … — any lowercase word of letters, digits, `_` or `-`, at most 32 bytes |
+| `task`          | string or null  | no                 | The spec task tag, `feature/id`                                                                                                               |
+| `body`          | string          | **yes**            | The note itself; never empty                                                                                                                  |
+| `symbols`       | string or null  | no                 | Comma-separated symbol anchors                                                                                                                |
+| `files`         | string or null  | no                 | Comma-separated file anchors                                                                                                                  |
+| `source`        | string or null  | no                 | How the memory was written: `manual`, `auto`, or an earlier import's provenance                                                               |
+| `branch`        | string or null  | no                 | The branch the decision was made on; null means every branch sees it                                                                          |
+| `class`         | string or null  | no                 | Classification (`skill`, `decision`, `constraint`, `fact`, `noise`), null when unclassified                                                   |
+| `confidence`    | number or null  | no                 | Confidence in `class`; kept only with a class                                                                                                 |
+| `superseded_by` | string or null  | no                 | The content id of the memory that replaced this one                                                                                           |
+| `superseded_at` | integer or null | no                 | Unix seconds when it was replaced                                                                                                             |
 
 Readers ignore keys they do not know, so a version-1 file may grow keys
 without breaking an older reader; a change an older reader would
@@ -239,10 +270,10 @@ subdirectory, or through one of its worktrees — is refused.
 
 `memory_export` and `memory_import` run the same code paths.
 
-| Tool | Arguments | Returns |
-|---|---|---|
-| `memory_export` | `task`, `type`, `branch`, `since` (days), `path` | The export text, or with `path` the `--json` write report |
-| `memory_import` | one of `path` (a file), `data` (the export text itself), `from` (a project directory); `dry_run`, `keep_branch`, `retask` | The `--json` report |
+| Tool            | Arguments                                                                                                                 | Returns                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `memory_export` | `task`, `type`, `branch`, `since` (days), `path`                                                                          | The export text, or with `path` the `--json` write report |
+| `memory_import` | one of `path` (a file), `data` (the export text itself), `from` (a project directory); `dry_run`, `keep_branch`, `retask` | The `--json` report                                       |
 
 `path: "-"` is refused over MCP: the server's stdin is its request stream.
 A refusal (unknown format, newer version, …) comes back as an error result

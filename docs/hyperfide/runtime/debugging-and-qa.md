@@ -1,15 +1,18 @@
-# Debugging And QA
+# Runtime troubleshooting
+
+Run source commands from `tools/hyperfide`. Paths below are relative to that
+workspace unless they name a runtime data directory or example path.
 
 - `pnpm dev` and `pnpm start:worktree` save the absolute source checkout path in `<data dir>/hyperfide-dev-instance.json`. Storage reports use this record to identify development data even after the checkout is removed. Older instances can be identified from `hyperfide-app-runtime.json` or hash-verified path matches; unknown source paths are reported explicitly.
 - `pnpm dev` prints the active frontend URL, server API URL, host daemon port, data dir, and logs dir. Do not assume fixed dev ports.
-- `pnpm mobile:apk:dev` builds a standalone ARM64 Android APK at `apps/mobile/build-output/hyperfide-dev.apk`, named **hyperfide platform dev** with an orange icon and separate package/data from the installed app. Append `-- x86_64` for an Intel emulator. See [the mobile build instructions](../../../tools/hyperfide/apps/mobile/README.md#android-local-apk-and-verification) for prerequisites, installation, and per-thread delivery.
+- `pnpm mobile:apk:dev` builds a standalone ARM64 Android APK at `apps/mobile/build-output/hyperfide-dev.apk`, named **Hyperfide dev** with an orange icon and separate package/data from the installed app. Append `-- x86_64` for an Intel emulator. See [the mobile build instructions](../../../tools/hyperfide/apps/mobile/README.md#android-local-apk-and-verification) for prerequisites, installation, and per-thread delivery.
 - `pnpm start:worktree` builds production artifacts and serves the optimized app bundle from the checkout-specific dev server URL, while keeping the same dev data directory and deterministic server/host-daemon ports. It has no Vite dev server or hot reload.
 - `pnpm start:worktree-remote` is the trusted-network variant of `pnpm start:worktree`; it binds that server to all IPv4 interfaces.
 - `pnpm desktop` packages the Electron app and launches it against the installed data directory, ports and Electron user-data directory, the same targets a released build uses. It shares the single-instance lock with an installed hyperfide platform: quit that first, or the launch focuses it instead of starting your build.
 - `pnpm desktop:worktree` packages and launches it against this checkout's data directory and deterministic ports, the same instance `pnpm start:worktree` uses, with Electron's user-data directory at `$HYPERFIDE_DATA_DIR/desktop` (override with `HYPERFIDE_DESKTOP_USER_DATA_DIR`). Like `pnpm start:worktree`, it skips first-run setup unless `HYPERFIDE_SKIP_ONBOARDING=0`. It refuses to start when the server or host-daemon port is busy, so a stale server cannot answer for your build. It shows the dev Dock icon while running (`HYPERFIDE_DESKTOP_DEV_ICON=1`). Set `HYPERFIDE_DESKTOP_OPEN_DEVTOOLS=1` to open DevTools. Both desktop commands always repackage first; machines without a Developer ID identity produce unsigned artifacts.
 - The packaged app defaults to server/frontend `:38886`, host daemon `:38887`, data dir `~/.hyperfide/`, and logs under `~/.hyperfide/logs/`.
 - `hyperfide-app` (including `pnpm start`), `hyperfide-server`, and `hyperfide-host-daemon` capture service stdout and stderr in `logs/server-stdio.log` and `logs/host-daemon-stdio.log` under the selected data directory. These append across restarts; a file over 10 MB is renamed to `<name>-stdio.1.log` (replacing the previous one) when its service starts. They hold early startup errors, crashes, and other output that bypasses the logger. Application log lines go only to the rotating `<component>.N.log` files, which keep the five newest per component; the logger skips its pretty console copy when stdout is a plain file, so `pnpm dev` terminals still show it. Service output is not forwarded to the launcher's terminal.
-- Entity IDs in URLs (`proj_*`, `thr_*`) are primary keys. Query them directly against the active data dir: `sqlite3 <data>/hyperfide platform.db "SELECT * FROM threads WHERE id = 'thr_xxx';"`.
+- Entity IDs in URLs (`proj_*`, `thr_*`) are primary keys. Query them directly against the active data dir: `sqlite3 <data>/hyperfide.db "SELECT * FROM threads WHERE id = 'thr_xxx';"`.
 - API routes are under `/api/v1/`, for example `GET /api/v1/threads/:id`. Use `curl` against the server API to isolate frontend issues from server behavior.
 - Use the CLI to inspect state: `pnpm hyperfide-platform thread show <id>`, `pnpm hyperfide-platform project list`, `pnpm hyperfide-platform status`. From source, use `pnpm hyperfide-platform:dev`.
 
@@ -20,19 +23,15 @@ local desktop, server, and daemon files in the selected data directory.
 
 ## Desktop Browser Tab Recovery
 
-
-Desktop browser registration first uses a private local broker descriptor whose
+Desktop browser registration first uses a local broker descriptor whose
 recorded server URL matches the selected server's origin. Otherwise it discovers
 the other private local broker descriptors and sends a fresh random challenge to the selected server's `/api/v1/desktop-browsers/broker-proof`
 endpoint. The server routes it to the descriptor's enrolled host, whose broker
 returns an HMAC using its local authentication token. The desktop verifies that
 proof against the private descriptor before registering; the token never leaves
 the machine. This works for alternate domains and proxies without hostname rules
-or plugin dependencies. Redirects and invalid proofs are rejected. This internal
-desktop handshake adds `desktop.broker.prove` in daemon protocol 248. Older
-protocol-246/247 daemons remain compatible for existing operations; the server
-rejects proof requests for those daemons with an upgrade-required error before
-sending any RPC. Failed lookups retry with exponential backoff from 2 seconds up
+or plugin dependencies. Redirects and invalid proofs are rejected. The handshake uses `desktop.broker.prove`; a daemon without proof support
+receives an upgrade-required error before any proof RPC is sent. Failed lookups retry with exponential backoff from 2 seconds up
 to 1 minute.
 
 Saved desktop browser tabs keep their URL and owning host/window. Opening one
@@ -89,8 +88,7 @@ Try again also rechecks a window previously reported as live after it closes.
 Inspect the persisted owner with
 `hyperfide platform thread tabs show <threadId> --json` or `sdk.threads.tabs.get`, and compare it
 with `hyperfide platform browser instances --host <hostId> --json` or
-`sdk.experimental_desktopBrowsers.listInstances`. Recovery uses the existing
-native snapshot and browser APIs; no daemon wire fields change.
+`sdk.experimental_desktopBrowsers.listInstances`. Recovery uses the native snapshot and browser APIs.
 
 Browser tab favicons retain their candidates across same-origin navigation. The
 native desktop manager caches candidates for the 40 most recently used HTTP(S)
@@ -107,26 +105,6 @@ so remounts retain the appropriate Retina candidate. Image bytes still load
 through the renderer's browser cache; authenticated icon fetching through the
 embedded browser session is not implemented by this cache.
 
-## Reproducing Test Order Failures
-
-CI's test shards shuffle test files and tests within each file. Vitest prints the seed for
-runs that execute; unchanged Turbo tasks can still reuse cached results.
-Reproduce a failing package with its logged seed:
-
-```bash
-pnpm exec turbo run test --filter=@hyperfide/app -- --sequence.shuffle --sequence.seed=4721 --maxWorkers=2
-```
-
-For a repository-wide order audit, omit the filter and use `--concurrency=4`
-before Turbo's `--` separator. CI caps each Vitest process at two workers so
-package concurrency does not multiply into unbounded worker contention.
-Use a second seed after
-repairing order dependencies. Reset test-owned mock implementations, fixture
-arrays, persisted preferences, and databases before each test. Await background
-work and close streams, workers, and subprocesses before removing their files or
-tearing down their environment. Worker isolation does not restore built-in
-process objects or cancel resources that a test leaves running.
-
 ## ACP Steer Cancellation Failures
 
 ACP steering cancels the active prompt before submitting the follow-up. If that
@@ -135,14 +113,6 @@ before the next turn. The replacement process attempts `session/load`; providers
 without working session restoration start fresh and report the loss of in-agent
 history. The failed turn stays failed, and an unsent steer is not acknowledged as
 accepted.
-
-Older Hermes adapters can throw `NoneType.startswith` during cancellation and
-leave their internal session marked running. Update Hermes to include
-[the null-response fix](https://github.com/NousResearch/hermes-agent/commit/8f0322da5b82029f3bc4d16fbaa2c986299abfc6)
-and [the running-state cleanup](https://github.com/NousResearch/hermes-agent/commit/bccd45618c16b605822dd179cd0399abdecaf698),
-then restart its retained process with `hyperfide platform thread stop <thread-id>` before sending
-a new message. HYPERFIDE's recovery prevents reuse after a cancellation error; it does
-not repair the older adapter's failing turn.
 
 ## Machine Authentication Cache
 
@@ -204,7 +174,7 @@ checkpoint progress. Resource sampling is also disabled with the live gate.
 
 Native provider questions and Ask User Question plugin forms save partial
 selections, free text, and the current question in browser-local storage under
-`hyperfide platform.question-draft.v1:<threadId>:<interactionId>`. These drafts survive thread
+`hyperfide.question-draft.v1:<threadId>:<interactionId>`. These drafts survive thread
 navigation and page reloads on the same browser/device. They are cleared after
 successful submission or cancellation and retained if either request fails.
 When local storage is unavailable, an in-memory fallback preserves drafts
@@ -213,25 +183,9 @@ submitted, and CLI/SDK answers do not read the browser's draft.
 There is no time-based expiry. If an interaction is resolved elsewhere, its
 draft can remain in local storage but is never rendered as an active question;
 the server's pending interaction list controls that. Clearing browser site data
-removes these drafts. Older clients ignore this new storage namespace. Only the
+removes these drafts. Only the
 native question form and Ask User Question plugin opt in; secret-request forms
 do not use this storage.
-
-## Native Draft Rollback
-
-Migration `0132_thread_drafts` now only adds the temporary `threads.draft`
-column. Its original pre-release SQL merged Drafts plugin queue entries into
-that column and deleted the held rows and built-in plugin installation. The
-original hash remains accepted by `migration-history.ts` for databases that
-already ran it; it is not replayed.
-
-Migration `0133_remove_thread_drafts` drops the column without converting its
-contents back into queued messages. Databases upgrading through the revised
-`0132` retain their existing queue rows and Drafts plugin installation. Databases
-that ran the original `0132` lose the stored core draft contents, retaining their
-thread rows and any remaining queued messages. The restored built-in plugin is
-installed through normal server startup. Reintroducing native drafts requires
-a new migration after `0133`.
 
 ## Archive Confirmation Counts
 
@@ -324,8 +278,38 @@ non-image cap); each chunk stays bounded regardless of file size. `host.read_fil
 consumers such as `POST /files/read` and revision routes keep their
 whole-file limits and SHA-256 validators. `sdk.projects.fileContent` (and
 `hyperfide platform project content`) reads through the project file routes and decides utf8 versus
-base64 from the returned bytes. Host-daemon protocol 219 introduced the chunk
-RPC; older enrolled daemons cannot serve streamed reads until updated.
+base64 from the returned bytes. A host daemon needs `host.read_file_chunk` support to serve streamed reads.
+
+Working-tree, host, thread-storage, leased-preview, and uploaded-attachment
+responses share `core/server/src/services/files/file-stream-response.ts`. It owns ranges,
+conditional requests, HEAD, bounded streaming, backpressure, and cancellation.
+The local reader opens a file handle only when bytes are needed and closes it
+on completion, cancellation, or failure. The daemon reader uses the existing
+chunk RPC and passes cancellation through to pending calls. Both readers
+validate file consistency; failures before headers return an error and failures
+after streaming begins terminate the body.
+
+Routes explicitly choose content type, cache policy, and security headers.
+Daemon files retain weak revision ETags and their sandbox/nosniff policy;
+HTML remains `no-store`. Attachments retain their immutable private cache policy
+and strong ETags. Weak validators never authorize `If-Range`; attachment ranges
+can use an exact strong ETag or Last-Modified match. Git revision reads remain
+on the separate whole-file path described above.
+
+Uploaded attachments use `GET /api/v1/projects/:id/attachments/content?path=<stored-path>`.
+This route streams single byte ranges from disk, including open-ended and suffix
+ranges, with `206`, `Accept-Ranges: bytes`, and `Content-Range`. Unsatisfiable
+ranges return `416`; malformed or multipart ranges fall back to the full `200`
+response. `If-None-Match` takes precedence over ranges. `If-Range` must match the
+strong ETag or Last-Modified value exactly; otherwise the full file is returned.
+HEAD returns full-file headers without reading the body. To check partial reads,
+use `curl -D - -H 'Range: bytes=0-1023' '<attachment-url>' -o /tmp/attachment-part`.
+
+Skill detail reads and file listings resolve symlinked skill directories on
+their owning host. The server opts into `followRootSymlink` for
+`host.read_file_relative` and `host.list_files`; other callers pass `false`.
+Relative skill reads remain confined to the resolved directory and deny dotfiles,
+and listings skip nested symlinks. Linked skills remain read-only in hyperfide platform.
 
 ## Stale Workspace Claims
 
@@ -347,8 +331,7 @@ the checkout-specific URLs, data directory, and logs directory. Stop it with
 Ctrl-C. For desktop-only changes, start
 `pnpm exec turbo run dev --filter=@hyperfide/desktop` in a second terminal.
 
-Use Node 24 and pnpm 9.15 from the repository toolchain. Run development
-commands from the monorepo root with `pnpm -C tools/hyperfide`. For remote browser
+The workspace pins Node 22.19.0 and pnpm 9.15.0. For remote browser
 QA, set `HYPERFIDE_APP_URL` to the app origin you operate before restarting the
 dev app. The host daemon accepts only configured browser origins for local
 editor access.
@@ -428,119 +411,6 @@ Filter to one package, e.g.
 `HYPERFIDE_SIDEBAR_BENCH_OUT=/tmp/sidebar.json pnpm exec turbo run bench --filter=@hyperfide/app`.
 Compare runs on an idle machine; the numbers are wall-clock timings.
 
-## Provider Corpus
-
-The provider corpus is a private set of real production threads extracted from
-a personal `~/.hyperfide/hyperfide platform.db`. It is the regression oracle for timeline projection:
-every change must project the same rows and build timelines at the same speed.
-The corpus contains real prompts, code, and paths, so it is **never
-committed**; `.gitignore` blocks every `provider-corpus/` directory except the
-in-repo harness and scripts.
-
-- Location: `~/.hyperfide/provider-corpus/` by default. Tests read it through
-  `HYPERFIDE_PROVIDER_CORPUS_DIR` and skip when the variable is unset or the directory
-  has no `manifest.json`, so CI and fresh checkouts stay green.
-- Layout: `manifest.json` (thread selection and reasons), `profile.json`,
-  `threads/<provider>/<threadId>/{meta.json,events.ndjson}`, and the generated
-  `snapshots/` directory described below.
-- Reader: `@hyperfide/test-helpers` exports `corpusAvailable()`,
-  `listCorpusThreads({ provider?, reasons? })`, and `loadCorpusThread(id)`.
-  Event rows decode through the same `parseStoredThreadEvent` the server uses.
-
-Gates under `core/server/test/provider-corpus/`:
-
-- `row-snapshots.test.ts` loads each thread into in-memory SQLite and projects
-  every timeline page the way `GET /threads/:id/timeline` does (default and
-  nested variants), then compares the rows with
-  `snapshots/rows/<provider>/<threadId>.json`.
-- `timeline-perf.test.ts` measures cold builds of the 10 largest threads per
-  provider (latest page and full page walk) and compares with
-  `snapshots/perf-baseline.json`. The CI micro-benchmark in the same file needs
-  no corpus.
-- `timeline-streaming-memo.test.ts` appends streaming rows to each thread's
-  latest turn and requires every latest-page build to equal a build on a fresh
-  connection with empty caches.
-
-Run them:
-
-```bash
-tools/workspace/provider-corpus/snapshot-rows.sh compare   # default mode, fails on diffs
-tools/workspace/provider-corpus/snapshot-rows.sh write     # refresh the baseline
-```
-
-The script wraps `pnpm exec turbo run test:provider-corpus --filter=@hyperfide/server`
-with `HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT=write|compare`. Turbo strips undeclared
-variables, so use that task (not the package `test` task) when you set the
-corpus variables. Each run writes `snapshots/rows-last-run.json` and
-`snapshots/perf-last-run.md` with totals and the perf table.
-
-Compare mode fails on any row diff that `snapshots/allowlist.json` does not
-cover. An entry names a scope, a path, and the PR that made the change:
-
-```json
-[
-  {
-    "threadId": "thr_abc123",
-    "path": "/variants/*/pages/*/rows/*/output",
-    "pr": "#1234",
-    "reason": "…"
-  },
-  {
-    "provider": "codex",
-    "path": "/variants/default/pages/**/planSteps",
-    "pr": "#1235",
-    "reason": "…"
-  },
-  { "*": true, "path": "/variants/**/maxSeq", "pr": "#1236", "reason": "…" }
-]
-```
-
-`path` is a JSON pointer over the snapshot, or a glob where `*` matches one
-segment and `**` any number. The run prints the entries it used; an entry that
-covers nothing fails the run because it is stale.
-
-`snapshots/rows` is the baseline minted on `main` and shared by every
-workstream, so never run `write` against it from a feature branch. A PR that
-intentionally changes rows carries its own allowlist in the repository
-(`core/server/test/provider-corpus/allowlists/<ws>.json`, same schema, merged
-after the shared file) and compares with
-`HYPERFIDE_PROVIDER_CORPUS_ALLOWLIST=<that file>`. A snapshot of the branch's own
-rows goes to a shadow directory: `HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT_DIR=<dir>`
-redirects both `write` and `compare`. Re-mint `snapshots/rows` from `main`
-after such a PR merges and delete the allowlist file it carried.
-
-A pointer allowlist cannot describe a change that adds or removes rows: every
-later sibling shifts and the diff reports the whole turn. For such a change,
-carry a row-class file instead
-(`core/server/test/provider-corpus/allowlists/<ws>-row-classes.json`) and set
-`HYPERFIDE_PROVIDER_CORPUS_ROW_CLASSES=<that file>` on the compare run. The gate then
-matches rows by identity (`callId`, `itemId`, `interactionId`, turn id, or row
-id), buckets every change into the first class whose matcher fits, and fails
-on a change no class claims or an entry that claims nothing (judged per
-entry, so a dead matcher cannot hide behind a sibling with the same name). A
-class names a `reason` and one matcher: `added`, `removed`, `moved` (the row left one
-nesting level for another), `resegmented` (a turn shows a different number of
-visible segments), `reshaped` (`from`/`to` kinds, optionally the other
-`fields` the reshape may touch), or `changed` with the `fields` it may touch;
-each narrows by `kind`, `workKind`, `role`, and `nested`. Turn bounds that follow a changed child fall into the built-in
-`container-bounds` class. The run prints the count per class and records them
-in `rows-last-run.json`. To iterate on the classes without re-projecting the
-corpus, mint the branch's rows once into a shadow directory and classify the
-two directories offline:
-
-```bash
-pnpm exec tsx tools/workspace/provider-corpus/classify-row-diff.ts \
-  ~/.hyperfide/provider-corpus/snapshots/rows ~/.hyperfide/provider-corpus/snapshots/rows.<ws> \
-  --classes core/server/test/provider-corpus/allowlists/<ws>-row-classes.json --verbose
-```
-
-Perf compare mode passes when each thread's normalized cost (minimum build time
-divided by a fixed CPU calibration workload run alongside it) is within 10% of
-the baseline, or within 5 ms for small latest-page builds, and the median event
-size is within 15%. Compare mode refuses a baseline written with different gate
-settings. Run the gate on a machine whose load average is below its core count;
-the table header warns when the machine is oversubscribed.
-
 ## Desktop Browser Smoke Tests
 
 ```bash
@@ -567,74 +437,6 @@ migrated test server, an authenticated host broker, the desktop broker client,
 and real Electron tabs. The harness supplies the server-to-host RPC responder,
 so it does not prove remote-machine transport. It uses no existing HYPERFIDE store or
 browser profile.
-
-## Provider-literal ratchet (G1)
-
-`node tools/workspace/check-provider-literal-ratchet.mjs` counts provider-id literals
-(`"codex"`, `"claude-code"`, `"acp-…"`, `providerId === "…"`, `isAcpProviderId`, …)
-in core (everything outside `plugins/provider-*` and `examples/`) and compares a
-per-file count against `tools/workspace/provider-literal-baseline.json`. The count may
-only go down, so adding a provider-id branch to core fails CI. After removing
-literals, regenerate the baseline with `--write` and commit it. `--list` prints
-every hit. When the baseline reaches zero, delete it and the guard. See
-[provider-plugin-api.md](provider-plugin-api.md).
-
-## File Content Routes
-
-Clients read file bytes through path-shaped GET routes, which you can `curl`
-directly:
-
-- `/api/v1/threads/:id/thread-storage/files/:path`: the thread's storage folder.
-- `/api/v1/threads/:id/host-files/:absolutePath` and
-  `/api/v1/hosts/:id/files/:absolutePath`: the thread environment's host or the
-  named host, from its filesystem root. The path omits the leading `/`; a first
-  segment such as `C:` selects that Windows drive root.
-- `/api/v1/environments/:id/files/:path` reads the environment workspace, and
-  `/api/v1/environments/:id/revisions/:ref/files/:path` reads `HEAD` or a
-  4-40 character hex commit from it.
-- `/api/v1/projects/:id/files/:path` and
-  `/api/v1/projects/:id/hosts/:hostId/files/:path`: the project's local-path
-  source on the primary or named host.
-- `GET /api/v1/file-previews/:lease/:path` reads a root leased through
-  `POST /api/v1/files/previews` (`{ hostId?, rootPath, ttlMs? }`); leases live
-  in server memory and do not survive a restart.
-
-Responses support a single HTTP byte range and carry
-`Content-Security-Policy: sandbox allow-scripts`. A file that changes before
-response headers are sent returns retryable `409 file_changed`; a change after
-streaming starts aborts the body. Revision routes ignore Range and keep the
-daemon's 25 MB non-image limit.
-
-Working-tree, host, thread-storage, leased-preview, and uploaded-attachment
-responses share `core/server/src/services/files/file-stream-response.ts`. It owns ranges,
-conditional requests, HEAD, bounded streaming, backpressure, and cancellation.
-The local reader opens a file handle only when bytes are needed and closes it
-on completion, cancellation, or failure. The daemon reader uses the existing
-chunk RPC and passes cancellation through to pending calls. Both readers
-validate file consistency; failures before headers return an error and failures
-after streaming begins terminate the body.
-
-Routes explicitly choose content type, cache policy, and security headers.
-Daemon files retain weak revision ETags and their sandbox/nosniff policy;
-HTML remains `no-store`. Attachments retain their immutable private cache policy
-and strong ETags. Weak validators never authorize `If-Range`; attachment ranges
-can use an exact strong ETag or Last-Modified match. Git revision reads remain
-on the separate whole-file path described above.
-
-Uploaded attachments use `GET /api/v1/projects/:id/attachments/content?path=<stored-path>`.
-This route streams single byte ranges from disk, including open-ended and suffix
-ranges, with `206`, `Accept-Ranges: bytes`, and `Content-Range`. Unsatisfiable
-ranges return `416`; malformed or multipart ranges fall back to the full `200`
-response. `If-None-Match` takes precedence over ranges. `If-Range` must match the
-strong ETag or Last-Modified value exactly; otherwise the full file is returned.
-HEAD returns full-file headers without reading the body. To check partial reads,
-use `curl -D - -H 'Range: bytes=0-1023' '<attachment-url>' -o /tmp/attachment-part`.
-
-Skill detail reads and file listings resolve symlinked skill directories on
-their owning host. The server opts into `followRootSymlink` for
-`host.read_file_relative` and `host.list_files`; other callers pass `false`.
-Relative skill reads remain confined to the resolved directory and deny dotfiles,
-and listings skip nested symlinks. Linked skills remain read-only in hyperfide platform.
 
 ## Prepared Worktree Restarts
 
@@ -668,14 +470,6 @@ while no build runs to clear it. `BABEL_SHOW_CONFIG_FOR` and
 `pnpm exec turbo run build --filter=@hyperfide/app --force` to rebuild without Turbo's
 whole-task cache.
 
-## Reviewing UI Code Splits
-
-See [UI code splitting](ui-code-splitting.md) for the app's `defineSplit`
-contract, explicit preload scopes, bundle-boundary guards, and parallel worker
-handoff requirements. Use an isolated production build with browser request
-interception to review loading and failure states and verify cold-download
-behavior. Keep temporary review stories and fixtures out of the final diff.
-
 ## Server Move Markers
 
 A server move or `hyperfide platform server import` leaves JSON markers in the data
@@ -705,7 +499,7 @@ payloads. A daemon on another `HOST_DAEMON_PROTOCOL_VERSION` is rejected with
 `protocol_version_mismatch` and cannot serve workspace RPCs until it updates and
 reconnects. Auto-update-enabled daemons install the server's matching `hyperfide-app`
 artifact; disabled or failed updates leave the machine disconnected until a
-manual update succeeds. The commit that bumps the version records what changed.
+manual update succeeds.
 
 ## Opt-in server performance diagnostics
 
@@ -772,9 +566,9 @@ server sees. The host daemon logs `Posted daemon event batch` at debug level
 a `Timeline push trace` line: `timelinePushTrace.maxSeq`, `withDelta` (false
 when the subscriber had no base and received the full window), `bytes`,
 `buildMs`, and `sentAt`. In the browser, the same gates add
-`performance.mark` entries: `hyperfide platform:timeline-applied` (`threadId`, `maxSeq`,
+`performance.mark` entries: `hyperfide:timeline-applied` (`threadId`, `maxSeq`,
 `source`: `fetch`, `fetch-delta`, `push`, or `push-delta`) when timeline data
-is applied, and `hyperfide platform:stream-row-commit` (`rowId`,
+is applied, and `hyperfide:stream-row-commit` (`rowId`,
 `threadId`, `textLength`) when a streaming assistant row commits. Read them with
 `performance.getEntriesByType("mark")`. Streaming assistant text is revealed a
 complete line at a time, so row commits follow line completion, not every
@@ -791,8 +585,7 @@ applied chunk.
    `stallCauseCandidate`, when a measured synchronous operation is long enough
    (within one 20 ms sample) to explain the maximum delay, and `unattributed`
    otherwise. A candidate is not a confirmed cause: both fall somewhere in the
-   five-second window. Profile processing runs in a worker and no longer emits
-   the historical `cpu-profile:*` synchronous-work labels.
+   five-second window. Profile processing runs in a worker.
 2. With performance diagnostics enabled, look for `Event loop stall attribution`
    records for the same PID and UTC window. They are emitted at the next CPU
    profile rotation (normally within 30 seconds), or on diagnostics shutdown,
@@ -829,8 +622,7 @@ applied chunk.
 The server passes `host.read_workspace_agent_context` its project skill read
 policy: at most 1,000 non-hidden, non-excluded directories, 10 MiB per
 `SKILL.md`, and 32 MiB of JSON-encoded content in total (directory metadata,
-shared skill discovery, and workspace instructions do not count). These are a
-starting policy, not a measured requirement or transport ceiling. Files over a
+shared skill discovery, and workspace instructions do not count). These limits govern skill reads. Files over a
 limit are skipped with server warnings; smaller later files can still fit, and
 count truncation is reported separately. Only exact-case `SKILL.md` files are
 read; symlinked skill directories or files and roots escaping the workspace are
@@ -857,8 +649,7 @@ their own recovery paths and continue to use ordinary cancellation.
 
 For a stale drawer or sidebar, check whether an optimistic mutation canceled
 the last realtime refresh, then whether its recovery ran after the mutation
-callbacks. Cover this ordering with real Query and Mutation observers; an
-isolated rollback helper test does not exercise mutation settlement.
+callbacks.
 
 ## Environment Status Loading
 
@@ -880,4 +671,4 @@ commits and hashes its candidate patches with Git's rename detection, cached
 separately, within 8 MiB of patch output and a 1-second deadline per attempt.
 When it cannot finish, `mergeBase.squashMergeCheckComplete` is false and the
 counts may include already squash-merged commits; the next refresh retries with
-the cached work. Daemons older than this field report `true`.
+the cached work. An absent field is read as `true`.
