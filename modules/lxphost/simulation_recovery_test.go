@@ -19,7 +19,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM909Open(t *testing.T, directory string) (*testChain, *Host, func()) {
+func simulationRecoveryOpen(t *testing.T, directory string) (*testChain, *Host, func()) {
 	t.Helper()
 	db, err := dbm.NewDB("m909", dbm.GoLevelDBBackend, directory)
 	require.NoError(t, err)
@@ -41,7 +41,7 @@ func repairM909Open(t *testing.T, directory string) (*testChain, *Host, func()) 
 	return chain, host, closeStore
 }
 
-func repairM909Records(t *testing.T, chain *testChain, asset, controller, program [32]byte) map[string][]byte {
+func simulationRecoveryRecords(t *testing.T, chain *testChain, asset, controller, program [32]byte) map[string][]byte {
 	t.Helper()
 	first, second := newTestActor(t, 201), newTestActor(t, 202)
 	records, err := m909fixture.Records(asset, controller, first.public, second.public, program)
@@ -54,7 +54,7 @@ func repairM909Records(t *testing.T, chain *testChain, asset, controller, progra
 	return records
 }
 
-func repairM909Send(t *testing.T, host *Host, actor testActor, asset testAsset, to, reference [32]byte, identitySequence, accountSequence uint64) (Activity, KernelAuthority) {
+func simulationRecoverySend(t *testing.T, host *Host, actor testActor, asset testAsset, to, reference [32]byte, identitySequence, accountSequence uint64) (Activity, KernelAuthority) {
 	t.Helper()
 	args := ledgertypes.SendArgs{From: asset.account, To: to, Asset: asset.id, Amount: sdk.NewInt(3), Sequence: accountSequence,
 		IdempotencyKey: reference, ExpiresAt: uint64(resolutionBlockTime + 1000), PublicKey: actor.public, NetworkID: testNetworkID, ProtocolVersion: stateCommitment}
@@ -71,7 +71,7 @@ func repairM909Send(t *testing.T, host *Host, actor testActor, asset testAsset, 
 	return activity, authority
 }
 
-type repairM909Fixture struct {
+type simulationRecoveryFixture struct {
 	chain     *testChain
 	host      *Host
 	close     func()
@@ -86,15 +86,15 @@ type repairM909Fixture struct {
 	authority KernelAuthority
 }
 
-func repairM909Funded(t *testing.T) *repairM909Fixture {
+func simulationRecoveryFunded(t *testing.T) *simulationRecoveryFixture {
 	t.Helper()
-	f := &repairM909Fixture{directory: t.TempDir(), actor: newTestActor(t, 0x63), program: repeated(0x71)}
-	f.chain, f.host, f.close = repairM909Open(t, f.directory)
+	f := &simulationRecoveryFixture{directory: t.TempDir(), actor: newTestActor(t, 0x63), program: repeated(0x71)}
+	f.chain, f.host, f.close = simulationRecoveryOpen(t, f.directory)
 	f.authority = f.actor.authority()
 	f.authority.AuthorityHash = sha256.Sum256(f.actor.public[:])
 	recipient := newTestActor(t, 0x64)
 	f.asset = newTestAsset(t, f.actor, 0x55)
-	repairM909Records(t, f.chain, f.asset.id, f.actor.id, f.program)
+	simulationRecoveryRecords(t, f.chain, f.asset.id, f.actor.id, f.program)
 	for i, step := range []struct {
 		actor    testActor
 		activity Activity
@@ -109,7 +109,7 @@ func repairM909Funded(t *testing.T) *repairM909Fixture {
 		require.Zero(t, receipt.ResultCode)
 	}
 	_, f.payee, _ = AssetAccountID(recipient.public, f.asset.id)
-	send, sendAuthority := repairM909Send(t, f.host, f.actor, f.asset, f.payee, repeated(0x91), 4, 0)
+	send, sendAuthority := simulationRecoverySend(t, f.host, f.actor, f.asset, f.payee, repeated(0x91), 4, 0)
 	f.paid = execute(t, f.host, f.chain.context(1, resolutionBlockTime, 6), send, sendAuthority)
 	require.Zero(t, f.paid.ResultCode)
 	require.Equal(t, f.paid.Encoded, f.chain.get(idempotencyKey(send.IdempotencyKey)))
@@ -191,27 +191,27 @@ func repairM909Funded(t *testing.T) *repairM909Fixture {
 	return f
 }
 
-func (f *repairM909Fixture) reopen(t *testing.T) {
+func (f *simulationRecoveryFixture) reopen(t *testing.T) {
 	t.Helper()
 	f.chain.commit()
 	committed := f.chain.cms.LastCommitID()
 	rows := f.chain.dump()
 	f.close()
-	f.chain, f.host, f.close = repairM909Open(t, f.directory)
+	f.chain, f.host, f.close = simulationRecoveryOpen(t, f.directory)
 	require.Equal(t, committed, f.chain.cms.LastCommitID())
 	require.Equal(t, rows, f.chain.dump())
 }
 
-func TestRepairM_909_SimulationSuccessProof(t *testing.T) {
-	f := repairM909Funded(t)
+func TestSimulationSuccessAfterReopen(t *testing.T) {
+	f := simulationRecoveryFunded(t)
 	first := simulateFundedParity(t, f.host, f.chain, f.chain.context(2, resolutionBlockTime, 8), f.call, f.authority)
 	f.reopen(t)
 	again := simulateFundedParity(t, f.host, f.chain, f.chain.context(2, resolutionBlockTime, 8), f.call, f.authority)
 	require.Equal(t, first, again)
 }
 
-func TestRepairM_909_SimulationTransferProjection(t *testing.T) {
-	f := repairM909Funded(t)
+func TestSimulationTransferProjectionAfterReopen(t *testing.T) {
+	f := simulationRecoveryFunded(t)
 	for _, reopen := range []bool{false, true} {
 		if reopen {
 			f.reopen(t)
@@ -221,8 +221,8 @@ func TestRepairM_909_SimulationTransferProjection(t *testing.T) {
 	}
 }
 
-func TestRepairM_909_SimulationReceiptAuthorities(t *testing.T) {
-	f := repairM909Funded(t)
+func TestSimulationReceiptAuthoritiesAfterReopen(t *testing.T) {
+	f := simulationRecoveryFunded(t)
 	f.reopen(t)
 	persisted := f.chain.get(idempotencyKey(repeated(0x91)))
 	require.Equal(t, f.paid.Encoded, persisted)
@@ -286,15 +286,15 @@ func TestRepairM_909_SimulationReceiptAuthorities(t *testing.T) {
 	require.Equal(t, refused, simulated)
 }
 
-func TestRepairM_909_SimulationPaymentReference(t *testing.T) {
-	f := repairM909Funded(t)
+func TestSimulationPaymentReferenceAfterReopen(t *testing.T) {
+	f := simulationRecoveryFunded(t)
 	for _, reopen := range []bool{false, true} {
 		if reopen {
 			f.reopen(t)
 		}
 		ctx := f.chain.context(2, resolutionBlockTime, 8)
 		before := f.chain.dump()
-		duplicate, authority := repairM909Send(t, f.host, f.actor, f.asset, f.payee, repeated(0x91), 6, 1)
+		duplicate, authority := simulationRecoverySend(t, f.host, f.actor, f.asset, f.payee, repeated(0x91), 6, 1)
 		sibling, _ := ctx.CacheContext()
 		executed, executeErr := f.host.Execute(sibling, duplicate, authority)
 		require.Equal(t, codeIdempotentReplay, executeErr)
@@ -303,7 +303,7 @@ func TestRepairM_909_SimulationPaymentReference(t *testing.T) {
 		require.Equal(t, executeErr, err)
 		require.Equal(t, Receipt{}, simulated)
 		require.Equal(t, before, f.chain.dump())
-		fresh, _ := repairM909Send(t, f.host, f.actor, f.asset, f.payee, repeated(0x92), 6, 1)
+		fresh, _ := simulationRecoverySend(t, f.host, f.actor, f.asset, f.payee, repeated(0x92), 6, 1)
 		sibling, _ = ctx.CacheContext()
 		positive, err := f.host.Execute(sibling, fresh, authority)
 		require.NoError(t, err)
@@ -315,20 +315,20 @@ func TestRepairM_909_SimulationPaymentReference(t *testing.T) {
 	}
 }
 
-func TestRepairM_909_SimulationFeeRecordLoading(t *testing.T) {
+func TestSimulationFeeRecordLoadingAfterReopen(t *testing.T) {
 	fixture := newFeeRecordLoadFixture(t, false)
 	directory := t.TempDir()
-	chain, host, closeStore := repairM909Open(t, directory)
+	chain, host, closeStore := simulationRecoveryOpen(t, directory)
 	for key, value := range fixture.chain.dump() {
 		chain.context(1, feeRecordLoadTime, 2).KVStore(chain.key).Set([]byte(key), value)
 	}
-	records := repairM909Records(t, chain, fixture.asset, fixture.actor.id, repeated(0x71))
+	records := simulationRecoveryRecords(t, chain, fixture.asset, fixture.actor.id, repeated(0x71))
 	for _, reopen := range []bool{false, true} {
 		if reopen {
 			chain.commit()
 			committed := chain.cms.LastCommitID()
 			closeStore()
-			chain, host, closeStore = repairM909Open(t, directory)
+			chain, host, closeStore = simulationRecoveryOpen(t, directory)
 			require.Equal(t, committed, chain.cms.LastCommitID())
 		}
 		ctx := chain.context(2, feeRecordLoadTime, 2)
@@ -349,6 +349,6 @@ func TestRepairM_909_SimulationFeeRecordLoading(t *testing.T) {
 	}
 }
 
-func TestRepairM_909_ProgramReadProducerProof(t *testing.T) {
+func TestProgramReadLifecycleProducers(t *testing.T) {
 	testReadProgramLifecycleProducers(t)
 }

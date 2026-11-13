@@ -21,7 +21,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair25Open(t *testing.T, directory string, epoch uint64) (*proofHostChain, *lxphost.Host, func()) {
+func paymentMigrationOpen(t *testing.T, directory string, epoch uint64) (*proofHostChain, *lxphost.Host, func()) {
 	t.Helper()
 	db, err := dbm.NewDB("repair25", dbm.GoLevelDBBackend, directory)
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func repair25Open(t *testing.T, directory string, epoch uint64) (*proofHostChain
 	return chain, host, closeStore
 }
 
-func repair25Activity(t *testing.T, host *lxphost.Host, private ed25519.PrivateKey, authority lxphost.KernelAuthority, kind uint32, sequence uint64, payload []byte, reference [32]byte, limit uint64) lxphost.Activity {
+func paymentMigrationActivity(t *testing.T, host *lxphost.Host, private ed25519.PrivateKey, authority lxphost.KernelAuthority, kind uint32, sequence uint64, payload []byte, reference [32]byte, limit uint64) lxphost.Activity {
 	t.Helper()
 	activity := proofHostActivity(authority, payload)
 	activity.Type, activity.AccountSequence, activity.IdempotencyKey = kind, sequence, reference
@@ -57,16 +57,16 @@ func repair25Activity(t *testing.T, host *lxphost.Host, private ed25519.PrivateK
 	return activity
 }
 
-func repair25Execute(t *testing.T, chain *proofHostChain, host *lxphost.Host, private ed25519.PrivateKey, authority lxphost.KernelAuthority, kind uint32, identitySequence, globalSequence uint64, payload []byte) lxphost.Receipt {
+func paymentMigrationExecute(t *testing.T, chain *proofHostChain, host *lxphost.Host, private ed25519.PrivateKey, authority lxphost.KernelAuthority, kind uint32, identitySequence, globalSequence uint64, payload []byte) lxphost.Receipt {
 	t.Helper()
-	activity := repair25Activity(t, host, private, authority, kind, identitySequence, payload, sha256.Sum256(payload), 0)
+	activity := paymentMigrationActivity(t, host, private, authority, kind, identitySequence, payload, sha256.Sum256(payload), 0)
 	receipt, err := host.Execute(chain.context(globalSequence), activity, authority)
 	require.NoError(t, err)
 	require.Zero(t, receipt.ResultCode)
 	return receipt
 }
 
-func repair25Asset(t *testing.T, chain *proofHostChain, host *lxphost.Host, private ed25519.PrivateKey, authority lxphost.KernelAuthority, amount int64) ([32]byte, [32]byte) {
+func paymentMigrationAsset(t *testing.T, chain *proofHostChain, host *lxphost.Host, private ed25519.PrivateKey, authority lxphost.KernelAuthority, amount int64) ([32]byte, [32]byte) {
 	t.Helper()
 	salt := [32]byte{0x25}
 	asset := sha256.Sum256(append(append([]byte("LX:ASSET:v1"), authority.Actor[:]...), salt[:]...))
@@ -75,20 +75,20 @@ func repair25Asset(t *testing.T, chain *proofHostChain, host *lxphost.Host, priv
 		SupplyCap: sdk.NewInt(amount), IssuerKind: 1,
 	})
 	require.NoError(t, err)
-	registered := repair25Execute(t, chain, host, private, authority, 0x00010001, 0, 1, payload)
+	registered := paymentMigrationExecute(t, chain, host, private, authority, 0x00010001, 0, 1, payload)
 	require.Error(t, (lxphost.StoreGenesis{LastSequence: 1, Records: []kv.Pair{{
 		Key: append([]byte{4}, asset[:]...), Value: registered.Encoded,
 	}}}).Validate(), "generic activity receipts must never restore retired idempotency state")
-	repair25Execute(t, chain, host, private, authority, 0x00010004, 1, 2, ledgertypes.EncodeOpenAccountPayload(asset))
+	paymentMigrationExecute(t, chain, host, private, authority, 0x00010004, 1, 2, ledgertypes.EncodeOpenAccountPayload(asset))
 	_, payer, err := lxphost.AssetAccountID(authority.VerifiedKey, asset)
 	require.NoError(t, err)
 	payload, err = ledgertypes.EncodeSupplyPayload(asset, payer, sdk.NewInt(amount))
 	require.NoError(t, err)
-	repair25Execute(t, chain, host, private, authority, 0x0001000a, 2, 3, payload)
+	paymentMigrationExecute(t, chain, host, private, authority, 0x0001000a, 2, 3, payload)
 	return asset, payer
 }
 
-func repair25Send(t *testing.T, host *lxphost.Host, private ed25519.PrivateKey, authority lxphost.KernelAuthority, asset, from, to, reference [32]byte, identitySequence, accountSequence uint64) lxphost.Activity {
+func paymentMigrationSend(t *testing.T, host *lxphost.Host, private ed25519.PrivateKey, authority lxphost.KernelAuthority, asset, from, to, reference [32]byte, identitySequence, accountSequence uint64) lxphost.Activity {
 	t.Helper()
 	args := ledgertypes.SendArgs{
 		From: from, To: to, Asset: asset, Amount: sdk.NewInt(3), Sequence: accountSequence,
@@ -107,25 +107,25 @@ func repair25Send(t *testing.T, host *lxphost.Host, private ed25519.PrivateKey, 
 	digest, err := codec.DomainHash(codec.DomainSignaturePreimage, message)
 	require.NoError(t, err)
 	copy(payload[262:326], ed25519.Sign(private, digest[:]))
-	return repair25Activity(t, host, private, authority, 0x00010005, identitySequence, payload, reference, 0)
+	return paymentMigrationActivity(t, host, private, authority, 0x00010005, identitySequence, payload, reference, 0)
 }
 
-func TestRepair_25_payment_reference_genesis(t *testing.T) {
+func TestPaymentReferenceGenesis(t *testing.T) {
 	for _, bound := range []bool{false, true} {
 		name := "signed"
 		if bound {
 			name = "bound"
 		}
 		t.Run(name, func(t *testing.T) {
-			chain, host, closeSource := repair25Open(t, t.TempDir(), 0)
+			chain, host, closeSource := paymentMigrationOpen(t, t.TempDir(), 0)
 			private, payerAuthority := proofHostAuthority(t, 121)
 			payeePrivate, payeeAuthority := proofHostAuthority(t, 122)
-			asset, payer := repair25Asset(t, chain, host, private, payerAuthority, 25)
-			repair25Execute(t, chain, host, payeePrivate, payeeAuthority, 0x00010004, 0, 4, ledgertypes.EncodeOpenAccountPayload(asset))
+			asset, payer := paymentMigrationAsset(t, chain, host, private, payerAuthority, 25)
+			paymentMigrationExecute(t, chain, host, payeePrivate, payeeAuthority, 0x00010004, 0, 4, ledgertypes.EncodeOpenAccountPayload(asset))
 			_, payee, err := lxphost.AssetAccountID(payeeAuthority.VerifiedKey, asset)
 			require.NoError(t, err)
 			reference := [32]byte{0x31}
-			payment := repair25Send(t, host, private, payerAuthority, asset, payer, payee, reference, 3, 0)
+			payment := paymentMigrationSend(t, host, private, payerAuthority, asset, payer, payee, reference, 3, 0)
 			if bound {
 				clear(payment.Payload[262:326])
 				payment.Signature = nil
@@ -151,22 +151,22 @@ func TestRepair_25_payment_reference_genesis(t *testing.T) {
 			closeSource()
 
 			directory := t.TempDir()
-			restored, importedHost, closeImported := repair25Open(t, directory, 0)
+			restored, importedHost, closeImported := paymentMigrationOpen(t, directory, 0)
 			lxphost.NewStoreAppModule(restored.key).InitGenesis(restored.context(6), nil, document)
 			require.Equal(t, document, lxphost.NewStoreAppModule(restored.key).ExportGenesis(restored.context(6), nil))
 			restored.cms.Commit(true)
 			commitID := restored.cms.LastCommitID()
 			closeImported()
-			restored, importedHost, _ = repair25Open(t, directory, 0)
+			restored, importedHost, _ = paymentMigrationOpen(t, directory, 0)
 			require.Equal(t, commitID, restored.cms.LastCommitID())
 			require.Equal(t, paid.Encoded, restored.context(6).KVStore(restored.key).Get(key))
 			before := restored.rows()
-			duplicate := repair25Send(t, importedHost, private, payerAuthority, asset, payer, payee, reference, 4, 1)
+			duplicate := paymentMigrationSend(t, importedHost, private, payerAuthority, asset, payer, payee, reference, 4, 1)
 			refused, err := importedHost.Execute(restored.context(6), duplicate, payerAuthority)
 			require.ErrorIs(t, err, lxphost.Code(-302))
 			require.Empty(t, refused.Encoded)
 			require.Equal(t, before, restored.rows())
-			fresh := repair25Send(t, importedHost, private, payerAuthority, asset, payer, payee, [32]byte{0x32}, 4, 1)
+			fresh := paymentMigrationSend(t, importedHost, private, payerAuthority, asset, payer, payee, [32]byte{0x32}, 4, 1)
 			accepted, err := importedHost.Execute(restored.context(6), fresh, payerAuthority)
 			require.NoError(t, err)
 			require.Zero(t, accepted.ResultCode)
@@ -205,9 +205,9 @@ func TestRepair_25_payment_reference_genesis(t *testing.T) {
 	}
 }
 
-func repair25ModuleKey(key []byte) []byte { return append([]byte{1, 0, 9}, key...) }
+func paymentMigrationModuleKey(key []byte) []byte { return append([]byte{1, 0, 9}, key...) }
 
-func repair25Account(t *testing.T, chain *proofHostChain, name string, asset, authority [32]byte, amount uint64) [32]byte {
+func paymentMigrationAccount(t *testing.T, chain *proofHostChain, name string, asset, authority [32]byte, amount uint64) [32]byte {
 	t.Helper()
 	id, err := codec.DeriveAccountID([]byte(name))
 	require.NoError(t, err)
@@ -237,7 +237,7 @@ func repair25Account(t *testing.T, chain *proofHostChain, name string, asset, au
 	return id
 }
 
-func repair25Schedules(chain *proofHostChain, asset, authority [32]byte) {
+func paymentMigrationSchedules(chain *proofHostChain, asset, authority [32]byte) {
 	store := chain.context(4).KVStore(chain.key)
 	fee := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
 	for i := 0; i < 7; i++ {
@@ -249,16 +249,16 @@ func repair25Schedules(chain *proofHostChain, asset, authority [32]byte) {
 	}
 	fee = append(fee, authority[:]...)
 	fee = append(fee, make([]byte, 16)...)
-	store.Set(repair25ModuleKey([]byte("progfee/active/v1")), fee)
-	store.Set(repair25ModuleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
+	store.Set(paymentMigrationModuleKey([]byte("progfee/active/v1")), fee)
+	store.Set(paymentMigrationModuleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
 	metering := binary.BigEndian.AppendUint32([]byte("LXMR1"), 1)
 	for _, v := range []uint64{1, 1, 1, 1, 1, 8, 8, 64, 8, 1} {
 		metering = binary.BigEndian.AppendUint64(metering, v)
 	}
 	metering = append(metering, 1)
 	metering = append(metering, authority[:]...)
-	store.Set(repair25ModuleKey([]byte("progmet/active/v1")), metering)
-	store.Set(repair25ModuleKey(binary.BigEndian.AppendUint32([]byte("progmet/history/v1/"), 1)), metering)
+	store.Set(paymentMigrationModuleKey([]byte("progmet/active/v1")), metering)
+	store.Set(paymentMigrationModuleKey(binary.BigEndian.AppendUint32([]byte("progmet/history/v1/"), 1)), metering)
 	profile := binary.BigEndian.AppendUint32([]byte("LXMB1"), 1)
 	profile = binary.BigEndian.AppendUint32(profile, 4)
 	profile = binary.BigEndian.AppendUint32(profile, 1)
@@ -272,11 +272,11 @@ func repair25Schedules(chain *proofHostChain, asset, authority [32]byte) {
 	history := binary.BigEndian.AppendUint32([]byte("progmig/history/v1/"), 4)
 	history = binary.BigEndian.AppendUint32(history, 1)
 	history = binary.BigEndian.AppendUint64(history, 1)
-	store.Set(repair25ModuleKey(history), profile)
-	store.Set(repair25ModuleKey([]byte("progmig/active/v1")), profile)
+	store.Set(paymentMigrationModuleKey(history), profile)
+	store.Set(paymentMigrationModuleKey([]byte("progmig/active/v1")), profile)
 }
 
-func repair25Wasm(trap bool, marker byte) []byte {
+func paymentMigrationWasm(trap bool, marker byte) []byte {
 	wasm := []byte{0, 97, 115, 109, 1, 0, 0, 0}
 	section := func(id byte, body []byte) { wasm = append(wasm, id, byte(len(body))); wasm = append(wasm, body...) }
 	section(1, []byte{3, 0x60, 2, 0x7f, 0x7f, 1, 0x7f, 0x60, 1, 0x7f, 1, 0x7f, 0x60, 0, 0})
@@ -301,9 +301,9 @@ func repair25Wasm(trap bool, marker byte) []byte {
 	return wasm
 }
 
-func TestRepair_25_migration_fee_binding(t *testing.T) {
+func TestMigrationFeeBinding(t *testing.T) {
 	directory := t.TempDir()
-	chain, host, closeStore := repair25Open(t, directory, 1)
+	chain, host, closeStore := paymentMigrationOpen(t, directory, 1)
 	private, authority := proofHostAuthority(t, 123)
 	authority.Kind = lxphost.AuthorityKindOwner
 	var err error
@@ -311,29 +311,29 @@ func TestRepair_25_migration_fee_binding(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, [32]byte{}, authority.AuthorityHash)
 	const funding = int64(1000000000)
-	asset, payer := repair25Asset(t, chain, host, private, authority, funding)
+	asset, payer := paymentMigrationAsset(t, chain, host, private, authority, funding)
 	name, main, err := lxphost.MainAccountID(authority.VerifiedKey)
 	require.NoError(t, err)
 	admissionAsset := [32]byte{0x91}
-	require.Equal(t, main, repair25Account(t, chain, name, admissionAsset, authority.VerifiedKey, uint64(funding)))
-	treasury := repair25Account(t, chain, "system:fees", asset, [32]byte{}, 0)
-	repair25Schedules(chain, asset, authority.Principal)
+	require.Equal(t, main, paymentMigrationAccount(t, chain, name, admissionAsset, authority.VerifiedKey, uint64(funding)))
+	treasury := paymentMigrationAccount(t, chain, "system:fees", asset, [32]byte{}, 0)
+	paymentMigrationSchedules(chain, asset, authority.Principal)
 	program := sha256.Sum256([]byte("repair25-migration"))
-	oldWasm := repair25Wasm(false, 1)
+	oldWasm := paymentMigrationWasm(false, 1)
 	oldHash := sha256.Sum256(oldWasm)
 	payload, err := lp.EncodeDeployPayload(program, 1, 1, authority.Principal, oldHash, nil, oldWasm)
 	require.NoError(t, err)
-	repair25Execute(t, chain, host, private, authority, 0x00090001, 3, 4, payload)
+	paymentMigrationExecute(t, chain, host, private, authority, 0x00090001, 3, 4, payload)
 	chain.cms.Commit(true)
 	before := chain.rows()
 	upgrade := func(wasm []byte, ref byte) lxphost.Activity {
 		t.Helper()
 		payload, err := lp.EncodeUpgradePayload(program, 1, 1, oldHash, sha256.Sum256(wasm), []byte("migrate"), nil, wasm)
 		require.NoError(t, err)
-		return repair25Activity(t, host, private, authority, 0x00090002, 4, payload, [32]byte{ref}, 100000000)
+		return paymentMigrationActivity(t, host, private, authority, 0x00090002, 4, payload, [32]byte{ref}, 100000000)
 	}
 	failedContext, _ := chain.context(5).CacheContext()
-	failed, err := host.Execute(failedContext, upgrade(repair25Wasm(true, 2), 0x41), authority)
+	failed, err := host.Execute(failedContext, upgrade(paymentMigrationWasm(true, 2), 0x41), authority)
 	require.NoError(t, err)
 	require.Equal(t, lxphost.Code(-3), failed.ResultCode)
 	require.True(t, failed.FeeCharged.IsZero())
@@ -345,7 +345,7 @@ func TestRepair_25_migration_fee_binding(t *testing.T) {
 	}
 	require.NoError(t, iterator.Close())
 	require.Equal(t, before, chain.rows(), "failed migration must roll back balances, program, blobs and sequences")
-	nextWasm := repair25Wasm(false, 3)
+	nextWasm := paymentMigrationWasm(false, 3)
 	migration := upgrade(nextWasm, 0x42)
 	overflowContext, _ := chain.context(5).CacheContext()
 	treasuryKey := append([]byte{6}, treasury[:]...)
@@ -384,7 +384,7 @@ func TestRepair_25_migration_fee_binding(t *testing.T) {
 	decoded, err := codec.DecodeReceipt(paid.Encoded)
 	require.NoError(t, err)
 	require.Equal(t, uint16(9), decoded.ModuleID)
-	accountingKey := repair25ModuleKey(append([]byte("progmig/account/v1/"), decoded.ActivityID[:]...))
+	accountingKey := paymentMigrationModuleKey(append([]byte("progmig/account/v1/"), decoded.ActivityID[:]...))
 	accounting := chain.context(6).KVStore(chain.key).Get(accountingKey)
 	require.Len(t, accounting, 613)
 	require.Equal(t, payer[:], accounting[189:221])
@@ -412,7 +412,7 @@ func TestRepair_25_migration_fee_binding(t *testing.T) {
 	commitID := chain.cms.LastCommitID()
 	committed := chain.rows()
 	closeStore()
-	chain, host, _ = repair25Open(t, directory, 1)
+	chain, host, _ = paymentMigrationOpen(t, directory, 1)
 	require.Equal(t, commitID, chain.cms.LastCommitID())
 	require.Equal(t, committed, chain.rows())
 	assertRecovered()
