@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1424_GenesisAccountingRestartRecovery(t *testing.T) {
+func TestGenesisAccountingRestartRecovery(t *testing.T) {
 	// These fixtures use the production bank, EVM address resolver, keeper,
 	// codec and IAVL store; closing the node releases its on-disk LevelDB.
-	registry := repair196Registry(t)
+	registry := genesisHistoryRegistry(t)
 	sourceDir, targetDir := t.TempDir(), t.TempDir()
-	source := repair196Open(t, sourceDir)
+	source := openGenesisHistoryNode(t, sourceDir)
 	require.NoError(t, source.k.InitGenesis(source.ctx, registry))
 	first, second := registry.Domains[0].Id, registry.Domains[1].Id
 	rows := []keeper.DomainHistory{
@@ -37,7 +37,7 @@ func TestRepairM_1424_GenesisAccountingRestartRecovery(t *testing.T) {
 	source.k.SetNextBaseFee(source.ctx, second, sdk.MustNewDecFromStr("987.654"))
 	require.NoError(t, source.k.SetOperator(source.ctx, operator, first, other))
 	require.NoError(t, source.k.Pause(source.ctx, operator, second))
-	assertHistory := func(n *repair196Node) {
+	assertHistory := func(n *genesisHistoryNode) {
 		t.Helper()
 		for _, row := range rows {
 			require.Equal(t, row.TxHashes, n.k.DomainTxs(n.ctx, row.DomainID, row.Height), "domain %d height %d membership", row.DomainID, row.Height)
@@ -59,7 +59,7 @@ func TestRepairM_1424_GenesisAccountingRestartRecovery(t *testing.T) {
 	raw, err := json.Marshal(gs)
 	require.NoError(t, err)
 	source.close(t)
-	source = repair196Open(t, sourceDir)
+	source = openGenesisHistoryNode(t, sourceDir)
 	assertHistory(source)
 	require.Equal(t, before, snapshot(source.ctx, source.key))
 	require.Equal(t, gs, source.k.ExportGenesisWithHistory(source.ctx))
@@ -68,12 +68,12 @@ func TestRepairM_1424_GenesisAccountingRestartRecovery(t *testing.T) {
 	require.NoError(t, json.Unmarshal(raw, &decoded))
 	require.NoError(t, decoded.Validate())
 	require.Equal(t, *gs, decoded)
-	target := repair196Open(t, targetDir)
+	target := openGenesisHistoryNode(t, targetDir)
 	require.Empty(t, snapshot(target.ctx, target.key))
 	require.NoError(t, target.k.InitGenesisWithHistory(target.ctx, decoded))
 	target.cms.Commit(true)
 	target.close(t)
-	target = repair196Open(t, targetDir)
+	target = openGenesisHistoryNode(t, targetDir)
 	assertHistory(target)
 	require.Equal(t, before, snapshot(target.ctx, target.key))
 	require.Equal(t, gs.Params, target.k.GetParams(target.ctx))
@@ -100,6 +100,6 @@ func TestRepairM_1424_GenesisAccountingRestartRecovery(t *testing.T) {
 	rows[0].GasUsed += 101
 	target.cms.Commit(true)
 	target.close(t)
-	target = repair196Open(t, targetDir)
+	target = openGenesisHistoryNode(t, targetDir)
 	assertHistory(target)
 }
