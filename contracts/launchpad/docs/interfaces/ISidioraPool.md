@@ -4,6 +4,8 @@
 
 Interface for the core AMM pool contract (beacon proxy instances)
 
+Source: [ISidioraPool.sol](../../contracts/interfaces/ISidioraPool.sol).
+
 ### DeadlineExpired
 
 ```solidity
@@ -72,18 +74,18 @@ Execute a swap
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| amountIn | uint256 | Amount of input token |
-| minAmountOut | uint256 | Minimum output (slippage protection) |
-| isBuy | bool | True = USDL→Token, False = Token→USDL |
-| recipient | address | Address to receive output tokens |
-| deadline | uint256 | Transaction deadline timestamp |
+| Name         | Type    | Description                           |
+| ------------ | ------- | ------------------------------------- |
+| amountIn     | uint256 | Amount of input token                 |
+| minAmountOut | uint256 | Minimum output (slippage protection)  |
+| isBuy        | bool    | True = USDL→Token, False = Token→USDL |
+| recipient    | address | Address to receive output tokens      |
+| deadline     | uint256 | Transaction deadline timestamp        |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description          |
+| --------- | ------- | -------------------- |
 | amountOut | uint256 | Actual output amount |
 
 ### syncReserves
@@ -96,9 +98,9 @@ Re-read actual token balances (used by LP_REWARDS strategy)
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| usdlBalance | uint256 | Current USDL balance |
+| Name         | Type    | Description           |
+| ------------ | ------- | --------------------- |
+| usdlBalance  | uint256 | Current USDL balance  |
 | tokenBalance | uint256 | Current token balance |
 
 ### getReserves
@@ -123,7 +125,8 @@ Get effective reserves (virtual + real USDL, token)
 function getPrice() external view returns (uint256)
 ```
 
-Get current token price in USDL (Q128 fixed-point)
+Get current token price in USDL with 18 decimal scaling; returns zero when the token reserve is
+zero.
 
 ### getPoolInfo
 
@@ -173,3 +176,19 @@ function getPriceSnapshots() external view returns (uint256[8])
 
 Get price snapshots for volatility calculation
 
+### swapFor
+
+```solidity
+function swapFor(uint256 amountIn, uint256 minAmountOut, bool isBuy, address trader, address recipient, uint256 deadline) external returns (uint256)
+```
+
+An authenticated router supplies the original trader separately from recipient. The caller must hold
+ROUTER_ROLE in the pool’s factory.
+
+### currentFeeBps
+
+```solidity
+function currentFeeBps() external view returns (uint256)
+```
+
+Returns the current dynamic fee in basis points.

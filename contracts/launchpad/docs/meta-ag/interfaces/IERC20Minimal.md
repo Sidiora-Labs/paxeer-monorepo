@@ -2,15 +2,10 @@
 
 ## IERC20Minimal
 
-Zero-dep minimal ERC20 surface used by the Sidiora Meta-AG stack.
+Minimal ERC20 interface for the Meta-AG contracts. It provides balance, supply, allowance, transfer,
+approval and decimal queries without an external package dependency.
 
-_Introduced in Phase 3 (Task 3.1) as the first internal consumer of ERC20
-     view/transfer semantics beyond oracle reads. Later phases (engine,
-     adapters, router) reuse this interface verbatim to keep the meta-ag
-     layer free of external dependencies.
-
-     This file is scoped to `contracts/meta-ag/` and does not expand the
-     Phase 1 frozen public surface — it is an internal utility interface._
+Source: [IERC20Minimal.sol](../../../contracts/meta-ag/interfaces/IERC20Minimal.sol).
 
 ### balanceOf
 
@@ -53,4 +48,3 @@ function allowance(address owner, address spender) external view returns (uint25
 ```solidity
 function decimals() external view returns (uint8)
 ```
-

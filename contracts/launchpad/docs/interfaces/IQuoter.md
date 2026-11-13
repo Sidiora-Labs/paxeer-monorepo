@@ -4,6 +4,8 @@
 
 Interface for read-only quote and data access (no state changes)
 
+Source: [IQuoter.sol](../../contracts/interfaces/IQuoter.sol).
+
 ### QuoteResult
 
 ```solidity
@@ -55,17 +57,17 @@ Quote exact input amount for a swap
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address |
-| amountIn | uint256 | Exact input amount |
-| isBuy | bool | True = USDL→Token, False = Token→USDL |
+| Name     | Type    | Description                           |
+| -------- | ------- | ------------------------------------- |
+| pool     | address | The pool address                      |
+| amountIn | uint256 | Exact input amount                    |
+| isBuy    | bool    | True = USDL→Token, False = Token→USDL |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| result | struct IQuoter.QuoteResult | QuoteResult with amountOut, feeAmount, priceImpact |
+| Name   | Type                       | Description                                           |
+| ------ | -------------------------- | ----------------------------------------------------- |
+| result | struct IQuoter.QuoteResult | QuoteResult with amountOut, feeAmount, priceImpactBps |
 
 ### getPoolPrice
 
@@ -117,15 +119,14 @@ Simulate a multihop swap: Token A → USDL → Token B
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | Address of the token to sell |
-| tokenOut | address | Address of the token to buy |
-| amountIn | uint256 | Amount of tokenIn to sell |
+| Name     | Type    | Description                  |
+| -------- | ------- | ---------------------------- |
+| tokenIn  | address | Address of the token to sell |
+| tokenOut | address | Address of the token to buy  |
+| amountIn | uint256 | Amount of tokenIn to sell    |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type                               | Description                                 |
+| ------ | ---------------------------------- | ------------------------------------------- |
 | result | struct IQuoter.MultihopQuoteResult | MultihopQuoteResult with both legs' details |
-

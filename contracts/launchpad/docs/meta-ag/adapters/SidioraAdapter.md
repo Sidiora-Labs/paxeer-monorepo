@@ -2,25 +2,19 @@
 
 ## SidioraAdapter
 
-Plugs the live Sidiora Launchpad Router/Quoter/PoolRegistry into
-        MetaAGRouter. Supports buy (USDL → token), sell (token → USDL),
-        and multihop (token → USDL → token) routes.
+Connects MetaAGRouter to the Sidiora Router, Quoter and PoolRegistry for USDL-to-token,
+token-to-USDL and token-to-token swaps.
 
-_Spec §7.10. Port of `dev/adapters/SidioraAdapter.sol` with:
-      - Live launchpad interfaces (`IRouter`, `IQuoter`, `IPoolRegistry`)
-      - FIX: `swapTokenToToken` → `swapTokenForToken` (actual live name)
-      - FIX: `swapTokenForToken` returns `(amountOut, intermediateUsdl)`
-      - Zero OpenZeppelin: `forceApprove` → `TransferHelper.safeApprove`
-        with S9 zero-first reset before approval, zero-reset after.
-      - Ownable → AccessControl with DEFAULT_ADMIN_ROLE on Timelock.
+The caller approves this adapter and must equal `from`. The adapter pulls the exact input, approves
+the Sidiora Router, executes `buy`, `sell` or `swapTokenForToken`, resets the Router allowance to
+zero, and forwards the received output to `recipient`. Input transfers that change the expected
+amount revert with `TransferAmountMismatch`. Pools with a nonzero optical are excluded from quotes
+and execution. A zero deadline means no expiry.
 
-Flow:
-  1. caller (MetaAGRouter) approves this adapter for `amountIn` of tokenIn
-  2. executeSwap pulls tokenIn from `from` into the adapter
-  3. adapter approves the live Sidiora Router (zero→amountIn, S9)
-  4. adapter calls buy/sell/swapTokenForToken on the live Router
-  5. adapter resets approval to 0 (S9 cleanup)
-  6. adapter forwards received tokenOut to `recipient`_
+`DEFAULT_ADMIN_ROLE` controls configuration. The adapter ID is `keccak256("SidioraAMM.v1")`, its
+name is `"SidioraAMM.v1"`, and its version is `"1.0.0"`.
+
+Source: [SidioraAdapter.sol](../../../contracts/meta-ag/adapters/SidioraAdapter.sol).
 
 ### ZeroAddress
 
@@ -118,13 +112,13 @@ function setUsdl(address usdl_) external
 function adapterId() external pure returns (bytes32)
 ```
 
-Unique identifier for this adapter (e.g., keccak256("Sidiora.v1"))
+Returns `keccak256("SidioraAMM.v1")`.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | bytes32 |             |
 
 ### adapterName
 
@@ -136,9 +130,9 @@ Human-readable name for this adapter
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
 ### adapterVersion
 
@@ -150,9 +144,9 @@ Protocol version string
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
 ### supportsSwap
 
@@ -164,16 +158,16 @@ Check if this adapter supports a specific token pair
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | The input token address |
+| Name     | Type    | Description              |
+| -------- | ------- | ------------------------ |
+| tokenIn  | address | The input token address  |
 | tokenOut | address | The output token address |
 
 #### Return Values
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | bool |  |
+| [0]  | bool |             |
 
 ### getSupportedPairs
 
@@ -183,14 +177,14 @@ function getSupportedPairs() external pure returns (address[] tokenIns, address[
 
 Get all token pairs this adapter currently supports
 
-_Sidiora pools are dynamically discovered via the registry; returning
-     an empty list is the cheapest and forwards discovery to supportsSwap._
+_Sidiora pools are dynamically discovered via the registry; returning an empty list is the cheapest
+and forwards discovery to supportsSwap._
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIns | address[] | Array of input token addresses |
+| Name      | Type      | Description                                   |
+| --------- | --------- | --------------------------------------------- |
+| tokenIns  | address[] | Array of input token addresses                |
 | tokenOuts | address[] | Array of corresponding output token addresses |
 
 ### getMaxInput
@@ -201,20 +195,23 @@ function getMaxInput(address tokenIn, address tokenOut) external view returns (u
 
 Get the maximum input amount this adapter can handle for a pair
 
-_Returns type(uint256).max if no practical limit_
+For a supported USDL input, returns `type(uint256).max`. For a token input, returns the conservative
+sell bound `realUsdl * tokenReserve / virtualUsdl`. Returns zero when the pair is unsupported,
+reserves cannot be read, or real USDL liquidity is zero; a zero virtual reserve returns
+`type(uint256).max`.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | The input token |
+| Name     | Type    | Description      |
+| -------- | ------- | ---------------- |
+| tokenIn  | address | The input token  |
 | tokenOut | address | The output token |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | uint256 |             |
 
 ### getQuote
 
@@ -228,16 +225,16 @@ _Invariant I1 — never reverts. Returns `available=false` on any issue._
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | The input token address |
+| Name     | Type    | Description              |
+| -------- | ------- | ------------------------ |
+| tokenIn  | address | The input token address  |
 | tokenOut | address | The output token address |
-| amountIn | uint256 | The exact input amount |
+| amountIn | uint256 | The exact input amount   |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type                                | Description                                                     |
+| ------ | ----------------------------------- | --------------------------------------------------------------- |
 | result | struct IProtocolAdapter.QuoteResult | The QuoteResult with amountOut, impact, fee, and execution data |
 
 ### executeSwap
@@ -248,38 +245,71 @@ function executeSwap(address tokenIn, address tokenOut, uint256 amountIn, uint25
 
 Execute a swap through this adapter
 
-_Caller must have approved THIS adapter for at least `amountIn` of tokenIn
-     before calling. The adapter performs the S9 approval-reset dance against
-     the live Sidiora Router to stay compatible with non-standard ERC20s._
+`from` must equal the caller and approve this adapter for at least `amountIn`. `adapterData` encodes
+`(uint8 mode, address poolA, address poolB)` from the quote; execution validates the mode and
+resolves pools through the registry. Input receipt must match `amountIn`, the input balance must
+return to its starting value, and the recipient's received output must meet `minAmountOut`.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | The input token address |
-| tokenOut | address | The output token address |
-| amountIn | uint256 | The exact input amount |
-| minAmountOut | uint256 | Minimum acceptable output (slippage guard) |
-| from | address | Address to pull tokenIn from (must have approved) |
-| recipient | address | Address to send tokenOut to |
-| deadline | uint256 | Unix timestamp after which the swap reverts |
-| adapterData | bytes | Encoded execution data from getQuote() (e.g., pool address) |
+| Name         | Type    | Description                                                 |
+| ------------ | ------- | ----------------------------------------------------------- |
+| tokenIn      | address | The input token address                                     |
+| tokenOut     | address | The output token address                                    |
+| amountIn     | uint256 | The exact input amount                                      |
+| minAmountOut | uint256 | Minimum acceptable output (slippage guard)                  |
+| from         | address | Payer; must equal msg.sender and have approved this adapter |
+| recipient    | address | Address to send tokenOut to                                 |
+| deadline     | uint256 | Unix timestamp after which the swap reverts                 |
+| adapterData  | bytes   | Encoded execution data from getQuote() (e.g., pool address) |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type                               | Description                                  |
+| ------ | ---------------------------------- | -------------------------------------------- |
 | result | struct IProtocolAdapter.SwapResult | The SwapResult with actual amountOut and fee |
 
-### _hasPool
+### \_hasPool
 
 ```solidity
 function _hasPool(address token) internal view returns (bool)
 ```
 
-### _getPool
+### \_getPool
 
 ```solidity
 function _getPool(address token) internal view returns (address pool)
 ```
 
+### UnauthorizedPayer
+
+```solidity
+error UnauthorizedPayer()
+```
+
+### TransferAmountMismatch
+
+```solidity
+error TransferAmountMismatch()
+```
+
+### ConfigurationUpdated
+
+```solidity
+event ConfigurationUpdated(bytes32 indexed field, address oldValue, address newValue)
+```
+
+### quoteChecked
+
+```solidity
+function quoteChecked(address tokenIn, address tokenOut, uint256 amountIn) external view returns (QuoteResult memory result)
+```
+
+Builds a quote directly and may revert on dependency errors. getQuote catches such errors and
+returns an unavailable result.
+
+### \_hasRealLiquidity
+
+```solidity
+function _hasRealLiquidity(address pool, uint256 output) internal view returns (bool)
+```

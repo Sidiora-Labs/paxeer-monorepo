@@ -4,6 +4,8 @@
 
 Interface for the user-facing entry point for all protocol interactions
 
+Source: [IRouter.sol](../../contracts/interfaces/IRouter.sol).
+
 ### ZeroAddress
 
 ```solidity
@@ -57,25 +59,25 @@ struct PermitParams {
 ### MarketCreated
 
 ```solidity
-event MarketCreated(address token, address pool, address creator, uint256 nftId)
+event MarketCreated(address indexed token, address indexed pool, address indexed creator, uint256 nftId)
 ```
 
 ### Buy
 
 ```solidity
-event Buy(address pool, address buyer, uint256 usdlIn, uint256 tokensOut)
+event Buy(address indexed pool, address indexed buyer, uint256 usdlIn, uint256 tokensOut)
 ```
 
 ### Sell
 
 ```solidity
-event Sell(address pool, address seller, uint256 tokensIn, uint256 usdlOut)
+event Sell(address indexed pool, address indexed seller, uint256 tokensIn, uint256 usdlOut)
 ```
 
 ### MultihopSwap
 
 ```solidity
-event MultihopSwap(address sender, address tokenIn, address tokenOut, uint256 amountIn, uint256 intermediateUsdl, uint256 amountOut)
+event MultihopSwap(address indexed sender, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 intermediateUsdl, uint256 amountOut)
 ```
 
 ### createMarket
@@ -88,20 +90,20 @@ Create a new market (token + pool + NFT)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| name | string | Token name |
-| symbol | string | Token symbol |
-| feeStrategy | uint8 | Initial fee strategy (0=CLAIM,1=BURN,2=AIRDROP,3=LP_REWARDS) |
-| optical | address | Optional optical hook contract (address(0) for none) |
+| Name        | Type    | Description                                                  |
+| ----------- | ------- | ------------------------------------------------------------ |
+| name        | string  | Token name                                                   |
+| symbol      | string  | Token symbol                                                 |
+| feeStrategy | uint8   | Initial fee strategy (0=CLAIM,1=BURN,2=AIRDROP,3=LP_REWARDS) |
+| optical     | address | Optional optical hook contract (address(0) for none)         |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description                |
+| --------- | ------- | -------------------------- |
 | tokenAddr | address | The deployed token address |
-| poolAddr | address | The deployed pool address |
-| nftId | uint256 | The minted NFT token ID |
+| poolAddr  | address | The deployed pool address  |
+| nftId     | uint256 | The minted NFT token ID    |
 
 ### buy
 
@@ -113,17 +115,17 @@ Buy tokens with USDL
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address to buy from |
-| usdlAmountIn | uint256 | Amount of USDL to spend |
+| Name         | Type    | Description                                     |
+| ------------ | ------- | ----------------------------------------------- |
+| pool         | address | The pool address to buy from                    |
+| usdlAmountIn | uint256 | Amount of USDL to spend                         |
 | minTokensOut | uint256 | Minimum tokens to receive (slippage protection) |
-| deadline | uint256 | Transaction deadline timestamp |
+| deadline     | uint256 | Transaction deadline timestamp                  |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description            |
+| --------- | ------- | ---------------------- |
 | amountOut | uint256 | Actual tokens received |
 
 ### sell
@@ -136,17 +138,17 @@ Sell tokens for USDL
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| pool | address | The pool address to sell to |
-| tokenAmountIn | uint256 | Amount of tokens to sell |
-| minUsdlOut | uint256 | Minimum USDL to receive (slippage protection) |
-| deadline | uint256 | Transaction deadline timestamp |
+| Name          | Type    | Description                                   |
+| ------------- | ------- | --------------------------------------------- |
+| pool          | address | The pool address to sell to                   |
+| tokenAmountIn | uint256 | Amount of tokens to sell                      |
+| minUsdlOut    | uint256 | Minimum USDL to receive (slippage protection) |
+| deadline      | uint256 | Transaction deadline timestamp                |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description          |
+| --------- | ------- | -------------------- |
 | amountOut | uint256 | Actual USDL received |
 
 ### swapTokenForToken
@@ -159,19 +161,19 @@ Swap Token A → USDL → Token B in a single transaction
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | Address of the token to sell |
-| tokenOut | address | Address of the token to buy |
-| amountIn | uint256 | Amount of tokenIn to sell |
+| Name         | Type    | Description                                                  |
+| ------------ | ------- | ------------------------------------------------------------ |
+| tokenIn      | address | Address of the token to sell                                 |
+| tokenOut     | address | Address of the token to buy                                  |
+| amountIn     | uint256 | Amount of tokenIn to sell                                    |
 | minAmountOut | uint256 | Minimum tokenOut to receive (end-to-end slippage protection) |
-| deadline | uint256 | Transaction deadline timestamp |
+| deadline     | uint256 | Transaction deadline timestamp                               |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| amountOut | uint256 | Actual tokenOut received |
+| Name             | Type    | Description                            |
+| ---------------- | ------- | -------------------------------------- |
+| amountOut        | uint256 | Actual tokenOut received               |
 | intermediateUsdl | uint256 | USDL amount received from the sell leg |
 
 ### buyWithPermit
@@ -205,4 +207,3 @@ function createMarketWithPermit(string name, string symbol, uint8 feeStrategy, a
 ```
 
 Create a new market using EIP-2612 permit for USDL creation fee
-
