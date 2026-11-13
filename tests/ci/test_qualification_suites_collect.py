@@ -239,16 +239,6 @@ def test_repair_record_settles_every_baseline_entry(qualification_evidence):
     assert not unresolved, "Unsettled baseline entries:\n" + "\n".join(unresolved)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "tools/qualification/audit_repairs/test_gateway_receipt_key_provisioning.py, "
-        "test_kernel_backend_readiness.py, test_kernel_container_state_and_identity.py "
-        "and tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py "
-        "name fixture and owner helper paths that do not exist."
-    ),
-)
 def test_qualification_modules_collect():
     result = subprocess.run(
         [sys.executable, "-m", "pytest", "--collect-only", "-q", "tools/qualification"],
@@ -262,14 +252,6 @@ def test_qualification_modules_collect():
     assert "ERROR collecting" not in output, output
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=FileNotFoundError,
-    reason=(
-        "tools/qualification/audit_repairs/test_gateway_receipt_key_provisioning.py "
-        "names repair_22_33_1335_committed.json instead of committed_evidence.json."
-    ),
-)
 def test_gateway_env_items_are_read_by_name():
     path = ROOT / "tools/qualification/audit_repairs/test_gateway_receipt_key_provisioning.py"
     spec = importlib.util.spec_from_file_location("gateway_receipt_key_audit", path)
