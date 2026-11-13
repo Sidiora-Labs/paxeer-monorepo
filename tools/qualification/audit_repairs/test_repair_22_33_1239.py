@@ -14,7 +14,7 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-RECORD = Path(__file__).with_name("repair_22_33_1239.kvx")
+RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1239.kvx"
 
 
 def source(path):
@@ -246,7 +246,7 @@ def test_repair_record_maps_the_audit_finding_to_declared_proofs():
     }
     assert record["meta"]["task"] == "22.33.1239"
     assert record["qualification"]["verify_cmd"] == (
-        "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1239.py"
+        "python3 -m pytest -q tools/qualification/audit_repairs/test_readme_retired_daemon.py"
     )
     assert record["qualification"]["evidence_ledger"] == "/out/run/gates.jsonl"
     assert "not run" in record["baseline"]["verification"]

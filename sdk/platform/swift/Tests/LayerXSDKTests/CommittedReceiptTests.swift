@@ -344,11 +344,11 @@ final class CommittedReceiptTests: XCTestCase {
 
 extension CommittedReceiptTests {
   func testRecordedNodeCommitRequiresIndependentCheckpointAndRefusesAttackerValidators() throws {
-    try Self.proveRecordedCommitTrust1398()
+    try Self.proveRecordedCommitTrust()
   }
 
-  static func proveRecordedCommitTrust1398() throws {
-    typealias E = RecordedProgramEvidence1398
+  static func proveRecordedCommitTrust() throws {
+    typealias E = RecordedProgramEvidence
     let (vector, view) = try E.recordedCommitted()
     let evidence = try E.evidence(vector)
     let receipt = try E.verify(vector, view: view)

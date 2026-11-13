@@ -93,7 +93,7 @@ func TestReportedReaderRejectsMissingAndInconsistentBlocks(t *testing.T) {
 	if _, _, _, err := absent.rawReportedBlock(context.Background(), "eth_getBlockByNumber", "0x7", false); err == nil {
 		t.Fatal("missing reader admitted")
 	}
-	chain := repair38OpenChain(t, true)
+	chain := preflightFixtureOpenChain(t, true)
 	pinned := reportedPinnedReader{chain: chain.reader, reads: chain.reader, blocks: map[common.Hash]*types.Header{}}
 	for name, call := range map[string]func() error{
 		"header": func() error { _, err := pinned.HeaderByHash(context.Background(), hash); return err },

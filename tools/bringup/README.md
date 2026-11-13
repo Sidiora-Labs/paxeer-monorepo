@@ -40,8 +40,8 @@ This directory holds the scripts, Go inspection library and command, deployment 
 | [foundation_cli.go](foundation_cli.go) | Inspector operations for foundation artifacts, native genesis, identities and fleet transport. |
 | [live_cli.go](live_cli.go) | Inspector operations for committed transactions and live service checks. |
 | [repair_cli.go](repair_cli.go) | Inspector operations for edge routes, deployment roles and event handoffs. |
-| [repair_m795_cli.go](repair_m795_cli.go) | Inspector operations for archive state, retained material and recovery. |
-| [repair_m798_cli.go](repair_m798_cli.go) | Inspector operations for upgrades and x-websearch. |
+| [recovery_cli.go](recovery_cli.go) | Inspector operations for archive state, retained material and recovery. |
+| [upgrade_xweb_cli.go](upgrade_xweb_cli.go) | Inspector operations for upgrades and x-websearch. |
 | [qualification_contract.go](qualification_contract.go) | Validates source-bound artifact manifests and protected artifact inputs. |
 | [inventory.go](inventory.go) | Reads and validates the public endpoint inventory. |
 | [foundation.go](foundation.go) | Native genesis, committed node observations and artifact validation. |

@@ -22,11 +22,11 @@ final class ProgramsContractTests: XCTestCase {
   }
 
   func testPendingReceiptMayOmitRetainedBytesButMustBindExpectedActivity() async throws {
-    try await Self.proveRetainedPending1398()
+    try await Self.proveRetainedPending()
   }
 
   func testOperationValueVerificationStatusMatrixIsExact() throws {
-    try Self.proveCurrentDaemonStatuses1398()
+    try Self.proveCurrentDaemonStatuses()
   }
 
   func testTransferSetV1AndV2ProduceTheSameCanonicalKernelRoot() throws {
@@ -125,7 +125,7 @@ final class ProgramsContractTests: XCTestCase {
   }
 
   func testSignedDiscoveryRequiresExactCanonicalProofAndIndependentPin() async throws {
-    try await Self.proveCurrentRegistry1398()
+    try await Self.proveCurrentRegistry()
     let signer = try Curve25519.Signing.PrivateKey(
       rawRepresentation: Data(repeating: 0x42, count: 32))
     let pin = signer.publicKey.rawRepresentation
@@ -431,8 +431,8 @@ extension Data {
 }
 
 extension ProgramsContractTests {
-  static func proveRetainedPending1398() async throws {
-    typealias E = RecordedProgramEvidence1398
+  static func proveRetainedPending() async throws {
+    typealias E = RecordedProgramEvidence
     let (vector, _) = try E.recordedCommitted()
     let view = try E.object(vector, "receiptJson")
     let hashText = try E.text(view, "txHash")
@@ -444,11 +444,11 @@ extension ProgramsContractTests {
       "rung": .string("submitted"), "txHash": .string(hashText),
       "nonce": try XCTUnwrap(view["nonce"]),
     ])
-    let steps: [ProgramReplayServer1398.Exchange] = [
+    let steps: [RecordedProgramReplayServer.Exchange] = [
       .init("eth_getTransactionByHash", [.string(hashText)], .object(["hash": .string(hashText)])),
       .init("pax_sequencerReceipt", [.string(hashText)], submitted),
     ]
-    let server = try ProgramReplayServer1398(steps)
+    let server = try RecordedProgramReplayServer(steps)
     defer { server.stop() }
     let pending = try await E.client(server).receipt(
       idempotencyKey: key,
@@ -464,7 +464,7 @@ extension ProgramsContractTests {
 
     let wrongHash = Data(repeating: 0x12, count: 32)
     let wrongText = E.wireHex(wrongHash)
-    let mismatch = try ProgramReplayServer1398([
+    let mismatch = try RecordedProgramReplayServer([
       .init("eth_getTransactionByHash", [.string(wrongText)], .object(["hash": .string(hashText)]))
     ])
     defer { mismatch.stop() }
@@ -477,7 +477,7 @@ extension ProgramsContractTests {
       XCTAssertEqual(error.code, .verificationFailure)
     }
     mismatch.assertConsumed(1)
-    let unknown = try ProgramReplayServer1398([
+    let unknown = try RecordedProgramReplayServer([
       .init("eth_getTransactionByHash", [.string(hashText)], .null)
     ])
     defer { unknown.stop() }
@@ -500,8 +500,8 @@ extension ProgramsContractTests {
     server.assertConsumed(2)
   }
 
-  static func proveCurrentDaemonStatuses1398() throws {
-    typealias E = RecordedProgramEvidence1398
+  static func proveCurrentDaemonStatuses() throws {
+    typealias E = RecordedProgramEvidence
     let directory = "services/agent/schema/agent-api/golden/"
     for name in ["agent-http-success", "agent-http-success-pending", "agent-http-success-absent"] {
       let url = E.root.appendingPathComponent(directory + name + ".json")
@@ -569,8 +569,8 @@ extension ProgramsContractTests {
     }
   }
 
-  static func proveCurrentRegistry1398() async throws {
-    typealias E = RecordedProgramEvidence1398
+  static func proveCurrentRegistry() async throws {
+    typealias E = RecordedProgramEvidence
     let document = try E.fixture("native-program-deploy-v4")
     let payload = try nativeTransportHex(E.text(document, "payload_hex"))
     let operation = try NativeProgramDeploy.decode(payload)
@@ -579,7 +579,7 @@ extension ProgramsContractTests {
     let authority = Data(payload[36..<68])
     let codeHash = Data(payload[68..<100])
     XCTAssertEqual(calldata, try E.bytes(E.object(document, "evm"), "calldata"))
-    let interface = try lifecycleDynamicFields1398(calldata, offsets: [160, 192], headSize: 224)[0]
+    let interface = try lifecycleDynamicFields(calldata, offsets: [160, 192], headSize: 224)[0]
     // ABI-encoded registry return values use the deployed fixture's real code and interface.
     // The ABI encoder is production code; these are pending reads and claim no receipt proof.
     let registry = try ProgramABI.encode(
@@ -605,7 +605,7 @@ extension ProgramsContractTests {
         .string("pending"),
       ]
     }
-    let server = try ProgramReplayServer1398([
+    let server = try RecordedProgramReplayServer([
       .init("eth_call", try params("b1ffb3d4"), .string(E.wireHex(Data(registry)))),
       .init("eth_call", try params("8efc7240"), .string(E.wireHex(Data(interfaceResult)))),
     ])
@@ -637,7 +637,7 @@ extension ProgramsContractTests {
     server.assertConsumed(2)
   }
 
-  private static func lifecycleDynamicFields1398(_ calldata: Data, offsets: [Int], headSize: Int)
+  private static func lifecycleDynamicFields(_ calldata: Data, offsets: [Int], headSize: Int)
     throws -> [Data]
   {
     let body = Data(calldata.dropFirst(4))
@@ -659,14 +659,14 @@ extension ProgramsContractTests {
     return fields
   }
 
-  static func proveABIFiveRegistration1398() async throws {
-    typealias E = RecordedProgramEvidence1398
+  static func proveABIFiveRegistration() async throws {
+    typealias E = RecordedProgramEvidence
     let document = try E.fixture("native-program-deploy-v4")
     let payload = try nativeTransportHex(E.text(document, "payload_hex"))
     let decoded = try NativeProgramDeploy.decode(payload)
     let originalCalldata = try NativeProgramLifecycleRequest.calldata(operation: decoded)
     XCTAssertEqual(originalCalldata, try E.bytes(E.object(document, "evm"), "calldata"))
-    let originalFields = try lifecycleDynamicFields1398(
+    let originalFields = try lifecycleDynamicFields(
       originalCalldata, offsets: [160, 192], headSize: 224)
     let wasm = originalFields[1]
     var interface = originalFields[0]
@@ -688,14 +688,14 @@ extension ProgramsContractTests {
     let abiBody = Data(calldata.dropFirst(4))
     XCTAssertEqual(calldata.prefix(4), try E.hex("0xbde3ff66"))
     XCTAssertEqual(try ProgramABI.integer(abiBody, at: 32, width: 2), 5)
-    let fields = try lifecycleDynamicFields1398(calldata, offsets: [160, 192], headSize: 224)
+    let fields = try lifecycleDynamicFields(calldata, offsets: [160, 192], headSize: 224)
     XCTAssertEqual(fields[0], interface)
     XCTAssertEqual(fields[1], wasm)
     let sender = Data(repeating: 0x55, count: 20)
     let unsigned = UnsignedProgramTransaction(
       sender: sender, nonce: 7, gas: 0,
       maxFeePerGas: 100, maxPriorityFeePerGas: 2, calldata: calldata)
-    let server = try ProgramReplayServer1398([
+    let server = try RecordedProgramReplayServer([
       .init(
         "eth_getTransactionCount", [.string(E.wireHex(sender)), .string("pending")], .string("0x7")),
       .init(
@@ -719,7 +719,7 @@ extension ProgramsContractTests {
       feeLimit: ProtocolAmount("1000"))
     XCTAssertEqual(upgradeCalldata.prefix(4), try E.hex("0xa860929f"))
     XCTAssertEqual(try ProgramABI.integer(Data(upgradeCalldata.dropFirst(4)), at: 32, width: 2), 5)
-    let upgradeFields = try lifecycleDynamicFields1398(
+    let upgradeFields = try lifecycleDynamicFields(
       upgradeCalldata, offsets: [160, 192, 224], headSize: 288)
     XCTAssertTrue(upgradeFields[0].isEmpty)
     XCTAssertEqual(upgradeFields[1], interface)

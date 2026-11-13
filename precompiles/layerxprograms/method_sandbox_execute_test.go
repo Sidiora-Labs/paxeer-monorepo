@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-//go:embed testdata/repair_m213_lease_request.hex
+//go:embed testdata/sandbox_lease_request.hex
 var sandboxLeaseRequestHex string
 
 const sandboxLeaseStateDomain = "LayerX/programs/sandbox/lease-state/v3\x00"
@@ -399,7 +399,7 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 	t.Logf("sandbox reference context: EVM transaction %x, transient store %s, assigned call ordinal %d", txHash, transient.Name(), ordinal)
 	require.NoError(t, err, "independent native sandbox submission")
 	require.Zero(t, receipt.ResultCode)
-	transferRoot := repair251TransferRoot(t, receipt)
+	transferRoot := programsReceiptTransferRoot(t, receipt)
 	require.NotEqual(t, [32]byte{}, transferRoot)
 
 	data, _, err := h.evm.Call(h.caller, h.precompile.Address(), input, 2000000, uint256.NewInt(0))
@@ -472,12 +472,12 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 	messages := sdk.TxMsgData{Data: []*sdk.MsgData{{MsgType: sdk.MsgTypeURL(&evmtypes.MsgEVMTransaction{}), Data: responseBytes}}}
 	resultBytes, err := messages.Marshal()
 	require.NoError(t, err)
-	t.Logf("repair_m213_execute_result=%x", resultBytes)
-	t.Logf("repair_m213_usage_ledger=%x", ledger)
-	recordedResult, err := hex.DecodeString(strings.TrimSpace(repairM213ExecuteResultHex))
+	t.Logf("sandbox_execute_result=%x", resultBytes)
+	t.Logf("sandbox_usage_ledger=%x", ledger)
+	recordedResult, err := hex.DecodeString(strings.TrimSpace(sandboxExecuteResultHex))
 	require.NoError(t, err)
 	require.Equal(t, recordedResult, resultBytes, "the consumer fixture must be the production-encoded live EVM result")
-	recordedLedger, err := hex.DecodeString(strings.TrimSpace(repairM213UsageLedgerHex))
+	recordedLedger, err := hex.DecodeString(strings.TrimSpace(sandboxUsageLedgerHex))
 	require.NoError(t, err)
 	require.Equal(t, recordedLedger, ledger, "the independently recorded ledger must match the live host state")
 }

@@ -15,13 +15,13 @@ use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
 
-#[path = "support/repair_22_33_1490.rs"]
-pub mod repair_1490;
-pub use repair_1490::*;
+#[path = "support/recovery_payment.rs"]
+pub mod recovery_payment;
+pub use recovery_payment::*;
 
 #[test]
 fn recorded_node_receipt_and_mutated_execution_reach_production_authenticator() {
-    repair_1490::recorded_receipt();
+    recovery_payment::recorded_receipt();
 }
 
 pub(crate) fn order(direction: RampDirection) -> RampOrder {

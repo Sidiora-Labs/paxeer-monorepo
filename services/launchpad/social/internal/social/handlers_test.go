@@ -115,7 +115,7 @@ type durableHarness struct {
 
 func newDurableHarness(t *testing.T, wallets []string, pools map[string]string) *durableHarness {
 	t.Helper()
-	store, authenticate, sessions := social.NewRepair68ChatFixture(t, wallets, pools)
+	store, authenticate, sessions := social.NewDurableChatFixture(t, wallets, pools)
 	r := chi.NewRouter()
 	social.New(social.Deps{Durable: store, AuthenticateChat: authenticate}).RegisterRoutes(r)
 	server := httptest.NewServer(r)
@@ -491,7 +491,7 @@ func TestFollows(t *testing.T) {
 // ── Moderation ────────────────────────────────────────────────────────────────
 
 func TestModeration(t *testing.T) {
-	social.RunRepairM1029Moderation(t)
+	social.RunVerifiedModerationLifecycle(t)
 }
 
 // TestAdminDisabled verifies that an unconfigured admin key returns 503.

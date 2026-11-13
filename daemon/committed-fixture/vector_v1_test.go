@@ -117,7 +117,7 @@ func TestVectorV1ReceiptedPositiveVerifies(t *testing.T) {
 }
 
 func TestVectorV1ProgramsRecorder(t *testing.T) {
-	runtime := repairM1092Recorder(t, true)
+	runtime := startRecorder(t, true)
 	v, err := recordV1ProgramsRPC(runtime.node, runtime.payer, runtime.pins, vectorV2Provenance{
 		Revision: "4299cb15eced23eb9a839162acd11e9a937edd05", ChainID: "pax-test", Generator: "daemon/committed-fixture/vector_v1.go", Command: "committed-fixture record --vector " + v1ProgramsName,
 	})

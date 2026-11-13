@@ -1,0 +1,144 @@
+[manifest]
+task = "22.43.84"
+records_moved = 6
+files_renamed = 7
+
+[file.1]
+from = "precompiles/layerxprograms/repair_22_31_584_test.go"
+to = "precompiles/layerxprograms/sandbox_execute_fixture_test.go"
+
+[file.2]
+from = "precompiles/layerxprograms/repair_251_test.go"
+to = "precompiles/layerxprograms/execution_contract_test.go"
+
+[file.3]
+from = "precompiles/layerxprograms/repair_m212_test.go"
+to = "precompiles/layerxprograms/merge_contract_test.go"
+
+[file.4]
+from = "precompiles/layerxprograms/repair_m213_test.go"
+to = "precompiles/layerxprograms/native_execution_contract_test.go"
+
+[file.5]
+from = "precompiles/layerxprograms/testdata/repair_m213_execute_result.hex"
+to = "precompiles/layerxprograms/testdata/sandbox_execute_result.hex"
+
+[file.6]
+from = "precompiles/layerxprograms/testdata/repair_m213_lease_request.hex"
+to = "precompiles/layerxprograms/testdata/sandbox_lease_request.hex"
+
+[file.7]
+from = "precompiles/layerxprograms/testdata/repair_m213_usage_ledger.hex"
+to = "precompiles/layerxprograms/testdata/sandbox_usage_ledger.hex"
+
+[file.8]
+from = "precompiles/layerxprograms/repair_22_31_582.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxprograms/repair_22_31_582.kvx"
+
+[file.9]
+from = "precompiles/layerxprograms/repair_22_31_584.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxprograms/repair_22_31_584.kvx"
+
+[file.10]
+from = "precompiles/layerxprograms/repair_22_39_232.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxprograms/repair_22_39_232.kvx"
+
+[file.11]
+from = "precompiles/layerxprograms/repair_251.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxprograms/repair_251.kvx"
+
+[file.12]
+from = "precompiles/layerxprograms/repair_m212.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxprograms/repair_m212.kvx"
+
+[file.13]
+from = "precompiles/layerxprograms/repair_m213.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxprograms/repair_m213.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "precompiles/layerxprograms/repair_m212_test.go"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repairM212Merge"
+
+[reference.3]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "precompiles/layerxprograms/repair_m212_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "precompiles/layerxprograms/repair_m213_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepairM_213_StorageEnvironmentResponse"
+
+[reference.6]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/layerxprograms/repair_m212_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/layerxprograms/repair_m213_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair22_31_584"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_213_StorageEnvironmentRecordedConsumer"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_213_StorageEnvironmentResponse"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/repair_22_31_582.kvx"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/repair_22_31_584.kvx"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/repair_22_31_584_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/repair_22_39_232.kvx"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/repair_251_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/repair_m212_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/repair_m213.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/repair_m213_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/testdata/repair_m213_execute_result.hex"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/testdata/repair_m213_lease_request.hex"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxprograms/testdata/repair_m213_usage_ledger.hex"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repairM212Merge"

@@ -90,6 +90,10 @@ for (const page of await loadPages()) {
   findContent(source)
   visit(contentRoot)
   for (const segment of segments) index.push({ title: segment.title, pageTitle, href: segment.href, section, content: clean(segment.content.join(' ')), heading: segment.heading })
+  for (const system of page.systems) index.push({
+    title: system.title, pageTitle, href: `${href}#system-${system.id}`, section, heading: true,
+    content: clean([system.id, system.kind, system.change, system.path, system.build, system.artefact, system.configuration, ...system.ports, system.health, ...system.depends].join(' ')),
+  })
 }
 
 await mkdir(path.join(root, 'public'), { recursive: true })

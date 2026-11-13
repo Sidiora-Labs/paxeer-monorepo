@@ -1,0 +1,68 @@
+[manifest]
+task = "22.43.36"
+records_moved = 4
+files_renamed = 4
+
+[file.1]
+from = "consensus/privval/repair_170_test.go"
+to = "consensus/privval/file_signing_persistence_test.go"
+
+[file.2]
+from = "consensus/privval/repair_m1086_test.go"
+to = "consensus/privval/signer_transport_test.go"
+
+[file.3]
+from = "consensus/privval/grpc/repair_171_test.go"
+to = "consensus/privval/grpc/signing_safety_test.go"
+
+[file.4]
+from = "consensus/privval/grpc/repair_m1085_test.go"
+to = "consensus/privval/grpc/client_lifecycle_tls_test.go"
+
+[file.5]
+from = "consensus/privval/grpc/repair_171.kvx"
+to = "spec/layerx-merge/programme/records/consensus/privval/grpc/repair_171.kvx"
+
+[file.6]
+from = "consensus/privval/grpc/repair_m1085.kvx"
+to = "spec/layerx-merge/programme/records/consensus/privval/grpc/repair_m1085.kvx"
+
+[file.7]
+from = "consensus/privval/repair_170.kvx"
+to = "spec/layerx-merge/programme/records/consensus/privval/repair_170.kvx"
+
+[file.8]
+from = "consensus/privval/repair_m1086.kvx"
+to = "spec/layerx-merge/programme/records/consensus/privval/repair_m1086.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/privval/repair_170_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/privval/repair_m1086_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/privval/grpc/repair_171_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "consensus/privval/grpc/repair_m1085_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_170_"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1086_"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_171_"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1085_"

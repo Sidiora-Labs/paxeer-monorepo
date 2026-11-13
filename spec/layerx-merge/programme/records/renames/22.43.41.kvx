@@ -1,0 +1,24 @@
+[manifest]
+task = "22.43.41"
+records_moved = 2
+files_renamed = 1
+
+[file.1]
+from = "contracts/bridge/solana/repair_22_31_449.json"
+to = "contracts/bridge/solana/dependency-advisories.json"
+
+[file.2]
+from = "contracts/bridge/solana/dependency-advisories.json"
+to = "spec/layerx-merge/programme/records/contracts/bridge/solana/dependency-advisories.json"
+
+[file.3]
+from = "contracts/repair_22_39_507.kvx"
+to = "spec/layerx-merge/programme/records/contracts/repair_22_39_507.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "contracts/repair_22_39_507.kvx"
+
+[reference.2]
+file = "tools/qualification/audit_repairs/test_repair_22_31_449.py"
+name = "repair_22_31_449.json"

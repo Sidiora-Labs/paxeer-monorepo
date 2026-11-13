@@ -593,7 +593,7 @@ returns `unbonding_responses` and `pagination`.
 ## Executable response examples
 
 The Params JSON above and the following redelegation example are checked by
-`TestRepairM_690_ClientExamples` against the production keeper, Protobuf query
+`TestStakingDocumentation_ClientExamples` against the production keeper, Protobuf query
 router, REST gateway and CLI. They use a local committed fixture, not a mainnet
 snapshot. The fixture stores all eight code-default parameters, delegates
 `10000000uhpx`, and redelegates `5000000uhpx` at block 10 from an unbonding
@@ -672,7 +672,7 @@ pagination flags, so it does not request a count and returns `total: "0"`.
 ```
 
 The CLI response examples for the same keeper fixture are below.
-`TestRepairM_690_ClientExamples` compares them field for field with the real
+`TestStakingDocumentation_ClientExamples` compares them field for field with the real
 client output and records that output in its private verification log.
 The Params CLI prints the object directly, without the REST
 `params` envelope.

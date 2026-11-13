@@ -92,5 +92,5 @@ single denied validator, charges 10 gas for that entry, and succeeds. The real
 staking handler then records the delegation if its usual funding and validator
 checks pass. The authorization update retains the deny-only policy for subsequent
 executions. Delegation to the denied validator fails with `ErrUnauthorized`.
-`TestRepairM_691_ConceptsDenyOnly` proves this with the real store, codec, router,
+`TestConceptsDenyOnly` proves this with the real store, codec, router,
 bank and staking keepers after reopening the store.

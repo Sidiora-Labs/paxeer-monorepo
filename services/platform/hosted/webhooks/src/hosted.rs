@@ -2312,7 +2312,7 @@ pub(crate) fn push_failure(
 }
 
 #[cfg(test)]
-#[path = "repair_22_33_1328_hosted.rs"]
+#[path = "hosted_service_support.rs"]
 pub mod repair_support;
 
 /// Decodes the documented environment settings through one validated retry bound.

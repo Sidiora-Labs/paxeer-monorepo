@@ -15,7 +15,7 @@ import (
 )
 
 func TestClaimPreparationValidatesRequestAndReplayBinding(t *testing.T) {
-	f := repair62Chain(t)
+	f := rewardHistoryChain(t)
 	ctx := context.Background()
 	body := iface.RewardClaimBody{RewardIds: []string{"creator:1"}, Recipient: f.chain.Alice}
 	for _, tc := range []struct {

@@ -643,5 +643,5 @@ fn program_registry_list_pages_bounded_ranges() -> Result<(), String> {
 }
 
 // Audit proofs use committed node output and production CLI consumers.
-#[path = "repair_22_33_1496.rs"]
-mod audit_22_33_1496;
+#[path = "program_and_wallet_receipts.rs"]
+mod program_and_wallet_receipts;
