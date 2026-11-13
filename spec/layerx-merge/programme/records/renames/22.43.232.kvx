@@ -1,0 +1,32 @@
+[manifest]
+task = "22.43.232"
+records_moved = 2
+files_renamed = 0
+
+[file.1]
+from = "wasm-runtime/libwasmvm/repair_22_31_450.kvx"
+to = "spec/layerx-merge/programme/records/wasm-runtime/libwasmvm/repair_22_31_450.kvx"
+
+[file.2]
+from = "wasm-runtime/libwasmvm/repair_22_39_506.kvx"
+to = "spec/layerx-merge/programme/records/wasm-runtime/libwasmvm/repair_22_39_506.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_22_31_450.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/programme/docs/rewrite/22.32.191.kvx"
+name = "repair_22_31_450.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_450.kvx"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_506.kvx"
+
+[reference.5]
+file = "tools/qualification/audit_repairs/test_repair_22_31_450.py"
+name = "repair_22_31_450.kvx"
