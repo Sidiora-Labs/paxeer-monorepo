@@ -361882,7 +361882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.23]
 title = "Review the documentation pages of lines 1428 to 1466 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -361944,7 +361944,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.21]
 title = "Review the documentation pages of lines 1313 to 1370 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362130,7 +362130,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.15]
 title = "Review the documentation pages of lines 654 to 693 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362192,7 +362192,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.13]
 title = "Review the documentation pages of lines 575 to 614 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362223,7 +362223,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.12]
 title = "Review the documentation pages of lines 535 to 574 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362254,7 +362254,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.11]
 title = "Review the documentation pages of lines 495 to 534 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362533,7 +362533,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.2]
 title = "Review the documentation pages of lines 47 to 101 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362564,7 +362564,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.1]
 title = "Review the documentation pages of lines 1 to 46 of the page list against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
