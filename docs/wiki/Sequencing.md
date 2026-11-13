@@ -6,9 +6,8 @@ executes transactions, signs receipts, and proposes those transactions in the
 same order. A transaction receipt is final when its block is committed.
 
 Sequencing is an integrated node role implemented in `node/sequencer/`.
-There is no separate sequencer service. The pre-merge execution/settlement split
-and guarantor checkpoint finality are retired. If the network cannot commit
-blocks, new receipts cannot progress to committed finality.
+If the network cannot commit blocks, new receipts cannot progress to committed
+finality.
 
 See [Data availability](DataAvailability.md) for durability and retrieval, and
 [Program porting crates](Porting.md) for program execution and state mappings.
@@ -111,27 +110,22 @@ and `sequencer.microbatch-max-count`. Enabled roles require positive nonce-queue
 bounds (`sequencer.nonce-queue-max-per-sender` and
 `sequencer.nonce-queue-max-total`), with the total at least the per-sender bound.
 Lease duration must also be positive. These settings configure the integrated
-node role.
+node role. Replication additionally requires mutual TLS credentials and an
+authorized peer configured through `sequencer.replication-tls-cert`,
+`sequencer.replication-tls-key`, `sequencer.replication-tls-ca`,
+`sequencer.replication-peer-name` and `sequencer.replication-peer-spki`.
+`sequencer.receipt-forward-url` configures receipt forwarding when sequencing
+is disabled and must be empty when it is enabled.
 
-## Checkpoints and data availability
+## Data availability and network access
 
-The pre-merge guarantor certificates, challenge windows, and separately
-registered checkpoints are retired as transaction finality mechanisms.
-`SubmitCheckpoint` and `SubmitAvailabilityAttestation` in
-`modules/layerxanchor/keeper/checkpoints.go` return `ErrModuleRetired`.
-Historical checkpoint records can remain readable; they do not gate ordinary
-transaction finality. See [Data availability](DataAvailability.md) for the
-current storage and recovery boundaries.
-
-## Connecting to the network
-
-Public JSON-RPC uses the root of the node hosts `api1` through `api14` under
-`mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`.
-For example, `https://api1.mainnet-beta.paxeer.network` serves `eth_chainId`
-with chain ID `0x7d`. There is no router or separate LayerX interface.
+BFT commitment supplies transaction finality. See
+[Data availability](DataAvailability.md) for storage and recovery boundaries.
+Use the configured public node's HTTPS root for JSON-RPC and require
+`eth_chainId` to return `0x7d`. [Public RPC](PublicRpc.md) describes node access.
 Hosted `px_` methods have their contract in
-`services/platform/hosted/gateway/openrpc.json`; do not assume that a public
-node serves every hosted method.
+`services/platform/hosted/gateway/openrpc.json`; method availability follows the
+node or hosted deployment's configuration.
 
 ## Start here
 

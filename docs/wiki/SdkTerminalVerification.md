@@ -4,9 +4,8 @@ Paxeer is one BFT network. The kernel executes inside `paxd` and participates
 in block proposal. A transaction receipt becomes final when its block commits;
 there is no later settlement on a separate execution network.
 
-Use JSON-RPC at the root of `https://api-mainnet-beta.paxeer.network` or the
-numbered hosts `https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. EVM chain ID is 125 (`0x7d`).
+Use JSON-RPC at the configured node's HTTPS root. EVM chain ID is 125 (`0x7d`).
+See [Public RPC](PublicRpc.md) for node access.
 The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
 and `txpool`. The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
@@ -73,26 +72,9 @@ revert. It verifies the result, builds a canonical source case and derives
 copies from that source. This is a producer pipeline, not a requirement to
 reuse a stored transaction from a different recording.
 
-For an intentional fresh recording, the existing recorder interface is:
-
-```text
-committed-fixture record --paxd PATH --out DIRECTORY --vector vector-v2-receipted-revert
-```
-
-V2 writes the canonical source and SDK group under `DIRECTORY/conformance/`
-and the node vector under `DIRECTORY/`. Compare copies within the same
-recording: transaction hash, signed bytes, pin, refusal code and provenance
-must remain identical to that recording's canonical source. New recordings
-have new transaction identities and must not be substituted for stored
-fixtures without reviewing the complete derived set.
-
-The stored-vector test verifies the checked-in V2 against its checked-in
-source; it does not execute the recorder. The producer-path test is
-`TestRepair_174_FixtureV2SourceContract` in `repair_174_test.go`, which drives
-`recordV2RPC` through a real node/RPC path. Keep these evidence claims separate.
 The [platform conformance guide](../../sdk/platform/conformance/README.md)
-describes the SDK schemas and additional portable cases; the node V1 creation
-and V3 re-signing are not byte-for-byte substitutes for all SDK cases.
+describes the SDK schemas and portable cases. The stored node vectors and the
+SDK-adapted cases have their own evidence profiles.
 
 ## Verify a receipted execution
 
@@ -132,18 +114,12 @@ the full verifier must refuse each case:
 | `tampered-log` | JSON log differs from the authenticated log commitment. |
 | `non-canonical-receipt-bytes` | Receipt encoding is noncanonical. |
 
-The V4 recording uses EIP-1559 type-2 transactions on EVM chain ID `125`.
-Its `payExact` transaction is `0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2` and its execution block is
-`0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108`. The daemon recording SHA-256 is
-`5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b`. These are private fixture identities; production consumers need their own trust anchors.
-
 ## Verify committed evidence with V4
 
 [`vector_v4_test.go`](../../daemon/committed-fixture/vector_v4_test.go) uses
 `codec.DecodeBatchHeader`, `verify.ReceiptAtRoot` and `verify.Ed25519Digest`.
-The Go proof package does not expose the removed `BatchHeader` and
-`ReceiptInclusion` verifier functions. `codec.BatchHeader` is a data type;
-SDK types with similar names are separate APIs.
+`codec.BatchHeader` is the decoded header data type. SDK types with similar
+names have separate APIs.
 
 The V4 `positive` envelope is assembled and signed by the recorder under its
 receipt pin. It demonstrates receipt authenticity and inclusion under that

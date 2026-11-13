@@ -27,7 +27,7 @@ Sources: `include/layerx/lx_service.h`, `src/modules/service/lx_service_module.c
 | `LX_SERVICE_AGREEMENT_ACCEPT` | `0x00050004` | 34-byte identifier |
 | `LX_SERVICE_COMMIT_TASK` | `0x00050005` | 146 bytes |
 | `LX_SERVICE_COMMIT_ABANDON` | `0x00050006` | 36 bytes |
-| `LX_SERVICE_TOOL_EXEC_ATTEST` | `0x00050007` | execution record (variable) |
+| `LX_SERVICE_TOOL_EXEC_ATTEST` | `0x00050007` | 416-byte execution record |
 | `LX_SERVICE_PROGRESS_REPORT` | `0x00050008` | 134 bytes |
 | `LX_SERVICE_DELIVER` | `0x00050009` | 67 + 72×items |
 | `LX_SERVICE_ACCEPT` | `0x0005000a` | 34-byte identifier |
@@ -109,8 +109,9 @@ report_id32 || commitment_id32 || note_hash32 || availability_reference32
 || progress_bps:u32
 ```
 
-`progress_bps` must be in `1..=10000` or decode returns
-`LXP_ERR_PARAMETER_BOUNDS`. Regression is `LXP_ERR_METER_REGRESSION`.
+`progress_bps` must be in `1..=10000`; zero report, commitment, note or
+availability identifiers also return `LXP_ERR_PARAMETER_BOUNDS`. Regression is
+`LXP_ERR_METER_REGRESSION`.
 
 ---
 

@@ -45,10 +45,8 @@ The role implementations are
 
 ### Public transaction submission and recovery
 
-Use JSON-RPC at the root of `https://api-mainnet-beta.paxeer.network` or
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`; check `eth_chainId` returns `0x7d`
-before signing. The [public RPC reference](../site/docs/reference/public-rpc.md)
+Use the configured node's HTTPS root for JSON-RPC; check `eth_chainId` returns
+`0x7d` before signing. The [public RPC reference](../site/docs/reference/public-rpc.md)
 lists the node endpoints. Hosted interop HTTP calls use the configured interop
 service's origin.
 
@@ -208,7 +206,8 @@ The package `layerx-interop-service` builds the `layerx-interop-gateway` binary.
 Its [HTTP implementation](../../services/interop/crates/layerx-interop-service/src/server.rs)
 and [configuration](../../services/interop/crates/layerx-interop-service/src/config.rs)
 compose the adapter with the relay, supported offers, receipt keys and durable
-operation storage. Route registration alone does not qualify a live facilitator.
+operation storage. Facilitator availability depends on the configured relay
+and evidence backends.
 
 ## Typed refusals
 
