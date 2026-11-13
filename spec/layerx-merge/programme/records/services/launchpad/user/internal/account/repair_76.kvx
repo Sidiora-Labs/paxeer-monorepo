@@ -49,6 +49,6 @@ preexisting_rows = "Existing duplicate endpoint rows require migration reconcili
 previous_revision = "da6bb5146e7edc738737c02ee49c78428f3af173"
 previous_failure = "The previous package-wide verification failed TestConnectedPhase3LiveSocketRevocationAndHTTPWrites because L35_PHASE3_GATEWAY_URL was absent; no focused repair-test baseline failure is claimed."
 gate_dependencies = "TestRepair_76_* uses production functions, actual cryptography, file/JSON codec close-reopen and a local TLS transport; it requires no PostgreSQL, Redis, S3, Anvil or live RPC."
-retained_tests = "All five prior integration test bodies and assertions remain in repair_76_test.go as TestConnectedRepair76_*; the names separate their required external services from the declared focused gate, without skipping or deleting tests."
+retained_tests = "All five prior integration test bodies and assertions remain in account_state_recovery_test.go as TestConnectedRepair76_*; the names separate their required external services from the declared focused gate, without skipping or deleting tests."
 proof_boundary = "Codec/file reopen does not qualify PostgreSQL crash recovery, transaction isolation, AccountClient.Targets/ResolveEndpoint, the notification consumer or gateway transport; the retained integration tests and wiring requests explicitly carry those obligations."
 gotcha = "The inherited repair tests used connectedFixture/connectedLegacyFixture and internaltest.NewStore, so filtering only their old TestRepair_76_* names still required forbidden external services."

@@ -26,9 +26,9 @@ import (
 	"github.com/google/uuid"
 )
 
-const repairM1062Token = "repair-m1062-loopback-service-token-32-characters"
+const notificationQuietHoursToken = "repair-m1062-loopback-service-token-32-characters"
 
-type repairM1062Fixture struct {
+type notificationQuietHoursFixture struct {
 	store     account.Store
 	principal account.Principal
 	client    *n.AccountClient
@@ -36,7 +36,7 @@ type repairM1062Fixture struct {
 	device    uuid.UUID
 }
 
-func repairM1062Must(t *testing.T, err error) {
+func mustNotificationQuietHours(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)
@@ -45,58 +45,58 @@ func repairM1062Must(t *testing.T, err error) {
 
 // The SQL peers run the committed schemas in-process, without an installed
 // PostgreSQL server, subprocess, external configuration or native artifact.
-func repairM1062Engine(t *testing.T) *pglite.PGlite {
+func notificationQuietHoursEngine(t *testing.T) *pglite.PGlite {
 	t.Helper()
 	engine, err := pglite.New(pglite.Config{DataDir: t.TempDir()})
-	repairM1062Must(t, err)
-	t.Cleanup(func() { repairM1062Must(t, engine.Close()) })
+	mustNotificationQuietHours(t, err)
+	t.Cleanup(func() { mustNotificationQuietHours(t, engine.Close()) })
 	return engine
 }
 
-func repairM1062New(t *testing.T) *repairM1062Fixture {
+func newNotificationQuietHoursFixture(t *testing.T) *notificationQuietHoursFixture {
 	t.Helper()
 	ctx := context.Background()
-	engine := repairM1062Engine(t)
+	engine := notificationQuietHoursEngine(t)
 	pool, err := engine.Pool(ctx)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	t.Cleanup(pool.Close)
 	accountSchema, err := migrations.FS.ReadFile("00002_account_store.sql")
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	_, err = pool.Exec(ctx, strings.Split(string(accountSchema), "-- +goose Down")[0])
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	identitySchema, err := os.ReadFile("../../../gateway/internal/devidentity/migrations/00001_identity.sql")
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	_, err = pool.Exec(ctx, strings.Split(string(identitySchema), "-- +goose Down")[0])
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 
-	f := &repairM1062Fixture{store: account.Store{DB: pool}, principal: account.Principal{AccountID: uuid.New()}, device: uuid.New()}
+	f := &notificationQuietHoursFixture{store: account.Store{DB: pool}, principal: account.Principal{AccountID: uuid.New()}, device: uuid.New()}
 	wallet := "0x1062106210621062106210621062106210621062"
-	repairM1062Must(t, f.store.Create(ctx, f.principal.AccountID, wallet))
+	mustNotificationQuietHours(t, f.store.Create(ctx, f.principal.AccountID, wallet))
 	_, err = pool.Exec(ctx, `INSERT INTO identity_accounts VALUES($1,1,clock_timestamp())`, f.principal.AccountID)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO identity_wallet_links VALUES($1,$2,125,$3,'private','verified',clock_timestamp())`, uuid.New(), f.principal.AccountID, wallet)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	session := uuid.New()
 	_, err = pool.Exec(ctx, `INSERT INTO identity_sessions(session_id,account_id,wallet,auth_epoch,access_hash,csrf_hash,issued_at,access_expires_at,refresh_expires_at,reauthenticated_at,last_seen_at,device_label)
 		VALUES($1,$2,$3,1,$4,$5,clock_timestamp(),clock_timestamp()+interval '1 hour',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp(),'repair-m1062')`, session, f.principal.AccountID, wallet, []byte(uuid.NewString()), []byte(uuid.NewString()))
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	runtime := &account.Runtime{EndpointKey: bytes.Repeat([]byte{62}, 32)}
 	sealed, err := account.Seal(runtime.EndpointKey, []byte("repair-m1062-device-token"), []byte(f.principal.AccountID.String()))
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	fingerprint := sha256.Sum256([]byte("repair-m1062-device-token"))
 	_, err = pool.Exec(ctx, `INSERT INTO account_device_installation VALUES($1,$2,$3,'fcm','android',clock_timestamp(),false)`, f.device, f.principal.AccountID, session)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO account_endpoint VALUES($1,$2,$3,'android',0,clock_timestamp(),false,$4,'fcm',$5)`, fingerprint[:], f.principal.AccountID, sealed, f.device, session)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 
 	// A separate engine avoids sharing the embedded peer's single session
 	// between the worker's outbox and the concurrent HTTP authority request.
-	f.db = repairM1062Engine(t).DB()
+	f.db = notificationQuietHoursEngine(t).DB()
 	_, err = f.db.Exec(n.Schema)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	pki := testpki.New(t)
 	serverLeaf, clientLeaf := pki.Leaf("user", "user.test"), pki.Leaf("notifications", "notifications.test")
-	server := httptest.NewUnstartedServer(accountNotificationAuthority(f.store, runtime, repairM1062Token, clientLeaf.SHA256))
+	server := httptest.NewUnstartedServer(accountNotificationAuthority(f.store, runtime, notificationQuietHoursToken, clientLeaf.SHA256))
 	server.TLS = &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{serverLeaf.Pair}, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: pki.Roots()}
 	server.StartTLS()
 	t.Cleanup(server.Close)
@@ -104,19 +104,19 @@ func repairM1062New(t *testing.T) *repairM1062Fixture {
 	t.Cleanup(client.CloseIdleConnections)
 	// Only a test-generated loopback credential is installed; the gate needs
 	// no preconfigured environment variables or credentials.
-	t.Setenv("REPAIR_M1062_LOOPBACK_TOKEN", repairM1062Token)
+	t.Setenv("REPAIR_M1062_LOOPBACK_TOKEN", notificationQuietHoursToken)
 	credentials, err := n.NewCredentials(ctx, secrets.Options{Provider: secrets.ProviderEnv}, "REPAIR_M1062_LOOPBACK_TOKEN")
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	f.client, err = n.NewAccountClient(server.URL, client, credentials, "REPAIR_M1062_LOOPBACK_TOKEN")
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	return f
 }
 
-func (f *repairM1062Fixture) save(t *testing.T, display, zone, start, end string) n.DeliveryPreference {
+func (f *notificationQuietHoursFixture) save(t *testing.T, display, zone, start, end string) n.DeliveryPreference {
 	t.Helper()
 	ctx := context.Background()
 	before, err := f.store.ReadPreferences(ctx, f.principal, f.principal.AccountID)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	yes, no := true, false
 	patch := account.ExtendedPreferencesPatch{
 		PreferencesPatch: account.PreferencesPatch{
@@ -126,41 +126,41 @@ func (f *repairM1062Fixture) save(t *testing.T, display, zone, start, end string
 		},
 		Consents: []account.ConsentPatch{{Category: "chat", Channel: "push", Enabled: true}},
 	}
-	repairM1062Must(t, f.store.PatchExtendedPreferences(ctx, f.principal, patch))
+	mustNotificationQuietHours(t, f.store.PatchExtendedPreferences(ctx, f.principal, patch))
 	saved, err := f.store.ReadPreferences(ctx, f.principal, f.principal.AccountID)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	if saved.Timezone != display || saved.QuietHours != *patch.QuietHours {
 		t.Fatalf("preferences did not retain independent zones: %+v", saved)
 	}
 	revision, err := strconv.ParseUint(saved.Revision, 10, 64)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	_, err = f.store.DB.Exec(ctx, `UPDATE account_endpoint SET consent_revision=$2 WHERE account_id=$1`, f.principal.AccountID, revision)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	p, err := f.client.CurrentDeliveryPreference(ctx, f.principal.AccountID.String())
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	startTime, err := time.Parse("15:04", start)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	endTime, err := time.Parse("15:04", end)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	if p.AccountID != f.principal.AccountID.String() || p.Revision != revision || !p.Linked || p.Timezone != display || p.QuietHours == nil || p.QuietHours.Timezone != zone || p.QuietHours.StartMinute != startTime.Hour()*60+startTime.Minute() || p.QuietHours.EndMinute != endTime.Hour()*60+endTime.Minute() || !p.CategoryChannels["chat"]["push"] {
 		t.Fatalf("saved quiet-hours settings changed across producer/HTTP/consumer: %+v", p)
 	}
 	return p
 }
 
-func (f *repairM1062Fixture) enqueue(t *testing.T, at time.Time) n.InboxItem {
+func (f *notificationQuietHoursFixture) enqueue(t *testing.T, at time.Time) n.InboxItem {
 	t.Helper()
 	consumer := n.RecipientConsumer{Store: n.Store{DB: f.db}, Authority: f.client}
 	item, inserted, err := consumer.EnqueueChat(context.Background(), uuid.NewString(), f.principal.AccountID.String(), "repair-m1062-chat", at.Add(-time.Minute))
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	if !inserted || item.ID == "" {
 		t.Fatal("real recipient consumer did not enqueue notification")
 	}
 	return item
 }
 
-func TestRepairM_1062_DifferingZonesAndDST(t *testing.T) {
-	f := repairM1062New(t)
+func TestNotificationQuietHoursDifferingZonesAndDST(t *testing.T) {
+	f := newNotificationQuietHoursFixture(t)
 	for _, tc := range []struct {
 		name, display, zone, start, end, stamp string
 		quiet                                  bool
@@ -182,10 +182,10 @@ func TestRepairM_1062_DifferingZonesAndDST(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := f.save(t, tc.display, tc.zone, tc.start, tc.end)
 			at, err := time.Parse(time.RFC3339, tc.stamp)
-			repairM1062Must(t, err)
+			mustNotificationQuietHours(t, err)
 			item := f.enqueue(t, at)
 			decision, err := n.Decide(p, item, "push", at)
-			repairM1062Must(t, err)
+			mustNotificationQuietHours(t, err)
 			reason := "consented"
 			if tc.quiet {
 				reason = "quiet_hours"
@@ -197,11 +197,11 @@ func TestRepairM_1062_DifferingZonesAndDST(t *testing.T) {
 	}
 }
 
-func TestRepairM_1062_WorkerPersistsQuietHours(t *testing.T) {
-	f := repairM1062New(t)
+func TestNotificationWorkerPersistsQuietHours(t *testing.T) {
+	f := newNotificationQuietHoursFixture(t)
 	zone := "Etc/GMT+12"
 	loc, err := time.LoadLocation(zone)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	now := time.Now()
 	// This two-hour window is twelve hours away from the display-zone clock,
 	// with an hour of margin so the proof is independent of minute boundaries.
@@ -212,13 +212,13 @@ func TestRepairM_1062_WorkerPersistsQuietHours(t *testing.T) {
 	worker := n.Worker{Store: n.Store{DB: f.db}, Authority: f.client, Owner: "repair-m1062", DeepLinkOrigin: "https://launchpad.test"}
 	// No adapter is installed: reaching provider selection instead of enforcing
 	// quiet hours produces provider_unavailable and fails the assertion below.
-	repairM1062Must(t, worker.Once(context.Background(), 1))
+	mustNotificationQuietHours(t, worker.Once(context.Background(), 1))
 	var raw []byte
 	var terminal bool
 	err = f.db.QueryRow(`SELECT deliveries,terminal FROM discovery_notifications.outbox WHERE id=$1`, item.ID).Scan(&raw, &terminal)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	var deliveries []n.DeliveryAttempt
-	repairM1062Must(t, json.Unmarshal(raw, &deliveries))
+	mustNotificationQuietHours(t, json.Unmarshal(raw, &deliveries))
 	if len(deliveries) != 1 {
 		t.Fatalf("real target enumeration did not queue one delivery: %s", raw)
 	}
@@ -228,8 +228,8 @@ func TestRepairM_1062_WorkerPersistsQuietHours(t *testing.T) {
 	}
 }
 
-func TestRepairM_1062_ExplicitInvalidZoneAndLegacyWire(t *testing.T) {
-	f := repairM1062New(t)
+func TestNotificationQuietHoursInvalidZoneAndLegacyWire(t *testing.T) {
+	f := newNotificationQuietHoursFixture(t)
 	p := f.save(t, "Europe/Berlin", "UTC", "02:00", "03:00")
 	at := time.Date(2026, 10, 25, 0, 30, 0, 0, time.UTC)
 	item := f.enqueue(t, at)
@@ -242,13 +242,13 @@ func TestRepairM_1062_ExplicitInvalidZoneAndLegacyWire(t *testing.T) {
 	// the existing notification model tests while current producers send a zone.
 	p.QuietHours.Timezone = ""
 	d, err = n.Decide(p, item, "push", at)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	if d.Send || d.Reason != "quiet_hours" {
 		t.Fatalf("legacy preference no longer uses its display zone: %+v", d)
 	}
 	p.QuietHours.Timezone = "UTC"
 	d, err = n.Decide(p, item, "push", at)
-	repairM1062Must(t, err)
+	mustNotificationQuietHours(t, err)
 	if !d.Send || d.Reason != "consented" {
 		t.Fatalf("explicit UTC quiet zone lost to display zone: %+v", d)
 	}

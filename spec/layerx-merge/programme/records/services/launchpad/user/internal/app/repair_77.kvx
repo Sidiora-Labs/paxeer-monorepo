@@ -19,7 +19,7 @@ wiring_request = "Domain 4 (notifications): services/launchpad/notifications/mod
 
 [gotcha.repair_77_scope]
 observed = "The two proposals include account/notifications edits and task-record updates outside the allowed app path."
-resolution = "Keep the repair record in app/repair_77.kvx, record the out-of-scope wiring requests there, and leave root/spec files untouched."
+resolution = "Keep the repair record in spec/layerx-merge/programme/records/services/launchpad/user/internal/app/repair_77.kvx, record the out-of-scope wiring requests there, and leave root/spec files untouched."
 
 [gotcha.repair_77_modules]
 observed = "The user module does not depend on notifications, and its go.mod is outside the task scope."
