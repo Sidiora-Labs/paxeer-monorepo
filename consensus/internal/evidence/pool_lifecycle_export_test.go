@@ -21,10 +21,10 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func RepairM1154RepeatedStartAndRestart(t *testing.T) {
-	f := newRepairM1154Fixture(t)
+func PoolLifecycleRepeatedStartAndRestart(t *testing.T) {
+	f := newPoolLifecycleFixture(t)
 	dir := t.TempDir()
-	db := repairM1154DB(t, dir)
+	db := poolLifecycleDB(t, dir)
 	pool := NewPool(db, f.states, f.blocks, NopMetrics(), nil)
 	require.NoError(t, pool.Start(f.state))
 	for _, ev := range f.offenses {
@@ -32,7 +32,7 @@ func RepairM1154RepeatedStartAndRestart(t *testing.T) {
 	}
 	require.NoError(t, pool.Close())
 
-	db = repairM1154DB(t, dir)
+	db = poolLifecycleDB(t, dir)
 	pool = NewPool(db, f.states, f.blocks, NopMetrics(), nil)
 	defer func() { require.NoError(t, pool.Close()) }()
 	recovered, err := f.states.Load()
@@ -54,26 +54,26 @@ func RepairM1154RepeatedStartAndRestart(t *testing.T) {
 		}
 	}
 	require.Equal(t, 1, successes)
-	repairM1154AssertPending(t, pool, f.offenses)
+	poolLifecycleAssertPending(t, pool, f.offenses)
 	changed := recovered
 	changed.LastBlockHeight++
 	changed.ChainID = "must-not-replace-state"
 	require.EqualError(t, pool.Start(changed), "pool is already running")
 	require.Equal(t, recovered, pool.State())
-	repairM1154AssertPending(t, pool, f.offenses)
+	poolLifecycleAssertPending(t, pool, f.offenses)
 }
 
-func RepairM1154FailedStartRetry(t *testing.T) {
-	f := newRepairM1154Fixture(t)
+func PoolLifecycleFailedStartRetry(t *testing.T) {
+	f := newPoolLifecycleFixture(t)
 	dir := t.TempDir()
-	db := repairM1154DB(t, dir)
+	db := poolLifecycleDB(t, dir)
 	producer := NewPool(db, f.states, f.blocks, NopMetrics(), nil)
 	require.NoError(t, producer.Start(f.state))
 	for _, ev := range f.offenses {
 		require.NoError(t, producer.AddEvidence(t.Context(), ev))
 	}
 	require.NoError(t, producer.Close())
-	db = repairM1154DB(t, dir)
+	db = poolLifecycleDB(t, dir)
 	pool := NewPool(db, f.states, f.blocks, NopMetrics(), nil)
 	defer func() { require.NoError(t, pool.Close()) }()
 	// Corrupt the second persisted record, after recovery has decoded a valid one.
@@ -92,15 +92,15 @@ func RepairM1154FailedStartRetry(t *testing.T) {
 	require.False(t, pool.isStarted)
 	require.NoError(t, db.SetSync(key, value))
 	require.NoError(t, pool.Start(f.state))
-	repairM1154AssertPending(t, pool, f.offenses)
+	poolLifecycleAssertPending(t, pool, f.offenses)
 	require.EqualError(t, pool.Start(f.state), "pool is already running")
-	repairM1154AssertPending(t, pool, f.offenses)
+	poolLifecycleAssertPending(t, pool, f.offenses)
 }
 
-func RepairM1154ExpiredRecovery(t *testing.T) {
-	f := newRepairM1154Fixture(t)
+func PoolLifecycleExpiredRecovery(t *testing.T) {
+	f := newPoolLifecycleFixture(t)
 	dir := t.TempDir()
-	db := repairM1154DB(t, dir)
+	db := poolLifecycleDB(t, dir)
 	pool := NewPool(db, f.states, f.blocks, NopMetrics(), nil)
 	require.NoError(t, pool.Start(f.state))
 	for _, ev := range f.offenses {
@@ -119,7 +119,7 @@ func RepairM1154ExpiredRecovery(t *testing.T) {
 	require.Nil(t, pool.EvidenceFront())
 	require.False(t, pool.isStarted)
 	require.NoError(t, pool.Close())
-	db = repairM1154DB(t, dir)
+	db = poolLifecycleDB(t, dir)
 	pool = NewPool(db, f.states, f.blocks, NopMetrics(), nil)
 	require.NoError(t, pool.Start(expired))
 	require.Zero(t, pool.Size())
@@ -135,16 +135,16 @@ func RepairM1154ExpiredRecovery(t *testing.T) {
 	require.NoError(t, pool.Close())
 }
 
-func RepairM1154ShutdownJoinsUsers(t *testing.T) {
+func PoolLifecycleShutdownJoinsUsers(t *testing.T) {
 	for _, cancelParent := range []bool{false, true} {
 		name := "Stop"
 		if cancelParent {
 			name = "parent_cancellation"
 		}
 		t.Run(name, func(t *testing.T) {
-			f := newRepairM1154Fixture(t)
+			f := newPoolLifecycleFixture(t)
 			dir := t.TempDir()
-			db := repairM1154DB(t, dir)
+			db := poolLifecycleDB(t, dir)
 			pool := NewPool(db, f.states, f.blocks, NopMetrics(), nil)
 			require.NoError(t, pool.Start(f.state))
 			require.NoError(t, pool.AddEvidence(t.Context(), f.offenses[0]))
@@ -227,11 +227,11 @@ func RepairM1154ShutdownJoinsUsers(t *testing.T) {
 
 			// The stopped reactor leaves subsequent network messages queued, with no
 			// pool activity. Reopening the real store also proves all ownership ended.
-			reopened := repairM1154DB(t, dir)
+			reopened := poolLifecycleDB(t, dir)
 			recovered := NewPool(reopened, f.states, f.blocks, NopMetrics(), nil)
 			defer func() { require.NoError(t, recovered.Close()) }()
 			require.NoError(t, recovered.Start(f.state))
-			repairM1154AssertPending(t, recovered, f.offenses)
+			poolLifecycleAssertPending(t, recovered, f.offenses)
 			peer.Send(incoming, nodes[0].NodeID)
 			require.Eventually(t, func() bool { return reactor.channel.ReceiveLen() == 1 }, 10*time.Second, time.Millisecond)
 			require.Equal(t, uint32(2), pool.Size())
@@ -239,19 +239,19 @@ func RepairM1154ShutdownJoinsUsers(t *testing.T) {
 			defer stopQuiet()
 			_, err = peer.Recv(quiet)
 			require.ErrorIs(t, err, context.DeadlineExceeded, "broadcast continued after Stop")
-			repairM1154AssertPending(t, recovered, f.offenses)
+			poolLifecycleAssertPending(t, recovered, f.offenses)
 		})
 	}
 }
 
-func repairM1154DB(t *testing.T, dir string) *dbm.GoLevelDB {
+func poolLifecycleDB(t *testing.T, dir string) *dbm.GoLevelDB {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("repair-m1154", dir)
 	require.NoError(t, err)
 	return db
 }
 
-func repairM1154AssertPending(t *testing.T, pool *Pool, want types.EvidenceList) {
+func poolLifecycleAssertPending(t *testing.T, pool *Pool, want types.EvidenceList) {
 	t.Helper()
 	pending, size := pool.PendingEvidence(-1)
 	require.ElementsMatch(t, want, pending)
@@ -264,14 +264,14 @@ func repairM1154AssertPending(t *testing.T, pool *Pool, want types.EvidenceList)
 	require.ElementsMatch(t, want, gossiped)
 }
 
-type repairM1154Fixture struct {
+type poolLifecycleFixture struct {
 	state    sm.State
 	states   sm.Store
 	blocks   *store.BlockStore
 	offenses types.EvidenceList
 }
 
-func newRepairM1154Fixture(t *testing.T) *repairM1154Fixture {
+func newPoolLifecycleFixture(t *testing.T) *poolLifecycleFixture {
 	t.Helper()
 	key := ed25519.TestSecretKey([]byte(t.Name()))
 	timestamp := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -279,7 +279,7 @@ func newRepairM1154Fixture(t *testing.T) *repairM1154Fixture {
 		ConsensusParams: types.DefaultConsensusParams(), Validators: []types.GenesisValidator{{PubKey: key.Public(), Power: 10}}}
 	state, err := sm.MakeGenesisState(genesis)
 	require.NoError(t, err)
-	f := &repairM1154Fixture{state: state, states: sm.NewStore(dbm.NewMemDB()), blocks: store.NewBlockStore(dbm.NewMemDB())}
+	f := &poolLifecycleFixture{state: state, states: sm.NewStore(dbm.NewMemDB()), blocks: store.NewBlockStore(dbm.NewMemDB())}
 	t.Cleanup(func() { require.NoError(t, f.states.Close()); require.NoError(t, f.blocks.Close()) })
 	require.NoError(t, f.states.Save(state))
 	sign := func(height int64, round int32, id types.BlockID) *types.Vote {

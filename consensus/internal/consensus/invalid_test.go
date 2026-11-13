@@ -145,5 +145,5 @@ func TestGossipVotesForHeightPoisonedProposalPOL(t *testing.T) {
 }
 
 func TestReactorInvalidPrecommit(t *testing.T) {
-	testRepairM1082InvalidPrecommit(t)
+	testConsensusNetworkInvalidPrecommit(t)
 }

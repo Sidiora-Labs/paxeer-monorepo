@@ -15,13 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repairM1080Progress struct {
+type pruneAnchorProgress struct {
 	state  *State
 	qcs    []*types.CommitQC
 	blocks []*types.Signed[*types.LaneProposal]
 }
 
-func repairM1080State(t *testing.T, c *types.Committee, key types.SecretKey, dir utils.Option[string]) *State {
+func pruneAnchorState(t *testing.T, c *types.Committee, key types.SecretKey, dir utils.Option[string]) *State {
 	t.Helper()
 	wal, err := data.NewDataWAL(utils.None[string](), c)
 	require.NoError(t, err)
@@ -34,10 +34,10 @@ func repairM1080State(t *testing.T, c *types.Committee, key types.SecretKey, dir
 
 // Each QC finalizes one real block. The receiver consumes the wire codec's
 // output, gathers lane votes, and persists CommitQCs through runPersist.
-func repairM1080CertifiedProgress(t *testing.T, rng utils.Rng, c *types.Committee, keys []types.SecretKey, count int, dir utils.Option[string]) repairM1080Progress {
+func pruneAnchorCertifiedProgress(t *testing.T, rng utils.Rng, c *types.Committee, keys []types.SecretKey, count int, dir utils.Option[string]) pruneAnchorProgress {
 	t.Helper()
-	producer := repairM1080State(t, c, keys[0], utils.None[string]())
-	f := repairM1080Progress{state: repairM1080State(t, c, keys[0], dir)}
+	producer := pruneAnchorState(t, c, keys[0], utils.None[string]())
+	f := pruneAnchorProgress{state: pruneAnchorState(t, c, keys[0], dir)}
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	require.NoError(t, scope.Run(ctx, func(ctx context.Context, sc scope.Scope) error {
@@ -88,11 +88,11 @@ func repairM1080CertifiedProgress(t *testing.T, rng utils.Rng, c *types.Committe
 	return f
 }
 
-func repairM1080AppQC(rng utils.Rng, c *types.Committee, keys []types.SecretKey, qc *types.CommitQC) *types.AppQC {
+func pruneAnchorAppQC(rng utils.Rng, c *types.Committee, keys []types.SecretKey, qc *types.CommitQC) *types.AppQC {
 	return types.NewAppQC(makeAppVotes(keys, types.NewAppProposal(qc.GlobalRange(c).First, qc.Index(), types.GenAppHash(rng))))
 }
 
-func repairM1080PersistLiveAnchor(t *testing.T, s *State, app *types.AppQC, qc *types.CommitQC) {
+func pruneAnchorPersistLiveAnchor(t *testing.T, s *State, app *types.AppQC, qc *types.CommitQC) {
 	t.Helper()
 	require.NoError(t, s.PushAppQC(app, qc))
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -108,7 +108,7 @@ func repairM1080PersistLiveAnchor(t *testing.T, s *State, app *types.AppQC, qc *
 	}))
 }
 
-func repairM1080AssertRecovered(t *testing.T, s *State, f repairM1080Progress, app *types.AppQC, anchor int, next types.BlockNumber) {
+func pruneAnchorAssertRecovered(t *testing.T, s *State, f pruneAnchorProgress, app *types.AppQC, anchor int, next types.BlockNumber) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
@@ -144,35 +144,35 @@ func repairM1080AssertRecovered(t *testing.T, s *State, f repairM1080Progress, a
 	}
 }
 
-func TestRepairM_1080_LiveAnchorRecovery(t *testing.T) {
+func TestPruneAnchorLiveAnchorRecovery(t *testing.T) {
 	rng := utils.TestRng()
 	c, keys := types.GenCommittee(rng, 4)
 	dir := utils.Some(t.TempDir())
-	f := repairM1080CertifiedProgress(t, rng, c, keys, 5, dir)
-	app := repairM1080AppQC(rng, c, keys, f.qcs[2])
-	repairM1080PersistLiveAnchor(t, f.state, app, f.qcs[2])
+	f := pruneAnchorCertifiedProgress(t, rng, c, keys, 5, dir)
+	app := pruneAnchorAppQC(rng, c, keys, f.qcs[2])
+	pruneAnchorPersistLiveAnchor(t, f.state, app, f.qcs[2])
 	require.NoError(t, f.state.persisters.commitQCs.Close())
 	for range 2 {
-		s := repairM1080State(t, c, keys[0], dir)
-		repairM1080AssertRecovered(t, s, f, app, 2, 5)
+		s := pruneAnchorState(t, c, keys[0], dir)
+		pruneAnchorAssertRecovered(t, s, f, app, 2, 5)
 		require.NoError(t, s.persisters.commitQCs.Close())
 	}
 }
 
 // Persist exactly the prefix of a runPersist batch ending with the durable
 // anchor, before its WAL pruning/appends. This is the documented crash window.
-func repairM1080AnchorCrash(t *testing.T, rng utils.Rng, c *types.Committee, keys []types.SecretKey, anchor, oldTail, commitTail int) {
+func pruneAnchorAnchorCrash(t *testing.T, rng utils.Rng, c *types.Committee, keys []types.SecretKey, anchor, oldTail, commitTail int) {
 	t.Helper()
-	f := repairM1080CertifiedProgress(t, rng, c, keys, max(6, anchor+1, oldTail, commitTail), utils.None[string]())
+	f := pruneAnchorCertifiedProgress(t, rng, c, keys, max(6, anchor+1, oldTail, commitTail), utils.None[string]())
 	dir := utils.Some(t.TempDir())
-	s := repairM1080State(t, c, keys[0], dir)
+	s := pruneAnchorState(t, c, keys[0], dir)
 	lane := keys[0].Public()
 	for _, block := range f.blocks[:oldTail] {
 		require.NoError(t, s.PushBlock(t.Context(), block))
 	}
 	require.NoError(t, s.persisters.blocks.MaybePruneAndPersistLane(lane, utils.None[*types.CommitQC](), f.blocks[:oldTail], noBlockCB))
 	require.NoError(t, s.persisters.commitQCs.MaybePruneAndPersist(utils.None[*types.CommitQC](), f.qcs[:commitTail], noCommitQCCB))
-	app := repairM1080AppQC(rng, c, keys, f.qcs[anchor])
+	app := pruneAnchorAppQC(rng, c, keys, f.qcs[anchor])
 	require.NoError(t, s.PushAppQC(app, f.qcs[anchor]))
 	batch, err := s.collectPersistBatch(t.Context(), 0)
 	require.NoError(t, err)
@@ -189,8 +189,8 @@ func repairM1080AnchorCrash(t *testing.T, rng utils.Rng, c *types.Committee, key
 		require.Greater(t, first, types.BlockNumber(oldTail))
 	}
 	for range 2 {
-		reopened := repairM1080State(t, c, keys[0], dir)
-		repairM1080AssertRecovered(t, reopened, f, app, anchor, max(first, types.BlockNumber(oldTail)))
+		reopened := pruneAnchorState(t, c, keys[0], dir)
+		pruneAnchorAssertRecovered(t, reopened, f, app, anchor, max(first, types.BlockNumber(oldTail)))
 		require.NoError(t, reopened.persisters.commitQCs.Close())
 		_, retained, err := persist.NewBlockPersister(dir)
 		require.NoError(t, err)
@@ -211,19 +211,19 @@ func repairM1080AnchorCrash(t *testing.T, rng utils.Rng, c *types.Committee, key
 	}
 }
 
-func TestRepairM_1080_LaneTruncationBeyondTail(t *testing.T) {
+func TestPruneAnchorLaneTruncationBeyondTail(t *testing.T) {
 	rng := utils.TestRng()
 	c, keys := types.GenCommittee(rng, 4)
-	repairM1080AnchorCrash(t, rng, c, keys, 4, 3, 6)
+	pruneAnchorAnchorCrash(t, rng, c, keys, 4, 3, 6)
 }
 
-func TestRepairM_1080_LaneAnchorInsideTail(t *testing.T) {
+func TestPruneAnchorLaneAnchorInsideTail(t *testing.T) {
 	rng := utils.TestRng()
 	c, keys := types.GenCommittee(rng, 4)
-	repairM1080AnchorCrash(t, rng, c, keys, 2, 5, 6)
+	pruneAnchorAnchorCrash(t, rng, c, keys, 2, 5, 6)
 }
 
-func repairM1080Snapshot(t *testing.T, dir string) map[string][]byte {
+func pruneAnchorSnapshot(t *testing.T, dir string) map[string][]byte {
 	t.Helper()
 	files := map[string][]byte{}
 	require.NoError(t, filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
@@ -240,20 +240,20 @@ func repairM1080Snapshot(t *testing.T, dir string) map[string][]byte {
 	return files
 }
 
-func TestRepairM_1080_RejectInvalidAnchorsBeforePruning(t *testing.T) {
+func TestPruneAnchorRejectInvalidAnchorsBeforePruning(t *testing.T) {
 	for _, name := range []string{"empty-range", "below-range", "at-range-end", "road-index", "app-committee", "commit-committee", "app-quorum", "commit-quorum", "app-signature", "commit-signature", "incomplete"} {
 		t.Run(name, func(t *testing.T) {
 			rng := utils.TestRng()
 			c, keys := types.GenCommittee(rng, 4)
 			dirPath := t.TempDir()
 			dir := utils.Some(dirPath)
-			f := repairM1080CertifiedProgress(t, rng, c, keys, 5, dir)
+			f := pruneAnchorCertifiedProgress(t, rng, c, keys, 5, dir)
 			qc := f.qcs[2]
-			app := repairM1080AppQC(rng, c, keys, qc)
+			app := pruneAnchorAppQC(rng, c, keys, qc)
 			switch name {
 			case "empty-range":
 				qc = makeCommitQC(c, keys, utils.Some(f.qcs[1]), nil, utils.None[*types.AppQC]())
-				app = repairM1080AppQC(rng, c, keys, qc)
+				app = pruneAnchorAppQC(rng, c, keys, qc)
 			case "below-range":
 				app = types.NewAppQC(makeAppVotes(keys, types.NewAppProposal(qc.GlobalRange(c).First-1, qc.Index(), types.GenAppHash(rng))))
 			case "at-range-end":
@@ -300,11 +300,11 @@ func TestRepairM_1080_RejectInvalidAnchorsBeforePruning(t *testing.T) {
 			}
 			require.NoError(t, f.state.persisters.pruneAnchor.Persist(raw))
 			require.NoError(t, f.state.persisters.commitQCs.Close())
-			before := repairM1080Snapshot(t, dirPath)
+			before := pruneAnchorSnapshot(t, dirPath)
 			for range 2 {
 				_, err := NewState(keys[0], f.state.Data(), dir)
 				require.ErrorIs(t, err, ErrInvalidPruneAnchor)
-				require.Equal(t, before, repairM1080Snapshot(t, dirPath), "invalid authority must not change persisted data")
+				require.Equal(t, before, pruneAnchorSnapshot(t, dirPath), "invalid authority must not change persisted data")
 			}
 			bp, blocks, err := persist.NewBlockPersister(dir)
 			require.NoError(t, err)
@@ -318,7 +318,7 @@ func TestRepairM_1080_RejectInvalidAnchorsBeforePruning(t *testing.T) {
 	}
 }
 
-func TestRepairM_1080_RecoveryFixtures(t *testing.T) {
+func TestPruneAnchorRecoveryFixtures(t *testing.T) {
 	t.Run("commit-range", TestNewInnerLoadedCommitQCsWithAppQC)
 	t.Run("retained-queues", TestNewInnerLoadedAllThree)
 }

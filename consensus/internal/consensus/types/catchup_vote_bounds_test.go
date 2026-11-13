@@ -16,15 +16,15 @@ import (
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-const repairM1083Chain = "repair-m1083"
+const catchupVotesChain = "repair-m1083"
 
-type repairM1083Fixture struct {
+type catchupVotesFixture struct {
 	validators *tmtypes.ValidatorSet
 	signers    []*privval.FilePV
 	blockID    tmtypes.BlockID
 }
 
-func newRepairM1083Fixture(t *testing.T) repairM1083Fixture {
+func newCatchupVotesFixture(t *testing.T) catchupVotesFixture {
 	t.Helper()
 	dir := t.TempDir()
 	vals := make([]*tmtypes.Validator, 4)
@@ -44,7 +44,7 @@ func newRepairM1083Fixture(t *testing.T) repairM1083Fixture {
 		require.True(t, ok)
 		signers[i] = byAddress[string(address)]
 	}
-	return repairM1083Fixture{
+	return catchupVotesFixture{
 		validators: validators,
 		signers:    signers,
 		blockID: tmtypes.BlockID{
@@ -59,7 +59,7 @@ func newRepairM1083Fixture(t *testing.T) repairM1083Fixture {
 
 // Produce signatures with the persistent validator, then use the protobuf wire
 // codec and domain decoder used to deliver votes to the height vote set.
-func (f repairM1083Fixture) vote(t *testing.T, height int64, round, index int32, voteType tmproto.SignedMsgType) *tmtypes.Vote {
+func (f catchupVotesFixture) vote(t *testing.T, height int64, round, index int32, voteType tmproto.SignedMsgType) *tmtypes.Vote {
 	t.Helper()
 	vote := &tmproto.Vote{
 		Type:             voteType,
@@ -70,11 +70,11 @@ func (f repairM1083Fixture) vote(t *testing.T, height int64, round, index int32,
 		ValidatorAddress: f.signers[index].GetAddress(),
 		ValidatorIndex:   index,
 	}
-	require.NoError(t, f.signers[index].SignVote(t.Context(), repairM1083Chain, vote))
-	return repairM1083WireVote(t, vote)
+	require.NoError(t, f.signers[index].SignVote(t.Context(), catchupVotesChain, vote))
+	return catchupVotesWireVote(t, vote)
 }
 
-func repairM1083WireVote(t *testing.T, vote *tmproto.Vote) *tmtypes.Vote {
+func catchupVotesWireVote(t *testing.T, vote *tmproto.Vote) *tmtypes.Vote {
 	t.Helper()
 	wire, err := vote.Marshal()
 	require.NoError(t, err)
@@ -86,7 +86,7 @@ func repairM1083WireVote(t *testing.T, vote *tmproto.Vote) *tmtypes.Vote {
 	return result
 }
 
-func (f repairM1083Fixture) finishCatchup(t *testing.T, hvs *HeightVoteSet, round int32) {
+func (f catchupVotesFixture) finishCatchup(t *testing.T, hvs *HeightVoteSet, round int32) {
 	t.Helper()
 	for index := int32(1); index < int32(len(f.signers)); index++ {
 		vote := f.vote(t, hvs.Height(), round, index, tmproto.PrecommitType)
@@ -100,12 +100,12 @@ func (f repairM1083Fixture) finishCatchup(t *testing.T, hvs *HeightVoteSet, roun
 	require.True(t, ok)
 	require.True(t, f.blockID.Equals(blockID))
 	commit := votes.MakeCommit()
-	require.NoError(t, f.validators.VerifyCommit(repairM1083Chain, f.blockID, hvs.Height(), commit))
+	require.NoError(t, f.validators.VerifyCommit(catchupVotesChain, f.blockID, hvs.Height(), commit))
 }
 
-func TestRepairM_1083_InvalidVotesDoNotAllocate(t *testing.T) {
-	f := newRepairM1083Fixture(t)
-	hvs := NewHeightVoteSet(repairM1083Chain, 1, f.validators)
+func TestCatchupVotesInvalidVotesDoNotAllocate(t *testing.T) {
+	f := newCatchupVotesFixture(t)
+	hvs := NewHeightVoteSet(catchupVotesChain, 1, f.validators)
 	cases := []struct {
 		name   string
 		mutate func(*tmtypes.Vote)
@@ -138,7 +138,7 @@ func TestRepairM_1083_InvalidVotesDoNotAllocate(t *testing.T) {
 	for i := 0; i < 3*maxCatchupRounds; i++ {
 		vote := f.vote(t, 1, int32(100+i), 0, tmproto.PrecommitType).ToProto()
 		vote.Timestamp = vote.Timestamp.Add(time.Second)
-		invalid := repairM1083WireVote(t, vote)
+		invalid := catchupVotesWireVote(t, vote)
 		added, err := hvs.AddVote(invalid, tmtypes.NodeID(fmt.Sprintf("invalid-peer-%d", i)))
 		require.ErrorIs(t, err, tmtypes.ErrVoteInvalidSignature)
 		require.False(t, added)
@@ -155,9 +155,9 @@ func TestRepairM_1083_InvalidVotesDoNotAllocate(t *testing.T) {
 	f.finishCatchup(t, hvs, 1000)
 }
 
-func TestRepairM_1083_PeerChurnBoundAndValidCatchup(t *testing.T) {
-	f := newRepairM1083Fixture(t)
-	hvs := NewHeightVoteSet(repairM1083Chain, 1, f.validators)
+func TestCatchupVotesPeerChurnBoundAndValidCatchup(t *testing.T) {
+	f := newCatchupVotesFixture(t)
+	hvs := NewHeightVoteSet(catchupVotesChain, 1, f.validators)
 	var first *tmtypes.Vote
 	for round := int32(1); round <= maxCatchupRounds; round++ {
 		voteType := tmproto.PrecommitType
@@ -211,9 +211,9 @@ func TestRepairM_1083_PeerChurnBoundAndValidCatchup(t *testing.T) {
 	require.Len(t, hvs.catchupRounds, maxCatchupRounds)
 }
 
-func TestRepairM_1083_RoundRetirementAndHeightReset(t *testing.T) {
-	f := newRepairM1083Fixture(t)
-	hvs := NewHeightVoteSet(repairM1083Chain, 1, f.validators)
+func TestCatchupVotesRoundRetirementAndHeightReset(t *testing.T) {
+	f := newCatchupVotesFixture(t)
+	hvs := NewHeightVoteSet(catchupVotesChain, 1, f.validators)
 	for _, round := range []int32{1, 4} {
 		added, err := hvs.AddVote(f.vote(t, 1, round, 0, tmproto.PrecommitType), "peer")
 		require.NoError(t, err)

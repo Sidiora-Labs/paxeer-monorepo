@@ -39,7 +39,7 @@ import (
 
 // The peers use file-backed signers, a real kvstore application, and independent
 // stores. Only the adversary signs conflicting transcripts directly with its key.
-type repairM1082Fixture struct {
+type consensusNetworkFixture struct {
 	genesis   sm.State
 	keys      []ed25519.SecretKey
 	signers   []*privval.FilePV
@@ -48,9 +48,9 @@ type repairM1082Fixture struct {
 	honest    []int
 }
 
-func newRepairM1082Fixture(t *testing.T, weighted bool, genesisTime time.Time) repairM1082Fixture {
+func newConsensusNetworkFixture(t *testing.T, weighted bool, genesisTime time.Time) consensusNetworkFixture {
 	t.Helper()
-	f := repairM1082Fixture{}
+	f := consensusNetworkFixture{}
 	vals := make([]*types.Validator, 4)
 	for i := range 4 {
 		key := ed25519.TestSecretKey([]byte(fmt.Sprintf("%s/validator/%d", t.Name(), i)))
@@ -86,7 +86,7 @@ func newRepairM1082Fixture(t *testing.T, weighted bool, genesisTime time.Time) r
 	return f
 }
 
-func (f repairM1082Fixture) index(t *testing.T, key crypto.PubKey) int {
+func (f consensusNetworkFixture) index(t *testing.T, key crypto.PubKey) int {
 	t.Helper()
 	for i, k := range f.keys {
 		if k.Public() == key {
@@ -97,7 +97,7 @@ func (f repairM1082Fixture) index(t *testing.T, key crypto.PubKey) int {
 	return -1
 }
 
-func newRepairM1082State(t *testing.T, cfg *config.Config, state sm.State, pv types.PrivValidator, blockStore *store.BlockStore, metrics *Metrics) (*testState, *evidence.Pool) {
+func newConsensusNetworkState(t *testing.T, cfg *config.Config, state sm.State, pv types.PrivValidator, blockStore *store.BlockStore, metrics *Metrics) (*testState, *evidence.Pool) {
 	t.Helper()
 	app := kvstore.NewApplication()
 	app.SetValidators(types.TM2PB.ValidatorUpdates(state.Validators))
@@ -126,29 +126,29 @@ func newRepairM1082State(t *testing.T, cfg *config.Config, state sm.State, pv ty
 	return cs, evpool
 }
 
-func (f repairM1082Fixture) state(t *testing.T, signer int) (*testState, *evidence.Pool) {
+func (f consensusNetworkFixture) state(t *testing.T, signer int) (*testState, *evidence.Pool) {
 	t.Helper()
-	return newRepairM1082State(t, getConfig(t), f.genesis, f.signers[signer], store.NewBlockStore(dbm.NewMemDB()), NopMetrics())
+	return newConsensusNetworkState(t, getConfig(t), f.genesis, f.signers[signer], store.NewBlockStore(dbm.NewMemDB()), NopMetrics())
 }
 
-func repairM1082ProducerMessages(t *testing.T, producer *testState, height int64, round int32) []msgInfo {
+func consensusNetworkProducerMessages(t *testing.T, producer *testState, height int64, round int32) []msgInfo {
 	t.Helper()
 	producer.enterNewRound(t.Context(), height, round, "repair-m1082-producer")
-	first := repair80NextMessage(t, producer)
+	first := proposalReplayNextMessage(t, producer)
 	proposal, ok := first.Msg.(*ProposalMessage)
 	require.True(t, ok)
 	require.False(t, first.ReceiveTime.IsZero())
 	require.NoError(t, producer.roundState.Leader().Verify(types.ProposalSignBytes(producer.state.ChainID, proposal.Proposal.ToProto()), proposal.Proposal.Signature))
 	result := []msgInfo{first}
 	for range proposal.Proposal.BlockID.PartSetHeader.Total {
-		part := repair80NextMessage(t, producer)
+		part := proposalReplayNextMessage(t, producer)
 		require.IsType(t, &BlockPartMessage{}, part.Msg)
 		result = append(result, part)
 	}
 	return result
 }
 
-func repairM1082Transport(t *testing.T, mi msgInfo) msgInfo {
+func consensusNetworkTransport(t *testing.T, mi msgInfo) msgInfo {
 	t.Helper()
 	encoded, err := proto.Marshal(MsgToProto(mi.Msg))
 	require.NoError(t, err)
@@ -159,7 +159,7 @@ func repairM1082Transport(t *testing.T, mi msgInfo) msgInfo {
 	return mi
 }
 
-func (f repairM1082Fixture) vote(t *testing.T, signer int, kind tmproto.SignedMsgType, height int64, round int32, blockID types.BlockID) *types.Vote {
+func (f consensusNetworkFixture) vote(t *testing.T, signer int, kind tmproto.SignedMsgType, height int64, round int32, blockID types.BlockID) *types.Vote {
 	t.Helper()
 	vs := newValidatorStub(f.signers[signer], 0)
 	var ok bool
@@ -169,11 +169,11 @@ func (f repairM1082Fixture) vote(t *testing.T, signer int, kind tmproto.SignedMs
 	return signVote(t.Context(), t, vs, kind, f.genesis.ChainID, blockID)
 }
 
-func (f repairM1082Fixture) adversarialVote(t *testing.T, kind tmproto.SignedMsgType, blockID types.BlockID) *types.Vote {
+func (f consensusNetworkFixture) adversarialVote(t *testing.T, kind tmproto.SignedMsgType, blockID types.BlockID) *types.Vote {
 	return f.adversarialVoteAtRound(t, kind, 0, blockID)
 }
 
-func (f repairM1082Fixture) adversarialVoteAtRound(t *testing.T, kind tmproto.SignedMsgType, round int32, blockID types.BlockID) *types.Vote {
+func (f consensusNetworkFixture) adversarialVoteAtRound(t *testing.T, kind tmproto.SignedMsgType, round int32, blockID types.BlockID) *types.Vote {
 	t.Helper()
 	key := f.keys[f.byzantine]
 	index, _, ok := f.genesis.Validators.GetByAddress(key.Public().Address())
@@ -185,9 +185,9 @@ func (f repairM1082Fixture) adversarialVoteAtRound(t *testing.T, kind tmproto.Si
 	return v
 }
 
-type repairM1082Network struct {
+type consensusNetworkNetwork struct {
 	ctx       context.Context
-	fixture   repairM1082Fixture
+	fixture   consensusNetworkFixture
 	consumers []*testState
 	pools     []*evidence.Pool
 	reactors  []*Reactor
@@ -199,13 +199,13 @@ type repairM1082Network struct {
 	blocks    []eventbus.Subscription
 }
 
-func newRepairM1082Network(t *testing.T, f repairM1082Fixture, consumers, senders int) *repairM1082Network {
+func newConsensusNetworkNetwork(t *testing.T, f consensusNetworkFixture, consumers, senders int) *consensusNetworkNetwork {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	t.Cleanup(cancel)
 	net := p2p.MakeTestNetwork(t, p2p.TestNetworkOptions{NumNodes: consumers + senders})
 	nodes := net.Nodes()
-	n := &repairM1082Network{ctx: ctx, fixture: f, targets: nodes[:consumers], senders: nodes[consumers:]}
+	n := &consensusNetworkNetwork{ctx: ctx, fixture: f, targets: nodes[:consumers], senders: nodes[consumers:]}
 	for i, node := range n.targets {
 		cs, pool := f.state(t, f.honest[i])
 		n.consumers = append(n.consumers, cs)
@@ -248,13 +248,13 @@ func newRepairM1082Network(t *testing.T, f repairM1082Fixture, consumers, sender
 	return n
 }
 
-func (n *repairM1082Network) sendVote(v *types.Vote) {
+func (n *consensusNetworkNetwork) sendVote(v *types.Vote) {
 	for _, target := range n.targets {
 		n.channels[0].vote.Send(MsgToProto(&VoteMessage{Vote: v}), target.NodeID)
 	}
 }
 
-func (n *repairM1082Network) sendProposal(sender int, messages []msgInfo) {
+func (n *consensusNetworkNetwork) sendProposal(sender int, messages []msgInfo) {
 	for _, target := range n.targets {
 		for _, mi := range messages {
 			n.channels[sender].data.Send(MsgToProto(mi.Msg), target.NodeID)
@@ -262,7 +262,7 @@ func (n *repairM1082Network) sendProposal(sender int, messages []msgInfo) {
 	}
 }
 
-func (n *repairM1082Network) awaitVote(t *testing.T, consumer int, v *types.Vote) {
+func (n *consensusNetworkNetwork) awaitVote(t *testing.T, consumer int, v *types.Vote) {
 	t.Helper()
 	for {
 		msg, err := n.votes[consumer].Next(n.ctx)
@@ -276,7 +276,7 @@ func (n *repairM1082Network) awaitVote(t *testing.T, consumer int, v *types.Vote
 	}
 }
 
-func (n *repairM1082Network) awaitProposal(t *testing.T, consumer int, id types.BlockID) {
+func (n *consensusNetworkNetwork) awaitProposal(t *testing.T, consumer int, id types.BlockID) {
 	t.Helper()
 	msg, err := n.proposals[consumer].Next(n.ctx)
 	require.NoError(t, err)
@@ -286,7 +286,7 @@ func (n *repairM1082Network) awaitProposal(t *testing.T, consumer int, id types.
 	require.True(t, id.Equals(event.BlockID))
 }
 
-func (n *repairM1082Network) awaitAgreement(t *testing.T, id types.BlockID) {
+func (n *consensusNetworkNetwork) awaitAgreement(t *testing.T, id types.BlockID) {
 	t.Helper()
 	for i, sub := range n.blocks {
 		msg, err := sub.Next(n.ctx)
@@ -303,12 +303,12 @@ func (n *repairM1082Network) awaitAgreement(t *testing.T, id types.BlockID) {
 	}
 }
 
-func testRepairM1082Equivocation(t *testing.T) {
-	f := newRepairM1082Fixture(t, false, time.Now().Add(-time.Minute))
+func testConsensusNetworkEquivocation(t *testing.T) {
+	f := newConsensusNetworkFixture(t, false, time.Now().Add(-time.Minute))
 	producer, _ := f.state(t, f.leader)
-	messages := repairM1082ProducerMessages(t, producer, 1, 0)
+	messages := consensusNetworkProducerMessages(t, producer, 1, 0)
 	id := messages[0].Msg.(*ProposalMessage).Proposal.BlockID
-	n := newRepairM1082Network(t, f, 2, 1)
+	n := newConsensusNetworkNetwork(t, f, 2, 1)
 	blockVote := f.adversarialVote(t, tmproto.PrevoteType, id)
 	nilVote := f.adversarialVote(t, tmproto.PrevoteType, types.BlockID{})
 	require.False(t, blockVote.BlockID.Equals(nilVote.BlockID))
@@ -353,12 +353,12 @@ func testRepairM1082Equivocation(t *testing.T) {
 	}
 }
 
-func testRepairM1082InvalidPrecommit(t *testing.T) {
-	f := newRepairM1082Fixture(t, false, time.Now().Add(-time.Minute))
+func testConsensusNetworkInvalidPrecommit(t *testing.T) {
+	f := newConsensusNetworkFixture(t, false, time.Now().Add(-time.Minute))
 	producer, _ := f.state(t, f.leader)
-	messages := repairM1082ProducerMessages(t, producer, 1, 0)
+	messages := consensusNetworkProducerMessages(t, producer, 1, 0)
 	id := messages[0].Msg.(*ProposalMessage).Proposal.BlockID
-	n := newRepairM1082Network(t, f, 2, 1)
+	n := newConsensusNetworkNetwork(t, f, 2, 1)
 	valid := f.adversarialVote(t, tmproto.PrecommitType, id)
 	invalid := *valid
 	invalid.Timestamp = invalid.Timestamp.Add(time.Nanosecond)
@@ -389,12 +389,12 @@ func testRepairM1082InvalidPrecommit(t *testing.T) {
 	n.awaitAgreement(t, id)
 }
 
-func testRepairM1082MemoryLimit(t *testing.T) {
-	f := newRepairM1082Fixture(t, false, time.Now().Add(-time.Minute))
+func testConsensusNetworkMemoryLimit(t *testing.T) {
+	f := newConsensusNetworkFixture(t, false, time.Now().Add(-time.Minute))
 	producer, _ := f.state(t, f.leader)
-	messages := repairM1082ProducerMessages(t, producer, 1, 0)
+	messages := consensusNetworkProducerMessages(t, producer, 1, 0)
 	valid := messages[0].Msg.(*ProposalMessage).Proposal
-	n := newRepairM1082Network(t, f, 1, 2)
+	n := newConsensusNetworkNetwork(t, f, 1, 2)
 	bad := *valid
 	bad.BlockID.PartSetHeader.Total = types.MaxBlockPartsCount + 1
 	// The normal signing helper validates the part count. A hostile signer
@@ -428,21 +428,23 @@ func testRepairM1082MemoryLimit(t *testing.T) {
 	require.NoError(t, rs.Leader().Verify(types.ProposalSignBytes(f.genesis.ChainID, rs.Proposal.ToProto()), rs.Proposal.Signature))
 }
 
-func TestRepairM_1082_Equivocation(t *testing.T)     { testRepairM1082Equivocation(t) }
-func TestRepairM_1082_InvalidPrecommit(t *testing.T) { testRepairM1082InvalidPrecommit(t) }
-func TestRepairM_1082_MemoryLimit(t *testing.T)      { testRepairM1082MemoryLimit(t) }
-func TestRepairM_1082_WALReceiveTime(t *testing.T) {
-	testRepairM1082WALProto(t)
-	testRepairM1082WALRecovery(t)
+func TestConsensusNetworkEquivocation(t *testing.T)     { testConsensusNetworkEquivocation(t) }
+func TestConsensusNetworkInvalidPrecommit(t *testing.T) { testConsensusNetworkInvalidPrecommit(t) }
+func TestConsensusNetworkMemoryLimit(t *testing.T)      { testConsensusNetworkMemoryLimit(t) }
+func TestConsensusNetworkWALReceiveTime(t *testing.T) {
+	testConsensusNetworkWALProto(t)
+	testConsensusNetworkWALRecovery(t)
 }
-func TestRepairM_1082_NonzeroProposerTimeout(t *testing.T) { testRepairM1082NonzeroProposerTimeout(t) }
-func TestRepairM_1082_LeaderSelection(t *testing.T) {
-	testRepairM1082ProposerSelection(t, 0)
-	testRepairM1082ProposerSelection(t, 2)
+func TestConsensusNetworkNonzeroProposerTimeout(t *testing.T) {
+	testConsensusNetworkNonzeroProposerTimeout(t)
 }
-func TestRepairM_1082_AssembledBlock(t *testing.T) { testRepairM1082AssembledBlock(t) }
+func TestConsensusNetworkLeaderSelection(t *testing.T) {
+	testConsensusNetworkProposerSelection(t, 0)
+	testConsensusNetworkProposerSelection(t, 2)
+}
+func TestConsensusNetworkAssembledBlock(t *testing.T) { testConsensusNetworkAssembledBlock(t) }
 
-func TestRepairM_1082_StepLatency(t *testing.T) {
+func TestConsensusNetworkStepLatency(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		registry := prom.NewRegistry()
 		gauge := prom.NewGaugeVec(prom.GaugeOpts{Name: "repair_m1082_step_latency", Help: "Step latency in nanoseconds"}, []string{"step"})
@@ -468,8 +470,8 @@ func TestRepairM_1082_StepLatency(t *testing.T) {
 		time.Sleep(2 * time.Millisecond) // virtual time inside synctest
 		metrics.MarkStepLatency(cstypes.RoundStepPropose)
 		require.Equal(t, float64(2*time.Millisecond), value(cstypes.RoundStepPropose))
-		f := newRepairM1082Fixture(t, false, time.Now().Add(-time.Minute))
-		cs, _ := newRepairM1082State(t, getConfig(t), f.genesis, f.signers[f.leader], store.NewBlockStore(dbm.NewMemDB()), metrics)
+		f := newConsensusNetworkFixture(t, false, time.Now().Add(-time.Minute))
+		cs, _ := newConsensusNetworkState(t, getConfig(t), f.genesis, f.signers[f.leader], store.NewBlockStore(dbm.NewMemDB()), metrics)
 		for height := int64(2); height <= 3; height++ {
 			time.Sleep(5 * time.Second)
 			cs.updateHeight(height)

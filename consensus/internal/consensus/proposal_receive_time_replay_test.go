@@ -24,7 +24,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-type repair80Fixture struct {
+type proposalReplayFixture struct {
 	genesis   sm.State
 	cfg       *config.Config
 	signer    *privval.FilePV
@@ -34,7 +34,7 @@ type repair80Fixture struct {
 	proposal  *types.Proposal
 }
 
-func newRepair80Fixture(t *testing.T) repair80Fixture {
+func newProposalReplayFixture(t *testing.T) proposalReplayFixture {
 	t.Helper()
 	ctx := t.Context()
 	cfg := getConfig(t)
@@ -72,13 +72,13 @@ func newRepair80Fixture(t *testing.T) repair80Fixture {
 	// Run the production proposal builder and file-backed signer, then take
 	// exactly the messages it emits for transport (proposal and all block parts).
 	producer.State.decideProposal(ctx, 1, 0, signers[leaderIndex], leader)
-	first := repair80NextMessage(t, producer)
+	first := proposalReplayNextMessage(t, producer)
 	proposalMessage, ok := first.Msg.(*ProposalMessage)
 	require.True(t, ok)
 	require.False(t, first.ReceiveTime.IsZero())
 	messages := []msgInfo{first}
 	for range proposalMessage.Proposal.BlockID.PartSetHeader.Total {
-		part := repair80NextMessage(t, producer)
+		part := proposalReplayNextMessage(t, producer)
 		require.IsType(t, &BlockPartMessage{}, part.Msg)
 		messages = append(messages, part)
 	}
@@ -89,16 +89,16 @@ func newRepair80Fixture(t *testing.T) repair80Fixture {
 		require.NoError(t, proto.Unmarshal(encoded, &transported))
 		messages[i].Msg, err = MsgFromProto(&transported)
 		require.NoError(t, err)
-		messages[i].PeerID = types.NodeID("repair80-proposer")
+		messages[i].PeerID = types.NodeID("proposalReplay-proposer")
 	}
-	return repair80Fixture{
+	return proposalReplayFixture{
 		genesis: genesis, cfg: cfg, signer: signers[localIndex],
 		keyFile: keyFiles[localIndex], stateFile: stateFiles[localIndex],
 		messages: messages, proposal: proposalMessage.Proposal,
 	}
 }
 
-func repair80NextMessage(t *testing.T, cs *testState) msgInfo {
+func proposalReplayNextMessage(t *testing.T, cs *testState) msgInfo {
 	t.Helper()
 	select {
 	case mi := <-cs.internalMsgQueue:
@@ -109,20 +109,20 @@ func repair80NextMessage(t *testing.T, cs *testState) msgInfo {
 	}
 }
 
-func repair80State(t *testing.T, f repair80Fixture, signer *privval.FilePV) *testState {
+func proposalReplayState(t *testing.T, f proposalReplayFixture, signer *privval.FilePV) *testState {
 	t.Helper()
 	cs := newStateWithConfig(t, f.cfg, f.genesis, signer, kvstore.NewProxy())
 	t.Cleanup(cs.blockExec.Stop)
-	cs.enterNewRound(t.Context(), 1, 0, "repair80")
+	cs.enterNewRound(t.Context(), 1, 0, "proposalReplay")
 	return cs
 }
 
-func repair80Prevote(t *testing.T, cs *testState, f repair80Fixture, timely bool) *types.Vote {
+func proposalReplayPrevote(t *testing.T, cs *testState, f proposalReplayFixture, timely bool) *types.Vote {
 	t.Helper()
 	require.NotNil(t, cs.roundState.Proposal())
 	require.NotNil(t, cs.roundState.ProposalBlock())
 	require.Equal(t, timely, cs.proposalIsTimely())
-	message := repair80NextMessage(t, cs)
+	message := proposalReplayNextMessage(t, cs)
 	voteMessage, ok := message.Msg.(*VoteMessage)
 	require.True(t, ok)
 	vote := voteMessage.Vote
@@ -138,7 +138,7 @@ func repair80Prevote(t *testing.T, cs *testState, f repair80Fixture, timely bool
 	return vote
 }
 
-func TestRepair_80_WALProposalReceiveTime(t *testing.T) {
+func TestProposalReplayWALProposalReceiveTime(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		offset time.Duration
@@ -150,12 +150,12 @@ func TestRepair_80_WALProposalReceiveTime(t *testing.T) {
 		{"early", -time.Second - time.Nanosecond, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newRepair80Fixture(t)
+			f := newProposalReplayFixture(t)
 			// The receiver's delivery time is a separate PBTS input; it need not
 			// equal either the proposal's signed timestamp or the WAL append clock.
 			received := f.proposal.Timestamp.Add(tc.offset)
 			f.messages[0].ReceiveTime = received
-			live := repair80State(t, f, f.signer)
+			live := proposalReplayState(t, f, f.signer)
 			for _, mi := range f.messages {
 				require.NoError(t, live.wal.Append(NewWALMessage(mi)))
 			}
@@ -163,7 +163,7 @@ func TestRepair_80_WALProposalReceiveTime(t *testing.T) {
 			for _, mi := range f.messages {
 				live.handleMsg(t.Context(), mi, false)
 			}
-			before := repair80Prevote(t, live, f, tc.timely)
+			before := proposalReplayPrevote(t, live, f, tc.timely)
 			require.True(t, received.Equal(live.roundState.ProposalReceiveTime()))
 			// Crash after signing but before the vote is appended to WAL. Reload
 			// the same FilePV state, with no reset of its double-sign protection.
@@ -171,7 +171,7 @@ func TestRepair_80_WALProposalReceiveTime(t *testing.T) {
 			live.blockExec.Stop()
 			signer, err := privval.LoadFilePV(f.keyFile, f.stateFile)
 			require.NoError(t, err)
-			recovered := repair80State(t, f, signer)
+			recovered := proposalReplayState(t, f, signer)
 			height, persisted, err := recovered.wal.ReadLastHeightMsgs()
 			require.NoError(t, err)
 			require.EqualValues(t, 1, height)
@@ -188,7 +188,7 @@ func TestRepair_80_WALProposalReceiveTime(t *testing.T) {
 			require.Equal(t, 1, proposalCount)
 			require.NoError(t, recovered.catchupReplay(t.Context(), 1))
 			require.True(t, received.Equal(recovered.roundState.ProposalReceiveTime()))
-			after := repair80Prevote(t, recovered, f, tc.timely)
+			after := proposalReplayPrevote(t, recovered, f, tc.timely)
 			require.True(t, before.BlockID.Equals(after.BlockID))
 			require.True(t, before.Timestamp.Equal(after.Timestamp))
 			require.Equal(t, before.ToProto().Signature, after.ToProto().Signature)
@@ -204,15 +204,15 @@ func TestRepair_80_WALProposalReceiveTime(t *testing.T) {
 	}
 }
 
-func TestRepair_80_LegacyProposalFailsClosed(t *testing.T) {
-	f := newRepair80Fixture(t)
+func TestProposalReplayLegacyProposalFailsClosed(t *testing.T) {
+	f := newProposalReplayFixture(t)
 	// Encode the real producer output with the old schema: its debug time is
 	// deliberately timely, but it is still not evidence of actual receipt.
 	legacy, err := proto.Marshal(&tmcons.TimedWALMessage{
 		Time: f.proposal.Timestamp, Msg: NewWALMessage(f.messages[0]).toProto(),
 	})
 	require.NoError(t, err)
-	cs := repair80State(t, f, f.signer)
+	cs := proposalReplayState(t, f, f.signer)
 	cs.wal.Close()
 	inner, err := logwal.OpenLog(f.cfg.Consensus.WalFile(), logwal.DefaultConfig())
 	require.NoError(t, err)
@@ -220,14 +220,14 @@ func TestRepair_80_LegacyProposalFailsClosed(t *testing.T) {
 	require.NoError(t, inner.Sync())
 	inner.Close()
 	cs.blockExec.Stop()
-	recovered := repair80State(t, f, f.signer)
+	recovered := proposalReplayState(t, f, f.signer)
 	require.ErrorIs(t, recovered.catchupReplay(t.Context(), 1), ErrWALProposalReceiveTimeMissing)
 	require.Nil(t, recovered.roundState.Proposal())
 	require.Empty(t, recovered.internalMsgQueue)
 }
 
-func TestRepair_80_LegacyNonProposal(t *testing.T) {
-	f := newRepair80Fixture(t)
+func TestProposalReplayLegacyNonProposal(t *testing.T) {
+	f := newProposalReplayFixture(t)
 	mi := f.messages[1]
 	legacy, err := proto.Marshal(&tmcons.TimedWALMessage{
 		Time: time.Now(), Msg: NewWALMessage(mi).toProto(),
@@ -242,27 +242,27 @@ func TestRepair_80_LegacyNonProposal(t *testing.T) {
 	require.Equal(t, MsgToProto(mi.Msg), MsgToProto(got.Msg))
 }
 
-func TestRepair_80_ProposalSignatureStillRequired(t *testing.T) {
-	f := newRepair80Fixture(t)
+func TestProposalReplayProposalSignatureStillRequired(t *testing.T) {
+	f := newProposalReplayFixture(t)
 	proposal := *f.proposal
 	proposal.Timestamp = proposal.Timestamp.Add(time.Nanosecond)
 	f.messages[0].Msg = &ProposalMessage{Proposal: &proposal}
-	live := repair80State(t, f, f.signer)
+	live := proposalReplayState(t, f, f.signer)
 	for _, mi := range f.messages {
 		require.NoError(t, live.wal.Append(NewWALMessage(mi)))
 	}
 	require.NoError(t, live.wal.Sync())
 	live.wal.Close()
 	live.blockExec.Stop()
-	recovered := repair80State(t, f, f.signer)
+	recovered := proposalReplayState(t, f, f.signer)
 	require.NoError(t, recovered.catchupReplay(t.Context(), 1))
 	require.Nil(t, recovered.roundState.Proposal())
 	require.Empty(t, recovered.internalMsgQueue)
 	require.ErrorIs(t, recovered.defaultSetProposal(&proposal, f.messages[0].ReceiveTime), ErrInvalidProposalSignature)
 }
 
-func TestRepair_80_InvalidReceiveTime(t *testing.T) {
-	f := newRepair80Fixture(t)
+func TestProposalReplayInvalidReceiveTime(t *testing.T) {
+	f := newProposalReplayFixture(t)
 	entry, err := proto.Marshal(&tmcons.TimedWALMessage{
 		Time: time.Now(), Msg: NewWALMessage(f.messages[0]).toProto(),
 	})
