@@ -14068,6 +14068,12 @@ value = "Task 22.43.295 runs on a tree that holds the pages of the tasks 22.43.2
 basis = "Gotcha 4405, decision 3490."
 affects = ["22.43.295"]
 
+[decision.3493]
+title = "The case on the contract page of the inference market reads the page in its present form"
+value = "The page spec/layerx-merge/contracts/inference-market.md keeps its tables: one per section, four columns, the name, the kind and the signature in code tags with character entities, the source as a link to the file. The case reads that form. Every row of the page is a row of the registry and stands on the page once; for the inference interfaces the kind, the path of the source and the signature equal the registry row and the section of the row is on the page. The page holds no task column, no status column and no count lines, so the case does not read them there."
+basis = "Gotcha 4406, decision 3491."
+affects = ["22.43.319"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -374369,6 +374375,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3493, gotcha 4406. The contract page holds one table per section with four columns: Interface, Kind, Source, Signature. The name, the kind and the signature stand in code tags with character entities, and the source is a link whose text is the path of the file. Bring the case test_contract_matches_the_served_registry to that form. Read every table row whose first cell names an interface, take the code tags off and resolve the entities. Assert for each row that the name is a row of the registry and stands on the page once, and for the inference interfaces that the kind, the path and the signature equal the registry row and that the section the row names is on the page. The count of 43 rows, the assertion that every inference interface is on the page and the assertion on the revision line stay. The page holds no task column, no status column and no count lines: the assertions on those go from the case. Change nothing on the page beyond the revision line of do_2. Then take the mark off and run the file as the verification does."
 
 [task.22.43.318]
 title = "State on the HTTP transport conformance page which cases are for review only"
