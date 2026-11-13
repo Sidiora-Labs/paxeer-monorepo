@@ -1,5 +1,5 @@
 //! Decision 2656 / gotcha 3230: acquire and authenticate coverage for each wait.
-#[path = "repair_22_31_494.rs"]
+#[path = "submitted_transaction_evidence.rs"]
 mod fixtures;
 
 use ed25519_dalek::{Signer as _, SigningKey};

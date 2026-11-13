@@ -123,7 +123,7 @@ fn bind(
 }
 
 #[test]
-fn finding_017_lifecycle_abi_round_trips_signed_chain_125_transactions() {
+fn lifecycle_abi_round_trips_signed_chain_125_transactions() {
     for name in [
         "deploy",
         "upgrade",
@@ -222,7 +222,7 @@ fn finding_017_lifecycle_abi_round_trips_signed_chain_125_transactions() {
 }
 
 #[test]
-fn finding_017_upgrade_flags_and_bounded_exit_are_bound() {
+fn upgrade_flags_and_bounded_exit_are_bound() {
     let fixture = lifecycle_fixture("upgrade");
     let payload = bytes(
         fixture["payload_hex"]
@@ -332,7 +332,7 @@ fn programs_case(document: &Value) -> &Value {
 }
 
 #[test]
-fn finding_018_real_sequencer_receipt_requires_height_pins_and_programs_identity() {
+fn real_sequencer_receipt_requires_height_pins_and_programs_identity() {
     let vectors = sequencer_vectors();
     let case = programs_case(&vectors);
     let receipt = bytes(
@@ -462,7 +462,7 @@ fn http_listener(replies: Vec<(&'static str, Value)>) -> (String, JoinHandle<Vec
 }
 
 #[test]
-fn finding_018_lifecycle_transport_uses_node_rpc_and_rejects_an_unrelated_real_receipt() {
+fn lifecycle_transport_uses_node_rpc_and_rejects_an_unrelated_real_receipt() {
     let vectors = sequencer_vectors();
     let case = programs_case(&vectors);
     let authorization = authorization(case);
@@ -676,7 +676,7 @@ fn producer_logs() -> Vec<Value> {
 }
 
 #[test]
-fn finding_019_disconnect_and_listener_restart_replay_by_block_transaction_and_log() {
+fn disconnect_and_listener_restart_replay_by_block_transaction_and_log() {
     let logs = producer_logs();
     assert_eq!(logs.len(), 4);
     let listener =
@@ -775,7 +775,7 @@ fn finding_019_disconnect_and_listener_restart_replay_by_block_transaction_and_l
 }
 
 #[test]
-fn finding_019_malformed_removed_and_regressing_logs_never_advance_the_cursor() {
+fn malformed_removed_and_regressing_logs_never_advance_the_cursor() {
     let logs = producer_logs();
     for mutation in [
         "blockNumber",
@@ -834,7 +834,7 @@ fn finding_019_malformed_removed_and_regressing_logs_never_advance_the_cursor() 
 }
 
 #[test]
-fn finding_019_unsubscribe_does_not_acknowledge_undelivered_logs() {
+fn unsubscribe_does_not_acknowledge_undelivered_logs() {
     let logs = producer_logs();
     let listener =
         TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("listener: {error:?}"));
