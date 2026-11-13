@@ -1,21 +1,21 @@
 {
-  "source_revision": "2910889b640274b1b6f2bd14a2fba25019093bb2",
+  "source_revision": "965a7a307bb7ebdc57d1a0c1f8e0357b9786760b",
   "python_sdk": {
     "local_sha256": {
-      "test_ai_market_commit.py": "08d8040bf478c8e44ec991a2901c263fc194555ccaddcf210fb89a2200c2833d",
+      "test_ai_market_commit.py": "bfb69e8c98d6896962db19848fc4844206790c518f8420400decd1204c4ca43b",
       "test_px_commit.py": "58dec34db20ff5190e6679315ac3168b93fe561bf14caae5b161ad69ef5ce5ee",
       "test_receipt_generated_current.py": "3f438666460c17baf14cc2a1938e99581e621ab95531f894bca64b0e23e15e82",
-      "test_retired_kernel_receipts.py": "a708465a766c939b042310cacb709ccf0621011960c940ce4092cdd6831be841",
+      "test_retired_kernel_receipts.py": "86047040576808752d1c1f7b677108ee449fd5fb9205a06d200d464f81543da3",
       "test_revert_retryable.py": "5b03a8179beccf9f6ce8dc7f883b372eb46d6067faa0383d75b21f50a1815615",
       "test_sequencer_receipt.py": "9d664e5adf8eb4e9ec0d858dbbb195970887e6821009aec0ef0ff668b03da52a",
-      "test_spot_call.py": "320cd8e62db028df964fd7ac833f73616efb696155f852b19788f46d3de86ef7",
-      "test_web_search_sequencer.py": "af9dca5051db70c4929502d23c5387944fb888029189ebc587c6adf666a64a62",
-      "test_x402_draw_sequencer.py": "263666bb8dcc61d7faded9da5f39fb3091e14d05c7f928c51b5e9613e5a5b8d3",
-      "test_x402_http_sequencer.py": "abadb985246296a2a7746cc6bceba5abd4a7f9188a983053caf932212c8f1e7c",
+      "test_spot_call.py": "5b3b4e60b0cea07ca8b7dcbb649d27da804acb1a52bf3d0a0ffddcd2ef22c896",
+      "test_web_search_sequencer.py": "385ed2070c0ee9a8c929c13cd2ea1580938a7ce9115c113037a1c3040c48f113",
+      "test_x402_draw_sequencer.py": "c79e48c5cdcd069e51f4b2256100f9b8ed8e5075e66062efdb1e4771979668a1",
+      "test_x402_http_sequencer.py": "43769a9111dd980d0d52ea627c2b074084a64001492ad52d2f7afcd59f46a0c8",
       "test_x402_rpc_surface.py": "d7ca4dc716b5f35748e415e469aeea59eec6854dbe55371e12936594d3bce229"
     },
     "central_module_count": 44,
-    "central_sha256": "6c7cd00d8ebe43d94f916ab95123bf8bfe5d2d0f8b41136bf2ffde6a6a38dd67",
+    "central_sha256": "5b6a7ada17842d519d3ccf87b5adcb63399fc3b6cb6a7f1422725e8af4b7d02e",
     "discovery_extensions": [
       "test_x402_rpc_surface.py"
     ]

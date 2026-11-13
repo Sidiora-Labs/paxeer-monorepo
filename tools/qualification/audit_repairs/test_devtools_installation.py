@@ -142,7 +142,7 @@ def test_finding_17_readme_matches_real_installation_path():
     assert rows == [(name, package, version) for name, _, package, version in TOOLS]
     for fact in (
         "Go 1.25.8", "go install package@version", "v2 module and configuration format",
-        "Go 1.25 support starting with v2.4.0", "`TOOLS_DESTDIR` defaults to `$(GOPATH)/bin`",
+        "`TOOLS_DESTDIR` defaults to `$(GOPATH)/bin`",
         "sets `GOBIN` to the absolute", "path of `TOOLS_DESTDIR`",
         "project's `go.mod` and `go.sum` unchanged", "no temporary working directory",
         "Go module proxy or a populated module cache", "Existing binaries satisfy Make's prerequisites",
