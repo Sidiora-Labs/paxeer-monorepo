@@ -13966,6 +13966,18 @@ value = "The test target of the platform workspaces runs the end-to-end proof un
 basis = "Gotcha 4388."
 affects = []
 
+[decision.3476]
+title = "The readiness checklist of version 7.0.0 names the asset record of the native denomination"
+value = "Task 22.43.262 follows the asset record of the native denomination from the fixture of the isolated chain to the code that reads it, finds what the state of the network holds at the upgrade height and what the upgrade handler does with the asset records of the custody module, and adds one item to docs/release/7.0.0-readiness-checklist.md with the query that reads the record and the step that writes it where it is absent. The task changes that page only."
+basis = "Gotcha 4389."
+affects = []
+
+[decision.3477]
+title = "The systems inventory marks the interfaces the upgrade retires with the value retired"
+value = "docs/release/7.0.0-systems.kvx takes the value retired for the systems whose interface docs/release/7.0.0-upgrade-plan.md retires at the upgrade height. docs/release/7.0.0-systems.md defines the value beside the other three, the generator and the system map of the documentation site accept and show it, and precompiles/README.md and the module list of the SDK page say for these systems what the plan says. Where the plan keeps a part of a system at work, the pages say which part. Task 22.43.263 makes the change after task 22.43.261."
+basis = "Gotcha 4390."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43626,6 +43638,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.263]
+title = "Mark in the systems inventory the interfaces that the upgrade retires"
+reqs = ["22998.1"]
+touches = ["docs/release/7.0.0-systems.kvx", "docs/release/7.0.0-systems.md", "docs/site/paxeer-docs", "precompiles/README.md"]
+tests = []
+verification_contract = "grep -q -E '^change = .retired.$' docs/release/7.0.0-systems.kvx && grep -q -F -e retired docs/release/7.0.0-systems.md && npm --prefix docs/site/paxeer-docs run generate:systems && git diff --quiet -- docs/site/paxeer-docs/src/lib/systems.json && npm --prefix docs/site/paxeer-docs run build && python3 tools/paxeer-x/tests/retired_callers_test.py"
+do_1 = "do_1 Decision 3477, gotcha 4390. Read in docs/release/7.0.0-upgrade-plan.md what the upgrade does to the precompiles at 0x1012, 0x1013 and 0x1014 and to their modules, and read the sentence of docs/release/7.0.0-systems.md that defines the values new, changed and unchanged. In docs/release/7.0.0-systems.kvx give the value retired to each system whose interface the plan retires at the upgrade height. A system of which the plan keeps a part at work takes the value only when its callable interface refuses; decide for each system from the plan and say in the final message which systems took the value and why."
+symbols = []
+
+[capability.22.43.262]
+title = "Name in the readiness checklist the asset record of the native denomination"
+reqs = ["22998.1"]
+touches = ["docs/release/7.0.0-readiness-checklist.md"]
+tests = []
+verification_contract = "grep -q -F -e 'asset record of the native denomination' docs/release/7.0.0-readiness-checklist.md && python3 -m pytest -q tests/ci/test_docs_free_of_process_instructions.py"
+do_1 = "do_1 Decision 3476, gotcha 4389. Read lines 60 to 100 of tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py: for the isolated chain it adds to the genesis an asset record of the custody module for the native denomination, and only then the streams of the pay module are enabled. Find the code that needs that record: follow the asset records from modules/layerxcustody/types/genesis.go through the keeper of that module to their readers in modules/layerxpay, modules/layerxledger/keeper/assets.go, the kernel host module and the px routes under rpc. Write down which call stops without the record and with which answer."
+symbols = []
 
 [capability.22.43.261]
 title = "Admit in the register of retired interfaces the references that state a retirement"
@@ -170104,6 +170134,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.43.263]
+title = "Mark in the systems inventory the interfaces that the upgrade retires"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.43.261"]
+reqs = ["22998.1"]
+capabilities = ["22.43.263"]
+interfaces = []
+do_1 = "do_1 Decision 3477, gotcha 4390. Read in docs/release/7.0.0-upgrade-plan.md what the upgrade does to the precompiles at 0x1012, 0x1013 and 0x1014 and to their modules, and read the sentence of docs/release/7.0.0-systems.md that defines the values new, changed and unchanged. In docs/release/7.0.0-systems.kvx give the value retired to each system whose interface the plan retires at the upgrade height. A system of which the plan keeps a part at work takes the value only when its callable interface refuses; decide for each system from the plan and say in the final message which systems took the value and why."
+do_2 = "do_2 In docs/release/7.0.0-systems.md define the value retired beside the other three in one sentence: the interface refuses calls from the upgrade height and the tree stays in the build for replay and for the reads the plan keeps. Bring the tables of that page to the values of the inventory. Keep every other sentence of the page."
+do_3 = "do_3 In docs/site/paxeer-docs let scripts/generate-systems.mjs accept the value, give it a label in src/components/SystemMap.tsx beside the other three with a style that fits both themes, and run npm run prepare:docs in that directory so that src/lib/systems.json and the generated copies of the pages follow. In the module list of src/app/sdk/page.tsx say for the retired modules what the plan says, in a few words. In precompiles/README.md bring the three lines of these directories to the same statement: which calls refuse from the upgrade height and what stays readable."
+do_4 = "do_4 Run python3 tools/paxeer-x/tests/retired_callers_test.py by hand after the change. The register admits the files of this task by path and symbol after task 22.43.261. Where the scan reports a row in a file of this task, word the line so that it states the retirement; where it reports a row you cannot clear inside your paths, name it in the final message. Change no file under tools/paxeer-x."
+do_5 = "do_5 Before each commit read the output of git status and commit the generated files as the generators write them. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/release/7.0.0-systems.kvx", "docs/release/7.0.0-systems.md", "docs/site/paxeer-docs", "precompiles/README.md"]
+tests = []
+planned_paths = []
+build_cmd = "npm ci --prefix docs/site/paxeer-docs && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "grep -q -E '^change = .retired.$' docs/release/7.0.0-systems.kvx && grep -q -F -e retired docs/release/7.0.0-systems.md && npm --prefix docs/site/paxeer-docs run generate:systems && git diff --quiet -- docs/site/paxeer-docs/src/lib/systems.json && npm --prefix docs/site/paxeer-docs run build && python3 tools/paxeer-x/tests/retired_callers_test.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.43.256]
 title = "Bring the readers of renamed files under the applications, the explorer services and the launchpad tools to the present paths"
 status = "done"
@@ -238755,6 +238817,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.43.262]
+title = "Name in the readiness checklist the asset record of the native denomination"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.262"]
+interfaces = []
+do_1 = "do_1 Decision 3476, gotcha 4389. Read lines 60 to 100 of tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py: for the isolated chain it adds to the genesis an asset record of the custody module for the native denomination, and only then the streams of the pay module are enabled. Find the code that needs that record: follow the asset records from modules/layerxcustody/types/genesis.go through the keeper of that module to their readers in modules/layerxpay, modules/layerxledger/keeper/assets.go, the kernel host module and the px routes under rpc. Write down which call stops without the record and with which answer."
+do_2 = "do_2 Find what the network holds at the upgrade height. Read the steps of the upgrade handler of version 7.0.0 in the node, above all the step that releases custody, and docs/release/7.0.0-upgrade-plan.md: does the handler keep, change or remove the asset records of the custody module; does it or a later governed message write a record for the native denomination; which query of the node or which px route shows the record to an operator. Read the asset identifier the fixture derives and compare it with how the product derives the identifier of the native asset."
+do_3 = "do_3 Add one item to the fitting section of docs/release/7.0.0-readiness-checklist.md in the form of its other items, with a proof command. The item says in plain words that the asset record of the native denomination is present in the state, how an operator reads it from a node before the upgrade height and after it, and what writes it where it is absent. Use the words asset record of the native denomination in the item. The page carries no task number and no command of the spec tool; the test tests/ci/test_docs_free_of_process_instructions.py reads it. Change nothing else on the page and no other file."
+do_4 = "do_4 Where the code shows that the streams of the pay module need a record that the state at the upgrade height cannot hold, or that nothing can write after the custody precompile refuses calls, do not write around it: put the file, the line and the reasoning into the final message, and write the item as a condition that must hold before the height. Name in the final message the reader found in do_1, the handler step found in do_2 and the query of the item. Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["docs/release/7.0.0-readiness-checklist.md"]
+tests = []
+planned_paths = []
+build_cmd = "go mod download && python3 -m pip install -q pytest PyYAML"
+verify_cmd = "grep -q -F -e 'asset record of the native denomination' docs/release/7.0.0-readiness-checklist.md && python3 -m pytest -q tests/ci/test_docs_free_of_process_instructions.py"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.43.249]
 title = "Bring the inventory files under tools/workspace and the readers of four test data directories to the present paths"

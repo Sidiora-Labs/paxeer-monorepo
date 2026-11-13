@@ -21765,3 +21765,13 @@ fix = "Task 22.43.261 reads each reported line and admits in the register the li
 title = "A budget with no spend in its period is revoked and its unused funds are returned"
 symptom = "Since task 22.31.99 the kernel budget module keeps the configured period limit in the record when a budget is closed or revoked, so a budget whose period holds no spend is revoked and its unused funds are returned. The case of modules/layerxpay/keeper/budget_revoke_precompile_test.go covers the revocation without spend and with spend. The end-to-end proof precompiles/layerxpay/proof_layerxpay_0x101b_test.go dates from before that task, and the history case of the indexer under services/platform runs it."
 fix = "A proof that walks the revocation of a budget expects the revocation to pass with and without spend. Task 22.39.504 takes precompiles/layerxpay into its paths and brings the end-to-end proof to that rule."
+
+[gotcha.4389]
+title = "The fixture of the isolated chain writes an asset record of the custody module for the native denomination"
+symptom = "tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py adds to the genesis of the isolated chain an asset record of the custody module for the native denomination before the streams of the pay module open. On the network that record comes from the state at the upgrade height, and the readiness checklist under docs/release is the page where an operator looks for such a condition."
+fix = "The readiness checklist names the record, the query that reads it from a node, and the step that writes it where it is absent. Task 22.43.262 adds the item."
+
+[gotcha.4390]
+title = "The systems inventory of the release has three values for the change of a system"
+symptom = "docs/release/7.0.0-systems.kvx gives each system one of the values new, changed and unchanged, and the page of the inventory, the generator of the documentation site and its system map read them. docs/release/7.0.0-upgrade-plan.md states that the precompiles at 0x1012 and 0x1013 refuse every method from the upgrade height and that the one at 0x1014 refuses writes and keeps reads; their trees stay in the build. The inventory lists these systems as changed, and precompiles/README.md and the module list of the SDK page of the site name them without the statement of the plan."
+fix = "The inventory takes a fourth value, retired, for the systems whose interface the plan retires; the page of the inventory defines it, the site shows it, and the two pages say what the plan says. Task 22.43.263."
