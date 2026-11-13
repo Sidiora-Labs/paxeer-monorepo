@@ -195,7 +195,7 @@ def test_programs_readme_record_and_rust_companion():
     assert manifest["package"]["name"] == "layerx-programs-integration-tests"
     assert manifest["package"]["publish"] is False
     assert manifest["test"] == [{
-        "name": "repair_22_33_238", "path": "tests/repair_22_33_238.rs"
+        "name": "repair_22_33_238", "path": "tests/registry_read_bridge.rs"
     }]
     assert manifest["dev-dependencies"]["layerx-programs-registry"]["path"] == (
         "crates/layerx-programs-registry"
@@ -205,7 +205,7 @@ def test_programs_readme_record_and_rust_companion():
     assert len(packages) == 1
     assert packages[0]["version"] == manifest["workspace"]["package"]["version"]
     assert set(packages[0]["dependencies"]) == set(manifest["dev-dependencies"])
-    rust = source(PROGRAMS / "tests/repair_22_33_238.rs")
+    rust = source(PROGRAMS / "tests/registry_read_bridge.rs")
     assert set(re.findall(r"#\[test\]\s+fn (\w+)\(", rust)) == set(finding["rust_tests"])
     assert '#[path = "../crates/layerx-programs-registry/tests/support/chain.rs"]' in rust
     for call in (

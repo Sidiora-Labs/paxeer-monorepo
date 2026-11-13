@@ -864,7 +864,7 @@ def prepare_launch_runtime(directory, binary, revision, funded_accounts, funding
              'config.toml': (template / 'config/config.toml').read_bytes(),
              'app.toml': app_config.encode(),
              'priv_validator_key.json': (template / 'config/priv_validator_key.json').read_bytes(),
-             'rpc-ca.der': ssl.PEM_cert_to_DER_cert((ROOT / 'services/platform/hosted/node/tests/fixtures/repair_22_31_355/tls-certificate.pem.txt').read_text())}
+             'rpc-ca.der': ssl.PEM_cert_to_DER_cert((ROOT / 'services/platform/hosted/node/tests/fixtures/native_lifecycle/tls-certificate.pem.txt').read_text())}
     for name, content in files.items():
         target = inputs / name
         target.write_bytes(content)
