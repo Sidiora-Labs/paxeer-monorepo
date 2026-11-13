@@ -11,10 +11,10 @@ qualification_note = "The initial hf-done returned zero but Vitest 4 registered 
 repair = "One generation binds name, duration, availability and price; query/duration changes and unmount invalidate it, and registration snapshots only a validated result."
 test = "pns_stale_search_rejects_out_of_order_query_duration_and_clear"
 additional_tests = ["pns_stale_search_cannot_authorize_a_different_registration_identity"]
-path = "apps/wallet/src/widgets/pns/repair-22-33-138.test.ts"
+path = "apps/wallet/src/widgets/pns/pns-registration-lifecycle.test.ts"
 
 [finding.pns-registration-journal]
 repair = "Register intent, cryptographic secret, chain/account/controller and nonce/calldata are durably saved through the wallet storage registry before broadcast; transaction hashes are saved before receipt observation. Reopening the production hook reconciles the original transaction and commitment ages before revealing or expiring it."
 test = "pns_registration_journal_recovers_original_secret_after_component_restart"
 additional_tests = ["pns_registration_recovers_lost_commit_response_without_rebroadcast", "pns_registration_recovers_lost_reveal_response_without_duplicate_spend", "pns_registration_retains_pending_and_expires_only_reconciled_commitment", "pns_registration_refuses_cross_account_chain_and_undurable_intent", "pns_registration_reconciles_reverted_commit_and_stopped_session"]
-path = "apps/wallet/src/widgets/pns/repair-22-33-138.test.ts"
+path = "apps/wallet/src/widgets/pns/pns-registration-lifecycle.test.ts"

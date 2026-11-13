@@ -16,7 +16,7 @@ afterEach(async () => {
 });
 
 async function temporaryDirectory(): Promise<string> {
-  const directory = await mkdtemp(path.join(os.tmpdir(), 'repair-22-31-246-'));
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'push-store-recovery-'));
   directories.push(directory);
   return directory;
 }

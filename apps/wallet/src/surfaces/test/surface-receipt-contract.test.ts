@@ -79,7 +79,7 @@ class RecordedSurfaceNode {
   }
 }
 
-async function repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read() {
+async function unsigned_surface_fixture_replays_node_send_and_read() {
   const entry = nodeReceiptVectors().find(({ id }) => id === 'V1-layerxbridge-bridge-out')!;
   const call = nodeReceiptCall(entry);
   const transaction = { to: call.to, data: call.data, value: BigInt(call.value) };
@@ -158,11 +158,11 @@ async function repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_r
 }
 
 test(
-  repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read.name,
-  repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read
+  unsigned_surface_fixture_replays_node_send_and_read.name,
+  unsigned_surface_fixture_replays_node_send_and_read
 );
 
-async function repair_22_33_206_minimal_receipt_fixture_contract_gates_surface_confirmation() {
+async function minimal_receipt_fixture_contract_gates_surface_confirmation() {
   const entry = nodeReceiptVectors().find(({ id }) => id === 'V1-layerxbridge-bridge-out')!;
   const call = nodeReceiptCall(entry);
   const transaction = { to: call.to, data: call.data, value: BigInt(call.value) };
@@ -232,6 +232,6 @@ async function repair_22_33_206_minimal_receipt_fixture_contract_gates_surface_c
 }
 
 test(
-  repair_22_33_206_minimal_receipt_fixture_contract_gates_surface_confirmation.name,
-  repair_22_33_206_minimal_receipt_fixture_contract_gates_surface_confirmation
+  minimal_receipt_fixture_contract_gates_surface_confirmation.name,
+  minimal_receipt_fixture_contract_gates_surface_confirmation
 );

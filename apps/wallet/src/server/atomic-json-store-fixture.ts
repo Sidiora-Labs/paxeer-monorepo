@@ -36,9 +36,9 @@ export function openRecords(filePath: string) {
 }
 
 export async function scratchDirectory() {
-  return mkdtemp(path.join(os.tmpdir(), 'repair-22-33-167-'));
+  return mkdtemp(path.join(os.tmpdir(), 'push-delivery-'));
 }
-export const workerPath = path.join(__dirname, 'fixtures/repair-22-33-167/worker.mjs');
+export const workerPath = path.join(__dirname, 'fixtures/push-delivery/worker.mjs');
 
 export function worker(mode: string, filePath: string, parameter = '') {
   const child = fork(workerPath, [mode, filePath, parameter], { execArgv: [], silent: true });

@@ -9,7 +9,7 @@ change = "SurfaceChain, inherited by GrantChain, answers eth_call getParams() on
 encoding = "Five ABI words accepted by decodeWebDataPaymentAvailability: xwebFee (uint256), zero uint32, zero uint64, zero uint64, and paused (bool), the inverse of configurable xwebAvailable. Availability defaults to true and the existing configurable xwebFee defaults to zero."
 tests = ["empty_lagging_index_test_stays_incomplete_until_the_issued_grant_is_discovered", "incomplete_grant_discovery_requires_coverage_on_every_page_and_refuses_unknown_heights", "budgets_not_discovered_is_exposed_separately_from_verified_grant_absence"]
 build_cmd = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/wallet exec vitest run src/surfaces/repair-22-33-205.test.ts src/account/repair-22-33-161.test.ts"
+verify_cmd = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/wallet exec vitest run src/surfaces/surface-confirmation.test.ts src/account/repair-22-33-161.test.ts"
 evidence = "The hf-build and hf-done ledger records name the exact candidate revision, command, exit code and private log. Only a passing hf-done record proves the listed cases green; no pre-change or unexecuted gate is claimed."
 
 [finding.production_contract]

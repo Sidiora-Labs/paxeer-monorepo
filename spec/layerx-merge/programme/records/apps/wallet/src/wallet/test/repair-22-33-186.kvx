@@ -1,6 +1,6 @@
 [repair.22.33.186]
 audit = "spec/layerx-merge/programme/audit/records/22.30.119.kvx"
-test_path = "apps/wallet/src/wallet/test/repair-22-33-186.test.ts"
+test_path = "apps/wallet/src/wallet/test/signer-rpc-envelope.test.ts"
 baseline = "No pre-change gate ran: the explicit order requires complete implementation, then hf-build, then hf-done and prohibits running verify_cmd by hand. Neither new test existed at the base. The prior helper cannot forward the authenticated production send and advertises /rpc instead of the asserted root or selected namespace. No observed baseline failure is claimed."
 evidence = "The private hf-build/hf-done ledger supplies the exact candidate revision, command, exit code and log; final output copies the last gate evidence without changing the qualified tree."
 
@@ -8,7 +8,7 @@ evidence = "The private hf-build/hf-done ledger supplies the exact candidate rev
 tests = ["synthetic_chain_response_binds_producer_bytes_to_signer_lookup"]
 proof = "The production SDK WalletInterface/PaxeerProvider and WalletSigner drive two distinct sends through the helper HTTP proxy into the committed SDK transcript transport. Immutable request/signed-byte/response records were generated with viem privateKeyToAccount.signTransaction, the signing codec used by the gateway envelope path in services/wallet/gateway/src/db/wallets.ts. Each consumer lookup first observes no transaction; only publishing that record's original bytes through ethers JSON-RPC makes it visible. Hash, reconstructed serialization, signature, sender, destination, value, data, nonce, gas, fee fields and chain all agree. The loopback node peer verifies signature, chain and nonce and indexes only accepted signed bytes. The HTTP peer acknowledges only exact recorded requests and bearer tokens; it does not sign or invent responses for new inputs."
 unit_boundary = "The old constructions vector is explicitly a codec unit fixture. Its response now uses parsed.hash and is returned only for that exact hash; a caller-supplied hash is never substituted. Transaction responses have null block fields and the integration proof asserts isMined is false; submission is not evidence of mining."
-wiring_request = "Domain 12: apps/wallet/src/wallet/signer.test.ts should reuse the production integration scenario in apps/wallet/src/wallet/test/repair-22-33-186.test.ts instead of its canned send-hash assertion; that consuming test file is outside this task's scope."
+wiring_request = "Domain 12: apps/wallet/src/wallet/signer.test.ts should reuse the production integration scenario in apps/wallet/src/wallet/test/signer-rpc-envelope.test.ts instead of its canned send-hash assertion; that consuming test file is outside this task's scope."
 
 [finding.test-retired-rpc-path]
 tests = ["test_retired_rpc_path_uses_root_and_selected_namespace"]
