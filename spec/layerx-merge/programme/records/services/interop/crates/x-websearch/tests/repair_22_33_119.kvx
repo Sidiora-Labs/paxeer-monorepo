@@ -1,7 +1,7 @@
 [repair.22.33.119]
 audit = "22.30.113"
 base = "081dc08ced37d64df4d676e4b2a2d07ef444115a"
-verify = "cargo test --locked --manifest-path services/interop/crates/x-websearch/Cargo.toml --test repair_22_33_119"
+verify = "cargo test --locked --manifest-path services/interop/crates/x-websearch/Cargo.toml --test websearch_application_and_payment_recovery"
 evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; this file makes no unexecuted gate claim."
 baseline = "The supplied previous-attempt result reports seven passing cases and metered_test_producer_supported_offers_refuse_retired_draws_and_recover_once failing at payment_repair.rs:459 (24 receipt lookups versus 16); no additional baseline command was run because the ordered gates prohibit manual verification."
 

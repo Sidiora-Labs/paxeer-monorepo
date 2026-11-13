@@ -33,8 +33,10 @@ const README: &str = include_str!("../README.md");
 struct Scratch(PathBuf);
 impl Scratch {
     fn new(label: &str) -> Checked<Self> {
-        let path =
-            std::env::temp_dir().join(format!("repair-22-33-120-{}-{label}", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "websearch-documented-recovery-{}-{label}",
+            std::process::id()
+        ));
         std::fs::create_dir(&path)?;
         Ok(Self(path))
     }

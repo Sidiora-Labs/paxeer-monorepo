@@ -97,7 +97,7 @@ fn visa_intent_path_producer_receipt_agrees_with_both_consumers() {
         VISA_TAP_SPEC_SHA256,
     )
     .unwrap_or_else(|error| panic!("Visa specification pin: {error:?}"));
-    let suite_bytes = include_bytes!("repair_22_33_116.rs");
+    let suite_bytes = include_bytes!("visa_intent_path.rs");
     let suite = ConformanceSuite::new(
         AdapterId::new("visa-intent-path").unwrap_or_else(|error| panic!("suite id: {error:?}")),
         3,

@@ -47,8 +47,10 @@ struct Scratch(PathBuf);
 impl Scratch {
     fn new(label: &str) -> Checked<Self> {
         test_network::isolate()?;
-        let path =
-            std::env::temp_dir().join(format!("repair-22-33-118-{}-{label}", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "websearch-http-and-authority-{}-{label}",
+            std::process::id()
+        ));
         std::fs::create_dir(&path)?;
         Ok(Self(path))
     }

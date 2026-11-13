@@ -1,7 +1,7 @@
 [repair.22.33.120]
 audit = "22.30.113"
 base_revision = "79d99a9cd334a5da02f3a4aac2a324549c9a0d5e"
-verify_cmd = "cargo test --locked --manifest-path services/interop/crates/x-websearch/Cargo.toml --test repair_22_33_120"
+verify_cmd = "cargo test --locked --manifest-path services/interop/crates/x-websearch/Cargo.toml --test websearch_documented_recovery"
 evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; this record makes no unexecuted qualification claim."
 baseline = "Not run: the explicit ordered gates prohibit testing before complete implementation and manual verification. At session start the runner reported zero builds and zero verification runs, with no earlier gate ledger and no repair_22_33_120 test; no baseline test failure is claimed."
 
