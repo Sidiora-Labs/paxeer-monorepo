@@ -21,7 +21,7 @@ Historical tracing selects the version recorded at the requested height. It
 continues selecting v620 during its historical interval even when the
 store already contains the later merge marker.
 
-[Routing and value tests](repair_m1259_test.go) drive the production distribution
+[Routing and value tests](rewards_value_test.go) drive the production distribution
 registry, keeper version selection, EVM CALL/STATICCALL, distribution query and
 ABI response. Their isolated in-memory upgrade history records v6.2.0 at
 height 20, v6.3.0 at 30, and v7.0 at 100.

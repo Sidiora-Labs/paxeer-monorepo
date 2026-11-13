@@ -1,4 +1,4 @@
-// Shared by the crate's unit suite and repair_22_33_305 integration gate.
+// Shared by the crate's unit suite and signature aggregation integration tests.
 // Mount the actual server implementation and generated HTTP routes.
 pub mod service {
     use sig_provider_proto::tonic;

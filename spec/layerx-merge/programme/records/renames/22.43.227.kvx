@@ -1,0 +1,68 @@
+[manifest]
+task = "22.43.227"
+records_moved = 4
+files_renamed = 4
+
+[file.1]
+from = "tools/tx-scanner/client/repair_m883.kvx"
+to = "spec/layerx-merge/programme/records/tools/tx-scanner/client/repair_m883.kvx"
+
+[file.2]
+from = "tools/tx-scanner/cmd/repair_m881.kvx"
+to = "spec/layerx-merge/programme/records/tools/tx-scanner/cmd/repair_m881.kvx"
+
+[file.3]
+from = "tools/tx-scanner/query/repair_m882.kvx"
+to = "spec/layerx-merge/programme/records/tools/tx-scanner/query/repair_m882.kvx"
+
+[file.4]
+from = "tools/tx-scanner/state/repair_m884.kvx"
+to = "spec/layerx-merge/programme/records/tools/tx-scanner/state/repair_m884.kvx"
+
+[file.5]
+from = "tools/tx-scanner/client/repair_m883_test.go"
+to = "tools/tx-scanner/client/connection_lifecycle_test.go"
+
+[file.6]
+from = "tools/tx-scanner/cmd/repair_m881_test.go"
+to = "tools/tx-scanner/cmd/transaction_index_validation_test.go"
+
+[file.7]
+from = "tools/tx-scanner/query/repair_m882_test.go"
+to = "tools/tx-scanner/query/paginated_transaction_queries_test.go"
+
+[file.8]
+from = "tools/tx-scanner/state/repair_m884_test.go"
+to = "tools/tx-scanner/state/checkpoint_recovery_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/tx-scanner/client/repair_m883_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_883_"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/tx-scanner/cmd/repair_m881_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_881_"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/tx-scanner/query/repair_m882_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_882_"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/tx-scanner/state/repair_m884_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_884_"

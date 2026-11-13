@@ -205,7 +205,7 @@ versions are refused. On connect it creates a reflect account. A packet with
 `{"who_am_i":{}}` returns a JSON acknowledgement naming that account. Query
 `{"list_accounts":{}}` to read the stored channel/account association.
 
-[Native callback tests](repair_m1289_test.go) exercise this contract through
+[Native callback tests](module_lifecycle_test.go) exercise this contract through
 the module callback adapter, including version
 refusal, receive acknowledgements, acknowledgement and timeout callbacks.
 The tests commit the channel/account association, close the native VM and persistent

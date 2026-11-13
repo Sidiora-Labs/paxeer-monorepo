@@ -191,7 +191,7 @@ the SDK transaction facilities, such as the CLI commands above.
 
 The following accounts are generated from twenty bytes of `0x01` (granter) and
 `0x02` (grantee) with the configured `pax` Bech32 prefix. They are test fixtures;
-use your funded keyring accounts for transactions. `TestRepairM_691_ClientNetworkDoc`
+use your funded keyring accounts for transactions. `TestClientNetworkDoc`
 creates the `100uhpx` send grant through the real codec and message server at block
 time `2030-01-01T00:00:00Z`, then calls the generated query client through the SDK
 query router into the real keeper. Its logged responses are checked against these

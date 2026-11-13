@@ -426,7 +426,18 @@ func proofLaunchpadBootstrapRewardCoordinator(t *testing.T, ctx context.Context,
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
+	exec("DROP ROLE IF EXISTS pnl_owner")
 	exec("CREATE ROLE pnl_owner NOLOGIN; GRANT USAGE, CREATE ON SCHEMA pnl TO pnl_owner")
+	t.Cleanup(func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if _, err := pool.Exec(cleanup, "DROP OWNED BY pnl_owner"); err != nil {
+			t.Errorf("remove pnl owner grants: %v", err)
+		}
+		if _, err := pool.Exec(cleanup, "DROP ROLE IF EXISTS pnl_owner"); err != nil {
+			t.Errorf("remove pnl owner role: %v", err)
+		}
+	})
 	for _, id := range []int64{80003, 160000, 180000} {
 		m := catalog[id]
 		sql, err := os.ReadFile(filepath.Join(root, "launchpad", m.Path))

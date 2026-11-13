@@ -463,5 +463,5 @@ func TestProtoMarshalJSON(t *testing.T) {
 }
 
 func TestVerifyMultisignatureTransactions(t *testing.T) {
-	repairM1345Transactions(t)
+	checkMultisigTransactionBoundaries(t)
 }

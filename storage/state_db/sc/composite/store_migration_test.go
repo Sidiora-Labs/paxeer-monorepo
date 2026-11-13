@@ -890,16 +890,16 @@ func TestComposite_MigrateEVM_PostCompletionFlipToEVMMigrated(t *testing.T) {
 
 // Rewind the first migration commit all the way to its predecessor fixture,
 // then commit on the live rewound handle alongside an independent clean reopen.
-func runM1197Rollback(t *testing.T, mode config.WriteMode) {
+func runCompositeRollback(t *testing.T, mode config.WriteMode) {
 	t.Helper()
 	dir, cleanDir := t.TempDir(), t.TempDir()
-	baseline := seedM1197Predecessor(t, dir, mode, keys.MemIAVLStoreKeys)
-	cleanBaseline := seedM1197Predecessor(t, cleanDir, mode, keys.MemIAVLStoreKeys)
+	baseline := seedRollbackPredecessor(t, dir, mode, keys.MemIAVLStoreKeys)
+	cleanBaseline := seedRollbackPredecessor(t, cleanDir, mode, keys.MemIAVLStoreKeys)
 	require.Equal(t, cleanBaseline, baseline)
-	cs := openM1197Composite(t, dir, mode, keys.MemIAVLStoreKeys)
-	clean := openM1197Composite(t, cleanDir, mode, keys.MemIAVLStoreKeys)
-	requireM1197SameState(t, clean, cs)
-	requireM1197Seed(t, cs)
+	cs := openRollbackComposite(t, dir, mode, keys.MemIAVLStoreKeys)
+	clean := openRollbackComposite(t, cleanDir, mode, keys.MemIAVLStoreKeys)
+	requireRollbackSameState(t, clean, cs)
+	requireRollbackSeed(t, cs)
 	checkpoint := cs.Version()
 	require.Equal(t, baseline, cloneCommitInfo(cs.LastCommitInfo()))
 
@@ -931,8 +931,8 @@ func runM1197Rollback(t *testing.T, mode config.WriteMode) {
 	require.NoError(t, cs.Rollback(checkpoint))
 	require.Equal(t, checkpoint, cs.Version())
 	require.False(t, cs.migrationAdvancedThisCommit)
-	requireM1197Seed(t, cs)
-	requireM1197SameState(t, clean, cs)
+	requireRollbackSeed(t, cs)
+	requireRollbackSameState(t, clean, cs)
 	require.Nil(t, cs.GetChildStoreByName(keys.BankStoreKey).Get([]byte("abandoned")))
 
 	// Replay identical input. This commit happens before closing the rewound
@@ -940,7 +940,7 @@ func runM1197Rollback(t *testing.T, mode config.WriteMode) {
 	for _, handle := range []*CompositeCommitStore{cs, clean} {
 		require.NoError(t, handle.ApplyChangeSets(writes))
 	}
-	requireM1197SameState(t, clean, cs)
+	requireRollbackSameState(t, clean, cs)
 	workingHash := mergeStateSyncCommitHash(cloneCommitInfo(clean.WorkingCommitInfo()))
 	for _, handle := range []*CompositeCommitStore{cs, clean} {
 		version, err := handle.Commit()
@@ -948,14 +948,14 @@ func runM1197Rollback(t *testing.T, mode config.WriteMode) {
 		require.Equal(t, checkpoint+1, version)
 		require.Equal(t, workingHash, mergeStateSyncCommitHash(cloneCommitInfo(handle.LastCommitInfo())))
 	}
-	requireM1197SameState(t, clean, cs)
+	requireRollbackSameState(t, clean, cs)
 	committed := cloneCommitInfo(cs.LastCommitInfo())
 	require.NoError(t, cs.Close())
 	require.NoError(t, clean.Close())
-	cs = openM1197Composite(t, dir, mode, keys.MemIAVLStoreKeys)
-	clean = openM1197Composite(t, cleanDir, mode, keys.MemIAVLStoreKeys)
+	cs = openRollbackComposite(t, dir, mode, keys.MemIAVLStoreKeys)
+	clean = openRollbackComposite(t, cleanDir, mode, keys.MemIAVLStoreKeys)
 	require.Equal(t, committed, cloneCommitInfo(cs.LastCommitInfo()))
-	requireM1197SameState(t, clean, cs)
+	requireRollbackSameState(t, clean, cs)
 	require.Equal(t, []byte("changed"), cs.GetChildStoreByName(keys.BankStoreKey).Get([]byte{1}))
 	require.Nil(t, cs.GetChildStoreByName(keys.BankStoreKey).Get([]byte{2}))
 	require.Equal(t, evmStorageTestValue(0x77), cs.GetChildStoreByName(keys.EVMStoreKey).Get(evmStorageTestKey(1)))

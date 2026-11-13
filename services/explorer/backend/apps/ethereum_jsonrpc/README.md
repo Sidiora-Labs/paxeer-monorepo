@@ -225,7 +225,7 @@ From the repository root, this focused transport test runs through the builder
 without a supplied node or credentials:
 
 ```sh
-services/explorer/deploy/tools/mix-in-builder.sh test apps/ethereum_jsonrpc/test/repair/repair_22_33_445_test.exs
+services/explorer/deploy/tools/mix-in-builder.sh test apps/ethereum_jsonrpc/test/repair/readme_configuration_test.exs
 ```
 
 The test executes the named-argument example, checks it against the active

@@ -1,0 +1,20 @@
+[manifest]
+task = "22.43.189"
+records_moved = 1
+files_renamed = 0
+
+[file.1]
+from = "tests/bridge/retired/repair_6_59_7.kvx"
+to = "spec/layerx-merge/programme/records/tests/bridge/retired/repair_6_59_7.kvx"
+
+[reference.1]
+file = "modules/evm/client/cli/completion_gate_test.go"
+name = "tests/bridge/retired/repair_6_59_7.kvx"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d6-6.kvx"
+name = "tests/bridge/retired/repair_6_59_7.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/bridge/retired/repair_6_59_7.kvx"

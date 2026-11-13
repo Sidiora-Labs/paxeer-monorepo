@@ -72,9 +72,11 @@ fmt-check: ## fail if any file is not gofmt-clean
 lint: ## golangci-lint run in every module (zero warnings, SECTION 17)
 	@lint=golangci-lint; \
 	if ! command -v "$$lint" >/dev/null || ! "$$lint" version | grep -Eq '(^|[^0-9.])v?2\.15\.0([^0-9.]|$$)'; then \
-		mkdir -p build/bin; \
-		GOBIN="$(CURDIR)/build/bin" GOTOOLCHAIN=go1.27.3 $(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0; \
 		lint="$(CURDIR)/build/bin/golangci-lint"; \
+		if [ ! -x "$$lint" ] || ! "$$lint" version | grep -Eq '(^|[^0-9.])v?2\.15\.0([^0-9.]|$$)'; then \
+			mkdir -p build/bin; \
+			GOBIN="$(CURDIR)/build/bin" GOFLAGS= GOTOOLCHAIN=go1.27.3 $(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0; \
+		fi; \
 	fi; \
 	for m in $(MODULES); do $(call has_pkgs,$$m); if [ -z "$$pkgs" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> lint $$m"; ( cd $$m && "$$lint" run --config "$(abspath ../../.golangci.yml)" ) || exit 1; done
 
@@ -94,7 +96,7 @@ race: ## go test -race ./... in every module (zero data races, SECTION 17)
 
 cover: ## write fresh, run-bound per-module coverage profiles into .cover/
 	@mkdir -p .cover
-	@rm -f .cover/*.out .cover/run.json .cover/run-id
+	@shopt -s nullglob dotglob; rm -f -- .cover/*.out .cover/run.json .cover/run-id
 	@run_id=$$(python3 $(COVER_INVENTORY) begin .cover .cover/run.json --modules "$(MODULES)"); \
 	for m in $(MODULES); do \
 		$(call has_pkgs,$$m); \

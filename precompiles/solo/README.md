@@ -13,8 +13,8 @@ This directory implements the Solo asset-claim precompile in the Paxeer node's E
 - [solo_test.go](solo_test.go): execution restrictions, signatures, replay protection, and native, CW20, and CW721 claim tests.
 - [abi_freeze_test.go](abi_freeze_test.go): ABI, selector, and event assertions.
 - [gas_golden_test.go](gas_golden_test.go): dynamic-gas assertions across merge activation.
-- [repair_m1284_test.go](repair_m1284_test.go): CW721 pagination bounds and claim atomicity tests.
-- [repair_m1284.kvx](repair_m1284.kvx): CW721 enumeration limits and atomicity policy.
+- [cw721_claim_pagination_test.go](cw721_claim_pagination_test.go): CW721 pagination bounds and claim atomicity tests.
+- [CW721 enumeration policy](../../spec/layerx-merge/programme/records/precompiles/solo/repair_m1284.kvx): CW721 enumeration limits and atomicity policy.
 - [testdata/](testdata/): compressed CW721 pagination fixtures and their Python generator.
 
 ## Build and test

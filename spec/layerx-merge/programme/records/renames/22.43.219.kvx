@@ -1,0 +1,109 @@
+[manifest]
+task = "22.43.219"
+records_moved = 8
+files_renamed = 6
+directories_renamed = 1
+
+[file.1]
+from = "tools/paxeer-x/repair_22_39_144.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxeer-x/repair_22_39_144.kvx"
+
+[file.2]
+from = "tools/paxeer-x/repair_22_39_214.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxeer-x/repair_22_39_214.kvx"
+
+[file.3]
+from = "tools/paxeer-x/repair_22_39_245.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxeer-x/repair_22_39_245.kvx"
+
+[file.4]
+from = "tools/paxeer-x/repair_22_39_319.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxeer-x/repair_22_39_319.kvx"
+
+[file.5]
+from = "tools/paxeer-x/repair_22_39_495.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxeer-x/repair_22_39_495.kvx"
+
+[file.6]
+from = "tools/paxeer-x/repair_m843.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxeer-x/repair_m843.kvx"
+
+[file.7]
+from = "tools/paxeer-x/sid-snapshot/repair_22_31_429.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxeer-x/sid-snapshot/repair_22_31_429.kvx"
+
+[file.8]
+from = "tools/paxeer-x/tests/repair_22_33_852.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxeer-x/tests/repair_22_33_852.kvx"
+
+[file.9]
+from = "tools/paxeer-x/repair_m843_test.go"
+to = "tools/paxeer-x/candidate_contract_test.go"
+
+[file.10]
+from = "tools/paxeer-x/sid-snapshot/test_repair_22_31_429.py"
+to = "tools/paxeer-x/sid-snapshot/test_snapshot_reconciliation.py"
+
+[file.11]
+from = "tools/paxeer-x/tests/test_repair_22_33_852.py"
+to = "tools/paxeer-x/tests/test_route_transport_recovery.py"
+
+[file.12]
+from = "tools/paxeer-x/tests/fixtures/repair_22_33_852/current-reads.json"
+to = "tools/paxeer-x/tests/fixtures/route_transport_recovery/current-reads.json"
+
+[file.13]
+from = "tools/paxeer-x/tests/fixtures/repair_22_33_852/localhost-cert.pem"
+to = "tools/paxeer-x/tests/fixtures/route_transport_recovery/localhost-cert.pem"
+
+[file.14]
+from = "tools/paxeer-x/tests/fixtures/repair_22_33_852/localhost-key.pem"
+to = "tools/paxeer-x/tests/fixtures/route_transport_recovery/localhost-key.pem"
+
+[file.15]
+from = "tools/paxeer-x/tests/fixtures/repair_22_33_852"
+to = "tools/paxeer-x/tests/fixtures/route_transport_recovery"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_843_"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxeer-x/repair_22_39_144.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxeer-x/repair_22_39_214.kvx"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxeer-x/repair_22_39_245.kvx"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxeer-x/repair_22_39_319.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxeer-x/repair_22_39_495.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxeer-x/repair_m843_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxeer-x/sid-snapshot/test_repair_22_31_429.py"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxeer-x/tests/test_repair_22_33_852.py"
+
+[reference.10]
+file = "tools/qualification/audit_repairs/repair_22_33_846.kvx"
+name = "test_repair_22_31_429.py"
+
+[reference.11]
+file = "tools/qualification/audit_repairs/test_repair_22_33_846.py"
+name = "test_repair_22_31_429.py"

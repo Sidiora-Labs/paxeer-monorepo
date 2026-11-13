@@ -21630,3 +21630,53 @@ fix = "After a change of a dependency version in a manifest, refresh the lock fi
 title = "A task that moves a file names the destination among its paths"
 symptom = "A task moves files to a directory outside the paths it declares. The destination is then not among the paths of the task."
 fix = "Name the destination directory among the planned paths of the task. The open tasks of the series 22.43 name the directories under spec/layerx-merge/programme/records for the records they move."
+
+[gotcha.4362]
+title = "The verification of a task that names files reads the names"
+symptom = "The verification of a task of the series 22.43 reads the names of the files under the directories of the task. It does not read where a record lies."
+fix = "A record that keeps a directory of the tree after its task is moved by the later task of the series that reads the manifests. Read the manifest of a task for the place of each record."
+
+[gotcha.4363]
+title = "An example environment file of a deployment keeps the values of that deployment"
+symptom = "An example environment file under a deploy directory is read by the tests and the scripts of that deployment, and they read the values of the deployment in it: listen addresses, file paths, ports, the chain id, sample hosts and placeholder values. The pages under docs/release/variables hold the names and the defaults."
+fix = "Add a variable to such a file as a new line and keep every line the file holds. Tasks 22.42.176 to 22.42.180 bring the files in line with this rule."
+
+[gotcha.4364]
+title = "The guest of a program member stays under the size limit of a deployment"
+symptom = "The target paxai-host-boundary-build builds the guest of the member layerx-programs-ai-market and compares its size with the limit of a deployment, 524184 bytes. The size follows from the sources, the dependencies and the recipe of the guest."
+fix = "After a change of a member that a guest is built from, build the guest and read its size. Task 22.39.512 holds the manifest of the member, the manifest and the lock file of the workspace and the fixtures directory of the member among its paths."
+
+[gotcha.4365]
+title = "The format check of the contracts reads every contract file of the tree"
+symptom = "The target paxeer-manifest-lint runs the format check of the contracts with the configuration foundry.paxeer.toml over every contract file of the tree, with the version of the formatter that the environment holds."
+fix = "Format a contract file with that formatter before the commit, and format the files again after a change of the formatter version. Task 22.39.511 formats contracts/src/xweb/examples/ApiConsumer.sol and contracts/test/XWebConsumer.t.sol."
+
+[gotcha.4366]
+title = "A test that reads a page at build time reads a page of the tree"
+symptom = "A Rust test that reads a page with include_str is compiled together with the page, so the page is part of the build of the member and of every change that the member depends on. The documentation site lives under docs/site/paxeer-docs; the pages of environment variables live under docs/wiki and docs/release/variables."
+fix = "A test reads a page under docs/wiki or docs/release, or a page of the present site. Task 22.39.514 gives the environment documentation test of the agent daemon its pages."
+
+[gotcha.4367]
+title = "A file that reads another file at build time changes with the rename of that file"
+symptom = "A Rust file reads a fixture with include_str, include_bytes or a path attribute at build time, also across members and across services: tests under services/agent read fixtures under services/human and services/interop."
+fix = "Find the readers with git grep over the old file name before a rename. The task that renames the fixture changes the lines that name it in the reading file in the same commit, and the reading file is among the paths of the task."
+
+[gotcha.4368]
+title = "The node build of the Makefile reads the module cache only"
+symptom = "The Makefile runs the node build with GOPROXY=off, so the Go build takes every module from the local module cache."
+fix = "A build command whose verification reaches the node build runs go mod download first. The build command of task 22.39.499 does."
+
+[gotcha.4369]
+title = "The node inventory that tools read is the page docs/readme/PUBLIC-RPC.md"
+symptom = "The tools under tools/bringup, a test of consensus/internal/rpc/core and a gate module of tools/paxeer-x read the node names from one Markdown page with a table of nodes. The documentation site under docs/site/paxeer-docs is built from its own sources and holds no table of nodes; the tree docs/site/docs is not in the repository."
+fix = "The inventory page is docs/readme/PUBLIC-RPC.md. A tool or a test reads the node names there, and a page links there for the node names. Tasks 22.41.119 to 22.41.125 bring the readers and the links to that page."
+
+[gotcha.4370]
+title = "A fixture whose name matches an ignore pattern is added by name"
+symptom = "The ignore file of the repository lists patterns such as *.pem and *.p12. A certificate fixture of a test matches such a pattern, so git add of a new directory does not take the fixture with it."
+fix = "After a move of a directory read the output of git status with the flag --ignored, and add a fixture that matches an ignore pattern with git add and the flag -f. The certificate fixtures of the ramps toolkit tests live under services/platform/ramps/toolkit/tests/fixtures/tls."
+
+[gotcha.4371]
+title = "A reader inside a test module is compiled only with the tests"
+symptom = "A Rust line in a test module or in a tests directory that reads a fixture with include_str, include_bytes or include is compiled only by a build with the flag --tests. A build of the member without that flag does not read the fixture."
+fix = "After a rename of a fixture find its readers with git grep over the old name, and run cargo check with the flag --tests for each member that reads it."

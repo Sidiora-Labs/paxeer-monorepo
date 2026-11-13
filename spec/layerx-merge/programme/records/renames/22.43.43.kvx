@@ -1,0 +1,92 @@
+[manifest]
+task = "22.43.43"
+records_moved = 7
+files_renamed = 5
+
+[file.1]
+from = "daemon/committed-fixture/repair_174_test.go"
+to = "daemon/committed-fixture/vector_v2_source_test.go"
+
+[file.2]
+from = "daemon/committed-fixture/repair_22_31_491_test.go"
+to = "daemon/committed-fixture/receipt_corpus_refusal_test.go"
+
+[file.3]
+from = "daemon/committed-fixture/repair_m1092_test.go"
+to = "daemon/committed-fixture/recorder_replication_test.go"
+
+[file.4]
+from = "daemon/paxd/cmd/repair_175_test.go"
+to = "daemon/paxd/cmd/init_recovery_test.go"
+
+[file.5]
+from = "daemon/paxd/cmd/repair_m1093_test.go"
+to = "daemon/paxd/cmd/replay_profiler_keyring_test.go"
+
+[file.6]
+from = "daemon/committed-fixture/repair_174.kvx"
+to = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_174.kvx"
+
+[file.7]
+from = "daemon/committed-fixture/repair_22_31_486.kvx"
+to = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_486.kvx"
+
+[file.8]
+from = "daemon/committed-fixture/repair_22_31_509.kvx"
+to = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_509.kvx"
+
+[file.9]
+from = "daemon/committed-fixture/repair_22_31_511.kvx"
+to = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_22_31_511.kvx"
+
+[file.10]
+from = "daemon/committed-fixture/repair_m1092.kvx"
+to = "spec/layerx-merge/programme/records/daemon/committed-fixture/repair_m1092.kvx"
+
+[file.11]
+from = "daemon/paxd/cmd/repair_175.kvx"
+to = "spec/layerx-merge/programme/records/daemon/paxd/cmd/repair_175.kvx"
+
+[file.12]
+from = "daemon/paxd/cmd/repair_m1093.kvx"
+to = "spec/layerx-merge/programme/records/daemon/paxd/cmd/repair_m1093.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "daemon/committed-fixture/repair_m1092_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/programme/records/renames/22.43.10.kvx"
+name = "daemon/committed-fixture/repair_22_31_486.kvx"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "daemon/committed-fixture/repair_m1092_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "daemon/committed-fixture/repair_174_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "daemon/committed-fixture/repair_22_31_486.kvx"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "daemon/committed-fixture/repair_22_31_509.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "daemon/committed-fixture/repair_22_31_511.kvx"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "daemon/committed-fixture/repair_m1092_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "daemon/paxd/cmd/repair_175_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "daemon/paxd/cmd/repair_m1093_test.go"

@@ -1,0 +1,3 @@
+[task.22.33.1300]
+tests = ["TestDescriptorShapeJSONNames", "TestDescriptorShapeOneofStructure", "TestDescriptorShapeOptionalPresence", "TestDescriptorShapeMessageReservations", "TestDescriptorShapeEnumReservations", "TestDescriptorShapeNestedDescriptors", "TestDescriptorShapeRegisteredDescriptors"]
+proof = "Committed source fixtures compile in-process, pass through the real protobuf/gzip descriptor codec, and reach shapeOf/compareShapes with exact changed-key assertions in both directions; committed oracle source descriptors also compare against the real gogo registry."

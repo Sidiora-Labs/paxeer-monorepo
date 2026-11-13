@@ -187,5 +187,5 @@ fn identity_rpc_responses_remain_bound_and_preserve_all_refusal_fields() -> Resu
 }
 
 use layerx_platform_cli::{encoding, http};
-#[path = "repair_22_33_1496.rs"]
-mod audit_22_33_1496;
+#[path = "program_and_wallet_receipts.rs"]
+mod program_and_wallet_receipts;

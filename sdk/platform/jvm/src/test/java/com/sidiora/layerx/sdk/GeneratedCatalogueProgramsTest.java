@@ -88,7 +88,7 @@ public final class GeneratedCatalogueProgramsTest {
     }
 
     private static String retainedTransactionMethod(String operation) throws Exception {
-        JsonNode operations = Repair22331391Test.fixture("sdk/platform/conformance/operations.json")
+        JsonNode operations = RetainedTransactionReceiptTest.fixture("sdk/platform/conformance/operations.json")
             .required("operations");
         assertTrue(operations.isObject(), "canonical operations are grouped by operation id");
         for (JsonNode group : operations) {
@@ -109,27 +109,27 @@ public final class GeneratedCatalogueProgramsTest {
     @Test
     void programReceiptTracesRetainedTransactionThroughHttp() throws Exception {
         JsonNode vector = null;
-        for (JsonNode candidate : Repair22331391Test.fixture(
+        for (JsonNode candidate : RetainedTransactionReceiptTest.fixture(
                 "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").required("cases")) {
             if ("V1-layerxprograms-call".equals(candidate.required("id").textValue())) vector = candidate;
         }
         assertNotNull(vector, "the recorded native Programs receipt must execute");
-        byte[] raw = Repair22331391Test.bytes(vector, "rawTransaction");
+        byte[] raw = RetainedTransactionReceiptTest.bytes(vector, "rawTransaction");
         byte[] hash = ProgramsClient.Programs.transactionHash(raw);
-        assertArrayEquals(hash, Repair22331391Test.bytes(vector.required("receiptJson"), "txHash"));
+        assertArrayEquals(hash, RetainedTransactionReceiptTest.bytes(vector.required("receiptJson"), "txHash"));
         assertEquals(PROGRAMS, vector.required("receiptJson").required("to").textValue());
         assertArrayEquals(hash, NativeProgramCall.decodeSignedActivity(raw).bindSignedActivity(raw));
         var retained = new ProgramsClient.ProgramSubmission(hash, raw, null);
-        try (var archive = new Repair22331391Test.RecordedReceiptArchive(vector.required("receiptJson"));
+        try (var archive = new RetainedTransactionReceiptTest.RecordedReceiptArchive(vector.required("receiptJson"));
                 var connection = new ProgramsClient.Programs(archive.uri())) {
-            var client = Repair22331391Test.client(connection, vector);
+            var client = RetainedTransactionReceiptTest.client(connection, vector);
             for (int lookup = 0; lookup < 2; lookup++) {
                 var resolved = client.receipt(retained).toCompletableFuture().get(10, TimeUnit.SECONDS);
                 assertFalse(resolved.pending());
                 assertArrayEquals(raw, resolved.signedTransaction());
                 assertArrayEquals(hash, resolved.transactionHash());
-                assertArrayEquals(Repair22331391Test.bytes(vector, "receiptDigest"), resolved.receipt().receiptDigest());
-                assertArrayEquals(Repair22331391Test.bytes(vector, "signedReceipt"), resolved.receipt().canonicalBytes());
+                assertArrayEquals(RetainedTransactionReceiptTest.bytes(vector, "receiptDigest"), resolved.receipt().receiptDigest());
+                assertArrayEquals(RetainedTransactionReceiptTest.bytes(vector, "signedReceipt"), resolved.receipt().canonicalBytes());
                 assertEquals(1, resolved.receipt().status());
             }
             archive.assertLookups(2, hash);

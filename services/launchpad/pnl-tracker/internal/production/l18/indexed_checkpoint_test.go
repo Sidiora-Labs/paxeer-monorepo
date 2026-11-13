@@ -108,7 +108,7 @@ func TestIndexedCreatorRequiresCompleteCanonicalWatermark(t *testing.T) {
 
 func TestRewardPreparationRejectsUnavailableGasAndChangedBinding(t *testing.T) {
 	ctx := context.Background()
-	f := repair62Chain(t)
+	f := rewardHistoryChain(t)
 	origin := httptest.NewServer(http.HandlerFunc(f.db.rpcResponse))
 	defer origin.Close()
 	for _, tc := range []struct {

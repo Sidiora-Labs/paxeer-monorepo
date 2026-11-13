@@ -602,7 +602,7 @@ func assertRecordedPreflightDrift(t *testing.T, native bool) {
 		{"pool_state", true, "", true, true},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
-			c := repair38OpenChain(t, native)
+			c := preflightFixtureOpenChain(t, native)
 			selected := historicalPreflightManifest(t)
 			if native {
 				selected = deployment.Current()
@@ -656,7 +656,7 @@ func assertRecordedPreflightDrift(t *testing.T, native bool) {
 			}
 			override := func(address common.Address, signature string, value []byte, args ...any) {
 				t.Helper()
-				key := repair38Key(address, repair38Call(t, signature, args...), next)
+				key := preflightFixtureKey(address, preflightFixtureCall(t, signature, args...), next)
 				b.mu.Lock()
 				defer b.mu.Unlock()
 				if _, recorded := b.calls[key]; !recorded {
@@ -666,13 +666,13 @@ func assertRecordedPreflightDrift(t *testing.T, native bool) {
 			}
 			switch scenario.name {
 			case "fee":
-				override(b.address("ProtocolConfig"), "creationFee()", repair38Word(2_000_000))
+				override(b.address("ProtocolConfig"), "creationFee()", preflightFixtureWord(2_000_000))
 			case "optical":
-				override(pool, "opticalAddress()", repair38Address(c.trader))
+				override(pool, "opticalAddress()", preflightFixtureAddress(c.trader))
 				if native {
-					key := repair38Key(b.address("PoolRegistry"), repair38Call(t, "getPoolMetadata(address)", pool), next)
+					key := preflightFixtureKey(b.address("PoolRegistry"), preflightFixtureCall(t, "getPoolMetadata(address)", pool), next)
 					metadata := append([]byte(nil), b.calls[key]...)
-					copy(metadata[64:96], repair38Address(c.trader))
+					copy(metadata[64:96], preflightFixtureAddress(c.trader))
 					override(b.address("PoolRegistry"), "getPoolMetadata(address)", metadata, pool)
 				}
 			case "quoter_identity":
@@ -680,11 +680,11 @@ func assertRecordedPreflightDrift(t *testing.T, native bool) {
 				if native {
 					b.codes[b.address("Quoter")] = append([]byte(nil), b.codes[b.address("USDL")]...)
 				} else {
-					b.storage[b.address("Quoter").Hex()+"/"+deployment.ImplementationSlot.Hex()] = repair38Address(common.HexToAddress(selected.Roles["Router"].ImplementationAddress))
+					b.storage[b.address("Quoter").Hex()+"/"+deployment.ImplementationSlot.Hex()] = preflightFixtureAddress(common.HexToAddress(selected.Roles["Router"].ImplementationAddress))
 				}
 				b.mu.Unlock()
 			case "governance":
-				override(b.address("PoolBeacon"), "pendingOwner()", repair38Address(c.trader))
+				override(b.address("PoolBeacon"), "pendingOwner()", preflightFixtureAddress(c.trader))
 			case "pool_state":
 				next = b.blocks[2]
 			}

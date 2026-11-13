@@ -1,0 +1,36 @@
+[manifest]
+task = "22.43.103"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "sdk/codec/repair_m1404_test.go"
+to = "sdk/codec/amino_json_any_test.go"
+
+[file.2]
+from = "sdk/codec/types/repair_m1405_test.go"
+to = "sdk/codec/types/interface_registry_envelope_limits_test.go"
+
+[file.3]
+from = "sdk/codec/repair_m1404.kvx"
+to = "spec/layerx-merge/programme/records/sdk/codec/repair_m1404.kvx"
+
+[file.4]
+from = "sdk/codec/types/repair_m1405.kvx"
+to = "spec/layerx-merge/programme/records/sdk/codec/types/repair_m1405.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/codec/repair_m1404_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/codec/types/repair_m1405_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1404_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1405_"

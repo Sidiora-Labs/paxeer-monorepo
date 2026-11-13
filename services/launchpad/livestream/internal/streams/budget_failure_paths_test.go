@@ -8,7 +8,7 @@ import (
 )
 
 func TestUsageRecordsRejectChangedProviderEventsAndInvalidUnits(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("usage-event-binding")
 	record := UsageRecord{ProviderEvent: "usage_event_1", OperationID: o.ID, ViewerMinutes: "1", TranscodeMinutes: "2", StorageBytes: "3", DeliveryBytes: "4", CostUnits: "5"}
@@ -37,12 +37,12 @@ func TestUsageRecordsRejectChangedProviderEventsAndInvalidUnits(t *testing.T) {
 }
 
 func TestVendorBudgetRequiresCurrentUsageAndAlertAuthority(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	if _, err := f.database.Exec(ctx, f.store.BudgetSchemaSQL()); err != nil {
 		t.Fatal(err)
 	}
-	budget := repairM1001Budget()
+	budget := studioRecoveryBudget()
 	budget.VendorUserID = "account_1"
 	f.store.Budget = &budget
 	if err := f.store.EmitBudgetAlerts(ctx); err != nil {
