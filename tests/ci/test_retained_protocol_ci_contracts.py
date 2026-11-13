@@ -1,4 +1,4 @@
-"""Focused proofs for audit 22.30.171 findings 001, 002 and 003."""
+"""Check retained transaction, protocol and differential CI contracts."""
 
 import ast
 from pathlib import Path

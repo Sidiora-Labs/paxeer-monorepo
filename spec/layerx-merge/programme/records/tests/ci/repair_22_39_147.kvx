@@ -13,7 +13,7 @@ contract = "scripts/ci/runner-routing-check.sh: ROUTED and EXCLUDED"
 verified_revision = "hf-done records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl; the final handoff copies that evidence. This repair record is part of that candidate."
 publication = "The external runner publishes the qualified candidate; no worker commit or push."
 build_cmd = "python3 -m py_compile tests/ci/test_workflow_live_inputs_guarded.py && bash -n scripts/ci/runner-routing-check.sh"
-verify_cmd = "test -s tests/ci/repair_22_39_147.kvx && bash scripts/ci/runner-routing-check.sh && python3 -m pytest -q tests/ci/test_workflow_live_inputs_guarded.py tests/ci/test_workflow_runs_on_routed.py tools/ci/tests/test_ci_loadtest_job.py tools/ci/tests/test_replay_golden_ci.py"
+verify_cmd = "test -s spec/layerx-merge/programme/records/tests/ci/repair_22_39_147.kvx && bash scripts/ci/runner-routing-check.sh && python3 -m pytest -q tests/ci/test_workflow_live_inputs_guarded.py tests/ci/test_workflow_runs_on_routed.py tools/ci/tests/test_ci_loadtest_job.py tools/ci/tests/test_replay_golden_ci.py"
 
 [restored.human.build-lint-test]
 workflow = ".github/workflows/human.yml"

@@ -1,8 +1,4 @@
-"""Run audit 22.30.100 SDK receipt integrations in the declared Python gate.
-
-The test functions and fixtures remain declared in their owning SDK files.
-Only the five repair modules are loaded; no compiler or native binary is invoked.
-"""
+"""Exercise the SDK receipt integrations through their owning test modules."""
 
 import importlib
 from pathlib import Path

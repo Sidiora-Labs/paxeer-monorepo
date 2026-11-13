@@ -38,5 +38,5 @@ reference = "Private /out/run/gates.jsonl record with kind=build and its referen
 [evidence.verification]
 runner = "hf-done"
 command = "cg spec done 22.39.151 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s tests/ci/repair_22_39_151.kvx && python3 -m pytest -q tests/ci/test_workflow_live_inputs_guarded.py"
+verify_cmd = "test -s spec/layerx-merge/programme/records/tests/ci/repair_22_39_151.kvx && python3 -m pytest -q tests/ci/test_workflow_live_inputs_guarded.py"
 reference = "Private /out/run/gates.jsonl record with kind=verify and its referenced /out/logs/verify-<n>.log; use the same candidate revision as the passing build."

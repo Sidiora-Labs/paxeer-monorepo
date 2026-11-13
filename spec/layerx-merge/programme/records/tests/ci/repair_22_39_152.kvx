@@ -16,7 +16,7 @@ verified_revision = "The private /out/run/gates.jsonl hf-done record names the e
 test_policy = "tests/ci/test_copied_artifacts_in_sync.py is unchanged, including the missing-file and byte-identical-copy assertions."
 
 [references]
-search = "git grep -n -E '(src/assets/(icons/)?|apps/launchpad/web/src/assets/icons/|apps/perps/src/assets/)(airdrop_background[.]png|dollars_cyan[.]svg|item[.]svg|logo[.]svg|pump[.]svg|solana_color[.]svg)' -- apps tests tools ':(exclude)tests/ci/repair_22_39_152.kvx'"
+search = "git grep -n -E '(src/assets/(icons/)?|apps/launchpad/web/src/assets/icons/|apps/perps/src/assets/)(airdrop_background[.]png|dollars_cyan[.]svg|item[.]svg|logo[.]svg|pump[.]svg|solana_color[.]svg)' -- apps tests tools ':(exclude)spec/layerx-merge/programme/records/tests/ci/repair_22_39_152.kvx'"
 result = "After removing the stale inventory rows, only the historical rename records reference the removed paths; this repair record documents those paths and is excluded from the consumer search."
 launchpad_record = "apps/launchpad/web/asset-renames.kvx:226-251, deduplicate.1 through deduplicate.6"
 perps_record = "apps/perps/asset-renames.kvx:176-201, deduplicate.1 through deduplicate.6"
@@ -205,7 +205,7 @@ reference = "The final private /out/run/gates.jsonl record with kind=build and i
 [evidence.verification]
 runner = "hf-done"
 command = "cg spec done 22.39.152 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s tests/ci/repair_22_39_152.kvx && python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py"
+verify_cmd = "test -s spec/layerx-merge/programme/records/tests/ci/repair_22_39_152.kvx && python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py"
 reference = "The final private /out/run/gates.jsonl record with kind=verify and its referenced /out/logs/verify-<n>.log names the exact candidate revision, command and exit; the final handoff copies that record without editing the qualified tree."
 
 [attempt.1.qualification]

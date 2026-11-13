@@ -4,7 +4,7 @@ base_revision = "e827041cca0c781ef801b010257edbe54ff64ed0"
 seed_revision = "58ba7cf558d50a0c759b1650386c915ecf582add"
 baseline = "Continue the seeded first attempt without rerunning its failed aggregate gate: the supplied ruling records three task web cases plus unrelated aggregate failures; prior qualification entries below retain the earlier evidence. Direct verify_cmd execution is forbidden."
 evidence = "The private runner hf-build/hf-done ledger records candidate revision, command, exit and log; the final response copies its last result."
-qualification = "The bounded hf-done gate runs python3 -m pytest -q tests/ci/test_repair_22_33_18.py followed by the five SDK test files explicitly; the collector invokes no subprocess toolchain or native artifact."
+qualification = "The bounded hf-done gate runs python3 -m pytest -q tests/ci/test_sdk_receipt_integrations.py followed by the five SDK test files explicitly; the collector invokes no subprocess toolchain or native artifact."
 
 [finding.market-producer-fixture]
 test = "test_ai_market_commit.py::test_market_node_receipt_summary_events_and_return_binding"
