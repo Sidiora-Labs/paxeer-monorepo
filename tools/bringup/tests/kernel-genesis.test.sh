@@ -2,7 +2,7 @@
 # Qualify native paxd initialization and its signed committed output.
 set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
-fixture=$root/services/platform/hosted/node/tests/fixtures/repair_22_31_355
+fixture=$root/services/platform/hosted/node/tests/fixtures/native_lifecycle
 paxd=${PAXD:-$root/build/paxd}
 inspect=${BRINGUP_INSPECT_BIN:-bringup-inspect}
 work=$(mktemp -d)

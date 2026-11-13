@@ -43,7 +43,7 @@ func runtimeInventoryInspect(t *testing.T, args []string, input []byte) (string,
 
 func runtimePublicInventory(t *testing.T) PublicInventory {
 	t.Helper()
-	data := runtimeInventoryRead(t, "../../docs/site/docs/reference/public-rpc.md")
+	data := runtimeInventoryRead(t, "../../docs/readme/PUBLIC-RPC.md")
 	inventory, err := ReadPublicInventory(bytes.NewReader(data))
 	if err != nil {
 		t.Fatal(err)
@@ -413,7 +413,7 @@ func TestRPCRoster(t *testing.T) {
 	if len(inventory.Nodes) != 14 || len(inventory.Endpoints()) != 15 || inventory.Canonical != "https://api-mainnet-beta.paxeer.network" {
 		t.Fatalf("wrong public roster %+v", inventory)
 	}
-	wire, err := runtimeInventoryInspect(t, []string{"rpc-names", "../../docs/site/docs/reference/public-rpc.md"}, nil)
+	wire, err := runtimeInventoryInspect(t, []string{"rpc-names", "../../docs/readme/PUBLIC-RPC.md"}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -450,7 +450,7 @@ func TestGasRPCRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	endpoint, err := runtimeInventoryInspect(t, []string{"gas-config", "../../docs/site/docs/reference/public-rpc.md"}, raw)
+	endpoint, err := runtimeInventoryInspect(t, []string{"gas-config", "../../docs/readme/PUBLIC-RPC.md"}, raw)
 	if err != nil || strings.TrimSpace(endpoint) != inventory.Canonical {
 		t.Fatalf("gas config not consumed: %q %v", endpoint, err)
 	}
