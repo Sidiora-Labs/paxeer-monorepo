@@ -1,6 +1,6 @@
 # Oracle
 
-This directory holds the native `oracle` module, including its keeper, message and query services, block hooks, and tests. It stores validator-voted asset exchange rates in Paxeer's chain state. Paxeer mainnet-beta is one BFT network, with the kernel participating in block proposals, EVM chain ID 125 (`0x7d`), and finality when a block is committed. Oracle messages and queries use the native module interfaces described below.
+This directory holds the native `oracle` module, including its keeper, message and query services, block hooks, and tests. It stores validator-voted asset exchange rates in Paxeer's chain state. Paxeer mainnet-beta uses EVM chain ID 125 (`0x7d`); the LayerX kernel inside every `paxd` node executes and orders each transaction and builds each block; validators check and commit it, with finality when a block is committed. Oracle messages and queries use the native module interfaces described below.
 
 ## Layout
 
