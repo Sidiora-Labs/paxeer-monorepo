@@ -1,10 +1,8 @@
 # Prerequisite: adaptive fleet orchestration and reproducible sandbox installation
 
-Status: **implementation in progress**. Tasks `0.10` through `0.14` implement and qualify this prerequisite before native source-control task `0.1`. Their current dependencies and execution status are recorded in `spec.kvx`; execution receipts are recorded in `qualification.kvx`.
-
 The Primary agent and Wave Managers run on the **same supervisory box**. The Primary delegates waves. Wave Managers decide how to provision provider sandboxes, assign task packages to workers, supervise results and adapt execution as conditions change. Model agents own those planning decisions; the engine enforces accepted contracts, current authority, resource budgets, durable effects and evidence.
 
-The layout prerequisite is defined in [repository-layout.md](repository-layout.md). Native source semantics are defined in [protocol.md](protocol.md), [storage.md](storage.md) and [workspaces.md](workspaces.md). This prerequisite initially uses an explicit legacy source adapter so it can qualify before those native services exist.
+The layout prerequisite is defined in [repository-layout.md](repository-layout.md). Native source semantics are defined in [protocol.md](protocol.md), [storage.md](storage.md) and [workspaces.md](workspaces.md). Source adapters explicitly identify legacy or native source mode.
 
 ## 1. Role and location contract
 
@@ -23,19 +21,9 @@ The Primary and managers can inspect source and graph state and invoke fleet too
 
 ## 2. Existing seams and required evolution
 
-The following paths describe the inspected baseline. Their post-layout owners are `core/control-plane/`, `core/host-daemon/` and `plugins/`; historical paths remain useful source references until the moves actually occur.
+The [hierarchy package service](../../../tools/hyperfide/core/control-plane/src/hierarchy/packages.ts) tracks delegation and manager generations. [Agent supervision](../../../tools/hyperfide/core/control-plane/src/agents/supervision.ts) manages native processes. [Scheduler admission](../../../tools/hyperfide/core/control-plane/src/scheduler/claim.ts) validates task, scope, dependency and capacity conditions.
 
-| Existing source | Existing capability | Required change |
-|---|---|---|
-| [hierarchy/packages.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/hierarchy/packages.ts) | `WAVE` allocation, explicit leader assignment, manager/package generations and acknowledged handoff. | Make Primary-to-Wave-Manager dispatch the declared programme contract and persist adaptive decisions within that ownership. |
-| [policy/placement.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/policy/placement.ts) and [agents/supervision.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/agents/supervision.ts) | Authorized local leader/manager supervision on a configured host with process/profile evidence. | Bind all Primary and Wave Manager processes to one active supervisor cohort and qualify restart/adoption. |
-| [scheduler/resources.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/scheduler/resources.ts) | Eligible task discovery and preparation demand scoped to manager-owned packages. | Expose complete paginated observations to the planning agent; keep budgets and eligibility as enforcement, without treating discovery order as the plan. |
-| [scheduler/claim.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/scheduler/claim.ts) | Deterministic task/sandbox admission with current generations, scope/dependency checks and capacity reservations. | Admit the manager-selected assignments and persist decision lineage. Preserve those safety checks when task grouping becomes adaptive. |
-| [dispatcher/dispatcher.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/hyperfide-dispatch/src/dispatcher/dispatcher.ts) | Sorts pending work by wave/task identity, selects capacity, creates a sandbox and applies a fixed retry loop. | Replace automatic planning choices with manager-authored admitted decisions; retain execution, observation and reconciliation machinery through explicit interfaces. |
-| [decisions/ranking.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/decisions/ranking.ts) | Advisory ranking of a bounded deterministic shortlist, with `authority: NONE`. | Keep advisory behavior explicitly advisory. It does not constitute the Primary/Wave Manager reasoning loop or an autonomous dispatch decision. |
-| [hyperfide-spec worker](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/hyperfide-spec/src/worker.ts) | Spawns a worker for an explicit task, provider and environment selection. | Accept a durable manager assignment and installation receipt, then bind every task's attempt and resulting evidence. |
-
-These source observations identify reuse opportunities. They do not establish a qualified deployed hierarchy, provider fleet or restart campaign.
+The [fleet contracts](../../../tools/hyperfide/contracts/fleet/index.mjs) define the shared decision and installation schemas. Source-control [fleet integration](../../../tools/hyperfide/core/control-plane/src/source_control/fleet-adapter.ts) binds native workspaces and custody to those attempts.
 
 ## 3. Model decisions and deterministic enforcement
 
@@ -58,7 +46,7 @@ Eligibility queries expose their pagination, excluded candidates and observation
 | **`.neron`** | Source-control configuration installed in each sandbox: source provider/endpoint, repository/workspace binding and configuration references. | Versioned SCM configuration plus scoped credentials supplied through the approved secret mechanism. |
 | **`interfaces.kvx`** | Interface declaration participating in environment/consumer compatibility according to its separately frozen schema. | Interface schema and the declared producer/consumer contract. |
 
-`package.kvx` is not the manager's task package. `.neron` is not an agent instruction file, a task scheduler or an alternative source of fleet ownership. Agent prompts and task packets remain separate artifacts. `interfaces.kvx` is not an interchangeable filename for any of these; task `0.10` freezes the applicable schema using its designated samples and records its relation to the environment manifest.
+`package.kvx` is not the manager's task package. `.neron` is not an agent instruction file, a task scheduler or an alternative source of fleet ownership. Agent prompts and task packets remain separate artifacts. `interfaces.kvx` is not an interchangeable filename for any of these; the fleet schemas define its relation to the environment manifest.
 
 An assignment can reference one or several tasks when admitted policy permits grouping. Every task still has its own accepted definition, attempt identity, scope, status and qualification obligations. Grouping cannot turn one worker exit code into completion of all tasks or hide conflicting writes. A worker can execute sequential or independent grouped work only as declared; native child workers require separately admitted identities and accounting.
 
@@ -66,7 +54,7 @@ The environment manifest's semantic contract includes schema version, environmen
 
 ## 5. `hyperfide install` and environment readiness
 
-`hyperfide install` is the proposed installation command for preparing the sandbox described by `package.kvx`. It fetches the pinned code, installs the declared dependencies and configuration, installs/validates `.neron`, and emits an immutable installation receipt. It does not select tasks, start an unassigned worker or change programme scope.
+`hyperfide install` is the installation command for preparing the sandbox described by `package.kvx`. It fetches the pinned code, installs the declared dependencies and configuration, installs/validates `.neron`, and emits an immutable installation receipt. It does not select tasks, start an unassigned worker or change programme scope.
 
 Installation receives the admitted environment manifest identity, its lock/resolution data, explicit source-provider mode, declared configuration/secret references and a stable installation operation identity. Inputs must be resolvable without consulting a moving branch or silently upgrading a dependency. Missing variables, unavailable pins, unsupported features or digest mismatches are explicit results.
 
@@ -78,17 +66,13 @@ Installation stages source and dependencies in an isolated destination and expos
 
 ## 6. Source-provider transition without a dependency cycle
 
-Tasks `0.10` through `0.14` must qualify using the existing source and provider capabilities after the layout move. They cannot depend on native SCM task `0.1`, the future object store, virtual filesystem, native SDK or later native source acceptance.
+Installation identifies its source provider explicitly. A legacy adapter pins Git-backed revision/tree inputs and their admitted transfer format. A native adapter reads immutable native source through the shared installation/source interface. `.neron` identifies the adapter and actual source authority.
 
-The initial install path uses a named **legacy source adapter**. It pins and verifies existing Git-backed revision/tree inputs or their existing admitted bundle/checkpoint transfer. Its `.neron` configuration explicitly identifies that adapter and the actual source authority. The adapter supplies the install contract's code materialization and provenance without pretending to expose already implemented native commits, native history or S3 semantics.
+Switching providers updates the approved configuration and environment generation together. Native-mode errors remain native-mode errors; the installer does not silently change backend. Existing installations and assignments retain their original source identities and receipts.
 
-The later native SCM implementation adds a provider behind the same typed installation/source interface. Its cutover updates the approved manifest/configuration generation, prepared images and workers together. Every installation and assignment names the mode actually used. Native-mode failures do not silently fall back to the legacy adapter, and legacy-mode evidence does not establish native source-control behavior.
+## 7. Decision and execution APIs
 
-The dependency chain is therefore `layout 0.9 -> orchestration 0.10–0.14 -> native SCM 0.1`. The later native fleet adapter task replaces the legacy source/result binding while preserving the qualified Primary/manager decision, installation, authority and lifecycle contracts. Neither engine waits for the other to implement its own prerequisite.
-
-## 7. Proposed decision and execution APIs
-
-The following logical operations are proposed control interfaces. Existing hierarchy, scheduler, provider and supervisor components should be adapted rather than duplicated behind competing authorities. Exact transport action names are frozen in task `0.10`.
+The following logical operations share the hierarchy, scheduler, provider and supervisor authority. The [fleet contracts](../../../tools/hyperfide/contracts/fleet/index.mjs) define transport action names and payloads.
 
 | Operation | Decision owner and required inputs | Durable result |
 |---|---|---|
@@ -156,18 +140,6 @@ If the entire box is unavailable, remote workers follow the declared lease/check
 
 Ambiguous provider creation, worker launch, environment install or result submission is reconciled by its durable identity before planning replacement. Reservations remain counted while the physical outcome is unknown. All physical workers are eventually linked to current ownership, adopted, quiesced or quarantined with an accountable cleanup obligation. An agent shutdown, forgotten child or network timeout is not evidence that the provider resource disappeared.
 
-## 11. Prerequisite implementation and qualification
+## 11. Fleet integration
 
-| Task | Deliverable | Required gate |
-|---|---|---|
-| `0.10` | Freeze Primary/manager decision APIs, delegation/budget/assignment schemas, `package.kvx`, `.neron` and `interfaces.kvx` relations, cohort identities and versioned legacy source adapter. | Contract validation and positive/negative authority cases on the relocated existing control plane; no dependency on native SCM. |
-| `0.11` | Implement `hyperfide install`, pinned code/dependency/configuration preparation, per-sandbox `.neron` and installation/readiness receipts. | Fresh and reused sandbox installation, explicit legacy source mode, interrupted install recovery, changed-pin rejection and secret-reference handling. |
-| `0.12` | Implement durable Primary reasoning, same-box manager supervision and wave delegation with bounded observation tools. | Actual Primary session chooses and dispatches waves; repeated effects replay; unavailable model exposes a waiting state without hidden deterministic planning. |
-| `0.13` | Implement adaptive Wave Manager planning, admitted provider lifecycle, task package/worker assignment, cross-manager coordination and accountable cleanup. | Actual manager sessions choose/revise plans, install and run workers in provider sandboxes, coordinate a real dependency and preserve per-task evidence. |
-| `0.14` | Qualify the co-located hierarchy, recovery, fencing and the handoff to native SCM foundations. | Exact-revision end-to-end and failure campaign over Primary, managers, installation, provider workers, result custody and cleanup; explicit receipt unlocks task `0.1`. |
-
-Task `0.14` includes a Primary and at least two managers proven on the same box, with producer/consumer tasks across their packages. The campaign observes manager-authored choices, a changed condition that causes an actual replan, provider sandbox readiness, worker execution, exact result qualification and final resource accounting. It interrupts a manager, then the supervisory cohort, reconciles an ambiguous external operation, and demonstrates refusal of commands from superseded manager/worker generations.
-
-Contract tests can establish validation and deterministic safety behavior. Scripted model responses or fake providers cannot establish adaptive-agent operation, provider behavior or same-box recovery. Live tests record the actual agent/provider profiles, inputs, decisions, API requests, host/process/boot identities, logs, receipts, cleanup and limitations. The qualification report distinguishes any unexecuted connector/provider capability.
-
-The prerequisite's final receipt identifies its actual source revision, layout generation, schemas and adapter versions, installed environment manifests, all required gate outcomes and known baseline defects. Native SCM task `0.1` consumes that receipt without relabeling legacy-source checks as native proof. Later source-control migration requalifies the same user path against the native provider.
+The [fleet contracts](../../../tools/hyperfide/contracts/fleet/index.mjs) define decision and environment inputs. The [native source fleet adapter](../../../tools/hyperfide/core/control-plane/src/source_control/fleet-adapter.ts) binds source scopes, checkpoints and custody to the admitted task attempt. Installation, worker readiness, source checkpoint, qualification and acceptance remain distinct receipts.

@@ -1,8 +1,6 @@
 # Fleet sandbox source and environment contracts
 
-Status: proposed prerequisite contract. The `.neron` grammar, `package.kvx` grammar and `hyperfide install` behavior below are implementation requirements, not assertions about commands or formats already shipped. Source-control engine implementation remains pending. The examples are structurally illustrative and carry unresolved example digests; they cannot establish a ready environment.
-
-A fleet sandbox carries two distinct inputs before worker execution:
+The [fleet schemas](../../../tools/hyperfide/contracts/fleet/index.mjs) and [installer](../../../tools/hyperfide/core/native/src/install_cmd.c) define source configuration, environment manifests and `hyperfide install`. A fleet sandbox carries two distinct inputs before worker execution:
 
 - `.neron` describes how source is accessed: the online endpoint, repository, source backend, immutable revision, workspace identity/generation, read/write scope, cache policy and authentication profile references.
 - `package.kvx` describes the sandbox environment: source mounts, dependency installation, toolchains, configuration references, selected interfaces, readiness probes and worker-slot isolation. Its role resembles a package manifest for an environment. It is neither a task assignment nor a replacement for Hyperfide's spec task/package and attempt records.
@@ -19,7 +17,7 @@ The package digest is computed from its canonical parsed content; `.neron` has i
 
 `meta.example = true`, an `example.invalid` endpoint, placeholder identifiers or all-zero artifact digests make an example non-runnable. Static example validation may pass while installation readiness must fail. The [package example](examples/fleet/package.kvx) and [source configuration example](examples/fleet/.neron) describe the format without claiming that their prospective source layout or artifact pins exist.
 
-## 2. `.neron`: proposed source configuration v1
+## 2. `.neron`: source configuration v1
 
 Every fleet sandbox has a protected environment-level `.neron` delivered by the coordinator. Each writable worker view receives an effective `.neron` with that view's actual workspace ID and generation. The original descriptor remains unchanged and attributable. A shared file is never repeatedly overwritten to represent different workers.
 
@@ -37,7 +35,7 @@ The installer treats `read_scope` and `write_scope` as requested/configured boun
 
 The environment-level workspace may be a coordinator-admitted read-only base view. Worker preparation derives private writable views, each with its own workspace identity, generations and effective scope. There is no writable shared default checkout used by every worker.
 
-## 3. `package.kvx`: proposed sandbox environment manifest v1
+## 3. `package.kvx`: sandbox environment manifest v1
 
 | Section | Fields | Contract |
 |---|---|---|
@@ -130,7 +128,7 @@ The later native adapter supplies native revision/tree identities, scope authori
 
 A materialized code tree is not a complete local source-control server. Metadata queries, ancestry, merge and rebase remain online service operations. The Git prerequisite adapter must remain visibly identified during migration and must not appear as an implicit fallback when a native source operation fails.
 
-## 8. Required future evidence
+## 8. Environment validation
 
 Prerequisite qualification must demonstrate a fresh sandbox receiving bootstrap inputs before worker execution, resolving a pinned scoped source view, installing declared locked dependencies/toolchains/configurations, selecting the bounded interface fragment and emitting a ready receipt. Negative cases include stale environment/workspace generation, mismatched source/config/lockfile/catalogue digest, missing interface block, incompatible toolchain, unavailable configuration reference, interrupted installation, duplicate operation, dirty reuse and two slots attempting to mutate shared cache/dependencies.
 

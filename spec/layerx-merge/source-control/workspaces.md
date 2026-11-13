@@ -1,34 +1,31 @@
 # Online workspaces and materialization
 
-Status: proposed contract; implementation and behavioral qualification are UNRUN. [spec.kvx](spec.kvx) is the normative requirement and task ledger. This contract implements requirements 6, 8 and 13 alongside [protocol.md](protocol.md), [storage.md](storage.md) and [hyperfide-integration.md](hyperfide-integration.md).
-
 ## 1. Source baseline and replacement boundary
 
-The current [slice provider](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/environment-slices/provider.ts) runs the C snapshot commands, copies `.codegraph/objects` into each slice, checks out the complete base and prunes outside the manifest. Its publication path reconstructs a separate base tree and derives deletions from a file listing. The [environment registration](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/environment-slices/server.ts) requires `projectCheckout`; [the RPC contract](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/environment-slices/contract.ts) binds the environment to task/thread inputs and raw hexadecimal snapshot IDs. These are inspected source facts, not performance measurements.
+The [workspace service](../../../tools/hyperfide/core/control-plane/src/source_control/workspaces.ts) owns online workspace state and checkpoint admission. The [shared host runtime](../../../tools/hyperfide/sdk/source-control/src/host/) provides cache, materializer, journal, checkpoint and virtual-filesystem adapters. [Host-daemon integration](../../../tools/hyperfide/core/host-daemon/src/source-control/) exposes those adapters to the host.
 
-The new provider uses repository and revision identities without a seed checkout. Object transfer, manifest lookup and revision creation use `/api/v1/source-control`; the C CLI remains a client facade. Existing snapshot IDs and slice contracts remain behind an explicit versioned adapter during migration. A native ID uses `sha256:<64hex>` over the storage contract's type-tagged canonical envelope and must never pass through a legacy raw64 validator by truncating its prefix.
-
-No leader, manager, integrator, query service or host daemon requires a complete source tree or full history. Build and qualification jobs may explicitly request broader source access when their tools need it. Physical materialization is charged to that job, rather than hidden in environment admission.
+Source scopes and explicit path edits govern mutation. Files outside a sparse view are absent from that view; their absence does not delete them from the repository.
 
 ## 2. Workspace descriptor
 
-The service issues an immutable base descriptor plus a mutable workspace generation. A proposed v1 descriptor contains:
+The [WorkspaceDescriptor](../../../tools/hyperfide/core/control-plane/src/source_control/workspaces.ts) contains the following v1 fields.
 
 | Field | Meaning |
 |---|---|
-| `repository_id`, `base_revision_id`, `root_tree_id` | Stable repository and exact immutable source input |
-| `workspace_id`, `workspace_generation`, `authority_epoch` | Server-fenced ownership and mutation identity |
-| `principal_id`, optional `task_id`, `attempt_id`, `attempt_generation` | Authenticated caller and optional orchestration association |
-| `mode` | `API_ONLY`, `SPARSE`, `VIRTUAL`, or `MATERIALIZED` |
-| `scope_manifest_id`, `scope_generation` | Versioned authorized read and write scope, independent of which files are present |
-| `closure_manifest_id` | Build and metadata dependencies, expansion reasons, resolver version and unresolved coverage |
-| `filesystem_profile` | Supported path, type, mode and symlink semantics on the selected host |
-| `budget_profile` | Cache, dirty bytes, concurrent downloads/uploads, open handles, local disk and materialization limits |
-| `checkpoint_revision_id` | Last server-acknowledged durable revision, if any |
+| `schema_version`, `scope` | Version 1 and the organisation, repository and security domain |
+| `workspace_id`, `workspace_generation`, `scope_generation` | Workspace identity and current mutation/scope generations |
+| `authority_epoch` | Server authority epoch |
+| `base_revision_id`, `root_tree_id` | Exact immutable source input |
+| `checkpoint_revision_id` | Last acknowledged checkpoint or null |
+| `attempt_expires_at` | Bound attempt expiry or null |
+| `mode` | `API_ONLY`, `SPARSE`, `VIRTUAL` or `MATERIALIZED` |
+| `read_paths`, `write_paths` | Explicit source scopes |
+| `budgets` | `cache_bytes`, `max_cache_entries`, `max_file_bytes`, `materialized_bytes`, `dirty_bytes` |
+| `dependency_closure_manifest` | Versioned closure state, dependencies and reason |
 
-The API supports ordinary authenticated developers and automation with no task or thread. A task association never substitutes for source authorization. Local directory paths are host observations; they cannot grant source ownership. The descriptor contains no bucket administrator credential or long-lived unrestricted object URL.
+Dependency closure is reported as `INCOMPLETE` with reason `DEPENDENCY_ANALYSIS_UNAVAILABLE`. Callers supply the required read scope and explicitly request authorized widening for further inputs.
 
-Repository snapshots do not move underneath an agent. Advancing a base, rebasing an overlay or widening a scope is an explicit operation with its own expected generation and idempotency identity. Two agents may share a base and cached immutable objects while their write overlays remain isolated.
+The API supports authenticated developers and automation without a task. Task association does not replace source authorization. Advancing a workspace through a checkpoint or widening its scope requires current generations. Separate workspaces may share immutable cache objects while keeping writable overlays isolated.
 
 ## 3. Access modes
 
@@ -41,13 +38,13 @@ Repository snapshots do not move underneath an agent. Advancing a base, rebasing
 
 A full selection carries a reason and estimated bytes/files before transfer. Insufficient budget or unsupported host semantics returns a typed refusal or explicit alternative proposal. It must not silently convert an ordinary scoped request into a full repository download. The caller may choose a materialized sparse fallback if virtualization is unavailable. Unsupported virtualization is visible in capability discovery and the workspace detail.
 
-Admission and filesystem readiness have separate receipts. `OPEN` means that the descriptor exists; `READY` means the requested filesystem contract is available. A virtual workspace becoming ready does not imply its contents were downloaded. An API-only open never produces a successful physical-checkout metric.
+Workspace admission and filesystem readiness are separate facts. A returned descriptor records the admitted view; host readiness records availability of the requested filesystem contract. A virtual workspace becoming ready does not imply its contents were downloaded. An API-only open never produces a successful physical-checkout metric.
 
 ## 4. Manifest resolution and dependency closure
 
 Scope resolution traverses immutable tree nodes from the pinned root, with path/range filters and bounded pagination. Bucket `LIST`, global filesystem walks and enumeration of unrelated project roots are absent from this path. Tree manifests map exact UTF-8 names to typed content or subtree identities and mode information. Source names are not silently Unicode-normalized or case-folded. The service rejects ambiguous requested paths; a host with incompatible case or name semantics reports the specific incompatibility before exposing a partly renamed tree.
 
-A task's declared write paths, authorized read paths and materialized paths are distinct sets. Read-only shared build inputs are included without granting mutation rights. The build-closure resolver records project manifests, lockfiles, generators, toolchain inputs and known cross-project edges that justified expansion. Missing dependency knowledge is reported as incomplete closure. It may trigger an authorized widening or broader qualification; a guessed closure cannot establish successful validation.
+A task's declared write paths, authorized read paths and materialized paths are distinct sets. Read-only shared build inputs do not grant mutation rights. Dependency closure reports its state explicitly; additional inputs require authorized widening.
 
 A widening request names an expected scope generation, requested paths and reason. The authority validates the new scope and returns a new manifest at the same base revision. Existing dirty files remain unchanged. Read authorization may be widened without widening write authority. A dependency discovered by a compiler does not itself grant access to a private project.
 
@@ -73,19 +70,19 @@ Absence has three meanings: outside the scope, authorized but not hydrated, or e
 
 Filesystem watcher notifications are hints. A client keeps a bounded durable dirty-path journal, tracks atomic-save rename patterns, and validates dirty content at checkpoint. Watch overflow, daemon restart or an uncertain event sequence marks the affected materialized scope as needing reconciliation. Reconciliation scans that scope or its affected subtrees against its installed manifest; it never assumes watcher silence means cleanliness and never scans the entire monorepo merely because the workspace is sparse.
 
-A checkpoint captures a stable overlay generation. The host drains relevant writes or stages a consistent set of file bytes and directory operations; a file changing while it is read is retried or reported unstable. It submits explicit `put`, `remove` and type/mode changes with expected base identities. The server validates workspace/attempt generations, permissions and referenced object durability before committing the revision and its receipt. Watch sequence, overlay digest and captured scope generation appear in the checkpoint request. Writes after the captured generation belong to the next checkpoint.
+A checkpoint captures a stable overlay generation. The host drains relevant writes or stages a consistent set of file bytes and directory operations; a file changing while it is read is retried or reported unstable. It submits explicit `put`, `remove` and type/mode changes with expected base identities. The server validates workspace/attempt generations, permissions and referenced object durability before committing the revision and its receipt. The checkpoint input carries `workspace_id`, `operation_id`, `expected_workspace_generation`, `expected_scope_generation`, `base_revision_id`, `overlay_generation` and at most 256 explicit path changes. Writes after the captured generation belong to the next checkpoint.
 
 The client labels progress precisely: `LOCAL_DIRTY`, `UPLOADING`, `DURABLE`, `SUBMITTED`, `ACCEPTED` and separate remote-export states. A successful object upload is not a durable revision acknowledgment. An unchanged retry of an acknowledged checkpoint returns the same revision and receipt; a reused operation ID with a different digest is refused. A network interruption may leave dirty local files available, but no offline commit, lease renewal or acceptance authority is implied. Reconnection first resolves ambiguous checkpoint outcomes before retrying or replacing a workspace.
 
 ## 8. Virtual filesystem behavior
 
-The initial supported virtual adapter and kernel/userspace requirements are pinned in the implementation profile; this draft does not claim that a mount driver already exists. The virtual namespace supports bounded paginated `readdir`, lookup, read, `stat`, executable state, symlink inspection, atomic-save patterns, rename, truncate and deletion semantics needed by declared tools. Reads resolve through the workspace's pinned tree plus overlay. Concurrent upstream acceptance cannot change an open file's base bytes.
+The [virtual host profile](../../../tools/hyperfide/sdk/source-control/src/host/capabilities.ts) is `linux-fuse7-source-v1`, for Linux x64 and arm64 with FUSE protocol major 7 and minor 31–38. It requires the FUSE device, mount capability and pinned mount/unmount executables. It supports kernel-local file locks and reports memory mapping, hard links and special files as unsupported. The virtual namespace supports bounded paginated `readdir`, lookup, read, `stat`, executable state, symlink inspection, atomic-save patterns, rename, truncate and deletion semantics needed by declared tools. Reads resolve through the workspace's pinned tree plus overlay. Concurrent upstream acceptance cannot change an open file's base bytes.
 
 Cancellation, timeouts, object unavailability and authorization expiry map to stable I/O errors with diagnostic context. A missing network object never becomes a zero-length successful read. Memory mapping, executable loading, file locking and build-tool watchers receive explicit compatibility cases. Hydration tasks coalesce per object within a security domain, bound outstanding work and do not hold a metadata transaction while waiting for S3. Host/daemon restart reconciles open mount state and overlay journals before declaring readiness. A stale mount cannot submit under a new workspace generation.
 
 ## 9. Qualification obligations
 
-Task 2.2 owns materialization and cache behavior; task 3.2 owns the virtual adapter. Their future cases cover scope absence versus deletion, two writable workspaces sharing cached content, executable and symlink round trips, hostile path/type transitions, case collisions, canceled transfers, corrupted objects, watcher overflow, concurrent saves, lost checkpoint acknowledgments, cache pressure and restart. Task 4.2 proves attempt fencing and handoff with the real source service. Admission load, physical materialization and large-build downloads remain distinct cases in [verification.md](verification.md). A mocked mount, fixture object server or successful directory listing cannot certify the real virtual or S3 path.
+Task 2.2 owns materialization and cache behavior; task 3.2 owns the virtual adapter. Their cases cover scope absence versus deletion, two writable workspaces sharing cached content, executable and symlink round trips, hostile path/type transitions, case collisions, canceled transfers, corrupted objects, watcher overflow, concurrent saves, lost checkpoint acknowledgments, cache pressure and restart. Task 4.2 proves attempt fencing and handoff with the real source service. Admission load, physical materialization and large-build downloads remain distinct cases in [verification.md](verification.md). A mocked mount, fixture object server or successful directory listing cannot certify the real virtual or S3 path.
 
 ## Sandbox bootstrap and environment installation
 

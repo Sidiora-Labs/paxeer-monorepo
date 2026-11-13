@@ -1,23 +1,10 @@
 # Native source-control migration and monorepo consolidation
 
-Status: proposed migration contract; no migration, cutover or provider qualification has run. Requirements 9 and 10 and tasks 5.1 to 5.3 in [spec.kvx](spec.kvx) own implementation. The native source-control service is part of Hyperfide; its content, metadata, query and merge services remain independently scalable.
-
 ## 1. Existing source and scoped supersession
 
-The current source contains several related but different mechanisms:
+The [migration service](../../../tools/hyperfide/core/control-plane/src/source_control/migration/) implements inventory, consolidation, parity and cutover. It uses explicit source formats and mappings for Git and legacy native snapshots. The [Git importer](../../../tools/hyperfide/core/control-plane/src/source_control/git/import.ts) admits imported history with provenance.
 
-| Existing seam | Inspected responsibility | Migration treatment |
-|---|---|---|
-| [src/vcs.c](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/src/vcs.c) | Local SHA-256 objects, flat manifests, mutable HEAD, local history/stat cache | Preserve as a legacy import/read boundary; it does not become the distributed store by relocating its directory to S3 |
-| [preparation/object_store.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/preparation/object_store.ts) | Configured Git object sources, provider/region mirrors and submodule sources | Replace preparation references with native revision/scope identities after pilot qualification |
-| [assurance/submission.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/assurance/submission.ts) | Git commit ancestry verification and native checkpoint/snapshot binding in `source_snapshots` | Add an explicitly versioned native-source evidence schema; retain historical Git/checkpoint receipts with their original type |
-| [environment-slices/provider.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/environment-slices/provider.ts) | Copies the local object directory, checks out then prunes source, publishes through supplied publication service | Adopt manifest-driven server materialization and native acceptance; do not copy all historical objects into each workspace |
-| [integration/publication.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/integration/publication.ts) | Git-target publication/custody and ambiguous-result reconciliation | Separate native acceptance from remote export while retaining currentness, authorization and reconciliation obligations |
-| [migration/cutover.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/migration/cutover.ts) and [parity.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/migration/parity.ts) | Existing authority cutover and SQLite-history comparison | Reuse the fencing/parity design boundaries through a distinct source-store migration; existing authority schema checks do not certify native source migration |
-
-On explicit activation of this feature's native-source mode, its requirements supersede only the affected product contracts: [hyperfide-v21](../hyperfide-v21/spec.kvx) decision D7/requirement 6.5's default Git object engine and local-only native snapshot authority, requirement 6.1's mandatory sparse Git worktree path, and [hyperfide-v22](../hyperfide-v22/spec.kvx) decision 6 and requirement 8.1 only insofar as they retain Git worktrees/publication mechanics. Existing qualification, task ownership and publication permission obligations continue through their versioned interfaces. Local graph, memory and legacy offline workflows outside the activated native-source mode are not globally redefined.
-
-Historical specs and their evidence stay intact. Activation is an explicit repository/workflow configuration transition with a migration receipt, never an incidental consequence of writing this draft. The current active feature remains unchanged during authoring. A native source revision is authoritative only in a domain whose cutover receipt names the new source authority epoch.
+A source-authority transition is explicit. Legacy source remains authoritative until a cutover receipt pins the native repository, snapshot and authority epoch. Task ownership, qualification and remote publication retain their separate permissions.
 
 ## 2. Consolidation manifest
 
@@ -57,7 +44,7 @@ A rehearsal records source bytes, file counts, historical object counts, hot dir
 
 ## 5. Single-writer cutover protocol
 
-The proposed domain state machine is `LEGACY_ACTIVE -> SHADOW_IMPORT -> QUIESCING -> PARITY_VERIFIED -> NATIVE_ACTIVE`, with explicit `ABORTED` and `RECOVERY_REQUIRED` states. Every transition is an idempotent metadata operation carrying operation identity, expected state/generation, source and target epochs, and immutable input manifest digest.
+The [cutover service](../../../tools/hyperfide/core/control-plane/src/source_control/migration/cutover.ts) records `SHADOW`, `READY`, `QUIESCED`, `NATIVE` and `ABORTED` states. Routing is recorded separately as `LEGACY`, `CLOSED` or `NATIVE`. Every transition is an idempotent metadata operation carrying operation identity, expected state/generation, source and target epochs, and immutable input manifest digest.
 
 1. Inventory all legacy writers: agent workspaces, local snapshot commands, integration managers, publication gateways, scheduled jobs, CI and humans with direct source write access. Record a controllable admission boundary and physical source destination for each. An unknown writer blocks cutover.
 2. Stop new legacy assignments/source mutations and drain or explicitly transfer active work. Reconcile uncertain remote pushes and in-flight submissions. Checkpoint dirty work under its original source format and preserve its custody; do not discard it because a task worker exited.
@@ -66,7 +53,7 @@ The proposed domain state machine is `LEGACY_ACTIVE -> SHADOW_IMPORT -> QUIESCIN
 5. Start new native work only after the new authority epoch is readable and old writer probes fail. In-flight legacy attempts are rejected or converted through an explicit immutable import proposal with current authority; credentials, a surviving process or an old task label cannot bypass the fence.
 6. Reconcile events, workspaces, source maps, indexes, retention roots and export checkpoints. Keep legacy stores read-only for the declared recovery window. Retire them only after their evidence references and rollback obligations have a qualified retained destination.
 
-A transaction cannot atomically reconfigure all existing external clients. Therefore activation requires independently verified fencing of old write endpoints before opening the new one. If isolation cannot be established, the state remains `QUIESCING`/`RECOVERY_REQUIRED`; it never enables both authoritative writers. Graph or UI observations cannot override the source-authority epoch.
+A transaction cannot atomically reconfigure all existing external clients. Therefore activation requires independently verified fencing of old write endpoints before opening the new one. If isolation cannot be established, native admission remains closed; only one source authority can accept writes. Graph or UI observations cannot override the source-authority epoch.
 
 ## 6. Recovery and rollback
 
@@ -76,8 +63,6 @@ After acknowledged native writes, recovery is a new forward-reconciliation proce
 
 Backup restoration introduces a new non-reused authority epoch and reconciles storage object availability, import maps, task/custody references and external remote effects before mutation admission. Historical signed or published identities remain immutable even if the current store is repaired. Cleanup records retention debt and cannot delete source required by active workspaces, pending imports/exports, uncertain outcomes or evidence retention policy.
 
-## 7. Implementation packages and evidence
+## 7. Migration interfaces
 
-Task 5.1 provides the Git exporter and remote outcome protocol. Task 5.2 provides import, projection policy and provenance. Task 5.3 implements inventory, consolidation, parity, pilot, cutover and writable recovery, adapting the existing Hyperfide seams above. Tasks 6.1 to 6.3 exercise failure/recovery and production-shaped operation before the release tasks can claim qualification.
-
-The future migration driver must run real source conversion and service transactions with at least two repositories containing shared content, independent history, merge commits, renamed paths, typed file modes, conflicting target mappings and legacy checkpoint references. It must demonstrate interrupted/resumed imports, rejection of unsupported encodings/LFS/gitlinks, complete content parity, writer fencing, crash at each cutover boundary, preservation of dirty work and safe recovery after an acknowledged native revision. Real object-store and hosted GitHub/GitLab campaigns are separate evidence classes. The document, task declarations and a structural authoring check establish none of those runtime outcomes; they remain UNRUN.
+The [Git import service](../../../tools/hyperfide/core/control-plane/src/source_control/git/import.ts) supplies imported history and provenance. [Migration inventory](../../../tools/hyperfide/core/control-plane/src/source_control/migration/inventory.ts), [consolidation](../../../tools/hyperfide/core/control-plane/src/source_control/migration/consolidation.ts) and [parity](../../../tools/hyperfide/core/control-plane/src/source_control/migration/parity.ts) prepare the pinned inputs used by cutover. `HF_SOURCE_MIGRATION_CONFIG` selects protected migration controls; `HF_LEGACY_WRITER_CONFIG_FILE` identifies the explicit legacy writer topology.

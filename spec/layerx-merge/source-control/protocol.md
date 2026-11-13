@@ -1,29 +1,14 @@
 # Source-control protocol and acceptance
 
-Status: proposed contract. The interfaces, schema additions and cases in this document are implementation work. All product qualification is **UNRUN**. The native requirements and task states live in [spec.kvx](spec.kvx); object formats and availability rules live in [storage.md](storage.md).
-
 ## 1. Boundary and existing implementation seams
 
-Hyperfide owns task assignment, attempt generations, submission custody, qualification policy and wave closure. The source-control subsystem owns immutable source history, access to source, workspace mutation preconditions and atomic source acceptance. It accepts an explicit Hyperfide authority binding for managed work; API clients that are not executing tasks can operate with an appropriate repository capability. Creating a revision never requires inventing a task or updating task status.
+Hyperfide owns task assignment, attempt generations, submission custody, qualification policy and wave closure. Source control owns immutable source history, source access, workspace mutation preconditions and atomic source acceptance. Taskless clients use repository capabilities; revision creation does not require a task.
 
-The proposed implementation extends `core/control-plane/src/source_control/` behind a versioned API. This directory is a planned implementation location, not an existing service. The existing C front door and platform clients consume the same protocol rather than maintaining a second local repository authority.
-
-Source-inspected integration points at the repository baseline are:
-
-| Existing source | Observed behavior | Required adaptation |
-|---|---|---|
-| [transport/protocol.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/transport/protocol.ts) | Defines authenticated principals, operation and idempotency identities, payload digests, strict JSON decoding, generations and invocation guards. | Reuse the authenticated transport semantics; introduce explicit repository/source capabilities without requiring source-only callers to join a fleet run. |
-| [events/outbox.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/events/outbox.ts) and [events/inbox.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/events/inbox.ts) | Provide transactional delivery records, scoped events, aggregate versions, deduplication and bootstrap/replay operations. | Adapt these contracts to independently partitioned source aggregates. Preserve pending delivery discovery; avoid taking an unrelated run-wide lock for ordinary revision creation. |
-| [integration/queue.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/integration/queue.ts) | Uses a Git-backed internal trunk, touch-disjoint batch planning, three-way folding and requalification. | Replace the native source path with object-level candidates and scoped acceptance. Keep Git operations inside the remote compatibility adapter. |
-| [integration/candidates.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/integration/candidates.ts) | Constructs exact candidates and records gate inputs; current candidate construction invokes Git and creates bundles. | Preserve immutable input and receipt binding while removing native Git object and bundle assumptions. |
-| [assurance/submission.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/assurance/submission.ts) and [assurance/validity.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/assurance/validity.ts) | Validate invocation, task/custody state and input manifests; invalidation preserves historical receipts. | Extend source identities and verify current custody at acceptance without transferring task-completion authority to the SCM. |
-| [environment-slices/provider.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/environment-slices/provider.ts) | Maintains a base snapshot and later snapshots, and sends paths/deletions through a publication interface. | Submit a pinned native patch manifest with explicit deletions and scope, rather than treating the visible sparse tree as a replacement for the repository. |
-
-These observations establish adaptation points. They do not certify the existing paths under this feature's concurrency, S3 or durability requirements. The earlier [source-tracking requirements](../hyperfide-v21/spec.kvx) and [platform requirements](../hyperfide-v22/spec.kvx) are historical inputs; this feature's migration contract must explicitly replace their Git-backed authority assumptions for enrolled repositories.
+The [service composition](../../../tools/hyperfide/core/control-plane/src/source_control/registration.ts) registers the source API and its object, revision, query, workspace, transformation, acceptance, fleet and Git services. [Typed contracts](../../../tools/hyperfide/sdk/source-control/src/contracts.ts) define the shared wire format.
 
 ## 2. Identity and immutable history
 
-The protocol distinguishes the following identities. Content identities use `sha256:<64 lowercase hex digits>` over the type-tagged, versioned canonical envelope defined in the storage contract. Tree paths preserve exact valid UTF-8 bytes. Deduplication and availability are scoped to an authorized storage/security domain. Task `0.1` freezes the remaining UUID, path and envelope details; an alias can never be supplied where an immutable object identity is required.
+The protocol distinguishes the following identities. Content identities use `sha256:<64 lowercase hex digits>` over the type-tagged, versioned canonical envelope defined in the storage contract. Tree paths preserve exact valid UTF-8 bytes. Deduplication and availability are scoped to an authorized storage/security domain. UUIDs are lowercase and generations are canonical unsigned 64-bit decimal strings; an alias can never be supplied where an immutable object identity is required.
 
 | Identity | Meaning |
 |---|---|
@@ -36,7 +21,7 @@ The protocol distinguishes the following identities. Content identities use `sha
 | `integration_domain_id`, `acceptance_generation` | An explicitly configured acceptance ordering scope and its current generation. |
 | `candidate_id`, `input_manifest_digest` | Exact integration candidate and all policy-relevant inputs to its qualification. |
 
-A revision descriptor contains a schema/algorithm version, repository identity, root tree, ordered parents, author provenance, message metadata and a versioned provenance extension. Its predecessor relationship within a change is explicit and distinct from source ancestry: rebasing a revision changes its source parents but retains the logical `change_id`. Required task/custody metadata is a separate authenticated binding, so private orchestration records need not enter an exported source object.
+A revision descriptor contains `schema_version: 1`, `scope`, `root_tree_id`, ordered `parent_revision_ids` and public `provenance`. Its predecessor relationship within a change is explicit and distinct from source ancestry: rebasing a revision changes its source parents but retains the logical `change_id`. Required task/custody metadata is a separate authenticated binding, so private orchestration records need not enter an exported source object.
 
 Revision registration inserts an immutable membership record `(repository_id, change_id, revision_id, predecessor_revision_ids)`. Creating concurrent successors of one predecessor is allowed and exposes divergence. A mutable convenience view of the preferred revision is optional and uses its own expected-version update; it cannot hide siblings or serialize all commits. Arbitrary later revision timestamps do not resolve divergence.
 
@@ -46,20 +31,20 @@ Binary content, executable modes, symlink entries and text encoding are explicit
 
 ## 3. Versioned online API
 
-The proposed HTTP namespace is `/api/v1/source-control`. Paths below are a contract proposal to be frozen with the typed SDK in task `0.1`; they are not currently shipped endpoints. Protocol discovery reports supported schema versions, object algorithms, operation kinds, server limits and optional capabilities. Unsupported semantics fail explicitly rather than falling back to Git or a local authoritative database.
+The HTTP endpoint is JSON POST `/api/v1/source-control`. The request envelope carries `protocol_version`, `action`, `scope`, `operation_id` and `input`, with optional `authority`, `idempotency_key` and `causal_token`. The scope contains `organisation_id`, `repository_id` and `security_domain_id`. Bearer authentication is verified against the requested scope. The SDK exports `SOURCE_PROTOCOL_VERSION = 1` and `SOURCE_API_PATH`.
 
-Every operation carries an authenticated repository scope. Mutations also carry an operation identity, idempotency key, canonical payload digest, applicable expected versions, and workspace/attempt authority when required. Large content uses upload sessions; mutation requests contain bounded manifests or manifest object references, rather than base64 copies of an entire repository.
+| Operation family | Action names |
+|---|---|
+| Content | `source.objects.put`, `source.objects.read`, `source.objects.inspect`, `source.uploads.prepare`, `source.uploads.complete` |
+| Trees | `source.trees.entries`, `source.trees.lookup`, `source.trees.patch` |
+| Revisions and changes | `source.revisions.create`, `source.revisions.read`, `source.changes.revisions` |
+| History and differences | `source.queries.batch`, `source.queries.ancestry`, `source.queries.merge-bases`, `source.queries.history`, `source.queries.diff`, `source.queries.blame`, `source.queries.line-map` |
+| Transformations | `source.transforms.merge`, `source.transforms.rebase`, `source.transforms.revert`, `source.transforms.read`, `source.transforms.resume` |
+| Workspaces | `source.workspaces.open`, `source.workspaces.detail`, `source.workspaces.checkpoint`, `source.workspaces.widen`, `source.workspaces.close` |
+| Acceptance | `source.candidates.create`, `source.candidates.read`, `source.candidates.qualify`, `source.acceptance.accept`, `source.acceptance.read` |
+| Operations and events | `source.operations.read`, `source.operations.cancel`, `source.subscriptions.create`, `source.subscriptions.poll`, `source.subscriptions.ack` |
 
-| Operation family | Proposed operations | Required inputs/result semantics |
-|---|---|---|
-| Content and trees | `objects:prepare-upload`, `uploads/{id}:complete`, `objects/{id}`, `trees/{id}/entries` | Authorized content reads, upload capabilities and paginated entries pinned to immutable identities. Availability is independent from mere upload initiation. |
-| Revisions and changes | `revisions:create`, `revisions/{id}`, `changes/{id}/revisions` | Explicit base/parents, patch or verified root, provenance, stable change association and durable registration receipt. |
-| History | `queries:ancestry`, `queries:merge-bases`, `queries:history`, `queries:blame` | Exact revision inputs, deterministic ordering and bounded result pages or an operation handle. No working copy required. |
-| Differences | `queries:diff`, `queries:line-map` | Exact before/after identities, path scope, binary/rename behavior, truncation/coverage and resumable output. |
-| Transformations | `operations:merge`, `operations:rebase`, `operations:revert` | Pinned revisions, algorithm/version and explicit options; a revision result or structured conflicts. |
-| Workspaces | `workspaces:create`, `workspaces/{id}:checkpoint`, `workspaces/{id}:widen`, `workspaces/{id}:close` | Pinned base and scope, authority generation, retained local-write boundary and explicit scope changes. |
-| Acceptance | `candidates:create`, `candidates/{id}:attach-evidence`, `acceptances:create` | Exact contributor manifest, expected domain state, current policy/custody evidence and accepted receipt. |
-| Operations and events | `operations/{id}`, `operations/{id}:cancel`, `subscriptions:create`, `subscriptions/{id}:poll`, `subscriptions/{id}:ack` | Reconciliation of ambiguous results, cooperative cancellation and durable authorized replay. |
+Metadata envelopes are bounded at 1 MiB. Object put/read actions have a 12 MiB wire allowance while the decoded object remains bounded at 8 MiB. Fleet manifest responses have a separate 96 MiB envelope limit. The contracts define action-specific payloads and limits.
 
 Read responses identify their immutable source inputs, authorization scope, coverage and any index generation. A source index can return `INDEX_PENDING` or an explicit partial response; it cannot label stale facts as current. Missing history visibility produces `HISTORY_REDACTED`, `UNAVAILABLE` or a contract-defined partial result rather than a fabricated ancestor or blame attribution.
 
@@ -106,9 +91,9 @@ After a successful mutation, its causal read token routes a dependent query to a
 
 ## 6. Server-side merge, rebase and revert
 
-Transformation inputs pin every revision and the merge algorithm/version. They never operate against an implicit moving latest view or mutate source history in place. Workers read immutable objects through storage APIs and construct new objects without a complete checkout or local history clone.
+Transformation inputs pin every revision and the `hyperfide-three-way-v1` algorithm. Multiple maximal common ancestors require an explicit selected base; rename detection is reported as unperformed. They never operate against an implicit moving latest view or mutate source history in place. Workers read immutable objects through storage APIs and construct new objects without a complete checkout or local history clone.
 
-Three-way merge first compares tree-node identities and descends only where differences require it. Identical subtrees are reused. Path-level cases include add/add, modify/modify, modify/delete, directory/file, mode, symlink and binary conflicts. Rename/copy detection is an explicit bounded option; exceeding its budget reports unknown/unperformed detection instead of asserting no rename. Several merge bases require an explicit deterministic strategy recorded in the result, including the constructed virtual base if used.
+Three-way merge first compares tree-node identities and descends only where differences require it. Identical subtrees are reused. Path-level cases include add/add, modify/modify, modify/delete, directory/file, mode, symlink and binary conflicts. Rename detection reports `NOT_PERFORMED` with reason `EXPLICIT_PATH_IDENTITY_ONLY`. Multiple maximal merge bases require an explicitly selected base under `REQUIRE_EXPLICIT_MAXIMAL_BASE`.
 
 Text merging is deterministic for a declared algorithm and encoding. A clean text merge establishes a source result, not behavioral compatibility. Units, authorization, protocol and cross-file interactions remain qualification obligations. Graph-derived overlap and declared touched/read paths are scheduling signals. A read set becomes a reusable-proof boundary only when a separately qualified capture mechanism establishes its completeness.
 
@@ -122,7 +107,7 @@ Transformation cost is measured as changed bytes, visited tree nodes, necessary 
 
 ## 7. Candidate qualification and atomic acceptance
 
-The default proposed monorepo policy exposes one accepted trunk through an integration domain. Independent project domains can be explicitly configured, but must not be introduced silently as hidden branches. An immutable manifest can select compatible revisions from several domains; atomically selecting them does not imply their prior independent histories were globally ordered.
+The default monorepo policy exposes one accepted trunk through an integration domain. Independent project domains can be explicitly configured, but must not be introduced silently as hidden branches. An immutable manifest can select compatible revisions from several domains; atomically selecting them does not imply their prior independent histories were globally ordered.
 
 An acceptance domain is a deliberate coordination point. Its compact row holds the current accepted revision/root, generation and policy epoch. A single trunk requires ordering competing accepted updates. Horizontal source storage and candidate processing do not remove that requirement. Candidate assembly, object upload, graph analysis, qualification, review and remote publication all execute outside the short acceptance transaction.
 
@@ -165,4 +150,4 @@ Successful acceptance returns the exact contributor set, accepted revision/root,
 | Metadata writer unavailable or partitioned | No new authoritative registration/acceptance; existing authorized cached reads are explicitly limited observations. |
 | Merge worker crashes halfway through a stack | Persisted operation resumes/reconciles; original revisions remain unchanged. |
 
-The future drivers named by tasks `1.2`, `2.1`, `3.1` and `4.1` exercise these interleavings through real transactional metadata and object services. In-process contract tests do not establish S3 behavior, failover guarantees, fleet capacity or semantic correctness of arbitrary merged programs. Those remain independent qualification campaigns in [verification.md](verification.md).
+The drivers named by tasks `1.2`, `2.1`, `3.1` and `4.1` exercise these interleavings through real transactional metadata and object services. In-process contract tests do not establish S3 behavior, failover guarantees, fleet capacity or semantic correctness of arbitrary merged programs. Those remain independent qualification campaigns in [verification.md](verification.md).
