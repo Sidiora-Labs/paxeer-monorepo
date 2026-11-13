@@ -1,7 +1,15 @@
 # EVM tool
 
 The EVM tool provides a few useful subcommands to facilitate testing at the EVM
-layer.
+layer. The examples use an `evm` binary in `core/deps/geth/cmd/evm`.
+From the monorepo root, prepare it with:
+
+```sh
+cd core/deps/geth/cmd/evm
+go build -o evm .
+```
+
+Run the examples from that directory.
 
 * transition tool    (`t8n`) : a stateless state transition utility
 * transaction tool   (`t9n`) : a transaction validation utility
@@ -47,8 +55,6 @@ Command line params that need to be supported are
     --state.fork value             (default: "GrayGlacier")
     --state.reward value           (default: 0)
     --trace.memory                 (default: false)
-    --trace.nomemory               (default: true)
-    --trace.noreturndata           (default: true)
     --trace.nostack                (default: false)
     --trace.returndata             (default: false)
 ```
@@ -340,7 +346,7 @@ To make `t8n` apply these, the following inputs are required:
 
 - `--state.reward`
   - For ethash, it is `5000000000000000000` `wei`,
-  - If this is not defined, mining rewards are not applied,
+  - A value of `-1` disables mining rewards,
   - A value of `0` is valid, and causes accounts to be 'touched'.
 - For each ommer, the tool needs to be given an `address\` and a `delta`. This
   is done via the `ommers` field in `env`.
@@ -386,7 +392,7 @@ Output:
 It is also possible to experiment with future eips that are not yet defined in a hard fork.
 Example, putting EIP-1344 into Frontier: 
 ```
-./evm t8n --state.fork=Frontier+1344 --input.pre=./testdata/1/pre.json --input.txs=./testdata/1/txs.json --input.env=/testdata/1/env.json
+./evm t8n --state.fork=Frontier+1344 --input.alloc=./testdata/1/alloc.json --input.txs=./testdata/1/txs.json --input.env=./testdata/1/env.json
 ```
 
 #### Block history
@@ -529,14 +535,11 @@ Command line params that need to be supported are:
     --input.ommers value        `stdin` or file name of where to find the list of ommer header RLPs to use.
     --input.txs value           `stdin` or file name of where to find the transactions list in RLP form. (default: "txs.rlp")
     --output.basedir value      Specifies where output files are placed. Will be created if it does not exist.
-    --output.block value        Determines where to put the alloc of the post-state. (default: "block.json")
+    --output.block value        Determines where to put the assembled block. (default: "block.json")
                                 <file> - into the file <file>
                                 `stdout` - into the stdout output
                                 `stderr` - into the stderr output
     --seal.clique value         Seal block with Clique. `stdin` or file name of where to find the Clique sealing data.
-    --seal.ethash               Seal block with ethash. (default: false)
-    --seal.ethash.dir value     Path to ethash DAG. If none exists, a new DAG will be generated.
-    --seal.ethash.mode value    Defines the type and amount of PoW verification an ethash engine makes. (default: "normal")
     --verbosity value           Sets the verbosity level. (default: 3)
 ```
 

@@ -25,7 +25,7 @@ Please specify a password. Do not forget this password!
 Password:
 Repeat password:
 
-A master seed has been generated into /home/martin/.clef/masterseed.json
+A master seed has been generated into /home/user/.clef/masterseed.json
 
 This is required to be able to store credentials, such as:
 * Passwords for keystores (used by rule engine)
@@ -41,12 +41,12 @@ You should treat 'masterseed.json' with utmost secrecy and make a backup of it!
 
 ## Remote interactions
 
-Clef is capable of managing both key-file based accounts as well as hardware wallets. To evaluate clef, we're going to point it to our Rinkeby testnet keystore and specify the Rinkeby chain ID for signing (Clef doesn't have a backing chain, so it doesn't know what network it runs on).
+Clef is capable of managing both key-file based accounts as well as hardware wallets. To evaluate clef, we're going to point it to our Sepolia testnet keystore and specify the Sepolia chain ID for signing (Clef doesn't have a backing chain, so it doesn't know what network it runs on).
 
 ```text
-$ clef --keystore ~/.ethereum/rinkeby/keystore --chainid 4
+$ clef --keystore ~/.ethereum/sepolia/keystore --chainid 11155111
 
-INFO [07-01|11:00:46.385] Starting signer                          chainid=4 keystore=$HOME/.ethereum/rinkeby/keystore light-kdf=false advanced=false
+INFO [07-01|11:00:46.385] Starting signer                          chainid=11155111 keystore=$HOME/.ethereum/sepolia/keystore light-kdf=false advanced=false
 DEBUG[07-01|11:00:46.389] FS scan times                            list=3.521941ms set=9.017µs diff=4.112µs
 DEBUG[07-01|11:00:46.391] Ledger support enabled
 DEBUG[07-01|11:00:46.391] Trezor support enabled via HID
@@ -55,8 +55,8 @@ INFO [07-01|11:00:46.391] Audit logs configured                    file=audit.lo
 DEBUG[07-01|11:00:46.392] IPC registered                           namespace=account
 INFO [07-01|11:00:46.392] IPC endpoint opened                      url=$HOME/.clef/clef.ipc
 ------- Signer info -------
-* intapi_version : 7.0.0
-* extapi_version : 6.0.0
+* intapi_version : 7.0.1
+* extapi_version : 6.1.0
 * extapi_http : n/a
 * extapi_ipc : $HOME/.clef/clef.ipc
 ```
@@ -76,9 +76,9 @@ This will prompt the user within the Clef CLI to confirm or deny the request:
 A request has been made to list all accounts.
 You can select which accounts the caller can see
   [x] 0xD9C9Cd5f6779558b6e0eD4e6Acf6b1947E7fA1F3
-    URL: keystore://$HOME/.ethereum/rinkeby/keystore/UTC--2017-04-14T15-15-00.327614556Z--d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3
+    URL: keystore://$HOME/.ethereum/sepolia/keystore/UTC--2017-04-14T15-15-00.327614556Z--d9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3
   [x] 0x086278A6C067775F71d6B2BB1856Db6E28c30418
-    URL: keystore://$HOME/.ethereum/rinkeby/keystore/UTC--2018-02-06T22-53-11.211657239Z--086278a6c067775f71d6b2bb1856db6e28c30418
+    URL: keystore://$HOME/.ethereum/sepolia/keystore/UTC--2018-02-06T22-53-11.211657239Z--086278a6c067775f71d6b2bb1856db6e28c30418
 -------------------------------------------
 Request context:
 	NA -> NA -> NA
@@ -100,13 +100,13 @@ or
 {"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"Request denied"}}
 ```
 
-Apart from listing accounts, you can also *request* creating a new account; signing transactions and data; and recovering signatures. You can find the available methods in the Clef [External API Spec](https://github.com/ethereum/go-ethereum/tree/master/cmd/clef#external-api-1) and the [External API Changelog](https://github.com/ethereum/go-ethereum/blob/master/cmd/clef/extapi_changelog.md).
+Apart from listing accounts, you can also *request* creating a new account; signing transactions and data; and recovering signatures. You can find the available methods in the Clef [External API Spec](README.md#external-api-1) and the [External API Changelog](extapi_changelog.md).
 
-*Note, the number of things you can do from the External API is deliberately small, since we want to limit the power of remote calls by as much as possible! Clef has an [Internal API](https://github.com/ethereum/go-ethereum/tree/master/cmd/clef#ui-api-1) too for the UI (User Interface) which is much richer and can support custom interfaces on top. But that's out of scope here.*
+*Note, the number of things you can do from the External API is deliberately small, since we want to limit the power of remote calls by as much as possible! Clef has an [Internal API](README.md#ui-api) too for the UI (User Interface) which is much richer and can support custom interfaces on top. But that's out of scope here.*
 
 ## Automatic rules
 
-For most users, manually confirming every transaction is the way to go. However, there are cases when it makes sense to set up some rules which permit Clef to sign a transaction without prompting the user. One such example would be running a signer on Rinkeby or other PoA networks.
+For most users, manually confirming every transaction is the way to go. However, there are cases when it makes sense to set up some rules which permit Clef to sign a transaction without prompting the user. One such example would be running a signer on a test network such as Sepolia.
 
 For starters, we can create a rule file that automatically permits anyone to list our available accounts without user confirmation. The rule file is a tiny JavaScript snippet that you can program however you want:
 
@@ -131,10 +131,10 @@ INFO [07-01|13:25:03.290] Ruleset attestation updated              sha256=645b58
 At this point, we can start Clef with the rule file:
 
 ```text
-$ clef --keystore ~/.ethereum/rinkeby/keystore --chainid 4 --rules rules.js
+$ clef --keystore ~/.ethereum/sepolia/keystore --chainid 11155111 --rules rules.js
 
 INFO [07-01|13:39:49.726] Rule engine configured                   file=rules.js
-INFO [07-01|13:39:49.726] Starting signer                          chainid=4 keystore=$HOME/.ethereum/rinkeby/keystore light-kdf=false advanced=false
+INFO [07-01|13:39:49.726] Starting signer                          chainid=11155111 keystore=$HOME/.ethereum/sepolia/keystore light-kdf=false advanced=false
 DEBUG[07-01|13:39:49.726] FS scan times                            list=35.15µs set=4.251µs diff=2.766µs
 DEBUG[07-01|13:39:49.727] Ledger support enabled
 DEBUG[07-01|13:39:49.727] Trezor support enabled via HID
@@ -143,8 +143,8 @@ INFO [07-01|13:39:49.728] Audit logs configured                    file=audit.lo
 DEBUG[07-01|13:39:49.728] IPC registered                           namespace=account
 INFO [07-01|13:39:49.728] IPC endpoint opened                      url=$HOME/.clef/clef.ipc
 ------- Signer info -------
-* intapi_version : 7.0.0
-* extapi_version : 6.0.0
+* intapi_version : 7.0.1
+* extapi_version : 6.1.0
 * extapi_http : n/a
 * extapi_ipc : $HOME/.clef/clef.ipc
 ```
@@ -244,10 +244,10 @@ INFO [07-01|14:11:28.509] Ruleset attestation updated              sha256=f163a1
 Restart Clef with the new rules in place:
 
 ```
-$ clef --keystore ~/.ethereum/rinkeby/keystore --chainid 4 --rules rules.js
+$ clef --keystore ~/.ethereum/sepolia/keystore --chainid 11155111 --rules rules.js
 
 INFO [07-01|14:12:41.636] Rule engine configured                   file=rules.js
-INFO [07-01|14:12:41.636] Starting signer                          chainid=4 keystore=$HOME/.ethereum/rinkeby/keystore light-kdf=false advanced=false
+INFO [07-01|14:12:41.636] Starting signer                          chainid=11155111 keystore=$HOME/.ethereum/sepolia/keystore light-kdf=false advanced=false
 DEBUG[07-01|14:12:41.636] FS scan times                            list=46.722µs set=4.47µs diff=2.157µs
 DEBUG[07-01|14:12:41.637] Ledger support enabled
 DEBUG[07-01|14:12:41.637] Trezor support enabled via HID
@@ -256,8 +256,8 @@ INFO [07-01|14:12:41.638] Audit logs configured                    file=audit.lo
 DEBUG[07-01|14:12:41.638] IPC registered                           namespace=account
 INFO [07-01|14:12:41.638] IPC endpoint opened                      url=$HOME/.clef/clef.ipc
 ------- Signer info -------
-* intapi_version : 7.0.0
-* extapi_version : 6.0.0
+* intapi_version : 7.0.1
+* extapi_version : 6.1.0
 * extapi_http : n/a
 * extapi_ipc : $HOME/.clef/clef.ipc
 ```
@@ -265,10 +265,10 @@ INFO [07-01|14:12:41.638] IPC endpoint opened                      url=$HOME/.cl
 Then test signing, once with `bazonk` and once without:
 
 ```
-$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["data/plain", "0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x202062617a6f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
+$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["text/plain", "0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x202062617a6f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
 {"jsonrpc":"2.0","id":1,"result":"0x4f93e3457027f6be99b06b3392d0ebc60615ba448bb7544687ef1248dea4f5317f789002df783979c417d969836b6fda3710f5bffb296b4d51c8aaae6e2ac4831c"}
 
-$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["data/plain", "0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x2020626f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
+$ echo '{"id": 1, "jsonrpc":"2.0", "method":"account_signData", "params":["text/plain", "0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x2020626f6e6b2062617a2067617a0a"]}' | nc -U ~/.clef/clef.ipc
 {"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"Request denied"}}
 ```
 
@@ -282,13 +282,13 @@ The signer also stores all traffic over the external API in a log file. The last
 
 ```text
 $ tail -n 4 audit.log
-t=2019-07-01T15:52:14+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3 [chksum INVALID]" data=0x202062617a6f6e6b2062617a2067617a0a content-type=data/plain
+t=2019-07-01T15:52:14+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3 [chksum INVALID]" data=0x202062617a6f6e6b2062617a2067617a0a content-type=text/plain
 t=2019-07-01T15:52:14+0300 lvl=info msg=SignData   api=signer type=response data=4f93e3457027f6be99b06b3392d0ebc60615ba448bb7544687ef1248dea4f5317f789002df783979c417d969836b6fda3710f5bffb296b4d51c8aaae6e2ac4831c error=nil
-t=2019-07-01T15:52:23+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3 [chksum INVALID]" data=0x2020626f6e6b2062617a2067617a0a     content-type=data/plain
+t=2019-07-01T15:52:23+0300 lvl=info msg=SignData   api=signer type=request  metadata="{\"remote\":\"NA\",\"local\":\"NA\",\"scheme\":\"NA\",\"User-Agent\":\"\",\"Origin\":\"\"}" addr="0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3 [chksum INVALID]" data=0x2020626f6e6b2062617a2067617a0a     content-type=text/plain
 t=2019-07-01T15:52:23+0300 lvl=info msg=SignData   api=signer type=response data=                                     error="Request denied"
 ```
 
-For more details on writing automatic rules, please see the [rules spec](https://github.com/ethereum/go-ethereum/blob/master/cmd/clef/rules.md).
+For more details on writing automatic rules, please see the [rules spec](rules.md).
 
 ## Geth integration
 
@@ -296,32 +296,19 @@ Of course, as awesome as Clef is, it's not feasible to interact with it via JSON
 
 Until then however, we're trying to pave the way via Geth. Geth v1.9.0 has built in support via `--signer <API endpoint>` for using a local or remote Clef instance as an account backend!
 
-We can try this by running Clef with our previous rules on Rinkeby (for now it's a good idea to allow auto-listing accounts, since Geth likes to retrieve them once in a while).
+We can try this by running Clef with our previous rules on Sepolia (for now it's a good idea to allow auto-listing accounts, since Geth likes to retrieve them once in a while).
 
 ```text
-$ clef --keystore ~/.ethereum/rinkeby/keystore --chainid 4 --rules rules.js
+$ clef --keystore ~/.ethereum/sepolia/keystore --chainid 11155111 --rules rules.js
 ```
 
-In a different window we can start Geth, list our accounts, even list our wallets to see where the accounts originate from:
+In a different window we can start Geth, list our accounts and send a transaction:
 
 ```text
-$ geth --rinkeby --signer=~/.clef/clef.ipc console
+$ geth --sepolia --signer="$HOME/.clef/clef.ipc" console
 
 > eth.accounts
 ["0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3", "0x086278a6c067775f71d6b2bb1856db6e28c30418"]
-
-> personal.listWallets
-[{
-    accounts: [{
-        address: "0xd9c9cd5f6779558b6e0ed4e6acf6b1947e7fa1f3",
-        url: "extapi://$HOME/.clef/clef.ipc"
-    }, {
-        address: "0x086278a6c067775f71d6b2bb1856db6e28c30418",
-        url: "extapi://$HOME/.clef/clef.ipc"
-    }],
-    status: "ok [version=6.0.0]",
-    url: "extapi://$HOME/.clef/clef.ipc"
-}]
 
 > eth.sendTransaction({from: eth.accounts[0], to: eth.accounts[0]})
 ```

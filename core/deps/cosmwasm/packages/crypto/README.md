@@ -19,8 +19,9 @@ available for both, the [cosmwasm-vm](https://crates.io/crates/cosmwasm-vm) and
 
 ## Benchmarking
 
-```
-cd packages/crypto
+```sh
+# From the monorepo root
+cd core/deps/cosmwasm/packages/crypto
 cargo bench --features std
 ```
 

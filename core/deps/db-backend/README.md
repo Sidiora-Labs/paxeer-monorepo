@@ -12,7 +12,7 @@ Common database interface for various database backends. Primarily meant for app
 
 ### Minimum Go Version
 
-Go 1.13+
+Go 1.25.0+
 
 ## Supported Database Backends
 
@@ -36,4 +36,4 @@ Go 1.13+
 
 ## Tests
 
-To test common databases, run `make test`. If all databases are available on the local machine, use `make test-all` to test them all.
+From `core/deps/db-backend`, run `make test` to test common databases. If all databases are available on the local machine, use `make test-all` to test them all.

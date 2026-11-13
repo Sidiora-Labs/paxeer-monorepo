@@ -56,7 +56,7 @@ The state changes that are covered by the journaling library are:
 - `GasChangeReason` has been extended with the following reasons which will be enabled only post-Verkle. There shouldn't be any gas changes with those reasons prior to the fork.
   - `GasChangeWitnessContractCollisionCheck` flags the event of adding to the witness when checking for contract address collision.
 
-## [v1.14.12]
+## [v1.14.12](https://github.com/ethereum/go-ethereum/releases/tag/v1.14.12)
 
 This release contains a change in behavior for `OnCodeChange` hook.
 

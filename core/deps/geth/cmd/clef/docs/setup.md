@@ -74,15 +74,15 @@ fi
 This RPC service is not complete (see notes about HTTP headers below), but works as a proof-of-concept. 
 It will forward the data received on `stdin` (forwarded by the OS) to Clef's HTTP channel.  
 
-It would have been possible to send data directly to the `/home/user/.clef/.clef.ipc` 
+It would have been possible to send data directly to the `/home/user/.clef/clef.ipc` 
 socket via e.g `nc -U /home/user/.clef/clef.ipc`, but the reason for sending the request 
 data over `HTTP` instead of `IPC` is that we want the ability to forward `HTTP` headers.
 
-To enable the service:
+From `core/deps/geth/cmd/clef/docs`, enable the service:
 
 ``` bash
-sudo cp qubes.Clefsign /etc/qubes-rpc/
-sudo chmod +x /etc/qubes-rpc/ qubes.Clefsign
+sudo cp qubes/qubes.Clefsign /etc/qubes-rpc/
+sudo chmod +x /etc/qubes-rpc/qubes.Clefsign
 ```
 
 This setup uses [gtksigner](https://github.com/holiman/gtksigner), which is a very minimal GTK-based UI that works well 
@@ -100,7 +100,7 @@ On the `client` qube, we need to create a listener which will receive the reques
 
 """
 This implements a dispatcher which listens to localhost:8550, and proxies
-requests via qrexec to the service qubes.EthSign on a target domain
+requests via qrexec to the service qubes.Clefsign on a target domain
 """
 
 import http.server
@@ -163,7 +163,7 @@ The benefits of this setup are:
 
 However, it comes with a couple of drawbacks:
 
-- The `qubes-gpg-client` must forward the http request via RPC to the `target` qube. When doing so, the proxy
+- The `qubes-client.py` must forward the http request via RPC to the `target` qube. When doing so, the proxy
   will either drop important headers, or replace them. 
   - The `Host` header is most likely `localhost` 
   - The `Origin` header must be forwarded

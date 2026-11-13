@@ -22,11 +22,15 @@ COMMANDS:
    attest  Attest that a js-file is to be used
    setpw   Store a credential for a keystore file
    delpw   Remove a credential for a keystore file
+   newaccount     Create a new account
+   importraw      Import a hex-encoded private key
+   list-accounts  List accounts in the keystore
+   list-wallets   List wallets known to Clef
    gendoc  Generate documentation about json-rpc format
    help    Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --loglevel value        log level to emit to the screen (default: 4)
+   --loglevel value        log level to emit to the screen (default: 3)
    --keystore value        Directory for the keystore (default: "$HOME/.ethereum/keystore")
    --configdir value       Directory for Clef configuration (default: "$HOME/.clef")
    --chainid value         Chain id to use for signing (1=mainnet, 17000=Holesky) (default: 1)
@@ -54,7 +58,7 @@ GLOBAL OPTIONS:
 Example:
 
 ```
-$ clef -keystore /my/keystore -chainid 4
+$ clef --keystore /my/keystore --chainid 11155111
 ```
 
 ## Security model
@@ -351,7 +355,7 @@ Bash example:
   "jsonrpc": "2.0",
   "method": "account_signData",
   "params": [
-    "data/plain",
+    "text/plain",
     "0x1923f626bb8dc025849e00f99c25fe2b2f7fb0db",
     "0xaabbccdd"
   ]
@@ -528,7 +532,7 @@ Response
 {
     "id": 0,
     "jsonrpc": "2.0",
-    "result": "6.0.0"
+    "result": "6.1.0"
 }
 ```
 
@@ -699,11 +703,11 @@ Invoked when a request for account listing has been made.
     {
       "accounts": [
         {
-          "url": "keystore:///home/bazonk/.ethereum/keystore/UTC--2017-11-20T14-44-54.089682944Z--123409812340981234098123409812deadbeef42",
+          "url": "keystore:///home/user/.ethereum/keystore/UTC--2017-11-20T14-44-54.089682944Z--123409812340981234098123409812deadbeef42",
           "address": "0x123409812340981234098123409812deadbeef42"
         },
         {
-          "url": "keystore:///home/bazonk/.ethereum/keystore/UTC--2017-11-23T21-59-03.199240693Z--cafebabedeadbeef34098123409812deadbeef42",
+          "url": "keystore:///home/user/.ethereum/keystore/UTC--2017-11-23T21-59-03.199240693Z--cafebabedeadbeef34098123409812deadbeef42",
           "address": "0xcafebabedeadbeef34098123409812deadbeef42"
         }
       ],
@@ -860,8 +864,8 @@ Example call:
       "info": {
         "extapi_http": "http://localhost:8550",
         "extapi_ipc": null,
-        "extapi_version": "2.0.0",
-        "intapi_version": "1.2.0"
+        "extapi_version": "6.1.0",
+        "intapi_version": "7.0.1"
       }
     }
   ]
