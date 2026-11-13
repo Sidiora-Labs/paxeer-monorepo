@@ -1,10 +1,10 @@
 # Platform examples contract
 
-This page describes the current [platform examples](../../../services/platform/examples), replacing the historical interface snapshot at `2a1033aa2`. Paths below identify implementations, not planned exports or evidence of qualification.
+This page describes the [platform examples](../../../services/platform/examples) and their configuration, transaction submission and receipt verification.
 
 The examples use one Paxeer network: `paxd` is the BFT node, its integrated kernel proposes blocks, and the EVM chain ID is `125` (`0x7d`, payment network `eip155:125`). A receipt is final when its block commits. Sub-chains are tenant domains in the database, not additional execution or settlement infrastructure.
 
-Node JSON-RPC uses the root path, for example `https://api-mainnet-beta.paxeer.network/`, or the numbered hosts `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`. Hosted `px_` methods have their own [gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json); their presence on a public node must not be assumed. `node.hyperpaxeer.com` is the library mirror, not an RPC endpoint.
+Node JSON-RPC uses the configured root URL. Hosted `px_` methods have their own [gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json); availability depends on the selected endpoint.
 
 The explorer's [verifier HTTP contract](verifier-http.md) describes source compilation and bytecode comparison. It does not replace the signed transaction receipt verification described here.
 
@@ -20,9 +20,9 @@ Each application has a `layerx.example.json` with `version: 1`, its `application
 | [merchant-shop](../../../services/platform/examples/merchant-shop/layerx.example.json) | `LAYERX_EMULATOR_RECEIPT_KEYS_JSON` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
 | [paid-api](../../../services/platform/examples/paid-api/layerx.example.json) | `LAYERX_RECEIPT_KEYS_JSON` | `LAYERX_RECEIPT_KEYS_JSON` |
 
-All five configs name `network: "eip155:125"`, use the public node origin for beta `rpcUrl`, and supply `receiptKeysEnvironment`. None has `receiptAuthorityUrl` or `protocolVersion`. The merchant requirement `8289.1` remains useful: require the network, RPC URL and pinned-key binding in each merchant environment, and exclude those removed fields. [merchant-config.test.mjs](../../../services/platform/examples/test/merchant-config.test.mjs) contains `merchantExampleConfigsUseEip155AndReceiptKeys`; its existence is not evidence that it ran for this rewrite.
+All five configs name `network: "eip155:125"` and supply `receiptKeysEnvironment`. Merchant environments require the network, RPC URL and pinned-key binding. `receiptAuthorityUrl` and `protocolVersion` are not configuration fields.
 
-The old emulator `/rpc` path still present in buyer and merchant configs is retired network guidance; select a configuration pointing to the actual local node root. Marketplace currently uses `http://127.0.0.1:9402` for emulator RPC and paid-api uses `http://127.0.0.1:8545`. These values do not establish that a matching service is running.
+Select a configuration pointing to the local node root. `rpcUrl` identifies the node listener for the selected environment; a configured URL does not establish that a matching listener is running.
 
 `rpcUrl` must support the methods used by the application. `SequencerReceiptClient` calls `pax_sequencerReceipt`; transaction submission elsewhere uses `eth_sendRawTransaction`, and the marketplace and merchant hash adapters need `eth_getRawTransactionByHash`. A node's chain ID alone does not prove those receipt methods are available.
 
@@ -39,11 +39,11 @@ The shared [runtime](../../../services/platform/examples/support/runtime.mjs) re
 | `LAYERX_EXAMPLE_STATE_ROOT` | Optional root for application state, partitioned by `config.application`. Otherwise state resolves under the application directory. |
 | The name in `receiptKeysEnvironment` | Required JSON array of pinned receipt keys, decoded by `receiptKeysFromEnvironment(name)`. |
 
-An endpoint override does not discover hosted services, remove legacy paths, or rewrite variable-supplied endpoints. For the buyer, an override without a dedicated hosted human URL is refused. Use a complete config for the deployed topology.
+An endpoint override selects an origin without discovering hosted services or rewriting variable-supplied endpoints. For the buyer, an override without a dedicated hosted human URL is refused. Use a complete config for the deployed topology.
 
 `requiredEnvironment(name)` rejects invalid binding names and missing or empty values; `optionalEnvironment(name)` returns `undefined` for absent or empty values. Names must match `^[A-Z][A-Z0-9_]{0,127}$`. Receipt key entries contain 32-byte hex `keyId` and `publicKey`, plus inclusive `firstHeight` and `lastHeight`. Heights accept nonnegative safe integer numbers, canonical decimal strings or canonical lowercase hex strings, bounded by unsigned 64-bit range. Inverted ranges fail with `invalid_receipt_key_range`. The decoder produces `Uint8Array` keys and bigint `first_height`/`last_height` values for the SDK.
 
-`secureUrl(value)` rejects credentials, query strings and fragments. It accepts HTTPS and permits HTTP for the implementation's loopback allowlist; use `127.0.0.1` for local examples. `applicationStatePath(config, relative)` rejects empty, absolute and parent-traversing relative paths. `diagnosticText(value, secrets, limit)` defaults to 1024 characters and redacts supplied secrets of at least eight characters.
+`secureUrl(value)` rejects credentials, query strings and fragments. It accepts HTTPS and permits HTTP for the implementation's loopback allowlist; use a loopback origin for local examples. `applicationStatePath(config, relative)` rejects empty, absolute and parent-traversing relative paths. `diagnosticText(value, secrets, limit)` defaults to 1024 characters and redacts supplied secrets of at least eight characters.
 
 `LAYERX_PROTOCOL_VERSION`, `applicationProtocolVersion`, `SELECTABLE_PROTOCOL_VERSIONS` and the old `ReceiptAuthorityClient` are retired example interfaces. The shared runtime uses pinned receipt keys and signed raw transactions rather than a protocol-version selector or receipt-authority URL.
 
@@ -63,7 +63,7 @@ An endpoint override does not discover hosted services, remove legacy paths, or 
 
 ### Raw transaction receipt contract
 
-The implemented signature is `new SequencerReceiptClient(rpcUrl, receiptKeys).resolve(rawTransaction)`. The historical planned `resolve(transactionHash)` signature is obsolete: signed transaction bytes are required to verify the receipt's binding. Input is a nonempty `Uint8Array` or a lowercase `0x`-prefixed, even-length hex string; the string decoder allows at most 1,048,576 decoded bytes.
+The implemented signature is `new SequencerReceiptClient(rpcUrl, receiptKeys).resolve(rawTransaction)`. Signed transaction bytes are required to verify the receipt's binding. Input is a nonempty `Uint8Array` or a lowercase `0x`-prefixed, even-length hex string; the string decoder allows at most 1,048,576 decoded bytes.
 
 The client computes `keccak256(rawTransaction)`, posts `pax_sequencerReceipt` with that hash as its sole parameter, checks the JSON-RPC version, ID and matching `result.txHash`, then calls `verifySequencerReceipt` with the original bytes and pinned keys. Keys are copied on construction. A transaction hash alone cannot substitute for signed bytes.
 
@@ -79,7 +79,7 @@ The client computes `keccak256(rawTransaction)`, posts `pax_sequencerReceipt` wi
 
 Failure states are carried by `LayerXApplicationStateError`. A proof also contains `rawTransaction`, `signedReceipt`, `receiptDigest` (Keccak-256 of signed receipt bytes), and the verifying `receiptKey` with hex `keyId`, `publicKey`, `firstHeight` and `lastHeight`. Even for a server response of `committed`, this helper reports `receipted`; it does not independently prove block commitment.
 
-For a lookup using an actual signed transaction and independently pinned keys, run an ES module from the repository root after installing/building the example dependencies. Supply `LAYERX_SIGNED_TRANSACTION` with the exact signed transaction hex and `LAYERX_TESTNET_RECEIPT_KEYS_JSON` with the trusted key array. This example only reads a receipt:
+For a lookup using an actual signed transaction and independently pinned keys, run an ES module from the repository root after installing/building the example dependencies. Supply `PAXEER_RPC_URL` with the node root URL, `LAYERX_SIGNED_TRANSACTION` with the exact signed transaction hex and `LAYERX_TESTNET_RECEIPT_KEYS_JSON` with the trusted key array. This example only reads a receipt:
 
 ```js
 import assert from "node:assert/strict";
@@ -93,7 +93,7 @@ import {
 const keys = receiptKeysFromEnvironment("LAYERX_TESTNET_RECEIPT_KEYS_JSON");
 const raw = requiredEnvironment("LAYERX_SIGNED_TRANSACTION");
 const client = new SequencerReceiptClient(
-  "https://api-mainnet-beta.paxeer.network/",
+  requiredEnvironment("PAXEER_RPC_URL"),
   keys,
 );
 const proof = await client.resolve(raw);
@@ -102,8 +102,6 @@ await verifySequencerReceipt(bytes(proof.signedReceipt), bytes(raw), keys);
 assert.equal(proof.rawTransaction, raw);
 assert.equal(proof.verificationLevel, "receipted");
 ```
-
-The existing [runtime tests](../../../services/platform/examples/test/runtime.test.mjs) cover raw-byte and hex inputs, key and height-range refusals, corrupt receipts, mismatches, and submitted/committed rungs. They use a local HTTP listener and constructed signed receipt data; they do not establish a live node producer round trip or deployed endpoint availability, and were not run as part of this documentation gate.
 
 ### Marketplace receipt and lifecycle adapters
 

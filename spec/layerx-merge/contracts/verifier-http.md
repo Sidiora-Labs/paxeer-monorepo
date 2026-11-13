@@ -1,8 +1,8 @@
 # Verifier http contract
 
-This page describes the current [smart-contract-verifier workspace](../../../services/explorer/services/smart-contract-verifier), replacing the historical snapshot at `2a1033aa2`. The verifier compiles source and compares bytecode; it is an explorer service, not a consensus or transaction-finality service. Paxeer is one BFT network with an integrated kernel that proposes blocks, chain ID `125` (`0x7d`), and finality at block commitment. Tenant domains are database namespaces, not separate chains provisioned by this service.
+The [smart-contract-verifier workspace](../../../services/explorer/services/smart-contract-verifier) compiles source and compares bytecode for the explorer. Paxeer is one BFT network with an integrated kernel, EVM chain ID `125` (`0x7d`), and finality at block commitment. Tenant domains are database namespaces.
 
-Public node JSON-RPC is at the root of `https://api-mainnet-beta.paxeer.network/` and the numbered hosts `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`. The verifier routes below belong to its configured service origin. A node RPC URL does not imply these routes are mounted there. Hosted `px_` methods are declared by the [gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is the library mirror, not an RPC endpoint. For signed transaction receipts, see [Platform examples](platform-examples.md#raw-transaction-receipt-contract).
+The verifier routes below belong to its configured service origin, independently of node root-path JSON-RPC. Hosted `px_` methods are declared by the [gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json). For signed transaction receipts, see [Platform examples](platform-examples.md#raw-transaction-receipt-contract).
 
 ## Transport and implementation provenance
 
@@ -15,10 +15,10 @@ The server inherits `blockscout-service-launcher` from the [workspace manifest](
 | Setting | Environment variable | Linked default |
 |---|---|---|
 | `server.http.enabled` | `SMART_CONTRACT_VERIFIER__SERVER__HTTP__ENABLED` | `true` |
-| `server.http.addr` | `SMART_CONTRACT_VERIFIER__SERVER__HTTP__ADDR` | `0.0.0.0:8050` |
+| `server.http.addr` | `SMART_CONTRACT_VERIFIER__SERVER__HTTP__ADDR` | port `8050`, all interfaces |
 | `server.http.max_body_size` | `SMART_CONTRACT_VERIFIER__SERVER__HTTP__MAX_BODY_SIZE` | `2097152` bytes for the HTTP JSON extractor |
 | `server.grpc.enabled` | `SMART_CONTRACT_VERIFIER__SERVER__GRPC__ENABLED` | `false` |
-| `server.grpc.addr` | `SMART_CONTRACT_VERIFIER__SERVER__GRPC__ADDR` | `0.0.0.0:8051` |
+| `server.grpc.addr` | `SMART_CONTRACT_VERIFIER__SERVER__GRPC__ADDR` | port `8051`, all interfaces |
 
 `solidity.enabled`, `vyper.enabled`, `sourcify.enabled` and `zksync_solidity.enabled` control their registrations on both transports; all default to `true`. Their environment variables follow the same spelling, for example `SMART_CONTRACT_VERIFIER__ZKSYNC_SOLIDITY__ENABLED`. Health is always registered on each enabled transport. Compiler service initialization precedes listener launch and can fail startup. The base config is not an exhaustive inventory: use the settings types for supported options, including ZkSync.
 
@@ -26,7 +26,7 @@ The server inherits `blockscout-service-launcher` from the [workspace manifest](
 
 The service is `blockscout.smartContractVerifier.v2.Health`, with unary method `Check(HealthCheckRequest) -> HealthCheckResponse`, defined in [health.proto](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/proto/v2/health.proto). Its gRPC method path is `/blockscout.smartContractVerifier.v2.Health/Check`.
 
-The current [HealthService::check](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/health.rs) accepts an empty `service` or exactly `blockscout.smartContractVerifier.v2.Health` and returns `SERVING`. Other nonempty names return Tonic `NOT_FOUND` with message `unknown service`. The earlier audit observed an ignored request name; the current implementation enforces it. This is a liveness response, not a probe of every compiler, upstream dependency or chain head. Streaming `Watch` is not implemented.
+The current [HealthService::check](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/health.rs) accepts an empty `service` or exactly `blockscout.smartContractVerifier.v2.Health` and returns `SERVING`. Other nonempty names return Tonic `NOT_FOUND` with message `unknown service`. This is a liveness response, not a probe of every compiler, upstream dependency or chain head. Streaming `Watch` is not implemented.
 
 ## grpc-solidityverifier
 
@@ -87,14 +87,12 @@ Verification takes `code`, optional `constructor_arguments`, `zk_compiler`, `sol
 
 An omitted `service` query parameter defaults to the empty string. `GET /health` and `GET /health?service=blockscout.smartContractVerifier.v2.Health` return `{"status":"SERVING"}`. An unknown nonempty service returns HTTP `404` with JSON `{"code":5,"message":"unknown service"}`, corresponding to gRPC `NOT_FOUND`. Arbitrary compiler service names are not recognized health-query targets.
 
-For a local service listening with the linked defaults:
+Set `VERIFIER_ORIGIN` to the configured verifier HTTP origin before these requests:
 
 ```sh
-curl --fail-with-body 'http://127.0.0.1:8050/health'
-curl --fail-with-body 'http://127.0.0.1:8050/api/v2/verifier/solidity/versions'
+curl --fail-with-body "$VERIFIER_ORIGIN/health"
+curl --fail-with-body "$VERIFIER_ORIGIN/api/v2/verifier/solidity/versions"
 ```
-
-These are service-origin examples, not claims of a running deployment or gates executed for this page.
 
 ## verifier-methods
 
@@ -134,7 +132,7 @@ HTTP success means a response was produced: compilation errors and bytecode mism
 
 For handler statuses, linked actix-prost maps `INVALID_ARGUMENT` (numeric code `3`) to HTTP `400`, `NOT_FOUND` (`5`) to `404`, and `INTERNAL` (`13`) to `500`, with JSON numeric `code` and string `message`. Actix extraction failures, such as malformed JSON or size rejection, occur before the handler; do not assume the same error envelope. The HTTP JSON size limit is not a gRPC message-size setting.
 
-The [Rust HTTP client](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/client.rs) calls these paths and decodes family-specific responses; non-success HTTP responses produce `http_client::Error::StatusCode`. Its [module](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/mod.rs) also exposes `Middleware` and `Reqwest` errors. The explorer backend's [RustVerifierInterfaceBehaviour](../../../services/explorer/backend/apps/explorer/lib/explorer/smart_contract/rust_verifier_interface_behaviour.ex) appends `/api/v2` to its configured verifier base origin and distinguishes solo and ZkSync response families. Configure that origin independently from public node RPC. These declarations do not establish live connectivity or a gRPC client deployment.
+The [Rust HTTP client](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/client.rs) calls these paths and decodes family-specific responses; non-success HTTP responses produce `http_client::Error::StatusCode`. Its [module](../../../services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/src/http_client/mod.rs) also exposes `Middleware` and `Reqwest` errors. The explorer backend's [RustVerifierInterfaceBehaviour](../../../services/explorer/backend/apps/explorer/lib/explorer/smart_contract/rust_verifier_interface_behaviour.ex) appends `/api/v2` to its configured verifier base origin and distinguishes solo and ZkSync response families. Configure that origin independently from public node RPC. 
 
 ## verifier-versions
 
