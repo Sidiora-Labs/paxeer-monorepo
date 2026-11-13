@@ -1,0 +1,15 @@
+[contracts]
+rule = "Use native empty checks, copy Copy values directly, use field shorthand and test integer multiples with is_multiple_of. Read batches through slices and iterators, and serialize JSON with to_json_binary; preserve contract messages, responses and assertions."
+files = ["tests/fixtures/example/cosmwasm/cw1155/src/contract.rs", "tests/fixtures/example/cosmwasm/cw1155/src/querier.rs", "tests/fixtures/example/cosmwasm/cw721/src/contract.rs", "tests/fixtures/example/cosmwasm/cw20/src/contract.rs", "tests/fixtures/example/cosmwasm/parallelization/wasm/src/contract.rs", "tools/benchmark/loadtest/contracts/jupiter/src/contract.rs", "tools/benchmark/loadtest/contracts/jupiter/tests/repair_22_33_887.rs"]
+
+[runtime]
+rule = "Store code with checked equal to the inverse of unchecked and persist enabled; checked test fixtures also persist. The Linux x86_64 stack probe touches every 4096-byte page and preserves the frame size and stack pointer. UTF-8 conversion tests consume invalid bytes at runtime and assert the conversion error message."
+files = ["wasm-runtime/libwasmvm/src/cache.rs", "wasm-runtime/libwasmvm/src/tests.rs", "wasm-runtime/libwasmvm/src/lib.rs", "wasm-runtime/libwasmvm/src/probestack.rs", "wasm-runtime/libwasmvm/src/error/rust.rs"]
+
+[cache_metrics]
+rule = "The pinned memory cache size expectation is 3019976 bytes for the locked Wasmer 4.2.2 engine, with a 0.2 tolerance. All other metrics expectations stay the same."
+files = ["wasm-runtime/libwasmvm/src/cache.rs"]
+
+[commands]
+build = "cargo build --manifest-path wasm-runtime/libwasmvm/Cargo.toml --locked --offline"
+verify = "test -s wasm-runtime/libwasmvm/repair_22_39_506.kvx && for m in tests/fixtures/example/cosmwasm/cw1155 tests/fixtures/example/cosmwasm/cw20 tests/fixtures/example/cosmwasm/cw721 tests/fixtures/example/cosmwasm/parallelization/wasm tools/benchmark/loadtest/contracts/jupiter wasm-runtime/libwasmvm; do cargo clippy --manifest-path $m/Cargo.toml --locked --offline --all-targets -- -D warnings || exit 1; done && cargo test --manifest-path wasm-runtime/libwasmvm/Cargo.toml --locked --offline"

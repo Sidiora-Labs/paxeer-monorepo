@@ -5,6 +5,8 @@ parent:
   title: "feegrant"
 -->
 
+# `feegrant`
+
 ## Abstract
 
 This document specifies the feegrant module, following upstream Cosmos SDK ADR-029 (fee grant module).

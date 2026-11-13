@@ -320,7 +320,11 @@ func (t historicalTransport) RoundTrip(request *http.Request) (*http.Response, e
 		return nil, fmt.Errorf("historical RPC response exceeds byte cap")
 	}
 	response.Body = io.NopCloser(bytes.NewReader(body))
-	response.ContentLength = int64(len(body))
+	lenBodyInt64, conversionErr := checked.Convert[int64](len(body))
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	response.ContentLength = lenBodyInt64
 	return response, nil
 }
 

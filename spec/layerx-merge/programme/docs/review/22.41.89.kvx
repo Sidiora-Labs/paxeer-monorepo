@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.89"
+pages = 20
+
+[page.1]
+path = "spec/layerx-merge/contracts/ledger-auth.md"
+status = "corrected"
+
+[page.2]
+path = "spec/layerx-merge/contracts/markets.md"
+status = "reviewed"
+
+[page.3]
+path = "spec/layerx-merge/contracts/mcp-tools.md"
+status = "reviewed"
+
+[page.4]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "corrected"
+
+[page.5]
+path = "spec/layerx-merge/contracts/pay.md"
+status = "reviewed"
+
+[page.6]
+path = "spec/layerx-merge/contracts/perps-client.md"
+status = "corrected"
+
+[page.7]
+path = "spec/layerx-merge/contracts/perps-data.md"
+status = "reviewed"
+
+[page.8]
+path = "spec/layerx-merge/contracts/platform-cli.md"
+status = "reviewed"
+
+[page.9]
+path = "spec/layerx-merge/contracts/platform-examples.md"
+status = "corrected"
+
+[page.10]
+path = "spec/layerx-merge/contracts/platform-gateway.md"
+status = "reviewed"
+
+[page.11]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "reviewed"
+
+[page.12]
+path = "spec/layerx-merge/contracts/platform-middleware.md"
+status = "reviewed"
+
+[page.13]
+path = "spec/layerx-merge/contracts/platform-perf-db.md"
+status = "reviewed"
+
+[page.14]
+path = "spec/layerx-merge/contracts/platform-ramps.md"
+status = "reviewed"
+
+[page.15]
+path = "spec/layerx-merge/contracts/platform-relay-archive.md"
+status = "reviewed"
+
+[page.16]
+path = "spec/layerx-merge/contracts/platform-sdk.md"
+status = "reviewed"
+
+[page.17]
+path = "spec/layerx-merge/contracts/platform-tools.md"
+status = "reviewed"
+
+[page.18]
+path = "spec/layerx-merge/contracts/platform.md"
+status = "reviewed"
+
+[page.19]
+path = "spec/layerx-merge/contracts/programme.md"
+status = "reviewed"
+
+[page.20]
+path = "spec/layerx-merge/contracts/programs.md"
+status = "reviewed"

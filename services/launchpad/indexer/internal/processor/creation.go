@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/publisher"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
@@ -63,7 +64,15 @@ func creationFacts(events []*decode.DecodedEnvelope, timestamp int64, provenance
 			}
 			return v, nil
 		}
-		f := store.CreationFact{Factory: env.Raw.Emitter, Position: accounting.SourcePosition{ChainID: "125", Height: strconv.FormatUint(env.Raw.Order.Block, 10), TransactionIndex: strconv.FormatUint(uint64(env.Raw.Order.Transaction), 10), LogIndex: strconv.FormatUint(uint64(env.Raw.Order.Log), 10), TransactionHash: env.Raw.Identity.TransactionHash, BlockHash: env.Raw.Identity.BlockHash}, BlockTimestampSeconds: strconv.FormatInt(timestamp, 10)}
+		orderTransactionUint64, conversionErr := checked.Convert[uint64](env.Raw.Order.Transaction)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		orderLogUint64, conversionErr := checked.Convert[uint64](env.Raw.Order.Log)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		f := store.CreationFact{Factory: env.Raw.Emitter, Position: accounting.SourcePosition{ChainID: "125", Height: strconv.FormatUint(env.Raw.Order.Block, 10), TransactionIndex: strconv.FormatUint(orderTransactionUint64, 10), LogIndex: strconv.FormatUint(orderLogUint64, 10), TransactionHash: env.Raw.Identity.TransactionHash, BlockHash: env.Raw.Identity.BlockHash}, BlockTimestampSeconds: strconv.FormatInt(timestamp, 10)}
 		if f.Token, err = get("token"); err != nil {
 			return nil, err
 		}
@@ -118,7 +127,19 @@ func creationFacts(events []*decode.DecodedEnvelope, timestamp int64, provenance
 			if proof.ABIRevision != mirror.ABIRevision {
 				return nil, store.ErrIntegrity
 			}
-			f.Metadata = &store.TokenCreationMetadata{Emitter: mirror.Raw.Emitter, Name: name, Symbol: symbol, Decimals: uint8(d), TotalSupply: supply, Position: accounting.SourcePosition{ChainID: "125", Height: strconv.FormatUint(mirror.Raw.Order.Block, 10), TransactionIndex: strconv.FormatUint(uint64(mirror.Raw.Order.Transaction), 10), LogIndex: strconv.FormatUint(uint64(mirror.Raw.Order.Log), 10), TransactionHash: mirror.Raw.Identity.TransactionHash, BlockHash: mirror.Raw.Identity.BlockHash}, Provenance: proof}
+			dUint8, conversionErr := checked.Convert[uint8](d)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			orderTransactionUint642, conversionErr := checked.Convert[uint64](mirror.Raw.Order.Transaction)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			orderLogUint642, conversionErr := checked.Convert[uint64](mirror.Raw.Order.Log)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			f.Metadata = &store.TokenCreationMetadata{Emitter: mirror.Raw.Emitter, Name: name, Symbol: symbol, Decimals: dUint8, TotalSupply: supply, Position: accounting.SourcePosition{ChainID: "125", Height: strconv.FormatUint(mirror.Raw.Order.Block, 10), TransactionIndex: strconv.FormatUint(orderTransactionUint642, 10), LogIndex: strconv.FormatUint(orderLogUint642, 10), TransactionHash: mirror.Raw.Identity.TransactionHash, BlockHash: mirror.Raw.Identity.BlockHash}, Provenance: proof}
 		}
 		facts = append(facts, f)
 	}
@@ -146,11 +167,19 @@ func stageQualifiedSourceFacts(ctx context.Context, c store.CanonicalTx, b store
 		if err != nil {
 			return nil, err
 		}
-		intents = append(intents, store.OutboxIntent{TransactionHash: f.Position.TransactionHash, LogIndex: uint32(index), Kind: "canonical.creation.v1", Payload: payload})
+		indexUint32, conversionErr := checked.Convert[uint32](index)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		intents = append(intents, store.OutboxIntent{TransactionHash: f.Position.TransactionHash, LogIndex: indexUint32, Kind: "canonical.creation.v1", Payload: payload})
 	}
 	selected := map[string]store.RawRecord{}
 	for _, raw := range b.Records {
-		selected[raw.TransactionHash+":"+strconv.FormatUint(uint64(raw.LogIndex), 10)] = raw
+		rawLogIndexUint64, conversionErr := checked.Convert[uint64](raw.LogIndex)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		selected[raw.TransactionHash+":"+strconv.FormatUint(rawLogIndexUint64, 10)] = raw
 	}
 	for _, q := range receipts {
 		logs, err := q.SourceLogs(ctx)
@@ -173,9 +202,21 @@ func stageQualifiedSourceFacts(ctx context.Context, c store.CanonicalTx, b store
 				return nil, store.ErrIntegrity
 			}
 			txHash := strings.ToLower(l.TxHash.Hex())
-			key := txHash + ":" + strconv.FormatUint(uint64(l.Index), 10)
+			lIndexUint64, conversionErr := checked.Convert[uint64](l.Index)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			key := txHash + ":" + strconv.FormatUint(lIndexUint64, 10)
 			raw, ok := selected[key]
-			if !ok || raw.Emitter != token || raw.BlockHash != strings.ToLower(l.BlockHash.Hex()) || raw.Height < 0 || uint64(raw.Height) != l.BlockNumber || uint(raw.TransactionIndex) != l.TxIndex || !bytes.Equal(raw.Data, l.Data) || len(raw.Topics) != 3 {
+			rawHeightUint64, conversionErr := checked.Convert[uint64](raw.Height)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			rawTransactionIndexUint, conversionErr := checked.Convert[uint](raw.TransactionIndex)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			if !ok || raw.Emitter != token || raw.BlockHash != strings.ToLower(l.BlockHash.Hex()) || raw.Height < 0 || rawHeightUint64 != l.BlockNumber || rawTransactionIndexUint != l.TxIndex || !bytes.Equal(raw.Data, l.Data) || len(raw.Topics) != 3 {
 				return nil, errors.New("complete admitted token transfer raw record required")
 			}
 			for i := range l.Topics {
@@ -187,7 +228,11 @@ func stageQualifiedSourceFacts(ctx context.Context, c store.CanonicalTx, b store
 			if err != nil {
 				return nil, err
 			}
-			f := store.TransferFact{Token: token, From: strings.ToLower(common.BytesToAddress(l.Topics[1][12:]).Hex()), To: strings.ToLower(common.BytesToAddress(l.Topics[2][12:]).Hex()), AmountRaw: new(big.Int).SetBytes(l.Data).String(), Position: accounting.SourcePosition{ChainID: "125", Height: strconv.FormatUint(l.BlockNumber, 10), TransactionIndex: strconv.FormatUint(uint64(l.TxIndex), 10), LogIndex: strconv.FormatUint(uint64(l.Index), 10), TransactionHash: txHash, BlockHash: strings.ToLower(l.BlockHash.Hex())}, Provenance: provenance}
+			lTxIndexUint64, conversionErr := checked.Convert[uint64](l.TxIndex)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			f := store.TransferFact{Token: token, From: strings.ToLower(common.BytesToAddress(l.Topics[1][12:]).Hex()), To: strings.ToLower(common.BytesToAddress(l.Topics[2][12:]).Hex()), AmountRaw: new(big.Int).SetBytes(l.Data).String(), Position: accounting.SourcePosition{ChainID: "125", Height: strconv.FormatUint(l.BlockNumber, 10), TransactionIndex: strconv.FormatUint(lTxIndexUint64, 10), LogIndex: strconv.FormatUint(lIndexUint64, 10), TransactionHash: txHash, BlockHash: strings.ToLower(l.BlockHash.Hex())}, Provenance: provenance}
 			if err = c.InsertTokenTransfer(ctx, f); err != nil {
 				return nil, err
 			}

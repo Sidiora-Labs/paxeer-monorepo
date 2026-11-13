@@ -65,6 +65,44 @@ pub fn read_availability(
     program: &[u8; 32],
     reference: Reference,
 ) -> Result<Value, String> {
+    let document = availability_document(agent, endpoint, bearer, chain_id, program)?;
+    validate_availability(&document, chain_id, program, reference)
+}
+
+/// Read one gateway publication and independently verify its claimed node height.
+///
+/// # Errors
+/// Returns an error if acquisition, node verification, exact binding checks or
+/// component availability checks fail.
+pub fn read_verified_availability(
+    agent: &ureq::Agent,
+    endpoint: &str,
+    bearer: &str,
+    chain_id: u64,
+    program: &[u8; 32],
+    verify_height: impl FnOnce(u64) -> Result<Reference, String>,
+) -> Result<(Reference, Value), String> {
+    let document = availability_document(agent, endpoint, bearer, chain_id, program)?;
+    let height = document["result"]["binding"]["block_height"]
+        .as_str()
+        .filter(|text| {
+            (text.len() == 1 || !text.starts_with('0'))
+                && text.bytes().all(|byte| byte.is_ascii_digit())
+        })
+        .and_then(|text| text.parse::<u64>().ok())
+        .ok_or("inference availability is not bound to the current committed program")?;
+    let reference = verify_height(height)?;
+    let components = validate_availability(&document, chain_id, program, reference)?;
+    Ok((reference, components))
+}
+
+fn availability_document(
+    agent: &ureq::Agent,
+    endpoint: &str,
+    bearer: &str,
+    chain_id: u64,
+    program: &[u8; 32],
+) -> Result<Value, String> {
     let market = layerx_programs::hex::encode(&market_id(chain_id, program));
     let url = format!(
         "{}/v1/ai/markets/0x{market}/snapshot",
@@ -86,6 +124,16 @@ pub fn read_availability(
         .map_err(|_| "inference availability response exceeded its bound".to_owned())?;
     let document: Value = serde_json::from_slice(&bytes)
         .map_err(|_| "inference availability response is malformed".to_owned())?;
+    Ok(document)
+}
+
+fn validate_availability(
+    document: &Value,
+    chain_id: u64,
+    program: &[u8; 32],
+    reference: Reference,
+) -> Result<Value, String> {
+    let market = layerx_programs::hex::encode(&market_id(chain_id, program));
     let snapshot = &document["result"];
     let binding = &snapshot["binding"];
     let mut chain = Sha256::new();

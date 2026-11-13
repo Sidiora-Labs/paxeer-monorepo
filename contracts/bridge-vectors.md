@@ -21,6 +21,9 @@ bytes and uint64 occupies 8. An address is exactly 20 raw bytes.
 | Inbound | ASCII `PAXEERX_BRIDGE_IN_V1`, uint256 chainId, address vault, bytes32 txHash, uint64 logIndex, bytes32 recipient, address asset, uint256 amount | 196 bytes |
 | Outbound | ASCII `PAXEERX_BRIDGE_OUT_V1`, uint256 chainId, address vault, bytes32 paxeerTxHash, uint64 paxeerNonce, address recipient, address asset, uint256 amount | 185 bytes |
 
+The native `BridgeIn.ChainID` and `BridgeOut.ChainID` fields are uint64.
+Their preimage builders widen those values to the 32-byte uint256 field.
+
 The digest is `keccak256(preimage)`. Sign the raw digest with secp256k1;
 there is no EIP-191 prefix or EIP-712 wrapper. An attestation signature is 65
 bytes, `r || s || v`, with `v` equal to 27 or 28 and canonical low `s`.
@@ -28,7 +31,8 @@ Recovered signers must be strictly ascending, current attestors, and meet
 the configured threshold. The inbound nullifier is
 `(chainId, txHash, logIndex)`. The inbound recipient is a nonzero EVM address
 in the low 20 bytes of a 32-byte word, with its high 12 bytes zero.
-Amounts are asset base units, not display decimals.
+Amounts are asset base units. Solana custody amounts must also fit uint64,
+even though the shared preimage encodes the amount as uint256.
 
 ## Chain config
 

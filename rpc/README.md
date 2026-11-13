@@ -33,7 +33,7 @@ a user-signed Ethereum transaction. See [block.go](block.go), [tx.go](tx.go),
 [filter.go](filter.go) and [utils.go](utils.go).
 
 HTTP also registers `net`, `web3`, `txpool`, `debug`, `echo` and `px`, plus
-the chain-specific APIs below. WebSocket registers `eth`, `net`, `web3`, `echo`,
+the chain-specific APIs below. WebSocket registers `eth`, `net`, `web3`, `txpool`, `echo`,
 `px` and `pax_sequencerReceipt`, including `eth_subscribe` for heads, logs and pending transaction hashes.
 The `test` namespace requires `enable_test_api` and a non-live chain ID.
 An operator's `deny_list` can further restrict methods.
@@ -119,9 +119,14 @@ wait with the request error; it does not trigger the idle committed fallback.
   closed; they do not share the state-read idle fallback. Without a provider,
   `eth_getBlockTransactionCountByNumber("pending")` returns null, while pending
   block-number resolution returns `-32000`, `pending served by sequencer`.
-- Pending `eth_getTransactionCount` uses `PendingContext` and waits for an open
-  block. If none opens within the bound, it returns `ErrPendingBlockClosed`
-  (`-32000`, `no block is open; retry`).
+- Pending `eth_getTransactionCount` reads the open-block nonce. With the node's
+  committed-state context provider, it waits during an idle interval and falls
+  back to the latest queryable committed nonce if the wait expires. Held future
+  nonces do not advance this value. Without a local open-state provider, the
+  request follows the account's `EvmProxy` route; without that route it returns
+  `-32000`, `pending served by sequencer`. A caller with open-state access but
+  no committed-state context provider receives `ErrPendingBlockClosed`
+  (`-32000`, `no block is open; retry`) when its wait expires.
 - On the local acceptance path, `eth_sendRawTransaction` encountering a sealed
   block waits using the same bound and retries acceptance once. It returns the
   hash on success, or the closed-block error if the retry still finds no open

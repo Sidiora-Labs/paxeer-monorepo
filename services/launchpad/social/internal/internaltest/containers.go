@@ -90,7 +90,7 @@ func DevelopmentPostgresDSN(t *testing.T, admin string) string {
 
 func CoordinatorMigrationSQL(t *testing.T, schema string, version int) string {
 	t.Helper()
-	path := filepath.Join(coordinatortest.RepositoryRoot(t), "launchpad/spec/production-system/integration/migrations", fmt.Sprintf("%d.sql", version))
+	path := filepath.Join(coordinatortest.RepositoryRoot(t), "migrations", fmt.Sprintf("%d.sql", version))
 	root, err := os.OpenRoot(filepath.Dir(path))
 	if err != nil {
 		t.Fatal(err)

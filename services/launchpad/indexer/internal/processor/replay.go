@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
@@ -57,7 +58,11 @@ func qualifiedSegment(ctx context.Context, stream string, b store.CanonicalBatch
 	segment = store.ReplaySegment{FormatVersion: "raw-replay-v2", ChainID: 125, SourceStream: stream, FromHeight: b.Blocks[0].Height, ToHeight: b.Blocks[len(b.Blocks)-1].Height, Blocks: b.Blocks, Records: b.Records, Events: []store.ReplayEvent{}}
 	raw := map[string]store.RawRecord{}
 	for _, record := range b.Records {
-		raw[record.TransactionHash+":"+strconv.FormatUint(uint64(record.LogIndex), 10)] = record
+		recordLogIndexUint64, conversionErr := checked.Convert[uint64](record.LogIndex)
+		if conversionErr != nil {
+			return store.ReplaySegment{}, conversionErr
+		}
+		raw[record.TransactionHash+":"+strconv.FormatUint(recordLogIndexUint64, 10)] = record
 	}
 	creations, err := qualifiedCreationFacts(ctx, receipts)
 	if err != nil {
@@ -117,7 +122,11 @@ func qualifiedSegment(ctx context.Context, stream string, b store.CanonicalBatch
 			if event.EventName == valueSwap || event.EventName == valueMarketCreated {
 				continue
 			}
-			record, ok := raw[event.TxHash+":"+strconv.FormatUint(uint64(event.LogIndex), 10)]
+			eventLogIndexUint64, conversionErr := checked.Convert[uint64](event.LogIndex)
+			if conversionErr != nil {
+				return store.ReplaySegment{}, conversionErr
+			}
+			record, ok := raw[event.TxHash+":"+strconv.FormatUint(eventLogIndexUint64, 10)]
 			if !ok {
 				return segment, store.ErrIntegrity
 			}
@@ -135,7 +144,15 @@ func qualifiedSegment(ctx context.Context, stream string, b store.CanonicalBatch
 	return segment, store.ValidateReplaySegment(segment)
 }
 func (r *ReplayRunner) fetch(ctx context.Context, request store.ReplayRequest, from, to int64) (store.ReplaySegment, error) {
-	batch, receipts, err := r.Source.FetchQualifiedBatch(ctx, uint64(from), uint64(to)) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+	fromUint64, conversionErr := checked.Convert[uint64](from)
+	if conversionErr != nil {
+		return store.ReplaySegment{}, conversionErr
+	}
+	toUint64, conversionErr := checked.Convert[uint64](to)
+	if conversionErr != nil {
+		return store.ReplaySegment{}, conversionErr
+	}
+	batch, receipts, err := r.Source.FetchQualifiedBatch(ctx, fromUint64, toUint64)
 	if err != nil {
 		return store.ReplaySegment{}, err
 	}
@@ -186,7 +203,11 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 		}
 		active = job
 		from := job.Progress + 1
-		to := from + int64(r.BatchSize) - 1
+		rBatchSizeInt64, conversionErr := checked.Convert[int64](r.BatchSize)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		to := from + rBatchSizeInt64 - 1
 		if to > request.ToHeight {
 			to = request.ToHeight
 		}
@@ -216,7 +237,15 @@ func (r *ReplayRunner) Run(ctx context.Context, request store.ReplayRequest) err
 				return "", err
 			}
 			effect := ReplayEffectIdentity(request, event)
-			envelope := delivery.Envelope{EventID: effect, EventType: ReplaySubjectV2, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(event.Raw.Height, 10), TransactionIndex: strconv.FormatUint(uint64(event.Raw.TransactionIndex), 10), LogIndex: strconv.FormatUint(uint64(event.Raw.LogIndex), 10)}, EmittedAt: time.Unix(event.Timestamp, 0).UTC(), TraceID: effect, PayloadHash: delivery.Hash(payload), Payload: payload}
+			rawTransactionIndexUint64, conversionErr := checked.Convert[uint64](event.Raw.TransactionIndex)
+			if conversionErr != nil {
+				return "", conversionErr
+			}
+			rawLogIndexUint64, conversionErr := checked.Convert[uint64](event.Raw.LogIndex)
+			if conversionErr != nil {
+				return "", conversionErr
+			}
+			envelope := delivery.Envelope{EventID: effect, EventType: ReplaySubjectV2, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(event.Raw.Height, 10), TransactionIndex: strconv.FormatUint(rawTransactionIndexUint64, 10), LogIndex: strconv.FormatUint(rawLogIndexUint64, 10)}, EmittedAt: time.Unix(event.Timestamp, 0).UTC(), TraceID: effect, PayloadHash: delivery.Hash(payload), Payload: payload}
 			return effect, r.Deliveries.Enqueue(ctx, tx, ReplaySubjectV2, envelope)
 		})
 		if err != nil {
@@ -314,12 +343,20 @@ func (p *GenerationReplayProjection) ApplyRawTx(ctx context.Context, tx pgx.Tx, 
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_generation_raw(target,generation,projection_revision,height,transaction_index,log_index,transaction_hash,raw_digest,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`, p.Request.Target, generation, p.Request.ProjectionRevision, raw.Height, int64(raw.TransactionIndex), int64(raw.LogIndex), raw.TransactionHash, digest, body)
+	rawTransactionIndexInt64, conversionErr := checked.Convert[int64](raw.TransactionIndex)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	rawLogIndexInt64, conversionErr := checked.Convert[int64](raw.LogIndex)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO indexer.indexer_generation_raw(target,generation,projection_revision,height,transaction_index,log_index,transaction_hash,raw_digest,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`, p.Request.Target, generation, p.Request.ProjectionRevision, raw.Height, rawTransactionIndexInt64, rawLogIndexInt64, raw.TransactionHash, digest, body)
 	if err != nil {
 		return err
 	}
 	var same bool
-	err = tx.QueryRow(ctx, `SELECT raw_digest=$8 AND payload=$9::jsonb FROM indexer.indexer_generation_raw WHERE target=$1 AND generation=$2 AND projection_revision=$3 AND height=$4 AND transaction_index=$5 AND log_index=$6 AND transaction_hash=$7`, p.Request.Target, generation, p.Request.ProjectionRevision, raw.Height, int64(raw.TransactionIndex), int64(raw.LogIndex), raw.TransactionHash, digest, body).Scan(&same)
+	err = tx.QueryRow(ctx, `SELECT raw_digest=$8 AND payload=$9::jsonb FROM indexer.indexer_generation_raw WHERE target=$1 AND generation=$2 AND projection_revision=$3 AND height=$4 AND transaction_index=$5 AND log_index=$6 AND transaction_hash=$7`, p.Request.Target, generation, p.Request.ProjectionRevision, raw.Height, rawTransactionIndexInt64, rawLogIndexInt64, raw.TransactionHash, digest, body).Scan(&same)
 	if err != nil {
 		return err
 	}
@@ -333,7 +370,15 @@ func (p *GenerationReplayProjection) ApplyRawTx(ctx context.Context, tx pgx.Tx, 
 			return err
 		}
 		effect := ReplayEffectIdentity(p.Request, event)
-		envelope := delivery.Envelope{EventID: effect, EventType: ReplaySubjectV2, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(raw.Height, 10), TransactionIndex: strconv.FormatUint(uint64(raw.TransactionIndex), 10), LogIndex: strconv.FormatUint(uint64(raw.LogIndex), 10)}, EmittedAt: time.Unix(event.Timestamp, 0).UTC(), TraceID: effect, PayloadHash: delivery.Hash(payload), Payload: payload}
+		rawTransactionIndexUint642, conversionErr := checked.Convert[uint64](raw.TransactionIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		rawLogIndexUint642, conversionErr := checked.Convert[uint64](raw.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		envelope := delivery.Envelope{EventID: effect, EventType: ReplaySubjectV2, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(raw.Height, 10), TransactionIndex: strconv.FormatUint(rawTransactionIndexUint642, 10), LogIndex: strconv.FormatUint(rawLogIndexUint642, 10)}, EmittedAt: time.Unix(event.Timestamp, 0).UTC(), TraceID: effect, PayloadHash: delivery.Hash(payload), Payload: payload}
 		if err = p.Runner.Deliveries.Enqueue(ctx, tx, ReplaySubjectV2, envelope); err != nil {
 			return err
 		}
@@ -430,7 +475,11 @@ func (p *GenerationReplayProjection) CanonicalDigestTx(ctx context.Context, tx p
 		if err != nil {
 			return "", err
 		}
-		if segment.Blocks[0].Hash != block.BlockHash || int64(len(segment.Records)) != block.RawCount {
+		segmentRecordsInt64, conversionErr := checked.Convert[int64](len(segment.Records))
+		if conversionErr != nil {
+			return "", conversionErr
+		}
+		if segment.Blocks[0].Hash != block.BlockHash || segmentRecordsInt64 != block.RawCount {
 			return "", store.ErrIntegrity
 		}
 		for _, fact := range generationFacts(segment) {

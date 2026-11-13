@@ -8,7 +8,7 @@ proof_boundary = "Production CanonicalInputReader, FrozenInputs, HTTP evidence/v
 qualification_evidence = "The exact candidate revision, command, exit and private log are retained by hf-build/hf-done and copied in the final response; no source edit follows the passing hf-done."
 wiring_request_1 = "services/launchpad/indexer/internal — launchpad canonical source owner: expose immutable CanonicalRankingEvidence observations keyed by cutoffHeight, cutoffTime and blockHash, with per-pool pause proof and independently qualified self-volume proof for the exact 24-hour window; fills alone cannot establish either observation."
 wiring_request_2 = "services/launchpad/ranking-algo/internal/app/app.go — launchpad ranking application owner: configure NewHTTPCanonicalEvidence against the canonical source owner endpoint and assign CanonicalInputReader.Evidence; until configured unknown pause stays nil and the pool remains ineligible."
-wiring_request_3 = "launchpad/spec/production-system/integration/migrations/190000.sql — launchpad migration owner: retain the earlier repair_32.kvx request for a reviewed category-constraint upgrade; the actual database/broker phase-two test remains an external release qualification and is not claimed by this focused service-free gate."
+wiring_request_3 = "migrations/190000.sql — launchpad migration owner: retain the earlier repair_32.kvx request for a reviewed category-constraint upgrade; the actual database/broker phase-two test remains an external release qualification and is not claimed by this focused service-free gate."
 
 [finding.publication-tests-five-categories]
 proving_tests = ["TestRepairM_931_PublicationCategories", "TestRepairM_931_PublicationAcknowledgementsAndExhaustion"]

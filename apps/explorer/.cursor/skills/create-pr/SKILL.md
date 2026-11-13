@@ -7,15 +7,20 @@ disable-model-invocation: true
 
 ## Prerequisites: GitHub CLI
 
-This workflow uses `gh` to check for existing PRs, fetch issue details, and create the PR. **Follow the check-github-cli skill** first (ensure `gh auth status` succeeds; if not, guide the user to install/configure `gh` and do not proceed). The account needs read access to the repo and write access to create PRs and manage labels.
+This workflow uses `gh` to check for existing PRs, fetch issue details, and create the PR. **Follow the [check-github-cli skill](../check-github-cli/SKILL.md)** first (ensure `gh auth status` succeeds; if not, guide the user to install/configure `gh` and do not proceed). The account needs read access to the repo and write access to create PRs and manage labels.
 
 ## Overview
 
 Create a well-structured pull request with proper description, labels, and reviewers.
 
+## Paths
+
+Commands run from the monorepo root. Explorer documentation is under
+`docs/explorer/`, and application sources are under `apps/explorer/`.
+
 ## Steps
 
-_Note:_ In the command output, format all URLs as clickable Markdown links: `[Link Text](URL)`.
+_Note:_ In the command output, format all URLs as clickable Markdown links with descriptive labels.
 
 ### 1. Check that a PR is not already open for this branch
 
@@ -35,17 +40,17 @@ _Note:_ In the command output, format all URLs as clickable Markdown links: `[Li
 
 ### 3. Write the PR description
 
-- Use the template from `../../docs/explorer/PULL_REQUEST_TEMPLATE.md` as the base. Read it and fill in each section.
+- Use the template from `docs/explorer/PULL_REQUEST_TEMPLATE.md` as the base. Read it and fill in each section.
 - **Issue number from branch name:** If the branch name matches the pattern `issue-\d+` (e.g. `issue-123`), extract the number (e.g. `git branch --show-current | grep -oE 'issue-[0-9]+' | grep -oE '[0-9]+'`), then:
   - Fetch the issue: `gh issue view <ISSUE_NUMBER>`.
   - At the very beginning of the **"Description and Related Issue(s)"** section, include: `Resolves #<ISSUE_NUMBER>`.
 - **Summary of changes:** Summarize the changes clearly and concisely in no more than two paragraphs. Use bullet points if needed. Be precise; keep the description short.
 - **Environment variable changes:** If any env vars were added, changed, or documented:
-  - Compare or read `../../docs/explorer/ENVS.md` (and the validator/ENVS docs if relevant) to list what changed.
+  - Compare or read `docs/explorer/ENVS.md` (and the validator in `apps/explorer/deploy/tools/envs-validator/` if relevant) to list what changed.
   - Add a separate section listing each variable change and the **purpose** of each (why it was added/changed).
     - **Bad:** "Added `NEXT_PUBLIC_VIEWS_TX_GROUPED_FEES` environment variable to the documentation."
     - **Good:** "Added `NEXT_PUBLIC_VIEWS_TX_GROUPED_FEES` to group transaction fees into one section on the transaction page."
-    - **Good:** "Extended possible values for `NEXT_PUBLIC_VIEWS_TX_ADDITIONAL_FIELDS` with set_max_gas_limit to display the maximum gas price set by the transaction sender."
+    - **Good:** "Enabled `set_max_gas_limit` in `NEXT_PUBLIC_VIEWS_TX_ADDITIONAL_FIELDS` to display the sender's maximum network fee, calculated as gas limit times gas price."
     - **Good:** "Introduced a new option, `"fee reception"`, for the `NEXT_PUBLIC_NETWORK_VERIFICATION_TYPE` variable."
 - **Checklist:** Keep the "Checklist for PR Author" section from the template and check the items that apply (e.g. tested locally, tests added, ENVS/docs/validator updated if env vars changed).
 - When the description is ready, **ask the user for confirmation or changes** before creating the PR (step 4).
@@ -54,9 +59,9 @@ _Note:_ In the command output, format all URLs as clickable Markdown links: `[Li
 
 - Create the pull request with a descriptive title. Use draft mode if the user asked for it:
   - `gh pr create --title "Your descriptive title" --body-file /path/to/body.md` (and add `--draft` if draft).
-  - Or paste the body inline if preferred; ensure the filled template is used.
+  - The body file contains the filled template.
 - Add labels:
-  - If anything was added or changed in `../../docs/explorer/ENVS.md`, add the **"ENVs"** label: `gh pr edit <PR_NUMBER> --add-label "ENVs"` (or add labels during `gh pr create` if your `gh` version supports it).
-  - If `package.json` has changed (check with `git diff origin/main -- package.json`), add the **"dependencies"** label.
+  - If anything was added or changed in `docs/explorer/ENVS.md`, add the **"ENVs"** label: `gh pr edit <PR_NUMBER> --add-label "ENVs"` (or add labels during `gh pr create` if your `gh` version supports it).
+  - If `package.json` has changed (check with `git diff origin/main -- apps/explorer/package.json`), add the **"dependencies"** label.
   - If the branch name contained an issue number (pattern `issue-\d+`), copy all labels from that issue onto the PR: get labels with `gh issue view <ISSUE_NUMBER> --json labels -q '.labels[].name'`, then add each: `gh pr edit <PR_NUMBER> --add-label "<LABEL>"`.
-- Include a clickable link to the created PR in the command output (e.g. from `gh pr view --web` or the URL printed by `gh pr create`).
+- Include a clickable link to the created PR in the command output (e.g. from `gh pr view --json url --jq .url` or the URL printed by `gh pr create`).

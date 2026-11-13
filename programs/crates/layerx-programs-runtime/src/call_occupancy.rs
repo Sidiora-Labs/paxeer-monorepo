@@ -196,7 +196,7 @@ mod occupancy_cases {
             transaction
                 .write(key, value)
                 .unwrap_or_else(|error| panic!("{error}"));
-            transaction.commit();
+            let _ = transaction.commit();
         }
 
         fn settle(

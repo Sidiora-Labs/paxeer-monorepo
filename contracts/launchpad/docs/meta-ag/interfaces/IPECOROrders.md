@@ -2,12 +2,17 @@
 
 ## IPECOROrders
 
-Interface for the PECOROrders engine — limit / stop-loss / stop-limit orders with
-        keeper execution against PECORVault v2. Spec §7.7.
+Interface for UUPS limit, stop-loss and stop-limit orders executed by keepers against PECORVault.
+Placement pulls input into the vault and reserves the amount received; cancellation returns that
+recorded amount to the owner. Execution releases the input reservation and sends priced output to
+the owner.
 
-_UUPS-upgradeable, Timelock-admin. Funds-custody invariant: user funds are pulled
-     into the vault at place-time; cancellation returns the exact pulled amount;
-     execution swaps via vault push (never mints, never reroutes recipient)._
+`OrderRequest` supports a minimum output in output-token base units. Trigger and limit prices are
+USD per whole nonstable token. A zero expiry means no expiry. The individual placement methods use a
+zero output floor. The concrete [PECOROrders](../engine/PECOROrders.md) contract also exposes
+output-floor updates, expiry refunds, pricing configuration and paginated discovery.
+
+Source: [IPECOROrders.sol](../../../contracts/meta-ag/interfaces/IPECOROrders.sol).
 
 ### OrderType
 
@@ -74,16 +79,16 @@ struct StopLimitOrder {
 function initialize(address priceOracle, address vault, address tracker, address admin) external
 ```
 
-Initialize the UUPS proxy (spec §7.7)
+Initialize the UUPS proxy
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| priceOracle | address | IPriceOracle address |
-| vault | address | IPECORVault v2 address (must grant OPERATOR_ROLE to this contract) |
-| tracker | address | ITransactionTracker address (may be zero at bootstrap) |
-| admin | address | Timelock — granted DEFAULT_ADMIN_ROLE |
+| Name        | Type    | Description                                                        |
+| ----------- | ------- | ------------------------------------------------------------------ |
+| priceOracle | address | IPriceOracle address                                               |
+| vault       | address | IPECORVault v2 address (must grant OPERATOR_ROLE to this contract) |
+| tracker     | address | ITransactionTracker address (may be zero at bootstrap)             |
+| admin       | address | Timelock — granted DEFAULT_ADMIN_ROLE                              |
 
 ### setKeeper
 
@@ -91,7 +96,7 @@ Initialize the UUPS proxy (spec §7.7)
 function setKeeper(address keeper, bool authorized) external
 ```
 
-Grant / revoke KEEPER_ROLE in one call (spec §7.7).
+Grant / revoke KEEPER_ROLE in one call.
 
 ### pause
 
@@ -228,48 +233,74 @@ function getExecutableStopLimits(uint256 maxCount) external view returns (uint25
 ### LimitOrderCreated
 
 ```solidity
-event LimitOrderCreated(uint256 orderId, address user, enum IPECOROrders.OrderType orderType, uint256 amount, uint256 targetPrice)
+event LimitOrderCreated(uint256 indexed orderId, address indexed user, OrderType orderType, uint256 amount, uint256 targetPrice)
 ```
 
 ### LimitOrderExecuted
 
 ```solidity
-event LimitOrderExecuted(uint256 orderId, uint256 executionPrice)
+event LimitOrderExecuted(uint256 indexed orderId, uint256 executionPrice)
 ```
 
 ### LimitOrderCancelled
 
 ```solidity
-event LimitOrderCancelled(uint256 orderId)
+event LimitOrderCancelled(uint256 indexed orderId)
 ```
 
 ### StopLimitOrderCreated
 
 ```solidity
-event StopLimitOrderCreated(uint256 orderId, address user, enum IPECOROrders.OrderType orderType, uint256 amount, uint256 stopPrice, uint256 limitPrice)
+event StopLimitOrderCreated(uint256 indexed orderId, address indexed user, OrderType orderType, uint256 amount, uint256 stopPrice, uint256 limitPrice)
 ```
 
 ### StopLimitActivated
 
 ```solidity
-event StopLimitActivated(uint256 orderId, uint256 activationPrice)
+event StopLimitActivated(uint256 indexed orderId, uint256 activationPrice)
 ```
 
 ### StopLimitExecuted
 
 ```solidity
-event StopLimitExecuted(uint256 orderId, uint256 executionPrice)
+event StopLimitExecuted(uint256 indexed orderId, uint256 executionPrice)
 ```
 
 ### StopLimitCancelled
 
 ```solidity
-event StopLimitCancelled(uint256 orderId)
+event StopLimitCancelled(uint256 indexed orderId)
 ```
 
 ### KeeperUpdated
 
 ```solidity
-event KeeperUpdated(address keeper, bool authorized)
+event KeeperUpdated(address indexed keeper, bool authorized)
 ```
 
+### placeOrder
+
+```solidity
+function placeOrder(OrderRequest calldata request) external returns (uint256 orderId)
+```
+
+Places the requested order with its minimum delivered output. LIMIT_BUY, LIMIT_SELL and STOP_LOSS
+use triggerPrice as their target; stop-limit orders also use limitPrice.
+
+### OrderRequest
+
+```solidity
+struct OrderRequest {
+  OrderType orderType;
+  address stablecoin;
+  address token;
+  uint256 amount;
+  uint256 triggerPrice;
+  uint256 limitPrice;
+  uint256 expiresAt;
+  uint256 minimumOutput;
+}
+```
+
+Trigger and limit prices use USD per whole nonstable token. minimumOutput uses output-token base
+units. A zero expiresAt means no expiry.

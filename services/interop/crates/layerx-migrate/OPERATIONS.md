@@ -9,24 +9,17 @@ kernel participates in the network and proposes blocks. Block commit establishes
 network finality. Source-chain verification establishes external provenance;
 it does not by itself execute a payment or create a network balance.
 
-Public node JSON-RPC uses root HTTPS URLs such as
-`https://api1.mainnet-beta.paxeer.network/`, with hosts `api1` through `api14` and
-`api-mainnet-beta.paxeer.network`. These public endpoints are not a migration
-rollback-authority deployment. The protected quorum client additionally requires
-operator-supplied TLS and bearer credentials.
+Public node JSON-RPC uses the root HTTPS path. The protected source and
+rollback-anchor quorum clients require separately configured endpoints,
+TLS trust anchors and file-backed bearer authentication.
 
 Each source and rollback-anchor quorum requires two to eight independent HTTPS JSON-RPC endpoints and a strict majority. Endpoint URLs must use DNS names and HTTPS. Every endpoint declaration requires an `independent_backend` label for the operator-audited backend identity. Both `(host, port)` and normalized backend identities must be unique, so aliases, alternate request paths, and duplicate labels cannot manufacture quorum membership. The DER trust anchor and bearer credential paths must be absolute. Bearer credentials must be regular files with no group or other permissions; invalid paths or permissions refuse construction before any network request.
 
-Protected Ethereum, Solana, and rollback-anchor endpoint declarations use this closed shape; omitting `independent_backend` is a configuration error:
-
-```json
-{
-  "url": "https://source-a.example/",
-  "ca_certificate_der": "${LAYERX_MIGRATION_SECRET_DIR}/source-ca.der",
-  "bearer_token_file": "${LAYERX_MIGRATION_SECRET_DIR}/source-a.token",
-  "independent_backend": "operator-a"
-}
-```
+Protected Ethereum, Solana and rollback-anchor endpoint declarations contain
+exactly `url`, `ca_certificate_der`, `bearer_token_file` and
+`independent_backend`. The operator binary expands
+`${LAYERX_MIGRATION_SECRET_DIR}` in configuration files; the replacement must be
+a canonical absolute directory path.
 
 Ethereum configuration pins the chain ID, genesis block, custody contract, immutable runtime or explicit proxy implementation, runtime hashes at the source block, ABI selector, event topic, and the location of every custody field. Solana configuration pins the genesis hash, custody program, immutable ProgramData account and code hash, loader, custody and token authorities, account owners, instruction discriminator, account indices, byte offsets, and integer encoding. No default custody schema or deployment identifier exists.
 
@@ -49,12 +42,10 @@ these methods on a strict-majority HTTPS authority:
 - `layerx_getMigrationJournalHead([anchor_id])`, returning `{sequence,digest}`.
 - `layerx_advanceMigrationJournalHead([{anchor_id,expected_sequence,expected_digest,sequence,digest}])`, performing an authenticated compare-and-swap and returning the committed `{sequence,digest}`.
 
-These are the client's required external interface, not methods supplied by the
-public node. The current tree contains the client and test peers, but no
-production server for these methods; an operator must identify and qualify the
-actual producer before relying on rollback protection. The methods require
+Configure an independent rollback authority implementing these methods with
 linearizable durable compare-and-swap, authorization and retention independent
-of the verifier host. A local journal alone cannot provide that authority.
+of the verifier host. The migration client reconciles its local journal against
+that authority before accepting journal state.
 
 `sequence` is a JSON unsigned integer and `digest` is a 32-byte lowercase hex
 string without a prefix. The initial head is sequence zero with a zero digest.
@@ -117,11 +108,21 @@ History pages are external provenance. They are prepared in the authenticated jo
 
 `history::DurableExternalHistory` implements that sink using the existing authenticated journal and rollback-anchor protocol. Construct it with a dedicated `JournalConfig`; each stored page is one atomic `external-history` update containing canonical records with the `LXP/ExternalHistory/v1` domain. Admission validates the complete page before applying it, treats identical records as replay, and refuses conflicting facts for the same source identity. Principal-scoped reads return only `ExternalHistoryRecord` values, including their closed Ethereum/Solana provenance label, and accept page limits of 1–256. The continuation cursor orders record identities within the current durable state; it is not a frozen snapshot or a source-chain evidence token. Reopen and every read reconcile the existing HMAC/hash-chain journal with its independent rollback anchor. Retain the history journal, its authentication key and anchor identity together; deleting local data is not a reset of the durable anchor.
 
-## Live qualification inputs
+## Development inputs
 
-The live history cases additionally require `LAYERX_ETHEREUM_HISTORY_STORE_CONFIG` and `LAYERX_SOLANA_HISTORY_STORE_CONFIG`, each naming a protected `JournalConfig` JSON file. Each must name a fresh, dedicated qualification namespace and rollback-anchor id, distinct from its source verifier's journal. Supply genuine nonempty source history evidence. The fixture stores and replays those verified pages, reopens the real sink, checks principal isolation and bounded pagination, and corrupts private copies of the resulting journal to exercise integrity, permissions and rollback refusal. It does not modify the original journal for those refusal cases or synthesize history records. The workflow receives these configurations from `ETHEREUM_HISTORY_STORE_CONFIG_B64` and `SOLANA_HISTORY_STORE_CONFIG_B64`; they use the same protected-path substitution as the existing verifier configurations. Source verification and external history storage do not establish that account binding or custody credit executed on LayerX.
+The live history tests require `LAYERX_ETHEREUM_HISTORY_STORE_CONFIG` and
+`LAYERX_SOLANA_HISTORY_STORE_CONFIG`, each naming a protected `JournalConfig`
+JSON file with its own namespace and rollback-anchor id, distinct from the
+source verifier's journal. They consume nonempty source history evidence,
+persist and replay verified pages, reopen the sink, and check principal
+isolation, bounded pagination and integrity refusal using private journal
+copies. Source verification and external history storage do not establish
+network credit.
 
-The protected `migration-testnets` GitHub environment supplies exact deployed configuration, evidence envelopes, credentials, journal keys, and trust anchors to `.github/workflows/interop-migration-testnets.yml`. The workflow is manually dispatched because it reads live test networks and durable operator state. It exercises the production verifiers through `make interop-test-migration-testnets`.
+From the repository root, `make interop-test-migration-testnets` runs the live
+source tests. The manually dispatched
+[workflow](../../../../.github/workflows/interop-migration-testnets.yml) reads
+its protected deployment configuration and evidence inputs.
 
 See the [crate README](README.md) for connected fixture requirements and the
 [workspace index](../../README.md) for the interop boundary. None of the local

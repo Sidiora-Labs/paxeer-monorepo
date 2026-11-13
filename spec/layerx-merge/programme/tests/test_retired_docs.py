@@ -1,10 +1,12 @@
+from html import unescape
 from pathlib import Path
+import re
 
 
 ROOT = Path(__file__).resolve().parents[4]
 DOCUMENTS = (
-    "docs/site/docs/agents/sdk-verification.md",
-    "docs/site/docs/programs/workspace.md",
+    "docs/site/paxeer-docs/src/app/receipts/page.tsx",
+    "docs/site/paxeer-docs/src/app/program-workspace/page.tsx",
     "docs/wiki/SdkTerminalVerification.md",
     "docs/wiki/ProgramsWorkspace.md",
 )
@@ -17,10 +19,11 @@ VECTORS = (
 
 
 def test_docs_name_no_retired_paths() -> None:
-    retired_page = ROOT / "docs/site/docs/platform/relay-archive.md"
-    assert not retired_page.exists(), "the relay/archive docs page must be retired"
-    navigation = (ROOT / "docs/site/mkdocs.yml").read_text(encoding="utf-8")
-    assert "relay-archive" not in navigation, "retired page remains in navigation"
+    retired_page = ROOT / "docs/site/paxeer-docs/src/app/relay-archive/page.tsx"
+    assert retired_page.is_file(), "the relay/archive route must retain its retirement notice"
+    assert "Relay/archive is retired" in retired_page.read_text(encoding="utf-8")
+    navigation = (ROOT / "docs/site/paxeer-docs/src/components/nav.ts").read_text(encoding="utf-8")
+    assert "Relay archive (retired)" in navigation, "relay/archive navigation must identify its retirement"
 
     for name in DOCUMENTS:
         document = (ROOT / name).read_text(encoding="utf-8")
@@ -34,12 +37,12 @@ def test_docs_name_no_retired_paths() -> None:
 
 
 def test_no_docs_page_links_retired_relay_archive() -> None:
-    pages = sorted((ROOT / "docs/site/docs").rglob("*.md"))
+    pages = sorted((ROOT / "docs/site/paxeer-docs/src/app").rglob("page.tsx"))
     assert pages, "no documentation pages found"
     offending_pages = [
         str(page.relative_to(ROOT))
         for page in pages
-        if "relay-archive.md" in page.read_text(encoding="utf-8")
+        if re.search(r"href=[\"\'](?:[^\"\']*/)?relay-archive\.md(?:[?#][^\"\']*)?[\"\']", page.read_text(encoding="utf-8"))
     ]
     assert not offending_pages, (
         f"retired relay/archive link target remains in: {', '.join(offending_pages)}"
@@ -49,10 +52,10 @@ def test_no_docs_page_links_retired_relay_archive() -> None:
 def test_inbound_pages_describe_sequencer_receipt_verification() -> None:
     pages = (
         "docs/wiki/PortableVerifier.md",
-        "docs/site/docs/interop/portable-receipts.md",
-        "docs/site/docs/agents/index.md",
-        "docs/site/docs/agents/sdks.md",
-        "docs/site/docs/programs/index.md",
+        "docs/site/paxeer-docs/src/app/proofs/page.tsx",
+        "docs/site/paxeer-docs/src/app/agents/page.tsx",
+        "docs/site/paxeer-docs/src/app/sdk/page.tsx",
+        "docs/site/paxeer-docs/src/app/programs/page.tsx",
     )
     retired_descriptions = (
         "CALL terminal decoder",
@@ -62,7 +65,7 @@ def test_inbound_pages_describe_sequencer_receipt_verification() -> None:
         "SdkTerminalVerification.md:57-58",
     )
     for name in pages:
-        document = " ".join((ROOT / name).read_text(encoding="utf-8").split())
+        document = " ".join(unescape(re.sub(r"<[^>]+>", "", (ROOT / name).read_text(encoding="utf-8"))).split())
         assert "SDK sequencer receipt verification" in document, (
             f"{name}: missing sequencer receipt verification description"
         )
@@ -74,9 +77,9 @@ def test_custody_credit_docs_are_retired() -> None:
     pages = (
         "docs/wiki/Bridge.md",
         "docs/wiki/Programs.md",
-        "docs/site/docs/programs/index.md",
+        "docs/site/paxeer-docs/src/app/programs/page.tsx",
         "docs/wiki/Custody.md",
-        "docs/site/docs/human/custody.md",
+        "docs/site/paxeer-docs/src/app/custody/page.tsx",
     )
     retired_references = (
         "lxp_bridge_credit",
@@ -87,7 +90,7 @@ def test_custody_credit_docs_are_retired() -> None:
         "custody-issued:",
     )
     for name in pages:
-        document = " ".join((ROOT / name).read_text(encoding="utf-8").split())
+        document = " ".join(unescape(re.sub(r"<[^>]+>", "", (ROOT / name).read_text(encoding="utf-8"))).split())
         assert (
             "kernel custody credit activity and its light client are retired" in document
         ), (

@@ -87,6 +87,8 @@ contract SidioraNativeERC20Test is Test {
         vm.store(SIDIORA, IMPLEMENTATION_SLOT, vm.load(address(proxy), IMPLEMENTATION_SLOT));
         vm.store(SIDIORA, OWNABLE_SLOT, bytes32(uint256(uint160(SID_OWNER))));
         token = SidioraNativeERC20(SIDIORA);
+        assertEq(vm.load(SIDIORA, IMPLEMENTATION_SLOT), bytes32(uint256(uint160(address(legacy)))));
+        assertEq(token.owner(), SID_OWNER);
         SidioraBankFixture fixture = new SidioraBankFixture();
         vm.etch(BANK_PRECOMPILE_ADDRESS, address(fixture).code);
         bank = SidioraBankFixture(BANK_PRECOMPILE_ADDRESS);

@@ -18,25 +18,29 @@ function projection() {
   };
 }
 
-test("the program consumer retains the producer's interface and verified source metadata", () => {
+void test("the program consumer retains the producer's interface and verified source metadata", () => {
   const program = decodeProgramForIdentifier(projection(), "11".repeat(32));
   assert.equal(program.versions[0]?.interfaceDigest, "33".repeat(32));
-  assert.deepEqual(program.versions[0]?.source, {
+  assert.deepEqual(program.versions[0].source, {
     status: "verified", sourceDigest: "44".repeat(32), environmentDigest: "55".repeat(32),
   });
 });
 
-test("a projection for another program never satisfies the requested program", () => {
+void test("a projection for another program never satisfies the requested program", () => {
   assert.throws(() => decodeProgramForIdentifier(projection(), "99".repeat(32)), TypeError);
   assert.throws(() => decodeProgramForIdentifier(projection(), "invalid"), TypeError);
 });
 
-test("malformed interface and incomplete verified source metadata remain refused", () => {
+void test("malformed interface and incomplete verified source metadata remain refused", () => {
   const badInterface = projection();
-  badInterface.versions[0]!.interface_digest = "not-a-digest";
+  const [badVersion] = badInterface.versions;
+  assert.ok(badVersion);
+  badVersion.interface_digest = "not-a-digest";
   assert.throws(() => decodeProgramForIdentifier(badInterface, "11".repeat(32)), TypeError);
   const badSource = projection();
-  badSource.versions[0]!.source.environment_digest = "";
+  const [badSourceVersion] = badSource.versions;
+  assert.ok(badSourceVersion);
+  badSourceVersion.source.environment_digest = "";
   assert.throws(() => decodeProgramForIdentifier(badSource, "11".repeat(32)), TypeError);
 });
 
@@ -48,4 +52,4 @@ function program_commitments_remain_strict() {
   }
 }
 
-test(program_commitments_remain_strict);
+void test(program_commitments_remain_strict);

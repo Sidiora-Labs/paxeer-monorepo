@@ -28,11 +28,19 @@ type ArchiveManifest struct {
 }
 
 func (m ArchiveManifest) Validate() error {
-	if m.FormatVersion != "raw-archive-v2" || m.ChainID != 125 || !replayToken.MatchString(m.SourceStream) || m.FromHeight < 0 || m.ToHeight < m.FromHeight || m.ToHeight-m.FromHeight >= 1000 || m.EventCount < 0 || m.EventCount > 65536 || m.TypedCount < 0 || m.TypedCount > 65536 || m.ByteLength < 1 || m.ByteLength > 64<<20 || len(m.SHA256) != 64 || m.Bucket == "" || m.ObjectKey != fmt.Sprintf("indexer/raw/v2/%s/%s.json", m.SourceStream, m.SHA256) || len(m.Blocks) != int(m.ToHeight-m.FromHeight+1) {
+	fromHeight1Int, conversionErr := checked.Convert[int](m.ToHeight - m.FromHeight + 1)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if m.FormatVersion != "raw-archive-v2" || m.ChainID != 125 || !replayToken.MatchString(m.SourceStream) || m.FromHeight < 0 || m.ToHeight < m.FromHeight || m.ToHeight-m.FromHeight >= 1000 || m.EventCount < 0 || m.EventCount > 65536 || m.TypedCount < 0 || m.TypedCount > 65536 || m.ByteLength < 1 || m.ByteLength > 64<<20 || len(m.SHA256) != 64 || m.Bucket == "" || m.ObjectKey != fmt.Sprintf("indexer/raw/v2/%s/%s.json", m.SourceStream, m.SHA256) || len(m.Blocks) != fromHeight1Int {
 		return errors.New("invalid bounded archive manifest")
 	}
 	for i, b := range m.Blocks {
-		if b.Height != m.FromHeight+int64(i) || !hashPattern.MatchString(b.Hash) || !b.FetchComplete || !b.RequiredDecodeComplete {
+		iInt64, conversionErr := checked.Convert[int64](i)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		if b.Height != m.FromHeight+iInt64 || !hashPattern.MatchString(b.Hash) || !b.FetchComplete || !b.RequiredDecodeComplete {
 			return ErrIntegrity
 		}
 	}
@@ -60,7 +68,15 @@ func verifyArchiveSourceTx(ctx context.Context, tx pgx.Tx, segment ReplaySegment
 		if data == nil {
 			data = []byte{}
 		}
-		err := tx.QueryRow(ctx, `SELECT block_hash=$3 AND height=$4 AND transaction_index=$5 AND emitter=$6 AND topics=$7::jsonb AND data=$8 FROM indexer.indexer_raw_logs WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2`, r.TransactionHash, int64(r.LogIndex), r.BlockHash, r.Height, int64(r.TransactionIndex), r.Emitter, payload, data).Scan(&same)
+		rLogIndexInt64, conversionErr := checked.Convert[int64](r.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		rTransactionIndexInt64, conversionErr := checked.Convert[int64](r.TransactionIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		err := tx.QueryRow(ctx, `SELECT block_hash=$3 AND height=$4 AND transaction_index=$5 AND emitter=$6 AND topics=$7::jsonb AND data=$8 FROM indexer.indexer_raw_logs WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2`, r.TransactionHash, rLogIndexInt64, r.BlockHash, r.Height, rTransactionIndexInt64, r.Emitter, payload, data).Scan(&same)
 		if err != nil {
 			return err
 		}
@@ -96,7 +112,11 @@ func (s *Store) CompleteArchive(ctx context.Context, m ArchiveManifest, segment 
 	if err != nil {
 		return err
 	}
-	if delivery.Hash(wire) != m.SHA256 || int64(len(wire)) != m.ByteLength || len(segment.Records) != m.EventCount || len(segment.Events) != m.TypedCount {
+	lenWireInt64, conversionErr := checked.Convert[int64](len(wire))
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if delivery.Hash(wire) != m.SHA256 || lenWireInt64 != m.ByteLength || len(segment.Records) != m.EventCount || len(segment.Events) != m.TypedCount {
 		return ErrIntegrity
 	}
 	body, err := json.Marshal(m)

@@ -3,7 +3,7 @@
 This directory ships the `seictl` executable from the pinned Paxeer monorepo.
 The inherited module path, `SEI_*` settings and `sei.io` API names remain wire
 compatibility names. Read [README.md](README.md) for installation and chain
-limitations; [VENDOR.kvx](VENDOR.kvx) identifies only the original import.
+configuration; [go.mod](go.mod) declares its module dependencies.
 
 ## Architecture and routing
 
@@ -22,7 +22,7 @@ limitations; [VENDOR.kvx](VENDOR.kvx) identifies only the original import.
 server-side apply. `internal/cliutil` resolves kubeconfig/namespace, prints
 Kubernetes objects and stamps `seictl.sei.io/version`. `--dry-run` is an API-server
 request, not offline rendering. Presets and flags feed the production renderers;
-annotation provenance is diagnostic and never permission to execute a task.
+renderers stamp the build version in `seictl.sei.io/version`.
 
 `serve.go` opens `<home>/sidecar.db` using `server.NewTaskStore`, installs it as
 both `engine.ResultStore` and `ExecutionConfig.Checkpointer`, registers real
@@ -30,8 +30,7 @@ handlers from `sidecar/tasks`, then calls `RehydrateStaleTasks` before listening
 HTTP POST `/v0/tasks` decodes exact JSON parameters, admits them through the
 durable TaskStore queue, and dispatches to the engine. HTTP admission limits
 queued/active tasks to 32 and retained identities to 256 and runs one node task
-at a time; overload/unavailability is explicit (429/503). Engine callers that
-bypass the HTTP queue do not inherit this admission guarantee.
+at a time; overload/unavailability is explicit (429/503).
 
 The engine executes one-shot tasks. There is no cron scheduler or automatic
 periodic retry of completed/failed work. Controller/CronJob producers own any
@@ -47,10 +46,8 @@ and chain; deleting it discards operation/recovery evidence.
 
 `sidecar/api/openapi.yaml` and generated `sidecar/client/sidecar.gen.go` define
 the typed client surface. Hand-written `client.go`/`tasks.go` wrap it. Runtime
-admission can also return 413/429/503 and `queued` task status; the current
-schema does not yet describe every queue response. Do not infer absence from an
-unavailable store. `config-reload` currently reports restart-required; editing
-on-disk config alone does not prove the running paxd adopted it.
+admission can also return 413/429/503 and `queued` task status.
+`config-reload` reports restart-required.
 
 ## Authentication and listener boundary
 
@@ -72,26 +69,21 @@ CA/insecure settings must not weaken this proxy boundary.
 
 Only `/v0/healthz`, `/v0/startupz`, `/v0/livez` and `/v0/metrics` bypass the
 identity header. Keep proxy allow-paths aligned with `server.BypassPaths()`.
-Loopback protects against off-pod callers, not other containers sharing the pod
-network. Every colocated container is trusted; a shared process namespace can
-also expose keyring memory. Do not enable hostNetwork, hostPID or hostIPC.
-The deployment must give the sidecar the correct paxd process visibility and
-home. No CLI spelling alone establishes those deployment properties.
+The sidecar and proxy share the pod network with trusted colocated containers.
+Configure `hostNetwork`, `hostPID` and `hostIPC` as false and give the sidecar
+the paxd process visibility and home required by its task handlers.
 
-## Development and release
+## Build and release
 
 Use Go 1.26.0 and the complete pinned monorepo, because local replacements in
 `go.mod` resolve sibling modules. `make build` builds `build/seictl` with the
 validated version and verifies all three real rendered annotations locally.
-GoReleaser validates the tag against the same manifest and stamps the same
+GoReleaser validates the tag against the same version file and stamps the same
 symbol. Docker requires monorepo-root build context and verifies each target
 executable before copying it into the distroless image. The native artifact
 workflow verifies all four supported OS/CPU archives. A bare build retains
 `dev`; do not publish it as a qualified release.
 
-Keep Go code formatted with `gofmt -s`; use standard-library tests and real
-handlers/stores with local fixture peers. Never edit the generated API client
-by hand; change its schema and regenerate when authorized. For bounded spec
-tasks, run only the task's declared build and verification gates after the whole
-implementation, with its stated repair budget. General `make test` and
-`make generate` are maintenance commands, not extra gates for every task.
+`make test` runs the Go package tests. `make generate` runs the module's Go
+generators, including the API client generator configured by
+`sidecar/api/generate.go` and `sidecar/api/codegen.yaml`.

@@ -58,7 +58,7 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Wake, Waker};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use cluster::{checked, hex, scratch, Pki, Result};
 use layerx_agent_api::identity::{
@@ -384,7 +384,8 @@ impl KmsHost {
                 .stderr(log)
                 .spawn()?,
         );
-        let start = Instant::now();
+        let mut startup_deadline =
+            layerx_types::clock::Deadline::start(self.clock.as_ref(), Duration::from_secs(15))?;
         loop {
             if self.remote()?.probe().is_ok() {
                 return Ok(());
@@ -395,7 +396,7 @@ impl KmsHost {
                 .ok_or("missing child")?
                 .try_wait()?
                 .is_some()
-                || start.elapsed() > Duration::from_secs(15)
+                || startup_deadline.remaining(self.clock.as_ref())?.is_zero()
             {
                 return Err(format!(
                     "real KMS startup failed: {}",

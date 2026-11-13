@@ -34,7 +34,6 @@ use layerx_types::intent::{ApprovalThreshold, PublicKey, RecoveryRoot};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
-use layerx_wire::encode::Encoder;
 use sha2::{Digest as _, Sha256};
 use std::fs;
 use std::os::unix::net::UnixListener;
@@ -176,15 +175,12 @@ fn peer(
         .set_nonblocking(true)
         .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     thread::spawn(move || {
-        let start = std::time::Instant::now();
+        let mut accept_steps = 0..10_000;
         let mut stream = loop {
             match listener.accept() {
                 Ok((stream, _)) => break stream,
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    assert!(
-                        start.elapsed() < Duration::from_secs(10),
-                        "peer accept deadline"
-                    );
+                    assert!(accept_steps.next().is_some(), "peer accept deadline");
                     thread::sleep(Duration::from_millis(1));
                 }
                 Err(error) => panic!("accept: {error}"),
@@ -208,103 +204,9 @@ fn peer(
     })
 }
 
-// ProtocolReceipt has no public constructor. Use the production primitive encoder,
-// then admit and re-encode the fixture through the receipt codec before signing.
 fn receipt_bytes(id: [u8; 32], result: i32, signature: Option<[u8; 64]>) -> Vec<u8> {
-    let mut encoder = Encoder::new(4096);
-    encoder
-        .structure_header_version(0x5201, canonical::STATE_COMMITMENT_PROTOCOL_VERSION)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u16(canonical::STATE_COMMITMENT_PROTOCOL_VERSION)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .bytes(&id, 32)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u64(7)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    for root in [[0x31; 32], [0x32; 32], [0x81; 32]] {
-        encoder
-            .bytes(&root, 32)
-            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    }
-    encoder
-        .i32(result)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u32(0)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u128(1)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    let mut height = [0; 32];
-    height[24..].copy_from_slice(&HEIGHT.to_be_bytes());
-    encoder
-        .bytes(&height, 32)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u16(ModuleId::Governance as u16)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u32(1)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u32(1)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u8(0)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .bytes(&[0; 32], 32)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u128(0)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .bytes(&[0; 32], 32)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u128(0)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u128(0)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u64(0)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .bytes(&[0; 32], 32)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u128(0)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u128(0)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    for _ in 0..3 {
-        encoder
-            .bytes(&[0; 32], 32)
-            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    }
-    encoder
-        .u64(1000)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    encoder
-        .u8(u8::from(signature.is_some()))
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    if let Some(signature) = signature {
-        encoder
-            .bytes(&signature, 64)
-            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    }
-    let bytes = encoder.finish();
-    let decoded = layerx_wire::receipt::decode(&bytes)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    let canonical = layerx_wire::receipt::encode(&decoded)
-        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
-    assert_eq!(canonical, bytes);
-    canonical
+    layerx_intents::vectors::onboarding_receipt(id, result, HEIGHT, signature)
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
 }
 
 fn lookup_frame(

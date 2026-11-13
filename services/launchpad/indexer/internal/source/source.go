@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/ethereum/go-ethereum/common"
 
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -361,6 +362,14 @@ type RangeTask struct {
 type rangeTaskKey struct{}
 
 func (l *sourceLifecycle) beginRange(parent context.Context, options FetchOptions, historical bool, manifest string) (context.Context, func(), error) {
+	optionsFromBlockUint64, conversionErr := checked.Convert[uint64](options.FromBlock)
+	if conversionErr != nil {
+		return nil, nil, conversionErr
+	}
+	optionsToBlockUint64, conversionErr := checked.Convert[uint64](options.ToBlock)
+	if conversionErr != nil {
+		return nil, nil, conversionErr
+	}
 	ctx, done, err := l.begin(parent)
 	if err != nil {
 		return nil, nil, err
@@ -375,7 +384,8 @@ func (l *sourceLifecycle) beginRange(parent context.Context, options FetchOption
 	}{priority, manifest, options.FromBlock, options.ToBlock})
 	hash := sha256.Sum256(identity)
 	deadline, _ := ctx.Deadline()
-	task := RangeTask{ID: hex.EncodeToString(hash[:]), Priority: priority, Deadline: deadline, Range: CoveredRange{uint64(options.FromBlock), uint64(options.ToBlock)}, Cancellation: ctx} //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+
+	task := RangeTask{ID: hex.EncodeToString(hash[:]), Priority: priority, Deadline: deadline, Range: CoveredRange{optionsFromBlockUint64, optionsToBlockUint64}, Cancellation: ctx}
 	return context.WithValue(ctx, rangeTaskKey{}, task), done, nil
 }
 

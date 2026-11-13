@@ -134,14 +134,16 @@ fn run() -> io::Result<()> {
         return probe::run();
     }
     if command.as_deref() == Some("validate-account-head") {
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(io::Error::other)?
-            .as_millis();
+        let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
+            .map_err(io::Error::other)?;
+        let now_ms =
+            layerx_types::clock::Clock::sample(clock.as_ref(), std::time::Duration::from_secs(1))
+                .map_err(io::Error::other)?
+                .unix_milliseconds;
         return layerx_human_identity_provider::provision_head::validate_account_head(
             io::stdin().lock(),
             io::stdout().lock(),
-            u64::try_from(now_ms).map_err(io::Error::other)?,
+            now_ms,
         );
     }
     if command.as_deref() == Some("provision-account") {

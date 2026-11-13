@@ -27,7 +27,7 @@ During CALL-variants, `geth` does not copy the input. This was changed at one po
 After the execution of `dataCopy`, we copy the `ret` into the designated memory area, and this is what causes a problem. Because we're copying a slice of memory over a slice of memory, and this operation modifies (shifts) the data in the source -- the `ret`. So this means we wind up with corrupted returndata.
 
 
-```
+```text
 1. Calling datacopy
 
   memory: [0, 1, 2, 3, 4]
@@ -138,7 +138,7 @@ Action point: enable push-based alerts to be sent from the forkmon, to speed up 
 
 
 The projects were sent variations of the following text: 
-```
+```text
 We have identified a security issue with go-ethereum, and will issue a
 new release (v1.10.8) on Tuesday next week.
 
@@ -263,4 +263,3 @@ index 9cf0c4e2c1..9fb83799c9 100644
   }
 }
 ```
-

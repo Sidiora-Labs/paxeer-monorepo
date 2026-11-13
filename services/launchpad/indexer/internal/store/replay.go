@@ -145,7 +145,11 @@ func (s *Store) AcquireReplay(ctx context.Context, id, owner string, ttl time.Du
 	return j, tx.Commit(ctx)
 }
 func ValidateReplaySegment(segment ReplaySegment) error {
-	if segment.FormatVersion != "raw-replay-v2" || segment.ChainID != 125 || segment.SourceStream == "" || segment.FromHeight < 0 || segment.ToHeight < segment.FromHeight || segment.ToHeight-segment.FromHeight >= 1000 || len(segment.Blocks) != int(segment.ToHeight-segment.FromHeight+1) || len(segment.Records) > 65536 || len(segment.Events) > 65536 {
+	fromHeight1Int, conversionErr := checked.Convert[int](segment.ToHeight - segment.FromHeight + 1)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if segment.FormatVersion != "raw-replay-v2" || segment.ChainID != 125 || segment.SourceStream == "" || segment.FromHeight < 0 || segment.ToHeight < segment.FromHeight || segment.ToHeight-segment.FromHeight >= 1000 || len(segment.Blocks) != fromHeight1Int || len(segment.Records) > 65536 || len(segment.Events) > 65536 {
 		return errors.New("invalid bounded replay segment")
 	}
 	counts := map[int64]int{}
@@ -175,7 +179,11 @@ func ValidateReplaySegment(segment ReplaySegment) error {
 	}
 	blocks := map[int64]string{}
 	for i, b := range segment.Blocks {
-		if b.Height != segment.FromHeight+int64(i) || !hashPattern.MatchString(b.Hash) || !b.FetchComplete || !b.RequiredDecodeComplete || b.RawCount != counts[b.Height] {
+		iInt64, conversionErr := checked.Convert[int64](i)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		if b.Height != segment.FromHeight+iInt64 || !hashPattern.MatchString(b.Hash) || !b.FetchComplete || !b.RequiredDecodeComplete || b.RawCount != counts[b.Height] {
 			return errors.New("incomplete replay source block")
 		}
 		blocks[b.Height] = b.Hash

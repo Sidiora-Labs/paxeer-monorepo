@@ -1,6 +1,6 @@
 {
   "description": "Reviewed coordinator bootstrap catalog transcript: complete dependency-ordered DDL inventory; source hashes bind every input. It supplies the database peer for the focused in-process gate, not a substitute PostgreSQL engine.",
-  "registry_sha256": "bf9e2e7519f4a3afcfedf728b990282c3340fba71ad370d0e9d876f2430496d3",
+  "registry_sha256": "efd072556a7d2c3b047901990987cd663f1b888dc110f60fb02c07f84bb95085",
   "applied": {
     "160000": "d0e14e39b91a41d8efb75108e39922e5541ed12d261a857a5c2e83faeb194318",
     "80000": "9c1645ffdf7df49058eb2c67c0b498590a59c624b29d41726422caa0a7d099cc",
@@ -49,45 +49,45 @@
     "services/launchpad/stats-workers/migrations/00001_init.sql": "c57d455819b877c72a9656a4f030ddd20a89f603134c25e7418eacb444dd7874",
     "services/launchpad/pnl-tracker/migrations/00001_init.sql": "7d9854bb2192a04a16a9a6fd931a7c2ec35eede58c580139922c910e8bde1d7d",
     "services/launchpad/user/migrations/00001_init.sql": "bf971d949ab4b504a5898a1718a1fc4b57b38cdb2d77385607204249182679f8",
-    "launchpad/spec/production-system/integration/migrations/60000.sql": "5cccc2f2e1468342481d5c03513a25f291dd2591cb0158755fa786b2edbc8545",
-    "launchpad/spec/production-system/integration/migrations/80001.sql": "c6269641c857da5ffb00f7aad2cfeeb39f3ed7c2f879ce2b1d32b1b06941bf77",
-    "launchpad/spec/production-system/integration/migrations/80002.sql": "c4725e366fba56e84c02254f0a4e6b0c5567f93c74c599eb6a2078fc9d7bc9f4",
-    "launchpad/spec/production-system/integration/migrations/80003.sql": "e5475a321d8e7d10f2a79d419af2b0129681fb066372d20932241967b9faf374",
-    "launchpad/spec/production-system/integration/migrations/80004.sql": "0d66a86d82ceaec5deb4050bc8d8c047107748f91105af99362cacf31b8fbcd1",
-    "launchpad/spec/production-system/integration/migrations/190000.sql": "7b0f040ca17a6e019053cd7d8b499e119c6de5e1ae7603fa13a966ac71fdd8eb",
-    "launchpad/spec/production-system/integration/migrations/330000.sql": "632b472ce11f3c4bd30e9e10feffb12e890feba34df1decd5683a8bd46015596",
-    "launchpad/spec/production-system/integration/migrations/330001.sql": "017f7171fd0f5dfbef42aa385e15acd07f3fe7ccb474c195f41ab05c5963f01c",
-    "launchpad/spec/production-system/integration/migrations/440000.sql": "2f77e922553f640bc6a25ad748afd4ac7a53d454eff14a369aa3c8ab1fce345f",
-    "launchpad/spec/production-system/integration/migrations/80000.sql": "9c1645ffdf7df49058eb2c67c0b498590a59c624b29d41726422caa0a7d099cc",
-    "launchpad/spec/production-system/integration/migrations/80008.sql": "d47d185b488ca264d65e38c4dc5cf27f00c6d1c190df28d7adfe61de9c066475",
-    "launchpad/spec/production-system/integration/migrations/100000.sql": "cc981bc522ccb3843ac585663d87518649f7556e27561f05c059b23810c62370",
-    "launchpad/spec/production-system/integration/migrations/130000.sql": "6954a01fdc15ba305fe935c42955f66e6cb55beffcc55fbaf235506e7c60590b",
-    "launchpad/spec/production-system/integration/migrations/160000.sql": "d0e14e39b91a41d8efb75108e39922e5541ed12d261a857a5c2e83faeb194318",
-    "launchpad/spec/production-system/integration/migrations/180000.sql": "5aed18e2a3d7869f71bc25d9de78f5edbb546c0c579f2153e9529f76bbfccee7",
-    "launchpad/spec/production-system/integration/migrations/470000.sql": "c83b9ecc3ef30df974bb787ca0137e3bfcb82d0904179a6b9c008e8fe950de4f",
-    "launchpad/spec/production-system/integration/migrations/190001.sql": "f3650bb5df134922e17d44da61f92c33d3e8410df705b544edb1c941a3223dc6",
-    "launchpad/spec/production-system/integration/migrations/160001.sql": "cd1e15187c1f453f08b653a16d80f82aa3ca48eb246c259534a21cdb9fe717e8",
-    "launchpad/spec/production-system/integration/migrations/440001.sql": "7679977e772a3e2ca41928ace3945b32232c873841f82cb0b0ead985e271a641",
-    "launchpad/spec/production-system/integration/migrations/150002.sql": "89433d6361c8b99f505a2574ea5676478f594cb0794ac2cc9ae9ac5d591ddc82",
-    "launchpad/spec/production-system/integration/migrations/60001.sql": "3ae70f10b5092b367aa025c0d78c8a48f4ec5d59c385efa6e46b01e1191a3640",
-    "launchpad/spec/production-system/integration/migrations/80009.sql": "924343d96c7eba9db2253915a45d83459dc1fed4e6a95522ee859986d33e0b26",
-    "launchpad/spec/production-system/integration/migrations/100001.sql": "2ac1170299255faab6381f5f25547718a1e5af2fda980fba0fef181e14a59bc6",
-    "launchpad/spec/production-system/integration/migrations/130001.sql": "35d48f481e76a071cb4bb3992f818257e4db9dfa08b52758757f1a34ed42f33e",
-    "launchpad/spec/production-system/integration/migrations/160002.sql": "5dd75c69d0d5413a669d5bc845f916c04e92fad64a98fd424a1aee0f26183323",
-    "launchpad/spec/production-system/integration/migrations/190002.sql": "31b4924e704abe17f670703cd2c245bc79dfa3e6e64345217206aabe3c923610",
-    "launchpad/spec/production-system/integration/migrations/330002.sql": "b1d22caebae4962d25082526af9684e4a612c0a1469925fbf76e18b7f08b865d",
-    "launchpad/spec/production-system/integration/migrations/170000.sql": "0ca96e306ede432d3f5f2dcdccbbd82754dd33f5f13afd2cf62d863b02436078",
-    "launchpad/spec/production-system/integration/migrations/180001.sql": "e1c728094af3edf12c6a5d1d3384691b976c29d77d0f3ed26630eb4bdcae3482",
-    "launchpad/spec/production-system/integration/migrations/450000.sql": "bf10cc35a7ad09249d5166fc16b2426f50813a2713ef199f9a7c9c530f363a3d",
-    "launchpad/spec/production-system/integration/migrations/470001.sql": "ab507d1233b474314d10b42429f98387b9568826e3047796a8d38c2f8379785d",
-    "launchpad/spec/production-system/integration/migrations/150003.sql": "01fd82f1d414daac348c6c9239e572c06ef47df17a6a777e64ea6a28f1692009",
-    "launchpad/spec/production-system/integration/migrations/160003.sql": "1f46c128ef40f695023f37f31248f9b2ebe9b61e68b59476bb55b75cb9f3d26d",
-    "launchpad/spec/production-system/integration/migrations/150005.sql": "09a63b1b9f9c2fee0b26bc21efbe865056030924e7ed3c4b9e755ee6163d5bc1",
-    "launchpad/spec/production-system/integration/migrations/150004.sql": "8a24a6e2148f801a14c9b5ce67f95282aec5b88f87166fe68399de140082a21c",
-    "launchpad/spec/production-system/integration/migrations/190004.sql": "0373a9789d53e077bdf5af982cdf929e07f24044af49d2e84f2c469425d9846b",
-    "launchpad/spec/production-system/integration/migrations/190003.sql": "d7a89c88ea7076064328b01729f949348c469b39b8cebfaafb337ad510d350d2",
+    "migrations/60000.sql": "5cccc2f2e1468342481d5c03513a25f291dd2591cb0158755fa786b2edbc8545",
+    "migrations/80001.sql": "c6269641c857da5ffb00f7aad2cfeeb39f3ed7c2f879ce2b1d32b1b06941bf77",
+    "migrations/80002.sql": "c4725e366fba56e84c02254f0a4e6b0c5567f93c74c599eb6a2078fc9d7bc9f4",
+    "migrations/80003.sql": "e5475a321d8e7d10f2a79d419af2b0129681fb066372d20932241967b9faf374",
+    "migrations/80004.sql": "0d66a86d82ceaec5deb4050bc8d8c047107748f91105af99362cacf31b8fbcd1",
+    "migrations/190000.sql": "7b0f040ca17a6e019053cd7d8b499e119c6de5e1ae7603fa13a966ac71fdd8eb",
+    "migrations/330000.sql": "632b472ce11f3c4bd30e9e10feffb12e890feba34df1decd5683a8bd46015596",
+    "migrations/330001.sql": "017f7171fd0f5dfbef42aa385e15acd07f3fe7ccb474c195f41ab05c5963f01c",
+    "migrations/440000.sql": "2f77e922553f640bc6a25ad748afd4ac7a53d454eff14a369aa3c8ab1fce345f",
+    "migrations/80000.sql": "9c1645ffdf7df49058eb2c67c0b498590a59c624b29d41726422caa0a7d099cc",
+    "migrations/80008.sql": "d47d185b488ca264d65e38c4dc5cf27f00c6d1c190df28d7adfe61de9c066475",
+    "migrations/100000.sql": "cc981bc522ccb3843ac585663d87518649f7556e27561f05c059b23810c62370",
+    "migrations/130000.sql": "6954a01fdc15ba305fe935c42955f66e6cb55beffcc55fbaf235506e7c60590b",
+    "migrations/160000.sql": "d0e14e39b91a41d8efb75108e39922e5541ed12d261a857a5c2e83faeb194318",
+    "migrations/180000.sql": "5aed18e2a3d7869f71bc25d9de78f5edbb546c0c579f2153e9529f76bbfccee7",
+    "migrations/470000.sql": "c83b9ecc3ef30df974bb787ca0137e3bfcb82d0904179a6b9c008e8fe950de4f",
+    "migrations/190001.sql": "f3650bb5df134922e17d44da61f92c33d3e8410df705b544edb1c941a3223dc6",
+    "migrations/160001.sql": "cd1e15187c1f453f08b653a16d80f82aa3ca48eb246c259534a21cdb9fe717e8",
+    "migrations/440001.sql": "7679977e772a3e2ca41928ace3945b32232c873841f82cb0b0ead985e271a641",
+    "migrations/150002.sql": "89433d6361c8b99f505a2574ea5676478f594cb0794ac2cc9ae9ac5d591ddc82",
+    "migrations/60001.sql": "3ae70f10b5092b367aa025c0d78c8a48f4ec5d59c385efa6e46b01e1191a3640",
+    "migrations/80009.sql": "924343d96c7eba9db2253915a45d83459dc1fed4e6a95522ee859986d33e0b26",
+    "migrations/100001.sql": "2ac1170299255faab6381f5f25547718a1e5af2fda980fba0fef181e14a59bc6",
+    "migrations/130001.sql": "35d48f481e76a071cb4bb3992f818257e4db9dfa08b52758757f1a34ed42f33e",
+    "migrations/160002.sql": "5dd75c69d0d5413a669d5bc845f916c04e92fad64a98fd424a1aee0f26183323",
+    "migrations/190002.sql": "31b4924e704abe17f670703cd2c245bc79dfa3e6e64345217206aabe3c923610",
+    "migrations/330002.sql": "b1d22caebae4962d25082526af9684e4a612c0a1469925fbf76e18b7f08b865d",
+    "migrations/170000.sql": "0ca96e306ede432d3f5f2dcdccbbd82754dd33f5f13afd2cf62d863b02436078",
+    "migrations/180001.sql": "e1c728094af3edf12c6a5d1d3384691b976c29d77d0f3ed26630eb4bdcae3482",
+    "migrations/450000.sql": "bf10cc35a7ad09249d5166fc16b2426f50813a2713ef199f9a7c9c530f363a3d",
+    "migrations/470001.sql": "ab507d1233b474314d10b42429f98387b9568826e3047796a8d38c2f8379785d",
+    "migrations/150003.sql": "01fd82f1d414daac348c6c9239e572c06ef47df17a6a777e64ea6a28f1692009",
+    "migrations/160003.sql": "1f46c128ef40f695023f37f31248f9b2ebe9b61e68b59476bb55b75cb9f3d26d",
+    "migrations/150005.sql": "09a63b1b9f9c2fee0b26bc21efbe865056030924e7ed3c4b9e755ee6163d5bc1",
+    "migrations/150004.sql": "8a24a6e2148f801a14c9b5ce67f95282aec5b88f87166fe68399de140082a21c",
+    "migrations/190004.sql": "0373a9789d53e077bdf5af982cdf929e07f24044af49d2e84f2c469425d9846b",
+    "migrations/190003.sql": "d7a89c88ea7076064328b01729f949348c469b39b8cebfaafb337ad510d350d2",
     "sdk/launchpad/shared/db/production/migrations.go": "a34b119b55077cf1d87f377cca09d2bb8336d19b659a49184d31bfc0742918f4",
-    "launchpad/spec/production-system/integration/migrations/160004.sql": "d12ae78c8afd2e94557641698aef2f35b4c2e15f4c94f71887ecbda897035124"
+    "migrations/160004.sql": "d12ae78c8afd2e94557641698aef2f35b4c2e15f4c94f71887ecbda897035124"
   },
   "objects": {
     "indexer.cursors": {
@@ -380,7 +380,7 @@
         "expires_at",
         "last_heartbeat_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60000.sql"
+      "source": "migrations/60000.sql"
     },
     "indexer.indexer_ingest_watermarks": {
       "kind": "table",
@@ -390,7 +390,7 @@
         "raw_complete_height",
         "typed_complete_height"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60000.sql"
+      "source": "migrations/60000.sql"
     },
     "indexer.indexer_raw_logs": {
       "kind": "table",
@@ -405,7 +405,7 @@
         "topics",
         "data"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60000.sql"
+      "source": "migrations/60000.sql"
     },
     "indexer.indexer_block_completeness": {
       "kind": "table",
@@ -419,7 +419,7 @@
         "required_decode_complete",
         "completed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60000.sql"
+      "source": "migrations/60000.sql"
     },
     "indexer.indexer_ingest_outbox": {
       "kind": "table",
@@ -431,7 +431,7 @@
         "payload",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60000.sql"
+      "source": "migrations/60000.sql"
     },
     "indexer.indexer_ingest_commits": {
       "kind": "table",
@@ -446,7 +446,7 @@
         "outbox_count",
         "commit_time"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60000.sql"
+      "source": "migrations/60000.sql"
     },
     "indexer.indexer_accounting_fills": {
       "kind": "table",
@@ -459,7 +459,7 @@
         "pool_address",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60000.sql"
+      "source": "migrations/60000.sql"
     },
     "indexer.indexer_accounting_fills_v1": {
       "kind": "view",
@@ -472,7 +472,7 @@
         "pool_address",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60000.sql"
+      "source": "migrations/60000.sql"
     },
     "indexer.indexer_accounting_publications_v1": {
       "kind": "view",
@@ -480,7 +480,7 @@
         "publication_id",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60000.sql"
+      "source": "migrations/60000.sql"
     },
     "pnl.delivery_outbox": {
       "kind": "table",
@@ -505,12 +505,12 @@
         "published_at",
         "failure_class"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80003.sql"
+      "source": "migrations/80003.sql"
     },
     "pnl.delivery_immutable": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/80003.sql"
+      "source": "migrations/80003.sql"
     },
     "pnl.delivery_inbox": {
       "kind": "table",
@@ -521,7 +521,7 @@
         "envelope_hash",
         "committed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80003.sql"
+      "source": "migrations/80003.sql"
     },
     "pnl.delivery_quarantine": {
       "kind": "table",
@@ -534,7 +534,7 @@
         "failure_class",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80003.sql"
+      "source": "migrations/80003.sql"
     },
     "pnl.delivery_partition_producers": {
       "kind": "table",
@@ -546,7 +546,7 @@
         "last_effect_identity",
         "last_source_order"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80003.sql"
+      "source": "migrations/80003.sql"
     },
     "pnl.delivery_partition_positions": {
       "kind": "table",
@@ -558,7 +558,7 @@
         "effect_identity",
         "position"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80003.sql"
+      "source": "migrations/80003.sql"
     },
     "pnl.delivery_partition_leases": {
       "kind": "table",
@@ -571,7 +571,7 @@
         "epoch",
         "expires_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80003.sql"
+      "source": "migrations/80003.sql"
     },
     "pnl.delivery_partition_offsets": {
       "kind": "table",
@@ -586,7 +586,7 @@
         "next_sequence",
         "previous_effect_identity"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80003.sql"
+      "source": "migrations/80003.sql"
     },
     "pnl.delivery_partition_commits": {
       "kind": "table",
@@ -599,7 +599,7 @@
         "effect_identity",
         "position"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80003.sql"
+      "source": "migrations/80003.sql"
     },
     "pnl.delivery_ordered_quarantine": {
       "kind": "table",
@@ -615,7 +615,7 @@
         "evidence_digest",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80003.sql"
+      "source": "migrations/80003.sql"
     },
     "recovery.recovery_control": {
       "kind": "table",
@@ -626,7 +626,7 @@
         "revision",
         "checkpoint_sha256"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/440000.sql"
+      "source": "migrations/440000.sql"
     },
     "recovery.recovery_proposals": {
       "kind": "table",
@@ -641,7 +641,7 @@
         "actor",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/440000.sql"
+      "source": "migrations/440000.sql"
     },
     "recovery.recovery_audit": {
       "kind": "table",
@@ -657,22 +657,22 @@
         "fence_proof_sha256",
         "at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/440000.sql"
+      "source": "migrations/440000.sql"
     },
     "recovery.assert_epoch": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/440000.sql"
+      "source": "migrations/440000.sql"
     },
     "recovery.current_epoch": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/440000.sql"
+      "source": "migrations/440000.sql"
     },
     "recovery.activate": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/440000.sql"
+      "source": "migrations/440000.sql"
     },
     "indexer.delivery_outbox": {
       "kind": "table",
@@ -697,12 +697,12 @@
         "published_at",
         "failure_class"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80000.sql"
+      "source": "migrations/80000.sql"
     },
     "indexer.delivery_immutable": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/80000.sql"
+      "source": "migrations/80000.sql"
     },
     "indexer.delivery_inbox": {
       "kind": "table",
@@ -713,7 +713,7 @@
         "envelope_hash",
         "committed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80000.sql"
+      "source": "migrations/80000.sql"
     },
     "indexer.delivery_quarantine": {
       "kind": "table",
@@ -726,7 +726,7 @@
         "failure_class",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80000.sql"
+      "source": "migrations/80000.sql"
     },
     "indexer.delivery_partition_producers": {
       "kind": "table",
@@ -738,7 +738,7 @@
         "last_effect_identity",
         "last_source_order"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80000.sql"
+      "source": "migrations/80000.sql"
     },
     "indexer.delivery_partition_positions": {
       "kind": "table",
@@ -750,7 +750,7 @@
         "effect_identity",
         "position"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80000.sql"
+      "source": "migrations/80000.sql"
     },
     "indexer.delivery_partition_leases": {
       "kind": "table",
@@ -763,7 +763,7 @@
         "epoch",
         "expires_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80000.sql"
+      "source": "migrations/80000.sql"
     },
     "indexer.delivery_partition_offsets": {
       "kind": "table",
@@ -778,7 +778,7 @@
         "next_sequence",
         "previous_effect_identity"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80000.sql"
+      "source": "migrations/80000.sql"
     },
     "indexer.delivery_partition_commits": {
       "kind": "table",
@@ -791,7 +791,7 @@
         "effect_identity",
         "position"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80000.sql"
+      "source": "migrations/80000.sql"
     },
     "indexer.delivery_ordered_quarantine": {
       "kind": "table",
@@ -807,7 +807,7 @@
         "evidence_digest",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80000.sql"
+      "source": "migrations/80000.sql"
     },
     "pnl.inventory_l16": {
       "kind": "table",
@@ -820,7 +820,7 @@
         "tx_index",
         "log_index"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160000.sql"
+      "source": "migrations/160000.sql"
     },
     "pnl.inventory_l16_inbox": {
       "kind": "table",
@@ -831,7 +831,7 @@
         "payload_hash",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160000.sql"
+      "source": "migrations/160000.sql"
     },
     "pnl.inventory_l16_outbox": {
       "kind": "table",
@@ -841,7 +841,7 @@
         "partition",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160000.sql"
+      "source": "migrations/160000.sql"
     },
     "pnl.inventory_l16_transfers": {
       "kind": "table",
@@ -853,7 +853,7 @@
         "payload_hash",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160000.sql"
+      "source": "migrations/160000.sql"
     },
     "pnl.inventory_l16_effects": {
       "kind": "table",
@@ -865,7 +865,7 @@
         "mapping_digest",
         "position"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160000.sql"
+      "source": "migrations/160000.sql"
     },
     "pnl.l18_funding": {
       "kind": "table",
@@ -882,7 +882,7 @@
         "daily_cap",
         "beneficiary_cap"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.l18_inbox": {
       "kind": "table",
@@ -890,7 +890,7 @@
         "identity",
         "digest"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.l18_awards": {
       "kind": "table",
@@ -910,12 +910,12 @@
         "hold_reason",
         "appeal_status"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.l18_entries_sequence_seq": {
       "kind": "sequence",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.l18_entries": {
       "kind": "table",
@@ -930,7 +930,7 @@
         "service_identity",
         "provenance"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.l18_claims": {
       "kind": "table",
@@ -946,7 +946,7 @@
         "log_index",
         "version"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.l18_epochs": {
       "kind": "table",
@@ -960,7 +960,7 @@
         "version",
         "checkpoint_hash"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.l18_epoch_claims": {
       "kind": "table",
@@ -971,12 +971,12 @@
         "identity",
         "raw"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.l18_outbox_sequence_seq": {
       "kind": "sequence",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.l18_outbox": {
       "kind": "table",
@@ -987,7 +987,7 @@
         "payload",
         "published_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.l18_bindings": {
       "kind": "table",
@@ -1001,7 +1001,7 @@
         "consent_at",
         "token_nonce"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180000.sql"
+      "source": "migrations/180000.sql"
     },
     "pnl.objects": {
       "kind": "table",
@@ -1010,7 +1010,7 @@
         "id",
         "body"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/470000.sql"
+      "source": "migrations/470000.sql"
     },
     "pnl.audit": {
       "kind": "table",
@@ -1024,12 +1024,12 @@
         "reason",
         "result"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/470000.sql"
+      "source": "migrations/470000.sql"
     },
     "pnl.immutable_audit": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/470000.sql"
+      "source": "migrations/470000.sql"
     },
     "indexer.indexer_canonical_creations": {
       "kind": "table",
@@ -1049,7 +1049,7 @@
         "provenance",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/190001.sql"
+      "source": "migrations/190001.sql"
     },
     "indexer.indexer_canonical_creations_v1": {
       "kind": "view",
@@ -1069,7 +1069,7 @@
         "provenance",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/190001.sql"
+      "source": "migrations/190001.sql"
     },
     "indexer.indexer_token_transfers": {
       "kind": "table",
@@ -1087,7 +1087,7 @@
         "provenance",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/190001.sql"
+      "source": "migrations/190001.sql"
     },
     "indexer.indexer_token_transfers_v1": {
       "kind": "view",
@@ -1105,7 +1105,7 @@
         "provenance",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/190001.sql"
+      "source": "migrations/190001.sql"
     },
     "indexer.indexer_raw_logs_v1": {
       "kind": "view",
@@ -1120,7 +1120,7 @@
         "topics",
         "data"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/190001.sql"
+      "source": "migrations/190001.sql"
     },
     "indexer.indexer_block_completeness_v1": {
       "kind": "view",
@@ -1134,7 +1134,7 @@
         "required_decode_complete",
         "completed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/190001.sql"
+      "source": "migrations/190001.sql"
     },
     "indexer.indexer_ingest_leases_v1": {
       "kind": "view",
@@ -1145,7 +1145,7 @@
         "fence_token",
         "expires_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/190001.sql"
+      "source": "migrations/190001.sql"
     },
     "indexer.indexer_ingest_watermarks_v1": {
       "kind": "view",
@@ -1155,7 +1155,7 @@
         "raw_complete_height",
         "typed_complete_height"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/190001.sql"
+      "source": "migrations/190001.sql"
     },
     "indexer.indexer_ingest_commits_v1": {
       "kind": "view",
@@ -1168,7 +1168,7 @@
         "block_hash",
         "record_count"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/190001.sql"
+      "source": "migrations/190001.sql"
     },
     "indexer.indexer_market_partition_positions_v1": {
       "kind": "view",
@@ -1179,7 +1179,7 @@
         "sequence",
         "position"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/190001.sql"
+      "source": "migrations/190001.sql"
     },
     "pnl.inventory_l16_baselines": {
       "kind": "table",
@@ -1200,7 +1200,7 @@
         "attestation",
         "captured_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160001.sql"
+      "source": "migrations/160001.sql"
     },
     "pnl.inventory_l16_baselines_v1": {
       "kind": "view",
@@ -1219,7 +1219,7 @@
         "movement_digest",
         "observed_balance_raw"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160001.sql"
+      "source": "migrations/160001.sql"
     },
     "pnl.inventory_l16_baseline_uses": {
       "kind": "table",
@@ -1236,7 +1236,7 @@
         "attestation_digest",
         "attestation"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160001.sql"
+      "source": "migrations/160001.sql"
     },
     "pnl.inventory_l16_stream_state_v1": {
       "kind": "view",
@@ -1249,7 +1249,7 @@
         "tx_index",
         "log_index"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160001.sql"
+      "source": "migrations/160001.sql"
     },
     "pnl.inventory_l16_stream_proof_v1": {
       "kind": "view",
@@ -1269,7 +1269,7 @@
         "replayed_balance_raw",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160001.sql"
+      "source": "migrations/160001.sql"
     },
     "recovery.recovery_broker_fences": {
       "kind": "table",
@@ -1287,12 +1287,12 @@
         "created_at",
         "verified_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/440001.sql"
+      "source": "migrations/440001.sql"
     },
     "recovery.activate_fenced_v2": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/440001.sql"
+      "source": "migrations/440001.sql"
     },
     "api_stream.stream_generation": {
       "kind": "table",
@@ -1300,7 +1300,7 @@
         "singleton",
         "generation"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/150002.sql"
+      "source": "migrations/150002.sql"
     },
     "api_stream.stream_projection": {
       "kind": "table",
@@ -1311,7 +1311,7 @@
         "frame",
         "updated_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/150002.sql"
+      "source": "migrations/150002.sql"
     },
     "api_stream.stream_delivery_outbox": {
       "kind": "table",
@@ -1322,12 +1322,12 @@
         "frame",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/150002.sql"
+      "source": "migrations/150002.sql"
     },
     "api_stream.stream_immutable": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/150002.sql"
+      "source": "migrations/150002.sql"
     },
     "api_stream.stream_snapshots": {
       "kind": "table",
@@ -1343,17 +1343,17 @@
         "created_at",
         "expires_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/150002.sql"
+      "source": "migrations/150002.sql"
     },
     "api_stream.append_market_trade": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/150002.sql"
+      "source": "migrations/150002.sql"
     },
     "api_stream.append_portfolio": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/150002.sql"
+      "source": "migrations/150002.sql"
     },
     "indexer.indexer_quarantine": {
       "kind": "table",
@@ -1379,7 +1379,7 @@
         "resolved_at",
         "resolved_by"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_capability_degradation": {
       "kind": "table",
@@ -1392,7 +1392,7 @@
         "raw_digest",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_replay_authorizations": {
       "kind": "table",
@@ -1410,7 +1410,7 @@
         "expires_at",
         "revoked_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_quarantine_waivers": {
       "kind": "table",
@@ -1425,7 +1425,7 @@
         "expires_at",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_replay_jobs": {
       "kind": "table",
@@ -1452,7 +1452,7 @@
         "unavailable_to",
         "updated_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_replay_effects": {
       "kind": "table",
@@ -1466,7 +1466,7 @@
         "event_kind",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_replay_batches": {
       "kind": "table",
@@ -1480,7 +1480,7 @@
         "checkpoint_digest",
         "committed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_archive_segments": {
       "kind": "table",
@@ -1495,7 +1495,7 @@
         "object_key",
         "verified_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_replay_source_blocks": {
       "kind": "table",
@@ -1505,7 +1505,7 @@
         "block_hash",
         "raw_count"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_replay_checkpoints": {
       "kind": "table",
@@ -1514,7 +1514,7 @@
         "height",
         "block_hash"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_generation_raw": {
       "kind": "table",
@@ -1529,7 +1529,7 @@
         "raw_digest",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_replay_checkpoint_conflicts": {
       "kind": "table",
@@ -1543,7 +1543,7 @@
         "reason",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_committed_heads": {
       "kind": "table",
@@ -1556,7 +1556,7 @@
         "source_id",
         "observed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_archive_segments_v2": {
       "kind": "view",
@@ -1569,7 +1569,7 @@
         "from_height",
         "to_height"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_committed_heads_v2": {
       "kind": "view",
@@ -1579,7 +1579,7 @@
         "block_hash",
         "integrity='quarantined' OR EXISTS(\n SELECT 1"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.indexer_committed_heads_v1": {
       "kind": "view",
@@ -1592,7 +1592,7 @@
         "source_id",
         "observed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/60001.sql"
+      "source": "migrations/60001.sql"
     },
     "indexer.delivery_webhook_cursors": {
       "kind": "table",
@@ -1605,7 +1605,7 @@
         "committed_sequence",
         "committed_event"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_webhooks": {
       "kind": "table",
@@ -1635,12 +1635,12 @@
         "failure_class",
         "delivered_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_webhook_immutable": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_webhook_retry_audit": {
       "kind": "table",
@@ -1653,7 +1653,7 @@
         "allowed_attempts",
         "authorized_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_archive_manifests": {
       "kind": "table",
@@ -1667,7 +1667,7 @@
         "manifest",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_rebuilds": {
       "kind": "table",
@@ -1685,7 +1685,7 @@
         "epoch",
         "lease_until"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_read_aliases": {
       "kind": "table",
@@ -1695,7 +1695,7 @@
         "prior_generation",
         "revision"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_cutover_history": {
       "kind": "table",
@@ -1706,7 +1706,7 @@
         "prior_generation",
         "changed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_generation_paths": {
       "kind": "table",
@@ -1715,7 +1715,7 @@
         "generation",
         "authoritative_path"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_shadow_observations": {
       "kind": "table",
@@ -1726,7 +1726,7 @@
         "payload_hash",
         "source_order"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_shadow_comparisons": {
       "kind": "table",
@@ -1736,7 +1736,7 @@
         "event_count",
         "compared_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "indexer.delivery_consumer_watermarks": {
       "kind": "table",
@@ -1753,7 +1753,7 @@
         "envelope_hash",
         "committed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/80009.sql"
+      "source": "migrations/80009.sql"
     },
     "pnl.inventory_l16_archive_v2": {
       "kind": "table",
@@ -1764,7 +1764,7 @@
         "payload_hash",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160002.sql"
+      "source": "migrations/160002.sql"
     },
     "pnl.inventory_l16_snapshots_v2": {
       "kind": "table",
@@ -1777,7 +1777,7 @@
         "block_hash",
         "release_digest"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160002.sql"
+      "source": "migrations/160002.sql"
     },
     "pnl.inventory_l16_active_v2": {
       "kind": "table",
@@ -1787,7 +1787,7 @@
         "snapshot_digest",
         "height"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160002.sql"
+      "source": "migrations/160002.sql"
     },
     "pnl.inventory_l16_checkpoints_v2": {
       "kind": "table",
@@ -1799,7 +1799,7 @@
         "checkpoint_digest",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160002.sql"
+      "source": "migrations/160002.sql"
     },
     "pnl.inventory_l16_quarantine_v2": {
       "kind": "table",
@@ -1812,12 +1812,12 @@
         "payload",
         "observed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160002.sql"
+      "source": "migrations/160002.sql"
     },
     "pnl.inventory_l16_append_only_v2": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/160002.sql"
+      "source": "migrations/160002.sql"
     },
     "pnl.portfolio_snapshots": {
       "kind": "table",
@@ -1831,7 +1831,7 @@
         "summary",
         "observed_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_snapshot_rows": {
       "kind": "table",
@@ -1840,7 +1840,7 @@
         "ordinal",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_outbox": {
       "kind": "table",
@@ -1849,7 +1849,7 @@
         "payload",
         "published_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_history_snapshots": {
       "kind": "table",
@@ -1859,7 +1859,7 @@
         "digest",
         "row_count"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_history_rows": {
       "kind": "table",
@@ -1868,7 +1868,7 @@
         "ordinal",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_history_outbox": {
       "kind": "table",
@@ -1877,7 +1877,7 @@
         "payload",
         "published_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_cards": {
       "kind": "table",
@@ -1894,7 +1894,7 @@
         "purge_requested_at",
         "purged_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_card_outbox": {
       "kind": "table",
@@ -1910,7 +1910,7 @@
         "next_attempt",
         "last_error"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_export_jobs": {
       "kind": "table",
@@ -1932,7 +1932,7 @@
         "last_error",
         "cleaned_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_export_outbox": {
       "kind": "table",
@@ -1942,7 +1942,7 @@
         "kind",
         "published_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_snapshot_history_metadata": {
       "kind": "table",
@@ -1951,7 +1951,7 @@
         "source_event",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_shares_v3": {
       "kind": "table",
@@ -1978,7 +1978,7 @@
         "purge_requested_at",
         "purged_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.portfolio_share_outbox_v3": {
       "kind": "table",
@@ -1994,7 +1994,7 @@
         "last_error",
         "published_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/170000.sql"
+      "source": "migrations/170000.sql"
     },
     "pnl.l18_requests": {
       "kind": "table",
@@ -2009,7 +2009,7 @@
         "release_digest",
         "interface_digest"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_audit": {
       "kind": "table",
@@ -2021,7 +2021,7 @@
         "payload",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_payout_attempts": {
       "kind": "table",
@@ -2037,7 +2037,7 @@
         "receipt_identity",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_corrections": {
       "kind": "table",
@@ -2051,7 +2051,7 @@
         "state",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_analytics": {
       "kind": "table",
@@ -2064,12 +2064,12 @@
         "kind",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_community_history_revision_seq": {
       "kind": "sequence",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_community_history": {
       "kind": "table",
@@ -2086,7 +2086,7 @@
         "payload",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_referral_codes": {
       "kind": "table",
@@ -2096,12 +2096,12 @@
         "short_code",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_referral_consents_revision_seq": {
       "kind": "sequence",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_referral_consents": {
       "kind": "table",
@@ -2113,7 +2113,7 @@
         "recorded_at",
         "request_id"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_referral_requests": {
       "kind": "table",
@@ -2125,7 +2125,7 @@
         "response",
         "created_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.l18_community_scan": {
       "kind": "table",
@@ -2133,7 +2133,7 @@
         "nft_id",
         "checked_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/180001.sql"
+      "source": "migrations/180001.sql"
     },
     "pnl.authority_credentials": {
       "kind": "table",
@@ -2147,7 +2147,7 @@
         "expires_at",
         "revoked_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/470001.sql"
+      "source": "migrations/470001.sql"
     },
     "pnl.authority_credentials_v2": {
       "kind": "view",
@@ -2161,7 +2161,7 @@
         "expires_at",
         "revoked_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/470001.sql"
+      "source": "migrations/470001.sql"
     },
     "pnl.identity_control_wallets_v2": {
       "kind": "view",
@@ -2172,7 +2172,7 @@
         "chain_id",
         "state"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/470001.sql"
+      "source": "migrations/470001.sql"
     },
     "api_stream.stream_delivery_offsets": {
       "kind": "table",
@@ -2183,7 +2183,7 @@
         "broker_sequence",
         "updated_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/150003.sql"
+      "source": "migrations/150003.sql"
     },
     "api_stream.stream_delivery_publications": {
       "kind": "table",
@@ -2206,17 +2206,17 @@
         "broker_sequence",
         "published_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/150003.sql"
+      "source": "migrations/150003.sql"
     },
     "api_stream.stream_publication_identity": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/150003.sql"
+      "source": "migrations/150003.sql"
     },
     "api_stream.append_candle": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/150003.sql"
+      "source": "migrations/150003.sql"
     },
     "pnl.inventory_l16_live_owners_v1": {
       "kind": "table",
@@ -2235,7 +2235,7 @@
         "last_attempt_at",
         "cancelled_at"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160003.sql"
+      "source": "migrations/160003.sql"
     },
     "pnl.inventory_l16_live_commits_v1": {
       "kind": "table",
@@ -2251,27 +2251,27 @@
         "input_digest",
         "snapshot_id"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160003.sql"
+      "source": "migrations/160003.sql"
     },
     "api_stream.market_projection_head": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/150004.sql"
+      "source": "migrations/150004.sql"
     },
     "api_stream.append_market_stats": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/150004.sql"
+      "source": "migrations/150004.sql"
     },
     "api_stream.append_market_price": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/150004.sql"
+      "source": "migrations/150004.sql"
     },
     "api_stream.append_ranking": {
       "kind": "function",
       "columns": [],
-      "source": "launchpad/spec/production-system/integration/migrations/190003.sql"
+      "source": "migrations/190003.sql"
     },
     "migration_control.readiness": {
       "kind": "function",
@@ -2290,7 +2290,7 @@
         "input_digest",
         "watermark"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160004.sql"
+      "source": "migrations/160004.sql"
     },
     "pnl.inventory_l16_wallet_intervals_v3": {
       "kind": "table",
@@ -2300,7 +2300,7 @@
         "bucket",
         "payload"
       ],
-      "source": "launchpad/spec/production-system/integration/migrations/160004.sql"
+      "source": "migrations/160004.sql"
     }
   }
 }

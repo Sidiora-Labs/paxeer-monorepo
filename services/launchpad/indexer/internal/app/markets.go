@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
@@ -51,7 +52,15 @@ func persistedMarket(token, pool string, height, index int64) (receipt.Discovere
 	if !common.IsHexAddress(token) || !common.IsHexAddress(pool) || height < 0 || index < 0 || index > math.MaxUint32 {
 		return receipt.DiscoveredMarket{}, errors.New("indexer: persisted canonical creation invalid")
 	}
-	m := receipt.DiscoveredMarket{Token: common.HexToAddress(token), Pool: common.HexToAddress(pool), Height: uint64(height), TransactionIndex: uint(index)}
+	heightUint64, conversionErr := checked.Convert[uint64](height)
+	if conversionErr != nil {
+		return receipt.DiscoveredMarket{}, conversionErr
+	}
+	indexUint, conversionErr := checked.Convert[uint](index)
+	if conversionErr != nil {
+		return receipt.DiscoveredMarket{}, conversionErr
+	}
+	m := receipt.DiscoveredMarket{Token: common.HexToAddress(token), Pool: common.HexToAddress(pool), Height: heightUint64, TransactionIndex: indexUint}
 	if m.Token == (common.Address{}) || m.Pool == (common.Address{}) || m.Token == m.Pool || token != strings.ToLower(m.Token.Hex()) || pool != strings.ToLower(m.Pool.Hex()) {
 		return receipt.DiscoveredMarket{}, errors.New("indexer: persisted canonical market identity invalid")
 	}
@@ -181,7 +190,11 @@ func (s *recoveringQualifiedSource) FetchQualifiedBatch(ctx context.Context, fro
 		return store.CanonicalBatch{}, nil, receipt.ErrBinding
 	}
 	for _, block := range batch.Blocks {
-		if block.Height < 0 || strings.ToLower(pinned[uint64(block.Height)].Hash.Hex()) != block.Hash {
+		blockHeightUint64, conversionErr := checked.Convert[uint64](block.Height)
+		if conversionErr != nil {
+			return store.CanonicalBatch{}, nil, conversionErr
+		}
+		if block.Height < 0 || strings.ToLower(pinned[blockHeightUint64].Hash.Hex()) != block.Hash {
 			return store.CanonicalBatch{}, nil, receipt.ErrBinding
 		}
 	}
@@ -231,7 +244,11 @@ func (s *recoveringQualifiedSource) marketAddresses(ctx context.Context, from, t
 		if json.Unmarshal(raw, &header) != nil || json.Unmarshal(raw, &body) != nil || header.Number == nil || !header.Number.IsUint64() || header.Number.Uint64() != height || body.Hash == (common.Hash{}) || header.Time == 0 || header.Time > math.MaxInt64/1000 || len(body.Transactions) > 4096 {
 			return nil, nil, receipt.ErrBinding
 		}
-		block := source.BlockRecord{ChainID: 125, Height: height, Hash: body.Hash, ParentHash: header.ParentHash, TimestampSeconds: int64(header.Time), TransactionCount: len(body.Transactions)}
+		headerTimeInt64, conversionErr := checked.Convert[int64](header.Time)
+		if conversionErr != nil {
+			return nil, nil, conversionErr
+		}
+		block := source.BlockRecord{ChainID: 125, Height: height, Hash: body.Hash, ParentHash: header.ParentHash, TimestampSeconds: headerTimeInt64, TransactionCount: len(body.Transactions)}
 		if height > from && block.ParentHash != blocks[height-1].Hash {
 			return nil, nil, receipt.ErrBinding
 		}
@@ -251,8 +268,21 @@ func (s *recoveringQualifiedSource) marketAddresses(ctx context.Context, from, t
 				BlockHash        *common.Hash
 				TransactionIndex *hexutil.Uint64
 			}
-			if tx.UnmarshalJSON(rawTx) != nil || json.Unmarshal(rawTx, &meta) != nil || meta.Hash == nil || *meta.Hash != tx.Hash() || meta.BlockHash != nil && *meta.BlockHash != block.Hash || meta.TransactionIndex != nil && uint64(*meta.TransactionIndex) != uint64(i) {
+			if tx.UnmarshalJSON(rawTx) != nil || json.Unmarshal(rawTx, &meta) != nil || meta.Hash == nil || *meta.Hash != tx.Hash() || meta.BlockHash != nil && *meta.BlockHash != block.Hash {
 				return nil, nil, receipt.ErrBinding
+			}
+			if meta.TransactionIndex != nil {
+				transactionIndex, conversionErr := checked.Convert[uint64](*meta.TransactionIndex)
+				if conversionErr != nil {
+					return nil, nil, conversionErr
+				}
+				expectedIndex, conversionErr := checked.Convert[uint64](i)
+				if conversionErr != nil {
+					return nil, nil, conversionErr
+				}
+				if transactionIndex != expectedIndex {
+					return nil, nil, receipt.ErrBinding
+				}
 			}
 			transactions[i] = &tx
 		}
@@ -278,11 +308,19 @@ func (s *recoveringQualifiedSource) marketAddresses(ctx context.Context, from, t
 		}
 		logIndex := uint(0)
 		for i, r := range receipts {
-			if r == nil || r.BlockNumber == nil || r.BlockNumber.Cmp(header.Number) != 0 || r.BlockHash != block.Hash || r.TxHash != transactions[i].Hash() || r.TransactionIndex != uint(i) || r.Type != transactions[i].Type() || r.Status > 1 || len(r.Logs) > 4096 {
+			iUint, conversionErr := checked.Convert[uint](i)
+			if conversionErr != nil {
+				return nil, nil, conversionErr
+			}
+			if r == nil || r.BlockNumber == nil || r.BlockNumber.Cmp(header.Number) != 0 || r.BlockHash != block.Hash || r.TxHash != transactions[i].Hash() || r.TransactionIndex != iUint || r.Type != transactions[i].Type() || r.Status > 1 || len(r.Logs) > 4096 {
 				return nil, nil, receipt.ErrBinding
 			}
 			for _, log := range r.Logs {
-				if log == nil || log.Removed || log.BlockHash != block.Hash || log.BlockNumber != height || log.TxHash != r.TxHash || log.TxIndex != uint(i) || log.Index != logIndex || len(log.Topics) > 4 || len(log.Data) > decode.MaxFieldBytes {
+				iUint2, conversionErr := checked.Convert[uint](i)
+				if conversionErr != nil {
+					return nil, nil, conversionErr
+				}
+				if log == nil || log.Removed || log.BlockHash != block.Hash || log.BlockNumber != height || log.TxHash != r.TxHash || log.TxIndex != iUint2 || log.Index != logIndex || len(log.Topics) > 4 || len(log.Data) > decode.MaxFieldBytes {
 					return nil, nil, receipt.ErrBinding
 				}
 				logIndex++

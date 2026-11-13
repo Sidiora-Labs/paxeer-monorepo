@@ -19,15 +19,15 @@ Sources: `include/layerx/lx_perps.h`, `src/modules/perps/lx_perps_dispatch.c`,
 | --- | --- | --- |
 | `LX_PERPS_MARKET_CREATE` | `0x00060001` | 622 (`lx_perps_market`) |
 | `LX_PERPS_MARKET_HALT` | `0x00060002` | 33 |
-| `LX_PERPS_ORACLE_PUSH` | `0x00060003` | 72 |
-| `LX_PERPS_ORDER_PLACE` | `0x00060004` | 129 |
+| `LX_PERPS_ORACLE_PUSH` | `0x00060003` | 137 on the node transport; 72 for the base command codec |
+| `LX_PERPS_ORDER_PLACE` | `0x00060004` | 129 on the node transport; the time-in-force interface also accepts 130 |
 | `LX_PERPS_ORDER_CANCEL` | `0x00060005` | 64 |
 | `LX_PERPS_POSITION_OPEN` | `0x00060006` | 145 |
 | `LX_PERPS_POSITION_INCREASE` | `0x00060007` | 112 |
 | `LX_PERPS_POSITION_CLOSE` | `0x00060008` | 64 |
 | `LX_PERPS_FUNDING_TICK` | `0x00060009` | 32 |
 | `LX_PERPS_LIQUIDATE` | `0x0006000a` | 96 |
-| `LX_PERPS_ADL` | `0x0006000b` | 33–4129 |
+| `LX_PERPS_ADL` | `0x0006000b` | 65–4129 in the codec; dispatch accepts 65–545 |
 
 Unknown ordinals are `LXP_ERR_UNKNOWN_ACTIVITY`. Malformed commands are
 `LXP_ERR_NON_CANONICAL` or `LXP_ERR_LENGTH_LIMIT`.
@@ -60,19 +60,28 @@ market_id32 || halted:u8
 
 ## ORACLE_PUSH
 
-Canonical command encoding (`lx_perps_oracle_command_decode`):
+The base observation encoding (`lx_perps_oracle_command_decode`) is 72 bytes:
 
 ```text
 market_id32 || observation_sequence:u64 || price:u128
 || observed_at:u64 || source_identifier:u64
 ```
 
-The full command struct also carries `oracle_public_key32` and `signature64`
-for the sign path. Refusals include `LXP_ERR_UNAUTHORIZED_ORACLE`,
+The node registers `lx_perps_oracle_transport_module_iface`. Its protocol-3
+transport uses `lx_perps_oracle_transport_decode` and requires 137 bytes:
+
+```text
+version:u8=1 || observation72 || signature64
+```
+
+The authenticated authority supplies the oracle public key; the transport does
+not carry that key. The command struct holds the resolved key and signature.
+Refusals include `LXP_ERR_UNAUTHORIZED_ORACLE`,
 `LXP_ERR_ORACLE_SEQUENCE`, `LXP_ERR_ORACLE_BOUNDS`, `LXP_ERR_ORACLE_DEVIATION`,
 `LXP_ERR_ORACLE_STALE`, `LXP_ERR_TIMESTAMP_REGRESSION`.
 
-There is no Programs host function named `oracle_read`. See
+Programs ABI 3 and later expose `layerx_v3.oracle_read`, a read-only host
+function returning the committed 64-byte oracle observation. See
 [Roadmap: beta surface expansion](Roadmap.md).
 
 ---
@@ -84,8 +93,17 @@ market_id32 || order_id32 || owner_account_id32 || side:u8
 || price:u128 || quantity:u128
 ```
 
+The node's `lx_perps_oracle_transport_module_iface` accepts the 129-byte form,
+which means good till cancelled (GTC). The separate ABI-3
+`lx_perps_tif_module_iface` also accepts a 130-byte form appending
+`time_in_force:u8`: `1` immediate or cancel, `2` fill or kill, or `3` post only.
+A zero suffix is noncanonical; GTC uses the shorter form. That interface also
+registers `LX_PERPS_MARGIN_REGISTER` (`0x0006000c`) with a 64-byte payload;
+the node host selects the oracle-transport interface.
+
 A halted market is `LXP_ERR_MARKET_HALTED`. Insufficient margin is
-`LXP_ERR_MARGIN_INSUFFICIENT`. Zero size is `LXP_ERR_ZERO_AMOUNT`.
+`LXP_ERR_MARGIN_INSUFFICIENT`. The order decoder rejects zero quantity with
+`LXP_ERR_NON_CANONICAL`.
 
 ---
 
@@ -131,7 +149,7 @@ market_id32 || position_id32
 market_id32
 ```
 
-Uses the sealed batch timestamp, not a wall clock.
+Uses the deterministic execution timestamp supplied by the kernel context.
 
 ---
 
@@ -149,8 +167,10 @@ market_id32 || position_id32 || liquidator_account_id32
 market_id32 || position_count:u8 || position_id32 × count
 ```
 
-Position ids must be sorted (`LXP_ERR_UNSORTED_SEQUENCE`). Count is bounded
-by `LX_PERPS_ADL_CAPACITY` (128).
+Position ids must be sorted (`LXP_ERR_UNSORTED_SEQUENCE`). The codec accepts
+1–128 positions, bounded by `LX_PERPS_ADL_CAPACITY`, for 65–4129 bytes.
+Validation and execution further limit the count to `LX_PERPS_DISPATCH_MAX_ADL`
+(16), for at most 545 bytes; larger counts return `LXP_ERR_LENGTH_LIMIT`.
 
 ---
 

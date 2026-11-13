@@ -6024,7 +6024,9 @@ export function createHumanApiClient(options: HumanApiClientOptions = {}): Human
     }
     if (subscription.signal?.aborted) return;
     const cancellation = new AbortController();
-    const abort = () => cancellation.abort();
+    const abort = () => {
+      cancellation.abort();
+    };
     subscription.signal?.addEventListener("abort", abort, { once: true });
     if (subscription.signal?.aborted) cancellation.abort();
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;

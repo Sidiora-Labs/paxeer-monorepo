@@ -641,7 +641,7 @@ fn documented_deploy_inputs_start_service() -> TestResult {
     }
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let address = listener.local_addr()?;
-    let log = SharedLog(Arc::new(Mutex::new(Vec::new())));
+    let log = SharedLog::new();
     let clock = Arc::new(AtomicU64::new(1000));
     let listener_control = listener.try_clone()?;
     let worker = spawn_service(

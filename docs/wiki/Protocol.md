@@ -35,9 +35,10 @@ The public JSON-RPC listener is at the root of
 `https://api-mainnet-beta.paxeer.network`. The numbered node hosts run from
 `api1.mainnet-beta.paxeer.network` through
 `api14.mainnet-beta.paxeer.network`, also at the root. An `eth_chainId` read
-returns `0x7d`. Public node namespaces include `debug`, `echo`, `eth`, `net`,
-`pax`, `px`, `test`, and `txpool`; method availability also depends on node
-configuration. See [Public JSON-RPC](PublicRpc.md).
+returns `0x7d`. The node's HTTP registration includes `debug`, `echo`, `eth`,
+`net`, `pax`, `pax2`, `px`, `txpool` and `web3`; method availability also depends
+on node configuration. The `test` namespace requires explicit enablement on a
+non-live chain ID. See [Public JSON-RPC](PublicRpc.md).
 
 There is no separate LayerX interface, router, or unified `/rpc` endpoint.
 The retired `layerxd` binary is not a running network component.

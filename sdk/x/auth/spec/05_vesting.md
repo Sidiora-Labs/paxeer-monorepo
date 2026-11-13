@@ -155,7 +155,7 @@ For a valid continuous schedule and block time `T`:
 The implementation rounds to the nearest integer coin amount, rather than
 simply truncating a rational result. Validation requires `StartTime < EndTime`.
 
-### Periodic Vesting Accounts
+#### Periodic Vesting Accounts
 
 At or before `StartTime`, nothing has vested. At or after `EndTime`, the entire
 original allocation has vested. Between those boundaries, start at `StartTime`

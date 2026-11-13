@@ -522,23 +522,36 @@ impl LayerxdProgramBalanceReader {
         let source = self.consensus.as_ref().ok_or_else(view)?;
         // A published set supplies proof material, never a new trust anchor.
         // The protected verifier below authenticates it before admitting a head.
-        let validators = source.validators(height).map_err(|_| view())?;
+        let validators = source.validators(height).map_err(|error| {
+            eprintln!("agent native head validators at {height}: {error:?}");
+            view()
+        })?;
         let checkpoint = source
             .checkpoint(height, &trust.chain_id, &validators)
-            .map_err(|_| view())?;
+            .map_err(|error| {
+                eprintln!("agent native head checkpoint at {height}: {error:?}");
+                view()
+            })?;
         let block = self
             .sequencer
             .block_by_number(height)
             .map_err(|_| view())?
             .ok_or_else(view)?;
         if checkpoint.block_hash != block.hash {
+            eprintln!("agent native head block hash differs at {height}");
             return Err(view());
         }
         let (transaction, transaction_proof) = source
             .sequence_batch(height, checkpoint.header.data_hash.ok_or_else(view)?)
-            .map_err(|_| view())?;
+            .map_err(|error| {
+                eprintln!("agent native head sequence batch at {height}: {error:?}");
+                view()
+            })?;
         Ok(ChainHeadEvidence {
-            commitment: source.host_commitment(&checkpoint).map_err(|_| view())?,
+            commitment: source.host_commitment(&checkpoint).map_err(|error| {
+                eprintln!("agent native head host commitment at {height}: {error:?}");
+                view()
+            })?,
             transaction,
             transaction_proof,
         })

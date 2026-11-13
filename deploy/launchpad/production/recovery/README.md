@@ -1,4 +1,4 @@
-# Recovery contracts and local proof
+# Recovery contracts and local checks
 
 This directory supplies launchpad application recovery contracts: versioned
 offline configuration, disabled resource declarations, content-bound backup
@@ -61,7 +61,9 @@ or implicit format conversion is supported.
 
 ## Restoration authority
 
-[epoch.sql](epoch.sql) is a SQL resource requiring registration in the deployment. Its epoch guard takes a shared row lock through the caller transaction; activation takes an exclusive lock, compares the prior epoch/revision, requires a validated proposal and externally verified fencing-proof digest, advances authority, and writes audit atomically. The guard uses a fixed `pg_catalog` search path and schema-qualified objects under a restricted owner. Revoke table writes from application roles and grant only guard execution. Only the recovery coordinator receives activation/proposal/control privileges. An application-supplied actor string or proof digest is not authorization. Coordinator authentication, proposal validation/rejection audit transitions, provider fencing checks and grant registration remain serial integration work.
+[epoch.sql](epoch.sql) is a SQL resource requiring registration in the deployment. Its epoch guard takes a shared row lock through the caller transaction; activation takes an exclusive lock, compares the prior epoch/revision, requires a validated proposal and externally verified fencing-proof digest, advances authority, and writes audit atomically. The guard uses a fixed `pg_catalog` search path and schema-qualified objects under a restricted owner. Revoke table writes from application roles and grant only guard execution. Only the recovery coordinator receives activation/proposal/control privileges. An application-supplied actor string or proof digest is not authorization. The [operator](phase2/runbook.md) authenticates the database principal and
+validates proposals and provider fencing. Register the SQL resources and grants
+for the selected deployment.
 
 Every authoritative write/inbox effect must call the guard in the same transaction. Broker acknowledgements additionally require epoch-scoped broker authority, subjects and credential revocation; a PostgreSQL check followed by an unrestricted external acknowledgement is insufficient. Old-primary traffic/network/publishing authority must be revoked before new-region activation. Exactly one region can write; return/failback requires a new reviewed migration and is never automatic.
 
@@ -69,9 +71,11 @@ Every authoritative write/inbox effect must call the guard in the same transacti
 
 The local tests exercise logical `pg_dump`/restore consistency for marker, exact monetary amount, pending outbox, duplicate inbox and watermark; stale epoch/region rejection; one winner in competing cutovers; guard/cutover lock serialization; and authority rollback when audit insertion fails. They do not prove physical base-backup/WAL PITR, real message publishing/ack rejection, lost broker-disk rebuild, provider IAM/KMS denial, object-store replication, monthly/quarterly drills, 72-hour datasets, region loss, RPO/RTO, deployment or production readiness.
 
-The v3 adversarial path in `phase2/` validates native results for all ten recovery scenarios, including explicit denied operations, exact before/after state reconciliation and measured recovery capacity. It preserves v1/v2 interfaces. Signed scenario receipts bind the source, deployment, interface, inventory, provider executable and actual fault interval; absent or failed receipts block activation. `activate_fenced_v3` additionally binds the authenticated database principal and the exact fresh validation digests. The focused v3 gate and isolated provider configuration are described in the [operator runbook](phase2/runbook.md); new source has no implicit production authorization or certification.
+The v3 adversarial path in `phase2/` validates native results for all ten recovery scenarios, including explicit denied operations, exact before/after state reconciliation and measured recovery capacity. It preserves v1/v2 interfaces. Signed scenario receipts bind the source, deployment, interface, inventory, provider executable and actual fault interval; absent or failed receipts block activation. `activate_fenced_v3` additionally binds the authenticated database principal and the exact fresh validation digests. The focused v3 gate and isolated provider configuration are described in the [operator runbook](phase2/runbook.md); these checks do not activate traffic or certify a deployment.
 
-`phase4/release.py` adds a read-only live measurement collector and an evaluator for the existing D16 final shared capture. It records exact native metric responses, actual pinned Kubernetes allocations and PostgreSQL snapshots; requires independently signed real recovery receipts and fixed-checkpoint reconciliation; and emits ten machine-readable requirement outcomes. Its [runbook](phase4/runbook.md) distinguishes bounded component measurements from the final 24-hour acceptance at gate 9.1. No output from this lane certifies capacity or monthly availability by itself.
+`phase4/release.py` adds a read-only live measurement collector and an evaluator for the shared workload capture. It records exact native metric responses, actual pinned Kubernetes allocations and PostgreSQL snapshots; requires independently signed real recovery receipts and fixed-checkpoint reconciliation; and emits ten machine-readable requirement outcomes. Its [runbook](phase4/runbook.md) describes bounded component measurements and
+shared 24-hour evaluation. Results retain false capacity and monthly-availability
+qualification flags.
 
 Use the [observability guide](../observability/README.md) for metric collection
 and alert contracts alongside recovery evidence.

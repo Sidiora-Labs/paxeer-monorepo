@@ -6,7 +6,12 @@ version = 2
 yanked = "deny"
 unmaintained = "all"
 ignore = [
-    { id = "RUSTSEC-2024-0436", reason = "paste is a compile-time proc macro inside the pinned vendored engine tree" },
+    { id = "RUSTSEC-2024-0436", reason = "Reviewed 2026-11-13: paste 1.0.15 is a compile-time proc macro required by the pinned vendored engine tree; no maintained paste release is available" },
+    { id = "RUSTSEC-2022-0061", reason = "Reviewed 2026-11-13: parity-wasm 0.45.0 supplies the module representation required by the vendored wasm-instrument 0.4.0; no maintained parity-wasm release is available" },
+    { id = "RUSTSEC-2023-0071", reason = "Reviewed 2026-11-13: jsonwebtoken 10.3.0 requires rsa ^0.9.6 for RS256 public-key verification; the patched rsa 0.10 release is outside that requirement" },
+    { id = "RUSTSEC-2026-0387", reason = "Reviewed 2026-11-13: elliptic-curve 0.13.8 requires crypto-bigint ^0.5 for the pinned k256 and p256 APIs; patched crypto-bigint 0.7 releases are outside that requirement" },
+    { id = "RUSTSEC-2026-0486", reason = "Reviewed 2026-11-13: layerx-client pins rustix =1.1.4; the patched 1.1.6 release cannot satisfy that exact requirement" },
+    { id = "RUSTSEC-2026-0382", reason = "Reviewed 2026-11-13: layerx-agentd pins rustls-webpki =0.103.15; patched releases starting at 0.103.16 cannot satisfy that exact requirement" },
 ]
 
 [licenses]
@@ -38,8 +43,15 @@ deny = [
     { name = "inventory", reason = "Process-wide registries are forbidden" },
 ]
 skip = [
-    { name = "getrandom", version = "=0.2.17" },
-    { name = "syn", version = "=2.0.119" },
+    { name = "getrandom", version = "=0.2.17", reason = "Reviewed 2026-11-13: ring 0.17.14 and rand_core 0.6.4 require getrandom ^0.2 while the human workspace and ureq 3.4.0 require 0.4.3" },
+    { name = "syn", version = "=2.0.119", reason = "Reviewed 2026-11-13: curve25519-dalek-derive 0.1.1 and zeroize_derive 1.5.0 require syn ^2 while serde_derive 1.0.229 requires ^3" },
+    { name = "base64", version = "=0.22.1", reason = "Reviewed 2026-11-13: passkey-auth 0.1.3 and jsonwebtoken 10.3.0 require base64 ^0.22 while ureq 3.4.0 and the interop crates require 0.23.1" },
+    { name = "getrandom", version = "=0.3.4", reason = "Reviewed 2026-11-13: layerx-agentd pins getrandom 0.3.4 and rand_core 0.9.5 requires ^0.3 while the human workspace and layerx-platform-internal require 0.4.3" },
+    { name = "r-efi", version = "=5.3.0", reason = "Reviewed 2026-11-13: getrandom 0.3.4 requires r-efi ^5.1 on UEFI while getrandom 0.4.3 requires r-efi ^6" },
+    { name = "rand", version = "=0.8.8", reason = "Reviewed 2026-11-13: passkey-auth 0.1.3 and jsonwebtoken 10.3.0 require rand ^0.8 while proptest 1.7.0 and tungstenite 0.29.0 require ^0.9" },
+    { name = "rand_chacha", version = "=0.3.1", reason = "Reviewed 2026-11-13: rand 0.8.8 requires rand_chacha ^0.3 while rand 0.9.5 and proptest 1.7.0 require ^0.9" },
+    { name = "rand_core", version = "=0.6.4", reason = "Reviewed 2026-11-13: elliptic-curve 0.13.8 and rand 0.8.8 require rand_core ^0.6 while rand 0.9.5 requires ^0.9" },
+    { name = "windows-sys", version = "=0.52.0", reason = "Reviewed 2026-11-13: ring 0.17.14 requires windows-sys ^0.52 for Windows AArch64 while schannel 0.1.30 requires ^0.61" },
 ]
 skip-tree = []
 

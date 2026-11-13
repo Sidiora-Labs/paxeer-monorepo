@@ -1,0 +1,15 @@
+[manifest]
+task = "22.41.112"
+pages = 3
+
+[page.1]
+path = "docs/site/paxeer-docs/src/app/webhooks/page.tsx"
+status = "corrected"
+
+[page.2]
+path = "docs/site/paxeer-docs/src/app/xdk/page.tsx"
+status = "corrected"
+
+[page.3]
+path = "docs/site/paxeer-docs/src/app/xweb/page.tsx"
+status = "corrected"

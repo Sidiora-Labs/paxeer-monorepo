@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use layerx_human_boundary_check::{
     human_boundary_policy, human_dependency_policy, human_payload_authority_gate,
-    human_payload_bundle_gate,
+    human_payload_bundle_gate, Violation, TRANSPORT_DEADLINE_CLOCK_READS,
 };
 
 static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -109,6 +109,67 @@ fn ambient_clock_reads_are_rejected() {
         "fn resolve() { let _ = std::time::SystemTime::now(); }\n",
     );
     assert!(human_boundary_policy(fixture.path()).is_err());
+}
+
+#[test]
+fn transport_deadline_clock_list_names_exactly_two_files() {
+    assert_eq!(
+        TRANSPORT_DEADLINE_CLOCK_READS
+            .iter()
+            .map(|(file, _)| *file)
+            .collect::<Vec<_>>(),
+        [
+            "services/human/crates/layerx-human-kms/src/server.rs",
+            "services/human/crates/layerx-network-gateway/src/lib.rs",
+        ]
+    );
+    for (_, reason) in TRANSPORT_DEADLINE_CLOCK_READS {
+        assert!(!reason.trim().is_empty());
+        assert_eq!(reason.lines().count(), 1);
+    }
+}
+
+#[test]
+fn transport_deadline_files_accept_only_monotonic_clock_reads() {
+    let fixture = Fixture::new();
+    for (file, _) in TRANSPORT_DEADLINE_CLOCK_READS {
+        fixture.write(file, "let deadline = Instant::now();");
+        assert_eq!(human_boundary_policy(fixture.path()), Ok(()));
+        for pattern in ["SystemTime::now", "thread_rng(", "getrandom(", "OsRng"] {
+            fixture.write(file, &format!("Instant::now(); {pattern}"));
+            assert_eq!(
+                human_boundary_policy(fixture.path()),
+                Err(vec![Violation {
+                    path: fixture.path().join(file),
+                    rule: "ambient-nondeterminism",
+                }])
+            );
+        }
+        fixture.write(file, "Instant::now(); 'node.db'");
+        assert_eq!(
+            human_boundary_policy(fixture.path()),
+            Err(vec![Violation {
+                path: fixture.path().join(file),
+                rule: "node-private-path",
+            }])
+        );
+        fixture.write(file, "");
+    }
+    for file in [
+        "sample/src/lib.rs",
+        "services/human/crates/layerx-human-kms/tests/server.rs",
+        "services/human/crates/layerx-network-gateway/src/transport.rs",
+    ] {
+        fixture.write(file, "Instant::now()");
+        assert_eq!(
+            human_boundary_policy(fixture.path()),
+            Err(vec![Violation {
+                path: fixture.path().join(file),
+                rule: "ambient-nondeterminism",
+            }])
+        );
+        fixture.write(file, "");
+    }
 }
 
 #[test]
