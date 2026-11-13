@@ -11,7 +11,7 @@ import (
 )
 
 const SpecPath = "spec/layerx-merge/spec.kvx"
-const RetiredSpecPath = "launchpad/spec/production-system/spec.kvx"
+const retirementTitle = "The removed launchpad production-system spec tree is retired"
 const declarationDirectory = "tools/launchpad/production/feature-acceptance/"
 
 var legacySection = regexp.MustCompile(`^(task\.(0\.[123]|[1-4]\.(0[1-9]|[1-4][0-9]|50|99)|9\.1)|req\.D[0-9]{2}_[0-9]{3}|coverage\.(PF(0[1-9]|[12][0-9]|30)|OC(0[1-9]|1[0-9]|2[0-5])))$`)
@@ -58,6 +58,7 @@ func readReferenceGraph(root fs.FS) (referenceGraph, error) {
 	scanner := bufio.NewScanner(source)
 	scanner.Buffer(make([]byte, 4096), 4*1024*1024)
 	section := ""
+	retiredTitle, retainedInputs := false, false
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
@@ -66,10 +67,13 @@ func readReferenceGraph(root fs.FS) (referenceGraph, error) {
 				return referenceGraph{}, fmt.Errorf("duplicate specification section %s", section)
 			}
 			graph.sections[section] = true
-		} else if section == "decision.1803" && strings.HasPrefix(line, "value = ") && strings.Contains(line, "launchpad/spec/production-system/") {
-			graph.retired = true
+		} else if section == "decision.1803" && strings.HasPrefix(line, "title = ") && strings.Contains(line, retirementTitle) {
+			retiredTitle = true
+		} else if section == "decision.1803" && strings.HasPrefix(line, "value = ") && strings.Contains(line, "sdk/launchpad/protocol/contracts/v1/") {
+			retainedInputs = true
 		}
 	}
+	graph.retired = retiredTitle && retainedInputs
 	if err := scanner.Err(); err != nil {
 		return referenceGraph{}, err
 	}
@@ -92,7 +96,7 @@ func (graph referenceGraph) reference(section string) (SpecReference, error) {
 			return SpecReference{}, fmt.Errorf("missing retirement authority for %s", section)
 		}
 		ref.Class = "retired-reference"
-		ref.Reason = "decision.1803 retires " + RetiredSpecPath + "; " + section + " is absent from " + SpecPath
+		ref.Reason = "decision.1803 retires the launchpad production-system specification; " + section + " is absent from " + SpecPath
 	}
 	return ref, nil
 }

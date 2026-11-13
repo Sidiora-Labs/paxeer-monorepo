@@ -23,7 +23,7 @@ from dispatcher.tests import test_source_policy as policy_tests
 
 
 REPOSITORY = Path(__file__).resolve().parents[5]
-DOCUMENTS = REPOSITORY / 'launchpad/spec/production-system'
+DOCUMENTS = REPOSITORY / 'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915'
 FIXTURE = Path(__file__).resolve().parent / 'fixtures/repair_22_33_915/spec.kvx'
 
 
@@ -35,7 +35,7 @@ def _methods(case):
 def transported_documents(tmp_path):
     """Explicit test peer; canonical document discovery never falls back here."""
     producer = tmp_path / 'producer'
-    documents = producer / 'launchpad/spec/production-system'
+    documents = producer / 'spec/production-system'
     documents.mkdir(parents=True)
     spec = documents / 'spec.kvx'
     spec.write_bytes(FIXTURE.read_bytes())
@@ -57,7 +57,7 @@ def transported_documents(tmp_path):
     digest = create_archive(producer, archive)
     consumer = tmp_path / 'consumer'
     assert create_workspace(archive, consumer) == digest
-    received = consumer / 'launchpad/spec/production-system'
+    received = consumer / 'spec/production-system'
     assert (received / 'spec.kvx').read_bytes() == spec.read_bytes()
     assert Graph(received / 'spec.kvx', received / 'execution-plan.json').status() == graph.status()
     return received
@@ -70,7 +70,7 @@ def test_routing_checkout_paths_and_explicit_fixture_override():
     assert graph_tests.GraphTests.spec_path == DOCUMENTS / 'spec.kvx'
     assert graph_tests.GraphTests.plan_path == DOCUMENTS / 'execution-plan.json'
     assert patch_tests.PatchTests.spec_path == DOCUMENTS / 'spec.kvx'
-    expected_root = Path(os.environ.get('PRODUCTION_DISPATCHER_SPEC_ROOT', REPOSITORY / 'launchpad'))
+    expected_root = Path(os.environ.get('PRODUCTION_DISPATCHER_SPEC_ROOT', DOCUMENTS))
     assert fixture_tests.FixtureTests.root == expected_root
     record = (Path(__file__).parent / 'repair_22_33_915.kvx').read_text()
     for finding in ('graph-test-machine-root', 'owned-leaf-tests-old-layout',
@@ -102,7 +102,7 @@ def test_routing_fifty_lane_patch_and_handoff_bounds(transported_documents, meth
 
 def test_routing_status_normalization_and_projection_mismatch(transported_documents):
     case = fixture_tests.FixtureTests('test_live_status_variants_are_private_and_projection_consistent')
-    case.root = transported_documents.parents[1]
+    case.root = transported_documents
     case.debug()
 
 
@@ -141,11 +141,11 @@ def test_routing_moved_source_links_refused_by_every_consumer(tmp_path, relative
 
 
 def test_routing_explicit_missing_documents_fail_closed(tmp_path):
-    missing = tmp_path / 'missing/launchpad/spec/production-system'
+    missing = tmp_path / 'missing/tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915'
     with pytest.raises(GraphError, match='invalid graph input'):
         Graph(missing / 'spec.kvx', missing / 'execution-plan.json')
     case = fixture_tests.FixtureTests('test_live_status_variants_are_private_and_projection_consistent')
-    case.root = missing.parents[1]
+    case.root = missing
     with pytest.raises(FileNotFoundError):
         case.debug()
     case = patch_tests.PatchTests('test_canonical_fifty_lane_ownership')

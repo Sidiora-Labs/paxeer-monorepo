@@ -200,7 +200,8 @@ def test_bootstrap_instructions_use_real_qualifier_registry_and_evidence_layout(
     defaults = qualify.argument_parser().parse_args(['--task', '0.1', '--spec', str(args.spec), '--require-current-source'])
     assert args.task == '0.1' and args.require_current_source
     assert args.registry == defaults.registry == Path('tools/launchpad/production/bootstrap/check-registry.json')
-    assert args.evidence_dir == defaults.evidence_dir == Path('launchpad/evidence/production-system/qualification')
+    assert args.evidence_dir == Path('$QUALIFICATION_OUTPUT_DIR')
+    assert defaults.evidence_dir == Path('launchpad/evidence/production-system/qualification')
     assert args.contract_root == Path('contracts/launchpad')
     registry = json.loads((ROOT / args.registry).read_text())
     check = next(check for check in registry['tasks'][args.task]['checks'] if check['id'] == 'baseline-provenance')
@@ -209,8 +210,8 @@ def test_bootstrap_instructions_use_real_qualifier_registry_and_evidence_layout(
     evidence = ROOT / args.evidence_dir / args.task / 'recorded-run'
     expanded = qualify.expand_tokens('{source_root}|{evidence_dir}|{contract_root}', ROOT, evidence, ROOT / args.contract_root)
     assert expanded.split('|') == [str(ROOT), str(evidence), str(ROOT / 'contracts/launchpad')]
-    assert args.spec == Path('launchpad/spec/production-system/spec.kvx')
-    assert 'absent from this' in readme
+    assert args.spec == Path('$LAUNCHPAD_SPEC_FILE')
+    assert 'Set `LAUNCHPAD_SPEC_FILE`' in readme
     assert 'source command inventory' in readme
     assert 'seventeen reviewed production members' in readme
     assert 'separate\nevidence' in readme

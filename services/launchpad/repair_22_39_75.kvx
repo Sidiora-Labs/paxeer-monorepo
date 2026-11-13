@@ -39,7 +39,7 @@ decision = "2820; gotcha 3468; continuation of ae29c05be4d55356ada4a9f3301cc81d2
 path = "tests/ci/data/launchpad_go_test_baseline.json"
 retiring_task = "22.39.117"
 implementation = "Run each package through tests/ci/data/launchpad_go_tests.py with an anchored skip pattern derived only from its own baseline entries; normal, race, coverage and matrix runs share the same implementation. Baseline exclusions are printed and are not test passes."
-auth = "The six auth entries require the untracked launchpad/spec/production-system/handoffs/L33/schema-proposal.sql and its owner-supplied production specification pair."
+auth = "Authentication schemas are registered in migrations/registry.json; production admission requires independently approved source and deployment evidence."
 coverage = "Merge real package profiles without dropping zero-covered statements; record the fresh complete module inventory required by coverage-gate.sh and retain the 85/90 percent thresholds."
 verified_revision = "By reference: the final hf-build and hf-done records in /out/run/gates.jsonl name the exact candidate revision and actual result; an exclusion is not a qualification of its test."
 

@@ -14,7 +14,7 @@ import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[5]
 SCRIPTS = pathlib.Path('sdk/launchpad/packages/sdk/scripts')
-BUNDLES = pathlib.Path('launchpad/spec/production-system/integration/contracts')
+BUNDLES = pathlib.Path('sdk/launchpad/protocol/contracts')
 SDK = pathlib.Path('sdk/launchpad/packages/sdk')
 V2_RELEASE = pathlib.Path('sdk/launchpad/packages/sdk-v2/release-manifest.json')
 GENERATOR = pathlib.Path('tools/launchpad/production/interfaces/codegen.py')
@@ -108,7 +108,7 @@ def test_finding4_default_and_examples_paths_share_protocol_owner(tmp_path):
 @pytest.mark.parametrize('arguments', [(), ('--operations-only',)])
 def test_finding4_retired_contract_tree_is_outside_allowlist(tmp_path, monkeypatch, arguments):
     generate = load_script(tmp_path, 'generate')
-    retired = tmp_path / 'sdk/launchpad/protocol/contracts/v2'
+    retired = tmp_path / 'untrusted/contracts/v2'
     retired.mkdir(parents=True)
     with pytest.raises(ValueError, match='bundle/manifest outside contract allowlist'):
         run_generator(generate, monkeypatch, '--major', '2', '--contracts', str(retired), *arguments)

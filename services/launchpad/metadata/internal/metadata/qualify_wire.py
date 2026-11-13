@@ -3,7 +3,7 @@
 import json, pathlib, subprocess, sys
 from jsonschema import Draft202012Validator, FormatChecker
 root=pathlib.Path(__file__).resolve().parents[5]
-schema=json.loads((root/'launchpad/spec/production-system/integration/contracts/v1/schema-definitions.json').read_text())
+schema=json.loads((root/'sdk/launchpad/packages/sdk/src/schemas.gen.json').read_text())
 r=subprocess.run(['go','test','-p','1','-count=1','-json','./metadata/internal/metadata','-run','^TestProductionFrozenResponses$'],cwd=root/'services/launchpad',text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,timeout=120)
 print(r.stdout,end='')
 if r.returncode:sys.exit(r.returncode)

@@ -46,7 +46,7 @@ class ReleaseHarnessSourceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'binding.json'
             actual=Path(harness.__file__).resolve()
-            interface=harness.ROOT/'launchpad/spec/production-system/integration/interface-decisions.json'
+            interface=harness.ROOT/'sdk/launchpad/packages/sdk-v2/src/schemas.gen.json'
             bound={'version':1,'candidate_sha256':harness.sha_file(actual),
                    'interface_sha256':harness.sha_file(interface),
                    'files':{str(actual.relative_to(harness.ROOT)):harness.sha_file(actual)}}

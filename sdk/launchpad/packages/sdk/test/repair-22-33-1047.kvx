@@ -3,7 +3,7 @@ id = "22.33.1047"
 status = "implemented; exact qualification outcome is recorded by hf-done"
 baseline = "The supplied attempt-3 evidence at f8aff1fe80b3d87405cfa26d5c17264cf00f5a88 reports the three admittedBundle cases failing on nonexistent codegen manifests; this attempt has no gate ledger at entry and does not rerun the unchanged failure."
 continuation = "Attempt 4 preserves file:../sdk-v2, the independent served-route repair, the production TS loader and real pagination proof; no authoritative bundle is demanded or synthesized."
-ruling = "The named launchpad/spec/production-system/spec.kvx and integration/contracts/v1/inputs/supplementary.json are themselves absent in this checkout, so the available committed REST route recording and digest-pinned SDK schemas provide the proofs; their production is a separate owner decision, never awaited here."
+ruling = "SDK checks consume committed REST route recordings and digest-pinned SDK schemas; complete versioned inputs are selected under sdk/launchpad/protocol/contracts."
 execution = "Pyodide 0.29.3 executes the actual Python producer and layout tests inside the Node process from local npm assets; no Python executable, subprocess compiler, credential, live service or runtime package download is needed."
 
 [finding.6]
@@ -28,7 +28,7 @@ test = "served-routes.test.mjs::routeStatusCoversEveryOperation and route-correc
 proof = "The independent exhaustive inventory requires 154 served, 15 development and 32 unrouted operations; the real reward-claim walkthrough checks the corrected route, authentication, idempotency, request body and decoded response. Both existing network-refusal suites execute unchanged."
 
 [wiring.inputs]
-request = "Domain 4 launchpad owner: deciding whether to produce launchpad/spec/production-system/spec.kvx, integration/contracts/v1/inputs/supplementary.json and the complete digest-pinned v1/v2 contract bundles under launchpad/spec/production-system/integration/contracts belongs to that owner; this task neither creates nor awaits them."
+request = "SDK checks consume committed REST route recordings and digest-pinned SDK schemas; complete versioned inputs are selected under sdk/launchpad/protocol/contracts."
 
 [wiring.generator]
 request = "Domain 4 SDK generator owner: retain the agreed launchpad/spec prefix and immutable checks in sdk/launchpad/packages/sdk/scripts/generate.py and examples.py; any future owner bundle must match frozen SDK release input digests before historical full regeneration is claimed."

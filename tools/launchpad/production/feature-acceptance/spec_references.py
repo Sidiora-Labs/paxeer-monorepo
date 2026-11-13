@@ -5,7 +5,7 @@ import re
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 SPEC_PATH = 'spec/layerx-merge/spec.kvx'
-RETIRED_PATH = 'launchpad/spec/production-system/spec.kvx'
+RETIREMENT_TITLE = 'The removed launchpad production-system spec tree is retired'
 LEGACY_SECTION = re.compile(r'^(task\.(0\.[123]|[1-4]\.(0[1-9]|[1-4][0-9]|50|99)|9\.1)|req\.D[0-9]{2}_[0-9]{3}|coverage\.(PF(0[1-9]|[12][0-9]|30)|OC(0[1-9]|1[0-9]|2[0-5])))$')
 
 
@@ -27,9 +27,9 @@ def reference(specification, section):
     if not LEGACY_SECTION.fullmatch(section):
         raise ValueError('unresolved current specification reference: ' + section)
     retirement = specification.get('decision.1803', {})
-    if RETIRED_PATH.rsplit('/', 1)[0] not in retirement.get('value', ''):
+    if not retirement.get('title', '').startswith(RETIREMENT_TITLE) or 'sdk/launchpad/protocol/contracts/v1/' not in retirement.get('value', ''):
         raise ValueError('missing retirement authority for ' + section)
     return {'spec': SPEC_PATH, 'section': section, 'class': 'retired-reference',
-            'reason': 'decision.1803 retires ' + RETIRED_PATH + '; ' + section +
+            'reason': 'decision.1803 retires the launchpad production-system specification; ' + section +
                       ' is absent from ' + SPEC_PATH}
 

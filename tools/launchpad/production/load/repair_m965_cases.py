@@ -339,7 +339,7 @@ class RepairM965(unittest.TestCase):
                 programme.write_text(altered)
                 bad_coordinator["spec"]["sha256"] = digest(programme.read_bytes())
             elif change == "legacy_spec":
-                bad_coordinator["spec"]["path"] = "launchpad/spec/production-system/spec.kvx"
+                bad_coordinator["spec"]["path"] = "spec/production-system/spec.kvx"
             else:
                 bad_coordinator["spec"]["sha256"] = "0" * 64
             authority_entry = write_document(self.directory, "bad-coordinator.json", bad_coordinator)
@@ -368,7 +368,7 @@ class RepairM965(unittest.TestCase):
         self.assertIn("^TestRepairM_965_", task["verify_cmd"])
         self.assertEqual(raw, (ROOT / SPEC_PATH).read_bytes())
         with self.assertRaises(qualifier.QualificationError):
-            qualifier.load_repair_admission(ROOT, ROOT / "launchpad/spec/production-system/spec.kvx", qualifier.LOAD_REPAIR_TASK)
+            qualifier.load_repair_admission(ROOT, ROOT / "spec/production-system/spec.kvx", qualifier.LOAD_REPAIR_TASK)
         with self.assertRaises(qualifier.QualificationError):
             qualifier.load_repair_admission(ROOT, ROOT / SPEC_PATH, "4.48")
         from workload import final_scenarios

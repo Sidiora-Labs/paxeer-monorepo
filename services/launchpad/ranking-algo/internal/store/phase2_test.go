@@ -65,12 +65,11 @@ func TestCompletedRunActualPostgresAndRedis(t *testing.T) {
 	defer pool.Close()
 	suffix := strings.ReplaceAll(uuid.NewString(), "-", "")
 	schema, recovery := "ranking_l19_"+suffix, "recovery_l19_"+suffix
-	legacy, err := os.ReadFile("../../../../../launchpad/spec/production-system/handoffs/L19/phase1/190000_ranking_snapshots.sql")
+	legacy, err := os.ReadFile("../../../../../migrations/190000.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	ddl := strings.ReplaceAll(string(legacy), "ranking.", pgx.Identifier{schema}.Sanitize()+".")
-	ddl = strings.Replace(ddl, "CREATE SCHEMA ranking;", "CREATE SCHEMA "+pgx.Identifier{schema}.Sanitize()+";", 1)
+	ddl := "CREATE SCHEMA " + pgx.Identifier{schema}.Sanitize() + ";\n" + strings.ReplaceAll(string(legacy), "ranking.", pgx.Identifier{schema}.Sanitize()+".")
 	if _, err = pool.Exec(ctx, ddl); err != nil {
 		t.Fatal(err)
 	}
@@ -210,12 +209,11 @@ func newPhase3Fixture(t *testing.T) phase3Fixture {
 	t.Cleanup(pool.Close)
 	suffix := strings.ReplaceAll(uuid.NewString(), "-", "")
 	schema, recovery := "ranking_l19_"+suffix, "recovery_l19_"+suffix
-	legacy, err := os.ReadFile("../../../../../launchpad/spec/production-system/handoffs/L19/phase1/190000_ranking_snapshots.sql")
+	legacy, err := os.ReadFile("../../../../../migrations/190000.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	ddl := strings.ReplaceAll(string(legacy), "ranking.", pgx.Identifier{schema}.Sanitize()+".")
-	ddl = strings.Replace(ddl, "CREATE SCHEMA ranking;", "CREATE SCHEMA "+pgx.Identifier{schema}.Sanitize()+";", 1)
+	ddl := "CREATE SCHEMA " + pgx.Identifier{schema}.Sanitize() + ";\n" + strings.ReplaceAll(string(legacy), "ranking.", pgx.Identifier{schema}.Sanitize()+".")
 	if _, err = pool.Exec(ctx, ddl); err != nil {
 		t.Fatal(err)
 	}

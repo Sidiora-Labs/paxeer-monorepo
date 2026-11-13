@@ -150,7 +150,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_unknown_task_rejects_before_execution(self):
         process = subprocess.run([sys.executable, str(RUNNER_PATH), '--task', '999.999',
-                                  '--spec', 'launchpad/spec/production-system/spec.kvx',
+                                  '--spec', 'spec/layerx-merge/spec.kvx',
                                   '--require-current-source'], capture_output=True, text=True)
         self.assertEqual(process.returncode, 1)
         observed = json.loads(process.stdout)
@@ -439,7 +439,7 @@ sys.exit(int(code))
 
     def test_dispatcher_registry_missing_checker_and_wrong_command_reject(self):
         bundle=self.interface_registry()['tasks']['0.2']['interface_bundle']
-        argv=['python3','tools/launchpad/production/dispatcher/qualification.py','--spec','launchpad/spec/production-system/spec.kvx','--plan','launchpad/spec/production-system/execution-plan.json','--state-dir','{evidence_dir}/dispatcher-state','--evidence-dir','{evidence_dir}/dispatcher','--case','all']
+        argv=['python3','tools/launchpad/production/dispatcher/qualification.py','--spec','spec/layerx-merge/spec.kvx','--plan','tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/execution-plan.json','--state-dir','{evidence_dir}/dispatcher-state','--evidence-dir','{evidence_dir}/dispatcher','--case','all']
         entry={'interface_bundle':bundle,'checks':[{'id':'dispatcher','kind':'dispatcher','target':'scheduler-harness','required':True,'evidence_format':'dispatcher-json','argv':argv,'cwd':'.','timeout_seconds':600}]}
         registry={'schema_version':1,'tasks':{'0.3':entry}}
         with self.assertRaises(runner.QualificationError):runner.validate_registry(registry,'0.3',self.root)
@@ -452,15 +452,15 @@ sys.exit(int(code))
         # This tests the generic acceptance protocol using an isolated real unittest.
         # It does not register or qualify any production feature task.
         dispatcher=Path(os.environ.get('PRODUCTION_DISPATCHER_SOURCE',str(RUNNER_PATH.parent/'dispatcher')))
-        canonical=Path(os.environ.get('PRODUCTION_DISPATCHER_SPEC_ROOT',str(RUNNER_PATH.parents[3])))
+        canonical=Path(os.environ['PRODUCTION_DISPATCHER_SPEC_ROOT'])
         self.assertTrue((dispatcher/'cli.py').is_file(),'actual dispatcher CLI required')
         target=self.root/'coordinator-source';target.mkdir()
-        specdir=target/'launchpad/spec/production-system';specdir.mkdir(parents=True)
-        text=(canonical/'launchpad/spec/production-system/spec.kvx').read_text()
+        specdir=target/'reviewed-documents';specdir.mkdir(parents=True)
+        text=(canonical/'spec.kvx').read_text()
         import importlib.util, re
         fixture_spec=importlib.util.spec_from_file_location('qualification_fixture',dispatcher/'qualification_fixture.py')
         fixture_module=importlib.util.module_from_spec(fixture_spec);fixture_spec.loader.exec_module(fixture_module)
-        plan=json.loads((canonical/'launchpad/spec/production-system/execution-plan.json').read_text())
+        plan=json.loads((canonical/'execution-plan.json').read_text())
         text,plan=fixture_module.normalize_fixture(text,plan)
         specpath=specdir/'spec.kvx';specpath.write_text(text)
         planpath=specdir/'execution-plan.json';planpath.write_text(json.dumps(plan))
@@ -522,7 +522,7 @@ sys.exit(int(code))
         (tools/'qualify.py').write_bytes(RUNNER_PATH.read_bytes())
         (tools/'dispatcher').symlink_to(dispatcher,target_is_directory=True)
         (tools/'bootstrap/check-registry.json').write_text(json.dumps({'schema_version':1,'tasks':{'0.2':{'interface_bundle':bundle},'1.01':entry}}))
-        process=subprocess.run([sys.executable,str(tools/'qualify.py'),'--task','1.01','--spec','launchpad/spec/production-system/spec.kvx','--require-current-source'],capture_output=True,text=True,timeout=30,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
+        process=subprocess.run([sys.executable,str(tools/'qualify.py'),'--task','1.01','--spec','reviewed-documents/spec.kvx','--require-current-source'],capture_output=True,text=True,timeout=30,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
         self.assertEqual(process.returncode,0,process.stdout+process.stderr)
         qualification=json.loads(Path(json.loads(process.stdout)['result']).read_text())
         self.assertTrue(qualification['qualified']);self.assertFalse(qualification['canonical_integrated'])

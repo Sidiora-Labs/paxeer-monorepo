@@ -96,7 +96,7 @@ def test_routing_all_fifty_handoffs_and_foreign_lane_refusal(tmp_path):
     write(base, 'anchor.txt', b'baseline\n')
     for number in range(1, 51):
         lane = f'L{number:02d}'
-        prefix = f'launchpad/spec/production-system/handoffs/{lane}'
+        prefix = f'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/handoffs/{lane}'
         candidate = tmp_path / lane
         shutil.copytree(base, candidate)
         relative = prefix + '/phase1/result.json'
@@ -108,7 +108,7 @@ def test_routing_all_fifty_handoffs_and_foreign_lane_refusal(tmp_path):
         foreign = f'L{number % 50 + 1:02d}'
         with pytest.raises(PatchError, match='outside ownership'):
             build_patch(base, candidate,
-                        [f'launchpad/spec/production-system/handoffs/{foreign}/**'],
+                        [f'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/handoffs/{foreign}/**'],
                         tmp_path / ('foreign-' + lane))
 
 
@@ -117,12 +117,12 @@ FORBIDDEN = (
     'sdk/launchpad/shared/interfaces/v2/contract.go',
     'sdk/launchpad/packages/production-contracts/src/validate.ts',
     'sdk/launchpad/packages/production-contracts/src/types.gen.ts',
-    'launchpad/spec/production-system/integration/contracts/v1/openapi.json',
-    'launchpad/spec/production-system/spec.kvx',
-    'launchpad/spec/production-system/execution-plan.json',
-    'launchpad/spec/production-system/handoffs/L00/result.json',
-    'launchpad/spec/production-system/handoffs/L51/result.json',
-    'launchpad/spec/production-system/handoffs/L1/result.json',
+    'sdk/launchpad/protocol/contracts/v1/chain/abi-catalog.json',
+    'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/spec.kvx',
+    'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/execution-plan.json',
+    'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/handoffs/L00/result.json',
+    'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/handoffs/L51/result.json',
+    'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/handoffs/L1/result.json',
     'sdk/launchpad/packages/sdk/nested/package.json',
     'apps/launchpad/mobile/nested/package.json',
     'sdk/launchpad/packages/sdk-v2/package.json',
@@ -168,7 +168,7 @@ def test_routing_contract_roots_and_unsafe_ownership_remain_reserved(tmp_path):
     for pattern in ('**', '*', '/apps/launchpad/mobile/**',
                     'apps/launchpad/mobile/../mobile/**', 'apps//launchpad/mobile/**',
                     'apps\\launchpad\\mobile\\**',
-                    'launchpad/spec/production-system/handoffs/**'):
+                    'tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/handoffs/**'):
         with pytest.raises(PatchError):
             build_patch(base, candidate, [pattern], tmp_path / 'unsafe')
 
@@ -273,9 +273,9 @@ def test_routing_documented_real_inputs_follow_archive_and_declared_input_policy
     for command in commands:
         assert (REPOSITORY / command).is_file()
         assert command.startswith('tools/launchpad/production/dispatcher/')
-    assert '--spec launchpad/spec/production-system/spec.kvx' in readme
-    assert '--plan launchpad/spec/production-system/execution-plan.json' in readme
-    assert 'Both files are absent from this checkout' in readme
+    assert '--spec "$LAUNCHPAD_SPEC_FILE"' in readme
+    assert '--plan "$LAUNCHPAD_PLAN_FILE"' in readme
+    assert 'Set the shell variables `LAUNCHPAD_SPEC_FILE` and `LAUNCHPAD_PLAN_FILE`' in readme
     assert 'does not qualify a product lane' in readme
     assert 'Local dispatcher fixtures do not exercise network consensus' in readme
     assert '500,000 DAU' in readme

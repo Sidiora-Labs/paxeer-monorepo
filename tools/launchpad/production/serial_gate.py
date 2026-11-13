@@ -86,7 +86,7 @@ def reconcile_serial_patch(stage, artifact, reviewed, patches):
         if set(entry)!={'path','before','after'}:
             raise SerialGateError('invalid serial entry')
         path=patches._path(entry['path'])
-        if patches.ignored(path) or path in CONTROL_PATHS or path in seen or path not in allowed or not (patches._reserved(path) or path.startswith('tools/launchpad/production/') or path.startswith('launchpad/spec/production-system/integration/')):
+        if patches.ignored(path) or path in CONTROL_PATHS or path in seen or path not in allowed or not (patches._reserved(path) or path.startswith('tools/launchpad/production/') or path.startswith('sdk/launchpad/protocol/contracts/')):
             raise SerialGateError('unreviewed serial path')
         seen.add(path)
         if entry['before']!=before.get(path) or entry['before']==entry['after']:

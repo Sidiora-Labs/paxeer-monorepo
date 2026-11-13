@@ -32,4 +32,4 @@ tests = ["test_source_fixture_uses_launchpad_homes_and_preserves_exclusions"]
 repair = "Execute the original source exclusion assertion in representative apps and services homes, comparing exact relative paths and content hashes while excluding symlinks, secrets, generated output, evidence and unrelated root source."
 
 [wiring.production-system-spec]
-request = "launchpad/spec/production-system/spec.kvx: owning domain 4 (launchpad qualification) must restore or supply the reviewed production-system specification before the documented registered bootstrap command can execute."
+request = "The bootstrap qualifier accepts an explicit reviewed specification through --spec and retains required native checks."

@@ -7,7 +7,7 @@ import sys
 
 
 def examples_paths(root):
-    contracts = root / 'launchpad/spec/production-system/integration/contracts/v2/openapi.json'
+    contracts = root / 'sdk/launchpad/protocol/contracts/v2/openapi.json'
     output = root / 'sdk/launchpad/packages/sdk/examples'
     return contracts, output
 
