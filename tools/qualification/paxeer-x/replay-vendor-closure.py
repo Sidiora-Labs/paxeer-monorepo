@@ -10,7 +10,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[3]
 PROGRAMS = ROOT / "programs"
-EVIDENCE = Path("/root/lx-ops/paxeer-x-integration-2026-10-03")
+EVIDENCE = ROOT / "build/qualification/replay-vendor-closure"
 
 
 def registry_packages():
@@ -64,13 +64,14 @@ def main():
     arguments = parser.parse_args()
     environment = dict(os.environ)
     environment["CARGO_BUILD_JOBS"] = "4"
-    environment["CARGO_TARGET_DIR"] = "/root/lx-target/arbiter-prestate/rust"
+    environment["CARGO_TARGET_DIR"] = environment.get("CARGO_TARGET_DIR", str(ROOT / "programs/target"))
     environment["CARGO_NET_OFFLINE"] = "true"
     if arguments.build:
-        command = ["/root/.cargo/bin/cargo", "test", "--locked", "--offline", "--manifest-path", "Cargo.toml", "-p", "layerx-programs-arbiter", "--test", "verified_step", "--no-run"]
+        command = ["cargo", "test", "--locked", "--offline", "--manifest-path", "Cargo.toml", "-p", "layerx-programs-arbiter", "--test", "verified_step", "--no-run"]
         return subprocess.run(command, cwd=PROGRAMS, env=environment, timeout=1100).returncode
+    EVIDENCE.mkdir(mode=0o700, parents=True, exist_ok=True)
     packages = closure()
-    command = ["/root/.cargo/bin/cargo", "metadata", "--locked", "--offline", "--manifest-path", "Cargo.toml", "--format-version", "1"]
+    command = ["cargo", "metadata", "--locked", "--offline", "--manifest-path", "Cargo.toml", "--format-version", "1"]
     with (EVIDENCE / "task-104.35.27-offline-metadata.json").open("w") as output:
         result = subprocess.run(command, cwd=PROGRAMS, env=environment, stdout=output, timeout=540)
     if result.returncode:
