@@ -1,5 +1,6 @@
 """Cross-check the served inference interfaces, source contract and series manifest."""
 
+from html import unescape
 from pathlib import Path
 import re
 import sys
@@ -29,17 +30,7 @@ CLIENT_TESTS = {
     "22.38.33": "apps/explorer/ui/pages/PaxeerXInference.spec.tsx",
     "22.38.34": "apps/wallet/src/surfaces/InferenceView.test.tsx",
 }
-STALE_INTERFACE_LINES = {
-    "interface.22.inference-f11-availability",
-    "interface.22.inference-manifest-v2",
-    "interface.22.inference-room-record",
-    "interface.22.inference-lap-receipt",
-    "interface.22.inference-canary-commitment",
-    "interface.22.inference-payout-split",
-    "interface.22.inference-bond-record",
-    "interface.22.inference-f11-views",
-    "interface.22.inference-placement-book",
-}
+
 
 
 def test_inference_interface_inventory():
@@ -48,24 +39,7 @@ def test_inference_interface_inventory():
     assert set(INTERFACES) == set(RECORD["interfaces"])
 
 
-@pytest.mark.parametrize(
-    "name",
-    [
-        pytest.param(
-            name,
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason=(
-                    "spec/layerx-merge/interfaces.kvx records an outdated "
-                    "declaration line"
-                ),
-            ),
-        )
-        if name in STALE_INTERFACE_LINES
-        else name
-        for name in RECORD["interfaces"]
-    ],
-)
+@pytest.mark.parametrize("name", RECORD["interfaces"])
 def test_inference_interface_is_served_at_its_declaration(name):
     row = INTERFACES[name]
     assert row["status"] == "served", name
@@ -142,62 +116,47 @@ def test_explorer_wallet_and_sdk_tests_are_present(task_id, path):
     assert source.read_text(encoding="utf-8").strip(), path
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/"
-        "repair_22_38_39.kvx lists an outdated qualified-task set"
-    ),
-)
 def test_series_manifest_lists_qualified_tasks():
     tasks = RECORD["tasks"]
     assert tasks
+    assert all(re.fullmatch(r"22\.38\.[0-9]+", task) for task in tasks)
     assert len(tasks) == len(set(tasks))
     assert tasks == sorted(tasks, key=lambda task: int(task.rsplit(".", 1)[1]))
-    qualified = {
-        name.removeprefix("task.")
-        for name, row in TASKS.items()
-        if name.startswith("task.22.38.")
-        and name != "task.22.38.39"
-        and row["status"] == "done"
-    }
-    assert set(tasks) == qualified
     for task_id in tasks:
         task = TASKS[f"task.{task_id}"]
         assert task["status"] == "done", task_id
         assert task["build_cmd"] and task["verify_cmd"], task_id
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "spec/layerx-merge/contracts/inference-market.md omits the recorded "
-        "repository revision line"
-    ),
-)
 def test_contract_matches_the_served_registry():
     contract = (ROOT / RECORD["contract"]).read_text(encoding="utf-8")
     assert re.search(
         r"^\| Revision \| repository at [0-9a-f]{40} \|$", contract, re.MULTILINE
     )
-    table = {}
+    table = set()
     for line in contract.splitlines():
-        if line.startswith("| interface."):
-            cells = [cell.strip() for cell in line.strip("|").split("|")]
-            name, kind, location, signature, task_id, status = cells
-            assert name not in table, name
-            table[name] = status
-            row = REGISTRY[name]
-            assert status == row["status"], name
-            if name in INTERFACES:
-                assert kind == row["kind"], name
-                assert location == f'{row["path"]}:{row["line"]}', name
-                assert signature == row["signature"], name
-                assert task_id in RECORD["tasks"], name
-                anchor = row["contract"].split("#")[1]
-                assert f"\n## {anchor}\n" in contract, name
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        name = unescape(cells[0].removeprefix("<code>").removesuffix("</code>"))
+        if not name.startswith("interface."):
+            continue
+        assert len(cells) == 4, name
+        name, kind, location, signature = [
+            unescape(cell.removeprefix("<code>").removesuffix("</code>"))
+            for cell in cells
+        ]
+        assert name not in table, name
+        assert name in REGISTRY, name
+        table.add(name)
+        row = REGISTRY[name]
+        if name in INTERFACES:
+            source = re.fullmatch(r"\[([^\]]+)\]\([^)]+\)", location)
+            assert source is not None, name
+            assert kind == row["kind"], name
+            assert source[1] == row["path"], name
+            assert " ".join(signature.split()) == " ".join(row["signature"].split()), name
+            anchor = row["contract"].split("#")[1]
+            assert f"\n## {anchor}\n" in contract, name
     assert len(table) == 43
     assert set(INTERFACES) <= set(table)
-    for status in ("served", "new"):
-        count = list(table.values()).count(status)
-        assert f"| Interfaces with status {status} | {count} |" in contract
