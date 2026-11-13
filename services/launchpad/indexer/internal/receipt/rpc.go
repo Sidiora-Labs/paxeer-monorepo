@@ -341,7 +341,11 @@ func (t *boundedRPCTransport) RoundTrip(request *http.Request) (*http.Response, 
 		t.learn(call.Method, encoded)
 	}
 	response.Body = io.NopCloser(bytes.NewReader(encoded))
-	response.ContentLength = int64(len(encoded))
+	lenEncodedInt64, conversionErr := checked.Convert[int64](len(encoded))
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	response.ContentLength = lenEncodedInt64
 	return response, nil
 }
 
@@ -413,10 +417,14 @@ func (t *boundedRPCTransport) exchangeVia(read context.Context, upstream *http.T
 		return nil, nil, err
 	}
 	defer checked.Close(response.Body)
-	if response.ContentLength > int64(limit) {
+	limitInt64, conversionErr := checked.Convert[int64](limit)
+	if conversionErr != nil {
+		return nil, nil, conversionErr
+	}
+	if response.ContentLength > limitInt64 {
 		return nil, nil, fmt.Errorf("receipt RPC response exceeds byte cap: %w", ErrQualification)
 	}
-	encoded, err := io.ReadAll(io.LimitReader(response.Body, int64(limit)+1))
+	encoded, err := io.ReadAll(io.LimitReader(response.Body, limitInt64+1))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -616,7 +624,11 @@ func NewPrivateFixtureRPCQualification(ctx context.Context, client *ethclient.Cl
 			return nil, ErrQualification
 		}
 		block, receipts, err := a.pinnedBlockAt(read, r.BlockHash, 0)
-		if err != nil || r.TransactionIndex >= uint(len(receipts)) || !receiptEqual(r, receipts[r.TransactionIndex]) {
+		lenReceiptsUint, conversionErr := checked.Convert[uint](len(receipts))
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		if err != nil || r.TransactionIndex >= lenReceiptsUint || !receiptEqual(r, receipts[r.TransactionIndex]) {
 			return nil, ErrQualification
 		}
 		tx := block.Transactions[r.TransactionIndex]
@@ -1167,11 +1179,19 @@ func (a *RPCQualification) pinnedReceipts(ctx context.Context, block pinnedBlock
 	totalBytes := 0
 	for i, r := range receipts {
 		t := block.Transactions[i]
-		if r == nil || r.Bloom != types.CreateBloom(r) || r.BlockNumber == nil || r.BlockNumber.Cmp(header.Number) != 0 || r.BlockHash != hash || r.TxHash != t.Hash() || r.TransactionIndex != uint(i) || r.Type != t.Type() || (r.Status != 0 && r.Status != 1) || len(r.Logs) > 4096 {
+		iUint, conversionErr := checked.Convert[uint](i)
+		if conversionErr != nil {
+			return pinnedBlock{}, nil, conversionErr
+		}
+		if r == nil || r.Bloom != types.CreateBloom(r) || r.BlockNumber == nil || r.BlockNumber.Cmp(header.Number) != 0 || r.BlockHash != hash || r.TxHash != t.Hash() || r.TransactionIndex != iUint || r.Type != t.Type() || (r.Status != 0 && r.Status != 1) || len(r.Logs) > 4096 {
 			return pinnedBlock{}, nil, ErrQualification
 		}
 		for _, l := range r.Logs {
-			if l == nil || l.Removed || l.BlockHash != hash || l.BlockNumber != number || l.TxHash != t.Hash() || l.TxIndex != uint(i) || l.Index != logIndex || logIndex > math.MaxUint32 || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes {
+			iUint2, conversionErr := checked.Convert[uint](i)
+			if conversionErr != nil {
+				return pinnedBlock{}, nil, conversionErr
+			}
+			if l == nil || l.Removed || l.BlockHash != hash || l.BlockNumber != number || l.TxHash != t.Hash() || l.TxIndex != iUint2 || l.Index != logIndex || logIndex > math.MaxUint32 || len(l.Topics) > 4 || len(l.Data) > decode.MaxFieldBytes {
 				return pinnedBlock{}, nil, ErrQualification
 			}
 			totalBytes += 256 + len(l.Data) + 32*len(l.Topics)
@@ -1208,7 +1228,11 @@ func (a *RPCQualification) Bundle(ctx context.Context, hash common.Hash) (Bundle
 	if err != nil {
 		return Bundle{}, err
 	}
-	if r.TransactionIndex >= uint(len(receipts)) || !receiptEqual(r, receipts[r.TransactionIndex]) || block.Transactions[r.TransactionIndex].Hash() != hash {
+	lenReceiptsUint2, conversionErr := checked.Convert[uint](len(receipts))
+	if conversionErr != nil {
+		return Bundle{}, conversionErr
+	}
+	if r.TransactionIndex >= lenReceiptsUint2 || !receiptEqual(r, receipts[r.TransactionIndex]) || block.Transactions[r.TransactionIndex].Hash() != hash {
 		return Bundle{}, ErrQualification
 	}
 	b := Bundle{Receipt: receipts[r.TransactionIndex], Transaction: block.Transactions[r.TransactionIndex], Header: block.Header, BlockHash: block.Hash, PrepayReceipts: []*types.Receipt{}}
@@ -1239,7 +1263,11 @@ func (a *RPCQualification) ValidateReceipt(ctx context.Context, b Bundle) error 
 		return ErrQualification
 	}
 	index := b.Receipt.TransactionIndex
-	if index >= uint(len(receipts)) || block.Transactions[index].Hash() != b.Transaction.Hash() || !receiptEqual(receipts[index], b.Receipt) {
+	lenReceiptsUint3, conversionErr := checked.Convert[uint](len(receipts))
+	if conversionErr != nil {
+		return conversionErr
+	}
+	if index >= lenReceiptsUint3 || block.Transactions[index].Hash() != b.Transaction.Hash() || !receiptEqual(receipts[index], b.Receipt) {
 		return ErrQualification
 	}
 	for _, r := range b.PrepayReceipts {
@@ -1250,7 +1278,11 @@ func (a *RPCQualification) ValidateReceipt(ctx context.Context, b Bundle) error 
 		if err != nil {
 			return err
 		}
-		if r.TransactionIndex >= uint(len(prior)) || !receiptEqual(r, prior[r.TransactionIndex]) {
+		lenPriorUint, conversionErr := checked.Convert[uint](len(prior))
+		if conversionErr != nil {
+			return conversionErr
+		}
+		if r.TransactionIndex >= lenPriorUint || !receiptEqual(r, prior[r.TransactionIndex]) {
 			return ErrQualification
 		}
 	}
@@ -1378,7 +1410,11 @@ func (a *RPCQualification) StableMetadata(ctx context.Context, pool common.Addre
 	if err != nil {
 		return out, err
 	}
-	return StablePoolMetadata{Pool: pool, Token: token, Settlement: settlement, TokenDecimals: uint8(new(big.Int).SetBytes(td).Uint64()), SettlementDecimals: 6, DeploymentID: sourceManifest.DeploymentVersion, ABIRevision: revision, EmitterCodeEpoch: emitterEpoch, PoolCodeEpoch: poolEpoch, BlockHash: hash}, nil //nolint:gosec // token decimals are checked to fit eight bits above
+	tdUint64Uint8, conversionErr := checked.Convert[uint8](new(big.Int).SetBytes(td).Uint64())
+	if conversionErr != nil {
+		return StablePoolMetadata{}, conversionErr
+	}
+	return StablePoolMetadata{Pool: pool, Token: token, Settlement: settlement, TokenDecimals: tdUint64Uint8, SettlementDecimals: 6, DeploymentID: sourceManifest.DeploymentVersion, ABIRevision: revision, EmitterCodeEpoch: emitterEpoch, PoolCodeEpoch: poolEpoch, BlockHash: hash}, nil
 }
 func (a *RPCQualification) SourceProvenance(ctx context.Context, b Bundle, address common.Address) (accounting.Provenance, error) {
 	var out accounting.Provenance
@@ -1466,7 +1502,11 @@ func (a *RPCQualification) ExecutionPolicy(ctx context.Context, b Bundle, index 
 		}
 		if env.Family != nil && env.Family.EconomicFill {
 			fills++
-			if uint32(l.Index) == index { //nolint:gosec // EVM log index uses the existing 32-bit record field
+			lIndexUint32, conversionErr := checked.Convert[uint32](l.Index)
+			if conversionErr != nil {
+				return accounting.ExecutionPolicy{}, conversionErr
+			}
+			if lIndexUint32 == index {
 				selected = env
 			}
 		}
@@ -1564,7 +1604,10 @@ func (a *RPCQualification) ExecutionPolicy(ctx context.Context, b Bundle, index 
 	preDigest := accounting.Digest(hex.EncodeToString(preHash[:]))
 	replayDigest := accounting.Digest(hex.EncodeToString(replayHash[:]))
 	zero := strings.ToLower(optical.Hex())
-	bps := uint16(fee)
+	bps, conversionErr := checked.Convert[uint16](fee)
+	if conversionErr != nil {
+		return accounting.ExecutionPolicy{}, conversionErr
+	}
 	return accounting.ExecutionPolicy{Quality: "qualified_execution", FeeBPS: &bps, ConfigDigest: &configDigest, PreTransactionStateDigest: &preDigest, ReplayEvidenceDigest: &replayDigest, OpticalImplementation: &zero, Evidence: []accounting.EvidenceRef{{Kind: "first-transaction-constant-fee-nohook", ArtifactSHA256: string(replayDigest), ArtifactID: strings.ToLower(b.Transaction.Hash().Hex())}}}, nil
 }
 func rawRecord(l *types.Log) store.RawRecord {
@@ -1681,7 +1724,12 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			if pinned, ok := a.reads.takeAhead(ctx, from+uint64(i)); ok { //nolint:gosec // nonnegative count uses the existing unsigned counter field
+			offset, err := checked.Convert[uint64](i)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			if pinned, ok := a.reads.takeAhead(ctx, from+offset); ok {
 				if !pinned.skipped {
 					a.reads.storeBlock(pinned.block.Hash, cachedBlock{pinned.block, pinned.receipts})
 				}
@@ -1697,7 +1745,7 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 			defer func() { <-slots }()
 			read, cancel := context.WithTimeout(ctx, a.options.Timeout)
 			defer cancel()
-			block, receipts, skipped, err := a.pinnedBlockAtHeight(read, from+uint64(i), gate) //nolint:gosec // nonnegative count uses the existing unsigned counter field
+			block, receipts, skipped, err := a.pinnedBlockAtHeight(read, from+offset, gate)
 			if err != nil {
 				errs[i] = err
 				return
@@ -1720,7 +1768,11 @@ func (a *RPCQualification) pinRange(ctx context.Context, from, to uint64, gate b
 func (a *RPCQualification) sourceBlocks(ctx context.Context, from, to uint64) (store.CanonicalBatch, *RPCQualification, error) {
 	a.sourceMu.Lock()
 	defer a.sourceMu.Unlock()
-	b := store.CanonicalBatch{ChainID: 125, PreviousHeight: int64(from) - 1, Blocks: []store.BlockCompleteness{}, Records: []store.RawRecord{}} //nolint:gosec // chain value uses the existing signed storage representation
+	fromInt64, conversionErr := checked.Convert[int64](from)
+	if conversionErr != nil {
+		return store.CanonicalBatch{}, nil, conversionErr
+	}
+	b := store.CanonicalBatch{ChainID: 125, PreviousHeight: fromInt64 - 1, Blocks: []store.BlockCompleteness{}, Records: []store.RawRecord{}}
 	if from < a.options.Manifest.ActivationHeight || to < from || to > math.MaxInt64 || to-from >= 64 {
 		return b, nil, ErrBinding
 	}
@@ -1790,7 +1842,12 @@ func (a *RPCQualification) sourceBlocks(ctx context.Context, from, to uint64) (s
 				}
 			}
 		}
-		b.Blocks = append(b.Blocks, store.BlockCompleteness{Height: int64(height), Hash: strings.ToLower(block.Hash.Hex()), RawCount: count, FetchComplete: true, RequiredDecodeComplete: true}) //nolint:gosec // chain height uses the existing signed completeness field
+		heightInt64, conversionErr := checked.Convert[int64](height)
+		if conversionErr != nil {
+			cancel()
+			return b, nil, conversionErr
+		}
+		b.Blocks = append(b.Blocks, store.BlockCompleteness{Height: heightInt64, Hash: strings.ToLower(block.Hash.Hex()), RawCount: count, FetchComplete: true, RequiredDecodeComplete: true})
 		prior = block.Hash
 		cancel()
 	}
@@ -1853,7 +1910,15 @@ func (a *RPCQualification) QualifiedBatch(ctx context.Context, b store.Canonical
 	if b.ChainID != 125 || len(b.Records) > 65536 || len(b.Blocks) == 0 || len(b.Blocks) > 64 || b.Blocks[0].Height < 0 || b.Blocks[len(b.Blocks)-1].Height < 0 {
 		return nil, ErrBinding
 	}
-	expected, authority, err := a.sourceBlocks(ctx, uint64(b.Blocks[0].Height), uint64(b.Blocks[len(b.Blocks)-1].Height)) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+	firstHeightUint, conversionErr := checked.Convert[uint64](b.Blocks[0].Height)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	lastHeightUint, conversionErr := checked.Convert[uint64](b.Blocks[len(b.Blocks)-1].Height)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	expected, authority, err := a.sourceBlocks(ctx, firstHeightUint, lastHeightUint)
 	if err != nil {
 		return nil, err
 	}
@@ -1867,10 +1932,18 @@ func (a *RPCQualification) QualifiedBatch(ctx context.Context, b store.Canonical
 	}
 	byPosition := map[string]store.RawRecord{}
 	for _, raw := range expected.Records {
-		byPosition[raw.TransactionHash+":"+strconv.FormatUint(uint64(raw.LogIndex), 10)] = raw
+		rawLogIndexUint64, conversionErr := checked.Convert[uint64](raw.LogIndex)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		byPosition[raw.TransactionHash+":"+strconv.FormatUint(rawLogIndexUint64, 10)] = raw
 	}
 	for _, raw := range b.Records {
-		key := raw.TransactionHash + ":" + strconv.FormatUint(uint64(raw.LogIndex), 10)
+		rawLogIndexUint642, conversionErr := checked.Convert[uint64](raw.LogIndex)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		key := raw.TransactionHash + ":" + strconv.FormatUint(rawLogIndexUint642, 10)
 		want, ok := byPosition[key]
 		if !ok {
 			return nil, ErrBinding

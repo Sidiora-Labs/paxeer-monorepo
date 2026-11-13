@@ -52,7 +52,7 @@ def write_json(path, document):
         os.fsync(stream.fileno())
 
 
-def seed_inference_programs_genesis(genesis, accounts, bank_mirror):
+def seed_inference_programs_genesis(genesis, accounts, bank_mirror, mirror_native=False):
     """Install the committed fixture's v1 schedules and fee accounts at genesis."""
     host_account = accounts['host']
     public = bytes.fromhex(host_account['peer_key'])
@@ -116,21 +116,25 @@ def seed_inference_programs_genesis(genesis, accounts, bank_mirror):
     rows.append((b'\x01\x00\x01asset:' + native_asset, native_issuance))
     payers = []
     mains = []
-    for role in ('host', 'peer0', 'peer1', 'asker', 'evidence0', 'evidence1', 'evidence2'):
-        account = accounts[role]
+    for role, account in accounts.items():
         account_main = account['account_name']
         account_main_id = bytes.fromhex(account['main_account'])
         require(account_main_id == account_id(account_main.encode()),
                 'generated main account identifier')
         mains.append((account_main, account_main_id, 1,
-                      400_000_000 if role == 'host' else 100_000_000,
+                      0 if role == 'settler' else 400_000_000 if role == 'host' else 100_000_000,
                       bytes.fromhex(account['peer_key'])))
         name = 'agent:' + account['did'] + ':asset:' + asset.hex()
         payers.append((name, account_id(name.encode()), 14,
-                       500_000_000 if role == 'host' else 125_000_000,
+                       0 if role == 'settler' else 500_000_000 if role == 'host' else 125_000_000,
                        bytes.fromhex(account['peer_key'])))
     for _, identifier, _, balance, _ in payers:
-        bank_mirror(identifier, asset, balance)
+        if balance:
+            bank_mirror(identifier, asset, balance)
+    if mirror_native:
+        for _, identifier, _, balance, _ in mains:
+            if balance:
+                bank_mirror(identifier, native_asset, balance)
 
     for name, identifier, kind, balance, authority in (
             [(treasury_name, treasury_id, 10, 0, None)] + mains + payers):
@@ -160,6 +164,125 @@ def seed_inference_programs_genesis(genesis, accounts, bank_mirror):
             'strictly ascending programs genesis keys')
     host['records'] = [{'key': base64.b64encode(key).decode(),
                         'value': base64.b64encode(value).decode()} for key, value in decoded]
+
+
+def read_market_sections(state):
+    """Read the six bounded sections of a committed market state frame."""
+    require(state[:8] == b'PAXAS1\x00\x01', 'payout state frame schema')
+    at = 16
+    sections = []
+    for index, cap in enumerate((16384, 24576, 24576, 131072, 24576, 24576)):
+        header = state[at:at + 8]
+        require(len(header) == 8 and header[:4] == (index + 1).to_bytes(2, 'big') + b'\x00\x00',
+                'payout state section header')
+        length = int.from_bytes(header[4:], 'big')
+        require(length + 8 + (16 if index == 5 else 0) <= cap,
+                'payout state section capacity')
+        at += 8
+        section = state[at:at + length]
+        require(len(section) == length, 'complete payout state section')
+        sections.append(section)
+        at += length
+    require(at == len(state), 'payout state frame length')
+    return sections
+
+
+def read_lap_settlement(state, deal_id):
+    """Read the native F11 batch and settlement terms from committed control state."""
+    control = read_market_sections(state)[5]
+    require(control[:4] == b'\x00\x01\x00\x00', 'settlement control schema')
+    actors = int.from_bytes(control[4:6], 'big')
+    require(actors <= 43, 'bounded settlement replay actors')
+    at, previous = 6, -1
+    for _ in range(actors):
+        row = control[at:at + 43]
+        require(len(row) == 43, 'complete settlement replay actor')
+        slot = int.from_bytes(row[:2], 'big')
+        require(previous < slot < 43 and any(row[2:34])
+                and int.from_bytes(row[34:42], 'big') > 0 and row[42] in (0, 1),
+                'canonical settlement replay actor')
+        previous = slot
+        at += 43 + 120 * row[42]
+    size = int.from_bytes(control[at:at + 4], 'big')
+    features = control[at + 4:]
+    require(len(control[at:at + 4]) == 4 and size == len(features)
+            and len(features) >= 9, 'complete settlement control features')
+    count = features[8]
+    require(count <= 8, 'bounded settlement evidence seals')
+    at = 9 + count * 185
+    require(features[at:at + 8] == b'LAPSETT1', 'committed lap settlement region')
+    at += 8
+    count = features[at]
+    require(0 < count <= 16, 'bounded committed lap settlements')
+    at += 1
+    previous, found = bytes(32), None
+    for _ in range(count):
+        row = features[at:at + 448]
+        require(len(row) == 448 and row[:32] > previous,
+                'complete ordered lap settlement')
+        previous = row[:32]
+        first = int.from_bytes(row[32:40], 'big')
+        last = int.from_bytes(row[40:48], 'big')
+        require(first <= last < first + 64 and any(row[56:88])
+                and int.from_bytes(row[88:92], 'big') > 0,
+                'canonical settled lap batch')
+        if row[:32].hex() == deal_id:
+            found = {'deal_id': deal_id, 'first_lap_index': str(first),
+                     'last_lap_index': str(last),
+                     'cumulative_tokens': str(int.from_bytes(row[48:56], 'big')),
+                     'batch_digest': row[56:88].hex(),
+                     'countersign_quorum': int.from_bytes(row[88:92], 'big'),
+                     'missing_countersigners': int.from_bytes(row[92:96], 'big'),
+                     'task_set': row[96:128].hex(),
+                     'epoch': int.from_bytes(row[128:136], 'big'),
+                     'config': int.from_bytes(row[136:144], 'big'),
+                     'roster': row[144:176].hex(),
+                     'settled_amount_owed': str(int.from_bytes(row[176:192], 'big'))}
+        at += 448
+    require(found is not None, 'native chain retains the requested lap settlement')
+    return found
+
+
+def read_payout_credits(state):
+    """Read F11 payout credits and frozen recipients from a committed state frame."""
+    sections = read_market_sections(state)
+    rewards = sections[3]
+    dictionary_at = 206
+    rows_at = dictionary_at + 256 * 67
+    epoch_bytes = 174 + 32 * 19
+    payout_bytes = 64 * 99 + 16 * 104
+    row_limit = 33 - (9 + payout_bytes + epoch_bytes - 1) // epoch_bytes
+    region_at = rows_at + row_limit * epoch_bytes
+    require(rewards[region_at:region_at + 9] == b'PAXAI/P1\x00',
+            'committed F11 payout journal')
+    credits = []
+    for index in range(64):
+        at = region_at + 9 + index * 99
+        row = rewards[at:at + 99]
+        require(len(row) == 99, 'complete payout credit')
+        if row == bytes(99):
+            continue
+        slot = int.from_bytes(row[8:10], 'big')
+        require(slot < 256, 'payout recipient dictionary index')
+        at = dictionary_at + slot * 67
+        recipient = rewards[at:at + 67]
+        require(len(recipient) == 67 and recipient[0] == 1
+                and int.from_bytes(recipient[65:67], 'big') > 0,
+                'occupied frozen payout recipient')
+        credit = {'epoch': int.from_bytes(row[:8], 'big'),
+                  'worker': recipient[1:33].hex(), 'recipient': recipient[33:65].hex(),
+                  'amount': int.from_bytes(row[10:26], 'big'),
+                  'paid': int.from_bytes(row[26:42], 'big'),
+                  'last_paid': int.from_bytes(row[42:58], 'big'),
+                  'allocation': row[58:90].hex(), 'expiry': int.from_bytes(row[90:98], 'big'),
+                  'expired': row[98]}
+        require(credit['amount'] > 0 and credit['paid'] <= credit['amount']
+                and credit['expired'] in (0, 1) and credit['expiry'] > 0,
+                'canonical payout credit amounts and expiry')
+        credits.append(credit)
+    require(len({(row['epoch'], row['worker']) for row in credits}) == len(credits),
+            'unique payout credit per worker and epoch')
+    return credits
 
 
 class RootRpc:
@@ -209,6 +332,32 @@ class ChainWriter:
 
     def __init__(self, directory, rpc, wait):
         self.directory, self.rpc, self.wait = Path(directory), rpc, wait
+
+    def ledger_balance(self, account, asset):
+        """Read one asset balance from the owned chain's ledger precompile."""
+        from layerx_sdk.evm_transaction import decode_abi, encode_call
+
+        require(isinstance(account, str) and re.fullmatch('[0-9a-f]{64}', account)
+                and isinstance(asset, str) and re.fullmatch('[0-9a-f]{64}', asset),
+                'canonical ledger balance identifiers')
+        calldata = encode_call('balanceOf', ['bytes32', 'bytes32'],
+                               [bytes.fromhex(account), bytes.fromhex(asset)])
+        result = self.rpc.request('eth_call', [{
+            'to': '0x' + '00' * 18 + '101a', 'data': '0x' + calldata.hex()}, 'latest'])
+        require(isinstance(result, str) and re.fullmatch('0x[0-9a-fA-F]{64}', result),
+                'canonical ledger balance result')
+        balance, = decode_abi(['uint128'], bytes.fromhex(result[2:]))
+        return balance
+
+    def recorded_balance(self, name, account, asset):
+        """Retain the account, asset and balance observed on the owned chain."""
+        require(isinstance(name, str) and re.fullmatch(r'[a-z0-9-]+', name),
+                'chain balance evidence name')
+        path = self.directory / ('balance-' + name + '.json')
+        require(not path.exists(), 'chain balance evidence already exists')
+        value = self.ledger_balance(account, asset)
+        write_json(path, {'account': account, 'asset': asset, 'balance': str(value)})
+        return value
 
     def submit(self, transaction):
         require(isinstance(transaction, str) and re.fullmatch('0x([0-9a-f]{2})+', transaction),
@@ -373,7 +522,8 @@ class RuntimeFixture(ChainWriter):
             genesis = json.loads(genesis_path.read_text())
             genesis['app_state']['staking']['params']['max_voting_power_ratio'] = '1.000000000000000000'
             genesis['app_state']['oracle']['params']['min_valid_per_window'] = '0.000000000000000000'
-            genesis['consensus_params']['timeout']['commit'] = '1000000000'
+            genesis['consensus_params']['timeout']['commit'] = str(
+                self.config.get('block_interval_ns', 1_000_000_000))
             genesis_path.write_text(json.dumps(genesis) + '\n')
             command('add-genesis-account', validator['address'], '1000000000000000000000000uhpx',
                     '--keyring-backend', 'test')
@@ -424,7 +574,8 @@ class RuntimeFixture(ChainWriter):
             mirrors = []
             seed_inference_programs_genesis(
                 genesis, self.config['generated_accounts'],
-                lambda identifier, asset, balance: mirrors.append((identifier, asset, balance)))
+                lambda identifier, asset, balance: mirrors.append((identifier, asset, balance)),
+                mirror_native=self.config.get('mirror_native_balances', False))
             genesis_path.write_text(json.dumps(genesis) + '\n')
             for identifier, asset, balance in mirrors:
                 bank_mirror(identifier, asset, balance)
@@ -466,7 +617,8 @@ class RuntimeFixture(ChainWriter):
             ('rpc', 'laddr'): json.dumps('tcp://127.0.0.1:' + str(self.consensus_port)),
             ('p2p', 'laddr'): json.dumps('tcp://127.0.0.1:' + str(self.config['generated_ports']['p2p'])),
             ('consensus.sequencer', 'enable'): 'true',
-            ('consensus.sequencer', 'timeout-commit'): '"1s"',
+            ('consensus.sequencer', 'timeout-commit'): json.dumps(
+                str(self.config.get('block_interval_ns', 1_000_000_000)) + 'ns'),
         })
         if 'inference_program' in self.config:
             app_path = self.home / 'config/app.toml'
@@ -587,7 +739,7 @@ class RuntimeFixture(ChainWriter):
         retained = self.rpc.request('eth_getBlockByNumber', [before['number'], False])
         require(retained == before, 'merged restart changed a retained committed block')
 
-    def collect_chain_writes(self, first_height=1):
+    def collect_chain_writes(self, first_height=1, record=True):
         """Retain node-produced transactions and receipts, including daemon writes."""
         last = int(self.rpc.request('eth_blockNumber', []), 16)
         require(type(first_height) is int and 0 <= first_height <= last,
@@ -595,8 +747,8 @@ class RuntimeFixture(ChainWriter):
         from layerx_sdk.account_derivation import keccak256
         submitted = {}
         for path in self.directory.glob('write-*.json'):
-            record = json.loads(path.read_text())
-            raw = record['signed_transaction']
+            submitted_record = json.loads(path.read_text())
+            raw = submitted_record['signed_transaction']
             require(isinstance(raw, str) and re.fullmatch('0x([0-9a-f]{2})+', raw),
                     'recorded signed chain transaction')
             reference = '0x' + keccak256(bytes.fromhex(raw[2:])).hex()
@@ -620,8 +772,9 @@ class RuntimeFixture(ChainWriter):
                         'chain evidence transaction inclusion')
                 rows.append({'transaction_hash': reference, 'raw_transaction': raw,
                              'receipt': receipt})
-        write_json(self.directory / 'chain-writes.json',
-                   {'first_height': first_height, 'last_height': last, 'transactions': rows})
+        if record:
+            write_json(self.directory / 'chain-writes.json',
+                       {'first_height': first_height, 'last_height': last, 'transactions': rows})
         return rows
 
     def cleanup(self):

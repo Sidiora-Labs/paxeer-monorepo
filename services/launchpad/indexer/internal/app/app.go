@@ -101,6 +101,10 @@ func (a *App) SourceCapacityProviders() source.CapacityProviders {
 
 // New runs migrations and builds every component for the configured run mode.
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
+	cfgChainIDInt32, conversionErr := checked.Convert[int32](cfg.ChainID)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
 	secretCheck, secretStop, secretErr := cfg.ResolveProductionSecrets(ctx)
 	if secretErr != nil {
 		return nil, secretErr
@@ -202,7 +206,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Decoder:             decode.NewDecoder(),
 		NFT:                 nftReader,
 		EventEmitterAddress: cfg.EventEmitterAddress,
-		ChainID:             int32(cfg.ChainID), //nolint:gosec // configured chain identity uses the existing 32-bit field
+		ChainID:             cfgChainIDInt32,
 		StartBlock:          cfg.IndexerStartBlock,
 		BatchSize:           cfg.IndexerBatchSize,
 		Concurrency:         cfg.IndexerConcurrency,
@@ -409,7 +413,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		var durableHeight atomic.Uint64
-		durableHeight.Store(uint64(watermark)) //nolint:gosec // persisted chain values use the existing unsigned protocol representation
+		watermarkUint64, conversionErr := checked.Convert[uint64](watermark)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		durableHeight.Store(watermarkUint64)
 		deps.Head = &canonicalRuntimeHead{source: history.RPC, store: st, stream: d.CanonicalStreamID, height: &durableHeight}
 		deps.Source = history.RPC
 		sources.Log = history
@@ -624,7 +632,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
 		},
 	})
-	status.Store, status.ChainID, status.Publisher, status.StartTime = st, int32(cfg.ChainID), pub, time.Now() //nolint:gosec // configured chain identity uses the existing 32-bit field
+	status.Store, status.ChainID, status.Publisher, status.StartTime = st, cfgChainIDInt32, pub, time.Now()
 	httpapi.RegisterStatus(router, status)
 
 	if selectionAuthority != nil {
@@ -1149,8 +1157,12 @@ func (h *canonicalRuntimeHead) Head(ctx context.Context) (int64, error) {
 	if durable < 0 {
 		return 0, errors.New("indexer: durable checkpoint must be nonnegative")
 	}
-	h.height.Store(uint64(durable))
-	head, err := h.source.ObserveHead(ctx, uint64(durable))
+	durableUint64, conversionErr := checked.Convert[uint64](durable)
+	if conversionErr != nil {
+		return 0, conversionErr
+	}
+	h.height.Store(durableUint64)
+	head, err := h.source.ObserveHead(ctx, durableUint64)
 	if err != nil {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 		defer cancel()
@@ -1159,13 +1171,17 @@ func (h *canonicalRuntimeHead) Head(ctx context.Context) (int64, error) {
 	if head.Height > ^uint64(0)>>1 {
 		return 0, errors.New("indexer: committed head exceeds durable integer range")
 	}
-	if err = h.store.RetainCommittedHead(ctx, h.stream, int64(head.Height), strings.ToLower(head.Hash.Hex()), head.SourceID); err != nil {
+	headHeightInt64, conversionErr := checked.Convert[int64](head.Height)
+	if conversionErr != nil {
+		return 0, conversionErr
+	}
+	if err = h.store.RetainCommittedHead(ctx, h.stream, headHeightInt64, strings.ToLower(head.Hash.Hex()), head.SourceID); err != nil {
 		return 0, err
 	}
-	if err = h.source.ReportDurableHeight(time.Now().UTC(), uint64(durable)); err != nil {
+	if err = h.source.ReportDurableHeight(time.Now().UTC(), durableUint64); err != nil {
 		return 0, err
 	}
-	return int64(head.Height), nil
+	return headHeightInt64, nil
 }
 func (h *canonicalRuntimeHead) Name() string { return "durable-pinned-committed-rpc" }
 func (h *canonicalRuntimeHead) Close() error { return nil }
@@ -1320,7 +1336,11 @@ func captureArchiveBatch(ctx context.Context, pool *pgxpool.Pool, st *store.Stor
 	if next > durable {
 		return nil
 	}
-	to := next + int64(policy.BatchBlocks) - 1
+	policyBatchBlocksInt64, conversionErr := checked.Convert[int64](policy.BatchBlocks)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	to := next + policyBatchBlocksInt64 - 1
 	if to > durable {
 		to = durable
 	}
@@ -1345,7 +1365,11 @@ func verifyCanonicalRuntimeCheckpoint(ctx context.Context, pool *pgxpool.Pool, p
 	} else if err != nil {
 		return err
 	}
-	original, err := provider.BlockAt(ctx, uint64(height))
+	heightUint64, conversionErr := checked.Convert[uint64](height)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	original, err := provider.BlockAt(ctx, heightUint64)
 	if err != nil {
 		return err
 	}
