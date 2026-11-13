@@ -21730,3 +21730,23 @@ fix = "The build command of a task whose verification runs make paxeer-manifest-
 title = "The check of the paths asks for a change under every path of a task"
 symptom = "The spec tool closes a task only when each path of the task holds a change of the task. A task that brings readers to present names and lists a directory where no reference is stale cannot close. The file services/platform/ramps/toolkit/tests/native_payment_settlement.rs holds three file names with an earlier record name; they are names of files that the test writes into a copy of the tree, not paths of renamed files."
 fix = "The paths of a task that brings readers to present names list only directories where the search finds a stale reference. Where the task finds none under a path, the path leaves the list. The paths of task 22.43.253 leave out services/platform/ramps."
+
+[gotcha.4382]
+title = "The target human-test runs the tests of every member of the workspace of the human services"
+symptom = "The target human-test of the Makefile runs its prerequisite targets, exports the variables PAXD and LAYERX_TEST_NATIVE_BIN_DIR and then runs cargo test over every member of services/human/Cargo.toml. A task whose verification runs that target and whose paths hold only some members cannot bring a test of another member in line. A hand run of cargo test without the prerequisite targets and the two variables reports tests that the target itself passes."
+fix = "The paths of a task whose verification runs make human-test hold services/human/crates. A hand run of the tests builds the prerequisite targets first and sets the same two variables as the Makefile. The paths of task 22.39.499 hold the directory."
+
+[gotcha.4383]
+title = "The target paxeer-manifest-lint runs forge fmt before its Rust and Go checks"
+symptom = "The first lines of the target paxeer-manifest-lint of the Makefile run forge fmt with the check option over the contracts of the repository and of tools/benchmark/loadtest/contracts/evm. The target paxeer-tools-install installs the Go lint program only."
+fix = "The build command of a task whose verification runs make paxeer-manifest-lint starts with forge --version, so that a missing contract tool shows in the build and not in the verification. The build command of task 22.39.511 does."
+
+[gotcha.4384]
+title = "Record files moved after the readers of their directory were brought to present paths"
+symptom = "Task 22.43.239 moved the record files of tools/qualification/audit_repairs under spec/layerx-merge/programme/records. Eighteen test files of that directory read a record by the earlier path. One test under tools/qualification/paxeer-x/tests, two patterns of tools/paxeer-x/retired_callers.json with the lines of its test, one list entry of tests/bridge/retired/test_retired_checkpoint_settlement.py and one line of .gitignore name a file or a directory by a path from before a rename."
+fix = "Task 22.43.258 brings these readers to the present paths. A search for stale references runs once more after the last task that moves files."
+
+[gotcha.4385]
+title = "The notice page of a fixture directory with key material is one line"
+symptom = "The test tests/ci/test_key_material_only_in_fixtures.py reads the page README.md of every fixture directory that the section package.metadata.test-fixtures of four manifests names. It accepts a page of one line that holds the words generated test data and no production use. Five such pages hold a heading and a paragraph."
+fix = "Task 22.43.259 brings the five pages to the one-line form. A task that rewrites pages leaves the notice page of a fixture directory with key material in that form."
