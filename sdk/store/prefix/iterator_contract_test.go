@@ -14,7 +14,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 )
 
-func repairM639MemoryStore(t *testing.T) *mem.Store {
+func prefixIteratorMemoryStore(t *testing.T) *mem.Store {
 	t.Helper()
 	root := mem.NewStore()
 	t.Cleanup(func() {
@@ -25,7 +25,7 @@ func repairM639MemoryStore(t *testing.T) *mem.Store {
 	return root
 }
 
-func repairM639Close(t *testing.T, iter types.Iterator) {
+func registerPrefixIteratorCleanup(t *testing.T, iter types.Iterator) {
 	t.Helper()
 	t.Cleanup(func() {
 		if err := iter.Close(); err != nil {
@@ -34,7 +34,7 @@ func repairM639Close(t *testing.T, iter types.Iterator) {
 	})
 }
 
-func repairM639InvalidGuards(t *testing.T, iter types.Iterator) {
+func assertInvalidPrefixIteratorGuards(t *testing.T, iter types.Iterator) {
 	t.Helper()
 	if iter.Valid() {
 		t.Fatal("expected an invalid iterator")
@@ -58,7 +58,7 @@ func repairM639InvalidGuards(t *testing.T, iter types.Iterator) {
 	}
 }
 
-func TestRepairM_639_EmptyRanges(t *testing.T) {
+func TestPrefixIteratorEmptyRanges(t *testing.T) {
 	for _, reverse := range []bool{false, true} {
 		for _, tc := range []struct {
 			name       string
@@ -77,7 +77,7 @@ func TestRepairM_639_EmptyRanges(t *testing.T) {
 				direction = "reverse/"
 			}
 			t.Run(direction+tc.name, func(t *testing.T) {
-				root := repairM639MemoryStore(t)
+				root := prefixIteratorMemoryStore(t)
 				outer := NewStore(root, []byte("root/"))
 				if tc.seed {
 					outer.Set([]byte("tenant/a"), []byte("value:a"))
@@ -90,20 +90,20 @@ func TestRepairM_639_EmptyRanges(t *testing.T) {
 				} else {
 					iter = store.Iterator(tc.start, tc.end)
 				}
-				repairM639Close(t, iter)
+				registerPrefixIteratorCleanup(t, iter)
 				if iter.Valid() {
 					t.Fatal("empty scan returned a key")
 				}
 				if err := iter.Error(); err != nil {
 					t.Fatalf("empty scan reported a storage error: %v", err)
 				}
-				repairM639InvalidGuards(t, iter)
+				assertInvalidPrefixIteratorGuards(t, iter)
 			})
 		}
 	}
 }
 
-func TestRepairM_639_Traversal(t *testing.T) {
+func TestPrefixIteratorTraversal(t *testing.T) {
 	for _, reverse := range []bool{false, true} {
 		for _, tc := range []struct {
 			name   string
@@ -118,7 +118,7 @@ func TestRepairM_639_Traversal(t *testing.T) {
 				direction = "reverse/"
 			}
 			t.Run(direction+tc.name, func(t *testing.T) {
-				root := repairM639MemoryStore(t)
+				root := prefixIteratorMemoryStore(t)
 				root.Set([]byte("q/sibling"), []byte("before"))
 				root.Set([]byte("s/sibling"), []byte("after"))
 				store := NewStore(NewStore(root, []byte("root/")), tc.prefix)
@@ -133,7 +133,7 @@ func TestRepairM_639_Traversal(t *testing.T) {
 				} else {
 					iter = store.Iterator(nil, nil)
 				}
-				repairM639Close(t, iter)
+				registerPrefixIteratorCleanup(t, iter)
 				start, end := iter.Domain()
 				if start != nil || end != nil {
 					t.Fatalf("relative domain = [%q, %q), want [nil, nil)", start, end)
@@ -158,20 +158,20 @@ func TestRepairM_639_Traversal(t *testing.T) {
 				if err := iter.Error(); err != nil {
 					t.Fatalf("normal exhaustion reported a storage error: %v", err)
 				}
-				repairM639InvalidGuards(t, iter)
+				assertInvalidPrefixIteratorGuards(t, iter)
 			})
 		}
 	}
 }
 
-func TestRepairM_639_PrefixBoundary(t *testing.T) {
+func TestPrefixIteratorPrefixBoundary(t *testing.T) {
 	for _, reverse := range []bool{false, true} {
 		name := "forward"
 		if reverse {
 			name = "reverse"
 		}
 		t.Run(name, func(t *testing.T) {
-			root := repairM639MemoryStore(t)
+			root := prefixIteratorMemoryStore(t)
 			for _, key := range []string{"tenant-previous", "tenant/a", "tenant/b", "tenant0-next"} {
 				root.Set([]byte(key), []byte("value:"+key))
 			}
@@ -186,7 +186,7 @@ func TestRepairM_639_PrefixBoundary(t *testing.T) {
 			} else {
 				parent = root.Iterator(p, nil)
 			}
-			repairM639Close(t, parent)
+			registerPrefixIteratorCleanup(t, parent)
 			iter := newPrefixIterator(p, nil, nil, parent)
 			for _, key := range want {
 				if !iter.Valid() || string(iter.Key()) != key || string(iter.Value()) != "value:tenant/"+key {
@@ -203,12 +203,12 @@ func TestRepairM_639_PrefixBoundary(t *testing.T) {
 			if err := iter.Error(); err != nil {
 				t.Fatalf("prefix boundary reported a storage error: %v", err)
 			}
-			repairM639InvalidGuards(t, iter)
+			assertInvalidPrefixIteratorGuards(t, iter)
 		})
 	}
 }
 
-func TestRepairM_639_BackendFailure(t *testing.T) {
+func TestPrefixIteratorBackendFailure(t *testing.T) {
 	db, err := dbm.NewGoLevelDB("prefix-error", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -231,7 +231,7 @@ func TestRepairM_639_BackendFailure(t *testing.T) {
 			} else {
 				iter = store.Iterator(nil, nil)
 			}
-			repairM639Close(t, iter)
+			registerPrefixIteratorCleanup(t, iter)
 			if iter.Valid() {
 				t.Fatal("closed backend returned a valid iterator")
 			}
@@ -242,7 +242,7 @@ func TestRepairM_639_BackendFailure(t *testing.T) {
 			if got := iter.Error(); got != backingError {
 				t.Fatalf("wrapper error = %v, want original backend error %v", got, backingError)
 			}
-			repairM639InvalidGuards(t, iter)
+			assertInvalidPrefixIteratorGuards(t, iter)
 			if got := iter.Error(); got != backingError {
 				t.Fatalf("positional guards changed backend error to %v", got)
 			}

@@ -11,25 +11,25 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM635Cache(parent types.KVStore) *cachekv.Store {
+func iteratorErrorCache(parent types.KVStore) *cachekv.Store {
 	return cachekv.NewStore(parent, types.NewKVStoreKey("repair-m635"), types.DefaultCacheSizeLimit)
 }
 
-func repairM635Memory(t *testing.T) types.KVStore {
+func iteratorErrorMemory(t *testing.T) types.KVStore {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	return dbadapter.Store{DB: db}
 }
 
-func repairM635Iterator(store types.KVStore, reverse bool, start, end []byte) types.Iterator {
+func newCacheErrorIterator(store types.KVStore, reverse bool, start, end []byte) types.Iterator {
 	if reverse {
 		return store.ReverseIterator(start, end)
 	}
 	return store.Iterator(start, end)
 }
 
-func repairM635InvalidPosition(t *testing.T, iter types.Iterator) {
+func assertInvalidCacheIteratorPosition(t *testing.T, iter types.Iterator) {
 	t.Helper()
 	require.False(t, iter.Valid())
 	for _, operation := range []struct {
@@ -47,7 +47,7 @@ func repairM635InvalidPosition(t *testing.T, iter types.Iterator) {
 	require.False(t, iter.Valid())
 }
 
-func TestRepairM_635_Empty(t *testing.T) {
+func TestCacheIteratorEmpty(t *testing.T) {
 	for _, reverse := range []bool{false, true} {
 		for _, scenario := range []string{"empty", "deleted-parent", "cache-tombstone", "outside-domain"} {
 			name := "forward/" + scenario
@@ -55,8 +55,8 @@ func TestRepairM_635_Empty(t *testing.T) {
 				name = "reverse/" + scenario
 			}
 			t.Run(name, func(t *testing.T) {
-				parent := repairM635Memory(t)
-				store := repairM635Cache(parent)
+				parent := iteratorErrorMemory(t)
+				store := iteratorErrorCache(parent)
 				switch scenario {
 				case "deleted-parent":
 					parent.Set([]byte("b"), []byte("parent-b"))
@@ -67,10 +67,10 @@ func TestRepairM_635_Empty(t *testing.T) {
 					parent.Set([]byte("a"), []byte("parent-a"))
 					store.Set([]byte("z"), []byte("cache-z"))
 				}
-				iter := repairM635Iterator(repairM635Cache(store), reverse, []byte("b"), []byte("f"))
+				iter := newCacheErrorIterator(iteratorErrorCache(store), reverse, []byte("b"), []byte("f"))
 				t.Cleanup(func() { require.NoError(t, iter.Close()) })
 				require.NoError(t, iter.Error())
-				repairM635InvalidPosition(t, iter)
+				assertInvalidCacheIteratorPosition(t, iter)
 				require.NoError(t, iter.Error())
 				require.NoError(t, iter.Error())
 			})
@@ -78,7 +78,7 @@ func TestRepairM_635_Empty(t *testing.T) {
 	}
 }
 
-func TestRepairM_635_Exhausted(t *testing.T) {
+func TestCacheIteratorExhausted(t *testing.T) {
 	for _, reverse := range []bool{false, true} {
 		for _, bounded := range []bool{false, true} {
 			name := "forward"
@@ -91,11 +91,11 @@ func TestRepairM_635_Exhausted(t *testing.T) {
 				name += "/unbounded"
 			}
 			t.Run(name, func(t *testing.T) {
-				parent := repairM635Memory(t)
+				parent := iteratorErrorMemory(t)
 				for _, key := range []string{"a", "b", "d", "g"} {
 					parent.Set([]byte(key), []byte("parent-"+key))
 				}
-				store := repairM635Cache(parent)
+				store := iteratorErrorCache(parent)
 				store.Set([]byte("b"), []byte("cache-b"))
 				store.Set([]byte("c"), []byte("cache-c"))
 				store.Set([]byte("z"), []byte("cache-z"))
@@ -112,7 +112,7 @@ func TestRepairM_635_Exhausted(t *testing.T) {
 						want[i], want[j] = want[j], want[i]
 					}
 				}
-				iter := repairM635Iterator(repairM635Cache(store), reverse, start, end)
+				iter := newCacheErrorIterator(iteratorErrorCache(store), reverse, start, end)
 				t.Cleanup(func() { require.NoError(t, iter.Close()) })
 				gotStart, gotEnd := iter.Domain()
 				require.Equal(t, start, gotStart)
@@ -127,14 +127,14 @@ func TestRepairM_635_Exhausted(t *testing.T) {
 				}
 				require.Equal(t, want, got)
 				require.NoError(t, iter.Error())
-				repairM635InvalidPosition(t, iter)
+				assertInvalidCacheIteratorPosition(t, iter)
 				require.NoError(t, iter.Error())
 			})
 		}
 	}
 }
 
-func repairM635ClosedBackend(t *testing.T) types.KVStore {
+func iteratorErrorClosedBackend(t *testing.T) types.KVStore {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("repair-m635", t.TempDir())
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func repairM635ClosedBackend(t *testing.T) types.KVStore {
 	return dbadapter.Store{DB: db}
 }
 
-func TestRepairM_635_FailingBackend(t *testing.T) {
+func TestCacheIteratorFailingBackend(t *testing.T) {
 	for _, reverse := range []bool{false, true} {
 		for _, side := range []string{"parent", "cache"} {
 			for _, populated := range []bool{false, true} {
@@ -157,15 +157,15 @@ func TestRepairM_635_FailingBackend(t *testing.T) {
 					name += "/invalid-wrapper"
 				}
 				t.Run(name, func(t *testing.T) {
-					failed := repairM635Iterator(repairM635ClosedBackend(t), reverse, nil, nil)
+					failed := newCacheErrorIterator(iteratorErrorClosedBackend(t), reverse, nil, nil)
 					require.False(t, failed.Valid())
 					backendErr := failed.Error()
 					require.ErrorIs(t, backendErr, leveldb.ErrClosed)
-					healthyStore := repairM635Cache(repairM635Memory(t))
+					healthyStore := iteratorErrorCache(iteratorErrorMemory(t))
 					if populated {
 						healthyStore.Set([]byte("b"), []byte("cache-b"))
 					}
-					healthy := repairM635Iterator(healthyStore, reverse, nil, nil)
+					healthy := newCacheErrorIterator(healthyStore, reverse, nil, nil)
 					parent, cache := failed, healthy
 					if side == "cache" {
 						parent, cache = healthy, failed
@@ -185,7 +185,7 @@ func TestRepairM_635_FailingBackend(t *testing.T) {
 						require.Empty(t, got)
 					}
 					require.Same(t, backendErr, iter.Error())
-					repairM635InvalidPosition(t, iter)
+					assertInvalidCacheIteratorPosition(t, iter)
 					require.Same(t, backendErr, iter.Error())
 				})
 			}
@@ -193,18 +193,18 @@ func TestRepairM_635_FailingBackend(t *testing.T) {
 	}
 }
 
-func TestRepairM_635_StoreBackendError(t *testing.T) {
+func TestCacheIteratorStoreBackendError(t *testing.T) {
 	for _, reverse := range []bool{false, true} {
 		name := "forward"
 		if reverse {
 			name = "reverse"
 		}
 		t.Run(name, func(t *testing.T) {
-			store := repairM635Cache(repairM635ClosedBackend(t))
+			store := iteratorErrorCache(iteratorErrorClosedBackend(t))
 			store.Set([]byte("b"), []byte("inner-b"))
-			outer := repairM635Cache(store)
+			outer := iteratorErrorCache(store)
 			outer.Set([]byte("c"), []byte("outer-c"))
-			iter := repairM635Iterator(outer, reverse, nil, nil)
+			iter := newCacheErrorIterator(outer, reverse, nil, nil)
 			t.Cleanup(func() { require.NoError(t, iter.Close()) })
 			require.ErrorIs(t, iter.Error(), leveldb.ErrClosed)
 			var got []string
@@ -218,7 +218,7 @@ func TestRepairM_635_StoreBackendError(t *testing.T) {
 			}
 			require.Equal(t, want, got)
 			require.ErrorIs(t, iter.Error(), leveldb.ErrClosed)
-			repairM635InvalidPosition(t, iter)
+			assertInvalidCacheIteratorPosition(t, iter)
 		})
 	}
 }

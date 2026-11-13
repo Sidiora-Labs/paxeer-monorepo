@@ -13,7 +13,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM643Stores(t *testing.T) (storetypes.CacheMultiStore, basecachemulti.Store, []storetypes.StoreKey, map[storetypes.StoreKey]storetypes.KVStore) {
+func policyCacheStores(t *testing.T) (storetypes.CacheMultiStore, basecachemulti.Store, []storetypes.StoreKey, map[storetypes.StoreKey]storetypes.KVStore) {
 	t.Helper()
 	keys := []storetypes.StoreKey{storetypes.NewKVStoreKey("allowed"), storetypes.NewKVStoreKey("denied")}
 	parents := make(map[storetypes.StoreKey]storetypes.CacheWrapper)
@@ -35,7 +35,7 @@ func repairM643Stores(t *testing.T) (storetypes.CacheMultiStore, basecachemulti.
 	return cachemulti.NewStore(raw, map[string][]string{keys[0].Name(): {"ok/"}}), raw, keys, backing
 }
 
-func repairM643CheckWrites(t *testing.T, s storetypes.KVStore, allowed bool) {
+func assertPolicyWrites(t *testing.T, s storetypes.KVStore, allowed bool) {
 	t.Helper()
 	require.Equal(t, []byte("original"), s.Get([]byte("forbidden/existing")))
 	require.PanicsWithValue(t, "Setting disallowed key forbidden/new in whitelisted KV store", func() {
@@ -63,11 +63,11 @@ func repairM643CheckWrites(t *testing.T, s storetypes.KVStore, allowed bool) {
 	}
 }
 
-func TestRepairM_643_Accessors(t *testing.T) {
+func TestWhitelistAccessors(t *testing.T) {
 	for _, accessor := range []string{"GetKVStore", "GetStore"} {
 		for _, eager := range []bool{false, true} {
 			t.Run(accessor+map[bool]string{false: "/lazy", true: "/materialized"}[eager], func(t *testing.T) {
-				cms, raw, keys, backing := repairM643Stores(t)
+				cms, raw, keys, backing := policyCacheStores(t)
 				for i, key := range keys {
 					if eager {
 						raw.GetKVStore(key)
@@ -78,7 +78,7 @@ func TestRepairM_643_Accessors(t *testing.T) {
 					} else {
 						s = cms.GetKVStore(key)
 					}
-					repairM643CheckWrites(t, s, i == 0)
+					assertPolicyWrites(t, s, i == 0)
 				}
 				cms.Write()
 				require.Equal(t, []byte("permitted"), backing[keys[0]].Get([]byte("ok/new")))
@@ -92,10 +92,10 @@ func TestRepairM_643_Accessors(t *testing.T) {
 	}
 }
 
-func TestRepairM_643_SetKVStores(t *testing.T) {
+func TestWhitelistSetKVStores(t *testing.T) {
 	for _, eager := range []bool{false, true} {
 		t.Run(map[bool]string{false: "lazy", true: "materialized"}[eager], func(t *testing.T) {
-			cms, raw, keys, _ := repairM643Stores(t)
+			cms, raw, keys, _ := policyCacheStores(t)
 			if eager {
 				for _, key := range keys {
 					raw.GetKVStore(key)
@@ -105,7 +105,7 @@ func TestRepairM_643_SetKVStores(t *testing.T) {
 			calls := make(map[storetypes.StoreKey]int)
 			transformed := cms.SetKVStores(func(key storetypes.StoreKey, s storetypes.KVStore) storetypes.CacheWrap {
 				calls[key]++
-				repairM643CheckWrites(t, s, key == keys[0])
+				assertPolicyWrites(t, s, key == keys[0])
 				db := dbm.NewMemDB()
 				t.Cleanup(func() { require.NoError(t, db.Close()) })
 				replacement := dbadapter.Store{DB: db}
@@ -116,10 +116,10 @@ func TestRepairM_643_SetKVStores(t *testing.T) {
 			})
 			for i, key := range keys {
 				require.Equal(t, 1, calls[key])
-				repairM643CheckWrites(t, transformed.GetStore(key).(storetypes.KVStore), i == 0)
-				repairM643CheckWrites(t, cms.GetKVStore(key), i == 0)
+				assertPolicyWrites(t, transformed.GetStore(key).(storetypes.KVStore), i == 0)
+				assertPolicyWrites(t, cms.GetKVStore(key), i == 0)
 				// The replacement installed in the real parent must itself retain the policy.
-				repairM643CheckWrites(t, raw.GetKVStore(key), i == 0)
+				assertPolicyWrites(t, raw.GetKVStore(key), i == 0)
 			}
 			transformed.(storetypes.CacheMultiStore).Write()
 			require.Equal(t, []byte("permitted"), replacements[keys[0]].Get([]byte("ok/new")))
@@ -132,7 +132,7 @@ func TestRepairM_643_SetKVStores(t *testing.T) {
 	}
 }
 
-func TestRepairM_643_BranchesAndTransformations(t *testing.T) {
+func TestWhitelistBranchesAndTransformations(t *testing.T) {
 	transforms := []struct {
 		name   string
 		apply  func(storetypes.CacheMultiStore, *bytes.Buffer) storetypes.CacheMultiStore
@@ -156,15 +156,15 @@ func TestRepairM_643_BranchesAndTransformations(t *testing.T) {
 	}
 	for _, transform := range transforms {
 		t.Run(transform.name, func(t *testing.T) {
-			cms, _, keys, backing := repairM643Stores(t)
+			cms, _, keys, backing := policyCacheStores(t)
 			var trace bytes.Buffer
 			transformed := transform.apply(cms, &trace)
 			if transform.name == "SetTracer" {
 				require.True(t, transformed.TracingEnabled())
 			}
 			for i, key := range keys {
-				repairM643CheckWrites(t, transformed.GetKVStore(key), i == 0)
-				repairM643CheckWrites(t, transformed.GetStore(key).(storetypes.KVStore), i == 0)
+				assertPolicyWrites(t, transformed.GetKVStore(key), i == 0)
+				assertPolicyWrites(t, transformed.GetStore(key).(storetypes.KVStore), i == 0)
 			}
 			transformed.Write()
 			if transform.branch {
@@ -183,8 +183,8 @@ func TestRepairM_643_BranchesAndTransformations(t *testing.T) {
 	}
 }
 
-func TestRepairM_643_UnsupportedBranches(t *testing.T) {
-	cms, _, keys, _ := repairM643Stores(t)
+func TestWhitelistUnsupportedBranches(t *testing.T) {
+	cms, _, keys, _ := policyCacheStores(t)
 	require.PanicsWithValue(t, "cannot branch cached multi-store with a version", func() { cms.CacheMultiStoreWithVersion(3) })
 	branch, err := cms.CacheMultiStoreForExport(3)
 	require.Nil(t, branch)
@@ -192,5 +192,5 @@ func TestRepairM_643_UnsupportedBranches(t *testing.T) {
 	unknown := storetypes.NewKVStoreKey("unknown")
 	require.Panics(t, func() { cms.GetStore(unknown) })
 	require.Panics(t, func() { cms.GetKVStore(unknown) })
-	repairM643CheckWrites(t, cms.GetKVStore(keys[0]), true)
+	assertPolicyWrites(t, cms.GetKVStore(keys[0]), true)
 }

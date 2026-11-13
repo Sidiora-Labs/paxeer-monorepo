@@ -10,7 +10,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 )
 
-func TestRepair_291_EnumerationKeyspace(t *testing.T) {
+func TestPrefixEnumerationKeyspace(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		prefixes [][]byte
@@ -88,7 +88,7 @@ func TestRepair_291_EnumerationKeyspace(t *testing.T) {
 	}
 }
 
-func TestRepair_291_CacheDeleteAllWrite(t *testing.T) {
+func TestPrefixCacheDeleteAllWrite(t *testing.T) {
 	for _, nested := range []bool{false, true} {
 		name := "flat"
 		if nested {

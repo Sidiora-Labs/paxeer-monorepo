@@ -11,7 +11,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepair_290_RemovedVersion(t *testing.T) {
+func TestValidationRemovedVersion(t *testing.T) {
 	for _, ascending := range []bool{true, false} {
 		for _, parentValue := range [][]byte{nil, []byte("parent"), {}} {
 			name := "forward"
@@ -140,7 +140,7 @@ func TestRepair_290_RemovedVersion(t *testing.T) {
 	}
 }
 
-func TestRepair_290_VisibleVersionPrecedence(t *testing.T) {
+func TestValidationVisibleVersionPrecedence(t *testing.T) {
 	parent := dbadapter.Store{DB: dbm.NewMemDB()}
 	parent.Set([]byte("key"), []byte("parent"))
 	store := NewMultiVersionStore(parent)
