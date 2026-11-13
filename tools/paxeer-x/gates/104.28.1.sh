@@ -15,7 +15,7 @@ import sys
 ROOT = Path.cwd()
 SRC = ROOT / 'programs/crates/layerx-programs-runtime/src'
 TESTS = ROOT / 'programs/crates/layerx-programs-runtime/tests'
-CARGO = os.environ.get('PROGRAMS_CARGO', '/root/.cargo/bin/cargo')
+CARGO = os.environ.get('PROGRAMS_CARGO', 'cargo')
 EXTERNAL_ARTIFACT_SUITES = {'interpreter_program', 'program_spend_composition'}
 UNITS = {
     'abi/mod.rs': [r'^pub struct Abi \{', r'^pub struct AbiEffects \{', r'^pub struct AbiCommit \{',
@@ -84,7 +84,7 @@ try:
     count += 1
     run(['tests/programs/check-abi-drift.sh'], 'frozen ABI drift check')
     count += 1
-    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/task-104.28.1'))
+    env = dict(os.environ, CARGO_TARGET_DIR=os.environ.get('CARGO_TARGET_DIR') or str(ROOT / 'programs/target'))
     base = [CARGO, 'test', '--locked', '--manifest-path', 'programs/Cargo.toml', '-p', 'layerx-programs-runtime']
     output = run(base + ['--lib', '--', 'abi::', 'host::'], 'abi and host unit suites', env)
     ran = re.findall(r'^test (\S+) \.\.\. ok$', output, re.M)
