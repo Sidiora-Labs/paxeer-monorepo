@@ -12,7 +12,7 @@ from test_pnpm_workspace_roots import expand_matrix, matrix_rows, run_directory
 ROOT = Path(__file__).resolve().parents[2]
 WALLET = ROOT / "apps/wallet"
 SOURCE = WALLET / "src"
-ACCOUNT_SUITE = SOURCE / "account/test/repair-22-33-162.test.ts"
+ACCOUNT_SUITE = SOURCE / "account/test/endpoint-wire-contract.test.ts"
 ACCOUNT_RECORD = ACCOUNT_SUITE.with_name("repair-22-33-162.kvx")
 
 
