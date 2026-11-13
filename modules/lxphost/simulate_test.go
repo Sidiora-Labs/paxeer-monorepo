@@ -175,7 +175,7 @@ func TestSimulateMatchesExecuteReceipt(t *testing.T) {
 			name = "bound_unsigned_funded_guest"
 		}
 		t.Run(name, func(t *testing.T) {
-			f := repairM909Funded(t)
+			f := simulationRecoveryFunded(t)
 			if bound {
 				f.call.Signature = nil
 				f.authority.Bound = true
