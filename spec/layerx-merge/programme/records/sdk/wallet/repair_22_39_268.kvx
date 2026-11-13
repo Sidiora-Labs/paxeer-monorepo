@@ -12,7 +12,7 @@ qualification = "The private gate ledger records the exact candidate revision, c
 qualification_ledger = "/out/run/gates.jsonl"
 build_gate = "hf-build"
 verify_gate = "hf-done"
-verify_command = "test -s sdk/wallet/repair_22_39_268.kvx && pnpm --dir services/wallet/gateway run test && bash -n scripts/wallet/check-live.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path sdk/wallet --path services/wallet/gateway --path services/wallet/demo --path services/wallet/deploy --path scripts/wallet --path sdk/platform"
+verify_command = "test -s spec/layerx-merge/programme/records/sdk/wallet/repair_22_39_268.kvx && pnpm --dir services/wallet/gateway run test && bash -n scripts/wallet/check-live.sh && python3 tools/paxeer-x/tests/retired_callers_test.py --path sdk/wallet --path services/wallet/gateway --path services/wallet/demo --path services/wallet/deploy --path scripts/wallet --path sdk/platform"
 
 [finding.1]
 path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java"

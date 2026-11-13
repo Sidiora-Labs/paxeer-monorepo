@@ -163,33 +163,33 @@ producer = "sdk/wallet/src/receipt.ts:47; sdk/wallet/src/receipt.ts:327; sdk/wal
 correction = "Use unchanged producer recordings and one transaction across polling rungs, serve governed keys and raw transaction without advancing receipt polls, assert authentication metadata and exact exchanges, and preserve all strict malformed-field checks at the producer validation boundary."
 
 [case.27]
-file = "sdk/wallet/test/repair-22-31-238.test.ts"
+file = "sdk/wallet/test/receipt-authentication-session-binding.test.ts"
 name = "receipt_fields_lost_preserves_complete_node_views"
 producer = "sdk/wallet/src/receipt.ts:417; sdk/wallet/src/endpoint.ts:81; rpc/server.go"
 correction = "Authenticate complete node views with pins and raw transactions, retain every tamper check and lossless uint64 boundary, use the node root for moved px reads, and assert hosted configuration only for hosted writes."
 
 [case.28]
-file = "sdk/wallet/test/repair-22-31-238.test.ts"
+file = "sdk/wallet/test/receipt-authentication-session-binding.test.ts"
 name = "receipt_authentication_rejects_tampered_node_outputs"
 producer = "sdk/wallet/src/receipt.ts:417; sdk/wallet/src/endpoint.ts:81; rpc/server.go"
 correction = "Authenticate complete node views with pins and raw transactions, retain every tamper check and lossless uint64 boundary, use the node root for moved px reads, and assert hosted configuration only for hosted writes."
 
 [case.29]
-file = "sdk/wallet/test/repair-22-31-238.test.ts"
+file = "sdk/wallet/test/receipt-authentication-session-binding.test.ts"
 name = "receipt_authentication_protects_module_provider_and_ladder_consumers"
 producer = "sdk/wallet/src/receipt.ts:417; sdk/wallet/src/endpoint.ts:81; rpc/server.go"
 correction = "Authenticate complete node views with pins and raw transactions, retain every tamper check and lossless uint64 boundary, use the node root for moved px reads, and assert hosted configuration only for hosted writes."
 
 [case.30]
-file = "sdk/wallet/test/repair-22-31-238.test.ts"
+file = "sdk/wallet/test/receipt-authentication-session-binding.test.ts"
 name = "default_node_hosted_methods_require_hosted_configuration_and_use_producer_namespaces"
 producer = "sdk/wallet/src/receipt.ts:417; sdk/wallet/src/endpoint.ts:81; rpc/server.go"
 correction = "Authenticate complete node views with pins and raw transactions, retain every tamper check and lossless uint64 boundary, use the node root for moved px reads, and assert hosted configuration only for hosted writes."
 
 [case.31]
-file = "sdk/wallet/test/repair-22-33-135.test.ts"
+file = "sdk/wallet/test/review-storage-auth-rpc.test.ts"
 name = "react_auth_refresh_tracks_stable_client_and_discards_replaced_reads"
-producer = "sdk/wallet/src/react.ts; sdk/wallet/test/repair-22-33-135.test.ts:335"
+producer = "sdk/wallet/src/react.ts; sdk/wallet/test/review-storage-auth-rpc.test.ts:335"
 correction = "Resolve React DOM from the SDK package so hooks and renderer share React. Keep all refresh, replacement, stale-response and sign-out assertions with a live DOM renderer."
 
 [producer.journey]
@@ -209,7 +209,7 @@ file = "sdk/wallet/src/modules/index.ts:82"
 repair = "The fallback poll already returns a receipt authenticated by the production receipt reader. Require that authentication and match the transaction before returning, avoiding a redundant second keys/raw transaction read; direct provider answers still authenticate normally."
 
 [related.consumers]
-files = ["sdk/wallet/test/gas-station.test.ts", "sdk/wallet/test/proof_wallet_sdk.test.ts", "sdk/wallet/test/repair-22-33-143.test.ts", "sdk/wallet/test/support/receipt-recordings.ts", "sdk/wallet/test/fixtures/sequencer-receipt.json"]
+files = ["sdk/wallet/test/gas-station.test.ts", "sdk/wallet/test/proof_wallet_sdk.test.ts", "sdk/wallet/test/merged-contract-conformance.test.ts", "sdk/wallet/test/support/receipt-recordings.ts", "sdk/wallet/test/fixtures/sequencer-receipt.json"]
 repair = "Update dependent consumers of the shared recordings for node routing and authenticated evidence. Copy committed bytes and block metadata unchanged from daemon/committed-fixture/vectors/vector-v4-committed.json; persist bigint metadata with an explicit JSON replacer where round-trip recovery is asserted. Expected authentication metadata comes from the conformance recording, never generated signatures or substitute state owners."
 
 [gotcha.receipt-identity]
