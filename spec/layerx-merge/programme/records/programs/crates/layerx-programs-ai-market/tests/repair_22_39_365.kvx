@@ -88,9 +88,9 @@ results = "f11_bonds: 13 passed, 4 failed; f11_canary_challenge: 16 passed, 4 fa
 
 [finding.native_producer_import]
 task = "22.39.365"
-file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs:140"
+file = "programs/crates/layerx-programs-ai-market/tests/market_state_producers.rs:140"
 symbol = "envelope"
-observed = "Base 6e3abf0ebe494c2a92acb3c9127f7052af1bc430: the exact producer precheck command above exited 101 in /out/logs/producer-prechecks-1.log; each target imports repair_22_33_260.rs at line 1 and the four admission cases fail with fixture step=envelope operation=captured_roster -> encode_envelope (codec.rs:schema): ApplicationError(14), meaning WRONG_ROSTER."
+observed = "Base 6e3abf0ebe494c2a92acb3c9127f7052af1bc430: the exact producer precheck command above exited 101 in /out/logs/producer-prechecks-1.log; each target imports market_state_producers.rs at line 1 and the four admission cases fail with fixture step=envelope operation=captured_roster -> encode_envelope (codec.rs:schema): ApplicationError(14), meaning WRONG_ROSTER."
 assumption = "Decision 3282 adds this module to scope; the continuation repair below supersedes this earlier blocker."
 severity = "blocker"
 
@@ -117,7 +117,7 @@ record_timing = "Only this failure evidence and status were recorded after the g
 
 [repair.native_producer_progress]
 decision = "3282 (gotcha 4210)"
-file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs"
+file = "programs/crates/layerx-programs-ai-market/tests/market_state_producers.rs"
 opening = "open repeats the encoded OPEN_EPOCH operation until its returned cursor equals the participant count; every result requires Ok, exact response length, a stable count and a strictly advancing bounded cursor (or the empty roster). Partial calls have no captured roster; the final captured binding and participant counts equal preview_open."
 finalization = "settle repeats FinalizeAggregation with the produced input digest until the returned cursor reaches worker_count; every result requires Ok, exact response length, a strictly advancing bounded cursor and count/weight matching committed progress, with Terminal exactly at completion."
 state = "Only apply commits dispatch output; neither helper writes state after an operation. All existing tests and assertions remain."

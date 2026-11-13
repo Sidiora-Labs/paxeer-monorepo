@@ -2,7 +2,7 @@
 audit = "22.30.127"
 base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
 verification = "hf-done records the exact candidate revision, command, exit and private log; this record makes no pre-gate success claim."
-baseline = "Not run: repair_22_33_230.rs is absent on the unchanged tree, and the explicit gate order forbids testing before complete implementation or invoking verify_cmd by hand; no baseline failure is claimed."
+baseline = "Not run: abi_contract_conformance.rs is absent on the unchanged tree, and the explicit gate order forbids testing before complete implementation or invoking verify_cmd by hand; no baseline failure is claimed."
 wiring_requests = []
 
 [finding.6]

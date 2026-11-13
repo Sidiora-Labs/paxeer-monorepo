@@ -8,7 +8,7 @@ mod rooms_support;
 use rooms_support::*;
 
 use layerx_programs_ai_market::{epoch, queries};
-#[path = "repair_22_33_260.rs"]
+#[path = "market_state_producers.rs"]
 mod producers;
 
 fn read_market_header(h: &Harness) -> codec::ReadHeader {

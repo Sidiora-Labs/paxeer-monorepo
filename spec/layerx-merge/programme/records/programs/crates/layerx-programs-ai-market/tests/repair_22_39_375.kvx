@@ -19,7 +19,7 @@ bond = "tests/f11_bonds.rs::the_bond_of_a_bid_named_by_two_deals_is_refunded_onc
 placement = "tests/f11_placement_book.rs::shared_bids_remain_consumed_after_every_deal_of_the_same_ask: three deals of one ask retain identical placement results and exclude the two shared bids; the duplicate-bid encoder remains NON_CANONICAL."
 retained_case = "tests/f11_placement_book.rs:810 record_deal_removes_its_ask_and_every_consumed_bid_and_rejects_bid_reuse covers another ask; its assertions and implementation are unchanged."
 existing_case_changes = "None: no existing in-scope case pinned a refusal solely for a shared bid of the same ask; all original cases and assertions remain."
-fixtures = "tests/fixtures/f11_rooms_and_deals.rs and tests/fixtures/f11_bonds.rs record the new journeys for the real guest observer; tests/repair_22_33_260.rs and tests/fixtures/f11_producers.rs share the same receipt producer parameterized by deal_id, retaining the original signed-receipt construction and ReceiptBatch::from_receipts."
+fixtures = "tests/fixtures/f11_rooms_and_deals.rs and tests/fixtures/f11_bonds.rs record the new journeys for the real guest observer; tests/market_state_producers.rs and tests/fixtures/f11_producers.rs share the same receipt producer parameterized by deal_id, retaining the original signed-receipt construction and ReceiptBatch::from_receipts."
 
 [read.bonds]
 file = "programs/crates/layerx-programs-ai-market/src/bonds.rs"

@@ -1,6 +1,6 @@
 [repair.22.33.218]
 audit = "22.30.123"
-proof = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+proof = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 finding_003 = "reopens_recorded_abi_history_and_recovers_exact_evidence"
 finding_004 = "host_provenance_and_attestations_cross_guest_hash_boundary; host_and_artifact_bounds_refuse_oversize"
 finding_022 = "runtime_contract_matches_real_terminal_success_and_refusal"

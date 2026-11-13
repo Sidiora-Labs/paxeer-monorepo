@@ -2263,9 +2263,9 @@ repair = "A future repair must inspect the declared return type and use a checke
 source_revision = "7be3886a3b62910e21e83ee8c9e00916c2923b4e"
 merged_base_revision = "c7ddad4b64f149376f959880efa1ee0a1bf9bdf6"
 call_site_correction = "Preserve the three-argument execute_authorized_v2_with_budget calls in lxt20_tests.rs and market_tests.rs: storage, AuthorizedExecutionRequest, AuthorizedV2Budget; retain the private parameter struct and every original budget, binding, context and access value. Public signatures are unchanged."
-proof_import_correction = "repair_22_31_259.rs and repair_22_31_577.rs import MarketStepProof from rt::execute. The SDK arbiter imports name only symbols declared by that module, including the MARKET_STEP constants; the remaining glob in repair_22_31_577.rs is replaced by its explicit used SDK declarations."
+proof_import_correction = "persisted_execution_replay.rs and replay_memory_authentication.rs import MarketStepProof from rt::execute. The SDK arbiter imports name only symbols declared by that module, including the MARKET_STEP constants; the remaining glob in replay_memory_authentication.rs is replaced by its explicit used SDK declarations."
 conversion_correction = "Replace the nine invalid i32::from(u32) calls for RefusalClass::code in activity_failure.rs with checked i32::try_from and immediate fixture failure; all expected class codes and assertions are unchanged."
-merge_resolution = "Resolve all thirteen current/seed conflicts in repair_22_33_227.rs by preserving the landed current side, including contextual panic diagnostics, then integrate the seed checked index conversion and keep all allocation, fuel, digest and storage assertions."
+merge_resolution = "Resolve all thirteen current/seed conflicts in host_read_preflight.rs by preserving the landed current side, including contextual panic diagnostics, then integrate the seed checked index conversion and keep all allocation, fuel, digest and storage assertions."
 build_evidence = "Reference: final build row of /out/run/gates.jsonl: revision, exact cargo build command, exit, private /out/logs/build-N.log."
 verify_evidence = "Reference: final verify row of /out/run/gates.jsonl: same revision, cg spec done command, exit, private /out/logs/verify-N.log containing the declared all-targets Clippy invocation."
 final_count = "The required measured count is zero; it is established solely by a matching-revision exit-zero hf-done record. A nonzero exit is implemented_not_qualified and its diagnostic count is recorded before a permitted repair or at the bounded stop."
@@ -2279,7 +2279,7 @@ revision = "9897d149a1254b8d2c48777e1b1523bc8ddcdefc"
 command = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --all-targets"
 exit = 101
 log = "/out/logs/build-1.log"
-observed = "E0277 at tests/repair_22_33_226.rs:104 and :105: u64::from cannot accept the usize page count; the source-included codec also has three unused legacy error variants."
+observed = "E0277 at tests/receipt_field_bounds.rs:104 and :105: u64::from cannot accept the usize page count; the source-included codec also has three unused legacy error variants."
 repair = "Check the page-count conversion with u64::try_from and assert immediate success; exercise legacy integer, array and union error diagnostics in the codec tests, preserving every original case."
 
 [lint.continuation_codec_dead_code]
@@ -2311,7 +2311,7 @@ log = "/out/logs/dependents-1.log"
 dependent_check_exit = 101
 verification = "Not run: hf-done refused after its dependent-crate compilation check and explicitly required stopping on the out-of-scope errors. No zero-lint or completed-task claim is made."
 remaining_lint_count = "Unmeasured by file because Clippy did not run; the baseline 313-diagnostic inventory is historical, not the current count."
-remaining_build_warnings = "tests/repair_22_31_261.rs:320 unused_must_use for transaction.commit(); tests/program_replay.rs:94 dead_code for captured_functions."
+remaining_build_warnings = "tests/calldata_transport_and_refusal_replay.rs:320 unused_must_use for transaction.commit(); tests/program_replay.rs:94 dead_code for captured_functions."
 repair_cycles_used = 1
 stop_reason = "The runner refused on an unrelated dependent-crate failure and directed: Those files are outside this task's scope: do not edit them, stop and report the exact error list as the result."
 evidence_scope = "The recorded revision is the source candidate used by both the passing build and failed dependent check; this final failure bookkeeping was appended after the bounded stop and is not a newly qualified candidate."
@@ -2458,7 +2458,7 @@ name = "semicolon_if_nothing_returned"
 repair = "Terminate the unit-valued push statement with a semicolon."
 
 [lint.attempt_3_build_1.commit]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_transport_and_refusal_replay.rs"
 line = 320
 name = "unused_must_use"
 repair = "Explicitly discard the already-committed transaction's returned change list; retain the write and all storage assertions."
@@ -2479,14 +2479,14 @@ gotcha = "3934"
 source_revision = "f3d4852c64d5dcbf442dd6523bed72b847007bd5"
 merged_base_revision = "637c7baca85b4b8cd4708593c7f3646c4c71b4cb"
 implementation = "Preserve all carried library and test-target lint repairs and repair the twenty remaining measured sites without changing public signatures, lint levels, test cases or assertions."
-inventory_clarification = "Four unwrap_err calls are in repair_22_31_488.rs; the fifth is the initial stack exhaustion assertion in step_conformance.rs. The needless borrow is the linker constructor in replay_trap_in_engine."
+inventory_clarification = "Four unwrap_err calls are in sandbox_settlement_frames.rs; the fifth is the initial stack exhaustion assertion in step_conformance.rs. The needless borrow is the linker constructor in replay_trap_in_engine."
 remaining_measured_sites_before_repair = 20
 remaining_count_evidence = "Reference: the final matching-revision exit-zero hf-done row in /out/run/gates.jsonl and its private verification log establishes zero remaining lints; until that row exists, zero is an unqualified postcondition."
 build_evidence = "Reference: final build row in /out/run/gates.jsonl, with exact candidate revision, command, exit and private log."
 verify_evidence = "Reference: final verify row in /out/run/gates.jsonl at the same candidate revision, with exact cg spec done command, exit and private log containing the all-targets Clippy and graph checks."
 
 [gotcha.attempt_4_error_extraction]
-observed = "The continuation ruling groups five unwrap_err calls under repair_22_31_488.rs, but its fifth call is in step_conformance.rs; expect_err is also denied by the crate's unchanged lint policy."
+observed = "The continuation ruling groups five unwrap_err calls under sandbox_settlement_frames.rs, but its fifth call is in step_conformance.rs; expect_err is also denied by the crate's unchanged lint policy."
 repair = "Use explicit Result matches at all five sites, preserving each asserted error and failing immediately on unexpected success."
 
 [gotcha.attempt_4_doc_scope]
@@ -2494,103 +2494,103 @@ observed = "A documented test name also occurs in its function declaration, so d
 repair = "Wrap code items only in the existing module documentation, leaving all declared test symbols intact."
 
 [lint.attempt_4.1]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_transport_and_refusal_replay.rs"
 line = 2
 name = "doc_markdown"
 repair = "Wrap finding_1_single_field_complete_message_ceiling in backticks in the existing documentation."
 
 [lint.attempt_4.2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_transport_and_refusal_replay.rs"
 line = 3
 name = "doc_markdown"
 repair = "Wrap finding_1_accumulated_fields_share_the_transport_ceiling in backticks in the existing documentation."
 
 [lint.attempt_4.3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_transport_and_refusal_replay.rs"
 line = 4
 name = "doc_markdown"
 repair = "Wrap finding_2_all_frozen_refusals_round_trip in backticks in the existing documentation."
 
 [lint.attempt_4.4]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_transport_and_refusal_replay.rs"
 line = 5
 name = "doc_markdown"
 repair = "Wrap finding_2_unknown_and_malformed_refusals_still_reject in backticks in the existing documentation."
 
 [lint.attempt_4.5]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_transport_and_refusal_replay.rs"
 line = 6
 name = "doc_markdown"
 repair = "Wrap finding_2_authorized_cached_refusal_survives_capture_and_restore in backticks in the existing documentation."
 
 [lint.attempt_4.6]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_261.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_transport_and_refusal_replay.rs"
 line = 8
 name = "doc_markdown"
 repair = "Wrap verify_cmd in backticks in the existing documentation."
 
 [lint.attempt_4.7]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+file = "programs/crates/layerx-programs-runtime/tests/storage_scan_allocation.rs"
 line = 2
 name = "doc_markdown"
 repair = "Wrap scan_copying_cost_maximum_page in backticks in the existing documentation."
 
 [lint.attempt_4.8]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+file = "programs/crates/layerx-programs-runtime/tests/storage_scan_allocation.rs"
 line = 2
 name = "doc_markdown"
 repair = "Wrap scan_copying_cost_rejected_values in backticks in the existing documentation."
 
 [lint.attempt_4.9]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+file = "programs/crates/layerx-programs-runtime/tests/storage_scan_allocation.rs"
 line = 4
 name = "doc_markdown"
 repair = "Wrap scan_copying_cost_cursor_overhead in backticks in the existing documentation."
 
 [lint.attempt_4.10]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+file = "programs/crates/layerx-programs-runtime/tests/storage_scan_allocation.rs"
 line = 4
 name = "doc_markdown"
 repair = "Wrap scan_copying_cost_host_wire in backticks in the existing documentation."
 
 [lint.attempt_4.11]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+file = "programs/crates/layerx-programs-runtime/tests/storage_scan_allocation.rs"
 line = 8
 name = "doc_markdown"
 repair = "Wrap src/abi/storage_ops.rs in backticks in the existing documentation."
 
 [lint.attempt_4.12]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+file = "programs/crates/layerx-programs-runtime/tests/storage_scan_allocation.rs"
 line = 9
 name = "doc_markdown"
 repair = "Wrap programs/crates/layerx-programs-runtime in backticks in the existing documentation."
 
 [lint.attempt_4.13]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_258.rs"
+file = "programs/crates/layerx-programs-runtime/tests/storage_scan_allocation.rs"
 line = 13
 name = "doc_markdown"
 repair = "Wrap ScanCeilingExceeded in backticks in the existing documentation."
 
 [lint.attempt_4.14]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+file = "programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs"
 line = 152
 name = "unwrap_used"
 repair = "Match the Result explicitly, return its original error, and panic on unexpected success; preserve every refusal and mutation assertion."
 
 [lint.attempt_4.15]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+file = "programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs"
 line = 167
 name = "unwrap_used"
 repair = "Match the Result explicitly, return its original error, and panic on unexpected success; preserve every refusal and mutation assertion."
 
 [lint.attempt_4.16]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+file = "programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs"
 line = 183
 name = "unwrap_used"
 repair = "Match the Result explicitly, return its original error, and panic on unexpected success; preserve every refusal and mutation assertion."
 
 [lint.attempt_4.17]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+file = "programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs"
 line = 202
 name = "unwrap_used"
 repair = "Match the Result explicitly, return its original error, and panic on unexpected success; preserve every refusal and mutation assertion."
@@ -2669,43 +2669,43 @@ name = "duplicate_mod"
 repair = "Move the unchanged supported ABI enumeration to the existing runtime test_support module and import that compiled module in abi_linker, lifecycle and monetary_law; retain the former support path as a re-export and retain every test and assertion."
 
 [lint.attempt_5.2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+file = "programs/crates/layerx-programs-runtime/tests/receipt_field_bounds.rs"
 line = 2
 name = "doc_markdown"
 repair = "Wrap receipt_trace_real_producer_round_trips in backticks in its documentation."
 
 [lint.attempt_5.3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+file = "programs/crates/layerx-programs-runtime/tests/receipt_field_bounds.rs"
 line = 3
 name = "doc_markdown"
 repair = "Wrap receipt_trace_maximum_malformed_is_not_copied in backticks in its documentation."
 
 [lint.attempt_5.4]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+file = "programs/crates/layerx-programs-runtime/tests/receipt_field_bounds.rs"
 line = 4
 name = "doc_markdown"
 repair = "Wrap receipt_trace_one_past_limit_is_rejected_before_verification in backticks in its documentation."
 
 [lint.attempt_5.5]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+file = "programs/crates/layerx-programs-runtime/tests/receipt_field_bounds.rs"
 line = 5
 name = "doc_markdown"
 repair = "Wrap receipt_trace_truncated_length_is_rejected in backticks in its documentation."
 
 [lint.attempt_5.6]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+file = "programs/crates/layerx-programs-runtime/tests/receipt_field_bounds.rs"
 line = 6
 name = "doc_markdown"
 repair = "Wrap receipt_response_keeps_its_own_bound in backticks in its documentation."
 
 [lint.attempt_5.7]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+file = "programs/crates/layerx-programs-runtime/tests/receipt_field_bounds.rs"
 line = 6
 name = "doc_markdown"
 repair = "Wrap receipt_graph_keeps_its_own_bound in backticks in its documentation."
 
 [lint.attempt_5.8]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_226.rs"
+file = "programs/crates/layerx-programs-runtime/tests/receipt_field_bounds.rs"
 line = 10
 name = "doc_markdown"
 repair = "Wrap verify_cmd in backticks in its documentation."
@@ -2746,135 +2746,135 @@ file = "programs/crates/layerx-programs-runtime/src/ffi_interface.rs"
 count = 1
 
 [remaining.attempt_5.file_2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/persisted_execution_replay.rs"
 count = 1
 
 [remaining.attempt_5.file_3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 count = 8
 
 [remaining.attempt_5.file_4]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs"
+file = "programs/crates/layerx-programs-runtime/tests/replay_memory_authentication.rs"
 count = 1
 
 [remaining.attempt_5.file_5]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 count = 9
 
 [remaining.attempt_5.lint_1]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 2
 column = 32
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 3
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 6
 column = 30
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_4]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 7
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_5]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 7
 column = 40
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_6]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 9
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_7]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 12
 column = 74
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_8]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 13
 column = 80
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_9]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/persisted_execution_replay.rs"
 line = 61
 column = 13
 name = "items_after_statements"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_10]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs"
+file = "programs/crates/layerx-programs-runtime/tests/replay_memory_authentication.rs"
 line = 616
 column = 9
 name = "assigning_clones"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_11]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 2
 column = 29
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_12]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 2
 column = 52
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_13]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 3
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_14]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 3
 column = 30
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_15]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 4
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_16]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 6
 column = 30
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_17]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 13
 column = 28
 name = "doc_markdown"
@@ -2888,14 +2888,14 @@ name = "match_same_arms"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_19]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 336
 column = 21
 name = "unwrap_used"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_5.lint_20]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 481
 column = 60
 name = "needless_pass_by_value"
@@ -2917,119 +2917,119 @@ build_evidence = "Reference: final matching-revision build row of /out/run/gates
 verify_evidence = "Reference: final verify row of /out/run/gates.jsonl, including command, exit and private log."
 
 [continuation.attempt_6.lint_1]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 2
 column = 32
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 3
 column = 5
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 6
 column = 30
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_4]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 7
 column = 5
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_5]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 7
 column = 40
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_6]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 9
 column = 5
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_7]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 12
 column = 74
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_8]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_266.rs"
+file = "programs/crates/layerx-programs-runtime/tests/occupancy_capacity_and_replay.rs"
 line = 13
 column = 80
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_9]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/persisted_execution_replay.rs"
 line = 61
 column = 13
 name = "items_after_statements"
 repair = "Move the std::io::Write import before executable statements in DurableFile::save."
 
 [continuation.attempt_6.lint_10]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_577.rs"
+file = "programs/crates/layerx-programs-runtime/tests/replay_memory_authentication.rs"
 line = 616
 column = 9
 name = "assigning_clones"
 repair = "Use clone_from on the legacy linear-memory buffer, retaining the original memory for the later breakdown."
 
 [continuation.attempt_6.lint_11]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 2
 column = 29
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_12]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 2
 column = 52
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_13]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 3
 column = 5
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_14]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 3
 column = 30
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_15]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 4
 column = 5
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_16]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 6
 column = 30
 name = "doc_markdown"
 repair = "Wrap the identifier in backticks in its documentation comment; keep the described behavior unchanged."
 
 [continuation.attempt_6.lint_17]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 13
 column = 28
 name = "doc_markdown"
@@ -3043,14 +3043,14 @@ name = "match_same_arms"
 repair = "Combine ABI 1 and non-dynamic ABI 2 into one DOMAIN arm after the dynamic ABI 2 guard; preserve every accepted domain and refusal."
 
 [continuation.attempt_6.lint_19]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 336
 column = 21
 name = "unwrap_used"
 repair = "Match the execution Result explicitly, preserving failure on unexpected success and returning the same error to the unchanged refusal assertions."
 
 [continuation.attempt_6.lint_20]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_259.rs"
+file = "programs/crates/layerx-programs-runtime/tests/pre_entry_capabilities_and_linkers.rs"
 line = 481
 column = 60
 name = "needless_pass_by_value"
@@ -3070,31 +3070,31 @@ observed = "Replacing unwrap_err with a value-producing match whose success arm 
 repair = "Use let Err(refusal) = operation else { panic!(...) }; to preserve unexpected-success failures and every exact refusal assertion."
 
 [continuation.attempt_6.lint_21]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+file = "programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs"
 line = 3
 name = "doc_markdown"
 repair = "Wrap host_ffi::publish_settlement in backticks in the documentation comment."
 
 [continuation.attempt_6.lint_22]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+file = "programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs"
 line = 150
 name = "manual_let_else"
 repair = "Use a refutable let-else error pattern; preserve the panic on unexpected success and all existing refusal and rollback assertions."
 
 [continuation.attempt_6.lint_23]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+file = "programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs"
 line = 168
 name = "manual_let_else"
 repair = "Use a refutable let-else error pattern; preserve the panic on unexpected success and all existing refusal and rollback assertions."
 
 [continuation.attempt_6.lint_24]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+file = "programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs"
 line = 184
 name = "manual_let_else"
 repair = "Use a refutable let-else error pattern; preserve the panic on unexpected success and all existing refusal and rollback assertions."
 
 [continuation.attempt_6.lint_25]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs"
+file = "programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs"
 line = 208
 name = "manual_let_else"
 repair = "Use a refutable let-else error pattern; preserve the panic on unexpected success and all existing refusal and rollback assertions."
@@ -3130,11 +3130,11 @@ file = "programs/crates/layerx-programs-runtime/tests/determinism.rs"
 count = 2
 
 [remaining.attempt_6.file_2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 count = 3
 
 [remaining.attempt_6.file_3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 count = 16
 
 [remaining.attempt_6.lint_1]
@@ -3152,133 +3152,133 @@ name = "format_collect"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 443
 column = 17
 name = "unwrap_used"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_4]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 499
 column = 13
 name = "unwrap_used"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_5]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 2
 column = 16
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_6]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 3
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_7]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 4
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_8]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 5
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_9]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 6
 column = 16
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_10]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 7
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_11]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 8
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_12]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 9
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_13]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 10
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_14]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 11
 column = 5
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_15]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 16
 column = 48
 name = "doc_markdown"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_16]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 627
 column = 23
 name = "unwrap_used"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_17]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 70
 column = 9
 name = "unwrap_used"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_18]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 78
 column = 9
 name = "unwrap_used"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_19]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 122
 column = 17
 name = "unwrap_used"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_20]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 152
 column = 21
 name = "unwrap_used"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_6.lint_21]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 165
 column = 5
 name = "assertions_on_constants"
@@ -3290,7 +3290,7 @@ base_revision = "2860cad02046d39225295bf26281b61e9b59c124"
 gotcha = "3993"
 reported_lint_sites = 21
 repaired_lint_sites = 21
-scope = "Preserve the inherited repairs and repair only the 21 recorded sites in determinism.rs, repair_22_33_218.rs and repair_22_33_229.rs."
+scope = "Preserve the inherited repairs and repair only the 21 recorded sites in determinism.rs, runtime_evidence_and_contract.rs and calldata_decoder_bounds.rs."
 qualification = "Reference: the matching candidate revision in the build and verify rows of /out/run/gates.jsonl; only a successful hf-done establishes zero remaining lints."
 
 [gotcha.attempt_7]
@@ -3312,133 +3312,133 @@ name = "format_collect"
 repair = "Collect the high and low hexadecimal digit characters directly for every evidence byte, preserving two lowercase digits per byte without per-byte formatting."
 
 [lint.attempt_7.site_3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 443
 column = 17
 name = "unwrap_used"
 repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
 
 [lint.attempt_7.site_4]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 499
 column = 13
 name = "unwrap_used"
 repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
 
 [lint.attempt_7.site_5]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 2
 column = 16
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_6]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 3
 column = 5
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_7]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 4
 column = 5
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_8]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 5
 column = 5
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_9]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 6
 column = 16
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_10]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 7
 column = 5
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_11]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 8
 column = 5
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_12]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 9
 column = 5
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_13]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 10
 column = 5
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_14]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 11
 column = 5
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_15]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 16
 column = 48
 name = "doc_markdown"
 repair = "Enclose the documented Rust identifier in code marks without changing its meaning."
 
 [lint.attempt_7.site_16]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 627
 column = 23
 name = "unwrap_used"
 repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
 
 [lint.attempt_7.site_17]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 70
 column = 9
 name = "unwrap_used"
 repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
 
 [lint.attempt_7.site_18]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 78
 column = 9
 name = "unwrap_used"
 repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
 
 [lint.attempt_7.site_19]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 122
 column = 17
 name = "unwrap_used"
 repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
 
 [lint.attempt_7.site_20]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 152
 column = 21
 name = "unwrap_used"
 repair = "Match Err explicitly and panic on Ok while retaining the original error equality or substring assertion."
 
 [lint.attempt_7.site_21]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_229.rs"
+file = "programs/crates/layerx-programs-runtime/tests/calldata_decoder_bounds.rs"
 line = 165
 column = 5
 name = "assertions_on_constants"
@@ -3453,7 +3453,7 @@ verify_command = "cg spec done 22.39.235 -f layerx-merge --root /work/paxeer-mon
 verify_exit = 1
 verify_log = "/out/logs/verify-1.log"
 remaining_unique_lint_sites = 10
-remaining_by_file = ["tests/repair_22_31_573.rs: 3", "tests/calldata_golden_vectors.rs: 1 (also compiled by tests/repair_22_33_230.rs)", "tests/repair_22_33_227.rs: 6"]
+remaining_by_file = ["tests/replay_memory_limits.rs: 3", "tests/calldata_golden_vectors.rs: 1 (also compiled by tests/abi_contract_conformance.rs)", "tests/host_read_preflight.rs: 6"]
 repair = "Repair the additional crate-local Clippy diagnostics during the permitted qualification repair cycle; repeat hf-build and hf-done on the final candidate."
 
 [gotcha.attempt_7.qualification]
@@ -3461,21 +3461,21 @@ observed = "The first hf-done exposed ten more crate-local lint sites, including
 repair = "Repair each reported site at its source and record the shared include without weakening or deleting either target."
 
 [lint.attempt_7.qualification_1]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_573.rs"
+file = "programs/crates/layerx-programs-runtime/tests/replay_memory_limits.rs"
 line = 292
 column = 5
 name = "items_after_statements"
 repair = "Move the std::io::Write import to the start of the existing function; retain its output and assertions."
 
 [lint.attempt_7.qualification_2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_573.rs"
+file = "programs/crates/layerx-programs-runtime/tests/replay_memory_limits.rs"
 line = 251
 column = 17
 name = "unwrap_used"
 repair = "Extract Err with let-else and panic on Ok; retain the exact witness-bound refusal assertions and storage check."
 
 [lint.attempt_7.qualification_3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_573.rs"
+file = "programs/crates/layerx-programs-runtime/tests/replay_memory_limits.rs"
 line = 360
 column = 5
 name = "items_after_statements"
@@ -3486,45 +3486,45 @@ file = "programs/crates/layerx-programs-runtime/tests/calldata_golden_vectors.rs
 line = 424
 column = 9
 name = "manual_let_else"
-repair = "Use let-else to extract the caught panic with the same failure message and both original panic-message assertions; this also repairs the included source in repair_22_33_230.rs."
+repair = "Use let-else to extract the caught panic with the same failure message and both original panic-message assertions; this also repairs the included source in abi_contract_conformance.rs."
 
 [lint.attempt_7.qualification_5]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+file = "programs/crates/layerx-programs-runtime/tests/host_read_preflight.rs"
 line = 2
 column = 21
 name = "doc_markdown"
 repair = "Enclose the documented test identifier in code marks without changing its meaning."
 
 [lint.attempt_7.qualification_6]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+file = "programs/crates/layerx-programs-runtime/tests/host_read_preflight.rs"
 line = 3
 column = 5
 name = "doc_markdown"
 repair = "Enclose the documented test identifier in code marks without changing its meaning."
 
 [lint.attempt_7.qualification_7]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+file = "programs/crates/layerx-programs-runtime/tests/host_read_preflight.rs"
 line = 3
 column = 53
 name = "doc_markdown"
 repair = "Enclose the documented test identifier in code marks without changing its meaning."
 
 [lint.attempt_7.qualification_8]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+file = "programs/crates/layerx-programs-runtime/tests/host_read_preflight.rs"
 line = 4
 column = 9
 name = "doc_markdown"
 repair = "Enclose the documented test identifier in code marks without changing its meaning."
 
 [lint.attempt_7.qualification_9]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+file = "programs/crates/layerx-programs-runtime/tests/host_read_preflight.rs"
 line = 5
 column = 28
 name = "doc_markdown"
 repair = "Enclose the documented test identifier in code marks without changing its meaning."
 
 [lint.attempt_7.qualification_10]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_227.rs"
+file = "programs/crates/layerx-programs-runtime/tests/host_read_preflight.rs"
 line = 6
 column = 5
 name = "doc_markdown"
@@ -3541,7 +3541,7 @@ verify_exit = 1
 verify_cmd_exit = 101
 verify_log = "/out/logs/verify-2.log"
 reported_remaining_lint_sites = 3
-remaining_by_file = ["programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs: 3 manual_let_else"]
+remaining_by_file = ["programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs: 3 manual_let_else"]
 stop_reason = "Runner counts the second build and second verification as the two permitted repair reruns; no further gate run is allowed."
 record_scope = "This final diagnostic record was appended after the bounded gate result; no source was repaired after that result and the recorded revision identifies the exact checked candidate."
 
@@ -3550,21 +3550,21 @@ observed = "Explicit two-arm error matches added for three unwrap_err repairs tr
 repair = "A future authorized continuation should extract Err with let-else at the three reported sites while retaining all refusal assertions; the spent gate budget prohibits further repairs or qualification in this attempt."
 
 [remaining.attempt_7.lint_1]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 443
 column = 9
 name = "manual_let_else"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_7.lint_2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 501
 column = 5
 name = "manual_let_else"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_7.lint_3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 631
 column = 9
 name = "manual_let_else"
@@ -3579,21 +3579,21 @@ build_evidence = "Reference: the attempt-8 build row in /out/run/gates.jsonl rec
 verify_evidence = "Reference: the matching-revision attempt-8 verify row in /out/run/gates.jsonl records cg spec done, its exit code and private log; exit zero qualifies zero remaining crate lints."
 
 [lint.attempt_8.site_1]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 443
 column = 9
 name = "manual_let_else"
 repair = "Bind Err(refusal) with let-else around programs_trace_runner_artifact; panic with the existing oversized provenance message on Ok and retain the bound assertion."
 
 [lint.attempt_8.site_2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 501
 column = 5
 name = "manual_let_else"
 repair = "Bind Err(refusal) with let-else around TraceRunnerArtifact::from_canonical_bytes; panic with the existing oversized evidence message on Ok and retain the evidence-bound assertion."
 
 [lint.attempt_8.site_3]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_33_218.rs"
+file = "programs/crates/layerx-programs-runtime/tests/runtime_evidence_and_contract.rs"
 line = 631
 column = 9
 name = "manual_let_else"
@@ -3710,26 +3710,26 @@ verify_exit = 1
 verify_cmd_exit = 101
 verify_log = "/out/logs/verify-2.log"
 reported_remaining_lint_sites = 2
-remaining_by_file = ["programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs: 2 unwrap_used"]
+remaining_by_file = ["programs/crates/layerx-programs-runtime/tests/native_result_replay_bounds.rs: 2 unwrap_used"]
 stop_reason = "The second build and second verification consume the two permitted repair reruns; no further source repair or gate run is allowed."
 record_scope = "This diagnostic record is appended after the bounded gate result; the named revision identifies the checked candidate, and no executable source is changed after that result."
 
 [remaining.attempt_9.lint_1]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs"
+file = "programs/crates/layerx-programs-runtime/tests/native_result_replay_bounds.rs"
 line = 128
 column = 9
 name = "unwrap_used"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [remaining.attempt_9.lint_2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs"
+file = "programs/crates/layerx-programs-runtime/tests/native_result_replay_bounds.rs"
 line = 160
 column = 9
 name = "unwrap_used"
 status = "Unrepaired at bounded stop; runner repair budget exhausted."
 
 [gotcha.attempt_9.bounded_stop]
-observed = "After the web_read hexadecimal repairs, all-targets Clippy reports two unwrap_err calls in repair_22_31_566.rs."
+observed = "After the web_read hexadecimal repairs, all-targets Clippy reports two unwrap_err calls in native_result_replay_bounds.rs."
 repair = "A future authorized continuation must preserve the asserted error variants while removing the two unwrap_err calls; this attempt stops with its repair budget exhausted."
 
 [repair.attempt_10]
@@ -3741,13 +3741,13 @@ verify_evidence = "Reference: the matching-revision attempt-10 verify row in /ou
 remaining_count_evidence = "The final exit-zero all-targets Clippy verification qualifies zero remaining crate and test-target lints; a failing gate leaves that count unqualified."
 
 [lint.attempt_10.site_1]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs"
+file = "programs/crates/layerx-programs-runtime/tests/native_result_replay_bounds.rs"
 line = 128
 name = "unwrap_used"
 repair = "Bind the borrowed Err variant with let-else, panic with the unexpected Ok value, and assert the same replay-bound error and captured status."
 
 [lint.attempt_10.site_2]
-file = "programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs"
+file = "programs/crates/layerx-programs-runtime/tests/native_result_replay_bounds.rs"
 line = 160
 name = "unwrap_used"
 repair = "Bind the borrowed Err variant with let-else, panic with the unexpected Ok value, and assert the same trace-policy error and captured status."

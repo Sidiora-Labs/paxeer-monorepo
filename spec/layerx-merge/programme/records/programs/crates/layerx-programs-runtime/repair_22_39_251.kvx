@@ -40,7 +40,7 @@ symbol = "SANDBOX_SETTLEMENT_DOMAIN"
 reason = "This constant tags the live sandbox usage-receipt envelope, not an offline settlement trust domain, and its exact wire bytes are consumed by terminal decoding and the native-producer regression."
 producer = "programs/crates/layerx-programs-runtime/src/terminal/sandbox.rs: attach_sandbox_settlement authenticates the usage receipt digest and writes the envelope."
 consumer = "programs/crates/layerx-programs-runtime/src/terminal.rs: unwrap decodes the envelope and refuses nested duplicate wrappers."
-regression = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs: native_producer_frame_is_accepted_by_the_terminal_reader imports the public constant and consumes a real native producer recording."
+regression = "programs/crates/layerx-programs-runtime/tests/sandbox_settlement_frames.rs: native_producer_frame_is_accepted_by_the_terminal_reader imports the public constant and consumes a real native producer recording."
 resolution = "tools/paxeer-x/retired_callers.json allows SETTLEMENT_DOMAIN under programs/crates/layerx-programs-runtime/src by decision 3125; the public constant and wire bytes remain intact."
 
 [retained.native_projection]
