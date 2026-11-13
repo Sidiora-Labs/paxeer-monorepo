@@ -224,7 +224,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `vcs_find_commits`               | function |  673 | <code>int vcs_find_commits(Cg &#42;cg, const char &#42;needle, char &#42;&#42;&#42;ids, char &#42;&#42;&#42;msgs,</code>           |
 | `vcs_changed_paths`              | function |  677 | <code>int vcs_changed_paths(Cg &#42;cg, const char &#42;needle, char &#42;&#42;&#42;out);</code>                                   |
 | `vcs_commits_for_path`           | function |  694 | <code>int vcs_commits_for_path(Cg &#42;cg, const char &#42;path, int limit, char &#42;&#42;&#42;ids,</code>                        |
-| `Memory`                         | typedef  |  678 | <code>typedef struct {</code>                                                                                                      |
+| `Memory`                         | typedef  |  713 | <code>typedef struct {</code>                                                                                                      |
 | `memory_add`                     | function |  727 | <code>long memory_add(Cg &#42;cg, const char &#42;type, const char &#42;task, const char &#42;body,</code>                         |
 | `memory_query`                   | function |  731 | <code>int memory_query(Cg &#42;cg, const char &#42;query, const char &#42;task,</code>                                             |
 | `memory_clear`                   | function |  734 | <code>void memory_clear(Memory &#42;m); /&#42; free one entry's fields &#42;/</code>                                               |
@@ -240,8 +240,8 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `cmd_memory_compact`             | function |  747 | <code>int cmd_memory_compact(Cg &#42;cg, bool dry_run, bool json);</code>                                                          |
 | `memory_promote_branch`          | function |  752 | <code>int memory_promote_branch(Cg &#42;cg, const char &#42;from, const char &#42;to);</code>                                      |
 | `memory_content_id`              | function |  756 | <code>void memory_content_id(const char &#42;type, const char &#42;task, const char &#42;body,</code>                              |
-| `MemExportOpts`                  | typedef  |  713 | <code>typedef struct {</code>                                                                                                      |
-| `MemImportOpts`                  | typedef  |  713 | <code>typedef struct {</code>                                                                                                      |
+| `MemExportOpts`                  | typedef  |  758 | <code>typedef struct {</code>                                                                                                      |
+| `MemImportOpts`                  | typedef  |  764 | <code>typedef struct {</code>                                                                                                      |
 | `cmd_memory_export`              | function |  771 | <code>int cmd_memory_export(Cg &#42;cg, const MemExportOpts &#42;o, bool json);</code>                                             |
 | `cmd_memory_import`              | function |  774 | <code>int cmd_memory_import(Cg &#42;cg, const MemImportOpts &#42;o, bool json);</code>                                             |
 | `cmd_watch`                      | function |  777 | <code>int cmd_watch(Cg &#42;cg, const SysInfo &#42;si, int debounce_ms);</code>                                                    |
@@ -255,7 +255,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `json_array_items`               | function |  793 | <code>int json_array_items(const char &#42;arr, char &#42;&#42;&#42;out);</code>                                                   |
 | `cg_capture`                     | function |  796 | <code>int cg_capture(char &#42;&#42;out, int (&#42;fn)(void &#42;), void &#42;ctx);</code>                                         |
 | `KvxEntry`                       | typedef  |  799 | <code>typedef struct { char &#42;section, &#42;key, &#42;raw; } KvxEntry;</code>                                                   |
-| `Kvx`                            | typedef  |  764 | <code>typedef struct {</code>                                                                                                      |
+| `Kvx`                            | typedef  |  800 | <code>typedef struct {</code>                                                                                                      |
 | `kvx_parse`                      | function |  811 | <code>Kvx &#42;kvx_parse(const char &#42;path); /&#42; NULL on open/parse error &#42;/</code>                                      |
 | `kvx_free`                       | function |  812 | <code>void kvx_free(Kvx &#42;k);</code>                                                                                            |
 | `kvx_has`                        | function |  813 | <code>bool kvx_has(const Kvx &#42;k, const char &#42;sec);</code>                                                                  |
@@ -268,12 +268,12 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `kvx_subsections`                | function |  820 | <code>int kvx_subsections(const Kvx &#42;k, const char &#42;prefix, char &#42;&#42;&#42;out); /&#42; file order &#42;/</code>      |
 | `kvx_sort_dotted`                | function |  821 | <code>void kvx_sort_dotted(char &#42;&#42;ids, int n);</code>                                                                      |
 | `kvx_set_status`                 | function |  823 | <code>int kvx_set_status(const char &#42;path, const char &#42;section, const char &#42;value);</code>                             |
-| `kvx_status_hook`                | function |  828 | <code>extern void (&#42;kvx_status_hook)(const char &#42;path, const char &#42;section,</code>                                     |
+| `kvx_status_hook`                | variable |  828 | <code>extern void (&#42;kvx_status_hook)(const char &#42;path, const char &#42;section,</code>                                     |
 | `kvx_set_string`                 | function |  831 | <code>int kvx_set_string(const char &#42;path, const char &#42;section, const char &#42;key,</code>                                |
 | `kvx_set_raw`                    | function |  834 | <code>int kvx_set_raw(const char &#42;path, const char &#42;section, const char &#42;key,</code>                                   |
 | `cmd_spec`                       | function |  837 | <code>int cmd_spec(int argc, char &#42;&#42;argv, bool json);</code>                                                               |
 | `spec_attempt_set_branch`        | function |  841 | <code>int spec_attempt_set_branch(Cg &#42;g, const char &#42;tag, const char &#42;branch,</code>                                   |
-| `SpecAttempt`                    | typedef  |  800 | <code>typedef struct {</code>                                                                                                      |
+| `SpecAttempt`                    | typedef  |  843 | <code>typedef struct {</code>                                                                                                      |
 | `spec_claim`                     | function |  855 | <code>int spec_claim(Cg &#42;g, const char &#42;root, const char &#42;feature, const char &#42;id,</code>                          |
 | `spec_active_tag`                | function |  859 | <code>char &#42;spec_active_tag(void);</code>                                                                                      |
 | `spec_task_tag`                  | function |  861 | <code>char &#42;spec_task_tag(const char &#42;requested);</code>                                                                   |
@@ -343,18 +343,18 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `CG_EXIT_APPROVAL`               | macro    | 1002 | <code>#define CG_EXIT_APPROVAL 4</code>                                                                                            |
 | `fleet_gate`                     | function | 1003 | <code>int fleet_gate(Cg &#42;cg, const char &#42;gate, const char &#42;subject);</code>                                            |
 | `cmd_fleet_approvals`            | function | 1004 | <code>int cmd_fleet_approvals(Cg &#42;cg, int argc, char &#42;&#42;argv, bool json);</code>                                        |
-| `DriverSpec`                     | typedef  |  949 | <code>typedef struct {</code>                                                                                                      |
+| `DriverSpec`                     | typedef  |  1039 | <code>typedef struct {</code>                                                                                                      |
 | `driver_argv`                    | function | 1051 | <code>int driver_argv(const DriverSpec &#42;d, const char &#42;root, const char &#42;promptfile,</code>                            |
-| `DriverEvent`                    | typedef  | 1015 | <code>typedef struct {</code>                                                                                                      |
+| `DriverEvent`                    | typedef  | 1053 | <code>typedef struct {</code>                                                                                                      |
 | `DriverEventFn`                  | typedef  | 1061 | <code>typedef void (&#42;DriverEventFn)(const DriverEvent &#42;e, void &#42;ud);</code>                                            |
 | `driver_stream_parse`            | function | 1064 | <code>int driver_stream_parse(const char &#42;line, DriverEventFn fn, void &#42;ud);</code>                                        |
-| `DriverTap`                      | typedef  | 1015 | <code>typedef struct {</code>                                                                                                      |
+| `DriverTap`                      | typedef  | 1065 | <code>typedef struct {</code>                                                                                                      |
 | `driver_tap_init`                | function | 1074 | <code>void driver_tap_init(DriverTap &#42;t, const char &#42;log, const char &#42;agent,</code>                                    |
 | `driver_tap_poll`                | function | 1078 | <code>int driver_tap_poll(DriverTap &#42;t);</code>                                                                                |
 | `driver_tap_free`                | function | 1079 | <code>void driver_tap_free(DriverTap &#42;t);</code>                                                                               |
 | `driver_steer`                   | function | 1081 | <code>long driver_steer(Cg &#42;cg, const char &#42;agent, const char &#42;message);</code>                                        |
 | `driver_steer_take`              | function | 1084 | <code>char &#42;driver_steer_take(Cg &#42;cg, const char &#42;agent, const char &#42;via);</code>                                  |
-| `EventRow`                       | typedef  | 1015 | <code>typedef struct {</code>                                                                                                      |
+| `EventRow`                       | typedef  | 1096 | <code>typedef struct {</code>                                                                                                      |
 | `EventFn`                        | typedef  | 1101 | <code>typedef int (&#42;EventFn)(const EventRow &#42;e, void &#42;ud);</code>                                                      |
 | `events_install`                 | function | 1102 | <code>int events_install(Cg &#42;cg); /&#42; triggers; called by cg_open &#42;/</code>                                             |
 | `events_emit`                    | function | 1106 | <code>long events_emit(Cg &#42;cg, const char &#42;kind, const char &#42;subject,</code>                                           |
@@ -397,9 +397,9 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `coverage_print`                 | function | 1206 | <code>void coverage_print(const char &#42;report_json, const char &#42;feature);</code>                                            |
 | `drift_summary`                  | function | 1208 | <code>int drift_summary(Cg &#42;cg, const char &#42;feature, StrBuf &#42;text, StrBuf &#42;json);</code>                           |
 | `graph_neighbors`                | function | 1210 | <code>int graph_neighbors(Cg &#42;cg, const char &#42;name, char &#42;&#42;&#42;out);</code>                                       |
-| `RoleCaps`                       | typedef  | 1096 | <code>typedef struct {</code>                                                                                                      |
-| `FleetRole`                      | typedef  | 1096 | <code>typedef struct {</code>                                                                                                      |
-| `Hierarchy`                      | typedef  | 1221 | <code>typedef struct {</code>                                                                                                      |
+| `RoleCaps`                       | typedef  | 1221 | <code>typedef struct {</code>                                                                                                      |
+| `FleetRole`                      | typedef  | 1232 | <code>typedef struct {</code>                                                                                                      |
+| `Hierarchy`                      | typedef  | 1240 | <code>typedef struct {</code>                                                                                                      |
 | `hier_load`                      | function | 1257 | <code>bool hier_load(const Kvx &#42;wf, Hierarchy &#42;h); /&#42; defaults, then overrides &#42;/</code>                           |
 | `hier_role_caps`                 | function | 1260 | <code>void hier_role_caps(const Kvx &#42;wf, Hierarchy &#42;h);</code>                                                             |
 | `hier_duration`                  | function | 1262 | <code>long hier_duration(const char &#42;s);</code>                                                                                |
@@ -420,13 +420,13 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `fleet_pr_open`                  | function | 1302 | <code>int fleet_pr_open(Cg &#42;cg, const char &#42;feature, bool dry_run, bool json);</code>                                      |
 | `fleet_checkpoint`               | function | 1303 | <code>int fleet_checkpoint(Cg &#42;cg, bool dry_run, bool json);</code>                                                            |
 | `cmd_fleet`                      | function | 1304 | <code>int cmd_fleet(Cg &#42;cg, int argc, char &#42;&#42;argv, bool json);</code>                                                  |
-| `FleetNode`                      | typedef  | 1232 | <code>typedef struct {</code>                                                                                                      |
+| `FleetNode`                      | typedef  | 1310 | <code>typedef struct {</code>                                                                                                      |
 | `orch_spawn_manager`             | function | 1328 | <code>int orch_spawn_manager(Cg &#42;cg, const char &#42;feature, long wave,</code>                                                |
 | `orch_spawn_worker`              | function | 1334 | <code>int orch_spawn_worker(Cg &#42;cg, const char &#42;feature, const char &#42;id,</code>                                        |
 | `orch_tree_status`               | function | 1339 | <code>int orch_tree_status(Cg &#42;cg, const char &#42;feature, bool json);</code>                                                 |
-| `JevQuestion`                    | typedef  | 1240 | <code>typedef struct {</code>                                                                                                      |
-| `JevAnswer`                      | typedef  | 1310 | <code>typedef struct {</code>                                                                                                      |
-| `JevResult`                      | typedef  | 1310 | <code>typedef struct {</code>                                                                                                      |
+| `JevQuestion`                    | typedef  | 1351 | <code>typedef struct {</code>                                                                                                      |
+| `JevAnswer`                      | typedef  | 1358 | <code>typedef struct {</code>                                                                                                      |
+| `JevResult`                      | typedef  | 1367 | <code>typedef struct {</code>                                                                                                      |
 | `jev_question_noul`              | function | 1379 | <code>int jev_question_noul(JevQuestion &#42;q, const char &#42;name,</code>                                                       |
 | `jev_question_choice`            | function | 1382 | <code>int jev_question_choice(JevQuestion &#42;q, const char &#42;name,</code>                                                     |
 | `jev_question_score`             | function | 1385 | <code>int jev_question_score(JevQuestion &#42;q, const char &#42;name,</code>                                                      |
@@ -439,11 +439,11 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `jev_result_free`                | function | 1412 | <code>void jev_result_free(JevResult &#42;r);</code>                                                                               |
 | `cmd_jev`                        | function | 1413 | <code>int cmd_jev(Cg &#42;cg, int argc, char &#42;&#42;argv, bool json);</code>                                                    |
 | `jev_advisory_ready`             | function | 1421 | <code>bool jev_advisory_ready(const char &#42;what);</code>                                                                        |
-| `JevTriage`                      | typedef  | 1351 | <code>typedef struct {</code>                                                                                                      |
+| `JevTriage`                      | typedef  | 1422 | <code>typedef struct {</code>                                                                                                      |
 | `jev_triage_failure`             | function | 1430 | <code>int jev_triage_failure(Cg &#42;cg, const char &#42;output, JevTriage &#42;out);</code>                                       |
-| `JevFinding`                     | typedef  | 1351 | <code>typedef struct {</code>                                                                                                      |
+| `JevFinding`                     | typedef  | 1431 | <code>typedef struct {</code>                                                                                                      |
 | `jev_rank_findings`              | function | 1441 | <code>int jev_rank_findings(Cg &#42;cg, JevFinding &#42;v, int n);</code>                                                          |
-| `JevReadiness`                   | typedef  | 1367 | <code>typedef struct {</code>                                                                                                      |
+| `JevReadiness`                   | typedef  | 1442 | <code>typedef struct {</code>                                                                                                      |
 | `jev_pr_readiness`               | function | 1446 | <code>int jev_pr_readiness(Cg &#42;cg, const char &#42;state_json, JevReadiness &#42;out);</code>                                  |
 | `jev_report_error`               | function | 1457 | <code>int jev_report_error(const JevResult &#42;r, const char &#42;what);</code>                                                   |
 | `memory_get`                     | function | 1460 | <code>bool memory_get(Cg &#42;cg, long id, Memory &#42;out);</code>                                                                |
@@ -459,7 +459,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `cmd_branches`                   | function | 1492 | <code>int cmd_branches(Cg &#42;cg, int argc, char &#42;&#42;argv, bool json);</code>                                               |
 | `PROJECTION_REF`                 | macro    | 1497 | <code>#define PROJECTION_REF "refs/codify/projection"</code>                                                                       |
 | `PROJECTION_BRANCH`              | macro    | 1498 | <code>#define PROJECTION_BRANCH "codify/projection"</code>                                                                         |
-| `ProjectionConflict`             | typedef  | 1422 | <code>typedef struct {</code>                                                                                                      |
+| `ProjectionConflict`             | typedef  | 1503 | <code>typedef struct {</code>                                                                                                      |
 | `projection_conflicts_free`      | function | 1510 | <code>void projection_conflicts_free(ProjectionConflict &#42;v, int n);</code>                                                     |
 | `cmd_projection`                 | function | 1512 | <code>int cmd_projection(Cg &#42;cg, const SysInfo &#42;si, int argc, char &#42;&#42;argv,</code>                                  |
 | `config_projection_base`         | function | 1516 | <code>const char &#42;config_projection_base(const char &#42;root);</code>                                                         |
@@ -470,11 +470,11 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `DriftFile`                      | typedef  | 1526 | <code>typedef struct { char &#42;path; DriftHunk &#42;h; int nh; } DriftFile;</code>                                               |
 | `drift_hunks`                    | function | 1527 | <code>int drift_hunks(const char &#42;tree, const char &#42;base, const char &#42;head,</code>                                     |
 | `drift_files_free`               | function | 1529 | <code>void drift_files_free(DriftFile &#42;v, int n);</code>                                                                       |
-| `DriftIface`                     | typedef  | 1442 | <code>typedef struct {</code>                                                                                                      |
+| `DriftIface`                     | typedef  | 1530 | <code>typedef struct {</code>                                                                                                      |
 | `drift_interface_changes`        | function | 1534 | <code>int drift_interface_changes(const char &#42;tree, const char &#42;pre,</code>                                                |
 | `drift_ifaces_free`              | function | 1536 | <code>void drift_ifaces_free(DriftIface &#42;v, int n);</code>                                                                     |
-| `ConflictBranch`                 | typedef  | 1442 | <code>typedef struct {</code>                                                                                                      |
-| `ProjectionFinding`              | typedef  | 1442 | <code>typedef struct {</code>                                                                                                      |
+| `ConflictBranch`                 | typedef  | 1539 | <code>typedef struct {</code>                                                                                                      |
+| `ProjectionFinding`              | typedef  | 1545 | <code>typedef struct {</code>                                                                                                      |
 | `conflicts_compute`              | function | 1558 | <code>int conflicts_compute(Cg &#42;cg, const char &#42;base, const char &#42;base_head,</code>                                    |
 | `conflicts_store`                | function | 1565 | <code>int conflicts_store(Cg &#42;cg, ProjectionFinding &#42;f, int n, int nbranches,</code>                                       |
 | `conflicts_steer`                | function | 1569 | <code>int conflicts_steer(Cg &#42;cg, ProjectionFinding &#42;f, int n);</code>                                                     |
@@ -523,16 +523,16 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 650 selected d
 | `cmd_serve`                      | function | 1691 | <code>int cmd_serve(Cg &#42;cg, const SysInfo &#42;si);</code>                                                                     |
 | `cmd_mcp_install`                | function | 1692 | <code>int cmd_mcp_install(Cg &#42;cg); /&#42; wire into agent configs &#42;/</code>                                                |
 | `cmd_changelog`                  | function | 1694 | <code>int cmd_changelog(Cg &#42;cg, int limit, const char &#42;outfile);</code>                                                    |
-| `ChangelogOpts`                  | typedef  | 1545 | <code>typedef struct {</code>                                                                                                      |
+| `ChangelogOpts`                  | typedef  | 1697 | <code>typedef struct {</code>                                                                                                      |
 | `cmd_changelog_git`              | function | 1703 | <code>int cmd_changelog_git(Cg &#42;cg, const ChangelogOpts &#42;o);</code>                                                        |
-| `ChatModel`                      | typedef  | 1697 | <code>typedef struct {</code>                                                                                                      |
+| `ChatModel`                      | typedef  | 1710 | <code>typedef struct {</code>                                                                                                      |
 | `chat_model_config`              | function | 1714 | <code>void chat_model_config(const Cg &#42;cg, ChatModel &#42;m);</code>                                                           |
 | `chat_model_ask`                 | function | 1717 | <code>char &#42;chat_model_ask(const Cg &#42;cg, const ChatModel &#42;m, const char &#42;prompt,</code>                            |
 | `env_file_key`                   | function | 1720 | <code>void env_file_key(const char &#42;root, const char &#42;want, char &#42;out, size_t cap);</code>                             |
-| `RecapOpts`                      | typedef  | 1697 | <code>typedef struct {</code>                                                                                                      |
+| `RecapOpts`                      | typedef  | 1724 | <code>typedef struct {</code>                                                                                                      |
 | `cmd_recap`                      | function | 1734 | <code>int cmd_recap(Cg &#42;cg, const RecapOpts &#42;o);</code>                                                                    |
 | `cmd_agentmd`                    | function | 1735 | <code>int cmd_agentmd(Cg &#42;cg, bool write_files); /&#42; graph agent context &#42;/</code>                                      |
-| `CodemapOpts`                    | typedef  | 1697 | <code>typedef struct {</code>                                                                                                      |
+| `CodemapOpts`                    | typedef  | 1739 | <code>typedef struct {</code>                                                                                                      |
 | `cmd_codemap`                    | function | 1744 | <code>int cmd_codemap(Cg &#42;cg, const CodemapOpts &#42;o);</code>                                                                |
 | `codemap_render`                 | function | 1747 | <code>int codemap_render(Cg &#42;cg, int budget, bool json, const char &#42;self_rel,</code>                                       |
 | `codemap_default_path`           | function | 1749 | <code>void codemap_default_path(const Cg &#42;cg, char &#42;out, size_t cap);</code>                                               |

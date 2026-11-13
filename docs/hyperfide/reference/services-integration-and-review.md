@@ -815,7 +815,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 655 selected d
 
 | Indexed name                  | Kind      | Line | Source declaration                                                                    |
 | ----------------------------- | --------- | ---: | ------------------------------------------------------------------------------------- |
-| `Source`                      | interface |   35 | <code>type Source =</code>                                                            |
+| `Source`                      | type      |   35 | <code>type Source =</code>                                                            |
 | `sources`                     | function  |   52 | <code>function sources(value: unknown): Source&#91;&#93; {</code>                     |
 | `snapshot`                    | function  |  194 | <code>async function snapshot(</code>                                                 |
 | `buildReviewSnapshot`         | function  |  440 | <code>export async function buildReviewSnapshot(</code>                               |

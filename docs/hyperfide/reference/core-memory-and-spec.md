@@ -1,6 +1,6 @@
 # Source reference: C core: memory and spec
 
-This part of the [source reference](../SOURCE-REFERENCE.md) lists 613 selected declarations in 10 files of the [Hyperfide workspace](../../../tools/hyperfide). Paths are relative to that workspace. Line numbers and quoted declarations refer to the linked source files. The declaration column shows the first source line, shortened to 200 characters where necessary. The tables include implementation helpers as well as public declarations.
+This part of the [source reference](../SOURCE-REFERENCE.md) lists 611 selected declarations in 10 files of the [Hyperfide workspace](../../../tools/hyperfide). Paths are relative to that workspace. Line numbers and quoted declarations refer to the linked source files. The declaration column shows the first source line, shortened to 200 characters where necessary. The tables include implementation helpers as well as public declarations.
 
 ## core/native/src/agent.c
 
@@ -256,7 +256,6 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 613 selected d
 | Indexed name           | Kind     | Line | Source declaration                                                                                    |
 | ---------------------- | -------- | ---: | ----------------------------------------------------------------------------------------------------- |
 | `JEV_DEFAULT_MODEL`    | macro    |   35 | <code>#define JEV_DEFAULT_MODEL "typesafe/jev-1.13"</code>                                            |
-| `JEV_DEFAULT_ENDPOINT` | macro    |   36 | <code>#define JEV_DEFAULT_ENDPOINT "https://openrouter.ai/api/alpha/decisions"</code>                 |
 | `JEV_MAX_CHOICE`       | macro    |   37 | <code>#define JEV_MAX_CHOICE 255</code>                                                               |
 | `JEV_EXCERPT`          | macro    |   38 | <code>#define JEV_EXCERPT 512</code>                                                                  |
 | `JEV_MAX_ANSWERS`      | macro    |   39 | <code>#define JEV_MAX_ANSWERS 512</code>                                                              |
@@ -345,7 +344,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 613 selected d
 | `kvx_sort_dotted` | function |  374 | <code>void kvx_sort_dotted(char &#42;&#42;ids, int n) {</code>                                                   |
 | `kvx_lock`        | function |  383 | <code>static int kvx_lock(const char &#42;path) {</code>                                                         |
 | `kvx_unlock`      | function |  391 | <code>static void kvx_unlock(int fd) {</code>                                                                    |
-| `kvx_status_hook` | function |  395 | <code>void (&#42;kvx_status_hook)(const char &#42;path, const char &#42;section,</code>                          |
+| `kvx_status_hook` | variable |  395 | <code>void (&#42;kvx_status_hook)(const char &#42;path, const char &#42;section,</code>                          |
 | `old_scalar`      | function |  399 | <code>static void old_scalar(const char &#42;after_eq, char &#42;out, size_t cap) {</code>                       |
 | `kvx_set_status`  | function |  409 | <code>int kvx_set_status(const char &#42;path, const char &#42;section, const char &#42;value) {</code>          |
 | `sb_kvx_string`   | function |  471 | <code>static void sb_kvx_string(StrBuf &#42;b, const char &#42;value) {</code>                                   |
@@ -440,7 +439,6 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 613 selected d
 | Indexed name            | Kind     | Line | Source declaration                                                                                                                             |
 | ----------------------- | -------- | ---: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RECAP_DECIDE_MODEL`    | macro    |   48 | <code>#define RECAP_DECIDE_MODEL "openrouter/upstage/solar-decide"</code>                                                                      |
-| `RECAP_DECIDE_ENDPOINT` | macro    |   49 | <code>#define RECAP_DECIDE_ENDPOINT "https://gateway.centra.ag/v1/systemone"</code>                                                            |
 | `RECAP_CHUNK`           | macro    |   50 | <code>#define RECAP_CHUNK 6 /&#42; statements per call, 3 questions each; the</code>                                                           |
 | `RECAP_CHUNK_CHARS`     | macro    |   53 | <code>#define RECAP_CHUNK_CHARS 9000</code>                                                                                                    |
 | `RECAP_PARALLEL`        | macro    |   54 | <code>#define RECAP_PARALLEL 6 /&#42; decision calls in flight at once &#42;/</code>                                                           |
@@ -670,7 +668,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 613 selected d
 | `spec_trace_cmd`                 | function | 4161 | <code>static int spec_trace_cmd(Spec &#42;s, const char &#42;id, bool sync, bool json) {</code>                                  |
 | `spec_new_cmd`                   | function | 4333 | <code>static int spec_new_cmd(const char &#42;root_ov, const char &#42;feature, bool json) {</code>                              |
 | `list_literal`                   | function | 4405 | <code>static char &#42;list_literal(const char &#42;csv) {</code>                                                                |
-| `TaskSpec`                       | typedef  | 3809 | <code>typedef struct {</code>                                                                                                    |
+| `TaskSpec`                       | typedef  | 4430 | <code>typedef struct {</code>                                                                                                    |
 | `spec_add_cmd`                   | function | 4437 | <code>static int spec_add_cmd(Spec &#42;s, const char &#42;id, const TaskSpec &#42;t,</code>                                     |
 | `Lint`                           | typedef  | 4514 | <code>typedef struct { StrBuf b; int errors, warnings; } Lint;</code>                                                            |
 | `lint_say`                       | function | 4516 | <code>static void lint_say(Lint &#42;l, bool error, const char &#42;id, const char &#42;fmt, ...) {</code>                       |

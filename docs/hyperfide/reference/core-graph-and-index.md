@@ -62,12 +62,12 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 1071 selected 
 | `project_semantic`      | function |   17 | <code>static void project_semantic(ParseResult &#42;result) {</code>                                    |
 | `collect_comment`       | function |   82 | <code>static bool collect_comment(AstContext &#42;ctx, TSNode node, void &#42;unused) {</code>          |
 | `scan_routes`           | function |  142 | <code>static void scan_routes(AstContext &#42;ctx) {</code>                                             |
-| `ast_web_register`      | function |  161 | <code>extern void ast_web_register(void) **attribute**((weak));</code>                                  |
-| `ast_systems_register`  | function |  162 | <code>extern void ast_systems_register(void) **attribute**((weak));</code>                              |
-| `ast_dynamic_register`  | function |  163 | <code>extern void ast_dynamic_register(void) **attribute**((weak));</code>                              |
-| `ast_managed_register`  | function |  164 | <code>extern void ast_managed_register(void) **attribute**((weak));</code>                              |
-| `ast_extended_register` | function |  165 | <code>extern void ast_extended_register(void) **attribute**((weak));</code>                             |
-| `ast_mixed_register`    | function |  166 | <code>extern void ast_mixed_register(void) **attribute**((weak));</code>                                |
+| `ast_web_register`      | function |  161 | <code>extern void ast_web_register(void) __attribute__((weak));</code>                                  |
+| `ast_systems_register`  | function |  162 | <code>extern void ast_systems_register(void) __attribute__((weak));</code>                              |
+| `ast_dynamic_register`  | function |  163 | <code>extern void ast_dynamic_register(void) __attribute__((weak));</code>                              |
+| `ast_managed_register`  | function |  164 | <code>extern void ast_managed_register(void) __attribute__((weak));</code>                              |
+| `ast_extended_register` | function |  165 | <code>extern void ast_extended_register(void) __attribute__((weak));</code>                             |
+| `ast_mixed_register`    | function |  166 | <code>extern void ast_mixed_register(void) __attribute__((weak));</code>                                |
 | `register_families`     | function |  168 | <code>static void register_families(void) {</code>                                                      |
 | `ast_register`          | function |  177 | <code>bool ast_register(const AstAdapter &#42;adapter) {</code>                                         |
 | `ast_register_all`      | function |  187 | <code>void ast_register_all(void) { pthread_once(&amp;registry_once, register_families); }</code>       |
@@ -475,11 +475,11 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 1071 selected 
 | `words_mask`                 | function | 1133 | <code>static unsigned words_mask(const char &#42;words, const Terms &#42;T) {</code>                         |
 | `text_mask`                  | function | 1147 | <code>static unsigned text_mask(const char &#42;text, size_t len, const Terms &#42;T) {</code>               |
 | `popcount`                   | function | 1163 | <code>static int popcount(unsigned m) {</code>                                                               |
-| `Hit`                        | typedef  | 1092 | <code>typedef struct { char t&#91;MAX_TERMS&#93;&#91;64&#93;; int n; } Terms;</code>                         |
+| `Hit`                        | typedef  | 1171 | <code>typedef struct {</code>                         |
 | `RANK_CAP`                   | macro    | 1178 | <code>#define RANK_CAP 256</code>                                                                            |
 | `hit_get`                    | function | 1180 | <code>static Hit &#42;hit_get(Hit &#42;h, int &#42;nh, const SymRow &#42;r, bool add) {</code>               |
 | `hit_cmp`                    | function | 1190 | <code>static int hit_cmp(const void &#42;a, const void &#42;b) {</code>                                      |
-| `FileHit`                    | typedef  | 1092 | <code>typedef struct { char t&#91;MAX_TERMS&#93;&#91;64&#93;; int n; } Terms;</code>                         |
+| `FileHit`                    | typedef  | 1202 | <code>typedef struct {</code>                         |
 | `FILE_SCAN`                  | macro    | 1211 | <code>#define FILE_SCAN 16</code>                                                                            |
 | `filehit_cmp`                | function | 1213 | <code>static int filehit_cmp(const void &#42;a, const void &#42;b) {</code>                                  |
 | `filehits_free`              | function | 1221 | <code>static void filehits_free(FileHit &#42;f, int n) {</code>                                              |
@@ -512,7 +512,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 1071 selected 
 | `cmd_impact`                 | function | 1993 | <code>int cmd_impact(Cg &#42;cg, const char &#42;name, int depth, int budget, bool json) {</code>            |
 | `cmd_routes`                 | function | 2055 | <code>int cmd_routes(Cg &#42;cg, const char &#42;filter, bool json) {</code>                                 |
 | `first_line`                 | function | 2111 | <code>static void first_line(StrBuf &#42;b, const char &#42;body, int max) {</code>                          |
-| `SurveySym`                  | typedef  | 1918 | <code>typedef struct { char name&#91;256&#93;; char via&#91;256&#93;; int depth; SymRow loc; } INode;</code> |
+| `SurveySym`                  | typedef  | 2138 | <code>typedef struct {</code> |
 | `cmd_survey`                 | function | 2145 | <code>int cmd_survey(Cg &#42;cg, const char &#42;scope, int budget, bool json) {</code>                      |
 | `AnchStale`                  | typedef  | 2390 | <code>typedef struct { StrBuf &#42;txt, &#42;js; int n; } AnchStale;</code>                                  |
 | `anch_stale_cb`              | function | 2392 | <code>static void anch_stale_cb(void &#42;u, const char &#42;path, int line,</code>                          |
@@ -664,7 +664,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 1071 selected 
 | `starts_with`       | function |  501 | <code>static bool starts_with(const char &#42;s, const char &#42;pre) {</code>                                     |
 | `CmtRange`          | typedef  |  508 | <code>typedef struct { int start, end; } CmtRange;</code>                                                          |
 | `cmt_mark`          | function |  510 | <code>static void cmt_mark(CmtRange &#42;cr, size_t a, size_t b) {</code>                                          |
-| `CleanState`        | typedef  |  508 | <code>typedef struct { int start, end; } CmtRange;</code>                                                          |
+| `CleanState`        | typedef  |  517 | <code>typedef struct {</code>                                                          |
 | `clean_line`        | function |  526 | <code>static void clean_line(const LangSpec &#42;L, const char &#42;line, size_t n,</code>                         |
 | `idstart`           | function |  603 | <code>static bool idstart(char c) { return isalpha((unsigned char)c) &#124;&#124; c == '_'; }</code>               |
 | `idchar`            | function |  604 | <code>static bool idchar(char c) { return isalnum((unsigned char)c) &#124;&#124; c == '_'; }</code>                |
@@ -721,7 +721,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 1071 selected 
 | Indexed name             | Kind     | Line | Source declaration                                                                                           |
 | ------------------------ | -------- | ---: | ------------------------------------------------------------------------------------------------------------ |
 | `ManifestDep`            | typedef  |   15 | <code>typedef struct { char &#42;name; } ManifestDep;</code>                                                 |
-| `Manifest`               | typedef  |   15 | <code>typedef struct { char &#42;name; } ManifestDep;</code>                                                 |
+| `Manifest`               | typedef  |   17 | <code>typedef struct {</code>                                                 |
 | `manifest_add`           | function |   23 | <code>static void manifest_add(Manifest &#42;m, const char &#42;name, size_t len) {</code>                   |
 | `manifest_free`          | function |   34 | <code>static void manifest_free(Manifest &#42;m) {</code>                                                    |
 | `manifest_has`           | function |   40 | <code>static bool manifest_has(const Manifest &#42;m, const char &#42;module) {</code>                       |
@@ -990,7 +990,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 1071 selected 
 | `EXPORT_DEPTH`               | macro    |   11 | <code>#define EXPORT_DEPTH 24</code>                                                                                  |
 | `Binding`                    | typedef  |   13 | <code>typedef struct {</code>                                                                                         |
 | `Package`                    | typedef  |   19 | <code>typedef struct { char &#42;path, &#42;name, &#42;entry; } Package;</code>                                       |
-| `ImportPass`                 | typedef  |   19 | <code>typedef struct { char &#42;path, &#42;name, &#42;entry; } Package;</code>                                       |
+| `ImportPass`                 | typedef  |   21 | <code>typedef struct {</code>                                       |
 | `make_scope`                 | function |   28 | <code>static void make_scope(Cg &#42;cg,const long &#42;changed,int n) {</code>                                       |
 | `copy_col`                   | function |   65 | <code>static char &#42;copy_col(sqlite3_stmt &#42;q, int col) {</code>                                                |
 | `bind_str`                   | function |   69 | <code>static void bind_str(sqlite3_stmt &#42;q, int col, const char &#42;s) {</code>                                  |
@@ -1034,8 +1034,8 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 1071 selected 
 
 | Indexed name                 | Kind     | Line | Source declaration                                                                                                |
 | ---------------------------- | -------- | ---: | ----------------------------------------------------------------------------------------------------------------- |
-| `sem_pass_run`               | function |    5 | <code>extern int sem_pass_run(Cg &#42;, const long &#42;, int) **attribute**((weak));</code>                      |
-| `sem_imports_config_changed` | function |    6 | <code>extern bool sem_imports_config_changed(Cg &#42;) **attribute**((weak));</code>                              |
+| `sem_pass_run`               | function |    5 | <code>extern int sem_pass_run(Cg &#42;, const long &#42;, int) __attribute__((weak));</code>                      |
+| `sem_imports_config_changed` | function |    6 | <code>extern bool sem_imports_config_changed(Cg &#42;) __attribute__((weak));</code>                              |
 | `table_exists`               | function |    8 | <code>static int table_exists(Cg &#42;cg, const char &#42;name) {</code>                                          |
 | `sem_incremental_init`       | function |   17 | <code>void sem_incremental_init(Cg &#42;cg) {</code>                                                              |
 | `collect`                    | function |   33 | <code>static void collect(Cg &#42;cg, long file_id, const char &#42;kind,</code>                                  |
@@ -1250,11 +1250,11 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 1071 selected 
 | `sem_type_fact_add`       | function |   40 | <code>SemTypeFact &#42;sem_type_fact_add(SemResult &#42;r, const char &#42;name,</code>                  |
 | `sem_edge_add`            | function |   49 | <code>SemEdge &#42;sem_edge_add(SemResult &#42;r, const char &#42;kind, int source,</code>               |
 | `sem_result_free`         | function |   59 | <code>void sem_result_free(SemResult &#42;r) {</code>                                                    |
-| `sem_search_schema_init`  | function |  177 | <code>extern int sem_search_schema_init(Cg &#42;cg) **attribute**((weak));</code>                        |
-| `sem_search_file_replace` | function |  178 | <code>extern int sem_search_file_replace(Cg &#42;cg, long file_id) **attribute**((weak));</code>         |
+| `sem_search_schema_init`  | function |  177 | <code>extern int sem_search_schema_init(Cg &#42;cg) __attribute__((weak));</code>                        |
+| `sem_search_file_replace` | function |  178 | <code>extern int sem_search_file_replace(Cg &#42;cg, long file_id) __attribute__((weak));</code>         |
 | `sem_search_file_copy`    | function |  179 | <code>extern int sem_search_file_copy(Cg &#42;cg, long source_file_id,</code>                            |
-| `sem_search_file_purge`   | function |  181 | <code>extern int sem_search_file_purge(Cg &#42;cg, long file_id) **attribute**((weak));</code>           |
-| `sem_routes_purge_file`   | function |  182 | <code>extern int sem_routes_purge_file(Cg &#42;cg, long file_id) **attribute**((weak));</code>           |
+| `sem_search_file_purge`   | function |  181 | <code>extern int sem_search_file_purge(Cg &#42;cg, long file_id) __attribute__((weak));</code>           |
+| `sem_routes_purge_file`   | function |  182 | <code>extern int sem_routes_purge_file(Cg &#42;cg, long file_id) __attribute__((weak));</code>           |
 | `sem_schema_init`         | function |  183 | <code>int sem_schema_init(Cg &#42;cg) {</code>                                                           |
 | `bind_text`               | function |  188 | <code>static void bind_text(sqlite3_stmt &#42;q, int n, const char &#42;s) {</code>                      |
 | `bind_id`                 | function |  192 | <code>static void bind_id(sqlite3_stmt &#42;q, int n, long id) {</code>                                  |
@@ -1265,12 +1265,12 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 1071 selected 
 | `sem_file_replace`        | function |  251 | <code>int sem_file_replace(Cg &#42;cg, long file_id, const SemResult &#42;r,</code>                      |
 | `sem_file_copy`           | function |  373 | <code>int sem_file_copy(Cg &#42;cg, long file_id, long twin_file_id) {</code>                            |
 | `SEM_MAX_PASSES`          | macro    |  445 | <code>#define SEM_MAX_PASSES 16</code>                                                                   |
-| `sem_imports_register`    | function |  450 | <code>extern void sem_imports_register(void) **attribute**((weak));</code>                               |
-| `sem_resolve_register`    | function |  451 | <code>extern void sem_resolve_register(void) **attribute**((weak));</code>                               |
-| `sem_types_register`      | function |  452 | <code>extern int sem_types_register(void) **attribute**((weak));</code>                                  |
-| `sem_routes_register`     | function |  453 | <code>extern void sem_routes_register(void) **attribute**((weak));</code>                                |
-| `sem_dispatch_register`   | function |  454 | <code>extern void sem_dispatch_register(void) **attribute**((weak));</code>                              |
-| `sem_channels_register`   | function |  455 | <code>extern void sem_channels_register(void) **attribute**((weak));</code>                              |
+| `sem_imports_register`    | function |  450 | <code>extern void sem_imports_register(void) __attribute__((weak));</code>                               |
+| `sem_resolve_register`    | function |  451 | <code>extern void sem_resolve_register(void) __attribute__((weak));</code>                               |
+| `sem_types_register`      | function |  452 | <code>extern int sem_types_register(void) __attribute__((weak));</code>                                  |
+| `sem_routes_register`     | function |  453 | <code>extern void sem_routes_register(void) __attribute__((weak));</code>                                |
+| `sem_dispatch_register`   | function |  454 | <code>extern void sem_dispatch_register(void) __attribute__((weak));</code>                              |
+| `sem_channels_register`   | function |  455 | <code>extern void sem_channels_register(void) __attribute__((weak));</code>                              |
 | `register_available`      | function |  456 | <code>static void register_available(void) {</code>                                                      |
 | `sem_pass_register`       | function |  467 | <code>int sem_pass_register(const char &#42;name, int order, SemPassFn fn) {</code>                      |
 | `sem_pass_run`            | function |  475 | <code>int sem_pass_run(Cg &#42;cg, const long &#42;changed_files, int nfiles) {</code>                   |

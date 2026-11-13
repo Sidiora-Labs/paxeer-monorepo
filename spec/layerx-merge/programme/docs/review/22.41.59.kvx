@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.59"
+pages = 20
+
+[page.1]
+path = "docs/hyperfide/journal.md"
+status = "corrected"
+
+[page.2]
+path = "docs/hyperfide/memory-transport.md"
+status = "corrected"
+
+[page.3]
+path = "docs/hyperfide/projection.md"
+status = "corrected"
+
+[page.4]
+path = "docs/hyperfide/reference/core-agentic-and-fleet.md"
+status = "corrected"
+
+[page.5]
+path = "docs/hyperfide/reference/core-cli-and-help.md"
+status = "corrected"
+
+[page.6]
+path = "docs/hyperfide/reference/core-graph-and-index.md"
+status = "corrected"
+
+[page.7]
+path = "docs/hyperfide/reference/core-memory-and-spec.md"
+status = "corrected"
+
+[page.8]
+path = "docs/hyperfide/reference/core-native-components.md"
+status = "corrected"
+
+[page.9]
+path = "docs/hyperfide/reference/core-version-control.md"
+status = "corrected"
+
+[page.10]
+path = "docs/hyperfide/reference/editors-vscode.md"
+status = "reviewed"
+
+[page.11]
+path = "docs/hyperfide/reference/kvx.md"
+status = "reviewed"
+
+[page.12]
+path = "docs/hyperfide/reference/scripts-and-tooling.md"
+status = "corrected"
+
+[page.13]
+path = "docs/hyperfide/reference/services-artifacts-and-storage.md"
+status = "reviewed"
+
+[page.14]
+path = "docs/hyperfide/reference/services-graph-and-spec.md"
+status = "reviewed"
+
+[page.15]
+path = "docs/hyperfide/reference/services-identity-and-policy.md"
+status = "reviewed"
+
+[page.16]
+path = "docs/hyperfide/reference/services-integration-and-review.md"
+status = "corrected"
+
+[page.17]
+path = "docs/hyperfide/reference/services-providers-and-preparation.md"
+status = "reviewed"
+
+[page.18]
+path = "docs/hyperfide/reference/services-runtime.md"
+status = "reviewed"
+
+[page.19]
+path = "docs/hyperfide/retrieval.md"
+status = "reviewed"
+
+[page.20]
+path = "docs/hyperfide/runtime/CODE_REVIEW.md"
+status = "reviewed"

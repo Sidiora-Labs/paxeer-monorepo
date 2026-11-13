@@ -37,7 +37,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 124 selected d
 | Indexed name       | Kind     | Line | Source declaration                                                                                                                                                  |
 | ------------------ | -------- | ---: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Refusal`          | class    |   27 | <code>class Refusal(Exception):</code>                                                                                                                              |
-| `__init__`         | method   |   28 | <code>def **init**(self,code,message):self.code,self.message=code,message;super().**init**(message)</code>                                                          |
+| `__init__`         | method   |   28 | <code>def __init__(self,code,message):self.code,self.message=code,message;super().__init__(message)</code>                                                          |
 | `need`             | function |   29 | <code>def need(ok,code='INVALID_REQUEST',message='Request is invalid'):</code>                                                                                      |
 | `exact`            | function |   31 | <code>def exact(v,keys):need(type(v) is dict and set(v)==set(keys));return v</code>                                                                                 |
 | `integer`          | function |   32 | <code>def integer(v,lo,hi):need(type(v) is int and lo&lt;=v&lt;=hi);return v</code>                                                                                 |
@@ -62,14 +62,14 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 124 selected d
 | `binary_fd`        | function |  130 | <code>def binary_fd(plan):</code>                                                                                                                                   |
 | `expiry`           | function |  140 | <code>def expiry(v):</code>                                                                                                                                         |
 | `Entry`            | class    |  145 | <code>class Entry:</code>                                                                                                                                           |
-| `__init__`         | method   |  146 | <code>def **init**(self,path,record):</code>                                                                                                                        |
+| `__init__`         | method   |  146 | <code>def __init__(self,path,record):</code>                                                                                                                        |
 | `save`             | method   |  148 | <code>def save(self):atomic(self.path/'state.json',self.record)</code>                                                                                              |
 | `op`               | method   |  149 | <code>def op(self,key):return self.path/'operations'/(uid(key)+'.json')</code>                                                                                      |
 | `receipt`          | method   |  150 | <code>def receipt(self,key,request):</code>                                                                                                                         |
 | `begin`            | method   |  157 | <code>def begin(self,key,kind,request):</code>                                                                                                                      |
 | `finish`           | method   |  159 | <code>def finish(self,key,kind,request,result):atomic(self.op(key),{'kind':kind,'request_digest':request,'state':'COMPLETED','result':result});return result</code> |
 | `Host`             | class    |  160 | <code>class Host:</code>                                                                                                                                            |
-| `__init__`         | method   |  161 | <code>def **init**(self,c,config_digest):</code>                                                                                                                    |
+| `__init__`         | method   |  161 | <code>def __init__(self,c,config_digest):</code>                                                                                                                    |
 | `load`             | method   |  175 | <code>def load(self):</code>                                                                                                                                        |
 | `view`             | method   |  191 | <code>def view(self,e,after='0',limit=64):</code>                                                                                                                   |
 | `observe`          | method   |  194 | <code>def observe(self,e):</code>                                                                                                                                   |
@@ -116,7 +116,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 124 selected d
 | `FormatError`      | class    |   90 | <code>class FormatError(ValueError):</code>                                                            |
 | `git`              | function |   94 | <code>def git(repo: Path, &#42;args: str) -&gt; str:</code>                                            |
 | `Dates`            | class    |  105 | <code>class Dates:</code>                                                                              |
-| `__init__`         | method   |  108 | <code>def **init**(self, repo: Path):</code>                                                           |
+| `__init__`         | method   |  108 | <code>def __init__(self, repo: Path):</code>                                                           |
 | `_records`         | method   |  126 | <code>def _records(payload: str) -&gt; dict&#91;str, tuple&#91;str, str, str, str&#93;&#93;:</code>    |
 | `resolve`          | method   |  140 | <code>def resolve(self, commit: str) -&gt; tuple&#91;str, str&#93;:</code>                             |
 | `metadata`         | method   |  168 | <code>def metadata(self, commit: str) -&gt; tuple&#91;str, str, str&#93;:</code>                       |
@@ -170,7 +170,7 @@ This part of the [source reference](../SOURCE-REFERENCE.md) lists 124 selected d
 | `task_errors`                    | function |  124 | <code>def task_errors(tasks: dict, clauses: set, cases: set, mode: str = 'draft') -&gt; list&#91;str&#93;:</code>            |
 | `negative_self_tests`            | function |  224 | <code>def negative_self_tests() -&gt; list&#91;dict&#93;:</code>                                                             |
 | `Validator`                      | class    |  300 | <code>class Validator:</code>                                                                                                |
-| `__init__`                       | method   |  301 | <code>def **init**(self, root: Path, output: Path, publication_policy: Path &#124; None = None, mode: str = 'draft'):</code> |
+| `__init__`                       | method   |  301 | <code>def __init__(self, root: Path, output: Path, publication_policy: Path &#124; None = None, mode: str = 'draft'):</code> |
 | `public_files`                   | method   |  311 | <code>def public_files(self, pattern: str):</code>                                                                           |
 | `validate_privacy`               | method   |  324 | <code>def validate_privacy(self) -&gt; None:</code>                                                                          |
 | `needed`                         | method   |  367 | <code>def needed(self, relative: str) -&gt; Path &#124; None:</code>                                                         |
