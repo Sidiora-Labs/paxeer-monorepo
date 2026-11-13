@@ -22,32 +22,32 @@ import (
 	tidwal "github.com/tidwall/wal"
 )
 
-func TestRepairM_1146_SingletonRecovery(t *testing.T) {
-	cfg, key, records := repairM1146CrashTail(t, 0, 1)
-	repairM1146AssertReopens(t, cfg, key, records)
+func TestReceiptRecoverySingletonRecovery(t *testing.T) {
+	cfg, key, records := makeReceiptCrashTail(t, 0, 1)
+	assertReceiptRecoveryReopens(t, cfg, key, records)
 }
 
-func TestRepairM_1146_MultiEntryRecovery(t *testing.T) {
-	cfg, key, records := repairM1146CrashTail(t, 1, 3)
-	repairM1146AssertReopens(t, cfg, key, records)
+func TestReceiptRecoveryMultiEntryRecovery(t *testing.T) {
+	cfg, key, records := makeReceiptCrashTail(t, 1, 3)
+	assertReceiptRecoveryReopens(t, cfg, key, records)
 }
 
-func TestRepairM_1146_SingletonAfterAppliedPrefix(t *testing.T) {
-	cfg, key, records := repairM1146CrashTail(t, 1, 1)
-	repairM1146AssertReopens(t, cfg, key, records)
+func TestReceiptRecoverySingletonAfterAppliedPrefix(t *testing.T) {
+	cfg, key, records := makeReceiptCrashTail(t, 1, 1)
+	assertReceiptRecoveryReopens(t, cfg, key, records)
 }
 
-func TestRepairM_1146_HandleLifecycle(t *testing.T) {
-	baseline := repairM1146WALWorkers(t)
-	cfg, key, records := repairM1146CrashTail(t, 0, 1)
-	repairM1146AssertResources(t, cfg.DBDirectory, baseline)
+func TestReceiptRecoveryHandleLifecycle(t *testing.T) {
+	baseline := countReceiptWALWorkers(t)
+	cfg, key, records := makeReceiptCrashTail(t, 0, 1)
+	assertReceiptResourcesReleased(t, cfg.DBDirectory, baseline)
 	for i := 0; i < 5; i++ {
 		store, err := receipt.NewReceiptStore(cfg, key)
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, store.Close()) })
-		require.Eventually(t, func() bool { return repairM1146WALWorkers(t) == baseline+1 }, 2*time.Second, time.Millisecond)
-		require.Positive(t, repairM1146OpenFiles(t, cfg.DBDirectory))
-		repairM1146AssertReceipts(t, store, records)
+		require.Eventually(t, func() bool { return countReceiptWALWorkers(t) == baseline+1 }, 2*time.Second, time.Millisecond)
+		require.Positive(t, countReceiptOpenFiles(t, cfg.DBDirectory))
+		assertRecoveredReceipts(t, store, records)
 		// A second constructor must not open a recovery handle over a live owner.
 		other, err := receipt.NewReceiptStore(cfg, key)
 		if other != nil {
@@ -55,15 +55,15 @@ func TestRepairM_1146_HandleLifecycle(t *testing.T) {
 		}
 		require.ErrorContains(t, err, "lock receipt store")
 		require.Nil(t, other)
-		require.Equal(t, baseline+1, repairM1146WALWorkers(t))
+		require.Equal(t, baseline+1, countReceiptWALWorkers(t))
 		require.NoError(t, store.Close())
 		require.NoError(t, store.Close())
-		repairM1146AssertResources(t, cfg.DBDirectory, baseline)
+		assertReceiptResourcesReleased(t, cfg.DBDirectory, baseline)
 	}
 }
 
-func TestRepairM_1146_EmptyRecovery(t *testing.T) {
-	baseline := repairM1146WALWorkers(t)
+func TestReceiptRecoveryEmptyRecovery(t *testing.T) {
+	baseline := countReceiptWALWorkers(t)
 	cfg := dbconfig.DefaultReceiptStoreConfig()
 	cfg.DBDirectory = t.TempDir()
 	key := storetypes.NewKVStoreKey("evm")
@@ -73,12 +73,12 @@ func TestRepairM_1146_EmptyRecovery(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, store.Close()) })
 		require.Zero(t, store.LatestVersion())
 		require.NoError(t, store.Close())
-		repairM1146AssertResources(t, cfg.DBDirectory, baseline)
+		assertReceiptResourcesReleased(t, cfg.DBDirectory, baseline)
 	}
 }
 
-func TestRepairM_1146_OffsetErrors(t *testing.T) {
-	baseline := repairM1146WALWorkers(t)
+func TestReceiptRecoveryOffsetErrors(t *testing.T) {
+	baseline := countReceiptWALWorkers(t)
 	dir := t.TempDir()
 	stream, err := wal.NewChangelogWAL(dir, wal.Config{})
 	require.NoError(t, err)
@@ -100,12 +100,12 @@ func TestRepairM_1146_OffsetErrors(t *testing.T) {
 	require.ErrorIs(t, err, tidwal.ErrClosed)
 	require.ErrorContains(t, err, "first offset")
 	require.ErrorContains(t, err, "last offset")
-	repairM1146AssertResources(t, dir, baseline)
+	assertReceiptResourcesReleased(t, dir, baseline)
 }
 
-func TestRepairM_1146_UnreadableRecoveryMetadata(t *testing.T) {
-	baseline := repairM1146WALWorkers(t)
-	cfg, key, records := repairM1146CrashTail(t, 0, 1)
+func TestReceiptRecoveryUnreadableRecoveryMetadata(t *testing.T) {
+	baseline := countReceiptWALWorkers(t)
+	cfg, key, records := makeReceiptCrashTail(t, 0, 1)
 	path := dbutils.GetChangelogPath(cfg.DBDirectory)
 	saved := filepath.Join(t.TempDir(), "saved-changelog")
 	require.NoError(t, os.Rename(path, saved))
@@ -120,17 +120,17 @@ func TestRepairM_1146_UnreadableRecoveryMetadata(t *testing.T) {
 		var pathErr *os.PathError
 		require.ErrorAs(t, err, &pathErr)
 		require.Equal(t, path, pathErr.Path)
-		repairM1146AssertResources(t, cfg.DBDirectory, baseline)
+		assertReceiptResourcesReleased(t, cfg.DBDirectory, baseline)
 	}
 	require.NoError(t, os.Remove(path))
 	require.NoError(t, os.Rename(saved, path))
-	repairM1146AssertReopens(t, cfg, key, records)
-	repairM1146AssertResources(t, cfg.DBDirectory, baseline)
+	assertReceiptRecoveryReopens(t, cfg, key, records)
+	assertReceiptResourcesReleased(t, cfg.DBDirectory, baseline)
 }
 
-func TestRepairM_1146_ReplayReadErrorClosesHandle(t *testing.T) {
-	baseline := repairM1146WALWorkers(t)
-	cfg, key, records := repairM1146CrashTail(t, 0, 1)
+func TestReceiptRecoveryReplayReadErrorClosesHandle(t *testing.T) {
+	baseline := countReceiptWALWorkers(t)
+	cfg, key, records := makeReceiptCrashTail(t, 0, 1)
 	path := dbutils.GetChangelogPath(cfg.DBDirectory)
 	// Keep the real producer's receipt, but append an undecodable protobuf
 	// record using the same on-disk WAL transport.
@@ -148,19 +148,19 @@ func TestRepairM_1146_ReplayReadErrorClosesHandle(t *testing.T) {
 		require.Nil(t, store)
 		require.ErrorContains(t, err, "read receipt recovery changelog")
 		require.ErrorContains(t, err, "unmarshal log failed")
-		repairM1146AssertResources(t, cfg.DBDirectory, baseline)
+		assertReceiptResourcesReleased(t, cfg.DBDirectory, baseline)
 	}
 	log, err = tidwal.Open(path, nil)
 	require.NoError(t, err)
 	require.NoError(t, log.TruncateBack(last))
 	require.NoError(t, log.Close())
-	repairM1146AssertReopens(t, cfg, key, records)
-	repairM1146AssertResources(t, cfg.DBDirectory, baseline)
+	assertReceiptRecoveryReopens(t, cfg, key, records)
+	assertReceiptResourcesReleased(t, cfg.DBDirectory, baseline)
 }
 
 // Produce all WAL bytes through the public receipt writer. Restoring only
 // older Pebble files models the durable WAL surviving unapplied database writes.
-func repairM1146CrashTail(t *testing.T, prefix, tail int) (dbconfig.ReceiptStoreConfig, storetypes.StoreKey, []receipt.ReceiptRecord) {
+func makeReceiptCrashTail(t *testing.T, prefix, tail int) (dbconfig.ReceiptStoreConfig, storetypes.StoreKey, []receipt.ReceiptRecord) {
 	t.Helper()
 	cfg := dbconfig.DefaultReceiptStoreConfig()
 	cfg.DBDirectory = t.TempDir()
@@ -190,7 +190,7 @@ func repairM1146CrashTail(t *testing.T, prefix, tail int) (dbconfig.ReceiptStore
 	}
 	require.NoError(t, store.Close())
 	snapshot := t.TempDir()
-	repairM1146CopyDB(t, cfg.DBDirectory, snapshot)
+	copyReceiptDB(t, cfg.DBDirectory, snapshot)
 	store, err = receipt.NewReceiptStore(cfg, key)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, store.Close()) })
@@ -223,7 +223,7 @@ func repairM1146CrashTail(t *testing.T, prefix, tail int) (dbconfig.ReceiptStore
 			require.NoError(t, os.RemoveAll(filepath.Join(cfg.DBDirectory, file.Name())))
 		}
 	}
-	repairM1146CopyDB(t, snapshot, cfg.DBDirectory)
+	copyReceiptDB(t, snapshot, cfg.DBDirectory)
 	ssConfig := dbconfig.DefaultStateStoreConfig()
 	ssConfig.DBDirectory = cfg.DBDirectory
 	ssConfig.KeepRecent = 0
@@ -246,7 +246,7 @@ func repairM1146CrashTail(t *testing.T, prefix, tail int) (dbconfig.ReceiptStore
 	return cfg, key, records
 }
 
-func repairM1146CopyDB(t *testing.T, source, target string) {
+func copyReceiptDB(t *testing.T, source, target string) {
 	t.Helper()
 	require.NoError(t, filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -274,18 +274,18 @@ func repairM1146CopyDB(t *testing.T, source, target string) {
 	}))
 }
 
-func repairM1146AssertReopens(t *testing.T, cfg dbconfig.ReceiptStoreConfig, key storetypes.StoreKey, records []receipt.ReceiptRecord) {
+func assertReceiptRecoveryReopens(t *testing.T, cfg dbconfig.ReceiptStoreConfig, key storetypes.StoreKey, records []receipt.ReceiptRecord) {
 	t.Helper()
 	for i := 0; i < 3; i++ {
 		store, err := receipt.NewReceiptStore(cfg, key)
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, store.Close()) })
-		repairM1146AssertReceipts(t, store, records)
+		assertRecoveredReceipts(t, store, records)
 		require.NoError(t, store.Close())
 	}
 }
 
-func repairM1146AssertReceipts(t *testing.T, store receipt.ReceiptStore, records []receipt.ReceiptRecord) {
+func assertRecoveredReceipts(t *testing.T, store receipt.ReceiptStore, records []receipt.ReceiptRecord) {
 	t.Helper()
 	require.Equal(t, int64(len(records)), store.LatestVersion())
 	for _, record := range records {
@@ -303,7 +303,7 @@ func repairM1146AssertReceipts(t *testing.T, store receipt.ReceiptStore, records
 	}
 }
 
-func repairM1146WALWorkers(t *testing.T) int {
+func countReceiptWALWorkers(t *testing.T) int {
 	t.Helper()
 	buffer := make([]byte, 1<<20)
 	n := runtime.Stack(buffer, true)
@@ -317,7 +317,7 @@ func repairM1146WALWorkers(t *testing.T) int {
 	return count
 }
 
-func repairM1146OpenFiles(t *testing.T, dir string) int {
+func countReceiptOpenFiles(t *testing.T, dir string) int {
 	t.Helper()
 	entries, err := os.ReadDir("/proc/self/fd")
 	require.NoError(t, err)
@@ -335,9 +335,9 @@ func repairM1146OpenFiles(t *testing.T, dir string) int {
 	return count
 }
 
-func repairM1146AssertResources(t *testing.T, dir string, workers int) {
+func assertReceiptResourcesReleased(t *testing.T, dir string, workers int) {
 	t.Helper()
 	require.Eventually(t, func() bool {
-		return repairM1146WALWorkers(t) == workers && repairM1146OpenFiles(t, dir) == 0
+		return countReceiptWALWorkers(t) == workers && countReceiptOpenFiles(t, dir) == 0
 	}, 2*time.Second, time.Millisecond, "all recovery/owner workers and file descriptors must close")
 }

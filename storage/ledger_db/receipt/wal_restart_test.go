@@ -12,39 +12,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_104_ZeroWALEntries(t *testing.T) {
-	repair104Restart(t, nil, 0, 0, 0)
+func TestReceiptWALRestartZeroWALEntries(t *testing.T) {
+	assertReceiptWALRestart(t, nil, 0, 0, 0)
 }
 
-func TestRepair_104_SingleUnappliedEntry(t *testing.T) {
-	repair104Restart(t, []int64{7}, 0, 0, 0)
+func TestReceiptWALRestartSingleUnappliedEntry(t *testing.T) {
+	assertReceiptWALRestart(t, []int64{7}, 0, 0, 0)
 }
 
-func TestRepair_104_MultipleUnappliedEntries(t *testing.T) {
-	repair104Restart(t, []int64{7, 11, 19}, 0, 0, 0)
+func TestReceiptWALRestartMultipleUnappliedEntries(t *testing.T) {
+	assertReceiptWALRestart(t, []int64{7, 11, 19}, 0, 0, 0)
 }
 
-func TestRepair_104_SingleUnappliedTail(t *testing.T) {
-	repair104Restart(t, []int64{7, 11}, 1, 0, 0)
+func TestReceiptWALRestartSingleUnappliedTail(t *testing.T) {
+	assertReceiptWALRestart(t, []int64{7, 11}, 1, 0, 0)
 }
 
-func TestRepair_104_MultipleUnappliedTail(t *testing.T) {
-	repair104Restart(t, []int64{7, 11, 19}, 1, 0, 0)
+func TestReceiptWALRestartMultipleUnappliedTail(t *testing.T) {
+	assertReceiptWALRestart(t, []int64{7, 11, 19}, 1, 0, 0)
 }
 
-func TestRepair_104_FullyAppliedTail(t *testing.T) {
-	repair104Restart(t, []int64{7, 11, 19}, 3, 0, 0)
+func TestReceiptWALRestartFullyAppliedTail(t *testing.T) {
+	assertReceiptWALRestart(t, []int64{7, 11, 19}, 3, 0, 0)
 }
 
-func TestRepair_104_StoreAheadOfWAL(t *testing.T) {
-	repair104Restart(t, []int64{7, 11, 19}, 3, 23, 0)
+func TestReceiptWALRestartStoreAheadOfWAL(t *testing.T) {
+	assertReceiptWALRestart(t, []int64{7, 11, 19}, 3, 23, 0)
 }
 
-func TestRepair_104_PrunedWALSingleton(t *testing.T) {
-	repair104Restart(t, []int64{7, 11, 19}, 0, 0, 2)
+func TestReceiptWALRestartPrunedWALSingleton(t *testing.T) {
+	assertReceiptWALRestart(t, []int64{7, 11, 19}, 0, 0, 2)
 }
 
-func repair104Restart(t *testing.T, versions []int64, applied int, watermark int64, truncated int) {
+func assertReceiptWALRestart(t *testing.T, versions []int64, applied int, watermark int64, truncated int) {
 	t.Helper()
 	ctx, storeKey := newTestContext()
 	cfg := dbconfig.DefaultReceiptStoreConfig()

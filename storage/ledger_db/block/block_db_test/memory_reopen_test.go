@@ -7,7 +7,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/ledger_db/block"
 )
 
-func TestRepairM_1159_MemoryBuilderInstancesAreIndependent(t *testing.T) {
+func TestBlockDBMemoryBuilderInstancesAreIndependent(t *testing.T) {
 	for _, samePath := range []bool{true, false} {
 		name := "different_paths"
 		if samePath {
@@ -28,7 +28,7 @@ func TestRepairM_1159_MemoryBuilderInstancesAreIndependent(t *testing.T) {
 			original := makeBlock(11, 3)
 			requireNoError(t, first.WriteBlock(ctx, original))
 			requireNoError(t, first.Flush(ctx))
-			requireRepairM1159Block(t, ctx, first, original)
+			requireStoredBlockAndTransactions(t, ctx, first, original)
 
 			second, err := backend.builder(secondPath)
 			requireNoError(t, err)
@@ -40,14 +40,14 @@ func TestRepairM_1159_MemoryBuilderInstancesAreIndependent(t *testing.T) {
 			other := makeBlock(22, 2)
 			requireNoError(t, second.WriteBlock(ctx, other))
 			requireNoError(t, second.Flush(ctx))
-			requireRepairM1159Block(t, ctx, second, other)
+			requireStoredBlockAndTransactions(t, ctx, second, other)
 			requireBlockAbsent(t, ctx, first, other)
-			requireRepairM1159Block(t, ctx, first, original)
+			requireStoredBlockAndTransactions(t, ctx, first, original)
 		})
 	}
 }
 
-func TestRepairM_1159_MemoryReopenIsEphemeral(t *testing.T) {
+func TestBlockDBMemoryReopenIsEphemeral(t *testing.T) {
 	ctx := context.Background()
 	backend := newMemBlockDBBuilder()
 	requireTrue(t, backend.ephemeral, "memory backend must declare ephemeral semantics")
@@ -63,7 +63,7 @@ func TestRepairM_1159_MemoryReopenIsEphemeral(t *testing.T) {
 	original := makeBlock(7, 4)
 	requireNoError(t, first.WriteBlock(ctx, original))
 	requireNoError(t, first.Flush(ctx))
-	requireRepairM1159Block(t, ctx, first, original)
+	requireStoredBlockAndTransactions(t, ctx, first, original)
 	requireNoError(t, first.Close(ctx))
 	closed = true
 
@@ -77,7 +77,7 @@ func TestRepairM_1159_MemoryReopenIsEphemeral(t *testing.T) {
 	next := makeBlock(8, 2)
 	requireNoError(t, reopened.WriteBlock(ctx, next))
 	requireNoError(t, reopened.Flush(ctx))
-	requireRepairM1159Block(t, ctx, reopened, next)
+	requireStoredBlockAndTransactions(t, ctx, reopened, next)
 	requireBlockAbsent(t, ctx, reopened, original)
 	lowest, err := reopened.GetLowestBlockHeight(ctx)
 	requireNoError(t, err)
@@ -87,12 +87,12 @@ func TestRepairM_1159_MemoryReopenIsEphemeral(t *testing.T) {
 	requireTrue(t, highest == next.Height, "highest height: expected %d, got %d", next.Height, highest)
 }
 
-func TestRepairM_1159_ReopenContracts(t *testing.T) {
+func TestBlockDBReopenContracts(t *testing.T) {
 	t.Run("close_and_reopen", TestCloseAndReopen)
 	t.Run("close_and_reopen_then_write", TestCloseAndReopenThenWrite)
 }
 
-func requireRepairM1159Block(t *testing.T, ctx context.Context, db block.BlockDB, expected *block.BinaryBlock) {
+func requireStoredBlockAndTransactions(t *testing.T, ctx context.Context, db block.BlockDB, expected *block.BinaryBlock) {
 	t.Helper()
 	byHeight, ok, err := db.GetBlockByHeight(ctx, expected.Height)
 	requireNoError(t, err)

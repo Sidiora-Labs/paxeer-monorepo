@@ -20,13 +20,13 @@ import (
 
 // This fixture journals actual writes and pruning decisions before applying them
 // to the production memory store. Closing a journal exercises real OS failures.
-type repairM1160JournalStore struct {
+type journalBlockStore struct {
 	block.BlockDB
 	writes *os.File
 	prunes *os.File
 }
 
-func newRepairM1160JournalStore(t *testing.T) *repairM1160JournalStore {
+func newJournalBlockStore(t *testing.T) *journalBlockStore {
 	t.Helper()
 	open := func(name string) *os.File {
 		f, err := os.Create(filepath.Join(t.TempDir(), name))
@@ -36,39 +36,39 @@ func newRepairM1160JournalStore(t *testing.T) *repairM1160JournalStore {
 		t.Cleanup(func() { _ = f.Close() })
 		return f
 	}
-	return &repairM1160JournalStore{
+	return &journalBlockStore{
 		BlockDB: memblockdb.NewMemBlockDB(),
 		writes:  open("writes.jsonl"),
 		prunes:  open("prunes.jsonl"),
 	}
 }
 
-func (s *repairM1160JournalStore) WriteBlock(ctx context.Context, blk *block.BinaryBlock) error {
+func (s *journalBlockStore) WriteBlock(ctx context.Context, blk *block.BinaryBlock) error {
 	if err := json.NewEncoder(s.writes).Encode(blk); err != nil {
 		return err
 	}
 	return s.BlockDB.WriteBlock(ctx, blk)
 }
 
-func (s *repairM1160JournalStore) Flush(ctx context.Context) error {
+func (s *journalBlockStore) Flush(ctx context.Context) error {
 	if err := s.writes.Sync(); err != nil {
 		return err
 	}
 	return s.BlockDB.Flush(ctx)
 }
 
-func (s *repairM1160JournalStore) Prune(ctx context.Context, height uint64) error {
+func (s *journalBlockStore) Prune(ctx context.Context, height uint64) error {
 	if err := json.NewEncoder(s.prunes).Encode(height); err != nil {
 		return err
 	}
 	return s.BlockDB.Prune(ctx, height)
 }
 
-func (s *repairM1160JournalStore) Close(ctx context.Context) error {
+func (s *journalBlockStore) Close(ctx context.Context) error {
 	return errors.Join(s.writes.Close(), s.prunes.Close(), s.BlockDB.Close(ctx))
 }
 
-func newRepairM1160Runner(t *testing.T, db block.BlockDB) *BlockSim {
+func newLifecycleRunner(t *testing.T, db block.BlockDB) *BlockSim {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -92,11 +92,11 @@ func newRepairM1160Runner(t *testing.T, db block.BlockDB) *BlockSim {
 	}
 }
 
-func repairM1160Generator(b *BlockSim, startHeight uint64) *BlockGenerator {
+func newLifecycleGenerator(b *BlockSim, startHeight uint64) *BlockGenerator {
 	return NewBlockGenerator(b.ctx, b.config, rand.NewCannedRandom(int(b.config.CannedRandomSize), b.config.Seed), startHeight)
 }
 
-func assertRepairM1160Result(t *testing.T, b *BlockSim, operation string, cause error) {
+func assertBlockSimFailure(t *testing.T, b *BlockSim, operation string, cause error) {
 	t.Helper()
 	err := b.BlockUntilHalted()
 	if !errors.Is(err, cause) || !strings.Contains(err.Error(), operation) {
@@ -114,11 +114,11 @@ func assertRepairM1160Result(t *testing.T, b *BlockSim, operation string, cause 
 	}
 }
 
-func TestRepairM_1160_WorkloadErrorsReachCLI(t *testing.T) {
+func TestBlockSimWorkloadErrorsReachCLI(t *testing.T) {
 	for _, operation := range []string{"write", "flush", "prune"} {
 		t.Run(operation, func(t *testing.T) {
-			store := newRepairM1160JournalStore(t)
-			b := newRepairM1160Runner(t, store)
+			store := newJournalBlockStore(t)
+			b := newLifecycleRunner(t, store)
 			var cause error = os.ErrClosed
 			startHeight := uint64(1)
 			switch operation {
@@ -146,14 +146,14 @@ func TestRepairM_1160_WorkloadErrorsReachCLI(t *testing.T) {
 				}
 				startHeight = 6
 			}
-			b.generator = repairM1160Generator(b, startHeight)
+			b.generator = newLifecycleGenerator(b, startHeight)
 			go b.run()
 			select {
 			case <-b.closeChan:
 			case <-time.After(5 * time.Second):
 				t.Fatal("workload failure did not halt the benchmark")
 			}
-			assertRepairM1160Result(t, b, "failed to "+operation, cause)
+			assertBlockSimFailure(t, b, "failed to "+operation, cause)
 			wantBlocks := int64(1)
 			if operation == "write" {
 				wantBlocks = 0
@@ -169,7 +169,7 @@ func TestRepairM_1160_WorkloadErrorsReachCLI(t *testing.T) {
 	}
 }
 
-func captureIssue1700Output(t *testing.T, run func()) (string, string) {
+func captureBlockSimOutput(t *testing.T, run func()) (string, string) {
 	t.Helper()
 	stdout, err := os.CreateTemp(t.TempDir(), "stdout")
 	if err != nil {
@@ -196,11 +196,11 @@ func captureIssue1700Output(t *testing.T, run func()) (string, string) {
 	return read(stdout), read(stderr)
 }
 
-func TestIssue1700SingleDiagnostic(t *testing.T) {
+func TestBlockSimSingleDiagnostic(t *testing.T) {
 	for _, operation := range []string{"write", "flush", "prune", "flush during teardown", "clean"} {
 		t.Run(operation, func(t *testing.T) {
-			store := newRepairM1160JournalStore(t)
-			b := newRepairM1160Runner(t, store)
+			store := newJournalBlockStore(t)
+			b := newLifecycleRunner(t, store)
 			var cause error = os.ErrClosed
 			startHeight := uint64(1)
 			switch operation {
@@ -235,11 +235,11 @@ func TestIssue1700SingleDiagnostic(t *testing.T) {
 			}
 			var haltErr error
 			var code int
-			stdout, stderr := captureIssue1700Output(t, func() {
+			stdout, stderr := captureBlockSimOutput(t, func() {
 				if operation == "flush during teardown" {
 					go b.teardown()
 				} else {
-					b.generator = repairM1160Generator(b, startHeight)
+					b.generator = newLifecycleGenerator(b, startHeight)
 					go b.run()
 					if operation == "clean" {
 						b.cancel()
@@ -300,11 +300,11 @@ func TestIssue1700SingleDiagnostic(t *testing.T) {
 	}
 }
 
-func TestRepairM_1160_TeardownAndSuspendErrors(t *testing.T) {
+func TestBlockSimTeardownAndSuspendErrors(t *testing.T) {
 	for _, operation := range []string{"flush during teardown", "close database", "flush on suspend"} {
 		t.Run(operation, func(t *testing.T) {
-			store := newRepairM1160JournalStore(t)
-			b := newRepairM1160Runner(t, store)
+			store := newJournalBlockStore(t)
+			b := newLifecycleRunner(t, store)
 			file := store.writes
 			if operation == "close database" {
 				file = store.prunes
@@ -319,15 +319,15 @@ func TestRepairM_1160_TeardownAndSuspendErrors(t *testing.T) {
 				}
 			}
 			b.teardown()
-			assertRepairM1160Result(t, b, "failed to "+operation, os.ErrClosed)
+			assertBlockSimFailure(t, b, "failed to "+operation, os.ErrClosed)
 		})
 	}
 }
 
-func TestRepairM_1160_CleanupErrorReachesCLI(t *testing.T) {
+func TestBlockSimCleanupErrorReachesCLI(t *testing.T) {
 	for _, cleanData := range []bool{true, false} {
 		t.Run(map[bool]string{true: "data", false: "logs"}[cleanData], func(t *testing.T) {
-			b := newRepairM1160Runner(t, memblockdb.NewMemBlockDB())
+			b := newLifecycleRunner(t, memblockdb.NewMemBlockDB())
 			path := filepath.Join(t.TempDir(), "not-a-directory")
 			if err := os.WriteFile(path, []byte("preserve"), 0600); err != nil {
 				t.Fatal(err)
@@ -340,14 +340,14 @@ func TestRepairM_1160_CleanupErrorReachesCLI(t *testing.T) {
 			if !errors.As(err, &pathErr) || pathErr.Path != path {
 				t.Fatalf("cleanup result = %v; want original filesystem cause for %s", err, path)
 			}
-			assertRepairM1160Result(t, b, "failed to clean", pathErr.Err)
+			assertBlockSimFailure(t, b, "failed to clean", pathErr.Err)
 		})
 	}
 }
 
-func TestRepairM_1160_CleanShutdownAndConcurrentWaiters(t *testing.T) {
-	b := newRepairM1160Runner(t, memblockdb.NewMemBlockDB())
-	b.generator = repairM1160Generator(b, 1)
+func TestBlockSimCleanShutdownAndConcurrentWaiters(t *testing.T) {
+	b := newLifecycleRunner(t, memblockdb.NewMemBlockDB())
+	b.generator = newLifecycleGenerator(b, 1)
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
@@ -375,11 +375,11 @@ func TestRepairM_1160_CleanShutdownAndConcurrentWaiters(t *testing.T) {
 	}
 }
 
-func TestRepairM_1160_PruneRetentionAndInterval(t *testing.T) {
-	store := newRepairM1160JournalStore(t)
-	b := newRepairM1160Runner(t, store)
+func TestBlockSimPruneRetentionAndInterval(t *testing.T) {
+	store := newJournalBlockStore(t)
+	b := newLifecycleRunner(t, store)
 	defer b.teardown()
-	g := repairM1160Generator(b, 1)
+	g := newLifecycleGenerator(b, 1)
 	for height := uint64(1); height <= 10; height++ {
 		blk := g.NextBlock()
 		if blk == nil || blk.Height != height {
@@ -419,7 +419,7 @@ func TestRepairM_1160_PruneRetentionAndInterval(t *testing.T) {
 	}
 }
 
-func TestRepairM_1160_FailedBuildNeverLaunchesStaleExecutables(t *testing.T) {
+func TestBlockSimFailedBuildNeverLaunchesStaleExecutables(t *testing.T) {
 	script, err := os.ReadFile("blocksim.sh")
 	if err != nil {
 		t.Fatal(err)

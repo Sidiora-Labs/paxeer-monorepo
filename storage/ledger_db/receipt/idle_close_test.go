@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair2239367CloseIdleReceiptStore(t *testing.T) {
+func TestCloseIdleReceiptStore(t *testing.T) {
 	cfg := dbconfig.DefaultReceiptStoreConfig()
 	cfg.DBDirectory = t.TempDir()
 	cfg.KeepRecent = 1
