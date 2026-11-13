@@ -7,6 +7,10 @@ yanked = "deny"
 unmaintained = "all"
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste is a compile-time proc macro inside the pinned vendored engine tree" },
+    { id = "RUSTSEC-2026-0387", reason = "2026-11-13: elliptic-curve 0.13.8, used by k256 0.13.4, requires crypto-bigint 0.5; the corrected crypto-bigint 0.7.6 API is incompatible with that requirement." },
+    { id = "RUSTSEC-2026-0382", reason = "2026-11-13: layerx-agentd 0.1.0 requires rustls-webpki exactly 0.103.15; corrected patches 0.103.16 and 0.103.17 do not satisfy that manifest pin." },
+    { id = "RUSTSEC-2022-0061", reason = "2026-11-13: wasm-instrument 0.4.0 requires parity-wasm 0.45; this package has no maintained release." },
+    { id = "RUSTSEC-2024-0449", reason = "2026-11-13: serde_yaml 0.9.34 requires unsafe-libyaml 0.2; this package has no maintained release." },
 ]
 
 [licenses]
@@ -31,13 +35,27 @@ wildcards = "allow"
 highlight = "all"
 deny = [
     { name = "bindgen", reason = "Private C layouts may not cross the node boundary" },
-    { name = "libsqlite3-sys", reason = "The platform workspace may not open node projections" },
-    { name = "rusqlite", reason = "The platform workspace may not open node projections" },
+    { name = "libsqlite3-sys", wrappers = ["rusqlite"], reason = "The platform workspace may not open node projections" },
+    { name = "rusqlite", wrappers = ["layerx-indexer"], reason = "The platform workspace may not open node projections" },
     { name = "sqlx-sqlite", reason = "The platform workspace may not open node projections" },
     { name = "ctor", reason = "Process-wide initialisation is forbidden" },
     { name = "inventory", reason = "Process-wide registries are forbidden" },
 ]
 skip = [
+    { name = "base64", version = "=0.22.1", reason = "2026-11-13: The pinned LayerX client uses base64 0.22 while the HTTP stack uses 0.23." },
+    { name = "block-buffer", version = "=0.10.4", reason = "2026-11-13: The elliptic-curve digest 0.10 API and PostgreSQL digest 0.11 API require separate block buffers." },
+    { name = "chacha20", version = "=0.9.1", reason = "2026-11-13: The pinned chacha20poly1305 0.10 API uses chacha20 0.9 while PostgreSQL rand 0.10 uses chacha20 0.10." },
+    { name = "const-oid", version = "=0.9.6", reason = "2026-11-13: The pinned DER and elliptic-curve digest APIs use const-oid 0.9 while digest 0.11 uses 0.10." },
+    { name = "cpufeatures", version = "=0.2.17", reason = "2026-11-13: The pinned elliptic-curve SHA-2 0.10 API uses cpufeatures 0.2 while PostgreSQL SHA-2 0.11 uses 0.3." },
+    { name = "crypto-common", version = "=0.1.7", reason = "2026-11-13: The pinned elliptic-curve digest 0.10 API uses crypto-common 0.1 while PostgreSQL digest 0.11 uses 0.2." },
+    { name = "digest", version = "=0.10.7", reason = "2026-11-13: The pinned elliptic-curve 0.13 API uses digest 0.10 while PostgreSQL hashing uses digest 0.11." },
+    { name = "fallible-iterator", version = "=0.2.0", reason = "2026-11-13: PostgreSQL 0.19 requires fallible-iterator 0.2 while the indexer SQLite API requires 0.3." },
+    { name = "hmac", version = "=0.12.1", reason = "2026-11-13: The pinned LayerX signing and HKDF APIs use HMAC 0.12 while PostgreSQL authentication uses 0.13." },
+    { name = "rand", version = "=0.9.5", reason = "2026-11-13: The pinned tungstenite 0.29 API requires rand 0.9 while PostgreSQL uses rand 0.10." },
+    { name = "rand_core", version = "=0.6.4", reason = "2026-11-13: The pinned elliptic-curve 0.13 API uses rand_core 0.6 while WebSocket randomness uses 0.9." },
+    { name = "sha2", version = "=0.10.9", reason = "2026-11-13: The pinned LayerX signing APIs use SHA-2 0.10 while PostgreSQL and its TLS adapter use 0.11." },
+    { name = "wasi", version = "=0.11.1+wasi-snapshot-preview1", reason = "2026-11-13: The getrandom 0.2 and mio WASI APIs use preview1 while wasite uses WASI 0.2." },
+    { name = "rand_core", version = "=0.9.5", reason = "2026-11-13: The pinned tungstenite rand 0.9 API uses rand_core 0.9 while PostgreSQL rand 0.10 uses rand_core 0.10." },
     { name = "core-foundation", version = "=0.9.4" },
     { name = "der", version = "=0.7.10" },
     { name = "getrandom", version = "=0.2.17" },
