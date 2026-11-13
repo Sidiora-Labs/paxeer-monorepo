@@ -2,7 +2,7 @@
 mode = "BUILD"
 audit = "22.30.75"
 acceptance = "22998.1"
-proof = "services/platform/perf-db/tests/repair_22_31_140.rs"
+proof = "services/platform/perf-db/tests/durable_recovery.rs"
 baseline = "No earlier gate ledger or implementation existed; baseline verification was not run because the task's controlling gate order permits verification only after complete implementation and hf-build."
 revision = "The runner records the exact source revision and private evidence in the final hf-done receipt."
 wiring = "No out-of-path implementation is required; the existing IndexedEvent block number, transaction hash/index and log index are bound to the persisted identity."

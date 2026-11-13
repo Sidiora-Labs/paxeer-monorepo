@@ -2,11 +2,11 @@
 mode = "BUILD"
 audit = "22.30.75"
 acceptance = "22998.1"
-proof = "services/platform/perf-db/tests/repair_22_33_1370.rs"
+proof = "services/platform/perf-db/tests/chain_event_accounting.rs"
 baseline = "No earlier implementation or gate ledger existed. Baseline verification was not run: the controlling gate order forbids running tests before complete implementation and hf-build. No baseline failure is claimed."
 revision = "The exact qualified source revision, command, exit code and private log are recorded by the runner's hf-done receipt."
 wiring = "No proposal requires an out-of-path change. Dynamic or conflicting MarketCreated effects are explicitly refused before WAL append because the current production registry is static."
-fixtures = "src/fixtures/repair_1370_chain.json retains normalized fields from precompiles/perps/abi/pack_test.go and the actual producer assertions in precompiles/perps/events_test.go; funding is signed hourly/18-decimal USD, deficit is token units."
+fixtures = "src/fixtures/chain_events.json retains normalized fields from precompiles/perps/abi/pack_test.go and the actual producer assertions in precompiles/perps/events_test.go; funding is signed hourly/18-decimal USD, deficit is token units."
 
 [finding.event-application-order]
 tests = ["event_application_order_concurrent_balances_snapshots_and_reopen"]

@@ -1,5 +1,6 @@
 use std::fs::{self, OpenOptions};
 
+use perfdb::PerfDb;
 use perfdb::core::timeframe::Timeframe;
 use perfdb::core::types::*;
 use perfdb::engine::PerfDbConfig;
@@ -8,7 +9,6 @@ use perfdb::relational::api_keys::ApiKey;
 use perfdb::relational::competitions::Competition;
 use perfdb::relational::referrals::ReferralTier;
 use perfdb::storage::wal::{self, SyncPolicy, WalConfig, WalEntry};
-use perfdb::PerfDb;
 
 const SCALE: i128 = 1_000_000_000_000_000_000;
 
@@ -1298,7 +1298,7 @@ pub fn invalid_events_refused_before_cursor() {
 
 pub fn recorded_producer_roundtrip() {
     let records: std::collections::HashMap<String, Event> =
-        serde_json::from_str(include_str!("../../src/fixtures/repair_1370_chain.json")).unwrap();
+        serde_json::from_str(include_str!("../../src/fixtures/chain_events.json")).unwrap();
     let events: Vec<_> = [
         "position_opened",
         "position_modified",

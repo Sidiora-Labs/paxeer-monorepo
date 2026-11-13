@@ -333,11 +333,12 @@ fn relational_case(root: &Path) {
     ]))
     .unwrap();
     let sequence = db.snapshot().sequence;
-    assert!(db
-        .mutate(RelationalMutation::SetReferralTiers(vec![tier(
+    assert!(
+        db.mutate(RelationalMutation::SetReferralTiers(vec![tier(
             "unknown", 0, 1
         )]))
-        .is_err());
+        .is_err()
+    );
     assert_eq!(
         db.snapshot().sequence,
         sequence,
@@ -438,5 +439,5 @@ fn main() {
         "relational" => relational_case(root),
         other => panic!("unknown scenario {other}"),
     }
-    println!("repair139:{}:ok", args[1]);
+    println!("durability-probe:{}:ok", args[1]);
 }

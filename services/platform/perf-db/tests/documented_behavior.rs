@@ -1,12 +1,4 @@
-//! Repair record 22.33.1383 (audit 22.30.75, acceptance 22998.1).
-//! perf-architecture-drift: perf_architecture_storage_layouts,
-//! perf_architecture_all_timeframes, perf_architecture_wal_and_inspection,
-//! perf_architecture_cli_and_modules.
-//! perf-readme-drift: perf_readme_toolchain_and_quick_start.
-//! Baseline verification was not run: the explicit ordered gate instructions require
-//! complete implementation followed by hf-build/hf-done and forbid a manual verify run.
-//! No tests are claimed to have failed before the change. No out-of-path wiring is required.
-//! Verified revision, command, exit and private log are recorded by the hf-done ledger.
+//! Storage layouts, recovery, CLI commands and the README example match the public documentation.
 
 use std::fs::File;
 use std::io::Read;
@@ -370,7 +362,7 @@ fn perf_readme_toolchain_and_quick_start() {
         .next()
         .unwrap();
     // This entire fenced example is compiled below and called against the real engine.
-    assert!(compact(include_str!("repair_22_33_1383.rs")).contains(&compact(quick_start)));
+    assert!(compact(include_str!("documented_behavior.rs")).contains(&compact(quick_start)));
     assert_eq!(market_by_symbol("BTC").unwrap().id, 0);
     assert_eq!(market_by_symbol("ETH").unwrap().id, 1);
     let dir = tempfile::tempdir().unwrap();

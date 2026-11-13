@@ -1,11 +1,4 @@
-//! Repair record 22.33.1377:
-//! order-replacement-index: order_replacement_index_coordinates_and_status,
-//! order_replacement_index_preserves_neighbors_and_lifecycle, order_replacement_index_concurrent.
-//! position-replacement-index: position_replacement_index_coordinates_and_update,
-//! position_replacement_index_concurrent_lookup.
-//! Baseline verification was not run: the explicit gate order requires completed implementation
-//! followed by hf-build and hf-done, and forbids running verify_cmd by hand.
-//! No out-of-path wiring is required.
+//! Order and position replacement preserves current indexes across concurrent updates.
 
 use std::sync::{Arc, Barrier};
 

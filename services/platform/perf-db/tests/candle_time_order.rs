@@ -66,10 +66,11 @@ fn candle_time_rewind_past_buckets_preserve_published_and_recovered_candles() {
             db.sync_wal().unwrap();
         }
 
-        assert!(db
-            .ingest_tick(&tick(2 * WEEK - 1, 0, 1.0))
-            .unwrap()
-            .is_empty());
+        assert!(
+            db.ingest_tick(&tick(2 * WEEK - 1, 0, 1.0))
+                .unwrap()
+                .is_empty()
+        );
         for tf in Timeframe::ALL {
             assert_eq!(db.live_candle(0, tf), Some(candle(2 * WEEK, 0, tf, 200.0)));
             assert_eq!(
@@ -104,9 +105,11 @@ fn candle_time_rewind_past_buckets_preserve_published_and_recovered_candles() {
                     candle(3 * WEEK, 0, tf, 300.0),
                 ]
             );
-            assert!(stored
-                .windows(2)
-                .all(|pair| pair[0].timestamp_ns < pair[1].timestamp_ns));
+            assert!(
+                stored
+                    .windows(2)
+                    .all(|pair| pair[0].timestamp_ns < pair[1].timestamp_ns)
+            );
             assert_eq!(db.live_candle(0, tf), stored.last().copied());
         }
     }

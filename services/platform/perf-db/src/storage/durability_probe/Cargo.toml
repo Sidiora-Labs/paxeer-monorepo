@@ -1,13 +1,13 @@
 [package]
 license = "Apache-2.0"
 authors = ["Sidiora Labs"]
-name = "perfdb-repair-139"
+name = "perfdb-durability-probe"
 version = "0.1.0"
 edition = "2024"
 publish = false
 
 [[bin]]
-name = "repair139"
+name = "durability-probe"
 path = "main.rs"
 
 [dependencies]
