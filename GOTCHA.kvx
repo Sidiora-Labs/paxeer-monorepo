@@ -21785,3 +21785,8 @@ fix = "The tests follow the present pages and paths: tasks 22.43.264 to 22.43.28
 title = "A Go file that is compiled only through an overlay lies in the package tree of the root module"
 symptom = "services/human/crates/layerx-human-security-provider/tests/support/recording/recovery.go declares package main and uses symbols of daemon/committed-fixture. The script record.py beside it adds the file to that package with the overlay option of the go command. Read as a directory of the root module the file is a package of its own whose symbols are undefined, so the lint run and go vet over the whole module stop at it, and a path exclusion of the lint configuration does not keep the package from being loaded."
 fix = "The file carries a build constraint that only the recording script sets, so the commands that walk the module skip it and the script compiles it as before. Task 22.39.511 makes the change."
+
+[gotcha.4393]
+title = "The streams of the pay module find the asset of a token through the mappings of the custody module"
+symptom = "agentStreamAsset in modules/layerxpay/keeper/stream_agent.go resolves the native token and every pointer token to an asset through the asset mappings of the custody module. From the upgrade height the custody module is retired and takes no new mapping, and the asset records live in the ledger."
+fix = "Where the custody module holds no mapping, the reader resolves the native token to the native asset of the ledger and another token through the record of the ledger. A mapping that exists is used as before. Task 22.39.515."
