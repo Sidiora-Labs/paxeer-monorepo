@@ -9,8 +9,9 @@ Use `chainflow-data-gateway` for Chainflow market data, TradingView UDF,
 compatibility adapters, explorer observations and WebSocket streams. The client
 base URL defaults to `https://data.feed.chainflowtrading.com`.
 
-Paxeer integrations use one BFT network, chain ID 125 (`0x7d`), whose kernel
-proposes blocks. A receipt is final once its block is committed. Public node
+Paxeer integrations use EVM chain ID 125 (`0x7d`), with the LayerX kernel inside
+`paxd` executing and ordering each transaction and building each block; validators
+check and commit it. A receipt is final once its block is committed. Public node
 JSON-RPC uses the root path, for example
 `https://api1.mainnet-beta.paxeer.network/`; configure that separately from this
 SDK's data gateway. See the [public RPC reference](../../../docs/readme/PUBLIC-RPC.md).
