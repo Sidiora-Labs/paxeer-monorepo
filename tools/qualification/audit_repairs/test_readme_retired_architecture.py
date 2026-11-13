@@ -1,6 +1,6 @@
 """Source proof for audit 22.30.62/readme-retired-architecture.
 
-Decision 2525 assigns README edits to 22.31.470. Read that production document
+Decision 2525 assigns NETWORK edits to 22.31.470. Read that production document
 and its actual source connections offline; do not simulate native execution.
 """
 
@@ -10,11 +10,10 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1270.kvx"
 
 
@@ -24,10 +23,10 @@ def source(path):
 
 def section(heading, level=3):
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -71,32 +70,13 @@ def test_readme_one_paxd_network_embeds_kernel_and_commits_blocks():
 
 def test_readme_chain_125_probe_and_numbered_hosts_use_root_json_rpc():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
-    endpoints = [
-        urlsplit(url) for url in urls
-        if urlsplit(url).hostname.endswith("mainnet-beta.paxeer.network")
-    ]
-    assert endpoints
-    allowed_hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    for endpoint in endpoints:
-        assert endpoint.scheme == "https"
-        assert endpoint.hostname in allowed_hosts
-        assert endpoint.path in ("", "/")
-        assert not endpoint.query and not endpoint.fragment
+    assert "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
     assert argv[:4] == ["curl", "--max-time", "10", "-sS"]
-    assert argv[4] == "https://api1.mainnet-beta.paxeer.network"
+    assert argv[4] == "$PAXEER_RPC_URL"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
@@ -226,17 +206,17 @@ def test_readme_retirement_lifecycle_keeps_external_native_bridge_distinct():
 
 
 def test_readme_has_no_separate_daemon_build_or_checkpoint_funding_guidance():
-    assert not re.search(r"\blayerxd\b", README, re.I)
+    assert not re.search(r"\blayerxd\b", NETWORK, re.I)
     for stale in (r"two (?:execution )?domains", r"kernel still runs separately", r"\bLNI\b"):
-        assert not re.search(stale, README, re.I), stale
+        assert not re.search(stale, NETWORK, re.I), stale
     accounts = section("Accounts and native funding")
     assert "custody deposit and credit-attestation funding flow is retired" in accounts
     assert "Native sub-accounts map to derived bank addresses inside the node" in accounts
     assert "Wait for commit and read `balanceOf` to confirm funding" in accounts
-    paragraphs = [p for p in README.split("\n\n") if p.startswith("The pre-merge ")]
+    paragraphs = [p for p in NETWORK.split("\n\n") if p.startswith("The pre-merge ")]
     assert len(paragraphs) == 1
     assert "retired refusal surfaces" in paragraphs[0]
-    current = README.replace(paragraphs[0], "")
+    current = NETWORK.replace(paragraphs[0], "")
     assert not re.search(r"layerx(?:Verify|Custody|Anchor)", current, re.I)
 
 

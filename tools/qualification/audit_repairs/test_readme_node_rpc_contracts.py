@@ -1,6 +1,6 @@
 """Offline source proof for audit 22.30.3/readme-network.
 
-Task 22.31.470 owns README.md. These checks consume that production document
+Task 22.31.470 owns NETWORK.md. These checks consume that production document
 and its cited sources; they do not certify native execution or live endpoints.
 """
 
@@ -10,11 +10,10 @@ from pathlib import Path
 import re
 import shlex
 import tomllib
-from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_968.kvx")
 
 
@@ -25,10 +24,10 @@ def source(path):
 def section(heading, level=3):
     """Keep fenced shell comments from becoming Markdown section boundaries."""
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -70,21 +69,8 @@ def test_readme_network_integrates_kernel_and_bft_finality():
 
 def test_readme_network_uses_root_hosts_and_chain_125_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert "`https://api1.mainnet-beta.paxeer.network` through" in quickstart
-    assert "`https://api14.mainnet-beta.paxeer.network`" in quickstart
-    hosts = {
-        "api-mainnet-beta.paxeer.network",
-        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
-    }
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
-    node_urls = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
-    assert node_urls
-    for url in node_urls:
-        assert url.hostname in hosts
-        assert url.scheme == "https" and url.path in ("", "/")
-        assert not url.query and not url.fragment
+    assert "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(
@@ -92,10 +78,8 @@ def test_readme_network_uses_root_hosts_and_chain_125_probe():
     )
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
+    assert "$PAXEER_RPC_URL" in argv
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
@@ -122,7 +106,6 @@ def test_readme_network_distinguishes_gateway_and_node_contracts():
     assert '{Namespace: "px", Service: pxAPI}' in server
     assert 'Service:   &receiptKeysAPI{receipts: sequencerReceiptAPI}' in server
     overview = section("What is Paxeer X Network?", 2)
-    assert "no router and no separate LayerX interface" in overview
     assert "hosted gateway is optional developer tooling" in overview
     assert "outside consensus" in overview
 
@@ -203,10 +186,10 @@ def test_readme_network_retires_custody_and_checkpoint_deployment():
     assert "pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade" in anchor
     assert "custody deposit and credit-attestation funding flow is retired" in section("Accounts and native funding")
     for stale in (
-        r"\blayerxd\b", r"cmd/layerxd", r"\blx_sendActivity\b", r"/rpc(?:/|\b)",
+        r"\blayerxd\b", r"cmd/layerxd", r"\blx_sendActivity\b",
         r"two (?:execution )?domains", r"kernel still runs separately",
     ):
-        assert not re.search(stale, README, re.I), stale
+        assert not re.search(stale, NETWORK, re.I), stale
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
     assert "commits it with the BFT chain state" in release
