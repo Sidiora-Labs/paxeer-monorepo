@@ -1,0 +1,11 @@
+[manifest]
+task = "22.41.117"
+pages = 2
+
+[page.1]
+path = "docs/site/paxeer-docs/src/app/page.tsx"
+status = "corrected"
+
+[page.2]
+path = "docs/site/paxeer-docs/src/app/programs/page.tsx"
+status = "corrected"

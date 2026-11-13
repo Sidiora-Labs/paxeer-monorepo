@@ -6,7 +6,7 @@ Deploy and call deterministic Paxeer X programs with scoped capabilities, metere
 
 ## One execution surface, explicit authority
 
-Programs extend the LayerX kernel domain of Paxeer X with application logic. A program executes a validated WebAssembly artifact under the identity, capability grants, access declarations, and resource ceilings of its invoking activity. The interpreter removes floating-point nondeterminism and enforces structural limits before execution. The same admitted activity and state produce replayable results.
+Programs extend the LayerX kernel domain of Paxeer X with application logic. A program executes a validated WebAssembly artifact under the identity, capability grants, access declarations, and resource ceilings of its invoking activity. Artifact validation rejects floating-point types and instructions and enforces structural limits before interpreter execution. The same admitted activity and state produce replayable results.
 
 Programs dispatch through kernel module 9. They do not become economic modules and never write balances directly. All monetary effects compile to authenticated `402LXP` transfer sets applied by the kernel. The kernel executes within the Paxeer BFT node on EVM chain ID `125`. A receipt is final when its covering block is committed.
 
@@ -33,7 +33,7 @@ Deployment creates version 1 and emits deployment evidence. Retain and verify th
 
 A CALL names the program, guest ABI, entrypoint, canonical calldata, capability grants, access declarations, response capacity, and seven resource-budget dimensions. The runtime verifies the active program record and opens the matching artifact before running guest code. Entrypoint names use letters, digits, underscores, and periods.
 
-The hosted `POST /v1/programs/call` and `POST /v1/programs/simulate` routes carry the same native CALL bytes. Simulation executes against the current head and returns a receipt, terminal, call graph, and signed simulation evidence without committing durable state, sequence, or occupancy. A simulation is a preview against that head; retain the actual execution receipt for settlement evidence.
+The Programs precompile exposes `call`, `callWithReceipts` and `simulateCall`, as declared in `precompiles/layerxprograms/LayerXPrograms.sol`. Simulation uses the same CALL payload encoding and runs against a disposable state branch. Its result includes the terminal kind, result code and canonical response frame. Simulation previews execution against the selected state; verify the submitted transaction and its committed receipt before treating an outcome as settled.
 
 ### Upgrade with an explicit policy
 
@@ -41,7 +41,7 @@ An upgrade must match the recorded authority and current code hash, supply a new
 
 ### Wind down without stranding value
 
-Lifecycle states are active, deprecated, and tombstoned. Deprecated or tombstoned programs refuse new CALL execution and upgrades. Wind-down requires an authorized exit route for nonzero program-account balances. Confirm the balance-proof requirements in the registry source for the lifecycle transition you use.
+Lifecycle states are active, deprecated, and tombstoned. Deprecated or tombstoned programs refuse new CALL execution and upgrades. Before deprecation, the owner configures an exit route for each registered program account, including accounts with zero balances. Deprecation binds the program itself as the exit program and a future sequence deadline. Value exits remain available in deprecated and tombstoned states through the configured routes.
 
 ## Authority and atomic settlement
 
@@ -66,7 +66,7 @@ program account = SHA-256(
 | Output values / bytes | Guest return values, response bytes, and refusal transport. |
 | Table elements | Peak guest table allocation. |
 
-Admission checks each ceiling and reserves fee coverage before guest execution. Persistent storage also incurs deterministic occupancy measured in protocol batches, separate from the execution meter. A signed responsibility mandate names the payer and caps stored bytes and lifetime charge.
+Admission checks each ceiling and reserves fee coverage before guest execution. Persistent storage also incurs deterministic occupancy measured in protocol batches, separate from the execution meter. The signed activity budget authorizes occupancy responsibility. A namespace mandate binds the payer, byte limit, price bound and charge ceiling to the admitted activity.
 
 ```
 byte_batches = recorded_bytes × (to_batch − from_batch)
@@ -74,7 +74,7 @@ accrued_fee = byte_batches × occupancy_byte_batch_price
 amount_due = prior_arrears + accrued_fee
 ```
 
-Occupancy settlement becomes final with its covering block commitment and uses the same native transfer primitive. Confirm payer assignment and charge-ceiling dispositions in the runtime occupancy source before relying on them in an application.
+Occupancy settlement becomes final with its covering block commitment and uses the same native transfer primitive. New responsibility uses the admitted caller authorization; existing namespace limits retain their payer when another principal calls. Settlement evidence records amounts due, amounts paid, arrears and frozen status.
 
 ## Versioned guest interfaces
 
@@ -92,13 +92,13 @@ External evidence enters through admitted protocol paths. A state transition doe
 
 ## Outputs you can verify
 
-Calls return bounded response or refusal bytes and publish terminal evidence, resource usage, call-graph information, and transfer commitments. Verify the activity identity, code and state bindings, terminal, and requested commitment before using a result to release value or advance a workflow. The registry verifies account-tree proofs through the universal subtree and receipt state root before exposing balances.
+Calls return bounded response or refusal bytes and publish terminal evidence, resource usage, call-graph information, and transfer commitments. Verify the activity identity, code and state bindings, terminal, and requested commitment before using a result to release value or advance a workflow. The registry verifies program-account bindings and account records against a trusted committed chain application hash before exposing balances. The chain proof verifier is in programs/crates/layerx-programs-registry/src/chain_accounts.rs.
 
 A granted guest receipt read returns exactly 116 bytes: receipt digest, signed result code, Asset ID, unsigned 128-bit amount, and state root. The digest must match the requested receipt. This lets a merchant program consume authenticated payment evidence instead of trusting a caller-supplied payment description.
 
 ## Developer workflow
 
-1. Choose the Rust, C, or AssemblyScript guest SDK and define the application's state, entrypoints, bounds, and capability needs.
+1. Choose a guest SDK in programs/sdk/rust, programs/sdk/c or programs/sdk/assemblyscript and define the application's state, entrypoints, bounds and capability needs.
 2. Compile to WebAssembly, generate the canonical interface, and hash the artifact.
 3. Deploy with an immutable or authority upgrade policy; verify the deployment receipt.
 4. Register and fund program value accounts where the application holds Assets.
@@ -115,11 +115,11 @@ The LXT-20 reference is an ABI-2 program backed by one native Asset. It exposes 
 # Canonical initialize request (hex)
 4c581400012000000000
 
-# Build a Rust guest from the Programs workspace
+# Run from the repository root; requires the wasm32-unknown-unknown target
 cargo build --manifest-path programs/sdk/rust/examples/token-lxt20/Cargo.toml \
   --target wasm32-unknown-unknown --release
 ```
 
 Continue with [bounded sandbox execution](https://docs.paxeer.app/sandbox), [native Assets](https://docs.paxeer.app/assets), and [payments](https://docs.paxeer.app/payments).
 
-**Technical references:** Paxeer X Programs workspace and guest SDKs; Programs and Sandbox protocol documentation; runtime ABI policy, capability encoding, metering, and receipt-bound registry.
+**Technical references:** programs/Cargo.toml; programs/sdk; programs/porting; programs/crates/layerx-programs-runtime/src; programs/crates/layerx-programs-registry/src; src/modules/programs; precompiles/layerxprograms/LayerXPrograms.sol.

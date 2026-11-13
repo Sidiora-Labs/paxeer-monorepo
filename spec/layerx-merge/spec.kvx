@@ -231837,7 +231837,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.41.115]
 title = "Move the migrations of the launchpad services to the migrations directory at the repository root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -362216,7 +362216,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.41.118]
 title = "Bring the scopes of the root source configuration and environment package in line with the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.41.115", "22.41.116"]
@@ -362276,7 +362276,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.112]
 title = "Correct the text of pages 95 to 97 of the documentation site against the tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
