@@ -55,7 +55,7 @@ impl ChainCommitProof {
         )
         .map_err(|_| ReplayError::Receipt)?;
         let value = &self.receipt_proof.value;
-        if value.is_empty() || value.len() % 80 != 0 {
+        if value.is_empty() || !value.len().is_multiple_of(80) {
             return Err(ReplayError::Receipt);
         }
         let mut keys = Vec::with_capacity(value.len() / 80);
@@ -213,9 +213,12 @@ impl VerifiedReplayAuthority {
             Grant::owner(
                 actor,
                 key,
-                mask,
-                minimum,
-                maximum,
+                Scope {
+                    mask,
+                    minimum,
+                    maximum,
+                    ..Scope::default()
+                },
                 bounds.not_before,
                 bounds
                     .not_after
@@ -494,19 +497,17 @@ impl Grant {
     fn owner(
         actor: [u8; 32],
         key: [u8; 32],
-        mask: u64,
-        minimum: u16,
-        maximum: u16,
+        scope: Scope,
         not_before: u64,
         not_after: u64,
         revocation: u64,
     ) -> Self {
-        let scope = Scope {
+        let Scope {
             mask,
             minimum,
             maximum,
-            ..Scope::default()
-        };
+            ..
+        } = scope;
         let mut encoded = vec![0, 1, 0x20, 1, 1];
         for value in [actor, actor] {
             encoded.extend_from_slice(&32_u32.to_be_bytes());
@@ -554,7 +555,7 @@ impl Grant {
             return Err(ReplayError::Bounds);
         }
         let mut reader = Reader(bytes);
-        if !matches!(reader.u16()?, 1 | 2 | 3) || reader.u16()? != 0x2001 {
+        if !matches!(reader.u16()?, 1..=3) || reader.u16()? != 0x2001 {
             return Err(ReplayError::Authority);
         }
         let version = reader.u8()?;
@@ -740,7 +741,7 @@ impl Grant {
             return Err(ReplayError::Authority);
         }
         if let Some(fee) = &self.fee {
-            if !matches!(self.kind, 2 | 3 | 4)
+            if !matches!(self.kind, 2..=4)
                 || fee.asset == [0; 32]
                 || fee.per_activity == 0
                 || fee.total == 0
@@ -751,7 +752,7 @@ impl Grant {
                 || (fee.period != 0
                     && (fee.per_period == 0
                         || fee.period_start < self.not_before
-                        || (fee.period_start - self.not_before) % fee.period != 0
+                        || !(fee.period_start - self.not_before).is_multiple_of(fee.period)
                         || fee.per_activity > fee.per_period
                         || fee.period_spent > fee.per_period))
             {
@@ -817,7 +818,7 @@ impl Grant {
         } else {
             false
         };
-        if !enforced || !matches!(self.kind, 2 | 3 | 4) || amount == 0 {
+        if !enforced || !matches!(self.kind, 2..=4) || amount == 0 {
             return Ok(());
         }
         let fee = self.fee.as_ref().ok_or(ReplayError::Authority)?;
@@ -946,7 +947,7 @@ fn signed_capabilities(payload: &[u8]) -> Result<CapabilitySet, ReplayError> {
     }
     let boundaries = r.u32()?;
     let maximum = r.u32()?;
-    if boundaries == 0 || boundaries > 4096 || maximum < 512 || maximum > 1_048_576 {
+    if boundaries == 0 || boundaries > 4096 || !(512..=1_048_576).contains(&maximum) {
         return Err(ReplayError::Bounds);
     }
     let call = r.vector(1_048_576)?;

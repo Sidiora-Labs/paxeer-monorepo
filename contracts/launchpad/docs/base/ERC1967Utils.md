@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [ERC1967Utils.sol](../../contracts/base/ERC1967Utils.sol).
+
 ## ERC1967Utils
 
 Storage slot helpers for ERC-1967 proxy patterns
@@ -45,13 +47,13 @@ error InvalidBeacon()
 ### Upgraded
 
 ```solidity
-event Upgraded(address implementation)
+event Upgraded(address indexed implementation)
 ```
 
 ### BeaconUpgraded
 
 ```solidity
-event BeaconUpgraded(address beacon)
+event BeaconUpgraded(address indexed beacon)
 ```
 
 ### AdminChanged
@@ -107,4 +109,3 @@ function setAdmin(address newAdmin) internal
 ```
 
 Sets the admin address
-

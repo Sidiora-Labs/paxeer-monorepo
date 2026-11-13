@@ -81,9 +81,10 @@ See the [API reference](./api.md) for every available operation.
 ## Async
 
 Use `AsyncChainflowDataGateway` for asynchronous REST calls with `await`.
-The example reads `REST_API_KEY` from the environment. Async WebSocket
-connections use `async with` and `async for`; their token-refresh callback is
-synchronous, so arrange token acquisition outside the event loop as needed.
+The client reads configured credentials from the environment. Public health
+needs no credential. Async WebSocket connections use `async with` and
+`async for`; their token-refresh callback is synchronous, so arrange token
+acquisition outside the event loop as needed.
 
 ```python
 import asyncio
@@ -104,10 +105,10 @@ asyncio.run(main())
 
 ## WebSockets
 
-Install the `websockets` extra above. This server-side example requires both
-`REST_API_KEY` and the separate `WS_MINT_KEY`. Mint a token for the same
-lowercase feed used in the connection (`btc`), and send only that short-lived
-token on the WebSocket upgrade. Keep long-lived keys on the server.
+Install the `websockets` extra above. This server-side example requires
+`WS_MINT_KEY`. Mint a token for the same lowercase feed used in the connection
+(`btc`), and send only that short-lived token on the WebSocket upgrade. Keep
+long-lived keys on the server.
 
 ```python
 import os
@@ -119,7 +120,6 @@ from chainflow_data_gateway.types.websocket_reconnection import (
 )
 
 with ChainflowDataGateway(
-    rest_api_key=os.environ["REST_API_KEY"],
     ws_mint_key=os.environ["WS_MINT_KEY"],
 ) as client:
     credential = client.gateway.create_web_socket_token(symbol="btc")
@@ -154,12 +154,13 @@ Never print or cache token responses, tokens or connection URLs.
 
 ## Authentication
 
-The constructor requires `rest_api_key` or `REST_API_KEY`, including when you
-only plan to use WebSockets. It also reads `WS_MINT_KEY` and `WS_TOKEN` if the
-corresponding constructor arguments are omitted. It selects credentials by
-operation: REST uses the REST header, token minting uses the minting header,
-and WebSocket upgrades use the token query. `/health` checks Nginx only and
-sends no auth header by default; it does not prove upstream health.
+The constructor permits REST-key-only, mint-key-only, token-only, mixed and
+unauthenticated clients. It reads `REST_API_KEY`, `WS_MINT_KEY` and `WS_TOKEN`
+if the corresponding constructor arguments are omitted. Each protected
+operation requires its own credential: REST data reads use the REST header,
+token minting uses the minting header, and WebSocket upgrades use the token
+query. `/health` checks Nginx only and sends no auth header by default; it
+does not prove upstream health.
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -227,8 +228,10 @@ client = ChainflowDataGateway(
 
 ## Retries and Timeouts
 
-Generated clients support request timeouts and retry temporary failures such as network errors, 408, 409, 429, and 5xx responses. Retry delays honor `Retry-After` headers when present. Tune the retry and timeout client options shown above, or override them per request.
+Generated clients support request timeouts and retry temporary failures such as network errors, 408, 409, 429, and 5xx responses. Tune the retry and timeout client options shown above, or override them per request.
 HTTP timeouts apply per attempt, not to the combined duration of all retries.
+The client uses a parsed `Retry-After` delay only when it is greater than zero
+and at most 60 seconds; otherwise it uses exponential backoff with jitter.
 WebSocket retries use the separate connection options and callback described above.
 
 <br />
@@ -246,9 +249,10 @@ WebSocket retries use the separate connection options and callback described abo
 
 - Set the `SIDIORALABS_LOG` environment variable to `info` or `debug` to enable HTTP logging.
 - Logs use the standard `logging` module under `chainflow_data_gateway` and `httpx`.
-  Debug logging in the WebSocket transport includes the connection URL, which
-  contains `token`. Keep credential-bearing debug logging disabled unless you
-  have installed redaction filters; never log tokens, API keys or mint responses.
+  The SDK redacts the `token` query parameter in WebSocket connection logs and
+  recognized credential fields in connection-option logs. Received WebSocket
+  message bytes are logged at debug level. Review message content and logging
+  from transport libraries separately; never log tokens, API keys or mint responses.
 - `SIDIORALABS_CUSTOM_HEADERS` reads newline-separated `Header: value` entries.
   Avoid supplying authentication there; operation-specific credentials should
   come from the constructor fields.

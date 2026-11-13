@@ -4,14 +4,12 @@
 //! calls, and `BeginAggregation`, `ProcessAggregation` and `FinalizeAggregation` go through
 //! `aggregation::apply` with real envelopes. A missing, expired or refused report is no vote;
 //! an explicit zero is a vote.
+use layerx_ai_market_test_values::RequiredValue as _;
 #[path = "repair_22_33_260.rs"]
 mod repair;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{
-    admission::{
-        admit_evaluator, Admission, AdmissionContext, AdmissionMeta, AdmissionTable, ApprovalTerms,
-        EvaluatorConsent, Participant, TABLE_MAX_BYTES,
-    },
+    admission::{AdmissionTable, TABLE_MAX_BYTES},
     aggregation::{
         self as agg, display_share_ppm, Outcome as Agg, Progress, BEGIN_RESPONSE_BYTES,
         FINALIZE_RESPONSE_BYTES, PROCESS_RESPONSE_BYTES,
@@ -35,11 +33,8 @@ use layerx_programs_ai_market::{
     },
     evaluators::{
         admission::{self as f03, AdmissionReceipt},
-        authority::{
-            self, split_identity_section, AuthorityContext, EvaluatorRecord, EvaluatorRegion,
-            LastRequest,
-        },
-        model::{EvaluatorGrant, GrantTerms, SignedReport},
+        authority::split_identity_section,
+        model::SignedReport,
     },
     evidence::{self, Outcome as Sealing, SEAL_SCRATCH_BYTES},
     policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES},
@@ -57,14 +52,13 @@ use layerx_programs_ai_market::{
     },
     tasks::{self, Outcome as Task, SetBinding, TaskSet},
     types::{
-        AccountId, AssetId, Authentication, ChainDomain, CommitmentDigest, Digest32,
-        EvaluatorBinding, EvaluatorId, EvidenceRoot, FrozenBinding, MarketId, MetadataDigest,
-        Presence, PrincipalId, ProgramId, PublicKey32, RequestDigest, RequestId, ResultDigest,
-        RosterDigest, RubricDigest, Salt32, Signature64, Version, WorkerId, WorkerRosterEntry,
+        AssetId, Authentication, ChainDomain, CommitmentDigest, Digest32, EvaluatorBinding,
+        EvaluatorId, EvidenceRoot, FrozenBinding, MarketId, MetadataDigest, Presence, PrincipalId,
+        ProgramId, PublicKey32, RequestDigest, RequestId, ResultDigest, RosterDigest, RubricDigest,
+        Salt32, Signature64, Version, WorkerId, WorkerRosterEntry,
     },
     workers::{
-        self as f02, consent_digest, WorkerCurrent, WorkerState, WorkerTable,
-        CONTROL_SCRATCH_BYTES, WORKER_TABLE_MAX_BYTES,
+        self as f02, consent_digest, WorkerTable, CONTROL_SCRATCH_BYTES, WORKER_TABLE_MAX_BYTES,
     },
     MAX_EVENT_BYTES, MAX_STATE_BYTES,
 };
@@ -350,120 +344,6 @@ impl Parts {
             },
         })
     }
-    fn insert_grant(&mut self, grant: EvaluatorGrant, n: u8) -> TestResult {
-        let mut region = EvaluatorRegion::decode(&self.region)?;
-        region.insert(&EvaluatorRecord {
-            grant,
-            last: LastRequest {
-                sequence: 1,
-                request: RequestId::new([n; 32])?,
-                digest: RequestDigest::new([0x33; 32])?,
-                result: ResultDigest::new([0x34; 32])?,
-            },
-            rekey: None,
-            revocation: None,
-        })?;
-        let mut out = vec![0; region.encoded_len()];
-        let len = region.encode(&mut out)?;
-        out.truncate(len);
-        self.region = out;
-        Ok(())
-    }
-}
-
-fn ctx(market: &MarketHeader, who: PrincipalId, at: u64) -> AdmissionContext<'_> {
-    AdmissionContext {
-        market,
-        invoking_principal: who,
-        height: at,
-    }
-}
-/// Market-owner approval bound to the required effective epoch, expiring at its work end.
-fn approve(
-    table: &mut AdmissionTable,
-    market: &MarketHeader,
-    participant: Participant,
-    owner: PrincipalId,
-    delegate: PublicKey32,
-    at: u64,
-) -> CodecResult<(u64, Digest32)> {
-    let effective = table.required_effective_epoch(&ctx(market, owner, at))?;
-    let terms = ApprovalTerms {
-        participant,
-        owner,
-        enrollment_nonce_commitment: Digest32::new([7; 32])?,
-        delegate,
-        delegate_generation: 1,
-        identity_commitment: Digest32::new([9; 32])?,
-        effective_epoch: effective,
-        config_version: 1,
-        request: RequestId::new(participant.bytes())?,
-        expiry_height: market.origin_height + effective * 128 + 64,
-    };
-    let digest = table.approve(&ctx(market, market.owner_principal, at), &terms)?;
-    Ok((effective, digest))
-}
-
-fn worker_record(
-    worker: WorkerId,
-    owner: PrincipalId,
-    delegate: PublicKey32,
-    slot: u8,
-    at: u64,
-) -> CodecResult<WorkerCurrent> {
-    Ok(WorkerCurrent {
-        worker,
-        owner,
-        delegate,
-        metadata: MetadataDigest::new(METADATA)?,
-        generation: 1,
-        key_version: 1,
-        metadata_revision: 1,
-        valid_from: at,
-        expiry: at + 4096,
-        revocation_sequence: 0,
-        effective_epoch: 0,
-        last_sequence: 0,
-        last_request_id: [0; 32],
-        last_request_digest: [0; 32],
-        last_result_digest: [0; 32],
-        state: WorkerState::Enrolled,
-        slot,
-        last_metadata_height: at,
-    })
-}
-fn roster_entry(record: &WorkerCurrent) -> CodecResult<WorkerRosterEntry> {
-    Ok(WorkerRosterEntry {
-        worker: record.worker,
-        owner: record.owner,
-        recipient: AccountId::new(record.owner.bytes())?,
-        generation: version()?,
-        key_version: version()?,
-        public_key: record.delegate,
-        metadata: record.metadata,
-    })
-}
-
-fn grant(
-    market: &MarketHeader,
-    owner: PrincipalId,
-    nonce: u8,
-    signing_key: PublicKey32,
-    effective: u64,
-) -> CodecResult<EvaluatorGrant> {
-    EvaluatorGrant::nominate(
-        market.market_id,
-        owner,
-        [nonce; 32],
-        GrantTerms {
-            rubric: rubric()?,
-            grant_version: version()?,
-            key_version: version()?,
-            signing_key,
-            effective_epoch: effective,
-            expiry_epoch_exclusive: effective + 32,
-        },
-    )
 }
 
 /// One market's committed shared state bytes and its next owner sequence.
@@ -1177,12 +1057,12 @@ impl Market {
     }
     /// One real owner F03 authority operation bound to the opened epoch. F03 advances only the
     /// shared revision, so the F01 header revision is re-bound to it.
-    fn owner_authority(&mut self, operation: Operation, payload: Vec<u8>, at: u64) -> TestResult {
+    fn owner_authority(&mut self, operation: Operation, payload: &[u8], at: u64) -> TestResult {
         repair::call(
             &mut self.world.bytes,
             operation,
             PrincipalId::new(OWNER)?,
-            &payload,
+            payload,
             at,
         )?;
         self.world.owner_sequence =
@@ -1196,7 +1076,7 @@ impl Market {
         payload.extend_from_slice(&1u64.to_be_bytes());
         payload.extend_from_slice(&1u16.to_be_bytes());
         payload.extend_from_slice(&[0x5e; 32]);
-        self.owner_authority(dispatch::RevokeEvaluator, payload, at)
+        self.owner_authority(dispatch::RevokeEvaluator, &payload, at)
     }
     /// Real F03 `RotateEvaluatorKey` of evaluator `n` to key version 2, effective next epoch.
     fn rotate(&mut self, n: u8, at: u64) -> TestResult {
@@ -1205,7 +1085,7 @@ impl Market {
         for value in [2, 1, self.frozen.epoch + 1] {
             payload.extend_from_slice(&u64::to_be_bytes(value));
         }
-        self.owner_authority(dispatch::RotateEvaluatorKey, payload, at)
+        self.owner_authority(dispatch::RotateEvaluatorKey, &payload, at)
     }
     /// Real F02 `RotateDelegate` of worker `n` by its owner: a replacement generation. F02
     /// advances only the shared revision, so the F01 header revision is re-bound to it.
@@ -1869,7 +1749,7 @@ fn f05_a11_self_assessment_and_unbacked_persisted_votes() -> TestResult {
     }
     let before = m.world.bytes.clone();
     assert_eq!(
-        m.owner_authority(dispatch::ScheduleEvaluator, nomination, 1090),
+        m.owner_authority(dispatch::ScheduleEvaluator, &nomination, 1090),
         Err(ROLE_CONFLICT)
     );
     assert_eq!(m.world.bytes, before);
@@ -1985,8 +1865,8 @@ fn f05_a13_cursor_retries_and_once_only_completion() -> TestResult {
     );
     assert_eq!(
         (
-            history.last().unwrap().epoch,
-            Presence::Present(history.last().unwrap().root)
+            history.last().required().epoch,
+            Presence::Present(history.last().required().root)
         ),
         (m.frozen.epoch, done.root)
     );

@@ -6,10 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"math/big"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 var ErrCursor = errors.New("holdings: invalid cursor or limit")
@@ -45,7 +46,7 @@ func (r *Repository) Materialize(ctx context.Context, token, pool, creator strin
 	if err != nil {
 		return "", err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), tx)
 	s := Snapshot{Token: token, Balances: []Balance{}}
 	var raw, first []byte
 	var observed time.Time
@@ -151,7 +152,7 @@ func (r *Repository) ReadPage(ctx context.Context, token, pool, cursor string, l
 	if err != nil {
 		return out, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), tx)
 	var metadata []byte
 	err = tx.QueryRow(ctx, "SELECT metadata FROM "+r.schema+".snapshots WHERE snapshot_id=$1 AND token=$2 AND pool=$3 AND expires_at>clock_timestamp()", id, token, pool).Scan(&metadata)
 	if errors.Is(err, pgx.ErrNoRows) {

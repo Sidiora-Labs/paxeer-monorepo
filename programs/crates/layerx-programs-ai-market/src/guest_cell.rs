@@ -139,7 +139,7 @@ pub(crate) fn copy_slice<T: Copy>(destination: &mut [T], source: &[T]) {
     copy_slice_inline(destination, source);
 }
 
-#[inline(always)]
+#[inline]
 pub(crate) fn copy_slice_inline<T: Copy>(destination: &mut [T], source: &[T]) {
     if destination.len() != source.len() {
         core::arch::wasm32::unreachable();

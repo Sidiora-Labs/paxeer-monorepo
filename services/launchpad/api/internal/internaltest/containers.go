@@ -279,7 +279,11 @@ func externalPostgres(t *testing.T, admin string) (string, *pgxpool.Pool) {
 			t.Logf("drop %s: %v", name, err)
 			return
 		}
-		defer c.Close(ctx)
+		defer func() {
+			if err := c.Close(ctx); err != nil {
+				t.Errorf("close test database: %v", err)
+			}
+		}()
 		if _, err = c.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)"); err != nil {
 			t.Logf("drop %s: %v", name, err)
 		}
@@ -327,7 +331,11 @@ func externalRedis(t *testing.T, base string) string {
 	}
 	t.Cleanup(func() {
 		rdb := goredis.NewClient(opt)
-		defer rdb.Close()
+		defer func() {
+			if err := rdb.Close(); err != nil {
+				t.Errorf("close test Redis: %v", err)
+			}
+		}()
 		_ = rdb.FlushDB(context.Background()).Err()
 	})
 	return uri

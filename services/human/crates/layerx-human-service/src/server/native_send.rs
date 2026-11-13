@@ -23,6 +23,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub const NATIVE_SEND: u32 = 0x0001_0005;
 
+/// # Errors
+/// Returns an error if validation or a required operation fails.
 pub fn access_operation(
     scope: &PrincipalScope<'_>,
     request: &NativeSendAccessRequest,
@@ -30,6 +32,8 @@ pub fn access_operation(
     access_operation_coordinates(scope.principal().as_str(), scope.tenant().as_str(), request)
 }
 
+/// # Errors
+/// Returns an error if validation or a required operation fails.
 pub fn access_operation_coordinates(
     principal: &str,
     tenant: &str,
@@ -102,6 +106,8 @@ pub struct NativeSendAccessRequest {
 }
 
 impl NativeSendAccessRequest {
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn validate(&self) -> Result<(), AgentFailure> {
         if self.action_key[..8] == [0; 8]
             || self.owner_public_key == [0; 32]
@@ -181,6 +187,8 @@ impl HumanOwnerNativeSessionV1 {
     pub(crate) const fn credential(&self) -> &[u8; 32] {
         &self.token
     }
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn validate(&self, scope: &PrincipalScope<'_>, now: u64) -> Result<(), AgentFailure> {
         if self.version != 1
             || self.principal != scope.principal().as_str()
@@ -225,6 +233,8 @@ pub struct HumanOwnerNativeContextV1 {
     pub nonce: u64,
 }
 impl HumanOwnerNativeContextV1 {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn signed_grant(&self) -> Result<NativeLocalGrantConsentV1, AgentFailure> {
         let signature: [u8; 64] = self
             .grant_signature
@@ -276,11 +286,13 @@ pub struct NativeSendPreviewV1 {
 }
 
 fn key(id: [u8; 32]) -> Result<RowKey, AgentFailure> {
-    let suffix: String = id.iter().map(|value| format!("{value:02x}")).collect();
+    let suffix: String = crate::hex::lower(&id);
     RowKey::new(format!("human-native-send-access-{suffix}"))
         .map_err(|_| AgentFailure::Refused("invalid native access key"))
 }
 
+/// # Errors
+/// Returns an error if validation or a required operation fails.
 pub fn unsigned_access(
     request: &NativeSendAccessRequest,
     session: &HumanOwnerNativeSessionV1,
@@ -374,10 +386,12 @@ pub fn unsigned_access(
 }
 
 fn hex(value: [u8; 32]) -> String {
-    value.iter().map(|byte| format!("{byte:02x}")).collect()
+    crate::hex::lower(&value)
 }
 
 #[allow(clippy::too_many_arguments)]
+/// # Errors
+/// Returns an error if validation or a required operation fails.
 pub async fn authorize_access(
     scope: &mut PrincipalScope<'_>,
     runtime: &mut AgentRuntime,
@@ -478,6 +492,8 @@ pub async fn authorize_access(
     Ok(context)
 }
 
+/// # Errors
+/// Returns an error if the requested data cannot be read or validated.
 pub fn load_access(
     scope: &PrincipalScope<'_>,
     runtime: &mut AgentRuntime,
@@ -509,6 +525,8 @@ pub fn load_access(
     Ok(context)
 }
 
+/// # Errors
+/// Returns an error if validation or a required operation fails.
 pub fn preview_send(
     scope: &PrincipalScope<'_>,
     runtime: &mut AgentRuntime,
@@ -542,6 +560,8 @@ pub struct NativeSendPreviewV2 {
     pub revocation_sequence: u64,
 }
 
+/// # Errors
+/// Returns an error if validation or a required operation fails.
 pub fn preview_send_v2(
     scope: &PrincipalScope<'_>,
     runtime: &mut AgentRuntime,
@@ -566,6 +586,8 @@ pub fn preview_send_v2(
 }
 
 /// Encodes Human's V2 consent for the daemon's native Send preparation route.
+/// # Errors
+/// Returns an error if the value cannot be encoded.
 pub fn encode_native_send_prepare_v2(
     request: &PrepareRequest,
     signed: &layerx_agent_api::identity::SignedNativeSendPurposeV2,
@@ -626,5 +648,5 @@ pub fn encode_native_send_prepare_v2(
 }
 
 fn hex_bytes(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    crate::hex::lower(bytes)
 }

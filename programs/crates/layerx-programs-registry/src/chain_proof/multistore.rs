@@ -21,6 +21,10 @@ pub const TENDERMINT_SPEC: TendermintSpec = TendermintSpec {
     child_size: 32,
 };
 
+///
+/// # Errors
+///
+/// Returns an error when the supplied chain evidence cannot be decoded or verified.
 pub fn verify_store_root(
     store_name: &str,
     store_root: [u8; 32],
@@ -135,8 +139,8 @@ fn apply_inner_op(bytes: &[u8], child: [u8; 32]) -> Result<[u8; 32], ChainProofE
 
 fn hash_length(hash: &mut Sha256, mut length: usize) {
     while length >= 0x80 {
-        hash.update([(length as u8 & 0x7f) | 0x80]);
+        hash.update([(length.to_le_bytes()[0] & 0x7f) | 0x80]);
         length >>= 7;
     }
-    hash.update([length as u8]);
+    hash.update([length.to_le_bytes()[0]]);
 }

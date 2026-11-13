@@ -79,6 +79,8 @@ func TestEdgeProductionConfigurationFailsClosed(t *testing.T) {
 		"audit key short":              func(c *config.Config) { c.PublicationAuditKey = base64.StdEncoding.EncodeToString([]byte("short")) },
 		"trusted proxy everything":     func(c *config.Config) { c.TrustedProxyCIDRs = "0.0.0.0/0" },
 		"trusted proxy unmasked":       func(c *config.Config) { c.TrustedProxyCIDRs = "10.1.2.3/8" },
+		"metadata schema public":       func(c *config.Config) { c.MetadataSchema = "public" },
+		"scan interval too long":       func(c *config.Config) { c.MediaScanIntervalSeconds = 61 },
 	}
 	for name, mutate := range cases {
 		cfg := edgeConfig()
@@ -109,6 +111,11 @@ func TestMTLSProductionConfigurationUnchanged(t *testing.T) {
 	if err := cfg.ValidateMediaRuntime(); err != nil {
 		t.Fatal(err)
 	}
+	invalidIdentity := cfg
+	invalidIdentity.IdentityEndpoint = "https://identity.internal.example/path"
+	if err := invalidIdentity.ValidateMediaRuntime(); err == nil || err.Error() != "metadata_identity_https_origin_required" {
+		t.Fatalf("identity origin = %v", err)
+	}
 	cfg.ModerationSource = config.ModerationService
 	if err := cfg.ValidateMediaRuntime(); err == nil {
 		t.Fatal("service moderation without pinned endpoint accepted")
@@ -116,6 +123,16 @@ func TestMTLSProductionConfigurationUnchanged(t *testing.T) {
 	cfg.ModerationPeerCertSHA256, cfg.ModerationEndpoint, cfg.ModerationBearerKey = strings.Repeat("9", 64), "https://social.internal.example", "MODERATION_SERVICE_ACCESS_TOKEN"
 	if err := cfg.ValidateMediaRuntime(); err != nil {
 		t.Fatal(err)
+	}
+	invalidModeration := cfg
+	invalidModeration.ModerationEndpoint = "https://social.internal.example/path"
+	if err := invalidModeration.ValidateMediaRuntime(); err == nil || err.Error() != "metadata_moderation_https_origin_required" {
+		t.Fatalf("moderation origin = %v", err)
+	}
+	invalidModeration = cfg
+	invalidModeration.ModerationBearerKey = ""
+	if err := invalidModeration.ValidateMediaRuntime(); err == nil || err.Error() != "metadata_media_worker_configuration_invalid" {
+		t.Fatalf("moderation bearer binding = %v", err)
 	}
 }
 

@@ -35,7 +35,24 @@ pub(crate) struct VerifiedProgramBundle {
     program: VerifiedProgramRecord,
     chain: VerifiedChainHead,
     interface: VerifiedInterfaceRead,
-    wind_down: Option<Option<[u8; 54]>>,
+    wind_down: VerifiedWindDown,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum VerifiedWindDown {
+    Missing,
+    Active,
+    Deprecated([u8; 54]),
+}
+
+impl PartialEq<Option<Option<[u8; 54]>>> for VerifiedWindDown {
+    fn eq(&self, other: &Option<Option<[u8; 54]>>) -> bool {
+        match (self, other) {
+            (Self::Missing, None) | (Self::Active, Some(None)) => true,
+            (Self::Deprecated(left), Some(Some(right))) => left == right,
+            _ => false,
+        }
+    }
 }
 
 impl VerifiedProgramBundle {
@@ -51,7 +68,7 @@ impl VerifiedProgramBundle {
         &self.interface
     }
 
-    pub(crate) const fn wind_down(&self) -> Option<Option<[u8; 54]>> {
+    pub(crate) const fn wind_down(&self) -> VerifiedWindDown {
         self.wind_down
     }
 }
@@ -221,16 +238,17 @@ pub(crate) fn program_bundle_at(
         &ops,
     )
     .map_err(ProgramBundleError::Interface)?;
-    let wind_down = bundle
-        .wind_down
-        .as_ref()
-        .map(|proof| {
-            if proof.program != expected_program {
-                return Err(ProgramBundleError::ProgramMismatch);
-            }
-            proof.verify(&chain).map_err(ProgramBundleError::Evidence)
-        })
-        .transpose()?;
+    let wind_down = if let Some(proof) = &bundle.wind_down {
+        if proof.program != expected_program {
+            return Err(ProgramBundleError::ProgramMismatch);
+        }
+        match proof.verify(&chain).map_err(ProgramBundleError::Evidence)? {
+            Some(value) => VerifiedWindDown::Deprecated(value),
+            None => VerifiedWindDown::Active,
+        }
+    } else {
+        VerifiedWindDown::Missing
+    };
     Ok(VerifiedProgramBundle {
         program,
         chain,
@@ -266,7 +284,7 @@ pub(crate) fn decode_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
                 round = Some(i32::try_from(value).map_err(|_| ChainProofError::NonCanonical)?);
             }
             (3, ProtoValue::Bytes(value)) if block_id.is_none() => {
-                block_id = Some(decode_block_id(value)?)
+                block_id = Some(decode_block_id(value)?);
             }
             (4, ProtoValue::Bytes(value)) => signatures.push(CommitSig::decode(value)?),
             _ => return Err(ChainProofError::NonCanonical),
@@ -300,7 +318,7 @@ fn decode_block_id(bytes: &[u8]) -> Result<BlockId, ChainProofError> {
                             );
                         }
                         (2, ProtoValue::Bytes(value)) if part_hash.is_none() => {
-                            part_hash = Some(value.to_vec())
+                            part_hash = Some(value.to_vec());
                         }
                         _ => return Err(ChainProofError::NonCanonical),
                     }
@@ -337,7 +355,7 @@ pub(crate) fn decode_validators(bytes: &[u8]) -> Result<ValidatorSet, ChainProof
         match (field.number, field.value) {
             (1, ProtoValue::Bytes(value)) => validators.push(decode_validator(value)?),
             (2, ProtoValue::Bytes(value)) if proposer.is_none() => {
-                proposer = Some(decode_validator(value)?)
+                proposer = Some(decode_validator(value)?);
             }
             (3, ProtoValue::Varint(value)) if total.is_none() => total = Some(value),
             _ => return Err(ChainProofError::NonCanonical),

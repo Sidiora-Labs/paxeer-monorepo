@@ -1,0 +1,18 @@
+[coverage]
+threshold_percent = 85
+cmd_rankingd_before = "0/2 (0.0%)"
+cmd_rankingd_after = "0/2 (0.0%)"
+internal_app_before = "245/333 (73.6%)"
+internal_app_after = "287/333 (86.2%)"
+internal_config_before = "24/165 (14.5%)"
+internal_config_after = "140/165 (84.8%)"
+internal_httpapi_before = "183/242 (75.6%)"
+internal_httpapi_after = "218/242 (90.1%)"
+internal_internaltest_before = "0/407 (0.0%)"
+internal_internaltest_after = "317/407 (77.9%)"
+internal_ranker_before = "560/811 (69.1%)"
+internal_ranker_after = "712/811 (87.8%)"
+internal_store_before = "528/763 (69.2%)"
+internal_store_after = "642/763 (84.1%)"
+total_before = "1540/2723 (56.6%)"
+total_after = "2316/2723 (85.0%)"

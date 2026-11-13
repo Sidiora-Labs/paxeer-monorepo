@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -104,6 +105,36 @@ func TestValidate_Failures(t *testing.T) {
 			_, err := Load()
 			if (err != nil) != tc.wantErr {
 				t.Fatalf("Load err = %v, wantErr = %v", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsInvalidRuntimeAndEdgeValues(t *testing.T) {
+	cases := []struct {
+		name, key, value, message string
+	}{
+		{"invalid integer", "PORT", "invalid", "config:"},
+		{"missing redis", "REDIS_URL", "", "REDIS_URL is required"},
+		{"session lifetime", "GATEWAY_JWT_TTL_SECONDS", "0", "GATEWAY_JWT_TTL_SECONDS"},
+		{"nonce lifetime", "GATEWAY_NONCE_TTL_SECONDS", "0", "GATEWAY_NONCE_TTL_SECONDS"},
+		{"user upstream", "USER_HTTP_URL", "not-a-url", "USER_HTTP_URL"},
+		{"upstream timeout", "UPSTREAM_TIMEOUT_SECONDS", "0", "UPSTREAM_TIMEOUT_SECONDS"},
+		{"access key", "S3_ACCESS_KEY_ID", "", "S3_ACCESS_KEY_ID"},
+		{"secret key", "S3_SECRET_ACCESS_KEY", "", "S3_SECRET_ACCESS_KEY"},
+		{"negative cache", "OBJECT_CACHE_MAX_BYTES", "-1", "OBJECT_CACHE_MAX_BYTES"},
+		{"cache lifetime", "OBJECT_CACHE_TTL_SECONDS", "0", "OBJECT_CACHE_TTL_SECONDS"},
+		{"upload bound", "MAX_UPLOAD_BYTES", "0", "MAX_UPLOAD_BYTES"},
+		{"rate limit", "RATE_LIMIT_MAX", "0", "RATE_LIMIT_MAX"},
+		{"rate window", "RATE_LIMIT_WINDOW_SECONDS", "0", "RATE_LIMIT_WINDOW_SECONDS"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			setValid(t)
+			t.Setenv(tc.key, tc.value)
+			_, err := Load()
+			if err == nil || !strings.Contains(err.Error(), tc.message) {
+				t.Fatalf("%s: expected %q, got %v", tc.key, tc.message, err)
 			}
 		})
 	}

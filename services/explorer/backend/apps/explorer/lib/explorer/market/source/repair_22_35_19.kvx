@@ -1,0 +1,7 @@
+[native_history]
+circulating_supply = "Read market_data.circulating_supply from /api/v3/coins/{coin_id} for each native price or market value history fetch, using the configured X-API-Key header."
+market_value = "Multiply each candle closing price by feed circulating supply, including zero; use explorer held circulating supply when the feed figure is null."
+missing_supply = "Market value stays empty when both feed and held circulating supply are absent."
+startup = "The first history fetch after each start stores market values for every day in its configured range, including stored rows with an empty market value."
+independence = "History does not require the coin fetcher to populate its cache first."
+secondary_history = "SID history retains its resolved circulating supply and closing price calculation."

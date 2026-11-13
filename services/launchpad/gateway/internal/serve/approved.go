@@ -2,11 +2,12 @@ package serve
 
 import (
 	"context"
-	mediastore "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
-	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strings"
 	"time"
+
+	mediastore "github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/storage"
+	"github.com/go-chi/chi/v5"
 )
 
 // RestrictionAuthority must be consulted before BOTH cache and origin reads.
@@ -49,7 +50,7 @@ func (a *Approved) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		defer func() { <-a.slots }()
 	default:
 		w.Header().Set("Retry-After", "1")
-		http.Error(w, "media busy", 503)
+		http.Error(w, "media busy", http.StatusServiceUnavailable)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
@@ -62,7 +63,7 @@ func (a *Approved) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// origin request. PNG/JPEG/WebP variants support one bounded byte range.
 	if v := r.Header.Get("Range"); v != "" {
 		if !strings.HasPrefix(v, "bytes=") || strings.Contains(v, ",") || len(v) > 64 {
-			http.Error(w, "invalid range", 416)
+			http.Error(w, "invalid range", http.StatusRequestedRangeNotSatisfiable)
 			return
 		}
 	}

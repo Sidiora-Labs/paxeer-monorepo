@@ -77,7 +77,7 @@ export async function ActivityFeed({
           caption={title}
           columns={["Chain", "Kind", "Direction", "Amount", "Counterparty", "Transaction", "Finality"]}
           rows={history.items.map((row) => ({
-            id: row.id.toString(),
+            id: row.id,
             cells: [
               row.side ?? row.chain,
               row.kind,

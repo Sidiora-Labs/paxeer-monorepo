@@ -52,10 +52,18 @@ pub struct CommittedBlockSource {
 }
 
 impl CommittedBlockSource {
+    /// Opens a source under its configured chain identity.
+    ///
+    /// # Errors
+    /// Refuses invalid pins, chain identity or endpoint responses.
     pub fn new(config: &CommittedSourceConfig) -> Result<Self, CommittedRefusal> {
         Self::open(config)
     }
 
+    /// Opens a source after checking its chain and genesis identity.
+    ///
+    /// # Errors
+    /// Refuses invalid pins, chain identity or endpoint responses.
     pub fn open(config: &CommittedSourceConfig) -> Result<Self, CommittedRefusal> {
         let pin = |text: &str| {
             parse_hash(&Value::String(format!(
@@ -82,14 +90,16 @@ impl CommittedBlockSource {
                 ))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let rpc = RpcCluster::new(&config.rpc).map_err(rpc_refusal)?;
-        let chain = rpc.call("eth_chainId", json!([])).map_err(rpc_refusal)?;
+        let rpc = RpcCluster::new(&config.rpc).map_err(|error| rpc_refusal(&error))?;
+        let chain = rpc
+            .call("eth_chainId", json!([]))
+            .map_err(|error| rpc_refusal(&error))?;
         if parse_quantity(&chain)? != config.chain_id {
             return Err(CommittedRefusal::ChainMismatch);
         }
         let genesis = rpc
             .call("eth_getBlockByNumber", json!(["0x0", false]))
-            .map_err(rpc_refusal)?;
+            .map_err(|error| rpc_refusal(&error))?;
         if parse_quantity(&genesis["number"])? != 0 || parse_hash(&genesis["hash"])? != genesis_hash
         {
             return Err(CommittedRefusal::GenesisMismatch);
@@ -99,6 +109,9 @@ impl CommittedBlockSource {
 
     /// Returns a coordinate under the chain/genesis identity pinned by `open`.
     /// `previous` refuses a regressed finalized height; it is not a trust anchor.
+    ///
+    /// # Errors
+    /// Refuses unavailable, malformed or regressed finalized blocks.
     pub fn latest_committed(
         &self,
         previous: Option<CommittedCoordinate>,
@@ -106,7 +119,7 @@ impl CommittedBlockSource {
         let block = self
             .rpc
             .call("eth_getBlockByNumber", json!(["finalized", false]))
-            .map_err(rpc_refusal)?;
+            .map_err(|error| rpc_refusal(&error))?;
         if block.is_null() {
             return Err(CommittedRefusal::Unavailable);
         }
@@ -122,6 +135,9 @@ impl CommittedBlockSource {
 
     /// Acquires exactly `previous.height + 1`, refusing a different parent hash.
     /// Source chain/genesis trust remains configuration owned, not response owned.
+    ///
+    /// # Errors
+    /// Refuses missing blocks, parent mismatches or invalid receipts.
     pub fn acquire_next(
         &self,
         previous: CommittedCoordinate,
@@ -137,6 +153,10 @@ impl CommittedBlockSource {
         Ok(block)
     }
 
+    /// Acquires a committed block and verifies each sequencer receipt.
+    ///
+    /// # Errors
+    /// Refuses unavailable blocks, malformed fields or invalid receipt signatures.
     pub fn acquire(&self, height: u64) -> Result<CommittedBlock, CommittedRefusal> {
         let block = self
             .rpc
@@ -144,7 +164,7 @@ impl CommittedBlockSource {
                 "eth_getBlockByNumber",
                 json!([format!("0x{height:x}"), false]),
             )
-            .map_err(rpc_refusal)?;
+            .map_err(|error| rpc_refusal(&error))?;
         if block.is_null() {
             return Err(CommittedRefusal::Unavailable);
         }
@@ -160,7 +180,7 @@ impl CommittedBlockSource {
                     "pax_sequencerReceipt",
                     json!([block["transactions"][index]]),
                 )
-                .map_err(rpc_refusal)?;
+                .map_err(|error| rpc_refusal(&error))?;
             if answer["rung"].as_str() != Some("committed")
                 || parse_quantity(&answer["blockNumber"]).ok() != Some(header.height)
                 || parse_hash(&answer["blockHash"]).ok() != Some(header.block_hash)
@@ -193,7 +213,7 @@ impl CommittedBlockSource {
     }
 }
 
-fn rpc_refusal(error: RpcError) -> CommittedRefusal {
+fn rpc_refusal(error: &RpcError) -> CommittedRefusal {
     match error {
         RpcError::Divergence => CommittedRefusal::Divergence,
         RpcError::Unavailable | RpcError::RateLimited { .. } | RpcError::Rejected { .. } => {
@@ -239,6 +259,10 @@ pub struct CommittedHeader {
 }
 
 impl CommittedHeader {
+    /// Reads a committed header from its JSON-RPC block value.
+    ///
+    /// # Errors
+    /// Refuses malformed quantities, hashes or transaction identifiers.
     pub fn from_block_json(block: &Value) -> Result<Self, CommittedRefusal> {
         let transactions = block
             .get("transactions")

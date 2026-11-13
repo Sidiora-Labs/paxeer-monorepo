@@ -1,5 +1,5 @@
 //! Task 22.33.105; mapping, scope exceptions and qualification policy are in
-//! repair_22_33_105.kvx. Construction refusals name the native key defect;
+//! `repair_22_33_105.kvx`. Construction refusals name the native key defect;
 //! restart coverage reopens the production buyer settlement store.
 
 #[path = "support/repair_22_33_105.rs"]

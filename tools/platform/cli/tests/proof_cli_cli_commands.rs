@@ -1,9 +1,9 @@
-//! Proves: WalletCommand/ProgramCommand/ReceiptCommand/McpCommand -> built layerx subprocess -> common::envelope, toolset::invoke, check_cli_output and beta_driver::cli_output.
+//! Proves: WalletCommand/ProgramCommand/ReceiptCommand/McpCommand -> built layerx subprocess -> `common::envelope`, `toolset::invoke`, `check_cli_output` and `beta_driver::cli_output`.
 //!
-//! Repairs main.rs::main emitting non-JSON argument failures, wallet.rs::run_wallet
-//! contacting RPC before validating an asset selector, and toolset.rs::invoke
-//! using a retired REST activity receipt route instead of pax_sequencerReceipt.
-//! The existing activity_id argument name is retained; its value is a transaction hash.
+//! Repairs `main.rs::main` emitting non-JSON argument failures, `wallet.rs::run_wallet`
+//! contacting RPC before validating an asset selector, and `toolset.rs::invoke`
+//! using a retired REST activity receipt route instead of `pax_sequencerReceipt`.
+//! The existing `activity_id` argument name is retained; its value is a transaction hash.
 //!
 //! The emulator route-absence case is an explicitly named negative boundary.
 //! The audit module adds the positive root-node and authenticated hosted-wallet
@@ -13,7 +13,7 @@
 //!
 //! Task 22.39.118: token list --cursor "bad id" follows the decimal registration
 //! cursor parser at services/agent/crates/layerx-sdk/src/rpc.rs:1693 and asserts
-//! InvalidRequest, rendered by src/wallet.rs:932, separately from hex IDs.
+//! `InvalidRequest`, rendered by src/wallet.rs:932, separately from hex IDs.
 #![allow(dead_code)]
 
 mod common;
@@ -54,7 +54,10 @@ fn command(root: &Path) -> Command {
 }
 
 fn run(root: &Path, args: &[&str]) -> Output {
-    command(root).args(args).output().expect("built CLI runs")
+    command(root)
+        .args(args)
+        .output()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "built CLI runs"))
 }
 
 fn success(output: &Output, kind: &str) -> Value {
@@ -81,7 +84,7 @@ fn refusal(output: &Output, detail: &str) -> Value {
     assert!(
         value["error"]["detail"]
             .as_str()
-            .expect("error detail")
+            .unwrap_or_else(|| panic!("{}", "error detail"))
             .contains(detail),
         "{value}"
     );
@@ -89,8 +92,11 @@ fn refusal(output: &Output, detail: &str) -> Value {
 }
 
 fn emulator(root: &Path) -> (Process, String) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("loopback port");
-    let address = listener.local_addr().expect("address");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "loopback port"));
+    let address = listener
+        .local_addr()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "address"));
     drop(listener);
     let endpoint = format!("http://{address}");
     let child = command(root)
@@ -105,7 +111,7 @@ fn emulator(root: &Path) -> (Process, String) {
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("real core emulator starts");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "real core emulator starts"));
     let mut process = Process(child);
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
@@ -115,7 +121,11 @@ fn emulator(root: &Path) -> (Process, String) {
             }
         }
         assert!(
-            process.0.try_wait().expect("process status").is_none(),
+            process
+                .0
+                .try_wait()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "process status"))
+                .is_none(),
             "emulator exited"
         );
         assert!(Instant::now() < deadline, "emulator readiness deadline");
@@ -142,7 +152,7 @@ fn emulator(root: &Path) -> (Process, String) {
 }
 
 fn consume_python(output: &Output, kind: &str, expected: Option<&Value>) {
-    let script = r#"
+    let script = r"
 import json, sys
 from pathlib import Path
 from tools.qualification.beta_driver import Execution, cli_output, CaseFailure
@@ -153,28 +163,34 @@ try:
 except CaseFailure:
     sys.exit(2)
 print(json.dumps(data))
-"#;
+";
     let mut child = Command::new("python3")
         .args([
             "-B",
             "-c",
             script,
             kind,
-            &output.status.code().expect("exit code").to_string(),
+            &output
+                .status
+                .code()
+                .unwrap_or_else(|| panic!("{}", "exit code"))
+                .to_string(),
         ])
         .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../.."))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("qualification consumer starts");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "qualification consumer starts"));
     child
         .stdin
         .take()
-        .expect("stdin")
+        .unwrap_or_else(|| panic!("{}", "stdin"))
         .write_all(&output.stdout)
-        .expect("producer output");
-    let observed = child.wait_with_output().expect("consumer exits");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "producer output"));
+    let observed = child
+        .wait_with_output()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "consumer exits"));
     match expected {
         Some(expected) => {
             assert!(
@@ -183,7 +199,8 @@ print(json.dumps(data))
                 String::from_utf8_lossy(&observed.stderr)
             );
             assert_eq!(
-                serde_json::from_slice::<Value>(&observed.stdout).expect("consumer JSON"),
+                serde_json::from_slice::<Value>(&observed.stdout)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "consumer JSON")),
                 *expected
             );
         }
@@ -199,7 +216,7 @@ fn consume_shell(output: &Output, kind: &str, expected_success: bool) {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("installation consumer starts");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "installation consumer starts"));
     let bytes = if output.status.success() {
         &output.stdout
     } else {
@@ -208,10 +225,12 @@ fn consume_shell(output: &Output, kind: &str, expected_success: bool) {
     child
         .stdin
         .take()
-        .expect("stdin")
+        .unwrap_or_else(|| panic!("{}", "stdin"))
         .write_all(bytes)
-        .expect("producer output");
-    let observed = child.wait_with_output().expect("consumer exits");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "producer output"));
+    let observed = child
+        .wait_with_output()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "consumer exits"));
     assert_eq!(
         observed.status.success(),
         expected_success,
@@ -220,22 +239,7 @@ fn consume_shell(output: &Output, kind: &str, expected_success: bool) {
     );
 }
 
-#[test]
-#[allow(non_snake_case)]
-fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std::error::Error>> {
-    let temp = tempfile::tempdir()?;
-    let root = temp.path();
-    {
-        use std::os::unix::fs::OpenOptionsExt as _;
-        let mut seed = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(root.join("sequencer.seed"))?;
-        seed.write_all(&[0x42; 32])?;
-        seed.sync_all()?;
-    }
-    let (process, endpoint) = emulator(root);
+fn initial_wallet_state(root: &Path) -> (Value, Value) {
     success(
         &run(
             root,
@@ -245,8 +249,16 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
     );
     let listed = run(root, &["wallet", "list"]);
     let keys = success(&listed, "key.list");
-    assert_eq!(keys["data"].as_array().expect("keys").len(), 1);
-    let public_key = keys["data"][0]["public_key"].as_str().expect("public key");
+    assert_eq!(
+        keys["data"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{}", "keys"))
+            .len(),
+        1
+    );
+    let public_key = keys["data"][0]["public_key"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{}", "public key"));
     assert_eq!(public_key.len(), 64);
     assert_eq!(keys["data"][0]["did"], "did:layerx:alice");
     consume_shell(&listed, "key.list", true);
@@ -255,7 +267,7 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
     assert_eq!(
         before["data"]["accounts"]
             .as_array()
-            .expect("accounts")
+            .unwrap_or_else(|| panic!("{}", "accounts"))
             .len(),
         1
     );
@@ -267,6 +279,16 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
     consume_shell(&balances, "wallet.balance", true);
     consume_shell(&balances, "receipt.read", false);
 
+    (keys, before)
+}
+
+fn restore_emulator(
+    root: &Path,
+    process: Process,
+    endpoint: &str,
+    keys: &Value,
+    before: &Value,
+) -> Result<(Process, String), Box<dyn std::error::Error>> {
     // The recovery bytes come from the running producer, never a constructed snapshot.
     let snapshot = ureq::get(&format!("{endpoint}/__emulator/snapshot"))
         .call()?
@@ -279,7 +301,7 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
         .read_json()?;
     std::fs::write(root.join("recovery.snapshot"), &snapshot)?;
     drop(process);
-    let (_reopened, endpoint) = emulator(root);
+    let (reopened, endpoint) = emulator(root);
     let empty: Value = ureq::get(&format!("{endpoint}/v1/state"))
         .call()?
         .body_mut()
@@ -319,6 +341,13 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
         keys["data"]
     );
 
+    Ok((reopened, endpoint))
+}
+
+fn assert_missing_routes(
+    root: &Path,
+    endpoint: &str,
+) -> Result<(std::path::PathBuf, String, String, String), Box<dyn std::error::Error>> {
     // Derivation emits the real owner-only EVM export consumed by ProgramCommand::Call.
     let export = root.join("evm.json");
     let mut derive = command(root)
@@ -358,19 +387,31 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
         consume_python(&observed, "wallet.balance", None);
     }
 
+    Ok((export, id, hash, rpc))
+}
+
+fn assert_rpc_absence(
+    root: &Path,
+    rpc: &str,
+    hash: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .http_status_as_error(false)
         .build()
         .into();
     assert_eq!(
         layerx_platform_cli::rpc::request("px_listAssets", &json!([null, 1]))
-            .expect_err("asset listing uses the SDK, not the CLI request builder"),
+            .err()
+            .unwrap_or_else(|| panic!(
+                "{}",
+                "asset listing uses the SDK, not the CLI request builder"
+            )),
         "rpc_method_unavailable: px_listAssets is absent from the published OpenRPC contract"
     );
     let request = layerx_platform_cli::rpc::request("pax_sequencerReceipt", &json!([hash]))?;
-    let absent_rpc = agent.post(&rpc).send_json(&request)?;
+    let absent_rpc = agent.post(rpc).send_json(&request)?;
     assert_eq!(absent_rpc.status().as_u16(), 404);
-    let tokens = run(root, &["--rpc", &rpc, "token", "list", "--limit", "1"]);
+    let tokens = run(root, &["--rpc", rpc, "token", "list", "--limit", "1"]);
     assert_eq!(
         refusal(&tokens, "InvalidResponse"),
         json!({
@@ -383,9 +424,16 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
     );
     consume_shell(&tokens, "token.read", false);
     consume_python(&tokens, "token.read", None);
+    Ok(())
+}
 
+fn assert_toolset_absence(
+    endpoint: &str,
+    hash: &str,
+    id: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Consumer toolset must make the same surviving RPC read as receipt get.
-    let runtime = toolset::Runtime::loopback(&endpoint, 402)?;
+    let runtime = toolset::Runtime::loopback(endpoint, 402)?;
     let tool = toolset::surface(layerx_mcp::server::DeploymentMode::ReadOnly)?[0];
     assert_eq!(tool.name, "receipt.get");
     assert_eq!(
@@ -393,13 +441,22 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
         "^0x[0-9a-fA-F]{64}$"
     );
     let detail = toolset::invoke(&runtime, tool, &json!({"activity_id":hash}))
-        .expect_err("no emulator RPC route");
+        .err()
+        .unwrap_or_else(|| panic!("{}", "no emulator RPC route"));
     assert!(detail.contains("POST / returned HTTP 404"), "{detail}");
     assert!(toolset::invoke(&runtime, tool, &json!({"activity_id":id}))
-        .expect_err("unprefixed hash")
+        .err()
+        .unwrap_or_else(|| panic!("{}", "unprefixed hash"))
         .contains("0x-prefixed"));
     assert!(toolset::invoke(&runtime, tool, &json!({"activity_id":hash,"extra":true})).is_err());
+    Ok(())
+}
 
+fn assert_invalid_inputs(
+    root: &Path,
+    export: &Path,
+    before: &Value,
+) -> Result<(), Box<dyn std::error::Error>> {
     for args in [
         vec!["receipt", "get", "bad id"],
         vec!["program", "discover", "bad id"],
@@ -464,6 +521,30 @@ fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std
         before["data"]
     );
     Ok(())
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let root = temp.path();
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        let mut seed = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(root.join("sequencer.seed"))?;
+        seed.write_all(&[0x42; 32])?;
+        seed.sync_all()?;
+    }
+    let (process, endpoint) = emulator(root);
+    let (keys, before) = initial_wallet_state(root);
+    let (_reopened, endpoint) = restore_emulator(root, process, &endpoint, &keys, &before)?;
+    let (export, id, hash, rpc) = assert_missing_routes(root, &endpoint)?;
+    assert_rpc_absence(root, &rpc, &hash)?;
+    assert_toolset_absence(&endpoint, &hash, &id)?;
+    assert_invalid_inputs(root, &export, &before)
 }
 
 #[path = "repair_22_33_1496.rs"]

@@ -22,10 +22,10 @@ type Profile struct {
 }
 
 func Paxeer(endpoints, deployment string) Profile {
-	return Profile{"paxeer-x-network", 125, "PAX", 18, "deterministic-committed", true, endpoints, deployment}
+	return Profile{"paxeer-x-network", 125, valuePAX, 18, "deterministic-committed", true, endpoints, deployment}
 }
 func (p Profile) Validate(id *big.Int) error {
-	if id == nil || !id.IsInt64() || id.Int64() != 125 || p.ChainID != 125 || p.Name != "paxeer-x-network" || p.NativeAsset != "PAX" || p.NativeDecimals != 18 || p.FinalityModel != "deterministic-committed" || !p.Centralized || p.EndpointSetVersion == "" || p.DeploymentVersion == "" {
+	if id == nil || !id.IsInt64() || id.Int64() != 125 || p.ChainID != 125 || p.Name != "paxeer-x-network" || p.NativeAsset != valuePAX || p.NativeDecimals != 18 || p.FinalityModel != "deterministic-committed" || !p.Centralized || p.EndpointSetVersion == "" || p.DeploymentVersion == "" {
 		return errors.New("incompatible chain profile")
 	}
 	return nil

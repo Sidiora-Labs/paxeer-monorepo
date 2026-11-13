@@ -7,10 +7,14 @@ import config from 'configs/app';
 import MultichainStats from 'ui/multichain/stats/MultichainStats';
 import Stats from 'ui/pages/Stats';
 
+export function StatsPageContent() {
+  return config.features.multichain.isEnabled ? <MultichainStats/> : <Stats/>;
+}
+
 const Page: NextPage = () => {
   return (
     <PageNextJs pathname="/stats">
-      { config.features.multichain.isEnabled ? <MultichainStats/> : <Stats/> }
+      <StatsPageContent/>
     </PageNextJs>
   );
 };

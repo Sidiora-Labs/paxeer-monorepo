@@ -10,7 +10,7 @@ completion = "Every task of waves 0 to 6 passes its verify_cmd at one revision, 
 
 [decision.1803]
 title = "The removed launchpad production-system spec tree is retired with its qualification tooling inputs; the six frozen v1 contract fixtures move under the protocol module"
-value = "384f41641 removed launchpad/ entirely, launchpad/spec/production-system/** included. The six frozen v1 contract fixtures that tests still consume (accounting-cases.json, capabilities.json, chain/abi-catalog.json, chain/client-deployment.json, chain/event-authorities.json, chain/golden-fixtures.json) are restored byte-identical at sdk/launchpad/protocol/contracts/v1/ and their test readers repointed there. tools/launchpad/production, tools/launchpad/production/bootstrap/check-registry.json and services/launchpad/metadata/internal/metadata/qualify_wire.py read the removed spec tree as a whole and are not repointed; decision.421 extends to every path under launchpad/spec/production-system/."
+value = "The launchpad production-system specification is retired; frozen contract fixtures are retained in sdk/launchpad/protocol/contracts/v1/."
 basis = "384f41641; sdk/launchpad/protocol holds the launchpad chain-contract catalog and generator inputs; issue #1182"
 affects = ["task.18.1182.1", "task.18.1182.2"]
 

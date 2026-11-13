@@ -1,0 +1,8 @@
+[transaction_statistics]
+route = "/api/v2/transactions/stats"
+fields = ["transactions_count_24h", "price_updates_count_24h", "total_price_updates_count", "total_transactions_count"]
+type = "integer strings"
+transactions_count_24h = "Transactions and consensus price updates in the last 24 hours."
+price_updates_count_24h = "Consensus price updates in the last 24 hours."
+total_price_updates_count = "Price updates ever stored, including submissions removed by retention."
+total_transactions_count = "Transaction total plus the lifetime price-update total, equal to total_transactions at /api/v2/stats."

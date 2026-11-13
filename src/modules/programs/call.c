@@ -2864,6 +2864,8 @@ lxp_result lxp_programs_call_execute(
         lxp_protocol_version_uses_occupancy(ctx->protocol_version)) {
         uint8_t execution_principal[32];
         status = call_execution_principal(value, execution_principal);
+        /* Bind authority for new responsibility; covered writes retain the
+         * standing namespace payer independently of this call's principal. */
         if (status == LXP_OK)
             status = lxp_programs_occupancy_bind_call(
                 value->occupancy, value->program_id, execution_principal, value->budget);

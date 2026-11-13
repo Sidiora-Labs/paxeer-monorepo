@@ -17,9 +17,9 @@ const (
 
 // allowedMimes is the upload MIME allowlist (parity with the TS allowedMimes).
 var allowedMimes = map[string]string{
-	"image/webp": "webp",
-	"image/png":  "png",
-	"image/jpeg": "jpg",
+	mimeWebP: formatWebP,
+	mimePNG:  formatPNG,
+	mimeJPEG: "jpg",
 }
 
 // AllowedMime reports whether mime is an accepted upload content type.
@@ -36,7 +36,7 @@ func ExtForMime(mime string) string {
 
 // AllowedMimeList returns the accepted MIME types (for error messages).
 func AllowedMimeList() []string {
-	return []string{"image/webp", "image/png", "image/jpeg"}
+	return []string{mimeWebP, mimePNG, mimeJPEG}
 }
 
 var (

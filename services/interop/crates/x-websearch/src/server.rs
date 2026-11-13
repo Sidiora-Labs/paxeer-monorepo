@@ -268,6 +268,8 @@ impl RouteTable {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error when the route cannot be registered.
     pub fn set_health(
         &mut self,
         handler: impl Fn(&Request) -> Response + Send + Sync + 'static,
@@ -279,6 +281,8 @@ impl RouteTable {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error when the route cannot be registered.
     pub fn set_readiness(
         &mut self,
         handler: impl Fn(&Request) -> Response + Send + Sync + 'static,
@@ -290,6 +294,8 @@ impl RouteTable {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error when the route cannot be registered.
     pub fn set_serving_eligibility(
         &mut self,
         eligibility: impl Fn() -> bool + Send + Sync + 'static,
@@ -302,9 +308,9 @@ impl RouteTable {
     }
 
     fn is_serving_eligible(&self) -> bool {
-        self.serving_eligibility.as_ref().is_none_or(|eligibility| {
-            catch_unwind(AssertUnwindSafe(|| eligibility())).unwrap_or(false)
-        })
+        self.serving_eligibility
+            .as_ref()
+            .is_none_or(|eligibility| catch_unwind(AssertUnwindSafe(eligibility)).unwrap_or(false))
     }
 
     /// Sets the handler of `GET /attestations/<request id>`.
@@ -716,8 +722,7 @@ fn header_value(text: &str) -> bool {
 
 fn route_of(path: &str) -> Result<(Route, Option<[u8; 32]>), Response> {
     match path {
-        "/health" | "/xweb/health" => Ok((Route::Health, None)),
-        "/readyz" => Ok((Route::Health, None)),
+        "/health" | "/xweb/health" | "/readyz" => Ok((Route::Health, None)),
         "/search" => Ok((Route::Search, None)),
         "/fetch" => Ok((Route::Fetch, None)),
         _ => {

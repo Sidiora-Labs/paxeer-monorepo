@@ -1,7 +1,4 @@
-use super::{
-    json_response, media_type_is, response, Config, IncomingRequest, KernelBackend,
-    OutgoingResponse,
-};
+use super::{json_response, media_type_is, response, Config, IncomingRequest, KernelBackend, OutgoingResponse};
 use layerx_platform_gateway::evm;
 use serde_json::{json, Value};
 
@@ -11,11 +8,7 @@ pub(super) fn error(id: &Value, code: i32, message: &str) -> Value {
 
 pub(super) fn invalid_request(value: &Value) -> Option<Value> {
     let id = value.get("id").unwrap_or(&Value::Null);
-    if !value.is_object()
-        || value.get("jsonrpc") != Some(&json!("2.0"))
-        || !value.get("method").is_some_and(Value::is_string)
-        || !(id.is_null() || id.is_string() || id.is_number())
-    {
+    if !value.is_object() || value.get("jsonrpc") != Some(&json!("2.0")) || !value.get("method").is_some_and(Value::is_string) || !(id.is_null() || id.is_string() || id.is_number()) {
         Some(error(&Value::Null, -32600, "Invalid Request"))
     } else {
         None
@@ -23,7 +16,7 @@ pub(super) fn invalid_request(value: &Value) -> Option<Value> {
 }
 
 fn kernel_backend(method: &str) -> Option<KernelBackend> {
-    (method == super::rpc_faucet::px_requestFunds).then_some(KernelBackend::Identity)
+    (method == super::rpc_faucet::PX_REQUEST_FUNDS).then_some(KernelBackend::Identity)
 }
 
 pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value) -> Option<Value> {
@@ -32,31 +25,20 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
     }
     let id = value.get("id").cloned().unwrap_or(Value::Null);
     let method = value["method"].as_str()?;
-    if !method.starts_with("px_")
-        && !evm::is_evm_namespace(method)
-        && method != "pax_sequencerReceipt"
-    {
-        return value
-            .get("id")
-            .map(|_| error(&id, -32601, "Method not found"));
+    if !method.starts_with("px_") && !evm::is_evm_namespace(method) && method != "pax_sequencerReceipt" {
+        return value.get("id").map(|_| error(&id, -32601, "Method not found"));
     }
     if method == "px_getRouteCatalogue" {
         let result = super::routes::rpc_catalogue(config, request, &id, value.get("params"));
         return value.get("id").map(|_| result);
     }
-    if let Some(unavailable) =
-        kernel_backend(method).and_then(|backend| config.backend(backend).err())
-    {
+    if let Some(unavailable) = kernel_backend(method).and_then(|backend| config.backend(backend).err()) {
         return value.get("id").map(|_| unavailable.rpc(&id));
     }
-    if let Some(result) =
-        super::rpc_register::dispatch(config, request, method, &id, value.get("params"))
-    {
+    if let Some(result) = super::rpc_register::dispatch(config, request, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
-    if let Some(result) =
-        super::rpc_faucet::dispatch(config, request, method, &id, value.get("params"))
-    {
+    if let Some(result) = super::rpc_faucet::dispatch(config, request, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
     if let Some(result) = super::history::dispatch(config, method, &id, value.get("params")) {
@@ -68,39 +50,21 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
     if let Some(result) = super::paxeer::dispatch(config, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
-    value
-        .get("id")
-        .map(|_| error(&id, -32601, "Method not found"))
+    value.get("id").map(|_| error(&id, -32601, "Method not found"))
 }
 
 fn schema_document() -> Value {
-    let mut schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
-        .expect("gateway OpenRPC document must be JSON");
+    let mut schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json")).unwrap_or_else(|error| panic!("gateway OpenRPC document must be JSON: {error}"));
     schema["methods"]
         .as_array_mut()
-        .expect("gateway OpenRPC methods must be an array")
-        .retain(|method| {
-            !matches!(
-                method["name"].as_str(),
-                Some(
-                    "px_getInferenceRooms"
-                        | "px_getInferenceRoom"
-                        | "px_getInferenceDeal"
-                        | "px_getInferencePeer"
-                        | "px_getInferenceReceipts"
-                )
-            )
-        });
+        .unwrap_or_else(|| panic!("gateway OpenRPC methods must be an array"))
+        .retain(|method| !matches!(method["name"].as_str(), Some("px_getInferenceRooms" | "px_getInferenceRoom" | "px_getInferenceDeal" | "px_getInferencePeer" | "px_getInferenceReceipts")));
     schema
 }
 
 pub(super) fn route(config: &Config, request: &IncomingRequest) -> OutgoingResponse {
     if request.path == "/openrpc.json" {
-        return if request.method == "GET" {
-            json_response(200, &schema_document())
-        } else {
-            response(405, "method_not_allowed", None)
-        };
+        return if request.method == "GET" { json_response(200, &schema_document()) } else { response(405, "method_not_allowed", None) };
     }
     if request.path != "/" {
         return response(404, "not_found", None);
@@ -118,10 +82,7 @@ pub(super) fn route(config: &Config, request: &IncomingRequest) -> OutgoingRespo
         if batch.is_empty() || batch.len() > 32 {
             Some(error(&Value::Null, -32600, "Invalid Request"))
         } else {
-            let results: Vec<_> = batch
-                .iter()
-                .filter_map(|entry| dispatch(config, request, entry))
-                .collect();
+            let results: Vec<_> = batch.iter().filter_map(|entry| dispatch(config, request, entry)).collect();
             if results.is_empty() {
                 None
             } else {
@@ -147,6 +108,33 @@ pub(super) fn route(config: &Config, request: &IncomingRequest) -> OutgoingRespo
 mod tests {
     use super::*;
 
+    const RETIRED_METHOD_NAMES: &[&str] = &[
+        "lx_",
+        "lx_unknown",
+        "lx_register",
+        "lx_getHistory",
+        "lx_requestFunds",
+        "lx_getAccount",
+        "lx_getBalance",
+        "lx_getBalances",
+        "lx_getSequence",
+        "lx_estimateFee",
+        "lx_getProgramEvents",
+        "lx_sendActivity",
+        "lx_getReceipt",
+        "lx_getActivityStatus",
+        "lx_getBatchHeader",
+        "lx_getCheckpoint",
+        "lx_getProof",
+        "lx_listAssets",
+        "lx_getAsset",
+        "lx_getNodeInfo",
+        "lx_subscribe",
+        "lx_unsubscribe",
+        "lx_subscription",
+        "lx_getWalletCaps",
+    ];
+
     #[test]
     fn lx_names_answer_method_not_found() {
         // Keep the complete historical method list to prove refusal without backend I/O.
@@ -156,18 +144,14 @@ mod tests {
         use std::time::Duration;
         use zeroize::Zeroizing;
 
-        let backend = TcpListener::bind("127.0.0.1:0").expect("backend listener");
-        backend.set_nonblocking(true).expect("nonblocking backend");
-        let address = backend.local_addr().expect("backend address");
+        let backend = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{}: {error:?}", "backend listener"));
+        backend.set_nonblocking(true).unwrap_or_else(|error| panic!("{}: {error:?}", "nonblocking backend"));
+        let address = backend.local_addr().unwrap_or_else(|error| panic!("{}: {error:?}", "backend address"));
         let endpoint = crate::Endpoint::plain(address.ip().to_string(), address.port());
-        let ca = native_tls::Certificate::from_pem(include_bytes!(
-            "../../../../../consensus/rpc/jsonrpc/server/test.crt"
-        ))
-        .expect("test certificate");
+        let ca = native_tls::Certificate::from_pem(include_bytes!("../../../../../consensus/rpc/jsonrpc/server/test.crt")).unwrap_or_else(|error| panic!("{}: {error:?}", "test certificate"));
         let mut config = Config {
-            wallet_caps: None,
-            routes: crate::routes::Registry::configured("layerx-testnet", "1").expect("routes"),
-            listen: "127.0.0.1:0".parse().expect("listen address"),
+            routes: crate::routes::Registry::configured("layerx-testnet", "1").unwrap_or_else(|error| panic!("{}: {error:?}", "routes")),
+            listen: "127.0.0.1:0".parse().unwrap_or_else(|error| panic!("{}: {error:?}", "listen address")),
             listener: crate::Listener::Plain,
             client: crate::Client::without_identity(ca.clone()),
             client_identity: false,
@@ -178,14 +162,13 @@ mod tests {
             state_clock: crate::now,
             paxeer: None,
             capabilities: crate::capabilities::Cache::new(Duration::from_secs(1)),
-            read_windows: Default::default(),
+            read_windows: std::sync::Mutex::default(),
             indexer: None,
             registration_token: None,
             trusted_proxies: Vec::new(),
             faucet: None,
             store: Arc::new(crate::RedisStore::new(
-                crate::RedisEndpoint::parse(&format!("rediss://localhost:{}", address.port()))
-                    .expect("Redis endpoint"),
+                crate::RedisEndpoint::parse(&format!("rediss://localhost:{}", address.port())).unwrap_or_else(|error| panic!("{}: {error:?}", "Redis endpoint")),
                 ca,
                 Zeroizing::new("gateway".to_owned()),
                 Zeroizing::new(String::new()),
@@ -195,7 +178,6 @@ mod tests {
             wire_version: "1".to_owned(),
             protocol_version: 1,
             protocol_network_id: 1,
-            idempotency_seconds: 3600,
         };
         let request = IncomingRequest {
             method: "POST".into(),
@@ -203,32 +185,6 @@ mod tests {
             headers: BTreeMap::from([("content-type".into(), "application/json".into())]),
             body: Vec::new(),
         };
-        let names = [
-            "lx_",
-            "lx_unknown",
-            "lx_register",
-            "lx_getHistory",
-            "lx_requestFunds",
-            "lx_getAccount",
-            "lx_getBalance",
-            "lx_getBalances",
-            "lx_getSequence",
-            "lx_estimateFee",
-            "lx_getProgramEvents",
-            "lx_sendActivity",
-            "lx_getReceipt",
-            "lx_getActivityStatus",
-            "lx_getBatchHeader",
-            "lx_getCheckpoint",
-            "lx_getProof",
-            "lx_listAssets",
-            "lx_getAsset",
-            "lx_getNodeInfo",
-            "lx_subscribe",
-            "lx_unsubscribe",
-            "lx_subscription",
-            "lx_getWalletCaps",
-        ];
         for configured in [false, true] {
             if configured {
                 config.identity = Some(crate::IdentityTarget {
@@ -244,55 +200,29 @@ mod tests {
                     authority_token: Zeroizing::new("token".into()),
                     registry: endpoint.clone(),
                     registry_token: Zeroizing::new("token".into()),
-                    modules: layerx_types::payload::ModuleRegistry::new(&[]).expect("modules"),
                 });
                 config.paxeer = Some(vec![endpoint.clone()]);
-                config.indexer = Some(
-                    crate::history::Indexer::parse(&format!("http://{address}")).expect("indexer"),
-                );
+                config.indexer = Some(crate::history::Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{}: {error:?}", "indexer")));
                 config.registration_token = Some(Zeroizing::new("token".into()));
             }
             for backend in KernelBackend::ALL {
                 assert_eq!(config.backend(backend).is_ok(), configured, "{backend:?}");
             }
-            for method in names {
+            for &method in RETIRED_METHOD_NAMES {
                 assert_eq!(kernel_backend(method), None, "{method}");
-                for params in [
-                    Value::Null,
-                    json!([]),
-                    json!(["ab".repeat(32)]),
-                    json!({"invalid": true}),
-                ] {
+                for params in [Value::Null, json!([]), json!(["ab".repeat(32)]), json!({"invalid": true})] {
                     let mut call = json!({"jsonrpc": "2.0", "id": "lx-refusal", "method": method, "params": params});
-                    assert_eq!(
-                        dispatch(&config, &request, &call),
-                        Some(error(&call["id"], -32601, "Method not found")),
-                        "{method}, configured={configured}"
-                    );
+                    assert_eq!(dispatch(&config, &request, &call), Some(error(&call["id"], -32601, "Method not found")), "{method}, configured={configured}");
                     call["id"] = Value::Null;
-                    assert_eq!(
-                        dispatch(&config, &request, &call),
-                        Some(error(&Value::Null, -32601, "Method not found"))
-                    );
-                    call.as_object_mut().expect("call").remove("id");
-                    assert_eq!(
-                        dispatch(&config, &request, &call),
-                        None,
-                        "{method} notification"
-                    );
+                    assert_eq!(dispatch(&config, &request, &call), Some(error(&Value::Null, -32601, "Method not found")));
+                    call.as_object_mut().unwrap_or_else(|| panic!("{}", "call")).remove("id");
+                    assert_eq!(dispatch(&config, &request, &call), None, "{method} notification");
                 }
             }
-            assert_eq!(
-                kernel_backend(crate::rpc_faucet::px_requestFunds),
-                Some(KernelBackend::Identity)
-            );
-            let funds =
-                json!({"jsonrpc": "2.0", "id": 1, "method": "px_requestFunds", "params": []});
+            assert_eq!(kernel_backend(crate::rpc_faucet::PX_REQUEST_FUNDS), Some(KernelBackend::Identity));
+            let funds = json!({"jsonrpc": "2.0", "id": 1, "method": "px_requestFunds", "params": []});
             if !configured {
-                assert_eq!(
-                    dispatch(&config, &request, &funds).expect("faucet refusal")["error"]["code"],
-                    -32010
-                );
+                assert_eq!(dispatch(&config, &request, &funds).unwrap_or_else(|| panic!("{}", "faucet refusal"))["error"]["code"], -32010);
             }
             match backend.accept() {
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {}
@@ -304,9 +234,7 @@ mod tests {
     #[test]
     fn schema_lists_every_public_method() {
         let schema = schema_document();
-        let methods = schema["methods"]
-            .as_array()
-            .unwrap_or_else(|| panic!("methods missing"));
+        let methods = schema["methods"].as_array().unwrap_or_else(|| panic!("methods missing"));
         let published = [
             "px_register",
             "px_getCommit",
@@ -327,14 +255,7 @@ mod tests {
             "px_getRouteCatalogue",
         ];
         for name in published {
-            assert_eq!(
-                methods
-                    .iter()
-                    .filter(|method| method["name"] == name)
-                    .count(),
-                1,
-                "{name}"
-            );
+            assert_eq!(methods.iter().filter(|method| method["name"] == name).count(), 1, "{name}");
         }
         assert_eq!(methods.len(), published.len());
     }
@@ -350,12 +271,7 @@ mod tests {
             json!({"jsonrpc":"2.0","method":7,"id":7}),
             json!({"jsonrpc":"2.0","method":"lx_getNodeInfo","id":true}),
         ] {
-            assert_eq!(
-                invalid_request(&value),
-                Some(
-                    json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid Request"}})
-                )
-            );
+            assert_eq!(invalid_request(&value), Some(json!({"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid Request"}})));
         }
         for value in [
             json!({"jsonrpc":"2.0","method":"lx_getNodeInfo"}),

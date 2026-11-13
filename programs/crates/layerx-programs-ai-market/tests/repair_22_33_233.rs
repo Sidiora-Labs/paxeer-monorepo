@@ -1,24 +1,24 @@
 //! Task 22.33.233, audit 22.30.128: ai-real-consumer-proof.
 //!
-//! Proving tests: ai_real_consumer_recovers_fresh_guest_captures and
-//! ai_real_consumer_refuses_unauthenticated_evidence_across_restart.
-//! CREATE and every chunk still run through dispatch::route. The continuation
+//! Proving tests: `ai_real_consumer_recovers_fresh_guest_captures` and
+//! `ai_real_consumer_refuses_unauthenticated_evidence_across_restart`.
+//! CREATE and every chunk still run through `dispatch::route`. The continuation
 //! ruling uses a recorded hosted-consumer transcript instead of a programs ->
-//! hosted-indexer dependency. CONSUMER_TRANSCRIPT was emitted once by the unchanged
-//! production ProjectionStore (observe, promote, drop, open, snapshot, market_view,
-//! pending_events), including real consensus and namespace membership verification.
+//! hosted-indexer dependency. `CONSUMER_TRANSCRIPT` was emitted once by the unchanged
+//! production `ProjectionStore` (observe, promote, drop, open, snapshot, `market_view`,
+//! `pending_events`), including real consensus and namespace membership verification.
 //! Its source revision and source hashes identify the recorder's production inputs.
 //! The gate emits fresh guest bytes, verifies commits, and compares canonical
 //! bindings and authenticated read facts with that consumer recording, including
 //! recovered state and all five failed promotions. No indexer implementation is
-//! copied or substituted here. This does not prove signed ProgramRead receipts.
+//! copied or substituted here. This does not prove signed `ProgramRead` receipts.
 //!
-//! Baseline: attempt 1 failed to compile (E0433 for layerx_committed_proof and
-//! layerx_indexer); neither test executed. No extra baseline verify is run.
-//! The authoritative repair record is repair_22_33_233.kvx.
+//! Baseline: attempt 1 failed to compile (E0433 for `layerx_committed_proof` and
+//! `layerx_indexer`); neither test executed. No extra baseline verify is run.
+//! The authoritative repair record is `repair_22_33_233.kvx`.
 //! Its [wiring.platform] block records the current platform wiring request.
 //! Wiring request (domain 8, Platform): services/platform/hosted/indexer owns
-//! transcript regeneration and its live ProjectionStore restart integration;
+//! transcript regeneration and its live `ProjectionStore` restart integration;
 //! programs intentionally does not depend on that hosted service.
 //! Qualification revision, command, exit and private log are recorded by hf-done.
 
@@ -83,9 +83,9 @@ fn envelope(operation: Operation, payload: &[u8]) -> Vec<u8> {
         market: checked(codec::derive_market(ctx.chain, ctx.program)),
         actor: ctx.principal,
         epoch: 0,
-        config: if read { 0 } else { 1 },
+        config: u64::from(!read),
         roster: Presence::Absent,
-        sequence: if read { 0 } else { 1 },
+        sequence: u64::from(!read),
         expiry: HEIGHT + 1000,
         request: checked(RequestId::new([1; 32])),
         payload,
@@ -134,7 +134,7 @@ fn route(operation: Operation, payload: &[u8], current: Option<&[u8]>) -> (Vec<u
             next.clear();
             result_len
         }
-        other => panic!("guest refused request: {other:?}"),
+        other @ Routed::Refused { .. } => panic!("guest refused request: {other:?}"),
     };
     let result = checked(codec::decode_result(&result[..n]));
     assert_eq!(result.status, ResultStatus::Ok);
@@ -186,7 +186,7 @@ pub(crate) fn authority() -> Vec<Validator> {
 }
 
 /// Committed peer fixture: native namespace manifest and ICS23 leaf operations,
-/// matching indexer/tests/repair_22_31_350.rs and the lxphost store layout.
+/// matching `indexer/tests/repair_22_31_350.rs` and the lxphost store layout.
 fn native_membership(state: &[u8], program: [u8; 32]) -> (Vec<u8>, [u8; 32]) {
     fn leaf(key: &[u8], value: &[u8], prefix: &[u8]) -> (Vec<u8>, [u8; 32]) {
         let mut operation = Vec::new();
@@ -328,7 +328,7 @@ impl Material {
     }
 }
 
-/// Fresh ProgramRead bytes bound to a verified commit; membership is checked against
+/// Fresh `ProgramRead` bytes bound to a verified commit; membership is checked against
 /// the recorded production consumer inputs below.
 pub(crate) fn capture(state: &[u8], material: &Material, sequence: u64) -> (Vec<u8>, CaptureFacts) {
     checked(material.verify());
@@ -541,7 +541,7 @@ pub(crate) fn ai_real_consumer_refuses_unauthenticated_evidence_across_restart()
                 material.commit.signatures[0]
                     .signature
                     .as_mut()
-                    .unwrap_or_else(|| panic!("fixture signature absent"))[0] ^= 1
+                    .unwrap_or_else(|| panic!("fixture signature absent"))[0] ^= 1;
             }
             1 => material = Material::new(&state, [99; 32]),
             2 => material.proof.push(0),

@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"regexp"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type Action struct {
@@ -29,7 +30,7 @@ func digest(v any) string {
 // Repeat keys with different content are conflicts, including terminal actions.
 func (s *Store) Propose(ctx context.Context, cred, k, kind, scope, reason, payloadHash string, expires time.Time) (Action, error) {
 	var a Action
-	if !key(k) || !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(payloadHash) || (kind != "replay" && kind != "dlq_redrive" && kind != "bulk_export" && kind != "cap_change" && kind != "incident_recovery") {
+	if !key(k) || !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(payloadHash) || (kind != controlReplay && kind != "dlq_redrive" && kind != "bulk_export" && kind != controlCapChange && kind != controlIncidentRecovery) {
 		return a, Invalid
 	}
 	e := s.run(ctx, cred, "action", scope, reason, func(t *transaction) error {
@@ -46,7 +47,7 @@ func (s *Store) Propose(ctx context.Context, cred, k, kind, scope, reason, paylo
 		} else if e != Missing {
 			return e
 		}
-		a = Action{ID: id(), Kind: kind, Scope: scope, Reason: reason, RequestedBy: t.actor.ID, State: "proposed", PayloadHash: payloadHash, Revision: 1, Expires: expires}
+		a = Action{ID: id(), Kind: kind, Scope: scope, Reason: reason, RequestedBy: t.actor.ID, State: controlProposed, PayloadHash: payloadHash, Revision: 1, Expires: expires}
 		return t.put("action", k, a)
 	})
 	return a, e
@@ -64,30 +65,30 @@ func (s *Store) Transition(ctx context.Context, cred, k, scope, reason, next str
 			return Denied
 		}
 		// Same execution request returns one durable job even after completion.
-		if next == "executing" && a.JobID != "" {
+		if next == controlExecuting && a.JobID != "" {
 			return nil
 		}
 		if a.Revision != expected || a.Revision == ^uint64(0) {
 			return Conflict
 		}
-		if next != "cancelled" && !a.Expires.After(t.now) {
+		if next != controlCancelled && !a.Expires.After(t.now) {
 			return Denied
 		}
 		switch next {
-		case "approved":
-			if a.State != "proposed" || a.RequestedBy == t.actor.ID {
+		case controlApproved:
+			if a.State != controlProposed || a.RequestedBy == t.actor.ID {
 				return Denied
 			}
 			a.ApprovedBy = t.actor.ID
 			a.Approver = t.actor
-		case "executing":
-			if a.State != "approved" || a.ApprovedBy == a.RequestedBy || !t.approvalActive(a) {
+		case controlExecuting:
+			if a.State != controlApproved || a.ApprovedBy == a.RequestedBy || !t.approvalActive(a) {
 				return Denied
 			}
-			if a.Kind == "cap_change" || a.Kind == "incident_recovery" {
+			if a.Kind == controlCapChange || a.Kind == controlIncidentRecovery {
 				return Denied
 			}
-			if a.Kind == "replay" && a.PayloadReference != "" {
+			if a.Kind == controlReplay && a.PayloadReference != "" {
 				var payload ReplayPayload
 				if err := t.get("action_payload", a.PayloadReference, &payload); err != nil {
 					return err
@@ -98,14 +99,14 @@ func (s *Store) Transition(ctx context.Context, cred, k, scope, reason, next str
 			}
 			a.JobID = id()
 			a.CompletionIdentity = "control-replay:" + a.JobID
-			if e := t.put("job", a.JobID, ReplayJob{ActionID: a.ID, ActionKey: k, Kind: a.Kind, Scope: scope, State: "queued", PayloadHash: a.PayloadHash, PayloadReference: a.PayloadReference, CompletionIdentity: a.CompletionIdentity}); e != nil {
+			if e := t.put(controlJob, a.JobID, ReplayJob{ActionID: a.ID, ActionKey: k, Kind: a.Kind, Scope: scope, State: "queued", PayloadHash: a.PayloadHash, PayloadReference: a.PayloadReference, CompletionIdentity: a.CompletionIdentity}); e != nil {
 				return e
 			}
-		case "cancelled":
-			if a.State != "proposed" && a.State != "approved" {
+		case controlCancelled:
+			if a.State != controlProposed && a.State != controlApproved {
 				return Denied
 			}
-		case "succeeded", "failed": // Executors must attach results through the owning durable job processor.
+		case controlSucceeded, controlFailed: // Executors must attach results through the owning durable job processor.
 			return Unavailable
 		default:
 			return Invalid
@@ -131,18 +132,18 @@ func capability(v string) bool {
 // Cap increases consume dual-approved cap_change actions bound to exact payload.
 // Reductions can be immediate. Read-only market routes never consult this gate.
 func (s *Store) SetCap(ctx context.Context, cred, scope, reason, approvalKey string, c Cap, expected uint64) error {
-	if scope != "platform" {
+	if scope != controlPlatform {
 		return Denied
 	}
 	if !capability(c.Capability) || c.Version != 1 {
 		return Invalid
 	}
-	return s.run(ctx, cred, "caps", scope, reason, func(t *transaction) error {
+	return s.run(ctx, cred, controlCaps, scope, reason, func(t *transaction) error {
 		if !c.Expires.After(t.now) || c.Expires.After(t.now.Add(24*time.Hour)) || c.Effective.After(c.Expires) {
 			return Invalid
 		}
 		var old Cap
-		e := t.get("caps", c.Capability, &old)
+		e := t.get(controlCaps, c.Capability, &old)
 		if e != nil && e != Missing {
 			return e
 		}
@@ -167,16 +168,16 @@ func (s *Store) SetCap(ctx context.Context, cred, scope, reason, approvalKey str
 			}
 			payload := c
 			payload.Revision = 0
-			if a.Kind != "cap_change" || a.Scope != scope || a.State != "approved" || a.PayloadHash != digest(payload) || !a.Expires.After(t.now) || a.ApprovedBy == a.RequestedBy || !t.approvalActive(a) {
+			if a.Kind != controlCapChange || a.Scope != scope || a.State != controlApproved || a.PayloadHash != digest(payload) || !a.Expires.After(t.now) || a.ApprovedBy == a.RequestedBy || !t.approvalActive(a) {
 				return Denied
 			}
-			a.State = "succeeded"
+			a.State = controlSucceeded
 			a.Revision++
 			if e = t.put("action", approvalKey, a); e != nil {
 				return e
 			}
 		}
-		return t.put("caps", c.Capability, c)
+		return t.put(controlCaps, c.Capability, c)
 	})
 }
 
@@ -199,7 +200,7 @@ func (s *Store) Admission(ctx context.Context, capabilityName string, knownVersi
 	if s.local != nil {
 		now = time.Now()
 		var raw json.RawMessage
-		e = s.readObject(ctx, "caps", capabilityName, &raw)
+		e = s.readObject(ctx, controlCaps, capabilityName, &raw)
 		b = raw
 	} else {
 		e = s.pool.QueryRow(ctx, "SELECT body,clock_timestamp() FROM "+s.schema+".objects WHERE kind='caps' AND id=$1", capabilityName).Scan(&b, &now)
@@ -234,7 +235,7 @@ type JobResultVerifier interface {
 }
 
 func (s *Store) CompleteAction(ctx context.Context, cred, k, scope, reason, next, reference string, expected uint64, verifier JobResultVerifier) error {
-	if !key(k) || !text(reference, 256) || (next != "succeeded" && next != "failed") || verifier == nil {
+	if !key(k) || !text(reference, 256) || (next != controlSucceeded && next != controlFailed) || verifier == nil {
 		return Unavailable
 	}
 	return s.run(ctx, cred, "action", scope, reason, func(t *transaction) error {
@@ -248,7 +249,7 @@ func (s *Store) CompleteAction(ctx context.Context, cred, k, scope, reason, next
 		if a.Revision != expected || a.Revision == ^uint64(0) {
 			return Conflict
 		}
-		if a.State != "executing" || a.JobID == "" || !a.Expires.After(t.now) || !t.approvalActive(a) {
+		if a.State != controlExecuting || a.JobID == "" || !a.Expires.After(t.now) || !t.approvalActive(a) {
 			return Denied
 		}
 		if e := verifier.Verify(contextFor(t), a, next, reference); e != nil {
@@ -258,14 +259,14 @@ func (s *Store) CompleteAction(ctx context.Context, cred, k, scope, reason, next
 			return Denied
 		}
 		var job map[string]any
-		if e := t.get("job", a.JobID, &job); e != nil {
+		if e := t.get(controlJob, a.JobID, &job); e != nil {
 			return e
 		}
-		job["state"] = next
+		job[controlState] = next
 		job["resultReference"] = reference
 		a.State = next
 		a.Revision++
-		if e := t.put("job", a.JobID, job); e != nil {
+		if e := t.put(controlJob, a.JobID, job); e != nil {
 			return e
 		}
 		return t.put("action", k, a)

@@ -547,13 +547,19 @@ impl SandboxSubmissionReceipt {
         }
         for (index, frame) in frames.iter().enumerate() {
             let chunk = &canonical[index * 204..canonical.len().min((index + 1) * 204)];
+            let frame_index =
+                u16::try_from(index).map_err(|_| SandboxActivityRefusal::InvalidReceipt)?;
+            let frame_count =
+                u16::try_from(frames.len()).map_err(|_| SandboxActivityRefusal::InvalidReceipt)?;
+            let canonical_length = u32::try_from(canonical.len())
+                .map_err(|_| SandboxActivityRefusal::InvalidReceipt)?;
             if frame.len() != 52 + chunk.len()
                 || frame[..4] != *b"LXUR"
                 || frame[4..36] != self.activity_id
                 || frame[36..44] != self.expected_usage_sequence.to_be_bytes()
-                || frame[44..46] != (index as u16).to_be_bytes()
-                || frame[46..48] != (frames.len() as u16).to_be_bytes()
-                || frame[48..52] != (canonical.len() as u32).to_be_bytes()
+                || frame[44..46] != frame_index.to_be_bytes()
+                || frame[46..48] != frame_count.to_be_bytes()
+                || frame[48..52] != canonical_length.to_be_bytes()
                 || frame[52..] != *chunk
             {
                 return Err(SandboxActivityRefusal::InvalidReceipt);

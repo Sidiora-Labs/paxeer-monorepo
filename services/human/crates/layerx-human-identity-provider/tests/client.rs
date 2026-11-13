@@ -1,3 +1,5 @@
+#[path = "support/mod.rs"]
+#[allow(dead_code)]
 mod support;
 
 use std::error::Error;
@@ -16,6 +18,7 @@ pub use layerx_human_service::{auth, onboarding, security, store};
 use store::PrincipalId;
 
 #[path = "../../layerx-human-service/src/server/identity_dispatch.rs"]
+#[allow(dead_code)]
 mod source_client;
 use source_client::{IdentityProviderConfig, RemoteIdentityProvider};
 

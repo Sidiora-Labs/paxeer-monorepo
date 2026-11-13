@@ -5,13 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 )
 
 type Credentials struct {
@@ -57,7 +58,7 @@ func (c *Credentials) Get(key string) (string, error) {
 }
 func (c *Credentials) Refresh(ctx context.Context) error {
 	c.mu.RLock()
-	keys := []string{}
+	keys := make([]string, 0, len(c.values))
 	for k := range c.values {
 		keys = append(keys, k)
 	}
@@ -123,7 +124,7 @@ func NewPushRuntime(ctx context.Context, db *sql.DB, authority TargetAuthority, 
 		return nil, ErrInvalid
 	}
 	u, e := url.Parse(o.DeepLinkOrigin)
-	if e != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
+	if e != nil || u.Scheme != httpsScheme || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
 		return nil, ErrInvalid
 	}
 	if !o.EnableAPNS && (o.APNSKey != "" || o.APNSKeyID != "" || o.APNSTeamID != "" || o.APNSTopic != "") {
@@ -182,8 +183,7 @@ func (r *PushRuntime) Run(ctx context.Context) error {
 	go func() { results <- r.Worker.Run(run) }()
 	e := <-results
 	cancel()
-	<-results
-	return e
+	return errors.Join(e, <-results)
 }
 
 type RuntimeConfig struct {
@@ -344,7 +344,7 @@ func (r *HTTPRuntime) Run(ctx context.Context) error {
 	e := <-results
 	cancel()
 	for remaining := 1; remaining < len(jobs); remaining++ {
-		<-results
+		e = errors.Join(e, <-results)
 	}
 	r.mu.Lock()
 	r.running = false
@@ -403,13 +403,11 @@ func (r *HTTPRuntime) refreshSources(ctx context.Context) error {
 			e = json.Unmarshal(raw, &ref)
 		}
 		if e != nil {
-			rows.Close()
-			return e
+			return errors.Join(e, rows.Close())
 		}
 		refs = append(refs, ref)
 	}
-	e = rows.Err()
-	rows.Close()
+	e = errors.Join(rows.Err(), rows.Close())
 	if e != nil {
 		return e
 	}

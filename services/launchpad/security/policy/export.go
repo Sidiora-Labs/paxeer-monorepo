@@ -4,22 +4,23 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec // S3 Object Lock requires the MD5 transport checksum.
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"strings"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"io"
-	"strings"
-	"time"
 )
 
 type AuditManifest struct {
@@ -40,8 +41,7 @@ type AuditExporter struct {
 	Signer                        ed25519.PrivateKey
 }
 
-func (e AuditExporter) Export(ctx context.Context, day time.Time) (AuditManifest, error) {
-	var manifest AuditManifest
+func (e AuditExporter) Export(ctx context.Context, day time.Time) (manifest AuditManifest, resultErr error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	if e.Pool == nil || e.StatePool == nil || e.Client == nil || !safeIdentifier(e.Schema) || e.Bucket == "" || !safeExportPrefix(e.Prefix) || e.KeyID == "" || len(e.Signer) != ed25519.PrivateKeySize {
@@ -63,9 +63,11 @@ func (e AuditExporter) Export(ctx context.Context, day time.Time) (AuditManifest
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		tx.Rollback(cleanup)
+		if rollbackErr := tx.Rollback(cleanup); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			resultErr = errors.Join(resultErr, rollbackErr)
+		}
 	}()
-	table := pgx.Identifier{e.Schema, "audit_outbox"}.Sanitize()
+	table := pgx.Identifier{e.Schema, auditOutboxTable}.Sanitize()
 	if _, err = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", table); err != nil {
 		return manifest, err
 	}
@@ -114,7 +116,7 @@ func (e AuditExporter) Export(ctx context.Context, day time.Time) (AuditManifest
 	}
 	// Persist the exact signed plan before the first upload. Retries reuse its
 	// retention timestamp and bytes, including after a process restart.
-	state := pgx.Identifier{e.Schema, "audit_export_days"}.Sanitize()
+	state := pgx.Identifier{e.Schema, auditExportDaysTable}.Sanitize()
 	if _, err = e.StatePool.Exec(ctx, "INSERT INTO "+state+"(bucket,prefix,day,manifest) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING", e.Bucket, e.Prefix, start, wire); err != nil {
 		return manifest, err
 	}
@@ -160,14 +162,14 @@ func safeExportPrefix(prefix string) bool {
 	return true
 }
 
-func (e AuditExporter) retainObject(ctx context.Context, key string, body []byte, until time.Time) error {
+func (e AuditExporter) retainObject(ctx context.Context, key string, body []byte, until time.Time) (resultErr error) {
 	object, err := e.Client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(e.Bucket), Key: aws.String(key)})
 	if err != nil {
 		var api smithy.APIError
 		if !errors.As(err, &api) || api.ErrorCode() != "NoSuchKey" {
 			return fmt.Errorf("policy: retained audit readback: %w", err)
 		}
-		checksum := md5.Sum(body) // S3 Object Lock requires a transport checksum.
+		checksum := md5.Sum(body) //nolint:gosec // S3 Object Lock requires the MD5 transport checksum.
 		output, putErr := e.Client.PutObject(ctx, &s3.PutObjectInput{Bucket: aws.String(e.Bucket), Key: aws.String(key), Body: bytes.NewReader(body), IfNoneMatch: aws.String("*"), ContentMD5: aws.String(base64.StdEncoding.EncodeToString(checksum[:])), ObjectLockMode: types.ObjectLockModeCompliance, ObjectLockRetainUntilDate: &until, ContentType: aws.String("application/octet-stream")})
 		if putErr != nil {
 			return fmt.Errorf("policy: retained audit upload: %w", putErr)
@@ -180,7 +182,7 @@ func (e AuditExporter) retainObject(ctx context.Context, key string, body []byte
 			return err
 		}
 	}
-	defer object.Body.Close()
+	defer func() { resultErr = errors.Join(resultErr, object.Body.Close()) }()
 	readback, err := io.ReadAll(io.LimitReader(object.Body, int64(len(body))+1))
 	if err != nil || !bytes.Equal(readback, body) || object.VersionId == nil || *object.VersionId == "" {
 		return errors.New("policy: retained audit bytes or version differ")
@@ -196,7 +198,7 @@ func AuditExportDDL(schema string) (string, error) {
 	if !safeIdentifier(schema) {
 		return "", ErrDenied
 	}
-	return "CREATE TABLE IF NOT EXISTS " + pgx.Identifier{schema, "audit_export_days"}.Sanitize() + "(bucket text NOT NULL,prefix text NOT NULL,day date NOT NULL,manifest bytea NOT NULL,complete boolean NOT NULL DEFAULT false,PRIMARY KEY(bucket,prefix,day));", nil
+	return "CREATE TABLE IF NOT EXISTS " + pgx.Identifier{schema, auditExportDaysTable}.Sanitize() + "(bucket text NOT NULL,prefix text NOT NULL,day date NOT NULL,manifest bytea NOT NULL,complete boolean NOT NULL DEFAULT false,PRIMARY KEY(bucket,prefix,day));", nil
 }
 
 // Run catches up completed UTC days before sleeping. firstDay is the durable
@@ -217,7 +219,7 @@ func (e AuditExporter) Run(ctx context.Context, firstDay time.Time, alert func(c
 		return report(err)
 	}
 	var sourceWrite bool
-	if err := e.Pool.QueryRow(ctx, `SELECT has_table_privilege(current_user,$1,'INSERT,UPDATE,DELETE,TRUNCATE') OR has_any_column_privilege(current_user,$1,'INSERT,UPDATE')`, pgx.Identifier{e.Schema, "audit_outbox"}.Sanitize()).Scan(&sourceWrite); err != nil || sourceWrite {
+	if err := e.Pool.QueryRow(ctx, `SELECT has_table_privilege(current_user,$1,'INSERT,UPDATE,DELETE,TRUNCATE') OR has_any_column_privilege(current_user,$1,'INSERT,UPDATE')`, pgx.Identifier{e.Schema, auditOutboxTable}.Sanitize()).Scan(&sourceWrite); err != nil || sourceWrite {
 		return report(ErrDenied)
 	}
 	ticker := time.NewTicker(time.Hour)
@@ -244,7 +246,7 @@ func (e AuditExporter) CatchUp(ctx context.Context, firstDay time.Time) error {
 	day := time.Date(firstDay.UTC().Year(), firstDay.UTC().Month(), firstDay.UTC().Day(), 0, 0, 0, 0, time.UTC)
 	for !day.Add(24 * time.Hour).After(time.Now().UTC()) {
 		var complete bool
-		err := e.StatePool.QueryRow(ctx, "SELECT complete FROM "+pgx.Identifier{e.Schema, "audit_export_days"}.Sanitize()+" WHERE bucket=$1 AND prefix=$2 AND day=$3", e.Bucket, e.Prefix, day).Scan(&complete)
+		err := e.StatePool.QueryRow(ctx, "SELECT complete FROM "+pgx.Identifier{e.Schema, auditExportDaysTable}.Sanitize()+" WHERE bucket=$1 AND prefix=$2 AND day=$3", e.Bucket, e.Prefix, day).Scan(&complete)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}

@@ -41,7 +41,7 @@ func (s *SnapshotStore) Save(ctx context.Context, snapshot ranker.Snapshot) erro
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	tag, err := tx.Exec(ctx, `INSERT INTO `+s.table("snapshots")+`(run_id,category,input_digest,output_digest,artifact) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING`, snapshot.RunID(), snapshot.Category(), snapshot.InputDigest(), snapshot.OutputDigest(), payload)
 	if err != nil {
 		return err

@@ -146,7 +146,14 @@ fn proof(case: &Value) -> CommittedProof {
         batch_index: number(batch, "index"),
         batch_aunts: array(batch, "aunts")
             .iter()
-            .map(|aunt| hex_bytes(aunt.as_str().unwrap()).try_into().unwrap())
+            .map(|aunt| {
+                hex_bytes(
+                    aunt.as_str()
+                        .unwrap_or_else(|| panic!("expected Some value")),
+                )
+                .try_into()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            })
             .collect(),
         signed_receipt: bytes(case, "signedReceipt"),
         activity_ids: vec![fixed(&case["receiptJson"], "txHash")],
@@ -158,7 +165,8 @@ fn receipt_digest(case: &Value) -> [u8; 32] {
     layerx_committed_proof::verify_committed(
         &bytes(case, "rawTransaction"),
         &bytes(case, "signedReceipt"),
-        &serde_json::to_vec(&case["receiptJson"]).unwrap(),
+        &serde_json::to_vec(&case["receiptJson"])
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
         fixed(case, "prevSeqHash"),
         &[(
             fixed(pin, "keyId"),
@@ -176,21 +184,7 @@ fn receipt_digest(case: &Value) -> [u8; 32] {
     })
 }
 
-#[test]
-fn committed_vectors_verify_end_to_end() {
-    let vectors: Value = serde_json::from_str(VECTORS).unwrap();
-    assert_eq!(string(&vectors, "name"), "vector-v4-committed");
-    assert_eq!(number(&vectors, "version"), 4);
-    let recording: Value = serde_json::from_str(include_str!(
-        "../../../../../daemon/committed-fixture/vectors/vector-v4-committed.json"
-    ))
-    .unwrap();
-    assert_eq!(
-        vectors["cases"][0]["signedReceipt"],
-        recording["positive"]["receipt"]
-    );
-    let chain_id = string(&vectors["provenance"], "chainId");
-    let cases = array(&vectors, "cases");
+fn assert_case_results(cases: &[Value], chain_id: &str) {
     let mut seen = BTreeSet::new();
     let mut accepted = 0;
     let mut refused = 0;
@@ -214,10 +208,10 @@ fn committed_vectors_verify_end_to_end() {
                 let number = u64::from_str_radix(
                     string(&case["receiptJson"], "blockNumber")
                         .strip_prefix("0x")
-                        .unwrap(),
+                        .unwrap_or_else(|| panic!("expected Some value")),
                     16,
                 )
-                .unwrap();
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
                 assert_eq!(
                     actual,
                     Ok(CommittedBlock {
@@ -226,8 +220,18 @@ fn committed_vectors_verify_end_to_end() {
                     }),
                     "{id}"
                 );
-                assert_eq!(number, proof.execution_header.height as u64, "{id}");
-                assert_eq!(actual.unwrap().hash, proof.execution_header.hash(), "{id}");
+                assert_eq!(
+                    number,
+                    u64::from_ne_bytes((proof.execution_header.height).to_ne_bytes()),
+                    "{id}"
+                );
+                assert_eq!(
+                    actual
+                        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+                        .hash,
+                    proof.execution_header.hash(),
+                    "{id}"
+                );
             }
             "refused" => {
                 refused += 1;
@@ -252,11 +256,13 @@ fn committed_vectors_verify_end_to_end() {
             "flipped-proof-aunt",
         ])
     );
+}
 
+fn assert_substitutions(cases: &[Value], chain_id: &str) {
     let positive = cases
         .iter()
         .find(|case| string(case, "id") == "committed-payExact")
-        .unwrap();
+        .unwrap_or_else(|| panic!("expected Some value"));
     let valid = proof(positive);
     let digest = receipt_digest(positive);
     let validators: Vec<_> = array(positive, "validators")
@@ -307,7 +313,10 @@ fn committed_vectors_verify_end_to_end() {
     changed.execution_header.time.seconds = 253_402_300_800;
     assert_refused(&changed, ProofError::InvalidCommit);
     let mut changed = valid.clone();
-    changed.commit.signatures[0].signature.as_mut().unwrap()[0] ^= 1;
+    changed.commit.signatures[0]
+        .signature
+        .as_mut()
+        .unwrap_or_else(|| panic!("expected Some value"))[0] ^= 1;
     assert_refused(&changed, ProofError::InvalidCommitSignature);
 
     let mut changed = valid.clone();
@@ -344,4 +353,24 @@ fn committed_vectors_verify_end_to_end() {
     let trailer = changed.signed_receipt.len() - 69;
     changed.signed_receipt[trailer] = 0;
     assert_refused(&changed, ProofError::InvalidReceipt);
+}
+
+#[test]
+fn committed_vectors_verify_end_to_end() {
+    let vectors: Value = serde_json::from_str(VECTORS)
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    assert_eq!(string(&vectors, "name"), "vector-v4-committed");
+    assert_eq!(number(&vectors, "version"), 4);
+    let recording: Value = serde_json::from_str(include_str!(
+        "../../../../../daemon/committed-fixture/vectors/vector-v4-committed.json"
+    ))
+    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+    assert_eq!(
+        vectors["cases"][0]["signedReceipt"],
+        recording["positive"]["receipt"]
+    );
+    let chain_id = string(&vectors["provenance"], "chainId");
+    let cases = array(&vectors, "cases");
+    assert_case_results(cases, chain_id);
+    assert_substitutions(cases, chain_id);
 }

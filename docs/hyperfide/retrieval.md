@@ -1,18 +1,20 @@
 # Retrieval: search, symbol, show, context, files, grep
 
+Paths in this page are relative to the Hyperfide workspace,
+[`tools/hyperfide`](../../tools/hyperfide), unless shown as example project paths.
+
 How `hyperfide search`, `hyperfide symbol`, `hyperfide show`,
 `hyperfide context`, `hyperfide files` and `hyperfide grep` decide what to
 answer with, and in what order. `hyperfide` is the canonical command; `cg`
 is a deprecated compatibility alias installed from the same executable, with
-identical arguments, JSON and exit codes, kept for the compatibility window
-of the approved release. The free-text ranking and the outlines live in
-`src/graph.c`, with file filters and `hyperfide files` in `src/files.c` and
-line search in `src/grep.c`. The query path also uses `src/sem_search.c` for
-identifier lookup and the `--kind`/`--name` filters; `src/sem_flow.c`
-(`hyperfide flow`) and `src/sem_inspect.c` (`hyperfide inspect hierarchy`,
+identical arguments, JSON and exit codes. The free-text ranking and the outlines live in
+`core/native/src/graph.c`, with file filters and `hyperfide files` in `core/native/src/files.c` and
+line search in `core/native/src/grep.c`. The query path also uses `core/native/src/sem_search.c` for
+identifier lookup and the `--kind`/`--name` filters; `core/native/src/sem_flow.c`
+(`hyperfide flow`) and `core/native/src/sem_inspect.c` (`hyperfide inspect hierarchy`,
 `hyperfide inspect unused`) answer typed traversal and hierarchy questions
-beside these commands. Syntax adapters in `src/ast_*.c`, a labelled
-`src/lang.c` fallback, and semantic passes in `src/sem_*.c` supply their
+beside these commands. Syntax adapters in `core/native/src/ast_*.c`, a labelled
+`core/native/src/lang.c` fallback, and semantic passes in `core/native/src/sem_*.c` supply their
 evidence. The [indexing guide](indexing.md) states coverage, inference
 boundaries and the source checks an answer reports.
 
@@ -23,16 +25,11 @@ prototype fallback. Native syntax adapters and semantic resolution can add
 stronger ownership, type and import evidence; equal plausible targets remain
 unresolved rather than being selected by a name-only tier.
 
-
 A C or C++ prototype (`int memory_export(Store *s, FILE *out);`) is
 recorded as a symbol with `decl=1`. Its span ends at its own `;`, even when
-the parameter list runs over several lines. Before schema v17 a multi-line
-prototype ran on to the next definition or the end of the file. Every
-reference inside that span was then filed under the prototype, which
-produced phantom callers such as "memory_export calls store_close" from a
-header.
+the parameter list runs over several lines.
 
-- **The legacy parser** (`callable_end` in `src/lang.c`) follows the parameter
+- **The legacy parser** (`callable_end` in `core/native/src/lang.c`) follows the parameter
   list's parentheses across lines. After the list closes, a `;` makes the
   symbol a declaration and a `{` makes it a definition, whose body is then
   brace-matched. A pure virtual `= 0;` is a declaration too. A line that
@@ -42,7 +39,7 @@ header.
   declaration. A declaration has no body.
 - **Legacy resolution** first resolves a call through the usual tiers (same file,
   import, same directory, unique). If the winner is a declaration, the call
-  goes to its definition instead (`cand_definition` in `src/resolve.c`),
+  goes to its definition instead (`cand_definition` in `core/native/src/resolve.c`),
   chosen in this order:
   1. the one in the file with the header's stem (`store.h` → `store.c`)
   2. else the single non-static definition, or the first one when they all
@@ -51,6 +48,7 @@ header.
 
   If none of these applies, the call stays on the prototype. Callers,
   reference counts and impact therefore land on the function that runs.
+
 - **Answers** list the definition first, in `defs_named`, `find_symbols`
   and every caller of theirs. Search and context fold a prototype into its
   definition only when their signatures and qualified owners agree
@@ -66,7 +64,7 @@ header.
 ## Phrase queries
 
 `search` and `context` share one entry, `structured_query`. A one-word query
-first goes to the identifier lookup in `src/sem_search.c`: an exact name
+first goes to the identifier lookup in `core/native/src/sem_search.c`: an exact name
 (case-insensitive), then a whole identifier segment (`memory` finds
 `memory_export`). Only when both find nothing does a bounded typo fallback
 run: names within one edit of a 3 to 64 character query, at most 16 of
@@ -115,9 +113,9 @@ the file hits.
 
 File hits sort source first (the same path rule), then by how many query
 words the line holds, then by full-text rank. Text output shows the
-matching line beside the path (observed on a five-file scratch repository):
+matching line beside the path:
 
-```
+```text
 — full-text matches —
   py/sync_gate.py:2  def export_memory(path):
   src/main.c:5  int n = memory_export(s, stdout);
@@ -160,7 +158,7 @@ answer's skeleton is dropped and counted as omitted.
 JSON shapes (every `--json` answer also ends with an `index_health` object,
 described in the [indexing guide](indexing.md)):
 
-```
+```text
 {"query","path","kind":"file","lines","purpose","symbols":[…],
  "imports":[…],"dependents":[…],"tokens_used","budget","omitted"}
 {"query","path","kind":"dir","files":[{"path","purpose","symbols","lines"}],
@@ -173,11 +171,11 @@ described in the [indexing guide](indexing.md)):
 
 `hyperfide search`, `hyperfide context`, `hyperfide survey`,
 `hyperfide files` and `hyperfide grep` take the same three filters, parsed
-once (`query_filter_parse` in `src/files.c`):
+once (`query_filter_parse` in `core/native/src/files.c`):
 
 - `--path GLOB`, repeatable, any one matching. A plain path is that file or
   anything under that directory (`--path src/net`). In a glob, `*` and `**`
-  both cross `/` (`src/**/*.go` and `src/*.go` match the same paths), and
+  both cross `/` (`core/native/src/**/*.go` and `core/native/src/*.go` match the same paths), and
   a glob without a `/` also matches basenames at any depth
   (`--path '*_test.go'`).
 - `--lang L`: one language, in the spelling `files.lang` uses (`c`,
@@ -208,7 +206,7 @@ Over MCP, `search_code` and `get_context` take `path` (a string or a list),
 `hyperfide files` (the canonical spelling of `cg files`) answers from the
 `files` table, without walking the disk:
 
-```
+```text
 hyperfide files 'src/**/*.c'       # a glob over paths
 hyperfide files sync gate          # the words of the path
 hyperfide files src                # a directory: subdirectories, then its files
@@ -239,7 +237,7 @@ parent, so a large tree reads as a map. The filters apply to both forms
 
 JSON shapes:
 
-```
+```text
 {"mode":"glob"|"words","pattern","files":[{"path","lang","lines","symbols"}],
  "total","omitted"}
 {"mode":"dir","path","dirs":[{"path","files","lines"}],"files":[…],
@@ -277,7 +275,7 @@ including the closing `tokens_used`/`budget`/`omitted` keys. The
   `get_context` is given a `budget`), part of the request is reserved for
   the `index_health` object: a third of it, at most 32 tokens, never
   leaving the answer less than 64 (`answer_health_query_budget` in
-  `src/answer_health.c`). An answer that still overflows the request is
+  `core/native/src/answer_health.c`). An answer that still overflows the request is
   cut to a compact form that keeps `omitted`, `budget`, `tokens_used` and
   a shortened `index_health` (plus `query`, `path` and `kind` when they
   fit). In that form `budget` is the requested number, so a request below
@@ -288,7 +286,7 @@ including the closing `tokens_used`/`budget`/`omitted` keys. The
 `hyperfide grep <pattern>` (the canonical spelling of `cg grep`) answers
 "where does this string occur" — the question an agent otherwise asks
 `grep` or `rg` — with each hit placed in the graph. The code is
-`src/grep.c`; over MCP it is the `grep_code` tool, which takes the same
+`core/native/src/grep.c`; over MCP it is the `grep_code` tool, which takes the same
 parameters (`pattern`, `regex`, `case_sensitive`, `path`, `lang`,
 `symbol`, `kind`, `no_tests`, `context`, `limit`, `budget`, `files`,
 `count`) and answers with the `--json` object.
@@ -363,9 +361,9 @@ for each run of hits inside it, and each hit is written as
 `path:line: text`, with the line's leading whitespace trimmed. `-C N` adds
 context lines (`path-N- text`). The answer stops at `-n` hits (default 50)
 or at the `--budget` (default 4000 tokens), whichever comes first, and ends
-with the tail (observed on a five-file scratch repository with `-n 2`):
+with the tail:
 
-```
+```text
 … 3 more hits in 3 files — narrow with --path or raise -n
 5 hits in 4 files · 4 candidates of 5 indexed files · 4 scanned · 0 skipped · 0 ms
 ```
@@ -373,7 +371,7 @@ with the tail (observed on a five-file scratch repository with `-n 2`):
 `--files` lists only the matching files with their counts, and `--count`
 prints only the total (`5 hits in 4 files`). The `--json` object is:
 
-```
+```text
 {"query","regex","case_sensitive","candidates","scanned","skipped",
  "indexed","full_scan","body_tri"?,"total","files_with_hits",
  "hits":[{"path","line","text","symbol","kind","branch"?,"before"?,"after"?}],
@@ -388,14 +386,8 @@ than one branch is in scope. `before` and `after` are present with
 `context`. With `--files`, `hits` is replaced by `files:[{"path","count"}]`;
 with `--count`, `hits` is an empty list.
 
-## Cost
+## Query indexes
 
-A first `hyperfide context` used to spend most of its time on full scans of
-`refs` for "who resolved to this symbol". Callers, reference counts,
-entry-point climbs and dependents all ask that question. `idx_ref_target`
-makes each one an index lookup. The index is created after the schema
-upgrade, because an older `refs` table without `target_id` would refuse it.
-The body pass no longer sends single letters or prefix-matched two-letter
-words to `body_fts`. `"c" *` on a path query was the slowest single query.
-A path query now goes straight to the outline. No timing for these paths is
-qualified in this revision.
+`idx_ref_target` supports caller, reference-count, entry-point and dependent
+lookups by target id. Path queries use the file or directory outline directly.
+The body pass excludes single-letter words and prefix-matched two-letter words.

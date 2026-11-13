@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/fileaccess"
+	"github.com/jackc/pgx/v5"
 )
 
 const ExportDDL = `CREATE TABLE portfolio_export_jobs (
@@ -42,7 +44,7 @@ func (r Repository) CreateExportJob(ctx context.Context, wallet, verified, snaps
 		return out, e
 	}
 	wallet, _ = Wallet(wallet)
-	if !validUUID(snapshot) || len(source) < 1 || len(source) > 256 || (format != "jsonl" && format != "csv") {
+	if !validUUID(snapshot) || len(source) < 1 || len(source) > 256 || (format != formatJSONL && format != formatCSV) {
 		return out, ErrInvalid
 	}
 	tx, e := r.Pool.Begin(ctx)
@@ -114,7 +116,7 @@ func (r Repository) ExportJob(ctx context.Context, id, wallet, verified string) 
 	if e != nil {
 		return out, e
 	}
-	if out.State == "complete" {
+	if out.State == statusComplete {
 		var m ExportManifest
 		if e = json.Unmarshal(raw, &m); e != nil {
 			return out, e
@@ -182,7 +184,7 @@ func (r Repository) OpenExport(ctx context.Context, dir, id, wallet, verified st
 	if e = json.Unmarshal(raw, &manifest); e != nil {
 		return nil, manifest, e
 	}
-	if manifest.Format != format || manifest.SnapshotID != snapshot || manifest.Rows < 0 || manifest.Rows > 1000000 || len(manifest.SHA256) != 64 || (format != "csv" && format != "jsonl") {
+	if manifest.Format != format || manifest.SnapshotID != snapshot || manifest.Rows < 0 || manifest.Rows > 1000000 || len(manifest.SHA256) != 64 || (format != formatCSV && format != formatJSONL) {
 		return nil, manifest, ErrInvalid
 	}
 	base := filepath.Base(manifest.Object)
@@ -197,20 +199,20 @@ func (r Repository) OpenExport(ctx context.Context, dir, id, wallet, verified st
 	if !info.Mode().IsRegular() {
 		return nil, manifest, ErrInvalid
 	}
-	file, e := os.Open(filepath.Join(dir, base))
+	file, e := fileaccess.Open(filepath.Join(dir, base))
 	if e != nil {
 		return nil, manifest, e
 	}
 	opened, e := file.Stat()
 	if e != nil || !os.SameFile(info, opened) {
-		file.Close()
+		_ = file.Close()
 		return nil, manifest, ErrInvalid
 	}
 	hash := sha256.New()
 	buffer := make([]byte, 65536)
 	for {
 		if e = ctx.Err(); e != nil {
-			file.Close()
+			_ = file.Close()
 			return nil, manifest, e
 		}
 		count, readErr := file.Read(buffer)
@@ -221,20 +223,20 @@ func (r Repository) OpenExport(ctx context.Context, dir, id, wallet, verified st
 			break
 		}
 		if readErr != nil {
-			file.Close()
+			_ = file.Close()
 			return nil, manifest, readErr
 		}
 	}
 	if hex.EncodeToString(hash.Sum(nil)) != manifest.SHA256 {
-		file.Close()
+		_ = file.Close()
 		return nil, manifest, ErrConflict
 	}
 	if _, e = file.Seek(0, io.SeekStart); e != nil {
-		file.Close()
+		_ = file.Close()
 		return nil, manifest, e
 	}
 	if e = tx.Commit(ctx); e != nil {
-		file.Close()
+		_ = file.Close()
 		return nil, manifest, e
 	}
 	return file, manifest, nil

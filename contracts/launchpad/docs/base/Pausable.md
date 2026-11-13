@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [Pausable.sol](../../contracts/base/Pausable.sol).
+
 ## Pausable
 
 Emergency pause mechanism with whenNotPaused/whenPaused modifiers
@@ -34,21 +36,28 @@ modifier whenNotPaused()
 modifier whenPaused()
 ```
 
-### _paused
+### \_paused
 
 ```solidity
 function _paused() internal view returns (bool paused_)
 ```
 
-### _pause
+### \_pause
 
 ```solidity
-function _pause() internal
+function _pause() internal whenNotPaused
 ```
 
-### _unpause
+### \_unpause
 
 ```solidity
-function _unpause() internal
+function _unpause() internal whenPaused
 ```
 
+### emergencyPaused
+
+```solidity
+function emergencyPaused() external view returns (bool)
+```
+
+Returns the pause flag.

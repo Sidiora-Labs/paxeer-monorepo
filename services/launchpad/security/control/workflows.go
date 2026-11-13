@@ -53,7 +53,7 @@ func (s *Store) SubmitBounty(ctx context.Context, credential, owner, scope, reas
 	}
 	for _, raw := range submission.EvidenceURLs {
 		u, err := url.Parse(raw)
-		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || len(raw) > 2048 {
+		if err != nil || u.Scheme != controlHttps || u.Host == "" || u.User != nil || len(raw) > 2048 {
 			return Invalid
 		}
 	}
@@ -72,7 +72,7 @@ func (s *Store) SubmitBounty(ctx context.Context, credential, owner, scope, reas
 		if err := t.get("bounty", submission.BountyID, &bounty); err != nil {
 			return err
 		}
-		if bounty.Scope != scope || bounty.State != "active" || !bounty.Deadline.After(t.now) {
+		if bounty.Scope != scope || bounty.State != controlActive || !bounty.Deadline.After(t.now) {
 			return Denied
 		}
 		var old Submission
@@ -141,7 +141,7 @@ func (v IncidentRecovery) Check(ctx context.Context, i Incident, rotation, integ
 		return Unavailable
 	}
 	var record map[string]string
-	if json.Unmarshal(raw, &record) != nil || record["state"] != "completed" || record["identity"] != i.ServiceIdentity || record["rotation"] != rotation || record["integrity"] != integrity {
+	if json.Unmarshal(raw, &record) != nil || record[controlState] != controlCompleted || record["identity"] != i.ServiceIdentity || record["rotation"] != rotation || record["integrity"] != integrity {
 		return Denied
 	}
 	return nil
@@ -201,7 +201,7 @@ func (s *Store) ProposeReplay(ctx context.Context, credential string, q ReplayPr
 			return Invalid
 		}
 		if err := t.get("action", q.Key, &action); err == nil {
-			if action.PayloadHash != payloadHash || action.RequestedBy != t.actor.ID || action.Scope != q.Scope || action.Kind != "replay" || action.Reason != q.Reason || !action.Expires.Equal(q.Expires) {
+			if action.PayloadHash != payloadHash || action.RequestedBy != t.actor.ID || action.Scope != q.Scope || action.Kind != controlReplay || action.Reason != q.Reason || !action.Expires.Equal(q.Expires) {
 				return Conflict
 			}
 			var payload ReplayPayload
@@ -215,7 +215,7 @@ func (s *Store) ProposeReplay(ctx context.Context, credential string, q ReplayPr
 		} else if err != Missing {
 			return err
 		}
-		action = Action{ID: id(), Kind: "replay", Scope: q.Scope, Reason: q.Reason, RequestedBy: t.actor.ID, State: "proposed", PayloadHash: payloadHash, PayloadReference: q.Key, Revision: 1, Expires: q.Expires}
+		action = Action{ID: id(), Kind: controlReplay, Scope: q.Scope, Reason: q.Reason, RequestedBy: t.actor.ID, State: controlProposed, PayloadHash: payloadHash, PayloadReference: q.Key, Revision: 1, Expires: q.Expires}
 		if err := t.put("action_payload", q.Key, q.Payload); err != nil {
 			return err
 		}
@@ -227,12 +227,12 @@ func (s *Store) TransitionWorkflow(ctx context.Context, credential string, q Tra
 	if q.Expected == nil {
 		return Action{}, Invalid
 	}
-	if q.Next == "executing" {
+	if q.Next == controlExecuting {
 		var action Action
 		if err := s.Read(ctx, credential, q.Scope, q.Reason, "action", q.Key, &action); err != nil {
 			return action, err
 		}
-		if action.Kind == "replay" {
+		if action.Kind == controlReplay {
 			var raw json.RawMessage
 			if s.replay == nil {
 				return action, Unavailable

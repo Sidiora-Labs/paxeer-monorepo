@@ -1686,7 +1686,7 @@ fn transition_admission(
         }
         AdmissionCall::Evaluator(consent, payload) => {
             let grant = evaluator_region(
-                *state
+                state
                     .feature_sections
                     .guest_index(Section::IdentityRoster.index()),
             )?
@@ -1748,7 +1748,7 @@ fn apply_admission_inner(
     let call = admission_call(envelope)?;
     let mut state = state::decode_shared_state(current)?;
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;

@@ -1,0 +1,75 @@
+[manifest]
+task = "22.41.78"
+pages = 18
+
+[page.1]
+path = "sdk/chainflow/rust/CHANGELOG.md"
+status = "corrected"
+
+[page.2]
+path = "sdk/chainflow/rust/README.md"
+status = "corrected"
+
+[page.3]
+path = "sdk/chainflow/rust/SECURITY.md"
+status = "reviewed"
+
+[page.4]
+path = "sdk/chainflow/rust/api.md"
+status = "corrected"
+
+[page.5]
+path = "sdk/chainflow/rust/reference.md"
+status = "corrected"
+
+[page.6]
+path = "sdk/chainflow/typescript/.claude/skills/chainflow-data-gateway-typescript-sdk/SKILL.md"
+status = "corrected"
+
+[page.7]
+path = "sdk/chainflow/typescript/README.md"
+status = "corrected"
+
+[page.8]
+path = "sdk/chainflow/typescript/SECURITY.md"
+status = "reviewed"
+
+[page.9]
+path = "sdk/chainflow/typescript/SKILL.md"
+status = "corrected"
+
+[page.10]
+path = "sdk/chainflow/typescript/api.md"
+status = "corrected"
+
+[page.11]
+path = "sdk/chainflow/typescript/src/internal/README.md"
+status = "reviewed"
+
+[page.12]
+path = "sdk/contrib/githooks/README.md"
+status = "corrected"
+
+[page.13]
+path = "sdk/contrib/images/simd-dlv/README.md"
+status = "corrected"
+
+[page.14]
+path = "sdk/contrib/rosetta/README.md"
+status = "corrected"
+
+[page.15]
+path = "sdk/contrib/rosetta/node/README.md"
+status = "reviewed"
+
+[page.16]
+path = "sdk/cosmovisor/README.md"
+status = "corrected"
+
+[page.17]
+path = "sdk/crypto/bcrypt_readme.md"
+status = "reviewed"
+
+[page.18]
+path = "sdk/ics23/README.md"
+status = "reviewed"

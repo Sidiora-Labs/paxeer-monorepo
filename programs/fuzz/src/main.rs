@@ -1,3 +1,5 @@
+//! Corpus runner for deterministic program runtime and chain proof observations.
+
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};

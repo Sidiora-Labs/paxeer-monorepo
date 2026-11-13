@@ -155,12 +155,22 @@ def _fixture() -> tuple[bytes, bytes, PxReceiptKeyEntry, str, DeclaredConfig]:
 def _payload(
     config: DeclaredConfig, raw: bytes, signed: bytes, key: PxReceiptKeyEntry
 ) -> PaymentPayload:
+    verified = verify_sequencer_receipt(
+        signed,
+        raw,
+        (
+            ReceiptKey(
+                bytes.fromhex(key.key_id), bytes.fromhex(key.public_key),
+                key.first_height, key.last_height,
+            ),
+        ),
+    )
     return PaymentPayload(
         accepted=config.requirements,
         payload=layerx_evidence_wire(LayerXReceiptEvidence(
             raw_transaction="0x" + raw.hex(),
             signed_receipt="0x" + signed.hex(),
-            receipt_digest="0x" + keccak256(signed).hex(),
+            receipt_digest="0x" + verified.receipt_digest.hex(),
             receipt_key=key,
         )),
     )
@@ -533,7 +543,7 @@ def test_mounted_seller_accepts_current_producer_evidence_and_replays(
         assert settlement.transaction == "0x" + keccak256(raw).hex()
         assert settlement.extensions["layerx"] == payload.payload
         assert paid.headers["layerx-transaction"] == settlement.transaction
-        assert paid.headers["layerx-receipt-digest"] == keccak256(signed).hex()
+        assert paid.headers["layerx-receipt-digest"] == digest
         replay = client.get(config.protected_path, headers={PAYMENT_SIGNATURE_HEADER: header})
         assert replay.status_code == 200
         assert replay.content == paid.content

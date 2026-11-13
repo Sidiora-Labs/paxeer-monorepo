@@ -77,6 +77,21 @@ impl Host {
             "basicConstraints=critical,CA:TRUE",
         ])?;
         host.openssl(&["x509", "-in", "ca.pem", "-outform", "DER", "-out", "ca.der"])?;
+        host.generate_identities()?;
+        let mut seal = Zeroizing::new([0; 32]);
+        getrandom::fill(&mut *seal).map_err(|error| io::Error::other(error.to_string()))?;
+        fs::write(host.path("seal"), *seal)?;
+        fs::write(
+            host.path("registry.json"),
+            serde_json::to_vec(&serde_json::json!({"chain_id": 125}))?,
+        )?;
+        for entry in fs::read_dir(&host.root)? {
+            fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
+        }
+        Ok(host)
+    }
+
+    fn generate_identities(&self) -> Result<()> {
         for (identity, extension) in [
             (
                 "server",
@@ -84,7 +99,7 @@ impl Host {
             ),
             ("client", "extendedKeyUsage=clientAuth\n"),
         ] {
-            host.openssl(&[
+            self.openssl(&[
                 "req",
                 "-newkey",
                 "ec",
@@ -98,8 +113,8 @@ impl Host {
                 "-subj",
                 &format!("/CN={identity}"),
             ])?;
-            fs::write(host.path("extensions"), extension)?;
-            host.openssl(&[
+            fs::write(self.path("extensions"), extension)?;
+            self.openssl(&[
                 "x509",
                 "-req",
                 "-in",
@@ -116,7 +131,7 @@ impl Host {
                 "-extfile",
                 "extensions",
             ])?;
-            host.openssl(&[
+            self.openssl(&[
                 "x509",
                 "-in",
                 &format!("{identity}.pem"),
@@ -125,7 +140,7 @@ impl Host {
                 "-out",
                 &format!("{identity}.der"),
             ])?;
-            host.openssl(&[
+            self.openssl(&[
                 "pkcs8",
                 "-topk8",
                 "-nocrypt",
@@ -137,17 +152,7 @@ impl Host {
                 &format!("{identity}-key.der"),
             ])?;
         }
-        let mut seal = Zeroizing::new([0; 32]);
-        getrandom::fill(&mut *seal).map_err(|error| io::Error::other(error.to_string()))?;
-        fs::write(host.path("seal"), &*seal)?;
-        fs::write(
-            host.path("registry.json"),
-            serde_json::to_vec(&serde_json::json!({"chain_id": 125}))?,
-        )?;
-        for entry in fs::read_dir(&host.root)? {
-            fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
-        }
-        Ok(host)
+        Ok(())
     }
 
     fn path(&self, file: &str) -> PathBuf {
@@ -279,11 +284,13 @@ fn relay(mut tcp: TcpStream, mut unix: UnixStream) -> io::Result<(u64, u64)> {
     Ok((outgoing, incoming))
 }
 
+type TunnelJoin = JoinHandle<io::Result<Vec<(u64, u64)>>>;
+
 fn unix_tunnel(
     listener: TcpListener,
     socket: &Path,
     backend: SocketAddr,
-) -> Result<[JoinHandle<io::Result<Vec<(u64, u64)>>>; 2]> {
+) -> Result<[TunnelJoin; 2]> {
     let unix_listener = UnixListener::bind(socket)?;
     let socket = socket.to_path_buf();
     let front = thread::spawn(move || {

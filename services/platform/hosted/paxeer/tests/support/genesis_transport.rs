@@ -1,4 +1,12 @@
-include!("../../src/main.rs");
+fn digest_hex(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut text = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        text.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        text.push(char::from(DIGITS[usize::from(byte & 15)]));
+    }
+    text
+}
 
 const FIXTURE: &[u8] = include_bytes!("../fixtures/pacific-1.genesis.json");
 
@@ -25,20 +33,25 @@ impl Reply {
 }
 
 fn serve(responses: Vec<Reply>) -> (NodeEndpoint, thread::JoinHandle<()>) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("reserve node transport port");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("reserve node transport port: {error:?}"));
     let node = NodeEndpoint {
-        address: listener.local_addr().expect("node transport address"),
+        address: listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("node transport address: {error:?}")),
         path: "/".to_owned(),
     };
     let worker = thread::spawn(move || {
         for reply in responses {
-            let (mut stream, _) = listener.accept().expect("accept node request");
+            let (mut stream, _) = listener
+                .accept()
+                .unwrap_or_else(|error| panic!("accept node request: {error:?}"));
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
-                .expect("read bound");
+                .unwrap_or_else(|error| panic!("read bound: {error:?}"));
             stream
                 .set_write_timeout(Some(Duration::from_secs(5)))
-                .expect("write bound");
+                .unwrap_or_else(|error| panic!("write bound: {error:?}"));
             let request = read_http_message(&mut stream, MAX_REQUEST_BYTES, false)
                 .unwrap_or_else(|error| panic!("decode real transport request: {error}"));
             assert_eq!(request.headers[""], format!("GET {} HTTP/1.1", reply.path));
@@ -51,9 +64,10 @@ fn serve(responses: Vec<Reply>) -> (NodeEndpoint, thread::JoinHandle<()>) {
                     "HTTP/1.1 {} OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n",
                     reply.status
                 )
-                .expect("headers");
+                .unwrap_or_else(|error| panic!("headers: {error:?}"));
                 for part in reply.body.chunks(65536) {
-                    write!(wire, "{:x}\r\n", part.len()).expect("chunk header");
+                    write!(wire, "{:x}\r\n", part.len())
+                        .unwrap_or_else(|error| panic!("chunk header: {error:?}"));
                     wire.extend_from_slice(part);
                     wire.extend_from_slice(b"\r\n");
                 }
@@ -65,7 +79,7 @@ fn serve(responses: Vec<Reply>) -> (NodeEndpoint, thread::JoinHandle<()>) {
                     reply.status,
                     reply.length.unwrap_or(reply.body.len())
                 )
-                .expect("headers");
+                .unwrap_or_else(|error| panic!("headers: {error:?}"));
                 wire.extend_from_slice(&reply.body);
             }
             if let Err(error) = stream.write_all(&wire) {
@@ -100,24 +114,23 @@ fn check_response(body: Vec<u8>, expected: Option<&[u8]>) {
 fn check_transcript(replies: Vec<Reply>, expected: Option<&[u8]>) {
     let (node, worker) = serve(replies);
     let response = genesis::response(&node, Instant::now() + NODE_IO_TIMEOUT);
-    worker.join().expect("node transcript consumed");
+    worker
+        .join()
+        .unwrap_or_else(|error| panic!("node transcript consumed: {error:?}"));
     if let Some(expected) = expected {
         assert_eq!(response.status, 200);
         assert_eq!(response.body, expected);
         let hash = rustls::crypto::ring::cipher_suite::TLS13_AES_128_GCM_SHA256
             .tls13()
-            .expect("SHA256 cipher suite")
+            .unwrap_or_else(|| panic!("SHA256 cipher suite"))
             .common
             .hash_provider
             .hash(expected);
-        let digest = hash
-            .as_ref()
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>();
+        let digest = digest_hex(hash.as_ref());
         assert_eq!(response.genesis_sha256.as_deref(), Some(digest.as_str()));
         let mut wire = Vec::new();
-        write_response(&mut wire, &response).expect("encode consumer response");
+        write_response(&mut wire, &response)
+            .unwrap_or_else(|error| panic!("encode consumer response: {error:?}"));
         let decoded = read_http_message(
             &mut wire.as_slice(),
             MAX_REQUEST_BYTES + expected.len(),
@@ -135,14 +148,15 @@ fn check_transcript(replies: Vec<Reply>, expected: Option<&[u8]>) {
     } else {
         assert_eq!(response.status, 502);
         assert!(response.genesis_sha256.is_none());
-        let error: Value = serde_json::from_slice(&response.body).expect("decode refusal");
+        let error: Value = serde_json::from_slice(&response.body)
+            .unwrap_or_else(|error| panic!("decode refusal: {error:?}"));
         assert_eq!(error["error"]["code"], "comet_response_invalid");
     }
 }
 
 pub fn byte_identity() {
     let fixture = std::str::from_utf8(FIXTURE)
-        .expect("genesis UTF-8")
+        .unwrap_or_else(|error| panic!("genesis UTF-8: {error:?}"))
         .trim()
         .as_bytes();
     for wrapped in [false, true] {
@@ -176,7 +190,7 @@ pub fn malformed_responses() {
 pub fn size_bound() {
     const LIMIT: usize = 32 * 1024 * 1024;
     let fixture = std::str::from_utf8(FIXTURE)
-        .expect("genesis UTF-8")
+        .unwrap_or_else(|error| panic!("genesis UTF-8: {error:?}"))
         .trim()
         .as_bytes();
     for size in [LIMIT, LIMIT + 1] {
@@ -191,15 +205,19 @@ pub fn size_bound() {
 }
 
 pub fn unreachable_and_endpoint_refusals() {
-    let reserved = TcpListener::bind("127.0.0.1:0").expect("reserve unreachable endpoint");
-    let address = reserved.local_addr().expect("reserved address");
+    let reserved = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("reserve unreachable endpoint: {error:?}"));
+    let address = reserved
+        .local_addr()
+        .unwrap_or_else(|error| panic!("reserved address: {error:?}"));
     drop(reserved);
     let node = genesis::endpoint(&format!("http://{address}"))
         .unwrap_or_else(|error| panic!("valid node endpoint: {error}"));
     let response = genesis::response(&node, Instant::now() + NODE_IO_TIMEOUT);
     assert_eq!(response.status, 503);
     assert!(response.genesis_sha256.is_none());
-    let error: Value = serde_json::from_slice(&response.body).expect("decode unavailable");
+    let error: Value = serde_json::from_slice(&response.body)
+        .unwrap_or_else(|error| panic!("decode unavailable: {error:?}"));
     assert_eq!(error["error"]["code"], "comet_unavailable");
     for endpoint in [
         "",
@@ -266,7 +284,7 @@ pub fn ordered_chunks() {
         let mut genesis = b" \n".to_vec();
         genesis.extend_from_slice(
             std::str::from_utf8(FIXTURE)
-                .expect("genesis UTF-8")
+                .unwrap_or_else(|error| panic!("genesis UTF-8: {error:?}"))
                 .trim()
                 .as_bytes(),
         );
@@ -284,8 +302,8 @@ pub fn ordered_chunks() {
 }
 
 pub fn invalid_chunk_metadata() {
-    let good: Value =
-        serde_json::from_slice(&encoded_chunk(FIXTURE, 0, 1, false)).expect("chunk fixture");
+    let good: Value = serde_json::from_slice(&encoded_chunk(FIXTURE, 0, 1, false))
+        .unwrap_or_else(|error| panic!("chunk fixture: {error:?}"));
     for update in [
         serde_json::json!({"total":"0"}),
         serde_json::json!({"total":"33"}),
@@ -304,7 +322,10 @@ pub fn invalid_chunk_metadata() {
         serde_json::json!({"data":"AA=A"}),
     ] {
         let mut value = good.clone();
-        for (key, replacement) in update.as_object().expect("metadata update") {
+        for (key, replacement) in update
+            .as_object()
+            .unwrap_or_else(|| panic!("metadata update"))
+        {
             value[key] = replacement.clone();
         }
         check_transcript(
@@ -319,7 +340,7 @@ pub fn invalid_chunk_metadata() {
         encoded_chunk(&FIXTURE[10..], 1, 3, false),
         encoded_chunk(&FIXTURE[10..], 0, 2, false),
         b"{}".to_vec(),
-        serde_json::json!({"jsonrpc":"2.0","id":-1,"error": serde_json::from_slice::<Value>(&encoded_chunk(&FIXTURE[10..],1,2,false)).expect("chunk")}).to_string().into_bytes(),
+        serde_json::json!({"jsonrpc":"2.0","id":-1,"error": serde_json::from_slice::<Value>(&encoded_chunk(&FIXTURE[10..],1,2,false)).unwrap_or_else(|error| panic!("chunk: {error:?}"))}).to_string().into_bytes(),
         encoded_chunk(b"not-json", 1, 2, false),
     ] {
         check_transcript(vec![Reply::new("/genesis", chunked_error(false)), Reply::new("/genesis_chunked?chunk=0", encoded_chunk(&FIXTURE[..10],0,2,false)), Reply::new("/genesis_chunked?chunk=1", second)], None);
@@ -367,12 +388,17 @@ pub fn deadline() {
     assert_eq!(response.status, 502);
     assert!(response.genesis_sha256.is_none());
     assert!(started.elapsed() < Duration::from_secs(32));
-    worker.join().expect("deadline peer stopped");
+    worker
+        .join()
+        .unwrap_or_else(|error| panic!("deadline peer stopped: {error:?}"));
 }
 
 pub fn route_refusals() {
-    let reserved = TcpListener::bind("127.0.0.1:0").expect("reserve disconnected transport");
-    let address = reserved.local_addr().expect("reserved address");
+    let reserved = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("reserve disconnected transport: {error:?}"));
+    let address = reserved
+        .local_addr()
+        .unwrap_or_else(|error| panic!("reserved address: {error:?}"));
     let node = NodeEndpoint {
         address,
         path: "/".to_owned(),
@@ -380,7 +406,7 @@ pub fn route_refusals() {
     let tls =
         ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
             .with_safe_default_protocol_versions()
-            .expect("TLS versions")
+            .unwrap_or_else(|error| panic!("TLS versions: {error:?}"))
             .with_no_client_auth()
             .with_cert_resolver(Arc::new(rustls::server::ResolvesServerCertUsingSni::new()));
     let mut config = Config {
@@ -425,7 +451,8 @@ pub fn route_refusals() {
         };
         let response = route(&config, &request, Instant::now() + CLIENT_IO_TIMEOUT);
         assert_eq!(response.status, 200);
-        let error: Value = serde_json::from_slice(&response.body).expect("RPC refusal");
+        let error: Value = serde_json::from_slice(&response.body)
+            .unwrap_or_else(|error| panic!("RPC refusal: {error:?}"));
         assert_eq!(error["error"]["code"], -32601);
     }
     config.comet = None;
@@ -439,22 +466,25 @@ pub fn route_refusals() {
     assert_eq!(response.status, 404);
     assert!(response.genesis_sha256.is_none());
     assert_eq!(
-        serde_json::from_slice::<Value>(&response.body).expect("missing configuration refusal"),
+        serde_json::from_slice::<Value>(&response.body)
+            .unwrap_or_else(|error| panic!("missing configuration refusal: {error:?}")),
         serde_json::json!({"error":{"code":"not_found","retry":"never"}})
     );
 }
 
 pub fn native_profile_consumer() {
     let profile: Value = serde_json::from_slice(include_bytes!("../../deployment-profile.json"))
-        .expect("committed native deployment profile");
+        .unwrap_or_else(|error| panic!("committed native deployment profile: {error:?}"));
     assert_eq!(profile["schema"], "paxeer/native-deployment/1");
     assert_eq!(profile["node"]["chain_id"], "hyperpax_125-1");
     assert_eq!(profile["node"]["evm_chain_id"], 125);
     let origin = profile["node"]["rpc"]
         .as_str()
-        .expect("native RPC origin from the production deployment profile");
+        .unwrap_or_else(|| panic!("native RPC origin from the production deployment profile"));
     let node = NodeEndpoint::parse(origin).unwrap_or_else(|error| {
         panic!("maintained native profile cannot enter the restored transport: {error}")
     });
     assert_eq!(node.path, "/");
 }
+
+include!("../../src/main.rs");

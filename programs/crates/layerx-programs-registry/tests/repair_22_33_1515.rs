@@ -26,12 +26,17 @@ fn vector_bytes(name: &str) -> Vec<u8> {
     assert_eq!(text.len() % 2, 0);
     (0..text.len())
         .step_by(2)
-        .map(|index| u8::from_str_radix(&text[index..index + 2], 16).unwrap())
+        .map(|index| {
+            u8::from_str_radix(&text[index..index + 2], 16)
+                .unwrap_or_else(|error| panic!("{error:?}"))
+        })
         .collect()
 }
 
 fn vector_hash(name: &str) -> [u8; 32] {
-    vector_bytes(name).try_into().unwrap()
+    vector_bytes(name)
+        .try_into()
+        .unwrap_or_else(|error| panic!("{error:?}"))
 }
 
 fn singleton_proof() -> StateProof {
@@ -68,7 +73,12 @@ fn complete_registry(registry: &Registry) -> Vec<RegistryEntry> {
     registry
         .program_ids()
         .into_iter()
-        .map(|program| registry.entry_for_wind_down(program).unwrap().clone())
+        .map(|program| {
+            registry
+                .entry_for_wind_down(program)
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .clone()
+        })
         .collect()
 }
 
@@ -85,109 +95,137 @@ struct Fixture {
     encoded: Vec<u8>,
 }
 
+fn fixture_binding() -> ProgramValueAccountBinding {
+    let program = ProgramId::new(vector_hash("registration_program_id"))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let binding = ProgramValueAccountBinding {
+        record_version: 2,
+        program,
+        seed: vector_bytes("registration_seed"),
+        account_id: vector_hash("registration_account_id"),
+        asset_id: vector_hash("registration_asset_id"),
+        registered_sequence: vector("registration_registered_sequence")
+            .parse()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        registration_event_digest: vector_hash("registration_event_digest"),
+    };
+    assert_eq!(
+        binding
+            .primary_value()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        vector_bytes("registration_primary_value")
+    );
+    assert_eq!(
+        binding
+            .primary_commitment()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        vector_hash("registration_primary_commitment")
+    );
+
+    binding
+}
+
+fn baseline_registry(program: ProgramId) -> Registry {
+    let module = vec![0, 97, 115, 109, 1, 0, 0, 0];
+    let code_hash =
+        hash_bytes(HashAlgorithm::Sha256, &module).unwrap_or_else(|error| panic!("{error:?}"));
+    let other_program = ProgramId::new([2; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+    let mut baseline = Registry::new();
+    let deployments: Vec<_> = [program, other_program]
+        .into_iter()
+        .map(|program| DeploymentRecord {
+            program,
+            version: 1,
+            abi_version: 2,
+            upgrade_policy: UpgradePolicy::Authority([4; 32]),
+            old_code_hash: None,
+            new_code_hash: code_hash,
+            sequence: 1,
+            observed_at: 1,
+            module: module.clone(),
+            migration: None,
+        })
+        .collect();
+    baseline
+        .replay_journal(&deployments)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+
+    baseline
+}
+
+fn fixture_snapshot(
+    binding: &ProgramValueAccountBinding,
+) -> (VerifiedAccountSnapshot, AccountStateHead) {
+    let account_id_hex = layerx_programs::hex::encode(&binding.account_id);
+    let leaf = CanonicalAccountLeaf {
+        account_id: binding.account_id,
+        name: format!("module:programs:value:{account_id_hex}").into_bytes(),
+        kind: 13,
+        balance: 500,
+        asset_id: binding.asset_id,
+        has_asset: true.into(),
+        next_sequence: 0,
+        created_at_sequence: binding.registered_sequence,
+        frozen: false.into(),
+        has_open_reference: false.into(),
+        authority_key: [0; 32],
+        has_authority_key: false.into(),
+    };
+    let account_root = leaf
+        .commitment()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let programs_root = binding
+        .primary_commitment()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let universal_root = account_tree_commitment(account_root);
+    let universal_leaf = universal_root_commitment(universal_root);
+    let programs_leaf = programs_root_commitment(programs_root);
+    let state_root = state_node_commitment(universal_leaf, programs_leaf);
+    let snapshot = VerifiedAccountSnapshot {
+        protocol_version: 2,
+        receipt_digest: [9; 32],
+        state_root,
+        universal_root,
+        programs_root,
+        account_root,
+        account_tree_proof: singleton_proof(),
+        universal_root_proof: StateProof {
+            leaf_index: 0,
+            leaf_count: 2,
+            siblings: vec![programs_leaf],
+        },
+        programs_root_proof: StateProof {
+            leaf_index: 1,
+            leaf_count: 2,
+            siblings: vec![universal_leaf],
+        },
+        freshness: ReadFreshness {
+            observed_sequence: 99,
+            observed_at: NOW,
+        },
+        bindings: vec![ProvenProgramBinding {
+            binding: binding.clone(),
+            proof: singleton_proof(),
+        }],
+        accounts: vec![ProvenAccountLeaf {
+            leaf,
+            proof: singleton_proof(),
+        }],
+    };
+    let head = AccountStateHead {
+        receipt_digest: snapshot.receipt_digest,
+        state_root,
+        freshness: snapshot.freshness,
+    };
+    (snapshot, head)
+}
+
 impl Fixture {
     fn new() -> Self {
-        let program = ProgramId::new(vector_hash("registration_program_id")).unwrap();
-        let binding = ProgramValueAccountBinding {
-            record_version: 2,
-            program,
-            seed: vector_bytes("registration_seed"),
-            account_id: vector_hash("registration_account_id"),
-            asset_id: vector_hash("registration_asset_id"),
-            registered_sequence: vector("registration_registered_sequence").parse().unwrap(),
-            registration_event_digest: vector_hash("registration_event_digest"),
-        };
-        assert_eq!(
-            binding.primary_value().unwrap(),
-            vector_bytes("registration_primary_value")
-        );
-        assert_eq!(
-            binding.primary_commitment().unwrap(),
-            vector_hash("registration_primary_commitment")
-        );
-
-        let module = vec![0, 97, 115, 109, 1, 0, 0, 0];
-        let code_hash = hash_bytes(HashAlgorithm::Sha256, &module).unwrap();
-        let other_program = ProgramId::new([2; 32]).unwrap();
-        let mut baseline = Registry::new();
-        let deployments: Vec<_> = [program, other_program]
-            .into_iter()
-            .map(|program| DeploymentRecord {
-                program,
-                version: 1,
-                abi_version: 2,
-                upgrade_policy: UpgradePolicy::Authority([4; 32]),
-                old_code_hash: None,
-                new_code_hash: code_hash,
-                sequence: 1,
-                observed_at: 1,
-                module: module.clone(),
-                migration: None,
-            })
-            .collect();
-        baseline.replay_journal(&deployments).unwrap();
-
-        let account_id_hex: String = binding
-            .account_id
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect();
-        let leaf = CanonicalAccountLeaf {
-            account_id: binding.account_id,
-            name: format!("module:programs:value:{account_id_hex}").into_bytes(),
-            kind: 13,
-            balance: 500,
-            asset_id: binding.asset_id,
-            has_asset: true.into(),
-            next_sequence: 0,
-            created_at_sequence: binding.registered_sequence,
-            frozen: false.into(),
-            has_open_reference: false.into(),
-            authority_key: [0; 32],
-            has_authority_key: false.into(),
-        };
-        let account_root = leaf.commitment().unwrap();
-        let programs_root = binding.primary_commitment().unwrap();
-        let universal_root = account_tree_commitment(account_root);
-        let universal_leaf = universal_root_commitment(universal_root);
-        let programs_leaf = programs_root_commitment(programs_root);
-        let state_root = state_node_commitment(universal_leaf, programs_leaf);
-        let snapshot = VerifiedAccountSnapshot {
-            protocol_version: 2,
-            receipt_digest: [9; 32],
-            state_root,
-            universal_root,
-            programs_root,
-            account_root,
-            account_tree_proof: singleton_proof(),
-            universal_root_proof: StateProof {
-                leaf_index: 0,
-                leaf_count: 2,
-                siblings: vec![programs_leaf],
-            },
-            programs_root_proof: StateProof {
-                leaf_index: 1,
-                leaf_count: 2,
-                siblings: vec![universal_leaf],
-            },
-            freshness: ReadFreshness {
-                observed_sequence: 99,
-                observed_at: NOW,
-            },
-            bindings: vec![ProvenProgramBinding {
-                binding: binding.clone(),
-                proof: singleton_proof(),
-            }],
-            accounts: vec![ProvenAccountLeaf {
-                leaf,
-                proof: singleton_proof(),
-            }],
-        };
-        let head = AccountStateHead {
-            receipt_digest: snapshot.receipt_digest,
-            state_root,
-            freshness: snapshot.freshness,
-        };
+        let binding = fixture_binding();
+        let program = binding.program;
+        let baseline = baseline_registry(program);
+        let (snapshot, head) = fixture_snapshot(&binding);
         let authority = JournalAccountStateAuthority::new(
             ReceiptStore {
                 heads: BTreeMap::from([(head.receipt_digest, head)]),
@@ -196,8 +234,10 @@ impl Fixture {
             NOW,
             LIMIT,
         )
-        .unwrap();
-        snapshot.verify(&authority).unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        snapshot
+            .verify(&authority)
+            .unwrap_or_else(|error| panic!("{error:?}"));
 
         let routes = vec![ExitRoute {
             seed: binding.seed.clone(),
@@ -206,7 +246,9 @@ impl Fixture {
             destination: [0x80; 32],
         }];
         let mut producer = baseline.clone();
-        producer.record_value_account(binding.clone()).unwrap();
+        producer
+            .record_value_account(binding.clone())
+            .unwrap_or_else(|error| panic!("{error:?}"));
         let receipt = Deprecation::new()
             .transition(
                 &mut producer,
@@ -226,7 +268,7 @@ impl Fixture {
                 },
                 &authority,
             )
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
         let history = vec![receipt];
         let mut expected = baseline.clone();
         let state = ProtocolProgramStateRead::verify_snapshot(
@@ -241,10 +283,14 @@ impl Fixture {
             NOW,
             LIMIT,
         )
-        .unwrap();
-        let encoded = state.canonical_encode().unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        let encoded = state
+            .canonical_encode()
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_ne!(complete_registry(&expected), complete_registry(&baseline));
-        let entry = expected.entry_for_wind_down(program).unwrap();
+        let entry = expected
+            .entry_for_wind_down(program)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(entry.value_accounts, vec![binding.clone()]);
         assert_eq!(entry.lifecycle, ProgramLifecycle::Deprecated);
         assert_eq!(entry.lifecycle_history, history);
@@ -500,16 +546,21 @@ fn registry_failed_read_mutation_valid_reads_publish_complete_state() {
             NOW + LIMIT,
             LIMIT,
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(
         complete_registry(&registry),
         complete_registry(&fixture.expected)
     );
     assert_eq!(verified.balances().value_accounts()[0].balance, 500);
-    assert_eq!(verified.balances().bindings(), &[fixture.binding.clone()]);
+    assert_eq!(
+        verified.balances().bindings(),
+        std::slice::from_ref(&fixture.binding)
+    );
     assert_eq!(verified.routes(), fixture.routes);
     assert_eq!(verified.history(), fixture.history);
-    let encoded = verified.canonical_encode().unwrap();
+    let encoded = verified
+        .canonical_encode()
+        .unwrap_or_else(|error| panic!("{error:?}"));
     drop(verified);
     drop(registry);
     let mut reopened = fixture.baseline.clone();
@@ -521,9 +572,14 @@ fn registry_failed_read_mutation_valid_reads_publish_complete_state() {
         NOW + LIMIT,
         LIMIT,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(restored, fixture.state);
-    assert_eq!(restored.canonical_encode().unwrap(), encoded);
+    assert_eq!(
+        restored
+            .canonical_encode()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        encoded
+    );
     assert_eq!(
         complete_registry(&reopened),
         complete_registry(&fixture.expected)

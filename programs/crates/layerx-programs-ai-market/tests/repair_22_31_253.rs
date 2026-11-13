@@ -1,6 +1,7 @@
 //! Audit 22.30.122 regression paths: real dispatch producers, canonical capture and
 //! the projection codec used by the hosted indexer on observation and recovery.
 use ed25519_dalek::{Signer, SigningKey};
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     admission::{AdmissionTable, EvaluatorConsent, Participant},
     aggregation,
@@ -80,18 +81,18 @@ impl World {
             ok(state::decode_shared_state(&self.bytes)).feature_sections[0],
         ))
     }
-    fn market(&self) -> layerx_programs_ai_market::MarketId {
+    fn market() -> layerx_programs_ai_market::MarketId {
         ok(codec::derive_market(
             Self::context(OWNER, ORIGIN).chain,
             Self::context(OWNER, ORIGIN).program,
         ))
     }
-    fn worker(&self, n: u8) -> WorkerId {
-        ok(codec::derive_worker(self.market(), principal(n), [n; 32]))
+    fn worker(n: u8) -> WorkerId {
+        ok(codec::derive_worker(World::market(), principal(n), [n; 32]))
     }
-    fn evaluator(&self, n: u8) -> EvaluatorId {
+    fn evaluator(n: u8) -> EvaluatorId {
         ok(codec::derive_evaluator(
-            self.market(),
+            World::market(),
             principal(n),
             [n; 32],
         ))
@@ -102,7 +103,7 @@ impl World {
             ok(authority::split_identity_section(state.feature_sections[1])).0,
         ));
         table
-            .get(self.worker(n))
+            .get(World::worker(n))
             .unwrap_or_else(|| panic!("missing produced worker"))
     }
     fn binding(&self) -> FrozenBinding {
@@ -159,10 +160,10 @@ impl World {
             operation: op,
             chain: ctx.chain,
             program: ctx.program,
-            market: self.market(),
+            market: World::market(),
             actor: principal(actor),
             epoch,
-            config: if read { 0 } else { 1 },
+            config: u64::from(!read),
             roster,
             sequence,
             expiry: height + 1000,
@@ -387,7 +388,7 @@ impl World {
         let state = ok(state::decode_shared_state(&self.bytes));
         let region = ok(authority::evaluator_region(state.feature_sections[1]));
         let grant = region
-            .get(self.evaluator(n))
+            .get(World::evaluator(n))
             .unwrap_or_else(|| panic!("missing nomination"))
             .grant;
         let mut bytes = vec![0; layerx_programs_ai_market::evaluators::model::GRANT_BYTES];
@@ -409,7 +410,7 @@ impl World {
         let consent = EvaluatorConsent {
             chain: Self::context(n, at).chain,
             program: Self::context(n, at).program,
-            market: self.market(),
+            market: World::market(),
             evaluator: grant.evaluator,
             owner: principal(n),
             signing_key: grant.signing_key,
@@ -436,7 +437,7 @@ impl World {
     fn publish(&mut self, n: u8, at: u64) {
         let r = self.worker_record(n);
         let mut manifest = 1u16.to_be_bytes().to_vec();
-        manifest.extend_from_slice(self.market().as_bytes());
+        manifest.extend_from_slice(World::market().as_bytes());
         manifest.extend_from_slice(r.worker.as_bytes());
         manifest.extend_from_slice(r.owner.as_bytes());
         for value in [
@@ -464,7 +465,7 @@ impl World {
         manifest.extend_from_slice(&1u16.to_be_bytes());
         manifest.push(1);
         let uri = b"https://worker.example/paxai/v1";
-        manifest.extend_from_slice(&(uri.len() as u32).to_be_bytes());
+        manifest.extend_from_slice(&(u32::try_from(uri.len()).required()).to_be_bytes());
         manifest.extend_from_slice(uri);
         manifest.extend_from_slice(&[70; 32]);
         manifest.push(1);
@@ -480,7 +481,7 @@ impl World {
         payload.extend_from_slice(m.digest.as_bytes());
         payload.extend_from_slice(&m.valid_from.to_be_bytes());
         payload.extend_from_slice(&m.expiry.to_be_bytes());
-        payload.extend_from_slice(&(manifest.len() as u32).to_be_bytes());
+        payload.extend_from_slice(&(u32::try_from(manifest.len()).required()).to_be_bytes());
         payload.extend_from_slice(&manifest);
         let mut encoded = self.encoded_call(n, dispatch::PublishMetadata, &payload, at);
         let signed = ok(codec::decode_envelope(&encoded));
@@ -595,7 +596,7 @@ impl World {
         for n in 2..=4 {
             let evaluator_binding = EvaluatorBinding {
                 frozen: binding,
-                evaluator: self.evaluator(n),
+                evaluator: World::evaluator(n),
                 grant: ok(Version::new(1)),
                 key_version: ok(Version::new(1)),
             };
@@ -689,8 +690,8 @@ impl World {
         for offset in (0..self.bytes.len()).step_by(MAX_CHUNK_BYTES) {
             let mut payload = pin.0.to_be_bytes().to_vec();
             payload.extend_from_slice(&pin.1);
-            payload.extend_from_slice(&(offset as u32).to_be_bytes());
-            payload.extend_from_slice(&(MAX_CHUNK_BYTES as u16).to_be_bytes());
+            payload.extend_from_slice(&(u32::try_from(offset).required()).to_be_bytes());
+            payload.extend_from_slice(&(u16::try_from(MAX_CHUNK_BYTES).required()).to_be_bytes());
             let chunk = self.call(
                 KEEPER,
                 dispatch::READ_STATE_CHUNK,
@@ -1010,7 +1011,7 @@ fn reputation_region_never_created() {
     let region = ok(split_joint(shared.feature_sections[4]))
         .0
         .unwrap_or_else(|| panic!("CREATE omitted RP07"));
-    assert_eq!(region.state.market, initial.market());
+    assert_eq!(region.state.market, World::market());
     assert_eq!(region.state.records().count(), 0);
     drop(initial);
     let mut w = World::first_open();
@@ -1135,7 +1136,7 @@ fn admit_task(
     payload.extend_from_slice(ok(w.policy().current.digest()).as_bytes());
     payload.extend_from_slice(binding.roster.as_bytes());
     payload.extend_from_slice(principal(KEEPER).as_bytes());
-    payload.extend_from_slice(w.worker(worker).as_bytes());
+    payload.extend_from_slice(World::worker(worker).as_bytes());
     payload.extend_from_slice(metadata.as_bytes());
     payload.extend_from_slice(&[nonce; 32]);
     payload.extend_from_slice(digest(0x42).as_bytes());
@@ -1197,13 +1198,11 @@ fn build_default_targets_chain_229() {
             ok(layerx_programs_ai_market::deployment_chain_domain()).bytes(),
             expected
         ),
-        Some(value)
-            if value == "62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6" =>
-        {
+        Some("62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6") => {
             assert_eq!(
                 ok(layerx_programs_ai_market::deployment_chain_domain()).bytes(),
                 expected
-            )
+            );
         }
         Some(_) => assert_eq!(
             layerx_programs_ai_market::deployment_chain_domain(),
@@ -1223,6 +1222,6 @@ fn build_default_targets_chain_229() {
     assert_eq!(w.route_encoded(KEEPER, 258, &bytes), Err(WRONG_DOMAIN));
     assert_ne!(
         ok(codec::derive_market(foreign.chain, foreign.program)),
-        w.market()
+        World::market()
     );
 }

@@ -12,17 +12,23 @@ use layerx_types::intent::TimestampSeconds;
 use serde_json::{json, Value};
 
 fn nonce_plan(allow_top_up: bool) -> UnifiedPlan {
-    let home_account = AccountId::parse("agent:did:layerx:human:main").unwrap();
-    let home = Endpoint::human(home_account.clone()).unwrap();
+    let home_account = AccountId::parse("agent:did:layerx:human:main")
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+    let home = Endpoint::human(home_account.clone())
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     let asset = AssetId::new([0x33; 32]);
     let source = if allow_top_up {
-        Endpoint::agent(AccountId::parse("agent:did:layerx:relay:main").unwrap()).unwrap()
+        Endpoint::agent(
+            AccountId::parse("agent:did:layerx:relay:main")
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
     } else {
         home.clone()
     };
     let allowances = if allow_top_up {
         vec![SignedAllowance::new(
-            AllowanceId::new([1; 32]).unwrap(),
+            AllowanceId::new([1; 32]).unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
             AllowanceKind::DelegatedCapability,
             AllowanceScope::new(
                 home.clone(),
@@ -34,12 +40,15 @@ fn nonce_plan(allow_top_up: bool) -> UnifiedPlan {
             Amount::from_u128(500),
             TimestampSeconds::from_u64(1_200),
         )
-        .unwrap()]
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))]
     } else {
         Vec::new()
     };
-    let destination =
-        Endpoint::agent(AccountId::parse("agent:did:layerx:worker:main").unwrap()).unwrap();
+    let destination = Endpoint::agent(
+        AccountId::parse("agent:did:layerx:worker:main")
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     let observed = ObservedState::new(
         TimestampSeconds::from_u64(1_000),
         home_account,
@@ -47,9 +56,10 @@ fn nonce_plan(allow_top_up: bool) -> UnifiedPlan {
         vec![BalanceEntry::new(home, asset, Amount::from_u128(500))],
         allowances,
         Vec::new(),
-        FeeSchedule::new(vec![(LegMechanism::Protocol(Mechanism::Send), 2)]).unwrap(),
+        FeeSchedule::new(vec![(LegMechanism::Protocol(Mechanism::Send), 2)])
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     let intent = UnifiedIntent::new(
         source,
         destination,
@@ -57,14 +67,16 @@ fn nonce_plan(allow_top_up: bool) -> UnifiedPlan {
         Amount::from_u128(25),
         Constraints::new(TimestampSeconds::from_u64(1_200), 20, allow_top_up),
     )
-    .unwrap();
-    plan(&intent, &observed).unwrap()
+    .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
+    plan(&intent, &observed).unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
 }
 
 fn pending_expectation(pending_nonce: u64) -> BindingExpectation {
     BindingExpectation {
-        actor: AgentDid::new("did:layerx:owner").unwrap(),
-        authority: AuthorityRef::new("custody-human-primary").unwrap(),
+        actor: AgentDid::new("did:layerx:owner")
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+        authority: AuthorityRef::new("custody-human-primary")
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
         account_sequence: pending_nonce,
         currency: "LXP".to_owned(),
         now: 1_000,
@@ -73,12 +85,12 @@ fn pending_expectation(pending_nonce: u64) -> BindingExpectation {
 
 fn binding_document(plan: &UnifiedPlan, index: usize, pending_nonce: u64) -> Value {
     let expectation = pending_expectation(pending_nonce);
-    let action_key: String = plan
-        .action_key(index)
-        .unwrap()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
+    let action_key: String = layerx_human_service::hex::lower(
+        (plan
+            .action_key(index)
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}")))
+        .as_ref(),
+    );
     json!({
         "leg_index": index,
         "action_key": action_key,
@@ -98,7 +110,8 @@ fn bound_request(plan: &UnifiedPlan, pending_nonce: u64) -> SubmitPlanRequest {
         signed_digest: plan.digest(),
         bindings: (0..plan.legs().len())
             .map(|index| {
-                IntentLegBinding::from_json(&binding_document(plan, index, pending_nonce)).unwrap()
+                IntentLegBinding::from_json(&binding_document(plan, index, pending_nonce))
+                    .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
             })
             .collect(),
     }
@@ -130,7 +143,8 @@ fn intent_leg_binding_matches_the_pending_nonce() {
     }
 
     let mut overflow = binding_document(&plan, 0, u64::MAX);
-    overflow["account_sequence"] = serde_json::from_str("18446744073709551616").unwrap();
+    overflow["account_sequence"] = serde_json::from_str("18446744073709551616")
+        .unwrap_or_else(|error| panic!("unexpected error: {error:?}"));
     assert_eq!(
         IntentLegBinding::from_json(&overflow),
         Err(SubmitRefusal::Malformed {

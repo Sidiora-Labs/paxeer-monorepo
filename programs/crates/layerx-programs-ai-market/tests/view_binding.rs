@@ -1,3 +1,4 @@
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     admission::{AdmissionMeta, AdmissionTable, Participant, FLAG_ADMITTED, TABLE_MAX_BYTES},
     codec::{self, decode_envelope, derive_market, derive_worker, encode_envelope, Envelope},
@@ -479,7 +480,11 @@ fn binding_v2_matches_pinned_vector() -> Checked {
 }
 
 fn binding_hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    bytes.iter().fold(String::new(), |mut text, byte| {
+        use core::fmt::Write as _;
+        write!(text, "{byte:02x}").unwrap_or_else(|error| panic!("hex formatting: {error}"));
+        text
+    })
 }
 
 fn binding_v2_fixture() -> Checked<SnapshotBinding> {
@@ -855,23 +860,9 @@ fn frozen_roster(workers: &[WorkerCurrent], market_program: [u8; 32]) -> Checked
 
 /// 32 current workers and 8 frozen evaluators projected from real state and roster codecs.
 fn forty_rows() -> Checked<Vec<ParticipantRow>> {
-    use ed25519_dalek::{Signer, SigningKey};
-    use layerx_programs_ai_market::{
-        admission::{
-            admit_evaluator, AdmissionContext, AdmissionTable, ApprovalTerms, EvaluatorConsent,
-            Participant, TABLE_MAX_BYTES,
-        },
-        evaluators::{
-            authority::{self, EvaluatorRecord, EvaluatorRegion, LastRequest, SnapshotContext},
-            model::{EvaluatorGrant, GrantStatus, GrantTerms},
-        },
-        registry_ops::PolicySection,
-        rewards::{RewardLedger, RewardState, REWARD_STATE_BYTES},
-        roster,
-    };
     let source = market_with_workers(32)?;
     let mut shared = state::decode_shared_state(&source)?;
-    let policy = PolicySection::decode(shared.section(Section::PolicyLifecycle)?)?;
+    let policy = registry_ops::PolicySection::decode(shared.section(Section::PolicyLifecycle)?)?;
     let market = policy.header;
     let table = WorkerTable::decode(shared.section(Section::IdentityRoster)?)?;
     let workers: Vec<WorkerCurrent> = table.iter().copied().collect();
@@ -880,93 +871,7 @@ fn forty_rows() -> Checked<Vec<ParticipantRow>> {
     let frozen: Vec<WorkerRosterEntry> = (0..old_view.worker_count())
         .map(|i| old_view.worker(i))
         .collect::<Result<_, _>>()?;
-    let mut admission = AdmissionTable::new();
-    let mut region = EvaluatorRegion::new();
-    for n in 0..8u8 {
-        if n == 4 {
-            roster::open_epoch(&mut admission, 1, |_| false)?;
-        }
-        let effective = if n < 4 { 0 } else { 2 };
-        let at = market.origin_height + if n < 4 { 0 } else { 128 };
-        let owner = principal([60 + n; 32])?;
-        let key = SigningKey::from_bytes(&[70 + n; 32]);
-        let grant = EvaluatorGrant::nominate(
-            market.market_id,
-            owner,
-            [n + 1; 32],
-            GrantTerms {
-                rubric: RubricDigest::new([4; 32])?,
-                grant_version: Version::new(1)?,
-                key_version: Version::new(1)?,
-                signing_key: PublicKey32(key.verifying_key().to_bytes()),
-                effective_epoch: effective,
-                expiry_epoch_exclusive: 32,
-            },
-        )?;
-        let request = RequestId::new([n + 1; 32])?;
-        let approval = admission.approve(
-            &AdmissionContext {
-                market: &market,
-                invoking_principal: market.owner_principal,
-                height: at,
-            },
-            &ApprovalTerms {
-                participant: Participant::Evaluator(grant.evaluator),
-                owner,
-                enrollment_nonce_commitment: digest(n + 1)?,
-                delegate: grant.signing_key,
-                delegate_generation: 1,
-                identity_commitment: digest(n + 1)?,
-                effective_epoch: effective,
-                config_version: 1,
-                request,
-                expiry_height: market.origin_height + effective * 128 + 64,
-            },
-        )?;
-        let consent = EvaluatorConsent {
-            chain: chain()?,
-            program: program()?,
-            market: market.market_id,
-            evaluator: grant.evaluator,
-            owner,
-            signing_key: grant.signing_key,
-            enrollment_nonce: [n + 1; 32],
-            rubric: grant.rubric,
-            approval_digest: approval,
-            request,
-            grant_version: 1,
-            key_version: 1,
-            effective_epoch: effective,
-            config_version: 1,
-            expiry_height: market.origin_height + effective * 128 + 64,
-        };
-        let mut encoded = [0; layerx_programs_ai_market::evaluators::model::CONSENT_BYTES];
-        consent.encode(&mut encoded)?;
-        let mut bytes = encoded.to_vec();
-        bytes.extend_from_slice(&key.sign(consent.digest()?.as_bytes()).to_bytes());
-        admit_evaluator(
-            &mut admission,
-            &AdmissionContext {
-                market: &market,
-                invoking_principal: owner,
-                height: at,
-            },
-            &grant,
-            request,
-            &bytes,
-        )?;
-        region.insert(&EvaluatorRecord {
-            grant,
-            last: LastRequest {
-                sequence: 1,
-                request,
-                digest: RequestDigest::new([n + 1; 32])?,
-                result: layerx_programs_ai_market::ResultDigest::new([n + 1; 32])?,
-            },
-            rekey: None,
-            revocation: None,
-        })?;
-    }
+    let (mut admission, region) = view_evaluators(&market)?;
     roster::open_epoch(&mut admission, 7, |_| false)?;
     let mut identity = vec![0; Section::IdentityRoster.payload_cap()];
     let worker_len = table.encode(&mut identity)?;
@@ -1042,13 +947,124 @@ fn forty_rows() -> Checked<Vec<ParticipantRow>> {
     shared.feature_sections[Section::ReputationAdmission.index()] = &admission_bytes;
     shared.feature_sections[Section::SettlementClaims.index()] = &reward_bytes;
     let s = encode_shared(&shared)?;
+    verify_forty_rows(&s, &view, &workers)
+}
+fn view_evaluators(
+    market: &layerx_programs_ai_market::registry::MarketHeader,
+) -> Checked<(AdmissionTable, EvaluatorRegion)> {
+    use ed25519_dalek::{Signer, SigningKey};
+    use layerx_programs_ai_market::{
+        admission::{
+            admit_evaluator, AdmissionContext, AdmissionTable, ApprovalTerms, EvaluatorConsent,
+            Participant,
+        },
+        evaluators::{
+            authority::{EvaluatorRecord, EvaluatorRegion, LastRequest},
+            model::{EvaluatorGrant, GrantTerms},
+        },
+        roster,
+    };
+    let mut admission = AdmissionTable::new();
+    let mut region = EvaluatorRegion::new();
+    for n in 0..8u8 {
+        if n == 4 {
+            roster::open_epoch(&mut admission, 1, |_| false)?;
+        }
+        let effective = if n < 4 { 0 } else { 2 };
+        let at = market.origin_height + if n < 4 { 0 } else { 128 };
+        let owner = principal([60 + n; 32])?;
+        let key = SigningKey::from_bytes(&[70 + n; 32]);
+        let grant = EvaluatorGrant::nominate(
+            market.market_id,
+            owner,
+            [n + 1; 32],
+            GrantTerms {
+                rubric: RubricDigest::new([4; 32])?,
+                grant_version: Version::new(1)?,
+                key_version: Version::new(1)?,
+                signing_key: PublicKey32(key.verifying_key().to_bytes()),
+                effective_epoch: effective,
+                expiry_epoch_exclusive: 32,
+            },
+        )?;
+        let request = RequestId::new([n + 1; 32])?;
+        let approval = admission.approve(
+            &AdmissionContext {
+                market,
+                invoking_principal: market.owner_principal,
+                height: at,
+            },
+            &ApprovalTerms {
+                participant: Participant::Evaluator(grant.evaluator),
+                owner,
+                enrollment_nonce_commitment: digest(n + 1)?,
+                delegate: grant.signing_key,
+                delegate_generation: 1,
+                identity_commitment: digest(n + 1)?,
+                effective_epoch: effective,
+                config_version: 1,
+                request,
+                expiry_height: market.origin_height + effective * 128 + 64,
+            },
+        )?;
+        let consent = EvaluatorConsent {
+            chain: chain()?,
+            program: program()?,
+            market: market.market_id,
+            evaluator: grant.evaluator,
+            owner,
+            signing_key: grant.signing_key,
+            enrollment_nonce: [n + 1; 32],
+            rubric: grant.rubric,
+            approval_digest: approval,
+            request,
+            grant_version: 1,
+            key_version: 1,
+            effective_epoch: effective,
+            config_version: 1,
+            expiry_height: market.origin_height + effective * 128 + 64,
+        };
+        let mut encoded = [0; layerx_programs_ai_market::evaluators::model::CONSENT_BYTES];
+        consent.encode(&mut encoded)?;
+        let mut bytes = encoded.to_vec();
+        bytes.extend_from_slice(&key.sign(consent.digest()?.as_bytes()).to_bytes());
+        admit_evaluator(
+            &mut admission,
+            &AdmissionContext {
+                market,
+                invoking_principal: owner,
+                height: at,
+            },
+            &grant,
+            request,
+            &bytes,
+        )?;
+        region.insert(&EvaluatorRecord {
+            grant,
+            last: LastRequest {
+                sequence: 1,
+                request,
+                digest: RequestDigest::new([n + 1; 32])?,
+                result: layerx_programs_ai_market::ResultDigest::new([n + 1; 32])?,
+            },
+            rekey: None,
+            revocation: None,
+        })?;
+    }
+    Ok((admission, region))
+}
+fn verify_forty_rows(
+    s: &[u8],
+    view: &codec::RosterView<'_>,
+    workers: &[WorkerCurrent],
+) -> Checked<Vec<ParticipantRow>> {
     let mut rows = vec![blank_row()?; 40];
     assert_eq!(
-        participant_rows(&s, Some(&view), &mut rows),
+        participant_rows(s, Some(view), &mut rows),
         Err(WRONG_ROSTER)
     );
-    let s = commit_roster(&s, &view)?;
-    assert_eq!(participant_rows(&s, Some(&view), &mut rows)?, 40);
+    let s = commit_roster(s, view)?;
+    assert_eq!(participant_rows(&s, Some(view), &mut rows)?, 40);
     let mut from_state = vec![blank_row()?; 40];
     assert_eq!(participant_rows(&s, None, &mut from_state)?, 40);
     assert_eq!(from_state, rows);
@@ -1058,7 +1074,7 @@ fn forty_rows() -> Checked<Vec<ParticipantRow>> {
         assert_eq!(row.reward.earned(), Presence::Absent);
         assert_eq!(row.reward.claimed(), Presence::Absent);
     }
-    let foreign = frozen_roster(&workers, [98; 32])?;
+    let foreign = frozen_roster(workers, [98; 32])?;
     assert_eq!(
         participant_rows(
             &s,
@@ -1079,35 +1095,7 @@ fn commit_roster(s: &[u8], view: &codec::RosterView<'_>) -> Checked<Vec<u8>> {
     let evaluators = (0..view.evaluator_count())
         .map(|i| view.evaluator(i))
         .collect::<Result<Vec<_>, _>>()?;
-    let mut admission = AdmissionTable::new();
-    for (participant, owner, generation) in workers
-        .iter()
-        .map(|w| (Participant::Worker(w.worker), w.owner, w.key_version.get()))
-        .chain(evaluators.iter().map(|e| {
-            (
-                Participant::Evaluator(e.evaluator),
-                e.owner,
-                e.key_version.get(),
-            )
-        }))
-    {
-        admission.insert(AdmissionMeta {
-            participant,
-            owner,
-            admitted_epoch: None,
-            last_heartbeat_epoch: None,
-            last_heartbeat_height: None,
-            immunity_until_epoch: view.epoch,
-            pending_exit: None,
-            membership_generation: 1,
-            complete_missed_opened_epochs: 0,
-            membership_flags: FLAG_ADMITTED,
-            delegate_generation: generation,
-            admission_height: Some(1_000),
-            approval: None,
-        })?;
-    }
-    roster::open_epoch(&mut admission, view.epoch, |_| false)?;
+    let admission = view_admission(view, &workers, &evaluators)?;
     let mut region = EvaluatorRegion::new();
     for entry in evaluators {
         region.insert(&EvaluatorRecord {
@@ -1177,6 +1165,42 @@ fn commit_roster(s: &[u8], view: &codec::RosterView<'_>) -> Checked<Vec<u8>> {
     let next = next.replace_section(Section::SettlementClaims, &reserved_rewards)?;
     let next = next.replace_section(Section::ReputationAdmission, &encoded_admission[..n])?;
     encode_shared(&next)
+}
+fn view_admission(
+    view: &codec::RosterView<'_>,
+    workers: &[WorkerRosterEntry],
+    evaluators: &[EvaluatorRosterEntry],
+) -> Checked<AdmissionTable> {
+    let mut admission = AdmissionTable::new();
+    for (participant, owner, generation) in workers
+        .iter()
+        .map(|w| (Participant::Worker(w.worker), w.owner, w.key_version.get()))
+        .chain(evaluators.iter().map(|e| {
+            (
+                Participant::Evaluator(e.evaluator),
+                e.owner,
+                e.key_version.get(),
+            )
+        }))
+    {
+        admission.insert(AdmissionMeta {
+            participant,
+            owner,
+            admitted_epoch: None,
+            last_heartbeat_epoch: None,
+            last_heartbeat_height: None,
+            immunity_until_epoch: view.epoch,
+            pending_exit: None,
+            membership_generation: 1,
+            complete_missed_opened_epochs: 0,
+            membership_flags: FLAG_ADMITTED,
+            delegate_generation: generation,
+            admission_height: Some(1_000),
+            approval: None,
+        })?;
+    }
+    roster::open_epoch(&mut admission, view.epoch, |_| false)?;
+    Ok(admission)
 }
 
 fn scope(filter: KindFilter, active_only: bool) -> Checked<CursorScope> {
@@ -1363,7 +1387,10 @@ fn a13_selector_refuses_oversize_misaligned_and_stale_reads() -> Checked {
         Err(CAPACITY)
     );
     assert_eq!(codec::state_digest(&over), Err(CAPACITY));
-    for offset in [8193, layerx_programs_ai_market::MAX_STATE_BYTES as u32] {
+    for offset in [
+        8193,
+        u32::try_from(layerx_programs_ai_market::MAX_STATE_BYTES).required(),
+    ] {
         assert_eq!(
             read_state_chunk(
                 &s,

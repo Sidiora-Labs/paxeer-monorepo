@@ -32,8 +32,7 @@ contract UniswapV2Pair is ERC20, ReentrancyGuard, Initializable {
     // ========= Constants =========
 
     uint256 public constant MINIMUM_LIQUIDITY = 1e3;
-    bytes4 public constant SELECTOR =
-        bytes4(keccak256("transfer(address,uint256"));
+    bytes4 public constant SELECTOR = bytes4(keccak256("transfer(address,uint256"));
 
     // ========= State Variables =========
 
@@ -53,12 +52,7 @@ contract UniswapV2Pair is ERC20, ReentrancyGuard, Initializable {
 
     event Mint(address indexed _operator, uint256 _value);
     event Burn(address indexed _operator, uint256 _value);
-    event Swap(
-        address indexed sender,
-        uint256 amount0Out,
-        uint256 amount1Out,
-        address indexed to
-    );
+    event Swap(address indexed sender, uint256 amount0Out, uint256 amount1Out, address indexed to);
     event Sync(uint112 reserve0, uint112 reserve1);
 
     // ========= Constructor =========
@@ -78,15 +72,7 @@ contract UniswapV2Pair is ERC20, ReentrancyGuard, Initializable {
     /// @return reserve0 Reserve of token 0
     /// @return reserve1 Reserve of token 1
     /// @return blockTimestampLast Block timestamp of last sync
-    function getReserves()
-        public
-        view
-        returns (
-            uint112,
-            uint112,
-            uint32
-        )
-    {
+    function getReserves() public view returns (uint112, uint112, uint32) {
         return (reserve0, reserve1, blockTimestampLast);
     }
 
@@ -103,18 +89,13 @@ contract UniswapV2Pair is ERC20, ReentrancyGuard, Initializable {
 
         if (totalSupply == 0) {
             // Initial liquidity = sqrt(a0 * a1)
-            liquidity =
-                FixedPointMathLib.sqrt(amount0 * amount1) -
-                MINIMUM_LIQUIDITY;
+            liquidity = FixedPointMathLib.sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY;
 
             // Prevents value of 1 LP token being too high
             _mint(address(0), MINIMUM_LIQUIDITY);
         } else {
             // Minimum because max is prone to price manipulation
-            liquidity = Math.min(
-                (amount0 * totalSupply) / reserve0,
-                (amount1 * totalSupply) / reserve1
-            );
+            liquidity = Math.min((amount0 * totalSupply) / reserve0, (amount1 * totalSupply) / reserve1);
         }
 
         if (liquidity == 0) revert InsufficientLiquidityMinted();
@@ -131,11 +112,7 @@ contract UniswapV2Pair is ERC20, ReentrancyGuard, Initializable {
     /// @param to Address whose tokens are burned
     /// @return amount0 Amount of token0 burned
     /// @return amount1 Amount of token1 burned
-    function burn(address to)
-        public
-        nonReentrant
-        returns (uint256 amount0, uint256 amount1)
-    {
+    function burn(address to) public nonReentrant returns (uint256 amount0, uint256 amount1) {
         uint256 balance0 = IERC20(token0).balanceOf(address(this));
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
 
@@ -161,15 +138,12 @@ contract UniswapV2Pair is ERC20, ReentrancyGuard, Initializable {
     /// @param amount0Out Amount of token0 to be transfered
     /// @param amount1Out Amount of token1 to be transfered
     /// @param to Address o which tokens are transfered
-    function swap(
-        uint256 amount0Out,
-        uint256 amount1Out,
-        address to
-    ) public nonReentrant {
+    function swap(uint256 amount0Out, uint256 amount1Out, address to) public nonReentrant {
         if (amount0Out == 0 && amount1Out == 0) revert InvalidAmount();
 
-        if (amount0Out > reserve0 || amount1Out > reserve1)
+        if (amount0Out > reserve0 || amount1Out > reserve1) {
             revert InsufficientLiquidity();
+        }
 
         if (to == token0 || to == token1) revert SwapToSelf();
 
@@ -179,8 +153,9 @@ contract UniswapV2Pair is ERC20, ReentrancyGuard, Initializable {
         uint256 balance0 = IERC20(token0).balanceOf(address(this));
         uint256 balance1 = IERC20(token1).balanceOf(address(this));
 
-        if (balance0 * balance1 < uint256(reserve0) * uint256(reserve1))
+        if (balance0 * balance1 < uint256(reserve0) * uint256(reserve1)) {
             revert InvalidConstantProductFormula();
+        }
 
         _update(balance0, balance1, reserve0, reserve1);
 
@@ -189,12 +164,7 @@ contract UniswapV2Pair is ERC20, ReentrancyGuard, Initializable {
 
     /// @notice Syncs reserves
     function sync() public {
-        _update(
-            IERC20(token0).balanceOf(address(this)),
-            IERC20(token1).balanceOf(address(this)),
-            reserve0,
-            reserve1
-        );
+        _update(IERC20(token0).balanceOf(address(this)), IERC20(token1).balanceOf(address(this)), reserve0, reserve1);
     }
 
     // ========= Internal functions =========
@@ -204,28 +174,16 @@ contract UniswapV2Pair is ERC20, ReentrancyGuard, Initializable {
     /// @param balance1 New balance of token1 in pool
     /// @param _reserve0 Reserve of token0 in pool
     /// @param _reserve1 Reserve of token1 in pool
-    function _update(
-        uint256 balance0,
-        uint256 balance1,
-        uint112 _reserve0,
-        uint112 _reserve1
-    ) internal {
-        if (balance0 > type(uint112).max || balance1 > type(uint112).max)
+    function _update(uint256 balance0, uint256 balance1, uint112 _reserve0, uint112 _reserve1) internal {
+        if (balance0 > type(uint112).max || balance1 > type(uint112).max) {
             revert BalanceOverflow();
+        }
 
         unchecked {
             uint32 timeElapsed = uint32(block.timestamp) - blockTimestampLast;
             if (timeElapsed > 0 && _reserve0 > 0 && _reserve1 > 0) {
-                price0CumulativeLast +=
-                    uint256(
-                        UQ112x112.uqdiv(UQ112x112.encode(_reserve1), reserve0)
-                    ) *
-                    timeElapsed;
-                price1CumulativeLast +=
-                    uint256(
-                        UQ112x112.uqdiv(UQ112x112.encode(_reserve0), _reserve1)
-                    ) *
-                    timeElapsed;
+                price0CumulativeLast += uint256(UQ112x112.uqdiv(UQ112x112.encode(_reserve1), reserve0)) * timeElapsed;
+                price1CumulativeLast += uint256(UQ112x112.uqdiv(UQ112x112.encode(_reserve0), _reserve1)) * timeElapsed;
             }
         }
 
@@ -236,11 +194,7 @@ contract UniswapV2Pair is ERC20, ReentrancyGuard, Initializable {
         emit Sync(reserve0, reserve1);
     }
 
-    function _safeTransfer(
-        address token,
-        address to,
-        uint256 amount
-    ) internal {
+    function _safeTransfer(address token, address to, uint256 amount) internal {
         bool success = IERC20(token).transfer(to, amount);
         if (!success) revert SafeTransferFailed();
     }

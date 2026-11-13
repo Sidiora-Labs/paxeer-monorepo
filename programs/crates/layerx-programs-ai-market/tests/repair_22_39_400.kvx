@@ -1,0 +1,131 @@
+[settlement]
+order = "The reward state precedes the room market tail in the settlement section."
+room_market = "The shared state returns the reward prefix and the room book separately."
+
+[reader.captured_roster]
+file = "src/epoch.rs"
+part = "reward state"
+
+[reader.committed_roster_sections]
+file = "src/epoch.rs"
+part = "reward state"
+
+[reader.open_epoch]
+file = "src/epoch.rs"
+part = "whole section for composition; reward state for reservation"
+
+[reader.opened_readiness]
+file = "src/epoch.rs"
+part = "reward state"
+
+[reader.committed_epoch_row]
+file = "src/epoch.rs"
+part = "reward state"
+
+[reader.epoch_row]
+file = "src/epoch.rs"
+part = "reward state"
+
+[reader.closure_rewards]
+file = "src/closure.rs"
+part = "reward state for decoding; whole section for composition"
+
+[reader.aggregation_view]
+file = "src/aggregation.rs"
+part = "reward state and aggregation bytes before the room market tail"
+
+[reader.aggregation_committed_roster]
+file = "src/aggregation.rs"
+part = "reward state"
+
+[reader.aggregation_finalize]
+file = "src/aggregation.rs"
+part = "whole section for composition"
+
+[reader.commit_reveal_row]
+file = "src/commit_reveal.rs"
+part = "reward state"
+
+[reader.funding_view]
+file = "src/rewards.rs"
+part = "reward state for decoding; whole section for composition"
+
+[reader.reward_apply]
+file = "src/rewards.rs"
+part = "reward state for decoding; whole section for composition"
+
+[reader.roster_reward_state]
+file = "src/roster.rs"
+part = "reward state"
+
+[reader.roster_rollover]
+file = "src/roster.rs"
+part = "whole section for composition"
+
+[reader.lap_settlement]
+file = "src/laps.rs"
+part = "whole section for composition"
+
+[reader.task_rows]
+file = "src/tasks.rs"
+part = "reward state"
+
+[reader.evidence_row]
+file = "src/evidence.rs"
+part = "reward state"
+
+[reader.stored_header]
+file = "src/queries.rs"
+part = "reward state"
+
+[reader.feature_availability]
+file = "src/queries.rs"
+part = "reward state and aggregation bytes before the room market tail"
+
+[reader.read_header]
+file = "src/queries.rs"
+part = "reward state through captured_roster"
+
+[reader.reward_view]
+file = "src/queries.rs"
+part = "reward state"
+
+[reader.room_views]
+file = "src/queries.rs"
+part = "room market tail"
+
+[reader.entry_aggregation_probe]
+file = "src/lib.rs"
+part = "reward state through committed_roster_sections"
+
+[reader.admission_row]
+file = "src/evaluators/admission.rs"
+part = "reward state"
+
+[reader.dispatch_phase]
+file = "src/dispatch.rs"
+part = "whole section for aggregation phase"
+
+[reader.room_book]
+file = "src/rooms.rs"
+part = "room market tail"
+
+[reader.bond_book]
+file = "src/bonds.rs"
+part = "room market tail; reward prefix for settlement composition"
+
+[reader.placement_book]
+file = "src/placement.rs"
+part = "room market tail"
+
+[reader.shared_room_market]
+file = "src/state.rs"
+part = "whole section divided into reward state and room market tail"
+
+[reader.settlement_rewards]
+file = "src/state.rs"
+part = "reward state"
+
+[reader.funding_with_room_tail]
+file = "src/rewards.rs"
+part = "reward state for ledger; whole section tail for composition"

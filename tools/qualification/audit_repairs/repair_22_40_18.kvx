@@ -1,0 +1,5 @@
+[chain_launch]
+tasks = ["22.40.1", "22.40.2", "22.40.3", "22.40.4", "22.40.5", "22.40.6", "22.40.7", "22.40.8", "22.40.9", "22.40.10", "22.40.11", "22.40.12", "22.40.13", "22.40.14", "22.40.15", "22.40.16", "22.40.17", "22.40.18", "22.40.19", "22.40.20"]
+interface = "spec/layerx-merge/interfaces.kvx"
+contract = "spec/layerx-merge/contracts/chain-launchpad.md"
+guide = "docs/launchpad/chain-launch.md"

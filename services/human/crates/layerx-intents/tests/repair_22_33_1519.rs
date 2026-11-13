@@ -23,25 +23,39 @@ fn intent_proof_chain_domain_merged_network_producer_and_consumer_agree() {
     let (send, route, signed) = proof_human_intents::signed_send();
     let options = call_options();
     let mut scope = Decoder::new(&signed[signed.len() - 6..], 0);
-    assert_eq!(scope.u32().expect("signed network"), 125);
     assert_eq!(
-        scope.u16().expect("signed protocol"),
+        scope
+            .u32()
+            .unwrap_or_else(|error| panic!("signed network: {error:?}")),
+        125
+    );
+    assert_eq!(
+        scope
+            .u16()
+            .unwrap_or_else(|error| panic!("signed protocol: {error:?}")),
         layerx_wire::limits::PROTOCOL_VERSION
     );
-    scope.finish().expect("exact authorization scope");
+    scope
+        .finish()
+        .unwrap_or_else(|error| panic!("exact authorization scope: {error:?}"));
     assert_eq!(route.network_id.value(), 125);
     let intent = Intent::from(IntentKind::LxpSend(send));
-    let compiled = compile(&intent, &proof_human_intents::registry()).expect("compile real send");
+    let compiled = compile(&intent, &proof_human_intents::registry())
+        .unwrap_or_else(|error| panic!("compile real send: {error:?}"));
     assert_eq!(compiled.payload().as_bytes(), signed);
     let produced = ledger_payment_call(compiled.payload().as_bytes(), &options)
-        .expect("produce merged-network ledger call");
+        .unwrap_or_else(|error| panic!("produce merged-network ledger call: {error:?}"));
     assert_eq!(produced.call.chain_id, 125);
     assert_eq!(&produced.call.to[18..], &0x101a_u16.to_be_bytes());
     for _ in 0..2 {
-        let observed = bind_call(&produced.call, options.from).expect("independent consumer");
-        DisclosureCheck::verify_agent(&intent, &observed).expect("intent matches received call");
+        let observed = bind_call(&produced.call, options.from)
+            .unwrap_or_else(|error| panic!("independent consumer: {error:?}"));
+        DisclosureCheck::verify_agent(&intent, &observed)
+            .unwrap_or_else(|error| panic!("intent matches received call: {error:?}"));
         assert_eq!(
-            observed.construct_method().expect("ledger ABI decode"),
+            observed
+                .construct_method()
+                .unwrap_or_else(|error| panic!("ledger ABI decode: {error:?}")),
             Some(ConstructMethod::LedgerSend {
                 payload: signed.clone()
             })
@@ -68,7 +82,8 @@ fn intent_proof_chain_domain_network_77_signature_cannot_be_relabelled_as_125() 
     ));
 
     let (_, _, valid) = proof_human_intents::signed_send();
-    let produced = ledger_payment_call(&valid, &options).expect("valid network-125 producer");
+    let produced = ledger_payment_call(&valid, &options)
+        .unwrap_or_else(|error| panic!("valid network-125 producer: {error:?}"));
     for _ in 0..2 {
         let mut received = produced.call.clone();
         let payload_offset = 4 + 32 + 32;
@@ -82,7 +97,8 @@ fn intent_proof_chain_domain_network_77_signature_cannot_be_relabelled_as_125() 
             Err(DisclosureError::MalformedPayload)
         );
         assert_eq!(
-            bind_call(&produced.call, options.from).expect("valid delivery after refusal"),
+            bind_call(&produced.call, options.from)
+                .unwrap_or_else(|error| panic!("valid delivery after refusal: {error:?}")),
             produced.disclosure
         );
     }

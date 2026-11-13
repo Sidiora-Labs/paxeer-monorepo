@@ -14,6 +14,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/notifications"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
@@ -23,10 +28,6 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/nats-io/nats.go"
-	"log/slog"
-	"net/http"
-	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -96,7 +97,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	}()
 	tracker := sharedprocess.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == literalProduction {
 		var e error
 		metrics, e = telemetry.New("apid_"+cfg.APIRole, cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if e != nil {
@@ -165,7 +166,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	var identityRequest requestIdentity
 	fanout := broker.NewTopicFanout()
 	admissionCapacity, admissionWaiting := cfg.AdmissionCapacity, cfg.AdmissionMaxWaiting
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != literalProduction {
 		if admissionCapacity == 0 {
 			admissionCapacity = 1000
 		}
@@ -177,7 +178,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	if err != nil {
 		return nil, err
 	}
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == literalProduction {
 		identityConcrete, identityErr := runtimeIdentity(cfg)
 		if identityErr != nil {
 			return nil, identityErr
@@ -188,7 +189,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 		if err != nil {
 			return nil, err
 		}
-		if cfg.APIRole == "sockets" {
+		if cfg.APIRole == literalSockets {
 			if err = config.ReadBoundDocument(cfg.StreamConsumerFile, cfg.StreamConsumerSHA256, &streamConsumers); err != nil {
 				return nil, err
 			}
@@ -256,7 +257,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	// development projection); see dev_stream.go.
 	var devStream *rest.DevelopmentStream
 	var topicRegistry ws.TopicRegistry
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != literalProduction {
 		if devStream = newDevelopmentStream(ctx, cfg, pool, st, rdb, logger); devStream != nil {
 			privateStream = devStream.Stream
 			// Topics naming a pool absent from indexer.pools answer 404
@@ -322,14 +323,14 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 
 	// Realtime group: connection-capped + a light per-IP connect rate limit, but
 	// NOT the in-flight limiter (streams are long-lived and would pin slots).
-	if cfg.APIRole != "rest" {
+	if cfg.APIRole != literalRest {
 		router.Group(func(gr chi.Router) {
 			gr.Use(sharedhttp.RateLimit(sharedhttp.RateLimitOptions{
 				Max:    cfg.RateLimitMax,
 				Window: cfg.RateLimitWindow(),
 				Redis:  rdb,
 			}))
-			if cfg.NodeEnv == "production" {
+			if cfg.NodeEnv == literalProduction {
 				gr.Get("/v2/stream", wsHub.HandleV2)
 				gr.Get("/v2/stream/sse", sseHub.HandleV2)
 			} else {
@@ -342,7 +343,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	// The production accounting read model backs the frozen v2 reads
 	// registered below (RegisterAccountingV2WithAdmission, RegisterProductionReads).
 	var accountingModel *store.AccountingReadModel
-	if cfg.NodeEnv == "production" && cfg.APIRole == "rest" {
+	if cfg.NodeEnv == literalProduction && cfg.APIRole == literalRest {
 		var readConfig store.AccountingReadConfig
 		if err := config.ReadBoundDocument(cfg.AccountingReadFile, cfg.AccountingReadSHA256, &readConfig); err != nil {
 			app.Close()
@@ -356,7 +357,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 		accountingModel = model
 	}
 
-	if cfg.NodeEnv == "production" && cfg.APIRole == "rest" {
+	if cfg.NodeEnv == literalProduction && cfg.APIRole == literalRest {
 		app.sqlDB = stdlib.OpenDBFromPool(pool)
 	}
 	if err := app.registerREST(ctx, router, st, accountingModel, identityRequest, secretChecks, allowedOrigins, trustedProxies); err != nil {
@@ -366,7 +367,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 	if metrics != nil {
 		router.Handle("/metrics", metrics)
 	}
-	if devStream != nil && cfg.APIRole != "rest" {
+	if devStream != nil && cfg.APIRole != literalRest {
 		runCtx, stop := context.WithCancel(ctx)
 		app.devStreamStop = stop
 		go devStream.Run(runCtx)
@@ -382,7 +383,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 // registerREST installs every snapshot registration under the same client quota
 // and in-flight limit, including handlers that have their own workload admission.
 func (a *App) registerREST(ctx context.Context, router chi.Router, st *store.Store, model *store.AccountingReadModel, identity requestIdentity, checks map[string]sharedhttp.Check, allowedOrigins map[string]bool, trustedProxies []string) error {
-	if a.cfg.APIRole == "sockets" {
+	if a.cfg.APIRole == literalSockets {
 		return nil
 	}
 	var registrationErr error
@@ -395,11 +396,11 @@ func (a *App) registerREST(ctx context.Context, router chi.Router, st *store.Sto
 			KeyFunc: ratelimit.ClientKey,
 		}))
 		gr.Get("/status", a.statusHandler)
-		if a.cfg.NodeEnv != "production" {
+		if a.cfg.NodeEnv != literalProduction {
 			registrationErr = registerDevelopmentReads(gr, developmentReadDeps{cfg: &a.cfg, store: st, cache: a.cache, admission: a.admission})
 			return
 		}
-		if a.cfg.APIRole != "rest" {
+		if a.cfg.APIRole != literalRest {
 			return
 		}
 		if registrationErr = rest.RegisterAccountingV2WithAdmission(gr, model, []byte(a.cfg.StreamSigningKey), nil, a.admission); registrationErr != nil {
@@ -498,7 +499,7 @@ func Run(parent context.Context) error {
 	if app.streamRelay != nil {
 		go app.streamRelay.Run(ctx, logger)
 	}
-	if cfg.NodeEnv == "production" && cfg.APIRole == "sockets" {
+	if cfg.NodeEnv == literalProduction && cfg.APIRole == literalSockets {
 		for _, consumer := range app.streamConsumers {
 			consumer := consumer
 			go func() {
@@ -508,7 +509,7 @@ func Run(parent context.Context) error {
 				}
 			}()
 		}
-	} else if cfg.APIRole != "rest" {
+	} else if cfg.APIRole != literalRest {
 		go func() {
 			if err := app.Broker.Run(ctx); err != nil {
 				logger.Error("broker stopped", slog.Any("err", err))

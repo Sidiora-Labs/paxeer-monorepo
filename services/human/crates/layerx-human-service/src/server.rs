@@ -11,7 +11,7 @@ mod executor;
 mod finalization;
 mod http;
 pub mod identity;
-mod identity_dispatch;
+pub(crate) mod identity_dispatch;
 mod identity_services;
 pub mod key_export;
 mod limits;
@@ -23,7 +23,7 @@ pub mod production_components;
 mod production_reads;
 mod projection;
 pub mod schema;
-pub(crate) mod stream_journal;
+pub mod stream_journal;
 
 use layerx_types::clock::{Clock, Deadline};
 use std::io;
@@ -338,26 +338,21 @@ impl StreamCancellation {
                     if thread_stop.load(Ordering::Acquire) {
                         return;
                     }
-                    let remaining = match thread_deadline.lock() {
-                        Ok(mut deadline) => deadline
-                            .as_mut()
-                            .map(|deadline| deadline.remaining(thread_clock.as_ref()))
-                            .transpose(),
-                        Err(_) => {
-                            thread_cancelled.store(true, Ordering::Release);
-                            let _ = rustix::net::shutdown(&socket, rustix::net::Shutdown::Both);
-                            stream_journal::changed();
-                            return;
-                        }
+                    let Ok(mut deadline) = thread_deadline.lock() else {
+                        thread_cancelled.store(true, Ordering::Release);
+                        let _ = rustix::net::shutdown(&socket, rustix::net::Shutdown::Both);
+                        stream_journal::changed();
+                        return;
                     };
-                    let remaining = match remaining {
-                        Ok(remaining) => remaining,
-                        Err(_) => {
-                            thread_cancelled.store(true, Ordering::Release);
-                            let _ = rustix::net::shutdown(&socket, rustix::net::Shutdown::Both);
-                            stream_journal::changed();
-                            return;
-                        }
+                    let remaining = deadline
+                        .as_mut()
+                        .map(|deadline| deadline.remaining(thread_clock.as_ref()))
+                        .transpose();
+                    let Ok(remaining) = remaining else {
+                        thread_cancelled.store(true, Ordering::Release);
+                        let _ = rustix::net::shutdown(&socket, rustix::net::Shutdown::Both);
+                        stream_journal::changed();
+                        return;
                     };
                     if remaining.is_some_and(|remaining| remaining.is_zero()) {
                         thread_cancelled.store(true, Ordering::Release);
@@ -393,7 +388,7 @@ impl StreamCancellation {
                                 return;
                             }
                         }
-                        Err(rustix::io::Errno::INTR) => continue,
+                        Err(rustix::io::Errno::INTR) => {}
                         Err(_) => {
                             thread_cancelled.store(true, Ordering::Release);
                             stream_journal::changed();

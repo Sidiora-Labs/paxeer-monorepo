@@ -108,7 +108,7 @@ async function advanced_transcript_estimates_only_recorded_actions() {
     { from: owner, to: router, data: '0xdeadbeef' as const },
   ]) {
     await expect(peer.publicClient.request({ method: 'eth_estimateGas', params: [call] })).rejects.toThrow();
-    await expect(peer.publicClient.request({ method: 'eth_sendTransaction', params: [call] })).rejects.toThrow();
+    await expect(peer.walletClient.request({ method: 'eth_sendTransaction', params: [call] })).rejects.toThrow();
   }
   expect(peer.writes).toHaveLength(3);
   expect(peer.control.sendRequests).toBe(3);

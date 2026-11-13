@@ -116,7 +116,7 @@ async function openPeers(state, required) {
       assert.deepEqual(observed, { rung: "receipted", txHash, receipt: transcript[state.variant].signedReceipt,
         keyId: key.keyId, height: "0x1" });
       const proof = { ...transcript[state.variant], rawTransaction: payload.payload.rawTransaction,
-        signedReceipt: observed.receipt, receiptDigest: hex(keccak256(bytes(observed.receipt))) };
+        signedReceipt: observed.receipt };
       if (state.variant === "proof") {
         const verification = await verifyPaymentReceipt(proof, payload.accepted, receiptKeys);
         assert.equal(verification.txHash, txHash);
@@ -171,8 +171,8 @@ async function grantDrawWalkthrough(t, api, scheme) {
   assert.equal(transaction.chainId, 125n);
   assert.equal(hex(transaction.to), LAYERX_LEDGER_ADDRESS);
   assert.equal(transaction.value, 0n);
-  assert.deepEqual(transaction.data, encodeLedgerDraw({ from: bytes(recipient), assetId: word(0x22),
-    amount: 25n, grantId: word(0x33), receiverSequence: 1n, idempotencyKey: word(0x44), contextHash: word(0x55) }));
+  assert.deepEqual(transaction.data, encodeLedgerDraw({ recipient: bytes(recipient), purposeHash: word(0x22),
+    amount: 25n, grantId: word(0x33), sequence: 1n, idempotencyKey: word(0x44), contextHash: word(0x55) }));
   assert.equal(hex(transaction.data.subarray(36, 68)), recipient);
   assert.equal(hex(transaction.data.subarray(164, 196)), `0x${"22".repeat(32)}`);
   assert.notEqual(recipient, `0x${payer}`);

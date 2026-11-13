@@ -8,9 +8,8 @@ fixtures; production credentials are not required.
 Paxeer is one network, with the kernel participating in block proposal. Its EVM
 chain ID is 125 (`0x7d`), and a receipt is final when its block commits. The local
 Compose EVM and in-process Hardhat chain also use 125 but do not reproduce Paxeer
-consensus or establish deployment readiness. Public JSON-RPC uses the root URL,
-for example `https://api1.mainnet-beta.paxeer.network/`; local fixture commands
-below must use their private chains.
+consensus or establish deployment readiness. Public node JSON-RPC uses the root
+path. Local fixture commands below use their private chains.
 
 ## Source and dependency prerequisites
 
@@ -34,24 +33,23 @@ contract root. Standalone `contracts/run.sh` requires `CONTRACT_SOURCE_ROOT` and
 
 ## Current-source baseline gate
 
-The launchpad baseline runner expects its own production-system specification
-and reviewed [check registry](check-registry.json). The configured invocation is:
+The launchpad baseline runner requires a production-system specification and
+matching execution plan admitted by the [check registry](check-registry.json).
+The specification contains task `0.1`. Set `LAUNCHPAD_SPEC_FILE` to the
+specification named by the registry and `QUALIFICATION_OUTPUT_DIR` to an output base
+inside the repository's `launchpad/evidence` directory before running. The runner
+creates a private task/run subdirectory below that base:
 
 ```sh
 python3 tools/launchpad/production/qualify.py \
   --task 0.1 \
-  --spec launchpad/spec/production-system/spec.kvx \
+  --spec "$LAUNCHPAD_SPEC_FILE" \
   --registry tools/launchpad/production/bootstrap/check-registry.json \
   --contract-root contracts/launchpad \
-  --evidence-dir launchpad/evidence/production-system/qualification \
+  --evidence-dir "$QUALIFICATION_OUTPUT_DIR" \
   --require-current-source
 ```
 
-The configured `launchpad/spec/production-system/spec.kvx` is absent from this
-checkout. The command needs that reviewed launchpad specification restored or an
-explicit reviewed `--spec` file with the runner's expected task schema. Do not
-substitute `spec/layerx-merge/spec.kvx`: this is bootstrap task `0.1`, not a
-layerx-merge task gate.
 The runner verifies tools, dependency integrity and source provenance, starts
 loopback fixtures, deploys contracts on a private EVM, and executes registered
 Go, SDK and web checks. At most two contiguous Go test suites overlap; individual
@@ -73,13 +71,12 @@ The baseline checks workspace names and file/link targets in all four dependency
 sections, and records immutable hashes in `npm_workspace_manifests`. Package
 manifests in unrelated qualification fixtures are not workspace members.
 
-[build/manifest.json](build/manifest.json) remains a source command inventory
-covering thirteen modules. Its checker requires exact discovered-module coverage;
-that older inventory is not the seventeen-module dependency baseline and is not
-proof that the current tree builds. The checked-in task-0.1 registry and qualifier
-still require the listed build/test targets; membership discovery does not add,
-remove or certify executed checks. The registry excludes livestream from required
-test targets while retaining its build target; this does not mean it has no tests.
+[build/manifest.json](build/manifest.json) is a source command inventory covering
+thirteen modules. Its checker requires exact discovered-module coverage, matching
+module identities and Go versions. Registered builds run `go list ./...` and
+`go build -p 1 ./...` with `GOWORK=off` and `GOFLAGS=-mod=readonly`. The task-0.1
+registry selects required build/test targets independently of dependency
+membership. It includes livestream as a build target.
 
 ## Evidence and cleanup
 

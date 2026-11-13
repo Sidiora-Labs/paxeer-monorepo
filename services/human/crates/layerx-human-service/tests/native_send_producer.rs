@@ -1,5 +1,6 @@
-#[path = "support/protocol_time.rs"]
-mod protocol_time;
+pub mod protocol_time {
+    include!("support/protocol_time.rs");
+}
 use protocol_time::ProtocolTime;
 
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
@@ -14,11 +15,12 @@ use layerx_human_service::custody::{
 use layerx_human_service::frame::Limits;
 use layerx_human_service::server::agent_runtime::AgentRuntime;
 use layerx_human_service::server::native_send::{
-    load_access, preview_send_v2, HumanOwnerNativeContextV1,
+    load_access, preview_send_v2, HumanOwnerNativeContextV1, NativeSendPreviewV2,
 };
 use layerx_human_service::server::production_components::{AttestorCustodyConfig, AttestorKms};
 use layerx_human_service::store::{
-    PrincipalId, PrincipalStore, RetentionPeriod, RetentionPolicy, RowKey, Table, TenancyDigest,
+    PrincipalId, PrincipalScope, PrincipalStore, RetentionPeriod, RetentionPolicy, RowKey, Table,
+    TenancyDigest,
 };
 use layerx_human_service::trace::TraceId;
 use layerx_intents::{Intent, IntentKind, LxpSend};
@@ -50,11 +52,13 @@ fn checked<T, E: Debug>(value: Result<T, E>) -> T {
 fn text<'a>(value: &'a Value, key: &str) -> &'a str {
     value[key]
         .as_str()
-        .expect("genuine protected fixture field")
+        .or_fail("genuine protected fixture field")
 }
 
 fn number(value: &Value, key: &str) -> u64 {
-    value[key].as_u64().expect("genuine bounded protocol value")
+    value[key]
+        .as_u64()
+        .or_fail("genuine bounded protocol value")
 }
 
 fn protected(path: &str, bound: u64) -> Vec<u8> {
@@ -63,14 +67,14 @@ fn protected(path: &str, bound: u64) -> Vec<u8> {
         info.is_file()
             && info.len() > 0
             && info.len() <= bound
-            && info.permissions().mode() & 0o077 == 0
+            && info.permissions().mode().trailing_zeros() >= 6
     );
     checked(fs::read(path))
 }
 
 fn decode_hex(value: &str) -> Vec<u8> {
     assert!(
-        value.len() % 2 == 0
+        value.len().is_multiple_of(2)
             && value
                 .bytes()
                 .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
@@ -152,7 +156,7 @@ fn clock_at(fixture: &Value, height: u64) -> ProtocolTime {
                 length = Some(checked(value.trim().parse::<usize>()));
             }
         }
-        let length = length.expect("RPC content length");
+        let length = length.or_fail("RPC content length");
         assert!(length <= 65_536);
         let mut body = vec![0; length];
         checked(reader.read_exact(&mut body));
@@ -177,7 +181,7 @@ fn clock_at(fixture: &Value, height: u64) -> ProtocolTime {
         assert_eq!(answer["id"], request["id"]);
         let root = text(&answer["result"], "stateRoot")
             .strip_prefix("0x")
-            .expect("served sequencer state root");
+            .or_fail("served sequencer state root");
         assert_ne!(id(root), [0; 32]);
         let answer = checked(serde_json::to_vec(&answer));
         let mut stream = reader.into_inner();
@@ -259,7 +263,7 @@ fn public_request(fixture: &Value, path: &str, request: &Value) -> (u16, Value) 
     let mut header = format!("POST {path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n", body.len());
     let headers = request["headers"]
         .as_object()
-        .expect("protected genuine browser session headers");
+        .or_fail("protected genuine browser session headers");
     assert!(headers.keys().any(|key| key.eq_ignore_ascii_case("cookie")));
     for (name, value) in headers {
         assert!([
@@ -272,7 +276,7 @@ fn public_request(fixture: &Value, path: &str, request: &Value) -> (u16, Value) 
         ]
         .iter()
         .any(|allowed| name.eq_ignore_ascii_case(allowed)));
-        let value = value.as_str().expect("protected session header value");
+        let value = value.as_str().or_fail("protected session header value");
         assert!(!value.contains(['\r', '\n']));
         header.push_str(name);
         header.push_str(": ");
@@ -288,16 +292,16 @@ fn public_request(fixture: &Value, path: &str, request: &Value) -> (u16, Value) 
     let end = response
         .windows(4)
         .position(|bytes| bytes == b"\r\n\r\n")
-        .expect("genuine HTTP framing")
+        .or_fail("genuine HTTP framing")
         + 4;
     let head = checked(std::str::from_utf8(&response[..end]));
     let status = checked(
         head.lines()
             .next()
-            .expect("HTTP status")
+            .or_fail("HTTP status")
             .split(' ')
             .nth(1)
-            .expect("HTTP numeric status")
+            .or_fail("HTTP numeric status")
             .parse(),
     );
     let length: usize = head
@@ -307,7 +311,7 @@ fn public_request(fixture: &Value, path: &str, request: &Value) -> (u16, Value) 
                 .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
                 .map(|(_, value)| checked(value.trim().parse()))
         })
-        .expect("genuine bounded HTTP body length");
+        .or_fail("genuine bounded HTTP body length");
     assert_eq!(length, response.len() - end);
     (status, checked(serde_json::from_slice(&response[end..])))
 }
@@ -316,12 +320,12 @@ fn refusal_key(request: &mut Value, key: &str) {
     id(key);
     let headers = request["headers"]
         .as_object_mut()
-        .expect("genuine browser header object");
+        .or_fail("genuine browser header object");
     let previous = headers
         .keys()
         .find(|name| name.eq_ignore_ascii_case("idempotency-key"))
         .cloned()
-        .expect("genuine mutation idempotency header");
+        .or_fail("genuine mutation idempotency header");
     assert!(headers[&previous]
         .as_str()
         .is_some_and(|original| original != key));
@@ -341,7 +345,7 @@ fn public_access(fixture: &Value, case: &Value) {
     let mut immutable = confirm["body"].clone();
     assert!(immutable
         .as_object_mut()
-        .expect("genuine full consent request")
+        .or_fail("genuine full consent request")
         .remove("step_up")
         .is_some());
     assert!(immutable == begin["body"]);
@@ -360,7 +364,12 @@ fn public_access(fixture: &Value, case: &Value) {
     changed["body"]["maximum_amount"] = Value::String(
         maximum
             .checked_add(1)
-            .expect("genuine fixture amount permits bounded refusal mutation")
+            .unwrap_or_else(|| {
+                panic!(
+                    "{}",
+                    "genuine fixture amount permits bounded refusal mutation"
+                )
+            })
             .to_string(),
     );
     refusal_key(&mut changed, text(case, "begin_refusal_key"));
@@ -389,7 +398,7 @@ fn public_access(fixture: &Value, case: &Value) {
     let stored: Value = checked(serde_json::from_slice(
         scope
             .get(Table::Journeys, &disclosure_key)
-            .expect("actual immutable public consent disclosure")
+            .or_fail("actual immutable public consent disclosure")
             .bytes(),
     ));
     assert!(stored["body"] == begin["body"]);
@@ -463,14 +472,9 @@ fn prepare(
     PrepareRequest {
         protocol_activity_type: compiled.activity_type().value(),
         actor: checked(AgentDid::new(context.session.owner.clone())),
-        authority: checked(AuthorityRef::new(
-            context
-                .session
-                .owner_public_key
-                .iter()
-                .map(|b| format!("{b:02x}"))
-                .collect::<String>(),
-        )),
+        authority: checked(AuthorityRef::new(layerx_human_service::hex::lower(
+            (context.session.owner_public_key).as_ref(),
+        ))),
         account_sequence: layerx_agent_api::Sequence(coordinates.account_sequence),
         timestamp_bound: checked(
             TimestampBound {
@@ -503,7 +507,7 @@ fn local_state(fixture: &Value) -> Vec<(u8, Vec<u8>, Vec<u8>)> {
                 object,
                 store
                     .get(&key)
-                    .expect("actual owner local record")
+                    .or_fail("actual owner local record")
                     .bytes()
                     .to_vec(),
             ));
@@ -530,7 +534,7 @@ fn signer(fixture: &Value, agent: &AgentRuntime) -> CustodySigner {
     let attestor = &fixture["attestor"];
     let nodes = attestor["nodes"]
         .as_array()
-        .expect("actual attestor nodes")
+        .or_fail("actual attestor nodes")
         .iter()
         .map(|node| {
             (
@@ -541,9 +545,9 @@ fn signer(fixture: &Value, agent: &AgentRuntime) -> CustodySigner {
         .collect();
     let signers = attestor["signers"]
         .as_array()
-        .expect("actual quorum")
+        .or_fail("actual quorum")
         .iter()
-        .map(|v| v.as_str().expect("actual signer id").to_owned())
+        .map(|v| v.as_str().or_fail("actual signer id").to_owned())
         .collect();
     let provider = checked(AttestorKms::connect(checked(AttestorCustodyConfig::new(
         nodes,
@@ -570,51 +574,26 @@ fn signer(fixture: &Value, agent: &AgentRuntime) -> CustodySigner {
         checked(SigningLimits::new(32, 60)),
     )
 }
-#[test]
-fn genuine_human_owner_session_consent_preview_and_reopen() {
-    let path = std::env::var("PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE")
-        .expect("genuine protected Human native producer foundation required");
-    let fixture: Value = checked(serde_json::from_slice(&protected(&path, 65536)));
-    assert_eq!(fixture["schema"], "paxeer-x.human-native-send-producer.v1");
-    assert_eq!(fixture["isolated_real_owner"], true);
-    let case = &fixture["case"];
-    let principal = checked(PrincipalId::new(text(&fixture, "principal")));
-    let capability = id(text(case, "capability_id"));
-    let mut agent = runtime(
-        &fixture,
-        principal.as_str(),
-        text(&fixture, "owner"),
-        text(&fixture, "account"),
-    );
-    let mut retained = store(&fixture);
-    let mut scope = checked(retained.principal(&principal));
-    assert!(load_access(&scope, &mut agent, capability, clock(&fixture).seconds).is_err());
-    drop(scope);
-    drop(retained);
-    println!("NATIVE_SEND_PRODUCER_CASE denied-before-consent");
-    public_access(&fixture, case);
-    let mut retained = store(&fixture);
-    let mut scope = checked(retained.principal(&principal));
-    let context = checked(load_access(
-        &scope,
-        &mut agent,
-        capability,
-        clock(&fixture).seconds,
-    ));
-    assert_eq!(context.session.owner, text(&fixture, "owner"));
-    assert_eq!(context.session.principal, principal.as_str());
-    assert_eq!(context.session.tenant, text(&fixture, "agent_tenant"));
+fn assert_owner_session(
+    fixture: &Value,
+    context: &HumanOwnerNativeContextV1,
+    agent: &mut AgentRuntime,
+    scope: &PrincipalScope<'_>,
+) {
+    assert_eq!(context.session.owner, text(fixture, "owner"));
+    assert_eq!(context.session.principal, text(fixture, "principal"));
+    assert_eq!(context.session.tenant, text(fixture, "agent_tenant"));
     assert_ne!(context.session.grant_receipt_digest, [0; 32]);
     assert_ne!(context.session.grant_activity_id, [0; 32]);
-    assert!(clock(&fixture).milliseconds < context.session.expires_at_ms);
+    assert!(clock(fixture).milliseconds < context.session.expires_at_ms);
     checked(
         context
             .session
-            .validate(&scope, context.session.expires_at_ms / 1_000 - 1),
+            .validate(scope, context.session.expires_at_ms / 1_000 - 1),
     );
     assert!(context
         .session
-        .validate(&scope, context.session.expires_at_ms.div_ceil(1_000))
+        .validate(scope, context.session.expires_at_ms.div_ceil(1_000))
         .is_err());
     let grant = checked(context.signed_grant());
     let digest: [u8; 32] = Sha256::digest(checked(
@@ -629,34 +608,52 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         &ed25519_dalek::Signature::from_bytes(&grant.signature),
     ));
     let owner =
-        checked(agent.native_send_owner_context(&context.session, number(&fixture, "request_id")));
+        checked(agent.native_send_owner_context(&context.session, number(fixture, "request_id")));
     assert_eq!(owner.generation, context.session.generation);
     assert_eq!(owner.owner_public_key, context.session.owner_public_key);
     assert_eq!(owner.actor, context.session.owner);
     println!("NATIVE_SEND_PRODUCER_CASE actual-session-and-signed-grant");
-    let request = prepare(&fixture, case, &mut agent, &context);
-    let before = local_state(&fixture);
-    let head = clock(&fixture);
+}
+
+struct PreviewProof {
+    first: NativeSendPreviewV2,
+    second: NativeSendPreviewV2,
+    before: Vec<(u8, Vec<u8>, Vec<u8>)>,
+    head: ProtocolTime,
+    second_head: ProtocolTime,
+    expiry: u64,
+}
+
+fn assert_immutable_preview(
+    fixture: &Value,
+    scope: &PrincipalScope<'_>,
+    agent: &mut AgentRuntime,
+    context: &HumanOwnerNativeContextV1,
+    request: &PrepareRequest,
+    capability: [u8; 32],
+) -> PreviewProof {
+    let before = local_state(fixture);
+    let head = clock(fixture);
     let fee = checked(agent.session_fee_state(context.session.grant_id));
     let expiry = context.expires_at_ms;
     let first = checked(preview_send_v2(
-        &scope,
-        &mut agent,
-        &request,
+        scope,
+        agent,
+        request,
         capability,
         expiry,
-        clock(&fixture).seconds,
+        clock(fixture).seconds,
     ));
     let second = checked(preview_send_v2(
-        &scope,
-        &mut agent,
-        &request,
+        scope,
+        agent,
+        request,
         capability,
         expiry,
-        clock(&fixture).seconds,
+        clock(fixture).seconds,
     ));
-    let first_head = clock_at(&fixture, first.head_sequence);
-    let second_head = clock_at(&fixture, second.head_sequence);
+    let first_head = clock_at(fixture, first.head_sequence);
+    let second_head = clock_at(fixture, second.head_sequence);
     first_head.assert_follows(head);
     second_head.assert_follows(first_head);
     assert!(first.protocol_time_ms >= first_head.milliseconds);
@@ -681,8 +678,8 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         first.purpose.consent_public_key,
         context.session.owner_public_key
     );
-    assert_eq!(local_state(&fixture), before);
-    clock(&fixture).assert_follows(head);
+    assert_eq!(local_state(fixture), before);
+    clock(fixture).assert_follows(head);
     let after = checked(agent.session_fee_state(context.session.grant_id));
     assert_eq!(
         (
@@ -697,54 +694,77 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         )
     );
     println!("NATIVE_SEND_PRODUCER_CASE immutable-preview-without-economic-effect");
+    PreviewProof {
+        first,
+        second,
+        before,
+        head,
+        second_head,
+        expiry,
+    }
+}
+
+fn assert_changed_context_refused(
+    fixture: &Value,
+    request: &PrepareRequest,
+    agent: &mut AgentRuntime,
+    scope: &PrincipalScope<'_>,
+    capability: [u8; 32],
+    expiry: u64,
+    context: &HumanOwnerNativeContextV1,
+) {
     let mut changed = request.clone();
-    changed.actor = checked(AgentDid::new(text(&fixture, "foreign_owner")));
+    changed.actor = checked(AgentDid::new(text(fixture, "foreign_owner")));
     assert!(preview_send_v2(
-        &scope,
-        &mut agent,
+        scope,
+        agent,
         &changed,
         capability,
         expiry,
-        clock(&fixture).seconds
+        clock(fixture).seconds
     )
     .is_err());
     changed = request.clone();
     changed.payload_hash[0] ^= 1;
     assert!(preview_send_v2(
-        &scope,
-        &mut agent,
+        scope,
+        agent,
         &changed,
         capability,
         expiry,
-        clock(&fixture).seconds
+        clock(fixture).seconds
     )
     .is_err());
-    let foreign = checked(PrincipalId::new(text(&fixture, "foreign_principal")));
-    let mut foreign_store = store(&fixture);
+    let foreign = checked(PrincipalId::new(text(fixture, "foreign_principal")));
+    let mut foreign_store = store(fixture);
     let foreign_scope = checked(foreign_store.principal(&foreign));
-    assert!(load_access(
-        &foreign_scope,
-        &mut agent,
-        capability,
-        clock(&fixture).seconds
-    )
-    .is_err());
+    assert!(load_access(&foreign_scope, agent, capability, clock(fixture).seconds).is_err());
     assert!(context
         .session
-        .validate(&foreign_scope, clock(&fixture).seconds)
+        .validate(&foreign_scope, clock(fixture).seconds)
         .is_err());
     println!("NATIVE_SEND_PRODUCER_CASE foreign-and-changed-context-refused");
-    let custody = signer(&fixture, &agent);
-    let trace = checked(TraceId::parse(text(&fixture, "trace_id")));
+}
+
+fn assert_preview_signature(
+    fixture: &Value,
+    agent: &AgentRuntime,
+    scope: &mut PrincipalScope<'_>,
+    principal: &PrincipalId,
+    context: &HumanOwnerNativeContextV1,
+    first: &NativeSendPreviewV2,
+) {
+    let custody = signer(fixture, agent);
+    let trace = checked(TraceId::parse(text(fixture, "trace_id")));
     let key = checked(KeyId::new("human-primary"));
     let signature = checked(ready(custody.sign_native_consent_in_scope(
-        &mut scope,
+        scope,
         NativeConsentRequest::new(
-            &principal,
+            principal,
             &key,
             NativeConsent::SendPurpose(&first.purpose),
             SignAuthorization::new(Operation::ProtocolMutation, None),
-            clock(&fixture).seconds,
+            clock(fixture).seconds,
             trace,
         ),
     )));
@@ -773,8 +793,64 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
     )
     .is_err());
     println!("NATIVE_SEND_PRODUCER_CASE exact-preview-purpose-signed");
+}
+
+fn genuine_native_send_fixture() -> Value {
+    let path =
+        std::env::var("PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE").unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "genuine protected Human native producer foundation required"
+            )
+        });
+    checked(serde_json::from_slice(&protected(&path, 65536)))
+}
+
+#[test]
+fn genuine_human_owner_session_consent_preview_and_reopen() {
+    let fixture = genuine_native_send_fixture();
+    assert_eq!(fixture["schema"], "paxeer-x.human-native-send-producer.v1");
+    assert_eq!(fixture["isolated_real_owner"], true);
+    let case = &fixture["case"];
+    let principal = checked(PrincipalId::new(text(&fixture, "principal")));
+    let capability = id(text(case, "capability_id"));
+    let mut agent = runtime(
+        &fixture,
+        principal.as_str(),
+        text(&fixture, "owner"),
+        text(&fixture, "account"),
+    );
+    let mut retained = store(&fixture);
+    let scope = checked(retained.principal(&principal));
+    assert!(load_access(&scope, &mut agent, capability, clock(&fixture).seconds).is_err());
+    drop(scope);
+    drop(retained);
+    println!("NATIVE_SEND_PRODUCER_CASE denied-before-consent");
+    public_access(&fixture, case);
+    let mut retained = store(&fixture);
+    let mut scope = checked(retained.principal(&principal));
+    let context = checked(load_access(
+        &scope,
+        &mut agent,
+        capability,
+        clock(&fixture).seconds,
+    ));
+    assert_owner_session(&fixture, &context, &mut agent, &scope);
+    let request = prepare(&fixture, case, &mut agent, &context);
+    let PreviewProof {
+        first,
+        second,
+        before,
+        head,
+        second_head,
+        expiry,
+    } = assert_immutable_preview(&fixture, &scope, &mut agent, &context, &request, capability);
+    assert_changed_context_refused(
+        &fixture, &request, &mut agent, &scope, capability, expiry, &context,
+    );
+    assert_preview_signature(&fixture, &agent, &mut scope, &principal, &context, &first);
     let original_session =
-        serde_json::to_vec(&context.session).expect("actual retained session serialization");
+        serde_json::to_vec(&context.session).or_fail("actual retained session serialization");
     drop(context);
     drop(scope);
     drop(retained);
@@ -794,7 +870,10 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         clock(&fixture).seconds,
     ));
     assert_eq!(
-        serde_json::to_vec(&context.session).expect("actual reopened session serialization"),
+        serde_json::to_vec(&context.session).unwrap_or_else(|error| panic!(
+            "{}: {error:?}",
+            "actual reopened session serialization"
+        )),
         original_session
     );
     let resumed = checked(preview_send_v2(
@@ -825,4 +904,10 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
     assert_eq!(local_state(&fixture), before);
     clock(&fixture).assert_follows(head);
     println!("NATIVE_SEND_PRODUCER_CASE durable-reopen-and-exact-replay");
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

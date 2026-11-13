@@ -167,10 +167,10 @@ func (h *handlers) portfolio(w http.ResponseWriter, r *http.Request, wallet stri
 	result := l17.PortfolioResponse{Page: page, Errors: map[string][]string{}, QuoteAsset: "USDL", Decimals: 6, Algorithm: l17.Algorithm}
 	for _, p := range page.Positions {
 		var errs []string
-		if p.BasisQuality != "complete" {
+		if p.BasisQuality != statusComplete {
 			errs = append(errs, "basis_incomplete")
 		}
-		if p.RealizedBasisQuality != "complete" {
+		if p.RealizedBasisQuality != statusComplete {
 			errs = append(errs, "historical_realized_basis_incomplete")
 		}
 		if p.PricingQuality != "priced" {

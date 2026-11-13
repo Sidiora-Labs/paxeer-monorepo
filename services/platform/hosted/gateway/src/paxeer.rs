@@ -10,6 +10,15 @@ use layerx_platform_gateway::evm;
 use layerx_platform_gateway::http::OutboundRequest;
 use serde_json::{json, Map, Value};
 
+#[allow(
+    unused,
+    clippy::all,
+    clippy::pedantic,
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::float_arithmetic,
+    clippy::lossy_float_literal
+)]
 #[path = "../../../../../tools/platform/cli/src/wallet_gateway.rs"]
 mod wallet_contract;
 
@@ -278,7 +287,7 @@ pub(super) fn block_number(node: &mut Node<'_>) -> Result<u64, &'static str> {
 }
 
 fn hex32(bytes: &[u8; 32]) -> String {
-    super::hex(bytes)
+    crate::encoding::hex_encode(bytes)
 }
 
 fn is_zero(bytes: &[u8]) -> bool {
@@ -302,7 +311,7 @@ impl Resolution {
             self.layerx_account,
         )
     }
-
+    #[cfg(test)]
     fn did(&self) -> Option<String> {
         self.did_public_key
             .map(|key| format!("did:layerx:{}", hex32(&key)))
@@ -364,8 +373,7 @@ pub(super) fn bound_address(answer: &[u8]) -> Result<[u8; 20], &'static str> {
 fn resolve(node: &mut Node<'_>, selector: &Selector) -> Result<Resolution, &'static str> {
     let address = match selector {
         Selector::Evm(address) => *address,
-        Selector::NativeAccount(account) => {
-            let _native_account = account;
+        Selector::NativeAccount(_) => {
             return Err("native_account_reverse_resolution_unsupported");
         }
         Selector::Did(key) => bound_address(&call(
@@ -492,6 +500,7 @@ pub(super) fn history_account(
     Ok((resolution.document(), evm::address_hex(&address)))
 }
 
+#[cfg(test)]
 fn validate_native_listing(resolution: &Resolution, listing: &Value) -> Result<(), &'static str> {
     use sha2::{Digest as _, Sha256};
     let did = resolution.did().ok_or("conflicting_identity_binding")?;
@@ -749,7 +758,7 @@ fn layerx_assets(
     Ok((records, next))
 }
 
-/// Successful ledger reads include the optional OpenRPC `paused` and `verification` fields.
+/// Successful ledger reads include the optional `OpenRPC` `paused` and `verification` fields.
 /// Bank metadata and failed reads retain their existing shapes in `custody_asset`.
 fn layerx_asset_metadata(asset: &evm::LedgerAsset) -> Value {
     json!({"name": asset.name, "symbol": asset.symbol,
@@ -850,11 +859,11 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         };
         record
             .as_object_mut()
-            .expect("asset record is an object")
+            .unwrap_or_else(|| panic!("asset record is an object"))
             .extend(
                 metadata
                     .as_object()
-                    .expect("asset metadata is an object")
+                    .unwrap_or_else(|| panic!("asset metadata is an object"))
                     .clone(),
             );
     }
@@ -866,14 +875,7 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
 
 fn decode_coins(answer: &[u8]) -> Result<Vec<Value>, &'static str> {
     evm::decode_coins(answer)
-        .map(|coins| {
-            coins
-                .into_iter()
-                .map(|(denom, amount)| {
-                    json!({"denom": denom, "amount": evm::uint256_decimal(&amount)})
-                })
-                .collect()
-        })
+        .map(|coins| coins.into_iter().map(|(denom, amount)| json!({"denom": denom, "amount": evm::uint256_decimal(&amount)})).collect())
         .map_err(|_| "invalid_paxeer_response")
 }
 
@@ -941,12 +943,15 @@ pub(super) fn network_result(
     latest_block: &str,
     consensus: Option<super::chain_reads::ConsensusHead>,
 ) -> Value {
+    let consensus_available = consensus.is_some();
+    let consensus_value = serde_json::to_value(consensus)
+        .unwrap_or_else(|error| panic!("consensus serialization: {error}"));
     let mut result = json!({
         "network_id": network_id,
         "paxeer": {"chain_id": chain_id, "latest_block": latest_block},
-        "consensus": consensus
+        "consensus": consensus_value
     });
-    if consensus.is_none() {
+    if !consensus_available {
         result["reason"] = json!("consensus_unavailable");
     }
     result
@@ -976,24 +981,6 @@ pub(super) fn dispatch(
         }
         _ => return None,
     })
-}
-
-/// The Paxeer relay's state for the gateway's own status document.
-pub(super) fn status(config: &Config) -> &'static str {
-    if config.paxeer.is_none() {
-        return "not_configured";
-    }
-    if quantity(
-        &mut |request| node(config, request),
-        "eth_chainId",
-        &json!([]),
-    )
-    .is_ok()
-    {
-        "available"
-    } else {
-        "unavailable"
-    }
 }
 
 #[cfg(test)]

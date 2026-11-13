@@ -92,6 +92,9 @@ func TestRepairM_1009_RealCodecRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if raster, err := Reencode(context.Background(), webpBody); err != ErrUnavailable || len(raster.Variants) != 0 {
+		t.Fatalf("WebP without isolated decoding = %+v, %v", raster, err)
+	}
 	for _, tc := range []struct {
 		name string
 		body []byte

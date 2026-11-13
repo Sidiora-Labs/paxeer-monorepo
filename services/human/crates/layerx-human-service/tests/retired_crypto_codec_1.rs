@@ -1,43 +1,42 @@
-#[test]
-fn no_retired_layerx_crypto_codec_paths_1() {
-    fn collect_paths(tokens: &[String], cursor: &mut usize, prefix: &str, paths: &mut Vec<String>) {
-        let mut path = prefix.to_owned();
-        while let Some(token) = tokens.get(*cursor) {
-            if token == "{" {
-                *cursor += 1;
-                while tokens.get(*cursor).is_some_and(|token| token != "}") {
-                    let previous = *cursor;
-                    collect_paths(tokens, cursor, &path, paths);
-                    if *cursor == previous || tokens.get(*cursor).is_some_and(|token| token == ",")
-                    {
-                        *cursor += 1;
-                    }
-                }
-                *cursor += 1;
-                return;
-            }
-            if !token
-                .chars()
-                .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
-            {
-                return;
-            }
-            if !path.is_empty() {
-                path.push_str("::");
-            }
-            path.push_str(token);
+fn collect_paths(tokens: &[String], cursor: &mut usize, prefix: &str, paths: &mut Vec<String>) {
+    let mut path = prefix.to_owned();
+    while let Some(token) = tokens.get(*cursor) {
+        if token == "{" {
             *cursor += 1;
-            if tokens.get(*cursor).is_some_and(|token| token == ":")
-                && tokens.get(*cursor + 1).is_some_and(|token| token == ":")
-            {
-                *cursor += 2;
-            } else {
-                paths.push(path);
-                return;
+            while tokens.get(*cursor).is_some_and(|token| token != "}") {
+                let previous = *cursor;
+                collect_paths(tokens, cursor, &path, paths);
+                if *cursor == previous || tokens.get(*cursor).is_some_and(|token| token == ",") {
+                    *cursor += 1;
+                }
             }
+            *cursor += 1;
+            return;
+        }
+        if !token
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+        {
+            return;
+        }
+        if !path.is_empty() {
+            path.push_str("::");
+        }
+        path.push_str(token);
+        *cursor += 1;
+        if tokens.get(*cursor).is_some_and(|token| token == ":")
+            && tokens.get(*cursor + 1).is_some_and(|token| token == ":")
+        {
+            *cursor += 2;
+        } else {
+            paths.push(path);
+            return;
         }
     }
+}
 
+#[test]
+fn no_retired_layerx_crypto_codec_paths_1() {
     let migrated_files = [
         (
             "src/agents/create_native.rs",

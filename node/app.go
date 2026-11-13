@@ -3854,6 +3854,11 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 	rpcCtxProvider := app.RPCContextProvider
 	traceCtxProvider := app.SnapshotAwareRPCContextProvider()
 	var options []evmrpc.ServerOption
+	program, decodeErr := hex.DecodeString(strings.TrimPrefix(app.evmRPCConfig.PxInferenceProgram, "0x"))
+	if decodeErr == nil && len(program) == 32 && [32]byte(program) != ([32]byte{}) &&
+		common.IsHexAddress(app.evmRPCConfig.PxInferenceReader) && common.HexToAddress(app.evmRPCConfig.PxInferenceReader) != (common.Address{}) {
+		options = append(options, evmrpc.WithPxInferenceProgram([32]byte(program), common.HexToAddress(app.evmRPCConfig.PxInferenceReader)))
+	}
 	if app.sequencerRPC != (evmrpc.SequencerOption{}) {
 		options = append(options, app.sequencerRPC)
 	}

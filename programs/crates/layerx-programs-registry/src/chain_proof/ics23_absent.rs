@@ -14,6 +14,10 @@ pub struct NonExistenceProof {
 }
 
 impl NonExistenceProof {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn decode(bytes: &[u8]) -> Result<Self, ChainProofError> {
         if bytes.len() > MAX_PROOF_BYTES {
             return Err(ChainProofError::NonCanonical);
@@ -49,6 +53,10 @@ impl NonExistenceProof {
     }
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the supplied chain evidence cannot be decoded or verified.
 pub fn verify_non_existence(
     proof: &NonExistenceProof,
     spec: &ProofSpec,

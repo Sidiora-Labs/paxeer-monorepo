@@ -148,6 +148,17 @@ impl CommittedReceiptEvidence {
             &message.finalize().into(),
         )
         .map_err(|_| invalid())?;
+        self.verify_activity_chain(first, previous, resulting, tx_root, receipt)
+    }
+
+    fn verify_activity_chain(
+        &self,
+        first: u64,
+        previous: [u8; 32],
+        resulting: [u8; 32],
+        tx_root: [u8; 32],
+        receipt: &ProtocolReceipt,
+    ) -> Result<(), VerifyError> {
         let mut activities = Sha256::new();
         let mut chain = previous;
         for (index, id) in self.activity_ids.iter().enumerate() {

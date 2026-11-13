@@ -6,11 +6,12 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
-	"golang.org/x/time/rate"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -71,7 +72,7 @@ func (r *ReplayEngine) Start(ctx context.Context, digest string) error {
 			if err != nil {
 				return err
 			}
-			if stored != digest || status != "active" || next != m.ToHeight+1 || count != m.RawCount {
+			if stored != digest || status != valueActive || next != m.ToHeight+1 || count != m.RawCount {
 				return ErrIntegrity
 			}
 			return nil
@@ -86,7 +87,7 @@ func (r *ReplayEngine) Start(ctx context.Context, digest string) error {
 			if err != nil {
 				return err
 			}
-			if old != digest || status == "active" {
+			if old != digest || status == valueActive {
 				return ErrIntegrity
 			}
 		}
@@ -97,7 +98,7 @@ func (r *ReplayEngine) Start(ctx context.Context, digest string) error {
 		if tag.RowsAffected() != 1 {
 			return ErrLease
 		}
-		return r.archive.store.BindGenerationPathTx(ctx, tx, r.consumer, r.generation, "durable")
+		return r.archive.store.BindGenerationPathTx(ctx, tx, r.consumer, r.generation, valueDurable)
 	})
 }
 
@@ -112,10 +113,10 @@ func (r *ReplayEngine) Rebuild(ctx context.Context, digest string, budget *WorkB
 		if err != nil {
 			return err
 		}
-		if status.Status == "active" {
+		if status.Status == valueActive {
 			return nil
 		}
-		if status.Status == "verified" {
+		if status.Status == valueVerified {
 			if promote {
 				return r.Promote(ctx, expectedAliasRevision)
 			}
@@ -262,7 +263,7 @@ func (r *ReplayEngine) Promote(ctx context.Context, expectedRevision int64) erro
 		if err != nil {
 			return ErrLease
 		}
-		if status != "verified" {
+		if status != valueVerified {
 			return ErrIntegrity
 		}
 		subjects := []string{}
@@ -348,7 +349,7 @@ func (r *ReplayEngine) Status(ctx context.Context, lagBudget int64) (ReplayStatu
 		return s, err
 	}
 	s.Gap = missing != 0
-	s.Ready = !s.Gap && (s.Status == "verified" || s.Status == "active") && s.NextHeight-1 >= s.SourceHeight-lagBudget
+	s.Ready = !s.Gap && (s.Status == valueVerified || s.Status == valueActive) && s.NextHeight-1 >= s.SourceHeight-lagBudget
 	return s, nil
 }
 func DiskRunwaySeconds(backlogBytes, freeBytes, reserveBytes, arrivalBytesPerSecond, drainBytesPerSecond int64) (int64, error) {
@@ -388,7 +389,7 @@ func (r *ReplayEngine) RollbackAlias(ctx context.Context, expectedRevision int64
 		if err = tx.QueryRow(ctx, "SELECT status,manifest_digest,next_height,raw_count,projection_digest FROM "+r.archive.store.table("delivery_rebuilds")+" WHERE consumer_id=$1 AND generation=$2 FOR UPDATE", r.consumer, prior).Scan(&status, &digest, &next, &count, &projection); err != nil {
 			return err
 		}
-		if status != "active" && status != "verified" && status != "retired" {
+		if status != valueActive && status != valueVerified && status != "retired" {
 			return ErrIntegrity
 		}
 		if err = r.validateRecoveryTx(ctx, tx, prior, digest, next, count, projection); err != nil {
@@ -401,7 +402,7 @@ func (r *ReplayEngine) RollbackAlias(ctx context.Context, expectedRevision int64
 		if tag.RowsAffected() != 1 {
 			return ErrLease
 		}
-		if status != "active" {
+		if status != valueActive {
 			if _, err = tx.Exec(ctx, "UPDATE "+r.archive.store.table("delivery_rebuilds")+" SET status='active',revision=revision+1 WHERE consumer_id=$1 AND generation=$2", r.consumer, prior); err != nil {
 				return err
 			}

@@ -1,5 +1,34 @@
-#[path = "support/native_chain.rs"]
-mod native;
+trait Checked<T> {
+    fn checked(self) -> T;
+}
+
+impl<T, E: core::fmt::Debug> Checked<T> for Result<T, E> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{error:?}"),
+        }
+    }
+}
+
+impl<T> Checked<T> for Option<T> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("expected a value"),
+        }
+    }
+}
+
+#[allow(dead_code)]
+mod native {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/support/native_chain.rs"
+    ));
+}
 
 use layerx_programs_sandbox::{
     activity::canonical_fund_for_did, invocation::AuthenticatedSandboxReceiptEvidence,
@@ -24,24 +53,24 @@ fn refuse(
 fn sandbox_funding_receipt_verifies_funded_lease_record() {
     let (fixture, submission, proof) = evidence("sandboxFund");
     let payload = submission.payload();
-    let length = u32::from_be_bytes(payload[248..252].try_into().unwrap()) as usize;
-    let requested = Lease::decode_state(&payload[252..252 + length]).unwrap();
+    let length = u32::from_be_bytes(payload[248..252].try_into().checked()) as usize;
+    let requested = Lease::decode_state(&payload[252..252 + length]).checked();
     let tenant_key = proof
         .invocation
         .signer_binding
         .value
         .as_ref()
-        .unwrap()
+        .checked()
         .as_slice()
         .try_into()
-        .unwrap();
+        .checked();
     let constructed = canonical_fund_for_did(
-        SandboxProtocolContext::new(3, 4).unwrap(),
+        SandboxProtocolContext::new(3, 4).checked(),
         &requested,
         tenant_key,
         &payload[256 + length..],
     )
-    .unwrap();
+    .checked();
     assert_eq!(constructed, submission);
     assert_eq!(submission.expected_usage_sequence(), 0);
     assert_ne!(proof.chain.tx, submission.payload());
@@ -52,12 +81,12 @@ fn sandbox_funding_receipt_verifies_funded_lease_record() {
     );
     assert_eq!(
         proof.chain.commitment.key,
-        sandbox_state_key(0, requested.id().bytes()).unwrap()
+        sandbox_state_key(0, requested.id().bytes()).checked()
     );
     let receipt =
         SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, proof.clone(), NOW)
-            .unwrap();
-    let funded = Lease::decode_state(receipt.canonical_receipt()).unwrap();
+            .checked();
+    let funded = Lease::decode_state(receipt.canonical_receipt()).checked();
     assert_eq!(funded.state(), LeaseState::Funded);
     assert_eq!(
         &funded.history()[..requested.history().len()],
@@ -67,26 +96,44 @@ fn sandbox_funding_receipt_verifies_funded_lease_record() {
     assert_eq!(receipt.lease(), requested.id());
     assert_eq!(
         receipt.canonical_receipt(),
-        funded.canonical_state_bytes().unwrap()
+        funded.canonical_state_bytes().checked()
     );
     assert_eq!(
         receipt.authenticated_usage_receipt(),
         Err(SandboxActivityRefusal::InvalidReceipt)
     );
 
+    verify_invalid_funding_records(
+        &fixture,
+        &submission,
+        proof,
+        &requested,
+        &funded,
+        receipt.activity_id(),
+    );
+}
+
+fn verify_invalid_funding_records(
+    fixture: &native::chain::ChainFixture,
+    submission: &SandboxSubmission,
+    proof: AuthenticatedSandboxReceiptEvidence,
+    requested: &Lease,
+    funded: &Lease,
+    receipt_activity: [u8; 32],
+) {
     // Each malformed record has a valid signed state proof.
     let key = proof.chain.commitment.key.clone();
     let mut changed = proof.clone();
     reprove_state(
         &mut changed,
         "lxphost",
-        key.clone(),
-        requested.canonical_state_bytes().unwrap(),
+        &key,
+        requested.canonical_state_bytes().checked(),
     );
-    refuse(&fixture, &submission, changed);
-    let batch = funded.history().last().unwrap().batch_sequence;
+    refuse(fixture, submission, changed);
+    let batch = funded.history().last().checked().batch_sequence;
     let foreign_activity = lease_record(
-        &requested,
+        requested,
         layerx_programs_sandbox::LeaseActivity::Fund,
         [0x42; 32],
         batch,
@@ -95,12 +142,12 @@ fn sandbox_funding_receipt_verifies_funded_lease_record() {
     reprove_state(
         &mut changed,
         "lxphost",
-        key.clone(),
-        foreign_activity.canonical_state_bytes().unwrap(),
+        &key,
+        foreign_activity.canonical_state_bytes().checked(),
     );
-    refuse(&fixture, &submission, changed);
+    refuse(fixture, submission, changed);
     let other = Lease::request_with_schedule(
-        layerx_programs_sandbox::LeaseId::new([9; 32]).unwrap(),
+        layerx_programs_sandbox::LeaseId::new([9; 32]).checked(),
         requested.tenant(),
         requested.host_program(),
         requested.image_code_hash(),
@@ -111,7 +158,7 @@ fn sandbox_funding_receipt_verifies_funded_lease_record() {
         requested.expiry(),
         requested.fee_schedule(),
     )
-    .unwrap();
+    .checked();
     let other = lease_record(
         &other,
         layerx_programs_sandbox::LeaseActivity::Request,
@@ -121,26 +168,26 @@ fn sandbox_funding_receipt_verifies_funded_lease_record() {
     let foreign_lease = lease_record(
         &other,
         layerx_programs_sandbox::LeaseActivity::Fund,
-        receipt.activity_id(),
+        receipt_activity,
         batch,
     );
     let mut changed = proof.clone();
     reprove_state(
         &mut changed,
         "lxphost",
-        key,
-        foreign_lease.canonical_state_bytes().unwrap(),
+        &key,
+        foreign_lease.canonical_state_bytes().checked(),
     );
-    refuse(&fixture, &submission, changed);
+    refuse(fixture, submission, changed);
     let mut changed = proof.clone();
     changed.chain.tx_result.code = 5;
-    refuse(&fixture, &submission, changed);
+    refuse(fixture, submission, changed);
     let mut changed = proof.clone();
-    changed.chain.commitment.value.as_mut().unwrap()[0] ^= 1;
-    refuse(&fixture, &submission, changed);
+    changed.chain.commitment.value.as_mut().checked()[0] ^= 1;
+    refuse(fixture, submission, changed);
     let mut changed = proof;
     changed.chain.usage_ops.clear();
-    refuse(&fixture, &submission, changed);
+    refuse(fixture, submission, changed);
 }
 
 #[test]
@@ -151,17 +198,17 @@ fn sandbox_activation_receipt_preserves_native_funded_history() {
             .invocation
             .previous_lease
             .as_ref()
-            .unwrap()
+            .checked()
             .value
             .as_ref()
-            .unwrap(),
+            .checked(),
     )
-    .unwrap();
+    .checked();
     assert_eq!(previous.state(), LeaseState::Funded);
     let receipt =
         SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, proof.clone(), NOW)
-            .unwrap();
-    let active = Lease::decode_state(receipt.canonical_receipt()).unwrap();
+            .checked();
+    let active = Lease::decode_state(receipt.canonical_receipt()).checked();
     assert_eq!(active.state(), LeaseState::Active);
     assert_eq!(active.history().len(), previous.history().len() + 1);
     assert_eq!(
@@ -169,12 +216,12 @@ fn sandbox_activation_receipt_preserves_native_funded_history() {
         previous.history()
     );
     assert_eq!(
-        active.history().last().unwrap().transition.activity_id,
+        active.history().last().checked().transition.activity_id,
         receipt.activity_id()
     );
     assert_eq!(receipt.activity_id().as_slice(), read("sandboxActivate.id"));
     assert_eq!(
-        active.canonical_state_bytes().unwrap(),
+        active.canonical_state_bytes().checked(),
         read("sandboxExecute.before.lease.value")
     );
     let mut bad = proof;
@@ -195,12 +242,12 @@ fn sandbox_receipt_verifies_tx_result_and_usage_state() {
     );
     assert_eq!(
         proof.chain.commitment.key,
-        sandbox_state_key(2, submission.lease().bytes()).unwrap()
+        sandbox_state_key(2, submission.lease().bytes()).checked()
     );
-    let expected_value = proof.chain.commitment.value.clone().unwrap();
+    let expected_value = proof.chain.commitment.value.clone().checked();
     let receipt =
         SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, proof.clone(), NOW)
-            .unwrap();
+            .checked();
     assert_eq!(receipt.activity_id().as_slice(), read("sandboxExecute.id"));
     assert_ne!(
         receipt.activity_id().as_slice(),
@@ -208,9 +255,9 @@ fn sandbox_receipt_verifies_tx_result_and_usage_state() {
     );
     assert_eq!(receipt.lease(), submission.lease());
     assert_eq!(receipt.canonical_receipt(), expected_value);
-    let authenticated = receipt.authenticated_usage_receipt().unwrap();
+    let authenticated = receipt.authenticated_usage_receipt().checked();
     let usage = authenticated.receipt();
-    let ledger = UsageLedger::decode_canonical(&expected_value).unwrap();
+    let ledger = UsageLedger::decode_canonical(&expected_value).checked();
     assert_eq!(ledger.receipt_count(), 1);
     assert_eq!(ledger.latest(), Some(usage));
     assert_eq!(usage.activity_id(), receipt.activity_id());
@@ -220,13 +267,13 @@ fn sandbox_receipt_verifies_tx_result_and_usage_state() {
         usage.expected_lease_digest(),
         submission.expected_lease_digest()
     );
-    let committed = Lease::decode_state(&read("sandboxExecute.after.lease.value")).unwrap();
+    let committed = Lease::decode_state(&read("sandboxExecute.after.lease.value")).checked();
     assert_eq!(usage.charged(), committed.escrow_consumed());
     assert!(usage.charged() > 0);
-    usage.verify().unwrap();
+    usage.verify().checked();
     let original = frames();
     assert!(original.len() > 1);
-    receipt.verify_native_usage_frames(&original).unwrap();
+    receipt.verify_native_usage_frames(&original).checked();
     assert!(UsageLedger::decode_canonical(&original[0]).is_err());
     for index in 0..5 {
         let mut changed = proof.clone();
@@ -234,7 +281,7 @@ fn sandbox_receipt_verifies_tx_result_and_usage_state() {
             0 => changed.chain.tx.push(0),
             1 => changed.chain.result_proof.commit.signatures[0].signature[0] ^= 1,
             2 => changed.chain.tx_result.data.push(1),
-            3 => changed.chain.commitment.value.as_mut().unwrap()[4] ^= 1,
+            3 => changed.chain.commitment.value.as_mut().checked()[4] ^= 1,
             _ => changed.chain.result_proof.proof.index = 1,
         }
         refuse(&fixture, &submission, changed);
@@ -256,7 +303,7 @@ fn sandbox_receipt_verifies_tx_result_and_usage_state() {
     reprove_state(
         &mut changed,
         "lxphost",
-        proof.chain.commitment.key.clone(),
+        &proof.chain.commitment.key,
         original[0].clone(),
     );
     refuse(&fixture, &submission, changed);
@@ -267,14 +314,14 @@ fn sandbox_receipt_verifies_only_against_mounted_lxphost_store() {
     let (fixture, submission, proof) = evidence("sandboxExecute");
     let receipt =
         SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, proof.clone(), NOW)
-            .unwrap();
+            .checked();
     assert_eq!(receipt.activity_id().as_slice(), read("sandboxExecute.id"));
     let mut changed = proof.clone();
     reprove_state(
         &mut changed,
         "layerx",
-        proof.chain.commitment.key.clone(),
-        proof.chain.commitment.value.clone().unwrap(),
+        &proof.chain.commitment.key,
+        proof.chain.commitment.value.clone().checked(),
     );
     let head = fixture
         .verifier
@@ -282,15 +329,15 @@ fn sandbox_receipt_verifies_only_against_mounted_lxphost_store() {
             &changed.chain.result_proof.header,
             &changed.chain.result_proof.commit,
         )
-        .unwrap();
+        .checked();
     layerx_programs::verify_state(
         &head,
         "layerx",
         &changed.chain.commitment.key,
-        changed.chain.commitment.value.as_ref().unwrap(),
+        changed.chain.commitment.value.as_ref().checked(),
         &changed.chain.usage_ops,
     )
-    .unwrap();
+    .checked();
     refuse(&fixture, &submission, changed);
 }
 
@@ -301,15 +348,15 @@ fn sandbox_receipt_refuses_failed_tx_and_foreign_lease() {
     failed.chain.tx_result.code = 5;
     refuse(&fixture, &submission, failed);
     for key in [
-        sandbox_state_key(2, [99; 32]).unwrap(),
-        sandbox_state_key(1, submission.lease().bytes()).unwrap(),
+        sandbox_state_key(2, [99; 32]).checked(),
+        sandbox_state_key(1, submission.lease().bytes()).checked(),
     ] {
         let mut foreign = proof.clone();
         reprove_state(
             &mut foreign,
             "lxphost",
-            key.clone(),
-            proof.chain.commitment.value.clone().unwrap(),
+            &key,
+            proof.chain.commitment.value.clone().checked(),
         );
         let head = fixture
             .verifier
@@ -317,15 +364,15 @@ fn sandbox_receipt_refuses_failed_tx_and_foreign_lease() {
                 &foreign.chain.result_proof.header,
                 &foreign.chain.result_proof.commit,
             )
-            .unwrap();
+            .checked();
         layerx_programs::verify_state(
             &head,
             "lxphost",
             &key,
-            foreign.chain.commitment.value.as_ref().unwrap(),
+            foreign.chain.commitment.value.as_ref().checked(),
             &foreign.chain.usage_ops,
         )
-        .unwrap();
+        .checked();
         refuse(&fixture, &submission, foreign);
     }
     let legacy = proof.chain;
@@ -342,7 +389,7 @@ fn lease_record(
     batch: u64,
 ) -> Lease {
     use layerx_programs_sandbox::LeaseActivity;
-    let mut bytes = lease.canonical_state_bytes().unwrap();
+    let mut bytes = lease.canonical_state_bytes().checked();
     let state_offset = bytes.len() - 5 - lease.history().len() * 107;
     let state = if activity == LeaseActivity::Fund {
         LeaseState::Funded
@@ -350,10 +397,10 @@ fn lease_record(
         LeaseState::Requested
     };
     bytes[state_offset] = state as u8;
-    bytes[state_offset + 1] = u8::try_from(lease.history().len() + 1).unwrap();
+    bytes[state_offset + 1] = u8::try_from(lease.history().len() + 1).checked();
     bytes.truncate(bytes.len() - 3);
     let observation = if activity == LeaseActivity::Request {
-        lease.request_binding_digest().unwrap()
+        lease.request_binding_digest().checked()
     } else {
         [0; 32]
     };
@@ -370,5 +417,5 @@ fn lease_record(
     bytes.extend_from_slice(&receipt.finalize());
     bytes.extend_from_slice(&batch.to_be_bytes());
     bytes.extend_from_slice(&[0, 0, 0]);
-    Lease::decode_state(&bytes).unwrap()
+    Lease::decode_state(&bytes).checked()
 }

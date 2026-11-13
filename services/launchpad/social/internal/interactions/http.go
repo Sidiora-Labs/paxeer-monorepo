@@ -38,17 +38,17 @@ func NewHTTP(store Store, policy *PGPolicy, cache *ViewerCache, verifier Receipt
 func (h *HTTP) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Get("/users/{wallet}/followers", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "followers") })
-	r.Get("/users/{wallet}/following", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "following") })
+	r.Get("/users/{wallet}/following", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, followingResource) })
 	r.Get("/users/{wallet}/follow-stats", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "stats") })
-	r.Put("/follow/{followee}", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "follow") })
-	r.Delete("/follow/{followee}", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "unfollow") })
+	r.Put("/follow/{followee}", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, followAction) })
+	r.Delete("/follow/{followee}", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, unfollowAction) })
 	r.Get("/pool/{poolAddress}/comments", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "comments") })
 	r.Post("/pool/{poolAddress}/comments", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "create") })
 	r.Patch("/comments/{id}", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "edit") })
-	r.Delete("/comments/{id}", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "delete") })
+	r.Delete("/comments/{id}", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, deleteAction) })
 	r.Post("/comments/{id}/hide", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "hide") })
-	r.Put("/comments/{id}/like", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "like") })
-	r.Delete("/comments/{id}/like", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "unlike") })
+	r.Put("/comments/{id}/like", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, likeAction) })
+	r.Delete("/comments/{id}/like", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, unlikeAction) })
 	r.Post("/callouts/{id}/references", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "callout") })
 	r.Get("/me/social/privacy", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "privacy") })
 	r.Patch("/me/social/privacy", func(w http.ResponseWriter, r *http.Request) { h.handle(w, r, "set_privacy") })
@@ -148,13 +148,13 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 		writeResponse(w, v, nil)
 		return
 	}
-	if operation == "followers" || operation == "following" {
+	if operation == "followers" || operation == followingResource {
 		limit, e := limitOf(r)
 		if e != nil {
 			httpError(w, e)
 			return
 		}
-		page, e := h.visibleFollows(r.Context(), chi.URLParam(r, "wallet"), operation == "following", limit, r.URL.Query().Get("cursor"))
+		page, e := h.visibleFollows(r.Context(), chi.URLParam(r, "wallet"), operation == followingResource, limit, r.URL.Query().Get("cursor"))
 		if e != nil {
 			httpError(w, e)
 			return
@@ -215,7 +215,7 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 			httpError(w, e)
 			return
 		}
-		writeResponse(w, map[string]bool{"success": true}, nil)
+		writeResponse(w, map[string]bool{successState: true}, nil)
 		return
 	}
 	if operation == "block" || operation == "unblock" {
@@ -223,7 +223,7 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 			httpError(w, e)
 			return
 		}
-		writeResponse(w, map[string]bool{"success": true}, nil)
+		writeResponse(w, map[string]bool{successState: true}, nil)
 		return
 	}
 	key, e := requestKey(r)
@@ -233,9 +233,9 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 	}
 	input := Request{Actor: principal.Wallet, ID: chi.URLParam(r, "id"), Pool: chi.URLParam(r, "poolAddress"), Key: key}
 	switch operation {
-	case "follow", "unfollow":
+	case followAction, unfollowAction:
 		input.ID = chi.URLParam(r, "followee")
-		input.Remove = operation == "unfollow"
+		input.Remove = operation == unfollowAction
 		e = h.Store.Follow(r.Context(), input)
 	case "create":
 		var body struct {
@@ -254,7 +254,7 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 				e = h.Store.CreateComment(r.Context(), input)
 			}
 		}
-	case "edit", "delete":
+	case "edit", deleteAction:
 		var body struct {
 			Body     string `json:"body"`
 			Revision string `json:"expectedRevision"`
@@ -263,7 +263,7 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 		if e == nil {
 			input.Body = body.Body
 			input.Revision, e = parseRevision(body.Revision)
-			input.Remove = operation == "delete"
+			input.Remove = operation == deleteAction
 			if e == nil {
 				e = h.Store.EditComment(r.Context(), input)
 			}
@@ -283,9 +283,9 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 				e = h.Store.HideComment(r.Context(), input)
 			}
 		}
-	case "like", "unlike":
-		input.Kind = "like"
-		input.Remove = operation == "unlike"
+	case likeAction, unlikeAction:
+		input.Kind = likeAction
+		input.Remove = operation == unlikeAction
 		e = h.Store.React(r.Context(), input)
 	case "callout":
 		var body struct {
@@ -323,7 +323,7 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 			httpError(w, e)
 			return
 		}
-		writeResponse(w, map[string]any{"comment": view}, nil)
+		writeResponse(w, map[string]any{commentAction: view}, nil)
 		return
 	}
 	if operation == "edit" {
@@ -332,20 +332,20 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 			httpError(w, e)
 			return
 		}
-		writeResponse(w, map[string]any{"comment": view}, nil)
+		writeResponse(w, map[string]any{commentAction: view}, nil)
 		return
 	}
-	if operation == "delete" || operation == "unlike" || operation == "unfollow" {
+	if operation == deleteAction || operation == unlikeAction || operation == unfollowAction {
 		w.Header().Set("Cache-Control", "private, no-store")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	if operation == "follow" {
-		writeResponse(w, map[string]bool{"following": true}, nil)
+	if operation == followAction {
+		writeResponse(w, map[string]bool{followingResource: true}, nil)
 		return
 	}
-	if operation == "like" {
-		count, e := h.Store.Count(r.Context(), input.ID, "like")
+	if operation == likeAction {
+		count, e := h.Store.Count(r.Context(), input.ID, likeAction)
 		if e != nil {
 			httpError(w, e)
 			return
@@ -353,7 +353,7 @@ func (h *HTTP) handle(w http.ResponseWriter, r *http.Request, operation string) 
 		writeResponse(w, map[string]any{"likeCount": strconv.FormatInt(count, 10), "liked": true}, nil)
 		return
 	}
-	writeResponse(w, map[string]bool{"success": true}, nil)
+	writeResponse(w, map[string]bool{successState: true}, nil)
 }
 
 type CommentView struct {

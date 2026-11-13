@@ -21,15 +21,10 @@ fn matches_path(template: &str, path: &str) -> bool {
             (Some(want), Some(got)) if want.starts_with('{') && want.ends_with('}') => {
                 if got.is_empty()
                     || got.len() > 256
-                    || !got
-                        .bytes()
-                        .all(|b| b.is_ascii_alphanumeric() || b"-._~".contains(&b))
+                    || !got.bytes().all(|b| b.is_ascii_alphanumeric() || b"-._~".contains(&b))
                     || matches!(got, "." | "..")
                     || (want == "{market_id}" && !got.bytes().all(|b| b.is_ascii_digit()))
-                    || (want == "{hash}"
-                        && !got.strip_prefix("0x").is_some_and(|hash| {
-                            hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit())
-                        }))
+                    || (want == "{hash}" && !got.strip_prefix("0x").is_some_and(|hash| hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit())))
                 {
                     return false;
                 }
@@ -41,9 +36,7 @@ fn matches_path(template: &str, path: &str) -> bool {
 }
 
 fn selected(method: &str, path: &str) -> Option<&'static Route> {
-    ROUTES
-        .iter()
-        .find(|r| r.method == method && matches_path(r.path, path))
+    ROUTES.iter().find(|r| r.method == method && matches_path(r.path, path))
 }
 
 fn explorer_cookie(name: &str) -> bool {
@@ -51,9 +44,7 @@ fn explorer_cookie(name: &str) -> bool {
 }
 
 fn cookie_value(value: &str) -> bool {
-    !value
-        .bytes()
-        .any(|b| b < 0x21 || b >= 0x7f || matches!(b, b'"' | b',' | b';' | b'\\'))
+    !value.bytes().any(|b| !(0x21..0x7f).contains(&b) || matches!(b, b'"' | b',' | b';' | b'\\'))
 }
 
 fn cookies(value: &str) -> Result<Zeroizing<String>, String> {
@@ -63,10 +54,7 @@ fn cookies(value: &str) -> Result<Zeroizing<String>, String> {
     let mut output = Zeroizing::new(String::new());
     let mut seen = BTreeSet::new();
     for part in value.split(';') {
-        let (name, value) = part
-            .trim()
-            .split_once('=')
-            .ok_or("malformed browser cookie")?;
+        let (name, value) = part.trim().split_once('=').ok_or("malformed browser cookie")?;
         if !explorer_cookie(name) {
             continue;
         }
@@ -101,11 +89,7 @@ pub(super) fn scope_cookie(value: &str) -> Result<Option<String>, String> {
     let mut seen = BTreeSet::new();
     for part in parts {
         let part = part.trim();
-        let attribute = part
-            .split('=')
-            .next()
-            .unwrap_or_default()
-            .to_ascii_lowercase();
+        let attribute = part.split('=').next().unwrap_or_default().to_ascii_lowercase();
         if !seen.insert(attribute.clone()) || attribute.is_empty() {
             return Err("duplicate or empty cookie attribute".into());
         }
@@ -127,65 +111,28 @@ pub(super) fn scope_cookie(value: &str) -> Result<Option<String>, String> {
 }
 
 fn same_origin_referer(public: &ui_proxy::Public, value: &str) -> bool {
-    value
-        .strip_prefix(public.origin.as_str())
-        .is_some_and(|rest| {
-            rest == "/explorer" || rest.starts_with("/explorer/") || rest.starts_with("/explorer?")
-        })
+    value.strip_prefix(public.origin.as_str()).is_some_and(|rest| rest == "/explorer" || rest.starts_with("/explorer/") || rest.starts_with("/explorer?"))
 }
 
-fn admitted_headers(
-    request: &IncomingRequest,
-    route: &Route,
-) -> Result<Vec<(String, Zeroizing<String>)>, u16> {
+fn admitted_headers(request: &IncomingRequest, route: &Route) -> Result<Vec<(String, Zeroizing<String>)>, u16> {
     let public = ui_proxy::public().ok_or(503_u16)?;
-    if request
-        .headers
-        .get("host")
-        .is_none_or(|v| *v != public.host)
-        || request.headers.contains_key("x-layerx-principal")
-        || request.headers.contains_key("x-layerx-api-key")
-        || request.body.len() > MAX_BODY
-    {
+    if request.headers.get("host").is_none_or(|v| *v != public.host) || request.headers.contains_key("x-layerx-principal") || request.headers.contains_key("x-layerx-api-key") || request.body.len() > MAX_BODY {
         return Err(400);
     }
     let origin = request.headers.get("origin");
     let referer = request.headers.get("referer");
-    if origin.is_some_and(|v| *v != public.origin)
-        || referer.is_some_and(|v| !same_origin_referer(public, v))
-        || request
-            .headers
-            .get("sec-fetch-site")
-            .is_some_and(|v| !matches!(v.as_str(), "same-origin" | "none"))
-    {
+    if origin.is_some_and(|v| *v != public.origin) || referer.is_some_and(|v| !same_origin_referer(public, v)) || request.headers.get("sec-fetch-site").is_some_and(|v| !matches!(v.as_str(), "same-origin" | "none")) {
         return Err(403);
     }
-    let unsafe_request = request.method != "GET"
-        || route.path == "/api/account/auth/logout"
-        || route.path == "/api/account/v2/email/resend"
-        || route.path == "/api/account/v2/authenticate_via_dynamic";
+    let unsafe_request = request.method != "GET" || route.path == "/api/account/auth/logout" || route.path == "/api/account/v2/email/resend" || route.path == "/api/account/v2/authenticate_via_dynamic";
     if (unsafe_request || route.path == SOCKET_PATH) && origin.is_none() && referer.is_none() {
         return Err(403);
     }
-    if route.session_csrf
-        && request.method != "GET"
-        && request
-            .headers
-            .get("x-csrf-token")
-            .is_none_or(|v| v.is_empty())
-    {
+    if route.session_csrf && request.method != "GET" && request.headers.get("x-csrf-token").is_none_or(String::is_empty) {
         return Err(403);
     }
     let mut forwarded = Vec::new();
-    for name in [
-        "accept",
-        "accept-language",
-        "origin",
-        "referer",
-        "x-csrf-token",
-        "if-none-match",
-        "if-modified-since",
-    ] {
+    for name in ["accept", "accept-language", "origin", "referer", "x-csrf-token", "if-none-match", "if-modified-since"] {
         if let Some(value) = request.headers.get(name) {
             if value.len() > 4096 || !value.bytes().all(|b| b.is_ascii_graphic() || b == b' ') {
                 return Err(400);
@@ -195,12 +142,8 @@ fn admitted_headers(
     }
     if route.path == "/api/account/v2/authenticate_via_dynamic" {
         if let Some(value) = request.headers.get("authorization") {
-            let token = value
-                .strip_prefix("Bearer ")
-                .or_else(|| value.strip_prefix("bearer "));
-            if value.len() > 4096
-                || token.is_none_or(|v| v.is_empty() || !v.bytes().all(|b| b.is_ascii_graphic()))
-            {
+            let token = value.strip_prefix("Bearer ").or_else(|| value.strip_prefix("bearer "));
+            if value.len() > 4096 || token.is_none_or(|v| v.is_empty() || !v.bytes().all(|b| b.is_ascii_graphic())) {
                 return Err(400);
             }
             forwarded.push(("authorization".into(), Zeroizing::new(value.clone())));
@@ -212,10 +155,7 @@ fn admitted_headers(
             forwarded.push(("cookie".into(), value));
         }
     }
-    forwarded.push((
-        "x-forwarded-host".into(),
-        Zeroizing::new(public.host.clone()),
-    ));
+    forwarded.push(("x-forwarded-host".into(), Zeroizing::new(public.host.clone())));
     forwarded.push(("x-forwarded-proto".into(), Zeroizing::new("https".into())));
     Ok(forwarded)
 }
@@ -232,11 +172,7 @@ fn location(upstream: &str, value: &str) -> Result<String, String> {
         split_target(value)?;
         return Ok(format!("{PREFIX}{value}"));
     }
-    if value.starts_with("https://")
-        && !value.contains(['@', '\\'])
-        && value.len() <= MAX_TARGET
-        && value.bytes().all(|b| b.is_ascii_graphic())
-    {
+    if value.starts_with("https://") && !value.contains(['@', '\\']) && value.len() <= MAX_TARGET && value.bytes().all(|b| b.is_ascii_graphic()) {
         return Ok(value.to_owned());
     }
     Err("explorer redirect refused".into())
@@ -249,21 +185,15 @@ pub(super) fn route(request: &IncomingRequest) -> Option<OutgoingResponse> {
     Some(http_route(request))
 }
 
-pub(super) fn filter_capabilities_response(
-    path: &str,
-    answer: &mut OutgoingResponse,
-) -> Result<(), &'static str> {
+pub(super) fn filter_capabilities_response(path: &str, answer: &mut OutgoingResponse) -> Result<(), &'static str> {
     if path != "/api/v2/paxeer-x/capabilities" || answer.body.is_empty() {
         return Ok(());
     }
-    let mut capabilities: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_slice(&answer.body).map_err(|_| "explorer_capabilities_refused")?;
+    let mut capabilities: serde_json::Map<String, serde_json::Value> = serde_json::from_slice(&answer.body).map_err(|_| "explorer_capabilities_refused")?;
     capabilities.remove("custody");
     capabilities.remove("anchor");
     answer.body = serde_json::to_vec(&capabilities).map_err(|_| "explorer_capabilities_refused")?;
-    answer
-        .headers
-        .retain(|(name, _)| !matches!(name.as_str(), "etag" | "x-content-sha256"));
+    answer.headers.retain(|(name, _)| !matches!(name.as_str(), "etag" | "x-content-sha256"));
     Ok(())
 }
 
@@ -275,15 +205,7 @@ fn http_route(request: &IncomingRequest) -> OutgoingResponse {
         return response(404, "not_found", None);
     };
     let Some(route) = selected(&request.method, upstream_path) else {
-        return response(
-            if ROUTES.iter().any(|r| matches_path(r.path, upstream_path)) {
-                405
-            } else {
-                404
-            },
-            "explorer_route_not_admitted",
-            None,
-        );
+        return response(if ROUTES.iter().any(|r| matches_path(r.path, upstream_path)) { 405 } else { 404 }, "explorer_route_not_admitted", None);
     };
     if route.path == SOCKET_PATH || request.headers.contains_key("upgrade") {
         return response(400, "invalid_websocket_upgrade", None);
@@ -292,28 +214,21 @@ fn http_route(request: &IncomingRequest) -> OutgoingResponse {
         Ok(value) => value,
         Err(status) => return response(status, "explorer_request_refused", None),
     };
-    let Some(upstream) = ui_proxy::public().and_then(|public| public.explorer_backend.as_deref())
-    else {
+    let Some(upstream) = ui_proxy::public().and_then(|public| public.explorer_backend.as_deref()) else {
         return response(503, "explorer_not_configured", None);
     };
     let Ok(endpoint) = http::Endpoint::parse(upstream) else {
         return response(503, "explorer_not_configured", None);
     };
     let target = &request.path[PREFIX.len()..];
-    let headers: Vec<(&str, &str)> = forwarded
-        .iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
+    let headers: Vec<(&str, &str)> = forwarded.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
     let answer = http::explorer_request(
         &endpoint,
         &http::OutboundRequest {
             method: &request.method,
             path: target,
             idempotency: None,
-            content_type: request
-                .headers
-                .get("content-type")
-                .map_or("", String::as_str),
+            content_type: request.headers.get("content-type").map_or("", String::as_str),
             body: &request.body,
         },
         &headers,
@@ -352,10 +267,7 @@ fn http_route(request: &IncomingRequest) -> OutgoingResponse {
     output
 }
 
-pub(super) fn websocket<S: ws::Connection>(
-    request: &IncomingRequest,
-    stream: &mut S,
-) -> Option<Result<(), String>> {
+pub(super) fn websocket<S: ws::Connection>(request: &IncomingRequest, stream: &mut S) -> Option<Result<(), String>> {
     if !owns_target(&request.path) {
         return None;
     }
@@ -365,9 +277,7 @@ pub(super) fn websocket<S: ws::Connection>(
     if path.strip_prefix(PREFIX) != Some(SOCKET_PATH) {
         return None;
     }
-    let refusal = |stream: &mut S, status, reason| {
-        http::write_response_connection(stream, &response(status, reason, None), false)
-    };
+    let refusal = |stream: &mut S, status, reason| http::write_response_connection(stream, &response(status, reason, None), false);
     let Some(route) = selected(&request.method, SOCKET_PATH) else {
         return Some(refusal(stream, 405, "method_not_allowed"));
     };
@@ -375,30 +285,11 @@ pub(super) fn websocket<S: ws::Connection>(
         Ok(value) => value,
         Err(status) => return Some(refusal(stream, status, "explorer_request_refused")),
     };
-    let endpoint = match ui_proxy::public()
-        .and_then(|public| public.explorer_backend.as_deref())
-        .map(http::Endpoint::parse)
-    {
-        Some(Ok(value)) => value,
-        _ => return Some(refusal(stream, 503, "explorer_not_configured")),
+    let Some(Ok(endpoint)) = ui_proxy::public().and_then(|public| public.explorer_backend.as_deref()).map(http::Endpoint::parse) else {
+        return Some(refusal(stream, 503, "explorer_not_configured"));
     };
-    let headers: Vec<(&str, &str)> = forwarded
-        .iter()
-        .filter(|(k, _)| {
-            matches!(
-                k.as_str(),
-                "cookie" | "origin" | "x-forwarded-host" | "x-forwarded-proto"
-            )
-        })
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
-    Some(ws::serve_explorer(
-        request,
-        &endpoint,
-        &request.path[PREFIX.len()..],
-        &headers,
-        stream,
-    ))
+    let headers: Vec<(&str, &str)> = forwarded.iter().filter(|(k, _)| matches!(k.as_str(), "cookie" | "origin" | "x-forwarded-host" | "x-forwarded-proto")).map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    Some(ws::serve_explorer(request, &endpoint, &request.path[PREFIX.len()..], &headers, stream))
 }
 
 #[cfg(test)]
@@ -417,27 +308,15 @@ mod tests {
             body: Vec::new(),
         };
         assert_eq!(http_route(&request).status, 404);
-        for path in [
-            "/api/v2/paxeer-x/archive/anchors",
-            "/api/v2/paxeer-x/capabilities",
-        ] {
+        for path in ["/api/v2/paxeer-x/archive/anchors", "/api/v2/paxeer-x/capabilities"] {
             assert!(selected("GET", path).is_some(), "{path}");
         }
     }
     #[test]
     fn explorer_proxies_archive_receipt_views() {
         assert_eq!(ui_proxy::beta_public().host, HOST);
-        for (path, template) in [
-            (
-                "/api/v2/paxeer-x/archive/receipts",
-                "/api/v2/paxeer-x/archive/receipts",
-            ),
-            (
-                "/api/v2/paxeer-x/archive/receipts/receipt-123",
-                "/api/v2/paxeer-x/archive/receipts/{id}",
-            ),
-        ] {
-            let route = selected("GET", path).expect("archive receipt route is admitted");
+        for (path, template) in [("/api/v2/paxeer-x/archive/receipts", "/api/v2/paxeer-x/archive/receipts"), ("/api/v2/paxeer-x/archive/receipts/receipt-123", "/api/v2/paxeer-x/archive/receipts/{id}")] {
+            let route = selected("GET", path).unwrap_or_else(|| panic!("{}", "archive receipt route is admitted"));
             assert_eq!(route.path, template);
             let request = IncomingRequest {
                 method: "GET".into(),
@@ -447,10 +326,7 @@ mod tests {
             };
             assert!(admitted_headers(&request, route).is_ok(), "{path}");
         }
-        for path in [
-            "/api/v2/paxeer-x/receipts",
-            "/api/v2/paxeer-x/receipts/receipt-123",
-        ] {
+        for path in ["/api/v2/paxeer-x/receipts", "/api/v2/paxeer-x/receipts/receipt-123"] {
             assert!(selected("GET", path).is_none(), "{path}");
             let request = IncomingRequest {
                 method: "GET".into(),
@@ -466,24 +342,12 @@ mod tests {
         assert_eq!(ROUTES.len(), 145);
         let hash = format!("0x{}", "ab".repeat(32));
         for (path, template) in [
-            (
-                format!("/api/v2/transactions/{hash}/signature"),
-                "/api/v2/transactions/{transaction_hash_param}/signature",
-            ),
-            (
-                "/api/v2/paxeer-x/feed/markets".to_owned(),
-                "/api/v2/paxeer-x/feed/markets",
-            ),
-            (
-                "/api/v2/paxeer-x/feed/markets/0/updates".to_owned(),
-                "/api/v2/paxeer-x/feed/markets/{market_id}/updates",
-            ),
-            (
-                format!("/api/v2/paxeer-x/feed/updates/{hash}"),
-                "/api/v2/paxeer-x/feed/updates/{hash}",
-            ),
+            (format!("/api/v2/transactions/{hash}/signature"), "/api/v2/transactions/{transaction_hash_param}/signature"),
+            ("/api/v2/paxeer-x/feed/markets".to_owned(), "/api/v2/paxeer-x/feed/markets"),
+            ("/api/v2/paxeer-x/feed/markets/0/updates".to_owned(), "/api/v2/paxeer-x/feed/markets/{market_id}/updates"),
+            (format!("/api/v2/paxeer-x/feed/updates/{hash}"), "/api/v2/paxeer-x/feed/updates/{hash}"),
         ] {
-            let route = selected("GET", &path).expect("signature and feed routes are admitted");
+            let route = selected("GET", &path).unwrap_or_else(|| panic!("{}", "signature and feed routes are admitted"));
             assert_eq!(route.path, template, "{path}");
             assert!(!route.session_csrf, "{path}");
         }
@@ -492,36 +356,27 @@ mod tests {
         assert!(selected("POST", "/api/v2/webhooks").is_none());
         assert!(selected("GET", "/api/v2/addresses/a/b/transactions").is_none());
         assert!(selected("GET", "/api/v2/addresses/%2e%2e/transactions").is_none());
-        let target =
-            "/explorer/backend/api/v2/transactions?type=ERC-20,ERC-721&q=a+b&filter%5Bkind%5D=x";
-        assert_eq!(
-            split_target(target).unwrap().1,
-            target.split_once('?').map(|(_, q)| q)
-        );
+        let target = "/explorer/backend/api/v2/transactions?type=ERC-20,ERC-721&q=a+b&filter%5Bkind%5D=x";
+        assert_eq!(split_target(target).unwrap_or_else(|error| panic!("value required: {error:?}")).1, target.split_once('?').map(|(_, q)| q));
         for target in ["/explorer/backendx/", "/explorer/backends/api/v2/stats"] {
             assert!(!owns_target(target));
         }
-        for target in [
-            "/explorer/backend/api/../v2",
-            "/explorer/backend/%2fapi",
-            "/explorer/backend/api?q=%",
-            "/explorer/backend/api?q=x\r\nHost:evil",
-        ] {
+        for target in ["/explorer/backend/api/../v2", "/explorer/backend/%2fapi", "/explorer/backend/api?q=%", "/explorer/backend/api?q=x\r\nHost:evil"] {
             assert!(split_target(target).is_err());
         }
     }
     #[test]
     fn explorer_cookie_isolation_and_scope() {
-        assert_eq!(cookies("wallet_session=secret; _explorer_key=opaque; human_token=secret; api_temp_token=temp").unwrap().as_str(), "_explorer_key=opaque; api_temp_token=temp");
+        assert_eq!(
+            cookies("wallet_session=secret; _explorer_key=opaque; human_token=secret; api_temp_token=temp").unwrap_or_else(|error| panic!("value required: {error:?}")).as_str(),
+            "_explorer_key=opaque; api_temp_token=temp"
+        );
         assert!(cookies("_explorer_key=a; _explorer_key=b").is_err());
         assert_eq!(
-            scope_cookie(
-                "_explorer_key=opaque; Domain=example.org; Path=/; Secure; HttpOnly; SameSite=Lax"
-            )
-            .unwrap(),
+            scope_cookie("_explorer_key=opaque; Domain=example.org; Path=/; Secure; HttpOnly; SameSite=Lax").unwrap_or_else(|error| panic!("value required: {error:?}")),
             Some("_explorer_key=opaque; Secure; HttpOnly; SameSite=Lax; Path=/explorer".into())
         );
-        assert_eq!(scope_cookie("wallet_session=secret; Path=/").unwrap(), None);
+        assert_eq!(scope_cookie("wallet_session=secret; Path=/").unwrap_or_else(|error| panic!("value required: {error:?}")), None);
         assert!(scope_cookie("_explorer_key=a\r\nX:evil").is_err());
     }
     #[test]
@@ -530,53 +385,35 @@ mod tests {
         let mut request = IncomingRequest {
             method: "GET".into(),
             path: format!("{PREFIX}/api/account/v2/authenticate_via_dynamic"),
-            headers: [
-                ("host".into(), HOST.into()),
-                ("origin".into(), ORIGIN.into()),
-                ("authorization".into(), "Bearer actual-token-shape".into()),
-            ]
-            .into(),
+            headers: [("host".into(), HOST.into()), ("origin".into(), ORIGIN.into()), ("authorization".into(), "Bearer actual-token-shape".into())].into(),
             body: Vec::new(),
         };
-        let dynamic = selected("GET", "/api/account/v2/authenticate_via_dynamic").unwrap();
+        let dynamic = selected("GET", "/api/account/v2/authenticate_via_dynamic").unwrap_or_else(|| panic!("value required"));
         assert!(admitted_headers(&request, dynamic)
-            .unwrap()
+            .unwrap_or_else(|error| panic!("value required: {error:?}"))
             .iter()
-            .any(|(name, value)| name == "authorization"
-                && value.as_str() == "Bearer actual-token-shape"));
-        let public = selected("GET", "/api/v2/stats").unwrap();
-        assert!(!admitted_headers(&request, public)
-            .unwrap()
-            .iter()
-            .any(|(name, _)| name == "authorization"));
+            .any(|(name, value)| name == "authorization" && value.as_str() == "Bearer actual-token-shape"));
+        let public = selected("GET", "/api/v2/stats").unwrap_or_else(|| panic!("value required"));
+        assert!(!admitted_headers(&request, public).unwrap_or_else(|error| panic!("value required: {error:?}")).iter().any(|(name, _)| name == "authorization"));
         request.headers.remove("origin");
-        assert_eq!(admitted_headers(&request, dynamic).unwrap_err(), 403);
+        assert_eq!(admitted_headers(&request, dynamic).err().unwrap_or_else(|| panic!("error required")), 403);
     }
     #[test]
     fn explorer_session_origin_and_csrf() {
         assert_eq!(ui_proxy::beta_public().origin, ORIGIN);
-        let route = selected("POST", "/api/account/v2/user/watchlist").unwrap();
+        let route = selected("POST", "/api/account/v2/user/watchlist").unwrap_or_else(|| panic!("value required"));
         let mut request = IncomingRequest {
             method: "POST".into(),
             path: format!("{PREFIX}{}", route.path),
-            headers: [
-                ("host".into(), HOST.into()),
-                ("origin".into(), ORIGIN.into()),
-                ("x-csrf-token".into(), "token".into()),
-            ]
-            .into(),
+            headers: [("host".into(), HOST.into()), ("origin".into(), ORIGIN.into()), ("x-csrf-token".into(), "token".into())].into(),
             body: b"{}".to_vec(),
         };
         assert!(admitted_headers(&request, route).is_ok());
         request.headers.remove("x-csrf-token");
-        assert_eq!(admitted_headers(&request, route).unwrap_err(), 403);
-        request
-            .headers
-            .insert("x-csrf-token".into(), "token".into());
-        request
-            .headers
-            .insert("origin".into(), "https://untrusted.invalid".into());
-        assert_eq!(admitted_headers(&request, route).unwrap_err(), 403);
+        assert_eq!(admitted_headers(&request, route).err().unwrap_or_else(|| panic!("error required")), 403);
+        request.headers.insert("x-csrf-token".into(), "token".into());
+        request.headers.insert("origin".into(), "https://untrusted.invalid".into());
+        assert_eq!(admitted_headers(&request, route).err().unwrap_or_else(|| panic!("error required")), 403);
     }
 
     #[test]
@@ -584,36 +421,20 @@ mod tests {
         assert_eq!(ui_proxy::beta_public().host, HOST);
         let hash = format!("0x{}", "ab".repeat(32));
         let path = format!("/api/v2/transactions/{hash}/signature");
-        let route = selected("GET", &path).expect("transaction signature route is admitted");
-        assert_eq!(
-            route.path,
-            "/api/v2/transactions/{transaction_hash_param}/signature"
-        );
+        let route = selected("GET", &path).unwrap_or_else(|| panic!("{}", "transaction signature route is admitted"));
+        assert_eq!(route.path, "/api/v2/transactions/{transaction_hash_param}/signature");
         assert!(!route.session_csrf);
 
         let mut request = IncomingRequest {
             method: "GET".into(),
             path: format!("{PREFIX}{path}"),
-            headers: [
-                ("host".into(), HOST.into()),
-                ("origin".into(), ORIGIN.into()),
-                ("accept".into(), "application/json".into()),
-                ("authorization".into(), "Bearer private-token".into()),
-            ]
-            .into(),
+            headers: [("host".into(), HOST.into()), ("origin".into(), ORIGIN.into()), ("accept".into(), "application/json".into()), ("authorization".into(), "Bearer private-token".into())].into(),
             body: Vec::new(),
         };
-        let headers = admitted_headers(&request, route).unwrap();
-        assert!(headers
-            .iter()
-            .any(|(name, value)| name == "accept" && value.as_str() == "application/json"));
+        let headers = admitted_headers(&request, route).unwrap_or_else(|error| panic!("value required: {error:?}"));
+        assert!(headers.iter().any(|(name, value)| name == "accept" && value.as_str() == "application/json"));
         assert!(!headers.iter().any(|(name, _)| name == "authorization"));
-        for (name, value, status) in [
-            ("host", "untrusted.invalid", 400),
-            ("x-layerx-api-key", "private-key", 400),
-            ("referer", "https://untrusted.invalid/explorer", 403),
-            ("sec-fetch-site", "cross-site", 403),
-        ] {
+        for (name, value, status) in [("host", "untrusted.invalid", 400), ("x-layerx-api-key", "private-key", 400), ("referer", "https://untrusted.invalid/explorer", 403), ("sec-fetch-site", "cross-site", 403)] {
             let previous = request.headers.insert(name.into(), value.into());
             assert_eq!(http_route(&request).status, status, "{name}");
             request.headers.remove(name);
@@ -623,17 +444,11 @@ mod tests {
         }
         request.headers.insert("accept".into(), "a".repeat(4097));
         assert_eq!(http_route(&request).status, 400);
-        request
-            .headers
-            .insert("accept".into(), "application/json".into());
-        request
-            .headers
-            .insert("origin".into(), "https://untrusted.invalid".into());
+        request.headers.insert("accept".into(), "application/json".into());
+        request.headers.insert("origin".into(), "https://untrusted.invalid".into());
         assert_eq!(http_route(&request).status, 403);
         request.headers.insert("origin".into(), ORIGIN.into());
-        request
-            .headers
-            .insert("x-layerx-principal".into(), "private-principal".into());
+        request.headers.insert("x-layerx-principal".into(), "private-principal".into());
         assert_eq!(http_route(&request).status, 400);
 
         for method in ["POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] {
@@ -1406,27 +1221,13 @@ mod feed_admission_tests {
         for id in ["", "-1", "1.5", "abc", ".", "..", "%30", "0/1", "1?index=0"] {
             assert!(selected("GET", &format!("{markets}/{id}/updates")).is_none());
         }
-        for hash in [
-            "0x1234",
-            "0x",
-            "ab",
-            &"ab".repeat(32),
-            &format!("0x{}", "gg".repeat(32)),
-        ] {
+        for hash in ["0x1234", "0x", "ab", &"ab".repeat(32), &format!("0x{}", "gg".repeat(32))] {
             assert!(selected("GET", &format!("/api/v2/paxeer-x/feed/updates/{hash}")).is_none());
         }
-        for path in [
-            "/api/v2/paxeer-x/feed/updates",
-            "/api/v2/paxeer-x/feed/admin",
-            "/api/v2/paxeer-x/feed/markets/0",
-            "/api/v2/paxeer-x/feed/markets/0/updates/extra",
-        ] {
+        for path in ["/api/v2/paxeer-x/feed/updates", "/api/v2/paxeer-x/feed/admin", "/api/v2/paxeer-x/feed/markets/0", "/api/v2/paxeer-x/feed/markets/0/updates/extra"] {
             assert!(selected("GET", path).is_none(), "{path}");
         }
-        assert!(!matches_path(
-            "/api/v2/paxeer-x/feed/markets/{market_id}/updates",
-            &format!("{markets}/{}/updates", "1".repeat(257))
-        ));
+        assert!(!matches_path("/api/v2/paxeer-x/feed/markets/{market_id}/updates", &format!("{markets}/{}/updates", "1".repeat(257))));
         // Existing route parameter admission remains unchanged.
         assert!(selected("GET", "/api/v2/transactions/short-hash/signature").is_some());
     }

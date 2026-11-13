@@ -6,9 +6,10 @@ import (
 	"embed"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"io/fs"
 	"sort"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
 // Index is deterministic machine-readable generation input. ABI diffs include

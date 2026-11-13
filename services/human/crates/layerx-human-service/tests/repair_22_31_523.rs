@@ -189,7 +189,7 @@ impl ApprovalBoundary for AgentdBoundary<'_> {
 }
 
 fn hex(bytes: [u8; 32]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_human_service::hex::lower((bytes).as_ref())
 }
 
 fn assert_payload(
@@ -248,7 +248,115 @@ fn assert_payload(
     }
 }
 
-fn round_trip(asset: &str, amount: u128) {
+fn created_event(
+    id: u8,
+    asset: &str,
+    amount: u128,
+    registry: &ApprovalRegistry,
+    boundary: &AgentdBoundary<'_>,
+    ingestor: &mut EventIngestor,
+    agent_audit: &mut Log,
+) -> (ApprovalEvent, Vec<u8>, [u8; 32]) {
+    let sequence = 10 + u64::from(id);
+    let held = prepared(id, asset, amount);
+    let context = ApprovalContext {
+        tenant: tenant(),
+        agent: checked(Did::new(ACTOR.as_bytes())),
+        actor_address: [4; 20],
+        session: SessionId([2; 32]),
+        capability: CapabilityId([3; 32]),
+        policy_version: "notification-binding-policy-v1".to_owned(),
+        request_id: [id; 32],
+    };
+    let ticket = checked(hold_at(
+        registry,
+        context.clone(),
+        held,
+        ApprovalSequence(sequence),
+        ApprovalSequence(50),
+        TimestampSeconds(sequence),
+    ));
+    let record = checked(boundary.service.get(
+        &tenant(),
+        ticket.hold_id,
+        sequence,
+        TimestampSeconds(sequence),
+    ));
+    let emission = checked(ApprovalEvents::emit(
+        ingestor,
+        agent_audit,
+        &mut Coverage::default(),
+        &ApprovalLifecycle {
+            tenant: context.tenant,
+            agent: context.agent,
+            session: context.session,
+            capability: context.capability.0,
+            policy_version: context.policy_version,
+            approval_id: record.approval_id,
+            canonical_digest: record.canonical_bytes_digest,
+            activity_type: record.held_activity.activity_type.0,
+            asset: record.held_activity.asset.as_str().to_owned(),
+            kind: ApprovalEventKind::Created,
+            principal: None,
+            observed_at_ms: sequence * 1_000,
+        },
+    ));
+    let event = checked(ApprovalEvent::decode_agent_stream(
+        &emission.canonical_event_bytes,
+        sequence,
+    ));
+    (
+        event,
+        emission.canonical_event_bytes,
+        record.canonical_bytes_digest,
+    )
+}
+
+fn added_notifications(
+    scope: &PrincipalScope<'_>,
+    previous: &[Delivery],
+    detail: DetailLevel,
+    amount: u128,
+    asset: &str,
+    disclosure_digest: [u8; 32],
+) -> Vec<Delivery> {
+    let deliveries = checked(Dispatcher::deliveries(scope));
+    assert_eq!(deliveries.len(), previous.len() + 3);
+    let added: Vec<_> = deliveries
+        .into_iter()
+        .filter(|d| !previous.contains(d))
+        .collect();
+    assert_payload(scope, &added, detail, amount, asset);
+    for delivery in &added {
+        assert_eq!(
+            checked(ApprovalNotification::for_delivery(scope, delivery)).disclosure_digest(),
+            disclosure_digest
+        );
+    }
+    added
+}
+
+fn replay_events(
+    events: Vec<(u64, Vec<u8>)>,
+    ingestor: &EventIngestor,
+    inbox: &mut Inbox,
+    boundary: &mut AgentdBoundary<'_>,
+    scope: &mut PrincipalScope<'_>,
+    audit: &mut AuditChain,
+    trace: &TraceId,
+) {
+    for (sequence, canonical) in events {
+        let retained = checked(ingestor.retained_event(sequence));
+        assert_eq!(retained.canonical_bytes, canonical);
+        let replay = checked(ApprovalEvent::decode_agent_stream(
+            &retained.canonical_bytes,
+            sequence,
+        ));
+        checked(inbox.consume(&[replay], boundary, scope, audit, trace));
+    }
+}
+
+fn stream_directories() -> (std::path::PathBuf, std::path::PathBuf) {
     let root = support::directory("repair-22-31-523");
     let stream_root = root.join("stream");
     checked(
@@ -257,6 +365,80 @@ fn round_trip(asset: &str, amount: u128) {
             .mode(0o700)
             .create(&stream_root),
     );
+    (root, stream_root)
+}
+
+struct ApprovalRound<'a, 'scope, 'boundary> {
+    registry: &'a ApprovalRegistry,
+    boundary: &'a mut AgentdBoundary<'boundary>,
+    ingestor: &'a mut EventIngestor,
+    agent_audit: &'a mut Log,
+    scope: &'a mut PrincipalScope<'scope>,
+    audit: &'a mut AuditChain,
+    inbox: &'a mut Inbox,
+    trace: &'a TraceId,
+    asset: &'a str,
+    amount: u128,
+}
+
+type ApprovalRoundResult = (Vec<(u64, Vec<u8>)>, Vec<(DetailLevel, Vec<Delivery>)>);
+
+fn collect_approval_round(context: ApprovalRound<'_, '_, '_>) -> ApprovalRoundResult {
+    let ApprovalRound {
+        registry,
+        boundary,
+        ingestor,
+        agent_audit,
+        scope,
+        audit,
+        inbox,
+        trace,
+        asset,
+        amount,
+    } = context;
+    let mut events = Vec::new();
+    let mut groups = Vec::new();
+    for (id, detail) in [
+        DetailLevel::Full,
+        DetailLevel::Summary,
+        DetailLevel::Minimal,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let id = u8::try_from(id).or_fail("three detail levels");
+        let sequence = 10 + u64::from(id);
+        let (event, canonical_event_bytes, disclosure_digest) = created_event(
+            id,
+            asset,
+            amount,
+            registry,
+            boundary,
+            &mut *ingestor,
+            &mut *agent_audit,
+        );
+        let previous = checked(Dispatcher::deliveries(scope));
+        let mut preferences = checked(Dispatcher::preferences(scope));
+        preferences.set_detail(detail);
+        checked(Dispatcher::update_preferences(
+            &mut *scope,
+            sequence,
+            &preferences,
+        ));
+        checked(inbox.consume(&[event], &mut *boundary, &mut *scope, &mut *audit, trace));
+        assert_eq!(
+            checked(inbox.snapshot(sequence)).awaiting_count(),
+            usize::from(id) + 1
+        );
+        let added = added_notifications(scope, &previous, detail, amount, asset, disclosure_digest);
+        groups.push((detail, added));
+        events.push((sequence, canonical_event_bytes));
+    }
+    (events, groups)
+}
+
+fn round_trip(asset: &str, amount: u128) {
+    let (root, stream_root) = stream_directories();
     let registry = ApprovalRegistry::default();
     let limiter = checked(BudgetLimiter::new(Vec::new()));
     let expiry = checked(ApprovalExpiry::open(root.join("approval")));
@@ -280,100 +462,24 @@ fn round_trip(asset: &str, amount: u128) {
     let mut scope = checked(store.principal(&support::principal("alice")));
     let mut audit = checked(AuditChain::open(&scope));
     let mut inbox = checked(Inbox::new(10, 3));
-    let mut events = Vec::new();
-    let mut groups = Vec::new();
-    for (id, detail) in [
-        DetailLevel::Full,
-        DetailLevel::Summary,
-        DetailLevel::Minimal,
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let id = u8::try_from(id).expect("three detail levels");
-        let sequence = 10 + u64::from(id);
-        let held = prepared(id, asset, amount);
-        let context = ApprovalContext {
-            tenant: tenant(),
-            agent: checked(Did::new(ACTOR.as_bytes())),
-            actor_address: [4; 20],
-            session: SessionId([2; 32]),
-            capability: CapabilityId([3; 32]),
-            policy_version: "notification-binding-policy-v1".to_owned(),
-            request_id: [id; 32],
-        };
-        let ticket = checked(hold_at(
-            &registry,
-            context.clone(),
-            held,
-            ApprovalSequence(sequence),
-            ApprovalSequence(50),
-            TimestampSeconds(sequence),
-        ));
-        let record = checked(boundary.service.get(
-            &tenant(),
-            ticket.hold_id,
-            sequence,
-            TimestampSeconds(sequence),
-        ));
-        let emission = checked(ApprovalEvents::emit(
-            &mut ingestor,
-            &mut agent_audit,
-            &mut Coverage::default(),
-            &ApprovalLifecycle {
-                tenant: context.tenant,
-                agent: context.agent,
-                session: context.session,
-                capability: context.capability.0,
-                policy_version: context.policy_version,
-                approval_id: record.approval_id,
-                canonical_digest: record.canonical_bytes_digest,
-                activity_type: record.held_activity.activity_type.0,
-                asset: record.held_activity.asset.as_str().to_owned(),
-                kind: ApprovalEventKind::Created,
-                principal: None,
-                observed_at_ms: sequence * 1_000,
-            },
-        ));
-        let event = checked(ApprovalEvent::decode_agent_stream(
-            &emission.canonical_event_bytes,
-            sequence,
-        ));
-        let previous = checked(Dispatcher::deliveries(&scope));
-        let mut preferences = checked(Dispatcher::preferences(&scope));
-        preferences.set_detail(detail);
-        checked(Dispatcher::update_preferences(
-            &mut scope,
-            sequence,
-            &preferences,
-        ));
-        checked(inbox.consume(&[event], &mut boundary, &mut scope, &mut audit, &trace));
-        assert_eq!(
-            checked(inbox.snapshot(sequence)).awaiting_count(),
-            usize::from(id) + 1
-        );
-        let deliveries = checked(Dispatcher::deliveries(&scope));
-        assert_eq!(deliveries.len(), previous.len() + 3);
-        let added: Vec<_> = deliveries
-            .into_iter()
-            .filter(|d| !previous.contains(d))
-            .collect();
-        assert_payload(&scope, &added, detail, amount, asset);
-        for delivery in &added {
-            assert_eq!(
-                checked(ApprovalNotification::for_delivery(&scope, delivery)).disclosure_digest(),
-                record.canonical_bytes_digest
-            );
-        }
-        groups.push((detail, added));
-        events.push((sequence, emission.canonical_event_bytes));
-    }
+    let (events, groups) = collect_approval_round(ApprovalRound {
+        registry: &registry,
+        boundary: &mut boundary,
+        ingestor: &mut ingestor,
+        agent_audit: &mut agent_audit,
+        scope: &mut scope,
+        audit: &mut audit,
+        inbox: &mut inbox,
+        trace: &trace,
+        asset,
+        amount,
+    });
     let before = checked(Dispatcher::deliveries(&scope));
     let audit_before = checked(audit.entries(&scope)).len();
     drop(scope);
     drop(store);
     drop(inbox);
-    drop(audit);
+    let _ = audit;
     drop(ingestor);
     drop(agent_audit);
 
@@ -392,15 +498,15 @@ fn round_trip(asset: &str, amount: u128) {
     checked(Dispatcher::update_preferences(&mut scope, 13, &preferences));
     let mut audit = checked(AuditChain::open(&scope));
     let mut inbox = checked(Inbox::new(10, 3));
-    for (sequence, canonical) in events {
-        let retained = checked(ingestor.retained_event(sequence));
-        assert_eq!(retained.canonical_bytes, canonical);
-        let replay = checked(ApprovalEvent::decode_agent_stream(
-            &retained.canonical_bytes,
-            sequence,
-        ));
-        checked(inbox.consume(&[replay], &mut boundary, &mut scope, &mut audit, &trace));
-    }
+    replay_events(
+        events,
+        &ingestor,
+        &mut inbox,
+        &mut boundary,
+        &mut scope,
+        &mut audit,
+        &trace,
+    );
     assert_eq!(checked(Dispatcher::deliveries(&scope)), before);
     assert_eq!(checked(audit.entries(&scope)).len(), audit_before);
     assert_eq!(checked(inbox.snapshot(12)).awaiting_count(), 3);
@@ -410,7 +516,7 @@ fn round_trip(asset: &str, amount: u128) {
     drop(scope);
     drop(store);
     drop(ingestor);
-    drop(boundary);
+    let _ = boundary;
     drop(expiry);
     checked(fs::remove_dir_all(root));
 }
@@ -428,4 +534,10 @@ fn full_detail_approval_carries_native_asset_without_currency_metadata() {
 #[test]
 fn full_detail_approval_escapes_stable_asset_id_in_json() {
     round_trip("bank/\"quoted\"\\asset-λ", u128::MAX - 1);
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

@@ -21,7 +21,7 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-func TestRepair1019MixedStrategyRewards(t *testing.T) {
+func TestMixedStrategyRewards(t *testing.T) {
 	for _, strategy := range []uint8{1, 2, 3} {
 		t.Run(fmt.Sprint(strategy), func(t *testing.T) {
 			f := repair62Chain(t)
@@ -95,7 +95,7 @@ func repair1019Reopen(t *testing.T, f *repair62Fixture, approved []string) *Comm
 	return watcher
 }
 
-func TestRepair1019CommunityPolicyRestart(t *testing.T) {
+func TestCommunityPolicyRestart(t *testing.T) {
 	f := repair62Chain(t)
 	ctx := context.Background()
 	var policies []string
@@ -133,7 +133,7 @@ func TestRepair1019CommunityPolicyRestart(t *testing.T) {
 	}
 }
 
-func TestRepair1019OutboxRuntimeRights(t *testing.T) {
+func TestOutboxRuntimeRights(t *testing.T) {
 	db := repair62Bootstrap(t)
 	sql, err := OutboxRuntimeGrantSQL("pnl", "pnl_runtime")
 	if err != nil {
@@ -157,7 +157,7 @@ func TestRepair1019OutboxRuntimeRights(t *testing.T) {
 	}
 }
 
-func TestRepair1019OutboxCrashRecovery(t *testing.T) {
+func TestOutboxCrashRecovery(t *testing.T) {
 	f := repair62Chain(t)
 	l := f.ledger
 	f.db.transport = repair1019NewStore(f.db)

@@ -1,0 +1,11 @@
+[repair.22.39.450]
+member = "layerx-porting-evm"
+too_many_arguments = 1
+cast_possible_wrap = 3
+needless_pass_by_value = 1
+expect_used = 87
+format_collect = 1
+too_many_lines = 1
+encoding = "Mint emits the same supply and price immediates through checked integer conversions."
+member_cases = "The same 19 EVM member cases pass with unchanged names and outcomes."
+workspace_targets = "All programs workspace targets compile with these member changes."

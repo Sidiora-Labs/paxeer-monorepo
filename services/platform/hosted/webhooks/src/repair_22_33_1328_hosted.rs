@@ -11,6 +11,10 @@ use std::sync::{
 };
 use std::thread::{self, JoinHandle};
 
+/// Unwraps a peer operation in the test harness.
+///
+/// # Panics
+/// Panics when the peer operation returns an error.
 pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))
 }
@@ -22,6 +26,7 @@ pub struct TlsMaterial {
     pub server: Arc<rustls::ServerConfig>,
 }
 
+#[must_use]
 pub fn tls_material() -> TlsMaterial {
     let _ = rustls::crypto::ring::default_provider().install_default();
     let ca_key = must(rcgen::KeyPair::generate());
@@ -113,7 +118,7 @@ impl Peer {
                         }));
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(1))
+                        thread::sleep(Duration::from_millis(1));
                     }
                     Err(error) => panic!("{error}"),
                 }
@@ -183,13 +188,27 @@ impl MemoryRedis {
         }
     }
 
+    /// Replaces a committed shard with malformed JSON.
+    ///
+    /// # Panics
+    /// Panics when the principal has no committed shard.
     pub fn corrupt(&mut self, principal: &Principal) -> String {
         let key = shard_key(principal);
-        let old = self.shards.get_mut(&key).expect("producer committed shard");
+        let old = self
+            .shards
+            .get_mut(&key)
+            .unwrap_or_else(|| panic!("producer committed shard"));
         std::mem::replace(&mut old.1, "{broken durable shard".into())
     }
+    /// Restores the principal's committed shard.
+    ///
+    /// # Panics
+    /// Panics when the principal has no committed shard.
     pub fn restore(&mut self, principal: &Principal, json: String) {
-        self.shards.get_mut(&shard_key(principal)).expect("shard").1 = json;
+        self.shards
+            .get_mut(&shard_key(principal))
+            .unwrap_or_else(|| panic!("shard"))
+            .1 = json;
     }
 }
 fn reply_resp(stream: &mut impl Write, response: Resp) {
@@ -217,7 +236,7 @@ fn arguments(stream: &mut impl Read) -> Vec<String> {
     };
     values
         .iter()
-        .map(|v| resp_text(v).expect("string command argument"))
+        .map(|v| resp_text(v).unwrap_or_else(|| panic!("string command argument")))
         .collect()
 }
 
@@ -228,6 +247,11 @@ pub struct Harness {
     kms: Peer,
 }
 impl Harness {
+    /// Starts the Redis and KMS peers for a hosted service.
+    ///
+    /// # Panics
+    /// Panics when a peer fails to start or rejects its expected request.
+    #[must_use]
     pub fn new() -> Self {
         let tls = tls_material();
         let store = Arc::new(Mutex::new(MemoryRedis::default()));
@@ -252,7 +276,11 @@ impl Harness {
                     let body: serde_json::Value = must(serde_json::from_slice(&request.body));
                     assert_eq!(body["algorithm"], "ed25519");
                     assert_eq!(body["key_handle"], "fixture-key");
-                    let message = must(base64_decode(body["message"].as_str().expect("message")));
+                    let message = must(base64_decode(
+                        body["message"]
+                            .as_str()
+                            .unwrap_or_else(|| panic!("message")),
+                    ));
                     serde_json::json!({"signature":base64_encode(&key.sign(&message).to_bytes())})
                 }
                 path => panic!("unexpected KMS route {path}"),
@@ -267,6 +295,7 @@ impl Harness {
         }
     }
 
+    #[must_use]
     pub fn service(&self, instance: &str, policy: RetryPolicy) -> HostedService {
         let ca = must(Certificate::from_der(&self.tls.ca));
         let identity = ClientIdentity::new(ca.clone(), Some(self.tls.identity.clone()));
@@ -295,5 +324,11 @@ impl Harness {
             key_overlap_seconds: 86_400,
             worker_failures: Mutex::new(BTreeMap::new()),
         }
+    }
+}
+
+impl Default for Harness {
+    fn default() -> Self {
+        Self::new()
     }
 }

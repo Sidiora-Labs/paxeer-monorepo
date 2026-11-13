@@ -42,6 +42,27 @@ func inspectConstruct(ctx Context, call *evm.Call, value *big.Int, out *Inspecti
 		return nil
 	}
 	switch call.Destination + "." + call.Method {
+	case "layerxpay.streamMeter":
+		if value.Sign() != 0 {
+			return refuse(CodeDecodeError, "%s.%s is nonpayable", call.Destination, call.Method)
+		}
+		return nil
+	case "layerxprograms.call":
+		if value.Sign() != 0 {
+			return refuse(CodeDecodeError, "%s.%s is nonpayable", call.Destination, call.Method)
+		}
+		program, programOK := call.Args["programId"].([32]byte)
+		entrypoint, entryOK := call.Args["entrypoint"].(string)
+		fee, feeOK := call.Args["feeLimit"].(*big.Int)
+		if !programOK || !entryOK || !feeOK || fee == nil {
+			return refuse(CodeDecodeError, "layerxprograms.call arguments are malformed")
+		}
+		rule, listed := ctx.programCalls[program]
+		if !listed || !rule.entrypoints[entrypoint] || fee.Sign() < 0 || fee.Cmp(rule.feeLimit) > 0 {
+			return refuse(CodeSelectorNotAllowed, "layerxprograms.call program, entrypoint or fee limit is not allowed")
+		}
+		out.ProgramCalls = append(out.ProgramCalls, ProgramCallInspection{ProgramID: program, Entrypoint: entrypoint, FeeLimit: new(big.Int).Set(fee)})
+		return nil
 	case "layerxpay.budgetAmend", "layerxpay.budgetDelegateAdd", "layerxpay.budgetDelegateRemove", "layerxpay.budgetClose", "layerxpay.budgetRevoke", "layerxpay.escrowRelease", "layerxpay.escrowTimeout":
 		return nil
 	}

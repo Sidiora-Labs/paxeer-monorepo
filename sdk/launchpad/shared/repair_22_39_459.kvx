@@ -1,0 +1,94 @@
+[repair]
+goconst = "Private constants preserve repeated status, role, method and protocol values."
+errcheck = "Resource closure, transaction rollback, unlock and temporary-file cleanup errors are observed."
+gosec = "Directory-rooted access confines file operations; numeric fields keep validated ranges and wire widths; consumers own lifecycle cancellation."
+prealloc = "History, role and query argument slices reserve known capacity."
+staticcheck = "Boolean filters and realm and role dispatch use direct conditions; TLS policy rejects legacy custom dialers."
+goimports = "Go imports follow the module ordering."
+gofmt = "Go source layout uses standard formatting."
+govet = "JSON field tags retain their literal names."
+typecheck = "Capability roles and getter signatures use distinct constant names."
+
+[comment.1]
+path = "accounting/wire.go"
+line = 132
+linter = "gosec"
+reason = "Tuple components are length-framed with a 32-bit wire field."
+
+[comment.2]
+path = "auth/contract.go"
+line = 565
+linter = "staticcheck"
+reason = "Legacy custom TLS dialers remain disallowed by the verifier."
+
+[comment.3]
+path = "auth/load_measurement.go"
+line = 390
+linter = "staticcheck"
+reason = "Legacy custom TLS dialers remain disallowed by the verifier."
+
+[comment.4]
+path = "chain/client.go"
+line = 1047
+linter = "gosec"
+reason = "Pool fees are bounded to 10,000 basis points above."
+
+[comment.5]
+path = "chain/client.go"
+line = 1467
+linter = "gosec"
+reason = "Raw log indices are bounded by the chain receipt index domain."
+
+[comment.6]
+path = "config/deployment/attest.go"
+line = 160
+linter = "gosec"
+reason = "Header time is bounded to the signed Unix range above."
+
+[comment.7]
+path = "db/production/allocation.go"
+line = 387
+linter = "gosec"
+reason = "Budget validation bounds runtime connections to MaxInt32."
+
+[comment.8]
+path = "db/production/allocation.go"
+line = 423
+linter = "gosec"
+reason = "Migration connections are bounded to MaxInt32 above."
+
+[comment.9]
+path = "delivery/natsdriver/driver.go"
+line = 128
+linter = "gosec"
+reason = "Consumer owns cancellation for its lifecycle."
+
+[comment.10]
+path = "delivery/ordered_batch.go"
+line = 161
+linter = "gosec"
+reason = "Broker sequences are bounded to MaxInt64 at admission."
+
+[comment.11]
+path = "delivery/store.go"
+line = 211
+linter = "gosec"
+reason = "Acknowledgement sequences are bounded to MaxInt64 at admission."
+
+[comment.12]
+path = "delivery/store.go"
+line = 738
+linter = "gosec"
+reason = "Broker sequences are bounded to MaxInt64 at admission."
+
+[comment.13]
+path = "delivery/stream.go"
+line = 464
+linter = "gosec"
+reason = "Acknowledgement sequences are bounded to MaxInt64 at admission."
+
+[comment.14]
+path = "delivery/stream.go"
+line = 472
+linter = "gosec"
+reason = "Acknowledgement sequences are bounded to MaxInt64 at admission."

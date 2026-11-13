@@ -10,11 +10,12 @@ export function SendOutcome({ outcome }: Readonly<{ outcome: PrecompileSendOutco
   if (!isPrecompileSendOutcome(outcome)) {
     return <InlineNotice tone="danger" role="alert">{copyEntry("markets.copy.the_wallet_returned_a_malformed_result_transaction_s").message}</InlineNotice>;
   }
-  const receiptLine = "receipt" in outcome && outcome.receipt !== undefined ? (
+  const receipt = "receipt" in outcome ? outcome.receipt : undefined;
+  const receiptLine = receipt !== undefined ? (
     <p>
       {copyEntry("markets.send.receipt").message
-        .replace("{blockNumber}", outcome.receipt.blockNumber.toString())
-        .replace("{logCount}", outcome.receipt.logs.length.toString())}
+        .replace("{blockNumber}", receipt.blockNumber.toString())
+        .replace("{logCount}", receipt.logs.length.toString())}
     </p>
   ) : null;
   switch (outcome.outcome) {

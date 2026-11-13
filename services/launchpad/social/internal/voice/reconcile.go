@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
-	"github.com/jackc/pgx/v5"
 	"sync"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
+	"github.com/jackc/pgx/v5"
 )
 
 type SessionFinder interface {
@@ -110,12 +111,12 @@ func (c *Control) reconcileRecording(ctx context.Context, store reconciliationSt
 	call, cancel := context.WithTimeout(ctx, 4*time.Second)
 	defer cancel()
 	service := safety.Principal{Wallet: "service:voice-reconciler", SessionID: "runtime-worker"}
-	if r.state == "starting" && r.roomState == "live" && c.recordingReady() && c.Gates.Ready() {
+	if r.state == startingState && r.roomState == liveState && c.recordingReady() && c.Gates.Ready() {
 		id, err := recorder.Record(call, r.session, r.id)
 		if err != nil {
 			return err
 		}
-		return store.transitionRecording(ctx, r, "recording", id, service)
+		return store.transitionRecording(ctx, r, recordingState, id, service)
 	}
 	if r.provider == "" {
 		finder, ok := c.Provider.(interface {
@@ -166,7 +167,7 @@ func (c *Control) RequestSpeaker(ctx context.Context, room string, expected int6
 	if e != nil {
 		return e
 	}
-	if r.State != "live" || !c.ready() {
+	if r.State != liveState || !c.ready() {
 		return ErrUnavailable
 	}
 	if e = c.permission(ctx, p.Wallet, room, r.PoolID); e != nil {
@@ -348,7 +349,7 @@ func (c *Control) reconcileRoom(ctx context.Context, store reconciliationStore, 
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTx(context.WithoutCancel(ctx), tx)
 	r, updated, e := tx.room(call)
 	if e == pgx.ErrNoRows {
 		return nil
@@ -360,7 +361,7 @@ func (c *Control) reconcileRoom(ctx context.Context, store reconciliationStore, 
 		return nil
 	}
 	result.Examined++
-	if r.State == "draft" {
+	if r.State == draftState {
 		session, exists, err := finder.Find(call, r.StartKey)
 		if err != nil {
 			if c.now().Sub(updated) > 5*time.Minute {
@@ -379,7 +380,7 @@ func (c *Control) reconcileRoom(ctx context.Context, store reconciliationStore, 
 				if e = tx.adopt(call, session, c.now()); e != nil {
 					return e
 				}
-				r.State = "live"
+				r.State = liveState
 				r.ProviderSession = session
 				if e = tx.Commit(call); e != nil {
 					return e
@@ -398,7 +399,7 @@ func (c *Control) reconcileRoom(ctx context.Context, store reconciliationStore, 
 		}
 		return tx.Commit(call)
 	}
-	if r.State == "ending" {
+	if r.State == endingState {
 		if c.now().Sub(updated) > 5*time.Minute {
 			result.Orphans++
 		}

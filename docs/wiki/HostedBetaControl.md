@@ -9,12 +9,9 @@ service.
 
 Paxeer is one BFT network running `paxd`, with the kernel inside the network
 proposing blocks. EVM chain ID is `125` (`0x7d`), and a receipt is final when its
-block is committed. Public JSON-RPC uses the root of
-`https://api-mainnet-beta.paxeer.network` or the numbered node hosts
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. Hosted gateway `px_` methods are a
-separate application API, not methods supplied by those public node hosts.
-See [Public JSON-RPC](PublicRpc.md).
+block is committed. Use a root node URL from
+[Public JSON-RPC](PublicRpc.md) for chain calls. Hosted identity and faucet
+operations use the configured gateway application.
 
 The retained binary `layerx-testnet-control`, from crate
 `layerx-platform-testnet`, exposes status and journey admission on one TLS
@@ -50,8 +47,7 @@ also carries the operator scripts under `/opt/layerx/`.
 Here “public” names the listener with unauthenticated status reads inside the
 private installation. The source manifest has no control Ingress. Configure
 operator-supplied private HTTPS origins with the `LAYERX_TESTNET_*_URL` keys
-below. The cluster helper can port-forward the public Service; the default
-local port is `19443`, exported through `LAYERX_TESTNET_URL`.
+below. [Hosted node](HostedNode.md) describes the native node deployment.
 
 ## TLS
 
@@ -170,8 +166,7 @@ Other outcomes, including transport failures and upstream 5xx, become
 The private faucet posts its reserved `funding_id`, DID, signer public key,
 and configured amount to control admin. After validation and journey
 admission, control forwards to the configured core-admin origin. Set
-`LAYERX_TESTNET_CORE_ADMIN_URL` to the operator-supplied private origin, for
-example `https://OPERATOR-CORE-ADMIN-ORIGIN:9444`.
+`LAYERX_TESTNET_CORE_ADMIN_URL` to the configured private HTTPS origin.
 
 For new funding, core resolves the signer key to a nonzero chain address using
 the addr precompile at `0x0000000000000000000000000000000000001004`, then signs
@@ -222,11 +217,8 @@ These are read by control's `config()`; paths shown are the manifest mounts.
 | `LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_FILE` | `/run/layerx/backend-admin/token` |
 | `LAYERX_TESTNET_CONTROL_ADMIN_TOKEN_FILE` | `/run/layerx/control-admin/token` |
 
-The manifest still supplies `LAYERX_TESTNET_REGISTRY_URL`; the current control
-binary does not read it. The release ConfigMap supplies the package and wire
-values. Its `reset-schedule` text is not read by the parameters handler, which
-returns the fixed first-Tuesday schedule. `run-testnet.sh` remains an operator
-wrapper; the Deployment starts the binary directly.
+The parameters handler returns the first-Tuesday reset schedule from
+`platform_testnet()`. The Deployment starts the binary directly.
 
 ## Cluster CronJobs
 
@@ -244,8 +236,7 @@ fetches `LAYERX_TESTNET_STATUS_URL`, validates the four-component status shape,
 and PUTs it to `LAYERX_STATUS_PUBLISH_URL` using `LAYERX_STATUS_TOKEN_FILE` and
 `LAYERX_TESTNET_CA_FILE`. The manifest schedules
 `layerx-testnet-status-publisher` every two minutes. The publisher destination
-is an external service; the cluster helper omits this CronJob unless an
-operator supplies `LAYERX_BETA_STATUS_PUBLISH_URL`.
+is configured separately through `LAYERX_STATUS_PUBLISH_URL`.
 
 ## Callers the NetworkPolicy admits
 

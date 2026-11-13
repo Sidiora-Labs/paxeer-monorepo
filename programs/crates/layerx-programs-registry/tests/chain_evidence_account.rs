@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/repair_22_33_221.rs"]
 mod repair;
 

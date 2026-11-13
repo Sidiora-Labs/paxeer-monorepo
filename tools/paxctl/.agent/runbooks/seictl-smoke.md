@@ -3,12 +3,11 @@
 Use a disposable Paxeer test namespace and an adapted controller. This procedure
 checks supported network, node, workflow and task operations. It does not certify
 mainnet operations, governance signing, validator recovery or a store migration.
-All placeholders below are public examples; substitute reviewed deployment
-values locally and keep credentials and operational evidence private.
+Substitute deployment values locally and keep credentials private.
 
 ## Preflight
 
-Install a qualified `seictl` as described in [the README](../../README.md).
+Install `seictl` as described in [the README](../../README.md).
 Use kubectl, curl and jq from a host with access to the isolated API server and
 the pod proxy DNS network. The namespace must be dedicated to this run and empty
 of pre-existing resources with the names below. Use no production keys/accounts.
@@ -113,15 +112,14 @@ seictl task get --kubeconfig "$KUBECONFIG" -n "$NS" --node "$NODE" --proxy-ca-fi
 seictl task list --kubeconfig "$KUBECONFIG" -n "$NS" --node "$NODE" --proxy-ca-file "$PROXY_CA"
 ```
 
-Poll `task get` for that same ID until `status=completed`; fail this smoke on
+Poll `task get` for that same ID until `status=completed`; stop on
 `failed`, a non-empty error or a two-minute timeout. Submission only admits the
-operation. Inspect the completed record before cleanup; keep its private
-revision/command evidence. Tasks run once; no built-in cron scheduler retries a
+operation. Inspect the completed record before cleanup. Tasks run once; no built-in cron scheduler retries a
 failure. HTTP 429 means capacity exhausted, 503 means recovery state is
 unavailable, and 401 means the proxy identity boundary failed. Resolve the cause
 instead of inventing a new ID and duplicating work.
 
-## Scoped cleanup and sign-off
+## Scoped cleanup
 
 Delete only the recorded task and objects created by this procedure after their
 results are inspected. Workflow dry-run created no persistent workflow. Inspect
@@ -135,7 +133,5 @@ seictl network delete --kubeconfig "$KUBECONFIG" -n "$NS" "$NETWORK"
 kubectl get seinetworks,seinodes,seinodetaskworkflows,pods,pvc -n "$NS"
 ```
 
-Sign off only this isolated command smoke when both chain identities match,
-blocks advance, dry-runs use current resource kinds, the read-only task completes
-and scoped cleanup is observed. Retain release version, source revision and
-private evidence locations; never publish kubeconfig, keys or operational logs.
+The procedure checks both chain identities, block progress, resource admission
+and completion of the read-only task in the selected namespace.

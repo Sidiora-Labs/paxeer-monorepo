@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -300,6 +301,20 @@ func TestRun_GracefulShutdown(t *testing.T) {
 		}
 	case <-time.After(15 * time.Second):
 		t.Fatal("Run did not return after context cancel")
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Run(context.Background()); err == nil || !strings.Contains(err.Error(), "address already in use") {
+		t.Fatalf("occupied listener: %v", err)
+	}
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("REDIS_URL", "not-a-redis-url")
+	if err := app.Run(context.Background()); err == nil {
+		t.Fatal("invalid runtime dependency was accepted")
 	}
 }
 

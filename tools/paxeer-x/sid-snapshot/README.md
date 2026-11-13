@@ -28,16 +28,17 @@ python3 tools/paxeer-x/sid-snapshot/snapshot.py \
   --out sid-holders.json
 ```
 
-`--source` may be repeated; `--rpc` and `--out` are required. For release,
+At least one `--source` is required and the option may be repeated; `--rpc` and
+`--out` are required. For release,
 agree on one committed migration height, set `MIGRATION_HEIGHT` to its decimal
 block number, and reuse `--block` for every export and review of that release. Set
 `PAXEER_RPC_URL` to an archive node serving Paxeer EVM chain ID `125` (`0x7d`).
 The [public node JSON-RPC URLs](../../../docs/site/docs/reference/public-rpc.md)
 use the root path, for example `https://api1.mainnet-beta.paxeer.network`.
 Historical state and method support must be available on the chosen node; a
-public node URL alone does not guarantee archive support. The exporter records
-`eth_chainId` in its evidence but does not enforce an expected value, so check
-that value before accepting the artifact.
+public node URL alone does not guarantee archive support. The evidence's
+`chain_id` is the integer value returned by `eth_chainId`; check it against 125
+before accepting the artifact.
 
 ## Snapshot and reconciliation
 
@@ -133,11 +134,7 @@ moves balances again, and proves the export still matches that fixed state,
 including the full supply, the sorted JSON and its evidence digest. It also
 refuses stale and conflicting history; it never accepts a supply drop.
 
-The offline audit gate is
-`python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_846.py`.
-It checks documentation and integration source facts and exercises the production
-CSV/RPC/export path with the committed in-memory event-store peer from the
-prerequisite tests. The declared build parses `test.sh` with `bash -n`.
-The offline gate does not execute an EVM or the real-contract integration;
-contract execution and BFT commitment require runtime qualification by the node
-domain. Neither test regenerates the embedded release holder file.
+The [CSV/RPC test suite](../../qualification/audit_repairs/test_repair_22_33_846.py)
+exercises export and reconciliation with an in-process RPC peer. That suite
+does not execute an EVM. Neither it nor the real-contract integration regenerates
+the embedded release holder file.

@@ -1,45 +1,46 @@
-//! Task 22.33.26 / audit 22.30.102 / acceptance 22998.1.
-//! sign-version-registry: version_7_producer_transport_consumer_and_restart,
-//! retired_activity_signing_is_explicitly_refused, version_7_payload_bounds_are_enforced.
-//! Baseline: attempt 1 never reached this task's tests; the recorded Quantity
-//! consumer mismatch is repaired by prerequisite 22.31.443. This checkout has no
-//! earlier implementation or gate ledger. No unchanged-tree test is claimed:
-//! the explicit implementation-first hf-build/hf-done order prohibits it.
-//! First qualification: the signing/restart case passed; both refusal cases
-//! failed with PeerShutdown because the server dropped undecodable Sign frames.
-//! The repair returns a typed refusal after authenticated framing, before dispatch.
-//! Wiring request (domain 10): spec/layerx-merge/interfaces.kvx row 10.fmt-lxkp-op-sign and spec/layerx-merge/contracts/services.md#human-kms-wire must consume layerx_human_kms::signing_contract: LXKP (7,5), digest + 20-byte sender + unsigned type-2 EIP-1559 blob + binary disclosure blob, 65-byte r||s||v result (v=27/28); version-1 activity Sign is retired with Refused and no downgrade.
-//! This in-scope task record maps the finding to real production-path tests;
-//! the runner attaches the verified candidate revision and private gate logs.
-//! The committed loopback TLS peers use independent fixture keys and the real
-//! EIP-1559 signing codec. The KMS server, store and Human encoder run unchanged.
+//! LXKP signing binds the EIP-1559 call, disclosure and sender to one response.
 
 #![allow(dead_code)]
 
 pub use layerx_human_kms::attestor;
+#[allow(dead_code)]
 #[path = "../src/config.rs"]
 mod config;
+#[allow(dead_code)]
 #[path = "../src/evm.rs"]
 mod evm;
+#[allow(dead_code)]
 #[path = "../src/evm_types.rs"]
 mod evm_types;
+#[allow(dead_code)]
 #[path = "../src/export.rs"]
 mod export;
+#[allow(dead_code)]
 #[path = "../src/send.rs"]
 mod send;
+#[allow(dead_code)]
 #[path = "../src/store.rs"]
 mod store;
+#[allow(dead_code)]
 #[path = "../src/wire.rs"]
 mod wire;
 mod server {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/server.rs"));
     pub fn serve_connection(
         tcp: std::net::TcpStream,
-        config: &crate::config::Config,
-        store: &std::sync::Mutex<crate::store::Store>,
-        clock: &dyn layerx_types::clock::Clock,
+        config: std::sync::Arc<crate::config::Config>,
+        store: std::sync::Arc<std::sync::Mutex<crate::store::Store>>,
+        clock: std::sync::Arc<dyn layerx_types::clock::Clock>,
     ) -> crate::wire::Result<()> {
-        connection(tcp, config, store, clock)
+        spawn_connection(
+            tcp,
+            config,
+            store,
+            clock,
+            std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        )?
+        .join()
+        .map_err(|_| crate::wire::Error::Unavailable)
     }
 }
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
@@ -64,7 +65,7 @@ mod fixture {
     use std::io::{Read, Write};
     use std::net::{SocketAddr, TcpListener, TcpStream};
     use std::os::unix::fs::PermissionsExt;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
     use std::task::{Context, Poll, Wake, Waker};
@@ -103,11 +104,16 @@ mod fixture {
         ))
     }
     fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|v| format!("{v:02x}")).collect()
+        use std::fmt::Write as _;
+        let mut encoded = String::with_capacity(bytes.len() * 2);
+        for byte in bytes {
+            write!(&mut encoded, "{byte:02x}").unwrap_or_else(|error| panic!("{error:?}"));
+        }
+        encoded
     }
     fn unhex(value: &str) -> Result<Vec<u8>> {
         let value = value.strip_prefix("0x").unwrap_or(value);
-        if value.len() % 2 != 0 {
+        if !value.len().is_multiple_of(2) {
             return Err("odd hex".into());
         }
         value
@@ -176,7 +182,9 @@ mod fixture {
             let stopped = stop.clone();
             let join = thread::spawn(move || {
                 while !stopped.load(Ordering::Acquire) {
-                    server.poll().expect("clock server");
+                    server
+                        .poll()
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "clock server"));
                     thread::sleep(Duration::from_millis(1));
                 }
             });
@@ -204,7 +212,7 @@ mod fixture {
         address: SocketAddr,
         kms: Option<Worker>,
         peers: Vec<Worker>,
-        clock_host: ClockHost,
+        clock_service: ClockHost,
     }
     impl Drop for Host {
         fn drop(&mut self) {
@@ -221,17 +229,9 @@ mod fixture {
             let root = std::env::temp_dir().join(format!("kms-repair-{}", hex(&unique)));
             fs::create_dir(&root)?;
             fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
-            let clock_host = ClockHost::new(&root)?;
-            let clock: Arc<dyn Clock> = RuntimeClock::connect(clock_host.binding.clone())?;
-            for (name, bytes) in [
-                ("ca.der", CA),
-                ("client.der", CLIENT),
-                ("client.pk8", CLIENT_KEY),
-            ] {
-                let path = root.join(name);
-                fs::write(&path, bytes)?;
-                fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
-            }
+            let clock_service = ClockHost::new(&root)?;
+            let clock: Arc<dyn Clock> = RuntimeClock::connect(clock_service.binding.clone())?;
+            write_tls_material(&root)?;
             let mut bindings = Vec::new();
             let mut rows = Vec::new();
             let mut peers = Vec::new();
@@ -262,7 +262,9 @@ mod fixture {
                         // The peer uses the real EIP-1559 signing producer, with fixture-owned
                         // material independent of every KMS primary seed and seal.
                         peer(tcp, &tls, &node_id, &wallet_key, &fixture_secret, &sequence)
-                            .expect("signing fixture transport");
+                            .unwrap_or_else(|error| {
+                                panic!("{}: {error:?}", "signing fixture transport")
+                            });
                     })?;
                     nodes.push(json!({"id":node,"address":worker.address}));
                     peers.push(worker);
@@ -315,7 +317,7 @@ mod fixture {
                 address,
                 kms: None,
                 peers,
-                clock_host,
+                clock_service,
             };
             host.start()?;
             Ok(host)
@@ -331,11 +333,12 @@ mod fixture {
             self.kms = Some(Worker::spawn(listener, move |tcp| {
                 // Production connection authenticates mTLS, decodes and validates the
                 // frame, dispatches the durable store and serializes the response.
-                let _ = server::serve_connection(tcp, &config, &store, clock.as_ref());
+                let _ = server::serve_connection(tcp, config.clone(), store.clone(), clock.clone());
             })?);
             Ok(())
         }
         pub fn stop(&mut self) -> Result<()> {
+            self.kms.as_ref().ok_or("KMS worker is not running")?;
             drop(self.kms.take());
             Ok(())
         }
@@ -533,6 +536,18 @@ mod fixture {
                 Poll::Pending => thread::park(),
             }
         }
+    }
+    fn write_tls_material(root: &Path) -> Result<()> {
+        for (name, bytes) in [
+            ("ca.der", CA),
+            ("client.der", CLIENT),
+            ("client.pk8", CLIENT_KEY),
+        ] {
+            let path = root.join(name);
+            fs::write(&path, bytes)?;
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        }
+        Ok(())
     }
 }
 

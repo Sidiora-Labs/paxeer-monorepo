@@ -1,3 +1,4 @@
+use layerx_ai_market_test_values::RequiredValue as _;
 #[path = "repair_22_33_260.rs"]
 mod producers;
 
@@ -249,7 +250,7 @@ impl Market {
     ) -> CodecResult<producers::Reply> {
         let reply = producers::compose(&self.bytes, encoded, actor, at)?;
         if let Routed::Applied { .. } = reply.routed {
-            self.bytes = reply.state.clone();
+            self.bytes.clone_from(&reply.state);
         }
         Ok(reply)
     }
@@ -430,16 +431,16 @@ fn commit_challenge_reveal_resolve_hit_returns_deposit_after_restart() -> CodecR
         new.control
             .replay
             .actor(ActorSlot::OWNER)
-            .unwrap()
+            .required()
             .last
-            .unwrap()
+            .required()
             .sequence,
         old.control
             .replay
             .actor(ActorSlot::OWNER)
-            .unwrap()
+            .required()
             .last
-            .unwrap()
+            .required()
             .sequence
             + 2
     );
@@ -721,7 +722,7 @@ fn canary_codecs_reject_truncation_trailing_bytes_and_noncanonical_authenticatio
     trailing.push(0);
     assert!(commit_reveal::decode_canary_envelope(&trailing).is_err());
     let mut delegated = encoded.clone();
-    *delegated.last_mut().unwrap() = 1;
+    *delegated.last_mut().required() = 1;
     assert!(commit_reveal::decode_canary_envelope(&delegated).is_err());
     let id = m.commit(&task)?;
     let payload = CanaryReveal {
@@ -744,7 +745,7 @@ fn canary_codecs_reject_truncation_trailing_bytes_and_noncanonical_authenticatio
     let at = old_region
         .windows(8)
         .position(|bytes| bytes == b"CANARYS2")
-        .unwrap();
+        .required();
     old_region[at..at + 8].copy_from_slice(b"CANARYS1");
     assert!(matches!(
         CanaryRegion::decode(&old_region),

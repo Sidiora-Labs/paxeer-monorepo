@@ -1,5 +1,34 @@
-#[path = "../../layerx-programs-registry/tests/support/chain.rs"]
-mod chain;
+trait Checked<T> {
+    fn checked(self) -> T;
+}
+
+impl<T, E: core::fmt::Debug> Checked<T> for Result<T, E> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{error:?}"),
+        }
+    }
+}
+
+impl<T> Checked<T> for Option<T> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("expected a value"),
+        }
+    }
+}
+
+#[allow(dead_code)]
+mod chain {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../layerx-programs-registry/tests/support/chain.rs"
+    ));
+}
 
 use sha2::{Digest, Sha256};
 
@@ -305,6 +334,10 @@ fn real_receipts_drive_every_lifecycle_edge_and_destroyed_never_revives() {
         Ok(request_evidence.lease_digest())
     );
     drive_lifecycle_edges(&mut book);
+    verify_destroyed_lease_refuses_revival(&book);
+}
+
+fn verify_destroyed_lease_refuses_revival(book: &LeaseBook) {
     let destroyed = book
         .get(LeaseId::new([1; 32]).unwrap_or_else(|error| panic!("id: {error}")))
         .unwrap_or_else(|| panic!("destroyed lease"))
@@ -625,7 +658,7 @@ fn altered_real_activity_and_header_evidence_are_refused() {
     let digest = lease
         .request_binding_digest()
         .unwrap_or_else(|error| panic!("digest: {error}"));
-    let mut transition = LeaseTransition {
+    let transition = LeaseTransition {
         lease: lease.id(),
         tenant: lease.tenant(),
         activity: LeaseActivity::Request,
@@ -983,9 +1016,9 @@ fn assert_early_expiry_is_refused(lease: &Lease, state: LeaseState, batch: u64) 
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
-    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes()).unwrap();
-    let ops = fixture.prove(&key).unwrap();
+        .checked();
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes()).checked();
+    let ops = fixture.prove(&key).checked();
     assert_eq!(
         TransitionEvidence::verify_call(
             &head,

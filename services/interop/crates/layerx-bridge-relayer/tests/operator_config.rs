@@ -38,13 +38,15 @@ impl ConfigFile {
             std::process::id(),
             NEXT_FILE.fetch_add(1, Ordering::Relaxed)
         ));
-        std::fs::create_dir(&directory).expect("create exclusive config case directory");
+        std::fs::create_dir(&directory)
+            .unwrap_or_else(|error| panic!("create exclusive config case directory: {error:?}"));
         let file = Self { directory };
         std::fs::write(
             file.directory.join("relayer.json"),
-            serde_json::to_vec(value).expect("encode public config case"),
+            serde_json::to_vec(value)
+                .unwrap_or_else(|error| panic!("encode public config case: {error:?}")),
         )
-        .expect("write public config case");
+        .unwrap_or_else(|error| panic!("write public config case: {error:?}"));
         file
     }
 
@@ -60,13 +62,17 @@ impl Drop for ConfigFile {
 }
 
 fn example() -> Value {
-    serde_json::from_str(EXAMPLE).expect("documented example JSON")
+    serde_json::from_str(EXAMPLE)
+        .unwrap_or_else(|error| panic!("documented example JSON: {error:?}"))
 }
 
 fn load(value: &Value) -> RelayerConfig {
-    ConfigFile::new(value)
-        .load()
-        .expect("production loader accepts public config case")
+    ConfigFile::new(value).load().unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "production loader accepts public config case"
+        )
+    })
 }
 
 fn refusal(value: &Value) -> String {
@@ -77,7 +83,9 @@ fn refusal(value: &Value) -> String {
 }
 
 fn replace(value: &mut Value, pointer: &str, replacement: Value) {
-    *value.pointer_mut(pointer).expect("existing config field") = replacement;
+    *value
+        .pointer_mut(pointer)
+        .unwrap_or_else(|| panic!("existing config field")) = replacement;
 }
 
 fn receipt_key(sequencer: u8, key: u8, first: u64, last: u64) -> Value {
@@ -95,7 +103,7 @@ fn attestation_listen_is_an_optional_socket_address() {
     value["paxeer"]["receipt_keys"] = json!([receipt_key(1, 2, 0, u64::MAX)]);
     value
         .as_object_mut()
-        .expect("config object")
+        .unwrap_or_else(|| panic!("config object"))
         .remove("attestation_listen");
     assert_eq!(load(&value).attestation_listen, None);
     value["attestation_listen"] = Value::Null;
@@ -104,7 +112,11 @@ fn attestation_listen_is_an_optional_socket_address() {
         value["attestation_listen"] = json!(address);
         assert_eq!(
             load(&value).attestation_listen,
-            Some(address.parse().expect("socket address"))
+            Some(
+                address
+                    .parse()
+                    .unwrap_or_else(|error| panic!("socket address: {error:?}"))
+            )
         );
     }
     for invalid in [
@@ -126,50 +138,74 @@ fn attestation_listen_is_an_optional_socket_address() {
 
 #[test]
 fn paxeer_endpoints_are_built_without_the_verifier_crate() {
-    let key = PKey::from_rsa(Rsa::generate(2048).expect("generate certificate key"))
-        .expect("certificate public key");
-    let mut name = X509NameBuilder::new().expect("certificate name builder");
+    let key = PKey::from_rsa(
+        Rsa::generate(2048).unwrap_or_else(|error| panic!("generate certificate key: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("certificate public key: {error:?}"));
+    let mut name = X509NameBuilder::new()
+        .unwrap_or_else(|error| panic!("certificate name builder: {error:?}"));
     name.append_entry_by_text("CN", "paxeer.example.invalid")
-        .expect("certificate name");
+        .unwrap_or_else(|error| panic!("certificate name: {error:?}"));
     let name = name.build();
-    let mut certificate = X509::builder().expect("certificate builder");
-    certificate.set_version(2).expect("X509 version");
-    certificate.set_subject_name(&name).expect("subject name");
-    certificate.set_issuer_name(&name).expect("issuer name");
-    certificate.set_pubkey(&key).expect("certificate key");
+    let mut certificate =
+        X509::builder().unwrap_or_else(|error| panic!("certificate builder: {error:?}"));
     certificate
-        .set_not_before(&Asn1Time::days_from_now(0).expect("start time"))
-        .expect("valid from");
+        .set_version(2)
+        .unwrap_or_else(|error| panic!("X509 version: {error:?}"));
     certificate
-        .set_not_after(&Asn1Time::days_from_now(1).expect("end time"))
-        .expect("valid until");
+        .set_subject_name(&name)
+        .unwrap_or_else(|error| panic!("subject name: {error:?}"));
+    certificate
+        .set_issuer_name(&name)
+        .unwrap_or_else(|error| panic!("issuer name: {error:?}"));
+    certificate
+        .set_pubkey(&key)
+        .unwrap_or_else(|error| panic!("certificate key: {error:?}"));
+    certificate
+        .set_not_before(
+            &Asn1Time::days_from_now(0).unwrap_or_else(|error| panic!("start time: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("valid from: {error:?}"));
+    certificate
+        .set_not_after(
+            &Asn1Time::days_from_now(1).unwrap_or_else(|error| panic!("end time: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("valid until: {error:?}"));
     certificate
         .sign(&key, MessageDigest::sha256())
-        .expect("sign certificate");
-    let der = certificate.build().to_der().expect("DER certificate");
+        .unwrap_or_else(|error| panic!("sign certificate: {error:?}"));
+    let der = certificate
+        .build()
+        .to_der()
+        .unwrap_or_else(|error| panic!("DER certificate: {error:?}"));
 
     let mut value = example();
     value["paxeer"]["receipt_keys"] = json!([receipt_key(1, 2, 0, u64::MAX)]);
     let file = ConfigFile::new(&value);
     let anchor = file.directory.join("paxeer-ca.der");
-    std::fs::write(&anchor, &der).expect("write configured trust anchor");
+    std::fs::write(&anchor, &der)
+        .unwrap_or_else(|error| panic!("write configured trust anchor: {error:?}"));
     value["paxeer"]["endpoints"] = json!([
         {"url": "https://paxeer.example.invalid/", "independent_backend": "pinned-test-node", "trust_anchor_der": anchor, "request_timeout_ms": 1234},
         {"url": "http://127.0.0.1:8545", "independent_backend": "local-test-node", "local_emulator": true, "request_timeout_ms": 5678}
     ]);
     std::fs::write(
         file.directory.join("relayer.json"),
-        serde_json::to_vec(&value).expect("config JSON"),
+        serde_json::to_vec(&value).unwrap_or_else(|error| panic!("config JSON: {error:?}")),
     )
-    .expect("write endpoint config");
-    let mut config = file.load().expect("load endpoint config");
+    .unwrap_or_else(|error| panic!("write endpoint config: {error:?}"));
+    let mut config = file
+        .load()
+        .unwrap_or_else(|error| panic!("load endpoint config: {error:?}"));
     assert!(config.paxeer_rpc().is_ok());
     for identity in [Value::Null, json!("pinned-test-node")] {
         let mut invalid = value.clone();
         invalid["paxeer"]["endpoints"][1]["independent_backend"] = identity;
         assert!(ConfigFile::new(&invalid).load().is_err());
     }
-    let endpoints: Vec<PaxeerEndpoint> = config.paxeer_endpoints().expect("build native endpoints");
+    let endpoints: Vec<PaxeerEndpoint> = config
+        .paxeer_endpoints()
+        .unwrap_or_else(|error| panic!("build native endpoints: {error:?}"));
     assert_eq!(endpoints.len(), 2);
     assert_eq!(endpoints[0].url, "https://paxeer.example.invalid/");
     assert_eq!(endpoints[0].expected_chain_id, 125);
@@ -192,9 +228,10 @@ fn paxeer_endpoints_are_built_without_the_verifier_crate() {
     config.paxeer.endpoints[0].local_emulator = true;
     assert!(config.paxeer_endpoints().is_err());
     config.paxeer.endpoints[0].local_emulator = false;
-    std::fs::write(&anchor, b"invalid DER").expect("write invalid anchor");
+    std::fs::write(&anchor, b"invalid DER")
+        .unwrap_or_else(|error| panic!("write invalid anchor: {error:?}"));
     assert!(config.paxeer_endpoints().is_err());
-    std::fs::remove_file(&anchor).expect("remove trust anchor");
+    std::fs::remove_file(&anchor).unwrap_or_else(|error| panic!("remove trust anchor: {error:?}"));
     assert!(config.paxeer_endpoints().is_err());
 }
 
@@ -213,7 +250,9 @@ fn receipt_keys_are_loaded_as_height_windows() {
     assert_eq!(config.paxeer.receipt_keys[2].first_height, 102);
     assert_eq!(config.paxeer.receipt_keys[2].last_height, u64::MAX);
     assert_eq!(
-        config.receipt_keys().expect("typed receipt keys"),
+        config
+            .receipt_keys()
+            .unwrap_or_else(|error| panic!("typed receipt keys: {error:?}")),
         vec![
             SequencerAuthorization::new([0x11; 32], [0x22; 32], 0, 100),
             SequencerAuthorization::new([0x11; 32], [0x33; 32], 101, 101),
@@ -250,8 +289,8 @@ fn receipt_keys_are_loaded_as_height_windows() {
         let mut invalid = value.clone();
         invalid["paxeer"]["receipt_keys"] = keys;
         assert_eq!(refusal(&invalid), expected);
-        let unchecked: RelayerConfig =
-            serde_json::from_value(invalid).expect("well-typed invalid windows");
+        let unchecked: RelayerConfig = serde_json::from_value(invalid)
+            .unwrap_or_else(|error| panic!("well-typed invalid windows: {error:?}"));
         assert!(unchecked.validate().is_err());
         assert!(unchecked.receipt_keys().is_err());
     }
@@ -266,14 +305,14 @@ fn receipt_keys_are_loaded_as_height_windows() {
         let mut invalid = value.clone();
         invalid["paxeer"]["receipt_keys"][0]
             .as_object_mut()
-            .expect("receipt key object")
+            .unwrap_or_else(|| panic!("receipt key object"))
             .remove(field);
         assert!(refusal(&invalid).starts_with(&format!("missing field `{field}`")));
     }
     let mut missing = value.clone();
     missing["paxeer"]
         .as_object_mut()
-        .expect("Paxeer object")
+        .unwrap_or_else(|| panic!("Paxeer object"))
         .remove("receipt_keys");
     assert!(refusal(&missing).starts_with("missing field `receipt_keys`"));
     let mut unknown = value.clone();
@@ -283,10 +322,16 @@ fn receipt_keys_are_loaded_as_height_windows() {
 
 #[test]
 fn documented_example_loads_through_production_config() {
-    let config = RelayerConfig::load(Path::new(EXAMPLE_PATH))
-        .expect("unmodified documented example passes production validation");
+    let config = RelayerConfig::load(Path::new(EXAMPLE_PATH)).unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "unmodified documented example passes production validation"
+        )
+    });
     assert_eq!(config, load(&example()));
-    let receipt_keys = config.receipt_keys().expect("typed example receipt keys");
+    let receipt_keys = config
+        .receipt_keys()
+        .unwrap_or_else(|error| panic!("typed example receipt keys: {error:?}"));
     assert_eq!(receipt_keys.len(), 1);
     assert_eq!(
         receipt_keys[0].sequencer_id(),
@@ -306,18 +351,28 @@ fn documented_example_loads_through_production_config() {
         )
     );
     let receipt_public = ed25519_dalek::VerifyingKey::from_bytes(&receipt_keys[0].public_key())
-        .expect("public example receipt verification key");
+        .unwrap_or_else(|error| panic!("public example receipt verification key: {error:?}"));
     assert!(!receipt_public.is_weak());
-    let solana = config.solana.as_ref().expect("Solana entry");
-    let settings = solana.settings().expect("typed observer settings");
+    let solana = config
+        .solana
+        .as_ref()
+        .unwrap_or_else(|| panic!("Solana entry"));
+    let settings = solana
+        .settings()
+        .unwrap_or_else(|error| panic!("typed observer settings: {error:?}"));
     assert_eq!(settings.chain_id, SOLANA_CHAIN_ID);
     assert_eq!(settings.commitment, Commitment::Finalized);
     assert_eq!(settings.finality_depth, 32);
     assert_eq!(settings.start_slot, 1);
     assert_eq!(settings.max_slot_range, 100);
-    assert_eq!(solana.mints().expect("typed release mints"), vec![[1; 32]]);
+    assert_eq!(
+        solana
+            .mints()
+            .unwrap_or_else(|error| panic!("typed release mints: {error:?}")),
+        vec![[1; 32]]
+    );
     let (authority, bump) = find_program_address(&[VAULT_SEED], &settings.program_id)
-        .expect("public custody program PDA vector");
+        .unwrap_or_else(|| panic!("public custody program PDA vector"));
     assert_eq!(bump, 255);
     assert_eq!(
         base58_encode(&authority),
@@ -332,7 +387,8 @@ fn documented_example_loads_through_production_config() {
     {
         assert!(key.handle.starts_with("EXAMPLE_ONLY/"));
         assert!(handles.insert(key.handle.as_str()));
-        k256::PublicKey::from_sec1_bytes(&key.public_key).expect("full public secp256k1 vector");
+        k256::PublicKey::from_sec1_bytes(&key.public_key)
+            .unwrap_or_else(|error| panic!("full public secp256k1 vector: {error:?}"));
     }
     assert!(handles.insert(solana.fee_payer.handle.as_str()));
     assert!(solana.fee_payer.handle.starts_with("EXAMPLE_ONLY/"));
@@ -341,8 +397,9 @@ fn documented_example_loads_through_production_config() {
         .public_key
         .as_slice()
         .try_into()
-        .expect("ed25519 width");
-    ed25519_dalek::VerifyingKey::from_bytes(&fee_public).expect("public ed25519 vector");
+        .unwrap_or_else(|error| panic!("ed25519 width: {error:?}"));
+    ed25519_dalek::VerifyingKey::from_bytes(&fee_public)
+        .unwrap_or_else(|error| panic!("public ed25519 vector: {error:?}"));
     for rpc in std::iter::once(&solana.rpc).chain(config.chains.iter().map(|chain| &chain.rpc)) {
         assert_eq!(rpc.endpoints.len(), 3);
         assert_eq!(rpc.quorum, 2);
@@ -363,31 +420,43 @@ fn documented_example_loads_through_production_config() {
 #[test]
 fn solana_omission_and_empty_mints_preserve_observation_only_settings() {
     let configured = load(&example());
-    let expected = configured.solana.as_ref().expect("Solana entry");
+    let expected = configured
+        .solana
+        .as_ref()
+        .unwrap_or_else(|| panic!("Solana entry"));
     for omitted in [false, true] {
         let mut value = example();
         if omitted {
             value["solana"]
                 .as_object_mut()
-                .expect("Solana object")
+                .unwrap_or_else(|| panic!("Solana object"))
                 .remove("release_mints");
         } else {
             value["solana"]["release_mints"] = json!([]);
         }
         let config = load(&value);
-        let observation = config.solana.expect("observer remains configured");
+        let observation = config
+            .solana
+            .unwrap_or_else(|| panic!("observer remains configured"));
         assert!(observation.release_mints.is_empty());
-        assert!(observation.mints().expect("empty mint set").is_empty());
+        assert!(observation
+            .mints()
+            .unwrap_or_else(|error| panic!("empty mint set: {error:?}"))
+            .is_empty());
         assert_eq!(
-            observation.settings().expect("observer settings"),
-            expected.settings().expect("original settings")
+            observation
+                .settings()
+                .unwrap_or_else(|error| panic!("observer settings: {error:?}")),
+            expected
+                .settings()
+                .unwrap_or_else(|error| panic!("original settings: {error:?}"))
         );
         assert_eq!(observation.fee_payer, expected.fee_payer);
     }
     let mut value = example();
     value
         .as_object_mut()
-        .expect("config object")
+        .unwrap_or_else(|| panic!("config object"))
         .remove("solana");
     let evm_only = load(&value);
     assert!(evm_only.solana.is_none());
@@ -408,9 +477,9 @@ fn accepted_commitments_preserve_slot_policy() {
         value["solana"]["max_slot_range"] = json!(1);
         let settings = load(&value)
             .solana
-            .expect("Solana entry")
+            .unwrap_or_else(|| panic!("Solana entry"))
             .settings()
-            .expect("settings");
+            .unwrap_or_else(|error| panic!("settings: {error:?}"));
         assert_eq!(settings.commitment, commitment);
         assert_eq!(settings.finality_depth, 1);
         assert_eq!(settings.start_slot, 0);
@@ -442,9 +511,9 @@ fn unknown_fields_are_refused_at_every_config_boundary() {
         let mut value = example();
         value
             .pointer_mut(pointer)
-            .expect("schema object")
+            .unwrap_or_else(|| panic!("schema object"))
             .as_object_mut()
-            .expect("object")
+            .unwrap_or_else(|| panic!("object"))
             .insert("unexpected_operator_field".to_owned(), json!(true));
         let detail = refusal(&value);
         assert!(
@@ -510,7 +579,7 @@ fn attestor_handle_cannot_pay_any_chain_fees() {
     let mut value = example();
     value["solana"]
         .as_object_mut()
-        .expect("Solana object")
+        .unwrap_or_else(|| panic!("Solana object"))
         .remove("release_mints");
     value["solana"]["fee_payer"]["handle"] = value["attestor"]["handle"].clone();
     assert_eq!(
@@ -618,7 +687,7 @@ fn required_solana_fields_cannot_be_omitted() {
         let mut value = example();
         value["solana"]
             .as_object_mut()
-            .expect("Solana object")
+            .unwrap_or_else(|| panic!("Solana object"))
             .remove(field);
         let detail = refusal(&value);
         assert!(

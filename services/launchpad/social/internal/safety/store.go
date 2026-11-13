@@ -6,10 +6,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"time"
 )
 
 type Decision string
@@ -53,7 +54,7 @@ func (s *Store) Check(ctx context.Context, wallet, scope, resource string) Decis
 	return Allow
 }
 func validScope(scope, resource string) bool {
-	return (scope == "global" && resource == "") || ((scope == "pool" || scope == "dm" || scope == "voice") && Bounded(resource, 256))
+	return (scope == "global" && resource == "") || ((scope == poolResource || scope == "dm" || scope == voiceScope) && Bounded(resource, 256))
 }
 
 type Report struct{ TargetType, TargetID, PoolID, AffectedWallet, Category, Description string }
@@ -111,7 +112,7 @@ func (s *Store) denial(ctx context.Context, p Principal, kind string) error {
 	if e != nil {
 		return ErrUnavailable
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	if _, e = audit(ctx, tx, p, nil, "denied:"+kind, "insufficient authority", "authority-v1", 0); e != nil {
 		return ErrUnavailable
 	}
@@ -135,7 +136,7 @@ func (s *Store) Transition(ctx context.Context, id string, expected int64, next,
 	if e != nil {
 		return 0, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var pool, state string
 	var rev int64
 	e = tx.QueryRow(ctx, `SELECT pool_id,state,revision FROM safety_cases WHERE id=$1 FOR UPDATE`, id).Scan(&pool, &state, &rev)
@@ -143,10 +144,10 @@ func (s *Store) Transition(ctx context.Context, id string, expected int64, next,
 		return 0, e
 	}
 	if !Authorized(p, pool, true, s.now()) {
-		tx.Rollback(ctx)
+		rollbackTx(ctx, tx)
 		return 0, s.denial(ctx, p, "case_transition")
 	}
-	valid := (state == "open" && (next == "triaged" || next == "actioned" || next == "dismissed")) || (state == "triaged" && (next == "actioned" || next == "dismissed"))
+	valid := (state == "open" && (next == triagedState || next == actionedState || next == "dismissed")) || (state == triagedState && (next == actionedState || next == "dismissed"))
 	if rev != expected || !valid {
 		return 0, ErrConflict
 	}
@@ -180,10 +181,10 @@ func (s *Store) Ban(ctx context.Context, c BanCommand) (string, error) {
 		return "", ErrInvalid
 	}
 	pool := c.Resource
-	if c.Scope != "pool" {
+	if c.Scope != poolResource {
 		pool = ""
 	}
-	if c.Scope == "voice" {
+	if c.Scope == voiceScope {
 		if e = s.DB.QueryRow(ctx, `SELECT pool_id FROM voice_rooms WHERE id=$1`, c.Resource).Scan(&pool); e != nil {
 			return "", ErrUnavailable
 		}
@@ -196,7 +197,7 @@ func (s *Store) Ban(ctx context.Context, c BanCommand) (string, error) {
 	if e != nil {
 		return "", e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	_, e = tx.Exec(ctx, `INSERT INTO safety_bans(id,wallet,scope,resource,actor,expires_at)VALUES($1,$2,$3,$4,$5,$6)`, id, c.Wallet, c.Scope, c.Resource, p.Wallet, c.ExpiresAt)
 	if e != nil {
 		return "", e
@@ -224,23 +225,23 @@ func (s *Store) Revoke(ctx context.Context, id string, expected int64, reason st
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var scope, resource string
 	var rev int64
 	if e = tx.QueryRow(ctx, `SELECT scope,resource,revision FROM safety_bans WHERE id=$1 FOR UPDATE`, id).Scan(&scope, &resource, &rev); e != nil {
 		return e
 	}
 	pool := resource
-	if scope != "pool" {
+	if scope != poolResource {
 		pool = ""
 	}
-	if scope == "voice" {
+	if scope == voiceScope {
 		if e = tx.QueryRow(ctx, `SELECT pool_id FROM voice_rooms WHERE id=$1`, resource).Scan(&pool); e != nil {
 			return ErrUnavailable
 		}
 	}
 	if !Authorized(p, pool, true, s.now()) {
-		tx.Rollback(ctx)
+		rollbackTx(ctx, tx)
 		return s.denial(ctx, p, "revoke")
 	}
 	if rev != expected {
@@ -286,7 +287,7 @@ func (s *Store) CaseEvidence(ctx context.Context, id string) (string, error) {
 	if e != nil {
 		return "", e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	if _, e = audit(ctx, tx, p, &id, "evidence_read", "case scoped access", "authority-v1", 0); e != nil {
 		return "", e
 	}
@@ -310,7 +311,7 @@ func (s *Store) Appeal(ctx context.Context, actionID, reason string) (string, er
 	if e != nil {
 		return "", e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var affected, caseID, state string
 	var rev int64
 	e = tx.QueryRow(ctx, `SELECT c.affected_wallet,c.id,c.state,c.revision FROM safety_actions a JOIN safety_cases c ON c.id=a.case_id WHERE a.id=$1 AND a.kind='actioned' FOR UPDATE OF c`, actionID).Scan(&affected, &caseID, &state, &rev)
@@ -328,7 +329,7 @@ func (s *Store) Appeal(ctx context.Context, actionID, reason string) (string, er
 	if e != pgx.ErrNoRows {
 		return "", e
 	}
-	if state != "actioned" {
+	if state != actionedState {
 		return "", ErrConflict
 	}
 	id = uuid.NewString()
@@ -367,7 +368,7 @@ func (s *Store) DecideAppeal(ctx context.Context, id string, expected int64, out
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var issuer, caseID, pool, state, caseState string
 	var rev, caseRev int64
 	e = tx.QueryRow(ctx, `SELECT a.actor,c.id,c.pool_id,ap.state,ap.revision,c.state,c.revision FROM safety_appeals ap JOIN safety_actions a ON a.id=ap.action_id JOIN safety_cases c ON c.id=a.case_id WHERE ap.id=$1 FOR UPDATE OF c,ap`, id).Scan(&issuer, &caseID, &pool, &state, &rev, &caseState, &caseRev)
@@ -375,10 +376,10 @@ func (s *Store) DecideAppeal(ctx context.Context, id string, expected int64, out
 		return e
 	}
 	if issuer == p.Wallet || !Authorized(p, pool, true, s.now()) {
-		tx.Rollback(ctx)
+		rollbackTx(ctx, tx)
 		return s.denial(ctx, p, "appeal_decision")
 	}
-	if rev != expected || (state != "submitted" && state != "reviewing") || caseState != "appealed" {
+	if rev != expected || (state != submittedState && state != "reviewing") || caseState != appealedState {
 		return ErrConflict
 	}
 	_, e = tx.Exec(ctx, `UPDATE safety_appeals SET state=$2,revision=revision+1,reviewer=$3,decided_at=$4 WHERE id=$1`, id, outcome, p.Wallet, s.now())

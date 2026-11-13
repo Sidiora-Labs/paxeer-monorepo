@@ -16,10 +16,7 @@ use crate::{
         F03_UNKNOWN_WORKER, F08_BAD_CONSENT, KEY_MISMATCH, NON_CANONICAL, REVOKED, ROLE_CONFLICT,
         WRONG_CONFIG, WRONG_DOMAIN, WRONG_EPOCH, WRONG_ROSTER,
     },
-    types::{
-        ChainDomain, Digest32, EvaluatorBinding, EvaluatorId, MarketId, Presence, PrincipalId,
-        ProgramId, PublicKey32, ReportDigest, RequestId, RubricDigest, Signature64, Version,
-    },
+    types::{Digest32, EvaluatorBinding, Presence, PublicKey32, ReportDigest, Signature64},
 };
 
 fn room(out: &[u8], size: usize) -> CodecResult<()> {

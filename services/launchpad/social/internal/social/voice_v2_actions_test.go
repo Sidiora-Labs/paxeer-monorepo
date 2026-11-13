@@ -371,6 +371,37 @@ CREATE TABLE indexer_canonical_creations_v1(pool text PRIMARY KEY,token text NOT
 	if _, exists, err := provider.Find(ctx, room.StartKey); err != nil || exists {
 		t.Fatalf("provider room survived end: exists %t; %v", exists, err)
 	}
+	legacyCreate := request(router, &host, "/v3/voice-rooms", `{"poolId":"`+poolID+`"}`)
+	if legacyCreate.Code != http.StatusOK {
+		t.Fatalf("versioned room create = %d %s", legacyCreate.Code, legacyCreate.Body.String())
+	}
+	var legacy struct {
+		RoomID string `json:"roomId"`
+		State  string `json:"state"`
+	}
+	if err := json.Unmarshal(legacyCreate.Body.Bytes(), &legacy); err != nil || legacy.RoomID == "" || legacy.State != "scheduled" {
+		t.Fatalf("versioned room = %+v: %v", legacy, err)
+	}
+	legacyBase := "/v2/voice-rooms/" + legacy.RoomID
+	legacyStart := request(router, &host, legacyBase+"/start", `{"expectedRevision":1}`)
+	if legacyStart.Code != http.StatusOK || !strings.Contains(legacyStart.Body.String(), `"state":"live"`) {
+		t.Fatalf("versioned room start = %d %s", legacyStart.Code, legacyStart.Body.String())
+	}
+	legacyTicket := request(router, &guest, "/v3/voice-rooms/"+legacy.RoomID+"/tickets", `{}`)
+	if legacyTicket.Code != http.StatusOK {
+		t.Fatalf("versioned room ticket = %d %s", legacyTicket.Code, legacyTicket.Body.String())
+	}
+	var ticketBodyLegacy struct {
+		Ticket           string `json:"ticket"`
+		ProviderEndpoint string `json:"providerEndpoint"`
+	}
+	if err := json.Unmarshal(legacyTicket.Body.Bytes(), &ticketBodyLegacy); err != nil || strings.Count(ticketBodyLegacy.Ticket, ".") != 2 || ticketBodyLegacy.ProviderEndpoint == "" {
+		t.Fatalf("versioned ticket = %+v: %v", ticketBodyLegacy, err)
+	}
+	legacyEnd := request(router, &host, legacyBase+"/end", `{"expectedRevision":2}`)
+	if legacyEnd.Code != http.StatusOK || !strings.Contains(legacyEnd.Body.String(), `"state":"ended"`) {
+		t.Fatalf("versioned room end = %d %s", legacyEnd.Code, legacyEnd.Body.String())
+	}
 }
 
 func v2VoiceActionsLiveKit(t *testing.T) *voice.LiveKit {

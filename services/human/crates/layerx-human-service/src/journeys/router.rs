@@ -632,6 +632,8 @@ pub enum BalanceObservation {
 }
 
 impl BalanceObservation {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn require(self) -> Result<Amount, Refusal> {
         match self {
             Self::Known(amount) => Ok(amount),
@@ -1189,8 +1191,12 @@ impl UnifiedPlan {
     }
 
     /// Returns the journey kind the engine records this plan under.
+    ///
+    /// # Panics
+    /// Panics in debug builds if the sealed plan has no legs.
     #[must_use]
     pub fn journey_kind(&self) -> JourneyKind {
+        debug_assert!(!self.legs.is_empty());
         JourneyKind::Move
     }
 
@@ -1647,14 +1653,11 @@ fn top_up_prefixes(
         let mut fee_total = 0_u128;
         let mut fees_known = true;
         for shape in &shapes {
-            match observed.fees.fee(shape.mechanism) {
-                Ok(fee) => {
-                    fee_total = fee_total.checked_add(fee).ok_or(Refusal::Arithmetic)?;
-                }
-                Err(_) => {
-                    fees_known = false;
-                    break;
-                }
+            if let Ok(fee) = observed.fees.fee(shape.mechanism) {
+                fee_total = fee_total.checked_add(fee).ok_or(Refusal::Arithmetic)?;
+            } else {
+                fees_known = false;
+                break;
             }
         }
         if !fees_known {
@@ -1943,9 +1946,8 @@ impl SignedPlan {
             )
             .map_err(Refusal::Route)?;
             let route = RouteResolver::resolve(&request).map_err(Refusal::Route)?;
-            let resolved = match route.legs() {
-                [single] => single,
-                _ => return Err(Refusal::LegMismatch { index }),
+            let [resolved] = route.legs() else {
+                return Err(Refusal::LegMismatch { index });
             };
             if resolved.mechanism() != mechanism || resolved.term() != leg.term {
                 return Err(Refusal::LegMismatch { index });
@@ -2507,7 +2509,7 @@ mod tests {
     #[test]
     fn an_observation_after_the_deadline_is_refused() {
         let state = observed(None, vec![balance(home(), 1_000)], Vec::new());
-        let stale = UnifiedIntent::new(
+        let expired_intent = UnifiedIntent::new(
             home(),
             agent(),
             ASSET,
@@ -2515,7 +2517,7 @@ mod tests {
             Constraints::new(TimestampSeconds::from_u64(10), 1_000, true),
         )
         .unwrap_or_else(|error| panic!("intent: {error}"));
-        let refusal = plan(&stale, &state)
+        let refusal = plan(&expired_intent, &state)
             .err()
             .unwrap_or_else(|| panic!("expected a refusal"));
         assert_eq!(
@@ -2795,8 +2797,8 @@ mod tests {
             .action_key(0)
             .unwrap_or_else(|error| panic!("action key: {error}"));
         assert_ne!(signed_key, altered_key);
-        let stale = fund_binding(&signed_plan, 0);
-        let refusal = SignedPlan::accept(altered, signed_plan.digest(), vec![stale])
+        let original_binding = fund_binding(&signed_plan, 0);
+        let refusal = SignedPlan::accept(altered, signed_plan.digest(), vec![original_binding])
             .err()
             .unwrap_or_else(|| panic!("expected a refusal"));
         assert_eq!(refusal, Refusal::PlanDigestMismatch);
@@ -2807,8 +2809,8 @@ mod tests {
         let state = observed(None, vec![balance(home(), 1_000)], Vec::new());
         let value = planned(home(), budget(), 100, &state);
         let other = planned(home(), budget(), 101, &state);
-        let stale = fund_binding(&other, 0);
-        let refusal = SignedPlan::accept(value.clone(), value.digest(), vec![stale])
+        let foreign_binding = fund_binding(&other, 0);
+        let refusal = SignedPlan::accept(value.clone(), value.digest(), vec![foreign_binding])
             .err()
             .unwrap_or_else(|| panic!("expected a refusal"));
         assert_eq!(refusal, Refusal::LegMismatch { index: 0 });

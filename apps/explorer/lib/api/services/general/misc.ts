@@ -6,7 +6,7 @@ import type {
 } from 'types/api/arbitrumL2';
 import type { Blob } from 'types/api/blobs';
 import type { Block } from 'types/api/block';
-import type { ChartMarketResponse, ChartSecondaryCoinPriceResponse, ChartTransactionResponse } from 'types/api/charts';
+import type { ChartMarketResponse, ChartSecondaryCoinMarketResponse, ChartTransactionResponse } from 'types/api/charts';
 import type { BackendConfig, BackendVersionConfig, CeloConfig, ContractLanguagesConfig, CsvExportConfig } from 'types/api/configs';
 import type { HotContractsFilters, HotContractsResponse, HotContractsSorting } from 'types/api/contracts';
 import type { DepositsResponse, DepositsCounters } from 'types/api/deposits';
@@ -18,7 +18,6 @@ import type {
 } from 'types/api/optimisticL2';
 import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 import type { SearchRedirectResult, SearchResult, SearchResultFilters, SearchResultItem } from 'types/api/search';
-import type { HomeStats } from 'types/api/stats';
 import type {
   Transaction,
 } from 'types/api/transaction';
@@ -39,6 +38,8 @@ import type { WithdrawalsResponse, WithdrawalsCounters } from 'types/api/withdra
 import type {
   ZkEvmL2TxnBatchesItem,
 } from 'types/api/zkEvmL2';
+
+import type { ExplorerStats } from './stats';
 
 export const GENERAL_API_MISC_RESOURCES = {
   // WITHDRAWALS
@@ -74,7 +75,7 @@ export const GENERAL_API_MISC_RESOURCES = {
   stats_charts_market: {
     path: '/api/v2/stats/charts/market',
   },
-  stats_charts_secondary_coin_price: {
+  stats_charts_secondary_coin_market: {
     path: '/api/v2/stats/charts/secondary-coin-market',
   },
   stats_hot_contracts: {
@@ -278,12 +279,14 @@ export const GENERAL_API_MISC_RESOURCES = {
 
 export type GeneralApiMiscResourceName = `general:${ keyof typeof GENERAL_API_MISC_RESOURCES }`;
 
+export type GeneralApiChartResourceName = Extract<GeneralApiMiscResourceName, `general:stats_charts_${ string }`>;
+
 /* eslint-disable @stylistic/indent */
 export type GeneralApiMiscResourcePayload<R extends GeneralApiMiscResourceName> =
-R extends 'general:stats' ? HomeStats :
+R extends 'general:stats' ? ExplorerStats :
 R extends 'general:stats_charts_txs' ? ChartTransactionResponse :
 R extends 'general:stats_charts_market' ? ChartMarketResponse :
-R extends 'general:stats_charts_secondary_coin_price' ? ChartSecondaryCoinPriceResponse :
+R extends 'general:stats_charts_secondary_coin_market' ? ChartSecondaryCoinMarketResponse :
 R extends 'general:stats_hot_contracts' ? HotContractsResponse :
 R extends 'general:homepage_blocks' ? Array<Block> :
 R extends 'general:homepage_txs' ? Array<Transaction | PriceUpdateItem> :

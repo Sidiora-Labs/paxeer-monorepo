@@ -71,7 +71,7 @@ func samePublicSource(a, b discovery.SourceRef) bool {
 
 // resolve mirrors discovery.Feed.resolve for an anonymous reader.
 func (d devDiscovery) resolve(ctx context.Context, ref discovery.SourceRef) (discovery.FeedCard, error) {
-	card := discovery.FeedCard{Source: ref, State: "unavailable"}
+	card := discovery.FeedCard{Source: ref, State: literalUnavailable}
 	if ref.Tombstone {
 		card.State = "removed"
 		return card, nil
@@ -112,7 +112,7 @@ func strictQuery(req *http.Request, allowed ...string) (url.Values, bool) {
 func writeDiscoveryDocument(w http.ResponseWriter, req *http.Request, name string, v any) {
 	body, err := json.Marshal(v)
 	if err != nil || len(body) > store.PublicJSONMaxBytes || interfaces.ValidateJSON(name, body) != nil {
-		WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	responseRequestID(w)
@@ -120,9 +120,9 @@ func writeDiscoveryDocument(w http.ResponseWriter, req *http.Request, name strin
 }
 
 func (d devDiscovery) feed(w http.ResponseWriter, req *http.Request) {
-	values, ok := strictQuery(req, "order", "cursor", "limit")
+	values, ok := strictQuery(req, "order", literalCursor, literalLimit)
 	if !ok {
-		WriteV2APIError(w, req, 400, "QUERY_INVALID")
+		WriteV2APIError(w, req, 400, literalQUERYINVALID)
 		return
 	}
 	order := values.Get("order")
@@ -130,23 +130,23 @@ func (d devDiscovery) feed(w http.ResponseWriter, req *http.Request) {
 		order = "chronological"
 	}
 	limit := 50
-	if raw, present := values["limit"]; present {
+	if raw, present := values[literalLimit]; present {
 		n, err := strconv.Atoi(raw[0])
 		if err != nil || strconv.Itoa(n) != raw[0] || n < 1 || n > 50 {
-			WriteV2APIError(w, req, 422, "FIELD_INVALID")
+			WriteV2APIError(w, req, 422, literalFIELDINVALID)
 			return
 		}
 		limit = n
 	}
 	if order != "chronological" && order != "relevance" {
-		WriteV2APIError(w, req, 422, "FIELD_INVALID")
+		WriteV2APIError(w, req, 422, literalFIELDINVALID)
 		return
 	}
 	var after *store.DiscoveryKey
-	if raw, present := values["cursor"]; present {
+	if raw, present := values[literalCursor]; present {
 		var err error
 		if after, err = decodeDiscoveryKey(raw[0], 2048); err != nil {
-			WriteV2APIError(w, req, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, req, 400, literalCURSORINVALID)
 			return
 		}
 	}
@@ -168,9 +168,9 @@ func (d devDiscovery) feed(w http.ResponseWriter, req *http.Request) {
 		refs, keys, err := d.st.DevelopmentDiscoverySources(ctx, cursor, batch)
 		if err != nil {
 			if errors.Is(err, store.ErrDataIntegrity) {
-				WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+				WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 			} else {
-				WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+				WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 			}
 			return
 		}
@@ -206,24 +206,24 @@ func (d devDiscovery) feed(w http.ResponseWriter, req *http.Request) {
 
 func (d devDiscovery) feedDetail(w http.ResponseWriter, req *http.Request) {
 	if _, ok := strictQuery(req); !ok {
-		WriteV2APIError(w, req, 400, "QUERY_INVALID")
+		WriteV2APIError(w, req, 400, literalQUERYINVALID)
 		return
 	}
 	id := chi.URLParam(req, "id")
 	if id == "" || len(id) > 160 {
-		WriteV2APIError(w, req, 422, "FIELD_INVALID")
+		WriteV2APIError(w, req, 422, literalFIELDINVALID)
 		return
 	}
 	ref, found, err := d.st.DevelopmentDiscoverySource(req.Context(), id)
 	switch {
 	case errors.Is(err, store.ErrDataIntegrity):
-		WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		return
 	case err != nil:
-		WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 		return
 	case !found:
-		WriteV2APIError(w, req, 404, "NOT_FOUND")
+		WriteV2APIError(w, req, 404, literalNOTFOUND)
 		return
 	}
 	card, err := d.resolve(req.Context(), ref)
@@ -232,7 +232,7 @@ func (d devDiscovery) feedDetail(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if err != nil {
-		WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 		return
 	}
 	writeDiscoveryDocument(w, req, "ConnectedDiscoveryFeedCard", card)
@@ -241,13 +241,13 @@ func (d devDiscovery) feedDetail(w http.ResponseWriter, req *http.Request) {
 func (d devDiscovery) leaderboards(w http.ResponseWriter, req *http.Request) {
 	values, ok := strictQuery(req, "start", "end")
 	if !ok {
-		WriteV2APIError(w, req, 400, "QUERY_INVALID")
+		WriteV2APIError(w, req, 400, literalQUERYINVALID)
 		return
 	}
 	start, startErr := time.Parse(time.RFC3339, values.Get("start"))
 	end, endErr := time.Parse(time.RFC3339, values.Get("end"))
 	if startErr != nil || endErr != nil || !end.After(start) {
-		WriteV2APIError(w, req, 422, "FIELD_INVALID")
+		WriteV2APIError(w, req, 422, literalFIELDINVALID)
 		return
 	}
 	// discovery.RankIntervals requires an IntervalAuthority; development has
@@ -262,48 +262,48 @@ func unauthenticatedWrite(w http.ResponseWriter, req *http.Request) {
 }
 
 func (d devDiscovery) poolCallouts(w http.ResponseWriter, req *http.Request) {
-	values, ok := strictQuery(req, "cursor", "limit")
+	values, ok := strictQuery(req, literalCursor, literalLimit)
 	if !ok {
-		WriteV2APIError(w, req, 400, "QUERY_INVALID")
+		WriteV2APIError(w, req, 400, literalQUERYINVALID)
 		return
 	}
-	pool, err := store.Address(chi.URLParam(req, "poolAddress"))
+	pool, err := store.Address(chi.URLParam(req, literalPoolAddress))
 	if err != nil {
-		WriteV2APIError(w, req, 422, "FIELD_INVALID")
+		WriteV2APIError(w, req, 422, literalFIELDINVALID)
 		return
 	}
 	limit := 50
-	if raw, present := values["limit"]; present {
+	if raw, present := values[literalLimit]; present {
 		n, convErr := strconv.Atoi(raw[0])
 		if convErr != nil || strconv.Itoa(n) != raw[0] || n < 1 || n > 100 {
-			WriteV2APIError(w, req, 422, "FIELD_INVALID")
+			WriteV2APIError(w, req, 422, literalFIELDINVALID)
 			return
 		}
 		limit = n
 	}
 	var after *store.DiscoveryKey
-	if raw, present := values["cursor"]; present {
+	if raw, present := values[literalCursor]; present {
 		if after, err = decodeDiscoveryKey(raw[0], 256); err != nil {
-			WriteV2APIError(w, req, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, req, 400, literalCURSORINVALID)
 			return
 		}
 	}
 	ctx := req.Context()
 	indexed, err := d.st.DevelopmentPoolIndexed(ctx, pool)
 	if err != nil {
-		WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 		return
 	}
 	if !indexed {
-		WriteV2APIError(w, req, 404, "NOT_FOUND")
+		WriteV2APIError(w, req, 404, literalNOTFOUND)
 		return
 	}
 	callouts, keys, err := d.st.DevelopmentPoolCallouts(ctx, pool, after, limit+1)
 	if err != nil {
 		if errors.Is(err, store.ErrDataIntegrity) {
-			WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		} else {
-			WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 		}
 		return
 	}
@@ -318,12 +318,12 @@ func (d devDiscovery) poolCallouts(w http.ResponseWriter, req *http.Request) {
 		if _, idErr := uuid.Parse(c.ID); idErr != nil {
 			// The contract identifies callouts by UUID and authors by wallet;
 			// a row that cannot satisfy both is quarantined, not rewritten.
-			WriteV2APIError(w, req, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 			return
 		}
-		items = append(items, map[string]any{"calloutId": c.ID, "authorWallet": c.AuthorAccountID, "poolAddress": c.PoolAddress, "body": c.Body, "direction": c.Direction, "disclosure": c.Disclosure, "createdAt": c.CreatedAt.UTC().Format(hsdTimestamp), "revision": strconv.FormatUint(c.Revision, 10)})
+		items = append(items, map[string]any{"calloutId": c.ID, "authorWallet": c.AuthorAccountID, literalPoolAddress: c.PoolAddress, "body": c.Body, "direction": c.Direction, "disclosure": c.Disclosure, literalCreatedAt: c.CreatedAt.UTC().Format(hsdTimestamp), literalRevision: strconv.FormatUint(c.Revision, 10)})
 	}
-	writeHSDEnvelope(w, req, "CalloutListResponse", map[string]any{"items": items}, next)
+	writeHSDEnvelope(w, req, "CalloutListResponse", map[string]any{literalItems: items}, next)
 }
 
 // RegisterDevelopmentHistorySearchDiscovery mounts the non-production trade

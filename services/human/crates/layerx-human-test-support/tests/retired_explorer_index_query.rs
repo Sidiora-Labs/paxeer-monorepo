@@ -14,12 +14,12 @@ fn retired_explorer_index_query_files_and_references_are_gone() {
     let workspace_root = Path::new(
         metadata["workspace_root"]
             .as_str()
-            .expect("cargo metadata workspace_root must be a string"),
+            .unwrap_or_else(|| panic!("cargo metadata workspace_root must be a string")),
     );
     let expected_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
-        .expect("resolve human workspace root");
+        .unwrap_or_else(|error| panic!("resolve human workspace root: {error:?}"));
     assert_eq!(workspace_root, expected_root);
 
     let retired_query = workspace_root.join("crates/layerx-explorer-index/src/query.rs");

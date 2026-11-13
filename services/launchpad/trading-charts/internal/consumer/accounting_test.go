@@ -8,7 +8,6 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -869,12 +868,6 @@ func TestFaultCommitBeforeAckThenRealBrokerRedelivery(t *testing.T) {
 }
 
 func TestFaultPoisonQuarantineAndAuditedReprocessing(t *testing.T) {
-	for _, name := range []string{"L10_TEST_RPC_URL"} {
-		if os.Getenv(name) == "" {
-			t.Skipf("protected owner fixture unavailable: %s is not set", name)
-		}
-	}
-
 	ctx, pool, st := faultFixture(t, "poison")
 	broker := newFaultBroker(t)
 	nc := broker.start()
@@ -888,15 +881,7 @@ func TestFaultPoisonQuarantineAndAuditedReprocessing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rpcURL := os.Getenv("L10_TEST_RPC_URL")
-	u, err := url.Parse(rpcURL)
-	if err != nil || u.Hostname() != "127.0.0.1" {
-		t.Fatal("real private RPC fixture required")
-	}
-	rpc, err := ethclient.DialContext(ctx, rpcURL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	rpc, _ := internaltest.NewChainAt(t, 1700000000)
 	defer rpc.Close()
 	cfg := SourceVerifiedAccountingConfig{Pool: pool, Deliveries: deliveries, Partitions: partitions, Exact: st, ConsumerID: "fault", Generation: "live", ProjectionVersion: "market-v1", Owner: "fault-owner", SourceStream: "canonical", SourcePartitionSchema: st.Schema, RPC: rpc, MaxReplayBlocks: 4096, MaxReplayFills: 10000, SeriesV2: true, StreamWriter: &delivery.StreamWriter{Schema: "api_stream"}}
 	consumer, err := NewSourceVerifiedAccountingConsumer(cfg)

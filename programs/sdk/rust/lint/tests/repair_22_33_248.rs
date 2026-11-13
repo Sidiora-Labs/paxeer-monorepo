@@ -10,7 +10,8 @@ mod abi_v5;
 #[test]
 fn finding_016_v5_market_guest_reaches_import_validation() {
     let wasm = abi_v5::program_importing(ABI_V5_MODULE, "market_step_adjudicate", 6);
-    let engine = WasmEngine::declared().expect("declared runtime engine");
+    let engine =
+        WasmEngine::declared().unwrap_or_else(|error| panic!("declared runtime engine: {error}"));
     assert!(engine.validate_v5(&wasm).is_ok());
     assert_eq!(lint_artifact_for_abi(&wasm, ABI_V5_VERSION), Vec::new());
 }
@@ -38,7 +39,8 @@ fn finding_016_market_import_is_refused_before_v5() {
 #[test]
 fn finding_016_v5_rejects_wrong_market_signature() {
     let wasm = abi_v5::program_importing(ABI_V5_MODULE, "market_step_adjudicate", 4);
-    let engine = WasmEngine::declared().expect("declared runtime engine");
+    let engine =
+        WasmEngine::declared().unwrap_or_else(|error| panic!("declared runtime engine: {error}"));
     assert!(matches!(
         engine.validate_v5(&wasm),
         Err(ValidationRefusal::WrongImportSignature { import_name })
@@ -55,7 +57,8 @@ fn finding_016_v5_rejects_wrong_market_signature() {
 
 #[test]
 fn finding_016_v5_preserves_determinism_and_namespace_refusals() {
-    let engine = WasmEngine::declared().expect("declared runtime engine");
+    let engine =
+        WasmEngine::declared().unwrap_or_else(|error| panic!("declared runtime engine: {error}"));
     for (module, name, expected) in [
         (
             ABI_V5_MODULE,

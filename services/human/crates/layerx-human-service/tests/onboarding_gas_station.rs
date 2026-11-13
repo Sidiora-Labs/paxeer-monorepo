@@ -153,29 +153,13 @@ fn decimal(value: &[u8; 32]) -> Result<String, String> {
     Ok(u128::from_be_bytes(bytes).to_string())
 }
 
-#[test]
-fn onboarding_prepare_builds_a_bind_layerx_call() -> TestResult {
-    let _guard = ENVIRONMENT
-        .lock()
-        .map_err(|_| "environment lock poisoned")?;
-    let mut environment = Environment::new()?;
-    environment.unset("LAYERX_HUMAN_GAS_STATION_UPSTREAM_TOKEN_FILE");
-    environment.unset("LAYERX_HUMAN_GAS_STATION_UPSTREAM_CLIENT_IDENTITY_PKCS12");
-    environment.unset("LAYERX_HUMAN_GAS_STATION_UPSTREAM_COOKIE_FILE");
-    let tls = environment.certificates()?;
-    let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))?;
-    listener.set_nonblocking(true)?;
-    let endpoint = format!("https://localhost:{}", listener.local_addr()?.port());
-    environment.registry(&json!({"chain_id":125,"gas_station":endpoint}))?;
-    environment.set("LAYERX_HUMAN_GAS_STATION_UPSTREAM_URL", &endpoint);
-    environment.set("ONBOARDING_STATION_SIGNER", format!("{:064x}", 1));
-    let mut config = config::tests::config();
-    config.chain_id = 125;
-    config.per_account_limit = 8_000_000;
-    let signer = signer::LocalSigner::from_env("ONBOARDING_STATION_SIGNER")?;
-    let mut station = Station::new(config, signer)?;
-    let clock = RuntimeClock::from_environment()?;
-    let server = std::thread::spawn(move || -> Result<Vec<Value>, String> {
+fn serve_quotes(
+    listener: TcpListener,
+    tls: std::sync::Arc<rustls::ServerConfig>,
+    mut station: Station<signer::LocalSigner>,
+    clock: std::sync::Arc<RuntimeClock>,
+) -> std::thread::JoinHandle<Result<Vec<Value>, String>> {
+    std::thread::spawn(move || -> Result<Vec<Value>, String> {
         let mut received = Vec::new();
         let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(15))
             .map_err(|error| error.to_string())?;
@@ -207,7 +191,7 @@ fn onboarding_prepare_builds_a_bind_layerx_call() -> TestResult {
             let body: Value =
                 serde_json::from_slice(&request.body).map_err(|error| error.to_string())?;
             assert_eq!(body["chainId"], "125");
-            let signed = station
+            let signed_quote = station
                 .quote(
                     &QuoteRequest {
                         account: rpc::bytes(body["account"].as_str().ok_or("account required")?)
@@ -234,18 +218,43 @@ fn onboarding_prepare_builds_a_bind_layerx_call() -> TestResult {
                     1000,
                 )
                 .map_err(|error| format!("{error:?}"))?;
-            let q = signed.quote;
+            let q = signed_quote.quote;
             let answer = json!({"quote":{
                 "sponsor":hex(&q.sponsor),"token":hex(&q.token),
                 "maxTokenAmount":decimal(&q.max_token_amount)?,"tokenAmount":decimal(&q.token_amount)?,
                 "deadline":decimal(&q.deadline)?,"quoteNonce":decimal(&q.nonce)?,
                 "gasCost":decimal(&q.gas_cost)?,"decimals":6
-            },"relayerSignature":hex(&signed.signature)});
+            },"relayerSignature":hex(&signed_quote.signature)});
             http::write_response(&mut stream, &http::json(200, &answer))?;
             received.push(body);
         }
         Ok(received)
-    });
+    })
+}
+
+#[test]
+fn onboarding_prepare_builds_a_bind_layerx_call() -> TestResult {
+    let _guard = ENVIRONMENT
+        .lock()
+        .map_err(|_| "environment lock poisoned")?;
+    let mut environment = Environment::new()?;
+    environment.unset("LAYERX_HUMAN_GAS_STATION_UPSTREAM_TOKEN_FILE");
+    environment.unset("LAYERX_HUMAN_GAS_STATION_UPSTREAM_CLIENT_IDENTITY_PKCS12");
+    environment.unset("LAYERX_HUMAN_GAS_STATION_UPSTREAM_COOKIE_FILE");
+    let tls = environment.certificates()?;
+    let listener = TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))?;
+    listener.set_nonblocking(true)?;
+    let endpoint = format!("https://localhost:{}", listener.local_addr()?.port());
+    environment.registry(&json!({"chain_id":125,"gas_station":endpoint}))?;
+    environment.set("LAYERX_HUMAN_GAS_STATION_UPSTREAM_URL", &endpoint);
+    environment.set("ONBOARDING_STATION_SIGNER", format!("{:064x}", 1));
+    let mut config = config::tests::config();
+    config.chain_id = 125;
+    config.per_account_limit = 8_000_000;
+    let signer = signer::LocalSigner::from_env("ONBOARDING_STATION_SIGNER")?;
+    let station = Station::new(config, signer)?;
+    let clock = RuntimeClock::from_environment()?;
+    let server = serve_quotes(listener, tls, station, clock);
     let key = SigningKey::from_bytes(&[0x42; 32]);
     let mut message = b"LX:PAXEER-BIND:v1".to_vec();
     message.extend_from_slice(&quote::word(125));

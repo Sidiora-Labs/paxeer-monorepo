@@ -1140,6 +1140,7 @@ dependencies = [
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
+ "native-tls",
  "rustix",
  "rustls",
  "serde_json",

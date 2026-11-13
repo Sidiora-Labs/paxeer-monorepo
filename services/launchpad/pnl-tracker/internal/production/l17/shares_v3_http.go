@@ -2,9 +2,10 @@ package l17
 
 import (
 	"encoding/json"
+	"net/http"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	"github.com/go-chi/chi/v5"
-	"net/http"
 )
 
 func (s *SharesV3) RegisterHTTP(router chi.Router) {
@@ -56,12 +57,12 @@ func (s *SharesV3) previewHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	selection := ShareSelectionV3{SnapshotID: body.SnapshotID, Fields: body.Fields}
 	if len(body.IncludeWallet) > 0 {
-		if string(body.IncludeWallet) == "null" || json.Unmarshal(body.IncludeWallet, &selection.IncludeWallet) != nil {
+		if string(body.IncludeWallet) == jsonNull || json.Unmarshal(body.IncludeWallet, &selection.IncludeWallet) != nil {
 			writeFailure(w, ErrInvalid)
 			return
 		}
 	}
-	if len(body.ExpiresAt) == 0 || string(body.ExpiresAt) == "null" || json.Unmarshal(body.ExpiresAt, &selection.ExpiresAt) != nil {
+	if len(body.ExpiresAt) == 0 || string(body.ExpiresAt) == jsonNull || json.Unmarshal(body.ExpiresAt, &selection.ExpiresAt) != nil {
 		writeFailure(w, ErrInvalid)
 		return
 	}

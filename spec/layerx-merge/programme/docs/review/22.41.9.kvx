@@ -1,0 +1,173 @@
+[manifest]
+task = "22.41.9"
+pages = 47
+
+[record.1]
+path = "core/deps/geth/crypto/secp256k1/libsecp256k1/CONTRIBUTING.md"
+
+[record.2]
+path = "core/deps/geth/crypto/secp256k1/libsecp256k1/README.md"
+
+[record.3]
+path = "core/deps/geth/crypto/secp256k1/libsecp256k1/SECURITY.md"
+
+[record.4]
+path = "core/deps/geth/crypto/secp256k1/libsecp256k1/doc/ellswift.md"
+
+[record.5]
+path = "core/deps/geth/crypto/secp256k1/libsecp256k1/doc/musig.md"
+
+[record.6]
+path = "core/deps/geth/crypto/secp256k1/libsecp256k1/doc/release-process.md"
+
+[record.7]
+path = "core/deps/geth/crypto/secp256k1/libsecp256k1/doc/safegcd_implementation.md"
+
+[record.8]
+path = "core/deps/geth/docs/postmortems/2021-08-22-split-postmortem.md"
+
+[record.9]
+path = "core/deps/geth/eth/tracers/internal/tracetest/README.md"
+
+[record.10]
+path = "core/deps/geth/metrics/FORK.md"
+
+[record.11]
+path = "core/deps/geth/metrics/README.md"
+
+[record.12]
+path = "core/deps/geth/metrics/influxdb/README.md"
+
+[record.13]
+path = "core/deps/geth/metrics/memory.md"
+
+[record.14]
+path = "core/deps/geth/tests/fuzzers/README.md"
+
+[record.15]
+path = "core/deps/log/LICENSE.md"
+
+[record.16]
+path = "core/deps/log/README.md"
+
+[record.17]
+path = "core/deps/tm-db/README.md"
+
+[record.18]
+path = "core/deps/utils/README.md"
+
+[page.1]
+path = "deploy/launchpad/README.md"
+status = "corrected"
+
+[page.2]
+path = "deploy/launchpad/production/bootstrap/README.md"
+status = "corrected"
+
+[page.3]
+path = "deploy/launchpad/production/observability/README.md"
+status = "corrected"
+
+[page.4]
+path = "deploy/launchpad/production/observability/phase2/runbooks/activation.md"
+status = "corrected"
+
+[page.5]
+path = "deploy/launchpad/production/observability/phase2/runbooks/capacity.md"
+status = "corrected"
+
+[page.6]
+path = "deploy/launchpad/production/observability/runbooks/availability.md"
+status = "corrected"
+
+[page.7]
+path = "deploy/launchpad/production/observability/runbooks/integrity.md"
+status = "corrected"
+
+[page.8]
+path = "deploy/launchpad/production/observability/runbooks/storage.md"
+status = "corrected"
+
+[page.9]
+path = "deploy/launchpad/production/observability/runbooks/synthetic.md"
+status = "corrected"
+
+[page.10]
+path = "deploy/launchpad/production/observability/runbooks/telemetry.md"
+status = "corrected"
+
+[page.11]
+path = "deploy/launchpad/production/recovery/README.md"
+status = "corrected"
+
+[page.12]
+path = "deploy/launchpad/production/recovery/phase2/runbook.md"
+status = "corrected"
+
+[page.13]
+path = "deploy/launchpad/production/recovery/phase4/runbook.md"
+status = "corrected"
+
+[page.14]
+path = "deploy/launchpad/production/topology/README.md"
+status = "corrected"
+
+[page.15]
+path = "deploy/launchpad/production/topology/phase2/operator-runbook.md"
+status = "corrected"
+
+[page.16]
+path = "docker/README.md"
+status = "corrected"
+
+[page.17]
+path = "docs/MONOREPO.md"
+status = "corrected"
+
+[page.18]
+path = "docs/QUALIFICATION.md"
+status = "corrected"
+
+[page.19]
+path = "docs/README.md"
+status = "corrected"
+
+[page.20]
+path = "docs/agent/COMPATIBILITY.md"
+status = "corrected"
+
+[page.21]
+path = "docs/agent/inference-market/README.md"
+status = "corrected"
+
+[page.22]
+path = "docs/agent/inference-market/client.md"
+status = "corrected"
+
+[page.23]
+path = "docs/agent/inference-market/operator.md"
+status = "corrected"
+
+[page.24]
+path = "docs/agent/inference-market/protocol.md"
+status = "corrected"
+
+[page.25]
+path = "docs/agent/inference-market/threats.md"
+status = "corrected"
+
+[page.26]
+path = "docs/ci/secrets-and-runners.md"
+status = "corrected"
+
+[page.27]
+path = "docs/evm_jsonrpc_unsupported.md"
+status = "corrected"
+
+[page.28]
+path = "docs/explorer/BUILD-TIME_ENVS.md"
+status = "corrected"
+
+[page.29]
+path = "docs/explorer/CODE_OF_CONDUCT.md"
+status = "corrected"

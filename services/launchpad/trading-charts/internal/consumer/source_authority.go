@@ -130,7 +130,7 @@ func (a sourceAuthority) checkpoint(ctx context.Context, p accounting.Publicatio
 	if err != nil {
 		return engine.SeriesCheckpoint{}, err
 	}
-	if header.Hash != expected {
+	if watermark < 0 || header.Hash != expected {
 		return engine.SeriesCheckpoint{}, ErrAccountingAuthority
 	}
 	return engine.SeriesCheckpoint{Height: uint64(watermark), Timestamp: header.Time}, nil

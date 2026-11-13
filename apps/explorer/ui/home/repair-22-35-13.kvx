@@ -1,0 +1,16 @@
+[market_prices]
+native_coin = "PAX"
+secondary_coin = "SID"
+statistics_route = "/api/v2/stats"
+statistics_fields = ["coin_price", "coin_price_change_percentage", "market_cap", "secondary_coin_price", "secondary_coin_price_change_percentage", "secondary_coin_market_cap"]
+price_currency = "USD"
+change_period = "24 hours"
+absent_value = "An absent price or day change displays an em dash."
+
+[market_charts]
+native_route = "/api/v2/stats/charts/market"
+secondary_route = "/api/v2/stats/charts/secondary-coin-market"
+series_fields = ["chart_data", "date", "closing_price", "market_cap"]
+indicators = ["coin_price", "market_cap", "secondary_coin_price", "secondary_coin_market_cap"]
+calendar_window_days = 14
+empty_series = "A chart without two observations displays the transaction chart empty state."

@@ -619,6 +619,7 @@ impl Lease {
         Ok(())
     }
 
+    #[cfg(any(feature = "host-ffi", test))]
     pub(crate) fn expire_by_sweep(
         &mut self,
         activity_id: [u8; 32],
@@ -673,6 +674,7 @@ impl Lease {
         Ok(())
     }
 
+    #[cfg(any(feature = "host-ffi", test))]
     pub(crate) fn destroy_by_sweep(
         &mut self,
         storage: &mut Storage,
@@ -739,6 +741,7 @@ impl Lease {
         Ok((receipt, reclaimed_cells, reclaimed_bytes))
     }
 
+    #[cfg(any(feature = "host-ffi", test))]
     fn apply_sweep_transition(
         &mut self,
         activity: LeaseActivity,
@@ -1496,6 +1499,7 @@ impl Lease {
     /// # Errors
     ///
     /// Returns a refusal for an unknown lease, invalid transition or inconsistent transition evidence.
+    #[allow(clippy::large_types_passed_by_value)]
     pub fn transition(
         &mut self,
         transition: LeaseTransition,
@@ -1516,6 +1520,7 @@ impl Lease {
         self.apply_transition(transition, evidence)
     }
 
+    #[allow(clippy::large_types_passed_by_value)]
     pub(crate) fn snapshot_transition(
         &mut self,
         transition: LeaseTransition,
@@ -1530,6 +1535,7 @@ impl Lease {
     /// # Errors
     ///
     /// Returns a refusal when terminal evidence, lease bindings or namespace reclamation fails.
+    #[allow(clippy::large_types_passed_by_value)]
     pub fn destroy_with_evidence(
         &mut self,
         storage: &mut Storage,
@@ -1571,6 +1577,7 @@ impl Lease {
         Ok(outcome)
     }
 
+    #[allow(clippy::large_types_passed_by_value)]
     fn apply_transition(
         &mut self,
         transition: LeaseTransition,
@@ -1747,6 +1754,7 @@ impl LeaseBook {
     /// # Errors
     ///
     /// Returns a refusal when request evidence, lease identity or concurrency limits are invalid.
+    #[allow(clippy::large_types_passed_by_value)]
     pub fn insert_requested(
         &mut self,
         mut lease: Lease,
@@ -1796,6 +1804,7 @@ impl LeaseBook {
     /// # Errors
     ///
     /// Returns a refusal for an unknown lease, invalid transition or inconsistent transition evidence.
+    #[allow(clippy::large_types_passed_by_value)]
     pub fn transition(
         &mut self,
         id: LeaseId,
@@ -1821,6 +1830,7 @@ impl LeaseBook {
     /// # Errors
     ///
     /// Returns a refusal when terminal evidence, lease bindings or namespace reclamation fails.
+    #[allow(clippy::large_types_passed_by_value)]
     pub fn destroy_with_evidence(
         &mut self,
         id: LeaseId,

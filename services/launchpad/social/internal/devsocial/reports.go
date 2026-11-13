@@ -46,7 +46,7 @@ func (rt *Runtime) createReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target := strings.TrimSpace(body.TargetId)
-	if body.TargetType == "profile" || body.TargetType == "token" {
+	if body.TargetType == profileResource || body.TargetType == tokenResource {
 		target = strings.ToLower(target)
 	}
 	report, err := rt.insertReport(r.Context(), wallet, key, body.TargetType, target, reason, body.Reason, body.Evidence)
@@ -63,9 +63,9 @@ func (rt *Runtime) reportTarget(ctx context.Context, q pgxQuerier, kind, id stri
 	switch kind {
 	case "message":
 		err = q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chat.chat_messages WHERE id=$1)`, id).Scan(&exists)
-	case "comment":
+	case commentAction:
 		err = q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chat.interaction_comments WHERE id=$1)`, id).Scan(&exists)
-	case "profile", "token":
+	case profileResource, tokenResource:
 		exists = addressRE.MatchString(id)
 		if !exists {
 			return errInvalid
@@ -144,11 +144,11 @@ func (rt *Runtime) intakeReport(ctx context.Context, tx pgx.Tx, report v2.Report
 	switch report.TargetType {
 	case "message":
 		err = tx.QueryRow(ctx, `SELECT CASE WHEN c.kind='pool' THEN substring(c.id from 6) ELSE '' END,m.sender FROM chat.chat_messages m JOIN chat.chat_conversations c ON c.id=m.conversation_id WHERE m.id=$1`, report.TargetId).Scan(&pool, &affected)
-	case "comment":
+	case commentAction:
 		err = tx.QueryRow(ctx, `SELECT pool,author FROM chat.interaction_comments WHERE id=$1`, report.TargetId).Scan(&pool, &affected)
-	case "profile":
+	case profileResource:
 		affected = report.TargetId
-	case "token":
+	case tokenResource:
 		query := `SELECT lower(pool_address),lower(creator) FROM indexer.pools WHERE lower(token_address)=$1 LIMIT 1`
 		if rt.policy.Pools == CanonicalPools {
 			query = `SELECT pool,creator FROM chat.social_canonical_pools() WHERE token=$1`
@@ -165,7 +165,7 @@ func (rt *Runtime) intakeReport(ctx context.Context, tx pgx.Tx, report v2.Report
 	if err != nil {
 		return err
 	}
-	payload, err := json.Marshal(map[string]any{"kind": "case_changed", "entityId": caseID, "revision": revision, "reportId": report.ReportId})
+	payload, err := json.Marshal(map[string]any{"kind": "case_changed", "entityId": caseID, revisionField: revision, "reportId": report.ReportId})
 	if err != nil {
 		return err
 	}

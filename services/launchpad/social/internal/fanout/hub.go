@@ -250,7 +250,7 @@ func (h *Hub) ServeWS(w http.ResponseWriter, r *http.Request) {
 	c.principal = principal
 	h.addConn(c)
 	h.metrics.connected.Add(1)
-	c.enqueue(h.marshal(map[string]any{"type": "session_accepted", "protocol_version": h.protocolVersion}))
+	c.enqueue(h.marshal(map[string]any{typeField: "session_accepted", "protocol_version": h.protocolVersion}))
 	go c.writePump()
 	go c.readPump()
 }
@@ -474,7 +474,7 @@ func (h *Hub) dispatch(channel string, payload []byte) {
 			if json.Unmarshal(payload, &kind) != nil {
 				continue
 			}
-			if c.isDMSubscribed() || kind.Type == "read_marker" {
+			if c.isDMSubscribed() || kind.Type == readMarkerType {
 				var event DurableMessage
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 				allowed := json.Unmarshal(payload, &event) == nil && c.principal.valid(ctx, h.clock()) && h.durable.Authorized(WithPrincipal(ctx, c.principal), c.actor, event.ConversationID) == nil
@@ -496,7 +496,7 @@ func (h *Hub) logErr(op string, err error) {
 
 // Rate windows use one Redis transaction. PEXPIRE NX repairs a counter left
 // without a TTL, while preserving the deadline of an established window.
-var ErrRateLimited = errors.New("Rate limited")
+var ErrRateLimited = errors.New("Rate limited") //nolint:staticcheck // Preserve the rate limit response text.
 
 func (h *Hub) allow(ctx context.Context, actor, kind string, maximum int) error {
 	if h.pub == nil || h.rateWindow.Milliseconds() < 1 || maximum < 1 {
@@ -522,7 +522,7 @@ func (h *Hub) allow(ctx context.Context, actor, kind string, maximum int) error 
 
 func (h *Hub) admitSend(ctx context.Context, tx pgx.Tx, in SendInput) error {
 	maximum := h.maxDmMsgs
-	if in.Kind == "pool" {
+	if in.Kind == poolResource {
 		maximum = h.maxPoolMsgs
 	}
 	if err := h.allow(ctx, in.Actor, in.Kind, maximum); err != nil {

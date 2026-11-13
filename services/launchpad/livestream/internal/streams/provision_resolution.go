@@ -45,9 +45,9 @@ func (s ProvisionRecoveryState) Actions() []ProvisionResolutionAction {
 		return nil
 	}
 	switch s.Operation.State {
-	case "PROVISIONING":
+	case stateProvisioning:
 		return []ProvisionResolutionAction{ProvisionResume, ProvisionRelease, ProvisionAdopt}
-	case "ENDING", "SUSPENDED":
+	case stateEnding, stateSuspended:
 		return []ProvisionResolutionAction{ProvisionRelease, ProvisionAdopt}
 	default:
 		return nil
@@ -110,9 +110,9 @@ func resolvedProvisionState(state ProvisionRecoveryState, d ProvisionResolutionD
 	case ProvisionResume:
 		reason, sent = "provider_nonallocation_resume", false
 	case ProvisionRelease:
-		reason, next = "provider_nonallocation_released", "FAILED"
-		if state.Operation.State != "PROVISIONING" {
-			next = "ENDED"
+		reason, next = "provider_nonallocation_released", stateFailed
+		if state.Operation.State != stateProvisioning {
+			next = stateEnded
 		}
 	}
 	state.Operation.State = next
@@ -262,7 +262,7 @@ func (s *LifecycleStore) applyProvisionResolution(ctx context.Context, d Provisi
 	if err != nil {
 		return Operation{}, err
 	}
-	if next == "PROVISIONING" {
+	if next == stateProvisioning {
 		if err = s.enqueue(ctx, tx, o, "provision"); err != nil {
 			return Operation{}, err
 		}

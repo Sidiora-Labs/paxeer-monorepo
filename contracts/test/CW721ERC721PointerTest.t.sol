@@ -18,24 +18,20 @@ string constant MockOperatorPaxAddr = "pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4
 string constant MockCWContractAddress = "pax14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9snf99un";
 
 contract MockWasmd is IWasmd {
-
     // Transactions
-    function instantiate(
-        uint64,
-        string memory,
-        bytes memory,
-        string memory,
-        bytes memory
-    ) external pure returns (string memory, bytes memory) {
+    function instantiate(uint64, string memory, bytes memory, string memory, bytes memory)
+        external
+        pure
+        returns (string memory, bytes memory)
+    {
         return (MockCWContractAddress, bytes(""));
     }
 
-    function execute(
-        string memory contractAddress,
-        bytes memory,
-        bytes memory
-    ) external pure returns (bytes memory) {
-        require(keccak256(abi.encodePacked(contractAddress)) == keccak256(abi.encodePacked(MockCWContractAddress)), "wrong CW contract address");
+    function execute(string memory contractAddress, bytes memory, bytes memory) external pure returns (bytes memory) {
+        require(
+            keccak256(abi.encodePacked(contractAddress)) == keccak256(abi.encodePacked(MockCWContractAddress)),
+            "wrong CW contract address"
+        );
         return bytes("");
     }
 
@@ -156,17 +152,33 @@ contract CW721ERC721PointerTest is Test {
     function testBalanceOf() public {
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("query(string,bytes)", MockCWContractAddress, bytes("{\"tokens\":{\"limit\":1000,\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\"}}")),
+            abi.encodeWithSignature(
+                "query(string,bytes)",
+                MockCWContractAddress,
+                bytes("{\"tokens\":{\"limit\":1000,\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\"}}")
+            ),
             abi.encode("{\"tokens\":[\"a\",\"b\"]}")
         );
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("query(string,bytes)", MockCWContractAddress, bytes("{\"tokens\":{\"limit\":1000,\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\",\"start_after\":\"b\"}}")),
+            abi.encodeWithSignature(
+                "query(string,bytes)",
+                MockCWContractAddress,
+                bytes(
+                    "{\"tokens\":{\"limit\":1000,\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\",\"start_after\":\"b\"}}"
+                )
+            ),
             abi.encode("{\"tokens\":[\"c\",\"d\"]}")
         );
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("query(string,bytes)", MockCWContractAddress, bytes("{\"tokens\":{\"limit\":1000,\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\",\"start_after\":\"d\"}}")),
+            abi.encodeWithSignature(
+                "query(string,bytes)",
+                MockCWContractAddress,
+                bytes(
+                    "{\"tokens\":{\"limit\":1000,\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\",\"start_after\":\"d\"}}"
+                )
+            ),
             abi.encode("{\"tokens\":[]}")
         );
         bytes[] memory resp1 = new bytes[](2);
@@ -197,12 +209,18 @@ contract CW721ERC721PointerTest is Test {
     function testOwnerOf() public {
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("query(string,bytes)", MockCWContractAddress, bytes("{\"owner_of\":{\"token_id\":\"1\"}}")),
+            abi.encodeWithSignature(
+                "query(string,bytes)", MockCWContractAddress, bytes("{\"owner_of\":{\"token_id\":\"1\"}}")
+            ),
             abi.encode("{\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\"}")
         );
         vm.mockCall(
             JSON_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("extractAsBytes(bytes,string)", bytes("{\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\"}"), "owner"),
+            abi.encodeWithSignature(
+                "extractAsBytes(bytes,string)",
+                bytes("{\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\"}"),
+                "owner"
+            ),
             abi.encode(bytes("pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88"))
         );
         assertEq(pointer.ownerOf(1), 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
@@ -225,19 +243,29 @@ contract CW721ERC721PointerTest is Test {
     function testGetApproved() public {
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("query(string,bytes)", MockCWContractAddress, bytes("{\"approvals\":{\"token_id\":\"1\"}}")),
+            abi.encodeWithSignature(
+                "query(string,bytes)", MockCWContractAddress, bytes("{\"approvals\":{\"token_id\":\"1\"}}")
+            ),
             abi.encode("{\"approvals\":[{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}]}")
         );
         bytes[] memory response = new bytes[](1);
         response[0] = bytes("{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}");
         vm.mockCall(
             JSON_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("extractAsBytesList(bytes,string)", bytes("{\"approvals\":[{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}]}"), "approvals"),
+            abi.encodeWithSignature(
+                "extractAsBytesList(bytes,string)",
+                bytes("{\"approvals\":[{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}]}"),
+                "approvals"
+            ),
             abi.encode(response)
         );
         vm.mockCall(
             JSON_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("extractAsBytes(bytes,string)", bytes("{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}}"), "spender"),
+            abi.encodeWithSignature(
+                "extractAsBytes(bytes,string)",
+                bytes("{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}}"),
+                "spender"
+            ),
             abi.encode(bytes("pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s"))
         );
         vm.startPrank(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
@@ -248,48 +276,83 @@ contract CW721ERC721PointerTest is Test {
     function testIsApprovedForAll() public {
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("query(string,bytes)", MockCWContractAddress, bytes("{\"all_operators\":{\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\"}}")),
+            abi.encodeWithSignature(
+                "query(string,bytes)",
+                MockCWContractAddress,
+                bytes("{\"all_operators\":{\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\"}}")
+            ),
             abi.encode("{\"operators\":[{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}]}")
         );
         bytes[] memory response = new bytes[](1);
         response[0] = bytes("{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}");
         vm.mockCall(
             JSON_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("extractAsBytesList(bytes,string)", bytes("{\"operators\":[{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}]}"), "operators"),
+            abi.encodeWithSignature(
+                "extractAsBytesList(bytes,string)",
+                bytes("{\"operators\":[{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}]}"),
+                "operators"
+            ),
             abi.encode(response)
         );
         vm.mockCall(
             JSON_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("extractAsBytes(bytes,string)", bytes("{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}}"), "spender"),
+            abi.encodeWithSignature(
+                "extractAsBytes(bytes,string)",
+                bytes("{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}}"),
+                "spender"
+            ),
             abi.encode(bytes("pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s"))
         );
-        assertEq(pointer.isApprovedForAll(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, 0xF39fD6e51Aad88F6f4CE6AB8827279CFffb92267), true);
+        assertEq(
+            pointer.isApprovedForAll(
+                0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, 0xF39fD6e51Aad88F6f4CE6AB8827279CFffb92267
+            ),
+            true
+        );
     }
 
     function testRoyaltyInfo() public {
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("query(string,bytes)", MockCWContractAddress, bytes("{\"extension\":{\"msg\":{\"check_royalties\":{}}}}")),
+            abi.encodeWithSignature(
+                "query(string,bytes)",
+                MockCWContractAddress,
+                bytes("{\"extension\":{\"msg\":{\"check_royalties\":{}}}}")
+            ),
             abi.encode("{\"royalty_payments\":true}")
         );
         vm.mockCall(
             JSON_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("extractAsBytes(bytes,string)", bytes("{\"royalty_payments\":true}"), "royalty_payments"),
+            abi.encodeWithSignature(
+                "extractAsBytes(bytes,string)", bytes("{\"royalty_payments\":true}"), "royalty_payments"
+            ),
             abi.encode("true")
         );
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("query(string,bytes)", MockCWContractAddress, bytes("{\"extension\":{\"msg\":{\"royalty_info\":{\"token_id\":\"1\",\"sale_price\":\"1000\"}}}}")),
+            abi.encodeWithSignature(
+                "query(string,bytes)",
+                MockCWContractAddress,
+                bytes("{\"extension\":{\"msg\":{\"royalty_info\":{\"token_id\":\"1\",\"sale_price\":\"1000\"}}}}")
+            ),
             abi.encode("{\"address\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\",\"royalty_amount\":\"10\"}")
         );
         vm.mockCall(
             JSON_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("extractAsBytes(bytes,string)", bytes("{\"address\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\",\"royalty_amount\":\"10\"}"), "address"),
+            abi.encodeWithSignature(
+                "extractAsBytes(bytes,string)",
+                bytes("{\"address\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\",\"royalty_amount\":\"10\"}"),
+                "address"
+            ),
             abi.encode("pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88")
         );
         vm.mockCall(
             JSON_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("extractAsUint256(bytes,string)", bytes("{\"address\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\",\"royalty_amount\":\"10\"}"), "royalty_amount"),
+            abi.encodeWithSignature(
+                "extractAsUint256(bytes,string)",
+                bytes("{\"address\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\",\"royalty_amount\":\"10\"}"),
+                "royalty_amount"
+            ),
             abi.encode(10)
         );
         vm.mockCall(
@@ -305,12 +368,18 @@ contract CW721ERC721PointerTest is Test {
     function testTransferFrom() public {
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("query(string,bytes)", MockCWContractAddress, bytes("{\"owner_of\":{\"token_id\":\"1\"}}")),
+            abi.encodeWithSignature(
+                "query(string,bytes)", MockCWContractAddress, bytes("{\"owner_of\":{\"token_id\":\"1\"}}")
+            ),
             abi.encode("{\"owner\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}")
         );
         vm.mockCall(
             JSON_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("extractAsBytes(bytes,string)", bytes("{\"owner\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}"), "owner"),
+            abi.encodeWithSignature(
+                "extractAsBytes(bytes,string)",
+                bytes("{\"owner\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}"),
+                "owner"
+            ),
             abi.encode(bytes("pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s"))
         );
         vm.mockCall(
@@ -320,7 +389,14 @@ contract CW721ERC721PointerTest is Test {
         );
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("execute(string,bytes,bytes)", MockCWContractAddress, bytes("{\"transfer_nft\":{\"recipient\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\",\"token_id\":\"1\"}}"), bytes("[]")),
+            abi.encodeWithSignature(
+                "execute(string,bytes,bytes)",
+                MockCWContractAddress,
+                bytes(
+                    "{\"transfer_nft\":{\"recipient\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\",\"token_id\":\"1\"}}"
+                ),
+                bytes("[]")
+            ),
             abi.encode(bytes(""))
         );
         vm.startPrank(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
@@ -333,17 +409,28 @@ contract CW721ERC721PointerTest is Test {
     function testApprove() public {
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("execute(string,bytes,bytes)", MockCWContractAddress, bytes("{\"approve\":{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\",\"token_id\":\"1\"}}"), bytes("[]")),
+            abi.encodeWithSignature(
+                "execute(string,bytes,bytes)",
+                MockCWContractAddress,
+                bytes("{\"approve\":{\"spender\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\",\"token_id\":\"1\"}}"),
+                bytes("[]")
+            ),
             abi.encode(bytes(""))
         );
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("query(string,bytes)", MockCWContractAddress, bytes("{\"owner_of\":{\"token_id\":\"1\"}}")),
+            abi.encodeWithSignature(
+                "query(string,bytes)", MockCWContractAddress, bytes("{\"owner_of\":{\"token_id\":\"1\"}}")
+            ),
             abi.encode("{\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\"}")
         );
         vm.mockCall(
             JSON_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("extractAsBytes(bytes,string)", bytes("{\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\"}"), "owner"),
+            abi.encodeWithSignature(
+                "extractAsBytes(bytes,string)",
+                bytes("{\"owner\":\"pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88\"}"),
+                "owner"
+            ),
             abi.encode(bytes("pax19zhelek4q5lt4zam8mcarmgv92vzgqd3d9ay88"))
         );
         vm.startPrank(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
@@ -356,7 +443,12 @@ contract CW721ERC721PointerTest is Test {
     function testSetApprovalForAll() public {
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("execute(string,bytes,bytes)", MockCWContractAddress, bytes("{\"approval_all\":{\"operator\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}}"), bytes("[]")),
+            abi.encodeWithSignature(
+                "execute(string,bytes,bytes)",
+                MockCWContractAddress,
+                bytes("{\"approval_all\":{\"operator\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}}"),
+                bytes("[]")
+            ),
             abi.encode(bytes(""))
         );
         vm.startPrank(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
@@ -369,7 +461,12 @@ contract CW721ERC721PointerTest is Test {
     function testSetRevokeForAll() public {
         vm.mockCall(
             WASMD_PRECOMPILE_ADDRESS,
-            abi.encodeWithSignature("execute(string,bytes,bytes)", MockCWContractAddress, bytes("{\"revoke_all\":{\"operator\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}}"), bytes("[]")),
+            abi.encodeWithSignature(
+                "execute(string,bytes,bytes)",
+                MockCWContractAddress,
+                bytes("{\"revoke_all\":{\"operator\":\"pax1vldxw5dy5k68hqr4d744rpg9w8cqs54xy7ur4s\"}}"),
+                bytes("[]")
+            ),
             abi.encode(bytes(""))
         );
         vm.startPrank(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);

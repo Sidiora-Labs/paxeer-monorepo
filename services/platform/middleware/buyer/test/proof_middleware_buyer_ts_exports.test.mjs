@@ -32,6 +32,8 @@ const root = new URL("../../../../../", import.meta.url);
 // Compile the actual consumer sources in memory. The declared gate builds only
 // SDK/seller/buyer; importing another workspace package's dist would be stale.
 const sourcePackages = new Map([
+  ["@sidiora/layerx-express", "sdk/integrations/express/src/index.ts"],
+  ["@sidiora/layerx-next", "sdk/integrations/next/src/index.ts"],
   ["@sidiora/layerx-agent-integrations", "sdk/integrations/agents/src/index.ts"],
   ["@sidiora/layerx-agent-middleware", "services/platform/middleware/agent/src/index.ts"],
   ["@sidiora/layerx-merchant-middleware", "services/platform/middleware/merchant/src/index.ts"],
@@ -283,14 +285,14 @@ test(proofBuyerAgentObservesFreshResultsAndRefusal);
 
 async function proofGrantPaymentHeaderReachesIntegrationConsumers(t) {
   const state = await producerState(t);
-  const draw = { from: state.facts.payTo, assetId: fixedBytes(0x22), amount: 25n, grantId: fixedBytes(0x33), receiverSequence: 1n,
+  const draw = { recipient: state.facts.payTo, purposeHash: fixedBytes(0x22), amount: 25n, grantId: fixedBytes(0x33), sequence: 1n,
     idempotencyKey: fixedBytes(0x44), contextHash: fixedBytes(0x55) };
-  assert.notDeepEqual(draw.from, state.facts.from);
+  assert.notDeepEqual(draw.recipient, state.facts.from);
   const transaction = hex(state.sequencer.signTransaction({ chainId: 125n, nonce: 0n, maxPriorityFeePerGas: 1n, maxFeePerGas: 2n,
     gasLimit: 200000n, to: bytes(LAYERX_LEDGER_ADDRESS), value: 0n, data: encodeLedgerDraw(draw), accessList: [] }));
   for (const scheme of ["metered", "subscription"]) {
-    const accepted = { ...state.requirements, scheme, amount: "25", asset: hex(state.facts.asset), payTo: hex(draw.from), extra: { layerx: { commitment: "receipted",
-      payer: toHex(state.facts.from), purposeHash: toHex(draw.assetId), contextHash: toHex(draw.contextHash),
+    const accepted = { ...state.requirements, scheme, amount: "25", asset: hex(state.facts.asset), payTo: hex(draw.recipient), extra: { layerx: { commitment: "receipted",
+      payer: toHex(state.facts.from), purposeHash: toHex(draw.purposeHash), contextHash: toHex(draw.contextHash),
       grant: { grantId: toHex(draw.grantId), asset: hex(state.facts.asset) },
       ...(scheme === "subscription" ? { windowSeconds: "3600" } : {}),
     } } };

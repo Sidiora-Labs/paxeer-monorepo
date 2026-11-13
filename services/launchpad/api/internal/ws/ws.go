@@ -18,15 +18,16 @@ import (
 	"net/url"
 
 	"encoding/json"
-	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
-	"github.com/google/uuid"
 	"log/slog"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
+	"github.com/google/uuid"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
@@ -256,8 +257,8 @@ func (c *wsConn) run(ctx context.Context) {
 	go c.writePump(ctx)
 
 	c.enqueueCtrl(mustJSON(map[string]any{
-		"type":    "connected",
-		"message": `Send {"type":"subscribe","channels":["indexer:swap"],"pools":["0x..."]} to stream events`,
+		literalType:    "connected",
+		literalMessage: `Send {"type":"subscribe","channels":["indexer:swap"],"pools":["0x..."]} to stream events`,
 	}))
 
 	for {
@@ -272,24 +273,24 @@ func (c *wsConn) run(ctx context.Context) {
 			Timeframes []string `json:"timeframes"`
 		}
 		if err := json.Unmarshal(raw, &frame); err != nil {
-			c.enqueueCtrl(mustJSON(map[string]string{"type": "error", "message": "Invalid JSON"}))
+			c.enqueueCtrl(mustJSON(map[string]string{literalType: literalError, literalMessage: "Invalid JSON"}))
 			continue
 		}
 		switch frame.Type {
 		case "subscribe":
 			if err := c.applySubscribe(frame.Channels, frame.Pools, true); err != nil {
-				c.enqueueCtrl(mustJSON(map[string]string{"type": "error", "message": err.Error()}))
+				c.enqueueCtrl(mustJSON(map[string]string{literalType: literalError, literalMessage: err.Error()}))
 				continue
 			}
 			c.ackSubscription("subscribed", frame.Timeframes)
 		case "unsubscribe":
 			if err := c.applySubscribe(frame.Channels, frame.Pools, false); err != nil {
-				c.enqueueCtrl(mustJSON(map[string]string{"type": "error", "message": err.Error()}))
+				c.enqueueCtrl(mustJSON(map[string]string{literalType: literalError, literalMessage: err.Error()}))
 				continue
 			}
 			c.ackSubscription("unsubscribed", frame.Timeframes)
-		case "ping":
-			c.enqueueCtrl(mustJSON(map[string]string{"type": "pong"}))
+		case literalPing:
+			c.enqueueCtrl(mustJSON(map[string]string{literalType: "pong"}))
 		}
 	}
 }
@@ -305,15 +306,15 @@ func (c *wsConn) applySubscribe(channels, pools []string, add bool) error {
 	for _, p := range pools {
 		p = strings.ToLower(strings.TrimSpace(p))
 		if len(p) != 42 || !strings.HasPrefix(p, "0x") || p == "0x"+strings.Repeat("0", 40) {
-			return errors.New("Invalid pool address")
+			return errors.New("Invalid pool address") //nolint:staticcheck // This message is part of the WebSocket response.
 		}
 		if _, err := hex.DecodeString(p[2:]); err != nil {
-			return errors.New("Invalid pool address")
+			return errors.New("Invalid pool address") //nolint:staticcheck // This message is part of the WebSocket response.
 		}
 		if add {
 			nextPools[p] = struct{}{}
 			if len(nextPools) > legacyMaxPools {
-				return errors.New("Pool subscription limit exceeded")
+				return errors.New("Pool subscription limit exceeded") //nolint:staticcheck // This message is part of the WebSocket response.
 			}
 		} else {
 			delete(nextPools, p)
@@ -338,8 +339,8 @@ func (c *wsConn) applySubscribe(channels, pools []string, add bool) error {
 
 func (c *wsConn) ackSubscription(typ string, timeframes []string) {
 	ack := map[string]any{
-		"type":  typ,
-		"pools": setKeys(c.pools),
+		literalType: typ,
+		"pools":     setKeys(c.pools),
 	}
 	if c.fixedChannel != "" {
 		ack["timeframes"] = timeframes
@@ -377,7 +378,7 @@ func (c *wsConn) writePump(ctx context.Context) {
 				return
 			}
 		case <-ping.C:
-			if !c.write(mustJSON(map[string]any{"type": "ping", "ts": time.Now().UnixMilli()})) {
+			if !c.write(mustJSON(map[string]any{literalType: literalPing, "ts": time.Now().UnixMilli()})) {
 				return
 			}
 		}
@@ -388,7 +389,7 @@ func (c *wsConn) writePump(ctx context.Context) {
 // if the subscription was evicted or a write failed.
 func (c *wsConn) drain() bool {
 	if c.sub.Evicted() {
-		_ = c.write(mustJSON(map[string]string{"type": "error", "message": "slow consumer evicted"}))
+		_ = c.write(mustJSON(map[string]string{literalType: literalError, literalMessage: "slow consumer evicted"}))
 		return false
 	}
 	for _, b := range c.sub.Drain() {
@@ -457,7 +458,7 @@ func streamHTTPError(w http.ResponseWriter, status int, code string) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Schema-Version", "2")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"code": code, "message": code, "requestId": uuid.NewString(), "retryable": status == 503, "retryAfterMs": nil, "fieldErrors": []any{}, "details": nil})
+	_ = json.NewEncoder(w).Encode(map[string]any{"code": code, literalMessage: code, "requestId": uuid.NewString(), "retryable": status == 503, "retryAfterMs": nil, "fieldErrors": []any{}, "details": nil})
 }
 func (h *Hub) streamBinding(r *http.Request, topics []string) sharedauth.StreamTicketBinding {
 	return sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: append([]string(nil), topics...), FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: r.Header.Get("Origin"), Endpoint: "/v2/stream"}

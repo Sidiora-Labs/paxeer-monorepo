@@ -164,7 +164,7 @@ fn malformed_balance_asset_is_refused_before_rpc() {
     assert!(!output.status.success());
     let detail = error_envelope(&output)["error"]["detail"]
         .as_str()
-        .unwrap()
+        .unwrap_or_else(|| panic!("expected value"))
         .to_owned();
     assert!(detail.contains("asset"), "{detail}");
     assert!(!detail.contains("connect"), "{detail}");

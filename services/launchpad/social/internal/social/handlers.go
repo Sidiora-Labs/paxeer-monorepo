@@ -371,7 +371,7 @@ func (h *Handlers) checkedBan(ctx context.Context, wallet, pool string) (bool, e
 		}
 		scope, resource := "global", ""
 		if pool != "" {
-			scope, resource = "pool", pool
+			scope, resource = poolResource, pool
 		}
 		decision := store.Check(ctx, p.Wallet, scope, resource)
 		if decision == safety.Unavailable {
@@ -413,8 +413,7 @@ func (h *Handlers) adminAuth(next http.Handler) http.Handler {
 			sharedhttp.WriteError(w, http.StatusUnauthorized, "Unauthorized", "Missing API key")
 			return
 		}
-		if subtle.ConstantTimeEq(int32(len(provided)), int32(len(h.adminKey))) != 1 ||
-			subtle.ConstantTimeCompare([]byte(provided), []byte(h.adminKey)) != 1 {
+		if subtle.ConstantTimeCompare([]byte(provided), []byte(h.adminKey)) != 1 {
 			sharedhttp.WriteError(w, http.StatusForbidden, "Forbidden", "Invalid API key")
 			return
 		}

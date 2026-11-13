@@ -1,5 +1,7 @@
-import { decodeEventLog, parseAbi, type AddEthereumChainParameter, type Hex } from 'viem';
+import { decodeEventLog, parseAbi, type AddEthereumChainParameter, type Address, type Hex } from 'viem';
+import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS } from '@/core/network/contracts';
 import { address, raw } from '../create/creation-domain';
+import { NAME_MAX_BYTES, SYMBOL_MAX_BYTES } from '../create/create-form-fields';
 
 export const CHAINS_PRECOMPILE = '0x000000000000000000000000000000000000101e';
 export const VIRTUAL_CHAIN_ID_BASE = 125000000;
@@ -30,6 +32,9 @@ export interface ChainDraft {
   creator: string;
   chainId: 125;
   name: string;
+  tokenName: string;
+  tokenSymbol: string;
+  feeStrategy: 0 | 1 | 2 | 3;
   tier: SizeTier;
   feeShareBps: number;
   updatedAt: number;
@@ -39,11 +44,19 @@ export function validateChainDraft(draft: ChainDraft, now: number): Record<strin
   const errors: Record<string, string> = {};
   if (!draft || typeof draft !== 'object') return { draft: 'invalid_draft' };
   if (typeof draft.draftId !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(draft.draftId)
-    || !Number.isSafeInteger(draft.version) || draft.version < 1) errors.draftId = 'invalid_identity';
+    || draft.version !== 2) errors.draftId = 'invalid_identity';
   try { address(draft.creator); } catch { errors.creator = 'invalid_creator'; }
   if (draft.chainId !== 125) errors.chainId = 'wrong_chain';
   const nameError = validateChainName(draft.name);
   if (nameError) errors.name = nameError;
+  for (const [key, limit] of [['tokenName', NAME_MAX_BYTES], ['tokenSymbol', SYMBOL_MAX_BYTES]] as const) {
+    const value = draft[key];
+    if (typeof value !== 'string' || !value.length || new TextEncoder().encode(value).length > limit
+      || /[\p{Cc}\p{Cf}]/u.test(value)) errors[key] = 'invalid_text';
+  }
+  if (!Number.isInteger(draft.feeStrategy) || draft.feeStrategy < 0 || draft.feeStrategy > 3) {
+    errors.feeStrategy = 'invalid_fee_strategy';
+  }
   if (!isSizeTier(draft.tier)) errors.tier = 'invalid_tier';
   if (!Number.isInteger(draft.feeShareBps) || draft.feeShareBps < 0 || draft.feeShareBps > 5000) {
     errors.feeShareBps = 'invalid_fee_share';
@@ -88,7 +101,7 @@ export function chainCost(params: ChainsParams, tier: SizeTier, gasEstimatePaxRa
   if (gas < minGas || gas > maxGas || gas > gasLeft) throw new Error('tier_unavailable');
   const totalValueRaw = (minBond + creationFee).toString();
   raw(totalValueRaw);
-  // Gas is funded separately; createChain receives only the bond plus creation fee.
+  // Gas is funded separately; launchChain receives the bond plus chain creation fee.
   raw(gasEstimatePaxRaw);
   return Object.freeze({ bondRaw: minBond.toString(), feeRaw: creationFee.toString(), totalValueRaw, gasEstimatePaxRaw });
 }
@@ -116,6 +129,30 @@ export function decodeChainCreated(log: { address: string; topics: readonly Hex[
   const chainId = chainIdOf(args.id);
   if (validateChainName(args.name) || args.chainId !== BigInt(chainId)) throw new Error('invalid_chain_event');
   return Object.freeze({ id: args.id, name: args.name, operator: address(args.operator), chainId });
+}
+
+export interface ChainLaunchedRecord {
+  id: number;
+  chainId: number;
+  pool: Address;
+  token: Address;
+  nftId: bigint;
+  creator: string;
+  blockNumber: bigint;
+}
+
+export function decodeChainLaunched(log: { address: string; topics: readonly Hex[]; data: Hex }): Readonly<ChainLaunchedRecord> {
+  if (address(log.address) !== address(LAUNCHPAD_ADDRESS) || log.topics.length !== 4) throw new Error('invalid_chain_launch_event');
+  const { args } = decodeEventLog({
+    abi: CHAIN_LAUNCH_ABI, eventName: 'ChainLaunched',
+    topics: [...log.topics] as [Hex, ...Hex[]], data: log.data, strict: true,
+  });
+  const chainId = chainIdOf(args.chain);
+  if (args.chainId !== BigInt(chainId) || args.nftId < 1n || args.blockNumber < 1n) throw new Error('invalid_chain_launch_event');
+  return Object.freeze({
+    id: args.chain, chainId, pool: address(args.pool) as Address, token: address(args.token) as Address,
+    nftId: args.nftId, creator: address(args.creator), blockNumber: args.blockNumber,
+  });
 }
 
 function networkUrl(base: string, path: string): string {

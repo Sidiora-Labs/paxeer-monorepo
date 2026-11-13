@@ -1,0 +1,4 @@
+[native_programs]
+programs = ["build/paxd"]
+build_target = "paxeer-build"
+consumer = "services/agent/crates/layerx-sdk/tests/proof_sdk.rs"

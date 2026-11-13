@@ -1,6 +1,7 @@
 package user
 
 import (
+	"mime/multipart"
 	"net/http"
 	"testing"
 
@@ -9,6 +10,34 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/db/sqlcdb"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/user/internal/image"
 )
+
+func TestHandlerDefaultsAndMultipartFileSelection(t *testing.T) {
+	h := New(Deps{})
+	if h.maxAvatar != 2<<20 || h.maxBanner != 5<<20 || h.scan == nil || h.clock == nil {
+		t.Fatalf("handler defaults = %+v", h)
+	}
+	for _, value := range []string{"javascript:alert(1)", "https://user@example.org", "https://example.org/?q=1"} {
+		t.Run(value, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Fatal("invalid public URL accepted")
+				}
+			}()
+			New(Deps{PublicURL: value})
+		})
+	}
+	if firstFile(&http.Request{}, "avatar") != nil {
+		t.Fatal("file found without multipart form")
+	}
+	first := &multipart.FileHeader{Filename: "avatar.png"}
+	r := &http.Request{MultipartForm: &multipart.Form{File: map[string][]*multipart.FileHeader{"avatar": {first}}}}
+	if got := firstFile(r, "missing", "avatar"); got != first {
+		t.Fatalf("selected multipart file = %+v", got)
+	}
+	if firstFile(r, "missing") != nil {
+		t.Fatal("unrequested multipart file selected")
+	}
+}
 
 func TestNormalizeAddr(t *testing.T) {
 	cases := map[string]string{

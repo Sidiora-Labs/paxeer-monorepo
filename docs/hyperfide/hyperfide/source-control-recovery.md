@@ -1,8 +1,8 @@
 # Native source recovery
 
-A recovery profile states the failure model before the service claims readiness. It names the metadata acknowledgment mode and failure domains, every required immutable object placement, verified storage capabilities, backup retention, an independent authority journal, and RPO/RTO objectives. The schema is `deploy/hyperfide/source-control/recovery-profile.schema.json`.
+A recovery profile states the failure model before the service claims readiness. It names the metadata acknowledgment mode and failure domains, every required immutable object placement, verified storage capabilities, backup retention, an independent authority journal, and RPO/RTO objectives. The schema is [recovery-profile.schema.json](../../../tools/hyperfide/deploy/hyperfide/source-control/recovery-profile.schema.json).
 
-`FSYNC_PRIMARY` requires an fsync-enabled PostgreSQL primary. `SYNC_REPLICA` also requires an observed streaming synchronous replica when capturing a backup. A profile claiming loss of a failure domain must name distinct metadata and object failure domains. Backend identifiers alone do not establish replication: every required backend must be configured and every retained object is read and verified there.
+`FSYNC_PRIMARY` requires an fsync-enabled PostgreSQL primary. `SYNC_REPLICA` also requires an observed streaming synchronous replica when capturing a backup. The profile accepts `PROCESS_LOSS` and `PRIMARY_INSTANCE_LOSS`; selecting `FAILURE_DOMAIN_LOSS` returns `RECOVERY_PROFILE_UNQUALIFIED`. Backend identifiers alone do not establish replication: every required backend must be configured and every retained object is read and verified there.
 
 ## Capture and verify
 
@@ -28,13 +28,13 @@ Every source service uses `SourceRoutedObjectCatalog`. An unspecified owner may 
 
 ## Qualification
 
-The task gate runs the component variant from the repository root:
+Run the component recovery drill from the monorepo root:
 
 ```sh
 cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_1.py --component
 ```
 
-This uses owned PostgreSQL 18 processes and a signed HTTP S3 fixture. It kills actual source workers, stops the primary, promotes its physical synchronous standby, and restores a physical backup. The receipt reports `PROCESS_LOSS` and `PRIMARY_INSTANCE_LOSS` as `PASS` only after those checks succeed. Both PostgreSQL instances share one host, so `FAILURE_DOMAIN_LOSS` remains `UNRUN`. Distinct-host or region loss requires a separately qualified topology and external fencing evidence; a live object store alone cannot qualify it.
+This uses owned PostgreSQL 18 processes and a signed HTTP S3 fixture. It kills actual source workers, stops the primary, promotes its physical synchronous standby, and restores a physical backup. The receipt reports `PROCESS_LOSS` and `PRIMARY_INSTANCE_LOSS` as `PASS` only after those checks succeed. Both PostgreSQL instances share one host. The drill measures process and primary-instance recovery within that topology.
 
 For the live S3 variant, supply a fresh isolated bucket or a bucket allowing isolated native source scopes and set `HF_SOURCE_S3_ENDPOINT`, `HF_SOURCE_S3_REGION`, `HF_SOURCE_S3_BUCKET`, `HF_SOURCE_S3_ACCESS_KEY_ID`, and `HF_SOURCE_S3_SECRET_ACCESS_KEY` in the environment or `tools/hyperfide/.env`. Set `HF_SOURCE_S3_SESSION_TOKEN` when required. The existing `HF_ARTIFACT_S3_*` configuration aliases are also supported. Credentials need conditional object creation, reads, conditional deletion and multipart upload/abort permissions. Then run this exact command from the repository root:
 
@@ -42,7 +42,7 @@ For the live S3 variant, supply a fresh isolated bucket or a bucket allowing iso
 cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_1.py
 ```
 
-The live variant additionally exercises a real multipart upload and reconciles its abort after a lost acknowledgment. It needs object-store credentials, PostgreSQL 18 binaries and permission to run owned PostgreSQL processes as the `postgres` user; provider and model credentials are not required by this drill. A component pass leaves the live S3 result `UNRUN`, with the exact live command in `unresolved_debt`. The owner must retain that unresolved command in the qualification record until credentials are supplied and the live run is recorded. A component pass alone does not establish live object-store recovery.
+The live variant additionally exercises a real multipart upload and reconciles its abort after a lost acknowledgment. It needs object-store credentials, PostgreSQL 18 binaries and permission to run owned PostgreSQL processes as the `postgres` user; provider and model credentials are not required by this drill. Component and live S3 variants have separate receipts. The live variant requires the configured object backend.
 
 Private receipts under `tools/hyperfide/build/source-control/6.1/` retain the verified revision, acknowledgment inventory, manifest, profile, backend identity, adapter version and compiled implementation digest, PostgreSQL version, fault schedule and measured recovery duration. The component backend also records its fixture source digest. The S3 object API does not expose the provider server version; that observation remains explicitly `UNRUN`. `deterministic_faults` records injected missing objects, lost acknowledgments, stale credentials, concurrent ownership movement and delayed deletion separately from `real_infrastructure` outcomes. Every declared `failure_domains` entry is `PASS`, `FAIL` or `UNRUN`; unresolved external qualification and cleanup debt remain visible even when the component checks pass.
 

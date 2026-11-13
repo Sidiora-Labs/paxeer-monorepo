@@ -54,7 +54,7 @@ curl -sS https://api1.mainnet-beta.paxeer.network \
 
 网络不再使用独立的内核排序服务或统一路由接口。`node.hyperpaxeer.com` 仅为构建脚本使用的 hpx 库镜像（library mirror），不提供节点 RPC。
 
-公共端点列表见 [公共 JSON-RPC](../site/docs/reference/public-rpc.md)，方法说明见 [PublicRpc](../wiki/PublicRpc.md)。`px` 命名空间由节点根据节点状态应答；`px_register` 和 `px_requestFunds` 是托管身份与水龙头服务的操作，其契约见 [OpenRPC 契约](../../services/platform/hosted/gateway/openrpc.json)。
+公共端点列表见 [公共 JSON-RPC](../site/paxeer-docs/src/app/public-rpc/page.tsx)，方法说明见 [PublicRpc](../wiki/PublicRpc.md)。`px` 命名空间由节点根据节点状态应答；`px_register` 和 `px_requestFunds` 是托管身份与水龙头服务的操作，其契约见 [OpenRPC 契约](../../services/platform/hosted/gateway/openrpc.json)。
 
 钱包、注资与支付流程见 [支付入门](../wiki/PaymentsQuickstart.md)，资产说明见 [Assets](../wiki/Assets.md)，提交语义见 [CommitmentLevels](../wiki/CommitmentLevels.md)。本地开发操作见 [Quickstart](../wiki/Quickstart.md)；主网测试版与开发者接入说明见 [Getting Started](../wiki/Getting-Started-Beta.md)。
 
@@ -68,7 +68,7 @@ curl -sS https://api1.mainnet-beta.paxeer.network \
 make paxd-build
 ```
 
-该目标先构建 `build/liblayerx.a` 和 `programs/target/release/liblayerx_programs_sandbox.a`，再通过 `chain.mk` 构建 `build/paxd`。Go 与 C 通过 cgo 链接，需要可用的 C 编译器、OpenSSL 开发库和 Rust 工具链。`make paxeer-build` 也构建节点；这两个目标的 Go 步骤均设置 `GOPROXY=off`，因此需预先准备依赖缓存。
+该目标先构建 `build/liblayerx.a`、`programs/target/release/liblayerx_programs_sandbox.a` 和 evmone，再通过 `chain.mk` 构建 `build/paxd`，版本来自 `tools/release/version.json`。Go 与 C 通过 cgo 链接，需要可用的 C 编译器、OpenSSL 开发库和 Rust 工具链。`make paxeer-build` 也构建节点；这两个目标的 Go 步骤均设置 `GOPROXY=off`，因此需预先准备依赖缓存。
 
 内核库及开发工具的目标仍保留在根目录：
 
@@ -117,7 +117,7 @@ make paxeer-test
 - Wiki 索引：[Home](../wiki/Home.md)
 - 入门：[Getting Started](../wiki/Getting-Started-Beta.md)
 - 支付开发者指南：[PaymentsQuickstart](../wiki/PaymentsQuickstart.md)
-- 公共端点：[Public RPC endpoints](../site/docs/reference/public-rpc.md)
+- 公共端点：[Public RPC endpoints](../site/paxeer-docs/src/app/public-rpc/page.tsx)
 - RPC 方法：[PublicRpc](../wiki/PublicRpc.md)
 - 资产与代币：[Assets](../wiki/Assets.md)
 - 提交语义：[CommitmentLevels](../wiki/CommitmentLevels.md)
@@ -200,14 +200,14 @@ flowchart TB
 
 `layerxchains` 将子链注册为链状态中的租户域，保存域参数与资源额度；执行时按域隔离状态。实现见 [`modules/layerxchains/`](../../modules/layerxchains/)。
 
-跨网络桥是应用层集成。以 Ethereum 为例，中继器观察源链事件，收集证明者签名，并向目标链提交交易。配置要求五名不同的证明者、三签阈值，通过远程签名器与共同签名目录协作；观察结果与签名交易写入持久日志以支持恢复。代码见 [`services/interop/crates/layerx-bridge-relayer/`](../../services/interop/crates/layerx-bridge-relayer/)。
+跨网络桥是应用层集成。以 Ethereum 为例，中继器观察源链事件，收集证明者签名，并向目标链提交交易。未配置 `attestor_set` 时，中继器使用单名证明者；配置该集合时，必须有五名不同的非零地址成员、三签阈值及共同签名目录，且本实例的证明者必须属于该集合。签名通过远程签名器完成；观察结果与签名交易写入持久日志以支持恢复。代码见 [`services/interop/crates/layerx-bridge-relayer/`](../../services/interop/crates/layerx-bridge-relayer/)。
 
 ```mermaid
 flowchart LR
   vault["Ethereum · PaxeerXVault"]
   relayer["layerx-bridge-relayer"]
   signer["远程签名器"]
-  cosign[("共同签名目录 · 三签 / 五名证明者")]
+  cosign[("可选证明者集合 · 共同签名目录 · 三签 / 五名证明者")]
   journal[("持久日志")]
   bridge["Paxeer · layerxBridge · 0x1016"]
   module["layerxbridge 模块"]

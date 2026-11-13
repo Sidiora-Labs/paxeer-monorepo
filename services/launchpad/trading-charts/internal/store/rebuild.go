@@ -8,11 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 	"io"
 	"regexp"
 	"strconv"
+
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 )
 
 type ArchiveBlock struct {
@@ -194,7 +196,7 @@ func (a ArchiveReader) Read(ctx context.Context, m ArchiveManifest) ([]accountin
 	if err != nil {
 		return nil, err
 	}
-	defer object.Body.Close()
+	defer chartcleanup.Close(object.Body)
 	if object.Size != m.ByteLength {
 		return nil, ErrIntegrity
 	}
@@ -239,7 +241,7 @@ func (s *ExactStore) StageRebuild(ctx context.Context, id, pool string, from, to
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	if _, err = tx.Exec(ctx, `INSERT INTO `+s.Schema+`.chart_rebuild_runs(run_id,pool,from_time,to_time,manifest_digest,expected_digest,output_digest,status,base_revision) VALUES($1,$2,$3,$4,$5,$6,$7,'staging',$8)`, id, pool, from, to, manifestDigest, expectedDigest, outputDigest, baseRevision); err != nil {
 		return err
 	}
@@ -282,7 +284,7 @@ func (s *ExactStore) PromoteRebuild(ctx context.Context, id string) (uint64, err
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback(ctx)
+	defer chartcleanup.Rollback(ctx, tx)
 	var pool, status, expected, output, manifest string
 	var from, to, base, revision int64
 	if err = tx.QueryRow(ctx, `SELECT pool,from_time,to_time,status,base_revision,expected_digest,output_digest,manifest_digest FROM `+s.Schema+`.chart_rebuild_runs WHERE run_id=$1 FOR UPDATE`, id).Scan(&pool, &from, &to, &status, &base, &expected, &output, &manifest); err != nil {
@@ -377,6 +379,9 @@ func (s *ExactStore) PromoteRebuild(ctx context.Context, id string) (uint64, err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return 0, err
+	}
+	if revision < 0 {
+		return 0, ErrIntegrity
 	}
 	return uint64(revision), nil
 }

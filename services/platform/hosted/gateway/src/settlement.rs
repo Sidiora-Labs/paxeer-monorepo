@@ -143,20 +143,10 @@ pub fn claim(body: &[u8]) -> Result<Claim, Refusal> {
     let receipt_digest = hex32(&evidence.receipt_digest).ok_or(Refusal::Evidence)?;
     let request_digest = hex32(&document.request_digest).ok_or(Refusal::Evidence)?;
     let idempotency_key = hex32(&document.idempotency_key).ok_or(Refusal::Evidence)?;
-    if evidence
-        .purpose_hash
-        .as_deref()
-        .is_some_and(|value| hex32(value).is_none())
-        || evidence
-            .idempotency_key
-            .as_deref()
-            .is_some_and(|value| value.is_empty() || value.len() > MAX_KEY_BYTES)
-    {
+    if evidence.purpose_hash.as_deref().is_some_and(|value| hex32(value).is_none()) || evidence.idempotency_key.as_deref().is_some_and(|value| value.is_empty() || value.len() > MAX_KEY_BYTES) {
         return Err(Refusal::Evidence);
     }
-    let receipt = base64_decode(&evidence.receipt)
-        .filter(|bytes| !bytes.is_empty() && bytes.len() <= MAX_RECEIPT_BYTES)
-        .ok_or(Refusal::Evidence)?;
+    let receipt = base64_decode(&evidence.receipt).filter(|bytes| !bytes.is_empty() && bytes.len() <= MAX_RECEIPT_BYTES).ok_or(Refusal::Evidence)?;
     let presented = layerx_proof::merkle::leaf_hash(&receipt).map_err(|_| Refusal::Evidence)?;
     if presented.ct_eq(&receipt_digest).unwrap_u8() != 1 {
         return Err(Refusal::ReceiptDigest);
@@ -173,10 +163,7 @@ pub fn claim(body: &[u8]) -> Result<Claim, Refusal> {
     if layerx_wire::receipt::encode(&decoded).map_err(|_| Refusal::Receipt)? != receipt {
         return Err(Refusal::Receipt);
     }
-    let activity_id = decoded
-        .protocol()
-        .map(layerx_wire::receipt::ProtocolReceipt::activity_id)
-        .ok_or(Refusal::Receipt)?;
+    let activity_id = decoded.protocol().map(layerx_wire::receipt::ProtocolReceipt::activity_id).ok_or(Refusal::Receipt)?;
     if activity_id == [0; 32] {
         return Err(Refusal::Receipt);
     }
@@ -187,57 +174,28 @@ pub fn claim(body: &[u8]) -> Result<Claim, Refusal> {
     })
 }
 
-pub(super) fn authorize(
-    claim: &Claim,
-    keys: &layerx_platform_gateway::ReceiptKeyList,
-) -> Result<(layerx_platform_gateway::VerifiedOperation, AuthorizedBatch), &'static str> {
-    let decoded =
-        layerx_wire::receipt::decode(claim.receipt()).map_err(|_| "receipt_verification_failed")?;
+pub(super) fn authorize(claim: &Claim, keys: &layerx_platform_gateway::ReceiptKeyList) -> Result<(layerx_platform_gateway::VerifiedOperation, AuthorizedBatch), &'static str> {
+    let decoded = layerx_wire::receipt::decode(claim.receipt()).map_err(|_| "receipt_verification_failed")?;
     let receipt = decoded.protocol().ok_or("receipt_verification_failed")?;
     let height = receipt_height(receipt).ok_or("receipt_verification_failed")?;
-    let key = keys
-        .authorization_for_header(receipt.context_hash(), height)
-        .map_err(|_| "receipt_verification_failed")?;
-    let facts = layerx_platform_gateway::AuthorityFacts::new(
-        receipt.batch_id(),
-        receipt.asset(),
-        receipt.previous_state_root(),
-        receipt.resulting_state_root(),
-        key.public_key(),
-    );
-    let verified = layerx_platform_gateway::verify_settlement_receipt(
-        claim.receipt(),
-        facts,
-        keys,
-        claim.activity_id(),
-    )
-    .map_err(|_| "receipt_verification_failed")?;
+    let key = keys.authorization_for_header(receipt.context_hash(), height).map_err(|_| "receipt_verification_failed")?;
+    let facts = layerx_platform_gateway::AuthorityFacts::new(receipt.batch_id(), receipt.asset(), receipt.previous_state_root(), receipt.resulting_state_root(), key.public_key());
+    let verified = layerx_platform_gateway::verify_settlement_receipt(claim.receipt(), facts, keys, claim.activity_id()).map_err(|_| "receipt_verification_failed")?;
     Ok((verified, facts.authorized()))
 }
 
-pub(super) fn sequencer_committed(
-    canonical: &[u8],
-    inclusion: &serde_json::Value,
-) -> Result<bool, &'static str> {
+pub(super) fn sequencer_committed(canonical: &[u8], inclusion: &serde_json::Value) -> Result<bool, &'static str> {
     if inclusion.is_null() {
         return Ok(false);
     }
-    let decoded =
-        layerx_wire::receipt::decode(canonical).map_err(|_| "receipt_verification_failed")?;
+    let decoded = layerx_wire::receipt::decode(canonical).map_err(|_| "receipt_verification_failed")?;
     let receipt = decoded.protocol().ok_or("receipt_verification_failed")?;
-    if rpc_bytes(&inclusion["txHash"]).as_deref() != Some(receipt.activity_id().as_slice())
-        || quantity(&inclusion["nonce"]) != Some(u128::from(receipt.debit_sequence()))
-    {
+    if rpc_bytes(&inclusion["txHash"]).as_deref() != Some(receipt.activity_id().as_slice()) || quantity(&inclusion["nonce"]) != Some(u128::from(receipt.debit_sequence())) {
         return Err("settlement_inclusion_mismatch");
     }
-    let rung = inclusion["rung"]
-        .as_str()
-        .ok_or("settlement_inclusion_mismatch")?;
+    let rung = inclusion["rung"].as_str().ok_or("settlement_inclusion_mismatch")?;
     if rung == "submitted" {
-        if inclusion.get("receipt").is_some()
-            || inclusion.get("blockHash").is_some()
-            || inclusion.get("blockNumber").is_some()
-        {
+        if inclusion.get("receipt").is_some() || inclusion.get("blockHash").is_some() || inclusion.get("blockNumber").is_some() {
             return Err("settlement_inclusion_mismatch");
         }
         return Ok(false);
@@ -258,79 +216,45 @@ pub(super) fn sequencer_committed(
         return Ok(false);
     }
     let height = receipt_height(receipt).ok_or("settlement_inclusion_mismatch")?;
-    if quantity(&inclusion["blockNumber"])
-        .is_none_or(|committed| committed < u128::from(height) || u64::try_from(committed).is_err())
-        || !rpc_bytes(&inclusion["blockHash"])
-            .is_some_and(|hash| hash.len() == 32 && hash != [0; 32])
-    {
+    if quantity(&inclusion["blockNumber"]).is_none_or(|committed| committed < u128::from(height) || u64::try_from(committed).is_err()) || !rpc_bytes(&inclusion["blockHash"]).is_some_and(|hash| hash.len() == 32 && hash != [0; 32]) {
         return Err("settlement_inclusion_mismatch");
     }
     Ok(true)
 }
 
-pub(super) fn transaction_committed(
-    inclusion: &serde_json::Value,
-    transaction: &serde_json::Value,
-) -> Result<bool, &'static str> {
+pub(super) fn transaction_committed(inclusion: &serde_json::Value, transaction: &serde_json::Value) -> Result<bool, &'static str> {
     if transaction.is_null() {
         return Ok(false);
     }
     for (chain, sequencer) in [("transactionHash", "txHash"), ("blockHash", "blockHash")] {
-        if rpc_bytes(&transaction[chain]) != rpc_bytes(&inclusion[sequencer])
-            || rpc_bytes(&transaction[chain]).is_none()
-        {
+        if rpc_bytes(&transaction[chain]) != rpc_bytes(&inclusion[sequencer]) || rpc_bytes(&transaction[chain]).is_none() {
             return Err("settlement_inclusion_mismatch");
         }
     }
-    for (chain, sequencer) in [
-        ("blockNumber", "blockNumber"),
-        ("status", "status"),
-        ("gasUsed", "gasUsed"),
-        ("cumulativeGasUsed", "cumulativeGasUsed"),
-        ("effectiveGasPrice", "effectiveGasPrice"),
-    ] {
-        if quantity(&transaction[chain]) != quantity(&inclusion[sequencer])
-            || quantity(&transaction[chain]).is_none()
-        {
+    for (chain, sequencer) in [("blockNumber", "blockNumber"), ("status", "status"), ("gasUsed", "gasUsed"), ("cumulativeGasUsed", "cumulativeGasUsed"), ("effectiveGasPrice", "effectiveGasPrice")] {
+        if quantity(&transaction[chain]) != quantity(&inclusion[sequencer]) || quantity(&transaction[chain]).is_none() {
             return Err("settlement_inclusion_mismatch");
         }
     }
-    let logs = transaction["logs"]
-        .as_array()
-        .ok_or("settlement_inclusion_mismatch")?;
-    let expected = inclusion["logs"]
-        .as_array()
-        .ok_or("settlement_inclusion_mismatch")?;
+    let logs = transaction["logs"].as_array().ok_or("settlement_inclusion_mismatch")?;
+    let expected = inclusion["logs"].as_array().ok_or("settlement_inclusion_mismatch")?;
     if logs.len() != expected.len()
-        || logs.iter().zip(expected).any(|(actual, expected)| {
-            actual
-                .get("removed")
-                .is_some_and(|removed| removed != false)
-                || ["address", "data"]
-                    .iter()
-                    .any(|field| rpc_bytes(&actual[field]) != rpc_bytes(&expected[field]))
-                || !topics_match(&actual["topics"], &expected["topics"])
-        })
+        || logs
+            .iter()
+            .zip(expected)
+            .any(|(actual, expected)| actual.get("removed").is_some_and(|removed| removed != false) || ["address", "data"].iter().any(|field| rpc_bytes(&actual[field]) != rpc_bytes(&expected[field])) || !topics_match(&actual["topics"], &expected["topics"]))
     {
         return Err("settlement_inclusion_mismatch");
     }
     Ok(true)
 }
 
-fn sequencer_fields_match(
-    receipt: &layerx_wire::receipt::ProtocolReceipt,
-    view: &serde_json::Value,
-) -> bool {
+fn sequencer_fields_match(receipt: &layerx_wire::receipt::ProtocolReceipt, view: &serde_json::Value) -> bool {
     let Some(summary) = receipt.effects().first() else {
         return false;
     };
     let body = summary.body();
-    if summary.ordinal() != 0
-        || summary.kind() != 1
-        || summary.monetary()
-        || summary.module_id() != receipt.module_id()
-        || body.len() < 109
-    {
+    if summary.ordinal() != 0 || summary.kind() != 1 || summary.monetary() || summary.module_id() != receipt.module_id() || body.len() < 109 {
         return false;
     }
     let Some(denom) = view["feeDenom"].as_str() else {
@@ -382,12 +306,7 @@ fn sequencer_fields_match(
     view_fields_match(receipt, view, body, height) && logs_match(receipt, logs)
 }
 
-fn view_fields_match(
-    receipt: &layerx_wire::receipt::ProtocolReceipt,
-    view: &serde_json::Value,
-    body: &[u8],
-    height: u64,
-) -> bool {
+fn view_fields_match(receipt: &layerx_wire::receipt::ProtocolReceipt, view: &serde_json::Value, body: &[u8], height: u64) -> bool {
     for (name, expected) in [
         ("seq", u128::from(receipt.global_sequence())),
         ("height", u128::from(height)),
@@ -399,12 +318,7 @@ fn view_fields_match(
             return false;
         }
     }
-    for (name, bytes) in [
-        ("gasUsed", &body[..8]),
-        ("cumulativeGasUsed", &body[8..16]),
-        ("effectiveGasPrice", &body[16..24]),
-        ("index", &body[24..28]),
-    ] {
+    for (name, bytes) in [("gasUsed", &body[..8]), ("cumulativeGasUsed", &body[8..16]), ("effectiveGasPrice", &body[16..24]), ("index", &body[24..28])] {
         if quantity(&view[name]) != word(bytes) {
             return false;
         }
@@ -424,39 +338,25 @@ fn view_fields_match(
 }
 
 fn logs_match(receipt: &layerx_wire::receipt::ProtocolReceipt, logs: &[serde_json::Value]) -> bool {
-    logs.iter()
-        .zip(&receipt.effects()[1..])
-        .enumerate()
-        .all(|(index, (log, effect))| {
-            let body = effect.body();
-            if body.len() < 53
-                || effect.kind() != 3
-                || effect.monetary()
-                || effect.module_id() != receipt.module_id()
-                || u16::try_from(index)
-                    .ok()
-                    .and_then(|ordinal| ordinal.checked_add(1))
-                    != Some(effect.ordinal())
-                || quantity(&log["logIndex"]) != Some(index as u128)
-            {
-                return false;
-            }
-            let count = usize::from(body[20]);
-            let Some(topics) = log["topics"].as_array() else {
-                return false;
-            };
-            let Some(data) = rpc_bytes(&log["data"]) else {
-                return false;
-            };
-            count <= 4
-                && topics.len() == count
-                && body.len() == 53 + count * 32
-                && rpc_bytes(&log["address"]).as_deref() == Some(&body[..20])
-                && topics.iter().enumerate().all(|(i, topic)| {
-                    rpc_bytes(topic).as_deref() == body.get(21 + i * 32..53 + i * 32)
-                })
-                && Sha256::digest(data).as_slice() == &body[21 + count * 32..]
-        })
+    logs.iter().zip(&receipt.effects()[1..]).enumerate().all(|(index, (log, effect))| {
+        let body = effect.body();
+        if body.len() < 53 || effect.kind() != 3 || effect.monetary() || effect.module_id() != receipt.module_id() || u16::try_from(index).ok().and_then(|ordinal| ordinal.checked_add(1)) != Some(effect.ordinal()) || quantity(&log["logIndex"]) != Some(index as u128) {
+            return false;
+        }
+        let count = usize::from(body[20]);
+        let Some(topics) = log["topics"].as_array() else {
+            return false;
+        };
+        let Some(data) = rpc_bytes(&log["data"]) else {
+            return false;
+        };
+        count <= 4
+            && topics.len() == count
+            && body.len() == 53 + count * 32
+            && rpc_bytes(&log["address"]).as_deref() == Some(&body[..20])
+            && topics.iter().enumerate().all(|(i, topic)| rpc_bytes(topic).as_deref() == body.get(21 + i * 32..53 + i * 32))
+            && Sha256::digest(data).as_slice() == &body[21 + count * 32..]
+    })
 }
 
 fn receipt_height(receipt: &layerx_wire::receipt::ProtocolReceipt) -> Option<u64> {
@@ -471,20 +371,12 @@ fn word(bytes: &[u8]) -> Option<u128> {
     if bytes.len() > 16 {
         return None;
     }
-    Some(
-        bytes
-            .iter()
-            .fold(0, |value, byte| (value << 8) | u128::from(*byte)),
-    )
+    Some(bytes.iter().fold(0, |value, byte| (value << 8) | u128::from(*byte)))
 }
 
 fn quantity(value: &serde_json::Value) -> Option<u128> {
     let digits = value.as_str()?.strip_prefix("0x")?;
-    if digits.is_empty()
-        || digits.len() > 32
-        || (digits.len() > 1 && digits.starts_with('0'))
-        || !digits.bytes().all(|byte| byte.is_ascii_hexdigit())
-    {
+    if digits.is_empty() || digits.len() > 32 || (digits.len() > 1 && digits.starts_with('0')) || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return None;
     }
     u128::from_str_radix(digits, 16).ok()
@@ -495,22 +387,14 @@ fn rpc_bytes(value: &serde_json::Value) -> Option<Vec<u8>> {
     if digits.len() > super::MAX_REQUEST * 2 || !digits.len().is_multiple_of(2) {
         return None;
     }
-    digits
-        .as_bytes()
-        .chunks_exact(2)
-        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok())
-        .collect()
+    digits.as_bytes().chunks_exact(2).map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok()).collect()
 }
 
 fn topics_match(actual: &serde_json::Value, expected: &serde_json::Value) -> bool {
     let (Some(actual), Some(expected)) = (actual.as_array(), expected.as_array()) else {
         return false;
     };
-    actual.len() == expected.len()
-        && actual
-            .iter()
-            .zip(expected)
-            .all(|(actual, expected)| rpc_bytes(actual) == rpc_bytes(expected))
+    actual.len() == expected.len() && actual.iter().zip(expected).all(|(actual, expected)| rpc_bytes(actual) == rpc_bytes(expected))
 }
 
 /// Renders the settled result exactly as the seller middleware parses it.
@@ -584,12 +468,7 @@ mod tests {
     use layerx_wire::encode::Encoder;
     use std::error::Error;
 
-    fn signed_effect(
-        encoder: &mut Encoder,
-        ordinal: u16,
-        kind: u8,
-        body: &[u8],
-    ) -> Result<(), layerx_wire::WireError> {
+    fn signed_effect(encoder: &mut Encoder, ordinal: u16, kind: u8, body: &[u8]) -> Result<(), layerx_wire::WireError> {
         encoder.u16(12)?;
         encoder.u16(ordinal)?;
         encoder.u16(0)?;
@@ -600,11 +479,7 @@ mod tests {
         Ok(())
     }
 
-    fn signed_receipt(
-        height: u64,
-        key_id: [u8; 32],
-        seed: [u8; 32],
-    ) -> Result<Vec<u8>, layerx_wire::WireError> {
+    fn signed_receipt(height: u64, key_id: [u8; 32], seed: [u8; 32]) -> Result<Vec<u8>, layerx_wire::WireError> {
         let mut summary = Encoder::new(191);
         summary.u64(5)?;
         summary.u64(12)?;
@@ -678,8 +553,7 @@ mod tests {
     }
 
     fn inclusion(receipt: &[u8], rung: &str) -> Result<serde_json::Value, Box<dyn Error>> {
-        let decoded =
-            layerx_wire::receipt::decode(receipt).map_err(|error| format!("{error:?}"))?;
+        let decoded = layerx_wire::receipt::decode(receipt).map_err(|error| format!("{error:?}"))?;
         let protocol = decoded.protocol().ok_or("protocol receipt")?;
         let height = u64::from_be_bytes(protocol.batch_id()[24..].try_into()?);
         let mut view = serde_json::json!({
@@ -713,8 +587,7 @@ mod tests {
     }
 
     fn settlement_request(receipt: &[u8]) -> serde_json::Value {
-        let digest =
-            layerx_proof::merkle::leaf_hash(receipt).unwrap_or_else(|error| panic!("{error:?}"));
+        let digest = layerx_proof::merkle::leaf_hash(receipt).unwrap_or_else(|error| panic!("{error:?}"));
         let mut binding = Sha256::new();
         binding.update(b"LayerX/middleware/x402/idempotency\0");
         binding.update("settlement-unit-test".as_bytes());
@@ -738,11 +611,9 @@ mod tests {
     }
 
     fn canonical_receipt() -> Result<Vec<u8>, Box<dyn Error>> {
-        let bytes =
-            signed_receipt(900, [1; 32], [0x41; 32]).map_err(|error| format!("{error:?}"))?;
+        let bytes = signed_receipt(900, [1; 32], [0x41; 32]).map_err(|error| format!("{error:?}"))?;
         let decoded = layerx_wire::receipt::decode(&bytes).map_err(|error| format!("{error:?}"))?;
-        let canonical =
-            layerx_wire::receipt::encode(&decoded).map_err(|error| format!("{error:?}"))?;
+        let canonical = layerx_wire::receipt::encode(&decoded).map_err(|error| format!("{error:?}"))?;
         assert_eq!(canonical, bytes);
         Ok(canonical)
     }
@@ -762,33 +633,41 @@ mod tests {
         let mut trailing_bytes = canonical.clone();
         trailing_bytes.push(0);
         for noncanonical in [invalid_signature_tag, trailing_bytes] {
-            let round_trip = layerx_wire::receipt::decode(&noncanonical)
-                .and_then(|decoded| layerx_wire::receipt::encode(&decoded));
+            let round_trip = layerx_wire::receipt::decode(&noncanonical).and_then(|decoded| layerx_wire::receipt::encode(&decoded));
             assert!(round_trip.is_err());
             let body = settlement_request(&noncanonical);
             let refusal = claim(body.to_string().as_bytes());
             assert_eq!(refusal, Err(Refusal::Receipt));
-            assert_eq!(
-                refusal.err().map(Refusal::reason),
-                Some("invalid_canonical_receipt")
-            );
+            assert_eq!(refusal.err().map(Refusal::reason), Some("invalid_canonical_receipt"));
         }
 
         let mut body = body;
-        let wrong_digest = layerx_proof::merkle::leaf_hash(&[canonical.as_slice(), &[0]].concat())
-            .map_err(|error| format!("{error:?}"))?;
-        assert_ne!(
-            hex(&wrong_digest),
-            body["payload"]["payload"]["receiptDigest"]
-        );
+        let wrong_digest = layerx_proof::merkle::leaf_hash(&[canonical.as_slice(), &[0]].concat()).map_err(|error| format!("{error:?}"))?;
+        assert_ne!(hex(&wrong_digest), body["payload"]["payload"]["receiptDigest"]);
         body["payload"]["payload"]["receiptDigest"] = serde_json::json!(hex(&wrong_digest));
         let refusal = claim(body.to_string().as_bytes());
         assert_eq!(refusal, Err(Refusal::ReceiptDigest));
-        assert_eq!(
-            refusal.err().map(Refusal::reason),
-            Some("receipt_digest_mismatch")
-        );
+        assert_eq!(refusal.err().map(Refusal::reason), Some("receipt_digest_mismatch"));
         Ok(())
+    }
+
+    fn assert_log_mismatches(receipt: &[u8], committed: &serde_json::Value, chain: &serde_json::Value) {
+        for (field, value) in [("address", serde_json::json!(format!("0x{}", hex(&[0x34; 20])))), ("topics", serde_json::json!([format!("0x{}", hex(&[0x45; 32]))])), ("data", serde_json::json!("0x00"))] {
+            let mut mismatched = committed.clone();
+            mismatched["logs"][0][field] = value.clone();
+            assert_eq!(sequencer_committed(receipt, &mismatched), Err("settlement_inclusion_mismatch"), "sequencer log {field}");
+            assert_eq!(transaction_committed(&mismatched, chain), Err("settlement_inclusion_mismatch"), "inclusion log {field}");
+            let mut mismatched_chain = chain.clone();
+            mismatched_chain["logs"][0][field] = value;
+            assert_eq!(transaction_committed(committed, &mismatched_chain), Err("settlement_inclusion_mismatch"), "chain log {field}");
+        }
+        let mut missing_logs = committed.clone();
+        missing_logs["logs"] = serde_json::json!([]);
+        assert_eq!(sequencer_committed(receipt, &missing_logs), Err("settlement_inclusion_mismatch"));
+        assert_eq!(transaction_committed(&missing_logs, chain), Err("settlement_inclusion_mismatch"));
+        let mut removed = chain.clone();
+        removed["logs"][0]["removed"] = serde_json::json!(true);
+        assert_eq!(transaction_committed(committed, &removed), Err("settlement_inclusion_mismatch"));
     }
 
     #[test]
@@ -798,24 +677,12 @@ mod tests {
         let accepted = claim(body.to_string().as_bytes()).map_err(Refusal::reason)?;
         let committed = inclusion(accepted.receipt(), "committed")?;
         let chain = transaction(&committed);
-        assert_eq!(
-            sequencer_committed(accepted.receipt(), &committed),
-            Ok(true)
-        );
+        assert_eq!(sequencer_committed(accepted.receipt(), &committed), Ok(true));
         assert_eq!(transaction_committed(&committed, &chain), Ok(true));
-        assert_eq!(
-            sequencer_committed(accepted.receipt(), &serde_json::Value::Null),
-            Ok(false)
-        );
-        assert_eq!(
-            transaction_committed(&committed, &serde_json::Value::Null),
-            Ok(false)
-        );
+        assert_eq!(sequencer_committed(accepted.receipt(), &serde_json::Value::Null), Ok(false));
+        assert_eq!(transaction_committed(&committed, &serde_json::Value::Null), Ok(false));
         let receipted = inclusion(accepted.receipt(), "receipted")?;
-        assert_eq!(
-            sequencer_committed(accepted.receipt(), &receipted),
-            Ok(false)
-        );
+        assert_eq!(sequencer_committed(accepted.receipt(), &receipted), Ok(false));
 
         for (field, value) in [
             ("txHash", format!("0x{}", hex(&[0x56; 32]))),
@@ -830,25 +697,14 @@ mod tests {
         ] {
             let mut mismatched = committed.clone();
             mismatched[field] = serde_json::json!(value);
-            assert_eq!(
-                sequencer_committed(accepted.receipt(), &mismatched),
-                Err("settlement_inclusion_mismatch"),
-                "{field}"
-            );
+            assert_eq!(sequencer_committed(accepted.receipt(), &mismatched), Err("settlement_inclusion_mismatch"), "{field}");
         }
         let mut mismatched = committed.clone();
         mismatched["receipt"] = serde_json::json!("0x00");
-        assert_eq!(
-            sequencer_committed(accepted.receipt(), &mismatched),
-            Err("settlement_receipt_mismatch")
-        );
+        assert_eq!(sequencer_committed(accepted.receipt(), &mismatched), Err("settlement_receipt_mismatch"));
 
         for (inclusion_field, chain_field, value) in [
-            (
-                "txHash",
-                "transactionHash",
-                format!("0x{}", hex(&[0x56; 32])),
-            ),
+            ("txHash", "transactionHash", format!("0x{}", hex(&[0x56; 32]))),
             ("blockHash", "blockHash", format!("0x{}", hex(&[0x67; 32]))),
             ("blockNumber", "blockNumber", "0x386".to_owned()),
             ("status", "status", "0x0".to_owned()),
@@ -858,67 +714,13 @@ mod tests {
         ] {
             let mut mismatched = committed.clone();
             mismatched[inclusion_field] = serde_json::json!(value);
-            assert_eq!(
-                transaction_committed(&mismatched, &chain),
-                Err("settlement_inclusion_mismatch"),
-                "inclusion {inclusion_field}"
-            );
+            assert_eq!(transaction_committed(&mismatched, &chain), Err("settlement_inclusion_mismatch"), "inclusion {inclusion_field}");
             let mut mismatched_chain = chain.clone();
             mismatched_chain[chain_field] = serde_json::json!(value);
-            assert_eq!(
-                transaction_committed(&committed, &mismatched_chain),
-                Err("settlement_inclusion_mismatch"),
-                "chain {chain_field}"
-            );
+            assert_eq!(transaction_committed(&committed, &mismatched_chain), Err("settlement_inclusion_mismatch"), "chain {chain_field}");
         }
 
-        for (field, value) in [
-            (
-                "address",
-                serde_json::json!(format!("0x{}", hex(&[0x34; 20]))),
-            ),
-            (
-                "topics",
-                serde_json::json!([format!("0x{}", hex(&[0x45; 32]))]),
-            ),
-            ("data", serde_json::json!("0x00")),
-        ] {
-            let mut mismatched = committed.clone();
-            mismatched["logs"][0][field] = value.clone();
-            assert_eq!(
-                sequencer_committed(accepted.receipt(), &mismatched),
-                Err("settlement_inclusion_mismatch"),
-                "sequencer log {field}"
-            );
-            assert_eq!(
-                transaction_committed(&mismatched, &chain),
-                Err("settlement_inclusion_mismatch"),
-                "inclusion log {field}"
-            );
-            let mut mismatched_chain = chain.clone();
-            mismatched_chain["logs"][0][field] = value;
-            assert_eq!(
-                transaction_committed(&committed, &mismatched_chain),
-                Err("settlement_inclusion_mismatch"),
-                "chain log {field}"
-            );
-        }
-        let mut missing_logs = committed.clone();
-        missing_logs["logs"] = serde_json::json!([]);
-        assert_eq!(
-            sequencer_committed(accepted.receipt(), &missing_logs),
-            Err("settlement_inclusion_mismatch")
-        );
-        assert_eq!(
-            transaction_committed(&missing_logs, &chain),
-            Err("settlement_inclusion_mismatch")
-        );
-        let mut removed = chain;
-        removed["logs"][0]["removed"] = serde_json::json!(true);
-        assert_eq!(
-            transaction_committed(&committed, &removed),
-            Err("settlement_inclusion_mismatch")
-        );
+        assert_log_mismatches(accepted.receipt(), &committed, &chain);
         Ok(())
     }
 }

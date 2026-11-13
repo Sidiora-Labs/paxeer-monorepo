@@ -6,7 +6,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdh"
-	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
@@ -46,11 +45,11 @@ func NewWebPush(c *Credentials, a TargetAuthority, key, subject string) (*WebPus
 	}
 	return &WebPush{c, a, key, subject, providerClient()}, nil
 }
-func (*WebPush) Provider() string     { return "webpush" }
+func (*WebPush) Provider() string     { return providerWebPush }
 func (*WebPush) MaxPayloadBytes() int { return 3993 }
 func subscription(u string) error {
 	v, e := url.Parse(u)
-	if e != nil || v.Scheme != "https" || v.User != nil || v.Fragment != "" || v.Port() != "" {
+	if e != nil || v.Scheme != httpsScheme || v.User != nil || v.Fragment != "" || v.Port() != "" {
 		return ErrInvalid
 	}
 	switch v.Hostname() {
@@ -120,13 +119,13 @@ func encryptPush(endpoint Endpoint, plain []byte) ([]byte, error) {
 	size := make([]byte, 4)
 	binary.BigEndian.PutUint32(size, 4096)
 	header = append(header, size...)
-	header = append(header, byte(len(server)))
+	header = append(header, 65)
 	header = append(header, server...)
 	return append(header, sealed...), nil
 }
 func (w *WebPush) Send(ctx context.Context, target PushTarget, p Payload) (SendResult, error) {
-	unknown := SendResult{State: "unknown", Reason: "provider_uncertain"}
-	if target.Provider != "webpush" || target.Status != "active" || ValidatePayload(p, w.MaxPayloadBytes()) != nil || validateLink(p) != nil {
+	unknown := SendResult{State: stateUnknown, Reason: reasonProviderUncertain}
+	if target.Provider != providerWebPush || target.Status != targetActive || ValidatePayload(p, w.MaxPayloadBytes()) != nil || validateLink(p) != nil {
 		return unknown, ErrInvalid
 	}
 	endpoint, e := w.Authority.ResolveEndpoint(ctx, target)
@@ -144,12 +143,16 @@ func (w *WebPush) Send(ctx context.Context, target PushTarget, p Payload) (SendR
 	if e != nil {
 		return unknown, e
 	}
+	ecdhKey, e := key.ECDH()
+	if e != nil {
+		return unknown, e
+	}
 	subject, e := w.Credentials.Get(w.SubjectRef)
 	if e != nil {
 		return unknown, e
 	}
 	u, _ := url.Parse(endpoint.URL)
-	jwt, e := ecJWT(key, map[string]string{"typ": "JWT", "alg": "ES256"}, map[string]any{"aud": u.Scheme + "://" + u.Host, "exp": time.Now().Add(5 * time.Minute).Unix(), "sub": subject})
+	jwt, e := ecJWT(key, map[string]string{"typ": "JWT", jwtAlgorithmField: "ES256"}, map[string]any{"aud": u.Scheme + "://" + u.Host, "exp": time.Now().Add(5 * time.Minute).Unix(), "sub": subject})
 	if e != nil {
 		return unknown, e
 	}
@@ -169,7 +172,7 @@ func (w *WebPush) Send(ctx context.Context, target PushTarget, p Payload) (SendR
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("TTL", "0")
 	req.Header.Set("Urgency", "normal")
-	req.Header.Set("Authorization", "vapid t="+jwt+", k="+b64(elliptic.Marshal(key.Curve, key.X, key.Y)))
+	req.Header.Set("Authorization", "vapid t="+jwt+", k="+b64(ecdhKey.PublicKey().Bytes()))
 	req.Header.Set("Topic", p.IdempotencyKey[:min(32, len(p.IdempotencyKey))])
 	status, headers, _, e := sendRequest(w.client, req)
 	if e != nil {
@@ -182,15 +185,15 @@ func webPushResult(status int, headers http.Header) (SendResult, error) {
 	if status == 201 || status == 202 {
 		receipt := headers.Get("Location")
 		if receipt == "" {
-			return SendResult{State: "unknown", Reason: "provider_receipt_unavailable"}, nil
+			return SendResult{State: stateUnknown, Reason: "provider_receipt_unavailable"}, nil
 		}
-		return SendResult{State: "accepted", Receipt: receipt}, nil
+		return SendResult{State: stateAccepted, Receipt: receipt}, nil
 	}
 	if status == 404 || status == 410 {
-		return SendResult{State: "rejected", Reason: "subscription_gone", DisableTarget: true}, nil
+		return SendResult{State: stateRejected, Reason: "subscription_gone", DisableTarget: true}, nil
 	}
 	if status == 429 || status >= 500 {
-		return SendResult{State: "retry", Reason: "provider_unavailable"}, nil
+		return SendResult{State: stateRetry, Reason: reasonProviderUnavailable}, nil
 	}
-	return SendResult{State: "rejected", Reason: "provider_rejected"}, nil
+	return SendResult{State: stateRejected, Reason: reasonProviderRejected}, nil
 }

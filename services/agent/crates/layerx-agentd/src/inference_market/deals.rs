@@ -830,7 +830,11 @@ impl DealEngine {
                     owner: bid.peer_key.bytes(),
                     bid_id: bid.bid_id.bytes(),
                     manifest_digest: manifest.digest.bytes(),
-                    accelerator_memory_mib: capabilities.accelerator_memory_mib,
+                    accelerator_memory_mib: if capabilities.runtime_kind == 2 {
+                        capabilities.system_memory_mib
+                    } else {
+                        capabilities.accelerator_memory_mib
+                    },
                     layer_capacity: bid.layer_capacity,
                     minimum_price: bid.minimum_price_per_thousand_tokens,
                 });
@@ -949,6 +953,7 @@ pub fn record_deal(
     journal: &OperationJournal,
     endpoint: &SequencerEndpoint,
     record: &mut OperationRecord,
+    host_evm_address: [u8; 20],
 ) -> Result<OperationState, DealError> {
     let expected = engine.envelope(record.not_after())?;
     let actual = market_envelope(record)?;
@@ -961,11 +966,14 @@ pub fn record_deal(
         .map_err(AiClientError::from)?;
     let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
         .map_err(AiClientError::from)?;
-    let mut principal = [0; 32];
-    principal[12..].copy_from_slice(&sender);
-    if engine
-        .current()
-        .is_none_or(|frame| frame.plan.embedding_host != principal)
+    let principal = market::codec::decode_envelope(&actual)?
+        .envelope
+        .actor
+        .bytes();
+    if sender != host_evm_address
+        || engine
+            .current()
+            .is_none_or(|frame| frame.plan.embedding_host != principal)
     {
         return Err(DealError::Invalid("RecordDeal is not signed by the host"));
     }

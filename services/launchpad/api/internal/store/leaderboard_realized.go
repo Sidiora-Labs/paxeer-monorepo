@@ -108,7 +108,7 @@ type traderTokenTransfer struct {
 
 func traderInventoryOwner(f accounting.FillV1) string {
 	owner := f.Attribution.Payer
-	if f.Side == "buy" {
+	if f.Side == literalBuy {
 		owner = f.Attribution.Recipient
 	}
 	if owner != nil {
@@ -189,7 +189,7 @@ func traderProjectionRows(fills []accounting.FillV1, movements []traderTokenTran
 				return nil, ErrDataIntegrity
 			}
 			kind, from, to := "output-transfer", f.PoolAddress, owner
-			if f.Side == "sell" {
+			if f.Side == literalSell {
 				kind, from, to = "input-transfer", owner, f.PoolAddress
 			}
 			refs := []accounting.EvidenceRef{}
@@ -267,7 +267,7 @@ func RealizedTraderPnL(fills []traderFill, from, windowEnd int64) ([]Leaderboard
 	order := []string{}
 	for _, f := range fills {
 		address, err := Address(f.Wallet)
-		if err != nil || (f.Side != "buy" && f.Side != "sell") {
+		if err != nil || (f.Side != literalBuy && f.Side != literalSell) {
 			return nil, 0, ErrDataIntegrity
 		}
 		token, okToken := new(big.Int).SetString(f.TokenRaw, 10)
@@ -282,7 +282,7 @@ func RealizedTraderPnL(fills []traderFill, from, windowEnd int64) ([]Leaderboard
 			p = &state{new(big.Int), new(big.Int)}
 			positions[key] = p
 		}
-		if f.Side == "buy" {
+		if f.Side == literalBuy {
 			p.known.Add(p.known, token)
 			p.cost.Add(p.cost, paid)
 			continue
@@ -329,9 +329,9 @@ func RealizedTraderPnL(fills []traderFill, from, windowEnd int64) ([]Leaderboard
 		if w.disposals == 0 {
 			continue
 		}
-		entry := LeaderboardEntry{Wallet: address, MetricRaw: new(big.Int).Abs(w.realized).String(), MetricSigned: w.realized.String(), Quality: "complete", signed: w.realized}
+		entry := LeaderboardEntry{Wallet: address, MetricRaw: new(big.Int).Abs(w.realized).String(), MetricSigned: w.realized.String(), Quality: literalComplete, signed: w.realized}
 		if w.partial {
-			entry.Quality = "partial"
+			entry.Quality = literalPartial
 		}
 		if len(entry.MetricRaw) > 156 {
 			return nil, 0, ErrDataIntegrity

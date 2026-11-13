@@ -76,7 +76,9 @@ fn guest(
         import_section(imports),
         function_section(&[1, 2]),
         raw_section(5, &[1, 1, 1, 1]),
-        exports(imports.len() as u32),
+        exports(
+            u32::try_from(imports.len()).unwrap_or_else(|error| panic!("import count: {error}")),
+        ),
         code_section(&[
             func_body(&[], &call),
             func_body(&[], &[OP_LOCAL_GET, 0, OP_END]),

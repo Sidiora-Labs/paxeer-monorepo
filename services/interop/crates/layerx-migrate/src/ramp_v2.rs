@@ -15,6 +15,9 @@ pub struct SourceSettlementRequestV2 {
 }
 
 impl SourceSettlementRequestV2 {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn new(
         order_digest: [u8; 32],
         chain: &str,
@@ -43,6 +46,9 @@ pub struct SourceSettlementResponseV2 {
 }
 
 impl SourceSettlementResponseV2 {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn validate(
         &self,
         request: &SourceSettlementRequestV2,
@@ -52,7 +58,10 @@ impl SourceSettlementResponseV2 {
             || self.order_digest != request.order_digest
             || self.source_evidence_digest != evidence.digest()
             || request.source_evidence != STANDARD.encode(evidence.canonical())
-            || !matches!(self.state.as_str(), "source_pending" | "source_settled" | "layerx_pending" | "layerx_refused" | "done")
+            || !matches!(
+                self.state.as_str(),
+                "source_pending" | "source_settled" | "layerx_pending" | "layerx_refused" | "done"
+            )
             || self.source_claim_id == Some([0; 32])
             || (self.state != "source_pending" && self.source_claim_id.is_none())
         {

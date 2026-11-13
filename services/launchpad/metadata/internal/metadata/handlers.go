@@ -416,6 +416,7 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, h.maxLogo+h.maxBanner+uploadOverhead)
+	//nolint:gosec // MaxBytesReader bounds the complete multipart request before parsing.
 	if err := r.ParseMultipartForm(multipartMaxMemory); err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
@@ -577,7 +578,7 @@ func (h *Handlers) validateImage(ctx context.Context, r *http.Request, imageType
 	if err != nil {
 		return imageUpload{}, true, &uploadError{http.StatusBadRequest, imageType + " could not be read"}
 	}
-	defer f.Close()
+	defer closeResource(f)
 	buf, err := io.ReadAll(io.LimitReader(f, maxSize+1))
 	if err != nil {
 		return imageUpload{}, true, &uploadError{http.StatusBadRequest, imageType + " could not be read"}
@@ -658,7 +659,7 @@ func (h *Handlers) serveImage(imageType string) http.HandlerFunc {
 			h.fail(w, "store get", err)
 			return
 		}
-		defer obj.Body.Close()
+		defer closeResource(obj.Body)
 
 		w.Header().Set("Content-Type", img.MimeType)
 		w.Header().Set("X-Content-Type-Options", "nosniff")

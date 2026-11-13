@@ -100,7 +100,7 @@ func persistCallout(ctx context.Context, tx *sql.Tx, c Callout) error {
 			return e
 		}
 	}
-	ref := SourceRef{ID: c.ID, EventID: fmt.Sprintf("callout:%s:%d", c.ID, c.Revision), Kind: "callout", CreatorPublicID: c.AuthorAccountID, Pools: []string{c.PoolAddress}, SourceRevision: c.Revision, VisibilityRevision: c.Revision, PublishedAt: c.CreatedAt, Public: !c.Deleted, Authorized: !c.Deleted, Tombstone: c.Deleted, Corrected: c.Revision > 1 && !c.Deleted}
+	ref := SourceRef{ID: c.ID, EventID: fmt.Sprintf("callout:%s:%d", c.ID, c.Revision), Kind: kindCallout, CreatorPublicID: c.AuthorAccountID, Pools: []string{c.PoolAddress}, SourceRevision: c.Revision, VisibilityRevision: c.Revision, PublishedAt: c.CreatedAt, Public: !c.Deleted, Authorized: !c.Deleted, Tombstone: c.Deleted, Corrected: c.Revision > 1 && !c.Deleted}
 	if e = lock(ctx, tx, "source:"+c.ID); e != nil {
 		return e
 	}
@@ -122,7 +122,7 @@ func persistCallout(ctx context.Context, tx *sql.Tx, c Callout) error {
 	if e != nil {
 		return e
 	}
-	event := CalloutTargetEvent{"callout", c.ID, c.AuthorAccountID, c.Revision, c.Deleted, c.CreatedAt}
+	event := CalloutTargetEvent{kindCallout, c.ID, c.AuthorAccountID, c.Revision, c.Deleted, c.CreatedAt}
 	_, e = tx.ExecContext(ctx, `INSERT INTO narrative_discovery.outbox(id,kind,document)VALUES($1,'callout-target-ref-v2',$2)`, ref.EventID, encode(event))
 	return e
 }

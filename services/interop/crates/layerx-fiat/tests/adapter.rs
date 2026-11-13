@@ -79,7 +79,7 @@ fn recorded_payment_topics(case: &serde_json::Value) -> [[u8; 32]; 3] {
     [5, 0, 1].map(|word| {
         transaction[start + word * 32..start + (word + 1) * 32]
             .try_into()
-            .expect("recorded payExact calldata word")
+            .or_panic("recorded payExact calldata word")
     })
 }
 
@@ -89,26 +89,26 @@ fn recorded_receipt() -> (ReceiptMaterial, [u8; 32]) {
         .unwrap_or_else(|error| panic!("{source}: {error}"));
     let case = fixture["cases"]
         .as_array()
-        .unwrap_or_else(|| panic!("{source}: receipt cases"))
+        .or_panic(&format!("{source}: receipt cases"))
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .unwrap_or_else(|| panic!("{source}: recorded PaymentExact receipt"));
+        .or_panic(&format!("{source}: recorded PaymentExact receipt"));
     let receipt = &case["receiptJson"];
     assert_eq!(field(receipt, "rung", source), "receipted");
     let mut logs: Vec<SequencerLog> = receipt["logs"]
         .as_array()
-        .unwrap_or_else(|| panic!("{source}: receipt logs"))
+        .or_panic(&format!("{source}: receipt logs"))
         .iter()
         .map(|log| {
             let topics = log["topics"]
                 .as_array()
-                .unwrap_or_else(|| panic!("{source}: log topics"))
+                .or_panic(&format!("{source}: log topics"))
                 .iter()
                 .map(|topic| {
                     let topic = topic
                         .as_str()
                         .and_then(|value| value.strip_prefix("0x"))
-                        .unwrap_or_else(|| panic!("{source}: log topic hex"));
+                        .or_panic(&format!("{source}: log topic hex"));
                     hex_bytes::<32>(topic, source)
                 })
                 .collect();
@@ -119,7 +119,7 @@ fn recorded_receipt() -> (ReceiptMaterial, [u8; 32]) {
                 u64::from_str_radix(
                     field(log, "logIndex", source)
                         .strip_prefix("0x")
-                        .unwrap_or_else(|| panic!("{source}: log index hex")),
+                        .or_panic(&format!("{source}: log index hex")),
                     16,
                 )
                 .unwrap_or_else(|error| panic!("{source}: log index: {error}")),
@@ -146,7 +146,7 @@ fn recorded_receipt() -> (ReceiptMaterial, [u8; 32]) {
         signer.verifying_key().to_bytes(),
         recorded_array(pin, "publicKey")
     );
-    let digest = canonical_receipt_digest(&signed_receipt).unwrap();
+    let digest = canonical_receipt_digest(&signed_receipt).or_panic("expected Ok value");
     let signature_start = signed_receipt.len() - 64;
     signed_receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
     (
@@ -172,7 +172,7 @@ fn recorded_bytes(record: &serde_json::Value, name: &str) -> Vec<u8> {
     let source = SEQUENCER_RECEIPTS_SOURCE;
     let value = field(record, name, source)
         .strip_prefix("0x")
-        .unwrap_or_else(|| panic!("{source}: {name} hex prefix"));
+        .or_panic(&format!("{source}: {name} hex prefix"));
     assert_eq!(value.len() % 2, 0, "{source}: {name} whole bytes");
     (0..value.len())
         .step_by(2)
@@ -462,13 +462,13 @@ fn records(suite: &str, source: &str) -> Vec<serde_json::Value> {
 fn field<'a>(record: &'a serde_json::Value, name: &str, source: &str) -> &'a str {
     record[name]
         .as_str()
-        .unwrap_or_else(|| panic!("{source}: every vector declares {name}"))
+        .or_panic(&format!("{source}: every vector declares {name}"))
 }
 
 fn number(record: &serde_json::Value, name: &str, source: &str) -> u64 {
     record[name]
         .as_u64()
-        .unwrap_or_else(|| panic!("{source}: every vector declares {name}"))
+        .or_panic(&format!("{source}: every vector declares {name}"))
 }
 
 fn amount(record: &serde_json::Value, name: &str, source: &str) -> u128 {
@@ -489,13 +489,13 @@ fn token_bytes(record: &serde_json::Value, source: &str) -> Vec<u8> {
     match (record.get("token"), record.get("token_hex")) {
         (Some(token), None) => token
             .as_str()
-            .unwrap_or_else(|| panic!("{source}: token is a string"))
+            .or_panic(&format!("{source}: token is a string"))
             .as_bytes()
             .to_vec(),
         (None, Some(hex)) => {
             let hex = hex
                 .as_str()
-                .unwrap_or_else(|| panic!("{source}: token_hex is a string"));
+                .or_panic(&format!("{source}: token_hex is a string"));
             assert!(hex.len() % 2 == 0, "{source}: token_hex is whole bytes");
             (0..hex.len() / 2)
                 .map(|index| {
@@ -542,7 +542,7 @@ fn evidence_class(name: &str, source: &str) -> EvidenceClass {
 }
 
 fn external(value: &str, source: &str) -> ExternalId {
-    ExternalId::new(value).unwrap_or_else(|error| panic!("{source}: {value}: {error:?}"))
+    ExternalId::new(value).or_panic(&format!("{source}: {value}"))
 }
 
 fn verifier(facts: &serde_json::Value, source: &str) -> SandboxVerifier {
@@ -610,6 +610,68 @@ fn run_journey(record: &serde_json::Value) -> (FiatRail, Option<FiatJourneyState
     };
     let mut gateway = registered_gateway(now);
     let principal = principal(field(record, "principal", source));
+    prepare_capture(record, &verifier, &mut plane, &mut gateway, &trace, now);
+    let outcome = FiatAdapter::apply(
+        &mut gateway,
+        &principal,
+        &token,
+        &evidence,
+        &verifier,
+        &mut plane,
+        &trace,
+        now,
+    );
+    let expect = &record["expect"];
+    if let Some(refusal) = expect["refusal"].as_str() {
+        assert_eq!(
+            outcome.map_err(|traced| *traced.error()),
+            Err(fiat_error(refusal, source)),
+            "{name}"
+        );
+        return (verifier.facts.rail, None);
+    }
+    let state = outcome.unwrap_or_else(|error| panic!("{name}: {error}"));
+    let digest = || {
+        let material = material
+            .as_ref()
+            .or_panic(&format!("{name}: a completed journey carries a receipt"));
+        canonical_receipt_digest(&material.evidence.signed_receipt)
+            .or_panic(&format!("{name}: receipt digest"))
+    };
+    let expected = expected_journey_state(expect, digest);
+    assert_eq!(state, expected, "{name}");
+    if let Some(replay_at) = record["replay_at"].as_u64() {
+        let replay = FiatAdapter::apply(
+            &mut gateway,
+            &principal,
+            &token,
+            &evidence,
+            &verifier,
+            &mut plane,
+            &trace,
+            replay_at,
+        )
+        .unwrap_or_else(|error| panic!("{name}: replay: {error}"));
+        assert_eq!(
+            replay, state,
+            "{name}: replayed settlement must return the same outcome"
+        );
+    }
+    (verifier.facts.rail, Some(state))
+}
+
+fn prepare_capture(
+    record: &serde_json::Value,
+    verifier: &SandboxVerifier,
+    plane: &mut SandboxPlane,
+    gateway: &mut GatewayCore,
+    trace: &TraceId,
+    now: u64,
+) {
+    let source = JOURNEYS_SOURCE;
+    let name = field(record, "name", source);
+    let plane_record = &record["plane"];
+    let principal = principal(field(record, "principal", source));
     if matches!(
         name,
         "reversal_against_verified_receipt" | "chargeback_against_verified_receipt"
@@ -619,7 +681,7 @@ fn run_journey(record: &serde_json::Value) -> (FiatRail, Option<FiatJourneyState
             .find(|record| {
                 field(record, "name", source) == "settled_credit_against_verified_receipt"
             })
-            .expect("verified capture journey");
+            .or_panic("verified capture journey");
         assert_eq!(capture_record["principal"], record["principal"]);
         let capture_verifier = self::verifier(&capture_record["provider_facts"], source);
         assert_eq!(capture_verifier.facts.provider, verifier.facts.provider);
@@ -669,13 +731,13 @@ fn run_journey(record: &serde_json::Value) -> (FiatRail, Option<FiatJourneyState
             .unwrap_or_else(|error| panic!("{name}: capture receipt digest: {error}"));
         assert_eq!(
             FiatAdapter::apply(
-                &mut gateway,
+                gateway,
                 &principal,
                 &capture_token,
                 &capture_evidence,
                 &capture_verifier,
                 &mut capture_plane,
-                &trace,
+                trace,
                 now,
             )
             .unwrap_or_else(|error| panic!("{name}: capture: {error}")),
@@ -691,34 +753,14 @@ fn run_journey(record: &serde_json::Value) -> (FiatRail, Option<FiatJourneyState
         );
         plane.capture = Some(capture.evidence);
     }
-    let outcome = FiatAdapter::apply(
-        &mut gateway,
-        &principal,
-        &token,
-        &evidence,
-        &verifier,
-        &mut plane,
-        &trace,
-        now,
-    );
-    let expect = &record["expect"];
-    if let Some(refusal) = expect["refusal"].as_str() {
-        assert_eq!(
-            outcome.map_err(|traced| *traced.error()),
-            Err(fiat_error(refusal, source)),
-            "{name}"
-        );
-        return (verifier.facts.rail, None);
-    }
-    let state = outcome.unwrap_or_else(|error| panic!("{name}: {error}"));
-    let digest = || {
-        let material = material
-            .as_ref()
-            .unwrap_or_else(|| panic!("{name}: a completed journey carries a receipt"));
-        canonical_receipt_digest(&material.evidence.signed_receipt)
-            .unwrap_or_else(|error| panic!("{name}: receipt digest: {error:?}"))
-    };
-    let expected = match field(expect, "state", source) {
+}
+
+fn expected_journey_state(
+    expect: &serde_json::Value,
+    digest: impl Fn() -> [u8; 32],
+) -> FiatJourneyState {
+    let source = JOURNEYS_SOURCE;
+    match field(expect, "state", source) {
         "authorised-hold" => FiatJourneyState::AuthorisedHold {
             until: number(expect, "until", source),
         },
@@ -743,26 +785,7 @@ fn run_journey(record: &serde_json::Value) -> (FiatRail, Option<FiatJourneyState
         },
         "refused" => FiatJourneyState::Refused,
         other => panic!("{source}: {other} is not a fiat journey state"),
-    };
-    assert_eq!(state, expected, "{name}");
-    if let Some(replay_at) = record["replay_at"].as_u64() {
-        let replay = FiatAdapter::apply(
-            &mut gateway,
-            &principal,
-            &token,
-            &evidence,
-            &verifier,
-            &mut plane,
-            &trace,
-            replay_at,
-        )
-        .unwrap_or_else(|error| panic!("{name}: replay: {error}"));
-        assert_eq!(
-            replay, state,
-            "{name}: replayed settlement must return the same outcome"
-        );
     }
-    (verifier.facts.rail, Some(state))
 }
 
 #[test]
@@ -773,7 +796,7 @@ fn fiat_adapter_suite_settles_on_the_recorded_receipt() {
     };
     assert_eq!(
         canonical_receipt_digest(&executed.evidence.signed_receipt)
-            .unwrap_or_else(|error| panic!("recorded receipt digest: {error:?}")),
+            .or_panic("recorded receipt digest"),
         digest,
     );
     assert_eq!(executed.evidence.logs.len(), 1);
@@ -868,9 +891,9 @@ fn card_data_never_enters_layerx_components() {
         let name = field(&record, "name", TOKENS_SOURCE);
         let bytes = token_bytes(&record, TOKENS_SOURCE);
         let parsed = TokenReference::new(bytes.clone());
-        let valid = record["valid"]
-            .as_bool()
-            .unwrap_or_else(|| panic!("{TOKENS_SOURCE}: {name} declares whether it is accepted"));
+        let valid = record["valid"].as_bool().or_panic(&format!(
+            "{TOKENS_SOURCE}: {name} declares whether it is accepted"
+        ));
         if valid {
             let token = parsed.unwrap_or_else(|error| panic!("{name}: {error}"));
             assert_eq!(token.as_bytes(), bytes.as_slice(), "{name}: exact bytes");
@@ -1023,4 +1046,26 @@ mod producer_path;
 #[test]
 fn fiat_unit_path_uses_unchanged_producer_evidence() -> Result<(), Box<dyn std::error::Error>> {
     producer_path::fiat_unit_path()
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

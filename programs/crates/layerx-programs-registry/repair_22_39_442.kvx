@@ -1,0 +1,199 @@
+# Registry member lint inventory.
+[meta]
+name = "LayerX programs registry lint repairs"
+
+[lint.assigning_clones]
+count = 1
+locations = "src/deprecate.rs:266"
+
+[lint.cast_possible_truncation]
+count = 15
+locations = "src/account_state.rs:600, src/authority.rs:1084, src/chain_proof/ics23.rs:87, src/chain_proof/ics23.rs:219, src/chain_proof/ics23.rs:222, src/chain_proof/multistore.rs:138, src/chain_proof/multistore.rs:141, src/chain_proof/validators.rs:36, src/chain_proof/validators.rs:39, src/chain_proof/vote.rs:197, src/chain_proof/vote.rs:209, src/chain_proof/vote.rs:224, src/deployment_execution.rs:45, src/protocol_evidence.rs:1245, src/protocol_evidence.rs:1377"
+
+[lint.cast_sign_loss]
+count = 2
+locations = "src/chain_accounts.rs:336, src/protocol_evidence.rs:1133"
+
+[lint.checked_conversions]
+count = 1
+locations = "src/chain_proof/ics23.rs:87"
+
+[lint.dead_code]
+count = 19
+locations = "src/chain_evidence/verify_bundle.rs:20, src/chain_evidence/verify_bundle.rs:21, src/chain_evidence/verify_bundle.rs:22, src/chain_evidence/verify_bundle.rs:25, src/chain_evidence/verify_bundle.rs:34, src/chain_evidence/verify_bundle.rs:42, src/chain_evidence/verify_bundle.rs:60, src/chain_evidence/verify_bundle.rs:155, src/chain_evidence/verify_bundle.rs:242, src/chain_evidence/verify_bundle.rs:399, src/chain_evidence/verify_bundle.rs:403, src/chain_evidence/verify_bundle.rs:407, src/chain_evidence/verify_bundle.rs:420, src/chain_evidence/verify_bundle.rs:433, src/chain_evidence/verify_bundle.rs:439, src/protocol_evidence.rs:188, src/chain_evidence/verify_head.rs:21, src/chain_evidence/verify_head.rs:57, src/chain_evidence/verify_program.rs:46"
+
+[lint.doc_markdown]
+count = 3
+locations = "src/account_state.rs:595, src/chain_proof/head_verify.rs:45, src/protocol_evidence.rs:1090"
+
+[lint.double_must_use]
+count = 2
+locations = "src/deployment_envelope.rs:83, src/deployment_envelope.rs:95"
+
+[lint.expect_used]
+count = 3
+locations = "src/authority.rs:62, src/authority.rs:69, src/authority.rs:76"
+
+[lint.inconsistent_struct_constructor]
+count = 2
+locations = "src/chain_accounts.rs:142, src/state_record.rs:534"
+
+[lint.manual_let_else]
+count = 1
+locations = "src/interface.rs:716"
+
+[lint.match_same_arms]
+count = 1
+locations = "src/interface.rs:998"
+
+[lint.match_wildcard_for_single_variants]
+count = 1
+locations = "src/protocol_evidence.rs:1163"
+
+[lint.missing_errors_doc]
+count = 102
+locations = "src/account_state.rs:425, src/account_state.rs:596, src/account_state.rs:618, src/authority.rs:41, src/authority.rs:55, src/authority.rs:1054, src/authority.rs:1091, src/chain_accounts.rs:52, src/chain_accounts.rs:83, src/chain_accounts.rs:116, src/chain_accounts.rs:173, src/chain_evidence/deployment.rs:35, src/chain_evidence/deployment.rs:51, src/chain_evidence/freshness.rs:3, src/chain_evidence/lifecycle.rs:22, src/chain_evidence/program_state.rs:66, src/chain_evidence/protocol_head.rs:51, src/chain_evidence/trust_root.rs:10, src/chain_evidence/wind_down.rs:23, src/chain_evidence.rs:19, src/chain_proof/decode.rs:25, src/chain_proof/decode.rs:58, src/chain_proof/head_verify.rs:18, src/chain_proof/head_verify.rs:46, src/chain_proof/header.rs:46, src/chain_proof/header.rs:86, src/chain_proof/ics23.rs:102, src/chain_proof/ics23.rs:126, src/chain_proof/ics23.rs:148, src/chain_proof/ics23.rs:153, src/chain_proof/ics23.rs:225, src/chain_proof/ics23_absent.rs:17, src/chain_proof/ics23_absent.rs:52, src/chain_proof/merkle.rs:29, src/chain_proof/multistore.rs:24, src/chain_proof/proto.rs:37, src/chain_proof/proto.rs:67, src/chain_proof/results.rs:11, src/chain_proof/state.rs:12, src/chain_proof/state.rs:26, src/chain_proof/trust.rs:14, src/chain_proof/trust_store.rs:17, src/chain_proof/trust_store.rs:32, src/chain_proof/trust_store.rs:53, src/chain_proof/tx.rs:5, src/chain_proof/validators.rs:52, src/chain_proof/vote.rs:50, src/chain_proof/vote.rs:143, src/chain_proof/vote.rs:190, src/deployment_envelope.rs:83, src/deployment_envelope.rs:95, src/deployment_envelope.rs:118, src/deployment_envelope.rs:151, src/deployment_envelope.rs:186, src/deprecate.rs:207, src/deprecate.rs:285, src/deprecate.rs:310, src/deprecate.rs:450, src/deprecate.rs:628, src/deprecate.rs:729, src/deprecate.rs:744, src/interface.rs:310, src/interface.rs:659, src/pipeline.rs:134, src/pipeline.rs:200, src/deployment_execution.rs:30, src/deployment_execution.rs:64, src/protocol_evidence.rs:411, src/protocol_evidence.rs:586, src/protocol_evidence.rs:589, src/protocol_evidence.rs:619, src/protocol_evidence.rs:676, src/protocol_evidence.rs:690, src/protocol_evidence.rs:788, src/protocol_evidence.rs:821, src/protocol_evidence.rs:847, src/protocol_evidence.rs:855, src/protocol_evidence.rs:894, src/protocol_evidence.rs:904, src/protocol_evidence.rs:943, src/protocol_evidence.rs:1022, src/protocol_evidence.rs:1033, src/protocol_evidence.rs:1091, src/protocol_evidence.rs:1144, src/protocol_evidence.rs:1154, src/protocol_evidence.rs:1189, src/protocol_evidence.rs:1210, src/protocol_evidence.rs:1220, src/protocol_evidence.rs:1262, src/protocol_evidence.rs:1334, src/resolver.rs:210, src/state_record.rs:50, src/state_record.rs:164, src/state_record.rs:717, src/state_record.rs:726, src/state_record.rs:744, src/lib.rs:270, src/lib.rs:496, src/lib.rs:795, src/lib.rs:988, src/lib.rs:1115, src/lib.rs:1142"
+
+[lint.missing_panics_doc]
+count = 1
+locations = "src/authority.rs:55"
+
+[lint.must_use_candidate]
+count = 76
+locations = "src/authority.rs:116, src/authority.rs:1011, src/authority.rs:1026, src/authority.rs:1032, src/authority.rs:1047, src/authority.rs:1074, src/authority.rs:1077, src/authority.rs:1080, src/chain_evidence.rs:29, src/deployment_envelope.rs:88, src/protocol_evidence.rs:196, src/protocol_evidence.rs:419, src/protocol_evidence.rs:422, src/protocol_evidence.rs:425, src/protocol_evidence.rs:428, src/protocol_evidence.rs:431, src/protocol_evidence.rs:434, src/protocol_evidence.rs:437, src/protocol_evidence.rs:440, src/protocol_evidence.rs:443, src/protocol_evidence.rs:446, src/protocol_evidence.rs:449, src/protocol_evidence.rs:452, src/protocol_evidence.rs:455, src/protocol_evidence.rs:458, src/protocol_evidence.rs:461, src/protocol_evidence.rs:483, src/protocol_evidence.rs:486, src/protocol_evidence.rs:489, src/protocol_evidence.rs:492, src/protocol_evidence.rs:495, src/protocol_evidence.rs:498, src/protocol_evidence.rs:501, src/protocol_evidence.rs:504, src/protocol_evidence.rs:507, src/protocol_evidence.rs:510, src/protocol_evidence.rs:513, src/protocol_evidence.rs:525, src/protocol_evidence.rs:528, src/protocol_evidence.rs:531, src/protocol_evidence.rs:534, src/protocol_evidence.rs:537, src/protocol_evidence.rs:548, src/protocol_evidence.rs:551, src/protocol_evidence.rs:554, src/protocol_evidence.rs:557, src/protocol_evidence.rs:560, src/protocol_evidence.rs:563, src/protocol_evidence.rs:608, src/protocol_evidence.rs:611, src/protocol_evidence.rs:614, src/state_record.rs:160, src/chain_evidence/verify_head.rs:21, src/chain_evidence/verify_head.rs:25, src/chain_evidence/verify_head.rs:29, src/chain_evidence/verify_head.rs:33, src/chain_evidence/verify_head.rs:37, src/chain_evidence/verify_head.rs:41, src/chain_evidence/verify_head.rs:45, src/chain_evidence/verify_head.rs:57, src/chain_evidence/verify_head.rs:61, src/chain_evidence/verify_head.rs:65, src/chain_evidence/verify_head.rs:69, src/chain_evidence/verify_head.rs:73, src/chain_evidence/verify_head.rs:77, src/chain_evidence/verify_head.rs:81, src/chain_evidence/verify_program.rs:22, src/chain_evidence/verify_program.rs:26, src/chain_evidence/verify_program.rs:30, src/chain_evidence/verify_program.rs:34, src/chain_evidence/verify_program.rs:38, src/chain_evidence/verify_program.rs:42, src/chain_evidence/verify_program.rs:46, src/chain_evidence/verify_program.rs:50, src/chain_evidence/verify_program.rs:54, src/chain_evidence/verify_program.rs:58"
+
+[lint.nonminimal_bool]
+count = 1
+locations = "src/deployment_execution.rs:449"
+
+[lint.needless_borrow]
+count = 1
+locations = "src/deployment_execution.rs:278"
+
+[lint.needless_pass_by_value]
+count = 1
+locations = "src/protocol_evidence.rs:798"
+
+[lint.option_option]
+count = 2
+locations = "src/chain_evidence/verify_bundle.rs:38, src/chain_evidence/verify_bundle.rs:54"
+
+[lint.redundant_closure_for_method_calls]
+count = 3
+locations = "src/deployment_execution.rs:54, src/deployment_execution.rs:203, src/chain_evidence/verify_program.rs:87"
+
+[lint.semicolon_if_nothing_returned]
+count = 3
+locations = "src/chain_evidence/verify_bundle.rs:269, src/chain_evidence/verify_bundle.rs:303, src/chain_evidence/verify_bundle.rs:340"
+
+[lint.single_match_else]
+count = 2
+locations = "src/chain_evidence/deployment.rs:77, src/chain_evidence/wind_down.rs:32"
+
+[lint.too_many_lines]
+count = 3
+locations = "src/chain_accounts.rs:173, src/deployment_execution.rs:126, src/state_record.rs:164"
+
+[lint.too_many_arguments]
+count = 1
+locations = "src/state_record.rs:54"
+
+[lint.type_complexity]
+count = 1
+locations = "src/deployment_envelope.rs:118"
+
+[lint.unused_imports]
+count = 1
+locations = "src/account_state.rs:8"
+
+[lint.unused_self]
+count = 1
+locations = "src/chain_evidence/verify_head.rs:41"
+
+[lint.wildcard_imports]
+count = 1
+locations = "src/deployment_execution.rs:3"
+
+[lint.zero_sized_map_values]
+count = 1
+locations = "src/deployment_execution.rs:314"
+
+# Integration test lint inventory.
+
+[test_lint.assigning_clones]
+count = 10
+
+[test_lint.cast_possible_truncation]
+count = 31
+
+[test_lint.cast_possible_wrap]
+count = 6
+
+[test_lint.cast_sign_loss]
+count = 23
+
+[test_lint.cloned_ref_to_slice_refs]
+count = 2
+
+[test_lint.dead_code]
+count = 56
+
+[test_lint.doc_markdown]
+count = 12
+
+[test_lint.duplicate_mod]
+count = 6
+
+[test_lint.expect_used]
+count = 266
+
+[test_lint.format_collect]
+count = 1
+
+[test_lint.manual_is_multiple_of]
+count = 1
+
+[test_lint.manual_let_else]
+count = 1
+
+[test_lint.missing_errors_doc]
+count = 7
+
+[test_lint.missing_panics_doc]
+count = 7
+
+[test_lint.must_use_candidate]
+count = 6
+
+[test_lint.needless_continue]
+count = 1
+
+[test_lint.needless_pass_by_value]
+count = 2
+
+[test_lint.no_effect_underscore_binding]
+count = 1
+
+[test_lint.redundant_closure_for_method_calls]
+count = 2
+
+[test_lint.semicolon_if_nothing_returned]
+count = 2
+
+[test_lint.similar_names]
+count = 4
+
+[test_lint.single_match_else]
+count = 1
+
+[test_lint.too_many_lines]
+count = 37
+
+[test_lint.unnecessary_wraps]
+count = 1
+
+[test_lint.unused_imports]
+count = 1
+
+[test_lint.unwrap_used]
+count = 647

@@ -1,4 +1,5 @@
 use super::*;
+#[allow(deprecated)]
 use layerx_crypto::payments::OnboardingConsent;
 use layerx_intents::{LxpSend, NativeBudgetCreate};
 
@@ -66,6 +67,7 @@ pub(super) struct NativeCreation {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[allow(deprecated)]
 pub struct NativeOnboardingRequest {
     pub consent: OnboardingConsent,
     pub network_id: u32,
@@ -734,7 +736,7 @@ impl ProtocolEvidence {
         self.receipt_hash = receipt_hash;
         self.block_height = executed.height;
         self.rung = rung;
-        self.receipt_bytes = executed.receipt.clone();
+        self.receipt_bytes.clone_from(&executed.receipt);
         Ok(self)
     }
 }

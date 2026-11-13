@@ -67,9 +67,9 @@ func CalculatePressure(buys, sells int64, buyRaw, sellRaw string, wash bool) (Pr
 		p.Direction = "neutral"
 		lhs := new(big.Int).Mul(bc, big.NewInt(10000))
 		if lhs.Cmp(new(big.Int).Mul(total, big.NewInt(5500))) >= 0 {
-			p.Direction = "bullish"
+			p.Direction = valueBullish
 		} else if lhs.Cmp(new(big.Int).Mul(total, big.NewInt(4500))) <= 0 {
-			p.Direction = "bearish"
+			p.Direction = valueBearish
 		}
 	}
 	if total.Cmp(big.NewInt(5)) < 0 {

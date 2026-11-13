@@ -22,7 +22,7 @@ func (o OwnedSources) VerifiedAccount(ctx context.Context, actor string) (bool, 
 	return o.External.VerifiedAccount(ctx, actor)
 }
 func (o OwnedSources) ResolvePublic(ctx context.Context, kind, id string) (PublicResource, error) {
-	if kind != "callout" {
+	if kind != kindCallout {
 		if o.External == nil {
 			return PublicResource{}, ErrUnavailable
 		}
@@ -36,10 +36,10 @@ func (o OwnedSources) ResolvePublic(ctx context.Context, kind, id string) (Publi
 	if e != nil {
 		return PublicResource{}, e
 	}
-	if c.Deleted || c.ModerationStatus != "approved" || ref.Tombstone {
+	if c.Deleted || c.ModerationStatus != statusApproved || ref.Tombstone {
 		return PublicResource{}, ErrUnavailable
 	}
-	if c.Revision != ref.SourceRevision || c.AuthorAccountID != ref.CreatorPublicID || !c.CreatedAt.Equal(ref.PublishedAt) || ref.ID != c.ID || ref.Kind != "callout" || len(ref.Pools) != 1 || ref.Pools[0] != c.PoolAddress {
+	if c.Revision != ref.SourceRevision || c.AuthorAccountID != ref.CreatorPublicID || !c.CreatedAt.Equal(ref.PublishedAt) || ref.ID != c.ID || ref.Kind != kindCallout || len(ref.Pools) != 1 || ref.Pools[0] != c.PoolAddress {
 		return PublicResource{}, ErrUnavailable
 	}
 	return PublicResource{Ref: ref, Body: c.Body, PositionDisclosure: c.PositionDisclosure, PositionVerified: false}, nil

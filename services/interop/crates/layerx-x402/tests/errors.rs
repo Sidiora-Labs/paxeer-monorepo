@@ -23,7 +23,7 @@ fn settlement_response_refuses_a_non_hash_transaction() {
             transaction: String::new(),
             network: "eip155:125".to_owned(),
             amount: None,
-            extensions: Default::default(),
+            extensions: std::collections::BTreeMap::default(),
         };
         for transaction in [
             format!("lxp:{}", "a".repeat(64)),

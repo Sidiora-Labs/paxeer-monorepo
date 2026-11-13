@@ -1,172 +1,170 @@
-# wasmvm
+# wasm-runtime
 
-This is a wrapper around the
-[CosmWasm VM](https://github.com/CosmWasm/cosmwasm/tree/main/packages/vm). It
-allows you to compile, initialize and execute CosmWasm smart contracts from Go
-applications, in particular from [`wasm/x/wasm`](../wasm/x/wasm).
+This directory holds Paxeer's Go wrapper around the CosmWasm VM, the Rust native
+library and their shared contract types. It compiles WebAssembly bytecode,
+initializes contracts and executes their entry points for the node's
+[`wasm/x/wasm`](../wasm/x/wasm) module. CosmWasm, the EVM and the kernel run within
+the same Paxeer network.
 
-This directory is the Paxeer X Network copy of wasmvm. It is part of the root Go
-module, so its import path is `github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime`.
-The Rust library (`libwasmvm`, crate version 1.5.4) builds against `cosmwasm-vm` from
-[Paxeer-Network/pax-cosmwasm](https://github.com/Paxeer-Network/pax-cosmwasm)
-(`libwasmvm/Cargo.toml`). Unless noted otherwise, the commands below run from
-`wasm-runtime/`.
+## Layout
 
-## Structure
+| Path | Contents |
+| --- | --- |
+| [`builders/`](builders) | Docker build definitions and guest scripts for native libraries. |
+| [`cmd/`](cmd) | Go demo that loads contract bytecode through the wrapper. |
+| [`devtools/`](devtools) | Script for updating the native library version. |
+| [`internal/`](internal) | Private cgo API, host callbacks, memory and iterator handling, native libraries and linker settings. |
+| [`libwasmvm/`](libwasmvm) | Rust FFI library, Cargo manifest and lockfile, generated C header and vendored cryptography crate. |
+| [`spec/`](spec) | Architecture and specification of the wrapper's parameters and entry points. |
+| [`testdata/`](testdata) | Compiled contracts used by the Go tests and their download script. |
+| [`types/`](types) | Shared environment, message, response, query, storage, gas and IBC types. |
+| [`Makefile`](Makefile) | Rust and Go builds, tests, binding updates and containerized release targets. |
+| [`README.md`](README.md) | Component layout, build, configuration and documentation guide. |
+| [`lib.go`](lib.go) | cgo-enabled `VM`, code storage, contract execution and IBC entry points. |
+| [`lib_no_cgo.go`](lib_no_cgo.go) | Shared type aliases, `CreateChecksum` and the `LibwasmvmVersion` API. |
+| [`version_cgo.go`](version_cgo.go) | Native library version lookup with cgo. |
+| [`version_no_cgo.go`](version_no_cgo.go) | Version lookup error when cgo is disabled. |
+| [`lib_test.go`](lib_test.go) | VM lifecycle, execution and gas tests. |
+| [`lib_no_cgo_test.go`](lib_no_cgo_test.go) | Checksum tests. |
+| [`ibc_test.go`](ibc_test.go) | Contract IBC callback tests. |
+| [`libwasmvm-linux.sha256`](libwasmvm-linux.sha256) | Checksums for Linux native libraries. |
 
-This repo contains both Rust and Go code. The Rust code is compiled into a
-library (shared `.dll`/`.dylib`/`.so` or static `.a`) to be linked via cgo and
-wrapped with a pleasant Go API. The full build step involves compiling Rust -> C
-library, and linking that library to the Go code. For ergonomics of the user, we
-will include pre-compiled libraries to easily link with, and Go developers
-should just be able to import this directly.
+The wrapper belongs to the [root Go module](../go.mod). Its import path is
+`github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime` and its package name is
+`cosmwasm`. The `types` package can compile without cgo. Both `cosmwasm` and
+`internal/api` use `types`; `cosmwasm` also calls `internal/api`. The latter is
+private under Go's `internal/` convention and requires cgo.
 
-### Rust code
+The Rust crate is version 1.5.4 in
+[`libwasmvm/Cargo.toml`](libwasmvm/Cargo.toml). Its `cosmwasm-std` and
+`cosmwasm-vm` dependencies use the pinned `Paxeer-Network/pax-cosmwasm` fork.
 
-The Rust code lives in a sub-folder `./libwasmvm`. This folder compiles to a
-library that can be used via FFI. It is compiled like this:
+## Build and test
+
+Run these commands from `wasm-runtime/`. The [Makefile](Makefile) builds Rust
+into a native library, links it through cgo and builds the Go packages and demo.
+Go builds can use the native libraries already present in `internal/api`.
 
 ```sh
-# Run unit tests
-(cd libwasmvm && cargo test)
+# Build the Rust release library, refresh bindings and build Go packages.
+make build
 
-# Create release build for your current system. Uses whatever default Rust
-# version you have installed.
+# Build only the native release library and refresh internal/api/bindings.h.
 make build-rust
 
-# Create reproducible release builds for other systems (slow, don't use for development)
-make release-build-alpine
-make release-build-linux
-make release-build-macos
-make release-build-windows
-```
-
-### Go code
-
-The Go code consists of three packages:
-
-1. The types (the `github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime/types` import), using
-   `package types`
-2. The internal package `internal/api`, using `package api`
-3. This directory (the `github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime` import), using `package cosmwasm`
-
-The dependencies between them are as follows:
-
-```mermaid
-graph TD;
-    api-->types;
-    cosmwasm-->types;
-    cosmwasm-->api;
-```
-
-The Go code is built like this:
-
-```
+# Build the Go packages and demo against the native library.
 make build-go
+
+# Run the Go test suite with caching disabled.
 make test
+
+# Run the Rust unit tests declared by the Cargo crate.
+(cd libwasmvm && cargo test)
 ```
 
-#### Package github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime/types
+`make build-rust` runs `cargo build --release` in `libwasmvm`, copies the library
+into `internal/api` and refreshes the C header through `make update-bindings`.
+It requires Cargo, rustc and a C toolchain; Rust can be installed with rustup.
+`make build-rust-debug` selects the Rust debug build. If a matching native
+library is already present, `make test` can run without rebuilding Rust.
 
-This packages contains types used by the two other packages. It can be compiled
-without cgo.
+The public Go package and `types` also support builds without cgo:
 
 ```sh
-# Build
 go build ./types
-# Build without CGO
 CGO_ENABLED=0 go build ./types
-```
-
-#### Package internal/api
-
-This package contains the code binding the libwasmvm build to the Go code. All
-low level FFI handling code belongs there. This package can only be built using
-cgo. Using the `internal/` convention makes this package fully private.
-
-#### Package github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime
-
-This is the package users import. It can be compiled without cgo, but when you
-do so, a lot of functionality is removed.
-
-```sh
-# Build
 go build .
-# Build without CGO
 CGO_ENABLED=0 go build .
 ```
 
-## Supported Platforms
+Without cgo, shared type aliases and `CreateChecksum` remain available, and
+`LibwasmvmVersion` returns an error. The `VM` type and contract execution methods
+require cgo.
 
-The Rust implementation of the VM is compiled to a library called libwasmvm.
-This is then linked to the Go code when the final binary is built. For that
-reason not all systems supported by Go are supported by this project.
+### Native libraries and platforms
 
-Linux (tested on Ubuntu, Debian, and CentOS7, Alpine) and macOS is supported. We
-are working on Windows (#288).
+The Rust VM is linked into the final Go binary as a shared or static library,
+so platform support also depends on the native library. The libraries present
+in `internal/api` cover Linux and macOS. The linker files select:
 
-[#288]: https://github.com/CosmWasm/wasmvm/pull/288
+| Platform | Architecture | Library | Go build tag |
+| --- | --- | --- | --- |
+| Linux glibc | x86_64 | `libwasmvm.x86_64.so` | default |
+| Linux glibc | aarch64 | `libwasmvm.aarch64.so` | default |
+| Linux musl | x86_64 | `libwasmvm_muslc.a` | `muslc` |
+| Linux musl | aarch64 | `libwasmvm_muslc.aarch64.a` | `muslc` |
+| macOS | x86_64 or aarch64 | `libwasmvm.dylib` | default |
+| macOS | x86_64 | `libwasmvmstatic_darwin.amd64.a` | `static_wasm` |
+| macOS | aarch64 | `libwasmvmstatic_darwin.arm64.a` | `static_wasm` |
 
-### Builds of libwasmvm
+The Windows linker expects `wasmvm.dll`. The `sys_wasmvm` build tag selects a
+system-installed `libwasmvm`. The Makefile provides these containerized release
+targets for the native libraries:
 
-Our system currently supports the following builds. In general we can only
-support targets that are
-supported by Wasmer's singlepass backend,
-which for example excludes all 32 bit systems.
+```sh
+make release-build-alpine
+make release-build-linux
+make release-build-macos
+make release-build-macos-static
+make release-build-windows
+```
 
-| OS family       | Arch    | Linking | Supported                    | Note                                                                                                                                   |
-| --------------- | ------- | ------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Linux (glibc)   | x86_64  | shared  | ✅​libwasmvm.x86_64.so       |                                                                                                                                        |
-| Linux (glibc)   | x86_64  | static  | 🚫​                          | Would link libwasmvm statically but glibc dynamically as static glibc linking is not recommended. Potentially interesting for Osmosis. |
-| Linux (glibc)   | aarch64 | shared  | ✅​libwasmvm.aarch64.so      |                                                                                                                                        |
-| Linux (glibc)   | aarch64 | static  | 🚫​                          |                                                                                                                                        |
-| Linux (musl)    | x86_64  | shared  | 🚫​                          | Possible but not needed                                                                                                                |
-| Linux (musl)    | x86_64  | static  | ✅​libwasmvm_muslc.a         |                                                                                                                                        |
-| Linux (musl)    | aarch64 | shared  | 🚫​                          | Possible but not needed                                                                                                                |
-| Linux (musl)    | aarch64 | static  | ✅​libwasmvm_muslc.aarch64.a |                                                                                                                                        |
-| macOS           | x86_64  | shared  | ✅​libwasmvm.dylib           | Fat/universal library with multiple archs ([#294])                                                                                     |
-| macOS           | x86_64  | static  | ✅​libwasmvmstatic_darwin.amd64.a | Linked with the `static_wasm` build tag |
-| macOS           | aarch64 | shared  | ✅​libwasmvm.dylib           | Fat/universal library with multiple archs ([#294])                                                                                     |
-| macOS           | aarch64 | static  | ✅​libwasmvmstatic_darwin.arm64.a | Linked with the `static_wasm` build tag |
-| Windows (mingw) | x86_64  | shared  | 🏗​wasmvm.dll                 | Shared library linking not working on Windows ([#389])                                                                                 |
-| Windows (mingw) | x86_64  | static  | 🚫​                          | Unclear if this can work using a cross compiler; needs research on .lib (MSVC toolchain) vs. .a (GNU toolchain). ([#389])              |
-| Windows (mingw) | aarch64 | shared  | 🚫​                          | Shared library linking not working on Windows ([#389])                                                                                 |
-| Windows (mingw) | aarch64 | static  | 🚫​                          | Unclear if this can work using a cross compiler; needs research on .lib (MSVC toolchain) vs. .a (GNU toolchain). ([#389])              |
+The musl static archives are stored in parts: `libwasmvm_muslc.a` and
+`libwasmvm_muslc.aarch64.a` are linker `GROUP` scripts naming their `.partNN.a`
+members. The macOS static libraries are stored as one archive per architecture.
+[`internal/api/static-archives.json`](internal/api/static-archives.json) records
+the size and SHA-256 of every archive, part and gzip copy.
+`make release-build-alpine` and `make release-build-macos-static` regenerate them
+through [`scripts/package-static-wasm.py`](../scripts/package-static-wasm.py).
+[`wasm/staticarchive`](../wasm/staticarchive) checks these artifacts.
 
-[#294]: https://github.com/CosmWasm/wasmvm/pull/294
-[#389]: https://github.com/CosmWasm/wasmvm/issues/389
+## Configuration
 
-The libraries are committed in `internal/api`. The static archives are stored in
-parts: `libwasmvm_muslc.a` and `libwasmvm_muslc.aarch64.a` are linker `GROUP`
-scripts naming their `.partNN.a` members, the macOS static library is stored as one
-archive per architecture, and `internal/api/static-archives.json` records the size
-and SHA-256 of every archive, part and gzip copy. `make release-build-alpine` and
-`make release-build-macos-static` regenerate them through
-[`scripts/package-static-wasm.py`](../scripts/package-static-wasm.py), and
-[`wasm/staticarchive`](../wasm/staticarchive) checks them. The `sys_wasmvm` build tag
-links a system-installed `libwasmvm` instead.
+The embedding application supplies `NewVM` with `dataDir`,
+`supportedCapabilities`, `memoryLimit`, `printDebug` and `cacheSize`. These
+control the bytecode and cache directory, supported capabilities, execution
+memory, contract debug output and memory cache size. Runtime settings are
+passed through this API; the wrapper does not read an application configuration
+file or environment variables for them. Node configuration is described in the
+[Wasm module guide](../wasm/x/wasm/README.md).
 
-## Docs
+Build and test tooling uses the following names:
 
-Run `(cd libwasmvm && cargo doc --no-deps --open)`.
+| Names | Use |
+| --- | --- |
+| `CARGO_MANIFEST_DIR` | Read by `libwasmvm/build.rs` to locate the crate for C binding generation. |
+| `CARGO_PKG_VERSION` | Read at compile time by `libwasmvm/src/version.rs`. |
+| `CGO_ENABLED` | Go build selection for native execution support. |
+| `OS` | Platform selection in the Makefile. |
+| `RUST_BACKTRACE`, `GODEBUG` | Diagnostics in the Makefile's Go test targets. |
+| `CARGO_REGISTRIES_CRATES_IO_PROTOCOL` | Cargo registry setting exported by the guest build scripts. |
+| `CC`, `CXX`, `PATH`, `LIBZ_SYS_STATIC` | Compiler, tool lookup and static zlib settings in guest builds. |
+| `CC_aarch64_unknown_linux_gnu`, `AR_aarch64_unknown_linux_gnu`, `CFLAGS_aarch64_unknown_linux_gnu` | Compiler, archiver and compiler flags in the GNU aarch64 guest build. |
+| `CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER`, `CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUNNER`, `qemu_aarch64` | Linker and emulator selection in the GNU aarch64 guest build. |
 
-## Design
+[`libwasmvm/Cargo.toml`](libwasmvm/Cargo.toml) declares dependencies, features
+and build profiles; [`libwasmvm/Cargo.lock`](libwasmvm/Cargo.lock) pins resolved
+dependencies. [`libwasmvm/cbindgen.toml`](libwasmvm/cbindgen.toml) configures C
+header generation and [`libwasmvm/clippy.toml`](libwasmvm/clippy.toml) configures
+Clippy. The builder images install
+[`builders/guest/cargo-config`](builders/guest/cargo-config) as Cargo's
+cross-compilation configuration.
 
-Please read the [Documentation](./spec/Index.md) to understand both the general
-[Architecture](./spec/Architecture.md), as well as the more detailed
-[Specification](./spec/Specification.md) of the parameters and entry points.
+## Documentation
 
-## Development
+- [Integration overview](spec/Index.md), [architecture](spec/Architecture.md) and
+  [parameter and entry-point specification](spec/Specification.md).
+- [Wasm module](../wasm/x/wasm/README.md): node integration and configuration.
+- [Release readiness matrix](../docs/release/7.0.0-readiness-matrix.md): runtime
+  build and test entries.
+- [Validator runbook](../docs/release/7.0.0-validator-runbook.md): native library
+  requirements for node releases.
+- [WASM Runtime site page](../docs/site/paxeer-docs/src/app/wasm-runtime/page.tsx)
+  and its [Markdown page](../docs/site/paxeer-docs/public/markdown/wasm-runtime.md).
+- [WASM module site page](../docs/site/paxeer-docs/public/markdown/wasm.md).
 
-There are two halves to this code - Go and Rust. The first step is to ensure that
-there is a proper library built for your platform in `internal/api`:
+Generate and open the Rust API documentation from this directory with:
 
-- `libwasmvm.x86_64.so` or `libwasmvm.aarch64.so` for Linux (glibc) systems
-- `libwasmvm.dylib` for macOS
-- `wasmvm.dll` for Windows - not currently supported
-
-If this is present, then `make test` will run the Go test suite and you can
-import this code freely. If it is not present, build it for your system with
-`make build-rust`, which runs `cargo build --release` in `libwasmvm`, copies the
-library into `internal/api` and refreshes `internal/api/bindings.h`. This depends on
-`cargo` and `rustc` being installed; `rustup` is the simplest way to get them.
+```sh
+(cd libwasmvm && cargo doc --no-deps --open)
+```

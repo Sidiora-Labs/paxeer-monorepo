@@ -18,15 +18,21 @@ export const CORE_DEPLOYMENT = Object.freeze({
   "roleIdentity": {
     "router": {
       "kind": "surface",
-      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f",
+      "stagedRuntimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993",
+      "stagedUpgrade": "v7.0"
     },
     "quoter": {
       "kind": "surface",
-      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f",
+      "stagedRuntimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993",
+      "stagedUpgrade": "v7.0"
     },
     "feesRouter": {
       "kind": "surface",
-      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f",
+      "stagedRuntimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993",
+      "stagedUpgrade": "v7.0"
     },
     "opticalRegistry": {
       "kind": "erc1967",
@@ -36,15 +42,21 @@ export const CORE_DEPLOYMENT = Object.freeze({
     },
     "protocolConfig": {
       "kind": "surface",
-      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f",
+      "stagedRuntimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993",
+      "stagedUpgrade": "v7.0"
     },
     "factory": {
       "kind": "surface",
-      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f",
+      "stagedRuntimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993",
+      "stagedUpgrade": "v7.0"
     },
     "nft": {
       "kind": "surface",
-      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f",
+      "stagedRuntimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993",
+      "stagedUpgrade": "v7.0"
     },
     "eventEmitter": {
       "kind": "erc1967",
@@ -54,11 +66,15 @@ export const CORE_DEPLOYMENT = Object.freeze({
     },
     "feeAccumulator": {
       "kind": "surface",
-      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f",
+      "stagedRuntimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993",
+      "stagedUpgrade": "v7.0"
     },
     "poolRegistry": {
       "kind": "surface",
-      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f",
+      "stagedRuntimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993",
+      "stagedUpgrade": "v7.0"
     },
     "poolBeacon": {
       "kind": "beacon",
@@ -68,7 +84,9 @@ export const CORE_DEPLOYMENT = Object.freeze({
     },
     "treasury": {
       "kind": "surface",
-      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f"
+      "runtimeHash": "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f",
+      "stagedRuntimeHash": "0xe67f4b121cfa00710e9a74cd027b8d56f7ca67d14ebe357a8c080f8c2e819993",
+      "stagedUpgrade": "v7.0"
     },
     "usdl": {
       "kind": "direct",

@@ -36,16 +36,15 @@ func OpenLocalStore(path string, identity Identity, verifier EvidenceVerifier) (
 	if path == "" || identity == nil {
 		return nil, Invalid
 	}
-	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, 0600)
+	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, 0600) //nolint:gosec // The caller explicitly selects the local store path.
 	if err != nil {
 		return nil, err
 	}
 	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		lock.Close()
-		return nil, err
+		return nil, errors.Join(err, lock.Close())
 	}
 	l := &LocalObjects{path: path, lock: lock, objects: map[string]json.RawMessage{}}
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // The caller explicitly selects the local store path.
 	if err == nil {
 		var snapshot localSnapshot
 		err = json.Unmarshal(raw, &snapshot)
@@ -56,8 +55,7 @@ func OpenLocalStore(path string, identity Identity, verifier EvidenceVerifier) (
 		l.audits = snapshot.Audits
 	}
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		lock.Close()
-		return nil, err
+		return nil, errors.Join(err, lock.Close())
 	}
 	return &Store{local: l, identity: identity, verifier: verifier}, nil
 }
@@ -74,7 +72,7 @@ func (s *Store) CloseLocal() error {
 	l.closed = true
 	return l.lock.Close()
 }
-func (l *LocalObjects) save(objects map[string]json.RawMessage, audits []localAudit) error {
+func (l *LocalObjects) save(objects map[string]json.RawMessage, audits []localAudit) (resultErr error) {
 	raw, err := json.Marshal(localSnapshot{objects, audits})
 	if err != nil {
 		return err
@@ -83,7 +81,11 @@ func (l *LocalObjects) save(objects map[string]json.RawMessage, audits []localAu
 	if err != nil {
 		return err
 	}
-	defer os.Remove(file.Name())
+	defer func() {
+		if removeErr := os.Remove(file.Name()); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			resultErr = errors.Join(resultErr, removeErr)
+		}
+	}()
 	if err = file.Chmod(0600); err == nil {
 		_, err = file.Write(raw)
 	}
@@ -104,8 +106,10 @@ func (l *LocalObjects) save(objects map[string]json.RawMessage, audits []localAu
 	if err != nil {
 		return err
 	}
-	defer dir.Close()
-	if err = dir.Sync(); err != nil {
+	if syncErr := dir.Sync(); syncErr != nil {
+		return errors.Join(syncErr, dir.Close())
+	}
+	if err = dir.Close(); err != nil {
 		return err
 	}
 	l.objects = objects
