@@ -9,7 +9,7 @@ mining; it does not reproduce Paxeer's validator, finality, transaction extensio
 or performance implementation. The publicly known accounts and fixed credentials
 are test data. Never fund these accounts outside this fixture.
 
-All host ports bind to `127.0.0.1`. The private Compose bridge disables outbound
+All host ports bind to IPv4 loopback. The private Compose bridge disables outbound
 IP masquerading. This is not an absolute egress firewall: access to reachable host
 or private-network routes may still be possible. A local privileged user can still access Docker and these test services.
 No existing service, production volume, `.env`, or chain data is mounted.
@@ -59,8 +59,9 @@ docker compose -f deploy/launchpad/production/bootstrap/compose.yml down
 ```
 
 Deleting fixture volumes is a separate destructive local cleanup decision; the
-provided scripts never remove volumes. Independent fixture stacks require distinct project names and host-port
-overrides.
+provided scripts never remove volumes. The checked-in Compose project is
+`kindle-bootstrap-local`; `validate.py` requires that project name and `start.py`
+uses the checked-in `compose.yml`.
 
 Use the [recovery overview](../recovery/README.md) for the local PostgreSQL
 checks that depend on this fixture, and the [observability overview](../observability/README.md)
