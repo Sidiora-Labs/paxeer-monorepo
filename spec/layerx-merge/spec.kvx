@@ -13882,6 +13882,12 @@ value = "The paths of task 22.42.177 hold docs/wallet/service/runbooks/gateway-r
 basis = "Gotcha 4374. The verification of the task runs the test that reads the page."
 affects = []
 
+[decision.3462]
+title = "Task 22.41.123 brings the batch section of TestProofRpcRoutes to the answer for a batch of one request"
+value = "Task 22.41.123 changes the last block of the batch section of TestProofRpcRoutes in consensus/internal/rpc/core/proof_rpc_routes_test.go: a batch of one request returns no error and one result. The task changes no other assertion of the file."
+basis = "Gotcha 4375. The verification of the task runs the tests of the package."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -238396,6 +238402,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "do_4 Decision 3462, gotcha 4375. The file consensus/internal/rpc/core/proof_rpc_routes_test.go is among the paths of this task. The last block of the batch section of TestProofRpcRoutes sends a batch of one request and holds a type error of the decoder. Read writeRPCResponse in consensus/rpc/jsonrpc/server/http_server.go and unmarshalResponseBytesArray in consensus/rpc/jsonrpc/client/decode.go and state in the final message the shape the server writes for a batch of one request. Bring the block to that behaviour: Send returns no error and one result, and the result is the value that the Status call of the batch returned. Write the comment of the block to match and remove an import that the file no longer uses. Change no other assertion of the file. The earlier work of this task stays as it is. Run the build once and the verification once at the final revision."
 
 [task.22.41.120]
 title = "Read the node inventory of the bring-up tools from docs/readme/PUBLIC-RPC.md"
