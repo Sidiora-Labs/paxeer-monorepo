@@ -14,7 +14,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/tcp"
 )
 
-func repairM1123RunTransport(ctx context.Context, conn tcp.Conn) error {
+func payloadBoundsRunTransport(ctx context.Context, conn tcp.Conn) error {
 	err := conn.Run(ctx)
 	// Canceling pending TCP reads closes the sockets. Treat a disconnect as
 	// cancellation only after the test scope has already been canceled.
@@ -24,7 +24,7 @@ func repairM1123RunTransport(ctx context.Context, conn tcp.Conn) error {
 	return utils.IgnoreCancel(err)
 }
 
-func TestRepairM_1123_MaxPayloadRoundTrip(t *testing.T) {
+func TestMConnectionMaxPayloadRoundTrip(t *testing.T) {
 	for _, channelID := range []ChannelID{127, 128, 255, 16383, 16384, math.MaxUint16} {
 		for _, payloadSize := range []int{120, DefaultMConnConfig().MaxPacketMsgPayloadSize, 16384} {
 			t.Run(fmt.Sprintf("channel_%d/payload_%d", channelID, payloadSize), func(t *testing.T) {
@@ -43,8 +43,8 @@ func TestRepairM_1123_MaxPayloadRoundTrip(t *testing.T) {
 				client := NewMConnection(clientConn, descriptors, cfg)
 				server := NewMConnection(serverConn, descriptors, cfg)
 				err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
-					s.SpawnBgNamed("client transport", func() error { return repairM1123RunTransport(ctx, clientConn) })
-					s.SpawnBgNamed("server transport", func() error { return repairM1123RunTransport(ctx, serverConn) })
+					s.SpawnBgNamed("client transport", func() error { return payloadBoundsRunTransport(ctx, clientConn) })
+					s.SpawnBgNamed("server transport", func() error { return payloadBoundsRunTransport(ctx, serverConn) })
 					s.SpawnBgNamed("client connection", func() error { return utils.IgnoreCancel(client.Run(ctx)) })
 					s.SpawnBgNamed("server connection", func() error { return utils.IgnoreCancel(server.Run(ctx)) })
 					if err := client.Send(ctx, channelID, bytes.Clone(want)); err != nil {
@@ -77,7 +77,7 @@ func TestRepairM_1123_MaxPayloadRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepairM_1123_OversizedPayloadRejected(t *testing.T) {
+func TestMConnectionOversizedPayloadRejected(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	clientConn, serverConn := tcp.TestPipe()
@@ -91,8 +91,8 @@ func TestRepairM_1123_OversizedPayloadRejected(t *testing.T) {
 	cfg.MaxPacketMsgPayloadSize++
 	client := NewMConnection(clientConn, descriptors, cfg)
 	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
-		s.SpawnBgNamed("client transport", func() error { return repairM1123RunTransport(ctx, clientConn) })
-		s.SpawnBgNamed("server transport", func() error { return repairM1123RunTransport(ctx, serverConn) })
+		s.SpawnBgNamed("client transport", func() error { return payloadBoundsRunTransport(ctx, clientConn) })
+		s.SpawnBgNamed("server transport", func() error { return payloadBoundsRunTransport(ctx, serverConn) })
 		s.SpawnBgNamed("client connection", func() error { return utils.IgnoreCancel(client.Run(ctx)) })
 		s.SpawnNamed("bounded receiver", func() error {
 			if err := server.Run(ctx); !errors.Is(err, errMsgTooLarge) {

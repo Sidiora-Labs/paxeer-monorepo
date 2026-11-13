@@ -49,26 +49,26 @@ import (
 // This consumer reads the published OpenAPI contract, resolves local references,
 // and checks the schema keywords used by the repaired response contracts.
 // Its input is always a response from a registered Environment handler.
-type repair91Contract map[string]any
+type responseContractContract map[string]any
 
-func repair91LoadContract(t *testing.T) repair91Contract {
+func responseContractLoadContract(t *testing.T) responseContractContract {
 	t.Helper()
 	data, err := os.ReadFile("../../../rpc/openapi/openapi.yaml")
 	require.NoError(t, err)
 	var doc map[string]any
 	require.NoError(t, yaml.Unmarshal(data, &doc))
-	return repair91Contract(doc)
+	return responseContractContract(doc)
 }
 
-func (doc repair91Contract) schema(name string) map[string]any {
+func (doc responseContractContract) schema(name string) map[string]any {
 	return doc["components"].(map[string]any)["schemas"].(map[string]any)[name].(map[string]any)
 }
 
-func (doc repair91Contract) response(path, method string, status int, media string) map[string]any {
+func (doc responseContractContract) response(path, method string, status int, media string) map[string]any {
 	return doc["paths"].(map[string]any)[path].(map[string]any)[method].(map[string]any)["responses"].(map[string]any)[strconv.Itoa(status)].(map[string]any)["content"].(map[string]any)[media].(map[string]any)["schema"].(map[string]any)
 }
 
-func (doc repair91Contract) validate(s map[string]any, v any) error {
+func (doc responseContractContract) validate(s map[string]any, v any) error {
 	if name, ok := s["$ref"].(string); ok {
 		const prefix = "#/components/schemas/"
 		if !strings.HasPrefix(name, prefix) {
@@ -204,7 +204,7 @@ func (doc repair91Contract) validate(s map[string]any, v any) error {
 	return nil
 }
 
-func repair91Server(t *testing.T, env *Environment) *httptest.Server {
+func responseContractServer(t *testing.T, env *Environment) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	rpc.RegisterRPCFuncs(mux, NewRoutesMap(env, nil))
@@ -213,7 +213,7 @@ func repair91Server(t *testing.T, env *Environment) *httptest.Server {
 	return server
 }
 
-func repair91Request(t *testing.T, ctx context.Context, server *httptest.Server, method, path, body string) (int, []byte, string) {
+func responseContractRequest(t *testing.T, ctx context.Context, server *httptest.Server, method, path, body string) (int, []byte, string) {
 	t.Helper()
 	request, err := http.NewRequestWithContext(ctx, method, server.URL+path, strings.NewReader(body))
 	require.NoError(t, err)
@@ -229,9 +229,9 @@ func repair91Request(t *testing.T, ctx context.Context, server *httptest.Server,
 }
 
 // Both transports feed the schema consumer and the real typed result decoder.
-func repair91Call(t *testing.T, ctx context.Context, server *httptest.Server, name string, params map[string]any, resultSchema string, result any) []byte {
+func responseContractCall(t *testing.T, ctx context.Context, server *httptest.Server, name string, params map[string]any, resultSchema string, result any) []byte {
 	t.Helper()
-	doc := repair91LoadContract(t)
+	doc := responseContractLoadContract(t)
 	var last []byte
 	for _, method := range []string{http.MethodGet, http.MethodPost} {
 		path := "/" + name
@@ -247,7 +247,7 @@ func repair91Call(t *testing.T, ctx context.Context, server *httptest.Server, na
 			require.NoError(t, err)
 			body = string(payload)
 		}
-		status, data, media := repair91Request(t, ctx, server, method, path, body)
+		status, data, media := responseContractRequest(t, ctx, server, method, path, body)
 		require.Equal(t, http.StatusOK, status, "%s %s: %s", method, name, data)
 		require.Equal(t, "application/json", media)
 		var wire any
@@ -277,12 +277,12 @@ func repair91Call(t *testing.T, ctx context.Context, server *httptest.Server, na
 	return last
 }
 
-type repair91ObservedApp struct {
+type responseContractObservedApp struct {
 	abci.Application
 	committed utils.AtomicSend[int64]
 }
 
-func (app *repair91ObservedApp) Commit(ctx context.Context) (*abci.ResponseCommit, error) {
+func (app *responseContractObservedApp) Commit(ctx context.Context) (*abci.ResponseCommit, error) {
 	response, err := app.Application.Commit(ctx)
 	if err != nil {
 		return nil, err
@@ -295,11 +295,11 @@ func (app *repair91ObservedApp) Commit(ctx context.Context) (*abci.ResponseCommi
 	return response, nil
 }
 
-func repair91WithBlock(t *testing.T, rng utils.Rng, application abci.Application, check func(context.Context, *Environment, *coretypes.ResultBlock)) {
+func responseContractWithBlock(t *testing.T, rng utils.Rng, application abci.Application, check func(context.Context, *Environment, *coretypes.ResultBlock)) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
-	observed := &repair91ObservedApp{Application: application, committed: utils.NewAtomicSend[int64](0)}
+	observed := &responseContractObservedApp{Application: application, committed: utils.NewAtomicSend[int64](0)}
 	app := proxy.New(observed, proxy.NopMetrics())
 	states := sm.NewStore(dbm.NewMemDB())
 	t.Cleanup(func() { require.NoError(t, states.Close()) })
@@ -350,30 +350,30 @@ func repair91WithBlock(t *testing.T, rng utils.Rng, application abci.Application
 	}))
 }
 
-func TestRepair_91_BlockOperations(t *testing.T) {
+func TestRPCResponseContractBlockOperations(t *testing.T) {
 	rng := utils.TestRng()
 	app := kvstore.NewApplication()
 	defer func() { require.NoError(t, app.Close()) }()
-	repair91WithBlock(t, rng, app, func(ctx context.Context, env *Environment, block *coretypes.ResultBlock) {
-		server := repair91Server(t, env)
+	responseContractWithBlock(t, rng, app, func(ctx context.Context, env *Environment, block *coretypes.ResultBlock) {
+		server := responseContractServer(t, env)
 		var results coretypes.ResultBlockResults
-		repair91Call(t, ctx, server, "block_results", map[string]any{"height": "1"}, "BlockResultsResponse", &results)
+		responseContractCall(t, ctx, server, "block_results", map[string]any{"height": "1"}, "BlockResultsResponse", &results)
 		require.Equal(t, int64(1), results.Height)
 		require.Len(t, results.TxsResults, 2)
 		var search coretypes.ResultBlockSearch
-		repair91Call(t, ctx, server, "block_search", map[string]any{"query": "block.height=1"}, "BlockSearchResponse", &search)
+		responseContractCall(t, ctx, server, "block_search", map[string]any{"query": "block.height=1"}, "BlockSearchResponse", &search)
 		require.Equal(t, 1, search.TotalCount)
 		require.Equal(t, []*coretypes.ResultBlock{block}, search.Blocks)
 	})
 }
 
-func TestRepair_91_TransportFraming(t *testing.T) {
+func TestRPCResponseContractTransportFraming(t *testing.T) {
 	env := &Environment{}
-	server := repair91Server(t, env)
+	server := responseContractServer(t, env)
 	var health coretypes.ResultHealth
-	repair91Call(t, t.Context(), server, "health", map[string]any{}, "EmptyResponse", &health)
-	doc := repair91LoadContract(t)
-	status, data, media := repair91Request(t, t.Context(), server, http.MethodPost, "/", `[{"jsonrpc":"2.0","id":1,"method":"health"},{"jsonrpc":"2.0","id":2,"method":"health"}]`)
+	responseContractCall(t, t.Context(), server, "health", map[string]any{}, "EmptyResponse", &health)
+	doc := responseContractLoadContract(t)
+	status, data, media := responseContractRequest(t, t.Context(), server, http.MethodPost, "/", `[{"jsonrpc":"2.0","id":1,"method":"health"},{"jsonrpc":"2.0","id":2,"method":"health"}]`)
 	require.Equal(t, http.StatusOK, status)
 	var batch []any
 	require.NoError(t, json.Unmarshal(data, &batch))
@@ -383,7 +383,7 @@ func TestRepair_91_TransportFraming(t *testing.T) {
 		require.Equal(t, float64(i+1), v.(map[string]any)["id"])
 		require.Equal(t, map[string]any{}, v.(map[string]any)["result"])
 	}
-	status, data, media = repair91Request(t, t.Context(), server, http.MethodPost, "/", `[{"jsonrpc":"2.0","id":1,"method":"health"}]`)
+	status, data, media = responseContractRequest(t, t.Context(), server, http.MethodPost, "/", `[{"jsonrpc":"2.0","id":1,"method":"health"}]`)
 	require.Equal(t, http.StatusOK, status)
 	var single []any
 	require.NoError(t, json.Unmarshal(data, &single))
@@ -392,10 +392,10 @@ func TestRepair_91_TransportFraming(t *testing.T) {
 	require.NoError(t, doc.validate(doc.response("/", "post", status, media), single))
 }
 
-func TestRepair_91_StructuredErrors(t *testing.T) {
+func TestRPCResponseContractStructuredErrors(t *testing.T) {
 	env := &Environment{}
-	server := repair91Server(t, env)
-	doc := repair91LoadContract(t)
+	server := responseContractServer(t, env)
+	doc := responseContractLoadContract(t)
 	for _, tc := range []struct {
 		name, method, path, body string
 		code                     int
@@ -407,7 +407,7 @@ func TestRepair_91_StructuredErrors(t *testing.T) {
 		{"uri_unavailable", http.MethodGet, "/consensus_state", "", int(rpctypes.CodeInternalError)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			status, data, media := repair91Request(t, t.Context(), server, tc.method, tc.path, tc.body)
+			status, data, media := responseContractRequest(t, t.Context(), server, tc.method, tc.path, tc.body)
 			require.Equal(t, http.StatusOK, status)
 			var wire any
 			require.NoError(t, json.Unmarshal(data, &wire))
@@ -433,19 +433,19 @@ func TestRepair_91_StructuredErrors(t *testing.T) {
 			require.NotEmpty(t, fields["data"])
 		})
 	}
-	status, data, media := repair91Request(t, t.Context(), server, http.MethodGet, "/header_by_hash?hash=0xXYZ", "")
+	status, data, media := responseContractRequest(t, t.Context(), server, http.MethodGet, "/header_by_hash?hash=0xXYZ", "")
 	require.Equal(t, http.StatusBadRequest, status)
 	require.Equal(t, "text/plain", media)
 	require.NotEmpty(t, data)
 	require.NoError(t, doc.validate(doc.response("/header_by_hash", "get", status, media), string(data)))
 }
 
-func TestRepair_91_Headers(t *testing.T) {
+func TestRPCResponseContractHeaders(t *testing.T) {
 	rng := utils.TestRng()
 	app := kvstore.NewApplication()
 	defer func() { require.NoError(t, app.Close()) }()
-	repair91WithBlock(t, rng, app, func(ctx context.Context, env *Environment, block *coretypes.ResultBlock) {
-		server := repair91Server(t, env)
+	responseContractWithBlock(t, rng, app, func(ctx context.Context, env *Environment, block *coretypes.ResultBlock) {
+		server := responseContractServer(t, env)
 		for _, tc := range []struct {
 			name   string
 			params map[string]any
@@ -456,7 +456,7 @@ func TestRepair_91_Headers(t *testing.T) {
 			{"header_by_hash", map[string]any{"hash": strings.Repeat("AB", 32)}, nil},
 		} {
 			var result coretypes.ResultHeader
-			data := repair91Call(t, ctx, server, tc.name, tc.params, "HeaderResponse", &result)
+			data := responseContractCall(t, ctx, server, tc.name, tc.params, "HeaderResponse", &result)
 			require.Equal(t, tc.header, result.Header)
 			if tc.header == nil {
 				require.JSONEq(t, `{"header":null}`, string(data))
@@ -465,13 +465,13 @@ func TestRepair_91_Headers(t *testing.T) {
 	})
 }
 
-func TestRepair_91_FinalizeBlock(t *testing.T) {
+func TestRPCResponseContractFinalizeBlock(t *testing.T) {
 	rng := utils.TestRng()
 	app, err := e2eapp.NewApplication(e2eapp.DefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	repair91WithBlock(t, rng, app, func(ctx context.Context, env *Environment, _ *coretypes.ResultBlock) {
+	responseContractWithBlock(t, rng, app, func(ctx context.Context, env *Environment, _ *coretypes.ResultBlock) {
 		var result coretypes.ResultBlockResults
-		data := repair91Call(t, ctx, repair91Server(t, env), "block_results", map[string]any{"height": "1"}, "BlockResultsResponse", &result)
+		data := responseContractCall(t, ctx, responseContractServer(t, env), "block_results", map[string]any{"height": "1"}, "BlockResultsResponse", &result)
 		stored, err := env.StateStore.LoadFinalizeBlockResponses(1)
 		require.NoError(t, err)
 		require.Equal(t, stored.Events, result.FinalizeBlockEvents)
@@ -493,7 +493,7 @@ func TestRepair_91_FinalizeBlock(t *testing.T) {
 
 }
 
-func TestRepair_91_NullCollections(t *testing.T) {
+func TestRPCResponseContractNullCollections(t *testing.T) {
 	app := kvstore.NewApplication()
 	defer func() { require.NoError(t, app.Close()) }()
 	block := types.MakeBlock(1, nil, &types.Commit{}, nil)
@@ -509,7 +509,7 @@ func TestRepair_91_NullCollections(t *testing.T) {
 	require.NoError(t, states.SaveFinalizeBlockResponses(1, finalized))
 	env := &Environment{StateStore: states, BlockStore: blocks}
 	var result coretypes.ResultBlockResults
-	data := repair91Call(t, t.Context(), repair91Server(t, env), "block_results", map[string]any{"height": "1"}, "BlockResultsResponse", &result)
+	data := responseContractCall(t, t.Context(), responseContractServer(t, env), "block_results", map[string]any{"height": "1"}, "BlockResultsResponse", &result)
 	require.Empty(t, result.TxsResults)
 	require.Nil(t, result.FinalizeBlockEvents)
 	require.Nil(t, result.ConsensusParamUpdates)
@@ -519,21 +519,21 @@ func TestRepair_91_NullCollections(t *testing.T) {
 	require.Nil(t, wire["consensus_param_updates"])
 }
 
-func TestRepair_91_TransactionProofs(t *testing.T) {
+func TestRPCResponseContractTransactionProofs(t *testing.T) {
 	rng := utils.TestRng()
 	app := kvstore.NewApplication()
 	defer func() { require.NoError(t, app.Close()) }()
-	repair91WithBlock(t, rng, app, func(ctx context.Context, env *Environment, block *coretypes.ResultBlock) {
-		server := repair91Server(t, env)
+	responseContractWithBlock(t, rng, app, func(ctx context.Context, env *Environment, block *coretypes.ResultBlock) {
+		server := responseContractServer(t, env)
 		tx := block.Block.Txs[0]
 		var result coretypes.ResultTx
-		repair91Call(t, ctx, server, "tx", map[string]any{"hash": strings.ToUpper(hex.EncodeToString(tx.Hash().Bytes())), "prove": true}, "TxResponse", &result)
+		responseContractCall(t, ctx, server, "tx", map[string]any{"hash": strings.ToUpper(hex.EncodeToString(tx.Hash().Bytes())), "prove": true}, "TxResponse", &result)
 		require.Equal(t, tx, result.Tx)
 		require.NoError(t, result.Proof.Validate(block.Block.Txs.Hash()))
 		require.NotEmpty(t, result.Proof.Proof.Aunts)
 		require.NotEmpty(t, result.TxResult.Events)
 		var search coretypes.ResultTxSearch
-		repair91Call(t, ctx, server, "tx_search", map[string]any{"query": "tx.height=1", "prove": true}, "TxSearchResponse", &search)
+		responseContractCall(t, ctx, server, "tx_search", map[string]any{"query": "tx.height=1", "prove": true}, "TxSearchResponse", &search)
 		require.Equal(t, 2, search.TotalCount)
 		require.Len(t, search.Txs, 2)
 		found := false
@@ -550,17 +550,17 @@ func TestRepair_91_TransactionProofs(t *testing.T) {
 
 // The adapter delegates Query to the real committed SDK store, without
 // constructing response fields or proof operations in the test.
-type repair91StoreApplication struct {
+type responseContractStoreApplication struct {
 	abci.BaseApplication
 	store *rootmultiv2.Store
 }
 
-func (app *repair91StoreApplication) Query(ctx context.Context, req *abci.RequestQuery) (*abci.ResponseQuery, error) {
+func (app *responseContractStoreApplication) Query(ctx context.Context, req *abci.RequestQuery) (*abci.ResponseQuery, error) {
 	response := app.store.Query(ctx, *req)
 	return &response, nil
 }
 
-func TestRepair_91_ABCIQueries(t *testing.T) {
+func TestRPCResponseContractABCIQueries(t *testing.T) {
 	config := storageconfig.DefaultStateCommitConfig()
 	config.MemIAVLConfig.AsyncCommitBuffer = 0
 	state := rootmultiv2.NewStore(t.TempDir(), config, storageconfig.StateStoreConfig{}, nil)
@@ -573,8 +573,8 @@ func TestRepair_91_ABCIQueries(t *testing.T) {
 	cache.Write()
 	commit := state.Commit(true)
 	require.Equal(t, int64(1), commit.Version)
-	env := &Environment{App: proxy.New(&repair91StoreApplication{store: state}, proxy.NopMetrics())}
-	server := repair91Server(t, env)
+	env := &Environment{App: proxy.New(&responseContractStoreApplication{store: state}, proxy.NopMetrics())}
+	server := responseContractServer(t, env)
 	for _, tc := range []struct {
 		name, path, key string
 		exists, refused bool
@@ -585,7 +585,7 @@ func TestRepair_91_ABCIQueries(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var result coretypes.ResultABCIQuery
-			data := repair91Call(t, t.Context(), server, "abci_query", map[string]any{"path": tc.path, "data": hex.EncodeToString([]byte(tc.key)), "height": "1", "prove": true}, "ABCIQueryResponse", &result)
+			data := responseContractCall(t, t.Context(), server, "abci_query", map[string]any{"path": tc.path, "data": hex.EncodeToString([]byte(tc.key)), "height": "1", "prove": true}, "ABCIQueryResponse", &result)
 			if tc.refused {
 				require.NotZero(t, result.Response.Code)
 				require.Nil(t, result.Response.ProofOps)
@@ -619,15 +619,15 @@ func TestRepair_91_ABCIQueries(t *testing.T) {
 	}
 }
 
-func TestRepair_91_BroadcastCommit(t *testing.T) {
+func TestRPCResponseContractBroadcastCommit(t *testing.T) {
 	rng := utils.TestRng()
 	app, err := e2eapp.NewApplication(e2eapp.DefaultConfig(t.TempDir()))
 	require.NoError(t, err)
-	repair91WithBlock(t, rng, app, func(ctx context.Context, env *Environment, block *coretypes.ResultBlock) {
+	responseContractWithBlock(t, rng, app, func(ctx context.Context, env *Environment, block *coretypes.ResultBlock) {
 		// The public broadcast route runs real CheckTx and reads the committed index.
-		server := repair91Server(t, env)
+		server := responseContractServer(t, env)
 		var result coretypes.ResultBroadcastTxCommit
-		data := repair91Call(t, ctx, server, "broadcast_tx_commit", map[string]any{"tx": base64.StdEncoding.EncodeToString(block.Block.Txs[0])}, "BroadcastTxCommitResponse", &result)
+		data := responseContractCall(t, ctx, server, "broadcast_tx_commit", map[string]any{"tx": base64.StdEncoding.EncodeToString(block.Block.Txs[0])}, "BroadcastTxCommitResponse", &result)
 		require.Zero(t, result.CheckTx.Code)
 		require.Nil(t, result.CheckTx.Data)
 		require.Zero(t, result.TxResult.Code)
@@ -636,30 +636,30 @@ func TestRepair_91_BroadcastCommit(t *testing.T) {
 		require.Contains(t, string(data), `"tx_result"`)
 		require.NotContains(t, string(data), "deliver_tx")
 		var refused coretypes.ResultBroadcastTxCommit
-		repair91Call(t, ctx, server, "broadcast_tx_commit", map[string]any{"tx": base64.StdEncoding.EncodeToString([]byte("invalid transaction"))}, "BroadcastTxCommitResponse", &refused)
+		responseContractCall(t, ctx, server, "broadcast_tx_commit", map[string]any{"tx": base64.StdEncoding.EncodeToString([]byte("invalid transaction"))}, "BroadcastTxCommitResponse", &refused)
 		require.NotZero(t, refused.CheckTx.Code)
 		require.Zero(t, refused.Height)
 	})
 }
 
-func TestRepair_91_ConsensusParameters(t *testing.T) {
+func TestRPCResponseContractConsensusParameters(t *testing.T) {
 	rng := utils.TestRng()
 	app := kvstore.NewApplication()
 	defer func() { require.NoError(t, app.Close()) }()
-	repair91WithBlock(t, rng, app, func(ctx context.Context, env *Environment, _ *coretypes.ResultBlock) {
-		server := repair91Server(t, env)
+	responseContractWithBlock(t, rng, app, func(ctx context.Context, env *Environment, _ *coretypes.ResultBlock) {
+		server := responseContractServer(t, env)
 		var result coretypes.ResultConsensusParams
-		repair91Call(t, ctx, server, "consensus_params", map[string]any{"height": "1"}, "ConsensusParamsResponse", &result)
+		responseContractCall(t, ctx, server, "consensus_params", map[string]any{"height": "1"}, "ConsensusParamsResponse", &result)
 		require.Equal(t, *env.GenDoc.ConsensusParams, result.ConsensusParams)
 		require.Positive(t, result.ConsensusParams.Block.MaxGasWanted)
 		require.Positive(t, result.ConsensusParams.Evidence.MaxAgeDuration)
 		var genesis coretypes.ResultGenesis
-		repair91Call(t, ctx, server, "genesis", map[string]any{}, "GenesisResponse", &genesis)
+		responseContractCall(t, ctx, server, "genesis", map[string]any{}, "GenesisResponse", &genesis)
 		require.Equal(t, env.GenDoc.ConsensusParams, genesis.Genesis.ConsensusParams)
 	})
 }
 
-func TestRepair_91_LagErrors(t *testing.T) {
+func TestRPCResponseContractLagErrors(t *testing.T) {
 	rng := utils.TestRng()
 	resume := make(chan struct{})
 	app := &lagStatusAutobahnApplication{statusAutobahnObservedApplication: &statusAutobahnObservedApplication{Application: kvstore.NewApplication(), committed: utils.NewAtomicSend[int64](0)}, executing: make(chan struct{}), resume: resume}
@@ -671,8 +671,8 @@ func TestRepair_91_LagErrors(t *testing.T) {
 	defer func() { require.NoError(t, blocks.Close()) }()
 	router, giga := newAutobahnTestRouter(t, rng, "repair-91-lag", proxyApp, states, 1, 1000)
 	env := &Environment{App: proxyApp, Router: router, StateStore: states, BlockStore: blocks}
-	server := repair91Server(t, env)
-	doc := repair91LoadContract(t)
+	server := responseContractServer(t, env)
+	doc := responseContractLoadContract(t)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
 	require.NoError(t, scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
@@ -699,7 +699,7 @@ func TestRepair_91_LagErrors(t *testing.T) {
 				path = "/"
 				body = `{"jsonrpc":"2.0","id":1,"method":"lag_status"}`
 			}
-			status, data, media := repair91Request(t, ctx, server, method, path, body)
+			status, data, media := responseContractRequest(t, ctx, server, method, path, body)
 			require.Equal(t, http.StatusExpectationFailed, status)
 			var wire any
 			require.NoError(t, json.Unmarshal(data, &wire))

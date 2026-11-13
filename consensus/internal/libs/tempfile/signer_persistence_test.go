@@ -19,9 +19,9 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-const repair108ChainID = "repair-108"
+const signerPersistenceChainID = "repair-108"
 
-func repair108Vote() *tmproto.Vote {
+func signerPersistenceVote() *tmproto.Vote {
 	return &tmproto.Vote{
 		Type:      tmproto.PrecommitType,
 		Height:    41,
@@ -37,19 +37,19 @@ func repair108Vote() *tmproto.Vote {
 	}
 }
 
-func repair108Signer(t *testing.T) (string, string) {
+func signerPersistenceSigner(t *testing.T) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	keyPath, statePath := filepath.Join(dir, "key.json"), filepath.Join(dir, "state.json")
-	pv := privval.NewFilePV(ed25519.TestSecretKey([]byte(repair108ChainID)), keyPath, statePath)
+	pv := privval.NewFilePV(ed25519.TestSecretKey([]byte(signerPersistenceChainID)), keyPath, statePath)
 	require.NoError(t, pv.Save())
-	vote := repair108Vote()
+	vote := signerPersistenceVote()
 	vote.Height--
-	require.NoError(t, pv.SignVote(t.Context(), repair108ChainID, vote))
+	require.NoError(t, pv.SignVote(t.Context(), signerPersistenceChainID, vote))
 	return keyPath, statePath
 }
 
-func repair108AssertRecovered(t *testing.T, keyPath, statePath string, signed *tmproto.Vote) {
+func signerPersistenceAssertRecovered(t *testing.T, keyPath, statePath string, signed *tmproto.Vote) {
 	t.Helper()
 	pv, err := privval.LoadFilePV(keyPath, statePath)
 	require.NoError(t, err)
@@ -57,17 +57,17 @@ func repair108AssertRecovered(t *testing.T, keyPath, statePath string, signed *t
 	require.Equal(t, signed.Round, pv.LastSignState.Round)
 	require.EqualValues(t, 3, pv.LastSignState.Step)
 	require.Equal(t, signed.Signature, pv.LastSignState.Signature)
-	require.Equal(t, types.VoteSignBytes(repair108ChainID, signed), []byte(pv.LastSignState.SignBytes))
+	require.Equal(t, types.VoteSignBytes(signerPersistenceChainID, signed), []byte(pv.LastSignState.SignBytes))
 	sig, err := crypto.SigFromBytes(signed.Signature)
 	require.NoError(t, err)
 	require.NoError(t, pv.Key.PubKey.Verify(pv.LastSignState.SignBytes, sig))
 
-	retry := repair108Vote()
-	require.NoError(t, pv.SignVote(t.Context(), repair108ChainID, retry))
+	retry := signerPersistenceVote()
+	require.NoError(t, pv.SignVote(t.Context(), signerPersistenceChainID, retry))
 	require.Equal(t, signed.Signature, retry.Signature)
 	for _, regression := range []string{"height", "round", "step", "conflicting-block"} {
 		t.Run(regression, func(t *testing.T) {
-			vote := repair108Vote()
+			vote := signerPersistenceVote()
 			switch regression {
 			case "height":
 				vote.Height--
@@ -78,27 +78,27 @@ func repair108AssertRecovered(t *testing.T, keyPath, statePath string, signed *t
 			case "conflicting-block":
 				vote.BlockID.Hash[0]++
 			}
-			require.Error(t, pv.SignVote(t.Context(), repair108ChainID, vote))
+			require.Error(t, pv.SignVote(t.Context(), signerPersistenceChainID, vote))
 			require.Empty(t, vote.Signature)
 		})
 	}
 }
 
-func TestRepair_108_SignerRestartRecovery(t *testing.T) {
+func TestSignerRestartRecovery(t *testing.T) {
 	if dir := os.Getenv("REPAIR_108_CRASH_CHILD"); dir != "" {
 		pv, err := privval.LoadFilePV(filepath.Join(dir, "key.json"), filepath.Join(dir, "state.json"))
 		require.NoError(t, err)
-		vote := repair108Vote()
-		require.NoError(t, pv.SignVote(t.Context(), repair108ChainID, vote))
+		vote := signerPersistenceVote()
+		require.NoError(t, pv.SignVote(t.Context(), signerPersistenceChainID, vote))
 		require.NoError(t, json.NewEncoder(os.Stdout).Encode(vote))
 		var stop [1]byte
 		_, err = os.Stdin.Read(stop[:])
 		t.Fatalf("child must be killed after signing: %v", err)
 	}
-	keyPath, statePath := repair108Signer(t)
+	keyPath, statePath := signerPersistenceSigner(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestRepair_108_SignerRestartRecovery$")
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestSignerRestartRecovery$")
 	cmd.Env = append(os.Environ(), "REPAIR_108_CRASH_CHILD="+filepath.Dir(statePath))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -119,5 +119,5 @@ func TestRepair_108_SignerRestartRecovery(t *testing.T) {
 	require.NoError(t, cmd.Process.Kill())
 	require.Error(t, cmd.Wait())
 	require.NoError(t, ctx.Err())
-	repair108AssertRecovered(t, keyPath, statePath, &signed)
+	signerPersistenceAssertRecovered(t, keyPath, statePath, &signed)
 }

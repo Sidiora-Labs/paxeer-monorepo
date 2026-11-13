@@ -18,12 +18,12 @@ import (
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 )
 
-func repair78BlockResponse(block []byte) []byte {
+func mergedFieldsBlockResponse(block []byte) []byte {
 	response := appendBytesField(nil, wireguard.MustFieldNum[bcproto.BlockResponse]("block"), block)
 	return appendBytesField(nil, wireguard.MustFieldNum[bcproto.Message_BlockResponse]("block_response"), response)
 }
 
-func repair78LastCommit(t *testing.T, counts ...int) []byte {
+func mergedFieldsLastCommit(t *testing.T, counts ...int) []byte {
 	t.Helper()
 	var block []byte
 	for _, count := range counts {
@@ -31,10 +31,10 @@ func repair78LastCommit(t *testing.T, counts ...int) []byte {
 		// fields, which a normal unmarshal/marshal round trip would collapse.
 		block = append(block, wgtest.Marshal(t, &tmproto.Block{LastCommit: wgtest.CommitWith(count)})...)
 	}
-	return repair78BlockResponse(block)
+	return mergedFieldsBlockResponse(block)
 }
 
-func repair78SignedHeader(t *testing.T, counts ...int) []byte {
+func mergedFieldsSignedHeader(t *testing.T, counts ...int) []byte {
 	t.Helper()
 	var header []byte
 	for _, count := range counts {
@@ -45,10 +45,10 @@ func repair78SignedHeader(t *testing.T, counts ...int) []byte {
 	evidence := appendBytesField(nil, wireguard.MustFieldNum[tmproto.Evidence_LightClientAttackEvidence]("light_client_attack_evidence"), attack)
 	list := appendBytesField(nil, wireguard.MustFieldNum[tmproto.EvidenceList]("evidence"), evidence)
 	block := appendBytesField(nil, wireguard.MustFieldNum[tmproto.Block]("evidence"), list)
-	return repair78BlockResponse(block)
+	return mergedFieldsBlockResponse(block)
 }
 
-func repair78Commit(t *testing.T, message *bcproto.Message, evidence bool) *tmproto.Commit {
+func mergedFieldsCommit(t *testing.T, message *bcproto.Message, evidence bool) *tmproto.Commit {
 	t.Helper()
 	block := message.GetBlockResponse().Block
 	require.NotNil(t, block)
@@ -59,7 +59,7 @@ func repair78Commit(t *testing.T, message *bcproto.Message, evidence bool) *tmpr
 	return block.LastCommit
 }
 
-func repair78Channel(t *testing.T, atCap, overCap []byte, evidence bool) {
+func mergedFieldsChannel(t *testing.T, atCap, overCap []byte, evidence bool) {
 	t.Helper()
 	// The ordinary codec demonstrates the exact decoded allocation that the
 	// pre-decode hook must prevent, without replacing any transport component.
@@ -69,7 +69,7 @@ func repair78Channel(t *testing.T, atCap, overCap []byte, evidence bool) {
 	}{{atCap, wgtest.MaxCommitSignatures}, {overCap, wgtest.MaxCommitSignatures + 1}} {
 		var decoded bcproto.Message
 		require.NoError(t, gogoproto.Unmarshal(tc.payload, &decoded))
-		require.Len(t, repair78Commit(t, &decoded, evidence).Signatures, tc.count)
+		require.Len(t, mergedFieldsCommit(t, &decoded, evidence).Signatures, tc.count)
 	}
 
 	network := p2p.MakeTestNetwork(t, p2p.TestNetworkOptions{NumNodes: 2})
@@ -104,24 +104,24 @@ func repair78Channel(t *testing.T, atCap, overCap []byte, evidence bool) {
 	got, err := inbound.Recv(ctx)
 	require.NoError(t, err)
 	require.Equal(t, sender.NodeID, got.From)
-	require.Len(t, repair78Commit(t, got.Message, evidence).Signatures, wgtest.MaxCommitSignatures)
+	require.Len(t, mergedFieldsCommit(t, got.Message, evidence).Signatures, wgtest.MaxCommitSignatures)
 
 	send(overCap)
 	receiver.WaitForDisconnect(ctx, peer)
 	require.Zero(t, inbound.ReceiveLen(), "over-cap message reached the channel consumer")
 }
 
-func TestRepair_78_DuplicateLastCommitChannel(t *testing.T) {
+func TestWireguardDuplicateLastCommitChannel(t *testing.T) {
 	half := wgtest.MaxCommitSignatures / 2
-	repair78Channel(t, repair78LastCommit(t, half, half), repair78LastCommit(t, half, half+1), false)
+	mergedFieldsChannel(t, mergedFieldsLastCommit(t, half, half), mergedFieldsLastCommit(t, half, half+1), false)
 }
 
-func TestRepair_78_DuplicateSignedHeaderCommitChannel(t *testing.T) {
+func TestWireguardDuplicateSignedHeaderCommitChannel(t *testing.T) {
 	half := wgtest.MaxCommitSignatures / 2
-	repair78Channel(t, repair78SignedHeader(t, half, half), repair78SignedHeader(t, half, half+1), true)
+	mergedFieldsChannel(t, mergedFieldsSignedHeader(t, half, half), mergedFieldsSignedHeader(t, half, half+1), true)
 }
 
-func TestRepair_78_MergedAncestorChannel(t *testing.T) {
+func TestWireguardMergedAncestorChannel(t *testing.T) {
 	half := wgtest.MaxCommitSignatures / 2
 	// Duplicate the singular BlockResponse.block rather than its child. State
 	// must survive every merged ancestor to reach the same LastCommit.
@@ -134,10 +134,10 @@ func TestRepair_78_MergedAncestorChannel(t *testing.T) {
 		}
 		return appendBytesField(nil, wireguard.MustFieldNum[bcproto.Message_BlockResponse]("block_response"), response)
 	}
-	repair78Channel(t, message(half), message(half+1), false)
+	mergedFieldsChannel(t, message(half), message(half+1), false)
 }
 
-func TestRepair_78_RepeatedChildrenRemainIndependent(t *testing.T) {
+func TestWireguardRepeatedChildrenRemainIndependent(t *testing.T) {
 	// This is the cardinality rule the updated plugin emits for EvidenceList.
 	schema := &wireguard.Schema{Rules: map[wireguard.Number]wireguard.Rule{
 		wireguard.MustFieldNum[tmproto.EvidenceList]("evidence"): {
@@ -158,7 +158,7 @@ func TestRepair_78_RepeatedChildrenRemainIndependent(t *testing.T) {
 	require.Error(t, schema.Scan(wgtest.Marshal(t, list)))
 }
 
-func TestRepair_78_SameSchemaDistinctFields(t *testing.T) {
+func TestWireguardSameSchemaDistinctFields(t *testing.T) {
 	// Independent fields must not share counters merely because their types
 	// are the same; only duplicate occurrences of the same field merge.
 	leaf := &wireguard.Schema{Rules: map[wireguard.Number]wireguard.Rule{4: {MaxCount: 2}}}
