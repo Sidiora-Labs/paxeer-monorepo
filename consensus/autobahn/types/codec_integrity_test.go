@@ -23,7 +23,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func m1114RPC(t *testing.T, serve func(context.Context, rpc.Server[giga.API]) error, work func(context.Context, rpc.Client[giga.API]) error) {
+func runCodecTestRPC(t *testing.T, serve func(context.Context, rpc.Server[giga.API]) error, work func(context.Context, rpc.Client[giga.API]) error) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
 	defer cancel()
@@ -31,7 +31,7 @@ func m1114RPC(t *testing.T, serve func(context.Context, rpc.Server[giga.API]) er
 	defer left.Close()
 	defer right.Close()
 	server, client := rpc.NewServer[giga.API](), rpc.NewClient[giga.API]()
-	r92Check(t, scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+	requireConsensusSuccess(t, scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 		s.SpawnBg(func() error { return utils.IgnoreAfterCancel(ctx, left.Run(ctx)) })
 		s.SpawnBg(func() error { return utils.IgnoreAfterCancel(ctx, right.Run(ctx)) })
 		s.SpawnBg(func() error { return utils.IgnoreAfterCancel(ctx, server.Run(ctx, left)) })
@@ -41,17 +41,17 @@ func m1114RPC(t *testing.T, serve func(context.Context, rpc.Server[giga.API]) er
 	}))
 }
 
-func m1114Durable(t *testing.T, d *data.State, last at.GlobalBlockNumber) {
+func persistCodecTestAppHash(t *testing.T, d *data.State, last at.GlobalBlockNumber) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 	defer cancel()
-	r92Check(t, scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+	requireConsensusSuccess(t, scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 		s.SpawnBg(func() error { return utils.IgnoreAfterCancel(ctx, d.Run(ctx)) })
 		return d.PushAppHash(ctx, last, at.AppHash("executed fixture state"))
 	}))
 }
 
-func m1114AppQC(keys []at.SecretKey, p *at.AppProposal) *at.AppQC {
+func codecTestAppQC(keys []at.SecretKey, p *at.AppProposal) *at.AppQC {
 	var votes []*at.Signed[*at.AppVote]
 	for _, key := range keys {
 		votes = append(votes, at.Sign(key, at.NewAppVote(p)))
@@ -59,32 +59,32 @@ func m1114AppQC(keys []at.SecretKey, p *at.AppProposal) *at.AppQC {
 	return at.NewAppQC(votes)
 }
 
-func m1114AppHistory(t *testing.T, c *at.Committee, keys []at.SecretKey, app *at.AppProposal) (at.ViewSpec, *at.FullProposal, []*at.FullCommitQC, [][]*at.Block) {
+func codecTestAppHistory(t *testing.T, c *at.Committee, keys []at.SecretKey, app *at.AppProposal) (at.ViewSpec, *at.FullProposal, []*at.FullCommitQC, [][]*at.Block) {
 	t.Helper()
 	lane := c.Lanes().At(0)
-	b0 := at.NewBlock(lane, 0, at.BlockHeaderHash{}, r92Payload())
-	p0 := r92Proposal(c, keys, at.ViewSpec{}, map[at.LaneID]*at.LaneQC{lane: r92LaneQC(c, keys, b0, true)}, utils.None[*at.AppQC]())
-	r92Check(t, p0.Verify(c, at.ViewSpec{}))
-	q0 := r92Commit(keys, p0)
-	r92Check(t, app.Verify(c, q0))
-	b1 := at.NewBlock(lane, 1, b0.Header().Hash(), r92Payload())
+	b0 := at.NewBlock(lane, 0, at.BlockHeaderHash{}, newConsensusTestPayload())
+	p0 := newConsensusTestProposal(c, keys, at.ViewSpec{}, map[at.LaneID]*at.LaneQC{lane: consensusTestLaneQC(c, keys, b0, true)}, utils.None[*at.AppQC]())
+	requireConsensusSuccess(t, p0.Verify(c, at.ViewSpec{}))
+	q0 := consensusTestCommitQC(keys, p0)
+	requireConsensusSuccess(t, app.Verify(c, q0))
+	b1 := at.NewBlock(lane, 1, b0.Header().Hash(), newConsensusTestPayload())
 	vs := at.ViewSpec{CommitQC: utils.Some(q0)}
-	p1 := r92Proposal(c, keys, vs, map[at.LaneID]*at.LaneQC{lane: r92LaneQC(c, keys, b1, true)}, utils.Some(m1114AppQC(keys, app)))
-	r92Check(t, p1.Verify(c, vs))
-	return vs, p1, []*at.FullCommitQC{at.NewFullCommitQC(q0, []*at.BlockHeader{b0.Header()}), at.NewFullCommitQC(r92Commit(keys, p1), []*at.BlockHeader{b1.Header()})}, [][]*at.Block{{b0}, {b1}}
+	p1 := newConsensusTestProposal(c, keys, vs, map[at.LaneID]*at.LaneQC{lane: consensusTestLaneQC(c, keys, b1, true)}, utils.Some(codecTestAppQC(keys, app)))
+	requireConsensusSuccess(t, p1.Verify(c, vs))
+	return vs, p1, []*at.FullCommitQC{at.NewFullCommitQC(q0, []*at.BlockHeader{b0.Header()}), at.NewFullCommitQC(consensusTestCommitQC(keys, p1), []*at.BlockHeader{b1.Header()})}, [][]*at.Block{{b0}, {b1}}
 }
 
-func m1114Equal(t *testing.T, got, want []byte, what string) {
+func requireCodecBytesEqual(t *testing.T, got, want []byte, what string) {
 	t.Helper()
 	if !bytes.Equal(got, want) {
 		t.Fatalf("%s changed after publication", what)
 	}
 }
 
-func TestRepairM_1114_MutableAppHash(t *testing.T) {
+func TestAppHashOwnership(t *testing.T) {
 	for _, boundary := range []string{"construction", "decode"} {
 		t.Run(boundary, func(t *testing.T) {
-			c, keys := r92Committee(4)
+			c, keys := newConsensusTestCommittee(4)
 			input := at.AppHash("the finalized application hash may have any length")
 			original := bytes.Clone(input)
 			app := at.NewAppProposal(1, 0, input)
@@ -92,10 +92,10 @@ func TestRepairM_1114_MutableAppHash(t *testing.T) {
 			if boundary == "decode" {
 				var err error
 				app, err = at.AppProposalConv.Decode(raw)
-				r92Check(t, err)
+				requireConsensusSuccess(t, err)
 			}
-			vs, p, qcs, groups := m1114AppHistory(t, c, keys, app)
-			qc := m1114AppQC(keys, app)
+			vs, p, qcs, groups := codecTestAppHistory(t, c, keys, app)
+			qc := codecTestAppQC(keys, app)
 			wantQC, wantProposal := at.AppQCConv.Marshal(qc), at.FullProposalConv.Marshal(p)
 			mutations := []func(){
 				func() { input[0] ^= 1 },
@@ -107,14 +107,14 @@ func TestRepairM_1114_MutableAppHash(t *testing.T) {
 			}
 			for i, mutate := range mutations {
 				mutate()
-				m1114Equal(t, app.AppHash(), original, fmt.Sprintf("app hash at boundary %d", i))
-				m1114Equal(t, at.AppQCConv.Marshal(qc), wantQC, "signed application certificate")
-				m1114Equal(t, at.FullProposalConv.Marshal(p), wantProposal, "signed proposal")
+				requireCodecBytesEqual(t, app.AppHash(), original, fmt.Sprintf("app hash at boundary %d", i))
+				requireCodecBytesEqual(t, at.AppQCConv.Marshal(qc), wantQC, "signed application certificate")
+				requireCodecBytesEqual(t, at.FullProposalConv.Marshal(p), wantProposal, "signed proposal")
 				decoded, err := at.AppQCConv.Unmarshal(wantQC)
-				r92Check(t, err)
-				r92Check(t, decoded.Verify(c))
+				requireConsensusSuccess(t, err)
+				requireConsensusSuccess(t, decoded.Verify(c))
 			}
-			r92ConsensusTransport(t, func(_ context.Context, got *at.FullProposal) error {
+			runConsensusTestTransport(t, func(_ context.Context, got *at.FullProposal) error {
 				if err := got.Verify(c, vs); err != nil {
 					return err
 				}
@@ -123,28 +123,28 @@ func TestRepairM_1114_MutableAppHash(t *testing.T) {
 				}
 				return nil
 			}, func(_ context.Context, send func(*at.FullProposal) error) error { return send(p) })
-			recovered := m1114SyncRecovery(t, c, keys, qcs, groups)
+			recovered := syncCodecTestHistory(t, c, keys, qcs, groups)
 			final, err := recovered.GlobalBlock(t.Context(), 2)
-			r92Check(t, err)
+			requireConsensusSuccess(t, err)
 			state := final.FinalAppState.OrPanic("missing persisted application state")
-			m1114Equal(t, state.AppHash(), original, "replayed application hash")
+			requireCodecBytesEqual(t, state.AppHash(), original, "replayed application hash")
 			state.AppHash()[0] ^= 1
-			m1114Equal(t, state.AppHash(), original, "replayed application accessor")
+			requireCodecBytesEqual(t, state.AppHash(), original, "replayed application accessor")
 		})
 	}
 }
 
-func TestRepairM_1114_MutableHashedPayload(t *testing.T) {
+func TestHashedPayloadOwnership(t *testing.T) {
 	for _, boundary := range []string{"construction", "decode"} {
 		t.Run(boundary, func(t *testing.T) {
-			c, keys := r92Committee(4)
+			c, keys := newConsensusTestCommittee(4)
 			builder := at.PayloadBuilder{CreatedAt: time.Now(), Txs: [][]byte{[]byte("first transaction"), []byte("second transaction")}, TotalGasWanted: 13, TotalGasEstimated: 17}
 			payload, err := builder.Build()
-			r92Check(t, err)
+			requireConsensusSuccess(t, err)
 			raw := at.PayloadConv.Encode(payload)
 			if boundary == "decode" {
 				payload, err = at.PayloadConv.Decode(raw)
-				r92Check(t, err)
+				requireConsensusSuccess(t, err)
 			}
 			lane := c.Lanes().At(0)
 			block := at.NewBlock(lane, 0, at.BlockHeaderHash{}, payload)
@@ -187,36 +187,36 @@ func TestRepairM_1114_MutableHashedPayload(t *testing.T) {
 				if payload.Hash() != wantHash {
 					t.Fatalf("payload commitment changed after mutation %d", i)
 				}
-				m1114Equal(t, at.BlockConv.Marshal(block), wantBlock, "block wire bytes")
-				m1114Equal(t, at.SignedMsgConv[*at.LaneProposal]().Marshal(signed), wantWire, "signed lane proposal")
+				requireCodecBytesEqual(t, at.BlockConv.Marshal(block), wantBlock, "block wire bytes")
+				requireCodecBytesEqual(t, at.SignedMsgConv[*at.LaneProposal]().Marshal(signed), wantWire, "signed lane proposal")
 				decoded, err := at.SignedMsgConv[*at.LaneProposal]().Unmarshal(wantWire)
-				r92Check(t, err)
-				r92Check(t, decoded.VerifySig(c))
-				r92Check(t, decoded.Msg().Verify(c))
+				requireConsensusSuccess(t, err)
+				requireConsensusSuccess(t, decoded.VerifySig(c))
+				requireConsensusSuccess(t, decoded.Msg().Verify(c))
 			}
-			p := r92Proposal(c, keys, at.ViewSpec{}, map[at.LaneID]*at.LaneQC{lane: r92LaneQC(c, keys, block, true)}, utils.None[*at.AppQC]())
-			r92Check(t, p.Verify(c, at.ViewSpec{}))
-			qc := at.NewFullCommitQC(r92Commit(keys, p), []*at.BlockHeader{block.Header()})
-			recovered := m1114SyncRecovery(t, c, keys, []*at.FullCommitQC{qc}, [][]*at.Block{{block}})
+			p := newConsensusTestProposal(c, keys, at.ViewSpec{}, map[at.LaneID]*at.LaneQC{lane: consensusTestLaneQC(c, keys, block, true)}, utils.None[*at.AppQC]())
+			requireConsensusSuccess(t, p.Verify(c, at.ViewSpec{}))
+			qc := at.NewFullCommitQC(consensusTestCommitQC(keys, p), []*at.BlockHeader{block.Header()})
+			recovered := syncCodecTestHistory(t, c, keys, []*at.FullCommitQC{qc}, [][]*at.Block{{block}})
 			got, err := recovered.TryBlock(1)
-			r92Check(t, err)
-			m1114Equal(t, at.BlockConv.Marshal(got), wantBlock, "replayed block")
+			requireConsensusSuccess(t, err)
+			requireCodecBytesEqual(t, at.BlockConv.Marshal(got), wantBlock, "replayed block")
 			got.Payload().Txs()[0][0] ^= 1
-			m1114Equal(t, at.BlockConv.Marshal(got), wantBlock, "replayed payload accessor")
+			requireCodecBytesEqual(t, at.BlockConv.Marshal(got), wantBlock, "replayed payload accessor")
 		})
 	}
 }
 
-func TestRepairM_1114_AppQCBranches(t *testing.T) {
-	c, keys := r92Committee(4)
-	vs, p, _, _ := m1114AppHistory(t, c, keys, at.NewAppProposal(1, 0, at.AppHash("certified execution result")))
-	r92ConsensusTransport(t, func(_ context.Context, got *at.FullProposal) error { return got.Verify(c, vs) }, func(_ context.Context, send func(*at.FullProposal) error) error {
+func TestAppQCVerificationBranches(t *testing.T) {
+	c, keys := newConsensusTestCommittee(4)
+	vs, p, _, _ := codecTestAppHistory(t, c, keys, at.NewAppProposal(1, 0, at.AppHash("certified execution result")))
+	runConsensusTestTransport(t, func(_ context.Context, got *at.FullProposal) error { return got.Verify(c, vs) }, func(_ context.Context, send func(*at.FullProposal) error) error {
 		if err := send(p); err != nil {
 			return fmt.Errorf("valid certificate rejected: %w", err)
 		}
 		raw := at.FullProposalConv.Encode(p)
 		app := p.Proposal().Msg().App().OrPanic("no certified application state")
-		raw.AppQc = at.AppQCConv.Encode(m1114AppQC(keys, at.NewAppProposal(app.GlobalNumber(), app.RoadIndex(), at.AppHash("different execution result"))))
+		raw.AppQc = at.AppQCConv.Encode(codecTestAppQC(keys, at.NewAppProposal(app.GlobalNumber(), app.RoadIndex(), at.AppHash("different execution result"))))
 		changed, err := at.FullProposalConv.Unmarshal(protoutils.Marshal(raw))
 		if err != nil {
 			return err
@@ -226,7 +226,7 @@ func TestRepairM_1114_AppQCBranches(t *testing.T) {
 		}
 		outsider := at.TestSecretKey("outside-committee").ForCommittee(c)
 		raw = at.FullProposalConv.Encode(p)
-		raw.AppQc = at.AppQCConv.Encode(m1114AppQC([]at.SecretKey{outsider}, app))
+		raw.AppQc = at.AppQCConv.Encode(codecTestAppQC([]at.SecretKey{outsider}, app))
 		changed, err = at.FullProposalConv.Unmarshal(protoutils.Marshal(raw))
 		if err != nil {
 			return err
@@ -239,19 +239,19 @@ func TestRepairM_1114_AppQCBranches(t *testing.T) {
 	})
 }
 
-func m1114SyncRecovery(t *testing.T, c *at.Committee, keys []at.SecretKey, qcs []*at.FullCommitQC, groups [][]*at.Block) *data.State {
+func syncCodecTestHistory(t *testing.T, c *at.Committee, keys []at.SecretKey, qcs []*at.FullCommitQC, groups [][]*at.Block) *data.State {
 	t.Helper()
 	sourceDir, targetDir := t.TempDir(), t.TempDir()
-	source, sourceWAL := r92Data(c, utils.Some(sourceDir))
+	source, sourceWAL := newConsensusTestData(c, utils.Some(sourceDir))
 	for i, qc := range qcs {
-		r92Check(t, qc.Verify(c))
-		r92Check(t, source.PushQC(t.Context(), qc, groups[i]))
+		requireConsensusSuccess(t, qc.Verify(c))
+		requireConsensusSuccess(t, source.PushQC(t.Context(), qc, groups[i]))
 	}
 	last := qcs[len(qcs)-1].QC().GlobalRange(c).Next - 1
-	m1114Durable(t, source, last)
-	target, targetWAL := r92Data(c, utils.Some(targetDir))
-	service := giga.NewService(r92State(c, keys[0], source, t.TempDir()))
-	m1114RPC(t, service.RunServer, func(ctx context.Context, client rpc.Client[giga.API]) error {
+	persistCodecTestAppHash(t, source, last)
+	target, targetWAL := newConsensusTestData(c, utils.Some(targetDir))
+	service := giga.NewService(newConsensusTestState(c, keys[0], source, t.TempDir()))
+	runCodecTestRPC(t, service.RunServer, func(ctx context.Context, client rpc.Client[giga.API]) error {
 		stream, err := giga.StreamFullCommitQCs.Call(ctx, client)
 		if err != nil {
 			return err
@@ -314,42 +314,42 @@ func m1114SyncRecovery(t *testing.T, c *at.Committee, keys []at.SecretKey, qcs [
 		}
 		return nil
 	})
-	m1114Durable(t, target, last)
-	r92Check(t, sourceWAL.Close())
-	r92Check(t, targetWAL.Close())
+	persistCodecTestAppHash(t, target, last)
+	requireConsensusSuccess(t, sourceWAL.Close())
+	requireConsensusSuccess(t, targetWAL.Close())
 	for _, dir := range []string{sourceDir, targetDir} {
-		recovered, wal := r92Data(c, utils.Some(dir))
+		recovered, wal := newConsensusTestData(c, utils.Some(dir))
 		if recovered.NextBlock() != last+1 {
 			t.Fatalf("recovered cursor %d, want %d", recovered.NextBlock(), last+1)
 		}
 		for i, want := range qcs {
 			got, err := recovered.QC(t.Context(), want.QC().GlobalRange(c).First)
-			r92Check(t, err)
-			r92Check(t, got.Verify(c))
-			m1114Equal(t, at.FullCommitQCConv.Marshal(got), at.FullCommitQCConv.Marshal(want), "WAL certificate")
+			requireConsensusSuccess(t, err)
+			requireConsensusSuccess(t, got.Verify(c))
+			requireCodecBytesEqual(t, at.FullCommitQCConv.Marshal(got), at.FullCommitQCConv.Marshal(want), "WAL certificate")
 			for j, wantBlock := range groups[i] {
 				n := want.QC().GlobalRange(c).First + at.GlobalBlockNumber(j)
 				block, err := recovered.TryBlock(n)
-				r92Check(t, err)
-				r92Check(t, block.Verify(c))
-				m1114Equal(t, at.BlockConv.Marshal(block), at.BlockConv.Marshal(wantBlock), "WAL block")
+				requireConsensusSuccess(t, err)
+				requireConsensusSuccess(t, block.Verify(c))
+				requireCodecBytesEqual(t, at.BlockConv.Marshal(block), at.BlockConv.Marshal(wantBlock), "WAL block")
 				global, err := recovered.GlobalBlock(t.Context(), n)
-				r92Check(t, err)
+				requireConsensusSuccess(t, err)
 				if global.GlobalNumber != n || global.Header.Hash() != block.Header().Hash() {
 					t.Fatalf("recovered global block %d changed", n)
 				}
 			}
 		}
 		if dir == targetDir {
-			t.Cleanup(func() { r92Check(t, wal.Close()) })
+			t.Cleanup(func() { requireConsensusSuccess(t, wal.Close()) })
 			return recovered
 		}
-		r92Check(t, wal.Close())
+		requireConsensusSuccess(t, wal.Close())
 	}
 	panic("missing recovered consumer")
 }
 
-func TestRepairM_1114_ProductionBounds(t *testing.T) {
+func TestCodecProductionBounds(t *testing.T) {
 	for _, invalid := range []struct {
 		name, want string
 		txs        [][]byte
@@ -377,7 +377,7 @@ func TestRepairM_1114_ProductionBounds(t *testing.T) {
 		{"max_committee_and_consensus_bytes", at.MaxCommitteeSize, 10, true},
 	} {
 		t.Run(profile.name, func(t *testing.T) {
-			c, keys := r92Committee(profile.committee)
+			c, keys := newConsensusTestCommittee(profile.committee)
 			lanes, available := map[at.LaneID]*at.LaneQC{}, map[at.LaneID][]*at.Block{}
 			for lane := range c.Lanes().All() {
 				var parent at.BlockHeaderHash
@@ -392,7 +392,7 @@ func TestRepairM_1114_ProductionBounds(t *testing.T) {
 						txs = [][]byte{bytes.Repeat([]byte{0x42}, int(at.MaxTxsBytesPerBlock))}
 					}
 					payload, err := (at.PayloadBuilder{CreatedAt: time.Now(), Txs: txs}).Build()
-					r92Check(t, err)
+					requireConsensusSuccess(t, err)
 					b := at.NewBlock(lane, at.BlockNumber(i), parent, payload)
 					if uint64(proto.Size(at.BlockConv.Encode(b))) > at.MaxBlockProtoSize {
 						t.Fatal("producer exceeded block RPC bound")
@@ -400,10 +400,10 @@ func TestRepairM_1114_ProductionBounds(t *testing.T) {
 					available[lane] = append(available[lane], b)
 					parent = b.Header().Hash()
 				}
-				lanes[lane] = r92LaneQC(c, keys, available[lane][profile.perLane-1], profile.all)
+				lanes[lane] = consensusTestLaneQC(c, keys, available[lane][profile.perLane-1], profile.all)
 			}
-			p := r92Proposal(c, keys, at.ViewSpec{}, lanes, utils.None[*at.AppQC]())
-			r92Check(t, p.Verify(c, at.ViewSpec{}))
+			p := newConsensusTestProposal(c, keys, at.ViewSpec{}, lanes, utils.None[*at.AppQC]())
+			requireConsensusSuccess(t, p.Verify(c, at.ViewSpec{}))
 			wireSize := proto.Size(at.ConsensusReqConv.Encode(p))
 			if wireSize > at.MaxConsensusReqBytes {
 				t.Fatalf("producer exceeded consensus bytes: %d", wireSize)
@@ -429,18 +429,18 @@ func TestRepairM_1114_ProductionBounds(t *testing.T) {
 					t.Fatalf("production byte admission bound not exercised: %d bytes", wireSize)
 				}
 			}
-			r92ConsensusTransport(t, func(_ context.Context, got *at.FullProposal) error { return got.Verify(c, at.ViewSpec{}) }, func(_ context.Context, send func(*at.FullProposal) error) error { return send(p) })
-			full := at.NewFullCommitQC(r92Commit(keys, p), headers)
-			r92Check(t, full.Verify(c))
-			m1114SyncRecovery(t, c, keys, []*at.FullCommitQC{full}, [][]*at.Block{blocks})
+			runConsensusTestTransport(t, func(_ context.Context, got *at.FullProposal) error { return got.Verify(c, at.ViewSpec{}) }, func(_ context.Context, send func(*at.FullProposal) error) error { return send(p) })
+			full := at.NewFullCommitQC(consensusTestCommitQC(keys, p), headers)
+			requireConsensusSuccess(t, full.Verify(c))
+			syncCodecTestHistory(t, c, keys, []*at.FullCommitQC{full}, [][]*at.Block{blocks})
 		})
 	}
 }
 
-func TestRepairM_1114_TimestampCanonicalRange(t *testing.T) {
-	c, keys := r92Committee(4)
-	base := r92Proposal(c, keys, at.ViewSpec{}, nil, utils.None[*at.AppQC]())
-	block := at.NewBlock(c.Lanes().At(0), 0, at.BlockHeaderHash{}, r92Payload())
+func TestTimestampCanonicalRange(t *testing.T) {
+	c, keys := newConsensusTestCommittee(4)
+	base := newConsensusTestProposal(c, keys, at.ViewSpec{}, nil, utils.None[*at.AppQC]())
+	block := at.NewBlock(c.Lanes().At(0), 0, at.BlockHeaderHash{}, newConsensusTestPayload())
 	cases := []struct {
 		name    string
 		seconds int64
@@ -479,7 +479,7 @@ func TestRepairM_1114_TimestampCanonicalRange(t *testing.T) {
 		})
 	}
 	results := make(chan error, 1)
-	m1114RPC(t, func(ctx context.Context, server rpc.Server[giga.API]) error {
+	runCodecTestRPC(t, func(ctx context.Context, server rpc.Server[giga.API]) error {
 		return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 			s.SpawnBg(func() error {
 				return giga.GetBlock.Serve(ctx, server, func(ctx context.Context, stream rpc.Stream[*gpb.GetBlockResp, *gpb.GetBlockReq]) error {
@@ -550,16 +550,16 @@ func TestRepairM_1114_TimestampCanonicalRange(t *testing.T) {
 		timestamp := time.Unix(tc.seconds, int64(tc.nanos)).UTC()
 		encoded := at.TimeConv.Encode(timestamp)
 		decoded, err := at.TimeConv.Unmarshal(protoutils.Marshal(encoded))
-		r92Check(t, err)
+		requireConsensusSuccess(t, err)
 		if !timestamp.Equal(decoded) || encoded.GetSeconds() != tc.seconds || encoded.GetNanos() != tc.nanos {
 			t.Fatal("canonical timestamp changed")
 		}
 		_, err = json.Marshal(decoded)
-		r92Check(t, err)
+		requireConsensusSuccess(t, err)
 		payload, err := (at.PayloadBuilder{CreatedAt: timestamp, Txs: [][]byte{[]byte("canonical timestamp input")}}).Build()
-		r92Check(t, err)
+		requireConsensusSuccess(t, err)
 		got, err := at.PayloadConv.Unmarshal(at.PayloadConv.Marshal(payload))
-		r92Check(t, err)
+		requireConsensusSuccess(t, err)
 		if !got.CreatedAt().Equal(timestamp) {
 			t.Fatal("payload timestamp changed")
 		}
@@ -580,7 +580,7 @@ func TestRepairM_1114_TimestampCanonicalRange(t *testing.T) {
 			at.TimeConv.Encode(value)
 		})
 	}
-	if _, err := at.NewProposal(r92Leader(c, keys, at.View{}), c, at.ViewSpec{}, time.Unix(253402300800, 0), nil, utils.None[*at.AppQC]()); err == nil {
+	if _, err := at.NewProposal(consensusTestLeader(c, keys, at.View{}), c, at.ViewSpec{}, time.Unix(253402300800, 0), nil, utils.None[*at.AppQC]()); err == nil {
 		t.Fatal("local proposal producer accepted unsupported timestamp")
 	}
 }
