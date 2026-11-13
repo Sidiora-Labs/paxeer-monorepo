@@ -2,11 +2,11 @@
 mode = "BUILD"
 base_revision = "117197c811684e097104c96b29e872d45034cebb"
 scope = "services/explorer/deploy/tools"
-build = "hf-build: python3 -m py_compile services/explorer/deploy/tools/test_repair_22_33_310.py"
+build = "hf-build: python3 -m py_compile services/explorer/deploy/tools/test_copy_session.py"
 verify = "hf-done: cg spec done 22.33.310 -f layerx-merge --root $TASK_ROOT"
 evidence = "The private runner gates.jsonl and final hf-done JSON name the exact candidate revision, command, exit code and log; this record is part of that candidate."
 baseline = "Not run: the prescribed implementation-first, wrapper-only gate order overrides the historical unchanged-tree verification step; no proving Python test existed at the base revision, and no prior gate ledger existed."
-planned_path_mapping = "repair_m310_test.go maps to test_repair_22_33_310.py under the task's corrected Python gate (gotcha 2984); no Go subprocess or additional toolchain is required."
+planned_path_mapping = "repair_m310_test.go maps to test_copy_session.py under the task's corrected Python gate (gotcha 2984); no Go subprocess or additional toolchain is required."
 
 [finding.copy-stage-concurrency]
 tests = ["test_TestRepairM_310_copy_stage_concurrency", "test_TestRepairM_310_session_loss_refuses_progress", "test_TestRepairM_310_failed_copy_cannot_commit_progress", "test_TestRepairM_310_rpc_uses_production_sessions", "test_TestRepairM_310_shell_routes_every_write_through_owner"]
