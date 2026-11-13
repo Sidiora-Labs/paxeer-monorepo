@@ -24,7 +24,7 @@ observed = "Attempt 1 could not add the required allowances because the catalogu
 resolution = "Attempt 2 explicitly admits the catalogue under decision 3125; exact-line allowances now document the retained migration projection and the live refusal checks without exempting other lines or paths."
 
 [resolution.retained_material_contract]
-path = "services/platform/hosted/human/test_repair_22_33_40.py"
+path = "services/platform/hosted/human/test_operator_guide.py"
 symbol = "test_hosted_human_first_batch_migration_barriers"
 observed = "At the base revision lines 128-129 require the retired socket file and exact contents, and lines 137-139 require its name in the README; both files are scanned as retired references."
 resolution = "Keep this assertion intact and apply the catalogue allowances authorized by decision 3125 to the exact README and material projection lines."
@@ -202,7 +202,7 @@ status = "repaired"
 resolution = "Removed the dead socket receipt transport and its version constant; retained signed-receipt parsing and the live merged EVM producer."
 
 [finding.22]
-path = "services/platform/hosted/human/repair_m1401_cases.py"
+path = "services/platform/hosted/human/owner_material_cases.py"
 line = 313
 component = "guarantor-runtime"
 symbol = "layerx-guarantor"

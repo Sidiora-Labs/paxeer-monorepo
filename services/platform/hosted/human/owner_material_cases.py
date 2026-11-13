@@ -26,7 +26,7 @@ import native_manifest
 import owner_kms
 import owner_native
 import provision
-from test_repair_22_31_348 import document, merged_environment, put, test_kms_network_registry
+from test_owner_custody import document, merged_environment, put, test_kms_network_registry
 
 
 def snapshot(root):
@@ -58,7 +58,7 @@ def configuration_environment(directory):
                 os.environ[key] = value
 
 
-class RepairM1401(unittest.TestCase):
+class OwnerMaterialCases(unittest.TestCase):
     @contextmanager
     def environment(self):
         with tempfile.TemporaryDirectory(prefix='human-m1401-') as temporary:
@@ -209,7 +209,7 @@ class RepairM1401(unittest.TestCase):
             peer_root = e.private / 'child-peer'
             peer_root.mkdir(mode=0o700)
             peer = peer_root / 'prepare-peer'
-            shutil.copyfile(HERE / 'repair_m1401_peer.py', peer)
+            shutil.copyfile(HERE / 'owner_material_peer.py', peer)
             peer.chmod(0o700)
             request = dict(email='owner@example.test', display_name='Owner', idempotency_key='retained-owner')
             document(e.inputs / 'owner-request.json', dict(request, now=1))
@@ -315,7 +315,7 @@ class RepairM1401(unittest.TestCase):
                             *catalogue['components']['guarantor-runtime']['symbols'],
                             'guarantor-id', '--movement-source'):
                 self.assertNotIn(retired, source)
-            record = (HERE / 'repair_22_33_1401.kvx').read_text()
+            record = (ROOT / 'spec/layerx-merge/programme/records/services/platform/hosted/human/repair_22_33_1401.kvx').read_text()
             self.assertIn('registry_producer', record)
             self.assertIn('services/platform/hosted/node/deployment.yaml', record)
 
@@ -335,7 +335,7 @@ class RepairM1401(unittest.TestCase):
 
 if __name__ == '__main__':
     assert len(sys.argv) == 2
-    suite = unittest.TestSuite([RepairM1401('case_' + sys.argv[1])])
+    suite = unittest.TestSuite([OwnerMaterialCases('case_' + sys.argv[1])])
     result = unittest.TextTestRunner(verbosity=2).run(suite)
     if result.testsRun != 1 or result.skipped or not result.wasSuccessful():
         raise SystemExit(1)

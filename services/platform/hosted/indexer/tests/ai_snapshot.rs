@@ -1,6 +1,6 @@
 //! Membership, archive, binding, and backfill integration cases.
 
-#[path = "support/repair_22_33_1446.rs"]
+#[path = "support/ai_snapshot_fixture.rs"]
 pub mod repair_paths;
 
 #[test]

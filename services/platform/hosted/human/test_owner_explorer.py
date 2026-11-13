@@ -12,7 +12,7 @@ ROOT = HERE.parents[3]
 sys.path.insert(0, str(HERE))
 
 
-def test_TestRepairM_1402_OwnerTestCurrentSuccess():
+def test_owner_current_success():
     import test_owner_native as owner_tests
 
     suite = unittest.TestSuite()
@@ -35,7 +35,7 @@ def test_TestRepairM_1402_OwnerTestCurrentSuccess():
     assert result.wasSuccessful(), output.getvalue()
 
 
-def test_TestRepairM_1402_WebExplorerRelay():
+def test_web_explorer_relay():
     source = (HERE / 'web-deployment.yaml').read_text()
     documents = list(yaml.safe_load_all(source))
     deployment = next(d for d in documents if d['kind'] == 'Deployment')
@@ -71,7 +71,7 @@ def test_TestRepairM_1402_WebExplorerRelay():
     # Step 11 records interface.8.err-core-program-read-refused as the current
     # contract. Deployment qualification must preserve that explicit refusal;
     # a successful program read belongs to the domain 10/14 wiring request in
-    # repair_m1402_test.go, not to an invented /v1/programs response here.
+    # owner_explorer_contract_test.go, not to an invented /v1/programs response here.
     client = (ROOT / 'apps/web/src/explorer/client.ts').read_text()
     program = re.search(r'export async function programRecord\([^\n]+\{\n(.*?)\n\}', client, re.S)
     assert program is not None, 'Domain 10/14 must publish the web program-read consumer contract'
