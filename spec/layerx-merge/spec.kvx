@@ -362564,7 +362564,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.100]
 title = "Correct the header of two generated pages under spec/layerx-merge/source-control"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
