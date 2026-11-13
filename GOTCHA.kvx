@@ -21820,3 +21820,8 @@ fix = "Decision 3485. Tasks 22.43.293 and 22.43.294."
 title = "Cases of the human workspace read inputs that no target writes"
 symptom = "Some cases of the workspace under services/human read an input named by a variable of the environment, an attestor quorum document, an assertion file or a chain snapshot document, and no target of the Makefile writes these inputs. One case of the member layerx-human-identity-provider needs the local quorum that the test support of the member layerx-human-kms provides, which adds a test dependency, and the lock file of the workspace lies outside the paths of task 22.39.499."
 fix = "Decision 3486. Task 22.39.499 takes the lock file into its paths and follows the rule."
+
+[gotcha.4400]
+title = "A workspace test target visits one member at a time"
+symptom = "The targets agent-test and human-test of the Makefile call cargo so that a run ends at the first member that holds a case to repair. One counted run therefore shows one member, and a workspace with cases in several members needs a hand pass over every member before the counted run."
+fix = "Decision 3487. Task 22.39.498 runs the target by hand over every member first, as decision 3486 says for task 22.39.499."

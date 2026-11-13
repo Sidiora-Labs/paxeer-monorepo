@@ -14032,6 +14032,12 @@ value = "A case that needs an attestor quorum starts the local quorum that the t
 basis = "Gotcha 4399, decisions 3421 and 3482."
 affects = ["22.39.499"]
 
+[decision.3487]
+title = "A refusal case of the agent workspace and the source it reads agree"
+value = "A task that brings a workspace test target to pass runs the target by hand over every member to its end before the counted runs. Where a refusal case builds its input in a form that the present reader no longer takes as changed or malformed, the case is brought to the present form and keeps its assertion. Where the case is right about what must be refused, the case stands and the source is brought to it with the smallest change, and the record names the place."
+basis = "Gotcha 4400, decisions 3427 and 3486."
+affects = ["22.39.498"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -206531,6 +206537,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "do_3 Decision 3427, gotcha 4345. The command make agent-test passes over every member under services/agent/crates. The export cases of services/agent/crates/layerx-agentd/tests/audit_export.rs build their rows with the transaction hash, the nonce and the rung that the reader requires, and keep their assertions. Change test sources and test support files only, beyond the changes of do_1. Add the changed files to the record. Run the build once and the verification once at the final revision."
+do_4 = "do_4 Decision 3487, gotcha 4400. Run the test target by hand over every member under services/agent/crates to its end, with the option of cargo that does not stop at the first member, in the target directory and with the profile that make agent-test uses, before the counted runs. Bring every case the hand run names to pass under the items above. For a refusal case of the member layerx-agentd, read each input of the case against the present reader. Where the case builds an input in a form the present reader no longer takes as changed or malformed, bring the case to the present form and keep its assertion. Where the case is right about what must be refused, the case stands: bring the source to it with the smallest change, which this item allows beyond the limit of do_3, and name the place in the record. No case gets an ignore attribute and no assertion is removed. Add the rule to the record. Run the build once and the verification once at the final revision."
 
 [task.22.39.497]
 title = "Bring the lint target of the agent workspace in line"
