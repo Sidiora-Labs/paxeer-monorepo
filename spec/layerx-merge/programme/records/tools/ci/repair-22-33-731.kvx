@@ -1,8 +1,8 @@
 [task.22.33.731]
 audit = "22.30.171"
-finding_010 = "tools/ci/tests/test_repair_22_33_731.py::test_finding_010_merge_result_requires_its_own_evidence"
-parent_coverage = "tools/ci/tests/test_repair_22_33_731.py::test_finding_010_parent_covered_changes_need_no_merge_entry"
-closure = "tools/ci/tests/test_repair_22_33_731.py::test_finding_010_merge_evidence_closes_the_refusal"
+finding_010 = "tools/ci/tests/test_consensus_merge_evidence.py::test_finding_010_merge_result_requires_its_own_evidence"
+parent_coverage = "tools/ci/tests/test_consensus_merge_evidence.py::test_finding_010_parent_covered_changes_need_no_merge_entry"
+closure = "tools/ci/tests/test_consensus_merge_evidence.py::test_finding_010_merge_evidence_closes_the_refusal"
 implementation = "Read every revision with Git raw combined diffs. A consensus path changed relative to every merge parent needs merge evidence; a path inherited unchanged from any parent remains covered by that parent's revision. All ordinary parent revisions retain their independent ledger requirements."
 proof = "Committed transcripts emitted by Git log and Git show over real commit-tree histories exercise the production NUL codec and the same ledger consumer used by the live gate, without spawning Git during qualification. Includes two-parent and octopus merges, conflict resolution, deletion, parent selection, clean merges, root commits, test-only edits and unusual filenames."
 baseline = "Not run: the explicit gate order prohibits verification before the completed implementation and forbids running verify_cmd by hand. No baseline failure is claimed."

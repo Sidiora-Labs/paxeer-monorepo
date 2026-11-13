@@ -20,7 +20,7 @@ log = "/out/logs/build-2.log"
 [evidence.verify]
 runner = "hf-done"
 command = "cg spec done 22.39.181 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s tools/ci/tests/repair_22_39_181.kvx && python3 tools/ci/consensus_commit_gate.py 68c8887a9520542d2878da3d6a44920ddd71b4b1 HEAD && python3 -m pytest -q tools/ci/tests/test_consensus_commit_gate.py tools/ci/tests/test_consensus_ledger_rows.py tests/ci/test_release_docs_gap_markers.py"
+verify_cmd = "test -s spec/layerx-merge/programme/records/tools/ci/tests/repair_22_39_181.kvx && python3 tools/ci/consensus_commit_gate.py 68c8887a9520542d2878da3d6a44920ddd71b4b1 HEAD && python3 -m pytest -q tools/ci/tests/test_consensus_commit_gate.py tools/ci/tests/test_consensus_ledger_rows.py tests/ci/test_release_docs_gap_markers.py"
 gate_command = "python3 tools/ci/consensus_commit_gate.py 68c8887a9520542d2878da3d6a44920ddd71b4b1 HEAD"
 revision_ref = "/out/run/gates.jsonl: kind=verify, n=2, field=revision"
 exit_ref = "/out/run/gates.jsonl: kind=verify, n=2, field=exit"
