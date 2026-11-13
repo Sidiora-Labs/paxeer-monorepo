@@ -284,7 +284,7 @@ def test_039_payment_fixture_uses_the_recorded_native_payment_effect():
     require_facts(body, (
         "...paymentFacts(fixture.proof)",
         'assert.deepEqual(renderOutcome(await tools.execute("layerx_verify_receipt", input)), expected);',
-        "receiptDigest: hex(keccak256(bytes(vector.signedReceipt)))",
+        "receiptDigest: vector.receiptDigest.slice(2)",
         'path: "/receipt", method: "POST", body: { receipt_ref: "payment-receipt" }',
     ))
     facts = source(AGENTS + "test/receipt-producer-fixture.mjs")
@@ -305,7 +305,7 @@ def test_039_payment_fixture_uses_the_recorded_native_payment_effect():
         "verification = await verifyPaymentReceipt({",
         "...evidence, receiptDigest: `0x${toHex(verified.receiptDigest)}`",
         "await verifySequencerReceipt(signedReceipt, receiptBytes(evidence.rawTransaction), this.#config.receiptKeys)",
-        "evidence.receiptDigest !== `0x${toHex(keccak256(signedReceipt))}`",
+        "evidence.receiptDigest !== `0x${toHex(verified.receiptDigest)}`",
     ))
 
 
@@ -344,30 +344,50 @@ def test_039_recorded_daemon_track_transcript_and_strict_decoder_agree():
     require_facts(hashing, ('Self::Receipt => b"LXP/v1/receipt\\0"',))
     require_facts(block_after(hashing, "pub fn receipt_digest("), ("Domain::Receipt",))
     require_facts(producer, ('"submission_ref".into(), hexv(&tx_hash)', 'rung_name(achieved)', 'if evidence_count > MAX_EVIDENCE', 'if transition_count > MAX_TRANSITIONS'))
-    track_dispatch = daemon.split("Operation::Track => {", 1)[1].split("Operation::ApprovalList", 1)[0]
+    require_facts(daemon, ("Operation::Track => dispatch.track()",))
+    track_dispatch = block_after(daemon, "fn track(&self)")
     require_facts(track_dispatch, ("owner.track(peer, &request.submission_ref)", "decode_tracked"))
     tools = source(AGENTS + "src/tools.ts")
-    decoder = tools.split("function decodeTrackedSubmission(", 1)[1].split("async function verifySequencerReceipt(", 1)[0]
+    middleware = source(MIDDLEWARE)
+    decoder = block_after(middleware, "export function decodeDaemonSubmission(")
     require_facts(decoder, (
-        'const fields = ["tx_hash", "submission_ref", "state", "rung", "evidence", "transitions"',
+        'exact(s, ["tx_hash", "submission_ref", "state", "rung", "evidence", "transitions"',
         '...(executed ? ["receipt_ref"] : state === "Failed" ? ["result_code"] : [])',
-        "Object.keys(submission).some((field) => !fields.includes(field))",
-        'txHash !== expectedReference || submission["submission_ref"] !== txHash',
-        'evidence.length > 64', 'transitions.length > 64',
-        'state === "Committed" && rung !== "committed"',
-        'transition === "Executed" || transition === "Failed"',
-        'BigInt(canonicalInteger(item, "at")) > 0xffff_ffff_ffff_ffffn',
-        'BigInt(code) < -2147483648n || BigInt(code) > 2147483647n',
+        'const txHash = transactionHash(observation.activity_id, expectedTxHash)',
+        'const reference = transactionHash(s.submission_ref, txHash)',
+        'reference !== s.tx_hash || expectedReference !== undefined && reference !== expectedReference',
+        's.evidence.length > 64', 's.transitions.length > 64',
+        'state === "Committed" && level !== "committed"',
+        'transitionState === "Executed" || transitionState === "Failed"',
+        'text(item.cause, 255); decimal(item.at)',
+        'BigInt(s.result_code) < -2147483648n || BigInt(s.result_code) > 2147483647n',
+    ))
+    require_facts(block_after(middleware, "function exact("), (
+        "fields.some((key) => !(key in value))",
+        "Object.keys(value).some((key) => !fields.includes(key) && !optional.includes(key))",
+    ))
+    require_facts(block_after(middleware, "function transactionHash("), (
+        'const hash = hex(value, 32, 32)',
+        'hash === "00".repeat(32) || expected !== undefined && hash !== expected',
+    ))
+    require_facts(middleware, (
+        "const U64 = 18446744073709551615n",
+        "function decimal(value: unknown, max = U64): string",
+    ))
+    require_facts(block_after(middleware, "function decimal("), (
+        'typeof value !== "string"', '!/^(0|[1-9][0-9]*)$/u.test(value)',
+        "BigInt(value) > max",
     ))
     track = block_after(tools, "async #track(")
     require_facts(track, (
-        "decodeTrackedSubmission(response, submissionRef)",
+        "decodeDaemonSubmission(response, submissionRef, submissionRef)",
         'submission.state === "Executed" || submission.state === "Committed"',
-        "await this.#receipts.resolve(submission.receiptRef)",
+        "await this.#receipts.resolve(submission.receipt_ref)",
         "await verifySequencerReceipt(receiptBytes(evidence.signedReceipt), receiptBytes(evidence.rawTransaction), this.#config.receiptKeys)",
-        'toHex(verified.receipt.activityId) !== submission.txHash',
+        'toHex(verified.receipt.activityId) !== submission.tx_hash',
         'evidence.receiptDigest !== `0x${receiptDigest}`',
-        'createHash("sha256").update("LXP/v1/receipt\\0").update(receiptBytes(evidence.signedReceipt)).digest("hex") !== submission.receiptRef',
+        'const receiptDigest = toHex(verified.receiptDigest)',
+        'receiptDigest !== submission.receipt_ref',
         'output["verificationLevel"] = verified.level',
     ))
     recorded_test = function(suite("tools-receipts"), "trackToolReadsRecordedDaemonSubmissions")
@@ -377,7 +397,7 @@ def test_039_recorded_daemon_track_transcript_and_strict_decoder_agree():
         "structuredClone(daemonTranscript.committed.submission)",
         "assert.equal(fixture.requests.length, 1)", "assert.equal(fixture.requests.length, 3)",
         'state: "Unknown", verificationLevel: "Submitted"',
-        'state: "Committed", receiptDigest: hex(keccak256(bytes(entry.signedReceipt)))',
+        'state: "Committed", receiptDigest: entry.receiptDigest.slice(2)',
     ))
 
 

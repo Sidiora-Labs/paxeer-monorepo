@@ -180,17 +180,22 @@ def test_sdk_overview_one_network_native_path_and_endpoints():
     readme = (SDK / "README.md").read_text()
     for fact in (
         "one BFT network", "EVM chain ID `125` (`0x7d`)",
-        "kernel runs inside `paxd`", "block covering a transaction is committed",
-        "EIP-1559 (type 2)", "eth_sendRawTransaction", "pax_sequencerReceipt",
+        "kernel runs inside `paxd`", "a receipt is final once its covering block is committed",
+        "EIP-1559 transaction", "eth_sendRawTransaction", "pax_sequencerReceipt",
         "`submitted`, `receipted` and `committed`", "independently trusted receipt keys",
-        "committed failure remains a failure", "root HTTPS", "root WebSocket",
+        "committed failure remains a failure", "root HTTPS or WebSocket endpoint",
     ):
         assert fact in readme
     for retired in ("two execution domains", "layerxd", "/evm", "/kernel", "lx_sendActivity"):
         assert retired not in readme
-    endpoints = re.findall(r"`((?:https|wss)://[^`]+)`", readme)
-    assert len(endpoints) == 2
-    for endpoint in endpoints:
+    evm = (ROOT / "docs/site/paxeer-docs/public/markdown/evm.md").read_text()
+    assert "EIP-1559 dynamic fee transactions (type 2)" in evm
+    assert "](../docs/site/paxeer-docs/src/app/public-rpc/page.tsx)" in readme
+    public_rpc = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text()
+    endpoints = re.findall(r"\| Canonical alias \| `([^`]+)` \| `([^`]+)` \|", public_rpc)
+    assert len(endpoints) == 1
+    assert [urlsplit(endpoint).scheme for endpoint in endpoints[0]] == ["https", "wss"]
+    for endpoint in endpoints[0]:
         url = urlsplit(endpoint)
         assert url.netloc == "api-mainnet-beta.paxeer.network"
         assert url.path in ("", "/")

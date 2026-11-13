@@ -13,7 +13,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_737.kvx"
 
 
@@ -54,6 +56,8 @@ def test_021_architecture_is_one_paxd_bft_network():
         "does not require new node infrastructure",
     ):
         assert fact in overview, fact
+    assert "The former unified router and its prefixed RPC routes are retired" in PUBLIC_RPC
+    assert "The node serves the `px` namespace at the root path, answering from node state" in PUBLIC_RPC
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
     assert 'import "C"' in source("modules/lxphost/host.go")
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
@@ -71,18 +75,23 @@ def test_021_architecture_is_one_paxd_bft_network():
 
 def test_021_root_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert "`https://api1.mainnet-beta.paxeer.network` through " in quickstart
-    assert "`https://api14.mainnet-beta.paxeer.network`" in quickstart
-    urls = re.findall(r"https?://[^\s`<>)]+", quickstart)
+    for fact in (
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
+        "`api-mainnet-beta.paxeer.network`, all at the root path",
+        "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint",
+    ):
+        assert fact in PUBLIC_RPC, fact
+    assert "Set `PAXEER_RPC_URL` to a node root URL" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    assert "Set `PAXEER_RPC_URL` to a node root URL" in quickstart
+    urls = re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
     public_urls = [
         urlsplit(url) for url in urls
         if urlsplit(url).hostname.endswith("mainnet-beta.paxeer.network")
     ]
     assert {url.hostname for url in public_urls} == {
-        "api-mainnet-beta.paxeer.network", "api1.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
+        "api-mainnet-beta.paxeer.network",
+        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
     for url in public_urls:
         assert url.scheme == "https" and url.path in ("", "/")
@@ -93,9 +102,7 @@ def test_021_root_rpc_hosts_and_chain_probe():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
@@ -156,7 +163,7 @@ def test_021_retained_hosted_services_are_outside_consensus():
         "agent daemon and MCP server", "interop gateway and bridge relayer",
         "hosted developer platform", "human control plane", "embedded wallet service",
         "explorer and launchpad services", "hosted gateway is optional developer tooling",
-        "outside consensus", "no router and no separate LayerX interface",
+        "outside consensus",
     ):
         assert fact in overview, fact
     quickstart = section("Quick start: connect to chain 125")
@@ -213,7 +220,7 @@ def test_021_build_and_release_guidance_targets_merged_paxd():
     assert "-o ./build/paxd ./daemon/paxd" in source("chain.mk")
     release = section("Releases and Network Upgrades")
     for fact in (
-        "[CHANGELOG.md](CHANGELOG.md)", "executes kernel activity inside `paxd`",
+        "[CHANGELOG.md](../../CHANGELOG.md)", "executes kernel activity inside `paxd`",
         "commits it with the BFT chain state", "`v7.0` merge handler",
         "retires the old custody/checkpoint write paths", "`v7.0-anchor-store-delete`",
     ):
