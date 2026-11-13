@@ -27,7 +27,7 @@ import (
 )
 
 // Keep this compiled, executed example identical to the package documentation.
-func repairM1111TrustedLightBlock(ctx context.Context, chainID, dbDir, primary string,
+func documentedTrustedLightBlock(ctx context.Context, chainID, dbDir, primary string,
 	witnesses []string, header *types.Header) (*types.LightBlock, error) {
 	db, err := dbm.NewGoLevelDB("light-client-db", dbDir)
 	if err != nil {
@@ -56,7 +56,7 @@ func repairM1111TrustedLightBlock(ctx context.Context, chainID, dbDir, primary s
 	return c.TrustedLightBlock(header.Height)
 }
 
-func TestRepairM_1111_PublishedExampleMatchesCompiledPath(t *testing.T) {
+func TestHTTPClientExample_PublishedExampleMatchesCompiledPath(t *testing.T) {
 	source, err := os.ReadFile("doc.go")
 	require.NoError(t, err)
 	// Extract the actual Go doc code block, including imports, rather than a
@@ -70,7 +70,7 @@ func TestRepairM_1111_PublishedExampleMatchesCompiledPath(t *testing.T) {
 	fset := token.NewFileSet()
 	published, err := parser.ParseFile(fset, "published.go", example, 0)
 	require.NoError(t, err)
-	compiled, err := parser.ParseFile(fset, "repair_m1111_test.go", nil, 0)
+	compiled, err := parser.ParseFile(fset, "http_client_example_test.go", nil, 0)
 	require.NoError(t, err)
 
 	function := func(file *ast.File, name string) *ast.FuncDecl {
@@ -83,7 +83,7 @@ func TestRepairM_1111_PublishedExampleMatchesCompiledPath(t *testing.T) {
 		return nil
 	}
 	written := function(published, "trustedLightBlock")
-	executed := function(compiled, "repairM1111TrustedLightBlock")
+	executed := function(compiled, "documentedTrustedLightBlock")
 	executed.Name.Name = written.Name.Name
 	var writtenCode, executedCode bytes.Buffer
 	require.NoError(t, format.Node(&writtenCode, fset, written))
@@ -113,7 +113,7 @@ func TestRepairM_1111_PublishedExampleMatchesCompiledPath(t *testing.T) {
 	require.Contains(t, doc, "it does not verify Autobahn finality")
 }
 
-func repairM1111Endpoint(t *testing.T, env *core.Environment) (string, *atomic.Int64) {
+func documentedClientEndpoint(t *testing.T, env *core.Environment) (string, *atomic.Int64) {
 	t.Helper()
 	mux := http.NewServeMux()
 	rpcserver.RegisterRPCFuncs(mux, map[string]*rpcserver.RPCFunc{
@@ -129,15 +129,15 @@ func repairM1111Endpoint(t *testing.T, env *core.Environment) (string, *atomic.I
 	return server.URL, requests
 }
 
-func TestRepairM_1111_DocumentedHTTPClientRoundTrip(t *testing.T) {
+func TestHTTPClientExample_DocumentedHTTPClientRoundTrip(t *testing.T) {
 	key := ed25519.TestSecretKey([]byte("repair-m1111-signed-commit-source"))
-	blocks := repair83Produce(t, key, hash("repair-m1111-canonical"), 100)
+	blocks := produceClientTrustBlocks(t, key, hash("repair-m1111-canonical"), 100)
 	root := blocks[0]
-	primary, primaryRequests := repairM1111Endpoint(t, repair83Environment(t, root))
-	witness, witnessRequests := repairM1111Endpoint(t, repair83Environment(t, root))
+	primary, primaryRequests := documentedClientEndpoint(t, clientTrustEnvironment(t, root))
+	witness, witnessRequests := documentedClientEndpoint(t, clientTrustEnvironment(t, root))
 	dir := t.TempDir()
 
-	got, err := repairM1111TrustedLightBlock(t.Context(), chainID, dir,
+	got, err := documentedTrustedLightBlock(t.Context(), chainID, dir,
 		primary, []string{witness}, root.Header)
 	require.NoError(t, err)
 	require.Equal(t, root.Height, got.Height)
@@ -161,10 +161,10 @@ func TestRepairM_1111_DocumentedHTTPClientRoundTrip(t *testing.T) {
 
 	// A separately produced signed header cannot replace the caller's
 	// independently trusted hash, even when every HTTP peer agrees.
-	otherRoot := repair83Produce(t, key, hash("repair-m1111-other-commitment"), 100)[0]
+	otherRoot := produceClientTrustBlocks(t, key, hash("repair-m1111-other-commitment"), 100)[0]
 	require.NotEqual(t, root.Hash(), otherRoot.Hash())
 	rejectedDir := t.TempDir()
-	rejected, err := repairM1111TrustedLightBlock(t.Context(), chainID, rejectedDir,
+	rejected, err := documentedTrustedLightBlock(t.Context(), chainID, rejectedDir,
 		primary, []string{witness}, otherRoot.Header)
 	require.Error(t, err)
 	require.Nil(t, rejected)

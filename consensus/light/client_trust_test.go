@@ -30,7 +30,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repair83Produce(t *testing.T, key crypto.PrivKey, appHash []byte, heights ...int64) []*types.LightBlock {
+func produceClientTrustBlocks(t *testing.T, key crypto.PrivKey, appHash []byte, heights ...int64) []*types.LightBlock {
 	t.Helper()
 	state, err := sm.MakeGenesisState(&types.GenesisDoc{
 		ChainID: chainID, GenesisTime: bTime, AppHash: appHash,
@@ -62,7 +62,7 @@ func repair83Produce(t *testing.T, key crypto.PrivKey, appHash []byte, heights .
 	return blocks
 }
 
-func repair83Environment(t *testing.T, blocks ...*types.LightBlock) *core.Environment {
+func clientTrustEnvironment(t *testing.T, blocks ...*types.LightBlock) *core.Environment {
 	t.Helper()
 	bs := blockstore.NewBlockStore(dbm.NewMemDB())
 	ss := sm.NewStore(dbm.NewMemDB())
@@ -83,7 +83,7 @@ func repair83Environment(t *testing.T, blocks ...*types.LightBlock) *core.Enviro
 	return &core.Environment{BlockStore: bs, StateStore: ss}
 }
 
-func repair83Provider(t *testing.T, env *core.Environment,
+func clientTrustProvider(t *testing.T, env *core.Environment,
 	commit func(context.Context, *coretypes.RequestBlockInfo) (*coretypes.ResultCommit, error)) provider.Provider {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -98,7 +98,7 @@ func repair83Provider(t *testing.T, env *core.Environment,
 	return p
 }
 
-func repair83Client(t *testing.T, primary provider.Provider, witnesses []provider.Provider, trusted store.Store, root *types.LightBlock) *light.Client {
+func newClientTrustClient(t *testing.T, primary provider.Provider, witnesses []provider.Provider, trusted store.Store, root *types.LightBlock) *light.Client {
 	t.Helper()
 	client, err := light.NewClient(t.Context(), chainID,
 		light.TrustOptions{Period: 24 * time.Hour, Height: root.Height, Hash: root.Hash()},
@@ -107,16 +107,16 @@ func repair83Client(t *testing.T, primary provider.Provider, witnesses []provide
 	return client
 }
 
-func TestRepair_83_BackwardWorkLimit(t *testing.T) {
-	blocks := repair83Produce(t, ed25519.GenerateSecretKey(), hash("canonical"), 1, 10002)
-	env := repair83Environment(t, blocks...)
+func TestClientTrust_BackwardWorkLimit(t *testing.T) {
+	blocks := produceClientTrustBlocks(t, ed25519.GenerateSecretKey(), hash("canonical"), 1, 10002)
+	env := clientTrustEnvironment(t, blocks...)
 	var requests atomic.Int64
-	p := repair83Provider(t, env, func(ctx context.Context, req *coretypes.RequestBlockInfo) (*coretypes.ResultCommit, error) {
+	p := clientTrustProvider(t, env, func(ctx context.Context, req *coretypes.RequestBlockInfo) (*coretypes.ResultCommit, error) {
 		requests.Add(1)
 		return env.Commit(ctx, req)
 	})
 	trusted := dbs.New(dbm.NewMemDB())
-	client := repair83Client(t, p, []provider.Provider{p}, trusted, blocks[1])
+	client := newClientTrustClient(t, p, []provider.Provider{p}, trusted, blocks[1])
 	before := requests.Load()
 	_, err := client.VerifyLightBlockAtHeight(t.Context(), 1, blocks[1].Time)
 	var failure light.ErrVerificationFailed
@@ -132,22 +132,22 @@ func TestRepair_83_BackwardWorkLimit(t *testing.T) {
 	require.Equal(t, blocks[1].Hash(), root.Hash())
 }
 
-func TestRepair_83_SubstitutedHistoricalHeader(t *testing.T) {
+func TestClientTrust_SubstitutedHistoricalHeader(t *testing.T) {
 	key := ed25519.GenerateSecretKey()
-	blocks := repair83Produce(t, key, hash("canonical"), 1, 2, 3)
-	forged := repair83Produce(t, key, hash("substituted"), 1)[0]
+	blocks := produceClientTrustBlocks(t, key, hash("canonical"), 1, 2, 3)
+	forged := produceClientTrustBlocks(t, key, hash("substituted"), 1)[0]
 	require.NotEqual(t, blocks[0].Hash(), forged.Hash())
-	env := repair83Environment(t, blocks...)
-	fork := repair83Environment(t, forged)
+	env := clientTrustEnvironment(t, blocks...)
+	fork := clientTrustEnvironment(t, forged)
 	var targetRequests atomic.Int64
-	p := repair83Provider(t, env, func(ctx context.Context, req *coretypes.RequestBlockInfo) (*coretypes.ResultCommit, error) {
+	p := clientTrustProvider(t, env, func(ctx context.Context, req *coretypes.RequestBlockInfo) (*coretypes.ResultCommit, error) {
 		if req.Height != nil && int64(*req.Height) == 1 && targetRequests.Add(1) == 1 {
 			return fork.Commit(ctx, req)
 		}
 		return env.Commit(ctx, req)
 	})
 	trusted := dbs.New(dbm.NewMemDB())
-	client := repair83Client(t, p, []provider.Provider{p}, trusted, blocks[2])
+	client := newClientTrustClient(t, p, []provider.Provider{p}, trusted, blocks[2])
 	_, err := client.VerifyLightBlockAtHeight(t.Context(), 1, blocks[2].Time)
 	var invalid light.ErrInvalidHeader
 	require.ErrorAs(t, err, &invalid)
@@ -163,12 +163,12 @@ func TestRepair_83_SubstitutedHistoricalHeader(t *testing.T) {
 	require.Equal(t, blocks[0].Hash(), saved.Hash())
 }
 
-func TestRepair_83_BackwardLinkedHeaders(t *testing.T) {
-	blocks := repair83Produce(t, ed25519.GenerateSecretKey(), hash("canonical"), 1, 2, 3, 4)
-	env := repair83Environment(t, blocks...)
-	p := repair83Provider(t, env, env.Commit)
+func TestClientTrust_BackwardLinkedHeaders(t *testing.T) {
+	blocks := produceClientTrustBlocks(t, ed25519.GenerateSecretKey(), hash("canonical"), 1, 2, 3, 4)
+	env := clientTrustEnvironment(t, blocks...)
+	p := clientTrustProvider(t, env, env.Commit)
 	trusted := dbs.New(dbm.NewMemDB())
-	client := repair83Client(t, p, []provider.Provider{p}, trusted, blocks[3])
+	client := newClientTrustClient(t, p, []provider.Provider{p}, trusted, blocks[3])
 	verified, err := client.VerifyLightBlockAtHeight(t.Context(), 1, blocks[3].Time)
 	require.NoError(t, err)
 	require.Equal(t, blocks[0].Hash(), verified.Hash())
@@ -182,24 +182,24 @@ func TestRepair_83_BackwardLinkedHeaders(t *testing.T) {
 	require.Equal(t, blocks[0].Hash(), saved.Hash())
 }
 
-func TestRepair_83_ReopenDivergenceQuarantine(t *testing.T) {
+func TestClientTrust_ReopenDivergenceQuarantine(t *testing.T) {
 	for _, constructor := range []string{"trusted_store", "new_client"} {
 		t.Run(constructor, func(t *testing.T) {
-			blocks := repair83Produce(t, ed25519.GenerateSecretKey(), hash("canonical"), 1, 2, 3)
-			divergent := repair83Produce(t, ed25519.GenerateSecretKey(), hash("divergent"), 2)[0]
-			env := repair83Environment(t, blocks...)
-			badEnv := repair83Environment(t, blocks[0], divergent)
-			primary := repair83Provider(t, env, env.Commit)
-			good := repair83Provider(t, env, env.Commit)
+			blocks := produceClientTrustBlocks(t, ed25519.GenerateSecretKey(), hash("canonical"), 1, 2, 3)
+			divergent := produceClientTrustBlocks(t, ed25519.GenerateSecretKey(), hash("divergent"), 2)[0]
+			env := clientTrustEnvironment(t, blocks...)
+			badEnv := clientTrustEnvironment(t, blocks[0], divergent)
+			primary := clientTrustProvider(t, env, env.Commit)
+			good := clientTrustProvider(t, env, env.Commit)
 			var badRequests atomic.Int64
-			bad := repair83Provider(t, badEnv, func(ctx context.Context, req *coretypes.RequestBlockInfo) (*coretypes.ResultCommit, error) {
+			bad := clientTrustProvider(t, badEnv, func(ctx context.Context, req *coretypes.RequestBlockInfo) (*coretypes.ResultCommit, error) {
 				badRequests.Add(1)
 				return badEnv.Commit(ctx, req)
 			})
 			dir := t.TempDir()
 			db, err := dbm.NewDB("trusted", dbm.GoLevelDBBackend, dir)
 			require.NoError(t, err)
-			client := repair83Client(t, primary, []provider.Provider{good, bad}, dbs.New(db), blocks[0])
+			client := newClientTrustClient(t, primary, []provider.Provider{good, bad}, dbs.New(db), blocks[0])
 			require.NoError(t, db.Close())
 			client = nil
 
@@ -244,12 +244,12 @@ func TestRepair_83_ReopenDivergenceQuarantine(t *testing.T) {
 	}
 }
 
-func TestRepair_83_RestoredConfiguration(t *testing.T) {
-	blocks := repair83Produce(t, ed25519.GenerateSecretKey(), hash("canonical"), 1)
-	env := repair83Environment(t, blocks...)
-	p := repair83Provider(t, env, env.Commit)
+func TestClientTrust_RestoredConfiguration(t *testing.T) {
+	blocks := produceClientTrustBlocks(t, ed25519.GenerateSecretKey(), hash("canonical"), 1)
+	env := clientTrustEnvironment(t, blocks...)
+	p := clientTrustProvider(t, env, env.Commit)
 	trusted := dbs.New(dbm.NewMemDB())
-	repair83Client(t, p, []provider.Provider{p}, trusted, blocks[0])
+	newClientTrustClient(t, p, []provider.Provider{p}, trusted, blocks[0])
 	for _, tc := range []struct {
 		name      string
 		chain     string

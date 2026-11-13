@@ -45,19 +45,19 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/memiavl"
 )
 
-const repair84ChainID = "repair-84"
+const proofChainID = "repair-84"
 
-type repair84Chain struct {
+type proofChain struct {
 	env    *core.Environment
 	blocks []*types.Block
 	roots  []*types.LightBlock
 }
 
-func repair84Genesis(t *testing.T) (sm.State, *privval.FilePV) {
+func proofGenesis(t *testing.T) (sm.State, *privval.FilePV) {
 	t.Helper()
 	key := ed25519.GenerateSecretKey()
 	state, err := sm.MakeGenesisState(&types.GenesisDoc{
-		ChainID: repair84ChainID, GenesisTime: time.Now().Add(-time.Minute).UTC(),
+		ChainID: proofChainID, GenesisTime: time.Now().Add(-time.Minute).UTC(),
 		Validators: []types.GenesisValidator{{Address: key.Public().Address(), PubKey: key.Public(), Power: 10}},
 	})
 	require.NoError(t, err)
@@ -65,23 +65,23 @@ func repair84Genesis(t *testing.T) (sm.State, *privval.FilePV) {
 	return state, privval.NewFilePV(key, filepath.Join(dir, "key.json"), filepath.Join(dir, "state.json"))
 }
 
-func repair84Sign(t *testing.T, state sm.State, signer *privval.FilePV, block *types.Block) (*types.PartSet, *types.LightBlock) {
+func signProofBlock(t *testing.T, state sm.State, signer *privval.FilePV, block *types.Block) (*types.PartSet, *types.LightBlock) {
 	t.Helper()
 	parts, err := block.MakePartSet(types.BlockPartSizeBytes)
 	require.NoError(t, err)
 	id := types.BlockID{Hash: block.Hash(), PartSetHeader: parts.Header()}
-	votes := types.NewVoteSet(repair84ChainID, block.Height, 0, tmproto.PrecommitType, state.Validators)
+	votes := types.NewVoteSet(proofChainID, block.Height, 0, tmproto.PrecommitType, state.Validators)
 	commit, err := types.MakeCommit(t.Context(), id, block.Height, 0, votes, []types.PrivValidator{signer}, block.Time)
 	require.NoError(t, err)
 	lb := &types.LightBlock{SignedHeader: &types.SignedHeader{Header: &block.Header, Commit: commit}, ValidatorSet: state.Validators.Copy()}
-	require.NoError(t, lb.ValidateBasic(repair84ChainID))
-	require.NoError(t, lb.ValidatorSet.VerifyCommitLight(repair84ChainID, id, block.Height, commit))
+	require.NoError(t, lb.ValidateBasic(proofChainID))
+	require.NoError(t, lb.ValidatorSet.VerifyCommitLight(proofChainID, id, block.Height, commit))
 	return parts, lb
 }
 
-func repair84Execute(t *testing.T) *repair84Chain {
+func executeProofChain(t *testing.T) *proofChain {
 	t.Helper()
-	state, signer := repair84Genesis(t)
+	state, signer := proofGenesis(t)
 	app := kvstore.NewApplication()
 	t.Cleanup(func() { require.NoError(t, app.Close()) })
 	ap := appproxy.New(app, appproxy.NopMetrics())
@@ -100,7 +100,7 @@ func repair84Execute(t *testing.T) *repair84Chain {
 	mp := mempool.NewTxMempool(mempool.TestConfig(), ap, mempool.NopMetrics(), mempool.NopTxConstraintsFetcher)
 	executor := sm.NewBlockExecutor(ss, ap, mp, sm.EmptyEvidencePool{}, bs, bus, sm.NopMetrics(), types.DefaultConsensusPolicy())
 	t.Cleanup(executor.Stop)
-	chain := &repair84Chain{env: &core.Environment{App: ap, BlockStore: bs, StateStore: ss, EventSinks: []indexer.EventSink{sink}, NodeInfo: types.NodeInfo{Network: repair84ChainID}, EventBus: bus}}
+	chain := &proofChain{env: &core.Environment{App: ap, BlockStore: bs, StateStore: ss, EventSinks: []indexer.EventSink{sink}, NodeInfo: types.NodeInfo{Network: proofChainID}, EventBus: bus}}
 	lastCommit := &types.Commit{}
 	for h := int64(1); h <= 5; h++ {
 		txs := types.Txs{types.Tx(fmt.Sprintf("key%d=value%d", h, h)), types.Tx(fmt.Sprintf("other%d=second%d", h, h))}
@@ -108,7 +108,7 @@ func repair84Execute(t *testing.T) *repair84Chain {
 			txs = nil
 		}
 		block := state.MakeBlockAt(h, txs, lastCommit, nil, state.Validators.GetProposer().Address, state.LastBlockTime.Add(time.Second))
-		parts, lb := repair84Sign(t, state, signer, block)
+		parts, lb := signProofBlock(t, state, signer, block)
 		next, err := executor.ApplyBlock(t.Context(), state, lb.Commit.BlockID, block, nil)
 		require.NoError(t, err)
 		bs.SaveBlock(block, parts, lb.Commit)
@@ -125,7 +125,7 @@ func repair84Execute(t *testing.T) *repair84Chain {
 	return chain
 }
 
-func repair84Node(t *testing.T, env *core.Environment, amend func(map[string]*rpcserver.RPCFunc)) (*rpchttp.HTTP, string) {
+func proofNode(t *testing.T, env *core.Environment, amend func(map[string]*rpcserver.RPCFunc)) (*rpchttp.HTTP, string) {
 	t.Helper()
 	routes := core.NewRoutesMap(env, nil)
 	if amend != nil {
@@ -142,16 +142,16 @@ func repair84Node(t *testing.T, env *core.Environment, amend func(map[string]*rp
 	return client, server.URL
 }
 
-func repair84Light(t *testing.T, url string, trusted lightstore.Store, root *types.LightBlock) *light.Client {
+func newProofLightClient(t *testing.T, url string, trusted lightstore.Store, root *types.LightBlock) *light.Client {
 	t.Helper()
-	p, err := lighthttp.New(repair84ChainID, url)
+	p, err := lighthttp.New(proofChainID, url)
 	require.NoError(t, err)
-	client, err := light.NewClient(t.Context(), repair84ChainID, light.TrustOptions{Period: time.Hour, Height: root.Height, Hash: root.Hash()}, p, []provider.Provider{p}, trusted, time.Hour)
+	client, err := light.NewClient(t.Context(), proofChainID, light.TrustOptions{Period: time.Hour, Height: root.Height, Hash: root.Hash()}, p, []provider.Provider{p}, trusted, time.Hour)
 	require.NoError(t, err)
 	return client
 }
 
-func repair84Proxy(t *testing.T, lc *light.Client, url string) (*rpchttp.HTTP, *lightproxy.Proxy) {
+func proofProxy(t *testing.T, lc *light.Client, url string) (*rpchttp.HTTP, *lightproxy.Proxy) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -194,11 +194,11 @@ func repair84Proxy(t *testing.T, lc *light.Client, url string) (*rpchttp.HTTP, *
 	return client, proxy
 }
 
-func TestRepair_84_ResultCommitment(t *testing.T) {
+func TestRPCProof_ResultCommitment(t *testing.T) {
 	require.False(t, types.SkipLastResultsHashValidation.Load())
-	chain := repair84Execute(t)
+	chain := executeProofChain(t)
 	var corrupt atomic.Bool
-	node, url := repair84Node(t, chain.env, func(routes map[string]*rpcserver.RPCFunc) {
+	node, url := proofNode(t, chain.env, func(routes map[string]*rpcserver.RPCFunc) {
 		routes["block_results"] = rpcserver.NewRPCFunc(func(ctx context.Context, req *coretypes.RequestBlockInfo) (*coretypes.ResultBlockResults, error) {
 			res, err := chain.env.BlockResults(ctx, req)
 			if err == nil && corrupt.Load() && len(res.TxsResults) > 0 {
@@ -207,8 +207,8 @@ func TestRepair_84_ResultCommitment(t *testing.T) {
 			return res, err
 		})
 	})
-	lc := repair84Light(t, url, lightdb.New(dbm.NewMemDB()), chain.roots[0])
-	consumer, _ := repair84Proxy(t, lc, url)
+	lc := newProofLightClient(t, url, lightdb.New(dbm.NewMemDB()), chain.roots[0])
+	consumer, _ := proofProxy(t, lc, url)
 	for _, height := range []int64{1, 2, 3} {
 		expected, err := node.BlockResults(t.Context(), &height)
 		require.NoError(t, err)
@@ -225,14 +225,14 @@ func TestRepair_84_ResultCommitment(t *testing.T) {
 	require.ErrorContains(t, err, "last results")
 }
 
-func TestRepair_84_Status(t *testing.T) {
-	chain := repair84Execute(t)
-	_, url := repair84Node(t, chain.env, nil)
-	lc := repair84Light(t, url, lightdb.New(dbm.NewMemDB()), chain.roots[0])
-	consumer, _ := repair84Proxy(t, lc, url)
+func TestRPCProof_Status(t *testing.T) {
+	chain := executeProofChain(t)
+	_, url := proofNode(t, chain.env, nil)
+	lc := newProofLightClient(t, url, lightdb.New(dbm.NewMemDB()), chain.roots[0])
+	consumer, _ := proofProxy(t, lc, url)
 	status, err := consumer.Status(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, repair84ChainID, status.NodeInfo.Network)
+	require.Equal(t, proofChainID, status.NodeInfo.Network)
 	require.Equal(t, int64(1), status.LightClientInfo.LastTrustedHeight)
 	require.Equal(t, chain.roots[0].Hash(), status.LightClientInfo.LastTrustedHash)
 	batch := consumer.NewBatch()
@@ -245,11 +245,11 @@ func TestRepair_84_Status(t *testing.T) {
 	require.Equal(t, status, results[0])
 }
 
-func TestRepair_84_MissingHashes(t *testing.T) {
-	chain := repair84Execute(t)
-	node, url := repair84Node(t, chain.env, nil)
-	lc := repair84Light(t, url, lightdb.New(dbm.NewMemDB()), chain.roots[0])
-	consumer, _ := repair84Proxy(t, lc, url)
+func TestRPCProof_MissingHashes(t *testing.T) {
+	chain := executeProofChain(t)
+	node, url := proofNode(t, chain.env, nil)
+	lc := newProofLightClient(t, url, lightdb.New(dbm.NewMemDB()), chain.roots[0])
+	consumer, _ := proofProxy(t, lc, url)
 	for _, tc := range []struct {
 		name  string
 		hash  []byte
@@ -280,10 +280,10 @@ func TestRepair_84_MissingHashes(t *testing.T) {
 	}
 }
 
-func TestRepair_84_TransactionBindings(t *testing.T) {
-	chain := repair84Execute(t)
+func TestRPCProof_TransactionBindings(t *testing.T) {
+	chain := executeProofChain(t)
 	var attack atomic.Int32
-	node, url := repair84Node(t, chain.env, func(routes map[string]*rpcserver.RPCFunc) {
+	node, url := proofNode(t, chain.env, func(routes map[string]*rpcserver.RPCFunc) {
 		routes["tx"] = rpcserver.NewRPCFunc(func(ctx context.Context, req *coretypes.RequestTx) (*coretypes.ResultTx, error) {
 			if attack.Load() == 1 {
 				req.Hash = chain.blocks[0].Txs[1].Hash().Bytes()
@@ -308,8 +308,8 @@ func TestRepair_84_TransactionBindings(t *testing.T) {
 			return res, nil
 		})
 	})
-	lc := repair84Light(t, url, lightdb.New(dbm.NewMemDB()), chain.roots[0])
-	consumer, _ := repair84Proxy(t, lc, url)
+	lc := newProofLightClient(t, url, lightdb.New(dbm.NewMemDB()), chain.roots[0])
+	consumer, _ := proofProxy(t, lc, url)
 	hash := chain.blocks[0].Txs[0].Hash().Bytes()
 	valid, err := node.Tx(t.Context(), hash, true)
 	require.NoError(t, err)
@@ -329,9 +329,9 @@ func TestRepair_84_TransactionBindings(t *testing.T) {
 	}
 }
 
-func TestRepair_84_DescendingRangeReopenedSparseStore(t *testing.T) {
-	chain := repair84Execute(t)
-	node, url := repair84Node(t, chain.env, nil)
+func TestRPCProof_DescendingRangeReopenedSparseStore(t *testing.T) {
+	chain := executeProofChain(t)
+	node, url := proofNode(t, chain.env, nil)
 	dir := t.TempDir()
 	db, err := dbm.NewDB("trusted", dbm.GoLevelDBBackend, dir)
 	require.NoError(t, err)
@@ -342,8 +342,8 @@ func TestRepair_84_DescendingRangeReopenedSparseStore(t *testing.T) {
 	require.NoError(t, err)
 	trusted = lightdb.New(db)
 	require.EqualValues(t, 1, trusted.Size())
-	lc := repair84Light(t, url, trusted, chain.roots[0])
-	consumer, proxy := repair84Proxy(t, lc, url)
+	lc := newProofLightClient(t, url, trusted, chain.roots[0])
+	consumer, proxy := proofProxy(t, lc, url)
 	expected, err := node.BlockchainInfo(t.Context(), 2, 5)
 	require.NoError(t, err)
 	actual, err := consumer.BlockchainInfo(t.Context(), 2, 5)
@@ -359,7 +359,7 @@ func TestRepair_84_DescendingRangeReopenedSparseStore(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	trusted = lightdb.New(db)
-	recovered := repair84Light(t, url, trusted, chain.roots[0])
+	recovered := newProofLightClient(t, url, trusted, chain.roots[0])
 	for h := int64(1); h <= 5; h++ {
 		stored, err := recovered.TrustedLightBlock(h)
 		require.NoError(t, err)
@@ -371,7 +371,7 @@ func TestRepair_84_DescendingRangeReopenedSparseStore(t *testing.T) {
 	require.Equal(t, expected, again)
 }
 
-func TestRepair_84_QueryKeyAndSnapshot(t *testing.T) {
+func TestRPCProof_QueryKeyAndSnapshot(t *testing.T) {
 	// Produce genuine SDK store queries and ICS23 proofs for two committed versions.
 	tree := memiavl.New(0)
 	t.Cleanup(func() { require.NoError(t, tree.Close()) })
@@ -389,7 +389,7 @@ func TestRepair_84_QueryKeyAndSnapshot(t *testing.T) {
 		infos[version-1] = storetypes.CommitInfo{Version: version, StoreInfos: []storetypes.StoreInfo{{Name: "bank", CommitId: storetypes.CommitID{Version: version, Hash: snapshot.RootHash()}}}}
 	}
 	// The application roots become header AppHash at the following height.
-	state, signer := repair84Genesis(t)
+	state, signer := proofGenesis(t)
 	ss := sm.NewStore(dbm.NewMemDB())
 	bs := blockstore.NewBlockStore(dbm.NewMemDB())
 	t.Cleanup(func() { require.NoError(t, ss.Close()); require.NoError(t, bs.Close()) })
@@ -402,7 +402,7 @@ func TestRepair_84_QueryKeyAndSnapshot(t *testing.T) {
 			state.AppHash = infos[height-2].Hash()
 		}
 		block := state.MakeBlockAt(height, nil, last, nil, state.Validators.GetProposer().Address, state.LastBlockTime.Add(time.Second))
-		parts, lb := repair84Sign(t, state, signer, block)
+		parts, lb := signProofBlock(t, state, signer, block)
 		bs.SaveBlock(block, parts, lb.Commit)
 		next, err := state.Update(lb.Commit.BlockID, &block.Header, nil, nil, nil)
 		require.NoError(t, err)
@@ -412,7 +412,7 @@ func TestRepair_84_QueryKeyAndSnapshot(t *testing.T) {
 		last = lb.Commit
 	}
 	var attack atomic.Int32
-	node, url := repair84Node(t, env, func(routes map[string]*rpcserver.RPCFunc) {
+	node, url := proofNode(t, env, func(routes map[string]*rpcserver.RPCFunc) {
 		routes["abci_query"] = rpcserver.NewRPCFunc(func(ctx context.Context, req *coretypes.RequestABCIQuery) (*coretypes.ResultABCIQuery, error) {
 			height := int64(req.Height)
 			key := req.Data
@@ -432,10 +432,10 @@ func TestRepair_84_QueryKeyAndSnapshot(t *testing.T) {
 		app := kvstore.NewApplication()
 		t.Cleanup(func() { require.NoError(t, app.Close()) })
 		env.App = appproxy.New(app, appproxy.NopMetrics())
-		env.NodeInfo = types.NodeInfo{Network: repair84ChainID}
+		env.NodeInfo = types.NodeInfo{Network: proofChainID}
 	})
-	lc := repair84Light(t, url, lightdb.New(dbm.NewMemDB()), roots[0])
-	consumer, proxy := repair84Proxy(t, lc, url)
+	lc := newProofLightClient(t, url, lightdb.New(dbm.NewMemDB()), roots[0])
+	consumer, proxy := proofProxy(t, lc, url)
 	options := rpcclient.ABCIQueryOptions{Height: 1, Prove: true}
 	expected, err := node.ABCIQueryWithOptions(t.Context(), "/store/bank/key", []byte("requested"), options)
 	require.NoError(t, err)
