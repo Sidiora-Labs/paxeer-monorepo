@@ -20,7 +20,7 @@ request = "Domain 6: rename the program event parameter labels in contracts/src/
 request = "Domains 6 and 11: update spec/layerx-merge/interfaces.kvx entries for the 0x1019 program-request event, origin-one XWebRequested and 11.rs-xws-decode-program-requested to record kind/payload/sequence semantics and disjoint origins."
 
 [wiring.interop]
-request = "Domain 11: retain services/interop/crates/x-websearch/src/watch.rs and src/program.rs kind/payload/sequence decoding and composite program identity; adopt the real producer/journal/signing/fulfilment proof in precompiles/xweb/repair_130_test.go as the shared event contract."
+request = "Domain 11: retain services/interop/crates/x-websearch/src/watch.rs and src/program.rs kind/payload/sequence decoding and composite program identity; adopt the real producer/journal/signing/fulfilment proof in precompiles/xweb/program_event_round_trip_test.go as the shared event contract."
 
 [gotcha.baseline-order]
 observed = "The audit task's do_6 asks for a pre-change verify, while its explicit ordered gate policy forbids verification before complete implementation or by hand."

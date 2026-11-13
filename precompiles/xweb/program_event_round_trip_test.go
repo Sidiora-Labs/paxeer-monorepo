@@ -25,21 +25,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_130_ProgramEventSemantics(t *testing.T) {
-	repair130RoundTrip(t, false)
+func TestProgramEventWatcherRoundTrip(t *testing.T) {
+	programEventRoundTrip(t, false)
 }
 
-func TestRepair_130_ProgramEVMJournalCollision(t *testing.T) {
-	repair130RoundTrip(t, true)
+func TestProgramAndEVMRequestsSurviveWatcherRestart(t *testing.T) {
+	programEventRoundTrip(t, true)
 }
 
-func repair130Consumer(t *testing.T) func(map[string]interface{}) []byte {
+func programEventConsumer(t *testing.T) func(map[string]interface{}) []byte {
 	t.Helper()
 	root, err := filepath.Abs("../..")
 	require.NoError(t, err)
 	dir := t.TempDir()
 	manifest := fmt.Sprintf(`[package]
-name = "xweb-repair-130"
+name = "xweb-program-event-consumer"
 version = "0.1.0"
 edition = "2021"
 [workspace]
@@ -48,9 +48,9 @@ x-websearch = { path = %q }
 k256 = { version = "=0.13.4", default-features = false, features = ["ecdsa", "std"] }
 serde_json = "=1.0.151"
 [[bin]]
-name = "xweb-repair-130"
+name = "xweb-program-event-consumer"
 path = %q
-`, filepath.Join(root, "services/interop/crates/x-websearch"), filepath.Join(root, "precompiles/xweb/testdata/repair_130_consumer.rs"))
+`, filepath.Join(root, "services/interop/crates/x-websearch"), filepath.Join(root, "precompiles/xweb/testdata/program_event_consumer.rs"))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "Cargo.toml"), []byte(manifest), 0600))
 	lock, err := os.ReadFile(filepath.Join(root, "services/interop/Cargo.lock"))
 	require.NoError(t, err)
@@ -61,7 +61,7 @@ path = %q
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "cargo", "run", "--quiet", "--manifest-path", filepath.Join(dir, "Cargo.toml"), "--bin", "xweb-repair-130")
+		cmd := exec.CommandContext(ctx, "cargo", "run", "--quiet", "--manifest-path", filepath.Join(dir, "Cargo.toml"), "--bin", "xweb-program-event-consumer")
 		cmd.Dir, cmd.Stdin = root, bytes.NewReader(raw)
 		cmd.Env = os.Environ()
 		if os.Getenv("CARGO_TARGET_DIR") == "" {
@@ -75,7 +75,7 @@ path = %q
 	}
 }
 
-func repair130RoundTrip(t *testing.T, includeEVM bool) {
+func programEventRoundTrip(t *testing.T, includeEVM bool) {
 	t.Helper()
 	h := newProgramDispatchHarness(t)
 	bank := testkeeper.EVMTestApp.BankKeeper
@@ -196,7 +196,7 @@ func repair130RoundTrip(t *testing.T, includeEVM bool) {
 		input["timeout"], input["callback_gas"] = evmRequest.TimeoutHeight, evmRequest.CallbackGas
 		input["paid"], input["evm_payload"] = common.BigToHash(evmRequest.Fee).Hex(), "0x"+common.Bytes2Hex(payload)
 	}
-	run := repair130Consumer(t)
+	run := programEventConsumer(t)
 	var decoded struct {
 		Programs []struct {
 			ProgramID   common.Hash `json:"program_id"`

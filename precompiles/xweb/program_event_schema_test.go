@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1282SolidityEvents(t *testing.T, raw []byte) map[string]abi.Event {
+func solidityEvents(t *testing.T, raw []byte) map[string]abi.Event {
 	t.Helper()
 	source := regexp.MustCompile(`(?s)/\*.*?\*/|//[^\n]*`).ReplaceAllString(string(raw), "")
 	events := make(map[string]abi.Event)
@@ -46,14 +46,14 @@ func repairM1282SolidityEvents(t *testing.T, raw []byte) map[string]abi.Event {
 	return events
 }
 
-func TestRepairM_1282_SolidityProgramEventFields(t *testing.T) {
+func TestSolidityProgramEventFields(t *testing.T) {
 	local, err := os.ReadFile("XWeb.sol")
 	require.NoError(t, err)
 	raw, err := os.ReadFile("abi.json")
 	require.NoError(t, err)
 	parsed, err := abi.JSON(strings.NewReader(string(raw)))
 	require.NoError(t, err)
-	declared := repairM1282SolidityEvents(t, local)
+	declared := solidityEvents(t, local)
 	event := parsed.Events["XWebProgramRequested"]
 	require.Equal(t, event.Inputs, declared[event.Name].Inputs)
 	require.Equal(t, event.ID, declared[event.Name].ID)
@@ -65,23 +65,23 @@ func TestRepairM_1282_SolidityProgramEventFields(t *testing.T) {
 	TestProgramRequestEmitsXWebProgramRequested(t)
 }
 
-func TestRepairM_1282_EventParityIncludesNames(t *testing.T) {
+func TestEventParityIncludesNames(t *testing.T) {
 	// Retain the existing topic assertions and require both published interfaces
 	// to match the complete named ABI, including indexed positions.
 	TestEventTopics(t)
 	TestABIMatchesTheSolidityInterface(t)
 }
 
-func TestRepairM_1282_ABIProgramEventContext(t *testing.T) {
-	repairM1282ProgramLogs(t)
+func TestABIProgramEventContext(t *testing.T) {
+	requireProgramEventLogs(t)
 }
 
-func TestRepairM_1282_ProgramEventRealLogs(t *testing.T) {
+func TestProgramEventRealLogs(t *testing.T) {
 	TestProgramRequestEmitsXWebProgramRequested(t)
-	repairM1282ProgramLogs(t)
+	requireProgramEventLogs(t)
 }
 
-func repairM1282ProgramLogs(t *testing.T) {
+func requireProgramEventLogs(t *testing.T) {
 	t.Helper()
 	h := newProgramDispatchHarness(t)
 	bank := testkeeper.EVMTestApp.BankKeeper
@@ -92,7 +92,7 @@ func repairM1282ProgramLogs(t *testing.T) {
 	for _, path := range []string{"XWeb.sol", "../../contracts/src/precompiles/IXWeb.sol"} {
 		raw, err := os.ReadFile(path)
 		require.NoError(t, err)
-		declared := repairM1282SolidityEvents(t, raw)
+		declared := solidityEvents(t, raw)
 		schema, found := declared[event.Name]
 		require.True(t, found, path)
 		require.Equal(t, event.Inputs, schema.Inputs, path)
