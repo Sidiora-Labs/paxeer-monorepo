@@ -170797,7 +170797,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.42.27]
 title = "Add the system map to the documentation site"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.42.1"]
@@ -205263,7 +205263,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.24]
 title = "Move the task records and name the files after what they hold in cmd"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
