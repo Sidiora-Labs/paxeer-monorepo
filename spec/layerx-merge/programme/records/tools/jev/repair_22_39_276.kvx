@@ -97,49 +97,49 @@ symbol = "layerxcustody"
 repair = "Cover all module types through the same consensus rule, retaining test-file exclusion, exact directory boundaries, merge-history inspection and ledger approval checks."
 
 [finding.13]
-path = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+path = "tools/jev/checks/fixtures/dependency_advisories/agent-advisories.jsonl"
 line = 1
 component = "paxeer-verifier"
 symbol = "layerx-paxeer-verifier"
 repair = "Regenerate the historical capture from the committed source transcript, pruning the deleted verifier branch from the duplicate dependency graph."
 
 [finding.14]
-path = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+path = "tools/jev/checks/fixtures/dependency_advisories/agent-advisories.jsonl"
 line = 2
 component = "paxeer-verifier"
 symbol = "layerx-paxeer-verifier"
 repair = "Regenerate the unmaintained advisory graph without the deleted verifier branch; retain the advisory and every live branch."
 
 [finding.15]
-path = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+path = "tools/jev/checks/fixtures/dependency_advisories/agent-advisories.jsonl"
 line = 2
 component = "protocol-adapter"
 symbol = "layerx-programs-protocol-adapter"
 repair = "Regenerate the unmaintained advisory graph without the deleted adapter branch; no replacement crate is invented."
 
 [finding.16]
-path = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+path = "tools/jev/checks/fixtures/dependency_advisories/agent-advisories.jsonl"
 line = 2
 component = "protocol-adapter"
 symbol = "protocol-adapter"
 repair = "Prune the same dead adapter branch structurally, without renaming its package."
 
 [finding.17]
-path = "tools/jev/checks/fixtures/repair_22_33_704/agent-advisories.jsonl"
+path = "tools/jev/checks/fixtures/dependency_advisories/agent-advisories.jsonl"
 line = 3
 component = "paxeer-verifier"
 symbol = "layerx-paxeer-verifier"
 repair = "Regenerate the vulnerability graph without the deleted verifier branch; retain the vulnerability diagnostic."
 
 [finding.18]
-path = "tools/jev/checks/fixtures/repair_22_33_704/interop-advisories.jsonl"
+path = "tools/jev/checks/fixtures/dependency_advisories/interop-advisories.jsonl"
 line = 2
 component = "paxeer-verifier"
 symbol = "layerx-paxeer-verifier"
 repair = "Regenerate the historical interop unmaintained graph without the deleted verifier branch."
 
 [finding.19]
-path = "tools/jev/checks/fixtures/repair_22_33_704/interop-advisories.jsonl"
+path = "tools/jev/checks/fixtures/dependency_advisories/interop-advisories.jsonl"
 line = 3
 component = "paxeer-verifier"
 symbol = "layerx-paxeer-verifier"
@@ -162,8 +162,8 @@ scope_resolution = "The catalogue is outside the explicit nine-file scope. No al
 [fixture_regeneration]
 source_revision = "d5a0c9940685169b25d2095344655f65d2ff6420"
 source = "Original committed cargo-deny JSONL transcripts at the same fixture paths in source_revision; the deterministic regeneration below prunes only branches whose retired crate trees are absent. Advisory IDs, descriptions, versions, labels, diagnostic order and completion summaries are preserved. These remain historical parser inputs, not a fresh scan or current vulnerability evidence."
-command = "python3 -c 'import pathlib,tomllib; exec(tomllib.loads(pathlib.Path(\"tools/jev/repair_22_39_276.kvx\").read_text())[\"fixture_regeneration\"][\"python_source\"])'"
-python_source = "import json\nfrom pathlib import Path\nimport subprocess\n\nROOT = Path.cwd()\nSOURCE_REVISION = \"d5a0c9940685169b25d2095344655f65d2ff6420\"\nREMOVED_CRATES = {\n    \"layerx-paxeer-verifier\": \"services/agent/crates/layerx-paxeer-verifier\",\n    \"layerx-programs-protocol-adapter\": \"programs/crates/layerx-programs-protocol-adapter\",\n}\nfor tree in REMOVED_CRATES.values():\n    if (ROOT / tree).exists():\n        raise ValueError(\"cannot prune a crate that still exists: \" + tree)\n\ndef retained_node(node):\n    if node[\"Krate\"][\"name\"] in REMOVED_CRATES:\n        return None\n    result = dict(node)\n    if \"parents\" in node:\n        parents = [retained_node(parent) for parent in node[\"parents\"]]\n        result[\"parents\"] = [parent for parent in parents if parent is not None]\n        if not result[\"parents\"]:\n            del result[\"parents\"]\n    return result\n\nfor workspace in (\"agent\", \"interop\"):\n    path = ROOT / \"tools/jev/checks/fixtures/repair_22_33_704\" / (workspace + \"-advisories.jsonl\")\n    original = subprocess.run(\n        [\"git\", \"show\", SOURCE_REVISION + \":\" + path.relative_to(ROOT).as_posix()],\n        check=True, capture_output=True, text=True,\n    ).stdout\n    output = []\n    for line in original.splitlines():\n        document = json.loads(line)\n        fields = document[\"fields\"]\n        if \"graphs\" in fields:\n            graphs = [retained_node(node) for node in fields[\"graphs\"]]\n            fields[\"graphs\"] = [node for node in graphs if node is not None]\n        output.append(json.dumps(document, sort_keys=True, separators=(\",\", \":\")))\n    path.write_text(\"\\n\".join(output) + \"\\n\", encoding=\"utf-8\")\n"
+command = "python3 -c 'import pathlib,tomllib; exec(tomllib.loads(pathlib.Path(\"spec/layerx-merge/programme/records/tools/jev/repair_22_39_276.kvx\").read_text())[\"fixture_regeneration\"][\"python_source\"])'"
+python_source = "import json\nfrom pathlib import Path\nimport subprocess\n\nROOT = Path.cwd()\nSOURCE_REVISION = \"d5a0c9940685169b25d2095344655f65d2ff6420\"\nREMOVED_CRATES = {\n    \"layerx-paxeer-verifier\": \"services/agent/crates/layerx-paxeer-verifier\",\n    \"layerx-programs-protocol-adapter\": \"programs/crates/layerx-programs-protocol-adapter\",\n}\nfor tree in REMOVED_CRATES.values():\n    if (ROOT / tree).exists():\n        raise ValueError(\"cannot prune a crate that still exists: \" + tree)\n\ndef retained_node(node):\n    if node[\"Krate\"][\"name\"] in REMOVED_CRATES:\n        return None\n    result = dict(node)\n    if \"parents\" in node:\n        parents = [retained_node(parent) for parent in node[\"parents\"]]\n        result[\"parents\"] = [parent for parent in parents if parent is not None]\n        if not result[\"parents\"]:\n            del result[\"parents\"]\n    return result\n\nfor workspace in (\"agent\", \"interop\"):\n    path = ROOT / \"tools/jev/checks/fixtures/dependency_advisories\" / (workspace + \"-advisories.jsonl\")\n    original = subprocess.run(\n        [\"git\", \"show\", SOURCE_REVISION + \":tools/jev/checks/fixtures/repair_22_33_704/\" + workspace + \"-advisories.jsonl\"],\n        check=True, capture_output=True, text=True,\n    ).stdout\n    output = []\n    for line in original.splitlines():\n        document = json.loads(line)\n        fields = document[\"fields\"]\n        if \"graphs\" in fields:\n            graphs = [retained_node(node) for node in fields[\"graphs\"]]\n            fields[\"graphs\"] = [node for node in graphs if node is not None]\n        output.append(json.dumps(document, sort_keys=True, separators=(\",\", \":\")))\n    path.write_text(\"\\n\".join(output) + \"\\n\", encoding=\"utf-8\")\n"
 
 [gotcha.scope]
 observed = "Runner setup changed graph ignore rules, workflow pointers and spec statuses before this task; the task forbids editing GOTCHA.kvx, spec files and the retired-caller catalogue or publishing commits directly."

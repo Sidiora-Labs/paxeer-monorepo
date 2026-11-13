@@ -14,7 +14,7 @@ from tools.jev.client import JevClient, JevConfigError
 from tools.jev.report import Report
 
 
-FIXTURES = Path(__file__).parent / "fixtures" / "repair_22_33_704"
+FIXTURES = Path(__file__).parent / "fixtures" / "dependency_advisories"
 ROOT = Path(__file__).resolve().parents[3]
 RECORDED_REVISION = "264615cba89456c37eeb19535cb16b81846f6a68"
 WORKSPACES = (
