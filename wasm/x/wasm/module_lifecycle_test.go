@@ -39,14 +39,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1289Code(t *testing.T, path string) []byte {
+func readModuleFixture(t *testing.T, path string) []byte {
 	t.Helper()
 	code, err := os.ReadFile(path)
 	require.NoError(t, err)
 	return code
 }
 
-func repairM1289Open(t *testing.T, dir string) (sdk.Context, keeper.TestKeepers, *wasmvm.VM, func()) {
+func openPersistentModuleStore(t *testing.T, dir string) (sdk.Context, keeper.TestKeepers, *wasmvm.VM, func()) {
 	t.Helper()
 	sc := config.DefaultStateCommitConfig()
 	sc.WriteMode = config.MemiavlOnly
@@ -75,7 +75,7 @@ func repairM1289Open(t *testing.T, dir string) (sdk.Context, keeper.TestKeepers,
 
 // Generate the same unsigned transaction as the documented paxd proposal CLI,
 // decode its protobuf content, then deliver that content to governance.
-func repairM1289Proposal(t *testing.T, k keeper.TestKeepers, cmd *cobra.Command, args ...string) govtypes.Content {
+func governanceProposalFromCLI(t *testing.T, k keeper.TestKeepers, cmd *cobra.Command, args ...string) govtypes.Content {
 	t.Helper()
 	var out bytes.Buffer
 	proposer := keeper.RandomAccountAddress(t)
@@ -98,13 +98,13 @@ func repairM1289Proposal(t *testing.T, k keeper.TestKeepers, cmd *cobra.Command,
 	return msg.GetContent()
 }
 
-func TestRepairM_1289_Governance(t *testing.T) {
+func TestModuleGovernance(t *testing.T) {
 	oldAll, oldSpecific := node.WasmProposalsEnabled, node.EnableSpecificWasmProposals
 	t.Cleanup(func() { node.WasmProposalsEnabled, node.EnableSpecificWasmProposals = oldAll, oldSpecific })
 	require.Equal(t, "true", oldAll)
 	require.Empty(t, oldSpecific)
 	require.Len(t, node.GetWasmEnabledProposals(), 10)
-	doc := string(repairM1289Code(t, "Governance.md"))
+	doc := string(readModuleFixture(t, "Governance.md"))
 	for _, kind := range node.GetWasmEnabledProposals() {
 		require.Contains(t, doc, "`"+string(kind)+"`")
 	}
@@ -128,17 +128,17 @@ func TestRepairM_1289_Governance(t *testing.T) {
 	node.EnableSpecificWasmProposals = ""
 	node.WasmProposalsEnabled = "true"
 
-	ctx, k, _, closeStore := repairM1289Open(t, t.TempDir())
+	ctx, k, _, closeStore := openPersistentModuleStore(t, t.TempDir())
 	defer closeStore()
 	creator := k.Faucet.NewFundedAccount(ctx, sdk.NewInt64Coin("denom", 100))
-	id, err := k.ContractKeeper.Create(ctx, creator, repairM1289Code(t, "keeper/testdata/hackatom.wasm"), nil)
+	id, err := k.ContractKeeper.Create(ctx, creator, readModuleFixture(t, "keeper/testdata/hackatom.wasm"), nil)
 	require.NoError(t, err)
 	recipient := keeper.RandomAccountAddress(t)
 	init, err := json.Marshal(keeper.HackatomExampleInitMsg{Verifier: creator, Beneficiary: recipient})
 	require.NoError(t, err)
 	contract, _, err := k.ContractKeeper.Instantiate(ctx, id, creator, creator, init, "governance evidence", sdk.NewCoins(sdk.NewInt64Coin("denom", 100)))
 	require.NoError(t, err)
-	pin := repairM1289Proposal(t, k, wasmcli.ProposalPinCodesCmd(), fmt.Sprint(id))
+	pin := governanceProposalFromCLI(t, k, wasmcli.ProposalPinCodesCmd(), fmt.Sprint(id))
 	require.Equal(t, string(types.ProposalTypePinCodes), pin.ProposalType())
 	stored, err := k.GovKeeper.SubmitProposal(ctx, pin)
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func TestRepairM_1289_Governance(t *testing.T) {
 	_, err = k.ContractKeeper.Execute(ctx, contract, creator, []byte(sudoMsg), nil)
 	require.Error(t, err, "ordinary execute cannot invoke the sudo entry point")
 	require.Equal(t, sdk.NewInt(100), k.BankKeeper.GetBalance(ctx, contract, "denom").Amount)
-	sudo := repairM1289Proposal(t, k, wasmcli.ProposalSudoContractCmd(), contract.String(), sudoMsg)
+	sudo := governanceProposalFromCLI(t, k, wasmcli.ProposalSudoContractCmd(), contract.String(), sudoMsg)
 	require.Equal(t, string(types.ProposalTypeSudoContract), sudo.ProposalType())
 	require.ErrorContains(t, keeper.NewWasmProposalHandler(k.WasmKeeper, []types.ProposalType{types.ProposalTypePinCodes})(ctx, sudo), "unsupported wasm proposal")
 	stored, err = k.GovKeeper.SubmitProposal(ctx, sudo)
@@ -160,7 +160,7 @@ func TestRepairM_1289_Governance(t *testing.T) {
 	require.Equal(t, sdk.NewInt(75), k.BankKeeper.GetBalance(ctx, recipient, "denom").Amount)
 }
 
-func TestRepairM_1289_GenesisValidatorLifecycle(t *testing.T) {
+func TestModuleGenesisValidatorLifecycle(t *testing.T) {
 	cdc := keeper.MakeTestCodec(t)
 	valid := types.GenesisState{Params: types.DefaultParams()}
 	invalid := valid
@@ -243,7 +243,7 @@ func TestRepairM_1289_GenesisValidatorLifecycle(t *testing.T) {
 	}, time.Second, time.Millisecond)
 }
 
-func TestRepairM_1289_SimulationConfigType(t *testing.T) {
+func TestModuleSimulationConfigType(t *testing.T) {
 	appTemplate, appConfig := paxcmd.InitAppConfig()
 	parsed, err := template.New("app").Parse(appTemplate)
 	require.NoError(t, err)
@@ -271,13 +271,13 @@ func TestRepairM_1289_SimulationConfigType(t *testing.T) {
 			} else {
 				require.Equal(t, tc.expected, *cfg.SimulationGasLimit)
 			}
-			repairM1289Meter(t, cfg, tc.expected)
+			assertSimulationGasMeter(t, cfg, tc.expected)
 		})
 	}
 	unset, err := wasm.ReadWasmConfig(viper.New())
 	require.NoError(t, err)
 	require.Nil(t, unset.SimulationGasLimit)
-	repairM1289Meter(t, unset, 1234567)
+	assertSimulationGasMeter(t, unset, 1234567)
 	for _, raw := range []string{"0", "-1", "1.5", "18446744073709551616", "limit", " 100", "0x100"} {
 		t.Run(raw, func(t *testing.T) {
 			opts := viper.New()
@@ -299,7 +299,7 @@ func TestRepairM_1289_SimulationConfigType(t *testing.T) {
 	}
 }
 
-func repairM1289Meter(t *testing.T, cfg types.WasmConfig, expected uint64) {
+func assertSimulationGasMeter(t *testing.T, cfg types.WasmConfig, expected uint64) {
 	t.Helper()
 	ctx := sdk.Context{}.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)).WithConsensusParams(&tmproto.ConsensusParams{Block: &tmproto.BlockParams{MaxGas: 1234567}})
 	decorator := keeper.NewLimitSimulationGasDecorator(cfg.SimulationGasLimit, keeper.DefaultGasMeterSetter())
@@ -322,16 +322,16 @@ func repairM1289Meter(t *testing.T, cfg types.WasmConfig, expected uint64) {
 	}
 }
 
-func TestRepairM_1289_IBC(t *testing.T) {
+func TestModuleIBC(t *testing.T) {
 	dir := t.TempDir()
-	ctx, k, vm, closeStore := repairM1289Open(t, dir)
+	ctx, k, vm, closeStore := openPersistentModuleStore(t, dir)
 	actor := keeper.RandomAccountAddress(t)
-	reflectID, err := k.ContractKeeper.Create(ctx, actor, repairM1289Code(t, "keeper/testdata/reflect.wasm"), nil)
+	reflectID, err := k.ContractKeeper.Create(ctx, actor, readModuleFixture(t, "keeper/testdata/reflect.wasm"), nil)
 	require.NoError(t, err)
 	ordinary, _, err := k.ContractKeeper.Instantiate(ctx, reflectID, actor, actor, []byte(`{}`), "ordinary reflect", nil)
 	require.NoError(t, err)
 	require.Empty(t, k.WasmKeeper.GetContractInfo(ctx, ordinary).IBCPortID)
-	ibcID, err := k.ContractKeeper.Create(ctx, actor, repairM1289Code(t, "../../../wasm-runtime/testdata/ibc_reflect.wasm"), nil)
+	ibcID, err := k.ContractKeeper.Create(ctx, actor, readModuleFixture(t, "../../../wasm-runtime/testdata/ibc_reflect.wasm"), nil)
 	require.NoError(t, err)
 	report, err := vm.AnalyzeCode(k.WasmKeeper.GetCodeInfo(ctx, ibcID).CodeHash)
 	require.NoError(t, err)
@@ -382,7 +382,7 @@ func TestRepairM_1289_IBC(t *testing.T) {
 	k.MultiStore.Commit(true)
 	closeStore()
 
-	ctx, k, vm, closeStore = repairM1289Open(t, dir)
+	ctx, k, vm, closeStore = openPersistentModuleStore(t, dir)
 	defer closeStore()
 	require.Equal(t, port, k.WasmKeeper.GetContractInfo(ctx, contract).IBCPortID)
 	module, recoveredPort, err := k.IBCKeeper.PortKeeper.LookupModuleByPort(ctx, port)
@@ -406,7 +406,7 @@ func TestRepairM_1289_IBC(t *testing.T) {
 	recoveredAck := handler.OnRecvPacket(ctx, packet, actor)
 	require.True(t, recoveredAck.Success())
 	require.JSONEq(t, string(ack.Acknowledgement()), string(recoveredAck.Acknowledgement()))
-	doc := string(repairM1289Code(t, "IBC.md"))
+	doc := string(readModuleFixture(t, "IBC.md"))
 	for _, term := range []string{"AnalyzeCode", "HasIBCEntryPoints", "counterparty_version", "OnAcknowledgementPacket", "OnTimeoutPacket", "InitMemStore", "InitializePinnedCodes"} {
 		require.Contains(t, doc, term)
 	}

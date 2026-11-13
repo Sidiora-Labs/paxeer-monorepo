@@ -30,21 +30,21 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair184Code(t *testing.T, path string) []byte {
+func readContractCode(t *testing.T, path string) []byte {
 	t.Helper()
 	code, err := os.ReadFile(path)
 	require.NoError(t, err)
 	return code
 }
 
-func repair184JSON(t *testing.T, value interface{}) []byte {
+func marshalContractJSON(t *testing.T, value interface{}) []byte {
 	t.Helper()
 	data, err := json.Marshal(value)
 	require.NoError(t, err)
 	return data
 }
 
-func repair184Query(t *testing.T, ctx sdk.Context, keepers keeper.TestKeepers, method string, request, response codec.ProtoMarshaler) {
+func queryContractGRPC(t *testing.T, ctx sdk.Context, keepers keeper.TestKeepers, method string, request, response codec.ProtoMarshaler) {
 	t.Helper()
 	router := baseapp.NewGRPCQueryRouter()
 	router.SetInterfaceRegistry(keepers.EncodingConfig.InterfaceRegistry)
@@ -57,43 +57,43 @@ func repair184Query(t *testing.T, ctx sdk.Context, keepers keeper.TestKeepers, m
 	require.NoError(t, keepers.EncodingConfig.Marshaler.Unmarshal(result.Value, response))
 }
 
-func repair184Open(t *testing.T, dir string) (sdk.Context, keeper.TestKeepers, func()) {
+func openPersistentContractStore(t *testing.T, dir string) (sdk.Context, keeper.TestKeepers, func()) {
 	t.Helper()
 	db, err := dbm.NewDB("state", dbm.GoLevelDBBackend, dir)
 	require.NoError(t, err)
 	vm, err := wasmvm.NewVM(filepath.Join(dir, "wasm"), "iterator,staking,stargate", 32, false, 32)
 	require.NoError(t, err)
-	ctx, keepers := keeper.Repair184PersistentInput(t, db, keeper.WithWasmEngine(keeper.NewVMWrapper(vm)))
+	ctx, keepers := keeper.CreatePersistentTestInput(t, db, keeper.WithWasmEngine(keeper.NewVMWrapper(vm)))
 	return ctx, keepers, func() {
 		vm.Cleanup()
 		require.NoError(t, keepers.MultiStore.Close())
 	}
 }
 
-func TestRepair_184_HistorySequence(t *testing.T) {
+func TestContractHistorySequence(t *testing.T) {
 	dir := t.TempDir()
-	ctx, keepers, closeStore := repair184Open(t, dir)
+	ctx, keepers, closeStore := openPersistentContractStore(t, dir)
 	instance := keeper.InstantiateHackatomExampleContract(t, ctx, keepers)
 	addr, admin := instance.Contract, instance.CreatorAddr
 	codeIDs := []uint64{instance.CodeID}
 	keepers.MultiStore.Commit(true)
 	for i := 0; i < 3; i++ {
 		ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 1).WithEventManager(sdk.NewEventManager())
-		id, err := keepers.ContractKeeper.Create(ctx, admin, repair184Code(t, "testdata/hackatom.wasm"), nil)
+		id, err := keepers.ContractKeeper.Create(ctx, admin, readContractCode(t, "testdata/hackatom.wasm"), nil)
 		require.NoError(t, err)
 		codeIDs = append(codeIDs, id)
-		_, err = keepers.ContractKeeper.Migrate(ctx, addr, admin, id, repair184JSON(t, map[string]string{"verifier": admin.String()}))
+		_, err = keepers.ContractKeeper.Migrate(ctx, addr, admin, id, marshalContractJSON(t, map[string]string{"verifier": admin.String()}))
 		require.NoError(t, err)
 		keepers.MultiStore.Commit(true)
 		var history types.QueryContractHistoryResponse
-		repair184Query(t, ctx, keepers, "ContractHistory", &types.QueryContractHistoryRequest{Address: addr.String()}, &history)
+		queryContractGRPC(t, ctx, keepers, "ContractHistory", &types.QueryContractHistoryRequest{Address: addr.String()}, &history)
 		require.Len(t, history.Entries, len(codeIDs))
 		for j, expectedID := range codeIDs {
 			require.Equal(t, expectedID, history.Entries[j].CodeID)
 		}
 		for j, expectedID := range codeIDs {
 			var contracts types.QueryContractsByCodeResponse
-			repair184Query(t, ctx, keepers, "ContractsByCode", &types.QueryContractsByCodeRequest{CodeId: expectedID}, &contracts)
+			queryContractGRPC(t, ctx, keepers, "ContractsByCode", &types.QueryContractsByCodeRequest{CodeId: expectedID}, &contracts)
 			if j == len(codeIDs)-1 {
 				require.Equal(t, []string{addr.String()}, contracts.Contracts)
 			} else {
@@ -103,15 +103,15 @@ func TestRepair_184_HistorySequence(t *testing.T) {
 		if i == 1 {
 			height := ctx.BlockHeight()
 			closeStore()
-			ctx, keepers, closeStore = repair184Open(t, dir)
+			ctx, keepers, closeStore = openPersistentContractStore(t, dir)
 			ctx = ctx.WithBlockHeight(height)
 		}
 	}
 	closeStore()
-	ctx, keepers, closeStore = repair184Open(t, dir)
+	ctx, keepers, closeStore = openPersistentContractStore(t, dir)
 	defer closeStore()
 	var history types.QueryContractHistoryResponse
-	repair184Query(t, ctx, keepers, "ContractHistory", &types.QueryContractHistoryRequest{Address: addr.String()}, &history)
+	queryContractGRPC(t, ctx, keepers, "ContractHistory", &types.QueryContractHistoryRequest{Address: addr.String()}, &history)
 	require.Len(t, history.Entries, 4)
 	require.Equal(t, types.ContractCodeHistoryOperationTypeInit, history.Entries[0].Operation)
 	for i, entry := range history.Entries {
@@ -121,56 +121,56 @@ func TestRepair_184_HistorySequence(t *testing.T) {
 		}
 	}
 	var state types.QuerySmartContractStateResponse
-	repair184Query(t, ctx, keepers, "SmartContractState", &types.QuerySmartContractStateRequest{Address: addr.String(), QueryData: []byte(`{"verifier":{}}`)}, &state)
+	queryContractGRPC(t, ctx, keepers, "SmartContractState", &types.QuerySmartContractStateRequest{Address: addr.String(), QueryData: []byte(`{"verifier":{}}`)}, &state)
 	require.JSONEq(t, fmt.Sprintf(`{"verifier":%q}`, admin.String()), string(state.Data))
 }
 
-func TestRepair_184_HistoryRejectsCorruptionAndExhaustion(t *testing.T) {
+func TestContractHistoryRejectsCorruptionAndExhaustion(t *testing.T) {
 	ctx, keepers := keeper.CreateTestInput(t, false, "iterator,staking,stargate")
 	addr := keeper.RandomAccountAddress(t)
 	entry := types.ContractCodeHistoryEntry{CodeID: 1}
-	keeper.Repair184AppendHistory(keepers.WasmKeeper, ctx, addr, entry)
-	keeper.Repair184AppendHistory(keepers.WasmKeeper, ctx, addr, entry)
+	keeper.AppendContractHistoryForTest(keepers.WasmKeeper, ctx, addr, entry)
+	keeper.AppendContractHistoryForTest(keepers.WasmKeeper, ctx, addr, entry)
 	require.Len(t, keepers.WasmKeeper.GetContractHistory(ctx, addr), 2, "short protobuf entries must not panic or supply the sequence")
-	store := keeper.Repair184Store(keepers.WasmKeeper, ctx)
+	store := keeper.ContractStoreForTest(keepers.WasmKeeper, ctx)
 	badAddr := keeper.RandomAccountAddress(t)
 	badKey := append(types.GetContractCodeHistoryElementPrefix(badAddr), byte(1))
 	store.Set(badKey, keepers.EncodingConfig.Marshaler.MustMarshal(&entry))
-	require.PanicsWithValue(t, "invalid contract history sequence; restore history from verified transaction records before upgrading", func() { keeper.Repair184AppendHistory(keepers.WasmKeeper, ctx, badAddr, entry) })
+	require.PanicsWithValue(t, "invalid contract history sequence; restore history from verified transaction records before upgrading", func() { keeper.AppendContractHistoryForTest(keepers.WasmKeeper, ctx, badAddr, entry) })
 	exhausted := keeper.RandomAccountAddress(t)
 	store.Set(types.GetContractCodeHistoryElementKey(exhausted, math.MaxUint64), keepers.EncodingConfig.Marshaler.MustMarshal(&entry))
-	require.PanicsWithValue(t, "contract history sequence exhausted", func() { keeper.Repair184AppendHistory(keepers.WasmKeeper, ctx, exhausted, entry) })
+	require.PanicsWithValue(t, "contract history sequence exhausted", func() { keeper.AppendContractHistoryForTest(keepers.WasmKeeper, ctx, exhausted, entry) })
 	require.False(t, store.Has(types.GetContractCodeHistoryElementKey(exhausted, 0)))
 	instance := keeper.InstantiateHackatomExampleContract(t, ctx, keepers)
 	first := types.GetContractCodeHistoryElementKey(instance.Contract, 1)
 	store.Set(types.GetContractCodeHistoryElementKey(instance.Contract, 7), bytes.Clone(store.Get(first)))
 	store.Delete(first)
-	_, err := keepers.ContractKeeper.Migrate(ctx, instance.Contract, instance.CreatorAddr, instance.CodeID, repair184JSON(t, map[string]string{"verifier": instance.CreatorAddr.String()}))
+	_, err := keepers.ContractKeeper.Migrate(ctx, instance.Contract, instance.CreatorAddr, instance.CodeID, marshalContractJSON(t, map[string]string{"verifier": instance.CreatorAddr.String()}))
 	require.ErrorContains(t, err, "restore verified history")
 	require.Equal(t, instance.CodeID, keepers.WasmKeeper.GetContractInfo(ctx, instance.Contract).CodeID)
 }
 
-type repair184CompileBarrier struct {
+type compileBarrier struct {
 	types.WasmerEngine
 	entered chan struct{}
 	release chan struct{}
 	once    sync.Once
 }
 
-func (b *repair184CompileBarrier) Create(code wasmvm.WasmCode) (wasmvm.Checksum, error) {
+func (b *compileBarrier) Create(code wasmvm.WasmCode) (wasmvm.Checksum, error) {
 	b.once.Do(func() { close(b.entered) })
 	<-b.release
 	return b.WasmerEngine.Create(code)
 }
 
-func TestRepair_184_CompileWallClock(t *testing.T) {
+func TestContractCompileWallClock(t *testing.T) {
 	vm, err := wasmvm.NewVM(t.TempDir(), "iterator,staking,stargate", 32, false, 32)
 	require.NoError(t, err)
 	defer vm.Cleanup()
-	code := repair184Code(t, "testdata/hackatom.wasm")
+	code := readContractCode(t, "testdata/hackatom.wasm")
 	checksum, err := vm.Create(code)
 	require.NoError(t, err)
-	barrier := &repair184CompileBarrier{WasmerEngine: vm, entered: make(chan struct{}), release: make(chan struct{})}
+	barrier := &compileBarrier{WasmerEngine: vm, entered: make(chan struct{}), release: make(chan struct{})}
 	wrapped := keeper.NewVMWrapper(barrier)
 	ctx, keepers := keeper.CreateTestInput(t, false, "iterator,staking,stargate", keeper.WithWasmEngine(wrapped))
 	admin := keeper.RandomAccountAddress(t)
@@ -226,83 +226,83 @@ func TestRepair_184_CompileWallClock(t *testing.T) {
 	require.ErrorContains(t, err, "maximum size")
 }
 
-type repair184GasCharge struct {
+type gasCharge struct {
 	Amount     uint64
 	Descriptor string
 }
-type repair184Meter struct {
+type recordingGasMeter struct {
 	sdk.GasMeter
-	Charges []repair184GasCharge
+	Charges []gasCharge
 }
 
-func (m *repair184Meter) ConsumeGas(amount uint64, descriptor string) {
-	m.Charges = append(m.Charges, repair184GasCharge{amount, descriptor})
+func (m *recordingGasMeter) ConsumeGas(amount uint64, descriptor string) {
+	m.Charges = append(m.Charges, gasCharge{amount, descriptor})
 	m.GasMeter.ConsumeGas(amount, descriptor)
 }
 
-type repair184BoundaryGas struct {
+type vmBoundaryGas struct {
 	Method                                     string
 	SDKBefore, SDKAfter, WasmBefore, WasmAfter uint64
-	Charges                                    []repair184GasCharge
+	Charges                                    []gasCharge
 	Limit, Used                                uint64
 	RuntimeChargeIndex                         int
 }
 
-type repair184ObservedEngine struct {
+type gasObservingEngine struct {
 	types.WasmerEngine
-	Meter *repair184Meter
-	Calls []repair184BoundaryGas
+	Meter *recordingGasMeter
+	Calls []vmBoundaryGas
 }
 
-func (e *repair184ObservedEngine) begin(method string, meter wasmvm.GasMeter, limit uint64, used *uint64) func() {
-	call := repair184BoundaryGas{Limit: limit, Method: method, SDKBefore: e.Meter.GasConsumed(), WasmBefore: meter.GasConsumed()}
+func (e *gasObservingEngine) begin(method string, meter wasmvm.GasMeter, limit uint64, used *uint64) func() {
+	call := vmBoundaryGas{Limit: limit, Method: method, SDKBefore: e.Meter.GasConsumed(), WasmBefore: meter.GasConsumed()}
 	start := len(e.Meter.Charges)
 	return func() {
 		call.SDKAfter, call.WasmAfter = e.Meter.GasConsumed(), meter.GasConsumed()
 		call.Used = *used
 		call.RuntimeChargeIndex = len(e.Meter.Charges)
-		call.Charges = append([]repair184GasCharge(nil), e.Meter.Charges[start:]...)
+		call.Charges = append([]gasCharge(nil), e.Meter.Charges[start:]...)
 		e.Calls = append(e.Calls, call)
 	}
 }
 
-func (e *repair184ObservedEngine) IBCChannelOpen(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelOpenMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBC3ChannelOpenResponse, used uint64, err error) {
+func (e *gasObservingEngine) IBCChannelOpen(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelOpenMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBC3ChannelOpenResponse, used uint64, err error) {
 	defer e.begin("IBCChannelOpen", meter, limit, &used)()
 	return e.WasmerEngine.IBCChannelOpen(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func (e *repair184ObservedEngine) IBCChannelConnect(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelConnectMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
+func (e *gasObservingEngine) IBCChannelConnect(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelConnectMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
 	defer e.begin("IBCChannelConnect", meter, limit, &used)()
 	return e.WasmerEngine.IBCChannelConnect(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func (e *repair184ObservedEngine) IBCChannelClose(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelCloseMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
+func (e *gasObservingEngine) IBCChannelClose(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCChannelCloseMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
 	defer e.begin("IBCChannelClose", meter, limit, &used)()
 	return e.WasmerEngine.IBCChannelClose(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func (e *repair184ObservedEngine) IBCPacketReceive(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketReceiveMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCReceiveResult, used uint64, err error) {
+func (e *gasObservingEngine) IBCPacketReceive(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketReceiveMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCReceiveResult, used uint64, err error) {
 	defer e.begin("IBCPacketReceive", meter, limit, &used)()
 	return e.WasmerEngine.IBCPacketReceive(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func (e *repair184ObservedEngine) IBCPacketAck(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketAckMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
+func (e *gasObservingEngine) IBCPacketAck(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketAckMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
 	defer e.begin("IBCPacketAck", meter, limit, &used)()
 	return e.WasmerEngine.IBCPacketAck(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func (e *repair184ObservedEngine) IBCPacketTimeout(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketTimeoutMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
+func (e *gasObservingEngine) IBCPacketTimeout(checksum wasmvm.Checksum, env vmtypes.Env, msg vmtypes.IBCPacketTimeoutMsg, store wasmvm.KVStore, api wasmvm.GoAPI, q wasmvm.Querier, meter wasmvm.GasMeter, limit uint64, cost vmtypes.UFraction) (response *vmtypes.IBCBasicResponse, used uint64, err error) {
 	defer e.begin("IBCPacketTimeout", meter, limit, &used)()
 	return e.WasmerEngine.IBCPacketTimeout(checksum, env, msg, store, api, q, meter, limit, cost)
 }
 
-func TestRepair_184_IBCGasUnits(t *testing.T) {
+func TestContractIBCGasUnits(t *testing.T) {
 	for _, multiplier := range []uint64{keeper.DefaultGasMultiplier, 21_000_000} {
 		t.Run(fmt.Sprint(multiplier), func(t *testing.T) {
 			vm, err := wasmvm.NewVM(t.TempDir(), "iterator,staking,stargate", 32, false, 32)
 			require.NoError(t, err)
 			defer vm.Cleanup()
-			engine := &repair184ObservedEngine{WasmerEngine: keeper.NewVMWrapper(vm)}
+			engine := &gasObservingEngine{WasmerEngine: keeper.NewVMWrapper(vm)}
 			config := keeper.DefaultGasRegisterConfig()
 			config.GasMultiplier = multiplier
 			ctx, keepers := keeper.CreateTestInput(t, false, "iterator,staking,stargate", keeper.WithWasmEngine(engine), keeper.WithGasRegister(keeper.NewWasmGasRegister(config)))
@@ -310,12 +310,12 @@ func TestRepair_184_IBCGasUnits(t *testing.T) {
 			reflectID := keeper.StoreReflectContract(t, ctx, keepers)
 			// Use the committed IBC3 fixture whose native handshake returns the
 			// negotiated version, rather than the older fixture's unit response.
-			ibcID, err := keepers.ContractKeeper.Create(ctx, admin, repair184Code(t, "../../../../wasm-runtime/testdata/ibc_reflect.wasm"), nil)
+			ibcID, err := keepers.ContractKeeper.Create(ctx, admin, readContractCode(t, "../../../../wasm-runtime/testdata/ibc_reflect.wasm"), nil)
 			require.NoError(t, err)
-			contract, _, err := keepers.ContractKeeper.Instantiate(ctx, ibcID, admin, admin, repair184JSON(t, keeper.IBCReflectInitMsg{ReflectCodeID: reflectID}), "IBC3 gas boundary", nil)
+			contract, _, err := keepers.ContractKeeper.Instantiate(ctx, ibcID, admin, admin, marshalContractJSON(t, keeper.IBCReflectInitMsg{ReflectCodeID: reflectID}), "IBC3 gas boundary", nil)
 			require.NoError(t, err)
 			instance := keeper.IBCReflectExampleInstance{Contract: contract, Admin: admin, CodeID: ibcID, ReflectCodeID: reflectID}
-			meter := &repair184Meter{GasMeter: sdk.NewGasMeter(5_000_000, 1, 1)}
+			meter := &recordingGasMeter{GasMeter: sdk.NewGasMeter(5_000_000, 1, 1)}
 			ctx = ctx.WithGasMeter(meter)
 			engine.Meter = meter
 			channel := vmtypes.IBCChannel{
@@ -348,7 +348,7 @@ func TestRepair_184_IBCGasUnits(t *testing.T) {
 			metadataCost := receiveCall.SDKBefore - receiveStart
 			storageCost := receiveCall.SDKAfter - receiveCall.SDKBefore
 			require.Positive(t, storageCost)
-			limitedNative := &repair184Meter{GasMeter: sdk.NewGasMeter(metadataCost+storageCost/2, 1, 1)}
+			limitedNative := &recordingGasMeter{GasMeter: sdk.NewGasMeter(metadataCost+storageCost/2, 1, 1)}
 			engine.Meter = limitedNative
 			callsBefore := len(engine.Calls)
 			var refused error
@@ -404,7 +404,7 @@ func TestRepair_184_IBCGasUnits(t *testing.T) {
 			require.Positive(t, iterations, "the native account-list query must iterate the stored channel records")
 			// The real callback must refuse a budget already exhausted by keeper
 			// metadata reads, rather than executing with an unmetered SDK limit.
-			limited := &repair184Meter{GasMeter: sdk.NewGasMeter(1, 1, 1)}
+			limited := &recordingGasMeter{GasMeter: sdk.NewGasMeter(1, 1, 1)}
 			engine.Meter = limited
 			require.Panics(t, func() {
 				_, _ = keepers.WasmKeeper.OnRecvPacket(ctx.WithGasMeter(limited), instance.Contract, vmtypes.IBCPacketReceiveMsg{Packet: packet, Relayer: instance.Admin.String()})
@@ -414,23 +414,23 @@ func TestRepair_184_IBCGasUnits(t *testing.T) {
 	}
 }
 
-type repair184QueryPlugins struct {
+type gasObservingQueryPlugins struct {
 	keeper.WasmVMQueryHandler
 	SDKCosts []uint64
 }
 
-func (p *repair184QueryPlugins) HandleQuery(ctx sdk.Context, caller sdk.AccAddress, req vmtypes.QueryRequest) ([]byte, error) {
+func (p *gasObservingQueryPlugins) HandleQuery(ctx sdk.Context, caller sdk.AccAddress, req vmtypes.QueryRequest) ([]byte, error) {
 	before := ctx.GasMeter().GasConsumed()
 	defer func() { p.SDKCosts = append(p.SDKCosts, ctx.GasMeter().GasConsumed()-before) }()
 	return p.WasmVMQueryHandler.HandleQuery(ctx, caller, req)
 }
 
-type repair184Querier struct {
+type gasObservingQuerier struct {
 	keeper.QueryHandler
 	SDKDeltas, WasmDeltas, Limits []uint64
 }
 
-func (q *repair184Querier) Query(req vmtypes.QueryRequest, limit uint64) ([]byte, error) {
+func (q *gasObservingQuerier) Query(req vmtypes.QueryRequest, limit uint64) ([]byte, error) {
 	sdkBefore, wasmBefore := q.Ctx.GasMeter().GasConsumed(), q.GasConsumed()
 	q.Limits = append(q.Limits, limit)
 	defer func() {
@@ -440,7 +440,7 @@ func (q *repair184Querier) Query(req vmtypes.QueryRequest, limit uint64) ([]byte
 	return q.QueryHandler.Query(req, limit)
 }
 
-func TestRepair_184_QueryGasUnits(t *testing.T) {
+func TestContractQueryGasUnits(t *testing.T) {
 	for _, multiplier := range []uint64{keeper.DefaultGasMultiplier, 21_000_000} {
 		t.Run(fmt.Sprint(multiplier), func(t *testing.T) {
 			config := keeper.DefaultGasRegisterConfig()
@@ -465,12 +465,12 @@ func TestRepair_184_QueryGasUnits(t *testing.T) {
 			}
 			for _, tc := range requests {
 				t.Run(tc.name, func(t *testing.T) {
-					meter := &repair184Meter{GasMeter: sdk.NewGasMeter(5_000_000, 1, 1)}
+					meter := &recordingGasMeter{GasMeter: sdk.NewGasMeter(5_000_000, 1, 1)}
 					callCtx := ctx.WithGasMeter(meter)
-					observed := &repair184QueryPlugins{WasmVMQueryHandler: plugins}
-					q := &repair184Querier{QueryHandler: keeper.NewQueryHandler(callCtx, observed, contract, register)}
-					msg := repair184JSON(t, map[string]interface{}{"chain": map[string]interface{}{"request": tc.request}})
-					response, _, err := keeper.Repair184NativeQuery(keepers.WasmKeeper, callCtx, contract, msg, q, register.ToWasmVMGas(1_000_000))
+					observed := &gasObservingQueryPlugins{WasmVMQueryHandler: plugins}
+					q := &gasObservingQuerier{QueryHandler: keeper.NewQueryHandler(callCtx, observed, contract, register)}
+					msg := marshalContractJSON(t, map[string]interface{}{"chain": map[string]interface{}{"request": tc.request}})
+					response, _, err := keeper.NativeContractQueryForTest(keepers.WasmKeeper, callCtx, contract, msg, q, register.ToWasmVMGas(1_000_000))
 					if tc.failure {
 						require.Error(t, err)
 					} else {
@@ -505,8 +505,8 @@ func TestRepair_184_QueryGasUnits(t *testing.T) {
 			}
 			// QueryHandler must account for the real bank store read even when
 			// its converted subquery limit is exceeded and the SDK panics.
-			meter := &repair184Meter{GasMeter: sdk.NewGasMeter(5_000_000, 1, 1)}
-			observed := &repair184QueryPlugins{WasmVMQueryHandler: plugins}
+			meter := &recordingGasMeter{GasMeter: sdk.NewGasMeter(5_000_000, 1, 1)}
+			observed := &gasObservingQueryPlugins{WasmVMQueryHandler: plugins}
 			q := keeper.NewQueryHandler(ctx.WithGasMeter(meter), observed, contract, register)
 			require.Panics(t, func() { _, _ = q.Query(requests[0].request, register.ToWasmVMGas(1)) })
 			require.Len(t, observed.SDKCosts, 1)
@@ -515,9 +515,9 @@ func TestRepair_184_QueryGasUnits(t *testing.T) {
 			// A budget too small for the real nested contract is refused by the
 			// native boundary; the callback's deferred parent accounting survives.
 			refusalCtx := ctx.WithGasMeter(sdk.NewGasMeter(5_000_000, 1, 1))
-			refusalQ := &repair184Querier{QueryHandler: keeper.NewQueryHandler(refusalCtx, plugins, contract, register)}
-			msg := repair184JSON(t, map[string]interface{}{"chain": map[string]interface{}{"request": requests[1].request}})
-			_, _, err = keeper.Repair184NativeQuery(keepers.WasmKeeper, refusalCtx, contract, msg, refusalQ, register.ToWasmVMGas(50_000))
+			refusalQ := &gasObservingQuerier{QueryHandler: keeper.NewQueryHandler(refusalCtx, plugins, contract, register)}
+			msg := marshalContractJSON(t, map[string]interface{}{"chain": map[string]interface{}{"request": requests[1].request}})
+			_, _, err = keeper.NativeContractQueryForTest(keepers.WasmKeeper, refusalCtx, contract, msg, refusalQ, register.ToWasmVMGas(50_000))
 			require.Error(t, err)
 			require.NotEmpty(t, refusalQ.SDKDeltas)
 			require.Positive(t, refusalQ.SDKDeltas[0])
@@ -526,55 +526,55 @@ func TestRepair_184_QueryGasUnits(t *testing.T) {
 	}
 }
 
-func repair184Module(keepers keeper.TestKeepers) wasm.AppModule {
+func contractModule(keepers keeper.TestKeepers) wasm.AppModule {
 	return wasm.NewAppModule(keepers.EncodingConfig.Marshaler, keepers.WasmKeeper, &keepers.StakingKeeper, keepers.AccountKeeper, keepers.BankKeeper)
 }
 
-func repair184ExportFile(t *testing.T, ctx sdk.Context, keepers keeper.TestKeepers) (string, []module.ModuleState) {
+func exportGenesisStream(t *testing.T, ctx sdk.Context, keepers keeper.TestKeepers) (string, []module.ModuleState) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "genesis-stream.json")
 	file, err := os.Create(path)
 	require.NoError(t, err)
-	manager := module.NewManager(repair184Module(keepers))
+	manager := module.NewManager(contractModule(keepers))
 	var records []module.ModuleState
 	require.NoError(t, manager.ProcessGenesisPerModule(ctx, keepers.EncodingConfig.Marshaler, func(name string, data json.RawMessage) error {
 		record := module.ModuleState{AppState: module.AppState{Module: name, Data: bytes.Clone(data)}}
 		records = append(records, record)
-		_, err := fmt.Fprintln(file, string(repair184JSON(t, record)))
+		_, err := fmt.Fprintln(file, string(marshalContractJSON(t, record)))
 		return err
 	}))
 	require.NoError(t, file.Close())
 	return path, records
 }
 
-func repair184WriteRecords(t *testing.T, records []module.ModuleState) string {
+func writeGenesisStreamRecords(t *testing.T, records []module.ModuleState) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "genesis-stream.json")
 	file, err := os.Create(path)
 	require.NoError(t, err)
 	for _, record := range records {
-		_, err := fmt.Fprintln(file, string(repair184JSON(t, record)))
+		_, err := fmt.Fprintln(file, string(marshalContractJSON(t, record)))
 		require.NoError(t, err)
 	}
 	require.NoError(t, file.Close())
 	return path
 }
 
-func repair184ImportFile(ctx sdk.Context, keepers keeper.TestKeepers, path string) {
-	manager := module.NewManager(repair184Module(keepers))
+func importGenesisStream(ctx sdk.Context, keepers keeper.TestKeepers, path string) {
+	manager := module.NewManager(contractModule(keepers))
 	manager.InitGenesis(ctx, keepers.EncodingConfig.Marshaler, nil, genesistypes.GenesisImportConfig{StreamGenesisImport: true, GenesisStreamFile: path})
 }
 
-func TestRepair_184_StreamContractReimport(t *testing.T) {
+func TestContractStreamContractReimport(t *testing.T) {
 	srcCtx, source := keeper.CreateTestInput(t, false, "iterator,staking,stargate")
 	instance := keeper.InstantiateHackatomExampleContract(t, srcCtx, source)
 	models := make([]types.Model, 50003)
 	for i := range models {
 		models[i] = types.Model{Key: []byte(fmt.Sprintf("repair184/%05d", i)), Value: sdk.Uint64ToBigEndian(uint64(i))}
 	}
-	require.NoError(t, keeper.Repair184ImportState(source.WasmKeeper, srcCtx, instance.Contract, models))
+	require.NoError(t, keeper.ImportContractStateForTest(source.WasmKeeper, srcCtx, instance.Contract, models))
 	source.MultiStore.Commit(true)
-	file, records := repair184ExportFile(t, srcCtx, source)
+	file, records := exportGenesisStream(t, srcCtx, source)
 	var contractRecords []int
 	for i, record := range records {
 		var state types.GenesisState
@@ -592,30 +592,30 @@ func TestRepair_184_StreamContractReimport(t *testing.T) {
 	for _, recoverMidStream := range []bool{false, true} {
 		t.Run(fmt.Sprintf("restart_during_import_%v", recoverMidStream), func(t *testing.T) {
 			dir := t.TempDir()
-			ctx, destination, closeStore := repair184Open(t, dir)
+			ctx, destination, closeStore := openPersistentContractStore(t, dir)
 			if recoverMidStream {
-				prefix := repair184WriteRecords(t, records[:contractRecords[0]+1])
-				repair184ImportFile(ctx, destination, prefix)
+				prefix := writeGenesisStreamRecords(t, records[:contractRecords[0]+1])
+				importGenesisStream(ctx, destination, prefix)
 				require.ErrorContains(t, destination.WasmKeeper.FinalizeGenesisImport(ctx), "final record")
 				_, err := destination.WasmKeeper.QuerySmart(ctx, instance.Contract, []byte(`{"verifier":{}}`))
 				require.ErrorContains(t, err, "incomplete")
 				destination.MultiStore.Commit(true)
 				closeStore()
-				ctx, destination, closeStore = repair184Open(t, dir)
+				ctx, destination, closeStore = openPersistentContractStore(t, dir)
 				require.Error(t, destination.WasmKeeper.FinalizeGenesisImport(ctx))
-				suffix := repair184WriteRecords(t, records[contractRecords[0]+1:])
-				repair184ImportFile(ctx, destination, suffix)
+				suffix := writeGenesisStreamRecords(t, records[contractRecords[0]+1:])
+				importGenesisStream(ctx, destination, suffix)
 			} else {
-				repair184ImportFile(ctx, destination, file)
+				importGenesisStream(ctx, destination, file)
 			}
 			require.NoError(t, destination.WasmKeeper.FinalizeGenesisImport(ctx))
 			destination.MultiStore.Commit(true)
 			closeStore()
-			ctx, destination, closeStore = repair184Open(t, dir)
+			ctx, destination, closeStore = openPersistentContractStore(t, dir)
 			defer closeStore()
 			require.NoError(t, destination.WasmKeeper.FinalizeGenesisImport(ctx))
 			var info types.QueryContractInfoResponse
-			repair184Query(t, ctx, destination, "ContractInfo", &types.QueryContractInfoRequest{Address: instance.Contract.String()}, &info)
+			queryContractGRPC(t, ctx, destination, "ContractInfo", &types.QueryContractInfoRequest{Address: instance.Contract.String()}, &info)
 			expected := *source.WasmKeeper.GetContractInfo(srcCtx, instance.Contract)
 			expected.Created = nil
 			require.Equal(t, expected, info.ContractInfo)
@@ -623,7 +623,7 @@ func TestRepair_184_StreamContractReimport(t *testing.T) {
 			var next []byte
 			for {
 				var response types.QueryAllContractStateResponse
-				repair184Query(t, ctx, destination, "AllContractState", &types.QueryAllContractStateRequest{Address: instance.Contract.String(), Pagination: &query.PageRequest{Key: next, Limit: 1000}}, &response)
+				queryContractGRPC(t, ctx, destination, "AllContractState", &types.QueryAllContractStateRequest{Address: instance.Contract.String(), Pagination: &query.PageRequest{Key: next, Limit: 1000}}, &response)
 				all = append(all, response.Models...)
 				next = response.Pagination.NextKey
 				if len(next) == 0 {
@@ -635,10 +635,10 @@ func TestRepair_184_StreamContractReimport(t *testing.T) {
 				require.Equal(t, model, all[i+1])
 			}
 			var smart types.QuerySmartContractStateResponse
-			repair184Query(t, ctx, destination, "SmartContractState", &types.QuerySmartContractStateRequest{Address: instance.Contract.String(), QueryData: []byte(`{"verifier":{}}`)}, &smart)
+			queryContractGRPC(t, ctx, destination, "SmartContractState", &types.QuerySmartContractStateRequest{Address: instance.Contract.String(), QueryData: []byte(`{"verifier":{}}`)}, &smart)
 			require.JSONEq(t, fmt.Sprintf(`{"verifier":%q}`, instance.VerifierAddr.String()), string(smart.Data))
 			var byCode types.QueryContractsByCodeResponse
-			repair184Query(t, ctx, destination, "ContractsByCode", &types.QueryContractsByCodeRequest{CodeId: instance.CodeID}, &byCode)
+			queryContractGRPC(t, ctx, destination, "ContractsByCode", &types.QueryContractsByCodeRequest{CodeId: instance.CodeID}, &byCode)
 			require.Equal(t, []string{instance.Contract.String()}, byCode.Contracts)
 			history := destination.WasmKeeper.GetContractHistory(ctx, instance.Contract)
 			require.Len(t, history, 1, "metadata, history and index are created once across all chunks")
@@ -647,15 +647,15 @@ func TestRepair_184_StreamContractReimport(t *testing.T) {
 	}
 }
 
-func TestRepair_184_StreamRejectsConflicts(t *testing.T) {
+func TestContractStreamRejectsConflicts(t *testing.T) {
 	ctx, source := keeper.CreateTestInput(t, false, "iterator,staking,stargate")
 	instance := keeper.InstantiateHackatomExampleContract(t, ctx, source)
 	models := make([]types.Model, 50001)
 	for i := range models {
 		models[i] = types.Model{Key: []byte(fmt.Sprintf("key/%05d", i)), Value: []byte{1}}
 	}
-	require.NoError(t, keeper.Repair184ImportState(source.WasmKeeper, ctx, instance.Contract, models))
-	_, records := repair184ExportFile(t, ctx, source)
+	require.NoError(t, keeper.ImportContractStateForTest(source.WasmKeeper, ctx, instance.Contract, models))
+	_, records := exportGenesisStream(t, ctx, source)
 	var chunks []types.GenesisState
 	var first int
 	for i, record := range records {
@@ -670,8 +670,8 @@ func TestRepair_184_StreamRejectsConflicts(t *testing.T) {
 	}
 	require.Len(t, chunks, 2)
 	dstCtx, destination := keeper.CreateTestInput(t, false, "iterator,staking,stargate")
-	repair184ImportFile(dstCtx, destination, repair184WriteRecords(t, records[:first+1]))
-	am := repair184Module(destination)
+	importGenesisStream(dstCtx, destination, writeGenesisStreamRecords(t, records[:first+1]))
+	am := contractModule(destination)
 	cdc := destination.EncodingConfig.Marshaler
 	firstBytes := cdc.MustMarshalJSON(&chunks[0])
 	require.Panics(t, func() { am.InitGenesis(dstCtx, cdc, firstBytes) }, "repeated first chunk remains a duplicate")
@@ -687,7 +687,7 @@ func TestRepair_184_StreamRejectsConflicts(t *testing.T) {
 	require.Panics(t, func() { am.InitGenesis(dstCtx, cdc, missing.AppState.Data) }, "finalization refuses missing continuation")
 	// Every rejected record was atomic: the unchanged, producer-generated
 	// continuation and final record still complete the import.
-	repair184ImportFile(dstCtx, destination, repair184WriteRecords(t, records[first+1:]))
+	importGenesisStream(dstCtx, destination, writeGenesisStreamRecords(t, records[first+1:]))
 	require.NoError(t, destination.WasmKeeper.FinalizeGenesisImport(dstCtx))
 	require.Len(t, destination.WasmKeeper.GetContractHistory(dstCtx, instance.Contract), 1)
 	full := keeper.ExportGenesis(ctx, source.WasmKeeper)
@@ -697,28 +697,28 @@ func TestRepair_184_StreamRejectsConflicts(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrDuplicate, "ordinary genesis must retain duplicate-contract rejection")
 }
 
-func repair184CW721(t *testing.T) (*app.App, sdk.Context, sdk.AccAddress, sdk.AccAddress, sdk.AccAddress) {
+func instantiateCW721ForReceipts(t *testing.T) (*app.App, sdk.Context, sdk.AccAddress, sdk.AccAddress, sdk.AccAddress) {
 	t.Helper()
 	a := app.Setup(t, false, false, false)
 	ctx := a.GetContextForDeliverTx(nil).WithChainID("pax-test").WithBlockHeight(1).WithBlockTime(time.Unix(1_800_000_000, 0)).WithGasMeter(sdk.NewGasMeter(100_000_000, 1, 1))
 	owner, recipient := keeper.RandomAccountAddress(t), keeper.RandomAccountAddress(t)
 	contracts := keeper.NewDefaultPermissionKeeper(&a.WasmKeeper)
-	code, err := contracts.Create(ctx, owner, repair184Code(t, "../../../../contracts/wasm/cw721_base.wasm"), nil)
+	code, err := contracts.Create(ctx, owner, readContractCode(t, "../../../../contracts/wasm/cw721_base.wasm"), nil)
 	require.NoError(t, err)
-	address, _, err := contracts.Instantiate(ctx, code, owner, owner, repair184JSON(t, map[string]string{"name": "repair 184", "symbol": "R184", "minter": owner.String()}), "real CW721 receipt", nil)
+	address, _, err := contracts.Instantiate(ctx, code, owner, owner, marshalContractJSON(t, map[string]string{"name": "repair 184", "symbol": "R184", "minter": owner.String()}), "real CW721 receipt", nil)
 	require.NoError(t, err)
 	return a, ctx, address, owner, recipient
 }
 
-func TestRepair_184_CW721JSONStrings(t *testing.T) {
-	a, ctx, address, owner, recipient := repair184CW721(t)
+func TestContractCW721JSONStrings(t *testing.T) {
+	a, ctx, address, owner, recipient := instantiateCW721ForReceipts(t)
 	pointer := common.HexToAddress("0x184")
 	require.NoError(t, a.EvmKeeper.SetERC721CW721Pointer(ctx, address.String(), pointer))
 	contracts := keeper.NewDefaultPermissionKeeper(&a.WasmKeeper)
 	handler := wasm.NewHandler(contracts)
 	for _, encoding := range []struct{ name, token string }{{"plain", `"1"`}, {"escaped", `"\u0031"`}} {
 		t.Run(encoding.name, func(t *testing.T) {
-			_, err := contracts.Execute(ctx, address, owner, repair184JSON(t, map[string]interface{}{"mint": map[string]string{"token_id": "1", "owner": owner.String()}}), nil)
+			_, err := contracts.Execute(ctx, address, owner, marshalContractJSON(t, map[string]interface{}{"mint": map[string]string{"token_id": "1", "owner": owner.String()}}), nil)
 			require.NoError(t, err)
 			for _, action := range []string{"transfer_nft", "burn"} {
 				sender, expectedOwner, expectedTo := owner, owner, a.EvmKeeper.GetEVMAddressOrDefault(ctx, recipient)
@@ -769,8 +769,8 @@ func TestRepair_184_CW721JSONStrings(t *testing.T) {
 	}
 }
 
-func TestRepair_184_CW721OwnerFailures(t *testing.T) {
-	a, ctx, address, owner, recipient := repair184CW721(t)
+func TestContractCW721OwnerFailures(t *testing.T) {
+	a, ctx, address, owner, recipient := instantiateCW721ForReceipts(t)
 	contracts := keeper.NewDefaultPermissionKeeper(&a.WasmKeeper)
 	for _, message := range [][]byte{
 		[]byte(fmt.Sprintf(`{"transfer_nft":{"recipient":%q,"token_id":"\u0039"}}`, recipient.String())),
@@ -785,7 +785,7 @@ func TestRepair_184_CW721OwnerFailures(t *testing.T) {
 			require.NotEqual(t, types.EventTypeCW721PreTransferOwner, event.Type)
 		}
 	}
-	_, err := contracts.Execute(ctx, address, owner, repair184JSON(t, map[string]interface{}{"mint": map[string]string{"token_id": "1", "owner": owner.String()}}), nil)
+	_, err := contracts.Execute(ctx, address, owner, marshalContractJSON(t, map[string]interface{}{"mint": map[string]string{"token_id": "1", "owner": owner.String()}}), nil)
 	require.NoError(t, err)
 	// A real send reaches the real receiver lookup. With no receiver contract,
 	// it fails and its cached transfer is discarded, preserving ownership.
@@ -827,7 +827,7 @@ func TestRepair_184_CW721OwnerFailures(t *testing.T) {
 	require.Nil(t, receipt)
 }
 
-func TestRepair_184_CW1155BurnSkipsCW721Lookup(t *testing.T) {
+func TestContractCW1155BurnSkipsCW721Lookup(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		message    string
@@ -870,7 +870,7 @@ func TestRepair_184_CW1155BurnSkipsCW721Lookup(t *testing.T) {
 		})
 	}
 
-	a, ctx, address, owner, recipient := repair184CW721(t)
+	a, ctx, address, owner, recipient := instantiateCW721ForReceipts(t)
 	contracts := keeper.NewDefaultPermissionKeeper(&a.WasmKeeper)
 	for _, tc := range []struct {
 		name    string
@@ -886,31 +886,31 @@ func TestRepair_184_CW1155BurnSkipsCW721Lookup(t *testing.T) {
 			callCtx = callCtx.WithEventManager(sdk.NewEventManager())
 			contractAddress := address
 			if tc.allowed {
-				code, err := contracts.Create(callCtx, owner, repair184Code(t, "../../../../contracts/wasm/cw1155_base.wasm"), nil)
+				code, err := contracts.Create(callCtx, owner, readContractCode(t, "../../../../contracts/wasm/cw1155_base.wasm"), nil)
 				require.NoError(t, err)
-				contractAddress, _, err = contracts.Instantiate(callCtx, code, owner, owner, repair184JSON(t, map[string]string{"name": "repair 150", "symbol": "R150", "minter": owner.String()}), "real CW1155 burn", nil)
+				contractAddress, _, err = contracts.Instantiate(callCtx, code, owner, owner, marshalContractJSON(t, map[string]string{"name": "repair 150", "symbol": "R150", "minter": owner.String()}), "real CW1155 burn", nil)
 				require.NoError(t, err)
-				_, err = contracts.Execute(callCtx, contractAddress, owner, repair184JSON(t, map[string]interface{}{"mint": map[string]interface{}{"recipient": owner.String(), "msg": map[string]string{"token_id": "1", "amount": "1"}}}), nil)
+				_, err = contracts.Execute(callCtx, contractAddress, owner, marshalContractJSON(t, map[string]interface{}{"mint": map[string]interface{}{"recipient": owner.String(), "msg": map[string]string{"token_id": "1", "amount": "1"}}}), nil)
 				require.NoError(t, err)
-				response, err := a.WasmKeeper.QuerySmart(callCtx, contractAddress, repair184JSON(t, map[string]interface{}{"balance_of": map[string]string{"owner": owner.String(), "token_id": "1"}}))
+				response, err := a.WasmKeeper.QuerySmart(callCtx, contractAddress, marshalContractJSON(t, map[string]interface{}{"balance_of": map[string]string{"owner": owner.String(), "token_id": "1"}}))
 				require.NoError(t, err)
 				require.JSONEq(t, `{"balance":"1"}`, string(response))
 			} else if tc.mint {
-				_, err := contracts.Execute(callCtx, contractAddress, owner, repair184JSON(t, map[string]interface{}{"mint": map[string]string{"token_id": "1", "owner": owner.String()}}), nil)
+				_, err := contracts.Execute(callCtx, contractAddress, owner, marshalContractJSON(t, map[string]interface{}{"mint": map[string]string{"token_id": "1", "owner": owner.String()}}), nil)
 				require.NoError(t, err)
 			}
 			sender := owner
 			if tc.mint && !tc.allowed {
 				sender = recipient
 			}
-			message := repair184JSON(t, map[string]interface{}{"burn": map[string]string{"from": sender.String(), "token_id": "1", "amount": "1"}})
+			message := marshalContractJSON(t, map[string]interface{}{"burn": map[string]string{"from": sender.String(), "token_id": "1", "amount": "1"}})
 			_, err := contracts.Execute(callCtx, contractAddress, sender, message, nil)
 			require.NotErrorIs(t, err, keeper.ErrCW721OwnerLookup)
 			if tc.allowed {
 				require.NoError(t, err)
 				_, err = a.WasmKeeper.QuerySmart(callCtx, contractAddress, []byte(`{"owner_of":{"token_id":"1"}}`))
 				require.Error(t, err, "the real CW1155 contract rejects owner_of")
-				response, queryErr := a.WasmKeeper.QuerySmart(callCtx, contractAddress, repair184JSON(t, map[string]interface{}{"balance_of": map[string]string{"owner": owner.String(), "token_id": "1"}}))
+				response, queryErr := a.WasmKeeper.QuerySmart(callCtx, contractAddress, marshalContractJSON(t, map[string]interface{}{"balance_of": map[string]string{"owner": owner.String(), "token_id": "1"}}))
 				require.NoError(t, queryErr)
 				require.JSONEq(t, `{"balance":"0"}`, string(response), "the real contract must have burned the token")
 			} else {

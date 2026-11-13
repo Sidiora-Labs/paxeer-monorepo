@@ -37,7 +37,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1286Execute(cmd *cobra.Command, clientCtx client.Context, args ...string) error {
+func executeCLICommand(cmd *cobra.Command, clientCtx client.Context, args ...string) error {
 	cmd.SetArgs(args)
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
@@ -45,7 +45,7 @@ func repairM1286Execute(cmd *cobra.Command, clientCtx client.Context, args ...st
 	return cmd.ExecuteContext(ctx)
 }
 
-func repairM1286Genesis(t *testing.T, count int) (types.GenesisState, []byte, string) {
+func genesisWithPendingUploads(t *testing.T, count int) (types.GenesisState, []byte, string) {
 	t.Helper()
 	state := types.GenesisState{
 		Params:    types.DefaultParams(),
@@ -77,8 +77,8 @@ func repairM1286Genesis(t *testing.T, count int) (types.GenesisState, []byte, st
 	return state, raw, homeDir
 }
 
-func TestRepairM_1286_GenesisCodeHash(t *testing.T) {
-	state, raw, homeDir := repairM1286Genesis(t, 2)
+func TestCLIGenesisCodeHash(t *testing.T) {
+	state, raw, homeDir := genesisWithPendingUploads(t, 2)
 	for _, genMsg := range state.GenMsgs {
 		upload := genMsg.GetStoreCode()
 		require.NotNil(t, upload)
@@ -122,8 +122,8 @@ func TestRepairM_1286_GenesisCodeHash(t *testing.T) {
 	require.Equal(t, preview, uncompressed)
 }
 
-func TestRepairM_1286_GenesisNormalizationBounds(t *testing.T) {
-	state, raw, _ := repairM1286Genesis(t, 1)
+func TestCLIGenesisNormalizationBounds(t *testing.T) {
+	state, raw, _ := genesisWithPendingUploads(t, 1)
 	compressed := state.GenMsgs[0].GetStoreCode().WASMByteCode
 	oversized, err := ioutils.GzipIt(bytes.Repeat([]byte{1}, types.MaxWasmSize+1))
 	require.NoError(t, err)
@@ -147,7 +147,7 @@ func TestRepairM_1286_GenesisNormalizationBounds(t *testing.T) {
 	}
 }
 
-func TestRepairM_1286_MigrationValidation(t *testing.T) {
+func TestCLIMigrationValidation(t *testing.T) {
 	enc := keeper.MakeEncodingConfig(t)
 	keys := keyring.NewInMemory()
 	key, err := keys.NewAccount("repair-m1286", testdata.TestMnemonic, "", sdk.FullFundraiserPath, hd.Secp256k1)
@@ -173,7 +173,7 @@ func TestRepairM_1286_MigrationValidation(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var output bytes.Buffer
-			err := repairM1286Execute(cli.GetTxCmd(), clientCtx.WithOutput(&output), "migrate", tc.contract, tc.code, tc.payload)
+			err := executeCLICommand(cli.GetTxCmd(), clientCtx.WithOutput(&output), "migrate", tc.contract, tc.code, tc.payload)
 			require.ErrorContains(t, err, tc.errorText)
 			require.Empty(t, output.String())
 			require.Zero(t, requests.Load(), "invalid migration must never reach RPC or broadcast")
@@ -181,7 +181,7 @@ func TestRepairM_1286_MigrationValidation(t *testing.T) {
 	}
 	// A valid command reaches the real transaction encoder with the same context.
 	var output bytes.Buffer
-	require.NoError(t, repairM1286Execute(cli.GetTxCmd(), clientCtx.WithOutput(&output), "migrate", contract, "7", `{}`, "--generate-only"))
+	require.NoError(t, executeCLICommand(cli.GetTxCmd(), clientCtx.WithOutput(&output), "migrate", contract, "7", `{}`, "--generate-only"))
 	decoded, err := enc.TxConfig.TxJSONDecoder()(output.Bytes())
 	require.NoError(t, err)
 	require.Len(t, decoded.GetMsgs(), 1)
@@ -194,8 +194,8 @@ func TestRepairM_1286_MigrationValidation(t *testing.T) {
 	require.Zero(t, requests.Load())
 }
 
-func TestRepairM_1286_PageKeyRoundTrip(t *testing.T) {
-	state, _, _ := repairM1286Genesis(t, 2)
+func TestCLIPageKeyRoundTrip(t *testing.T) {
+	state, _, _ := genesisWithPendingUploads(t, 2)
 	sdkCtx, keepers := keeper.CreateDefaultTestInput(t)
 	_, err := keeper.InitGenesis(sdkCtx, keepers.WasmKeeper, state, &keepers.StakingKeeper, wasm.NewHandler(keepers.ContractKeeper))
 	require.NoError(t, err)
@@ -235,7 +235,7 @@ func TestRepairM_1286_PageKeyRoundTrip(t *testing.T) {
 	clientCtx := client.Context{}.WithCodec(keepers.EncodingConfig.Marshaler).
 		WithKeyring(keyring.NewInMemory()).WithClient(rpc).WithOutputFormat("json")
 	var firstOutput bytes.Buffer
-	require.NoError(t, repairM1286Execute(cli.GetQueryCmd(), clientCtx.WithOutput(&firstOutput), "list-code", "--limit", "1"))
+	require.NoError(t, executeCLICommand(cli.GetQueryCmd(), clientCtx.WithOutput(&firstOutput), "list-code", "--limit", "1"))
 	var first types.QueryCodesResponse
 	require.NoError(t, clientCtx.Codec.UnmarshalAsJSON(firstOutput.Bytes(), &first))
 	require.Len(t, first.CodeInfos, 1)
@@ -251,7 +251,7 @@ func TestRepairM_1286_PageKeyRoundTrip(t *testing.T) {
 	require.NoError(t, json.Unmarshal(firstOutput.Bytes(), &printed))
 	require.NotEmpty(t, printed.Pagination.NextKey)
 	var secondOutput bytes.Buffer
-	require.NoError(t, repairM1286Execute(cli.GetQueryCmd(), clientCtx.WithOutput(&secondOutput), "list-code", "--limit", "1", "--page-key", printed.Pagination.NextKey))
+	require.NoError(t, executeCLICommand(cli.GetQueryCmd(), clientCtx.WithOutput(&secondOutput), "list-code", "--limit", "1", "--page-key", printed.Pagination.NextKey))
 	var second types.QueryCodesResponse
 	require.NoError(t, clientCtx.Codec.UnmarshalAsJSON(secondOutput.Bytes(), &second))
 	require.Equal(t, first.Pagination.NextKey, <-receivedKeys)
@@ -262,7 +262,7 @@ func TestRepairM_1286_PageKeyRoundTrip(t *testing.T) {
 	require.Equal(t, int64(2), requests.Load())
 }
 
-func TestRepairM_1286_PageKeyErrors(t *testing.T) {
+func TestCLIPageKeyErrors(t *testing.T) {
 	enc := keeper.MakeEncodingConfig(t)
 	var requests atomic.Int64
 	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -294,7 +294,7 @@ func TestRepairM_1286_PageKeyErrors(t *testing.T) {
 					}
 				}
 				var output bytes.Buffer
-				err := repairM1286Execute(cmd, clientCtx.WithOutput(&output), commandArgs...)
+				err := executeCLICommand(cmd, clientCtx.WithOutput(&output), commandArgs...)
 				require.ErrorContains(t, err, "page key:")
 				if failure == "malformed" {
 					require.ErrorContains(t, err, "illegal base64")
