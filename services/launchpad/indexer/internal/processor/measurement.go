@@ -115,11 +115,19 @@ type boundedCaptureWriter struct {
 }
 
 func (w *boundedCaptureWriter) Write(body []byte) (int, error) {
-	if int64(len(body)) > w.remaining {
+	lenBodyInt64, conversionErr := checked.Convert[int64](len(body))
+	if conversionErr != nil {
+		return 0, conversionErr
+	}
+	if lenBodyInt64 > w.remaining {
 		return 0, errors.New("actual raw capture exceeds admitted storage budget")
 	}
 	n, err := w.writer.Write(body)
-	w.remaining -= int64(n)
+	nInt64, conversionErr := checked.Convert[int64](n)
+	if conversionErr != nil {
+		return 0, conversionErr
+	}
+	w.remaining -= nInt64
 	return n, err
 }
 
@@ -492,12 +500,24 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 			observations = observations[1:]
 		}
 		firstObserved = observations[0].ObservedAt
-		to := from + int64(spec.BatchBlocks) - 1
+		specBatchBlocksInt64, conversionErr := checked.Convert[int64](spec.BatchBlocks)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		to := from + specBatchBlocksInt64 - 1
 		if to > observedHead {
 			to = observedHead
 		}
+		fromUint64, conversionErr := checked.Convert[uint64](from)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		toUint64, conversionErr := checked.Convert[uint64](to)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
 		readCtx, readCancel := context.WithTimeout(ctx, 20*time.Second)
-		batch, receipts, err := h.Processor.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, uint64(from), uint64(to)) //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
+		batch, receipts, err := h.Processor.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, fromUint64, toUint64)
 		readCancel()
 		if err != nil {
 			return report, err
@@ -525,7 +545,11 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 			if err != nil {
 				return report, err
 			}
-			rawBytes += uint64(len(encoded))
+			lenEncodedUint64, conversionErr := checked.Convert[uint64](len(encoded))
+			if conversionErr != nil {
+				return report, conversionErr
+			}
+			rawBytes += lenEncodedUint64
 		}
 		if rawBytes > report.MaxRawBatchBytes {
 			report.MaxRawBatchBytes = rawBytes
@@ -540,8 +564,16 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 		if err != nil {
 			return report, err
 		}
-		report.SourceBytes += uint64(len(body))
-		report.OfferedRaw += int64(len(segment.Records))
+		lenBodyUint64, conversionErr := checked.Convert[uint64](len(body))
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		report.SourceBytes += lenBodyUint64
+		segmentRecordsInt64, conversionErr := checked.Convert[int64](len(segment.Records))
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		report.OfferedRaw += segmentRecordsInt64
 		due := report.StartedAt.Add(time.Duration(report.CommittedRaw) * time.Second / time.Duration(report.TargetEventsPerSecond))
 		if wait := time.Until(due); wait > 0 {
 			if !sleep(ctx, wait) {
@@ -573,7 +605,10 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 		if reconcileErr != nil || !committed {
 			return report, errors.Join(store.ErrIntegrity, reconcileErr)
 		}
-		count := uint64(len(segment.Records))
+		count, conversionErr := checked.Convert[uint64](len(segment.Records))
+		if conversionErr != nil {
+			return report, conversionErr
+		}
 		if count == 0 {
 			count = 1
 		}
@@ -581,7 +616,10 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 			matched := false
 			for _, observation := range observations {
 				if observation.Height >= block.Height {
-					weight := uint64(block.RawCount) //nolint:gosec // nonnegative count uses the existing unsigned counter field
+					weight, conversionErr := checked.Convert[uint64](block.RawCount)
+					if conversionErr != nil {
+						return report, conversionErr
+					}
 					if weight == 0 {
 						weight = 1
 					}
@@ -596,8 +634,12 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 		}
 		scheduled.add(ack.Sub(due), count)
 		commit.add(ack.Sub(started), 1)
-		report.CommittedRaw += int64(len(segment.Records))
-		report.CommittedBlocks += int64(len(segment.Blocks))
+		report.CommittedRaw += segmentRecordsInt64
+		segmentBlocksInt64, conversionErr := checked.Convert[int64](len(segment.Blocks))
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		report.CommittedBlocks += segmentBlocksInt64
 		report.Transactions++
 		checkpoint = to
 		if err = capture.write("durable-ack", struct {
@@ -605,7 +647,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 			From, To, RawCount                  int64
 			AcknowledgedAt                      time.Time
 			CommitNS, ObservationNS, ScheduleNS int64
-		}{batch.BatchID, from, to, int64(len(segment.Records)), ack, ack.Sub(started).Nanoseconds(), ack.Sub(firstObserved).Nanoseconds(), ack.Sub(due).Nanoseconds()}); err != nil {
+		}{batch.BatchID, from, to, segmentRecordsInt64, ack, ack.Sub(started).Nanoseconds(), ack.Sub(firstObserved).Nanoseconds(), ack.Sub(due).Nanoseconds()}); err != nil {
 			return report, err
 		}
 		for _, event := range segment.Events {
@@ -854,7 +896,11 @@ func (h *IngestMeasurementHarness) Reconstruct(ctx context.Context, spec IngestR
 	}
 	report.CheckpointMatched = true
 	for from := spec.Request.FromHeight; from <= spec.Request.ToHeight; {
-		to := from + int64(h.Replay.BatchSize) - 1
+		replayBatchSizeInt64, conversionErr := checked.Convert[int64](h.Replay.BatchSize)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		to := from + replayBatchSizeInt64 - 1
 		if to > spec.Request.ToHeight {
 			to = spec.Request.ToHeight
 		}
@@ -889,7 +935,11 @@ func (h *IngestMeasurementHarness) Reconstruct(ctx context.Context, spec IngestR
 		return report, err
 	}
 	for from := spec.Request.FromHeight; from <= spec.Request.ToHeight; {
-		to := from + int64(h.Replay.BatchSize) - 1
+		replayBatchSizeInt642, conversionErr := checked.Convert[int64](h.Replay.BatchSize)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		to := from + replayBatchSizeInt642 - 1
 		if to > spec.Request.ToHeight {
 			to = spec.Request.ToHeight
 		}
@@ -923,7 +973,11 @@ func (h *IngestMeasurementHarness) Reconstruct(ctx context.Context, spec IngestR
 		return report, store.ErrIntegrity
 	}
 	for from := spec.Request.FromHeight; from <= spec.Request.ToHeight; {
-		to := from + int64(h.Replay.BatchSize) - 1
+		replayBatchSizeInt643, conversionErr := checked.Convert[int64](h.Replay.BatchSize)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		to := from + replayBatchSizeInt643 - 1
 		if to > spec.Request.ToHeight {
 			to = spec.Request.ToHeight
 		}
@@ -1094,7 +1148,15 @@ func (h *IngestMeasurementHarness) verifyReconstructionOutbox(ctx context.Contex
 		if err != nil {
 			return err
 		}
-		if subject != ReplaySubjectV2 || payloadHash != delivery.Hash(expected) || envelope.EventID != effect || envelope.PayloadHash != payloadHash || !bytes.Equal(envelope.Payload, expected) || envelope.SourceOrder.Height != strconv.FormatInt(event.Raw.Height, 10) || envelope.SourceOrder.TransactionIndex != strconv.FormatUint(uint64(event.Raw.TransactionIndex), 10) || envelope.SourceOrder.LogIndex != strconv.FormatUint(uint64(event.Raw.LogIndex), 10) || envelope.EmittedAt.Unix() != event.Timestamp {
+		rawTransactionIndexUint64, conversionErr := checked.Convert[uint64](event.Raw.TransactionIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		rawLogIndexUint64, conversionErr := checked.Convert[uint64](event.Raw.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		if subject != ReplaySubjectV2 || payloadHash != delivery.Hash(expected) || envelope.EventID != effect || envelope.PayloadHash != payloadHash || !bytes.Equal(envelope.Payload, expected) || envelope.SourceOrder.Height != strconv.FormatInt(event.Raw.Height, 10) || envelope.SourceOrder.TransactionIndex != strconv.FormatUint(rawTransactionIndexUint64, 10) || envelope.SourceOrder.LogIndex != strconv.FormatUint(rawLogIndexUint64, 10) || envelope.EmittedAt.Unix() != event.Timestamp {
 			return store.ErrIntegrity
 		}
 	}

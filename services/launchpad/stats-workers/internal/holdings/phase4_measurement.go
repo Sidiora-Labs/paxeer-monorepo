@@ -21,7 +21,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -962,7 +961,7 @@ func phase4Calibration(ctx context.Context, p Phase4Plan, a *phase4Artifacts) er
 		}
 	}
 	program := "import json,sys;sys.path.insert(0,sys.argv[1]);from calibration import evaluate;r=evaluate(json.load(open(sys.argv[2])),candidate=sys.argv[3],topology=sys.argv[4],generator=sys.argv[5]);print(json.dumps(r));sys.exit(0 if r['generator_calibrated'] else 1)"
-	command, stop := phase4Command(ctx, p.PythonExecutable, "-c", program, filepath.Join(p.SourceRoot, "tools/launchpad/production/load"), p.CalibrationPath, p.Candidate, p.Topology, p.Generator)
+	command, stop := phase4Command(ctx, false, p.PythonExecutable, "-c", program, filepath.Join(p.SourceRoot, "tools/launchpad/production/load"), p.CalibrationPath, p.Candidate, p.Topology, p.Generator)
 	defer stop()
 	if err := ctx.Err(); err != nil {
 		return err
@@ -1075,16 +1074,8 @@ func phase4Feeder(ctx context.Context, p Phase4Plan, a *phase4Artifacts) error {
 	if _, err := os.Lstat(p.Feeder.Output); !errors.Is(err, os.ErrNotExist) {
 		return errors.New("fresh real feeder receipt output required")
 	}
-	command, stop := phase4Command(ctx, p.Feeder.Executable, p.Feeder.Args...)
+	command, stop := phase4Command(ctx, true, p.Feeder.Executable, p.Feeder.Args...)
 	defer stop()
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	command.Cancel = func() error {
-		if command.Process == nil {
-			return os.ErrProcessDone
-		}
-		return syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
-	}
-	command.WaitDelay = time.Second
 	command.Dir = p.SourceRoot
 	command.Env = []string{}
 	for key, value := range p.Feeder.Environment {

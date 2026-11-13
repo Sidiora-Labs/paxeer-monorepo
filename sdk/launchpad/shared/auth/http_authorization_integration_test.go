@@ -18,13 +18,13 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/db/production/coordinatortest"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -37,20 +37,21 @@ import (
 func phase2AuthDatabase(t *testing.T) (*pgxpool.Pool, string) {
 	t.Helper()
 	ctx := context.Background()
-	dsn := os.Getenv("L34_POSTGRES_DSN")
+	dsn := os.Getenv("COORDINATOR_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Fatal("real L34_POSTGRES_DSN required")
+		t.Fatal("authorization PostgreSQL fixture is required")
 	}
-	admin, err := pgxpool.New(ctx, dsn)
+	database := coordinatortest.Bootstrap(t, dsn, "chat_runtime")
+	schema := "kd_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:24] + "_auth2"
+	admin, err := pgxpool.New(ctx, database.AdminDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
-	schema := "kd_" + strings.ReplaceAll(uuid.NewString(), "-", "")[:24] + "_auth2"
-	if _, err = admin.Exec(ctx, "CREATE SCHEMA "+pgx.Identifier{schema}.Sanitize()); err != nil {
-		admin.Close()
+	defer admin.Close()
+	if _, err := admin.Exec(ctx, "CREATE SCHEMA "+pgx.Identifier{schema}.Sanitize()); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := pgxpool.ParseConfig(dsn)
+	cfg, err := pgxpool.ParseConfig(database.AdminDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,16 +63,13 @@ func phase2AuthDatabase(t *testing.T) (*pgxpool.Pool, string) {
 	}
 	t.Cleanup(func() {
 		pool.Close()
-		if _, err := admin.Exec(ctx, "DROP SCHEMA "+pgx.Identifier{schema}.Sanitize()+" CASCADE"); err != nil {
-			t.Error(err)
-		}
-		admin.Close()
 	})
-	identitySQL, err := os.ReadFile(filepath.Join("../../../../launchpad/spec/production-system/handoffs/L33/schema-proposal.sql"))
-	if err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"identity_accounts", "identity_wallet_links", "identity_challenges", "identity_sessions", "identity_refresh", "identity_tickets", "identity_limits", "identity_outbox", "identity_reauth"} {
+		if _, err := pool.Exec(ctx, "CREATE VIEW "+pgx.Identifier{schema, name}.Sanitize()+" AS SELECT * FROM "+pgx.Identifier{"users", name}.Sanitize()); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if _, err = pool.Exec(ctx, string(identitySQL)+LedgerDDL+AuditDeliveryDDL+`CREATE TABLE auth_committed_blocks(chain_id integer NOT NULL CHECK(chain_id=125),height numeric(20,0) NOT NULL,block_hash text NOT NULL,integrity text NOT NULL,PRIMARY KEY(chain_id,height));CREATE TABLE auth_owned_effects(request_id uuid PRIMARY KEY,body_digest text NOT NULL);`); err != nil {
+	if _, err = pool.Exec(ctx, LedgerDDL+AuditDeliveryDDL+`CREATE TABLE auth_committed_blocks(chain_id integer NOT NULL CHECK(chain_id=125),height numeric(20,0) NOT NULL,block_hash text NOT NULL,integrity text NOT NULL,PRIMARY KEY(chain_id,height));CREATE TABLE auth_owned_effects(request_id uuid PRIMARY KEY,body_digest text NOT NULL);`); err != nil {
 		t.Fatal(err)
 	}
 	return pool, schema

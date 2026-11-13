@@ -1,20 +1,20 @@
 //! Task 22.33.50; audit 22.30.106 finding 12; acceptance 22998.1.
-//! Finding 12: finding12_recorded_paxd_receipt_transport_recovers_before_replay,
-//! finding12_committed_label_requires_retained_consensus_evidence, and
-//! finding12_control_transport_preserves_checkpoint_verification.
+//! Finding 12: `finding12_recorded_paxd_receipt_transport_recovers_before_replay`,
+//! `finding12_committed_label_requires_retained_consensus_evidence`, and
+//! `finding12_control_transport_preserves_checkpoint_verification`.
 //! Closure is held if the real control interface cannot carry the verified evidence.
-//! The original local adversarial cases remain in agent_controls_rungs.rs.
-//! The inherited baseline failures are retained in repair_22_33_50.kvx; this
+//! The original local adversarial cases remain in `agent_controls_rungs.rs`.
+//! The inherited baseline failures are retained in `repair_22_33_50.kvx`; this
 //! continuation uses only the declared build and hf-done gates for qualification.
-//! FinalizationEvidence.verification carries the committed rung rank without VerificationLevel translation.
+//! FinalizationEvidence.verification carries the committed rung rank without `VerificationLevel` translation.
 //! Wiring request (node/consensus domain): daemon/committed-fixture must retain
 //! paxd control transactions, signed receipts, pinned keys, committed headers,
 //! validator votes and inclusion proofs for pause, resume, limit and archive.
 //! The available committed-payExact recording is never relabeled as a control.
 //! Scope forbids spec/GOTCHA edits; this record retains the mapping and wiring.
 //! Exact candidate revision and qualification evidence are recorded by the gates.
-//! Setup repair: paxd receipts use AuthenticatedReceipt ingress, not the legacy
-//! AuthorizedBatch outcome store, which rejects this operation shape.
+//! Setup repair: paxd receipts use `AuthenticatedReceipt` ingress, not the legacy
+//! `AuthorizedBatch` outcome store, which rejects this operation shape.
 
 #[path = "support/committed_controls.rs"]
 mod committed_controls;
@@ -27,7 +27,7 @@ use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_agentd::human::{self, HumanOperationError, HumanRefusal, HumanRequest, HumanResponse};
 use layerx_agentd::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
@@ -98,7 +98,7 @@ fn evidence_key() -> TenantKey {
 
 fn authorized(fact: &ReceiptFact, keys: &[ReceiptKeyEntry]) -> AuthorizedBatch {
     let receipt = checked(layerx_wire::receipt::decode(&fact.canonical_receipt_bytes));
-    let protocol = receipt.protocol().expect("paxd protocol receipt");
+    let protocol = receipt.protocol().or_fail("paxd protocol receipt");
     let pins: Vec<_> = keys
         .iter()
         .map(|key| {
@@ -128,11 +128,7 @@ fn authenticate_recording(fact: &ReceiptFact, keys: &[ReceiptKeyEntry]) -> Authe
         &format!("http://{}/", checked(listener.local_addr())),
         &[],
     ));
-    let hash = fact
-        .tx_hash
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let hash = layerx_human_service::hex::lower((fact.tx_hash).as_ref());
     let mut replies = vec![
         (
             "pax_sequencerReceipt",
@@ -150,12 +146,15 @@ fn authenticate_recording(fact: &ReceiptFact, keys: &[ReceiptKeyEntry]) -> Authe
         // The exact recorded Comet header, votes and batch inclusion establish
         // commitment even without an Ethereum landing receipt.
         for (method, params, answer) in replies {
-            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut accept_steps = 0..5_000;
             let stream = loop {
                 match listener.accept() {
                     Ok((stream, _)) => break stream,
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        assert!(Instant::now() < deadline, "recorded RPC request deadline");
+                        assert!(
+                            accept_steps.next().is_some(),
+                            "recorded RPC request deadline"
+                        );
                         thread::sleep(Duration::from_millis(1));
                     }
                     Err(error) => panic!("recorded RPC accept: {error}"),
@@ -175,7 +174,7 @@ fn authenticate_recording(fact: &ReceiptFact, keys: &[ReceiptKeyEntry]) -> Authe
                     length = Some(checked(value.trim().parse::<usize>()));
                 }
             }
-            let length = length.expect("bounded JSON-RPC content length");
+            let length = length.or_fail("bounded JSON-RPC content length");
             assert!(length <= 64 * 1024);
             let mut body = vec![0; length];
             checked(reader.read_exact(&mut body));
@@ -212,10 +211,10 @@ fn authenticate_recording(fact: &ReceiptFact, keys: &[ReceiptKeyEntry]) -> Authe
     assert!(receipt.landing().is_none());
     let header = receipt
         .committed_header()
-        .expect("authenticated committed header");
+        .or_fail("authenticated committed header");
     assert_eq!(
         header.height(),
-        i64::try_from(commit.height).expect("height")
+        i64::try_from(commit.height).or_fail("height")
     );
     assert_eq!(
         receipt.covering_block(),
@@ -257,7 +256,7 @@ fn retained_recording(
 ) -> (ReceiptLookupFrame, Vec<u8>) {
     let bytes = store
         .get(&evidence_key())
-        .expect("retained full evidence")
+        .or_fail("retained full evidence")
         .bytes()
         .to_vec();
     let bundle = checked(EvidenceBundle::decode(&bytes));
@@ -294,7 +293,7 @@ fn retained_recording(
         "reopened receipt metadata must retain its authenticated node state"
     );
     let evidence = checked(receipt::serve_evidence(store, tenant(), fact.tx_hash))
-        .expect("retained authenticated transaction evidence");
+        .or_fail("retained authenticated transaction evidence");
     assert_eq!(evidence.canonical_receipt, fact.canonical_receipt_bytes);
     assert_eq!(evidence.metadata.rung, Rung::Committed);
     let inventory = checked(receipt::evidence_inventory(store, &tenant()));
@@ -340,12 +339,15 @@ fn exchange<T: Send + 'static>(
     let listener = checked(UnixListener::bind(socket));
     checked(listener.set_nonblocking(true));
     let server = thread::spawn(move || {
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut accept_steps = 0..5_000;
         let mut stream = loop {
             match listener.accept() {
                 Ok((stream, _)) => break stream,
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    assert!(Instant::now() < deadline, "control peer request deadline");
+                    assert!(
+                        accept_steps.next().is_some(),
+                        "control peer request deadline"
+                    );
                     thread::sleep(Duration::from_millis(1));
                 }
                 Err(error) => panic!("control peer accept: {error}"),
@@ -442,7 +444,7 @@ fn finding12_recorded_paxd_receipt_transport_recovers_before_replay() {
             assert_eq!(
                 scope
                     .get(Table::Support, &key)
-                    .expect("retained human evidence")
+                    .or_fail("retained human evidence")
                     .bytes(),
                 encoded
             );
@@ -489,7 +491,7 @@ fn finding12_committed_label_requires_retained_consensus_evidence() {
     invalid_vote
         .committed
         .as_mut()
-        .expect("commit")
+        .or_fail("commit")
         .commit
         .votes[0]
         .signature[0] ^= 1;
@@ -503,7 +505,7 @@ fn finding12_committed_label_requires_retained_consensus_evidence() {
     invalid_batch
         .committed
         .as_mut()
-        .expect("commit")
+        .or_fail("commit")
         .batch_transaction[0] ^= 1;
     assert!(
         EvidenceBundle::verify_receipt_with_consensus(&invalid_batch, &keys, &consensus).is_err()
@@ -518,15 +520,8 @@ fn finding12_committed_label_requires_retained_consensus_evidence() {
     assert!(EvidenceBundle::verify_receipt_with_consensus(&fact, &keys, &[]).is_err());
 }
 
-#[test]
-fn finding12_control_transport_preserves_checkpoint_verification() {
-    let root = Directory::new("repair223350-control-wire");
-    let agent_root = root.0.join("agent");
-    persist_recording(&agent_root);
-    let (_, fact, keys, consensus) = committed_controls::recorded_receipt();
-    let mut store = checked(AgentStore::open(&agent_root));
-    let (frame, _) = retained_recording(&store, &keys, &consensus);
-    let seed = human::HumanAgentLifecycleSeed {
+fn control_seed(frame: &ReceiptLookupFrame) -> human::HumanAgentLifecycleSeed {
+    human::HumanAgentLifecycleSeed {
         agent_id: format!("agt_{}", "08".repeat(32)),
         name: "recorded controls".into(),
         purpose: "committed payment refusal".into(),
@@ -564,7 +559,18 @@ fn finding12_control_transport_preserves_checkpoint_verification() {
         initial_funding: 100,
         network_id: 125,
         creation_receipt_roots: vec![frame.receipt_hash],
-    };
+    }
+}
+
+#[test]
+fn finding12_control_transport_preserves_checkpoint_verification() {
+    let root = Directory::new("repair223350-control-wire");
+    let agent_root = root.0.join("agent");
+    persist_recording(&agent_root);
+    let (_, fact, keys, consensus) = committed_controls::recorded_receipt();
+    let mut store = checked(AgentStore::open(&agent_root));
+    let (frame, _) = retained_recording(&store, &keys, &consensus);
+    let seed = control_seed(&frame);
     let mut agent = checked(ManagedAgent::from_creation(
         &seed,
         &seed.actor,
@@ -643,4 +649,10 @@ fn finding12_control_transport_preserves_checkpoint_verification() {
         Rung::Committed.wire_rank(),
         "Committed control transport lost checkpoint verification before the managed-agent consumer",
     );
+}
+
+use self::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

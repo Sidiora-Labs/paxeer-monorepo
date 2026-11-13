@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub const TWO_TO_200: &str = "1606938044258990275541962092341162602522202993782792835301376";
 pub const MAXIMUM: &str =
@@ -149,7 +149,7 @@ impl Transcript {
                 .required();
         let expected = exchanges.len();
         let worker = thread::spawn(move || {
-            let deadline = Instant::now() + Duration::from_secs(10);
+            let mut accept_steps = 0..10_000;
             let mut served = 0;
             for exchange in exchanges {
                 let mut stream = loop {
@@ -157,7 +157,7 @@ impl Transcript {
                         Ok((stream, _)) => break stream,
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
                             assert!(
-                                Instant::now() < deadline,
+                                accept_steps.next().is_some(),
                                 "all transcript calls must arrive"
                             );
                             thread::sleep(Duration::from_millis(1));

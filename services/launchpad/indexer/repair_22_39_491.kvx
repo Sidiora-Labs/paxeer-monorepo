@@ -1,0 +1,302 @@
+[meta]
+title = "Checked integer conversions in the launchpad indexer"
+range_policy = "Integer values outside the destination range return an error through the caller error path."
+representation_policy = "Public signatures, database representations and wire fields retain their existing types."
+coverage_threshold_percent = 90
+module_coverage_percent = 90.1
+boundary_case_packages = ["internal/app", "internal/processor", "internal/receipt", "internal/source", "internal/store"]
+repaired_conversions = 316
+
+[file.1]
+path = "internal/app/anchor.go"
+conversions = 5
+
+[file.2]
+path = "internal/app/app.go"
+conversions = 10
+
+[file.3]
+path = "internal/app/markets.go"
+conversions = 8
+
+[file.4]
+path = "internal/app/render.go"
+conversions = 1
+
+[file.5]
+path = "internal/chainreader/historical.go"
+conversions = 1
+
+[file.6]
+path = "internal/decode/measurement.go"
+conversions = 9
+
+[file.7]
+path = "internal/processor/archive.go"
+conversions = 6
+
+[file.8]
+path = "internal/processor/canonical.go"
+conversions = 8
+
+[file.9]
+path = "internal/processor/creation.go"
+conversions = 12
+
+[file.10]
+path = "internal/processor/inventory.go"
+conversions = 3
+
+[file.11]
+path = "internal/processor/legacy.go"
+conversions = 5
+
+[file.12]
+path = "internal/processor/measurement.go"
+conversions = 18
+
+[file.13]
+path = "internal/processor/processor.go"
+conversions = 14
+
+[file.14]
+path = "internal/processor/quarantine.go"
+conversions = 3
+
+[file.15]
+path = "internal/processor/replay.go"
+conversions = 14
+
+[file.16]
+path = "internal/receipt/domain.go"
+conversions = 3
+
+[file.17]
+path = "internal/receipt/identity.go"
+conversions = 2
+
+[file.18]
+path = "internal/receipt/qualified.go"
+conversions = 7
+
+[file.19]
+path = "internal/receipt/recovery.go"
+conversions = 3
+
+[file.20]
+path = "internal/receipt/rpc.go"
+conversions = 20
+
+[file.21]
+path = "internal/source/archive.go"
+conversions = 6
+
+[file.22]
+path = "internal/source/capacity.go"
+conversions = 45
+
+[file.23]
+path = "internal/source/committed.go"
+conversions = 31
+
+[file.24]
+path = "internal/source/evm.go"
+conversions = 1
+
+[file.25]
+path = "internal/source/explorer_committed.go"
+conversions = 21
+
+[file.26]
+path = "internal/source/historical.go"
+conversions = 14
+
+[file.27]
+path = "internal/source/parity.go"
+conversions = 3
+
+[file.28]
+path = "internal/source/paxscan.go"
+conversions = 4
+
+[file.29]
+path = "internal/source/source.go"
+conversions = 2
+
+[file.30]
+path = "internal/store/archive.go"
+conversions = 5
+
+[file.31]
+path = "internal/store/canonical.go"
+conversions = 15
+
+[file.32]
+path = "internal/store/canonicaltest/postgres.go"
+conversions = 2
+
+[file.33]
+path = "internal/store/measurement.go"
+conversions = 2
+
+[file.34]
+path = "internal/store/quarantine.go"
+conversions = 8
+
+[file.35]
+path = "internal/store/reconcile.go"
+conversions = 3
+
+[file.36]
+path = "internal/store/replay.go"
+conversions = 2
+
+[retained.1]
+path = "cmd/indexer-runtime-docs/main.go"
+line = 66
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.2]
+path = "cmd/indexer-runtime-docs/main.go"
+line = 111
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.3]
+path = "cmd/indexer-runtime-docs/main.go"
+line = 115
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.4]
+path = "internal/app/markets.go"
+line = 41
+reason = "Decision 3365: marketPageQuery retains its query and arguments signature; Page checks the signed height bound."
+
+[retained.5]
+path = "internal/config/config.go"
+line = 527
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.6]
+path = "internal/decode/measurement.go"
+line = 238
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.7]
+path = "internal/decode/measurement.go"
+line = 294
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.8]
+path = "internal/decode/measurement.go"
+line = 358
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.9]
+path = "internal/decode/measurement.go"
+line = 383
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.10]
+path = "internal/decode/measurement.go"
+line = 394
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.11]
+path = "internal/decode/measurement.go"
+line = 404
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.12]
+path = "internal/decode/measurement.go"
+line = 427
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.13]
+path = "internal/decode/measurement.go"
+line = 1142
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.14]
+path = "internal/decode/measurement.go"
+line = 1341
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.15]
+path = "internal/processor/measurement.go"
+line = 142
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.16]
+path = "internal/processor/measurement.go"
+line = 180
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.17]
+path = "internal/processor/measurement.go"
+line = 359
+reason = "Decision 3365: the measurement finalizer retains its deferred signature without an error result."
+
+[retained.18]
+path = "internal/processor/measurement.go"
+line = 774
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.19]
+path = "internal/processor/measurement.go"
+line = 803
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.20]
+path = "internal/processor/measurement.go"
+line = 1064
+reason = "Decision 3365: the database trace callback retains its signature without an error result; affected rows are nonnegative."
+
+[retained.21]
+path = "internal/processor/measurement.go"
+line = 1094
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.22]
+path = "internal/processor/measurement.go"
+line = 1231
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.23]
+path = "internal/receipt/archive.go"
+line = 194
+reason = "Decision 3365: ReadAhead retains its asynchronous signature without an error result; the configured depth is bounded."
+
+[retained.24]
+path = "internal/receipt/rpc.go"
+line = 1618
+reason = "Decision 3365: rawRecord returns the existing stored record without an error result."
+
+[retained.25]
+path = "internal/source/archive.go"
+line = 168
+reason = "Decision 3365: ReadAhead retains its asynchronous signature without an error result; the configured depth is bounded."
+
+[retained.26]
+path = "internal/source/capacity.go"
+line = 163
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.27]
+path = "internal/source/capacity.go"
+line = 255
+reason = "Decision 3369: the configured command retains its executable and arguments."
+
+[retained.28]
+path = "internal/source/capacity.go"
+line = 599
+reason = "Decision 3369: the configured command retains its executable and arguments."
+
+[retained.29]
+path = "internal/source/capacity.go"
+line = 828
+reason = "Decision 3369: the caller supplies the file path."
+
+[retained.30]
+path = "internal/source/parity.go"
+line = 377
+reason = "Decision 3369: the caller supplies the file path."

@@ -146,6 +146,9 @@ export interface TransactionsStats {
   transaction_fees_avg_24h: string;
   transaction_fees_sum_24h: string;
   transactions_count_24h: string;
+  total_transactions_count?: string;
+  price_updates_count_24h?: string;
+  total_price_updates_count?: string;
 }
 
 export type TransactionsResponse = TransactionsResponseValidated | TransactionsResponsePending;

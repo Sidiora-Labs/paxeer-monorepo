@@ -9,7 +9,7 @@ mod native_replay;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs_ai_market::{
     admission::{
-        admit_evaluator, Admission, AdmissionContext, AdmissionMeta, AdmissionTable, ApprovalTerms,
+        admit_evaluator, AdmissionContext, AdmissionMeta, AdmissionTable, ApprovalTerms,
         EvaluatorConsent, Participant, TABLE_MAX_BYTES,
     },
     aggregation::{self as agg, Outcome as Agg, Progress},
@@ -33,10 +33,7 @@ use layerx_programs_ai_market::{
     },
     evaluators::{
         admission::{self as f03, AdmissionReceipt},
-        authority::{
-            self, split_identity_section, AuthorityContext, EvaluatorRecord, EvaluatorRegion,
-            LastRequest,
-        },
+        authority::{self, split_identity_section, EvaluatorRecord, EvaluatorRegion, LastRequest},
         model::{EvaluatorGrant, GrantStatus, GrantTerms, SignedReport},
     },
     policy::{PolicyCommitments, TaskPolicyV1, TASK_POLICY_BYTES},
@@ -58,7 +55,7 @@ use layerx_programs_ai_market::{
         Presence, PrincipalId, ProgramId, PublicKey32, RequestDigest, RequestId, ResultDigest,
         RosterDigest, RubricDigest, Salt32, Signature64, Version, WorkerId, WorkerRosterEntry,
     },
-    workers::{WorkerCurrent, WorkerState, WorkerTable, WORKER_TABLE_MAX_BYTES},
+    workers::{WorkerTable, WORKER_TABLE_MAX_BYTES},
     MAX_EVENT_BYTES, MAX_RESULT_BYTES, MAX_STATE_BYTES,
 };
 use layerx_programs_runtime::terminal::{
@@ -448,45 +445,6 @@ fn consent_payload(
     Ok((consent.request, payload))
 }
 
-fn worker_record(
-    worker: WorkerId,
-    owner: PrincipalId,
-    delegate: PublicKey32,
-    slot: u8,
-    at: u64,
-) -> CodecResult<WorkerCurrent> {
-    Ok(WorkerCurrent {
-        worker,
-        owner,
-        delegate,
-        metadata: MetadataDigest::new(METADATA)?,
-        generation: 1,
-        key_version: 1,
-        metadata_revision: 1,
-        valid_from: at,
-        expiry: at + 4096,
-        revocation_sequence: 0,
-        effective_epoch: 0,
-        last_sequence: 0,
-        last_request_id: [0; 32],
-        last_request_digest: [0; 32],
-        last_result_digest: [0; 32],
-        state: WorkerState::Enrolled,
-        slot,
-        last_metadata_height: at,
-    })
-}
-fn roster_entry(record: &WorkerCurrent) -> CodecResult<WorkerRosterEntry> {
-    Ok(WorkerRosterEntry {
-        worker: record.worker,
-        owner: record.owner,
-        recipient: AccountId::new(record.owner.bytes())?,
-        generation: version()?,
-        key_version: version()?,
-        public_key: record.delegate,
-        metadata: record.metadata,
-    })
-}
 fn grant(
     market: &MarketHeader,
     owner: PrincipalId,
@@ -1380,7 +1338,7 @@ impl Market {
         self.world.owner_sequence += 1;
         Ok(())
     }
-    /// Registered RevokeEvaluator derives seal status from committed aggregation progress.
+    /// Registered `RevokeEvaluator` derives seal status from committed aggregation progress.
     fn revoke(&mut self, n: u8, at: u64) -> TestResult {
         self.owner_authority(
             dispatch::RevokeEvaluator,

@@ -1,5 +1,7 @@
 include!("reclaim.rs");
 
+use layerx_types::ids::Did;
+
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use ciborium::value::Value as CborValue;
@@ -667,7 +669,7 @@ fn archive_requires_real_reclaim_and_step_up_then_retires_authority_once() {
     for material in reclaim_agent.receipt_material.values() {
         let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
             .unwrap_or_else(|error| panic!("archive reclaim receipt: {error:?}"));
-        let protocol = receipt.protocol().expect("protocol reclaim receipt");
+        let protocol = receipt.protocol().or_fail("protocol reclaim receipt");
         assert_eq!(material.tx_hash, protocol.activity_id());
         assert_eq!(
             material.receipt_hash,

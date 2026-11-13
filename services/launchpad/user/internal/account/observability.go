@@ -128,6 +128,6 @@ func (s Store) Stats(ctx context.Context) (ServiceStats, error) {
 	if e != nil {
 		return v, e
 	}
-	e = s.DB.QueryRow(ctx, `SELECT (SELECT count(*) FROM account_endpoint WHERE validated_at<$1-interval '30 days'),(SELECT count(*) FROM account_backfill WHERE state='quarantined'),coalesce((SELECT max(n) FROM(SELECT count(*) n FROM account_watch GROUP BY account_id) sizes),0)`, s.now()).Scan(&v.ExpiredEndpoints, &v.QuarantinedBackfills, &v.WatchlistMax)
+	e = s.DB.QueryRow(ctx, `SELECT (SELECT count(*) FROM account_endpoint WHERE validated_at<$1::timestamptz-interval '30 days'),(SELECT count(*) FROM account_backfill WHERE state='quarantined'),coalesce((SELECT max(n) FROM(SELECT count(*) n FROM account_watch GROUP BY account_id) sizes),0)`, s.now()).Scan(&v.ExpiredEndpoints, &v.QuarantinedBackfills, &v.WatchlistMax)
 	return v, e
 }

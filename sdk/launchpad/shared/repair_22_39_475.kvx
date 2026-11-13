@@ -1,0 +1,117 @@
+[coverage]
+module = "sdk/launchpad/shared"
+threshold = "90.0%"
+before = "52.3%"
+after = "90.1%"
+
+[coverage.accounting]
+before = "58.8%"
+after = "94.2%"
+
+[coverage.accounting.sourcebootstrap]
+before = "3.0%"
+after = "83.3%"
+
+[coverage.auth]
+before = "32.4%"
+after = "90.0%"
+
+[coverage.chain]
+before = "38.8%"
+after = "88.8%"
+
+[coverage.chain.profile]
+before = "80.4%"
+after = "94.6%"
+
+[coverage.chain.readpolicy]
+before = "66.7%"
+after = "94.4%"
+
+[coverage.config]
+before = "25.1%"
+after = "93.8%"
+
+[coverage.config.capabilities]
+before = "61.3%"
+after = "89.4%"
+
+[coverage.config.capabilities.cmd.measure]
+before = "37.6%"
+after = "85.6%"
+
+[coverage.config.deployment]
+before = "81.0%"
+after = "94.2%"
+
+[coverage.db]
+before = "79.5%"
+after = "96.3%"
+
+[coverage.db.production]
+before = "42.8%"
+after = "89.4%"
+
+[coverage.db.production.coordinatortest]
+before = "78.5%"
+after = "80.2%"
+
+[coverage.delivery]
+before = "51.6%"
+after = "89.3%"
+
+[coverage.delivery.natsdriver]
+before = "71.3%"
+after = "86.0%"
+
+[coverage.http]
+before = "73.0%"
+after = "91.9%"
+
+[coverage.interfaces.v1]
+before = "84.0%"
+after = "98.7%"
+
+[coverage.log]
+before = "100.0%"
+after = "100.0%"
+
+[coverage.process]
+before = "22.4%"
+after = "96.3%"
+
+[coverage.queue]
+before = "61.1%"
+after = "100.0%"
+
+[coverage.redis]
+before = "70.3%"
+after = "92.9%"
+
+[coverage.secrets]
+before = "68.9%"
+after = "95.6%"
+
+[coverage.storage]
+before = "76.2%"
+after = "93.8%"
+
+[coverage.telemetry]
+before = "73.3%"
+after = "94.4%"
+
+[coverage.testpki]
+before = "0.0%"
+after = "81.5%"
+
+[coverage.util]
+before = "46.5%"
+after = "90.7%"
+
+[coverage.constants]
+before = "n/a"
+after = "n/a"
+
+[coverage.interfaces.v2]
+before = "n/a"
+after = "n/a"

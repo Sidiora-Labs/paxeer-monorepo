@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use std::error::Error;
 use std::io::{Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -38,6 +42,7 @@ struct Scratch(PathBuf);
 impl Scratch {
     fn new() -> Outcome<Self> {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
+        test_network::isolate()?;
         let path = std::env::temp_dir().join(format!(
             "xweb-payment-repair-{}-{}",
             std::process::id(),

@@ -4,15 +4,15 @@
 |---|---|
 | Domain | 22 (inference market), feature managers fm-programs, fm-ledger-auth-pay, fm-rpc-api, fm-agent, fm-platform, fm-web-explorer-bridge, fm-wallet, fm-tools-ops |
 | Precompiles | layerxpay 0x101B (ask streams), teeattestor 0x0907 (peer binding) and the ai-market program family F11 |
-| Revision | repository at 8e40540496 |
+| Revision | repository at 2bec29631dcd8426714cd9fe43570d820949aeba |
 | Change control | Changes only by amendment to this contract; every amendment updates the interface, contract_context and acceptance blocks that point here. |
-| Status meaning | stable: code and intent agree, no task touches it; change: behaviour or shape must change; new: absent at the revision and created by a task; retire: removed or refused by a task. |
+| Status meaning | served: the implementation symbol and its callers are present; stable: code and intent agree, no task touches it; change: behaviour or shape must change; new: absent at the revision and created by a task; retire: removed or refused by a task. |
 
 ## Scope and reading guide
 
 This contract freezes the surface of the pooled inference market (decision 2752, requirements 22998.1 and 22380.1 to 22380.6, tasks 22.38.1 to 22.38.39). The chain verifies, pays and connects peers: room, ask, bid, deal, lap receipt, canary, bond and payout records in the ai-market program, metered ask streams in 0x101B and peer attestation bindings in 0x0907. Orchestration runs off chain in the agent daemon profile inference-market and in the vendored peer runtime under apps/inference-peer; validators and nodes never take part in a room.
 
-Each `##` heading below is the anchor named by the `contract` key of the rows it lists. Every row is status new at the revision: it is created by the task named in its notes and reconciled to served by task 22.38.39.
+Each `##` heading below is the anchor named by the `contract` key of the rows it lists. The fifteen `interface.22.inference-*` rows are served at the revision. Their paths, declaration lines, signatures and callers are recorded in `interfaces.kvx`. Other rows retain their recorded status.
 
 ## Surface summary
 
@@ -20,7 +20,8 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 |---|---|
 | Anchors | 21 |
 | Interfaces | 43 |
-| Interfaces with status new | 43 |
+| Interfaces with status served | 15 |
+| Interfaces with status new | 28 |
 
 ## Contents
 
@@ -52,10 +53,10 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-f11-operation-table | rust_pub_item | programs/crates/layerx-programs-ai-market/src/dispatch.rs (planned) | pub const OpenRoom: Operation = Operation(0x0B01) through CloseRoom = Operation(0x0B0C) and the reads RoomView = Operation(0x0B10) through BookView = Operation(0x0B14) | 22.38.1 | new |
-| interface.22.inference-f11-errors | rust_pub_item | programs/crates/layerx-programs-ai-market/src/errors.rs (planned) | pub const F11_ROOM_UNKNOWN and the other F11 error codes | 22.38.1 | new |
-| interface.22.inference-f11-availability | rust_pub_item | programs/crates/layerx-programs-ai-market/src/queries.rs (planned) | pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]> | 22.38.1 | new |
-| interface.22.inference-room-profile | rust_pub_item | programs/crates/layerx-programs-ai-market/src/policy.rs (planned) | room profile fields of the market policy (host share, protocol share, bond, lap size, challenge window, maximum tokens) | 22.38.1 | new |
+| interface.22.inference-f11-operation-table | rust_pub_item | programs/crates/layerx-programs-ai-market/src/dispatch.rs:194 | pub const OpenRoom: Operation = Operation(0x0B01); | 22.38.1 | served |
+| interface.22.inference-f11-errors | rust_pub_item | programs/crates/layerx-programs-ai-market/src/errors.rs:244 | pub const F11_ROOM_UNKNOWN: ApplicationError = application_error(0x0B01); | 22.38.1 | served |
+| interface.22.inference-f11-availability | rust_pub_item | programs/crates/layerx-programs-ai-market/src/queries.rs:1084 | pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]> | 22.38.1 | served |
+| interface.22.inference-room-profile | rust_pub_item | programs/crates/layerx-programs-ai-market/src/policy.rs:430 | pub struct RoomProfile | 22.38.1 | served |
 
 ## manifest-v2
 
@@ -63,7 +64,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-manifest-v2 | file_format | programs/crates/layerx-programs-ai-market/src/workers.rs (planned) | ManifestV2: v1 fields then runtime digest, model digest, device class, memory bytes, bandwidth class, price quote; domain PARTICIPANT_METADATA_DOMAIN_V2 | 22.38.2 | new |
+| interface.22.inference-manifest-v2 | file_format | programs/crates/layerx-programs-ai-market/src/workers.rs:756 | pub struct ManifestV2<'a> | 22.38.2 | served |
 
 ## room-records
 
@@ -71,7 +72,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-room-record | rust_pub_item | programs/crates/layerx-programs-ai-market/src/rooms.rs (planned) | pub struct RoomRecord, AskRecord, BidRecord, DealRecord and pub fn apply_record_deal | 22.38.3 | new |
+| interface.22.inference-room-record | rust_pub_item | programs/crates/layerx-programs-ai-market/src/rooms.rs:103 | pub struct RoomRecord | 22.38.3 | served |
 
 ## lap-receipts
 
@@ -79,7 +80,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-lap-receipt | rust_pub_item | programs/crates/layerx-programs-ai-market/src/laps.rs (planned) | pub struct LapReceipt, ReceiptBatch and pub fn apply_settle_laps | 22.38.4 | new |
+| interface.22.inference-lap-receipt | rust_pub_item | programs/crates/layerx-programs-ai-market/src/laps.rs:25 | pub struct LapReceipt<'a> | 22.38.4 | served |
 
 ## canary
 
@@ -87,7 +88,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-canary-commitment | rust_pub_item | programs/crates/layerx-programs-ai-market/src/canary.rs (planned) | pub struct CanaryCommitment, pub fn apply_challenge_lap, apply_resolve_challenge, relative_tolerance_hit | 22.38.5 | new |
+| interface.22.inference-canary-commitment | rust_pub_item | programs/crates/layerx-programs-ai-market/src/canary.rs:228 | pub struct CanaryCommitment | 22.38.5 | served |
 
 ## payout-split
 
@@ -95,7 +96,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-payout-split | rust_pub_item | programs/crates/layerx-programs-ai-market/src/rewards.rs (planned) | pub fn apply_split_payout and pub struct PayoutShares | 22.38.6 | new |
+| interface.22.inference-payout-split | rust_pub_item | programs/crates/layerx-programs-ai-market/src/rewards.rs:3646 | pub fn apply_split_payout( ctx: &CallContext, envelope: &ValidatedEnvelope<'_>, current: &[u8], next: &mut [u8], scratch: &mut [u8], event: &mut [u8], ) -> CodecResult<crate::rooms::Outcome> | 22.38.6 | served |
 
 ## bonds
 
@@ -103,7 +104,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-bond-record | rust_pub_item | programs/crates/layerx-programs-ai-market/src/bonds.rs (planned) | pub struct BondRecord, pub fn apply_lock_bond, apply_slash_bond, apply_refund_bond | 22.38.7 | new |
+| interface.22.inference-bond-record | rust_pub_item | programs/crates/layerx-programs-ai-market/src/bonds.rs:21 | pub struct BondRecord | 22.38.7 | served |
 
 ## placement-book
 
@@ -111,7 +112,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-placement-book | rust_pub_item | programs/crates/layerx-programs-ai-market/src/placement.rs (planned) | pub struct PlacementBook, BookView and pub fn crossing_pairs | 22.38.11 | new |
+| interface.22.inference-placement-book | rust_pub_item | programs/crates/layerx-programs-ai-market/src/placement.rs:74 | pub struct PlacementBook<'a> | 22.38.11 | served |
 
 ## views
 
@@ -119,7 +120,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-f11-views | rust_pub_item | programs/crates/layerx-programs-ai-market/src/queries.rs (planned) | pub struct RoomView, DealView, PeerView, ReceiptBatchView and pub fn answer_room_view | 22.38.8 | new |
+| interface.22.inference-f11-views | rust_pub_item | programs/crates/layerx-programs-ai-market/src/queries.rs:67 | pub struct RoomView | 22.38.8 | served |
 
 ## streams-0x101b
 
@@ -130,6 +131,26 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 | interface.22.pc-0x101b-streamopenforask | precompile_method | precompiles/layerxpay/stream.go (planned) | streamOpenForAsk(bytes32,address,uint256,uint8,uint256,bytes32) returns (bytes32) (planned) | 22.38.9 | new |
 | interface.22.pc-0x101b-askstreamof | precompile_method | precompiles/layerxpay/stream.go (planned) | askStreamOf(bytes32) view returns (bytes32) (planned) | 22.38.9 | new |
 | interface.22.pc-0x101b-evt-askstreamopened | precompile_event | precompiles/layerxpay/events.go (planned) | AskStreamOpened(bytes32 indexed,bytes32 indexed,address) (planned) | 22.38.9 | new |
+
+The bytes32 identifier returned by `streamOpenForAsk` and `askStreamOf` is the call idempotency key with its first sixteen bytes set to zero, so it fits the ask record’s u128 stream field. The assignment is in `precompiles/layerxpay/stream.go:22`; `node/app.go:3860` configures inference reads from `evm.px_inference_program` and `evm.px_inference_reader`; `services/agent/crates/layerx-agentd/src/main.rs:2130` uses `LAYERX_AGENT_CONSENSUS_ENDPOINT` for consensus reads, with the node endpoint as its default. The committed source retries historical proof rate limits at most eight times, 250 ms apart, with a one-second node request timeout and a two-second socket I/O timeout.
+
+Inference reads in `rpc/px_account.go` use the quoted call fee; `rpc/simulate.go` evaluates their private native simulation in batch H+1 over the store pinned at committed height H. `rpc/px_inference.go` decodes the version-2 room profile and closed height.
+
+The daemon's native historical reads retry a proof rate limit at most eight times, 250 ms apart; each native RPC request retains its thirty-second timeout.
+
+The daemon verifies each deployment admission and replays its journal by program identifier and version.
+
+The inference book uses the node's committed header below its latest height and authenticates the preceding store height through the configured consensus endpoint, with unprefixed hexadecimal store keys and at most eight retries of a historical proof rate limit, 250 ms apart.
+
+Availability checks independently verify the node header at the gateway publication's height under the configured freshness bound; readiness requires that publication's exact height and block hash.
+
+The committed-header RPC validates the chain identifier from the initialized node context on each request.
+
+The signalling client uses node RPC independently of the gateway snapshot client. Its header, room and peer reads use the verified availability height; `px_getInferenceRoomAt` and `px_getInferencePeerAt` accept a positive committed height and apply the same program and peer-binding decoders as current-height reads. Native peers retry `chain_unavailable` admission responses at most seven times, 250 ms apart, within a twenty-second admission deadline.
+
+Human-session node readiness uses the consensus chain identifier of the configured trust root and separately requires EVM chain 125.
+
+CPU layer planning uses the manifest's system memory; accelerator layer planning uses its accelerator memory. Deal and lap envelopes derive their protocol principal from the signer's DID; a room host's DID must bind the signer's Ed25519 public key, and evidence envelopes use their own signer's DID.
 
 ## attestation-0x0907
 
@@ -159,7 +180,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-mode-inference-market | rust_pub_item | services/agent/crates/layerx-agentd/src/human_owner_mode.rs (planned) | Mode::InferenceMarket parsed from the mode value inference-market | 22.38.14 | new |
+| interface.22.inference-mode-inference-market | rust_pub_item | services/agent/crates/layerx-agentd/src/human_owner_mode.rs:4 | pub enum Mode | 22.38.14 | served |
 | interface.22.env-layerx-agent-inference-signal-listen | env_var | services/agent/crates/layerx-agentd/src/inference_market/mod.rs (planned) | LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN | 22.38.14 | new |
 | interface.22.env-layerx-agent-inference-serve-listen | env_var | services/agent/crates/layerx-agentd/src/inference_market/mod.rs (planned) | LAYERX_AGENT_INFERENCE_SERVE_LISTEN | 22.38.14 | new |
 | interface.22.env-layerx-agent-inference-model-digest | env_var | services/agent/crates/layerx-agentd/src/inference_market/mod.rs (planned) | LAYERX_AGENT_INFERENCE_MODEL_DIGEST | 22.38.14 | new |
@@ -172,7 +193,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-signal-hello-frame | file_format | services/agent/crates/layerx-agentd/src/inference_market/signal.rs (planned) | hello frame (peer key, signature over room id and nonce, v2 manifest) answered by the room offer (room id, model digest, runtime digest, layer plan, price); frames at most 65536 bytes | 22.38.16 | new |
+| interface.22.inference-signal-hello-frame | file_format | services/agent/crates/layerx-agentd/src/inference_market/signal.rs:25 | pub struct HelloFrame | 22.38.16 | served |
 | interface.22.ws-inference-signal | ws_route | services/agent/crates/layerx-agentd/src/inference_market/signal.rs (planned) | WS / on the signalling listener (planned) | 22.38.16 | new |
 
 ## completion-routes
@@ -190,7 +211,7 @@ Each `##` heading below is the anchor named by the `contract` key of the rows it
 
 | Interface | Kind | Defined at | Signature | Task | Status |
 |---|---|---|---|---|---|
-| interface.22.inference-peer-wire-frame | file_format | apps/inference-peer/src/wire.mjs (planned) | room wire frame encoded by encodeFrame and decoded by decodeFrame (kind, room id, sequence, payload) | 22.38.24 | new |
+| interface.22.inference-peer-wire-frame | file_format | apps/inference-peer/src/wire.mjs:45 | export function encodeFrame({ kind, roomId, sequence, payload }) | 22.38.24 | served |
 
 ## peer-cli
 

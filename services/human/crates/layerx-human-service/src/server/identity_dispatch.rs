@@ -19,7 +19,7 @@ use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, RecoveryRoot};
 
 #[path = "identity_projection.rs"]
-mod api_projection;
+pub(crate) mod api_projection;
 pub(crate) fn step_up_challenge(value: &StepUpChallenge) -> Result<Value, IdentityDispatchError> {
     api_projection::step_up_challenge(value)
 }
@@ -113,6 +113,8 @@ impl AssertionAccount {
 }
 
 impl RemoteIdentityProvider {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn new(config: IdentityProviderConfig) -> Result<Self, IdentityDispatchError> {
         if !config.socket.is_absolute()
             || config.deadline.is_zero()
@@ -123,6 +125,8 @@ impl RemoteIdentityProvider {
         Ok(Self { config })
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn provision(
         &self,
         email: &str,
@@ -229,6 +233,8 @@ impl RemoteIdentityProvider {
         Ok(AssertionAccount { principal, did })
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn probe(&self) -> Result<(), IdentityDispatchError> {
         if self.call(0, &[])?.is_empty() {
             Ok(())
@@ -511,6 +517,10 @@ mod profile_tests {
     use serde_json::json;
     use std::path::{Path, PathBuf};
 
+    fn required<T, E: std::fmt::Debug>(result: Result<T, E>, context: &str) -> T {
+        result.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+
     fn directory(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
             "layerx-human-identity-{label}-{}",
@@ -519,17 +529,18 @@ mod profile_tests {
     }
 
     fn principal(name: &str) -> PrincipalId {
-        PrincipalId::new(name).expect("principal")
+        PrincipalId::new(name).unwrap_or_else(|error| panic!("{}: {error:?}", "principal"))
     }
 
     fn tenancy(pairs: &[(&str, &str)]) -> TenancyMap {
         TenancyMap::new(pairs.iter().map(|(name, tenant)| {
             (
                 principal(name),
-                AgentTenantId::new(*tenant).expect("tenant"),
+                AgentTenantId::new(*tenant)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "tenant")),
             )
         }))
-        .expect("tenancy map")
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "tenancy map"))
     }
 
     fn retention_uniform(units: u64) -> RetentionPolicy {
@@ -548,8 +559,11 @@ mod profile_tests {
         map: &TenancyMap,
         retention: RetentionPolicy,
     ) -> (PrincipalStore, TenancyDigest) {
-        let digest = map.install(root).expect("install tenancy");
-        let store = PrincipalStore::open(root, retention, digest).expect("open store");
+        let digest = map
+            .install(root)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "install tenancy"));
+        let store = PrincipalStore::open(root, retention, digest)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "open store"));
         (store, digest)
     }
 
@@ -571,20 +585,25 @@ mod profile_tests {
         );
         let request = OnboardingStart::new(
             [0x38; 32],
-            Did::new(b"did:layerx:onboarding-owner").expect("DID"),
+            Did::new(b"did:layerx:onboarding-owner")
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "DID")),
             RecoveryPolicy::new(
                 RecoveryRoot::new([0x39; 32]),
-                ApprovalThreshold::new(2).expect("threshold"),
+                ApprovalThreshold::new(2)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "threshold")),
                 86_400,
             )
-            .expect("recovery policy"),
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recovery policy")),
         )
-        .expect("onboarding request");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "onboarding request"));
         let before = {
-            let mut scope = store.principal(&owner).expect("owner scope");
+            let mut scope = store
+                .principal(&owner)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "owner scope"));
             let journey = OnboardingJourney::start(&mut scope, &request, 1_700_000_000)
-                .expect("start durable onboarding");
-            let projected = onboarding_status(&scope, &journey.status()).expect("project journey");
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "start durable onboarding"));
+            let projected = onboarding_status(&scope, &journey.status())
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "project journey"));
             assert_eq!(projected["journey_id"], format!("jrn_{}", "38".repeat(32)));
             assert_eq!(projected["state"], "getting-ready");
             assert_eq!(projected["state_copy_key"], "status.getting_ready");
@@ -609,14 +628,17 @@ mod profile_tests {
         };
         drop(store);
         let mut reopened = PrincipalStore::open(&root, retention_uniform(10_000), digest)
-            .expect("reopen durable onboarding store");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "reopen durable onboarding store"));
         {
-            let scope = reopened.principal(&owner).expect("reopened owner scope");
+            let scope = reopened
+                .principal(&owner)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "reopened owner scope"));
             let journey = OnboardingJourney::load(&scope)
-                .expect("load journey")
-                .expect("retained journey");
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "load journey"))
+                .unwrap_or_else(|| panic!("{}", "retained journey"));
             assert_eq!(
-                onboarding_status(&scope, &journey.status()).expect("recovered projection"),
+                onboarding_status(&scope, &journey.status())
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "recovered projection")),
                 before
             );
         }
@@ -625,7 +647,9 @@ mod profile_tests {
             "agent.create.stage.first-funding"
         );
         drop(reopened);
-        std::fs::remove_dir_all(root).expect("remove onboarding qualification directory");
+        std::fs::remove_dir_all(root).unwrap_or_else(|error| {
+            panic!("{}: {error:?}", "remove onboarding qualification directory")
+        });
     }
 
     #[test]
@@ -643,24 +667,29 @@ mod profile_tests {
         );
         let original = json!({"display_name": "Local profile", "avatar_url": "https://paxeer.network/avatar.png"});
         {
-            let mut scope = store.principal(&alice).expect("Alice principal scope");
-            assert_eq!(
-                update_profile(&mut scope, &original, 1).expect("profile with avatar"),
-                original
+            let mut scope = required(store.principal(&alice), "Alice principal scope");
+            let updated = required(
+                update_profile(&mut scope, &original, 1),
+                "profile with avatar",
             );
+            assert_eq!(updated, original);
             assert_eq!(
                 update_profile(
                     &mut scope,
                     &json!({"display_name": "Renamed local profile"}),
                     2
                 )
-                .expect("name-only update")["avatar_url"],
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "name-only update"))["avatar_url"],
                 original["avatar_url"]
             );
             let cleared = update_profile(&mut scope, &json!({"avatar_url": ""}), 3)
-                .expect("schema string avatar clear");
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "schema string avatar clear"));
             assert_eq!(cleared, json!({"display_name": "Renamed local profile"}));
-            assert_eq!(profile(&scope).expect("profile after clearing"), cleared);
+            assert_eq!(
+                profile(&scope)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "profile after clearing")),
+                cleared
+            );
             for rejected in [
                 json!({"avatar_url": "http://paxeer.network/avatar.png"}),
                 json!({"avatar_url": false}),
@@ -670,11 +699,15 @@ mod profile_tests {
                     update_profile(&mut scope, &rejected, 4),
                     Err(IdentityDispatchError::InvalidInput)
                 ));
-                assert_eq!(profile(&scope).expect("profile after refusal"), cleared);
+                assert_eq!(
+                    profile(&scope)
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "profile after refusal")),
+                    cleared
+                );
             }
         }
         {
-            let scope = store.principal(&bob).expect("Bob principal scope");
+            let scope = required(store.principal(&bob), "Bob principal scope");
             assert!(matches!(
                 profile(&scope),
                 Err(IdentityDispatchError::NotFound)
@@ -682,35 +715,41 @@ mod profile_tests {
         }
         drop(store);
         let mut reopened = PrincipalStore::open(&root, retention_uniform(10_000), digest)
-            .expect("reopen durable profile store");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "reopen durable profile store"));
         {
-            let scope = reopened.principal(&alice).expect("Alice reopened scope");
+            let scope = required(reopened.principal(&alice), "Alice reopened scope");
             assert_eq!(
-                profile(&scope).expect("persisted cleared avatar"),
+                profile(&scope)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "persisted cleared avatar")),
                 json!({"display_name": "Renamed local profile"})
             );
         }
         {
-            let mut scope = reopened.principal(&bob).expect("Bob reopened scope");
+            let mut scope = required(reopened.principal(&bob), "Bob reopened scope");
             assert_eq!(
-                update_profile(&mut scope, &original, 5).expect("Bob local profile"),
+                update_profile(&mut scope, &original, 5)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "Bob local profile")),
                 original
             );
             assert_eq!(
-                update_profile(&mut scope, &json!({"avatar_url": null}), 6)
-                    .expect("existing null clear remains supported"),
+                update_profile(&mut scope, &json!({"avatar_url": null}), 6).unwrap_or_else(
+                    |error| panic!("{}: {error:?}", "existing null clear remains supported")
+                ),
                 json!({"display_name": "Local profile"})
             );
         }
         {
-            let scope = reopened.principal(&alice).expect("Alice isolation scope");
+            let scope = required(reopened.principal(&alice), "Alice isolation scope");
             assert_eq!(
-                profile(&scope).expect("Alice remains unchanged"),
+                profile(&scope)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "Alice remains unchanged")),
                 json!({"display_name": "Renamed local profile"})
             );
         }
         drop(reopened);
-        std::fs::remove_dir_all(root).expect("remove profile qualification directory");
+        std::fs::remove_dir_all(root).unwrap_or_else(|error| {
+            panic!("{}: {error:?}", "remove profile qualification directory")
+        });
     }
 
     #[test]
@@ -744,6 +783,6 @@ mod profile_tests {
         );
         assert!(response
             .get("avatar_url")
-            .is_some_and(|value| value.is_string()));
+            .is_some_and(serde_json::Value::is_string));
     }
 }

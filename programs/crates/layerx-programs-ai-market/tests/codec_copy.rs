@@ -6,18 +6,20 @@ use layerx_programs_ai_market::{
 #[test]
 fn section_copy_preserves_unaligned_words_tails_and_bounds() {
     for len in 0..=1025 {
-        let source: Vec<u8> = (0..len).map(|i| (i * 73 + 19) as u8).collect();
+        let source: Vec<u8> = (0_usize..len)
+            .map(|i| (i * 73 + 19).to_le_bytes()[0])
+            .collect();
         let mut target = vec![0xa5; len + 2];
-        let mut writer = Writer::new(&mut target[1..len + 1]);
+        let mut writer = Writer::new(&mut target[1..=len]);
         assert_eq!(writer.put(&source), Ok(()));
         assert_eq!(writer.len(), len);
         assert_eq!(writer.put(&[7]), Err(CAPACITY));
         assert_eq!(writer.len(), len);
         assert_eq!(target[0], 0xa5);
         assert_eq!(target[len + 1], 0xa5);
-        assert_eq!(&target[1..len + 1], source.as_slice());
+        assert_eq!(&target[1..=len], source.as_slice());
         assert_eq!(
-            Reader::new(&target[1..len + 1]).take(len),
+            Reader::new(&target[1..=len]).take(len),
             Ok(source.as_slice())
         );
     }
@@ -41,7 +43,7 @@ fn section_copy_preserves_large_sections_at_every_word_alignment() {
     ] {
         for source_offset in 0..8 {
             let input: Vec<u8> = (0..len + source_offset)
-                .map(|index| (index * 73 + 19) as u8)
+                .map(|index| (index * 73 + 19).to_le_bytes()[0])
                 .collect();
             let source = &input[source_offset..];
             for destination_offset in 0..8 {
@@ -78,7 +80,7 @@ fn reader_preserves_offsets_and_refuses_without_consuming() {
     assert_eq!(reader.offset(), 2);
     assert_eq!(reader.remaining(), 5);
     assert_eq!(reader.finish(), Err(NON_CANONICAL));
-    assert_eq!(reader.u32(), Ok(0x03040506));
+    assert_eq!(reader.u32(), Ok(0x0304_0506));
     assert_eq!(reader.u8(), Ok(7));
     assert_eq!(reader.take(0), Ok(&[][..]));
     assert_eq!(reader.offset(), input.len());

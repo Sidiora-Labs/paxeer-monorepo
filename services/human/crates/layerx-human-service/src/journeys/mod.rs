@@ -7,7 +7,6 @@ mod move_money;
 mod observed;
 mod resolver;
 mod router;
-mod wire;
 
 pub use layerx_client::sequencer::ReceiptKeyEntry;
 

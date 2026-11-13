@@ -2,6 +2,7 @@
 import argparse
 import ctypes
 import hashlib
+import http.client
 import importlib.util
 import json
 import os
@@ -249,7 +250,7 @@ def build(manifest):
         return result.stdout
 
     artifacts = {}
-    agent = step(['cargo', 'build', '--locked', '--release', '--manifest-path', 'services/agent/Cargo.toml', '-p', 'layerx-agentd',
+    agent = step(['cargo', 'build', '--locked', '--release', '--manifest-path', 'services/agent/Cargo.toml', '-p', 'layerx-agentd-host',
                   '--bins', '--message-format=json'])
     artifacts.update(cargo_executables(agent, {('layerx-agentd', 'bin'): 'agentd'}))
     probe = step(['cargo', 'test', '--locked', '--release', '--manifest-path', 'services/agent/Cargo.toml', '-p', 'layerx-sdk',
@@ -2613,10 +2614,62 @@ def terminate_participant_tree(participant):
             os.close(descriptor)
 
 
-def run_participant(argv, env, evidence, revision, directory, timeout=1680):
+class ParticipantProcesses:
+    """Own the processes and private logs of one bounded runtime proof."""
+
+    def __init__(self, directory):
+        self.directory = Path(directory)
+        self.processes = []
+
+    def start(self, name, argv, env):
+        require(re.fullmatch(r'[a-z0-9_-]+', name), 'participant log name')
+        path = self.directory / (name + '.log')
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, 'wb') as log:
+            process = subprocess.Popen([str(item) for item in argv], cwd=ROOT, env=env,
+                                       stdout=log, stderr=log, start_new_session=True)
+        self.processes.append((name, process, path))
+        write_private(self.directory / (name + '-process.json'),
+                      {'argv': [str(item) for item in argv], 'pid': process.pid, 'log': str(path)})
+        return process
+
+    def check(self):
+        for name, process, path in self.processes:
+            if process.poll() is not None:
+                with path.open('rb') as log:
+                    first = log.read(16384).decode('utf-8', errors='replace').splitlines()
+                diagnostic = first[0] if first else '(no startup output)'
+                record = self.directory / (name + '-failure.json')
+                if not record.exists():
+                    write_private(record, {'process': name, 'exit': process.returncode,
+                                           'first_message': diagnostic, 'log': str(path)})
+                raise RuntimeError(name + ' exited ' + str(process.returncode) + ': '
+                                   + diagnostic + '; inspect ' + str(path))
+
+    def wait(self, predicate, seconds=120):
+        deadline = time.monotonic() + seconds
+        last = None
+        while time.monotonic() < deadline:
+            self.check()
+            try:
+                result = predicate()
+                if result:
+                    return result
+            except (OSError, ValueError, http.client.HTTPException) as error:
+                last = error
+            time.sleep(.1)
+        raise RuntimeError('participant readiness deadline') from last
+
+    def stop(self):
+        for _, process, _ in reversed(self.processes):
+            terminate_participant_tree(process)
+
+
+def run_participant(argv, env, evidence, revision, directory, timeout=1680, log_name='worker.log'):
     """Retain terminal evidence even when the namespace participant times out."""
     started = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-    log_path = evidence / 'worker.log'
+    require(Path(log_name).name == log_name, 'participant log must remain in the evidence directory')
+    log_path = evidence / log_name
     # Adopt orphaned namespace-launcher descendants so killing the process group
     # cannot leave grandchildren as zombies in the qualification container.
     libc = ctypes.CDLL(None, use_errno=True)

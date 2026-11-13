@@ -15,4 +15,7 @@ auto_detect_solc = false
 [profile.ci]
 verbosity = 4
 
+[fmt]
+ignore = ["contracts/src/WPAX.sol"]
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

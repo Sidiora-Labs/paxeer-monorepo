@@ -48,8 +48,8 @@ use crate::{
     },
     rewards::RewardState,
     state::{
-        decode_shared_state, settlement_rewards, ActorSlot, ReplayDecision, ReplayRequest,
-        RetainedResult, Section, SharedState,
+        decode_shared_state, ActorSlot, ReplayDecision, ReplayRequest, RetainedResult, Section,
+        SharedState,
     },
     types::{
         Authentication, Digest32, EpochPhase, EpochWindows, MarketId, MetadataDigest, PolicyDigest,
@@ -291,7 +291,7 @@ impl<'a> TaskSet<'a> {
             .as_chunks::<{ TASK_BINDING_BYTES }>()
             .0
             .iter()
-            .map(|chunk| chunk.as_slice())
+            .map(<[u8; 233]>::as_slice)
             .map(TaskBinding::decode)
     }
     /// Index of `task`, or of its ordered insertion point, and the record when present.
@@ -428,7 +428,7 @@ pub enum Outcome {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn committed<'a>(state: &SharedState<'a>) -> CodecResult<PolicySection<'a>> {
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -780,14 +780,12 @@ fn finish(
     let receipt = Receipt::new(&opened.binding, revision, e.request, e.operation)?;
     let (_, state_len) = crate::rewards::finish_feature_transition(
         opened.state.clone(),
-        section,
+        &section,
         replay,
         call.ctx.height,
         receipt.digest,
         NON_CANONICAL,
-        policy,
-        control,
-        next,
+        (policy, control, next),
     )?;
     let event_len = codec::encode_event_frame(
         e.operation,
@@ -856,7 +854,7 @@ fn check_frozen_worker(opened: &Opened<'_>, body: &AdmitBody, height: u64) -> Co
         &opened.admission,
         &opened.section,
         &region,
-        opened.row.row,
+        &opened.row.row,
         opened.row.dictionary,
     )?;
     if captured.binding.epoch != binding.epoch
@@ -995,11 +993,11 @@ fn cancel(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
         TaskStatus::Cancelled => {
             return Ok(Outcome::AlreadyApplied {
                 subject: Digest32::new(task.bytes())?,
-            })
+            });
         }
         TaskStatus::Accepted if call.ctx.height >= record.deadline => {}
         TaskStatus::Accepted | TaskStatus::ResultCommitted => {
-            return Err(F01_TASK_ALREADY_ACCEPTED)
+            return Err(F01_TASK_ALREADY_ACCEPTED);
         }
     }
     call.check_open_lifecycle()?;

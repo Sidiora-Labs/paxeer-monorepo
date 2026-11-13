@@ -21,7 +21,7 @@ import (
 type pxKernelAPI struct {
 	tmClient         client.LocalClient
 	txConfigProvider func(int64) client.TxConfig
-	chainID          string
+	ctxProvider      func(int64) sdk.Context
 	connectionType   ConnectionType
 }
 
@@ -84,7 +84,12 @@ func (a *pxKernelAPI) GetCommit(ctx context.Context, value string) (result *pxCo
 		return nil, err
 	}
 	commit, err := a.tmClient.Commit(ctx, &height)
-	if err != nil || commit == nil || commit.Header == nil || commit.Header.Height != height || commit.SignedHeader.ValidateBasic(a.chainID) != nil {
+	if err != nil || commit == nil || commit.Header == nil || commit.Header.Height != height {
+		logger.Error("Committed header acquisition failed", "height", height, "error", err)
+		return nil, pxChainUnavailable("consensus_unavailable")
+	}
+	if err := commit.SignedHeader.ValidateBasic(a.ctxProvider(LatestCtxHeight).ChainID()); err != nil {
+		logger.Error("Committed header validation failed", "height", height, "error", err)
 		return nil, pxChainUnavailable("consensus_unavailable")
 	}
 	return &pxCommitResult{Height: strconv.FormatInt(height, 10), SignedHeader: commit.SignedHeader}, nil
@@ -150,7 +155,7 @@ func (a *pxKernelAPI) GetSequenceBatch(ctx context.Context, value string) (resul
 		return nil, pxChainUnavailable("consensus_unavailable")
 	}
 	block := response.Block
-	if block.Height != height || block.ChainID != a.chainID || !bytes.Equal(block.DataHash, block.Txs.Hash()) {
+	if block.Height != height || block.ChainID != a.ctxProvider(LatestCtxHeight).ChainID() || !bytes.Equal(block.DataHash, block.Txs.Hash()) {
 		return nil, pxChainUnavailable("invalid_consensus_response")
 	}
 	if len(block.Txs) == 0 || !bytes.HasPrefix(block.Txs[0], []byte(seqtypes.SequenceBatchDomain)) {

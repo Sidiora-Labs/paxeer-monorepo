@@ -105,7 +105,9 @@ impl AuthDiscoveryIndex {
             .create(true)
             .truncate(false)
             .mode(0o600)
-            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .custom_flags(i32::from_ne_bytes(
+                rustix::fs::OFlags::NOFOLLOW.bits().to_ne_bytes(),
+            ))
             .open(root.join("authentication.index.lock"))?;
         rustix::fs::flock(&lock, rustix::fs::FlockOperation::NonBlockingLockExclusive)
             .map_err(|_| ProductionAuthError::Unavailable)?;
@@ -252,6 +254,8 @@ impl AuthDiscoveryIndex {
         material.zeroize();
         Ok(seed)
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn bind_registration_at(
         &self,
         id: &str,
@@ -262,6 +266,8 @@ impl AuthDiscoveryIndex {
         self.compact(now)?;
         self.bind_registration(id, principal, expires_at)
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn bind_assertion_at(
         &self,
         id: &str,
@@ -272,6 +278,8 @@ impl AuthDiscoveryIndex {
         self.compact(now)?;
         self.bind_assertion(id, principal, expires_at)
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn bind_step_up_at(
         &self,
         id: &str,
@@ -284,6 +292,8 @@ impl AuthDiscoveryIndex {
     }
 
     /// Compacts expired transient bindings and abandoned capabilities atomically.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn compact(&self, now: u64) -> Result<(), ProductionAuthError> {
         let mut state = self
             .state
@@ -498,6 +508,8 @@ impl ExecutionCapability {
     pub const fn expires_at(&self) -> u64 {
         self.expires_at
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn into_bearer_context(
         self,
         assertion: &str,
@@ -651,9 +663,7 @@ pub fn bearer_session_id(assertion: &str) -> String {
     let digest: [u8; 32] = hash.finalize().into();
     let mut session = String::with_capacity(39);
     session.push_str("bearer-");
-    for byte in &digest[..16] {
-        session.push_str(&format!("{byte:02x}"));
-    }
+    crate::hex::push_lower(&mut session, &digest[..16]);
     session
 }
 
@@ -1317,15 +1327,17 @@ fn compact_state(state: &mut State, now: u64) -> Result<(), ProductionAuthError>
 }
 
 fn load(root: &Path, key: &IndexAuthenticationKey) -> Result<State, ProductionAuthError> {
+    const MAX_INDEX_BYTES: u64 = 64 * 1024 * 1024;
     let path = root.join(FILE);
     if !path.exists() {
         return Ok(State::default());
     }
     let file = OpenOptions::new()
         .read(true)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .custom_flags(i32::from_ne_bytes(
+            rustix::fs::OFlags::NOFOLLOW.bits().to_ne_bytes(),
+        ))
         .open(path)?;
-    const MAX_INDEX_BYTES: u64 = 64 * 1024 * 1024;
     if !file.metadata()?.is_file() || file.metadata()?.len() > MAX_INDEX_BYTES {
         return Err(ProductionAuthError::IndexAuthentication);
     }
@@ -1335,7 +1347,11 @@ fn load(root: &Path, key: &IndexAuthenticationKey) -> Result<State, ProductionAu
         return Err(ProductionAuthError::IndexAuthentication);
     }
     let cut = authenticated_index_length(&bytes, key)?;
-    let mut cursor = Cursor::new(&bytes[..cut]);
+    decode_index(&bytes[..cut])
+}
+
+fn decode_index(bytes: &[u8]) -> Result<State, ProductionAuthError> {
+    let mut cursor = Cursor::new(bytes);
     if cursor
         .take(4)
         .map_err(|_| ProductionAuthError::IndexAuthentication)?
@@ -1352,7 +1368,7 @@ fn load(root: &Path, key: &IndexAuthenticationKey) -> Result<State, ProductionAu
         2 => {
             state.observed_at = cursor
                 .u64()
-                .map_err(|_| ProductionAuthError::IndexAuthentication)?
+                .map_err(|_| ProductionAuthError::IndexAuthentication)?;
         }
         _ => return Err(ProductionAuthError::IndexAuthentication),
     }

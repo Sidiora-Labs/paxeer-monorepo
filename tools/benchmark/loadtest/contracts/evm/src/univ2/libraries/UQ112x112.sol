@@ -5,7 +5,7 @@ pragma solidity >=0.8.10;
 /// @author [Uniswap Labs](https://github.com/Uniswap/v2-core/blob/master/contracts/libraries/UQ112x112.sol)
 /// @notice Library for handling binary fixed point numbers
 library UQ112x112 {
-    uint224 public constant Q112 = 2**112;
+    uint224 public constant Q112 = 2 ** 112;
 
     // encode a uint112 as a UQ112x112
     function encode(uint112 y) internal pure returns (uint224 z) {

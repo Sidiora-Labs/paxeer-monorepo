@@ -145,7 +145,7 @@ func applyRepair29Migration(t *testing.T, ctx context.Context, pool *pgxpool.Poo
 	}
 }
 
-func TestRepair_29_RewardSchemaReadiness(t *testing.T) {
+func TestProductionRewardSchemaReadiness(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	dsn, stop := repair29Store(t, ctx, filepath.Join(t.TempDir(), "readiness"))

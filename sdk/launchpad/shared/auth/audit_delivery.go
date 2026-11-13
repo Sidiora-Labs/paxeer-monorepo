@@ -104,7 +104,7 @@ func (b AuditBridge) stageOne(ctx context.Context, id int64) (bool, error) {
 			log.Printf("transaction rollback: %v", cleanupErr)
 		}
 	}()
-	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('security-audit-delivery:'||$1::text,0))`, id); err != nil {
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('security-audit-delivery:'||$1::bigint::text,0))`, id); err != nil {
 		return false, err
 	}
 	var exists bool

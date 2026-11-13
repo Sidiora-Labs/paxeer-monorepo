@@ -356,7 +356,9 @@ fn visit_sources(root: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
     for entry in
         fs::read_dir(root).map_err(|error| format!("cannot read {}: {error}", root.display()))?
     {
-        let path = entry.map_err(|error| error.to_string())?.path();
+        let path = entry
+            .map_err(|error| format!("cannot read entry in {}: {error}", root.display()))?
+            .path();
         if path.is_dir() {
             visit_sources(&path, files)?;
         } else if path

@@ -39,8 +39,11 @@ fn chain_domain_is_derived_from_the_merged_chain_id() -> CodecResult<()> {
 
     let golden_hex: String = MERGED_CHAIN_DOMAIN
         .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
+        .fold(String::new(), |mut text, b| {
+            use core::fmt::Write as _;
+            write!(text, "{b:02x}").unwrap_or_else(|error| panic!("hex formatting: {error}"));
+            text
+        });
     let makefile_default = include_str!("../../../../Makefile")
         .lines()
         .find_map(|line| line.strip_prefix("PAXAI_CHAIN_DOMAIN ?= "));

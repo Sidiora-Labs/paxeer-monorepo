@@ -1,3 +1,5 @@
+// The included runtime-clock/src/server.rs is shared with another test module.
+#[allow(clippy::duplicate_mod)]
 #[path = "../../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod clock_server;
 
@@ -63,11 +65,7 @@ const PROTOCOL_VERSION: u16 = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VER
 
 pub(crate) mod hex {
     pub fn encode(bytes: impl AsRef<[u8]>) -> String {
-        bytes
-            .as_ref()
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect()
+        layerx_human_service::hex::lower(bytes.as_ref())
     }
     pub fn decode(value: impl AsRef<[u8]>) -> Result<Vec<u8>, ()> {
         let input = value.as_ref();
@@ -106,7 +104,7 @@ fn committed_checkpoint(fixture: &RecordedAuthority, height: u64) -> ServedCheck
             hash: must(hex::decode32(
                 fixture.block["parentHash"]
                     .as_str()
-                    .unwrap()
+                    .unwrap_or_else(|| panic!("missing value"))
                     .trim_start_matches("0x"),
             )),
             part_set_total: 1,
@@ -120,7 +118,7 @@ fn committed_checkpoint(fixture: &RecordedAuthority, height: u64) -> ServedCheck
         app_hash: must(hex::decode32(
             fixture.block["stateRoot"]
                 .as_str()
-                .unwrap()
+                .unwrap_or_else(|| panic!("missing value"))
                 .trim_start_matches("0x"),
         )),
         last_results_hash: Some([7; 32]),
@@ -167,15 +165,15 @@ fn commit_response(checkpoint: &ServedCheckpoint) -> Value {
             "version": {"block": header.version_block.to_string(), "app": header.version_app.to_string()},
             "chain_id": header.chain_id, "height": header.height.to_string(),
             "time": "2023-11-14T22:13:20Z",
-            "last_block_id": block_id(header.last_block_id.unwrap()),
-            "last_commit_hash": hex::encode(header.last_commit_hash.unwrap()),
-            "data_hash": hex::encode(header.data_hash.unwrap()),
+            "last_block_id": block_id(header.last_block_id.unwrap_or_else(|| panic!("missing value"))),
+            "last_commit_hash": hex::encode(header.last_commit_hash.unwrap_or_else(|| panic!("missing value"))),
+            "data_hash": hex::encode(header.data_hash.unwrap_or_else(|| panic!("missing value"))),
             "validators_hash": hex::encode(header.validators_hash),
             "next_validators_hash": hex::encode(header.next_validators_hash),
             "consensus_hash": hex::encode(header.consensus_hash),
             "app_hash": hex::encode(header.app_hash),
-            "last_results_hash": hex::encode(header.last_results_hash.unwrap()),
-            "evidence_hash": hex::encode(header.evidence_hash.unwrap()),
+            "last_results_hash": hex::encode(header.last_results_hash.unwrap_or_else(|| panic!("missing value"))),
+            "evidence_hash": hex::encode(header.evidence_hash.unwrap_or_else(|| panic!("missing value"))),
             "proposer_address": hex::encode(header.proposer_address),
         },
         "commit": {
@@ -282,7 +280,7 @@ impl LocalServer {
                 "pax_address":null,"layerx_did":fixture.agent_did,
                 "layerx_account":hex::encode([2;32]),"bound":true,
             });
-            let result = match request["method"].as_str().expect("RPC method") {
+            let result = match request["method"].as_str().or_fail("RPC method") {
                 "px_getCommit" => {
                     assert_eq!(request["params"][0], checkpoint.height.to_string());
                     commit_response(&checkpoint)
@@ -317,7 +315,7 @@ impl LocalServer {
                     let data = must(hex::decode(
                         call["data"]
                             .as_str()
-                            .expect("call data")
+                            .or_fail("call data")
                             .trim_start_matches("0x"),
                     ));
                     let mut word = [0; 32];
@@ -327,7 +325,10 @@ impl LocalServer {
                         assert_eq!(
                             &data[4..],
                             &must(hex::decode(
-                                fixture.agent_did.strip_prefix("did:layerx:").unwrap()
+                                fixture
+                                    .agent_did
+                                    .strip_prefix("did:layerx:")
+                                    .unwrap_or_else(|| panic!("missing value"))
                             ))
                         );
                         word[12..].copy_from_slice(&fixture.actor_address);
@@ -352,7 +353,7 @@ impl LocalServer {
                     json!(format!("0x{}", hex::encode(answer)))
                 }
                 "px_getReceiptKeys" => {
-                    json!({"keys":[{"keyId":format!("0x{}",hex::encode([1;32])),"publicKey":format!("0x{}",fixture.balance_context["sequencer_public_key"].as_str().unwrap()),"firstHeight":1,"lastHeight":65535}]})
+                    json!({"keys":[{"keyId":format!("0x{}",hex::encode([1;32])),"publicKey":format!("0x{}",fixture.balance_context["sequencer_public_key"].as_str().unwrap_or_else(|| panic!("missing value"))),"firstHeight":1,"lastHeight":65535}]})
                 }
                 other => panic!("unexpected RPC {other}: {request}"),
             };
@@ -381,11 +382,11 @@ impl LocalServer {
             must(serde_json::from_value(must(serde_json::to_value(fixture))));
         let balance = fixture.balance_context.clone();
         let identity = json!({
-            "canonical_core_bytes":fixture.agent_did.strip_prefix("did:layerx:").unwrap(),
+            "canonical_core_bytes":fixture.agent_did.strip_prefix("did:layerx:").unwrap_or_else(|| panic!("missing value")),
             "head_sequence":fixture.budget_state["observed_head_sequence"],
             "revocation_sequence":fixture.budget_state["revocation_sequence"],
             "verification_level":"committed", "frozen":false,
-            "authorities":[{"kind":"primary_key","id":fixture.agent_did.strip_prefix("did:layerx:").unwrap()}]
+            "authorities":[{"kind":"primary_key","id":fixture.agent_did.strip_prefix("did:layerx:").unwrap_or_else(|| panic!("missing value"))}]
         });
         let server = Self::spawn(listener, move |stream| {
             let mut stream = must(acceptor.accept(stream));
@@ -402,13 +403,17 @@ impl LocalServer {
             let path = headers
                 .lines()
                 .next()
-                .unwrap()
+                .unwrap_or_else(|| panic!("missing value"))
                 .split_whitespace()
                 .nth(1)
-                .unwrap();
+                .unwrap_or_else(|| panic!("missing value"));
             assert!(path.contains(&format!("tenant={}", recorded.tenant)));
             assert!(path.contains(&format!("principal={}", recorded.principal)));
-            let response = match path.split('?').next().unwrap() {
+            let response = match path
+                .split('?')
+                .next()
+                .unwrap_or_else(|| panic!("missing value"))
+            {
                 "/v1/agent/registry" => &registry,
                 "/v1/agent/budget-state" => &budget,
                 "/v1/agent/balance-context" => &balance,
@@ -483,22 +488,54 @@ struct RecordedAuthority {
 }
 
 fn verified_managed_receipt(fixture: &Value) -> [u8; 32] {
-    let bytes = must(hex::decode(fixture["receipt"].as_str().unwrap()));
-    let header_bytes = must(hex::decode(fixture["header"].as_str().unwrap()));
+    let bytes = must(hex::decode(
+        fixture["receipt"]
+            .as_str()
+            .unwrap_or_else(|| panic!("missing value")),
+    ));
+    let header_bytes = must(hex::decode(
+        fixture["header"]
+            .as_str()
+            .unwrap_or_else(|| panic!("missing value")),
+    ));
     let header = must(layerx_wire::receipt::decode_batch_header(&header_bytes));
     let public = must(hex::decode32(
-        fixture["sequencer_public_key"].as_str().unwrap(),
+        fixture["sequencer_public_key"]
+            .as_str()
+            .unwrap_or_else(|| panic!("missing value")),
     ));
-    let signature =
-        must(must(hex::decode(fixture["header_signature"].as_str().unwrap())).try_into());
-    let stored = must(hex::decode(fixture["receipt_proof"].as_str().unwrap()));
+    let signature = must(
+        must(hex::decode(
+            fixture["header_signature"]
+                .as_str()
+                .unwrap_or_else(|| panic!("missing value")),
+        ))
+        .try_into(),
+    );
+    let stored = must(hex::decode(
+        fixture["receipt_proof"]
+            .as_str()
+            .unwrap_or_else(|| panic!("missing value")),
+    ));
     assert_eq!(stored.len(), 9 + usize::from(stored[0]) * 32);
     let proof = must(layerx_proof::merkle::Proof::new(
-        u32::from_be_bytes(stored[1..5].try_into().unwrap()),
-        u32::from_be_bytes(stored[5..9].try_into().unwrap()),
+        u32::from_be_bytes(
+            stored[1..5]
+                .try_into()
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+        ),
+        u32::from_be_bytes(
+            stored[5..9]
+                .try_into()
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+        ),
         stored[9..]
             .chunks_exact(32)
-            .map(|bytes| bytes.try_into().unwrap())
+            .map(|bytes| {
+                bytes
+                    .try_into()
+                    .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+            })
             .collect(),
     ));
     let authorization = layerx_proof::inclusion::SequencerAuthorization::new(
@@ -515,7 +552,7 @@ fn verified_managed_receipt(fixture: &Value) -> [u8; 32] {
         &authorization,
     ));
     let receipt = must(layerx_wire::receipt::decode(&bytes));
-    let protocol = receipt.protocol().expect("managed protocol receipt");
+    let protocol = receipt.protocol().or_fail("managed protocol receipt");
     assert_eq!(protocol.module_id(), 7);
     assert_eq!(protocol.result_code(), 0);
     Sha256::digest(&bytes).into()
@@ -548,7 +585,7 @@ impl AuthorityFixture {
                 recorded.budget_id,
                 recorded.budget_state["observed_head_sequence"]
                     .as_u64()
-                    .unwrap(),
+                    .unwrap_or_else(|| panic!("missing value")),
                 &recorded.budget_call,
             ),
         );
@@ -561,7 +598,7 @@ impl AuthorityFixture {
         let head = Arc::new(std::sync::atomic::AtomicU64::new(
             recorded.budget_state["observed_head_sequence"]
                 .as_u64()
-                .unwrap(),
+                .unwrap_or_else(|| panic!("missing value")),
         ));
         let (node_rpc_url, node) = LocalServer::node(&recorded, head.clone());
         let (authority_endpoint, authority_ca_der, authority) =
@@ -664,7 +701,7 @@ impl Runtime {
             must(SessionKeyRegistry::open(
                 keys,
                 vec![3; 32],
-                u32::try_from(fixture.chain_id).expect("protocol network"),
+                u32::try_from(fixture.chain_id).or_fail("protocol network"),
                 must(fs::metadata(&self.root)).uid(),
             )),
         ))
@@ -698,6 +735,309 @@ pub struct Fixture {
     pub asset: [u8; 32],
 }
 
+fn lifecycle_seed(
+    authority: &AuthorityFixture,
+    asset: [u8; 32],
+    currency: &str,
+    public_key: [u8; 32],
+    timing: (u64, u64, u64),
+    budget: (u128, [u8; 32]),
+    creation_receipt: [u8; 32],
+) -> HumanAgentLifecycleSeed {
+    let (now, expiry, window) = timing;
+    let (remaining, checkpoint_digest) = budget;
+    let seed = HumanAgentLifecycleSeed {
+        agent_id: format!("agt_{}", hex::encode(authority.budget_id)),
+        name: "approval actor".to_owned(),
+        purpose: "durable EVM approval".to_owned(),
+        currency: currency.to_owned(),
+        monthly_limit: 1000,
+        period_start: now,
+        period_end: expiry,
+        created_at: now,
+        updated_at: now,
+        verified_evidence: vec![creation_receipt],
+        actor: authority.agent_did.clone(),
+        primary_authority: hex::encode(public_key),
+        custody_key: "approval-actor".to_owned(),
+        custody_public_key: public_key,
+        owner_account: format!("agent:{}:master", authority.agent_did),
+        budget_account: format!("budget:{}", hex::encode(authority.budget_id)),
+        budget_asset: asset,
+        purpose_hash: Sha256::digest(b"durable EVM approval").into(),
+        recovery_root: checkpoint_digest,
+        recovery_threshold: 1,
+        capability_id: [6; 32],
+        activity_types: vec![7],
+        counterparties: vec![[4; 32]],
+        assets: vec![asset],
+        amount_ceiling: 1000,
+        rate_maximum_uses: 1,
+        rate_window_sequences: 20,
+        purposes: vec!["durable EVM approval".to_owned()],
+        capability_expiry_sequence: window,
+        session_scopes: vec!["prepare".to_owned()],
+        session_expiry_unix_seconds: expiry,
+        protocol_grant_id: [6; 32],
+        budget_period_seconds: 600,
+        budget_expiry_seconds: expiry,
+        initial_funding: remaining,
+        network_id: u32::try_from(authority.chain_id)
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+        creation_receipt_roots: vec![creation_receipt],
+    };
+    seed
+}
+
+struct HoldContext<'a> {
+    authority: &'a AuthorityFixture,
+    owner: &'a UnifiedAgentOwner<RemoteHumanAuthority>,
+    shared: &'a Arc<Mutex<Store>>,
+    tenant: &'a TenantId,
+    runtime: &'a Runtime,
+    boundary: &'a ProductionEvmPreparationBoundary,
+    asset: [u8; 32],
+    currency: &'a str,
+    public_key: [u8; 32],
+    expiry: u64,
+    now: u64,
+    sequence: u64,
+    window: u64,
+    limit_id: LimitId,
+}
+
+impl HoldContext<'_> {
+    fn prepare(&self, id: u8) -> (Prepared, u128) {
+        let authority = self.authority;
+        let boundary = self.boundary;
+        let asset = self.asset;
+        let currency = self.currency;
+        let public_key = self.public_key;
+        let expiry = self.expiry;
+        let mut word = [0; 32];
+        let amount = match id {
+            1 => 25,
+            2 => 26,
+            3 => 24,
+            _ => panic!("undeclared hold"),
+        };
+        word[16..].copy_from_slice(&u128::to_be_bytes(amount));
+        let evm = must(prepare_activity(
+            boundary,
+            PreparationDefaults {
+                max_priority_fee_per_gas: 0,
+                max_fee_per_gas: 0,
+                maximum_payload_bytes: MAXIMUM,
+            },
+            PrepareRequest {
+                from: authority.actor_address,
+                call: PrecompileCall {
+                    target: PrecompileTarget::Ledger,
+                    selector: layerx_crypto::disclosure::call::ledger_selector(
+                        "mint(bytes32,bytes32,uint128)",
+                    ),
+                    arguments: vec![
+                        AbiArgument::Word(asset),
+                        AbiArgument::Word([4; 32]),
+                        AbiArgument::Word(word),
+                    ],
+                },
+                expected_nonce: Some(0),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: MAXIMUM,
+            },
+        ));
+        must(layerx_agentd::prepare::evm::verify_call_binding(&evm));
+        assert_eq!(evm.call.chain_id, authority.chain_id);
+        assert_eq!(evm.disclosure.actor, authority.actor_address);
+        assert_eq!(evm.disclosure.asset, asset);
+        assert_eq!(evm.disclosure.fee_limit, 0);
+        assert_eq!(evm.disclosure.amounts.len(), 1);
+        assert_eq!(evm.disclosure.amounts[0].value, amount);
+        assert_eq!(evm.disclosure.counterparties.len(), 1);
+        assert_eq!(evm.disclosure.counterparties[0].account, [4; 32]);
+        let canonical = evm.call.encode_unsigned();
+        assert_eq!(canonical[0], 2);
+        assert_eq!(evm.signing_hash, evm.call.signing_hash());
+        let digest = Sha256::digest(&canonical).into();
+        let counterparty = must(AgentDid::new(hex::encode([4; 32])));
+        let held = Prepared {
+            preparation_ref: must(PreparationRef::new(hex::encode([id; 32]))),
+            unsigned_canonical_bytes: must(CanonicalBytes::new(canonical)),
+            signing_preimage: must(SigningPreimage::new(evm.signing_hash.to_vec())),
+            disclosure: Disclosure {
+                canonical_digest: digest,
+                activity_type: ActivityType(evm.disclosure.activity_type.ordinal()),
+                actor: must(AgentDid::new(hex::encode(evm.disclosure.actor))),
+                authority: must(AuthorityRef::new(hex::encode(public_key))),
+                counterparties: ExplicitSet::allow(vec![counterparty.clone()]),
+                amounts: ExplicitSet::allow(vec![DisclosedAmount {
+                    counterparty,
+                    amount: Amount(amount),
+                }]),
+                asset: must(Asset::new(currency)),
+                fee_limit: Amount(evm.disclosure.fee_limit),
+                expiry: TimestampSeconds(expiry),
+                idempotency_key: must(IdempotencyRef::new(hex::encode([id; 32]))),
+            },
+            expiry: TimestampSeconds(expiry),
+        };
+        (held, amount)
+    }
+
+    fn reserve(&self, id: u8, held: &Prepared, amount: u128) {
+        let authority = self.authority;
+        let owner = self.owner;
+        let shared = self.shared;
+        let tenant = self.tenant;
+        let runtime = self.runtime;
+        let sequence = self.sequence;
+        let window = self.window;
+        let expiry = self.expiry;
+        let now = self.now;
+        let limit_id = self.limit_id;
+        let approval_expiry_sequence = if id == 3 { sequence + 4 } else { window };
+        let reservation = must(reserve_until_core_time(
+            &owner.budgets,
+            &ReservationRequest {
+                id: [id; 32],
+                amount,
+                current_sequence: sequence,
+                expiry_sequence: approval_expiry_sequence,
+                applicable_limits: vec![limit_id],
+            },
+            CoreTimestampMs(expiry * 1000),
+            CoreTimestampMs(now * 1000),
+        ));
+        let ticket = must(hold_reserved_at(
+            &owner.approvals,
+            ApprovalContext {
+                tenant: tenant.clone(),
+                agent: must(Did::new(held.disclosure.actor.as_str().as_bytes())),
+                actor_address: authority.actor_address,
+                session: SessionId([7; 32]),
+                capability: CapabilityId([6; 32]),
+                policy_version: "approval-actor-v1".to_owned(),
+                request_id: [id; 32],
+            },
+            held.clone(),
+            sequence,
+            approval_expiry_sequence,
+            &reservation,
+            runtime.clock.as_ref(),
+        ));
+        assert_eq!(ticket.state, ApprovalState::AwaitingApproval);
+        assert_eq!(ticket.disclosure, held.disclosure);
+        let key = must(TenantKey::new(
+            tenant.clone(),
+            ObjectKind::PreparedActivity,
+            [b"approval-hold-v1:".as_slice(), &[id; 32]].concat(),
+        ));
+        assert_eq!(
+            must(shared.lock())
+                .get(&key)
+                .unwrap_or_else(|| panic!("missing value"))
+                .class(),
+            StorageClass::LocalOnly
+        );
+    }
+}
+
+fn open_approval_session(
+    runtime: &Runtime,
+    authority: &AuthorityFixture,
+    tenant: &TenantId,
+    peer: &HumanPeer,
+    remote: &mut RemoteHumanAuthority,
+    public_key: [u8; 32],
+    timing: (u64, u64, u64),
+) -> (Store, SessionRegistry) {
+    let (expiry, sequence, window) = timing;
+    let mut store = open_store(runtime.root.join("store"));
+    let did = must(Did::new(authority.agent_did.as_bytes()));
+    let identity = must(identity::register(
+        &mut store,
+        tenant.clone(),
+        did.clone(),
+        &mut AuthorityIdentity {
+            authority: remote,
+            peer,
+        },
+    ));
+    let mut sessions = SessionRegistry::default();
+    let token = must(session::open(
+        &mut store,
+        &mut sessions,
+        &identity,
+        OpenRequest {
+            session_id: SessionId([7; 32]),
+            token_id: [8; 32],
+            tenant: tenant.clone(),
+            agent: did,
+            authority: ProtocolAuthority::PrimaryKey(public_key),
+            permitted_activity_types: BTreeSet::from([7]),
+            scopes: BTreeSet::from(["prepare".to_owned()]),
+            expiry_sequence: window,
+            expiry_seconds: Some(expiry),
+            opening_client: "human-approval-repair".to_owned(),
+            policy_version: "approval-actor-v1".to_owned(),
+        },
+        sequence,
+    ));
+    assert_eq!(token.credential().generation(), 1);
+    (store, sessions)
+}
+
+fn create_approval_limit(
+    store: &mut Store,
+    tenant: &TenantId,
+    authority: &AuthorityFixture,
+    asset: [u8; 32],
+    expiry: u64,
+    now: u64,
+) -> LimitId {
+    let mut agent_digest = Sha256::new();
+    agent_digest.update(b"layerx-agentd/daemon-limit-agent/v1\0");
+    agent_digest.update(
+        u32::try_from(authority.agent_did.len())
+            .unwrap_or_else(|error| panic!("unexpected error: {error:?}"))
+            .to_be_bytes(),
+    );
+    agent_digest.update(authority.agent_did.as_bytes());
+    let limit_budget = [9; 32];
+    let limit = must(create_daemon_limit(
+        store,
+        &must(BudgetLimiter::new(Vec::new())),
+        DaemonLimitRecord {
+            tenant: tenant.clone(),
+            budget_id: limit_budget,
+            limit_id: daemon_limit_id(limit_budget),
+            agent_digest: agent_digest.finalize().into(),
+            asset,
+            ceiling: 1000,
+            consumed: 0,
+            expiry_ms: expiry * 1000,
+            revoked: false,
+            mutation_key: [10; 32],
+            body_digest: [11; 32],
+            revoke_key: [0; 32],
+        },
+        CoreTimestampMs(now * 1000),
+    ));
+    limit.limit_id
+}
+
+fn prepare_holds(ids: &[u8], context: &HoldContext<'_>) -> BTreeMap<u8, Prepared> {
+    let mut prepared = BTreeMap::new();
+        for &id in ids {
+            let (held, amount) = context.prepare(id);
+            context.reserve(id, &held, amount);
+            prepared.insert(id, held);
+        }
+    prepared
+}
+
 impl Fixture {
     pub fn new(ids: &[u8]) -> Self {
         let authority = AuthorityFixture::load();
@@ -715,84 +1055,36 @@ impl Fixture {
         let state = must(remote.budget_state(&peer, authority.budget_id));
         let (_, asset, currency, _, _, _, _) = must(remote.balance_context(&peer));
         let public_key = must(hex::decode32(
-            authority.agent_did.strip_prefix("did:layerx:").unwrap(),
+            authority
+                .agent_did
+                .strip_prefix("did:layerx:")
+                .unwrap_or_else(|| panic!("missing value")),
         ));
         let now = must(runtime.clock.sample(DEADLINE)).unix_seconds();
-        let expiry = now.checked_add(600).unwrap();
+        let expiry = now
+            .checked_add(600)
+            .unwrap_or_else(|| panic!("missing value"));
         let sequence = state.observed_head_sequence;
         let window = sequence + 20;
-        let mut store = open_store(runtime.root.join("store"));
-        let did = must(Did::new(authority.agent_did.as_bytes()));
-        let identity = must(identity::register(
-            &mut store,
-            tenant.clone(),
-            did.clone(),
-            &mut AuthorityIdentity {
-                authority: &mut remote,
-                peer: &peer,
-            },
-        ));
-        let mut sessions = SessionRegistry::default();
-        let token = must(session::open(
-            &mut store,
-            &mut sessions,
-            &identity,
-            OpenRequest {
-                session_id: SessionId([7; 32]),
-                token_id: [8; 32],
-                tenant: tenant.clone(),
-                agent: did,
-                authority: ProtocolAuthority::PrimaryKey(public_key),
-                permitted_activity_types: BTreeSet::from([7]),
-                scopes: BTreeSet::from(["prepare".to_owned()]),
-                expiry_sequence: window,
-                expiry_seconds: Some(expiry),
-                opening_client: "human-approval-repair".to_owned(),
-                policy_version: "approval-actor-v1".to_owned(),
-            },
-            sequence,
-        ));
-        assert_eq!(token.credential().generation(), 1);
+        let (mut store, sessions) = open_approval_session(
+            &runtime,
+            &authority,
+            &tenant,
+            &peer,
+            &mut remote,
+            public_key,
+            (expiry, sequence, window),
+        );
         let creation_receipt = verified_managed_receipt(&authority.managed_receipt);
-        let seed = HumanAgentLifecycleSeed {
-            agent_id: format!("agt_{}", hex::encode(authority.budget_id)),
-            name: "approval actor".to_owned(),
-            purpose: "durable EVM approval".to_owned(),
-            currency: currency.clone(),
-            monthly_limit: 1000,
-            period_start: now,
-            period_end: expiry,
-            created_at: now,
-            updated_at: now,
-            verified_evidence: vec![creation_receipt],
-            actor: authority.agent_did.clone(),
-            primary_authority: hex::encode(public_key),
-            custody_key: "approval-actor".to_owned(),
-            custody_public_key: public_key,
-            owner_account: format!("agent:{}:master", authority.agent_did),
-            budget_account: format!("budget:{}", hex::encode(authority.budget_id)),
-            budget_asset: asset,
-            purpose_hash: Sha256::digest(b"durable EVM approval").into(),
-            recovery_root: state.checkpoint_digest,
-            recovery_threshold: 1,
-            capability_id: [6; 32],
-            activity_types: vec![7],
-            counterparties: vec![[4; 32]],
-            assets: vec![asset],
-            amount_ceiling: 1000,
-            rate_maximum_uses: 1,
-            rate_window_sequences: 20,
-            purposes: vec!["durable EVM approval".to_owned()],
-            capability_expiry_sequence: window,
-            session_scopes: vec!["prepare".to_owned()],
-            session_expiry_unix_seconds: expiry,
-            protocol_grant_id: [6; 32],
-            budget_period_seconds: 600,
-            budget_expiry_seconds: expiry,
-            initial_funding: state.remaining,
-            network_id: u32::try_from(authority.chain_id).unwrap(),
-            creation_receipt_roots: vec![creation_receipt],
-        };
+        let seed = lifecycle_seed(
+            &authority,
+            asset,
+            &currency,
+            public_key,
+            (now, expiry, window),
+            (state.remaining, state.checkpoint_digest),
+            creation_receipt,
+        );
         let agent = must(ManagedAgent::from_creation(
             &seed,
             &authority.agent_did,
@@ -804,34 +1096,7 @@ impl Fixture {
         must(managed_agent::validate_session_coordinates(
             &store, &sessions, &tenant,
         ));
-        let mut agent_digest = Sha256::new();
-        agent_digest.update(b"layerx-agentd/daemon-limit-agent/v1\0");
-        agent_digest.update(
-            u32::try_from(authority.agent_did.len())
-                .unwrap()
-                .to_be_bytes(),
-        );
-        agent_digest.update(authority.agent_did.as_bytes());
-        let limit_budget = [9; 32];
-        let limit = must(create_daemon_limit(
-            &mut store,
-            &must(BudgetLimiter::new(Vec::new())),
-            DaemonLimitRecord {
-                tenant: tenant.clone(),
-                budget_id: limit_budget,
-                limit_id: daemon_limit_id(limit_budget),
-                agent_digest: agent_digest.finalize().into(),
-                asset,
-                ceiling: 1000,
-                consumed: 0,
-                expiry_ms: expiry * 1000,
-                revoked: false,
-                mutation_key: [10; 32],
-                body_digest: [11; 32],
-                revoke_key: [0; 32],
-            },
-            CoreTimestampMs(now * 1000),
-        ));
+        let limit_id = create_approval_limit(&mut store, &tenant, &authority, asset, expiry, now);
         let shared = Arc::new(Mutex::new(store));
         let peers = BTreeMap::from([(uid, (peer.principal.clone(), peer.tenant.clone()))]);
         let owner = runtime.owner(&authority, &peers, shared.clone());
@@ -839,120 +1104,23 @@ impl Fixture {
             &authority.node_rpc_url,
             &[],
         ));
-        let mut prepared = BTreeMap::new();
-        for &id in ids {
-            let mut word = [0; 32];
-            let amount = match id {
-                1 => 25,
-                2 => 26,
-                3 => 24,
-                _ => panic!("undeclared hold"),
-            };
-            word[16..].copy_from_slice(&u128::to_be_bytes(amount));
-            let evm = must(prepare_activity(
-                &boundary,
-                PreparationDefaults {
-                    max_priority_fee_per_gas: 0,
-                    max_fee_per_gas: 0,
-                    maximum_payload_bytes: MAXIMUM,
-                },
-                PrepareRequest {
-                    from: authority.actor_address,
-                    call: PrecompileCall {
-                        target: PrecompileTarget::Ledger,
-                        selector: layerx_crypto::disclosure::call::ledger_selector(
-                            "mint(bytes32,bytes32,uint128)",
-                        ),
-                        arguments: vec![
-                            AbiArgument::Word(asset),
-                            AbiArgument::Word([4; 32]),
-                            AbiArgument::Word(word),
-                        ],
-                    },
-                    expected_nonce: Some(0),
-                    max_priority_fee_per_gas: None,
-                    max_fee_per_gas: None,
-                    declared_payload_limit: MAXIMUM,
-                },
-            ));
-            must(layerx_agentd::prepare::evm::verify_call_binding(&evm));
-            assert_eq!(evm.call.chain_id, authority.chain_id);
-            assert_eq!(evm.disclosure.actor, authority.actor_address);
-            assert_eq!(evm.disclosure.asset, asset);
-            assert_eq!(evm.disclosure.fee_limit, 0);
-            assert_eq!(evm.disclosure.amounts.len(), 1);
-            assert_eq!(evm.disclosure.amounts[0].value, amount);
-            assert_eq!(evm.disclosure.counterparties.len(), 1);
-            assert_eq!(evm.disclosure.counterparties[0].account, [4; 32]);
-            let canonical = evm.call.encode_unsigned();
-            assert_eq!(canonical[0], 2);
-            assert_eq!(evm.signing_hash, evm.call.signing_hash());
-            let digest = Sha256::digest(&canonical).into();
-            let counterparty = must(AgentDid::new(hex::encode([4; 32])));
-            let held = Prepared {
-                preparation_ref: must(PreparationRef::new(hex::encode([id; 32]))),
-                unsigned_canonical_bytes: must(CanonicalBytes::new(canonical)),
-                signing_preimage: must(SigningPreimage::new(evm.signing_hash.to_vec())),
-                disclosure: Disclosure {
-                    canonical_digest: digest,
-                    activity_type: ActivityType(evm.disclosure.activity_type.ordinal()),
-                    actor: must(AgentDid::new(hex::encode(evm.disclosure.actor))),
-                    authority: must(AuthorityRef::new(hex::encode(public_key))),
-                    counterparties: ExplicitSet::allow(vec![counterparty.clone()]),
-                    amounts: ExplicitSet::allow(vec![DisclosedAmount {
-                        counterparty,
-                        amount: Amount(amount),
-                    }]),
-                    asset: must(Asset::new(&currency)),
-                    fee_limit: Amount(evm.disclosure.fee_limit),
-                    expiry: TimestampSeconds(expiry),
-                    idempotency_key: must(IdempotencyRef::new(hex::encode([id; 32]))),
-                },
-                expiry: TimestampSeconds(expiry),
-            };
-            let approval_expiry_sequence = if id == 3 { sequence + 4 } else { window };
-            let reservation = must(reserve_until_core_time(
-                &owner.budgets,
-                &ReservationRequest {
-                    id: [id; 32],
-                    amount,
-                    current_sequence: sequence,
-                    expiry_sequence: approval_expiry_sequence,
-                    applicable_limits: vec![limit.limit_id],
-                },
-                CoreTimestampMs(expiry * 1000),
-                CoreTimestampMs(now * 1000),
-            ));
-            let ticket = must(hold_reserved_at(
-                &owner.approvals,
-                ApprovalContext {
-                    tenant: tenant.clone(),
-                    agent: must(Did::new(held.disclosure.actor.as_str().as_bytes())),
-                    actor_address: authority.actor_address,
-                    session: SessionId([7; 32]),
-                    capability: CapabilityId([6; 32]),
-                    policy_version: "approval-actor-v1".to_owned(),
-                    request_id: [id; 32],
-                },
-                held.clone(),
-                sequence,
-                approval_expiry_sequence,
-                &reservation,
-                runtime.clock.as_ref(),
-            ));
-            assert_eq!(ticket.state, ApprovalState::AwaitingApproval);
-            assert_eq!(ticket.disclosure, held.disclosure);
-            prepared.insert(id, held);
-            let key = must(TenantKey::new(
-                tenant.clone(),
-                ObjectKind::PreparedActivity,
-                [b"approval-hold-v1:".as_slice(), &[id; 32]].concat(),
-            ));
-            assert_eq!(
-                must(shared.lock()).get(&key).unwrap().class(),
-                StorageClass::LocalOnly
-            );
-        }
+        let hold_context = HoldContext {
+            authority: &authority,
+            owner: &owner,
+            shared: &shared,
+            tenant: &tenant,
+            runtime: &runtime,
+            boundary: &boundary,
+            asset,
+            currency: &currency,
+            public_key,
+            expiry,
+            now,
+            sequence,
+            window,
+            limit_id,
+        };
+        let prepared = prepare_holds(ids, &hold_context);
         must(owner.approvals.validate_registry(&tenant, &registry));
         let mut fixture = Self {
             server: None,
@@ -966,7 +1134,7 @@ impl Fixture {
             prepared,
             sequence,
             window,
-            limit: limit.limit_id,
+            limit: limit_id,
             protocol_remaining: state.remaining,
             asset,
         };
@@ -1022,7 +1190,7 @@ impl Fixture {
         self.owner = Some(owner);
         self.shared = Some(shared);
     }
-    pub fn assert_snapshot_recovery(&mut self) {
+    fn assert_recovery_admission(&self) {
         let endpoint = must(SequencerEndpoint::new(&self.authority.node_rpc_url, &[]));
         let reads = must(CommittedReads::open(&endpoint, self.sequence));
         let mut pay = [0; 20];
@@ -1042,7 +1210,7 @@ impl Fixture {
             must(hex::decode(
                 self.authority.budget_state["canonical_core_bytes"]
                     .as_str()
-                    .unwrap()
+                    .unwrap_or_else(|| panic!("missing value"))
             ))
         );
         let record = must(layerx_agentd::budget::ProtocolBudgetRecord::decode(
@@ -1053,16 +1221,20 @@ impl Fixture {
         let verifier = must(
             layerx_agentd::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
                 PROTOCOL_VERSION,
-                u32::try_from(self.authority.chain_id).unwrap(),
+                u32::try_from(self.authority.chain_id)
+                    .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
                 must(hex::decode32(
                     self.authority.balance_context["sequencer_public_key"]
                         .as_str()
-                        .unwrap(),
+                        .unwrap_or_else(|| panic!("missing value")),
                 )),
             ),
         );
+        let shared = self.shared.as_ref().or_fail("shared store");
+        let mut guard = must(shared.lock());
+        let store: &mut Store = &mut guard;
         let recovery = must(layerx_agentd::human_runtime::recover_tenant_budget(
-            &mut *must(self.shared.as_ref().unwrap().lock()),
+            store,
             &self.tenant,
             &layerx_agentd::human_runtime::BudgetRecoveryRequest {
                 budget_id: self.authority.budget_id,
@@ -1074,6 +1246,7 @@ impl Fixture {
                 current_sequence: self.sequence,
             },
         ));
+        drop(guard);
         assert!(recovery.admission.is_ok());
         assert!(recovery.recovered.budget_accounting.reconciled);
         assert_eq!(
@@ -1081,6 +1254,10 @@ impl Fixture {
             Some(0)
         );
         assert_eq!(recovery.recovered.budget_accounting.receipt_consumed, 0);
+    }
+
+    pub fn assert_snapshot_recovery(&mut self) {
+        self.assert_recovery_admission();
         let state = must(
             self.authority
                 .connect()
@@ -1113,10 +1290,15 @@ impl Fixture {
             .concat(),
         ));
         let bytes = {
-            let store = must(self.shared.as_ref().unwrap().lock());
+            let store = must(
+                self.shared
+                    .as_ref()
+                    .unwrap_or_else(|| panic!("missing value"))
+                    .lock(),
+            );
             let stored = store
                 .get(&key)
-                .expect("daemon persisted budget observation");
+                .or_fail("daemon persisted budget observation");
             assert_eq!(stored.class(), StorageClass::LocalOnly);
             stored.bytes().to_vec()
         };
@@ -1124,8 +1306,15 @@ impl Fixture {
         let decoded = must(layerx_human_service::agents::decode_budget_snapshot(&bytes));
         assert_eq!(decoded, (self.authority.budget_id, state, rung));
         self.reopen();
-        let store = must(self.shared.as_ref().unwrap().lock());
-        let restored = store.get(&key).expect("reopened daemon budget observation");
+        let store = must(
+            self.shared
+                .as_ref()
+                .unwrap_or_else(|| panic!("missing value"))
+                .lock(),
+        );
+        let restored = store
+            .get(&key)
+            .or_fail("reopened daemon budget observation");
         assert_eq!(restored.class(), StorageClass::LocalOnly);
         assert_eq!(restored.bytes(), bytes);
         assert_eq!(
@@ -1136,7 +1325,12 @@ impl Fixture {
         );
     }
     pub fn assert_reservations(&self, count: usize, exposure: u128, releases: usize) {
-        let owner = must(self.owner.as_ref().unwrap().lock());
+        let owner = must(
+            self.owner
+                .as_ref()
+                .unwrap_or_else(|| panic!("missing value"))
+                .lock(),
+        );
         assert_eq!(must(owner.budgets.held_reservations()), count);
         assert_eq!(must(owner.budgets.held_exposure(self.limit)), exposure);
         assert_eq!(
@@ -1147,7 +1341,12 @@ impl Fixture {
         assert_eq!(owner.approval_queue.len(), releases);
     }
     pub fn assert_release(&self, id: u8, reference: [u8; 32]) {
-        let owner = must(self.owner.as_ref().unwrap().lock());
+        let owner = must(
+            self.owner
+                .as_ref()
+                .unwrap_or_else(|| panic!("missing value"))
+                .lock(),
+        );
         assert_eq!(
             owner.approval_queue.prepared(reference),
             Some(self.prepared[&id].clone())
@@ -1157,12 +1356,22 @@ impl Fixture {
             ObjectKind::Outbox,
             [b"approval-released-v1:".as_slice(), &[id; 32]].concat(),
         ));
-        assert!(must(self.shared.as_ref().unwrap().lock())
-            .get(&key)
-            .is_some());
+        assert!(must(
+            self.shared
+                .as_ref()
+                .unwrap_or_else(|| panic!("missing value"))
+                .lock()
+        )
+        .get(&key)
+        .is_some());
     }
     pub fn assert_rejected_decision(&self, id: u8, sequence: u64) -> Vec<u8> {
-        let owner = must(self.owner.as_ref().unwrap().lock());
+        let owner = must(
+            self.owner
+                .as_ref()
+                .unwrap_or_else(|| panic!("missing value"))
+                .lock(),
+        );
         let decision = must(owner.approval_expiry.recover(
             &self.tenant,
             [id; 32],
@@ -1175,7 +1384,12 @@ impl Fixture {
             layerx_agentd::approval::ApprovalOutcome::Rejected
         );
         assert_eq!(decision.submission_ref, None);
-        let store = must(self.shared.as_ref().unwrap().lock());
+        let store = must(
+            self.shared
+                .as_ref()
+                .unwrap_or_else(|| panic!("missing value"))
+                .lock(),
+        );
         assert_eq!(store.root(), self.root().join("store"));
         let key = must(TenantKey::new(
             self.tenant.clone(),
@@ -1184,7 +1398,7 @@ impl Fixture {
         ));
         let value = store
             .get(&key)
-            .expect("daemon persisted rejection decision");
+            .or_fail("daemon persisted rejection decision");
         assert_eq!(value.class(), StorageClass::LocalOnly);
         let hold_key = must(TenantKey::new(
             self.tenant.clone(),
@@ -1247,8 +1461,14 @@ impl Fixture {
             subject: None,
         };
         let socket = self.root().join("foreign.sock");
-        let _server =
-            AgentServer::start(socket.clone(), peer, self.owner.as_ref().unwrap().clone());
+        let _server = AgentServer::start(
+            socket.clone(),
+            peer,
+            self.owner
+                .as_ref()
+                .unwrap_or_else(|| panic!("missing value"))
+                .clone(),
+        );
         let mut client = self.client_at(socket);
         let page = must(client.approval_list(sequence, None, 100));
         assert!(page.approvals.is_empty());
@@ -1314,7 +1534,11 @@ impl Drop for Fixture {
 fn untraced_frame(frame: &[u8]) -> &[u8] {
     if frame.starts_with(b"LXHAGT02") {
         assert!(frame.len() >= 48);
-        let length = u32::from_be_bytes(frame[44..48].try_into().unwrap()) as usize;
+        let length = u32::from_be_bytes(
+            frame[44..48]
+                .try_into()
+                .unwrap_or_else(|error| panic!("unexpected error: {error:?}")),
+        ) as usize;
         assert_eq!(frame.len(), 48 + length);
         &frame[48..]
     } else {
@@ -1351,7 +1575,7 @@ impl AgentServer {
                         must(serve_one(&mut transport, &peer, &mut *must(owner.lock())));
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(1))
+                        thread::sleep(Duration::from_millis(1));
                     }
                     Err(error) => panic!("Human listener: {error}"),
                 }
@@ -1373,3 +1597,5 @@ impl Drop for AgentServer {
         must(fs::remove_file(&self.socket));
     }
 }
+
+use super::require_value::RequireValue as _;

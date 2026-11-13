@@ -86,7 +86,7 @@ fn repair_22_31_579_decodes_executed_and_committed_receipt_digests() {
     canonical.extend_from_slice(&[0x74; 32]);
     let canonical_bytes = checked(encode(&checked(decode(&canonical))));
     let digest: [u8; 32] = Sha256::digest(&canonical_bytes).into();
-    let receipt_hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+    let receipt_hex: String = layerx_human_service::hex::lower((digest).as_ref());
     let material = ReceiptMaterial {
         signed_receipt: canonical_bytes.clone(),
         canonical_bytes,

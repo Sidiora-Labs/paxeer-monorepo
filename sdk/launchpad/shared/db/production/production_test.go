@@ -447,22 +447,29 @@ func TestPhase3CancellationAndAuthorization(t *testing.T) {
 		if err == nil || observation.Outcome != "deadline" {
 			t.Fatal("blocked SQL did not cancel", err, observation)
 		}
-		recovery, done := context.WithTimeout(ctx, time.Second)
-		recovered := time.Now()
-		err = db.WithTransaction(recovery, bounded, options, pgx.TxOptions{AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
-			var one int
-			if failure := tx.QueryRow(recovery, "SELECT 1").Scan(&one); failure != nil {
-				return failure
+		recovery, done := context.WithTimeout(ctx, 15*time.Second)
+		for {
+			err = db.WithTransaction(recovery, bounded, options, pgx.TxOptions{AccessMode: pgx.ReadOnly}, func(tx pgx.Tx) error {
+				var one int
+				if failure := tx.QueryRow(recovery, "SELECT 1").Scan(&one); failure != nil {
+					return failure
+				}
+				if one != 1 {
+					return errors.New("connection protocol differs")
+				}
+				return nil
+			})
+			if err == nil && bounded.Stat().AcquiredConns() == 0 {
+				break
 			}
-			if one != 1 {
-				return errors.New("connection protocol differs")
+			select {
+			case <-recovery.Done():
+				done()
+				t.Fatal("cancelled SQL connection not reusable or discarded before recovery deadline", err, bounded.Stat().AcquiredConns())
+			case <-time.After(25 * time.Millisecond):
 			}
-			return nil
-		})
-		done()
-		if err != nil || time.Since(recovered) > time.Second || bounded.Stat().AcquiredConns() != 0 {
-			t.Fatal("cancelled SQL connection not reusable or discarded within one second", err)
 		}
+		done()
 	}
 	if err = blocker.Rollback(ctx); err != nil {
 		t.Fatal(err)

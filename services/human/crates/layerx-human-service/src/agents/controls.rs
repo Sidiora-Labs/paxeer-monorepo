@@ -464,6 +464,8 @@ impl<B: AgentControlContract> AgentControls<B> {
 
     /// Opens the principal-scoped control record before consulting live authority.
     /// Completed retries remain available while authority is temporarily offline.
+    /// # Errors
+    /// Returns an error if the requested data cannot be read or validated.
     pub fn open(
         boundary: B,
         profile: AgentControlProfile,
@@ -1095,7 +1097,7 @@ fn control_row(profile: &AgentControlProfile) -> Result<RowKey, StoreError> {
 }
 
 fn short_hex_full(bytes: &[u8; 32]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    crate::hex::lower(bytes)
 }
 
 fn profile_digest(profile: &AgentControlProfile) -> [u8; 32] {

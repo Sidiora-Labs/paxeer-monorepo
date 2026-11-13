@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 // Task 22.31.166 repair record (audit 22.30.111):
 // Finding 5: ethereum_reopens_prepared_signed_and_broadcast_stages.
 // Finding 6: solana_reopens_prepared_signed_and_broadcast_stages.
@@ -981,6 +985,7 @@ impl Client {
 }
 impl Fixture {
     fn new(chain: MirrorChain) -> Self {
+        test_network::isolate().or_panic("private test network");
         let directory = std::env::temp_dir().join(format!(
             "lx-repair-{}-{}",
             std::process::id(),

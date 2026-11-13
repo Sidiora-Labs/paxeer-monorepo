@@ -6,7 +6,7 @@ fn generated_catalog_loads_through_the_service_reader() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
     let directory =
         tempfile::tempdir().unwrap_or_else(|error| panic!("temporary directory: {error:?}"));
-    let script = r#"
+    let script = r"
 import sys
 import unittest
 sys.path.insert(0, sys.argv[1])
@@ -18,7 +18,7 @@ suite = unittest.defaultTestLoader.loadTestsFromNames([
 if not unittest.TextTestRunner().run(suite).wasSuccessful():
     raise SystemExit(1)
 test_provision.generated_catalog(sys.argv[2], sys.argv[3])
-"#;
+";
     let output = Command::new("python3")
         .args(["-c", script])
         .arg(root.join("services/platform/hosted/human"))

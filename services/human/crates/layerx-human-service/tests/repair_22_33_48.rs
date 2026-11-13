@@ -264,7 +264,7 @@ impl Fixture {
         let mut scope = required(
             self.store
                 .as_mut()
-                .expect("open store")
+                .or_fail("open store")
                 .principal(&principal("alice")),
             "scope",
         );
@@ -283,7 +283,7 @@ impl Fixture {
         required(
             self.store
                 .as_mut()
-                .expect("open store")
+                .or_fail("open store")
                 .principal(&principal("alice")),
             "scope",
         )
@@ -293,7 +293,7 @@ impl Fixture {
         let scope = required(
             self.store
                 .as_mut()
-                .expect("open store")
+                .or_fail("open store")
                 .principal(&principal("alice")),
             "scope",
         );
@@ -305,7 +305,7 @@ impl Fixture {
         let mut scope = required(
             self.store
                 .as_mut()
-                .expect("open store")
+                .or_fail("open store")
                 .principal(&principal("alice")),
             "scope",
         );
@@ -338,10 +338,10 @@ impl Fixture {
             .proof
             .assertion_id
             .strip_prefix("asr_")
-            .expect("assertion identifier");
+            .or_fail("assertion identifier");
         let key = row_key(&format!("auth-verified-{suffix}"));
         let scope = self.scope();
-        let row = scope.get(Table::Cache, &key).expect("verified assertion");
+        let row = scope.get(Table::Cache, &key).or_fail("verified assertion");
         required(
             serde_json::from_slice(row.bytes()),
             "verified assertion JSON",
@@ -534,7 +534,7 @@ fn finding_7_failed_commit_rolls_back_assertion_device_and_notification() {
         let suffix = original_device
             .device_id()
             .strip_prefix("dev_")
-            .expect("device identifier");
+            .or_fail("device identifier");
         let device_key = row_key(&format!("auth-device-{suffix}"));
         {
             let mut scope = fixture.scope();
@@ -547,7 +547,7 @@ fn finding_7_failed_commit_rolls_back_assertion_device_and_notification() {
             };
             let bytes = scope
                 .get(table, &key)
-                .expect("real produced row")
+                .or_fail("real produced row")
                 .bytes()
                 .to_vec();
             required(
@@ -609,14 +609,14 @@ fn finding_7_legacy_consumption_without_a_binding_cannot_open_another_session() 
     let mut legacy = fixture.verified_row();
     legacy
         .as_object_mut()
-        .expect("assertion object")
+        .or_fail("assertion object")
         .remove("session_id");
     legacy["consumed"] = json!(true);
     let suffix = fixture
         .proof
         .assertion_id
         .strip_prefix("asr_")
-        .expect("assertion identifier");
+        .or_fail("assertion identifier");
     let key = row_key(&format!("auth-verified-{suffix}"));
     required(
         fixture.scope().put(
@@ -694,4 +694,10 @@ fn finding_7_persistence_failure_leaves_no_partial_opening() {
     fixture.reopen();
     fixture.assert_counts(1, 1, 1);
     fixture.assert_grant(&grant, 106);
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }
