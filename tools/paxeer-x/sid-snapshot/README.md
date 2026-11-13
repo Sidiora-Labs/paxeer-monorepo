@@ -33,7 +33,7 @@ At least one `--source` is required and the option may be repeated; `--rpc` and
 agree on one committed migration height, set `MIGRATION_HEIGHT` to its decimal
 block number, and reuse `--block` for every export and review of that release. Set
 `PAXEER_RPC_URL` to an archive node serving Paxeer EVM chain ID `125` (`0x7d`).
-The [public node JSON-RPC URLs](../../../docs/site/docs/reference/public-rpc.md)
+The [public node JSON-RPC URLs](../../../docs/readme/PUBLIC-RPC.md)
 use the root path, for example `https://api1.mainnet-beta.paxeer.network`.
 Historical state and method support must be available on the chosen node; a
 public node URL alone does not guarantee archive support. The evidence's

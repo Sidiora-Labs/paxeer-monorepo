@@ -1,8 +1,8 @@
-#[path = "support/repair_22_33_44_kms.rs"]
+#[path = "support/kms_gateway_fixture.rs"]
 mod in_process_gateway;
 
 pub mod runtime_clock {
-    include!("support/repair_22_33_44_clock.rs");
+    include!("support/runtime_clock_authority.rs");
 }
 
 use std::error::Error;
