@@ -33,7 +33,7 @@ IAVL snapshot is composed of four files:
 
 - `metadata`, 12 bytes (little endian):
 
-  ```
+  ```text
   magic: 4      # b"IAVL"
   format: 4
   version: 4
@@ -41,7 +41,7 @@ IAVL snapshot is composed of four files:
 
 - `nodes`, array of fixed size (48 bytes) branch nodes:
 
-  ```
+  ```text
   height   : 1
   preTrees : 1
   _padding : 2
@@ -53,7 +53,7 @@ IAVL snapshot is composed of four files:
 
 - `leaves`, array of fixed size (48 bytes) leaf nodes:
 
-  ```
+  ```text
   version     : 4
   key len     : 4
   key offset  : 8
@@ -72,7 +72,7 @@ IAVL snapshot is composed of four files:
 
 - `kvs`, sequence of leaf node key-value pairs; the keys are ordered with no duplicates.
 
-  ```
+  ```text
   keyLen: uint32 (little endian)
   key
   valueLen: uint32 (little endian)

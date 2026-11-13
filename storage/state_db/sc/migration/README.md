@@ -4,8 +4,8 @@ This package moves local state commitment data from memiavl to flatkv in three
 transitions: EVM, all remaining modules except bank, then bank. It is part of the
 node's storage path in the merged Paxeer network. The Go `Router` types here
 select local database backends; they are not a network gateway or an additional
-service. See [OPERATIONS.md](OPERATIONS.md) for MigrateEVM recovery behavior,
-existing inspection tools and proposed tooling.
+service. See [OPERATIONS.md](OPERATIONS.md) for MigrateEVM recovery behavior
+and the available inspection tools.
 
 [BuildRouter](router_builder.go) handles every supported
 [WriteMode](../../../config/write_mode.go), including the terminal modes
@@ -197,7 +197,7 @@ assembled.
 
 All three transition builders share a 10-second cursor-log interval. The
 `paxdb_migration_version` gauge reports the observed version as a numeric value.
-`paxdb_migration_boundary_snapshot` now reports numeric status: 0 = not started,
+`paxdb_migration_boundary_snapshot` reports numeric status: 0 = not started,
 1 = in progress, 2 = complete. It has no `boundary_hex` label. The
 `paxdb_migration_keys_migrated` and `paxdb_migration_bytes_migrated` gauges report
 keys and combined key/value bytes processed in the current process run. They
@@ -214,5 +214,4 @@ the collector's configured retention; they do not retain cursor history or
 rely on staleness eviction. Cursor history lasts only as long as the deployment's
 configured log retention. At 10 seconds, a continuously running 30-day migration
 can produce 259,200 snapshot log events; provision log retention accordingly.
-Dashboards consuming the former cursor label must use the numeric status and
-progress gauges and consult structured logs for exact positions.
+Dashboards use the numeric status and progress gauges; structured logs carry exact positions.

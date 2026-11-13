@@ -59,7 +59,7 @@ The spec files in `eth/` cover method-specific combinations of:
 
 ## Layout
 
-```
+```text
 tests/integration/rpc_tests/
 ├── package.json                # module deps + scripts (compile / rpc:* / test:rpc)
 ├── tsconfig.json               # TypeScript config for the module
@@ -104,23 +104,26 @@ then end to end:
 
 1. Installs deps (`npm ci`; skip with `SKIP_NPM_CI=true`) and compiles contracts.
 2. Waits for the EVM RPC on `:8545` and for the chain to be producing blocks.
-3. Installs geth when it is absent (`go install` of go-ethereum at `GETH_VERSION`,
-   default `v1.17.0`) and starts the geth `--dev` reference node
-   (`npm run rpc:geth`), waiting for `:9547`.
+3. Selects geth at the exact `GETH_VERSION` release tag (default `v1.17.0`).
+   A matching installed executable is reused; otherwise `go install` supplies
+   that version in an isolated temporary directory. The script verifies its
+   reported version, records `reports/geth-reference.json`, starts that binary
+   with `--dev` on port 9547, and waits for readiness.
 4. Runs `rpc:bootstrap`, then (only if bootstrap passed) `rpc:run`.
 5. Merges the per-phase mochawesome JSON into one combined HTML report at
    `reports/merged/rpc-tests.html`.
 
-Cleanup attempts to stop the spawned geth process and listeners on port 9547;
+Cleanup removes the isolated install directory and attempts to stop the spawned
+geth process and listeners on port 9547;
 reserve that port for this run. Dependency, compile, readiness, bootstrap and
 spec failures return nonzero. A report-merge failure only emits a warning and
 can leave a missing report despite a successful test exit.
 
 Knobs: `PAX_EVM_RPC`, `RPC_ETH_GETH`, `PAX_TIMEOUT` (default 300 s),
-`GETH_TIMEOUT` (default 120 s), `SKIP_NPM_CI`, `GETH_VERSION`. An existing geth
-binary is reused with a version-mismatch warning; the version pin controls an
-installation when the binary is absent. `RPC_ETH_GETH` changes the URL polled
-and consumed, while `rpc:geth` still starts its fixed local port 9547.
+`GETH_TIMEOUT` (default 120 s), `SKIP_NPM_CI`, `GETH_VERSION`. `GETH_VERSION` must be an exact release tag such as `v1.17.0`; an installed
+version must report that version or that version followed by `-stable`.
+`RPC_ETH_GETH` changes the URL polled and consumed, while the reference
+executable still starts on fixed local port 9547.
 
 ## Reporting
 
@@ -189,17 +192,23 @@ npx mocha --require tsx --timeout 600000 eth/eth_blockNumber.spec.ts
 | `PAX_ADMIN_MNEMONIC`    | empty; bootstrap generates one when unset |
 | `RPC_POLLING_INTERVAL_MS`| `100` (the ethers default of 4 s is too slow for the local chain) |
 | `RPC_TESTS_RUNTIME_STATE`| `runtime/runtime.json`                            |
+| `RPC_ACCOUNTLESS`       | Required keyless fixture URL for accountless helpers; `eth_accounts` defaults to `http://127.0.0.1:9548` |
 
 Endpoint defaults come from [`config/endpoints.ts`](config/endpoints.ts).
-`RPC_ACCOUNTLESS` is a separate endpoint setting whose current fallback is a
-historical service URL; it is not a merged-mainnet endpoint recommendation.
+`RPC_ACCOUNTLESS` selects a separate keyless endpoint. The endpoint map requires
+an explicit loopback HTTP(S) URL or a published mainnet-beta HTTPS root URL,
+without credentials, query or fragment. Verify `eth_chainId` and `eth_accounts`
+for that endpoint before using it. The `eth_accounts` empty-keyring case reads
+the variable directly, defaults to `http://127.0.0.1:9548`, and requires a local
+HTTP fixture; provision that node separately with an empty test keyring.
 Bootstrap skips admin funding if its EVM balance is already positive; otherwise
 it funds and associates the account through Docker. The local helpers use fixed `pax-node-0`/`admin` Docker assumptions, and
 CW20 pointer registration uses the in-container URL in
 [`utils/constants.ts`](utils/constants.ts). Environment endpoint overrides alone
 do not turn this into a remote-only suite. Bootstrap records the actual chain
-IDs in `runtime.json`; the local `DEFAULT_EVM_CHAIN_ID` constant is not the
-mainnet chain ID.
+IDs in `runtime.json`; `DEFAULT_EVM_CHAIN_ID` equals the merged EVM chain ID
+125, and `HISTORICAL_DEVNET_EVM_CHAIN_ID` explicitly names the separate 713714
+fixture identity.
 
 ## Authoring a new spec
 
@@ -258,6 +267,6 @@ Rules of the road for new specs:
    `expectSameError`. Pax-only methods (`pax_*`) have no geth reference; assert
    their documented Pax behavior explicitly.
 
-For response-kind-only fixture coverage, see the
+For method schemas and deterministic response fixtures, see the
 [`.io` / `.iox` harness](../evm_module/rpc_io_test/RPC_IO_README.md). For dApp
 flows spanning EVM and native operations, see the [dApp suite](../dapp_tests/README.md).

@@ -1,12 +1,13 @@
-![](docs/resources/littdb-logo.png)
+# LittDB
 
-# Contents
+![LittDB](docs/resources/littdb-logo.png)
+
+## Contents
 
 - [License](docs/licenses/README.md)
 - [What is LittDB?](#what-is-littdb)
     - [Features](#features)
     - [Consistency Guarantees](#consistency-guarantees)
-    - [Planned/Possible Features](#plannedpossible-features)
     - [Anti-Features](#anti-features)
 - [API](#api)
     - [Overview](#overview)
@@ -17,7 +18,7 @@
 - [Architecture](docs/architecture.md)
 - [Filesystem Layout](docs/filesystem_layout.md)
 
-# What is LittDB?
+## What is LittDB?
 
 LittDB is a highly specialized embedded key-value store that is optimized for the following workload:
 
@@ -34,7 +35,7 @@ the kernel is part of that network and proposes blocks. Sub-chains are tenant do
 database, not separate infrastructure. A LittDB table supplies a local key namespace; this package
 does not itself provision tenant domains.
 
-## Features
+### Features
 
 The following features are currently supported by LittDB:
 
@@ -43,13 +44,12 @@ The following features are currently supported by LittDB:
 - [TTLs](#ttl) and automatic (lazy) deletion of expired values
 - [tables](#table) with non-overlapping namespaces
 - multi-drive support (data can be spread across multiple physical volumes)
-- incremental backups (both local and remote)
+- incremental local and remote backups
 - primary and secondary keys up to 65,535 bytes (2^16 - 1)
 - values up to 4,294,967,295 bytes (2^32 - 1, `math.MaxUint32`)
 - incremental snapshots
-- incremental remote backups
 
-## Consistency Guarantees
+### Consistency Guarantees
 
 The consistency guarantees provided by LittDB are more limited than those provided by typical general-purpose
 transactional databases. This is intentional, as the intended use cases of LittDB do not require higher order
@@ -65,19 +65,7 @@ consistency guarantees.
       some of the writes in the [batch](#batched-writes) may be [durable](#durability) on disk, while others may
       not be.
 
-## Planned/Possible Features
-
-The following features are planned for future versions of LittDB, or are technically feasible if a strong
-enough need is demonstrated:
-
-- dynamic multi-drive support: Drives can currently only be added/removed with a DB restart.
-  It's currently fast, but not instantaneous. With this feature, drives can be added/removed on the fly.
-- read-only mode from an outside process
-- more keymap implementations (e.g. badgerDB, a custom solution, etc.)
-- data check-summing and verification (to protect/detect disk corruption)
-- keys and values up to 2^64 bytes in size
-
-## Anti-Features
+### Anti-Features
 
 LittDB deliberately omits general-purpose database features. Its supported write path is append-only:
 
@@ -91,9 +79,9 @@ LittDB deliberately omits general-purpose database features. Its supported write
 - any sort of query language other than "get me the value associated with this key"
 - key-ordered data iteration (tables can only be iterated in insertion order or reverse insertion order)
 
-# API
+## API
 
-## Overview
+### Overview
 
 Below is a high level overview of the LittDB API. For more detailed information, see the inline documentation in the
 interface files.
@@ -175,7 +163,7 @@ bytes. `Get`, `Exists`, `KeyCount`, and TTL all treat secondary keys identically
 Secondary keys share the value's bytes on disk, so each one costs roughly one keymap entry rather
 than duplicating value bytes.
 
-## Getting Started
+### Getting Started
 
 This example opens a table, writes and flushes a value, reads it, and checks the close error.
 Stop all writers before closing the database.
@@ -234,7 +222,7 @@ func main() {
 }
 ```
 
-## Configuration Options
+### Configuration Options
 
 Start with [`DefaultConfig`](littdb_config.go) and set `Config.Paths` to every storage root.
 Use [`DefaultTableConfig`](table_config.go) for each `BuildTable` call: the defaults are no TTL,
@@ -248,18 +236,18 @@ snapshots of sealed segments; it is empty by default. See the [CLI backup and re
 Changing storage roots requires stopping the database, optionally [rebasing](docs/littdb_cli.md#litt-rebase)
 files, updating `Paths`, and reopening. Changing `Table.SetShardingFactor` is a separate runtime operation.
 
-## LittDB CLI
+### LittDB CLI
 
 The LittDB has a CLI utility for offline manipulation of DB files. Build it with `make build` from this directory
 (the binary lands in `./bin/litt`). See the [LittDB CLI](docs/littdb_cli.md) docs for more information on how to use it.
 
-# Definitions
+## Definitions
 
 This section contains an alphabetized list of technical definitions for a number of terms used by LittDB. This
 list is not intended to be read in order, but rather to be used as a reference when reading other parts of the
 documentation.
 
-## Address
+### Address
 
 An address partially describes the location on disk where a [value](#value) is stored. Together with a [key](#key),
 the [value](#value) associated with a [key](#key) can be retrieved from disk.
@@ -275,7 +263,7 @@ An address contains the following information:
 Retrieving a [value](#value) starting from an Address is a self-contained
 operation that does not need to consult any segment-level metadata or recompute anything from the [key](#key).
 
-## Atomicity
+### Atomicity
 
 In the context of this document, atomicity means that an operation is either done completely or not at all. That is
 to say, if there is a crash while an operation is in progress, the operation will either be completed when the
@@ -285,7 +273,7 @@ As a specific example, if writing a [value](#value) and there is a crash, either
 written to disk and available when the database is restarted, or the [value](#value) will be completely absent.
 It will never be the case that only part of the [value](#value) is written to disk.
 
-## Cache
+### Cache
 
 LittDB maintains an in-memory cache of [key](#key)-[value](#value) pairs. Data is stored in this cache when a value
 is first written (write cache), as well as when it is read from the base table (read cache), when those caches
@@ -294,7 +282,7 @@ are enabled. Both default to size zero. The caches are not persistent. On a cach
 `Exists` delegates directly to the base. Garbage collection can leave bytes physically cached until eviction,
 but keys removed from the base table are no longer returned. See the [architecture](docs/architecture.md#putting-it-all-together-littdb).
 
-## Batched Writes
+### Batched Writes
 
 LittDB supports batched write operations. Multiple write operations can be grouped together and passed to the database
 as a single operation. This may have positive performance implications, but is semantically equivalent to writing each
@@ -303,7 +291,7 @@ batch is [atomic](#atomicity). That is to say, if there is a crash after a batch
 it has been [flushed](#flushing), some of the writes in the batch may be [durable](#durability) on disk, while others
 may not be.
 
-## Durability
+### Durability
 
 In this context, the term "durable" is used to mean that data is stored on disk in such a way that it will not be lost
 in the event of a crash. Data that has been [flushed](#flushing) is considered durable. Data that has not been flushed
@@ -318,7 +306,7 @@ data in internal buffers before writing it to disk, and do not necessarily write
 only as robust as the OS/hardware it is running on. This is true for any database, but it is worth mentioning here
 for the sake of completeness.
 
-## Flushing
+### Flushing
 
 Calling `Flush()` causes all data previously written to be written [durably](#durability) to disk. A call to `Flush()`
 blocks until all data that was written prior to the call to `Flush()` has been written to disk.
@@ -350,7 +338,7 @@ to `Flush()` returns.
 
 The following example demonstrates the consistency guarantees provided by the `Flush()` operation:
 
-![](docs/resources/flush-visual.png)
+![Concurrent writes and a flush boundary](docs/resources/flush-visual.png)
 
 In this example there are two threads performing operations, `Thread 1` and `Thread 2`. `Thread 1` writes `A`, `B`,
 and `C`, calls `Flush()`, and then writes `D`. `Thread 2` writes `W`, `X`, `Y`, and `Z`. `Time α` is the moment
@@ -365,15 +353,15 @@ Note that just because an operation is not guaranteed to be [durable](#durabilit
 that is guaranteed to be not [durable](#durability). If the computer crashes after `Time β` but before the next call
 to `Flush()`, then `X`, `Y`, `Z`, and `D` may or may not be lost as a result.
 
-## Key
+### Key
 
 A key in a key-[value](#value) store. A key is a byte slice that is used to look up a [value](#value) in the database.
 
 LittDB is agnostic to the contents of the key, other than requiring that keys be unique within a [table](#table).
 Although large keys are supported, performance has been tuned under the assumption that keys are generally small
-compared to [values](#value). The use case LittDB was originally intended for uses 32-byte keys.
+compared to [values](#value). A representative workload uses 32-byte keys.
 
-## Keymap
+### Keymap
 
 At a conceptual level, a keymap is a mapping from [keys](#key) to [addresses](#address). In order to look up a
 [value](#value) in the database one needs to know two things: the [key](#key) and the [address](#address). The keymap
@@ -393,10 +381,10 @@ entry is guaranteed to be present on disk.
   then the [value](#value) is deleted from disk.
 
 LittDB supports reading [values](#value) immediately after they are written, and during that period there may not
-be a corresponding entry in the keymap. For more information on how this edge case is handled, information about the
+be a corresponding entry in the keymap. For more information on how this edge case is handled, see the
 [unflushed data map](#unflushed-data-map).
 
-## Read-Your-Writes Consistency
+### Read-Your-Writes Consistency
 
 The definition of read-your-writes consistency is well summarized by its name. If a thread writes a [value](#value)
 to the database and then turns around and attempts to read that [value](#value) back, it will either
@@ -410,12 +398,10 @@ That is to say, if a thread writes a [value](#value), waits a very long time, th
 back again, it is not a violation of read-your-writes consistency if the [value](#value) is not present because the
 [garbage collector](#ttl) has deleted it.
 
-An "eventual consistent" database does not necessarily provide read-your-writes consistency. In the author's experience,
-such systems can be very difficult to reason about, and can lead to subtle bugs that are difficult to track down.
-Read-your-writes consistency is simple, yet powerful and intuitive. Since providing this level of consistency
-does not hurt performance, the complexity of its implementation is justified.
+An eventually consistent database does not necessarily provide read-your-writes consistency. LittDB
+provides this guarantee through its unflushed data map, keymap and immutable segment files.
 
-## Segment
+### Segment
 
 Data in LittDB [table](#table) can be visualized as a linked list. Each element in that linked list is called a
 "segment". A segment can hold many individual [values](#value). Old data is near the beginning of the list, and new
@@ -454,15 +440,15 @@ There are three types of files that contain data for a segment:
 - [keys](#segment-key-file)
 - [values](#segment-value-files)
 
-### Segment Index
+#### Segment Index
 
 Each segment has a serial number called a "segment index". The first segment ever created with index `0`, the next
 segment created has index `1`, and so on. Segment `N` is always deleted before segment `N+1`, meaning there will
 never be a gap in the segment indices currently in use.
 
-### Segment Key File
+#### Segment Key File
 
-A segment key file contains the [keys](#key) and [addresses](#address) for all the [values](#value) stored the segment.
+A segment key file contains the [keys](#key) and [addresses](#address) for all the [values](#value) stored in the segment.
 At runtime, [keys](#key)-[address](#address) pairs are appended to the key file. It is not read except during the
 following circumstances:
 
@@ -472,7 +458,7 @@ following circumstances:
 
 The file name of a key file is `X.keys`, where `X` is the [segment index](#segment-index).
 
-### Segment Metadata File
+#### Segment Metadata File
 
 This file contains metadata about the segment. This metadata is small, and so it can be kept in memory. The file is
 read at startup to rebuild the in-memory representation of the segment.
@@ -487,16 +473,16 @@ Each metadata contains the following information:
 
 The file name of a metadata file is `X.metadata`, where `X` is the [segment index](#segment-index).
 
-### Segment Mutability
+#### Segment Mutability
 
 Only the last segment in the "linked list" is mutable. All other segments are immutable.
 
-### Segment Timestamp
+#### Segment Timestamp
 
 The timestamp recorded when the segment is sealed. Garbage collection compares its age with the current
 table [TTL](#ttl). The mutable segment has not yet been sealed.
 
-### Segment Value Files
+#### Segment Value Files
 
 Each segment has one value file for each [shard](#shard) in the segment. Values are appended to the value files.
 The [address](#address) of a [value](#value) is the offset within the value file where the [value](#value) begins.
@@ -504,7 +490,7 @@ The [address](#address) of a [value](#value) is the offset within the value file
 The file name of a value file is `X-Y.values`, where `X` is the [segment index](#segment-index) and `Y` is the
 [shard](#shard) index.
 
-## Shard
+### Shard
 
 LittDB supports sharding. That is to say, it can break the data into smaller pieces and spread those pieces across
 multiple locations.
@@ -518,7 +504,7 @@ This scheme distributes the number of writes evenly across shards within a segme
 all land in the same shard, since the shard chosen for a given [value](#value) depends only on the order in which
 it was written, not on the contents of its [key](#key). This does not guarantee equal byte usage when values differ in size.
 
-### Sharding Factor
+#### Sharding Factor
 
 The number of [shards](#shard) in a [segment](#segment) is called the "sharding factor". The sharding factor must
 be in the inclusive range 1 through 255 (`litt.MaxShardingFactor`). Both the factor in segment metadata
@@ -526,7 +512,7 @@ and `TableConfig.ShardingFactor` / `Table.SetShardingFactor` use a single byte (
 factor at runtime seals the mutable segment and starts a new one; existing segments retain their
 factors. This requires neither a restart nor a data migration.
 
-## Table
+### Table
 
 A table in LittDB is a unique namespace. Two [keys](#key) with identical values do not conflict with each other as
 long as they are in different tables.
@@ -542,7 +528,7 @@ Each table is configured via a `TableConfig` supplied at [build time](#api) (TTL
 With the exception of the table name, these settings are held in memory only and are not persisted to disk, so they
 must be provided again each time the database is opened.
 
-## TTL
+### TTL
 
 TTL stands for "time-to-live". A sealed segment becomes eligible for collection when its seal age
 reaches the current table TTL. Deletion is lazy and segment-wide: time in the mutable segment, the
@@ -554,7 +540,7 @@ TTL is the online retention mechanism for individual entries. A TTL of 0 disable
 operations using that table. A `TableConfig.GCFilter`, if supplied, can delay collection beyond the TTL;
 it must return true permanently once a key becomes eligible.
 
-## Unflushed Data Map
+### Unflushed Data Map
 
 An in-memory map that contains [keys](#key)-[values](#value) pairs that are not yet [durable](#durability) on disk.
 Entries are added to the map when a [value](#value) is written, and removed when the [value](#value) is fully
@@ -563,17 +549,17 @@ written to both the [keymap](#keymap) and the [segment](#segment) files.
 This data structure is not to be confused with the [cache](#cache). Its purpose is not to improve performance, but
 rather to provide [read-your-writes consistency](#read-your-writes-consistency).
 
-## Value
+### Value
 
 The value in a key-[value](#value) store. A value is a byte slice that is associated with a [key](#key) in the database.
 LittDB is optimized to support large values, although small values are perfectly fine as well. Writing the X bytes
 of data as a single large value is more efficient than writing X bytes of data as Y smaller values.
 
-# Architecture
+## Architecture
 
 For a detailed overview of the architecture of LittDB, see the [Architecture](docs/architecture.md) docs.
 
-# Filesystem Layout
+## Filesystem Layout
 
 For information about how LittDB arranges its internal files, see the [Filesystem Layout](docs/filesystem_layout.md)
 docs.

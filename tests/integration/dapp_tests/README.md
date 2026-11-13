@@ -4,7 +4,7 @@ These integration tests deploy contracts and exercise EVM, CosmWasm and pointer
 interactions on `paxd`, including associated and unassociated accounts. They
 fund accounts and submit transactions, so use a disposable test chain. See the
 [integration overview](../README.md) for the merged network and public endpoint
-conventions; these scripts retain local and historical test-network settings.
+conventions; these scripts use local and named test-network settings.
 
 ## Setup
 
@@ -26,14 +26,14 @@ and keyring, and the Wasm artifacts referenced by the scenarios.
 
 | Network label | Hardhat EVM provider | Accounts |
 | ------------- | ------------------- | -------- |
-| `paxlocal` | `PAXEER_LOCAL_EVM_RPC_URL`, default `http://127.0.0.1:8545` | Configured from `DAPP_TESTS_MNEMONIC` when set. |
+| `paxlocal` | `PAXEER_LOCAL_EVM_RPC_URL`, default `http://127.0.0.1:8545` | Uses the local fixture account configured in Hardhat; `DAPP_TESTS_MNEMONIC` does not override it. |
 | `devnet` | `PAXEER_DEVNET_EVM_RPC_URL` | Network is defined only when both URL and `DAPP_TESTS_MNEMONIC` are set. |
 | `testnet` | `PAXEER_TESTNET_EVM_RPC_URL` | Network is defined only when both URL and `DAPP_TESTS_MNEMONIC` are set. |
 
-Set `DAPP_TESTS_MNEMONIC` for the combined runner: Uniswap and NFT setup read
-`accounts.mnemonic` and `accounts.path` directly, including on `paxlocal`. The
-configured HD path is `m/44'/118'/0'/0/0`. On the local branch, Steak creates
-its owner through its account helper instead.
+Set `DAPP_TESTS_MNEMONIC` when selecting `devnet` or `testnet`. Uniswap and NFT
+setup read `accounts.mnemonic` and `accounts.path` directly from the selected
+Hardhat network. The configured HD path is `m/44'/118'/0'/0/0`. On `paxlocal`,
+Steak creates its owner through its account helper instead.
 
 On `paxlocal`, prepare the chain with
 [`scripts/initialize_local_chain.sh`](../../../scripts/initialize_local_chain.sh)
@@ -49,11 +49,11 @@ and `chainIds` maps used by all three suites:
 
 - For `devnet` and `testnet`, setup writes `rpcUrls[DAPP_TEST_ENV]` and
   `chainIds[DAPP_TEST_ENV]` into `paxd config node` and `paxd config chain-id`.
-  The stored chain IDs are the historical `arctic-1` and `atlantic-2` labels,
+  The stored chain IDs are `arctic-1` and `atlantic-2`,
   respectively. These native chain-ID strings do not select merged mainnet
   and are distinct from its EVM chain ID 125.
 - Pointer helpers receive `evmRpcUrls[DAPP_TEST_ENV]` and append it as
-  `--evm-rpc` to native CLI commands. These values are hard-coded legacy
+  `--evm-rpc` to native CLI commands. These values are hard-coded
   test-network URLs and do not read `PAXEER_DEVNET_EVM_RPC_URL` or
   `PAXEER_TESTNET_EVM_RPC_URL`.
 - The maps have no `paxlocal` entries. Local setup leaves the CLI node and

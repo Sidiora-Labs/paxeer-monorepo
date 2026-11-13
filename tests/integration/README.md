@@ -14,7 +14,7 @@ disposable local cluster; local genesis settings can differ from mainnet.
 Related suites:
 
 - [dApp scenarios](dapp_tests/README.md): EVM, CosmWasm and pointer interactions.
-- [EVM RPC fixtures](evm_module/rpc_io_test/RPC_IO_README.md): `.io` / `.iox` response-kind checks.
+- [EVM RPC fixtures](evm_module/rpc_io_test/RPC_IO_README.md): `.io` / `.iox` method schemas and deterministic response checks.
 - [RPC parity suite](rpc_tests/README.md): TypeScript assertions against a local geth reference.
 
 ## Getting Started
@@ -54,8 +54,8 @@ separately through Python by the upgrade workflow.
 ## Writing Tests
 
 Each file is a YAML list of cases. The [template](template/template_test.yaml)
-shows the field layout; use the common expression subset below rather than its
-unrestricted Python-eval placeholder.
+shows the field layout. Use the common expression subset below for files shared
+by the Python and Go drivers.
 
 ```yaml
 - name: Validator count is four
@@ -99,39 +99,48 @@ equality, use a captured single-token value and a double-quoted literal, such as
 `STATUS == "ready"`. Keep output containing quotes, backslashes or multiple
 lines out of `eval`; extract a simple value with `jq` or use `regex` instead.
 
-The evaluators are not interchangeable:
+The Python evaluator parses a restricted expression AST, resolves captured names
+as values, and evaluates with built-ins disabled. It supports comparisons,
+`and`, `or`, `not`, unary signs, and arithmetic including `//` and `%`; calls,
+attribute access and indexing are rejected. Captured decimal integers remain
+integers, finite numeric values become floats, and other output remains a string.
 
-- Python substitutes whitespace-delimited captured names and calls Python
-  `eval`. Values parseable as numbers are inserted unquoted; other values are
-  wrapped in double quotes without escaping. Python syntax and precedence apply.
-- Go tokenizes comparisons by whitespace. It compares decimal integers with
-  `big.Int`, then tries floating point, then string comparison. Integer
-  arithmetic supports `+`, `-`, `*`, `/` and evaluates left to right; division
-  is integer division. Python uses normal arithmetic precedence and `/` returns
-  a floating-point value.
-- Go splits on ` and ` before ` or `, giving `or` tighter binding in mixed
-  expressions. Python gives `and` tighter binding. For example,
-  `1 == 1 or 1 == 2 and 1 == 2` evaluates differently. Go does not implement
-  Python calls, indexing, general parentheses or chained comparisons.
+The Go evaluator uses whitespace-delimited tokens and preserves quoted string
+literals. It supports comparisons, `and`, `or`, and `+`, `-`, `*`, `/`.
+Multiplication and division bind before addition and subtraction; `and` binds
+before `or`. Integer addition, subtraction and multiplication use `big.Int`;
+division and decimal arithmetic use floating point. It compares integer values
+first, then floating-point values, then strings. It does not implement the
+Python evaluator's full grammar. Compute complex arithmetic in commands or use
+separate verifiers when sharing a file between drivers.
 
-Use separate verifiers for conjunctions and compute arithmetic in the command
-when sharing a file between drivers. Avoid relying on either evaluator's wider
-grammar.
+For `regex`, both drivers match from the start of trimmed output. Anchor shared
+patterns with `^` and `$` for a whole-output check and use syntax supported by
+both; Go does not support Python lookaround or backreferences.
 
-For `regex`, Python uses `re.match` (start of output), while Go uses
-`regexp.MatchString` (anywhere in output). Anchor shared patterns with `^` and
-`$` and use syntax supported by both; Go does not support Python lookaround or
-backreferences.
+### Command status and timeouts
+
+Both drivers require a successful command exit by default and fail a case when
+a command exits unexpectedly or exceeds its time limit. Their optional input
+fields differ:
+
+| Driver | Expected exit field | Timeout |
+| ------ | ------------------- | ------- |
+| Python | `expected_status` (integer 0–255, default 0) | `timeout` per input, or the runner's 300-second default; must be positive and finite. |
+| Go | `expected_exit_code` (integer 0–255, default 0) | `WithCommandTimeout`, default two minutes; `WithContext` also supports cancellation. |
+
+Use the matching field when asserting a deliberate command failure. The other
+driver does not interpret that field. Shell commands execute through Bash by
+default; captured environment variables are passed as process arguments.
 
 ### Notes & Tips
 
 1. Captures are reset for each case and passed to later commands as environment
    variables; they are not global across cases.
-2. Python builds a shell string with single-quoted command and environment
-   values. Avoid embedded single quotes in commands and captured output. Go
-   passes Docker arguments directly, but the command still runs in a shell.
-3. Both drivers capture stdout and trim surrounding whitespace. A nonzero
-   command exit alone does not fail a case; capture and verify the intended
-   response or exit status explicitly. Go reports command exits in its log.
+2. Commands and captured environment values are passed as separate process
+   arguments. Shell syntax belongs in the command; captured values are not
+   interpolated into that command by the driver.
+3. Both drivers capture stdout and trim surrounding whitespace. Verifiers
+   check that output after the command's expected exit status is satisfied.
 4. Tests mutate a running chain and may not be idempotent. Preserve suite order
    and use fresh local state when a scenario requires it.

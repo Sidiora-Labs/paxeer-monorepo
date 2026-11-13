@@ -8,7 +8,7 @@ Operator and benchmarking tools for the PaxDB storage layer.
 
 ```bash
 make install        # go install ./cmd/paxdb
-make install-all    # same, built with the RocksDB backend tag (needs the RocksDB shared library and headers)
+make install-all    # builds with rocksdbBackend and sqliteBackend tags; requires native libraries and headers
 ```
 
 Commands:

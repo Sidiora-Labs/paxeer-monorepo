@@ -44,11 +44,12 @@ The graph renders static source relationships. It does not establish runtime rea
 - Search reaches all tasks, files and symbols, including items outside the visible page. Choosing a task opens its wave and the page containing it. Enter at least two characters; results are capped at 120 matches, so narrow a broad query with a task ID or title.
 - Press `/` to search, `F` to fit, `Escape` to clear and `Left Arrow` to return to the previous scope.
 
-The focused [repair checks](test/repair-22-33-799.test.mjs) run the production snapshot producer against an in-memory schema-14 store and recorded Git inventory, serve its output over loopback HTTP with the production server, and load it through the Delivery consumer. They need no generated snapshot, live index, external toolchain or credentials:
+The portable checks run the snapshot producer, HTTP server and Delivery consumer
+using local fixtures and an in-memory schema-14 store. Run them from the
+repository root with the required Node.js version:
 
 ```bash
-npm --prefix tools/codebase-map install --no-audit --no-fund
-node --test tools/codebase-map/test/repair-22-33-799.test.mjs
+npm --prefix tools/codebase-map run test:portable
 ```
 
 For the existing snapshot-dependent [checks](test/map.test.mjs), generate a fresh map first, then run `npm --prefix tools/codebase-map run check`. Those checks skip snapshot-dependent cases if `data/codebase-map.json` is absent. Their live-source comparisons require the same Git commit, compatible index and `cg spec status --json` inputs used to generate the snapshot.
