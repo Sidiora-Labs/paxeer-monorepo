@@ -17,14 +17,12 @@ GitHub for each job; maintainers control its declared permissions.
 
 ## Secrets
 
-Each secret read must have its own row, including identifiers stored as secrets.
+The table includes identifiers stored as secrets.
 
 | Name | Checks that read it | Purpose | Provisioned by |
 | --- | --- | --- | --- |
-| `AWS_ACCESS_KEY_ID` | [paxeer-integration-test.yml](../../.github/workflows/paxeer-integration-test.yml) | AWS access-key identifier for integration-test services | Integration infrastructure owner |
-| `AWS_SECRET_ACCESS_KEY` | [paxeer-integration-test.yml](../../.github/workflows/paxeer-integration-test.yml) | AWS authentication key paired with the integration access-key identifier | Integration infrastructure owner |
 | `BUF_TOKEN` | [paxeer-proto-registry.yml](../../.github/workflows/paxeer-proto-registry.yml) | Authenticate protobuf schema publication to the Buf registry | Protobuf registry maintainer |
-| `DAPP_TESTS_MNEMONIC` | [paxeer-dapp-tests.yml](../../.github/workflows/paxeer-dapp-tests.yml), [paxeer-integration-test.yml](../../.github/workflows/paxeer-integration-test.yml) | Funded devnet or testnet account mnemonic for dapp and integration journeys | Devnet/testnet operator |
+| `DAPP_TESTS_MNEMONIC` | [paxeer-dapp-tests.yml](../../.github/workflows/paxeer-dapp-tests.yml) | Funded devnet or testnet account mnemonic for dapp journeys | Devnet/testnet operator |
 | `DOCKERHUB_TOKEN` | [paxeer-db-tests.yml](../../.github/workflows/paxeer-db-tests.yml), [paxeer-docker-build.yml](../../.github/workflows/paxeer-docker-build.yml), [paxeer-go-test.yml](../../.github/workflows/paxeer-go-test.yml), [paxeer-integration-test.yml](../../.github/workflows/paxeer-integration-test.yml) | Authenticate Docker Hub pulls and image builds | Container registry maintainer |
 | `DOCKERHUB_USERNAME` | [paxeer-db-tests.yml](../../.github/workflows/paxeer-db-tests.yml), [paxeer-docker-build.yml](../../.github/workflows/paxeer-docker-build.yml), [paxeer-go-test.yml](../../.github/workflows/paxeer-go-test.yml), [paxeer-integration-test.yml](../../.github/workflows/paxeer-integration-test.yml) | Docker Hub account used by the optional registry login | Container registry maintainer |
 | `ETHEREUM_ASSET_EVIDENCE_B64` | [interop-migration-testnets.yml](../../.github/workflows/interop-migration-testnets.yml) | Base64 source asset evidence for Ethereum migration checks | Migration testnet operator |
@@ -94,8 +92,9 @@ provisions that protected file. Put credential contents in secrets or protected 
 | Name | Checks that read it | Purpose | Provisioned by |
 | --- | --- | --- | --- |
 | `AWS_ECR_ROLE_ARN` | [paxeer-ecr.yml](../../.github/workflows/paxeer-ecr.yml), [paxeer-nightly-ecr.yml](../../.github/workflows/paxeer-nightly-ecr.yml) | OIDC role assumed for ECR image publication; an empty setting disables the gated publish job | AWS/release infrastructure owner |
-| `CI_LINUX_RUNNER` | [agent.yml](../../.github/workflows/agent.yml), [bridge-test.yml](../../.github/workflows/bridge-test.yml), [ci.yml](../../.github/workflows/ci.yml), [docs-links.yml](../../.github/workflows/docs-links.yml), [docs-site.yml](../../.github/workflows/docs-site.yml), [explorer-build.yml](../../.github/workflows/explorer-build.yml), [hosted-developer.yml](../../.github/workflows/hosted-developer.yml), [human.yml](../../.github/workflows/human.yml), [interop-migration-testnets.yml](../../.github/workflows/interop-migration-testnets.yml), [interop-x402.yml](../../.github/workflows/interop-x402.yml), [jev-pr-advisory.yml](../../.github/workflows/jev-pr-advisory.yml), [labeler.yml](../../.github/workflows/labeler.yml), [node-build.yml](../../.github/workflows/node-build.yml), [offchain-images.yml](../../.github/workflows/offchain-images.yml), [paxeer-buf-check.yml](../../.github/workflows/paxeer-buf-check.yml), [paxeer-cross-arch-build.yml](../../.github/workflows/paxeer-cross-arch-build.yml), [paxeer-dapp-tests.yml](../../.github/workflows/paxeer-dapp-tests.yml), [paxeer-enforce-labels.yml](../../.github/workflows/paxeer-enforce-labels.yml), [paxeer-eth-blocktests.yml](../../.github/workflows/paxeer-eth-blocktests.yml), [paxeer-forge-test.yml](../../.github/workflows/paxeer-forge-test.yml), [paxeer-golangci.yml](../../.github/workflows/paxeer-golangci.yml), [paxeer-integration-test.yml](../../.github/workflows/paxeer-integration-test.yml), [paxeer-libwasmvm.yml](../../.github/workflows/paxeer-libwasmvm.yml), [paxeer-mock-balances-build.yml](../../.github/workflows/paxeer-mock-balances-build.yml), [paxeer-pr-to-slack-codex.yml](../../.github/workflows/paxeer-pr-to-slack-codex.yml), [paxeer-release-check.yml](../../.github/workflows/paxeer-release-check.yml), [paxeer-rocksdb-unit-tests.yml](../../.github/workflows/paxeer-rocksdb-unit-tests.yml), [paxeer-uci-backport.yml](../../.github/workflows/paxeer-uci-backport.yml), [paxeer-uci-go-lint.yml](../../.github/workflows/paxeer-uci-go-lint.yml), [paxeer-x-qualification.yml](../../.github/workflows/paxeer-x-qualification.yml), [platform.yml](../../.github/workflows/platform.yml), [programs-conformance.yml](../../.github/workflows/programs-conformance.yml), [ramp-sandbox.yml](../../.github/workflows/ramp-sandbox.yml), [runner-canary.yml](../../.github/workflows/runner-canary.yml), [wallet-go-test.yml](../../.github/workflows/wallet-go-test.yml), [wallet-test.yml](../../.github/workflows/wallet-test.yml), [xweb-test.yml](../../.github/workflows/xweb-test.yml) | Optional Linux runner selector; see the fallback and fork policy below | Repository CI administrator |
+| `CI_LINUX_RUNNER` | [agent.yml](../../.github/workflows/agent.yml), [bridge-test.yml](../../.github/workflows/bridge-test.yml), [ci.yml](../../.github/workflows/ci.yml), [docs-links.yml](../../.github/workflows/docs-links.yml), [docs-site.yml](../../.github/workflows/docs-site.yml), [explorer-build.yml](../../.github/workflows/explorer-build.yml), [explorer-images.yml](../../.github/workflows/explorer-images.yml), [hosted-developer.yml](../../.github/workflows/hosted-developer.yml), [human.yml](../../.github/workflows/human.yml), [interop-migration-testnets.yml](../../.github/workflows/interop-migration-testnets.yml), [interop-x402.yml](../../.github/workflows/interop-x402.yml), [jev-pr-advisory.yml](../../.github/workflows/jev-pr-advisory.yml), [labeler.yml](../../.github/workflows/labeler.yml), [launchpad-test.yml](../../.github/workflows/launchpad-test.yml), [node-build.yml](../../.github/workflows/node-build.yml), [offchain-images.yml](../../.github/workflows/offchain-images.yml), [paxeer-buf-check.yml](../../.github/workflows/paxeer-buf-check.yml), [paxeer-cross-arch-build.yml](../../.github/workflows/paxeer-cross-arch-build.yml), [paxeer-dapp-tests.yml](../../.github/workflows/paxeer-dapp-tests.yml), [paxeer-enforce-labels.yml](../../.github/workflows/paxeer-enforce-labels.yml), [paxeer-eth-blocktests.yml](../../.github/workflows/paxeer-eth-blocktests.yml), [paxeer-forge-test.yml](../../.github/workflows/paxeer-forge-test.yml), [paxeer-go-test.yml](../../.github/workflows/paxeer-go-test.yml), [paxeer-golangci.yml](../../.github/workflows/paxeer-golangci.yml), [paxeer-integration-test.yml](../../.github/workflows/paxeer-integration-test.yml), [paxeer-libwasmvm.yml](../../.github/workflows/paxeer-libwasmvm.yml), [paxeer-mock-balances-build.yml](../../.github/workflows/paxeer-mock-balances-build.yml), [paxeer-pr-to-slack-codex.yml](../../.github/workflows/paxeer-pr-to-slack-codex.yml), [paxeer-release-check.yml](../../.github/workflows/paxeer-release-check.yml), [paxeer-rocksdb-unit-tests.yml](../../.github/workflows/paxeer-rocksdb-unit-tests.yml), [paxeer-uci-backport.yml](../../.github/workflows/paxeer-uci-backport.yml), [paxeer-uci-go-lint.yml](../../.github/workflows/paxeer-uci-go-lint.yml), [paxeer-x-qualification.yml](../../.github/workflows/paxeer-x-qualification.yml), [platform.yml](../../.github/workflows/platform.yml), [programs-conformance.yml](../../.github/workflows/programs-conformance.yml), [ramp-sandbox.yml](../../.github/workflows/ramp-sandbox.yml), [runner-canary.yml](../../.github/workflows/runner-canary.yml), [wallet-go-test.yml](../../.github/workflows/wallet-go-test.yml), [wallet-test.yml](../../.github/workflows/wallet-test.yml), [xweb-test.yml](../../.github/workflows/xweb-test.yml) | Optional Linux runner selector; see the fallback and fork policy below | Repository CI administrator |
 | `CODECOV_ENABLED` | [paxeer-db-tests.yml](../../.github/workflows/paxeer-db-tests.yml), [paxeer-go-test.yml](../../.github/workflows/paxeer-go-test.yml), [paxeer-rocksdb-unit-tests.yml](../../.github/workflows/paxeer-rocksdb-unit-tests.yml) | Enable coverage upload when set to true | Repository CI administrator |
+| `DASHBOARD_API_ORIGIN` | [publish-images.yml](../../.github/workflows/publish-images.yml) | Dashboard API origin compiled into the dashboard web image | Platform deployment maintainer |
 | `HUMAN_E2E_BASE_URL` | [human.yml](../../.github/workflows/human.yml) | Base URL for the Human browser journey | Human application maintainer |
 | `HUMAN_VISUAL_BASELINE_REVIEWED` | [human.yml](../../.github/workflows/human.yml) | Record approval of the Human visual baseline | Human application maintainer |
 | `LAYERX_AGENT_INSTALL_A2A_SEQUENCE` | [platform.yml](../../.github/workflows/platform.yml) | A2A request sequence used by the installation journey | Platform integration/testnet operator |
@@ -128,12 +127,16 @@ provisions that protected file. Put credential contents in secrets or protected 
 | `LAYERX_REFERENCE_SELLER` | [platform.yml](../../.github/workflows/platform.yml) | Reference seller identifier | Platform integration/testnet operator |
 | `LAYERX_REFERENCE_SELLER_ACCOUNT` | [platform.yml](../../.github/workflows/platform.yml) | Reference seller settlement account | Platform integration/testnet operator |
 | `LAYERX_REFERENCE_WEBHOOK_KEYS_JSON` | [platform.yml](../../.github/workflows/platform.yml) | Reference webhook verification public-key set | Platform integration/testnet operator |
+| `LAYERX_RELEASE_AGENT_FUZZ_CORPUS_TASK` | [agent.yml](../../.github/workflows/agent.yml) | Release check identifier for the committed agent fuzz corpus | Agent release maintainer |
+| `LAYERX_RELEASE_AGENT_SANITIZERS_TASK` | [agent.yml](../../.github/workflows/agent.yml) | Release check identifier for agent sanitizer coverage | Agent release maintainer |
 | `LAYERX_RELEASE_CRATES_IO_INDEX` | [platform.yml](../../.github/workflows/platform.yml) | Optional Rust registry index override | SDK release maintainer |
+| `LAYERX_RELEASE_GATE_SPEC` | [agent.yml](../../.github/workflows/agent.yml), [programs-conformance.yml](../../.github/workflows/programs-conformance.yml) | Specification selected by the agent and Programs release checks | Release maintainer |
 | `LAYERX_RELEASE_GO_PROXY` | [platform.yml](../../.github/workflows/platform.yml) | Go module proxy target | SDK release maintainer |
 | `LAYERX_RELEASE_MAVEN_REPOSITORY_URL` | [platform.yml](../../.github/workflows/platform.yml) | Maven consumer repository target | SDK release maintainer |
 | `LAYERX_RELEASE_MAVEN_UPLOAD_URL` | [platform.yml](../../.github/workflows/platform.yml) | Maven publisher upload endpoint | SDK release maintainer |
 | `LAYERX_RELEASE_NPM_REGISTRY` | [platform.yml](../../.github/workflows/platform.yml) | npm registry target | SDK release maintainer |
 | `LAYERX_RELEASE_NUGET_SOURCE` | [platform.yml](../../.github/workflows/platform.yml) | NuGet package source | SDK release maintainer |
+| `LAYERX_RELEASE_PROGRAMS_ACCEPTANCE_TASK` | [programs-conformance.yml](../../.github/workflows/programs-conformance.yml) | Release check identifier for Programs acceptance | Programs release maintainer |
 | `LAYERX_RELEASE_PYPI_INDEX_URL` | [platform.yml](../../.github/workflows/platform.yml) | Python consumer package index | SDK release maintainer |
 | `LAYERX_RELEASE_PYPI_REPOSITORY_URL` | [platform.yml](../../.github/workflows/platform.yml) | Python publisher upload endpoint | SDK release maintainer |
 | `LAYERX_RELEASE_SWIFTPM_URL` | [platform.yml](../../.github/workflows/platform.yml) | Public Swift package URL recorded for consumers | SDK release maintainer |
@@ -215,8 +218,8 @@ provisions that protected file. Put credential contents in secrets or protected 
 `CI_LINUX_RUNNER` is the optional repository/organization Actions variable selecting
 the trusted Linux runner label. Most routed checks use
 `vars.CI_LINUX_RUNNER || 'ubuntu-24.04'`: if the variable is unset or empty,
-GitHub schedules `ubuntu-24.04`. Some chain workflows retain an `ubuntu-latest`
-fallback. Their `runs-on` expressions are the source for the per-job choice.
+GitHub schedules `ubuntu-24.04`. Each job's `runs-on` expression selects its
+runner.
 Fork pull requests select the workflow's GitHub-hosted fallback before consulting
 this variable. The repository CI administrator provisions the variable and registers
 the matching runner; setting a label alone does not register a runner.
@@ -227,13 +230,6 @@ by [mirror-live.yml](../../.github/workflows/mirror-live.yml) (`publish-retrieve
 (`mirror-only`). The mirror testnet operator registers and labels these runners and
 installs the live testnet tools and protected configuration they require.
 `self-hosted` is GitHub's standard label for a registered self-hosted runner.
-The built-in hosted labels used by the checks are `ubuntu-24.04`, `ubuntu-latest`,
-`macos-15` and `macos-latest`; GitHub provisions these hosted runners.
+The built-in hosted labels used by the checks are `ubuntu-24.04` and
+`macos-15`; GitHub provisions these hosted runners.
 Only custom labels belong in [actionlint.yaml](../../.github/actionlint.yaml).
-
-## Keeping the inventory current
-
-When a workflow gains a secret or variable, add its name, consuming workflow, purpose
-and provisioning role to the corresponding table. Keep custom actionlint labels tied
-to real `runs-on` uses and describe them here. The focused inventory gate is
-`python3 -m pytest -q tests/ci/test_workflow_secrets_documented.py`.

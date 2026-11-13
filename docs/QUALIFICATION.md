@@ -24,18 +24,9 @@ Go 1.25.8 (`go.mod`), and the Rust toolchain is 1.91.1
 | Integrated network behavior | Host execution, native balances, committed receipts, tenant isolation and state-proof verification through their real producers and consumers | `make test-paxd-domain`; node, RPC and consumer evidence described below |
 | Deployment evidence | Reviewed binaries and configuration, upgrade rehearsal, committed-state checks and restart/recovery evidence for the selected deployment | Release runbook and evidence bound to the deployed revision |
 
-Acceptance criteria and task status are in
-[`spec/layerx-merge/spec.kvx`](../spec/layerx-merge/spec.kvx). The
-[network overview](paxeer-network.md) describes the chain and public API.
-Evidence records must name the exact revision, command, exit code and log
-location. Keep credentials, operational inventories and raw qualification
-records in access-controlled storage; publish reviewed technical results.
-
-An individual task runs its declared build and verification, within its
-repair budget. The aggregate, sanitizer, replay and other release matrices
-below are wave or release gates, not an instruction to run all of them for
-every task. A listed command is a gate entrypoint, not a claim that it has
-passed at the current revision.
+The [network overview](paxeer-network.md) describes the chain and public API.
+Qualification results apply to the exact source, configuration and environment
+exercised by each suite. The commands below describe available coverage.
 
 ## Standard suites
 
@@ -128,10 +119,6 @@ API transport and the consuming service or SDK. It must demonstrate:
   the requested domain. The main network and tenant views share the same
   consensus and commit authority.
 
-The pre-merge checkpoint, guarantor and offline emergency-exit settlement
-drills are retired. Current finality and recovery evidence comes from the
-merged node's commits and persisted state.
-
 Before a live upgrade, validator change, asset movement or contract deployment,
 use the deployment's approved runbook and review the evidence for its exact
 revision and configuration. Local test results alone do not authorize those
@@ -157,5 +144,5 @@ workflow checks the resulting version and native archive digest.
 For aggregate workspace qualification, `make monorepo-ci` runs
 `workspace-ci`: source audit, inventory, workspace build, tests and lint.
 Language-specific results contribute to the same network's evidence; none
-alone proves the complete host, commit, storage and consumer path. Consult
-the declared task and release gates for the required coverage.
+alone proves the complete host, commit, storage and consumer path.
+See [RELEASE.md](../RELEASE.md) for release coverage.
