@@ -185,9 +185,11 @@ For unordered channels, a typical successful packet lifecycle is:
 | Acknowledgement processed on sender | Packet commitment deleted | Receipt and acknowledgement commitment remain |
 
 An application initiates sending through `ChannelKeeper.SendPacket` or its ICS4
-wrapper. Core checks the channel, capability, sequence, packet fields and
-counterparty timeout bounds against the client's known state before storing
-the commitment and advancing the send sequence. Relayers reconstruct packet
+wrapper. Core checks outbound enablement, the channel, capability, sequence,
+packet fields and active client status. It checks the timeout height against
+the client's latest height for every client type, and the timeout timestamp
+against the latest consensus timestamp for non-solo-machine clients. Success
+stores the commitment and advances the send sequence. Relayers reconstruct packet
 data from the sending transaction's events and relay it with commitment proofs.
 
 The receiver verifies the sender's packet commitment through its light client,
