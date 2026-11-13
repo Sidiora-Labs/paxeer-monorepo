@@ -66,7 +66,9 @@ Ethereum JSON-RPC or a compatibility `px_getReceiptKeys` registration.
 [pax_legacy_http.go](../rpc/pax_legacy_http.go) enforces
 `[evm].enabled_legacy_pax_apis` after the deny list. The default enables only
 `pax_getPaxAddress`, `pax_getEVMAddress`, and `pax_getCosmosTx`.
-Allowed responses retain their shape and carry the
+`pax_sequencerReceipt` is exempt from this legacy allowlist; it still needs a
+configured receipt source or forwarder and remains subject to the deny list.
+Allowlisted legacy responses retain their shape and carry the
 `Pax-Legacy-RPC-Deprecation` header. Disabled methods return JSON-RPC `-32601`
 with `data: "legacy_pax_deprecated"` under HTTP 200. Batch notifications do
 not generate response entries.

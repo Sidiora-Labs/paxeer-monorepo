@@ -4,6 +4,10 @@ KindleLaunch is the USDL-paired launchpad AMM implemented by the `Sidiora*` Soli
 this directory. This page describes those contracts, their optional Meta-AG/PECOR integration, and
 the authority and recovery model used by the deployment scripts.
 
+The network's active module and precompile are described in
+[native launchpad execution](../launchpad.md#native-execution). The deployment
+scripts on this page deploy the Solidity contracts in this directory.
+
 ## Network
 
 Paxeer mainnet-beta is one BFT network running `paxd`; its kernel participates in the network and

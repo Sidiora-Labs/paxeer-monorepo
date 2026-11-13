@@ -64,7 +64,9 @@ The first failing check determines the returned error. No unknown-field skipping
 
 ### Header digest
 
-`lxp_batch_header_hash` first re-encodes the header canonically, then calls `lxp_hash_domain(LXP_DOMAIN_BATCH_HEADER, ...)`. [Domain tags](../src/protocol/lxp_protocol.c) and [hash implementation](../src/crypto/lxp_hash.c) define the digest as:
+`lxp_batch_header_hash` first re-encodes the header canonically in the caller's
+arena, using `lxp_batch_header_encode`, then calls
+`lxp_hash_domain(LXP_DOMAIN_BATCH_HEADER, ...)`. [Domain tags](../src/protocol/lxp_protocol.c) and [hash implementation](../src/crypto/lxp_hash.c) define the digest as:
 
 ```text
 SHA-256(ASCII("LXP/v1/batch-header") || 0x00 || canonical_354_byte_header)

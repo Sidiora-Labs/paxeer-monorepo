@@ -196,8 +196,10 @@ preserve the owning protocol's fields when reporting a failure.
 [`sdk/types/errors`](../sdk/types/errors/errors.go) registers errors by codespace
 and numeric code. [`ABCIInfo`](../sdk/types/errors/abci.go) returns codespace,
 code and log; success has code 0 and empty codespace/log. Unclassified errors
-use `undefined`/1. The current non-debug encoder returns `err.Error()`, so callers
-must not assume it redacts arbitrary error text. Debug encoding uses `%+v`.
+use `undefined`/1. Non-debug encoding returns `err.Error()` only when the cause
+chain reaches a registered error other than `ErrPanic` or the internal error;
+unclassified, panic and internal errors render `internal error`. Messages wrapping
+registered errors can still contain caller-supplied text. Debug encoding uses `%+v`.
 
 | Codespace | Code | Sentinel |
 | --- | --- | --- |

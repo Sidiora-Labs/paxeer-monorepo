@@ -132,7 +132,9 @@ is an optional JSON array.
 
 [web3Wallet.ts](../apps/explorer/configs/app/features/web3Wallet.ts) separately
 controls add-network/add-token wallet integrations. `NEXT_PUBLIC_WEB3_WALLETS`
-is a JSON list filtered against supported wallet names; `none` disables it.
+is a JSON list filtered against supported wallet names; the literal `none`
+disables it. Unset input or a list with no supported entries selects the default
+wallet list.
 `NEXT_PUBLIC_WEB3_DISABLE_ADD_TOKEN_TO_WALLET=true` disables add-token actions.
 This feature does not bypass the contract-write prerequisites above.
 
@@ -153,9 +155,10 @@ enabled on Paxeer.
 [ui.ts](../apps/explorer/configs/app/ui.ts) and
 [ui/views](../apps/explorer/configs/app/ui/views/) own navigation, branding,
 homepage sections and per-resource display choices. The Paxeer preset uses a
-horizontal navigation layout, disables native coin price display without a
-market source, and disables third-party ad providers. These are presentation
-choices, independent of ledger balances and receipt validity.
+horizontal navigation layout, enables native coin price display and price/market
+charts, and disables third-party ad providers. Price data depends on the configured
+market sources. These are presentation choices, independent of ledger balances
+and receipt validity.
 
 [meta.ts](../apps/explorer/configs/app/meta.ts) owns social/SEO metadata;
 [services.ts](../apps/explorer/configs/app/services.ts) owns supporting service

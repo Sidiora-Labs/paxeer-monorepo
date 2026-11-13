@@ -10,6 +10,10 @@ Its Go import prefix is
 `github.com/Sidiora-Labs/Paxeer-X-Network/consensus`; upstream Tendermint names
 in packages and protocol messages are retained identifiers.
 
+From `consensus/`, `make build` builds the standalone `tendermint` binary into
+`build/` by default; `BUILDDIR` selects another output directory. The merged
+network runs through `paxd`.
+
 ## Go API
 
 The following source files define the producer and consumer boundaries:

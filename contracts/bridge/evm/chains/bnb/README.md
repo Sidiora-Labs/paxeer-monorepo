@@ -1,6 +1,6 @@
 # BNB Smart Chain
 
-PAX against BNB. This page is the BNB Smart Chain leg of the Paxeer X Network bridge: a BNB deposit locked in the vault on BNB Smart Chain mints its bridged denom on Paxeer X Network, and a burn of that denom on Paxeer X Network releases the BNB locked here. The operator runbook is [bridge runbook](../../../README.md); this page lists what this chain needs.
+This page is the BNB Smart Chain leg of the Paxeer X Network bridge: a BNB deposit locked in the vault on BNB Smart Chain mints its bridged denom on Paxeer X Network, and a burn of that denom on Paxeer X Network releases the BNB locked here. The operator runbook is [bridge runbook](../../../README.md); this page lists what this chain needs.
 
 | Field | Value |
 | --- | --- |
@@ -33,7 +33,7 @@ The configuration names the variables; neither the configuration nor the scripts
 | `PAXEER_BRIDGE_BNB_EXPLORER_KEY` | `services/bridge/deploy/verify-evm-chain.sh` | the explorer verification key |
 | `PAXEER_BRIDGE_DEPLOYMENT_RECORD` | both scripts | the deployment record: written by the deploy, read by the verification |
 | `PAXEER_BRIDGE_EVM_CHAINS_ROOT` | both scripts, optional | a chains root holding `bnb/config.json`, in place of `contracts/bridge/evm/chains` |
-| `BRIDGE_DEPLOY_OVERLAY` | both scripts, optional | JSON overlay for owner, deployer, attestors, environment names, caps and chain-specific settings |
+| `BRIDGE_DEPLOY_OVERLAY` | both scripts, optional | path to a JSON overlay file for owner, deployer, attestors, environment names, caps and chain-specific settings |
 | `PAXEER_BRIDGE_ATTESTOR_MANIFEST` | deployment and proposal generation, optional | approved signer manifest; defaults to `services/bridge/deploy/attestors.json` |
 
 ## Before running the deploy script
@@ -49,5 +49,14 @@ bash services/bridge/deploy/deploy-evm-chain.sh bnb
 bash services/bridge/deploy/verify-evm-chain.sh --preflight bnb
 bash services/bridge/deploy/verify-evm-chain.sh bnb
 ```
+
+Deployment `--preflight` validates configuration, required environment variables,
+local signer and tools without contacting the endpoint. The deployment run checks
+`eth_chainId` before building and broadcasting.
+
+Keep the deployment record and its per-chain run journal together. A rerun using
+the same deployment record reopens the retained configuration and broadcast for
+readback; it does not create a replacement vault. An incomplete broadcast requires
+reconciliation of that retained run before publication.
 
 The deployment proposes ownership to the configured owner, who calls `acceptOwnership()` to complete the transfer. The deployment record reports `"ownership": "proposed"` when readback still names the deployer, or `"ownership": "held"` when it names the configured owner. The record is a snapshot of that readback.
