@@ -169814,7 +169814,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.178]
 title = "Move the task records and name the files after what they hold in services/wallet/gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -169846,7 +169846,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.175]
 title = "Move the task records and name the files after what they hold in services/wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204278,7 +204278,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.174]
 title = "Move the task records and name the files after what they hold in services/platform/ramps and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204342,7 +204342,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.170]
 title = "Move the task records and name the files after what they hold in services/platform/hosted/registry and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238622,7 +238622,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.194]
 title = "Move the task records and name the files after what they hold in tests/integration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238654,7 +238654,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.186]
 title = "Move the task records and name the files after what they hold in storage/wal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238686,7 +238686,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.185]
 title = "Move the task records and name the files after what they hold in storage/tools"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238718,7 +238718,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.184]
 title = "Move the task records and name the files after what they hold in storage/state_db"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238750,7 +238750,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.183]
 title = "Move the task records and name the files after what they hold in storage/ledger_db"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238782,7 +238782,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.182]
 title = "Move the task records and name the files after what they hold in storage/db_engine/pebbledb and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238846,7 +238846,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.180]
 title = "Move the task records and name the files after what they hold in storage/db_engine/dbcache"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238878,7 +238878,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.177]
 title = "Move the task records and name the files after what they hold in services/wallet/ceremony"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -238910,7 +238910,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.176]
 title = "Move the task records and name the files after what they hold in services/wallet/attestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239390,7 +239390,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.124]
 title = "Move the task records and name the files after what they hold in sdk/x/bank and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -325894,7 +325894,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.179]
 title = "Move the task records and name the files after what they hold in src"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373634,7 +373634,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.200]
 title = "Move the task records and name the files after what they hold in tests/qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373698,7 +373698,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.192]
 title = "Move the task records and name the files after what they hold in tests/daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373730,7 +373730,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.191]
 title = "Move the task records and name the files after what they hold in tests/conformance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373794,7 +373794,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.189]
 title = "Move the task records and name the files after what they hold in tests/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373826,7 +373826,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.188]
 title = "Move the task records and name the files after what they hold in tests/agent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373858,7 +373858,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.154]
 title = "Move the task records and name the files after what they hold in services/interop/deploy and 2 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
