@@ -375131,7 +375131,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.124]
 title = "Write the page of the directory precompiles/perps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375161,7 +375161,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.123]
 title = "Write the page of the directory precompiles/p256"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375191,7 +375191,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.122]
 title = "Write the page of the directory precompiles/oracle"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -378694,7 +378694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.1]
 title = "Write the inventory of the systems that the upgrade to version 7.0.0 deploys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
