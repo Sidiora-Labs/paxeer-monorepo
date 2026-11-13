@@ -645,7 +645,7 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64, rewardGues
 	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
 	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
 	if len(rewardGuest) != 0 {
-		// Follow repair478Run's production occupancy lifecycle from genesis;
+		// Follow fundAllowanceRun's production occupancy lifecycle from genesis;
 		// CREATE commits in the preceding block before Fund reads its balance.
 		for ctx.BlockHeight() < seqVecFirstHeight+1 {
 			last, err := host.ReadLastSequence(ctx, did)
@@ -1520,7 +1520,7 @@ func TestRepairM_489_FiatJourneysDerived(t *testing.T) {
 	seqVecWriteFixture(t, seqVecFiatFixture, seqVecFiatCommand, file)
 }
 
-func repairM1297FeeTokenVector(t *testing.T) seqVecFile {
+func rpcBehaviorFeeTokenVector(t *testing.T) seqVecFile {
 	t.Helper()
 	private := &secp256k1.PrivKey{Key: bytes.Clone(seqVecSenderSecret)}
 	ethKey, err := crypto.ToECDSA(seqVecSenderSecret)
@@ -1623,12 +1623,12 @@ func repairM1297FeeTokenVector(t *testing.T) seqVecFile {
 }
 
 func TestSequencerReceiptFeeTokenVector(t *testing.T) {
-	file := repairM1297FeeTokenVector(t)
+	file := rpcBehaviorFeeTokenVector(t)
 	seqVecWriteFixture(t, seqVecFeeTokenFixture, seqVecFeeTokenCommand, file)
 }
 
-func repairM1297FeeTokenVectorProof(t *testing.T) {
-	file := repairM1297FeeTokenVector(t)
+func rpcBehaviorFeeTokenVectorProof(t *testing.T) {
+	file := rpcBehaviorFeeTokenVector(t)
 	require.Len(t, file.Cases, 1)
 	// Retain the producer-generated replacement privately; publishing the SDK
 	// fixture is the out-of-scope wiring request recorded in the proof index.
@@ -1874,7 +1874,7 @@ func seqVecAssertFields(t *testing.T, c seqVecCase) {
 	}
 }
 
-func init() { evmrpc.RepairM1297Proofs["fee-token-vector-reversed"] = repairM1297FeeTokenVectorProof }
+func init() { evmrpc.RPCBehaviorProofs["fee-token-vector-reversed"] = rpcBehaviorFeeTokenVectorProof }
 
 func TestAiMarketTransferAuthorityReceipt(t *testing.T) {
 	root, err := filepath.Abs("..")
