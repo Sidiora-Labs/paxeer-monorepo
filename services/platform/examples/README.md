@@ -7,10 +7,8 @@ is finality. Tenant domains are database namespaces within this network.
 
 ## Endpoints and prerequisites
 
-Beta profiles use public node JSON-RPC at
-`https://api-mainnet-beta.paxeer.network/`. The other public names are
-`https://api1.mainnet-beta.paxeer.network/` through
-`https://api14.mainnet-beta.paxeer.network/`, also at the root path. Nodes and
+Beta profiles use public node JSON-RPC at the root path; see the
+[public RPC reference](../../../docs/site/docs/reference/public-rpc.md). Nodes and
 hosted application services have different APIs. The node serves `px_*` state
 reads; registration and funding use the
 [hosted gateway](../hosted/gateway/README.md). Human payments and merchant
@@ -24,12 +22,12 @@ inputs. The merged-chain setup uses the **beta** profiles below. These are
 server-side Node.js applications. Keep credentials and signing material outside
 profile JSON.
 
-| Application | Beta `rpcUrl` (root JSON-RPC) | Beta `receiptKeysEnvironment` |
-| --- | --- | --- |
-| Buyer agent | `https://api-mainnet-beta.paxeer.network` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
-| Paid API | `https://api-mainnet-beta.paxeer.network` | `LAYERX_RECEIPT_KEYS_JSON` |
-| Merchant shop | `https://api-mainnet-beta.paxeer.network` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
-| Programs marketplace | `https://api-mainnet-beta.paxeer.network` | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
+| Application | Beta `receiptKeysEnvironment` |
+| --- | --- |
+| Buyer agent | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
+| Paid API | `LAYERX_RECEIPT_KEYS_JSON` |
+| Merchant shop | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
+| Programs marketplace | `LAYERX_TESTNET_RECEIPT_KEYS_JSON` |
 
 Supply independently pinned receipt keys to each application's named variable;
 setting the buyer's variable does not configure the paid API. Native node
@@ -83,7 +81,8 @@ does not supply a native chain RPC at port 8545.
 Receipt-key JSON is an array of objects with `keyId`, `publicKey`, `firstHeight`
 and `lastHeight`. Identifiers and public keys encode 32 bytes in hexadecimal
 (with an optional `0x` prefix); heights accept safe nonnegative JSON integers or
-canonical decimal/hexadecimal strings, with `firstHeight <= lastHeight`. Use the
+canonical decimal strings or lowercase hexadecimal strings, bounded to uint64,
+with `firstHeight <= lastHeight`. Use the
 operator's authentic keys and authorised ranges, never keys copied from a
 payment's untrusted response.
 

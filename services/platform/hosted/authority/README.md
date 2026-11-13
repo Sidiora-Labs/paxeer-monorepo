@@ -25,7 +25,7 @@ inclusion. Tenant domains are database namespaces within the network. See the
 | [`src/chain_receipt.rs`](src/chain_receipt.rs) | `pax_sequencerReceipt` HTTP transport, protected receipt-key list, signature and height-range checks |
 | [`src/trust.rs`](src/trust.rs) | Pinned key history and independent signed batch-header verification |
 | [`src/committed.rs`](src/committed.rs) | Committed receipt landing, Comet/EVM header binding and native-store ICS23 membership |
-| [`../registry/src/committed_head_route.rs`](../registry/src/committed_head_route.rs) | Authenticated committed-head relay mounted by the authority |
+| [`src/committed_head_route.rs`](src/committed_head_route.rs) | Authenticated committed-head relay mounted by the authority |
 | [`src/human.rs`](src/human.rs) | Human agent routes, principal policy and retained evidence |
 | [`src/human/dynamic.rs`](src/human/dynamic.rs) | Subject-scoped requests and optional identity binding |
 | [`src/human/budget_state.rs`](src/human/budget_state.rs) | Budget state and proof export |
@@ -82,13 +82,13 @@ settings below. Human settings are listed separately in this README.
 
 | Variable | Meaning |
 | --- | --- |
-| `LAYERX_AUTHORITY_LISTEN` | Optional socket address; defaults to `0.0.0.0:9445` |
+| `LAYERX_AUTHORITY_LISTEN` | Optional socket address; defaults to all IPv4 interfaces on port `9445` |
 | `LAYERX_AUTHORITY_TLS_CERT_DER`, `LAYERX_AUTHORITY_TLS_KEY_DER` | Server certificate and PKCS#8 private key, DER |
 | `LAYERX_AUTHORITY_CLIENT_CA_DER` | Optional; a presented client certificate must chain to it |
 | `LAYERX_AUTHORITY_TOKEN_FILES` | Colon-separated files, one service bearer token each |
 | `LAYERX_AUTHORITY_REPLICA_URL`, `LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE`, `LAYERX_AUTHORITY_REPLICA_ID` | Required loopback HTTP receipt-authority replica at its root URL, bearer-token file and nonzero 64-hex identity |
 | `LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE` | Optional protected file containing 32..4096 printable bytes without whitespace; bearer must differ from all general and replica tokens and may read only the receipt-authority relay route |
-| `LAYERX_AUTHORITY_CHAIN_RPC_URL` | Required loopback HTTP node endpoint serving receipts and committed-state evidence, normally `http://127.0.0.1:PORT/evm`; native proofs use `/comet` on the same origin |
+| `LAYERX_AUTHORITY_CHAIN_RPC_URL` | Required loopback HTTP node endpoint serving receipts and committed-state evidence at the root or `/evm`; native proofs use `/comet` on the same origin |
 | `LAYERX_AUTHORITY_RECEIPT_KEYS_FILE` | Required protected JSON array of pinned receipt keys and height ranges |
 | `LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID` | Nonzero 32-bit protocol network ID checked in signed evidence |
 | `LAYERX_AUTHORITY_NETWORK_ID`, `LAYERX_AUTHORITY_WIRE_VERSION` | Required deployment identifier of 1..64 ASCII letters, digits, `-`, `_` or `.`; optional wire version defaults to the built protocol version (`3`) and must parse to that version |
@@ -107,8 +107,9 @@ limited to 256 KiB and rejects unknown fields. Protect it as described below.
 
 Receipt HTTP requests preserve the configured path, including `/evm`; the
 combined committed-state reader supports the root or `/evm` endpoint and derives
-the sibling `/comet` path. Use `http://` with an explicit nonzero port and host
-`127.0.0.1`, `localhost` or `[::1]`. This is a local node trust boundary.
+the sibling `/comet` path. Use `http://` with an explicit nonzero port and one
+of the canonical loopback hosts accepted by `loopback_http` in
+[`src/lib.rs`](src/lib.rs). This is a local node trust boundary.
 
 The route's `activity_id` is the transaction's 32-byte hexadecimal identifier
 without `0x`; the upstream JSON-RPC call adds the prefix. Null or submitted-only
