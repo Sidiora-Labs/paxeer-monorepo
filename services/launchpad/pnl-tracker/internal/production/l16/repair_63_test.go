@@ -41,7 +41,7 @@ import (
 func repair63MigrationInputs(t *testing.T) (map[int64]string, production.RoleManifest) {
 	t.Helper()
 	root := coordinatortest.RepositoryRoot(t)
-	directory := filepath.Join(root, "launchpad", "spec", "production-system", "integration", "migrations")
+	directory := filepath.Join(root, "migrations")
 	raw, err := os.ReadFile(filepath.Join(directory, "registry.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -126,7 +126,7 @@ func TestProductionCoordinatorWalletContract(t *testing.T) {
 			}
 		}
 	}
-	manifestPath := filepath.Join(coordinatortest.RepositoryRoot(t), "launchpad", "spec", "production-system", "integration", "migrations", "grants.json")
+	manifestPath := filepath.Join(coordinatortest.RepositoryRoot(t), "migrations", "grants.json")
 	raw, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatal(err)

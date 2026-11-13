@@ -3673,7 +3673,7 @@
         },
         {
           "path": "services/launchpad/api/internal/rest/holder_rewards_test.go",
-          "sha256": "eff24602329006c99cd093d29c934c21bcbbcbd51420902398dd58c8cc9f0091",
+          "sha256": "211a98a187c8456a0b5bf6a98bf8c470f24e264bafef91903cc8f30e4204d153",
           "declarations": [
             {
               "name": "TestHolderRewardsProductionRead",
@@ -3730,7 +3730,7 @@
         },
         {
           "path": "services/launchpad/api/internal/rest/pool_stats_v22_test.go",
-          "sha256": "38f405e02b194d57d878193d1b81e308120e404c73125e07309b1af05854c528",
+          "sha256": "998d5b6f2c1e904fe64a147736734ab2623a14648c62cfb8a39a93e875ff820d",
           "declarations": [
             {
               "name": "TestPoolStatsInterface22FieldsRoundTrip",
@@ -3976,7 +3976,7 @@
         },
         {
           "path": "services/launchpad/api/internal/store/production_readmodel_test.go",
-          "sha256": "af2f98abf395638471478cad6b073bf35835e780f6d3a981dfb0dfae9c4cf1b0",
+          "sha256": "96caaf6e30765287ac54062a2c3613800e6de90137c13cb0cc81645bae390ef2",
           "declarations": [
             {
               "name": "TestProductionCanonicalAccountingPagesKeepCommittedFrontier",
@@ -6334,7 +6334,7 @@
         },
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l17/repair_64_test.go",
-          "sha256": "fc040faa1e56b49c4c2cb6b5c74b7e1b38505ac2a752a2b028815a1de3da6332",
+          "sha256": "680ac0a9ef036d50ef19db7d3eb29b7ce61d4054acb475966b27eaf3ec41cc73",
           "declarations": [
             {
               "name": "TestRepair_64_HistoryRowInsertGrant",
@@ -6440,7 +6440,7 @@
         },
         {
           "path": "services/launchpad/pnl-tracker/internal/production/l18/localfixture_test.go",
-          "sha256": "9a8b3165d84d8c403b73f9eb5b6a95d0df2f81b66cbe613645ff1a40b35ee17c",
+          "sha256": "e0817ae6b5a64f38c4d531267553c8389972e8668241e90d186d030b9cb3b588",
           "declarations": [],
           "package": "github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l18",
           "build_constraints": [],
@@ -7740,7 +7740,7 @@
         },
         {
           "path": "services/launchpad/stats-workers/internal/consumer/repair_71_test.go",
-          "sha256": "ee75aa7a6f66ca2f781e4110fa4b92c2aab1d5abe3f47d0bede1f749fea09073",
+          "sha256": "68e04c585c7bb8538b403cbdcfc427669111520158afc1e0b5509cdc9e5b53c6",
           "declarations": [
             {
               "name": "TestRepair_71_CrossTokenHistoryDuplicateAndRestart",
@@ -8133,7 +8133,7 @@
         },
         {
           "path": "services/launchpad/stats-workers/internal/httpapi/repair_69_test.go",
-          "sha256": "20dda3234f699c1d60c2c2d961f51c210fb4edfea3cf530c008ace0ac9e2fcb6",
+          "sha256": "d95610c4b78fd182f74522bc3ca24bbfc758f46022722407c263acb6434a06c1",
           "declarations": [
             {
               "name": "TestRepair_69_PublicSearchSourceDeliveryAndRestart",
@@ -8530,7 +8530,7 @@
         },
         {
           "path": "services/launchpad/stats-workers/internal/search/http_test.go",
-          "sha256": "cfd4e13f86a504b33db5ea21ea138a54d08aedc274780c253452c10571c8bc2b",
+          "sha256": "a593adc07f2d0e5d53284590936da31443cb4c9d649c735c196dbe312e6bcaeb",
           "declarations": [
             {
               "name": "TestSearchHTTPValidationAndDependencyErrors",
@@ -10828,7 +10828,7 @@
         },
         {
           "path": "services/launchpad/gateway/internal/storage/repair_51_test.go",
-          "sha256": "d75aa53f8369f903af8a5c336400e3fef8b3ea4d5d4e3eefb493f8f80fa3c2a5",
+          "sha256": "b9fde8669e7df01fb34802e636f69237a7d69ca11115a57bb1f8d85c4e762db7",
           "declarations": [
             {
               "name": "TestRepair_51_initial_lineage_visibility",
@@ -13786,7 +13786,7 @@
         },
         {
           "path": "services/launchpad/discovery/repair_46_test.go",
-          "sha256": "442d6043df3c1c9c376a3b8c9460244e06402a2e662e27eb223e0f08b4cde2c8",
+          "sha256": "f8e4d985e6c1f9cc444afab8205a09d6ece27ac386d693a533d155c6d7f3391c",
           "declarations": [
             {
               "name": "TestRepair_46_legacy_squad_contract",

@@ -39,7 +39,7 @@ func localReadFixture(t *testing.T) (context.Context, *pgxpool.Pool, *ReadServic
 				t.Fatal(err)
 			}
 		}
-		raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations", name+".sql"))
+		raw, err := os.ReadFile(filepath.Join(root, "migrations", name+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}

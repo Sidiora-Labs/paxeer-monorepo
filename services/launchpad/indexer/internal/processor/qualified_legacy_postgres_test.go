@@ -52,13 +52,13 @@ func applyProductionSchema(t *testing.T, ctx context.Context, pool *pgxpool.Pool
 		ddl = append(ddl, sql)
 	}
 	for _, id := range []string{"60001", "190001"} {
-		raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "launchpad", "spec", "production-system", "integration", "migrations", id+".sql"))
+		raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "migrations", id+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}
 		ddl = append(ddl, string(raw))
 	}
-	raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "launchpad", "spec", "production-system", "integration", "migrations", "440000.sql"))
+	raw, err := os.ReadFile(filepath.Join(repositoryRoot(), "migrations", "440000.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

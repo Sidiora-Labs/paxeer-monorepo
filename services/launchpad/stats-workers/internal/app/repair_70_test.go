@@ -93,7 +93,7 @@ func newRepair70Fixture(t *testing.T) *repair70Fixture {
 	}
 	exec(`CREATE SCHEMA indexer; CREATE SCHEMA recovery`)
 	for _, id := range []string{"60000", "440000"} {
-		ddl, err := os.ReadFile(filepath.Join(root, "launchpad", "spec", "production-system", "integration", "migrations", id+".sql"))
+		ddl, err := os.ReadFile(filepath.Join(root, "migrations", id+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -104,7 +104,7 @@ func newRepair70Fixture(t *testing.T) *repair70Fixture {
 		t.Fatal(err)
 	}
 	exec(partitionDDL)
-	ddl, err := os.ReadFile(filepath.Join(root, "launchpad", "spec", "production-system", "integration", "migrations", "190001.sql"))
+	ddl, err := os.ReadFile(filepath.Join(root, "migrations", "190001.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}

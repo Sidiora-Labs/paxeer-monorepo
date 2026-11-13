@@ -21,6 +21,16 @@ make test-rebuild
 
 Run these from the repository root when working on the C projection tooling. They check local projection behavior, not committed network state.
 
+## Launchpad PostgreSQL migrations
+
+The numbered SQL files registered in [`registry.json`](registry.json) define the launchpad PostgreSQL schemas. The registry records service ownership, dependency order and SQL checksums. They serve the API and its cache, discovery, indexer, notifications, PnL tracker, ranking algorithm, stats workers (including holdings and search), trading charts, gateway storage and audit, livestream, metadata, social, user, recovery, and security control and policy services under [`services/launchpad/`](../services/launchpad/).
+
+The shared [production migration coordinator](../sdk/launchpad/shared/db/production/migrations.go) validates the registry and applies registered migrations in dependency order with checksum, approval, reader compatibility and lock checks. The [coordinator test bootstrap](../sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go) reads these files from the repository root to provision service test databases and runtime roles. Runtime readiness checks use the expected schema supplied by the operator; approval metadata in the checked-in registry remains required before production admission.
+
+[`grants.json`](grants.json) defines runtime role privileges, [`legacy-history-aliases.json`](legacy-history-aliases.json) records per-service migration history and checksums, [`readiness.json`](readiness.json) describes readiness requirements, and [`pnl-reward-approval.json`](pnl-reward-approval.json) records proposed reward migration metadata.
+
+These PostgreSQL migrations and companion JSON manifests are separate from the three SQLite schemas listed above. PostgreSQL uses the registry's application order and shared coordinator; the SQLite projection tools accept an explicit schema file. The service-local migration directories retain their own embedded schemas and legacy history.
+
 ## Related code
 
 | Kind | Location |

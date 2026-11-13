@@ -149,7 +149,7 @@ func repair65RuntimeStore(t *testing.T, e *phase2Environment) *Store {
 		root, err = filepath.Abs("../../../..")
 		must(t, err)
 	}
-	raw, err := os.ReadFile(filepath.Join(root, "launchpad/spec/production-system/integration/migrations/grants.json"))
+	raw, err := os.ReadFile(filepath.Join(root, "migrations/grants.json"))
 	must(t, err)
 	var manifest struct {
 		Roles []struct {
