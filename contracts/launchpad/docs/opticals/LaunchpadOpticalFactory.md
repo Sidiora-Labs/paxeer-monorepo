@@ -1,12 +1,14 @@
 # Solidity API
 
+Source: [LaunchpadOpticalFactory.sol](../../contracts/opticals/LaunchpadOpticalFactory.sol).
+
 ## LaunchpadOpticalFactory
 
-Self-service factory for deploying LaunchpadOptical instances.
-        Any creator can deploy their own vesting + capital-raise optical for their pool.
+UUPS-upgradeable factory for `LaunchpadOptical` instances. The caller becomes the optical's owner
+and creator. Team wallets, vesting and capital-raise settings are supplied at creation.
 
-_UUPS proxy. Deploys immutable LaunchpadOptical contracts and auto-grants
-     OPTICAL_CLAIM_ROLE on FeeAccumulator so the new optical can claim surplus._
+The factory calls `FeeAccumulator.authorizeOptical` to grant the new instance `OPTICAL_CLAIM_ROLE`.
+The factory must hold `OPTICAL_GRANTER_ROLE` on the accumulator.
 
 ### ZeroAddress
 
@@ -48,7 +50,7 @@ FeeAccumulator address (passed to each LaunchpadOptical + role granting)
 address opticalRegistry
 ```
 
-OpticalRegistry for optional auto-registration
+Stored OpticalRegistry address supplied at initialization.
 
 ### constructor
 
@@ -72,19 +74,19 @@ Deploy a new LaunchpadOptical for a project
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| teamWallets | address[] | Additional team wallets to vest (creator is auto-vested) |
-| cliffDuration | uint256 | Hard lock period in seconds |
-| vestingDuration | uint256 | Linear unlock period after cliff in seconds |
-| capitalRaiseBps | uint256 | Fee percentage diverted to team (max 1000 = 10%) |
-| capitalRaiseDuration | uint256 | How long the capital raise fee is active in seconds |
-| teamClaimAddress | address | Where accumulated USDL is claimed to |
+| Name                 | Type      | Description                                              |
+| -------------------- | --------- | -------------------------------------------------------- |
+| teamWallets          | address[] | Additional team wallets to vest (creator is auto-vested) |
+| cliffDuration        | uint256   | Hard lock period in seconds                              |
+| vestingDuration      | uint256   | Linear unlock period after cliff in seconds              |
+| capitalRaiseBps      | uint256   | Fee percentage diverted to team (max 1000 = 10%)         |
+| capitalRaiseDuration | uint256   | How long the capital raise fee is active in seconds      |
+| teamClaimAddress     | address   | Where accumulated USDL is claimed to                     |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name    | Type    | Description                                        |
+| ------- | ------- | -------------------------------------------------- |
 | optical | address | The address of the newly deployed LaunchpadOptical |
 
 ### getOpticalsByCreator
@@ -111,9 +113,8 @@ function getAllOpticals(uint256 offset, uint256 limit) external view returns (ad
 
 Get paginated list of all deployed opticals
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
 ```
-

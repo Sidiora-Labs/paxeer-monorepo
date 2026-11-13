@@ -1,34 +1,17 @@
 # Solidity API
 
+Source: [PECORVault.sol](../../../contracts/meta-ag/vault/PECORVault.sol).
+
 ## PECORVault
 
-Single multi-asset inventory vault for the Sidiora Meta-AG stack.
-        Holds every non-Sidiora liquidity token, operator-gated pull/push,
-        Timelock-admin upgrades. REPLACES live PECORVault
-        (`0x6500B1B3F8067772041C68b2c51D8E7A84e20C31`) via migration
-        Path M1 at Phase 10.3.
+UUPS-upgradeable multi-asset vault with open deposits and operator-authorized transfers and
+reservations. Administrators register tokens, manage operators, reconcile reserves, quarantine
+tokens and authorize upgrades.
 
-_Spec reference: `docs/architecture/pecor-sidiora-aggregator-spec.md` §7.5
-     (FROZEN 2026-04-24). Regression tests: `test/meta-ag/vault/PECORVault.test.js`.
-
-Inheritance (spec §7.5 — Pausable deliberately excluded):
-  IPECORVault, Initializable, UUPSUpgradeable, AccessControl, ReentrancyGuard
-
-Roles:
-  - DEFAULT_ADMIN_ROLE → Timelock at deploy (invariant S1)
-  - OPERATOR_ROLE      → PECOR, PECOROrders, VaultAdapter (granted later)
-
-Storage layout (append-only per S12):
-  slot 0:  AccessControl._roles
-  slot 1:  weth                       (address)
-  slot 2:  transactionTracker         (address)
-  slot 3:  authorizedOperators        (mapping)
-  slot 4:  _tokens                    (mapping)
-  slot 5:  _registeredTokens          (address[])
-  slot 6:  _registeredStablecoins     (address[])
-  slot 7:  _tokenIndex                (mapping, 1-indexed)
-  slot 8:  _stablecoinIndex           (mapping, 1-indexed)
-  slot 9..58: __gap[50]_
+Deposits measure actual received balances, including transfer fees. Outbound token transfers require
+exact vault and recipient balance changes. Available reserves are the smaller of custody and
+recorded reserves, minus reserved liabilities; quarantined tokens report no available reserves.
+Native deposits and withdrawals wrap and unwrap the configured wrapped-native token.
 
 ### OPERATOR_ROLE
 
@@ -90,8 +73,8 @@ error WethOnly()
 address weth
 ```
 
-Canonical wrapped-native token. Semantically immutable —
-        assigned exactly once in {initialize}, never mutated afterwards.
+Canonical wrapped-native token. Semantically immutable — assigned exactly once in `initialize`,
+never mutated afterwards.
 
 ### transactionTracker
 
@@ -99,8 +82,8 @@ Canonical wrapped-native token. Semantically immutable —
 address transactionTracker
 ```
 
-Transaction analytics hub (Phase 7 emitter). May be zero at
-        bootstrap; Timelock rotates via {setTransactionTracker}.
+Configured transaction-tracker address. May be zero; administrators update it with
+`setTransactionTracker`.
 
 ### authorizedOperators
 
@@ -108,8 +91,8 @@ Transaction analytics hub (Phase 7 emitter). May be zero at
 mapping(address => bool) authorizedOperators
 ```
 
-Mirror of `OPERATOR_ROLE` membership. Kept for O(1) view by
-        integrations that prefer a boolean over `hasRole` staticcalls.
+Mirror of `OPERATOR_ROLE` membership. Kept for O(1) view by integrations that prefer a boolean over
+`hasRole` staticcalls.
 
 ### constructor
 
@@ -123,17 +106,17 @@ constructor() public
 function initialize(address weth_, address tracker_, address admin_) external
 ```
 
-Initialize the UUPS proxy (spec §7.5)
+Initialize the UUPS proxy
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| weth_ | address |  |
-| tracker_ | address |  |
-| admin_ | address |  |
+| Name      | Type    | Description |
+| --------- | ------- | ----------- |
+| weth\_    | address |             |
+| tracker\_ | address |             |
+| admin\_   | address |             |
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
@@ -211,8 +194,8 @@ Pull tokens from `from` into the vault (fee-on-transfer safe).
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name         | Type    | Description                                         |
+| ------------ | ------- | --------------------------------------------------- |
 | actualAmount | uint256 | Amount actually received after any token-side fees. |
 
 ### pushTokens
@@ -235,6 +218,9 @@ Unwrap WETH to native coin and forward to recipient.
 function updateReserves(address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut) external
 ```
 
+Reverts with `DeprecatedBookMutation` for authorized operator calls. Reserve accounting follows
+actual token movements and reconciliation.
+
 ### getReserves
 
 ```solidity
@@ -247,12 +233,8 @@ function getReserves(address token) external view returns (uint256)
 function getTokenInfo(address token) external view returns (bool, bool, uint8, uint256, uint256, uint256)
 ```
 
-_Named return parameters are omitted here on purpose: the interface
-     names one of them `isStablecoin`, but re-declaring that identifier
-     in this contract's scope would shadow the public view function
-     {isStablecoin(address)} and trip Solidity's shadow warning.
-     Callers should rely on positional tuple order — identical to the
-     interface declaration — e.g. via array destructuring._
+Returns `(isRegistered, isStablecoin, decimals, reserves, totalDeposited, totalWithdrawn)` in that
+order.
 
 ### isStablecoin
 
@@ -308,31 +290,28 @@ function getUntrackedFunds(address token) external view returns (uint256)
 receive() external payable
 ```
 
-Accept native transfers only from the wrapped-native contract
-        during {withdrawNative} unwraps. Every other sender reverts
-        with {WethOnly}.
+Accepts native transfers only from the configured wrapped-native contract. Other senders revert with
+`WethOnly`.
 
-### _pullAndMeasure
+### \_pullAndMeasure
 
 ```solidity
 function _pullAndMeasure(address token, address from, uint256 amount) internal returns (uint256 received)
 ```
 
-_Pull tokens via `transferFrom` and return the actually credited amount.
-     Handles fee-on-transfer tokens by comparing the vault's balance
-     delta across the call._
+_Pull tokens via `transferFrom` and return the actually credited amount. Handles fee-on-transfer
+tokens by comparing the vault's balance delta across the call._
 
-### _syncOne
+### \_syncOne
 
 ```solidity
 function _syncOne(address token) internal
 ```
 
-_Reconcile a single registered token's reserves with the actual
-     balance held by the vault. Adds any positive delta to `reserves`
-     and `totalDeposited`. No-op on parity._
+Reconciles recorded reserves with custody. Positive deltas also increase `totalDeposited`. A deficit
+reduces reserves only when custody still covers reserved liabilities. No change on parity.
 
-### _removeStablecoin
+### \_removeStablecoin
 
 ```solidity
 function _removeStablecoin(address token) internal
@@ -340,11 +319,109 @@ function _removeStablecoin(address token) internal
 
 _Compact 1-indexed removal from `_registeredStablecoins`._
 
-### _fetchDecimals
+### \_fetchDecimals
 
 ```solidity
 function _fetchDecimals(address token) internal view returns (uint8)
 ```
 
-_Best-effort ERC20 decimals fetch; falls back to 18 on failure._
+Requires a token contract with a successful 32-byte `decimals()` response in the range 0–36;
+otherwise reverts with `UnsupportedToken`.
 
+### reserveTokens
+
+```solidity
+function reserveTokens(address token, uint256 amount) external
+```
+
+Operators reserve available tokens against their own reservation balance.
+
+### releaseTokens
+
+```solidity
+function releaseTokens(address token, uint256 amount) external
+```
+
+Operators release their own reservations when custody covers the reserved liabilities.
+
+### getAvailableReserves
+
+```solidity
+function getAvailableReserves(address token) external view returns (uint256)
+```
+
+Returns spendable custody after reservations, or zero while quarantined or liabilities are not
+initialized.
+
+### getReservedBalance
+
+```solidity
+function getReservedBalance(address token) external view returns (uint256)
+```
+
+Returns the total reservation balance for the token.
+
+### operatorReservations
+
+```solidity
+mapping(address => mapping(address => uint256)) operatorReservations
+```
+
+Reservations by operator and token.
+
+### quarantined
+
+```solidity
+mapping(address => bool) quarantined
+```
+
+Per-token quarantine status.
+
+### liabilitiesInitialized
+
+```solidity
+bool liabilitiesInitialized
+```
+
+Whether liability accounting is initialized.
+
+### setTokenQuarantine
+
+```solidity
+function setTokenQuarantine(address token, bool value) external
+```
+
+Administrators set quarantine for a registered token, blocking deposits and new reservations.
+
+### syncReservesSubset
+
+```solidity
+function syncReservesSubset(address[] tokens) external
+```
+
+Administrators reconcile up to 100 tokens in one call.
+
+### getRegisteredTokensPage
+
+```solidity
+function getRegisteredTokensPage(uint256 cursor, uint256 count) external view returns (address[] page, uint256 next)
+```
+
+Returns up to 100 registered tokens and the next cursor.
+
+### recoverNativeSurplus
+
+```solidity
+function recoverNativeSurplus(address payable recipient) external
+```
+
+Administrators transfer the vault's native balance to a nonzero recipient.
+
+### finalizeLiabilityMigration
+
+```solidity
+function finalizeLiabilityMigration(address[] liabilityOperators) external
+```
+
+Initializes liability accounting once after checking each supplied operator's role and
+`liabilitiesReady()` response. Fresh vault initialization sets this state directly.

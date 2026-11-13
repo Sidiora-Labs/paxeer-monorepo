@@ -1,11 +1,11 @@
 # Solidity API
 
+Source: [MockSidioraPoolRegistry.sol](../../../contracts/meta-ag/mocks/MockSidioraPoolRegistry.sol).
+
 ## MockSidioraPoolRegistry
 
-Minimal Sidiora pool registry used by SidioraFeedAdapter tests.
-
-_Matches the live `IPoolRegistry.getPoolByToken(address)` selector only; all other
-     registry methods are out of scope for the Phase 2 oracle tests._
+Configurable token-to-pool lookup used by `SidioraFeedAdapter` tests. Implements
+`getPoolByToken(address)` and can be configured to revert on lookup.
 
 ### revertOnLookup
 
@@ -30,4 +30,3 @@ function setRevertOnLookup(bool v) external
 ```solidity
 function getPoolByToken(address token) external view returns (address)
 ```
-

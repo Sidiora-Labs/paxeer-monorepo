@@ -1,10 +1,13 @@
 # Solidity API
 
+Source: [Treasury.sol](../../contracts/protocol/Treasury.sol).
+
 ## Treasury
 
-Receives and holds protocol fee revenue. Disbursements via governance.
-
-_UUPS proxy. Only DEPOSITOR_ROLE can deposit. Only admin can withdraw._
+UUPS-upgradeable treasury with recorded token balances. `DEPOSITOR_ROLE` holders can deposit
+approved tokens or record tokens already transferred into custody. Deposits credit the actual amount
+received. Administrators withdraw recorded balances, recover unrecorded surplus and authorize
+upgrades.
 
 ### DEPOSITOR_ROLE
 
@@ -56,11 +59,28 @@ _Only admin (governance/timelock) can withdraw._
 function getBalance(address token) external view returns (uint256)
 ```
 
-Returns the treasury balance for a given token
+Returns the recorded treasury balance for a token, excluding unrecorded surplus.
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
 ```
 
+### recordDeposit
+
+```solidity
+function recordDeposit(address token, uint256 amount) external
+```
+
+Requires `DEPOSITOR_ROLE`. Credits a positive amount already held in custody above the recorded
+balance.
+
+### recoverSurplus
+
+```solidity
+function recoverSurplus(address token, address to, uint256 amount) external
+```
+
+Administrator-only transfer of a positive amount held above the recorded balance to a nonzero
+recipient.

@@ -2,25 +2,19 @@
 
 ## VaultAdapter
 
-Plug that exposes PECORVault inventory to MetaAGRouter through the
-        pluggable adapter contract. Priced via the canonical PriceOracle.
+Exposes PECORVault inventory to MetaAGRouter using PriceOracle prices. The vault must grant this
+adapter `OPERATOR_ROLE` before it can send output.
 
-_Spec §7.9. Port of `dev/adapters/VaultAdapter.sol` with:
-      - Ownable → AccessControl (Timelock-admin)
-      - @ openzeppelin/Math → libraries/SidioraMath
-      - @ openzeppelin/SafeERC20 unused (vault already owns transfer mechanics)
+The caller approves this adapter and must equal `from`. The adapter pulls the exact input, approves
+the vault, deposits it, resets the allowance, and sends output through `vault.pushTokens`. Both
+input receipt amounts must equal `amountIn`; the recipient's received output must meet
+`minAmountOut`. A zero deadline means no expiry.
 
-Operator requirement: the vault MUST grant OPERATOR_ROLE to this adapter
-before it can route swaps (vault.setOperator(adapter, true)).
+`DEFAULT_ADMIN_ROLE` controls the oracle, fee rate and fee collector. Fees are capped at 200 basis
+points and paid in the output token. The adapter ID is `keccak256("PECORVault.v1")`, its name is
+`"PECORVault.v1"`, and its version is `"1.0.0"`.
 
-Caller (typically MetaAGRouter, optionally a direct user) must approve THIS
-adapter for `amountIn` of tokenIn before calling executeSwap. The adapter
-pulls tokenIn into itself first, then funnels through `vault.deposit` —
-this mirrors `SidioraAdapter`'s pattern and keeps the S9 approval dance
-consistent across every adapter MetaAGRouter routes through. Vault
-accounting is unchanged: `deposit` increments reserves + totalDeposited,
-then `pushTokens` decrements reserves and credits totalWithdrawn for the
-outbound legs (recipient + optional feeCollector)._
+Source: [VaultAdapter.sol](../../../contracts/meta-ag/adapters/VaultAdapter.sol).
 
 ### MAX_FEE_BPS
 
@@ -130,13 +124,13 @@ function setPriceOracle(address oracle) external
 function adapterId() external pure returns (bytes32)
 ```
 
-Unique identifier for this adapter (e.g., keccak256("Sidiora.v1"))
+Returns `keccak256("PECORVault.v1")`.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | bytes32 |             |
 
 ### adapterName
 
@@ -148,9 +142,9 @@ Human-readable name for this adapter
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
 ### adapterVersion
 
@@ -162,9 +156,9 @@ Protocol version string
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
 ### supportsSwap
 
@@ -176,16 +170,16 @@ Check if this adapter supports a specific token pair
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | The input token address |
+| Name     | Type    | Description              |
+| -------- | ------- | ------------------------ |
+| tokenIn  | address | The input token address  |
 | tokenOut | address | The output token address |
 
 #### Return Values
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | bool |  |
+| [0]  | bool |             |
 
 ### getSupportedPairs
 
@@ -195,13 +189,14 @@ function getSupportedPairs() external view returns (address[] tokenIns, address[
 
 Get all token pairs this adapter currently supports
 
-_May return an empty array if pairs are dynamically discovered_
+Returns every ordered pair of distinct registered vault tokens. Fewer than two tokens returns empty
+arrays.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIns | address[] | Array of input token addresses |
+| Name      | Type      | Description                                   |
+| --------- | --------- | --------------------------------------------- |
+| tokenIns  | address[] | Array of input token addresses                |
 | tokenOuts | address[] | Array of corresponding output token addresses |
 
 ### getMaxInput
@@ -212,19 +207,20 @@ function getMaxInput(address tokenIn, address tokenOut) external view returns (u
 
 Get the maximum input amount this adapter can handle for a pair
 
-_Returns type(uint256).max if no practical limit_
+Converts available output reserves to an input amount using oracle prices and token decimals,
+rounding up. Returns zero for identical tokens, zero available reserves or unavailable prices.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | The input token |
+| Name     | Type    | Description      |
+| -------- | ------- | ---------------- |
+| tokenIn  | address | The input token  |
 | tokenOut | address | The output token |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                             |
+| ----- | ------- | --------------------------------------- |
 | maxIn | uint256 | Maximum amountIn (limited by liquidity) |
 
 ### getQuote
@@ -239,16 +235,16 @@ _Invariant I1 — never reverts. Returns `available=false` on any issue._
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | The input token address |
+| Name     | Type    | Description              |
+| -------- | ------- | ------------------------ |
+| tokenIn  | address | The input token address  |
 | tokenOut | address | The output token address |
-| amountIn | uint256 | The exact input amount |
+| amountIn | uint256 | The exact input amount   |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type                                | Description                                                     |
+| ------ | ----------------------------------- | --------------------------------------------------------------- |
 | result | struct IProtocolAdapter.QuoteResult | The QuoteResult with amountOut, impact, fee, and execution data |
 
 ### executeSwap
@@ -259,43 +255,75 @@ function executeSwap(address tokenIn, address tokenOut, uint256 amountIn, uint25
 
 Execute a swap through this adapter
 
-_Caller (typically MetaAGRouter) must ensure `from` has approved
-     the VAULT for at least `amountIn` of tokenIn._
+`from` must equal the caller and approve this adapter for at least `amountIn`. The adapter approves
+the vault for its subsequent deposit. The final bytes argument is unused.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| tokenIn | address | The input token address |
-| tokenOut | address | The output token address |
-| amountIn | uint256 | The exact input amount |
-| minAmountOut | uint256 | Minimum acceptable output (slippage guard) |
-| from | address | Address to pull tokenIn from (must have approved) |
-| recipient | address | Address to send tokenOut to |
-| deadline | uint256 | Unix timestamp after which the swap reverts |
-|  | bytes |  |
+| Name         | Type    | Description                                                 |
+| ------------ | ------- | ----------------------------------------------------------- |
+| tokenIn      | address | The input token address                                     |
+| tokenOut     | address | The output token address                                    |
+| amountIn     | uint256 | The exact input amount                                      |
+| minAmountOut | uint256 | Minimum acceptable output (slippage guard)                  |
+| from         | address | Payer; must equal msg.sender and have approved this adapter |
+| recipient    | address | Address to send tokenOut to                                 |
+| deadline     | uint256 | Unix timestamp after which the swap reverts                 |
+| (unnamed)    | bytes   | Unused adapter data                                         |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type                               | Description                                  |
+| ------ | ---------------------------------- | -------------------------------------------- |
 | result | struct IProtocolAdapter.SwapResult | The SwapResult with actual amountOut and fee |
 
-### _safeGetPrice
+### \_safeGetPrice
 
 ```solidity
 function _safeGetPrice(address token) internal view returns (uint256)
 ```
 
-### _calcAmountOut
+### \_calcAmountOut
 
 ```solidity
 function _calcAmountOut(uint256 amountIn, uint256 priceIn, uint256 priceOut, uint8 dIn, uint8 dOut) internal pure returns (uint256)
 ```
 
-### _calcAmountIn
+### \_calcAmountIn
 
 ```solidity
 function _calcAmountIn(uint256 amountOut, uint256 priceIn, uint256 priceOut, uint8 dIn, uint8 dOut) internal pure returns (uint256)
 ```
 
+### UnauthorizedPayer
+
+```solidity
+error UnauthorizedPayer()
+```
+
+### TransferAmountMismatch
+
+```solidity
+error TransferAmountMismatch()
+```
+
+### ConfigurationUpdated
+
+```solidity
+event ConfigurationUpdated(bytes32 indexed field, address oldValue, address newValue)
+```
+
+### FeeUpdated
+
+```solidity
+event FeeUpdated(uint256 oldValue, uint256 newValue)
+```
+
+### quoteChecked
+
+```solidity
+function quoteChecked(address tokenIn, address tokenOut, uint256 amountIn) external view returns (QuoteResult memory result)
+```
+
+Builds a quote directly and may revert on dependency errors. getQuote catches such errors and
+returns an unavailable result.

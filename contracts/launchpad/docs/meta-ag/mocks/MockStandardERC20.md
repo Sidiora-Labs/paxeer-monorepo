@@ -1,12 +1,11 @@
 # Solidity API
 
+Source: [MockStandardERC20.sol](../../../contracts/meta-ag/mocks/MockStandardERC20.sol).
+
 ## MockStandardERC20
 
-Minimal test ERC20 for Sidiora Meta-AG vault tests.
-
-_Scope-isolated under `contracts/meta-ag/mocks/` per the Phase 3 handoff;
-     uses a distinct name from `contracts/test/MockERC20.sol` to avoid
-     Hardhat `getContractFactory` ambiguity across the two scopes._
+ERC20 test token with configurable name, symbol and decimals, plus unrestricted `mint` and `burn`
+methods. Its distinct contract name allows it to be selected separately from `MockERC20`.
 
 ### name
 
@@ -92,9 +91,8 @@ function transfer(address to, uint256 amount) external returns (bool)
 function transferFrom(address from, address to, uint256 amount) external returns (bool)
 ```
 
-### _transfer
+### \_transfer
 
 ```solidity
 function _transfer(address from, address to, uint256 amount) internal
 ```
-

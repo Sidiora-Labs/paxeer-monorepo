@@ -2,26 +2,23 @@
 
 ## IMetaAGRouter
 
-Canonical user-facing multi-protocol meta-router. Spec §7.10.
+UUPS router that selects among registered IProtocolAdapter contracts or executes through a
+user-selected adapter. Users approve this router for input tokens. The router pulls the exact input,
+approves the selected adapter, measures the received output and resets its adapter allowance to
+zero. Swaps enforce minimum output amounts and accept a zero deadline as no expiry.
 
-_UUPS-upgradeable, Timelock-admin, ReentrancyGuard, Pausable, Multicall.
-     Polls registered IProtocolAdapter instances for best amountOut, executes,
-     oracle-sanity-checks, and supports multi-hop across heterogeneous adapters.
+When oracle sanity checking is enabled, the router compares received output with a
+decimal-normalized expectation from the hub’s input and output USD prices. If either price is
+unavailable or zero, or the computed expectation rounds to zero, the comparison is skipped. Hub
+query errors propagate. If a valid comparison exceeds `maxOracleSanityDeviation`, the transaction
+reverts.
 
-Oracle sanity invariant (spec §7.10 / S4):
-  When oracleSanityEnabled, the router fetches oracle prices for tokenIn / tokenOut.
-  If either price is UNAVAILABLE the check is SKIPPED (not failed) — the adapter's
-  own slippage guard is the sole protection. If both are available and actual
-  amountOut deviates from expectedOut by more than maxOracleSanityDeviation, the
-  tx reverts.
+Multi-hop swaps require two to five connected hops and query each adapter with the actual
+intermediate amount. Each hop and the final output have minimum amount checks. `DEFAULT_ADMIN_ROLE`
+controls adapters, oracle configuration, upgrades and unpausing; default administration or
+`PAUSER_ROLE` can pause.
 
-Multi-hop re-quote invariant (spec §7.10 / S3):
-  swapMultiHop re-queries getQuote between hops with the actual intermediate
-  amount to recompute adapter price impact per leg.
-
-Approval-reset invariant (spec §7.10 / S9):
-  After every swap, the router resets its tokenIn allowance on the winning
-  adapter to zero._
+Source: [IMetaAGRouter.sol](../../../contracts/meta-ag/interfaces/IMetaAGRouter.sol).
 
 ### AdapterEntry
 
@@ -66,15 +63,15 @@ struct HopParams {
 function initialize(address oracleHub, uint256 maxSanityDeviation, address admin) external
 ```
 
-Initialize the UUPS proxy (spec §7.10)
+Initialize the UUPS proxy
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| oracleHub | address | IOracleHub address used for output sanity checks |
-| maxSanityDeviation | uint256 | Max deviation (BPS) before sanity revert (spec Q5 = 500) |
-| admin | address | Timelock — granted DEFAULT_ADMIN_ROLE |
+| Name               | Type    | Description                                        |
+| ------------------ | ------- | -------------------------------------------------- |
+| oracleHub          | address | IOracleHub address used for output sanity checks   |
+| maxSanityDeviation | uint256 | Maximum output deviation in basis points (0–10000) |
+| admin              | address | Timelock — granted DEFAULT_ADMIN_ROLE              |
 
 ### registerAdapter
 
@@ -82,8 +79,8 @@ Initialize the UUPS proxy (spec §7.10)
 function registerAdapter(address adapter) external
 ```
 
-Register a new adapter (reads adapter.adapterId() for collision check).
-        Caller must have DEFAULT_ADMIN_ROLE (Timelock).
+Register a new adapter (reads adapter.adapterId() for collision check). Caller must have
+DEFAULT_ADMIN_ROLE (Timelock).
 
 ### deactivateAdapter
 
@@ -145,11 +142,11 @@ Every adapter's quote for a pair. Parallel arrays.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| quotes | struct IProtocolAdapter.QuoteResult[] | Array of IProtocolAdapter.QuoteResult |
-| adapterIds | bytes32[] | Array of adapter IDs |
-| names | string[] | Array of adapter names |
+| Name       | Type                                  | Description                           |
+| ---------- | ------------------------------------- | ------------------------------------- |
+| quotes     | struct IProtocolAdapter.QuoteResult[] | Array of IProtocolAdapter.QuoteResult |
+| adapterIds | bytes32[]                             | Array of adapter IDs                  |
+| names      | string[]                              | Array of adapter names                |
 
 ### swapBestRoute
 
@@ -220,25 +217,25 @@ function oracleSanityEnabled() external view returns (bool)
 ### AdapterRegistered
 
 ```solidity
-event AdapterRegistered(bytes32 adapterId, address adapter, string name)
+event AdapterRegistered(bytes32 indexed adapterId, address indexed adapter, string name)
 ```
 
 ### AdapterDeactivated
 
 ```solidity
-event AdapterDeactivated(bytes32 adapterId)
+event AdapterDeactivated(bytes32 indexed adapterId)
 ```
 
 ### AdapterActivated
 
 ```solidity
-event AdapterActivated(bytes32 adapterId)
+event AdapterActivated(bytes32 indexed adapterId)
 ```
 
 ### OracleHubUpdated
 
 ```solidity
-event OracleHubUpdated(address hub)
+event OracleHubUpdated(address indexed hub)
 ```
 
 ### OracleSanityDeviationUpdated
@@ -256,18 +253,26 @@ event OracleSanityEnabledUpdated(bool enabled)
 ### BestRouteSwap
 
 ```solidity
-event BestRouteSwap(address user, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, bytes32 adapterId)
+event BestRouteSwap(address indexed user, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, bytes32 adapterId)
 ```
 
 ### MultiHopSwap
 
 ```solidity
-event MultiHopSwap(address user, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 hops)
+event MultiHopSwap(address indexed user, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, uint256 hops)
 ```
 
 ### OracleSanityCheckFailed
 
 ```solidity
-event OracleSanityCheckFailed(address tokenOut, uint256 expectedPrice, uint256 actualAmountOut, uint256 deviationBps)
+event OracleSanityCheckFailed(address indexed tokenOut, uint256 expectedPrice, uint256 actualAmountOut, uint256 deviationBps)
 ```
 
+### removeAdapter
+
+```solidity
+function removeAdapter(bytes32 adapterId) external
+```
+
+Requires default administration and an inactive adapter. Removes its ID and address registration,
+reclaiming adapter capacity.

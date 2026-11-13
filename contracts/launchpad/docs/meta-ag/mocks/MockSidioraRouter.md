@@ -1,28 +1,16 @@
 # Solidity API
 
+Source: [MockSidioraRouter.sol](../../../contracts/meta-ag/mocks/MockSidioraRouter.sol).
+
 ## MockSidioraRouter
 
-Spy/stub for the live Sidiora IRouter surface consumed by SidioraAdapter.
+Configurable swap responses for `SidioraAdapter` tests. Implements `buy`, `sell` and
+`swapTokenForToken`, with the latter returning `(amountOut, intermediateUsdl)`.
 
-_Only the three methods SidioraAdapter calls are implemented:
-      - buy(pool, usdlAmountIn, minTokensOut, deadline)
-      - sell(pool, tokenAmountIn, minUsdlOut, deadline)
-      - swapTokenForToken(tokenIn, tokenOut, amountIn, minAmountOut, deadline)
-           returns (amountOut, intermediateUsdl)  ← 2-tuple — regression surface
-
-     Not inheriting the full IRouter keeps this mock lightweight and avoids
-     dragging unrelated signatures (createMarket, permit variants, events) into
-     the adapter unit test scope.
-
-     The mock captures:
-       - call args (pool, amountIn, minOut, deadline, caller)
-       - call counts
-       - allowance observed at call entry (witnesses S9 zero→amountIn state)
-
-     The mock performs real ERC20 transfers to match the live Router's
-     transferFrom → transfer flow: pulls tokenIn from msg.sender using the
-     allowance the adapter just set, then sends a pre-funded amount of tokenOut
-     back. Pre-fund this mock with the required tokenOut balance before testing._
+Records call arguments, call counts and observed allowances. When `skipTransfers` is false, calls
+pull the input token from the caller and transfer the configured output amount back to the caller.
+Set `usdl`, `buyTokenOut` or `sellTokenIn` as required and fund the output balance before swapping.
+When `skipTransfers` is true, both inbound and outbound token transfers are skipped.
 
 ### LastBuy
 
@@ -154,9 +142,7 @@ string revertReason
 bool skipTransfers
 ```
 
-If true, skip the inbound transferFrom. Useful for edge-case tests
-        where the adapter's approval flow should be observed without real
-        token movement.
+If true, skip both inbound and outbound token transfers.
 
 ### usdl
 
@@ -178,7 +164,7 @@ _For `buy(pool, ...)`: which token to send back. Set once per test._
 function setUsdl(address usdl_) external
 ```
 
-_For `sell(pool, ...)`: always returns USDL — no separate field._
+Sets the USDL token pulled on buys and returned on sells.
 
 ### setBuyTokenOut
 
@@ -252,8 +238,8 @@ function sell(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 d
 address sellTokenIn
 ```
 
-_Test sets this BEFORE calling the adapter's executeSwap for a sell,
-     so the mock knows which ERC20 to pull from the adapter._
+_Test sets this BEFORE calling the adapter's executeSwap for a sell, so the mock knows which ERC20
+to pull from the adapter._
 
 ### setSellTokenIn
 
@@ -266,4 +252,3 @@ function setSellTokenIn(address token) external
 ```solidity
 function swapTokenForToken(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) external returns (uint256 amountOut, uint256 intermediateUsdl)
 ```
-

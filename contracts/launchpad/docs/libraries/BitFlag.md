@@ -4,8 +4,10 @@
 
 Bitwise operations for optical hook flags
 
-_Bit 0: BEFORE_SWAP, Bit 1: AFTER_SWAP,
-     Bit 2: BEFORE_FEE_DISTRIBUTION, Bit 3: AFTER_FEE_DISTRIBUTION_
+Bits 0–4 are BEFORE_SWAP (1), AFTER_SWAP (2), BEFORE_FEE_DISTRIBUTION (4), AFTER_FEE_DISTRIBUTION
+(8) and BEFORE_TOKEN_TRANSFER (16).
+
+Source: [BitFlag.sol](../../contracts/libraries/BitFlag.sol).
 
 ### BEFORE_SWAP
 
@@ -55,3 +57,10 @@ function clearFlag(uint8 flags, uint8 flag) internal pure returns (uint8)
 
 Clears a specific flag from the flags bitmap
 
+### BEFORE_TOKEN_TRANSFER
+
+```solidity
+uint8 internal constant BEFORE_TOKEN_TRANSFER = 16
+```
+
+Bit 4 enables the token transfer hook.

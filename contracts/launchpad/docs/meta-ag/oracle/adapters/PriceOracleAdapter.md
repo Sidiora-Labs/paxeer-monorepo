@@ -1,21 +1,23 @@
 # Solidity API
 
+Source:
+[PriceOracleAdapter.sol](../../../../contracts/meta-ag/oracle/adapters/PriceOracleAdapter.sol).
+
 ## PriceOracleAdapter
 
-{IDataFeedAdapter} wrapper around an {IPriceOracle} instance.
+`IDataFeedAdapter` wrapper around an immutable `IPriceOracle` reference.
 
-_Immutable by design (spec §7.3): no admin, no upgrade path, no mutable state beyond
-     the single `priceOracle` pointer set at construction. Translates per-token staleness
-     and `TokenConfig.heartbeatInterval` into the canonical 4-band confidence signal
-     (FRESH / AGING / NEAR_STALE / 0) mandated by I8.
+Confidence is computed from the latest round's age:
 
-Confidence mapping (aligned with dev/adapters/PriceOracleAdapter.sol):
-  - age <= heartbeat                           -> 9000 (FRESH)
-  - heartbeat  <  age <= 2 * heartbeat         -> 6000 (AGING)
-  - 2 * heartbeat < age <= maxStaleness        -> 3000 (NEAR_STALE)
-  - age > maxStaleness                         -> 0
+| Condition                                                          | Confidence |
+| ------------------------------------------------------------------ | ---------- |
+| Age exceeds the token's `maxStaleness`                             | 0          |
+| Age is at most `heartbeatInterval` and within `maxStaleness`       | 9000       |
+| Age is at most twice `heartbeatInterval` and within `maxStaleness` | 6000       |
+| Otherwise, within `maxStaleness`                                   | 3000       |
 
-Never reverts on missing / stale data (I7) — returns zero-price, zero-confidence FeedPrice._
+Unregistered tokens and missing or future timestamps return a zero-price feed. Stale rounds retain
+their price and timestamp with zero confidence. Errors from the configured oracle propagate.
 
 ### CONFIDENCE_FRESH
 
@@ -59,13 +61,13 @@ constructor(address priceOracle_) public
 function sourceId() external pure returns (bytes32)
 ```
 
-Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
+Returns `keccak256("PaxeerPriceOracle.v1")`.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | bytes32 |             |
 
 ### adapterName
 
@@ -77,9 +79,9 @@ Human-readable name for this adapter
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
 ### maxStaleness
 
@@ -87,13 +89,13 @@ Human-readable name for this adapter
 function maxStaleness() external pure returns (uint256)
 ```
 
-Maximum age in seconds before this adapter's prices are considered stale
+Returns `type(uint256).max`. Per-token staleness is enforced by setting feed confidence to zero.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | uint256 |             |
 
 ### supportsToken
 
@@ -105,15 +107,15 @@ Check whether this adapter supports a given token
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                |
+| ----- | ------- | -------------------------- |
 | token | address | The token address to check |
 
 #### Return Values
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | bool |  |
+| [0]  | bool |             |
 
 ### getSupportedTokens
 
@@ -125,8 +127,8 @@ Get all tokens this adapter currently supports
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type      | Description                        |
+| ------ | --------- | ---------------------------------- |
 | tokens | address[] | Array of supported token addresses |
 
 ### getFeedPrice
@@ -137,18 +139,19 @@ function getFeedPrice(address token) external view returns (struct IDataFeedAdap
 
 Get the latest price for a token from this adapter
 
-_MUST NOT revert on stale data — return confidence=0 instead_
+Stale data returns zero confidence while retaining its price and timestamp. Oracle call errors
+propagate to the caller.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                |
+| ----- | ------- | -------------------------- |
 | token | address | The token address to price |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name | Type                              | Description                                       |
+| ---- | --------------------------------- | ------------------------------------------------- |
 | feed | struct IDataFeedAdapter.FeedPrice | The full FeedPrice struct; price=0 if unsupported |
 
 ### getFeedPrices
@@ -161,19 +164,18 @@ Get prices for multiple tokens in one call
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type      | Description              |
+| ------ | --------- | ------------------------ |
 | tokens | address[] | Array of token addresses |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type                                | Description                                           |
+| ----- | ----------------------------------- | ----------------------------------------------------- |
 | feeds | struct IDataFeedAdapter.FeedPrice[] | Array of FeedPrice structs (parallel to tokens array) |
 
-### _readFeed
+### \_readFeed
 
 ```solidity
 function _readFeed(address token) internal view returns (struct IDataFeedAdapter.FeedPrice feed)
 ```
-

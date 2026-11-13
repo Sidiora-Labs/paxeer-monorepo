@@ -2,35 +2,36 @@
 
 ## MockFeedAdapterBase
 
-Shared test-only scaffolding for OracleHub/aggregator tests.
+Configurable feed adapter contracts for OracleHub tests. The base stores prices, timestamps,
+confidence values, support flags and a staleness threshold. Its abstract `sourceId` and
+`adapterName` methods are pure; concrete A, B and C contracts return fixed identifiers and names.
 
-_IDataFeedAdapter declares {sourceId} and {adapterName} as `pure`, so per-instance
-     identifiers cannot live in storage. Concrete mocks (A/B/C) hardcode their ids and
-     inherit the stateful feed-price plumbing below.
+`setPrice` stores a feed and marks the token supported. `setSupported` changes support
+independently. The token list retains addresses after support is disabled. `getFeedPrice` returns
+the stored feed without freshness or support validation, and can be configured to revert with
+`setRevertOnGet`. `getFeedPrices` returns stored feeds without consulting that revert flag.
 
-     Note on file location: the Phase 2 plan calls out `test/meta-ag/mocks/`, but Hardhat
-     2.28's `paths.sources` is typed `string | undefined`, so mocks must live under the
-     default `contracts/` root. Functional parity is preserved — see commit log._
+Source: [MockFeedAdapter.sol](../../../contracts/meta-ag/mocks/MockFeedAdapter.sol).
 
-### _maxStaleness
+### \_maxStaleness
 
 ```solidity
 uint256 _maxStaleness
 ```
 
-### _supportedTokens
+### \_supportedTokens
 
 ```solidity
 address[] _supportedTokens
 ```
 
-### _feeds
+### \_feeds
 
 ```solidity
 mapping(address => struct IDataFeedAdapter.FeedPrice) _feeds
 ```
 
-### _supports
+### \_supports
 
 ```solidity
 mapping(address => bool) _supports
@@ -45,7 +46,7 @@ bool revertOnGet
 ### constructor
 
 ```solidity
-constructor(uint256 maxStaleness_) internal
+constructor(uint256 maxStaleness_)
 ```
 
 ### sourceId
@@ -58,9 +59,9 @@ Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | bytes32 |             |
 
 ### adapterName
 
@@ -72,9 +73,9 @@ Human-readable name for this adapter
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
 ### setPrice
 
@@ -108,19 +109,19 @@ function getFeedPrice(address token) external view returns (struct IDataFeedAdap
 
 Get the latest price for a token from this adapter
 
-_MUST NOT revert on stale data — return confidence=0 instead_
+Returns the stored feed unchanged. Reverts when `revertOnGet` is true.
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                |
+| ----- | ------- | -------------------------- |
 | token | address | The token address to price |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| feed | struct IDataFeedAdapter.FeedPrice | The full FeedPrice struct; price=0 if unsupported |
+| Name | Type                              | Description                                                         |
+| ---- | --------------------------------- | ------------------------------------------------------------------- |
+| feed | struct IDataFeedAdapter.FeedPrice | The stored FeedPrice struct, or zero fields if no feed has been set |
 
 ### supportsToken
 
@@ -132,15 +133,15 @@ Check whether this adapter supports a given token
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type    | Description                |
+| ----- | ------- | -------------------------- |
 | token | address | The token address to check |
 
 #### Return Values
 
 | Name | Type | Description |
 | ---- | ---- | ----------- |
-| [0] | bool |  |
+| [0]  | bool |             |
 
 ### getFeedPrices
 
@@ -152,14 +153,14 @@ Get prices for multiple tokens in one call
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name   | Type      | Description              |
+| ------ | --------- | ------------------------ |
 | tokens | address[] | Array of token addresses |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name  | Type                                | Description                                           |
+| ----- | ----------------------------------- | ----------------------------------------------------- |
 | feeds | struct IDataFeedAdapter.FeedPrice[] | Array of FeedPrice structs (parallel to tokens array) |
 
 ### maxStaleness
@@ -168,13 +169,13 @@ Get prices for multiple tokens in one call
 function maxStaleness() external view returns (uint256)
 ```
 
-Maximum age in seconds before this adapter's prices are considered stale
+Returns the configured staleness threshold; consumers apply it to the stored timestamps
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | uint256 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | uint256 |             |
 
 ### getSupportedTokens
 
@@ -182,15 +183,15 @@ Maximum age in seconds before this adapter's prices are considered stale
 function getSupportedTokens() external view returns (address[])
 ```
 
-Get all tokens this adapter currently supports
+Get the recorded token list, including addresses whose support was later disabled
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | address[] |  |
+| Name | Type      | Description |
+| ---- | --------- | ----------- |
+| [0]  | address[] |             |
 
-### _sourceIdInternal
+### \_sourceIdInternal
 
 ```solidity
 function _sourceIdInternal() internal pure virtual returns (bytes32)
@@ -216,9 +217,9 @@ Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | bytes32 |             |
 
 ### adapterName
 
@@ -230,11 +231,11 @@ Human-readable name for this adapter
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
-### _sourceIdInternal
+### \_sourceIdInternal
 
 ```solidity
 function _sourceIdInternal() internal pure returns (bytes32)
@@ -260,9 +261,9 @@ Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | bytes32 |             |
 
 ### adapterName
 
@@ -274,11 +275,11 @@ Human-readable name for this adapter
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
-### _sourceIdInternal
+### \_sourceIdInternal
 
 ```solidity
 function _sourceIdInternal() internal pure returns (bytes32)
@@ -304,9 +305,9 @@ Unique identifier for this adapter source (e.g., keccak256("PriceOracle.v1"))
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | bytes32 |  |
+| Name | Type    | Description |
+| ---- | ------- | ----------- |
+| [0]  | bytes32 |             |
 
 ### adapterName
 
@@ -318,13 +319,12 @@ Human-readable name for this adapter
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| [0] | string |  |
+| Name | Type   | Description |
+| ---- | ------ | ----------- |
+| [0]  | string |             |
 
-### _sourceIdInternal
+### \_sourceIdInternal
 
 ```solidity
 function _sourceIdInternal() internal pure returns (bytes32)
 ```
-

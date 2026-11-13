@@ -2,36 +2,32 @@
 
 ## PECOR
 
-UUPS-upgradeable oracle-priced swap engine against PECORVault v2.
-        Handles simple swaps, market orders, and native-coin swaps.
-        Order management (limit / stop-loss / stop-limit) lives in
-        PECOROrders.sol (Task 4.2).
+UUPS oracle-priced swap engine using PECORVault. It supports exact input, exact output, market and
+native coin swaps. [PECOROrders](PECOROrders.md) manages limit, stop-loss and stop-limit orders.
 
-_Spec reference: `docs/architecture/pecor-sidiora-aggregator-spec.md` §7.6
-     (FROZEN 2026-04-24). Interface: `contracts/meta-ag/interfaces/IPECOR.sol`.
+The vault must grant PECOR `OPERATOR_ROLE`. Users approve the vault for token inputs. Exact input
+swaps price the amount the vault actually receives; exact output swaps require receipt of the full
+calculated input. A zero deadline means no expiry. Swap and collection methods require
+`feesInitialized`.
 
-Inheritance (spec §7.6):
-  IPECOR, Initializable, UUPSUpgradeable, AccessControl,
-  ReentrancyGuard, Pausable
+`DEFAULT_ADMIN_ROLE` controls configuration, upgrades and unpausing. Default administration or
+`PAUSER_ROLE` can pause. `setFeeCollector` rotates `FEE_COLLECTOR_ROLE`; collection sends reserved
+fees to `feeCollector`.
 
-Roles:
-  - DEFAULT_ADMIN_ROLE → Timelock at deploy (invariant S1)
-  - FEE_COLLECTOR_ROLE → granted to `feeCollector` via {setFeeCollector}
+Fees and price-impact deductions accrue in the output token and are reserved in the vault. Quotes
+use available reserves after reservations. The base and two volume tiers sum to at most 200 basis
+points; price impact is capped at 500 basis points. Tier thresholds are 10,000 and 100,000 USD,
+scaled by `1e18`.
 
-Storage layout (append-only per S12):
-  slot 0:  AccessControl._roles             (mapping)
-  slot 1:  priceOracle                      (address)
-  slot 2:  vault                            (address)
-  slot 3:  transactionTracker               (address)
-  slot 4:  weth                             (address)
-  slot 5:  swapFeeBps                       (uint256)
-  slot 6:  tier1FeeBps                      (uint256)
-  slot 7:  tier2FeeBps                      (uint256)
-  slot 8:  priceImpactEnabled               (bool)
-  slot 9:  priceImpactScalarBps             (uint256)
-  slot 10: feeCollector                     (address)
-  slot 11: accruedFees                      (mapping)
-  slot 12..61: __gap[50]_
+Initialization marks fee reservations ready. An upgraded proxy with `feesInitialized == false` must
+be paused while default administration calls `migrateFeeReservations` in batches of 1 to 100
+registered tokens. Trading and collection become available when all registered tokens have been
+processed.
+
+Tracker calls are optional and use a 500,000 gas limit. A failed configured call emits
+`TrackerCallFailed`; swap settlement remains effective.
+
+Source: [PECOR.sol](../../../contracts/meta-ag/engine/PECOR.sol).
 
 ### FEE_COLLECTOR_ROLE
 
@@ -57,8 +53,7 @@ uint256 BPS_DENOMINATOR
 uint256 MAX_FEE_BPS
 ```
 
-Absolute cap for fee stacking — swapFeeBps + tier1FeeBps + tier2FeeBps
-        must never exceed this (spec invariant S11).
+Absolute cap for fee stacking — swapFeeBps + tier1FeeBps + tier2FeeBps must never exceed this.
 
 ### MAX_IMPACT_BPS
 
@@ -264,8 +259,8 @@ Destination for {collectFees}. Also holds FEE_COLLECTOR_ROLE.
 mapping(address => uint256) accruedFees
 ```
 
-Per-token accrued fees (tracked here; actual tokens live in
-        the vault and are moved via vault.pushTokens at collect time).
+Per-token accrued fees (tracked here; actual tokens live in the vault and are moved via
+vault.pushTokens at collect time).
 
 ### ensure
 
@@ -285,19 +280,19 @@ constructor() public
 function initialize(address priceOracle_, address vault_, address weth_, address tracker_, address admin_) external
 ```
 
-Initialize the UUPS proxy (spec §7.6)
+Initialize the UUPS proxy
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| priceOracle_ | address |  |
-| vault_ | address |  |
-| weth_ | address |  |
-| tracker_ | address |  |
-| admin_ | address |  |
+| Name          | Type    | Description |
+| ------------- | ------- | ----------- |
+| priceOracle\_ | address |             |
+| vault\_       | address |             |
+| weth\_        | address |             |
+| tracker\_     | address |             |
+| admin\_       | address |             |
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
 function _authorizeUpgrade(address) internal
@@ -321,7 +316,7 @@ function setTransactionTracker(address tracker) external
 function setSwapFee(uint256 feeBps) external
 ```
 
-_S11: swapFeeBps + tier1FeeBps + tier2FeeBps ≤ MAX_FEE_BPS._
+The sum of swapFeeBps, tier1FeeBps and tier2FeeBps must not exceed MAX_FEE_BPS.
 
 ### setTieredFees
 
@@ -329,8 +324,8 @@ _S11: swapFeeBps + tier1FeeBps + tier2FeeBps ≤ MAX_FEE_BPS._
 function setTieredFees(uint256 tier1FeeBps_, uint256 tier2FeeBps_) external
 ```
 
-_S11: swapFeeBps + tier1FeeBps + tier2FeeBps ≤ MAX_FEE_BPS.
-     Also enforces tier2FeeBps ≥ tier1FeeBps (monotonic escalation)._
+The sum of the base and tier fees must not exceed MAX_FEE_BPS, and tier2FeeBps must be at least
+tier1FeeBps.
 
 ### setPriceImpact
 
@@ -364,9 +359,8 @@ function unpause() external
 function collectFees(address token) external
 ```
 
-_Moves accrued fees out of the vault into {feeCollector}.
-     The vault treats PECOR as an OPERATOR_ROLE holder, so this
-     succeeds after vault.setOperator(PECOR, true)._
+_Moves accrued fees out of the vault into {feeCollector}. The vault treats PECOR as an OPERATOR_ROLE
+holder, so this succeeds after vault.setOperator(PECOR, true)._
 
 ### swapExactIn
 
@@ -426,13 +420,13 @@ Full oracle-priced quote with price impact and fee breakdown.
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| grossOut | uint256 | Raw amountOut before fee / impact. |
-| netOut | uint256 | amountOut user actually receives. |
-| priceImpactBps | uint256 | Price impact applied (BPS). |
-| feeBps | uint256 | Effective fee rate after tiered stacking (BPS). |
-| feeAmount | uint256 | Fee deducted from grossOut. |
+| Name           | Type    | Description                                     |
+| -------------- | ------- | ----------------------------------------------- |
+| grossOut       | uint256 | Raw amountOut before fee / impact.              |
+| netOut         | uint256 | amountOut user actually receives.               |
+| priceImpactBps | uint256 | Price impact applied (BPS).                     |
+| feeBps         | uint256 | Effective fee rate after tiered stacking (BPS). |
+| feeAmount      | uint256 | Fee deducted from grossOut.                     |
 
 ### multicall
 
@@ -440,11 +434,9 @@ Full oracle-priced quote with price impact and fee breakdown.
 function multicall(bytes[] data) external returns (bytes[] results)
 ```
 
-Batch multiple calls atomically via delegatecall (spec §7.6).
+Batch multiple calls atomically via delegatecall.
 
-_Bubbles up the first failing call's revert data verbatim so that
-     custom errors reach the outer caller. Matches the ERC-1967 proxy
-     hardening landed in Phase 3 commit 18._
+Bubbles the first failing call’s revert data. An empty revert becomes `MulticallFailed(index)`.
 
 ### receive
 
@@ -454,7 +446,7 @@ receive() external payable
 
 Accept native transfers only from WETH unwraps initiated by PECOR.
 
-### _calculateSwapOutput
+### \_calculateSwapOutput
 
 ```solidity
 function _calculateSwapOutput(address tokenIn, address tokenOut, uint256 amountIn, uint256 priceIn, uint256 priceOut) internal view returns (uint256)
@@ -462,7 +454,7 @@ function _calculateSwapOutput(address tokenIn, address tokenOut, uint256 amountI
 
 _Compute gross output respecting token decimals and oracle prices._
 
-### _calculateSwapInput
+### \_calculateSwapInput
 
 ```solidity
 function _calculateSwapInput(address tokenIn, address tokenOut, uint256 amountOut, uint256 priceIn, uint256 priceOut) internal view returns (uint256)
@@ -470,7 +462,7 @@ function _calculateSwapInput(address tokenIn, address tokenOut, uint256 amountOu
 
 _Compute required input for a target output, rounding up._
 
-### _applyFeeAndImpact
+### \_applyFeeAndImpact
 
 ```solidity
 function _applyFeeAndImpact(address token, uint256 grossAmount, uint256 volumeUSD, uint256 reserveUSD) internal returns (uint256 netAmount)
@@ -478,32 +470,32 @@ function _applyFeeAndImpact(address token, uint256 grossAmount, uint256 volumeUS
 
 _Apply tiered fee + price impact, credit accrued fees._
 
-### _calcNetOutput
+### \_calcNetOutput
 
 ```solidity
 function _calcNetOutput(uint256 grossAmount, uint256 volumeUSD, uint256 reserveUSD) internal view returns (uint256 netAmount)
 ```
 
-_Pure view form of {_applyFeeAndImpact} — no state or events._
+_Pure view form of {\_applyFeeAndImpact} — no state or events._
 
-### _getEffectiveFeeBps
+### \_getEffectiveFeeBps
 
 ```solidity
 function _getEffectiveFeeBps(uint256 volumeUSD) internal view returns (uint256)
 ```
 
-_Tiered fee resolution per spec §7.6 / invariant S11._
+Returns the fee rate for the input USD volume tier.
 
-### _recordTrade
+### \_recordTrade
 
 ```solidity
 function _recordTrade(address user, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut, uint256 volumeUSD) internal
 ```
 
-_Gated call to the transaction tracker; silently skipped if unset.
-     When set, the tracker enforces EMITTER_ROLE on its side (S10)._
+_Gated call to the transaction tracker; silently skipped if unset. When set, the tracker enforces
+EMITTER_ROLE on its side._
 
-### _recordMarketTrade
+### \_recordMarketTrade
 
 ```solidity
 function _recordMarketTrade(address user, address stablecoin, address token, uint256 stablecoinAmount, uint256 tokenAmount, bool isBuy, uint256 executionPrice) internal
@@ -511,3 +503,70 @@ function _recordMarketTrade(address user, address stablecoin, address token, uin
 
 _Gated market-order record; silently skipped if tracker unset._
 
+### UnsupportedInputTransfer
+
+```solidity
+error UnsupportedInputTransfer()
+```
+
+### LiabilityMigrationRequired
+
+```solidity
+error LiabilityMigrationRequired()
+```
+
+### MigrationAlreadyComplete
+
+```solidity
+error MigrationAlreadyComplete()
+```
+
+### TrackerCallFailed
+
+```solidity
+event TrackerCallFailed(address indexed tracker, bytes4 indexed selector)
+```
+
+### liabilitiesInitialized
+
+```solidity
+modifier liabilitiesInitialized()
+```
+
+### \_quoteExactOut
+
+```solidity
+function _quoteExactOut(address tokenIn, address tokenOut, uint256 target, uint256 priceIn, uint256 priceOut) internal view returns (uint256)
+```
+
+### \_track
+
+```solidity
+function _track(bytes memory payload) internal
+```
+
+### liabilitiesReady
+
+```solidity
+function liabilitiesReady() external view returns (bool)
+```
+
+Returns feesInitialized.
+
+### migrateFeeReservations
+
+```solidity
+function migrateFeeReservations(uint256 maxCount) external
+```
+
+### feesInitialized
+
+```solidity
+bool feesInitialized
+```
+
+### feeMigrationCursor
+
+```solidity
+uint256 feeMigrationCursor
+```
