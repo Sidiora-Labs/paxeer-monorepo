@@ -437,8 +437,8 @@ authority or a committed block receipt.
 
 ## SPL tokens, LXT-20 and native assets
 
-The current token interface has eight operations, including initialization
-before funding and transfers. The
+The current token interface has eight operations. Initialization stages the
+initial supply funding before subsequent token transfers. The
 [LXT-20 request codec](../../sdk/rust/src/lxt20.rs) defines seven `Request`
 variants (selectors 1–7); the
 [token guest](../../sdk/rust/examples/token-lxt20/src/lib.rs) also exports the
