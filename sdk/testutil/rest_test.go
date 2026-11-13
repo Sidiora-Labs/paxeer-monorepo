@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-func TestRepairM_674_ResponseAndHeaders(t *testing.T) {
+func TestGetRequestWithHeaders_ResponseAndHeaders(t *testing.T) {
 	for _, status := range []int{http.StatusOK, http.StatusInternalServerError} {
 		t.Run(strconv.Itoa(status), func(t *testing.T) {
 			requests := make(chan string, 1)
@@ -40,7 +40,7 @@ func TestRepairM_674_ResponseAndHeaders(t *testing.T) {
 	}
 }
 
-func TestRepairM_674_ResponseSizeBound(t *testing.T) {
+func TestGetRequestWithHeaders_ResponseSizeBound(t *testing.T) {
 	for _, streamed := range []bool{false, true} {
 		for _, size := range []int{maxGetResponseBytes - 1, maxGetResponseBytes, maxGetResponseBytes + 1} {
 			t.Run(strconv.FormatBool(streamed)+"/"+strconv.Itoa(size), func(t *testing.T) {
@@ -68,7 +68,7 @@ func TestRepairM_674_ResponseSizeBound(t *testing.T) {
 	}
 }
 
-func TestRepairM_674_OversizeClosesStreamingBody(t *testing.T) {
+func TestGetRequestWithHeaders_OversizeClosesStreamingBody(t *testing.T) {
 	disconnected := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.(http.Flusher).Flush()
@@ -91,7 +91,7 @@ func TestRepairM_674_OversizeClosesStreamingBody(t *testing.T) {
 	}
 }
 
-func TestRepairM_674_RequestDeadline(t *testing.T) {
+func TestGetRequestWithHeaders_RequestDeadline(t *testing.T) {
 	for _, sendHeaders := range []bool{false, true} {
 		t.Run(strconv.FormatBool(sendHeaders), func(t *testing.T) {
 			disconnected := make(chan struct{})
@@ -130,7 +130,7 @@ func TestRepairM_674_RequestDeadline(t *testing.T) {
 	}
 }
 
-func TestRepairM_674_PreservesReadError(t *testing.T) {
+func TestGetRequestWithHeaders_PreservesReadError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", "100")
 		_, _ = w.Write([]byte("truncated"))
@@ -143,7 +143,7 @@ func TestRepairM_674_PreservesReadError(t *testing.T) {
 	}
 }
 
-func TestRepairM_674_PreservesTransportError(t *testing.T) {
+func TestGetRequestWithHeaders_PreservesTransportError(t *testing.T) {
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("untrusted TLS request reached the handler")
 	}))

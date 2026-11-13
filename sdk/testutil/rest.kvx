@@ -1,7 +1,7 @@
 [repair.22.33.674]
 finding = "http-helper-bounds"
 implementation = "GetRequestWithHeaders enforces a ten-second end-to-end timeout, reads at most 16 MiB plus one overflow byte, and defers body closure while preserving request, read and close errors."
-tests = ["TestRepairM_674_ResponseAndHeaders", "TestRepairM_674_ResponseSizeBound", "TestRepairM_674_OversizeClosesStreamingBody", "TestRepairM_674_RequestDeadline", "TestRepairM_674_PreservesReadError", "TestRepairM_674_PreservesTransportError"]
+tests = ["TestGetRequestWithHeaders_ResponseAndHeaders", "TestGetRequestWithHeaders_ResponseSizeBound", "TestGetRequestWithHeaders_OversizeClosesStreamingBody", "TestGetRequestWithHeaders_RequestDeadline", "TestGetRequestWithHeaders_PreservesReadError", "TestGetRequestWithHeaders_PreservesTransportError"]
 fixtures = "Real HTTP client and loopback HTTP/TLS servers; no external services."
 baseline = "UNRUN: the task's explicit ordered gate instructions prohibit running verify before implementation; no pre-change failing test result is claimed."
 wiring_requests = []
