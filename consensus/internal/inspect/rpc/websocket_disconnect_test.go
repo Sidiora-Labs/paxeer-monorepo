@@ -24,15 +24,15 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func TestRepairM_1097_ConnectReadDisconnect(t *testing.T) {
-	repairM1097Disconnect(t, true)
+func TestInspectorWebsocketConnectReadDisconnect(t *testing.T) {
+	inspectorWebsocketDisconnect(t, true)
 }
 
-func TestRepairM_1097_AbruptDisconnect(t *testing.T) {
-	repairM1097Disconnect(t, false)
+func TestInspectorWebsocketAbruptDisconnect(t *testing.T) {
+	inspectorWebsocketDisconnect(t, false)
 }
 
-func repairM1097Disconnect(t *testing.T, graceful bool) {
+func inspectorWebsocketDisconnect(t *testing.T, graceful bool) {
 	t.Helper()
 	states := state.NewStore(dbm.NewMemDB())
 	t.Cleanup(func() { require.NoError(t, states.Close()) })

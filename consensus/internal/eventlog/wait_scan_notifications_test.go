@@ -13,7 +13,7 @@ import (
 
 // f004: An Add after the head snapshot must notify that snapshot's waiter,
 // even though Add installs a new ready channel before the wait begins.
-func TestRepairM_1070_SnapshotSubscriptionBoundary(t *testing.T) {
+func TestWaitScanSnapshotSubscriptionBoundary(t *testing.T) {
 	for _, seeded := range []bool{false, true} {
 		name := "empty"
 		if seeded {
@@ -21,13 +21,13 @@ func TestRepairM_1070_SnapshotSubscriptionBoundary(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				lg := repairM1070Log(t)
+				lg := waitScanLog(t)
 				if seeded {
-					repairM1070Add(t, lg, "previous")
+					waitScanAdd(t, lg, "previous")
 				}
 				st := lg.state()
 				previous := st.info()
-				repairM1070Add(t, lg, "boundary")
+				waitScanAdd(t, lg, "boundary")
 				want := lg.Info()
 				ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 				defer cancel()
@@ -38,15 +38,15 @@ func TestRepairM_1070_SnapshotSubscriptionBoundary(t *testing.T) {
 				if got := updated.info(); got != want || got.Newest == previous.Newest {
 					t.Fatalf("notification state = %+v, want %+v with a new head", got, want)
 				}
-				repairM1070Scan(t, lg, ctx, previous.Newest, want, "boundary")
+				waitScanScan(t, lg, ctx, previous.Newest, want, "boundary")
 			})
 		})
 	}
 }
 
-func TestRepairM_1070_WaitScanBroadcastAndResubscribe(t *testing.T) {
+func TestWaitScanWaitScanBroadcastAndResubscribe(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		lg := repairM1070Log(t)
+		lg := waitScanLog(t)
 		var previous cursor.Cursor
 		for _, payload := range []types.EventDataString{"first", "second", "third"} {
 			const readers = 4
@@ -79,7 +79,7 @@ func TestRepairM_1070_WaitScanBroadcastAndResubscribe(t *testing.T) {
 				t.Fatal("WaitScan returned before Add changed the head")
 			default:
 			}
-			repairM1070Add(t, lg, payload)
+			waitScanAdd(t, lg, payload)
 			for range readers {
 				<-finished
 			}
@@ -89,12 +89,12 @@ func TestRepairM_1070_WaitScanBroadcastAndResubscribe(t *testing.T) {
 	})
 }
 
-func TestRepairM_1070_WaitScanCancellationAndImmediateScan(t *testing.T) {
+func TestWaitScanWaitScanCancellationAndImmediateScan(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		lg := repairM1070Log(t)
+		lg := waitScanLog(t)
 		for _, seeded := range []bool{false, true} {
 			if seeded {
-				repairM1070Add(t, lg, "available")
+				waitScanAdd(t, lg, "available")
 			}
 			want := lg.Info()
 			ctx, cancel := context.WithCancel(t.Context())
@@ -113,7 +113,7 @@ func TestRepairM_1070_WaitScanCancellationAndImmediateScan(t *testing.T) {
 			cancel()
 			<-finished
 			if seeded {
-				repairM1070Scan(t, lg, ctx, cursor.Cursor{}, want, "available")
+				waitScanScan(t, lg, ctx, cursor.Cursor{}, want, "available")
 				callbackErr := errors.New("consumer error")
 				info, err := lg.WaitScan(t.Context(), cursor.Cursor{}, func(*Item) error { return callbackErr })
 				if !errors.Is(err, callbackErr) || info != want {
@@ -124,7 +124,7 @@ func TestRepairM_1070_WaitScanCancellationAndImmediateScan(t *testing.T) {
 	})
 }
 
-func repairM1070Log(t *testing.T) *Log {
+func waitScanLog(t *testing.T) *Log {
 	t.Helper()
 	lg, err := New(LogSettings{WindowSize: time.Minute})
 	if err != nil {
@@ -133,14 +133,14 @@ func repairM1070Log(t *testing.T) *Log {
 	return lg
 }
 
-func repairM1070Add(t *testing.T, lg *Log, payload types.EventDataString) {
+func waitScanAdd(t *testing.T, lg *Log, payload types.EventDataString) {
 	t.Helper()
 	if err := lg.Add(types.EventNewRoundStepValue, payload); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
 }
 
-func repairM1070Scan(t *testing.T, lg *Log, ctx context.Context, previous cursor.Cursor, want Info, payload types.EventDataString) {
+func waitScanScan(t *testing.T, lg *Log, ctx context.Context, previous cursor.Cursor, want Info, payload types.EventDataString) {
 	t.Helper()
 	var items []*Item
 	info, err := lg.WaitScan(ctx, previous, func(item *Item) error {
