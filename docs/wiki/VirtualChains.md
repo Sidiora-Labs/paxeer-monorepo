@@ -80,15 +80,15 @@ Read calls use `eth_call` against the precompile. Writes use signed EVM transact
 
 Admission counts gas and encoded bytes for each chain in each shared block. The chain's accumulated gas usage plus the incoming transaction's gas limit must fit `gasAllowance`; its bytes must fit `byteAllowance`. Admission refuses unknown, paused, governance-paused and retired chains. A gas refusal identifies the chain, gas wanted and allowance. The sum of active gas allowances cannot exceed `MaxTotalGasAllowance`; normal shared block limits still apply. Root transactions retain the whole `Block.MaxGas` limit.
 
-Each chain's base fee uses its own executed gas usage and the EIP-1559 adjustment in `modules/evm/keeper/fee.go`, with its gas allowance as the limit and `TargetGasPerBlock = gasAllowance / 2` as the target. The next fee stays within the EVM minimum and maximum. A chain transaction must meet that chain's fee, even if the root fee is lower. Chain traffic does not drive the root base fee. The registry, next base fee and per-height transaction index persist across a node restart.
+Each chain's base fee uses its own executed gas usage and `AdjustDomainBaseFee` in `modules/layerxchains/keeper/accounting.go`, with its gas allowance as the limit and `TargetGasPerBlock = gasAllowance / 2` as the target. The next fee stays within the EVM minimum and maximum. A chain transaction must meet that chain's fee, even if the root fee is lower. Chain traffic does not drive the root base fee. The registry, next base fee and per-height transaction index persist across a node restart.
 
-At end of block the operator receives the truncated share of base fees:
+At end of block, `modules/evm/keeper/abci.go` groups the chain's base fees by paid denomination. For each executed transaction it truncates the current base fee to an integer, multiplies by receipt gas used, and converts that amount when the transaction pays with a fee token. The operator receives a share of each denomination's total:
 
 ```text
-operator share = floor(baseFeePerGas * gasUsed * feeShareBps / 10000)
+operator share per denomination = floor(total base fees in denomination * feeShareBps / 10000)
 ```
 
-The calculation uses the chain's fee before the next-block adjustment and transfers from the fee collector in the base denomination. A share of `100` basis points is 1%; zero pays no share. The default maximum is `5000` basis points. The launch form accepts 0 to 5000; live module parameters also constrain creation. This share concerns base fees, not the creation fee or a promise of revenue from unused allowance.
+The calculation uses the chain's fee before the next-block adjustment and transfers from the fee collector in each paid denomination. A share of `100` basis points is 1%; zero pays no share. The default maximum is `5000` basis points. The launch form accepts 0 to 5000; live module parameters also constrain creation. This share concerns base fees, not the creation fee or a promise of revenue from unused allowance.
 
 ## RPC scope
 
@@ -121,6 +121,8 @@ The hosted indexer decodes `ChainCreated`, `ChainStatusChanged`, `ChainFunded` a
 
 Records expose `id`, `name`, `operator`, `status`, `chain_id`, `created_height`, `bond`, `gas_allowance`, `byte_allowance` and `fee_share_bps`; status strings match the table above and bond is a base-unit decimal string. Unknown single-record lookups return 404 with `{"error":"unknown_chain"}`. The indexer derives transaction namespaces from signed chain IDs and records receipt gas usage; root rows keep their existing namespace.
 
+The event decoder initializes a created record with bond `"0"`, gas allowance `500000`, byte allowance `65536` and fee share `100`. Later funding, status and operator events update their respective fields. Read the registry's `getChain` for the current bond, configured allowances and fee share.
+
 In the explorer, **Chains** opens `/chains`. The list shows name, chain ID, operator, status, allowances and creation height, with active records first and then ID order. `/chains/<id>` shows the record, summary, recent transfers and events, copyable RPC path, launch link and **Add to wallet** action.
 
 ## Wallet and SDK entry points
@@ -143,4 +145,4 @@ The following SDK modules provide virtual-chain helpers:
 
 Every SDK encodes all twelve methods, decodes both return tuples and all four events, and checks selectors, calldata and event topics against `tests/vectors/chains/abi-vectors.json`. That vector file is generated from the precompile ABI, so all languages share one wire contract.
 
-The platform CLI entry points are `lx chains list`, `lx chains show <id|name>` and `lx chains create --name demo --tier starter --fee-share-bps 100`. Creation reads current parameters, signs with the configured wallet and reports the receipt's registry ID, derived chain ID and RPC URL.
+The platform CLI entry points are `lx chains list`, `lx chains show <id|name>` and `lx chains create --name demo --tier starter --fee-share-bps 100 --evm-key-file <key-export-file>`. Creation requires an EVM key-export file, supplied by that option or `LAYERX_EVM_KEY_FILE`. It reads current parameters and signs a root-chain transaction. Once confirmed, it reports the receipt's registry ID, derived chain ID and RPC URL; an unresolved submission reports a pending or unknown state.

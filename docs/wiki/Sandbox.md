@@ -85,8 +85,9 @@ only `LeaseBook::transition` edge that therefore releases a slot is
 `Expire` from `Settling` does not use that bound.
 
 `CloseBoundExceeded` is not a `Lease::transition` activity. `record_usage`
-applies it when usage first exceeds a limit, lifetime, or escrow, and
-returns `UsageOutcome::ClosedByBound`
+applies it when resource usage first exceeds a declared limit, consumed
+escrow exceeds the escrow amount, or `observed_batch >= expiry`. It returns
+`UsageOutcome::ClosedByBound`
 (`programs/crates/layerx-programs-sandbox/src/lease.rs`). Direct
 `LeaseBook::transition` of that activity is `IntrinsicActivityRequired`.
 
