@@ -33,13 +33,13 @@ Basic source operations also support authorized humans and automated tools witho
 
 ## 3. Logical repository and physical distribution
 
-One repository contains a shared namespace and revision DAG. A project identifies ownership, dependencies, and export scope; it is not a physical storage partition. A large project and even a hot directory can span multiple partitions. Storage partitions can split independently of project paths and repository identities.
+One repository contains a shared namespace and revision DAG. A project identifies ownership, dependencies, and export scope; it is not a physical storage partition. Object placement is independent of project paths. The [routing service](../../../tools/hyperfide/core/control-plane/src/source_control/routing.ts) assigns objects to 16 logical partitions from their digest and records each partition owner and generation.
 
 Source objects use versioned, type-tagged canonical encodings. The identity format is `sha256:<64 lowercase hexadecimal digits>`. Git object IDs and existing raw snapshot identifiers have separate typed envelopes and explicit migration mappings. A stable logical change identity is not interchangeable with an immutable revision identity.
 
 Persistent bounded tree nodes map names to child objects. An immutable root identifies the entire logical source state without materializing it. Updating a file reuses unrelated subtrees; inserting into a huge directory must not rewrite all siblings. Schemas and algorithm rules are specified in [storage.md](storage.md).
 
-Metadata partitions handle revision identities, operation records, pins, workspaces, and indexes. The initial PostgreSQL implementation must demonstrate within-repository routing, bounded transactions, and a migration path for partition splits. A single database deployment is a bootstrap topology, not evidence of unlimited horizontal scale.
+PostgreSQL stores revision identities, operation records, pins, workspaces and indexes. Object routing changes compare the expected partition generation and fence operations by the current owner.
 
 ## 4. Serving architecture
 
@@ -53,7 +53,8 @@ flowchart TB
   Q --> O[Immutable S3 objects and trees]
   A --> G[Scoped object access grants]
   G --> W
-  W --> O
+  W --> T[Authorized object transfer endpoint]
+  T --> O
   W --> L[Bounded host cache and isolated writable files]
   M --> E[Durable committed events]
   E --> H
@@ -61,7 +62,7 @@ flowchart TB
   X --> R[GitHub or GitLab]
 ```
 
-Direct authorized object transfer keeps source bytes off the coordinator's hot path. Authorization grants are bounded in scope and time; issued grant revocation limits are explicit. Caches cannot broaden access. Query and merge workers fetch only required objects and maintain bounded state. Broad queries return pagination or durable operation handles rather than allocating whole histories in one process.
+Authorized object transfers use a separate endpoint from metadata actions. Authorization grants are bounded in scope and time; issued grant revocation limits are explicit. Caches cannot broaden access. Query and merge workers fetch only required objects and maintain bounded state. History queries return bounded pages and authenticated continuation cursors. Transformations have separate persisted operation records.
 
 ## 5. One task from assignment to publication
 
@@ -77,9 +78,9 @@ Direct authorized object transfer keeps source bytes off the coordinator's hot p
 
 ## 6. Scale and admission
 
-The [verification profile](verification.md) proposes 5,000 active agent workspaces, 100,000 new native revisions/day, 100 submissions/second for five-minute bursts, and twenty million metadata-only workspace opens/day. These are independent dimensions. Their simultaneous composition is defined by a workload manifest; passing separate peaks does not establish their combined peak.
+The [HTTP listener](../../../tools/hyperfide/core/control-plane/src/source_control/http.ts) bounds concurrent requests and request duration. Its defaults are 32 concurrent requests and a 30-second deadline; upload, query, event, acceptance and mutation requests have separate admission counters and configurable budgets. The [verification profiles](verification.md) describe workload dimensions separately from these runtime limits.
 
-Admission separates upload bytes, object request count, metadata writes, query cost, merge cost, graph extraction, qualification, materialization, and remote export. Large imports cannot consume all foreground permits. Hot paths and shared interfaces produce local contention that remains visible even if aggregate capacity is available. Priority aging and bounded queues prevent indefinite starvation.
+Object transfers, queries, graph extraction, candidate scheduling and workspace materialization each apply their own bounded inputs. Candidate queue claims use leases and attempt limits. A request exceeding an admission budget receives an explicit refusal.
 
 Performance evidence includes repository size, file-size distribution, directory shape, history topology, changed-file count, dependency fan-out, request latency percentiles, cache warmth, CPU, memory, bytes, S3 requests, and acceptance retry rate. Increasing total repository size while holding the changed set fixed is a dedicated test. There is no conversion from lines of code to object-store capacity without measured bytes.
 

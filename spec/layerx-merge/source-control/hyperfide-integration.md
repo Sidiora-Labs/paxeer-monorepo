@@ -41,9 +41,9 @@ A graph generation identifies repository, root tree/revision, optional immutable
 
 Extraction reuses immutable file facts keyed by content plus extraction configuration and language/build context. Path-dependent facts retain their path context; identical bytes in two projects do not imply identical resolved symbols. Resolution invalidates changed declarations, imports, generated inputs and affected consumers, including edges crossing project roots. A large interface change can legitimately require broad analysis. The cost contract avoids unconditional full-repository extraction for an unrelated local change; it does not promise that semantic impact is bounded by changed line count.
 
-The graph API supports bounded pagination, source-filtered queries, cancellation and asynchronous operation handles without a local checkout. A source snapshot with missing graph coverage stays readable as source while impact analysis reports its limits. Qualification policy may require broader checks; stale graph data must not silently narrow a required check set. Published generations remain immutable, and partial staging cannot replace a complete generation. Source authorization applies to snippets, search hits, caller/callee edges, caches and derived artifacts.
+The native graph API exposes `status`, `symbols`, `context` and `dependencies` query modes, with bounded pagination and exact revision/tree bindings. Graph extraction reads selected source through the native manifest adapter and supports cancellation. A source snapshot with missing graph coverage stays readable as source while impact analysis reports its limits. Qualification policy may require broader checks; stale graph data must not silently narrow a required check set. Published generations remain immutable, and partial staging cannot replace a complete generation. Source authorization applies to snippets, search hits, caller/callee edges, caches and derived artifacts.
 
-Task 3.3 extends existing graph publication/source-set checks through a versioned native source adapter. It preserves raw Git provenance for imported history, while refusing to coerce native IDs into Git hashes or use a repository path as the immutable identity.
+The native graph adapter preserves imported Git provenance separately from native revision and tree identities. Its build identity binds the parser, resolver, configuration and optional workspace overlay; coverage reports extracted and reused files, unresolved imports and affected paths.
 
 ## 6. CLI, SDK and UI journeys
 
@@ -53,31 +53,31 @@ The app and CLI expose the following journeys:
 
 | Journey | Required user-visible result |
 |---|---|
-| Open workspace | Select project/task or source revision, scope and mode; see readiness, download estimate, cache state and any incomplete closure |
+| Open workspace | Select a configured project and source revision, declare read/write scope and mode, and inspect dependency closure and workspace generations |
 | Save durable checkpoint | See upload progress followed by a durable revision receipt; local dirty state remains distinguishable |
 | Submit and integrate | Inspect change summary, dependencies, conflicts, qualification status and accepted source revision |
-| Resume or transfer | See the last durable checkpoint, current owner/attempt and recoverable local-only state |
+| Resume or transfer | Inspect operations, transfer progress and the last durable checkpoint; retry retained requests by their original identities |
 | Publish externally | Choose an allowed export destination and view independent native acceptance and remote publication state |
-| Inspect source/context | Navigate history, blame, diff and graph results at a named revision without opening a workspace |
+| Inspect source | Read immutable revisions, paginated history and diffs without opening a workspace |
 
 Human-facing screens use existing page headers, forms, status components and navigation conventions. Primary controls use human-readable project, task and revision summaries. Raw hashes remain available through copy/detail controls, not as a mandatory manual input workflow. Permission failures and conflicts identify the affected operation and recovery action without exposing unauthorized paths. Large directory/diff/history views are paginated and do not transfer a complete repository manifest to render a page.
 
-A UI success toast cannot substitute for the durable server receipt. Tests cover reconnect/resume and duplicate actions, along with desktop, tablet and mobile geometry for the affected journeys.
+The app retains pending mutation identities and requests in browser session storage until a definitive response. Users can retry an uncertain request with its original identity or inspect the operation result.
 
 ## 7. Observability and budgets
 
-Source telemetry includes operation admission, queue time, service time, source objects/bytes read and written, dedup reuse, request retries, conflict/acceptance retries, cache bytes/hit ratio/evictions, dirty bytes, materialized files/bytes, graph extraction/reuse/debt, checkpoint acknowledgment latency and remote publication lag. Logical opens, virtual mounts, sparse materializations and explicit full materializations are distinct counters.
+The service metrics action samples objects, uploads, operations, publications, imports, graph builds and transfers. Each family reports coverage, observed rows, bounded state counts and available byte, age or duration measurements. Transfer queue depth, graph work and remote lag are reported for their respective families. The response identifies its observation time and sample budget; incomplete samples are marked `PARTIAL`.
 
-Metrics use bounded labels such as operation class, mode, status and storage partition. Per-object hashes, file paths and workspace IDs belong in access-controlled traces or diagnostic records rather than unbounded metric dimensions. Evidence records preserve exact identities; aggregate dashboards need not disclose private source names. Host budgets protect dirty data and retain capacity for authority heartbeats and cancellation under download or indexing pressure. A refusal names its actual limiting budget and includes a retry policy.
+The app and CLI record operation counts, durations and acknowledged content bytes. Acknowledged content bytes describe successful logical checkpoint content. Attached hosts supply cache, materialization, dirty journal and virtual filesystem counters. Metric labels use bounded mode, status and partition values.
 
-The operator view distinguishes repository size, active workspaces, dirty/uploading workspaces, accepted revision arrival rate, history ingestion, query load, object bandwidth and physical materialization. Author counts and imported commit totals are never substituted for concurrent agent counts. No performance number in this draft is a measured provider guarantee; proposed qualification profiles live in [verification.md](verification.md).
+The product request budget reserves two slots for cancellation and resume operations. Admission refusals carry the limiting budget and retry classification. Workload profiles live in [verification.md](verification.md).
 
-## 8. Proposed implementation ownership
+## 8. Implementation locations
 
 The service modules live under `tools/hyperfide/core/control-plane/src/source_control/`, the shared client and host implementation under `tools/hyperfide/sdk/source-control/src/`, and host integration under `tools/hyperfide/core/host-daemon/src/source-control/`. The source-control plugin connects those services to product journeys.
 
 ## Fleet prerequisite ownership
 
-[Agent-led orchestration](fleet-orchestration.md) qualifies before native source work. Primary and Wave Managers choose wave dispatch, task assignment, provider placement and recovery through scoped tools; Hyperfide's engine validates and records those actions. Existing wording that Hyperfide owns scheduling refers to this complete system, not an engine-owned fixed planner.
+[Agent-led orchestration](fleet-orchestration.md) supplies the assignment and environment authority used by native source integration. Primary and Wave Managers choose wave dispatch, task assignment, provider placement and recovery through scoped tools; Hyperfide's engine validates and records those actions. Existing wording that Hyperfide owns scheduling refers to this complete system, not an engine-owned fixed planner.
 
 The [sandbox environment contract](sandbox-contracts.md) survives native adoption. Every sandbox keeps `.neron` source configuration and `package.kvx`; `hyperfide install` calls the configured source adapter, pins exact inputs and returns a readiness receipt before workload launch. Native integration supplies snapshot/object reads and workspace/capture operations behind that contract. Change backend only through an explicit generation transition; retain legacy receipt provenance and requalify real install/worker paths. Source revisions and fleet environment package versions remain distinct.

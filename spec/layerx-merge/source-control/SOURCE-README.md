@@ -16,9 +16,9 @@ Hyperfide owns task assignment, attempts, custody and qualification policy. Sour
 | App and CLI integration | [source-control plugin](../../../tools/hyperfide/plugins/hyperfide-source-control/README.md) |
 | Deployment packaging | [source-control deployment](../../../tools/hyperfide/deploy/hyperfide/source-control/) |
 
-The private `@hyperfide/source-control` package exports the client, `./contracts`, `./host` and `./signed`. Protocol version 1 uses JSON POST requests at `/api/v1/source-control`, with typed `source.*` actions and bearer authentication. See [protocol](protocol.md) for the action families.
+The private `@hyperfide/source-control` package exports the client, `./contracts`, `./host` and `./signed`. Protocol version 1 uses JSON POST requests at `/api/v1/source-control`, with typed `source.*` actions. The standalone listener authenticates bearer tokens; the control-plane transport authenticates signed requests. See [protocol](protocol.md) for the action families.
 
-The service reads `HF_SOURCE_CONTROL_CONFIG`. The client uses `HF_SOURCE_CONFIG` or an explicit `--config` file. Configuration contains credential references or protected token paths; public source provenance contains author name/email, message and timestamp.
+The service reads `HF_SOURCE_CONTROL_CONFIG`. The client uses `HF_SOURCE_CONFIG` or an explicit `--config` file. The app and CLI use signed configuration containing `schema_version`, `endpoint`, `scope`, `credential_id`, `ca_file` and `key_file`, optionally placed in `transport` alongside a separate `assignment` in a versioned worker configuration. The signing key stays in a protected file. Public source provenance contains author name/email, message and timestamp.
 
 ## Source access
 
