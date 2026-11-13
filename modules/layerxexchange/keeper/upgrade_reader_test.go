@@ -24,7 +24,7 @@ import (
 
 var _ types.UpgradeKeeper = upgradekeeper.Keeper{}
 
-func repairM574Delivery(t *testing.T, err error, code uint32) {
+func assertExchangeDeliveryClassification(t *testing.T, err error, code uint32) {
 	t.Helper()
 	produced := sdkerrors.ResponseDeliverTx(err, 0, 0, false)
 	wire, marshalErr := produced.Marshal()
@@ -44,13 +44,13 @@ func repairM574Delivery(t *testing.T, err error, code uint32) {
 	}
 }
 
-func TestRepairM_574_PersistedUpgradeReaderContract(t *testing.T) {
+func TestPersistedUpgradeReaderContract(t *testing.T) {
 	const doneHeight int64 = 100
 	dir := t.TempDir()
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	open := func() (*rootmulti.Store, sdk.Context, upgradekeeper.Keeper, *keeper.Keeper) {
 		t.Helper()
-		db, err := dbm.NewDB("repair-m574", dbm.GoLevelDBBackend, dir)
+		db, err := dbm.NewDB("exchange-upgrade-reader", dbm.GoLevelDBBackend, dir)
 		require.NoError(t, err)
 		ms := rootmulti.NewStore(db)
 		upgradeKey := sdk.NewKVStoreKey(upgradetypes.StoreKey)
@@ -126,7 +126,7 @@ func TestRepairM_574_PersistedUpgradeReaderContract(t *testing.T) {
 		require.Equal(t, types.Intent{}, intent)
 		require.ErrorIs(t, err, types.ErrRetired)
 		require.Equal(t, "v6.12.0 done at height 100: layerxexchange is retired from v6.12.0", err.Error())
-		repairM574Delivery(t, err, 14)
+		assertExchangeDeliveryClassification(t, err, 14)
 		changed := params
 		changed.Paused = true
 		response, err := server.UpdateParams(sdk.WrapSDKContext(callCtx), &types.MsgUpdateParams{
@@ -134,7 +134,7 @@ func TestRepairM_574_PersistedUpgradeReaderContract(t *testing.T) {
 		})
 		require.Nil(t, response)
 		require.ErrorIs(t, err, types.ErrRetired)
-		repairM574Delivery(t, err, 14)
+		assertExchangeDeliveryClassification(t, err, 14)
 		market := params.Markets[0]
 		market.Enabled = false
 		marketResponse, err := server.SetMarket(sdk.WrapSDKContext(callCtx), &types.MsgSetMarket{
@@ -142,7 +142,7 @@ func TestRepairM_574_PersistedUpgradeReaderContract(t *testing.T) {
 		})
 		require.Nil(t, marketResponse)
 		require.ErrorIs(t, err, types.ErrRetired)
-		repairM574Delivery(t, err, 14)
+		assertExchangeDeliveryClassification(t, err, 14)
 		require.Equal(t, before, exchange.ExportGenesis(callCtx))
 		require.Zero(t, exchange.GetOwnerNonce(callCtx, owner))
 		require.Empty(t, callCtx.EventManager().Events())
@@ -151,11 +151,11 @@ func TestRepairM_574_PersistedUpgradeReaderContract(t *testing.T) {
 	intent, err := exchange.RecordCancelOrderIntent(ctx, owner, [32]byte{3})
 	require.Equal(t, types.Intent{}, intent)
 	require.ErrorIs(t, err, types.ErrKeeperMissing)
-	repairM574Delivery(t, err, 12)
+	assertExchangeDeliveryClassification(t, err, 12)
 	require.Equal(t, before, exchange.ExportGenesis(ctx))
 }
 
-func TestRepairM_574_ApplicationUpgradeDependency(t *testing.T) {
+func TestApplicationUpgradeDependency(t *testing.T) {
 	app := testkeeper.EVMTestApp
 	var reader types.UpgradeKeeper = app.UpgradeKeeper
 	var _ SetUpgradeKeeper = app.LayerXExchangeKeeper
@@ -168,7 +168,7 @@ func TestRepairM_574_ApplicationUpgradeDependency(t *testing.T) {
 	require.Equal(t, types.Intent{}, intent)
 	require.ErrorIs(t, err, types.ErrRetired)
 	require.Equal(t, "v6.12.0 done at height 1: layerxexchange is retired from v6.12.0", err.Error())
-	repairM574Delivery(t, err, 14)
+	assertExchangeDeliveryClassification(t, err, 14)
 	require.Equal(t, before, app.LayerXExchangeKeeper.ExportGenesis(ctx))
 	require.Empty(t, ctx.EventManager().Events())
 }

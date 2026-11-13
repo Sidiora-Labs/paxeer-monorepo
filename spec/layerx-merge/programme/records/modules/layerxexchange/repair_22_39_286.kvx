@@ -35,7 +35,7 @@ evidence = "/out/run/gates.jsonl: final passing verify row and its private log; 
 [qualification]
 build_command = "go build ./modules/layerxexchange/..."
 verify_command = "cg spec done 22.39.286 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s modules/layerxexchange/repair_22_39_286.kvx && go test -count=1 ./modules/layerxexchange/types/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxexchange"
+verify_cmd = "test -s spec/layerx-merge/programme/records/modules/layerxexchange/repair_22_39_286.kvx && go test -count=1 ./modules/layerxexchange/types/ && python3 tools/paxeer-x/tests/retired_callers_test.py --path modules/layerxexchange"
 evidence = "/out/run/gates.jsonl records revision, command, exit and private log for each gate; hf-done executes the declared verification and graph checks."
 
 [gotcha.scope]
