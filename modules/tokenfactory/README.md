@@ -1,10 +1,61 @@
 # Token Factory
 
-The `tokenfactory` module runs inside `paxd` on the merged Paxeer network
+This directory holds the Go implementation, clients and types of the
+`tokenfactory` module, which runs inside `paxd` on the merged Paxeer network
 (EVM chain ID 125). Any account can create a bank denom named
 `factory/{creator address}/{subdenom}`. The creator namespace avoids collisions
 between accounts; one account can create multiple denoms with different
 subdenoms. Creating a denom does not mint a balance.
+
+## Layout
+
+- [client/](client/) — CLI transaction and query commands, CosmWasm encoders, query handlers and bindings.
+- [keeper/](keeper/) — Denom creation, admin and issuer authority, minting, burning, allow lists, pause state, queries, genesis, migrations and tests.
+- [types/](types/) — Generated protobuf types, message validation, codecs, parameters, denom rules, store keys, events, errors, keeper interfaces and tests.
+- [module.go](module.go) — SDK module registration, services, migrations, invariants, genesis and simulation interfaces.
+- [handler.go](handler.go) — Governance proposal handler that rejects unrecognized tokenfactory proposal content.
+- [repair_m1226_test.go](repair_m1226_test.go) — Authority lifecycle, query transport, restart and genesis stream integration tests.
+
+## Build and test
+
+Tokenfactory is part of the root [Go module](../../go.mod) and has no separate
+build manifest or Makefile. Run these commands from the repository root:
+
+```sh
+make paxeer-build
+make paxeer-test
+```
+
+The root [Makefile](../../Makefile) forwards these targets to
+[chain.mk](../../chain.mk). The build produces `build/paxd`, including
+tokenfactory and the native libraries the node links. The test target runs the
+root Go test package groups, including this module and its client, keeper and
+type tests, with the race detector and coverage enabled.
+
+## Configuration
+
+The on-chain `denom_allowlist_max_size` parameter controls the maximum number
+of addresses in a denom allow list. It is defined in
+[types/params.go](types/params.go), read through the keeper's parameter
+subspace and initialized from the tokenfactory genesis `params` field.
+Genesis also supplies `factory_denoms` and `paused_denoms`.
+
+The [CLI](client/cli/tx.go) reads an allow-list JSON file supplied through
+`--allow-list` for `create-denom` and `update-denom`, and a bank metadata JSON
+file supplied as the `metadata-file` argument to `set-denom-metadata`.
+These files have caller-selected names. The module reads no environment
+variables or module-specific configuration file; CLI commands use the shared
+`paxd` client context and transaction or query flags.
+
+## Documentation
+
+- [Tokenfactory module page](../../docs/site/paxeer-docs/public/markdown/modules/tokenfactory.md) — Documentation site reference for denoms, messages, queries and bank integration.
+- [Assets](../../docs/wiki/Assets.md) — Native token creation and token pointers.
+- [Chain modules](../../docs/system/chain-modules.md#tokenfactory) — Parameter and message inventory.
+- [CosmWasm bindings](../../docs/site/paxeer-docs/public/markdown/wasmbinding.md) — Contract message and query integration.
+- [REST and gRPC](../../docs/site/paxeer-docs/public/markdown/rest-grpc.md) — SDK query transport reference.
+
+### Authority
 
 The creator becomes the initial admin. Authority metadata also has an optional
 `issuer_did`, independent of the admin address:
@@ -29,12 +80,12 @@ The wire definitions are in [tx.proto](../../api/tokenfactory/tx.proto),
 See [message validation](types/msgs.go) and the
 [message server](keeper/msg_server.go) for the transaction checks.
 
-## Messages
+### Messages
 
 All messages carry a native bech32 `sender`, which is their signer. Except for
 creation, the messages below require the sender to equal the current admin.
 
-### CreateDenom
+#### CreateDenom
 
 `MsgCreateDenom` has `sender`, `subdenom` and optional bank `allow_list` fields.
 It returns `new_token_denom` with the full denom string.
@@ -52,14 +103,14 @@ query the live params). A nonempty list restricts both senders and recipients
 of bank user transfers. An absent or empty list leaves those transfers
 unrestricted by the allow list. Pause and other bank policies still apply.
 
-### Mint
+#### Mint
 
 `MsgMint` has `sender` and a positive, valid bank `amount` coin. The denom must
 have bank metadata, use the factory denom format, and belong to the sender's
 admin authority. Minting creates coins in the tokenfactory module account and
 sends them to the sender. There is no recipient field on this message.
 
-### Burn
+#### Burn
 
 `MsgBurn` has `sender` and a positive, valid bank `amount` coin. It checks the
 factory denom and admin authority, transfers coins from the sender to the
@@ -68,7 +119,7 @@ on this message; the sender must hold sufficient spendable coins.
 
 Both mint and burn refuse a paused denom with `ErrDenomPaused`.
 
-### ChangeAdmin
+#### ChangeAdmin
 
 `MsgChangeAdmin` has `sender`, `denom` and `new_admin`. The current admin can
 transfer authority to another valid native bech32 address. Selecting the
@@ -77,26 +128,26 @@ and issuer binding remain unchanged. Passing `new_admin: ""` renounces admin
 authority. The sender must still be the current admin and a valid native bech32
 address; an empty sender cannot reclaim a renounced denom.
 
-### SetDenomMetadata
+#### SetDenomMetadata
 
 `MsgSetDenomMetadata` has `sender` and bank `metadata`. The metadata must pass
 bank validation; its `base` identifies the factory denom whose admin is
 checked. The message replaces that denom's bank metadata.
 
-### UpdateDenom
+#### UpdateDenom
 
 `MsgUpdateDenom` has `sender`, `denom` and `allow_list`. It requires an existing
 denom and a non-nil list, validates the list size and bech32 addresses, then
 replaces the bank allow list. Use `{"addresses":[]}` to remove the transfer
 restriction; omitting the list returns `ErrAllowListUndefined`.
 
-The CLI accepts `--allow-list path/to/allow-list.json` on creation and requires
+The CLI accepts `--allow-list <allow-list-file>` on creation and requires
 it on update. The file is one JSON document such as
 `{"addresses":["<native bech32 address>"]}`. The CLI also accepts associated EVM
 addresses and resolves them through the EVM address query before constructing
 the message; the keeper receives native bech32 addresses.
 
-### SetDenomPaused
+#### SetDenomPaused
 
 `MsgSetDenomPaused` has `sender`, `denom` and boolean `paused`. It validates the
 factory denom, requires bank metadata and current admin authority, and refuses
@@ -109,7 +160,7 @@ Requesting the existing value returns `ErrPauseUnchanged`; a newly created
 denom starts unpaused. A successful change emits `set_denom_paused` with
 `denom` and `paused` attributes.
 
-## Issuer binding and keeper APIs
+### Issuer binding and keeper APIs
 
 The [IssuerKeeper interface](types/expected_issuer.go) is a Go integration API.
 Tokenfactory exposes no `MsgSetIssuerDid` or issuer mint/burn CLI command.
@@ -138,7 +189,7 @@ supply and balances unchanged. `BurnByIssuer` uses the caller's context;
 integrations that require rollback across its transfer and burn must provide
 a transaction or cache context and commit only on success.
 
-## Pause enforcement and errors
+### Pause enforcement and errors
 
 The pause flag is stored in the tokenfactory KV store as `paused|{denom}`;
 unpausing deletes the key. [pause.go](keeper/pause.go) exposes
@@ -175,7 +226,7 @@ codespace:
 
 These tokenfactory codes do not replace bank errors or gRPC status codes.
 
-## Queries
+### Queries
 
 The `paxprotocol.paxchain.tokenfactory.Query` gRPC service and
 `paxd query tokenfactory` expose the following queries. REST paths are relative
@@ -205,7 +256,7 @@ invalid authority metadata. An unknown denom is not reported as an unpaused
 existing denom. `DenomMetadata` returns `NotFound` when bank metadata is absent;
 an empty allow list alone does not establish that a denom exists.
 
-### CosmWasm
+#### CosmWasm
 
 The custom query wrapper uses `route: "tokenfactory"` and `query_data` with one
 of `denom_authority_metadata`, `denoms_from_creator` or `denom_paused`:
@@ -244,7 +295,7 @@ See the [wasm bindings](client/wasm/bindings/msgs.go),
 [encoder](../../node/wasmbinding/encoder.go) and
 [query wrapper](../../node/wasmbinding/query_plugin.go).
 
-## State and recovery
+### State and recovery
 
 Admin and issuer metadata, creator indexes and pause flags are persistent
 chain state. Tokenfactory [genesis](../../api/tokenfactory/genesis.proto)
@@ -270,7 +321,7 @@ bank metadata. A restored paused denom remains subject to the same admin/issuer
 checks and operation refusals. See [genesis.go](keeper/genesis.go) and
 [genesis validation](types/genesis.go).
 
-## Tokenfactory Denom Restrictions
+### Tokenfactory Denom Restrictions
 
 Denoms have the form `factory/{creator address}/{subdenom}`. The full string
 must pass SDK denom validation. [denoms.go](types/denoms.go) sets these limits:
@@ -285,14 +336,14 @@ Do not parse with fixed offsets: a subdenom can contain `/`, and
 The HRP budget is a sizing assumption, not a separate HRP check in
 `GetTokenDenom`.
 
-## Examples
+### Examples
 
 These commands use a local key named `mylocalwallet` and the node/chain settings
 in your `paxd` client configuration. Use native bech32 addresses for admin
 arguments. EVM chain ID 125 is not a substitute for the SDK transaction chain
 ID configured for the node.
 
-### Creating a token
+#### Creating a token
 
 ```sh
 paxd tx tokenfactory create-denom ufoo --from mylocalwallet
@@ -302,7 +353,7 @@ DENOM="factory/$CREATOR/ufoo"
 
 Wait for the creation transaction to succeed before issuing further messages.
 
-### Mint a new token
+#### Mint a new token
 
 Use the complete factory denom and an integer amount in its base unit. The
 same current admin can burn coins from its own balance:
@@ -312,7 +363,7 @@ paxd tx tokenfactory mint "100000000000$DENOM" --from mylocalwallet
 paxd tx tokenfactory burn "1000000$DENOM" --from mylocalwallet
 ```
 
-### Checking Token metadata
+#### Checking Token metadata
 
 ```sh
 paxd query tokenfactory denom-metadata "$DENOM"
@@ -320,14 +371,14 @@ paxd query tokenfactory denom-authority-metadata "$DENOM"
 paxd query tokenfactory denom-allow-list "$DENOM"
 ```
 
-### Check the tokens created by an account
+#### Check the tokens created by an account
 
 ```sh
 paxd query tokenfactory denoms-from-creator "$CREATOR"
 paxd query tokenfactory params
 ```
 
-### Pause and resume an unbound token
+#### Pause and resume an unbound token
 
 The current admin can pause this CLI-created, unbound denom. Query it before
 and after the change; submitting the same pause value twice is refused.
@@ -355,7 +406,7 @@ After that transaction succeeds, the former admin cannot restore its authority.
 A bound issuer can still control pause state and use its mint/burn keeper APIs;
 an unbound denom has no remaining admin to change its pause state.
 
-## Appendix: Expectations from the Chain
+### Appendix: Expectations from the Chain
 
 The 44-byte subdenom and 16-byte HRP budgets derive from the SDK's 128-byte
 maximum denom and a longest address payload of 32 bytes. Its bech32 encoding
