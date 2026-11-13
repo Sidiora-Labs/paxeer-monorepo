@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [TokenAddressWrapper.sol](../../contracts/test/TokenAddressWrapper.sol).
+
 ## TokenAddressWrapper
 
 Wrapper to expose TokenAddress library functions for testing
@@ -15,4 +17,3 @@ function computeAddress(address factory, address creator, string name, string sy
 ```solidity
 function computeSalt(address creator, string name, string symbol, uint256 nonce) external pure returns (bytes32)
 ```
-

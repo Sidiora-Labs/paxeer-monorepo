@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [TransferHelperWrapper.sol](../../contracts/test/TransferHelperWrapper.sol).
+
 ## TransferHelperWrapper
 
 Wrapper to expose TransferHelper library functions for testing
@@ -21,4 +23,3 @@ function safeTransferFrom(address token, address from, address to, uint256 value
 ```solidity
 function safeApprove(address token, address spender, uint256 value) external
 ```
-

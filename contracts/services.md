@@ -2,7 +2,7 @@
 
 Launchpad services read and project the single Paxeer BFT network, EVM chain ID **125** (`0x7d`). The kernel belongs to `paxd` and block proposal, and a receipt is final on block commit. Services provide indexing, application state and authenticated HTTP/stream transports; they do not add a settlement network. Tenant domains are database namespaces, not new chain infrastructure.
 
-Use public node JSON-RPC at the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. For example, `https://api5.mainnet-beta.paxeer.network`. `node.hyperpaxeer.com` is the build library mirror, not an RPC endpoint. Hosted `px_` methods belong to the separate [platform gateway contract](../services/platform/hosted/gateway/openrpc.json). Launchpad REST and stream routes below are application services.
+Use node JSON-RPC at the configured HTTPS origin's root path. Hosted registration and funding methods are declared in the [platform gateway contract](../services/platform/hosted/gateway/openrpc.json). Launchpad REST and stream routes below are application services.
 
 See [client contracts](clients.md) for origin selection and SDK decoders, and [execution contracts](launchpad.md) for the native module at `0x1017`, ABI surfaces, errors and events.
 
@@ -146,6 +146,6 @@ Private account operations consume an authenticated principal; mutations also en
 
 ## Launchpad workspace
 
-[go.work](../services/launchpad/go.work) declares Go 1.25.0 and the service modules together with shared/protocol SDK modules and recovery/load helpers. The [Makefile](../services/launchpad/Makefile) drives an explicit `MODULES` list including discovery, notifications, security and security/control. Its list and `go.work` membership serve different purposes; neither implies every helper runs in production.
+[go.work](../services/launchpad/go.work) declares Go 1.27.0 and the service modules together with shared/protocol SDK modules and recovery/load helpers. The [Makefile](../services/launchpad/Makefile) drives an explicit `MODULES` list including discovery, notifications, security and security/control. Its list and `go.work` membership serve different purposes; neither implies every helper runs in production.
 
-`build`, `vet`, `fmt-check`, `lint`, `test`, `race`, `cover` and `cover-check` operate across that declared list; `all` and `ci` combine the release/development checks. `test-module` requires a listed `MODULE` and an anchored `RUN` regex. `cover-check` applies 85% generally and 90% to the declared money modules. `sqlc` regenerates modules that contain a configuration. These commands describe workspace tooling; qualification evidence must name the command and revision that actually ran. See [launchpad tooling](launchpad.md#launchpad-tools).
+`build`, `vet`, `fmt-check`, `lint`, `test`, `race`, `cover` and `cover-check` operate across that declared list; `all` and `ci` combine the release/development checks. `test-module` requires a listed `MODULE` and an anchored `RUN` regex. `cover-check` applies 85% generally and 90% to the declared money modules. `sqlc` regenerates modules that contain a configuration. See [launchpad tooling](launchpad.md#launchpad-tools).

@@ -1,9 +1,11 @@
 # Solidity API
 
+Source: [MockRevertingERC20.sol](../../contracts/test/MockRevertingERC20.sol).
+
 ## MockRevertingERC20
 
-ERC20 that always reverts on transfer/transferFrom/approve
-Used to test TransferHelper's error handling
+ERC20 test helper whose `transfer`, `transferFrom` and `approve` revert while `shouldRevert` is true
+(the default). `setShouldRevert(false)` enables those operations.
 
 ### name
 
@@ -94,4 +96,3 @@ function transfer(address to, uint256 amount) external returns (bool)
 ```solidity
 function transferFrom(address from, address to, uint256 amount) external returns (bool)
 ```
-

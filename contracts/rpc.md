@@ -13,14 +13,13 @@ finality.
 
 ## Public JSON-RPC
 
-Use the root of `https://api-mainnet-beta.paxeer.network`, or a numbered node
-from `https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. WebSocket URLs use `wss://` with
-the same host and root path. The [public endpoint reference](../docs/site/docs/reference/public-rpc.md)
-lists each URL and the node proxy's deployment settings.
+Set `RPC_URL` to the configured node's HTTPS root origin. Use the operator's
+configured WSS root origin for WebSocket calls. The
+[public endpoint reference](../docs/site/docs/reference/public-rpc.md)
+describes the node transports and deployment settings.
 
 ```bash
-curl --max-time 15 https://api1.mainnet-beta.paxeer.network \
+curl --max-time 15 "${RPC_URL:?Set RPC_URL to the node HTTPS root origin}" \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
@@ -35,9 +34,6 @@ implementation registers APIs in `rpc/server.go`; deployment configuration
 controls exposure. The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
-
-The pre-merge router and its prefixed endpoints are retired.
-`node.hyperpaxeer.com` is the hpx library mirror, never an RPC endpoint.
 
 ## Native module transport
 

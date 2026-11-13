@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [MockPausable.sol](../../contracts/test/MockPausable.sol).
+
 ## MockPausable
 
 ### value
@@ -37,4 +39,3 @@ function unpause() external
 ```solidity
 function paused() external view returns (bool)
 ```
-

@@ -23,15 +23,13 @@ without credentials, a path, query or fragment. The resolver derives:
 | Spot API and performance-data base | The origin itself          |
 
 This origin does not supply node JSON-RPC. The client resolver in
-[core](../apps/perps/src/core) (`rpc.ts`) reads
+[rpc.ts](../apps/perps/src/core/rpc.ts) reads
 `NEXT_PUBLIC_PAXEER_RPC_URLS` as a comma-separated override. If it has no usable
 entries, `NEXT_PUBLIC_PAXEER_RPC_URL` prepends a single override to the defaults;
 otherwise defaults apply. It trims and deduplicates entries and filters legacy
-hosts. The current source constructs sixteen numbered default node URLs.
-The audit brief's public node list is `api1` through `api14.mainnet-beta.paxeer.network`
-and `api-mainnet-beta.paxeer.network`, served over HTTPS at the root; pin a
-validated pool explicitly for a deployment.
-`node.hyperpaxeer.com` is only the hpx library mirror, not an RPC endpoint.
+hosts. The default pool contains fourteen numbered node origins and one
+aggregate origin, all using HTTPS at the root path. Configure an explicit
+validated pool for the deployment.
 
 [chain.ts](../apps/perps/src/core/chain.ts) fixes chain ID 125 and PAX at
 18 decimals. The transport uses viem fallback with endpoint ranking, ten-second
@@ -39,7 +37,7 @@ HTTP timeouts and a shared fallback retry budget.
 
 | Variable                                                    | Reader and behavior                                                                                                                      |
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_MARKET_PROXY_HOST`                             | `core/feeds.ts`: hostname for HTTPS public market/candle feeds; defaults to `data.feed.chainflowtrading.com`                             |
+| `NEXT_PUBLIC_MARKET_PROXY_HOST`                             | `core/feeds.ts`: hostname for HTTPS public market/candle feeds; the default is declared in `core/feeds.ts`                             |
 | `MARKET_PROXY_HOST`                                         | Server candle route upstream hostname, with the same default                                                                             |
 | `MARKET_PROXY_ORIGIN`                                       | Server candle proxy's upstream Origin header; required to proxy successfully and must equal a bare HTTP(S) origin without trailing slash |
 | `NEXT_PUBLIC_PERPS_PRECOMPILE`                              | Optional address override for perps; default `0x1015`                                                                                    |
@@ -55,7 +53,7 @@ HTTP timeouts and a shared fallback retry budget.
 | `NEXT_PUBLIC_AUTH_REDIRECT_URL`                             | OAuth return URL override; otherwise browser origin plus `/auth/callback`                                                                |
 | `NEXT_PUBLIC_WALLET_IFRAME_ORIGIN`                          | Origin for the optional postMessage EIP-1193 bridge                                                                                      |
 | `NEXT_PUBLIC_PAXSCAN_API_URL`, `NEXT_PUBLIC_PAXSCAN_WS_URL` | Explorer API and socket URLs; default to empty                                                                                           |
-| `NEXT_PUBLIC_PAXSCAN_BASE_URL`                              | Optional bare HTTP(S) explorer origin; chain links otherwise use `https://paxscan.io`                                                    |
+| `NEXT_PUBLIC_PAXSCAN_BASE_URL`                              | Optional bare HTTP(S) explorer origin; otherwise uses the explorer origin declared in `chain.ts`                                                    |
 | `NEXT_PUBLIC_RELEASE_SPOT_OPEN`                             | Spot navigation release switch; only the value `1` enables it                                                                            |
 | `NEXT_PUBLIC_STATUS_PAGE_URL`                               | Footer status link, validated during server instrumentation                                                                              |
 | `NEXT_PUBLIC_LOG_LEVEL`                                     | `debug`, `info`, `warn` or `error`; default `warn` in production and `info` otherwise                                                    |

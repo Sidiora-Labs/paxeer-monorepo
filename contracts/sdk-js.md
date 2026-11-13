@@ -13,13 +13,12 @@ Tenant domains do not require another SDK package or public EVM chain ID.
 ## Package
 
 The authoritative manifest is [sdk/js/package.json](../sdk/js/package.json),
-currently version `1.0.6-pax.1`, in
+currently version `0.1.0`, in
 [paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/sdk/js).
 It selects runtime artifacts under `dist/cjs` and `dist/esm`, with declarations
 under `dist/types`; these directories are absent from this checkout.
 There is no `src` build tree or `build` script in this package. Its test
-script is `node --test test/`. The upstream tag in the README records
-provenance; the old `VENDOR.kvx` pin is removed.
+script is `node --test test/`.
 
 | Public import | Runtime entry | Declaration entry |
 | --- | --- | --- |
@@ -35,7 +34,7 @@ The wildcard supports nested module directories such as
 package subpaths; access codecs through `Encoder`.
 
 Dependencies include `@bufbuild/protobuf` v2 and CosmJS proto-signing and
-Stargate v0.32. The package does not supply a wallet, select a network, sign
+Stargate `^0.39.0`. The package does not supply a wallet, select a network, sign
 a message or broadcast automatically.
 
 ## encoding-index
@@ -93,12 +92,6 @@ registration and signing usage. A registered codec is not proof that the node
 exposes a query or accepts a transaction; check the corresponding node
 module and transport contract.
 
-The current ESM registry implementation spreads
-`cosmos_base_store_listening_registry` without importing that binding.
-Loading the ESM encoding entry can therefore fail during module evaluation;
-the export map alone is not evidence that the ESM aggregate loads. The
-CommonJS registry imports its corresponding `listening` module explicitly.
-
 ## encoding-amino
 
 `aminoConverters` maps type URLs to `aminoType`, `toAmino` and `fromAmino`
@@ -133,11 +126,7 @@ staking, tx, upgrade and vesting namespaces. The corresponding
 where present, enum values. Coins use string `denom` and string `amount`;
 pagination uses the base query messages.
 
-The `accesscontrol`, `accesscontrol_x`, `crisis` and Cosmos `mint.v1beta1`
-codecs/types were retired and removed. The REST access-control and Cosmos
-mint clients were also removed. Old registry rows naming them are historical
-references, not supported imports. The custom Pax mint family below remains
-distinct.
+The custom Pax mint family below is distinct from Cosmos mint.
 
 <a id="types-epoch"></a>
 

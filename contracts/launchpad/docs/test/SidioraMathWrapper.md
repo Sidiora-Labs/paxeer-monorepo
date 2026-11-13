@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [SidioraMathWrapper.sol](../../contracts/test/SidioraMathWrapper.sol).
+
 ## SidioraMathWrapper
 
 Wrapper to expose SidioraMath library functions for testing
@@ -51,4 +53,3 @@ function safeCastToUint128(uint256 x) external pure returns (uint128)
 ```solidity
 function safeCastToInt256(uint256 x) external pure returns (int256)
 ```
-

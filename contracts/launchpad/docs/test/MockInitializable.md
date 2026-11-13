@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [MockInitializable.sol](../../contracts/test/MockInitializable.sol).
+
 ## MockInitializable
 
 ### value
@@ -84,9 +86,8 @@ uint256 parentValue
 function initialize(uint256 _parent, uint256 _child) external
 ```
 
-### _initParent
+### \_initParent
 
 ```solidity
 function _initParent(uint256 _val) internal
 ```
-
