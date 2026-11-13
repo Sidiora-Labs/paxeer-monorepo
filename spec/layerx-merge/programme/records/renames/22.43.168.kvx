@@ -1,0 +1,432 @@
+[manifest]
+task = "22.43.168"
+records_moved = 19
+files_renamed = 29
+
+[file.1]
+from = "services/platform/hosted/human/repair_m1401_cases.py"
+to = "services/platform/hosted/human/owner_material_cases.py"
+
+[file.2]
+from = "services/platform/hosted/human/repair_m1401_peer.py"
+to = "services/platform/hosted/human/owner_material_peer.py"
+
+[file.3]
+from = "services/platform/hosted/human/repair_m1401_test.go"
+to = "services/platform/hosted/human/owner_material_cases_test.go"
+
+[file.4]
+from = "services/platform/hosted/human/repair_m1402_test.go"
+to = "services/platform/hosted/human/owner_explorer_contract_test.go"
+
+[file.5]
+from = "services/platform/hosted/human/test_repair_22_31_348.py"
+to = "services/platform/hosted/human/test_owner_custody.py"
+
+[file.6]
+from = "services/platform/hosted/human/test_repair_22_33_1402.py"
+to = "services/platform/hosted/human/test_owner_explorer.py"
+
+[file.7]
+from = "services/platform/hosted/human/test_repair_22_33_40.py"
+to = "services/platform/hosted/human/test_operator_guide.py"
+
+[file.8]
+from = "services/platform/hosted/identity/tests/repair_22_31_199.rs"
+to = "services/platform/hosted/identity/tests/store_compaction_replay.rs"
+
+[file.9]
+from = "services/platform/hosted/identity/tests/repair_22_33_1430.rs"
+to = "services/platform/hosted/identity/tests/signup_restart.rs"
+
+[file.10]
+from = "services/platform/hosted/identity/tests/repair_22_33_1432.rs"
+to = "services/platform/hosted/identity/tests/signup_delivery_recovery.rs"
+
+[file.11]
+from = "services/platform/hosted/indexer/tests/repair_22_31_350.rs"
+to = "services/platform/hosted/indexer/tests/native_membership_history.rs"
+
+[file.12]
+from = "services/platform/hosted/indexer/tests/repair_22_33_1444.rs"
+to = "services/platform/hosted/indexer/tests/snapshot_runtime.rs"
+
+[file.13]
+from = "services/platform/hosted/indexer/tests/repair_22_33_1445.rs"
+to = "services/platform/hosted/indexer/tests/names_transport_bounds.rs"
+
+[file.14]
+from = "services/platform/hosted/indexer/tests/repair_22_33_1446.rs"
+to = "services/platform/hosted/indexer/tests/ai_snapshot.rs"
+
+[file.15]
+from = "services/platform/hosted/indexer/tests/support/repair_22_33_1446.rs"
+to = "services/platform/hosted/indexer/tests/support/ai_snapshot_fixture.rs"
+
+[file.16]
+from = "services/platform/hosted/internal/tests/fixtures/repair_22_33_1452_tls/README.md"
+to = "services/platform/hosted/internal/tests/fixtures/tls_credentials/README.md"
+
+[file.17]
+from = "services/platform/hosted/internal/tests/fixtures/repair_22_33_1452_tls/configured-ca.der"
+to = "services/platform/hosted/internal/tests/fixtures/tls_credentials/configured-ca.der"
+
+[file.18]
+from = "services/platform/hosted/internal/tests/fixtures/repair_22_33_1452_tls/configured-client.p12"
+to = "services/platform/hosted/internal/tests/fixtures/tls_credentials/configured-client.p12"
+
+[file.19]
+from = "services/platform/hosted/internal/tests/fixtures/repair_22_33_1452_tls/configured-server-key.der"
+to = "services/platform/hosted/internal/tests/fixtures/tls_credentials/configured-server-key.der"
+
+[file.20]
+from = "services/platform/hosted/internal/tests/fixtures/repair_22_33_1452_tls/configured-server.der"
+to = "services/platform/hosted/internal/tests/fixtures/tls_credentials/configured-server.der"
+
+[file.21]
+from = "services/platform/hosted/internal/tests/fixtures/repair_22_33_1452_tls/unconfigured-ca.der"
+to = "services/platform/hosted/internal/tests/fixtures/tls_credentials/unconfigured-ca.der"
+
+[file.22]
+from = "services/platform/hosted/internal/tests/fixtures/repair_22_33_1452_tls/unconfigured-client.p12"
+to = "services/platform/hosted/internal/tests/fixtures/tls_credentials/unconfigured-client.p12"
+
+[file.23]
+from = "services/platform/hosted/internal/tests/fixtures/repair_22_33_1452_tls/unconfigured-server-key.der"
+to = "services/platform/hosted/internal/tests/fixtures/tls_credentials/unconfigured-server-key.der"
+
+[file.24]
+from = "services/platform/hosted/internal/tests/fixtures/repair_22_33_1452_tls/unconfigured-server.der"
+to = "services/platform/hosted/internal/tests/fixtures/tls_credentials/unconfigured-server.der"
+
+[file.25]
+from = "services/platform/hosted/internal/tests/repair_22_31_356.rs"
+to = "services/platform/hosted/internal/tests/producer_delivery_recovery.rs"
+
+[file.26]
+from = "services/platform/hosted/internal/tests/repair_22_33_1366.rs"
+to = "services/platform/hosted/internal/tests/tls_probe_process.rs"
+
+[file.27]
+from = "services/platform/hosted/internal/tests/repair_22_33_1452.rs"
+to = "services/platform/hosted/internal/tests/producer_retention_tls.rs"
+
+[file.28]
+from = "services/platform/hosted/interop/repair_137_test.go"
+to = "services/platform/hosted/interop/deployment_startup_test.go"
+
+[file.29]
+from = "services/platform/hosted/interop/repair_m1350_test.go"
+to = "services/platform/hosted/interop/deployment_authority_test.go"
+
+[file.30]
+from = "services/platform/hosted/human/repair_22_31_348.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/human/repair_22_31_348.kvx"
+
+[file.31]
+from = "services/platform/hosted/human/repair_22_33_1401.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/human/repair_22_33_1401.kvx"
+
+[file.32]
+from = "services/platform/hosted/human/repair_22_33_1402.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/human/repair_22_33_1402.kvx"
+
+[file.33]
+from = "services/platform/hosted/human/repair_22_33_40.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/human/repair_22_33_40.kvx"
+
+[file.34]
+from = "services/platform/hosted/human/repair_22_39_264.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/human/repair_22_39_264.kvx"
+
+[file.35]
+from = "services/platform/hosted/human/repair_22_39_289.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/human/repair_22_39_289.kvx"
+
+[file.36]
+from = "services/platform/hosted/identity/src/repair_22_33_1430.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/identity/src/repair_22_33_1430.kvx"
+
+[file.37]
+from = "services/platform/hosted/identity/tests/repair_22_33_1432.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/identity/tests/repair_22_33_1432.kvx"
+
+[file.38]
+from = "services/platform/hosted/indexer/repair_22_39_263.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/indexer/repair_22_39_263.kvx"
+
+[file.39]
+from = "services/platform/hosted/indexer/repair_22_39_369.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/indexer/repair_22_39_369.kvx"
+
+[file.40]
+from = "services/platform/hosted/indexer/repair_22_39_373.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/indexer/repair_22_39_373.kvx"
+
+[file.41]
+from = "services/platform/hosted/indexer/repair_22_39_418.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/indexer/repair_22_39_418.kvx"
+
+[file.42]
+from = "services/platform/hosted/indexer/src/repair_22_33_1444.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/indexer/src/repair_22_33_1444.kvx"
+
+[file.43]
+from = "services/platform/hosted/indexer/src/repair_22_33_1446.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/indexer/src/repair_22_33_1446.kvx"
+
+[file.44]
+from = "services/platform/hosted/internal/repair_22_39_403.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/internal/repair_22_39_403.kvx"
+
+[file.45]
+from = "services/platform/hosted/internal/src/repair_22_31_356.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/internal/src/repair_22_31_356.kvx"
+
+[file.46]
+from = "services/platform/hosted/internal/src/repair_22_33_1452.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/internal/src/repair_22_33_1452.kvx"
+
+[file.47]
+from = "services/platform/hosted/interop/repair_137.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/interop/repair_137.kvx"
+
+[file.48]
+from = "services/platform/hosted/interop/repair_m1350.kvx"
+to = "spec/layerx-merge/programme/records/services/platform/hosted/interop/repair_m1350.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1366.rs"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1444.kvx"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1445.rs"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_22_33_1452.rs"
+
+[reference.5]
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.kvx"
+name = "repair_22_31_350.rs"
+
+[reference.6]
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_233.rs"
+name = "repair_22_31_350.rs"
+
+[reference.7]
+file = "services/platform/tests/support/repair_22_33_1366.kvx"
+name = "repair_22_31_356.rs"
+
+[reference.8]
+file = "services/platform/tests/support/repair_22_33_1366.kvx"
+name = "repair_22_33_1366.rs"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "test_repair_22_31_348.py"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair_22_31_356.rs"
+
+[reference.11]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair_22_33_1366.rs"
+
+[reference.12]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "test_repair_22_33_1402.py"
+
+[reference.13]
+file = "spec/layerx-merge/dispositions/d22-24.kvx"
+name = "repair_22_33_1444.rs"
+
+[reference.14]
+file = "spec/layerx-merge/dispositions/d22-24.kvx"
+name = "repair_22_33_1446.rs"
+
+[reference.15]
+file = "spec/layerx-merge/dispositions/d22-32.kvx"
+name = "repair_22_33_1445.rs"
+
+[reference.16]
+file = "spec/layerx-merge/dispositions/d22-33.kvx"
+name = "repair_22_33_1445.rs"
+
+[reference.17]
+file = "spec/layerx-merge/programme/docs/review/22.41.24.kvx"
+name = "repair_22_33_1452_tls"
+
+[reference.18]
+file = "spec/layerx-merge/programme/docs/review/22.41.84.kvx"
+name = "repair_22_33_1452_tls"
+
+[reference.19]
+file = "spec/layerx-merge/programme/issues/1739.kvx"
+name = "repair_22_31_350.rs"
+
+[reference.20]
+file = "spec/layerx-merge/programme/issues/1740.kvx"
+name = "repair_22_31_350.rs"
+
+[reference.21]
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx"
+name = "repair_22_33_1444.rs"
+
+[reference.22]
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx"
+name = "repair_22_33_1445.rs"
+
+[reference.23]
+file = "spec/layerx-merge/programme/sweeps/repairs/rust-test-platform.12.kvx"
+name = "repair_22_33_1446.rs"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_137_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1366.rs"
+
+[reference.26]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1444.rs"
+
+[reference.27]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1445.rs"
+
+[reference.28]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_1446.rs"
+
+[reference.29]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_31_348.py"
+
+[reference.30]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_1402.py"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_137_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_199.rs"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_350.rs"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_356.rs"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1366.rs"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1402.kvx"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1430.rs"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1432.rs"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1444.rs"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1445.rs"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1446.rs"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1452.rs"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_1452_tls"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_263.kvx"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_264.kvx"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_289.kvx"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_369.kvx"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_373.kvx"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_403.kvx"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_418.kvx"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1350_test.go"
+
+[reference.52]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1401_cases.py"
+
+[reference.53]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1401_test.go"
+
+[reference.54]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1402_test.go"
+
+[reference.55]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_31_348.py"
+
+[reference.56]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_1402.py"
+
+[reference.57]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_40.py"
+
+[reference.58]
+file = "tools/qualification/paxeer-x/tests/test_human_journey_and_migration_contracts.py"
+name = "test_repair_22_31_348.py"
+
+[reference.59]
+file = "tools/qualification/paxeer-x/tests/test_registry_archive_owner_contracts.py"
+name = "test_repair_22_31_348.py"

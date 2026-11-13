@@ -51,7 +51,7 @@ name="$1"
 email="$2"
 
 inspector="${BRINGUP_INSPECT_BIN:-bringup-inspect}"
-inventory="${BRINGUP_RPC_INVENTORY:-$(dirname "${BASH_SOURCE[0]:-$0}")/../../docs/site/docs/reference/public-rpc.md}"
+inventory="${BRINGUP_RPC_INVENTORY:-$(dirname "${BASH_SOURCE[0]:-$0}")/../../docs/readme/PUBLIC-RPC.md}"
 if ! "$inspector" archive-name "$inventory" "$name" || [[ "$email" != *@* ]]; then
 	usage >&2
 	exit 2

@@ -52,7 +52,7 @@ use layerx_programs_runtime::ValidatedModule;
 use std::fmt;
 use std::sync::Arc;
 #[path = "fixtures/fund.rs"]
-mod repair_478_fixture;
+mod fund_state_fixture;
 
 const CHAIN: [u8; 32] = layerx_programs_ai_market::MERGED_CHAIN_DOMAIN;
 const PROGRAM: [u8; 32] = [11; 32];
@@ -1896,13 +1896,13 @@ fn journey(module: Arc<ValidatedModule>) -> Checked<Journey> {
 }
 
 fn committed_fund_row() -> Checked<Row> {
-    let fixture = repair_478_fixture::fixture(OWNER, ASSET)?;
+    let fixture = fund_state_fixture::fixture(OWNER, ASSET)?;
     let envelope = decode_envelope(&fixture.fund)?;
     let ctx = CallContext {
         chain: envelope.envelope.chain,
         program: envelope.envelope.program,
         principal: envelope.envelope.actor,
-        height: repair_478_fixture::HEIGHT,
+        height: fund_state_fixture::HEIGHT,
     };
     let mut topic = [0; 64];
     let topic_len = codec::event_topic(dispatch::FUND, &mut topic)?;
@@ -2052,12 +2052,12 @@ pub fn every_routed_operation_fits_the_protocol_cpu_fuel_cap() -> Checked {
 
 #[test]
 fn fund_joint_sections_match_the_carried_transition_and_replay() {
+    use fund_state_fixture::{fixture, HEIGHT, PROGRAM};
     use layerx_programs_ai_market::{
         epoch, rewards,
         state::{decode_shared_state, Section},
         MERGED_CHAIN_DOMAIN,
     };
-    use repair_478_fixture::{fixture, HEIGHT, PROGRAM};
     let owner = [12; 32];
     let f = fixture(owner, [13; 32]).required();
     let ctx = CallContext {
@@ -2137,7 +2137,7 @@ fn fund_joint_sections_match_the_carried_transition_and_replay() {
     verify_corrupt_joint_funding(&f, &ctx, &before);
 }
 fn verify_corrupt_joint_funding(
-    f: &repair_478_fixture::Fixture,
+    f: &fund_state_fixture::Fixture,
     ctx: &CallContext,
     before: &layerx_programs_ai_market::state::SharedState<'_>,
 ) {
@@ -2187,7 +2187,7 @@ fn fund_entry_gas_for_committed_receipt_fixture_is_bounded() {
 }
 
 fn measured_fund_cpu_fuel() -> u64 {
-    use repair_478_fixture::{fixture, AMOUNT, HEIGHT, PROGRAM};
+    use fund_state_fixture::{fixture, AMOUNT, HEIGHT, PROGRAM};
     let f = fixture(OWNER, ASSET).required();
     let mut host = guest::Guest::new(guest_module().required(), PROGRAM, ASSET).required();
     host.ledger.balances.insert(OWNER, AMOUNT);
@@ -4061,7 +4061,7 @@ fn current_room_profile_uses_the_full_wire_capacity() {
     f11_journeys::room_profile_wire_round_trip();
 }
 
-#[path = "repair_22_33_260.rs"]
+#[path = "market_state_producers.rs"]
 mod f11_producers;
 
 #[test]
