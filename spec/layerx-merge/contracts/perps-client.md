@@ -550,9 +550,9 @@ The tables identify code declarations and configuration names. Activation, authe
 | `ts_export` | `export type StableAmountMap = Readonly<Record<string, bigint>>;` | [apps/perps/src/core/spot/stableSelector.ts](../../../apps/perps/src/core/spot/stableSelector.ts) |
 | `ts_export` | `export interface StableSelection` | [apps/perps/src/core/spot/stableSelector.ts](../../../apps/perps/src/core/spot/stableSelector.ts) |
 | `ts_export` | `export function sumStableAmounts(map: StableAmountMap): bigint` | [apps/perps/src/core/spot/stableSelector.ts](../../../apps/perps/src/core/spot/stableSelector.ts) |
-| `ts_export` | ``export function getConnectedAddress(): `0x$`` | [apps/perps/src/core/viem/clients.ts](../../../apps/perps/src/core/viem/clients.ts) |
+| `ts_export` | ``export function getConnectedAddress(): `0x${string}` \| null`` | [apps/perps/src/core/viem/clients.ts](../../../apps/perps/src/core/viem/clients.ts) |
 | `ts_export` | `export function getPublicClient(): PublicClient` | [apps/perps/src/core/viem/clients.ts](../../../apps/perps/src/core/viem/clients.ts) |
-| `ts_export` | ``export async function getWalletAccount(): Promise<`0x$`` | [apps/perps/src/core/viem/clients.ts](../../../apps/perps/src/core/viem/clients.ts) |
+| `ts_export` | ``export async function getWalletAccount(): Promise<`0x${string}` \| null>`` | [apps/perps/src/core/viem/clients.ts](../../../apps/perps/src/core/viem/clients.ts) |
 | `ts_export` | `export async function getWalletClient(): Promise<WalletClient \| null>` | [apps/perps/src/core/viem/clients.ts](../../../apps/perps/src/core/viem/clients.ts) |
 | `ts_export` | `export const wagmiConfig = createConfig(` | [apps/perps/src/core/wagmi.ts](../../../apps/perps/src/core/wagmi.ts) |
 | `ts_export` | `export function getAuthRedirectUrl(): string` | [apps/perps/src/core/wallet/embedded/client.ts](../../../apps/perps/src/core/wallet/embedded/client.ts) |
@@ -672,7 +672,7 @@ The tables identify code declarations and configuration names. Activation, authe
 | `ts_export` | `export async function readContract(params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[]; })` | [apps/perps/src/hooks/perps/useContract.ts](../../../apps/perps/src/hooks/perps/useContract.ts) |
 | `ts_export` | `export function waitForTx(hash: Hash): Promise<WaitForTxResult> {` | [apps/perps/src/hooks/perps/useContract.ts](../../../apps/perps/src/hooks/perps/useContract.ts) |
 | `ts_export` | `export interface WaitForTxResult` | [apps/perps/src/hooks/perps/useContract.ts](../../../apps/perps/src/hooks/perps/useContract.ts) |
-| `ts_export` | ``export async function writeContract(params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[]; value?: bigint; }): Promise<`0x$`` | [apps/perps/src/hooks/perps/useContract.ts](../../../apps/perps/src/hooks/perps/useContract.ts) |
+| `ts_export` | ``export async function writeContract(params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[]; value?: bigint; }): Promise<`0x${string}`>`` | [apps/perps/src/hooks/perps/useContract.ts](../../../apps/perps/src/hooks/perps/useContract.ts) |
 | `ts_export` | `export interface DailyPnl` | [apps/perps/src/hooks/perps/useDailyPnl.ts](../../../apps/perps/src/hooks/perps/useDailyPnl.ts) |
 | `ts_export` | `export interface DailyPnlResult` | [apps/perps/src/hooks/perps/useDailyPnl.ts](../../../apps/perps/src/hooks/perps/useDailyPnl.ts) |
 | `ts_export` | `export async function fetchDailyPnl(addr: string): Promise<DailyPnlResult>` | [apps/perps/src/hooks/perps/useDailyPnl.ts](../../../apps/perps/src/hooks/perps/useDailyPnl.ts) |
@@ -703,7 +703,7 @@ The tables identify code declarations and configuration names. Activation, authe
 | `ts_export` | `export function useTradeCreatedSubscription(marketId: number \| undefined)` | [apps/perps/src/hooks/perps/useIndexerSubscriptions.ts](../../../apps/perps/src/hooks/perps/useIndexerSubscriptions.ts) |
 | `ts_export` | `export function useAccountSummary(` | [apps/perps/src/hooks/perps/useMarginMode.ts](../../../apps/perps/src/hooks/perps/useMarginMode.ts) |
 | `ts_export` | `export function usePositionMargin(` | [apps/perps/src/hooks/perps/useMarginMode.ts](../../../apps/perps/src/hooks/perps/useMarginMode.ts) |
-| `ts_export` | ``export function useTopUpPosition(userAddress: `0x${string}` \| undefined):`` | [apps/perps/src/hooks/perps/useMarginMode.ts](../../../apps/perps/src/hooks/perps/useMarginMode.ts) |
+| `ts_export` | ``export function useTopUpPosition(userAddress: `0x${string}` \| undefined): { execute: (args: TopUpPositionArgs) => Promise<void>; isPending: boolean; error: Error \| null; }`` | [apps/perps/src/hooks/perps/useMarginMode.ts](../../../apps/perps/src/hooks/perps/useMarginMode.ts) |
 | `ts_export` | `export type ConnectionState = "idle" \| "connecting" \| "open" \| "closed";` | [apps/perps/src/hooks/perps/useMarketsStream.ts](../../../apps/perps/src/hooks/perps/useMarketsStream.ts) |
 | `ts_export` | `export function marketFundingHourly(symbol: string, field: string, v: unknown): bigint \| null` | [apps/perps/src/hooks/perps/useMarketsStream.ts](../../../apps/perps/src/hooks/perps/useMarketsStream.ts) |
 | `ts_export` | ``export const MARKETS_WS_URL = `${FEED_ORIGIN.replace(/^http/, "ws")}/ws/markets`;`` | [apps/perps/src/hooks/perps/useMarketsStream.ts](../../../apps/perps/src/hooks/perps/useMarketsStream.ts) |

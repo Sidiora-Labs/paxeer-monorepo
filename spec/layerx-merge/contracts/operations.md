@@ -259,25 +259,27 @@ The tables identify code declarations and configuration names. Activation, authe
 
 ## bringup-config
 
+The certificate-name bindings select subject alternative names for each service or client role. Their values depend on the deployment.
+
 | Kind | Declaration | Source |
 |---|---|---|
 | `config_key` | `AGENTD_CLIENT=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
 | `config_key` | `DASHBOARD_CLIENT=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
-| `config_key` | `DEVELOPER=DNS:webhooks-ingress.railway.internal,DNS:webhooks-public.railway.internal` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
+| `config_key` | `DEVELOPER` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
 | `config_key` | `DEVELOPER_CLIENT=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
 | `config_key` | `GATEWAY_CLIENT=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
 | `config_key` | `HUMAN_ATTESTOR_CLIENT=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
 | `config_key` | `HUMAN_EVENT_CLIENT=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
 | `config_key` | `HUMAN_KMS_CLIENT=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
 | `config_key` | `HUMAN_KMS_EXECUTOR=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
-| `config_key` | `IDENTITY=DNS:identity.railway.internal` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
-| `config_key` | `INDEXER=DNS:indexer.railway.internal` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
-| `config_key` | `INTERNAL_APPROVALS=DNS:internal-approvals.railway.internal` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
-| `config_key` | `INTERNAL_JOURNEYS=DNS:internal-journeys.railway.internal` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
-| `config_key` | `INTERNAL_KMS=DNS:internal-kms.railway.internal` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
-| `config_key` | `INTERNAL_PAYMENTS=DNS:internal-payments.railway.internal` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
-| `config_key` | `INTERNAL_PROGRAMS=DNS:internal-programs.railway.internal` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
-| `config_key` | `INTERNAL_REDIS=DNS:redis-internal.railway.internal` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
+| `config_key` | `IDENTITY` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
+| `config_key` | `INDEXER` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
+| `config_key` | `INTERNAL_APPROVALS` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
+| `config_key` | `INTERNAL_JOURNEYS` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
+| `config_key` | `INTERNAL_KMS` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
+| `config_key` | `INTERNAL_PAYMENTS` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
+| `config_key` | `INTERNAL_PROGRAMS` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
+| `config_key` | `INTERNAL_REDIS` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
 | `config_key` | `INTEROP_CLIENT=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
 | `config_key` | `RAMP_CLIENT=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
 | `config_key` | `REGISTRY_EVENT_CLIENT=` | [tools/bringup/railway-names.env](../../../tools/bringup/railway-names.env) |
@@ -1130,8 +1132,8 @@ The tables identify code declarations and configuration names. Activation, authe
 | `config_key` | `max-subscription-clients = 100` | [docker/rpcnode/config/config.toml](../../../docker/rpcnode/config/config.toml) |
 | `config_key` | `max-subscriptions-per-client = 5` | [docker/localnode/config/config.toml](../../../docker/localnode/config/config.toml) |
 | `config_key` | `max-subscriptions-per-client = 5` | [docker/rpcnode/config/config.toml](../../../docker/rpcnode/config/config.toml) |
-| `config_key` | `pprof-laddr = "localhost:6060"` | [docker/localnode/config/config.toml](../../../docker/localnode/config/config.toml) |
-| `config_key` | `pprof-laddr = "localhost:6060"` | [docker/rpcnode/config/config.toml](../../../docker/rpcnode/config/config.toml) |
+| `config_key` | `pprof-laddr` (loopback profiling listener, port 6060) | [docker/localnode/config/config.toml](../../../docker/localnode/config/config.toml) |
+| `config_key` | `pprof-laddr` (loopback profiling listener, port 6060) | [docker/rpcnode/config/config.toml](../../../docker/rpcnode/config/config.toml) |
 | `config_key` | `timeout-broadcast-tx-commit = "10s"` | [docker/localnode/config/config.toml](../../../docker/localnode/config/config.toml) |
 | `config_key` | `timeout-broadcast-tx-commit = "10s"` | [docker/rpcnode/config/config.toml](../../../docker/rpcnode/config/config.toml) |
 | `config_key` | `tls-cert-file = ""` | [docker/localnode/config/config.toml](../../../docker/localnode/config/config.toml) |
@@ -2155,7 +2157,7 @@ The tables identify code declarations and configuration names. Activation, authe
 | `config_key` | `ALERT_SMTP_SMARTHOST=""` | [tools/ops/monitoring/hosts.env.example](../../../tools/ops/monitoring/hosts.env.example) |
 | `config_key` | `ALERT_SMTP_USERNAME=""` | [tools/ops/monitoring/hosts.env.example](../../../tools/ops/monitoring/hosts.env.example) |
 | `config_key` | `COMET_METRICS_PORT=26660` | [tools/ops/monitoring/hosts.env.example](../../../tools/ops/monitoring/hosts.env.example) |
-| `config_key` | `HOSTS="validator-a=validator-a.example.internal full-1=full-1.example.internal"` | [tools/ops/monitoring/hosts.env.example](../../../tools/ops/monitoring/hosts.env.example) |
+| `config_key` | `HOSTS` (space-separated label-to-host assignments) | [tools/ops/monitoring/hosts.env.example](../../../tools/ops/monitoring/hosts.env.example) |
 | `config_key` | `NODE_EXPORTER_PORT=9100` | [tools/ops/monitoring/hosts.env.example](../../../tools/ops/monitoring/hosts.env.example) |
 | `config_key` | `Environment=BACKUP_ENV=/etc/paxeer/backup.env` | [tools/ops/backup/paxeer-backup.service](../../../tools/ops/backup/paxeer-backup.service) |
 | `config_key` | `ExecStart=/opt/paxeer/tools/ops/backup/backup.sh` | [tools/ops/backup/paxeer-backup.service](../../../tools/ops/backup/paxeer-backup.service) |

@@ -63,7 +63,9 @@ An endpoint override selects an origin without discovering hosted services or re
 
 ### Raw transaction receipt contract
 
-The implemented signature is `new SequencerReceiptClient(rpcUrl, receiptKeys).resolve(rawTransaction)`. Signed transaction bytes are required to verify the receipt's binding. Input is a nonempty `Uint8Array` or a lowercase `0x`-prefixed, even-length hex string; the string decoder allows at most 1,048,576 decoded bytes.
+The implemented signature is `new SequencerReceiptClient(rpcUrl, receiptKeys, transportLimits = {}).resolve(rawTransaction)`. Signed transaction bytes are required to verify the receipt's binding. Input is a nonempty `Uint8Array` or a lowercase `0x`-prefixed, even-length hex string; the string decoder allows at most 1,048,576 decoded bytes.
+
+Receipt lookups use `boundedJsonRequest` with a default `timeoutMs` of **10,000 milliseconds** and `maxResponseBytes` of **4,194,304 bytes**. Either transport limit can be reduced to a positive safe integer, up to its default ceiling. Requests reject redirects, oversized responses and invalid UTF-8 or JSON.
 
 The client computes `keccak256(rawTransaction)`, posts `pax_sequencerReceipt` with that hash as its sole parameter, checks the JSON-RPC version, ID and matching `result.txHash`, then calls `verifySequencerReceipt` with the original bytes and pinned keys. Keys are copied on construction. A transaction hash alone cannot substitute for signed bytes.
 
