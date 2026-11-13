@@ -8,7 +8,7 @@ import pytest
 
 GATEWAY = pathlib.Path(__file__).resolve().parents[1]
 ROOT = GATEWAY.parents[3]
-SPEC = importlib.util.spec_from_file_location("gateway_render_m109", GATEWAY / "render.py")
+SPEC = importlib.util.spec_from_file_location("gateway_manifest_renderer", GATEWAY / "render.py")
 RENDERER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(RENDERER)
 
@@ -21,7 +21,7 @@ def example_keys():
     return json.loads((GATEWAY / "receipt-keys.example.json").read_text())
 
 
-def test_repair_m109_example_matches_current_renderer():
+def test_gateway_manifest_example_matches_current_renderer():
     keys = RENDERER.receipt_keys(GATEWAY / "receipt-keys.example.json")
     actual = RENDERER.render(
         ROOT, example_environment(), "eip155-125",
@@ -40,7 +40,7 @@ def test_repair_m109_example_matches_current_renderer():
 @pytest.mark.parametrize("check", [False, True])
 @pytest.mark.parametrize("reverse", [False, True])
 @pytest.mark.parametrize("same_public_key", [False, True])
-def test_repair_m109_duplicate_key_id_refused_before_write(
+def test_gateway_manifest_duplicate_key_id_refused_before_write(
     tmp_path, monkeypatch, capsys, check, reverse, same_public_key
 ):
     keys = example_keys()
@@ -73,7 +73,7 @@ def test_repair_m109_duplicate_key_id_refused_before_write(
     assert json.loads(source.read_text()) == keys
 
 
-def test_repair_m109_distinct_ids_may_share_public_key(tmp_path, monkeypatch):
+def test_gateway_manifest_distinct_ids_may_share_public_key(tmp_path, monkeypatch):
     keys = example_keys()
     keys[1]["publicKey"] = keys[0]["publicKey"]
     source = tmp_path / "receipt-keys.json"
@@ -103,7 +103,7 @@ def test_repair_m109_distinct_ids_may_share_public_key(tmp_path, monkeypatch):
         ("unknown", "must declare exactly"),
     ],
 )
-def test_repair_m109_preserves_key_and_range_checks(tmp_path, change, expected):
+def test_gateway_manifest_preserves_key_and_range_checks(tmp_path, change, expected):
     keys = copy.deepcopy(example_keys())
     if change == "overlap":
         keys[1]["firstHeight"] = keys[0]["lastHeight"]
@@ -125,7 +125,7 @@ def test_repair_m109_preserves_key_and_range_checks(tmp_path, change, expected):
         RENDERER.receipt_keys(source)
 
 
-def test_repair_m109_readme_matches_manifest_and_live_interfaces():
+def test_gateway_manifest_readme_matches_manifest_and_live_interfaces():
     readme = " ".join((GATEWAY / "README.md").read_text().split())
     assert "all five adapters and three transport bindings" in readme
     assert "counts are stale" not in readme

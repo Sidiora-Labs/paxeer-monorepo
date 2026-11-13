@@ -359,6 +359,10 @@
     "title": "Event subscriptions",
     "description": "Build durable agent consumers with scoped visibility, acknowledged cursors, explicit gap recovery, and verified receipt references."
   },
+  "/system-map": {
+    "title": "System map",
+    "description": "Explore every Paxeer 7.0.0 system by kind, release change, and name, with build commands, configuration, health checks, dependencies, and documentation."
+  },
   "/unified-network": {
     "title": "Unified Network Architecture",
     "description": "How Paxeer X combines EVM and Cosmos execution with LayerX activities, identity, programs, and receipts in one BFT network."

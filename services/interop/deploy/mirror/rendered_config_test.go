@@ -24,64 +24,64 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-type repairM110Key struct {
+type mirrorRenderingKey struct {
 	ID     string `json:"keyId"`
 	Public string `json:"publicKey"`
 	First  uint64 `json:"firstHeight"`
 	Last   uint64 `json:"lastHeight"`
 }
 
-type repairM110Pin struct {
+type mirrorRenderingPin struct {
 	ID     string `json:"sequencer_id_hex"`
 	Public string `json:"public_key_hex"`
 	First  uint64 `json:"first_height"`
 	Last   uint64 `json:"last_height"`
 }
 
-type repairM110Endpoint struct {
+type mirrorRenderingEndpoint struct {
 	URL     string `json:"url"`
 	Backend string `json:"independent_backend"`
 	CA      string `json:"ca_certificate_der"`
 	Token   string `json:"bearer_token_file"`
 }
 
-type repairM110Target struct {
+type mirrorRenderingTarget struct {
 	RPC struct {
-		Endpoints []repairM110Endpoint `json:"endpoints"`
-		Quorum    int                  `json:"quorum"`
+		Endpoints []mirrorRenderingEndpoint `json:"endpoints"`
+		Quorum    int                       `json:"quorum"`
 	} `json:"rpc"`
-	Keys []repairM110Pin `json:"receipt_keys"`
+	Keys []mirrorRenderingPin `json:"receipt_keys"`
 }
 
-type repairM110Config struct {
-	Paxeer   repairM110Target  `json:"paxeer"`
-	Ethereum repairM110Target  `json:"ethereum"`
-	Solana   *repairM110Target `json:"solana"`
+type mirrorRenderingConfig struct {
+	Paxeer   mirrorRenderingTarget  `json:"paxeer"`
+	Ethereum mirrorRenderingTarget  `json:"ethereum"`
+	Solana   *mirrorRenderingTarget `json:"solana"`
 }
 
-type repairM110Policy struct {
+type mirrorRenderingPolicy struct {
 	Name   string          `json:"name"`
 	Input  json.RawMessage `json:"input"`
 	Mirror struct {
-		Keys  []repairM110Pin `json:"keys"`
-		Error string          `json:"error"`
+		Keys  []mirrorRenderingPin `json:"keys"`
+		Error string               `json:"error"`
 	} `json:"mirror"`
 	Gateway struct {
-		Keys  []repairM110Key `json:"keys"`
-		Error string          `json:"error"`
+		Keys  []mirrorRenderingKey `json:"keys"`
+		Error string               `json:"error"`
 	} `json:"gateway"`
 }
 
-type repairM110Transcript struct {
-	Hashes      map[string]string  `json:"source_hashes"`
-	Renderings  []repairM110Config `json:"renderings"`
-	GatewayKeys []repairM110Key    `json:"gateway_keys"`
+type mirrorRenderingTranscript struct {
+	Hashes      map[string]string       `json:"source_hashes"`
+	Renderings  []mirrorRenderingConfig `json:"renderings"`
+	GatewayKeys []mirrorRenderingKey    `json:"gateway_keys"`
 	Gateway     struct {
 		Supported struct {
 			Signers map[string][]string `json:"signers"`
 		} `json:"x402_supported"`
 	} `json:"gateway"`
-	Policies []repairM110Policy `json:"policies"`
+	Policies []mirrorRenderingPolicy `json:"policies"`
 	Refusals []struct {
 		URL   string          `json:"url"`
 		Error string          `json:"error"`
@@ -89,7 +89,7 @@ type repairM110Transcript struct {
 	} `json:"endpoint_refusals"`
 }
 
-func repairM110Read(t *testing.T, name string) []byte {
+func mirrorRenderingRead(t *testing.T, name string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(name)
 	if err != nil {
@@ -98,22 +98,22 @@ func repairM110Read(t *testing.T, name string) []byte {
 	return data
 }
 
-func repairM110JSON(t *testing.T, data []byte, target any) {
+func mirrorRenderingJSON(t *testing.T, data []byte, target any) {
 	t.Helper()
 	if err := json.Unmarshal(data, target); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func repairM110Record(t *testing.T) repairM110Transcript {
+func mirrorRenderingRecord(t *testing.T) mirrorRenderingTranscript {
 	t.Helper()
-	var record repairM110Transcript
-	repairM110JSON(t, repairM110Read(t, "testdata/repair_m110/rendered.json"), &record)
+	var record mirrorRenderingTranscript
+	mirrorRenderingJSON(t, mirrorRenderingRead(t, "testdata/receipt_key_policy/rendered.json"), &record)
 	if len(record.Hashes) != 8 || len(record.Renderings) != 2 {
 		t.Fatal("missing production provenance or Ethereum-only/Solana rendering")
 	}
 	for name, want := range record.Hashes {
-		digest := sha256.Sum256(repairM110Read(t, filepath.Join("../../../..", name)))
+		digest := sha256.Sum256(mirrorRenderingRead(t, filepath.Join("../../../..", name)))
 		if hex.EncodeToString(digest[:]) != want {
 			t.Fatalf("%s changed since recording production outputs; regenerate the transcript", name)
 		}
@@ -121,25 +121,25 @@ func repairM110Record(t *testing.T) repairM110Transcript {
 	return record
 }
 
-func repairM110Pins(keys []repairM110Key) []repairM110Pin {
-	pins := make([]repairM110Pin, len(keys))
+func mirrorRenderingPins(keys []mirrorRenderingKey) []mirrorRenderingPin {
+	pins := make([]mirrorRenderingPin, len(keys))
 	for i, key := range keys {
-		pins[i] = repairM110Pin{strings.ToLower(strings.TrimPrefix(key.ID, "0x")), strings.ToLower(strings.TrimPrefix(key.Public, "0x")), key.First, key.Last}
+		pins[i] = mirrorRenderingPin{strings.ToLower(strings.TrimPrefix(key.ID, "0x")), strings.ToLower(strings.TrimPrefix(key.Public, "0x")), key.First, key.Last}
 	}
 	return pins
 }
 
-func TestRepairM_110_MirrorExampleRPC(t *testing.T) {
-	record := repairM110Record(t)
-	var example repairM110Config
-	repairM110JSON(t, repairM110Read(t, "config.example.json"), &example)
+func TestMirrorRenderingExampleRPC(t *testing.T) {
+	record := mirrorRenderingRecord(t)
+	var example mirrorRenderingConfig
+	mirrorRenderingJSON(t, mirrorRenderingRead(t, "config.example.json"), &example)
 	for index, config := range record.Renderings {
 		if (config.Solana != nil) != (index == 1) {
 			t.Fatal("wrong Solana presence")
 		}
-		pairs := [][2]repairM110Target{{example.Paxeer, config.Paxeer}, {example.Ethereum, config.Ethereum}}
+		pairs := [][2]mirrorRenderingTarget{{example.Paxeer, config.Paxeer}, {example.Ethereum, config.Ethereum}}
 		if config.Solana != nil {
-			pairs = append(pairs, [2]repairM110Target{*example.Solana, *config.Solana})
+			pairs = append(pairs, [2]mirrorRenderingTarget{*example.Solana, *config.Solana})
 		}
 		for chain, pair := range pairs {
 			if len(pair[0].RPC.Endpoints) != 3 || !reflect.DeepEqual(pair[0].RPC, pair[1].RPC) {
@@ -222,19 +222,19 @@ func TestRepairM_110_MirrorExampleRPC(t *testing.T) {
 	}
 }
 
-func TestRepairM_110_MirrorKeyPolicy(t *testing.T) {
-	record := repairM110Record(t)
-	var canonical []repairM110Key
-	repairM110JSON(t, repairM110Read(t, "testdata/repair_m110/receipt-keys.json"), &canonical)
+func TestMirrorRenderingKeyPolicy(t *testing.T) {
+	record := mirrorRenderingRecord(t)
+	var canonical []mirrorRenderingKey
+	mirrorRenderingJSON(t, mirrorRenderingRead(t, "testdata/receipt_key_policy/receipt-keys.json"), &canonical)
 	if len(canonical) != 2 || canonical[1].First != 0 || canonical[0].Last != ^uint64(0) {
 		t.Fatal("canonical key file must cover zero and the uint64 maximum")
 	}
 	for _, config := range record.Renderings {
-		if !reflect.DeepEqual(config.Paxeer.Keys, repairM110Pins(canonical)) {
+		if !reflect.DeepEqual(config.Paxeer.Keys, mirrorRenderingPins(canonical)) {
 			t.Fatal("mirror changed the canonical key file")
 		}
 	}
-	if !reflect.DeepEqual(record.GatewayKeys, []repairM110Key{canonical[1], canonical[0]}) {
+	if !reflect.DeepEqual(record.GatewayKeys, []mirrorRenderingKey{canonical[1], canonical[0]}) {
 		t.Fatal("gateway changed canonical identities or height windows")
 	}
 	wantSigners := map[string][]string{"layerx:beta": {"did:layerx:" + strings.TrimPrefix(canonical[0].Public, "0x"), "did:layerx:" + strings.TrimPrefix(canonical[1].Public, "0x")}}
@@ -261,14 +261,14 @@ func TestRepairM_110_MirrorKeyPolicy(t *testing.T) {
 		seen[policy.Name] = true
 		t.Run(policy.Name, func(t *testing.T) {
 			if accepted {
-				var input []repairM110Key
-				repairM110JSON(t, policy.Input, &input)
-				if policy.Mirror.Error != "" || policy.Gateway.Error != "" || !reflect.DeepEqual(policy.Mirror.Keys, repairM110Pins(input)) {
+				var input []mirrorRenderingKey
+				mirrorRenderingJSON(t, policy.Input, &input)
+				if policy.Mirror.Error != "" || policy.Gateway.Error != "" || !reflect.DeepEqual(policy.Mirror.Keys, mirrorRenderingPins(input)) {
 					t.Fatalf("valid inclusive uint64 policy refused/changed: %+v", policy)
 				}
 				gateway := policy.Gateway.Keys
 				if policy.Name == "canonical" {
-					input = []repairM110Key{canonical[1], canonical[0]}
+					input = []mirrorRenderingKey{canonical[1], canonical[0]}
 				}
 				if !reflect.DeepEqual(gateway, input) {
 					t.Fatal("gateway changed inclusive key policy")
@@ -292,7 +292,7 @@ func TestRepairM_110_MirrorKeyPolicy(t *testing.T) {
 	}
 }
 
-func repairM110Hex(t *testing.T, value string) []byte {
+func mirrorRenderingHex(t *testing.T, value string) []byte {
 	t.Helper()
 	data, err := hex.DecodeString(strings.TrimPrefix(value, "0x"))
 	if err != nil {
@@ -301,13 +301,13 @@ func repairM110Hex(t *testing.T, value string) []byte {
 	return data
 }
 
-func TestRepairM_110_ReceiptVerification(t *testing.T) {
-	record := repairM110Record(t)
+func TestMirrorRenderingReceiptVerification(t *testing.T) {
+	record := mirrorRenderingRecord(t)
 	var fixture struct {
 		Receipts   []json.RawMessage `json:"receipts"`
 		Provenance string            `json:"receiptProvenance"`
 	}
-	repairM110JSON(t, repairM110Read(t, "../../crates/layerx-mirror/tests/fixtures/committed_blocks.json"), &fixture)
+	mirrorRenderingJSON(t, mirrorRenderingRead(t, "../../crates/layerx-mirror/tests/fixtures/committed_blocks.json"), &fixture)
 	if len(fixture.Receipts) != 2 || !strings.Contains(fixture.Provenance, "rpc/sequencer_receipt_vectors_test.go") {
 		t.Fatal("missing real node producer transcript")
 	}
@@ -316,7 +316,7 @@ func TestRepairM_110_ReceiptVerification(t *testing.T) {
 		var receipt struct {
 			Hash string `json:"txHash"`
 		}
-		repairM110JSON(t, raw, &receipt)
+		mirrorRenderingJSON(t, raw, &receipt)
 		byHash[receipt.Hash] = raw
 	}
 	// Peer responses are committed node transcripts; decoding and verification
@@ -367,7 +367,7 @@ func TestRepairM_110_ReceiptVerification(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		raw := repairM110Hex(t, receipt.Bytes)
+		raw := mirrorRenderingHex(t, receipt.Bytes)
 		decoded, err := codec.DecodeReceipt(raw)
 		if err != nil {
 			t.Fatal(err)
@@ -389,7 +389,7 @@ func TestRepairM_110_ReceiptVerification(t *testing.T) {
 				if pin.First != 0 || height != pin.Last || height < pin.First || height > pin.Last || "0x"+pin.ID != receipt.KeyID {
 					t.Fatal("signed receipt does not bind the rendered inclusive zero-start key window")
 				}
-				public := repairM110Hex(t, pin.Public)
+				public := mirrorRenderingHex(t, pin.Public)
 				if len(public) != 32 {
 					t.Fatal("rendered public key length changed")
 				}
@@ -397,7 +397,7 @@ func TestRepairM_110_ReceiptVerification(t *testing.T) {
 				if err != nil {
 					t.Fatalf("real receipt consumer refused rendered key: %v", err)
 				}
-				if !bytes.Equal(verified.Receipt.CanonicalBytes(), raw) || !bytes.Equal(verified.Digest[:], repairM110Hex(t, receipt.Digest)) {
+				if !bytes.Equal(verified.Receipt.CanonicalBytes(), raw) || !bytes.Equal(verified.Digest[:], mirrorRenderingHex(t, receipt.Digest)) {
 					t.Fatal("consumer changed producer receipt or signed digest")
 				}
 				altered := bytes.Clone(raw)
@@ -405,7 +405,7 @@ func TestRepairM_110_ReceiptVerification(t *testing.T) {
 				if _, err := verify.ReceiptSignature(altered, [32]byte(public)); !errors.Is(err, verify.ErrSequencerSignature) {
 					t.Fatalf("tampered signature not refused: %v", err)
 				}
-				wrongPublic := repairM110Hex(t, record.GatewayKeys[1].Public)
+				wrongPublic := mirrorRenderingHex(t, record.GatewayKeys[1].Public)
 				if _, err := verify.ReceiptSignature(raw, [32]byte(wrongPublic)); !errors.Is(err, verify.ErrSequencerSignature) {
 					t.Fatalf("substituted key not refused: %v", err)
 				}
