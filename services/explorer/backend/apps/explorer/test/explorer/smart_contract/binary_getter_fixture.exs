@@ -1,4 +1,4 @@
-defmodule Explorer.SmartContract.Repair2233544Fixtures do
+defmodule Explorer.SmartContract.BinaryGetterFixture do
   import ExUnit.Assertions
   import ExUnit.Callbacks, only: [on_exit: 1]
 
