@@ -14,7 +14,7 @@ layerx auth set --environment beta
 layerx install a2a --environment beta --key operator
 layerx a2a start
 layerx a2a status`}</code></pre>
-    <p>The identity session is read from stdin by <code>auth set</code>. Installation provisions a gateway key and stores its secret in credential storage. Payment mode grants <code>activity:write</code> and <code>receipt:read</code>. The <code>--source-account</code> and <code>--asset</code> flags are optional and may both be omitted; they are validated at install time but bind nothing at serve time, because the served runtime holds only its client, network ID, environment, and endpoint. The default listener is <code>127.0.0.1:9433</code>.</p>
+    <p>Use an already configured beta profile and an existing key named operator. The identity session is read from stdin by <code>auth set</code>. Installation provisions a gateway key, stores its secret in credential storage, and starts the managed runtime. Payment mode grants <code>activity:write</code> and <code>receipt:read</code>. The optional <code>--source-account</code> and <code>--asset</code> flags must be supplied together as 32-byte hex identifiers. The submitted transaction determines the payment contents. The listener is restricted to loopback and defaults to port <code>9433</code>.</p>
     <h3>Read-only and credential rotation</h3>
     <pre><code>{`layerx install a2a --environment beta --read-only
 layerx a2a stop
@@ -29,15 +29,14 @@ GET /.well-known/agent.json`}</code></pre>
     <table><thead><tr><th>Skill</th><th>Inputs</th><th>Authority and evidence</th></tr></thead><tbody>
       <tr><td><code>receipt.get</code></td><td><code>activity_id</code>, a <code>0x</code>-prefixed 64-hex transaction hash.</td><td>Requires receipt read scope; fetched via <code>pax_sequencerReceipt</code>. Verification requires independently pinned receipt keys; the gateway does not verify it for you.</td></tr>
       <tr><td><code>activity.submit</code></td><td><code>raw_transaction</code> only: a caller-signed EIP-1559 transaction as <code>0x02…</code> hex.</td><td>Requires activity write scope; submitted unchanged via <code>eth_sendRawTransaction</code>. The runtime constructs and signs nothing.</td></tr>
-      <tr><td><code>faucet.request</code></td><td>DID and public key.</td><td>Uses the approved beta allocation policy and the served deployment&apos;s permissions.</td></tr>
+      <tr><td><code>faucet.request</code></td><td>DID and public key.</td><td>Requires an explicit hosted faucet endpoint through --faucet-endpoint on a2a serve and a stored identity session for the active environment.</td></tr>
     </tbody></table>
     <DocArt name="prompt-templates" />
     <h2>Send a structured task</h2>
-    <pre><code>{`POST / HTTP/1.1
-Authorization: Bearer <installation-local-a2a-credential>
-Content-Type: application/json
-
-{"jsonrpc":"2.0","id":1,"method":"message/send","params":{
+    <pre><code>{`curl --http1.1 "$A2A_ENDPOINT" \\
+  -H "Authorization: Bearer $A2A_AUTHORIZATION" \\
+  -H "Content-Type: application/json" \\
+  --data-binary ' {"jsonrpc":"2.0","id":1,"method":"message/send","params":{
   "message":{
     "kind":"message","role":"user","messageId":"receipt-check-01",
     "contextId":"treasury-reconciliation",
@@ -45,8 +44,8 @@ Content-Type: application/json
       "skill":"receipt.get","arguments":{"activity_id":"0x<64-hex-transaction-hash>"}
     }}]
   }
-}}`}</code></pre>
-    <p>HTTP requests carry an explicit Content-Length and one JSON body. A data part contains <code>skill</code> and <code>arguments</code>; a text part may contain the same object serialized as JSON. The server admits only skills in its card. It generates task and artifact IDs and retains the submitted message in task history.</p>
+}}'`}</code></pre>
+    <p>Set the example shell variables to the installed listener URL and its local authorization credential. Curl supplies the Host and Content-Length headers. HTTP requests carry an explicit Content-Length and one JSON body. A data part contains <code>skill</code> and <code>arguments</code>; a text part may contain the same object serialized as JSON. The server admits only skills in its card. It generates task and artifact IDs and retains the submitted message in task history.</p>
     <h3>Payment arguments</h3>
     <pre><code>{`{"skill":"activity.submit","arguments":{
   "raw_transaction":"0x02<caller-signed-eip1559-transaction-hex>"
@@ -62,9 +61,9 @@ Content-Type: application/json
       <tr><td><code>unknown</code></td><td>The gateway outcome is uncertain.</td><td>Look up the original transaction before submitting another write.</td></tr>
       <tr><td><code>rejected</code></td><td>The gateway refused the operation or skill execution failed.</td><td>Read the task status message and resolve its cause.</td></tr>
     </tbody></table>
-    <p>The task artifact carries the skill result as a data part. A completed transport task does not independently establish final settlement. Submitted protocol activities cannot be canceled by this transport; terminal tasks also cannot be canceled. Preserve transaction hashes and receipt evidence outside the bounded runtime task ledger.</p>
+    <p>The task artifact carries the skill result as a data part. A completed transport task does not independently establish final settlement. Submitted protocol activities cannot be canceled by this transport; terminal tasks also cannot be canceled. The runtime persists a bounded task ledger and retains unresolved transaction identities across restarts. When started with a matching receipt policy through --receipt-policy, it reconciles pending tasks against verified receipts at startup. Preserve transaction hashes and receipt evidence for application records.</p>
     <h2>Capabilities, errors and policy</h2>
-    <p>The card declares streaming, push notifications and transition-history capabilities as false for this JSON-RPC runtime. Use <code>tasks/get</code> and receipt reads. Unsupported streaming, resubscription, and push-configuration requests return <code>-32004</code>, as does <code>tasks/cancel</code> on a submitted or unknown task; canceling a terminal task returns <code>-32002</code>. Unknown methods or unserved skills return <code>-32601</code>; invalid arguments return <code>-32602</code>; missing tasks return <code>-32001</code>. Malformed JSON returns <code>-32700</code>, a request without a method returns <code>-32600</code>, and internal failures return <code>-32603</code>. Missing or incorrect incoming Bearer credentials return HTTP 401.</p>
+    <p>The card declares streaming, push notifications and transition-history capabilities as false for this JSON-RPC runtime. Use <code>tasks/get</code> and receipt reads. Unsupported streaming, resubscription, and push-configuration requests return <code>-32004</code>, as does <code>tasks/cancel</code> on a submitted or unknown task; canceling a terminal task returns <code>-32002</code>. Unknown methods or unserved skills return <code>-32601</code>; invalid arguments return <code>-32602</code>; missing tasks return <code>-32001</code>. Malformed JSON returns <code>-32700</code>, a request without a method returns <code>-32600</code>, and internal failures return <code>-32603</code>. Task-ledger admission refusals return <code>-32005</code>. Missing or incorrect incoming Bearer credentials return HTTP 401.</p>
     <p>Use owner policy, capability scope and <Link href="/agent-budgets">budget and approval controls</Link> to bound agent spending. MCP routes tool calls through an enrolled daemon binding; this A2A runtime forwards caller-signed transactions under its installed gateway credential. See <Link href="/platform-api">API authority and commitment levels</Link>, <Link href="/identity">identity</Link> and <Link href="/cli">CLI workflows</Link>.</p>
   </DocsLayout>
 }
