@@ -21585,3 +21585,13 @@ fix = "Task 22.41.41 reads the pages of lines 3157 to 3176 of the page list as p
 title = "Two generated pages of the source-control directory name their source under an earlier file name"
 symptom = "The pages implementation-plan.md and traceability.md under spec/layerx-merge/source-control state in their header that they are generated from a file spec.kvx beside them, and the first names a script path for regeneration. The directory holds the specification as source-spec.kvx and the script under its tools directory."
 fix = "Task 22.41.100 corrects the header of both pages, and the header text of the script where the script writes it."
+
+[gotcha.4353]
+title = "The documentation site under docs/site is a static export and its public Markdown files are derived"
+symptom = "The directory docs/site holds the site in docs/site/paxeer-docs and its assistant in docs/site/docs-assistant. The pages are the files named page.tsx under docs/site/paxeer-docs/src/app. The Markdown exports, the search index, the sitemap and the two llms files under docs/site/paxeer-docs/public and the file under docs/site/paxeer-docs/.generated are written from the pages by npm run prepare:docs."
+fix = "A change of a page is followed by npm run prepare:docs. Tasks 22.41.101 to 22.41.112 correct pages and leave the derived files to task 22.41.114."
+
+[gotcha.4354]
+title = "The migrations of the launchpad services lie in the migrations directory at the repository root"
+symptom = "The directory migrations at the repository root holds the SQLite schemas of the projection tooling. Task 22.41.115 moves the SQL migrations of the launchpad services and the JSON files beside them into it from launchpad/spec/production-system/integration/migrations, and sources and tests name the directory by its path from the repository root."
+fix = "A reference to the former path is written as migrations, and a directory of the same name under services or tools is a different directory."
