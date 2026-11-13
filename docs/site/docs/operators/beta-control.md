@@ -8,15 +8,13 @@ It is not a protocol node or an authority over public-network finality.
 
 Paxeer mainnet-beta is one BFT network: the kernel is part of `paxd` and
 proposes blocks, EVM chain ID is `125` (`0x7d`), and a receipt is final once its
-block is committed. Public JSON-RPC uses the root of
-`https://api-mainnet-beta.paxeer.network` or the numbered nodes `api1` through
-`api14.mainnet-beta.paxeer.network`; see [Public RPC endpoints](../reference/public-rpc.md).
+block is committed. Public JSON-RPC uses the selected node's HTTPS origin
+at the root path; see [Public RPC endpoints](../reference/public-rpc.md).
 The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and
 `txpool`. The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in [the gateway OpenRPC contract](../platform/gateway-rpc.md). Public funding uses
-native transfers through node JSON-RPC. The custody-credit/router funding
-instructions are retired.
+native transfers through node JSON-RPC.
 
 For native inputs, deployment limits, readiness and retained volumes, see
 [Disposable beta cluster](beta-cluster.md). Native cluster bring-up starts
@@ -202,7 +200,7 @@ core, identity, receipt authority and Paxeer boundary, `9444` for core-admin,
 and `6379` for Redis. `LAYERX_TESTNET_REGISTRY_URL` remains in the manifest
 but is not read by current control configuration. Library defaults in
 `platform_testnet()` use private service origins. The Deployment runs the
-binary directly; the older `run-testnet.sh` wrapper is not its entrypoint.
+binary directly.
 
 ## Cluster CronJobs
 

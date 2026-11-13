@@ -129,8 +129,8 @@ The Rust harness `tests/independent_verifier.rs` exports actual signed
 receipts from
 `sdk/platform/conformance/fixtures/sequencer-receipt-v1.json` and passes
 their v2 portable JSON to Python over stdin. The fixture filename describes
-the source recording, not the portable format version. Its six accepted
-receipt cases include five successful outcomes and one reverted outcome.
+the source recording, not the portable format version. Its seven accepted
+receipt cases include five successful outcomes and two failed outcomes.
 Python checks the same digest and transaction identity, rejects substituted
 fields and untrusted key lists, and exercises signing-window boundaries.
 The script's command-line harness reads pins from the fixture and runs
@@ -166,8 +166,8 @@ Receipt verification stages are `Decode`, `CanonicalEncoding`,
 `ReceiptShape`, `ProtocolVersion`, `ActivityId`, `MissingSignature`,
 `BatchId` and `SequencerSignature`. Unpinned or ambiguous signing IDs and
 out-of-window signed heights fail at `SequencerSignature`. The error enum
-also retains older variants such as `InvalidBase64` and
-`BatchAuthorizationMismatch`; these are not the v2 verification contract.
+also declares `InvalidBase64`, `BatchAuthorizationMismatch` and
+`MissingReceiptDigest`; the v2 path uses the variants in the table above.
 
 ## Go SDK bundles
 
@@ -184,14 +184,11 @@ The Rust constructors and Python verifier documented above accept the
 receipted schema in this page's member table. The shared format label alone
 does not make the two object shapes interchangeable.
 
-## Evidence limits and migration
+## Evidence limits
 
-The v1 base64url object, its `sequencer-signed` level and caller-supplied
-`AuthorizedBatch` portable verification workflow are retired. Current
-`verify_portable_json` accepts v2 only. To migrate, obtain the exact signed
-receipt and authenticated receipt-key ranges, export v2 through the current
-constructor, then verify against the consumer's own pinned list. Renaming
-the old format field does not migrate its evidence.
+`verify_portable_json` accepts v2 only. Obtain the exact signed receipt and
+authenticated receipt-key ranges, export through a v2 constructor, then
+verify against the consumer's own pinned list.
 
 A portable proof does not establish committed block inclusion, current
 network head, arbitrary account-state validity, external settlement or

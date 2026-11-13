@@ -8,19 +8,16 @@ the execution and evidence model.
 
 ## Endpoints and trust
 
-The public node JSON-RPC is served at the root path:
+The public node JSON-RPC is served at the root path. Set `RPC_URL` to the
+selected node's HTTPS origin from [Public RPC endpoints](../reference/public-rpc.md):
 
 ```sh
-export RPC_URL=https://api-mainnet-beta.paxeer.network
-
 curl --fail-with-body --silent --show-error "$RPC_URL" \
   --header 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-Require `result` to be `"0x7d"` before signing. The other public node names
-are `https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`, also at the root. Compare
+Require `result` to be `"0x7d"` before signing. Compare
 `eth_blockNumber` when choosing a current node; an unavailable or lagging node
 is not evidence that a transaction failed.
 
@@ -28,7 +25,6 @@ The node also serves the `px` namespace at the root. `px_register` and
 `px_requestFunds` are operations of the operator-deployed hosted gateway,
 whose contract is `services/platform/hosted/gateway/openrpc.json`; obtain its
 endpoint and any credentials from the operator when using those operations.
-The old `lx_sendActivity` integration flow is retired.
 
 ## Wallet and funding
 
@@ -47,9 +43,8 @@ layerx wallet derive --bind --rpc "$RPC_URL" < phrase.txt
 ```
 
 Keep the phrase file private. The bind transaction needs native funding and
-must commit before a later operation relies on the binding. Custody-credit
-scripts and deposit-based account opening are retired; funding and ledger
-account opening use the current chain operations described below.
+must commit before a later operation relies on the binding. Funding and ledger
+account opening use the chain operations described below.
 
 ## Submit a native transaction
 

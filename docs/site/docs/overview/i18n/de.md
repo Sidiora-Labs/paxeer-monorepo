@@ -19,10 +19,9 @@ Sub-Chains sind Mandantendomänen: Namensräume in der Datenbank. Sie benötigen
 
 ## Schnellstart
 
-Öffentliches JSON-RPC wird über HTTPS am Wurzelpfad von `api1.mainnet-beta.paxeer.network` bis `api14.mainnet-beta.paxeer.network` sowie `api-mainnet-beta.paxeer.network` angeboten. Die folgenden Abfragen lesen nur Chain-ID und Blockhöhe. `PAXEER_RPC_URL` ist hier eine lokale Shell-Variable.
+Öffentliches JSON-RPC wird über HTTPS am Wurzelpfad des gewählten Knotens angeboten. Setzen Sie die lokale Shell-Variable `PAXEER_RPC_URL` auf dessen HTTPS-Ursprung; siehe [öffentliche RPC-Endpunkte](../../reference/public-rpc.md). Die folgenden Abfragen lesen nur Chain-ID und Blockhöhe.
 
 ```sh
-PAXEER_RPC_URL=https://api-mainnet-beta.paxeer.network
 curl --fail --silent --show-error --max-time 30 "$PAXEER_RPC_URL" \
   --header 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
