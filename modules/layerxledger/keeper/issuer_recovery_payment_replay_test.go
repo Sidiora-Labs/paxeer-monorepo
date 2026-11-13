@@ -32,7 +32,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair1423Fixture struct {
+type ledgerNodeFixture struct {
 	app                   *app.App
 	ctx                   sdk.Context
 	payer, payee          utils.TestAcct
@@ -44,10 +44,10 @@ type repair1423Fixture struct {
 	closed                bool
 }
 
-func newRepair1423Fixture(t *testing.T) *repair1423Fixture {
+func newLedgerNodeFixture(t *testing.T) *ledgerNodeFixture {
 	t.Helper()
 	a := app.Setup(t, false, true, false)
-	f := &repair1423Fixture{app: a, payer: utils.NewSigner(), payee: utils.NewSigner(), identity: newLedgerViewActor(t, 143)}
+	f := &ledgerNodeFixture{app: a, payer: utils.NewSigner(), payee: utils.NewSigner(), identity: newLedgerViewActor(t, 143)}
 	t.Cleanup(func() {
 		if !f.closed {
 			require.NoError(t, a.Close())
@@ -94,12 +94,12 @@ func newRepair1423Fixture(t *testing.T) *repair1423Fixture {
 	return f
 }
 
-func (f *repair1423Fixture) call(t *testing.T, signer utils.TestAcct, status uint64, method string, args ...interface{}) []byte {
+func (f *ledgerNodeFixture) call(t *testing.T, signer utils.TestAcct, status uint64, method string, args ...interface{}) []byte {
 	t.Helper()
 	return f.callWithRevert(t, signer, status, "LXP_SEQUENCE_MISMATCH", method, args...)
 }
 
-func (f *repair1423Fixture) callWithRevert(t *testing.T, signer utils.TestAcct, status uint64, revertReason, method string, args ...interface{}) []byte {
+func (f *ledgerNodeFixture) callWithRevert(t *testing.T, signer utils.TestAcct, status uint64, revertReason, method string, args ...interface{}) []byte {
 	t.Helper()
 	address := common.HexToAddress(layerxledger.LedgerAddress)
 	input, err := layerxledger.GetABI().Pack(method, args...)
@@ -146,7 +146,7 @@ func (f *repair1423Fixture) callWithRevert(t *testing.T, signer utils.TestAcct, 
 	return encoded
 }
 
-func (f *repair1423Fixture) deliver(t *testing.T, encoded []byte) abci.ResponseDeliverTx {
+func (f *ledgerNodeFixture) deliver(t *testing.T, encoded []byte) abci.ResponseDeliverTx {
 	t.Helper()
 	tx, err := f.app.GetTxConfig().TxDecoder()(encoded)
 	require.NoError(t, err)
@@ -155,13 +155,13 @@ func (f *repair1423Fixture) deliver(t *testing.T, encoded []byte) abci.ResponseD
 	return f.app.DeliverTx(ctx, abci.RequestDeliverTxV2{Tx: encoded}, tx, sha256.Sum256(encoded))
 }
 
-func (f *repair1423Fixture) register(t *testing.T) {
+func (f *ledgerNodeFixture) register(t *testing.T) {
 	t.Helper()
 	f.call(t, f.payer, ethtypes.ReceiptStatusSuccessful, "register", f.asset, f.salt,
 		"RPR", "Issuer recovery", uint8(6), big.NewInt(1000), uint8(types.AssetIssuerNative), []byte{})
 }
 
-func (f *repair1423Fixture) fund(t *testing.T) {
+func (f *ledgerNodeFixture) fund(t *testing.T) {
 	t.Helper()
 	f.register(t)
 	f.call(t, f.payer, ethtypes.ReceiptStatusSuccessful, "openAccount", f.asset)
@@ -170,7 +170,7 @@ func (f *repair1423Fixture) fund(t *testing.T) {
 	f.balance(t, 250, 0, 0)
 }
 
-func (f *repair1423Fixture) balance(t *testing.T, from, to int64, sequence uint64) {
+func (f *ledgerNodeFixture) balance(t *testing.T, from, to int64, sequence uint64) {
 	t.Helper()
 	for _, item := range []struct {
 		id     [32]byte
@@ -186,7 +186,7 @@ func (f *repair1423Fixture) balance(t *testing.T, from, to int64, sequence uint6
 	require.Equal(t, sequence, next)
 }
 
-func (f *repair1423Fixture) envelope(t *testing.T, sequence uint64, reference [32]byte) []byte {
+func (f *ledgerNodeFixture) envelope(t *testing.T, sequence uint64, reference [32]byte) []byte {
 	t.Helper()
 	material := append(append(append([]byte(nil), f.from[:]...), f.to[:]...), f.asset[:]...)
 	var amount [16]byte
@@ -212,7 +212,7 @@ func (f *repair1423Fixture) envelope(t *testing.T, sequence uint64, reference [3
 	return payload
 }
 
-func (f *repair1423Fixture) pauseState(t *testing.T, paused bool) {
+func (f *ledgerNodeFixture) pauseState(t *testing.T, paused bool) {
 	t.Helper()
 	asset, err := f.app.LayerXLedgerKeeper.GetAsset(f.ctx, f.asset)
 	require.NoError(t, err)
@@ -227,8 +227,8 @@ func (f *repair1423Fixture) pauseState(t *testing.T, paused bool) {
 	require.Equal(t, []byte(f.denom), f.ctx.KVStore(f.app.GetKey(types.StoreKey)).Get(key))
 }
 
-func TestRepairM_1423_IssuerBindingNode(t *testing.T) {
-	f := newRepair1423Fixture(t)
+func TestLedgerNode_IssuerBindingNode(t *testing.T) {
+	f := newLedgerNodeFixture(t)
 	f.register(t)
 	f.pauseState(t, false)
 	f.call(t, f.payer, ethtypes.ReceiptStatusSuccessful, "pause", f.asset)
@@ -237,8 +237,8 @@ func TestRepairM_1423_IssuerBindingNode(t *testing.T) {
 	f.pauseState(t, false)
 }
 
-func TestRepairM_1423_IssuerBindingRecovery(t *testing.T) {
-	f := newRepair1423Fixture(t)
+func TestLedgerNode_IssuerBindingRecovery(t *testing.T) {
+	f := newLedgerNodeFixture(t)
 	f.register(t)
 	f.call(t, f.payer, ethtypes.ReceiptStatusSuccessful, "pause", f.asset)
 	f.pauseState(t, true)
@@ -273,8 +273,8 @@ func TestRepairM_1423_IssuerBindingRecovery(t *testing.T) {
 	f.pauseState(t, true)
 }
 
-func TestRepairM_1423_IssuerBindingRejectsInconsistentGenesis(t *testing.T) {
-	f := newRepair1423Fixture(t)
+func TestLedgerNode_IssuerBindingRejectsInconsistentGenesis(t *testing.T) {
+	f := newLedgerNodeFixture(t)
 	f.register(t)
 	hostGenesis, err := lxphost.ExportStoreGenesis(f.ctx, f.app.GetKey(app.LayerXHostStoreKey))
 	require.NoError(t, err)
@@ -315,18 +315,18 @@ func TestRepairM_1423_IssuerBindingRejectsInconsistentGenesis(t *testing.T) {
 	}
 }
 
-func TestRepairM_1423_PublicAccountSend(t *testing.T) {
+func TestLedgerNode_PublicAccountSend(t *testing.T) {
 	TestSendMovesBalance(t)
 	TestSendRefusals(t)
 }
 
-func TestRepairM_1423_PayExactBalancesAndRollback(t *testing.T) {
+func TestLedgerNode_PayExactBalancesAndRollback(t *testing.T) {
 	TestPayExact(t)
 	TestPayExactExpired(t)
 }
 
-func TestRepairM_1423_EVMNonceAndConsumedSequence(t *testing.T) {
-	f := newRepair1423Fixture(t)
+func TestLedgerNode_EVMNonceAndConsumedSequence(t *testing.T) {
+	f := newLedgerNodeFixture(t)
 	f.fund(t)
 	original := f.call(t, f.payer, ethtypes.ReceiptStatusSuccessful, "send", f.envelope(t, 0, [32]byte{1}))
 	f.balance(t, 210, 40, 1)
@@ -352,8 +352,8 @@ func TestRepairM_1423_EVMNonceAndConsumedSequence(t *testing.T) {
 	f.balance(t, 160, 90, 3)
 }
 
-func TestRepairM_1423_PayExactEVMReferenceReplay(t *testing.T) {
-	f := newRepair1423Fixture(t)
+func TestLedgerNode_PayExactEVMReferenceReplay(t *testing.T) {
+	f := newLedgerNodeFixture(t)
 	f.fund(t)
 	expires := uint64(f.ctx.BlockTime().UnixMilli()) + 1000
 	reference := [32]byte{0x14, 0x23}
@@ -374,16 +374,16 @@ func TestRepairM_1423_PayExactEVMReferenceReplay(t *testing.T) {
 	f.balance(t, 230, 20, 2)
 }
 
-func TestRepairM_1423_SendNextSequenceKeyReuse(t *testing.T) {
+func TestLedgerNode_SendNextSequenceKeyReuse(t *testing.T) {
 	TestSendNextSequenceKeyReuse(t)
 }
 
-func TestRepairM_1423_PayExactNextSequenceKeyReuse(t *testing.T) {
+func TestLedgerNode_PayExactNextSequenceKeyReuse(t *testing.T) {
 	TestPayExactNextSequenceKeyReuse(t)
 }
 
-func TestRepairM_1423_IssuerBindingRollback(t *testing.T) {
-	f := newRepair1423Fixture(t)
+func TestLedgerNode_IssuerBindingRollback(t *testing.T) {
+	f := newLedgerNodeFixture(t)
 	f.register(t)
 	require.NoError(t, f.app.TokenFactoryKeeper.SetDenomPausedByIssuer(f.ctx, f.denom, string(f.actor.DID), true))
 	before := map[string]map[string][]byte{}
