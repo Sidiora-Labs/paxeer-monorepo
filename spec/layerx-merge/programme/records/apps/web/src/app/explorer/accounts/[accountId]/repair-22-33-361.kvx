@@ -9,7 +9,7 @@ evidence = "The private hf-build/hf-done ledger records the verified candidate r
 [finding.account-retired-settlement-ui]
 test = "account_retired_settlement_ui_native_totals_and_committed_position"
 repair = "The production account route consumes the prerequisite native unified-account loader and renderer: exact total balance per asset, committed transaction rows and page observation block/ordinal range, without claiming network head freshness. No historical custody or batch-anchor data is supplied by this endpoint, so no archive facts or synthetic archive panel are invented."
-peers = "Committed explorer/fixtures/repair-22-31-383-native-http.json controller contract transcript, replayed over a local HTTP listener through the production transport, strict native codec, page loader and actual AccountPage route."
+peers = "Committed explorer/fixtures/account-history-http.json controller contract transcript, replayed over a local HTTP listener through the production transport, strict native codec, page loader and actual AccountPage route."
 navigation_test = "account_native_cursor_navigation_and_explicit_refusal"
 refusal_test = "account_native_missing_and_legacy_positions_do_not_invent_facts"
 proof_detail = "Assert exact visible totals, every transaction field, committed positions, opaque continuation links, expiry/reorg refusal and explicit snapshot reset, missing/unavailable responses, canonical redirects and refusal of retired numeric positions."

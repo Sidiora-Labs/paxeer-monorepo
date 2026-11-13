@@ -41,7 +41,7 @@ request = "apps/web/copy/catalog.ts and generated copy runtime — domain 14 web
 request = "apps/web/e2e/proof_explorer.test.ts and other historical explorer fixtures — domain 14 web explorer tests: import preserved historical types/codecs directly from historical-model.ts or historicalExplorer, then retire the named compatibility exports after the out-of-scope route migration."
 
 [proof.native-peer]
-fixture = "apps/web/src/explorer/fixtures/repair-22-33-347-native-http.json"
+fixture = "apps/web/src/explorer/fixtures/transaction-status-http.json"
 path = "Loopback peers replay committed native status, projected block-list and gateway receipt contracts into real fetch, gateway codec, explorer client, native account page loader and React rendering; existing repair-22-31-383 native account/archive transcripts are reused. No live endpoint, inherited configuration, external toolchain or credential is required."
 boundary = "This qualifies web consumers against committed native contract fixtures, not Phoenix producer execution or node consensus. The missing native program producer is recorded above instead of manufactured. No restart finding belongs to this task."
 

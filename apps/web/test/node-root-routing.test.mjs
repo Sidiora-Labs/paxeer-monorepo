@@ -33,7 +33,7 @@ const { activityHistory, activitySide } = await import("../src/app/_markets/acti
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const walletScript = "scripts/wallet/check-live.sh";
 const gasScript = "docker/gas-station/init.sh";
-const recording = JSON.parse(readFileSync(new URL("./fixtures/repair-22-34-6-node-root.json", import.meta.url), "utf8"));
+const recording = JSON.parse(readFileSync(new URL("./fixtures/node-root-responses.json", import.meta.url), "utf8"));
 
 // The committed indexer/gateway producer recording used for node parity in
 // rpc/px_node_root_history_test.go. Preserve amounts, positions and finality.
