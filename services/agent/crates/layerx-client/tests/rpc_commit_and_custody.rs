@@ -1,5 +1,4 @@
-//! Audit 22.30.96: real RPC consumers over loopback HTTP and committed producer records.
-//! Closure status and external wiring requests live in `rpc/repair_22_33_1545.kvx`.
+//! Gateway observations, committed block evidence, payments, and native custody configuration.
 #[path = "support/gateway_22_33_1546.rs"]
 mod gateway;
 
@@ -17,7 +16,7 @@ use serde_json::{json, Value};
 
 fn node_record() -> Value {
     must(serde_json::from_str(include_str!(
-        "fixtures/repair_22_33_1546_node.json"
+        "fixtures/node_committed_evidence.json"
     )))
 }
 

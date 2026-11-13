@@ -1,10 +1,10 @@
 [repair.22.31.222]
 audit = "22.30.96"
 findings = ["f02", "f03", "f05"]
-f02 = "repair_22_31_222::f02_module_state_returns_only_the_derived_slot_witness; repair_22_31_222::f02_module_state_refuses_slot_value_store_root_and_app_hash_substitution"
-f03 = "repair_22_31_222::f03_proof_bundle_retains_every_requested_slot_identity_and_value; repair_22_31_222::f03_proof_bundle_refuses_absent_mismatched_and_uncommitted_material"
-f05 = "repair_22_31_222::f05_receipt_requires_commit_and_signed_sequence_root_coverage; repair_22_31_222::f05_sequence_batch_round_trips_the_node_producer_codec"
-producer = "repair_22_31_222_producer/main.go executes the real MemIAVL store, SDK multistore, Comet header/vote codecs and node MsgSequenceBatch codec; Rust relays their output over HTTP into the crate."
+f02 = "authenticated_rpc_evidence::f02_module_state_returns_only_the_derived_slot_witness; authenticated_rpc_evidence::f02_module_state_refuses_slot_value_store_root_and_app_hash_substitution"
+f03 = "authenticated_rpc_evidence::f03_proof_bundle_retains_every_requested_slot_identity_and_value; authenticated_rpc_evidence::f03_proof_bundle_refuses_absent_mismatched_and_uncommitted_material"
+f05 = "authenticated_rpc_evidence::f05_receipt_requires_commit_and_signed_sequence_root_coverage; authenticated_rpc_evidence::f05_sequence_batch_round_trips_the_node_producer_codec"
+producer = "committed_evidence_producer/main.go executes the real MemIAVL store, SDK multistore, Comet header/vote codecs and node MsgSequenceBatch codec; Rust relays their output over HTTP into the crate."
 baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule override do_7's unchanged-tree verification instruction; the declared integration test did not exist on the starting tree."
 qualification = "The runner records the exact candidate revision, commands, exits and private evidence locations through hf-build and hf-done."
 

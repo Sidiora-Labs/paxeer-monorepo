@@ -2,10 +2,10 @@
 audit = "22.30.96"
 source_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
 findings = ["f26", "f28", "f27", "f29"]
-f26 = "repair_22_33_1545::f26_registered_history_preserves_gateway_observations_without_batch_proof_authority"
-f28 = "repair_22_33_1545::f28_committed_context_requires_verified_node_evidence_and_keeps_sequence_separate"
-f27 = "repair_22_33_1545::f27_payments_keep_flat_gateway_metadata_and_node_gas_estimates"
-f29 = "repair_22_33_1545::f29_native_configuration_codec_drives_eligibility_and_every_refusal"
+f26 = "rpc_commit_and_custody::f26_registered_history_preserves_gateway_observations_without_batch_proof_authority"
+f28 = "rpc_commit_and_custody::f28_committed_context_requires_verified_node_evidence_and_keeps_sequence_separate"
+f27 = "rpc_commit_and_custody::f27_payments_keep_flat_gateway_metadata_and_node_gas_estimates"
+f29 = "rpc_commit_and_custody::f29_native_configuration_codec_drives_eligibility_and_every_refusal"
 baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule override step 8's baseline instruction; the declared integration test did not exist at the starting revision. No pre-change test failure is claimed."
 qualification = "The hf-build/hf-done runner ledger records the exact candidate revision, command, exit and private evidence location; the final evidence JSON identifies that revision without creating a self-referential source hash."
 
@@ -49,7 +49,7 @@ repair = "Keep the verified block context private and distinct; put the independ
 [repair.consumer-22.31.485]
 change = "The fee-projection test constructs Head with CommittedBlockContext derived from a signature-verified recorded node header and separately supplies the observed sequence; sealed_batch and finalised_checkpoint are removed without changing any fee-projection assertions. The RPC boundary re-exports ChainProofVerifier and VerifiedChainHead for callers of its evidence APIs."
 proof = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs preserves stale/future snapshot refusal, exact current snapshot acceptance, freshness mismatch refusal, and malformed snapshot validation, including the sequence above 2^53; the committed height remains independently verified at 1200."
-provenance = "The constructor embeds lossless storage.signedHeader and validator excerpts from services/agent/crates/layerx-client/tests/fixtures/repair_22_33_1546_node.json because the consumer manifest and additional fixture paths are outside scope; production commit decoding and signature verification construct the context."
+provenance = "The constructor embeds lossless storage.signedHeader and validator excerpts from services/agent/crates/layerx-client/tests/fixtures/node_committed_evidence.json because the consumer manifest and additional fixture paths are outside scope; production commit decoding and signature verification construct the context."
 
 [qualification.attempt-3]
 revision = "88d84ad1d4f43b000576b8a397a5ee3b307ff0ee"

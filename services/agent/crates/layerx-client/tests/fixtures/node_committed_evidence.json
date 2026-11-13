@@ -544,7 +544,7 @@
     }
   },
   "provenance": {
-    "producer": "services/agent/crates/layerx-client/tests/fixtures/repair_22_33_1546_producer/main.go",
+    "producer": "services/agent/crates/layerx-client/tests/fixtures/committed_node_producer/main.go",
     "implementation": "Real MemIAVL membership and SDK CommitInfo.ProofOp, Comet Header.Hash/VoteSignBytes, node MsgSequenceBatch encoder",
     "generator_sha256": "5b80c4729147cde9f157dbb4690263daed6fda458c4f6506448be5cf19383e22"
   }

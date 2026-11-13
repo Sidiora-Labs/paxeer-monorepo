@@ -1,6 +1,4 @@
-//! Bounded proofs for audit 22.30.96; mapping and wiring live in
-//! `src/repair_22_33_1541.kvx`. All peers are local; the crash test reexecutes
-//! this already-built test binary, with no external tool or service.
+//! Journal recovery, RPC connection lifecycle, and subscription delivery over local peers.
 use layerx_client::ai_market::{AiClientError, OperationJournal, OperationRecord, OperationState};
 use layerx_client::frame::framing::{read_frame, write_frame};
 use layerx_client::px::PxEndpoint;

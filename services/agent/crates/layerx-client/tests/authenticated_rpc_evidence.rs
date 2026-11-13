@@ -58,7 +58,7 @@ fn producer() -> &'static Value {
                 .current_dir(root)
                 .args([
                     "run",
-                    "./services/agent/crates/layerx-client/src/rpc/repair_22_31_222_producer",
+                    "./services/agent/crates/layerx-client/src/rpc/committed_evidence_producer",
                 ])
                 .output(),
         );

@@ -1,5 +1,4 @@
-//! Retirement regression proof; finding mapping and baseline limits are in
-//! `src/lni/repair_22_33_1544.kvx`. No retired protocol module is compiled.
+//! Retired protocol boundaries and explicit chain and committed-header verification.
 use layerx_client::frame::framing::{read_frame, write_frame};
 use layerx_client::frame::transport::{FrameViolation, TransportError};
 use layerx_client::rpc::commit::{acquire_committed_header, decode_validators, CommitError};
@@ -205,7 +204,7 @@ fn f21_capability_advertisements_cannot_replace_receipt_key_pins() {
 fn f22_handshake_is_replaced_by_explicit_chain_and_verified_commit() {
     retired("handshake.rs");
     let corpus: Value = must(serde_json::from_str(include_str!(
-        "fixtures/repair_22_33_1546_node.json"
+        "fixtures/node_committed_evidence.json"
     )));
     let record = corpus["storage"].clone();
     let Some(height) = record["height"].as_u64() else {

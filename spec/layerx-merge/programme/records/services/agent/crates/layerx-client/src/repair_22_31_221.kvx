@@ -4,7 +4,7 @@ audit = "22.30.96"
 requirement = "22998.1"
 status = "implemented; qualification is determined exclusively by the bounded gate ledger"
 evidence = "hf-build/hf-done retain the exact candidate revision, command, exit and private log; no source declaration substitutes for that evidence"
-baseline = "Not executed: explicit user gate order prohibits running verify before implementation; repair_22_31_221.rs did not exist in the starting tree."
+baseline = "Not executed: explicit user gate order prohibits running verify before implementation; gateway_market_finality.rs did not exist in the starting tree."
 
 [finding.f01]
 test = "receipt_sequence_and_height_survive_reopen"

@@ -842,63 +842,63 @@ name = "clippy::needless_pass_by_value"
 repair = "Borrowed private helper inputs; the public request context is Copy and the public review_call consumes its validated transaction into the returned review."
 
 [test_source_repair.1]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 208
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.2]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 564
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.3]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 564
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.4]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 599
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.5]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 625
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.6]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 725
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.7]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 778
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.8]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 888
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.9]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 997
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
@@ -912,70 +912,70 @@ origin = "Static inspection before qualification; line numbers refer to the preq
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.11]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 22
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.12]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 102
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.13]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 141
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.14]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 164
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.15]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 169
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.16]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 179
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.17]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 187
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.18]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 191
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.19]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 199
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.20]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 211
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
@@ -1017,63 +1017,63 @@ origin = "Static inspection before qualification; line numbers refer to the preq
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.26]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 85
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.27]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 304
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.28]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 324
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.29]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 326
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.30]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 329
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.31]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 345
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.32]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 364
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.33]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 392
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.34]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 483
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
@@ -1213,28 +1213,28 @@ origin = "Static inspection before qualification; line numbers refer to the preq
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.54]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 50
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.55]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 118
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.56]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 199
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.57]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 206
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
@@ -1332,112 +1332,112 @@ origin = "Static inspection before qualification; line numbers refer to the preq
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.71]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 49
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.72]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 55
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.73]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 56
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.74]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 57
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.75]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 61
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.76]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 101
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.77]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 128
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.78]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 129
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.79]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 153
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.80]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 181
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.81]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 181
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.82]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 187
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.83]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 193
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.84]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 232
 name = "clippy::expect_used"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Replaced expect with a matching assertion that still panics on the same absent or erroneous value."
 
 [test_source_repair.85]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 138
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.86]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 267
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
@@ -1549,7 +1549,7 @@ origin = "Static inspection before qualification; line numbers refer to the preq
 repair = "Added digit separators without changing the literal value."
 
 [test_source_repair.102]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+file = "services/agent/crates/layerx-client/tests/authenticated_rpc_evidence.rs"
 line = 224
 name = "clippy::unreadable_literal"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
@@ -1864,14 +1864,14 @@ origin = "Static inspection before qualification; line numbers refer to the preq
 repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
 
 [test_source_repair.147]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+file = "services/agent/crates/layerx-client/tests/authenticated_rpc_evidence.rs"
 line = 263
 name = "clippy::cast_possible_truncation/cast_possible_wrap"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
 repair = "Used a checked conversion with the existing test failure assertion, or extracted the bounded low byte."
 
 [test_source_repair.148]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+file = "services/agent/crates/layerx-client/tests/authenticated_rpc_evidence.rs"
 line = 264
 name = "clippy::cast_possible_truncation/cast_possible_wrap"
 origin = "Static inspection before qualification; line numbers refer to the prequalification source at repair time."
@@ -2039,7 +2039,7 @@ repair = "Restored OperationRecord to the import list for the existing signing a
 evidence = "Private evidence: /out/run/gates.jsonl; the last build and verify rows for this attempt define the exact candidate revision, command, exit code and log."
 build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
 verify_command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
-verify_target = "test -s services/agent/crates/layerx-client/src/repair_22_39_219.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings"
+verify_target = "test -s spec/layerx-merge/programme/records/services/agent/crates/layerx-client/src/repair_22_39_219.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings"
 verified_revision = "By reference: revision of the final passing verify row in /out/run/gates.jsonl, matching the final passing build row."
 final_count = 8
 status = "Implemented-not-qualified: final build passed, final verify failed; both repair units spent. The final inventory below records the remaining lints."
@@ -2212,56 +2212,56 @@ name = "clippy::match_same_arms"
 repair = "Merged identical malformed-evidence match arms while retaining every damage case."
 
 [continuation.inventory.lint.23]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1546.rs"
+file = "services/agent/crates/layerx-client/tests/producer_transcript_consumers.rs"
 line = 3
 column = 1
 name = "clippy::duplicate_mod"
 repair = "Loaded the gateway support once per test target and imported its transport from the parent module."
 
 [continuation.inventory.lint.24]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+file = "services/agent/crates/layerx-client/tests/authenticated_rpc_evidence.rs"
 line = 99
 column = 5
 name = "clippy::too_many_lines"
 repair = "Extracted existing setup, response construction or assertion groups into private helpers; all checks and execution order are retained."
 
 [continuation.inventory.lint.25]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 77
 column = 9
 name = "clippy::similar_names"
 repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
 
 [continuation.inventory.lint.26]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 88
 column = 9
 name = "clippy::similar_names"
 repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
 
 [continuation.inventory.lint.27]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 122
 column = 13
 name = "clippy::similar_names"
 repair = "Renamed response payloads, verified heads and request counters to distinguish them from servers, verifiers and paged data."
 
 [continuation.inventory.lint.28]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+file = "services/agent/crates/layerx-client/tests/authenticated_rpc_evidence.rs"
 line = 334
 column = 17
 name = "clippy::semicolon_if_nothing_returned"
 repair = "Terminated the unit-returning statement with a semicolon."
 
 [continuation.inventory.lint.29]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+file = "services/agent/crates/layerx-client/tests/authenticated_rpc_evidence.rs"
 line = 453
 column = 1
 name = "clippy::too_many_lines"
 repair = "Extracted existing setup, response construction or assertion groups into private helpers; all checks and execution order are retained."
 
 [continuation.inventory.lint.30]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_222.rs"
+file = "services/agent/crates/layerx-client/tests/authenticated_rpc_evidence.rs"
 line = 494
 column = 42
 name = "clippy::redundant_closure_for_method_calls"
@@ -2289,21 +2289,21 @@ name = "clippy::unnecessary_semicolon"
 repair = "Removed the semicolon after the function item."
 
 [continuation.inventory.lint.34]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 2
 column = 57
 name = "clippy::doc_markdown"
 repair = "Quoted the referenced file path in documentation."
 
 [continuation.inventory.lint.35]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1545.rs"
+file = "services/agent/crates/layerx-client/tests/rpc_commit_and_custody.rs"
 line = 207
 column = 1
 name = "clippy::too_many_lines"
 repair = "Extracted existing setup, response construction or assertion groups into private helpers; all checks and execution order are retained."
 
 [continuation.inventory.lint.36]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1546.rs"
+file = "services/agent/crates/layerx-client/tests/producer_transcript_consumers.rs"
 line = 2
 column = 68
 name = "clippy::doc_markdown"
@@ -2442,7 +2442,7 @@ name = "clippy::unnecessary_semicolon"
 status = "Unrepaired: bounded repair budget exhausted."
 
 [continuation.remaining.lint.4]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 2
 column = 5
 name = "clippy::doc_markdown"
@@ -2456,14 +2456,14 @@ name = "clippy::too_many_lines"
 status = "Unrepaired: bounded repair budget exhausted."
 
 [continuation.remaining.lint.6]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 98
 column = 59
 name = "clippy::needless_pass_by_value"
 status = "Unrepaired: bounded repair budget exhausted."
 
 [continuation.remaining.lint.7]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 183
 column = 1
 name = "clippy::too_many_lines"
@@ -2481,7 +2481,7 @@ file = "services/agent/crates/layerx-client/tests/committed_caps.rs"
 count = 3
 
 [continuation.remaining.file.2]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 count = 3
 
 [continuation.remaining.file.3]
@@ -2518,7 +2518,7 @@ name = "clippy::unnecessary_semicolon"
 repair = "Removed the semicolon after the unit-valued directory-removal match."
 
 [attempt3.lint.4]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 2
 name = "clippy::doc_markdown"
 repair = "Put the referenced repair-record path in backticks."
@@ -2530,13 +2530,13 @@ name = "clippy::too_many_lines"
 repair = "Extracted cursor validation into assert_invalid_history_cursors, called after the same server-join assertion; all cursor inputs and assertions remain unchanged."
 
 [attempt3.lint.6]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 98
 name = "clippy::needless_pass_by_value"
 repair = "Borrowed the private HTTP answer helper result and updated all four callers."
 
 [attempt3.lint.7]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 183
 name = "clippy::too_many_lines"
 repair = "Extracted await_child_submission with the same deadline, liveness assertions and accept loop; the process termination and journal recovery assertions remain in the test."
@@ -2551,7 +2551,7 @@ repair = "Returned the Copy receipt-key entry directly, preserving its value."
 evidence = "By reference: the last build and verify rows in the private /out/run/gates.jsonl ledger for this attempt supply revision, command, exit code and log path; both must pass at the same revision."
 build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --all-targets"
 verify_command = "cg spec done 22.39.219 -f layerx-merge --root /work/paxeer-monorepo"
-verify_target = "test -s services/agent/crates/layerx-client/src/repair_22_39_219.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings"
+verify_target = "test -s spec/layerx-merge/programme/records/services/agent/crates/layerx-client/src/repair_22_39_219.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-client --no-deps --all-targets -- -D warnings"
 verified_revision = "By reference: the final passing verify row revision in /out/run/gates.jsonl, equal to the final passing build revision."
 final_count = "By reference: a passing final verify row establishes zero remaining lints under -D warnings; a failed row establishes no zero-lint claim."
 result = "Qualified only when hf-done passes; the private ledger is authoritative, including any failure and bounded repair rerun."
@@ -2583,7 +2583,7 @@ name = "clippy::too_many_lines"
 repair = "Moved the nested fixed-size hex decoder to a private function without changing its input checks or conversions."
 
 [attempt3.repair_cycle.lint.3]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 98
 name = "clippy::too_many_lines"
 repair = "Extracted typed_reads_node to own the existing server closure and producer records; all request assertions, responses and client assertions are unchanged."
@@ -2595,7 +2595,7 @@ name = "clippy::too_many_lines"
 repair = "Extracted the invalid-cursor input checks into assert_invalid_history_cursors and called it after the original request assertions."
 
 [attempt3.repair_cycle.lint.5]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1541.rs"
+file = "services/agent/crates/layerx-client/tests/journal_transport_lifecycle.rs"
 line = 628
 name = "clippy::expect_used"
 repair = "Destructured the required worker with let-else, retaining the panic on absence and the same worker join."
@@ -2678,7 +2678,7 @@ name = "clippy::unreadable_literal"
 status = "Unrepaired: bounded repair budget exhausted; out-of-scope source is recorded only."
 
 [attempt3.remaining.lint.3]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 168
 column = 1
 name = "clippy::too_many_lines"
@@ -2819,7 +2819,7 @@ file = "services/agent/crates/layerx-client/tests/proof_client.rs"
 count = 17
 
 [attempt3.remaining.file.3]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 count = 1
 
 [attempt3.remaining.file.4]
@@ -2866,7 +2866,7 @@ name = "clippy::similar_names"
 repair = "Renamed the journal path binding to record_path to distinguish it from prepared."
 
 [attempt4.lint.3]
-file = "services/agent/crates/layerx-client/tests/repair_22_34_5.rs"
+file = "services/agent/crates/layerx-client/tests/node_root_routing.rs"
 line = 168
 column = 1
 name = "clippy::too_many_lines"
@@ -3025,14 +3025,14 @@ name = "clippy::unreadable_literal"
 status = "Unchanged recorded blocker; see attempt3.finding.included_gateway and the trigger log."
 
 [attempt4.repair_cycle.lint.2]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 204
 column = 9
 name = "clippy::similar_names"
 repair = "Renamed the captured response documents to response_body and the journal approval signer to owner_key, without changing values."
 
 [attempt4.repair_cycle.lint.3]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 339
 column = 9
 name = "clippy::similar_names"
@@ -3067,168 +3067,168 @@ name = "clippy::too_many_lines"
 repair = "Extracted named source and assertion helpers called in the original execution order with all original test entry points, assertions, bounds and data."
 
 [attempt4.repair_cycle.lint.8]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 1
 column = 37
 name = "clippy::doc_markdown"
 repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
 
 [attempt4.repair_cycle.lint.9]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 2
 column = 12
 name = "clippy::doc_markdown"
 repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
 
 [attempt4.repair_cycle.lint.10]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 3
 column = 12
 name = "clippy::doc_markdown"
 repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
 
 [attempt4.repair_cycle.lint.11]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 3
 column = 50
 name = "clippy::doc_markdown"
 repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
 
 [attempt4.repair_cycle.lint.12]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 4
 column = 12
 name = "clippy::doc_markdown"
 repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
 
 [attempt4.repair_cycle.lint.13]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 4
 column = 55
 name = "clippy::doc_markdown"
 repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
 
 [attempt4.repair_cycle.lint.14]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 13
 column = 5
 name = "clippy::doc_markdown"
 repair = "Wrapped the existing referenced test functions, carrier type and repair record in documentation backticks."
 
 [attempt4.repair_cycle.lint.15]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 251
 column = 17
 name = "clippy::cast_possible_truncation"
 repair = "Replaced unchecked integer casts with try_from and the existing must helper; the varint continuation byte converts the masked seven bits."
 
 [attempt4.repair_cycle.lint.16]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 607
 column = 17
 name = "clippy::cast_possible_wrap"
 repair = "Checked the fixture header height with i64::try_from and the existing must helper."
 
 [attempt4.repair_cycle.lint.17]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 728
 column = 1
 name = "clippy::too_many_lines"
 repair = "Extracted named source and assertion helpers called in the original execution order with all original test entry points, assertions, bounds and data."
 
 [attempt4.repair_cycle.lint.18]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 800
 column = 31
 name = "clippy::cloned_ref_to_slice_refs"
 repair = "Borrowed the original key with std::slice::from_ref, retaining the same single-key context."
 
 [attempt4.repair_cycle.lint.19]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 800
 column = 33
 name = "clippy::clone_on_copy"
 repair = "Borrowed the original key through std::slice::from_ref rather than cloning a Copy key into a temporary array."
 
 [attempt4.repair_cycle.lint.20]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 826
 column = 27
 name = "clippy::cloned_ref_to_slice_refs"
 repair = "Borrowed the original key with std::slice::from_ref, retaining the same single-key context."
 
 [attempt4.repair_cycle.lint.21]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 826
 column = 29
 name = "clippy::clone_on_copy"
 repair = "Borrowed the original key through std::slice::from_ref rather than cloning a Copy key into a temporary array."
 
 [attempt4.repair_cycle.lint.22]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 863
 column = 31
 name = "clippy::cloned_ref_to_slice_refs"
 repair = "Borrowed the original key with std::slice::from_ref, retaining the same single-key context."
 
 [attempt4.repair_cycle.lint.23]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 863
 column = 33
 name = "clippy::clone_on_copy"
 repair = "Borrowed the original key through std::slice::from_ref rather than cloning a Copy key into a temporary array."
 
 [attempt4.repair_cycle.lint.24]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 884
 column = 31
 name = "clippy::cloned_ref_to_slice_refs"
 repair = "Borrowed the original key with std::slice::from_ref, retaining the same single-key context."
 
 [attempt4.repair_cycle.lint.25]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 884
 column = 33
 name = "clippy::clone_on_copy"
 repair = "Borrowed the original key through std::slice::from_ref rather than cloning a Copy key into a temporary array."
 
 [attempt4.repair_cycle.lint.26]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 1041
 column = 19
 name = "clippy::cast_possible_truncation"
 repair = "Replaced unchecked integer casts with try_from and the existing must helper; the varint continuation byte converts the masked seven bits."
 
 [attempt4.repair_cycle.lint.27]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 1044
 column = 14
 name = "clippy::cast_possible_truncation"
 repair = "Replaced unchecked integer casts with try_from and the existing must helper; the varint continuation byte converts the masked seven bits."
 
 [attempt4.repair_cycle.lint.28]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 1068
 column = 37
 name = "clippy::type_complexity"
 repair = "Named the private namespace-proof tuple with a type alias without changing its representation."
 
 [attempt4.repair_cycle.lint.29]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 1072
 column = 33
 name = "clippy::cast_possible_truncation"
 repair = "Replaced unchecked integer casts with try_from and the existing must helper; the varint continuation byte converts the masked seven bits."
 
 [attempt4.repair_cycle.lint.30]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 1075
 column = 33
 name = "clippy::cast_possible_truncation"
 repair = "Replaced unchecked integer casts with try_from and the existing must helper; the varint continuation byte converts the masked seven bits."
 
 [attempt4.repair_cycle.lint.31]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1547.rs"
+file = "services/agent/crates/layerx-client/tests/receipt_sequencer_withdrawal.rs"
 line = 2
 column = 64
 name = "clippy::doc_markdown"
@@ -3432,7 +3432,7 @@ log = "/out/logs/verify-1.log"
 reported_locations = 6
 
 [attempt6.repair1.lint.1]
-file = "services/agent/crates/layerx-client/tests/repair_22_31_221.rs"
+file = "services/agent/crates/layerx-client/tests/gateway_market_finality.rs"
 line = 56
 reported_file = "services/platform/hosted/gateway/src/evm.rs:603:41"
 name = "clippy::unreadable_literal"
@@ -3440,31 +3440,31 @@ replaced_path_attribute = "../../../../platform/hosted/gateway/src/evm.rs"
 repair = "Imported the real public gateway codec through the existing dev-dependency and retained all ten embedded gateway tests via support/gateway_evm_22_39_219.rs, whose equivalent literal has separators; no foreign source changed."
 
 [attempt6.repair1.lint.2]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 119
 name = "clippy::similar_names"
 repair = "Renamed the captured fixture clone to response_case, preserving all requests and assertions."
 
 [attempt6.repair1.lint.3]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 212
 name = "clippy::similar_names"
 repair = "Renamed the captured fixture clone to response_record, preserving all requests and assertions."
 
 [attempt6.repair1.lint.4]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 2
 name = "clippy::doc_markdown"
 repair = "Wrapped the repair record path in documentation backticks."
 
 [attempt6.repair1.lint.5]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 28
 name = "clippy::expect_used"
 repair = "Matched the metadata result explicitly, preserving the failure message and the following NotFound assertion."
 
 [attempt6.repair1.lint.6]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 62
 name = "clippy::needless_pass_by_value"
 repair = "Borrowed the frame payload as a slice and retained an owned copy for the spawned receiver; the bidirectional equality assertions remain in order."
@@ -3494,13 +3494,13 @@ exit = 1
 log = "/out/logs/verify-2.log"
 
 [attempt6.remaining.lint.1]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 28
 name = "clippy::manual_let_else"
 status = "Unrepaired at the bounded stop; the explicit Result match replacing expect_err must use let Err(error) = ... else with the same panic message."
 
 [attempt6.remaining.file.1]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 count = 1
 
 [attempt6.gotcha.match_style]
@@ -3516,10 +3516,10 @@ seed_revision = "a6a2b3f98a842b9c61de44ce235a518a801e97da"
 base_revision = "b352db3185e20cbc473cdf712dd16f353fc18097"
 decision = "3099"
 gotcha = "3926"
-implementation = "Preserved all inherited source repairs, tests, assertions, gateway dev-dependency and lockfile. The path replacement in repair_22_31_221.rs and six repairs in repair_22_33_1544.rs are recorded in attempt6.repair1; completed the remaining let-else shape below."
+implementation = "Preserved all inherited source repairs, tests, assertions, gateway dev-dependency and lockfile. The path replacement in gateway_market_finality.rs and six repairs in retired_protocol_boundaries.rs are recorded in attempt6.repair1; completed the remaining let-else shape below."
 
 [attempt8.lint.1]
-file = "services/agent/crates/layerx-client/tests/repair_22_33_1544.rs"
+file = "services/agent/crates/layerx-client/tests/retired_protocol_boundaries.rs"
 line = 28
 name = "clippy::manual_let_else"
 repair = "Replaced the diverging metadata match with let Err(error) = ... else, preserving the exact panic message and following NotFound assertion. No allowance or assertion changed."
@@ -3533,5 +3533,5 @@ remaining_count_reference = "The final passing verify row establishes a final co
 status = "Qualified only when the final build, dependents and verify rows pass at the same candidate revision; the gate ledger supplies the exact verified revision by reference."
 
 [attempt8.gotcha.seed_state]
-symptom = "The resumed seed already contains the gateway path replacement and the six earlier target repairs, but still contains the recorded manual_let_else diagnostic at repair_22_33_1544.rs:28."
+symptom = "The resumed seed already contains the gateway path replacement and the six earlier target repairs, but still contains the recorded manual_let_else diagnostic at retired_protocol_boundaries.rs:28."
 resolution = "Continued from the applied seed, completed only the missing let-else repair, and retained the historical inventory and evidence without rerunning a baseline gate."
