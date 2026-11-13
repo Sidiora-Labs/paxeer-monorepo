@@ -32,13 +32,13 @@ const MAX_AGE_MS: u64 = 1_000;
 fn deployment_fixture(
     published: bool,
 ) -> (chain::ChainFixture, ChainDeploymentProof, ProgramInterface) {
-    let program = repair_22_33_221::program();
-    let key = repair_22_33_221::program_key();
-    let interface = repair_22_33_221::descriptor(1);
-    let record = repair_22_33_221::runtime_records()[0].clone();
+    let program = chain_deployment_support::program();
+    let key = chain_deployment_support::program_key();
+    let interface = chain_deployment_support::descriptor(1);
+    let record = chain_deployment_support::runtime_records()[0].clone();
     let interface_key =
         chain_evidence::programs_state_key(&layerx_programs::interface_state_key(program));
-    let mut rows = vec![(key.clone(), repair_22_33_221::state_value(&record))];
+    let mut rows = vec![(key.clone(), chain_deployment_support::state_value(&record))];
     if published {
         rows.push((
             interface_key.clone(),
@@ -320,7 +320,7 @@ fn chain_deployment_current_and_historical_verify() {
     fixture.verifier.validators = trust_chain[2].2.clone();
     let mut current_proof = proof.clone();
     let key = chain_evidence::programs_state_key(&layerx_programs::interface_state_key(
-        repair_22_33_221::program(),
+        chain_deployment_support::program(),
     ));
     current_proof.interface = Some(
         fixture
@@ -381,10 +381,10 @@ fn chain_deployment_refuses_code_hash_mismatch() {
 }
 
 #[allow(dead_code)]
-#[path = "support/repair_22_33_221.rs"]
-mod repair_22_33_221;
+#[path = "support/chain_deployment_support.rs"]
+mod chain_deployment_support;
 
 #[test]
 fn node_interface_presence_absence_current_historical() {
-    repair_22_33_221::verifier_interface_coverage();
+    chain_deployment_support::verifier_interface_coverage();
 }

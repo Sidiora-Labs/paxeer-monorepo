@@ -47,5 +47,5 @@ previously verified object and treat it as authenticated.
    signed batch and verifies its native encoding. Consume adjacent boundary
    proofs with `verify_step` and assert their resulting indices and activity id.
 
-The [interface tests](../tests/repair_22_33_215.rs) exercise both authority
+The [interface tests](../tests/chain_authenticated_interfaces.rs) exercise both authority
 constructors, transported chain proofs and adjacent replay steps.

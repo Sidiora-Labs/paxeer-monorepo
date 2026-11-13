@@ -59,7 +59,7 @@ disposition = "Decision 3034 qualifies the activity-path retirement first with t
 preserved = "The exclusions change only the declared qualification selection; every test body, assertion, vector and portable boundary encoding remains intact"
 
 [callers.repair_22_33_215]
-file = "programs/crates/layerx-programs-arbiter/tests/repair_22_33_215.rs"
+file = "programs/crates/layerx-programs-arbiter/tests/chain_authenticated_interfaces.rs"
 base_lines = [218]
 moved = ["historical::activity::encode_signed"]
 

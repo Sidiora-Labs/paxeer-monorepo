@@ -56,7 +56,7 @@ log = "/out/logs/verify-1.log"
 observed = "Three focused cases passed; five chain cases stopped in the Go producer's uint128 ABI argument conversion before verifier admission."
 
 [fixtures.production-transcript]
-path = "programs/crates/layerx-programs-registry/src/repair_22_31_256.hex"
+path = "programs/crates/layerx-programs-registry/src/deployment_transcripts.hex"
 sha256 = "5798c9304ce5dd774f153da4f4f3208f1205f4cbfd1854732a49636dc9d76c6e"
 producer = "Node TxRaw, MsgEVMTransaction, geth ABI and ResponseDeliverTx serializers; ctx.go account export/restore bridge; deploy.c migration_accounting_stage with the production scalar runtime-version accessor."
 consumer = "The focused gate consumes the transcript in process and checks module/interface input parity, result roots, account framing, full migration usage, durable envelopes and recovered identities."
