@@ -1,10 +1,3 @@
-//! Task 22.33.1554, finding `payment_binding_fixture_retired`:
-//! `payment_binding_fixture_retired` proves the shared positive fixture and every receipt-key refusal.
-//! Baseline: no prior gate ledger or repair target existed. The implementation-first,
-//! wrapper-only order precludes the contradictory additional unchanged-tree verify run;
-//! no baseline test failure is claimed. The audit records the original positive parse failure.
-//! No out-of-path wiring is required. hf-`build/hf-done` retain the qualified revision and logs.
-
 use layerx_mcp_test_support::option_assertion;
 use layerx_mcp_test_support::result_assertion;
 

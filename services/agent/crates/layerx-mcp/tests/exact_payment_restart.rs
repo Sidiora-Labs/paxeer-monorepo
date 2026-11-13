@@ -1,34 +1,3 @@
-//! Task 22.33.1551 repair record.
-//! `web_hold_not_call`: `restart_hold_approval_and_exact_retry_through_served_route`,
-//! `restart_refuses_changed_resource_offer_and_sender`, `changed_held_preparation_is_defective`,
-//! `invalid_transaction_preparation_never_creates_a_hold`.
-//! Durable corruption: `restart_refuses_changed_durable_transaction_and_sender`.
-//! Interrupted hold: `restart_recovers_preparation_before_hold_publication`.
-//! Wiring request (domain 9): `services/agent/crates/layerx-agentd-host/src/payer.rs` must
-//! implement `WebPayer`::{`approval_resources`,`prepare_transaction`,`submit_transaction`} using
-//! the owner's shared durable approval `store/expiry/limits` and exact EIP-1559 signing path.
-//! Wiring request (domain 9): `services/agent/crates/layerx-agentd-host/src/payer.rs` must
-//! obtain receiver-owned draw approval for above-threshold existing metered grants;
-//! the payer's unsigned call cannot substitute for the sidecar's actual draw.
-//! Exact-payment codec: `restart_hold_approval_and_exact_retry_through_served_route`
-//! drives the web producer through EVM preparation, disclosure binding, durable hold,
-//! reopen, approval and exact retry; `pay_exact_codec_checks` also proves strict ABI refusal.
-//! Qualification: ed5358cce66b288c77c861bf58cf80d354663ecd;
-//! cg spec done 22.33.1551 -f layerx-merge --root /`work/paxeer-monorepo`; exit 1;
-//! /`out/logs/verify-1.log:` `invalid_transaction_preparation_never_creates_a_hold` passed;
-//! `restart_hold_approval_and_exact_retry_through_served_route`,
-//! `restart_refuses_changed_resource_offer_and_sender`, `changed_held_preparation_is_defective`,
-//! `restart_refuses_changed_durable_transaction_and_sender` and
-//! `restart_recovers_preparation_before_hold_publication` failed at the missing `payExact` codec.
-//! Baseline: no earlier gate ledger or repair test existed; the explicit implementation-first,
-//! wrapper-only gate order excludes the contradictory unchanged-tree verification run.
-//! Continuation qualification: 36c6e1febc17409a21de554ff48341aadcc07607;
-//! cg spec done 22.33.1551 -f layerx-merge --root /`work/paxeer-monorepo`; exit 1;
-//! /`out/logs/verify-1.log:` three passed; the exact-retry recording omitted the JSON
-//! Content-Type required by the real RPC client, and two substring checks did not
-//! match the served `ApprovalChanged` refusal. Exact refusal equality is asserted below.
-//! Qualification revision and private evidence are emitted by hf-`build/hf-done.`
-
 use layerx_mcp_test_support::option_assertion;
 use layerx_mcp_test_support::result_assertion;
 

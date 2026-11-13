@@ -387,12 +387,26 @@ fn append_budget_constructor_cases(calls: &mut Vec<(Eip1559Call, &'static str)>)
         word(1),
     ];
     for (native, signature) in [
-        (false, "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)"),
-        (true, "budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)"),
+        (
+            false,
+            "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+        ),
+        (
+            true,
+            "budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)",
+        ),
     ] {
         let mut words = budget_words.to_vec();
-        if native { words.extend([[0x25; 32], word(9)]); }
-        calls.push((call(0x101b, [ledger_selector(signature).to_vec(), words.concat()].concat()), signature));
+        if native {
+            words.extend([[0x25; 32], word(9)]);
+        }
+        calls.push((
+            call(
+                0x101b,
+                [ledger_selector(signature).to_vec(), words.concat()].concat(),
+            ),
+            signature,
+        ));
     }
     for signature in [
         "budgetFund(bytes32,uint128)",

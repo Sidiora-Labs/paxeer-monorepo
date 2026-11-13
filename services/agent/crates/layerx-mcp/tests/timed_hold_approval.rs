@@ -1,5 +1,3 @@
-//! Timed approval proof through SDK envelopes, the daemon binding and the real web route.
-
 use layerx_mcp_test_support::option_assertion;
 use layerx_mcp_test_support::result_assertion;
 

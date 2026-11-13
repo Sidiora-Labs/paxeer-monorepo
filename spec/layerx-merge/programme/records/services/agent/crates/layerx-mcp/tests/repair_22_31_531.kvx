@@ -17,7 +17,7 @@ restart = "Drop the served server, registry and all original approval resources;
 build_gate = "hf-build"
 build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
 verify_gate = "hf-done"
-verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_531 --test repair_22_33_1551 --test repair_22_31_527"
+verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test standing_grant_approval --test exact_payment_restart --test timed_hold_approval"
 evidence_command = "cg spec done 22.31.531 -f layerx-merge --root /work/paxeer-monorepo"
 results = "The gate-written /out/run/gates.jsonl build and verify rows record exact candidate revision, command, exit code and private log. The final response copies the last hf-done row, or hf-build if verification never ran. This source record is finalized before the gates so build and verify qualify the same candidate, without a self-referential revision."
 private_build_log = "/out/logs/build-1.log"
@@ -29,7 +29,7 @@ revision = "1d38ef451ebdb4f14bb90d48d65675ec0caffc04"
 command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
 exit = 0
 log = "/out/logs/build-1.log"
-observed = "All MCP test targets, including repair_22_31_531, compile successfully."
+observed = "All MCP test targets, including standing_grant_approval, compile successfully."
 
 [qualification.verify_1]
 revision = "1d38ef451ebdb4f14bb90d48d65675ec0caffc04"

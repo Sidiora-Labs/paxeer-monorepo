@@ -1,20 +1,3 @@
-//! Task 22.31.224 repair record.
-//! `seller_rpc_misroute`: `seller_routes_and_node_transport_complete_exact_and_metered`,
-//! `node_account_failures_never_reach_settlement`.
-//! `native_disclosure_legacy`: `native_unsigned_call_prepare_disclose_sign_and_submit_binding`,
-//! `native_call_rejects_every_changed_response_and_intent_field`.
-//! Wiring request (domain 9): `services/agent/crates/layerx-agentd/src/human_runtime.rs` must serve EVM native owner answers through `native_call_preparation_answer/native_call_disclosure_answer.`
-//! Wiring request (domain 9): `services/agent/crates/layerx-agent-api/src/identity.rs` and `services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs` need the EVM sender-bound native request replacing the explicitly refused legacy `NativeSendPurposeV1`.
-//! Wiring request (domain 9): `services/agent/crates/layerx-agentd-host/src/payer.rs` must implement `WebPayer::view` against the authenticated node root; old payer test adapters also need to handle `accountId`.
-//! Baseline: no prior gate ledger or repair test existed; the explicit implementation-first,
-//! wrapper-only gate order excludes the contradictory additional unchanged-tree test run.
-//! Qualification attempt 1: revision 69fe40a07f08a49e888b2be15c03a4f0fda31b9a; hf-build passed;
-//! hf-done exited 1 (/`out/logs/verify-1.log`): four passed, exact purchase used the wrong full-receipt decoder.
-//! Repair: use the SDK receipt-evidence transport and explicitly verify the captured signature and log commitments.
-//! Continuation repair: `connect_node` preserves the merged node root for receipt evidence;
-//! connect appended /rpc and violated `NodeRecording`'s POST / assertion before decoding.
-//! Final gate revision and private evidence are emitted by hf-`build/hf-done.`
-
 use layerx_mcp_test_support::{native_alias, option_assertion, seller_exchange};
 use serde_json::json;
 

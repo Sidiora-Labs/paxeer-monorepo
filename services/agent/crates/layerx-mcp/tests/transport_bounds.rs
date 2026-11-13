@@ -1,20 +1,3 @@
-//! Task 22.33.1552 repair record.
-//! `connect_deadline`: `connect_deadline_backlog`, `connect_deadline_stalled_response`,
-//! `connect_deadline_trickled_response`.
-//! `hex_length_validation`: `hex32_tools_call_rejects_before_daemon`,
-//! `hex64_tools_call_rejects_before_authenticated_codec`.
-//! `approval_page_bound`: `approval_page_bound_authenticated_transport`.
-//! `listener_monopolisation`: `listener_monopolisation_active_connection_yields`.
-//! No proposal requires out-of-scope wiring.
-//! Baseline: no prior gate ledger or repair test existed; the ordered implementation-first,
-//! wrapper-only gate instructions preclude the conflicting additional baseline test run.
-//! Attempt 1: 5d7dbb8964d5e13b338899173cf38d8be1564a22; hf-build passed;
-//! hf-done exited 1 (/`out/logs/verify-1.log`). Six cases passed; the approval fixture
-//! failed and the nested write fixture deadlocked, so the stalled test process was stopped.
-//! Repair: keep the authenticated approval dispatch audit separate from the calling session;
-//! let the write peer consume its signature with the real codec after the session's write gate.
-//! Final revision and private evidence are recorded by hf-`build/hf-done.`
-
 use layerx_mcp_test_support::option_assertion;
 use layerx_mcp_test_support::result_assertion;
 

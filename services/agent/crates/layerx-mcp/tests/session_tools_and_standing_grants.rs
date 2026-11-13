@@ -1,15 +1,3 @@
-//! Task 22.31.223 repair record.
-//! `session_tools_unbound`: `session_tools_bind_describe_and_acknowledge`,
-//! `session_tools_read_only_filtering`, `session_tools_authenticated_daemon_codec`,
-//! `session_approval_result_keeps_major_two_fields`.
-//! `shared_payer_methods`: `existing_grants_through_opened_web_route`,
-//! `existing_grants_still_require_verified_receipts`.
-//! Wiring request: domain 9, `services/agent/crates/layerx-agentd-host/src/payer.rs:`
-//! implement `WebPayerBoundary::standing_grant` and `WebPayerBoundary::view` against the authenticated node.
-//! Baseline: no prior gate ledger or repair test existed; the ordered implementation-first
-//! and wrapper-only gate instructions prohibit the task text's additional baseline run.
-//! Qualification revision and private logs are recorded by hf-`build/hf-done`, not invented here.
-
 use layerx_mcp_test_support::option_assertion;
 use layerx_mcp_test_support::result_assertion;
 
