@@ -26,7 +26,7 @@ The Go packages use the repository's [go.mod](../../go.mod). They compile as par
 
 ```sh
 npm ci --no-audit --no-fund --prefix services/bridge/deploy/appenv
-npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/repair_270
+npm ci --no-audit --no-fund --prefix services/bridge/deploy/proposals/testdata/vault_compiler_fixtures
 go test -count=1 ./contracts/bridge/vectors/... ./services/bridge/deploy/...
 bash services/bridge/deploy/tests/workflow-check.sh
 bash services/bridge/deploy/tests/deploy-scripts-check.sh

@@ -30,7 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair270WriteJSON(t *testing.T, name string, value any) string {
+func writeProposalJSON(t *testing.T, name string, value any) string {
 	t.Helper()
 	raw, err := json.Marshal(value)
 	require.NoError(t, err)
@@ -42,7 +42,7 @@ func repair270WriteJSON(t *testing.T, name string, value any) string {
 
 // Keep both command schemas on the same asset list, including mutations that
 // would otherwise bypass the canonical loader through the legacy interface.
-func repair270Input(t *testing.T, chain, schema string, mutate func(*ChainConfig)) (ChainConfig, string, []string) {
+func proposalInput(t *testing.T, chain, schema string, mutate func(*ChainConfig)) (ChainConfig, string, []string) {
 	t.Helper()
 	fixture := ethereumPath
 	if chain == "solana" {
@@ -52,7 +52,7 @@ func repair270Input(t *testing.T, chain, schema string, mutate func(*ChainConfig
 	require.NoError(t, err)
 	if schema == "legacy" {
 		mutate(&legacy)
-		return legacy, repair270WriteJSON(t, "config.json", legacy), nil
+		return legacy, writeProposalJSON(t, "config.json", legacy), nil
 	}
 	canonical := loadCanonical(t, deployableConfiguration(t, chain))
 	vault := legacy.Vault
@@ -79,10 +79,10 @@ func repair270Input(t *testing.T, chain, schema string, mutate func(*ChainConfig
 	}
 	canonical.Attestors = cfg.Attestors
 	canonical.Threshold = cfg.Threshold
-	return cfg, repair270WriteJSON(t, filepath.Join(chain, "config.json"), canonical), []string{"-authority", cfg.Authority, "-vault", cfg.Vault}
+	return cfg, writeProposalJSON(t, filepath.Join(chain, "config.json"), canonical), []string{"-authority", cfg.Authority, "-vault", cfg.Vault}
 }
 
-func TestRepair_270_RejectMismatchedBindings(t *testing.T) {
+func TestMismatchedBindingsAreRejected(t *testing.T) {
 	t.Setenv(chainconfig.OverlayEnv, "")
 	other := "0x7a3e5c81b04d296f8e1a7c35d92b6f04e8c1a37d"
 	for _, tc := range []struct {
@@ -111,7 +111,7 @@ func TestRepair_270_RejectMismatchedBindings(t *testing.T) {
 	} {
 		for _, schema := range []string{"legacy", "canonical"} {
 			t.Run(tc.name+"/"+schema, func(t *testing.T) {
-				cfg, input, flags := repair270Input(t, tc.chain, schema, tc.mutate)
+				cfg, input, flags := proposalInput(t, tc.chain, schema, tc.mutate)
 				caps, err := SetCaps(cfg)
 				require.Error(t, err)
 				require.Nil(t, caps)
@@ -133,14 +133,14 @@ func TestRepair_270_RejectMismatchedBindings(t *testing.T) {
 	}
 }
 
-func TestRepair_270_AcceptSolanaBindings(t *testing.T) {
+func TestSolanaBindingsAreAccepted(t *testing.T) {
 	t.Setenv(chainconfig.OverlayEnv, "")
 	for _, schema := range []string{"legacy", "canonical"} {
 		t.Run(schema, func(t *testing.T) {
 			mint := solanaOwner()
 			handle, err := chainconfig.SolanaHandle(mint)
 			require.NoError(t, err)
-			cfg, input, flags := repair270Input(t, "solana", schema, func(c *ChainConfig) {
+			cfg, input, flags := proposalInput(t, "solana", schema, func(c *ChainConfig) {
 				c.Assets = append(c.Assets, Asset{Address: mint, AssetID: "0x" + strings.ToUpper(handle[2:]), Decimals: 6, MaxPerTx: "100", MaxTotal: "1000"})
 			})
 			out := filepath.Join(t.TempDir(), "bodies")
@@ -163,10 +163,10 @@ func TestRepair_270_AcceptSolanaBindings(t *testing.T) {
 	}
 }
 
-func TestRepair_270_VaultDepositReachesKeeper(t *testing.T) {
+func TestVaultDepositReachesKeeper(t *testing.T) {
 	t.Setenv(chainconfig.OverlayEnv, "")
 	// Compile the maintained Solidity producer, never a substitute event emitter.
-	compiler := exec.Command("node", "testdata/repair_270/compile-vault.cjs")
+	compiler := exec.Command("node", "testdata/vault_compiler_fixtures/compile-vault.cjs")
 	var stderr bytes.Buffer
 	compiler.Stderr = &stderr
 	compiled, err := compiler.Output()
@@ -188,7 +188,7 @@ func TestRepair_270_VaultDepositReachesKeeper(t *testing.T) {
 		signers[i] = attestor.Signer.Hex()
 		evmSigners[i] = common.Address(attestor.Signer)
 	}
-	manifest := repair270WriteJSON(t, "attestors.json", AttestorManifest{Attestors: signers, Threshold: 2})
+	manifest := writeProposalJSON(t, "attestors.json", AttestorManifest{Attestors: signers, Threshold: 2})
 	for _, schema := range []string{"legacy", "canonical"} {
 		t.Run(schema, func(t *testing.T) {
 			owner := common.HexToAddress("0x2b7e151628aed2a6abf7158809cf4f3c762e7160")
@@ -200,7 +200,7 @@ func TestRepair_270_VaultDepositReachesKeeper(t *testing.T) {
 			require.NoError(t, err)
 			_, vault, _, err := runtime.Create(append(append([]byte(nil), bytecode...), constructor...), evm)
 			require.NoError(t, err)
-			cfg, input, flags := repair270Input(t, "ethereum", schema, func(c *ChainConfig) {
+			cfg, input, flags := proposalInput(t, "ethereum", schema, func(c *ChainConfig) {
 				c.Vault = vault.Hex()
 				c.Attestors, c.Threshold = signers, 2
 				c.Assets[0].MaxPerTx, c.Assets[0].MaxTotal = "100", "1000"

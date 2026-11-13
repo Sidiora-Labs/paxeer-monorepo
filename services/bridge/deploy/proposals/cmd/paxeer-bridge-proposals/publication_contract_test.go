@@ -22,7 +22,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-func TestRepairM_373_PublicationContract(t *testing.T) {
+func TestPublicationContract(t *testing.T) {
 	var help bytes.Buffer
 	if err := proposals.Run([]string{"-h"}, &help); !errors.Is(err, flag.ErrHelp) {
 		t.Fatalf("help returned %v, want flag.ErrHelp", err)
@@ -72,14 +72,14 @@ func TestRepairM_373_PublicationContract(t *testing.T) {
 	}
 }
 
-type repairM373Fixture struct {
+type publicationContractFixture struct {
 	root, config, bodies, governance, readback string
 	args                                       []string
 	bundle                                     proposals.Bundle
 	expected                                   proposals.Readback
 }
 
-func repairM373Input(t *testing.T, chain string) repairM373Fixture {
+func publicationContractInput(t *testing.T, chain string) publicationContractFixture {
 	t.Helper()
 	fixtures := filepath.Join("..", "..", "testdata")
 	legacy, err := proposals.LoadChainConfig(filepath.Join(fixtures, chain+".json"))
@@ -144,7 +144,7 @@ func repairM373Input(t *testing.T, chain string) repairM373Fixture {
 	}
 	bodies, governance := filepath.Join(root, "bodies"), filepath.Join(root, "governance")
 	readback := filepath.Join(root, "missing", "readback.json")
-	return repairM373Fixture{
+	return publicationContractFixture{
 		root: root, config: config, bodies: bodies, governance: governance, readback: readback,
 		args: []string{"-manifest", manifestPath, "-authority", legacy.Authority, "-vault", vault,
 			"-readback", readback, "-proposals", governance, config, bodies},
@@ -152,7 +152,7 @@ func repairM373Input(t *testing.T, chain string) repairM373Fixture {
 	}
 }
 
-func (f repairM373Fixture) assertUnpublished(t *testing.T, report string) {
+func (f publicationContractFixture) assertUnpublished(t *testing.T, report string) {
 	t.Helper()
 	if report != "" {
 		t.Fatalf("failed generation reported success: %s", report)
@@ -173,7 +173,7 @@ func (f repairM373Fixture) assertUnpublished(t *testing.T, report string) {
 	}
 }
 
-func repairM373SameMessage(t *testing.T, path string, got, want proto.Message) {
+func comparePublicationMessages(t *testing.T, path string, got, want proto.Message) {
 	t.Helper()
 	gotBytes, err := proto.Marshal(got)
 	if err != nil {
@@ -188,7 +188,7 @@ func repairM373SameMessage(t *testing.T, path string, got, want proto.Message) {
 	}
 }
 
-func (f repairM373Fixture) assertComplete(t *testing.T, report string) {
+func (f publicationContractFixture) assertComplete(t *testing.T, report string) {
 	t.Helper()
 	bodies, err := f.bundle.Files()
 	if err != nil {
@@ -212,7 +212,7 @@ func (f repairM373Fixture) assertComplete(t *testing.T, report string) {
 		if !bytes.Equal(raw, file.Body) {
 			t.Fatalf("%s differs from the generated body bytes", path)
 		}
-		repairM373SameMessage(t, path, decoded, messages[i])
+		comparePublicationMessages(t, path, decoded, messages[i])
 		if err := decoded.ValidateBasic(); err != nil {
 			t.Fatal(err)
 		}
@@ -232,7 +232,7 @@ func (f repairM373Fixture) assertComplete(t *testing.T, report string) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		repairM373SameMessage(t, path, decoded, content.Content)
+		comparePublicationMessages(t, path, decoded, content.Content)
 		paths = append(paths, path)
 	}
 	raw, err := os.ReadFile(f.readback)
@@ -278,10 +278,10 @@ func (f repairM373Fixture) assertComplete(t *testing.T, report string) {
 	}
 }
 
-func TestRepairM_373_StagingFailureAndRetry(t *testing.T) {
+func TestStagingFailureAndRetry(t *testing.T) {
 	for _, chain := range []string{"ethereum", "solana"} {
 		t.Run(chain, func(t *testing.T) {
-			fixture := repairM373Input(t, chain)
+			fixture := publicationContractInput(t, chain)
 			var report bytes.Buffer
 			err := proposals.Run(fixture.args, &report)
 			if !errors.Is(err, os.ErrNotExist) || !strings.Contains(err.Error(), filepath.Dir(fixture.readback)) {
@@ -299,8 +299,8 @@ func TestRepairM_373_StagingFailureAndRetry(t *testing.T) {
 	}
 }
 
-func TestRepairM_373_ValidationRefusal(t *testing.T) {
-	fixture := repairM373Input(t, "ethereum")
+func TestValidationRefusal(t *testing.T) {
+	fixture := publicationContractInput(t, "ethereum")
 	raw, err := os.ReadFile(fixture.config)
 	if err != nil {
 		t.Fatal(err)

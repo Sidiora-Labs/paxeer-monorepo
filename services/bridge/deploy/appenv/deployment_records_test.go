@@ -19,12 +19,12 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-const repairM484Fixtures = "testdata/repair_m484"
+const deploymentRecordFixtures = "testdata/deployment_record_fixtures"
 
 // These transcripts were captured by executing the record-writing commands
 // verbatim from the deployment scripts, with the committed deployment inputs.
 // The script writer digest binds each recording to the production producer.
-func repairM484Transcript(t *testing.T, name string) ([]byte, Record) {
+func deploymentRecordTranscript(t *testing.T, name string) ([]byte, Record) {
 	t.Helper()
 	var transcript struct {
 		Script       string          `json:"script"`
@@ -32,7 +32,7 @@ func repairM484Transcript(t *testing.T, name string) ([]byte, Record) {
 		WriterSHA256 string          `json:"writer_sha256"`
 		Record       json.RawMessage `json:"record"`
 	}
-	raw, err := os.ReadFile(filepath.Join(repairM484Fixtures, name+".json"))
+	raw, err := os.ReadFile(filepath.Join(deploymentRecordFixtures, name+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,13 +65,13 @@ func repairM484Transcript(t *testing.T, name string) ([]byte, Record) {
 // The address modules are unmodified viem 2.41.2 CommonJS sources. UTF-8 and
 // Keccak are native runtime primitives backed by Go's real codecs/crypto;
 // address validation, checksumming, caches and configuration run in JavaScript.
-func repairM484ReadConfig(t *testing.T, environment []byte) map[string]any {
+func deploymentRecordReadConfig(t *testing.T, environment []byte) map[string]any {
 	t.Helper()
 	var provenance struct {
 		Version string            `json:"version"`
 		Files   map[string]string `json:"files"`
 	}
-	rawProvenance, err := os.ReadFile(filepath.Join(repairM484Fixtures, "viem/provenance.json"))
+	rawProvenance, err := os.ReadFile(filepath.Join(deploymentRecordFixtures, "viem/provenance.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func repairM484ReadConfig(t *testing.T, environment []byte) map[string]any {
 	}
 	vm := goja.New()
 	vm.SetParserOptions(parser.WithSourceMapLoader(func(name string) ([]byte, error) {
-		sourceMap, err := os.ReadFile(filepath.Join(repairM484Fixtures, "viem", name))
+		sourceMap, err := os.ReadFile(filepath.Join(deploymentRecordFixtures, "viem", name))
 		if err != nil {
 			return nil, err
 		}
@@ -142,7 +142,7 @@ func repairM484ReadConfig(t *testing.T, environment []byte) map[string]any {
 			}
 			return exports
 		}
-		source, err := os.ReadFile(filepath.Join(repairM484Fixtures, "viem", name))
+		source, err := os.ReadFile(filepath.Join(deploymentRecordFixtures, "viem", name))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -189,8 +189,8 @@ func repairM484ReadConfig(t *testing.T, environment []byte) map[string]any {
 		t.Fatal("Solana base58 constants not found")
 	}
 	constants = constants[strings.Index(constants, "const BASE58_ALPHABET"):]
-	decode := repairM484Function(t, string(solana), "export function base58Decode(")
-	validate := repairM484Function(t, string(solana), "export function isSolanaAddress(")
+	decode := extractDeploymentRecordFunction(t, string(solana), "export function base58Decode(")
+	validate := extractDeploymentRecordFunction(t, string(solana), "export function isSolanaAddress(")
 	solanaJS := constants + "\n" + decode + "\n" + validate
 	solanaJS = strings.NewReplacer(
 		"export function ", "function ", "input: string", "input",
@@ -238,7 +238,7 @@ func repairM484ReadConfig(t *testing.T, environment []byte) map[string]any {
 	return result["direct"].(map[string]any)
 }
 
-func repairM484Function(t *testing.T, source, declaration string) string {
+func extractDeploymentRecordFunction(t *testing.T, source, declaration string) string {
 	t.Helper()
 	start := strings.Index(source, declaration)
 	if start < 0 {
@@ -261,7 +261,7 @@ func repairM484Function(t *testing.T, source, declaration string) string {
 	return ""
 }
 
-func repairM484AppEnvironment(t *testing.T, output []byte) []byte {
+func deploymentRecordAppEnvironment(t *testing.T, output []byte) []byte {
 	t.Helper()
 	env := make(map[string]string)
 	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
@@ -284,29 +284,29 @@ func repairM484AppEnvironment(t *testing.T, output []byte) []byte {
 	return raw
 }
 
-func repairM484Write(t *testing.T, destination string, raw []byte) {
+func writeDeploymentRecord(t *testing.T, destination string, raw []byte) {
 	t.Helper()
 	if err := os.WriteFile(destination, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestRepairM_484_ScriptOutputToReadConfigAfterRestart(t *testing.T) {
+func TestScriptOutputReachesReadConfigAfterRestart(t *testing.T) {
 	dir := t.TempDir()
 	envPath := filepath.Join(t.TempDir(), "app.env")
-	evmRaw, evm := repairM484Transcript(t, "evm-ready")
-	solanaRaw, solana := repairM484Transcript(t, "solana-registered")
+	evmRaw, evm := deploymentRecordTranscript(t, "evm-ready")
+	solanaRaw, solana := deploymentRecordTranscript(t, "solana-registered")
 	if evm.Vault == "" || evm.Owner == "" || solana.Owner == "" || len(solana.Assets) != 2 {
 		t.Fatal("transcripts did not capture completed script writers")
 	}
-	repairM484Write(t, filepath.Join(dir, "ethereum.json"), evmRaw)
+	writeDeploymentRecord(t, filepath.Join(dir, "ethereum.json"), evmRaw)
 	solanaPath := filepath.Join(dir, "solana.json")
-	repairM484Write(t, solanaPath, solanaRaw)
+	writeDeploymentRecord(t, solanaPath, solanaRaw)
 	if _, err := LoadRecord(solanaPath); err == nil || !strings.Contains(err.Error(), "version") {
 		t.Fatalf("legacy script output must require explicit versioned migration: %v", err)
 	}
-	// The script migration is owned by domain 14 (repair_m484.kvx). The real
-	// versioned producer publishes the script's verified custody/asset values.
+	// The versioned producer publishes the script's verified custody/asset values.
+	// Record details: spec/layerx-merge/programme/records/services/bridge/deploy/appenv/repair_m484.kvx.
 	solana.Version, solana.Phase = SolanaRecordVersion, SolanaPhaseReady
 	if err := WriteSolanaRecord(solanaPath, solana); err != nil {
 		t.Fatal(err)
@@ -319,8 +319,8 @@ func TestRepairM_484_ScriptOutputToReadConfigAfterRestart(t *testing.T) {
 	if first.String() != want {
 		t.Fatalf("producer-to-env transport = %q, want %q", first.String(), want)
 	}
-	repairM484Write(t, envPath, first.Bytes())
-	initial := repairM484ReadConfig(t, repairM484AppEnvironment(t, first.Bytes()))
+	writeDeploymentRecord(t, envPath, first.Bytes())
+	initial := deploymentRecordReadConfig(t, deploymentRecordAppEnvironment(t, first.Bytes()))
 	if !strings.EqualFold(initial["vaults"].(map[string]any)["ethereum"].(string), evm.Vault) || initial["solanaProgramId"] != solana.ProgramID {
 		t.Fatalf("readConfig lost the scripts' deployment identities: %v", initial)
 	}
@@ -342,7 +342,7 @@ func TestRepairM_484_ScriptOutputToReadConfigAfterRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if recovered := repairM484ReadConfig(t, repairM484AppEnvironment(t, saved)); !reflect.DeepEqual(recovered, initial) {
+	if recovered := deploymentRecordReadConfig(t, deploymentRecordAppEnvironment(t, saved)); !reflect.DeepEqual(recovered, initial) {
 		t.Fatalf("restarted app differs: %v, want %v", recovered, initial)
 	}
 	// A new checkpoint must invalidate the saved environment, including after
@@ -361,27 +361,27 @@ func TestRepairM_484_ScriptOutputToReadConfigAfterRestart(t *testing.T) {
 	if updated.String() == first.String() {
 		t.Fatal("exporter cached the old record")
 	}
-	if got := repairM484ReadConfig(t, repairM484AppEnvironment(t, updated.Bytes())); got["solanaProgramId"] != solana.ProgramID {
+	if got := deploymentRecordReadConfig(t, deploymentRecordAppEnvironment(t, updated.Bytes())); got["solanaProgramId"] != solana.ProgramID {
 		t.Fatalf("fresh app boot reused old configuration: %v", got)
 	}
 }
 
-func TestRepairM_484_PartialDeploymentRefusedAcrossRestart(t *testing.T) {
+func TestPartialDeploymentIsRefusedAcrossRestart(t *testing.T) {
 	for _, name := range []string{"solana-deployed", "solana-registered"} {
 		t.Run(name, func(t *testing.T) {
-			raw, record := repairM484Transcript(t, name)
+			raw, record := deploymentRecordTranscript(t, name)
 			if record.ProgramID == "" || (name == "solana-deployed" && (record.Owner != "" || len(record.Assets) != 0)) {
 				t.Fatalf("wrong deployment branch recorded: %+v", record)
 			}
 			dir := t.TempDir()
-			evmRaw, _ := repairM484Transcript(t, "evm-ready")
-			repairM484Write(t, filepath.Join(dir, "a-ethereum.json"), evmRaw)
+			evmRaw, _ := deploymentRecordTranscript(t, "evm-ready")
+			writeDeploymentRecord(t, filepath.Join(dir, "a-ethereum.json"), evmRaw)
 			recordPath := filepath.Join(dir, "solana.json")
-			repairM484Write(t, recordPath, raw)
+			writeDeploymentRecord(t, recordPath, raw)
 			envPath := filepath.Join(t.TempDir(), "app.env")
 			// Even a previously published program variable cannot bless partial
 			// deployment records through the real --check consumer.
-			repairM484Write(t, envPath, []byte(solanaProgramIDEnvName+"="+record.ProgramID+"\n"))
+			writeDeploymentRecord(t, envPath, []byte(solanaProgramIDEnvName+"="+record.ProgramID+"\n"))
 			for restart := 0; restart < 2; restart++ {
 				loaded, err := LoadRecord(recordPath)
 				if err == nil || !reflect.DeepEqual(loaded, Record{}) || !strings.Contains(err.Error(), recordPath) {
@@ -392,7 +392,7 @@ func TestRepairM_484_PartialDeploymentRefusedAcrossRestart(t *testing.T) {
 					if err := Run(args, &output); err == nil || output.Len() != 0 {
 						t.Fatalf("restart %d exported part of a refused deployment: %v, %q", restart, err, output.String())
 					}
-					config := repairM484ReadConfig(t, repairM484AppEnvironment(t, output.Bytes()))
+					config := deploymentRecordReadConfig(t, deploymentRecordAppEnvironment(t, output.Bytes()))
 					if _, configured := config["solanaProgramId"]; configured || len(config["vaults"].(map[string]any)) != 0 {
 						t.Fatalf("partial deployment configured the app: %v", config)
 					}
@@ -400,7 +400,7 @@ func TestRepairM_484_PartialDeploymentRefusedAcrossRestart(t *testing.T) {
 			}
 		})
 	}
-	_, record := repairM484Transcript(t, "solana-registered")
+	_, record := deploymentRecordTranscript(t, "solana-registered")
 	for _, phase := range []string{SolanaPhaseDeployed, SolanaPhaseInitialized} {
 		t.Run("versioned_"+phase, func(t *testing.T) {
 			checkpoint := record
@@ -422,7 +422,7 @@ func TestRepairM_484_PartialDeploymentRefusedAcrossRestart(t *testing.T) {
 				if err := Run([]string{dir}, &output); err == nil || output.Len() != 0 {
 					t.Fatalf("versioned partial checkpoint exported: %v, %q", err, output.String())
 				}
-				if config := repairM484ReadConfig(t, repairM484AppEnvironment(t, output.Bytes())); config["solanaProgramId"] != nil {
+				if config := deploymentRecordReadConfig(t, deploymentRecordAppEnvironment(t, output.Bytes())); config["solanaProgramId"] != nil {
 					t.Fatalf("versioned partial checkpoint configured the app: %v", config)
 				}
 			}
@@ -430,7 +430,7 @@ func TestRepairM_484_PartialDeploymentRefusedAcrossRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_484_ReadConfigValidatesEmittedNames(t *testing.T) {
+func TestReadConfigValidatesEmittedNames(t *testing.T) {
 	// Published EIP-55 vectors exercise viem's real validation and checksum
 	// implementation over the native Keccak primitive, on every emitted name.
 	addresses := []string{
@@ -438,7 +438,7 @@ func TestRepairM_484_ReadConfigValidatesEmittedNames(t *testing.T) {
 		"0x8617E340B3D01FA5F11F306F4090FD50E238070D",
 		"0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
 	}
-	_, solana := repairM484Transcript(t, "solana-registered")
+	_, solana := deploymentRecordTranscript(t, "solana-registered")
 	for _, address := range addresses {
 		var emitted strings.Builder
 		for _, name := range EnvNames() {
@@ -448,7 +448,7 @@ func TestRepairM_484_ReadConfigValidatesEmittedNames(t *testing.T) {
 			}
 			fmt.Fprintf(&emitted, "%s=%s\n", name, value)
 		}
-		config := repairM484ReadConfig(t, repairM484AppEnvironment(t, []byte(emitted.String())))
+		config := deploymentRecordReadConfig(t, deploymentRecordAppEnvironment(t, []byte(emitted.String())))
 		vaults := config["vaults"].(map[string]any)
 		if len(vaults) != 8 || config["solanaProgramId"] != solana.ProgramID {
 			t.Fatalf("environment names do not reach all consumers: %v", config)
@@ -470,7 +470,7 @@ func TestRepairM_484_ReadConfigValidatesEmittedNames(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		config := repairM484ReadConfig(t, raw)
+		config := deploymentRecordReadConfig(t, raw)
 		if len(config["vaults"].(map[string]any)) != 0 || config["solanaProgramId"] != nil {
 			t.Fatalf("invalid configuration enabled a deployment: %q, %v", invalid, config)
 		}

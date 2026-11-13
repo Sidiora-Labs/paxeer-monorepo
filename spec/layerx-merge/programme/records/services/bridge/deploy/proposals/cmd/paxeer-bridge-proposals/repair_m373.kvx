@@ -10,7 +10,7 @@ wiring_requests = []
 proving_tests = ["TestRepairM_373_PublicationContract", "TestRepairM_373_StagingFailureAndRetry", "TestRepairM_373_ValidationRefusal"]
 repair = "The CLI package comment, Run documentation and real command usage distinguish validation/initial staging from publication failures, warn against submitting an incomplete set, locate the recovery journal and stages, and describe unchanged-input recovery and verification before resuming. The existing complete-bundle publisher is retained."
 proof_path = "Committed Ethereum and Solana configurations with fixture identities -> real Run -> Generate -> complete filesystem publication -> DecodeBody, DecodeProposal and Readback consumers; missing readback parent refuses after staging bodies/proposals without publishing them, and identical arguments succeed after creating the parent. Real Run help transports the contract to the operator; the package and Run comments must carry the same obligations."
-recovery_coverage = "This doc-drift repair retains the publisher and its existing restart tests in proposals/repair_m365_test.go; this task gate claims only the tests listed above."
+recovery_coverage = "This doc-drift repair retains the publisher and its existing restart tests in proposals/publication_recovery_test.go; this task gate claims only the tests listed above."
 
 [gotcha.baseline-order]
 observed = "The inherited audit step requests unchanged-tree verification, but the explicit task gate order prohibits it."
