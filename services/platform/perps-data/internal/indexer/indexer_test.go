@@ -837,13 +837,13 @@ func TestIndexer(t *testing.T) {
 
 // The recovery callback must restore populated persisted projections through
 // Follower continuity recovery, not merely record its Affected argument.
-func TestRepairM_1483_FollowerRecovery(t *testing.T) {
+func TestSourceFollowerRecovery(t *testing.T) {
 	t.Setenv(testRPCEnv, "")
 	t.Setenv(testCometEnv, "")
-	db := repair209DB(t)
-	url, assertConsumed := repair209RPC(t)
+	db := recoveryDB(t)
+	url, assertConsumed := recoveryRPC(t)
 	ctx := context.Background()
-	ix, stop := repair209NewFollowerIndexer(t, db, url, "repair1483-follower")
+	ix, stop := recoveryNewFollowerIndexer(t, db, url, "sourceFixture-follower")
 	if err := ix.acquire(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -856,16 +856,16 @@ func TestRepairM_1483_FollowerRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	one, fork := repair209Blocks()
+	one, fork := recoveryBlocks()
 	one.Hash, one.ParentHash, fork.ParentHash = header.Hash, header.ParentHash, header.Hash
-	repair209Write(t, db, one, false)
-	canonical := repair209Snapshot(t, db)
+	recoveryWrite(t, db, one, false)
+	canonical := recoverySnapshot(t, db)
 	unrelated := func(db *sql.DB) map[string]string {
 		t.Helper()
 		rows := make(map[string]string)
 		for _, table := range []string{"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily", "leaderboard", "spot_account_legs", "spot_leaderboard"} {
 			var data string
-			if err := db.QueryRow(`SELECT COALESCE(jsonb_agg(v ORDER BY v::text), '[]'::jsonb)::text FROM (SELECT to_jsonb(t) v FROM perps.`+table+` t WHERE account=$1) rows`, repair209Other.Bytes()).Scan(&data); err != nil {
+			if err := db.QueryRow(`SELECT COALESCE(jsonb_agg(v ORDER BY v::text), '[]'::jsonb)::text FROM (SELECT to_jsonb(t) v FROM perps.`+table+` t WHERE account=$1) rows`, recoveryOther.Bytes()).Scan(&data); err != nil {
 				t.Fatal(err)
 			}
 			rows[table] = data
@@ -873,8 +873,8 @@ func TestRepairM_1483_FollowerRecovery(t *testing.T) {
 		return rows
 	}
 	other := unrelated(db)
-	repair209Write(t, db, fork, true)
-	forkState := repair209Snapshot(t, db)
+	recoveryWrite(t, db, fork, true)
+	forkState := recoverySnapshot(t, db)
 	for _, table := range []string{"positions_current", "orders", "user_pnl_daily", "market_stats_rolling", "spot_account_legs", "spot_leaderboard"} {
 		if forkState[table] == "[]" {
 			t.Fatalf("fork fixture did not populate %s", table)
@@ -890,7 +890,7 @@ func TestRepairM_1483_FollowerRecovery(t *testing.T) {
 	if next, err := ix.step(ctx, 3); err != nil || next != 2 {
 		t.Fatalf("rewind next=%d err=%v", next, err)
 	}
-	repair209Equal(t, repair209Snapshot(t, db), canonical)
+	recoveryEqual(t, recoverySnapshot(t, db), canonical)
 	assertOther := func(db *sql.DB) {
 		t.Helper()
 		for table, data := range unrelated(db) {
@@ -940,7 +940,7 @@ func TestRepairM_1483_FollowerRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
-	restarted, stopRestarted := repair209NewFollowerIndexer(t, reopened, url, "repair1483-restarted")
+	restarted, stopRestarted := recoveryNewFollowerIndexer(t, reopened, url, "sourceFixture-restarted")
 	defer stopRestarted()
 	if err := restarted.acquire(ctx); err != nil {
 		t.Fatal(err)
@@ -949,12 +949,12 @@ func TestRepairM_1483_FollowerRecovery(t *testing.T) {
 	if next, err := restarted.resume(ctx); err != nil || next != 2 {
 		t.Fatalf("restart next=%d err=%v", next, err)
 	}
-	repair209Equal(t, repair209Snapshot(t, reopened), canonical)
+	recoveryEqual(t, recoverySnapshot(t, reopened), canonical)
 	assertOther(reopened)
 	if next, err := restarted.step(ctx, 2); err != nil || next != 4 {
 		t.Fatalf("canonical replay next=%d err=%v", next, err)
 	}
-	if err := reopened.QueryRow(`SELECT count(*) FROM perps.usdl_transfers WHERE block=3 AND account=$1 AND value=7 AND kind='in'`, repair209Other.Bytes()).Scan(&remaining); err != nil || remaining != 1 {
+	if err := reopened.QueryRow(`SELECT count(*) FROM perps.usdl_transfers WHERE block=3 AND account=$1 AND value=7 AND kind='in'`, recoveryOther.Bytes()).Scan(&remaining); err != nil || remaining != 1 {
 		t.Fatalf("canonical transfer count=%d err=%v", remaining, err)
 	}
 	assertConsumed()

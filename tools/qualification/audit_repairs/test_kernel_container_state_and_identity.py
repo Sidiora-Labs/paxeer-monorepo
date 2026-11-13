@@ -59,7 +59,7 @@ def runtime():
 def transport():
     # Reuse only the already committed recorded-peer/HTTP transport helpers,
     # never another test function or a replacement production implementation.
-    return load_source('kernel_node_transcript', Path(__file__).with_name('test_repair_22_31_427.py'))
+    return load_source('kernel_node_transcript', Path(__file__).with_name('test_kernel_backend_readiness.py'))
 
 
 @pytest.fixture

@@ -423,12 +423,12 @@ jobs:
               build_proof_dependencies precompiles/launchpad
             )
             (
-              cd sdk/launchpad/protocol/bindings/testdata/repair37/contracts
+              cd sdk/launchpad/protocol/bindings/testdata/contract_events/contracts
               go mod download all
             )
-            build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/repair37/contracts
+            build_proof_dependencies sdk/launchpad/protocol/bindings/testdata/contract_events/contracts
             (
-              cd sdk/launchpad/protocol/coverage/testdata/repair28producer
+              cd sdk/launchpad/protocol/coverage/testdata/emitter_producer
               cp go.mod "$RUNNER_TEMP/launchpad-repair28.mod"
               go build -modfile="$RUNNER_TEMP/launchpad-repair28.mod" -mod=mod -o "$RUNNER_TEMP/launchpad-repair28-producer" .
             )

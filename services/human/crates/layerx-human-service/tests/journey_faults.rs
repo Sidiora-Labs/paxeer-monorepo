@@ -1412,7 +1412,7 @@ fn repeated_start_repairs_initial_progress_after_restart() {
 }
 
 pub mod repair_bank {
-    include!("support/repair_22_33_63_bank.rs");
+    include!("support/bank_journey_fixture.rs");
 }
 
 #[test]

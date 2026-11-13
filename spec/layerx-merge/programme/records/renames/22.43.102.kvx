@@ -1,0 +1,112 @@
+[manifest]
+task = "22.43.102"
+records_moved = 8
+files_renamed = 9
+
+[file.1]
+from = "sdk/client/config/repair_m1460_test.go"
+to = "sdk/client/config/config_persistence_test.go"
+
+[file.2]
+from = "sdk/client/debug/repair_m1459_test.go"
+to = "sdk/client/debug/raw_bytes_test.go"
+
+[file.3]
+from = "sdk/client/input/repair_m1458_test.go"
+to = "sdk/client/input/confirmation_test.go"
+
+[file.4]
+from = "sdk/client/keys/repair_203_test.go"
+to = "sdk/client/keys/replacement_test.go"
+
+[file.5]
+from = "sdk/client/keys/repair_m1463_test.go"
+to = "sdk/client/keys/show_device_test.go"
+
+[file.6]
+from = "sdk/client/repair_m1461_test.go"
+to = "sdk/client/query_contract_test.go"
+
+[file.7]
+from = "sdk/client/rpc/repair_m1466_test.go"
+to = "sdk/client/rpc/block_verification_test.go"
+
+[file.8]
+from = "sdk/client/tx/repair_204_test.go"
+to = "sdk/client/tx/fee_fields_test.go"
+
+[file.9]
+from = "sdk/client/tx/repair_m1462_test.go"
+to = "sdk/client/tx/factory_flags_and_gas_test.go"
+
+[file.10]
+from = "sdk/client/config/repair_m1460.kvx"
+to = "spec/layerx-merge/programme/records/sdk/client/config/repair_m1460.kvx"
+
+[file.11]
+from = "sdk/client/debug/repair_m1459.kvx"
+to = "spec/layerx-merge/programme/records/sdk/client/debug/repair_m1459.kvx"
+
+[file.12]
+from = "sdk/client/input/repair_m1458.kvx"
+to = "spec/layerx-merge/programme/records/sdk/client/input/repair_m1458.kvx"
+
+[file.13]
+from = "sdk/client/keys/repair_203.kvx"
+to = "spec/layerx-merge/programme/records/sdk/client/keys/repair_203.kvx"
+
+[file.14]
+from = "sdk/client/keys/repair_m1463.kvx"
+to = "spec/layerx-merge/programme/records/sdk/client/keys/repair_m1463.kvx"
+
+[file.15]
+from = "sdk/client/repair_m1461.kvx"
+to = "spec/layerx-merge/programme/records/sdk/client/repair_m1461.kvx"
+
+[file.16]
+from = "sdk/client/rpc/repair_m1466.kvx"
+to = "spec/layerx-merge/programme/records/sdk/client/rpc/repair_m1466.kvx"
+
+[file.17]
+from = "sdk/client/tx/repair_m1462.kvx"
+to = "spec/layerx-merge/programme/records/sdk/client/tx/repair_m1462.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/client/config/repair_m1460_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/client/debug/repair_m1459_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/client/input/repair_m1458_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/client/keys/repair_203_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/client/keys/repair_m1463_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/client/repair_m1461_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/client/rpc/repair_m1466_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/client/tx/repair_204_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "sdk/client/tx/repair_m1462_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/programme/records/renames/22.43.124.kvx"
+name = "sdk/client/tx/repair_m1462.kvx"

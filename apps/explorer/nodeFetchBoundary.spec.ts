@@ -12,16 +12,16 @@ const generatedDirectories = new Set([
 const serverOnlyModules = new Set([ 'nextjs/utils/fetchProxy.ts', 'instrumentation.node.ts' ]);
 // These tests run in Vitest's Node process (including its jsdom environment), outside the Next.js route tree.
 const nodeTestModules = new Set([
-  'nextjs/pages-tests/apps/repair-22-33-451.spec.ts',
-  'nextjs/pages-tests/api/repair-22-33-448.spec.ts',
-  'nextjs/pages-tests/api/repair-22-35-10.spec.ts',
-  'nextjs/pages-tests/api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts',
+  'nextjs/pages-tests/apps/cataloguePreview.spec.ts',
+  'nextjs/pages-tests/api/proxy.spec.ts',
+  'nextjs/pages-tests/api/assistant.spec.ts',
+  'nextjs/pages-tests/api/tokens/[hash]/instances/[id]/media-type.spec.ts',
   'nextjs/utils/fetchProxy.spec.ts',
-  'nextjs/csp/policies/repair-22-31-412.spec.ts',
-  'nextjs/csp/policies/repair-22-33-542.spec.ts',
-  'nextjs/middlewares/repair-22-33-540.spec.ts',
+  'nextjs/csp/policies/safe.spec.ts',
+  'nextjs/csp/policies/marketplace.spec.ts',
+  'nextjs/middlewares/appProfile.spec.ts',
   'lib/socket/socketRecovery.spec.ts',
-  'ui/snippets/searchBar/repair-22-35-10.spec.tsx',
+  'ui/snippets/searchBar/SearchBarAssistant.spec.tsx',
   'ui/pages/PaxeerXInference.spec.tsx',
 ]);
 

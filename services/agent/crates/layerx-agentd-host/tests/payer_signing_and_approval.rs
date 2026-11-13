@@ -43,13 +43,11 @@ const HEIGHT: u64 = 100;
 const PAYER: [u8; 32] = [0x41; 32];
 const ASSET: [u8; 32] = [0x43; 32];
 const CA: &[u8] =
-    include_bytes!("../../../../human/crates/layerx-human-kms/src/fixtures/repair_22_33_25/ca.der");
-const CERT: &[u8] = include_bytes!(
-    "../../../../human/crates/layerx-human-kms/src/fixtures/repair_22_33_25/peer.der"
-);
-const TLS_KEY: &[u8] = include_bytes!(
-    "../../../../human/crates/layerx-human-kms/src/fixtures/repair_22_33_25/peer.pk8"
-);
+    include_bytes!("../../../../human/crates/layerx-human-kms/src/fixtures/attestor_tls/ca.der");
+const CERT: &[u8] =
+    include_bytes!("../../../../human/crates/layerx-human-kms/src/fixtures/attestor_tls/peer.der");
+const TLS_KEY: &[u8] =
+    include_bytes!("../../../../human/crates/layerx-human-kms/src/fixtures/attestor_tls/peer.pk8");
 
 fn checked<T, E: std::fmt::Debug>(result: std::result::Result<T, E>) -> Result<T> {
     result.map_err(|error| format!("{error:?}").into())

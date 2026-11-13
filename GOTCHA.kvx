@@ -21690,3 +21690,28 @@ fix = "The task that renames a test file changes the path key of its section in 
 title = "The room of the inference market reads the node binary from the search path"
 symptom = "The room script tools/qualification/paxeer-x/inference_market_room.py looks the node binary up on the search path of the shell."
 fix = "A build command that runs the room installs the node binary first with the install target of chain.mk. The build command of task 22.38.37 does."
+
+[gotcha.4374]
+title = "A test of the wallet service pages reads the full path of a deployment file inside code marks"
+symptom = "The test tests/ci/test_wallet_service_docs_references.py reads in the page docs/wallet/service/runbooks/gateway-rollback.md the full path of the image file and of the two example environment files of the gateway deployment, each inside code marks. A link whose text is the file name alone does not hold the full path."
+fix = "A page that links such a file gives the full path from the repository root as the text of the link, inside code marks. Run the test after a change to a page under docs/wallet/service."
+
+[gotcha.4375]
+title = "A batch of one request returns one result"
+symptom = "The client of consensus/rpc/jsonrpc decodes the answer to a batch of one request into one result. The batch section of TestProofRpcRoutes in consensus/internal/rpc/core holds the shape of that answer."
+fix = "A test of the batch path asserts for a batch of one request that Send returns no error and one result. A task that changes the shape the server writes for a batch brings the tests under consensus that hold the shape to it in the same commit."
+
+[gotcha.4376]
+title = "The inventory files under tools/workspace name each package manifest by its path"
+symptom = "The files tools/workspace/paxeer-manifest-roots.txt and tools/workspace/platform-dependency-roots.txt hold one line for each package manifest and name the test file that covers it. The scripts scripts/workspace/check-paxeer-manifests.sh and scripts/workspace/check-platform-dependencies.sh compare the lines with the manifests in the tree, and the target paxeer-manifest-lint of the Makefile runs them."
+fix = "A task that renames a directory holding a package manifest, or a test file that an inventory line names, brings the inventory line to the present path in the same commit and runs both scripts. A workflow under .github and a test under tests/ci that name the directory follow in the same commit."
+
+[gotcha.4377]
+title = "A rename leaves readers under other directories"
+symptom = "A task that renames a file changes the readers inside its own paths. A reader under another directory keeps the earlier name: a path string of a test, a line of a data file that lists file names, a workflow step, a build-time reader of Rust or a target path of a package manifest. A search of the text does not find the last two; a check that compiles the tests does."
+fix = "A task that renames a file names in its manifest every reader that git grep finds outside its paths. A later task for the area of the reader brings the reference to the present name, and runs for Rust the check that compiles the tests of the area."
+
+[gotcha.4378]
+title = "The target agent-test of the Makefile reaches the node build"
+symptom = "The target agent-test of the Makefile runs the target agent-test-native-prerequisites first, and that target builds the node binary with the target paxeer-build. The build of the node reads its Go modules from the module cache. The target agent-build does not fill that cache."
+fix = "The build command of a task whose verification runs make agent-test runs go mod download first, as the build command of task 22.39.499 does for the human service. The build command of task 22.39.498 does."

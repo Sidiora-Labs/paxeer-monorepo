@@ -92,7 +92,7 @@ fn compiled_key_rotation_binds_exact_payload_and_idempotency_key() {
     );
     let keeper_test = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../../modules/layerxauth/keeper/repair_22_31_496_test.go"
+        "/../../../../modules/layerxauth/keeper/compiled_key_rotation_test.go"
     ));
     assert!(keeper_test.contains(&format!("const repair2231496RotationHex = \"{encoded}\"")));
 

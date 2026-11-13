@@ -7,7 +7,7 @@ executes transactions and proposes blocks; receipt finality is BFT block
 commit. Tenant domains are database namespaces in that network.
 
 Public node JSON-RPC is served at the root path, with EVM chain ID **125**
-(`0x7d`); see the [public RPC reference](../../../../docs/site/docs/reference/public-rpc.md).
+(`0x7d`); see the [public RPC reference](../../../../docs/readme/PUBLIC-RPC.md).
 Those nodes expose `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`
 namespaces. The `px` namespace is served at the node root from node state;
 only `px_register` and `px_requestFunds` are hosted operations.
@@ -236,7 +236,7 @@ Programs ordinals 1, 2 and 7 are added by the gateway. This registry describes
 admitted protocol data; it does not restore retired activity submission APIs.
 A fuller example is [module-registry.example.json](../../../interop/deploy/gateway/module-registry.example.json).
 
-Public node details: [public-rpc.md](../../../../docs/site/docs/reference/public-rpc.md).
+Public node details: [public-rpc.md](../../../../docs/readme/PUBLIC-RPC.md).
 Method and evidence references: [PublicRpc](../../../../docs/wiki/PublicRpc.md),
 [CommitmentLevels](../../../../docs/wiki/CommitmentLevels.md) and
 [PublicAPI](../../../../docs/wiki/PublicAPI.md).

@@ -200,7 +200,7 @@ def test_repair_record_maps_the_audit_finding_to_executed_source_checks():
     assert "not executed" in task["review_only"]
     assert "No baseline test ran" in task["baseline"]
     assert task["wiring_requests"] == []
-    upstream = tomllib.loads(source("tools/qualification/audit_repairs/repair_22_31_470.kvx"))
+    upstream = tomllib.loads(source("spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_470.kvx"))
     coverage = upstream["coverage"]["audit_22_30_119"]
     assert coverage["finding"] == "readme-separate-kernel"
     assert coverage["file"] == "README.md" and "22.33.187" in coverage["consumer_tasks"]

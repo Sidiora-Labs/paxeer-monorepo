@@ -6,7 +6,7 @@ This page describes operational tool interfaces. Start at the [contracts overvie
 
 Paxeer mainnet-beta is one BFT network. The kernel runs inside the node and proposes blocks, and receipts become final when their block is committed. Its EVM chain ID is `125` (`0x7d`). Sub-chains are tenant domains in the database, not additional node deployments.
 
-Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). Use the [public endpoint reference](../docs/site/docs/reference/public-rpc.md) for the full list and WebSocket examples. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
+Public node JSON-RPC uses HTTPS at the configured node origin's root path. Node method availability follows the [node RPC contract](rpc.md#public-json-rpc). Use the [public endpoint reference](../docs/readme/PUBLIC-RPC.md) for the full list and WebSocket examples. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 
 Native bank balances and block commitment govern network value and finality. External bridge operations have their own [bridge contract](bridge/README.md).
 
