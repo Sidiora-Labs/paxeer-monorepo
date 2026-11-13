@@ -26,7 +26,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-type repairM1207Chain struct {
+type tokenfactoryGenesisChain struct {
 	store   storetypes.CommitMultiStore
 	ctx     sdk.Context
 	cdc     *codec.ProtoCodec
@@ -35,7 +35,7 @@ type repairM1207Chain struct {
 	module  tokenfactory.AppModule
 }
 
-func openRepairM1207Chain(t *testing.T, dir string) repairM1207Chain {
+func openTokenfactoryGenesisChain(t *testing.T, dir string) tokenfactoryGenesisChain {
 	t.Helper()
 	db, err := tmdb.NewGoLevelDB("genesis", dir)
 	require.NoError(t, err)
@@ -60,11 +60,11 @@ func openRepairM1207Chain(t *testing.T, dir string) repairM1207Chain {
 	ctx := sdk.NewContext(ms, tmproto.Header{Height: 1}, false)
 	accounts.SetParams(ctx, authtypes.DefaultParams())
 	bank.SetParams(ctx, banktypes.DefaultParams())
-	return repairM1207Chain{store: ms, ctx: ctx, cdc: cdc, bank: bank, factory: factory,
+	return tokenfactoryGenesisChain{store: ms, ctx: ctx, cdc: cdc, bank: bank, factory: factory,
 		module: tokenfactory.NewAppModule(factory, accounts, bank)}
 }
 
-func repairM1207WireFields(t *testing.T, wire []byte) map[protowire.Number][][]byte {
+func tokenfactoryGenesisWireFields(t *testing.T, wire []byte) map[protowire.Number][][]byte {
 	t.Helper()
 	fields := make(map[protowire.Number][][]byte)
 	for len(wire) > 0 {
@@ -80,7 +80,7 @@ func repairM1207WireFields(t *testing.T, wire []byte) map[protowire.Number][][]b
 	return fields
 }
 
-func TestRepairM_1207_TokenfactoryGenesisRegistry(t *testing.T) {
+func TestTokenfactoryGenesisRegistry(t *testing.T) {
 	// Parse the committed source in-process, without buf or a subprocess toolchain.
 	parser := protoparse.Parser{ImportPaths: []string{"."}}
 	sources, err := parser.ParseFilesButDoNotLink("tokenfactory/genesis.proto")
@@ -123,7 +123,7 @@ func TestRepairM_1207_TokenfactoryGenesisRegistry(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	source := openRepairM1207Chain(t, dir)
+	source := openTokenfactoryGenesisChain(t, dir)
 	source.factory.InitGenesis(source.ctx, *types.DefaultGenesis())
 	creator := sdk.AccAddress(bytes.Repeat([]byte{0x71}, 20)).String()
 	server := keeper.NewMsgServerImpl(source.factory)
@@ -139,7 +139,7 @@ func TestRepairM_1207_TokenfactoryGenesisRegistry(t *testing.T) {
 	commit := source.store.Commit(true)
 	require.NoError(t, source.store.Close())
 
-	producer := openRepairM1207Chain(t, dir)
+	producer := openTokenfactoryGenesisChain(t, dir)
 	defer func() { require.NoError(t, producer.store.Close()) }()
 	require.Equal(t, commit, producer.store.LastCommitID())
 	require.Equal(t, expected, producer.factory.ExportGenesis(producer.ctx))
@@ -153,7 +153,7 @@ func TestRepairM_1207_TokenfactoryGenesisRegistry(t *testing.T) {
 	require.NoError(t, producer.cdc.UnmarshalAsJSON(jsonWire, &message))
 	wire, err := message.Marshal()
 	require.NoError(t, err)
-	fields := repairM1207WireFields(t, wire)
+	fields := tokenfactoryGenesisWireFields(t, wire)
 	require.Len(t, fields, 3)
 	require.Len(t, fields[1], 1)
 	require.Len(t, fields[2], 2)
@@ -163,13 +163,13 @@ func TestRepairM_1207_TokenfactoryGenesisRegistry(t *testing.T) {
 	require.Equal(t, expected, &received)
 
 	targetDir := t.TempDir()
-	target := openRepairM1207Chain(t, targetDir)
+	target := openTokenfactoryGenesisChain(t, targetDir)
 	consumerJSON := target.cdc.MustMarshalJSON(&received)
 	require.NoError(t, target.module.ValidateGenesis(target.cdc, nil, consumerJSON))
 	require.Empty(t, target.module.InitGenesis(target.ctx, target.cdc, consumerJSON))
 	targetCommit := target.store.Commit(true)
 	require.NoError(t, target.store.Close())
-	consumer := openRepairM1207Chain(t, targetDir)
+	consumer := openTokenfactoryGenesisChain(t, targetDir)
 	defer func() { require.NoError(t, consumer.store.Close()) }()
 	require.Equal(t, targetCommit, consumer.store.LastCommitID())
 	require.Equal(t, expected, consumer.factory.ExportGenesis(consumer.ctx))
@@ -187,8 +187,8 @@ func TestRepairM_1207_TokenfactoryGenesisRegistry(t *testing.T) {
 	require.Equal(t, sdk.NewInt(9), consumer.bank.GetBalance(consumer.ctx, sdk.MustAccAddressFromBech32(creator), active.NewTokenDenom).Amount)
 }
 
-func TestRepairM_1207_AbsentPausedDenoms(t *testing.T) {
-	source := openRepairM1207Chain(t, t.TempDir())
+func TestTokenfactoryGenesisAbsentPausedDenoms(t *testing.T) {
+	source := openTokenfactoryGenesisChain(t, t.TempDir())
 	defer func() { require.NoError(t, source.store.Close()) }()
 	source.factory.InitGenesis(source.ctx, *types.DefaultGenesis())
 	creator := sdk.AccAddress(bytes.Repeat([]byte{0x72}, 20)).String()
@@ -198,7 +198,7 @@ func TestRepairM_1207_AbsentPausedDenoms(t *testing.T) {
 	require.Empty(t, produced.GetPausedDenoms())
 	wire, err := produced.Marshal()
 	require.NoError(t, err)
-	fields := repairM1207WireFields(t, wire)
+	fields := tokenfactoryGenesisWireFields(t, wire)
 	require.Len(t, fields[1], 1)
 	require.Len(t, fields[2], 1)
 	require.NotContains(t, fields, protowire.Number(3))
@@ -219,7 +219,7 @@ func TestRepairM_1207_AbsentPausedDenoms(t *testing.T) {
 	require.Empty(t, legacy.GetPausedDenoms())
 	require.Equal(t, received.GetFactoryDenoms(), legacy.GetFactoryDenoms())
 	for _, payload := range [][]byte{source.cdc.MustMarshalJSON(&received), legacyJSON} {
-		target := openRepairM1207Chain(t, t.TempDir())
+		target := openTokenfactoryGenesisChain(t, t.TempDir())
 		require.NoError(t, target.module.ValidateGenesis(target.cdc, nil, payload))
 		require.Empty(t, target.module.InitGenesis(target.ctx, target.cdc, payload))
 		require.Empty(t, target.factory.ExportGenesis(target.ctx).GetPausedDenoms())

@@ -12,10 +12,10 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-func repairM1300Parse(t *testing.T, source string) *descriptorpb.FileDescriptorProto {
+func parseDescriptorShapeFixture(t *testing.T, source string) *descriptorpb.FileDescriptorProto {
 	t.Helper()
-	parser := protoparse.Parser{Accessor: protoparse.FileContentsFromMap(map[string]string{"repair_m1300.proto": source})}
-	files, err := parser.ParseFiles("repair_m1300.proto")
+	parser := protoparse.Parser{Accessor: protoparse.FileContentsFromMap(map[string]string{"descriptor_shape.proto": source})}
+	files, err := parser.ParseFiles("descriptor_shape.proto")
 	if err != nil {
 		t.Fatalf("compile descriptor fixture: %v", err)
 	}
@@ -25,17 +25,17 @@ func repairM1300Parse(t *testing.T, source string) *descriptorpb.FileDescriptorP
 	return files[0].AsFileDescriptorProto()
 }
 
-type repairM1300Pair struct {
+type descriptorShapePair struct {
 	name, source, generated string
 	keys                    []string
 }
 
-func repairM1300CheckPairs(t *testing.T, pairs []repairM1300Pair) {
+func checkDescriptorShapePairs(t *testing.T, pairs []descriptorShapePair) {
 	t.Helper()
 	for _, pair := range pairs {
 		t.Run(pair.name, func(t *testing.T) {
-			source := repairM1300Parse(t, pair.source)
-			generated := repairM1300Parse(t, pair.generated)
+			source := parseDescriptorShapeFixture(t, pair.source)
+			generated := parseDescriptorShapeFixture(t, pair.generated)
 			wire, err := proto.Marshal(generated)
 			if err != nil {
 				t.Fatal(err)
@@ -76,16 +76,16 @@ func repairM1300CheckPairs(t *testing.T, pairs []repairM1300Pair) {
 	}
 }
 
-func TestRepairM_1300_JSONNames(t *testing.T) {
-	repairM1300CheckPairs(t, []repairM1300Pair{
+func TestDescriptorShapeJSONNames(t *testing.T) {
+	checkDescriptorShapePairs(t, []descriptorShapePair{
 		{"explicit-name", `syntax="proto3"; message M { string request_id=1 [json_name="requestID"]; }`, `syntax="proto3"; message M { string request_id=1 [json_name="requestIdentifier"]; }`, []string{"field M.request_id json_name"}},
 		{"default-vs-explicit", `syntax="proto3"; message M { string request_id=1; }`, `syntax="proto3"; message M { string request_id=1 [json_name="requestID"]; }`, []string{"field M.request_id json_name"}},
 	})
 	t.Run("default-json-names", TestDescriptorShapeJSONNameDefaults)
 }
 
-func TestRepairM_1300_OneofStructure(t *testing.T) {
-	repairM1300CheckPairs(t, []repairM1300Pair{
+func TestDescriptorShapeOneofStructure(t *testing.T) {
+	checkDescriptorShapePairs(t, []descriptorShapePair{
 		{"declaration-name", `syntax="proto3"; message M { oneof choice { string text=1; } }`, `syntax="proto3"; message M { oneof selection { string text=1; } }`, []string{"oneof M[0] name"}},
 		{"absent-vs-index-zero", `syntax="proto3"; message M { string text=1; oneof choice { int32 number=2; } }`, `syntax="proto3"; message M { oneof choice { string text=1; int32 number=2; } }`, []string{"field M.text oneof_index"}},
 		{"membership", `syntax="proto3"; message M { oneof first { string text=1; int32 number=2; } oneof second { bool flag=3; } }`, `syntax="proto3"; message M { oneof first { int32 number=2; } oneof second { bool flag=3; string text=1; } }`, []string{"field M.text oneof_index"}},
@@ -93,16 +93,16 @@ func TestRepairM_1300_OneofStructure(t *testing.T) {
 	})
 }
 
-func TestRepairM_1300_OptionalPresence(t *testing.T) {
-	repairM1300CheckPairs(t, []repairM1300Pair{
+func TestDescriptorShapeOptionalPresence(t *testing.T) {
+	checkDescriptorShapePairs(t, []descriptorShapePair{
 		{"proto3-optional", `syntax="proto3"; message M { string note=1; }`, `syntax="proto3"; message M { optional string note=1; }`, []string{"field M.note proto3_optional", "field M.note oneof_index", "oneof M[0] name"}},
 		{"optional-vs-real-oneof", `syntax="proto3"; message M { optional string note=1; }`, `syntax="proto3"; message M { oneof _note { string note=1; } }`, []string{"field M.note proto3_optional"}},
 		{"proto2-vs-proto3", `syntax="proto2"; message M { optional string note=1; }`, `syntax="proto3"; message M { string note=1; }`, []string{"syntax"}},
 	})
 }
 
-func TestRepairM_1300_MessageReservations(t *testing.T) {
-	repairM1300CheckPairs(t, []repairM1300Pair{
+func TestDescriptorShapeMessageReservations(t *testing.T) {
+	checkDescriptorShapePairs(t, []descriptorShapePair{
 		{"range-removed", `syntax="proto3"; message M { reserved 10 to 12; }`, `syntax="proto3"; message M {}`, []string{"message M reserved range [10,13)"}},
 		{"range-start", `syntax="proto3"; message M { reserved 10 to 12; }`, `syntax="proto3"; message M { reserved 11 to 12; }`, []string{"message M reserved range [10,13)", "message M reserved range [11,13)"}},
 		{"range-end", `syntax="proto3"; message M { reserved 10 to 12; }`, `syntax="proto3"; message M { reserved 10 to 13; }`, []string{"message M reserved range [10,13)", "message M reserved range [10,14)"}},
@@ -112,8 +112,8 @@ func TestRepairM_1300_MessageReservations(t *testing.T) {
 	t.Run("reservation-order", TestDescriptorShapeReservationOrder)
 }
 
-func TestRepairM_1300_EnumReservations(t *testing.T) {
-	repairM1300CheckPairs(t, []repairM1300Pair{
+func TestDescriptorShapeEnumReservations(t *testing.T) {
+	checkDescriptorShapePairs(t, []descriptorShapePair{
 		{"range-removed", `syntax="proto3"; enum E { ZERO=0; reserved 10 to 12; }`, `syntax="proto3"; enum E { ZERO=0; }`, []string{"enum E reserved range [10,12]"}},
 		{"range-start", `syntax="proto3"; enum E { ZERO=0; reserved 10 to 12; }`, `syntax="proto3"; enum E { ZERO=0; reserved 11 to 12; }`, []string{"enum E reserved range [10,12]", "enum E reserved range [11,12]"}},
 		{"range-end", `syntax="proto3"; enum E { ZERO=0; reserved 10 to 12; }`, `syntax="proto3"; enum E { ZERO=0; reserved 10 to 13; }`, []string{"enum E reserved range [10,12]", "enum E reserved range [10,13]"}},
@@ -122,8 +122,8 @@ func TestRepairM_1300_EnumReservations(t *testing.T) {
 	})
 }
 
-func TestRepairM_1300_NestedDescriptors(t *testing.T) {
-	repairM1300CheckPairs(t, []repairM1300Pair{
+func TestDescriptorShapeNestedDescriptors(t *testing.T) {
+	checkDescriptorShapePairs(t, []descriptorShapePair{
 		{"nested-json-name", `syntax="proto3"; message Outer { message Inner { string request_id=1; } }`, `syntax="proto3"; message Outer { message Inner { string request_id=1 [json_name="id"]; } }`, []string{"field Outer.Inner.request_id json_name"}},
 		{"nested-reservations", `syntax="proto3"; message Outer { message Inner { reserved 10; reserved "old"; } enum E { ZERO=0; reserved 10; reserved "OLD"; } }`, `syntax="proto3"; message Outer { message Inner {} enum E { ZERO=0; } }`, []string{"message Outer.Inner reserved range [10,11)", "message Outer.Inner reserved name old", "enum Outer.E reserved range [10,10]", "enum Outer.E reserved name OLD"}},
 		{"nested-oneof", `syntax="proto3"; message Outer { message Inner { oneof choice { string text=1; } } }`, `syntax="proto3"; message Outer { message Inner { oneof selection { string text=1; } } }`, []string{"oneof Outer.Inner[0] name"}},
@@ -131,7 +131,7 @@ func TestRepairM_1300_NestedDescriptors(t *testing.T) {
 	})
 }
 
-func TestRepairM_1300_RegisteredDescriptors(t *testing.T) {
+func TestDescriptorShapeRegisteredDescriptors(t *testing.T) {
 	parser := protoparse.Parser{ImportPaths: []string{".", "../sdk/third_party/proto"}}
 	for _, name := range []string{"oracle/oracle.proto", "oracle/tx.proto", "oracle/genesis.proto"} {
 		t.Run(name, func(t *testing.T) {
