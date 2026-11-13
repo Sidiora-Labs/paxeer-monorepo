@@ -30,16 +30,17 @@ Constructing a requested level does not construct verified evidence.
 
 [`layerx-wire`](../services/agent/crates/layerx-wire/src/lib.rs) owns canonical
 encoding/decoding, hashing domains and bounded signed-message codecs. Modules
-include `account`, `activity`, `batch_maintenance`, `handover`, `decode`,
-`encode`, `hash`, `limits` and `sign`. Preserve exact byte widths, supported
-protocol versions and native activity identifiers. Reject truncation, trailing
+include `account`, `batch_maintenance`, `handover`, `decode`, `encode`,
+`hash`, `limits`, `maintenance` and `receipt`. The `historical` namespace
+contains `activity`, `sign` and the historical hashing API. Preserve exact byte
+widths, supported protocol versions and native activity identifiers. Reject truncation, trailing
 data and out-of-bound messages through the real decoder.
 
 ## Crypto
 
 [`layerx-crypto`](../services/agent/crates/layerx-crypto/src/lib.rs) provides
 `SignatureMessage`, `VerifyError`, `ed25519`, `secp256k1`, `evm_transaction`,
-`purpose` and `settlement_recipient`. `SignatureMessage::new` validates the
+and `purpose`. `SignatureMessage::new` validates the
 supported protocol and nonzero network scope; `digest()` hashes the selected
 domain tag followed by canonical bytes. Key/signature verification failures
 retain the exact protocol classification via `VerifyError::result_code`.
@@ -62,8 +63,7 @@ rank integers and RPC-published authority do not establish trust.
 
 Use the exact producer's bytes, pinned receipt keys and protected commit trust.
 [Exports](agent-formats.md#offline-export) carry chain identity, committed
-headers and validator sets for independent verification. The removed checkpoint
-and settlement proof modules are not part of the current crate API.
+headers and validator sets for independent verification.
 
 ## Client
 

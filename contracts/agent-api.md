@@ -8,11 +8,11 @@ in the database, rather than separately provisioned chains.
 
 Public node JSON-RPC uses HTTPS at the root path of
 `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`,
-and `api-mainnet-beta.paxeer.network`. Its namespaces are `debug`, `echo`, `eth`,
-`net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). The router and unified
-`/rpc`, `/rpc/ws` and `/rpc/schema` network endpoints are retired.
+and `api-mainnet-beta.paxeer.network`. The [node RPC server](../rpc/server.go)
+registers Ethereum-compatible namespaces and `px` state methods; exposure
+follows the configured namespace list. Its `test` API requires
+`config.EnableTestAPI` and a non-live chain ID. Hosted `px_register` and
+`px_requestFunds` follow [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 `node.hyperpaxeer.com` is only the hpx library mirror.
 
 The maintained contract source is the
@@ -28,7 +28,6 @@ The dedicated operation listener is enabled by `LAYERX_AGENTD_RPC_LISTEN` and
 uses mutual TLS with a verified client certificate. Its private listener
 implementation is `agent_rpc_exchange` in
 [main.rs](../services/agent/crates/layerx-agentd/src/main.rs).
-The retired public `/rpc` network endpoint must not be inferred from that private adapter's internal route.
 The hosted Agent operation route is `POST /v1/agent/rpc`; this is an agent
 envelope API, not an Ethereum JSON-RPC request.
 
@@ -68,7 +67,10 @@ Native preparation profiles are explicit discriminants on `prepare`:
 Programs, `native_registration_v1` for the supported Asset Register profile,
 `native_send_v1` for ordinary Asset Send, and `native_disclosure_v1` for retrieving
 the retained disclosure without preparing another write. The versioned native
-activity retains its protocol version, full module and ordinal. A legacy
+activity retains its protocol version, full module and ordinal. The
+`native_send_v1` profile requires a version-2 Send purpose with independent
+Ed25519 consent and EIP-1559 sender verification; see
+[Send consent](agent-formats.md#send-consent). A legacy
 `activity_type` is not a substitute for this record.
 
 Program lifecycle transactions target
@@ -83,8 +85,8 @@ Simulation and fee projection are advisory and confer no signing authority.
 
 Write rungs are `submitted` (transaction hash), `receipted` (receipt signature
 verified against the pinned receipt-key entry), and `committed` (verified Comet
-commit at the receipt height). They describe available evidence on the same
-network. Historical verification-level labels in internal codecs do not describe
+commit covering the receipt, possibly in a later block). They describe
+available evidence on the same network. Historical verification-level labels in internal codecs do not describe
 additional networks or another finality service.
 
 Success carries `request_id`, `value` and `verification_status`. Status is
@@ -230,11 +232,8 @@ session scope, policy, capability, budget and current authority as applicable.
 
 ## Schema and Rust values
 
-The following registry anchors identify authored schema declarations and current
-Rust replacements where the schema has removed an older declaration.
-Rows explicitly marked removed preserve historical links and point to the
-current owning source for replacement types, rather than a live declaration
-under the old name.
+The following anchors identify schema declarations and Rust values. Transport
+validation determines which versioned declarations a served operation accepts.
 Fields below are compact navigation summaries; the linked schema retains exact
 optional fields, encodings, versions, bounds and validation rules. Native wire
 records are implemented in `layerx-agent-api::identity`; generic contract types
@@ -266,9 +265,11 @@ are reexported by their namespace in [lib.rs](../services/agent/crates/layerx-ag
 | <a id="record-nativelocalgrantconsentv1"></a>`NativeLocalGrantConsentV1` | `version:decimal_string`, `capability:lowercase_hex`, `session_scope:lowercase_hex`, `expires_at_ms:decimal_string`, `owner_public_key:hex32`, `signature:hex64` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
 | <a id="record-nativeeffectpreparerequestv1"></a>`NativeEffectPrepareRequestV1` | `variant:utf8`, `activity:NativeActivityV1`, `actor:utf8`, `authority:utf8`, `account_sequence:decimal_string`, `not_before:decimal_string`, `not_after:decimal_string`, `idempotency_key:hex32`, `fee_limit:decimal_string`, `payload:lowercase_hex`, `payload_hash:hex32`, `capability_id:hex32`, `purpose:SignedNativePreparationPurposeV1`, `local_grant:NativeLocalGrantConsentV1?` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
 | <a id="record-nativeregistrationpreparerequestv1"></a>`NativeRegistrationPrepareRequestV1` | `variant:utf8`, `activity:NativeActivityV1`, `actor:utf8`, `authority:utf8`, `account_sequence:decimal_string`, `not_before:decimal_string`, `not_after:decimal_string`, `idempotency_key:hex32`, `fee_limit:decimal_string`, `payload:lowercase_hex`, `payload_hash:hex32`, `capability_id:hex32`, `purpose:SignedNativePreparationPurposeV1`, `local_grant:NativeLocalGrantConsentV1?` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
-| <a id="record-nativesendpurposev1"></a>`NativeSendPurposeV1` | `version:decimal_string`, `tenant:utf8`, `agent_did:utf8`, `owner_did:utf8`, `owner_public_key:hex32`, `session_id:hex32`, `generation:decimal_string`, `expires_at_ms:decimal_string`, `capability_id:hex32`, `protocol_version:decimal_string`, `network_id:decimal_string`, `activity:NativeActivityV1`, `preparation_id:hex32`, `canonical_digest:hex32`, `economic_action:hex32`, `idempotency_key:hex32`, `commitment:hex32` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
-| <a id="record-signednativesendpurposev1"></a>`SignedNativeSendPurposeV1` | `purpose:NativeSendPurposeV1`, `owner_public_key:hex32`, `signature:hex64` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
-| <a id="record-nativesendpreparerequestv1"></a>`NativeSendPrepareRequestV1` | `variant:utf8`, `activity:NativeActivityV1`, `actor:utf8`, `authority:utf8`, `account_sequence:decimal_string`, `not_before:decimal_string`, `not_after:decimal_string`, `idempotency_key:hex32`, `fee_limit:decimal_string`, `payload:lowercase_hex`, `payload_hash:hex32`, `capability_id:hex32`, `purpose:SignedNativeSendPurposeV1`, `local_grant:NativeLocalGrantConsentV1?` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
+| <a id="record-nativesendpurposev2"></a>`NativeSendPurposeV2` | `version:decimal_string`, `tenant:utf8`, `agent_did:utf8`, `owner_did:utf8`, `consent_public_key:hex32`, `evm_sender:hex20`, `session_id:hex32`, `generation:decimal_string`, `expires_at_ms:decimal_string`, `capability_id:hex32`, `transaction_type:decimal_string`, `chain_id:decimal_string`, `activity:NativeActivityV1`, `preparation_id:hex32`, `canonical_digest:hex32`, `economic_action:hex32`, `idempotency_key:hex32`, `commitment:hex32` | [native_send.rs](../services/agent/crates/layerx-agent-api/src/native_send.rs) |
+| <a id="record-signednativesendpurposev2"></a>`SignedNativeSendPurposeV2` | `purpose:NativeSendPurposeV2`, `signature:hex64` | [native_send.rs](../services/agent/crates/layerx-agent-api/src/native_send.rs) |
+| <a id="record-nativesendpurposev1"></a>`NativeSendPurposeV1` (refused by current validation) | `version:decimal_string`, `tenant:utf8`, `agent_did:utf8`, `owner_did:utf8`, `owner_public_key:hex32`, `session_id:hex32`, `generation:decimal_string`, `expires_at_ms:decimal_string`, `capability_id:hex32`, `protocol_version:decimal_string`, `network_id:decimal_string`, `activity:NativeActivityV1`, `preparation_id:hex32`, `canonical_digest:hex32`, `economic_action:hex32`, `idempotency_key:hex32`, `commitment:hex32` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
+| <a id="record-signednativesendpurposev1"></a>`SignedNativeSendPurposeV1` (refused by the current transport) | `purpose:NativeSendPurposeV1`, `owner_public_key:hex32`, `signature:hex64` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
+| <a id="record-nativesendpreparerequestv1"></a>`NativeSendPrepareRequestV1` (schema declaration; the transport uses the version-2 purpose) | `variant:utf8`, `activity:NativeActivityV1`, `actor:utf8`, `authority:utf8`, `account_sequence:decimal_string`, `not_before:decimal_string`, `not_after:decimal_string`, `idempotency_key:hex32`, `fee_limit:decimal_string`, `payload:lowercase_hex`, `payload_hash:hex32`, `capability_id:hex32`, `purpose:SignedNativeSendPurposeV1`, `local_grant:NativeLocalGrantConsentV1?` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
 | <a id="record-nativedisclosurerequestv1"></a>`NativeDisclosureRequestV1` | `variant:utf8`, `canonical_bytes:lowercase_hex` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
 | <a id="record-nativedisclosureresultv1"></a>`NativeDisclosureResultV1` | `version:decimal_string`, `preparation_id:hex32`, `canonical_bytes:lowercase_hex`, `disclosure_digest:hex32`, `activity_type:decimal_string`, `actor:lowercase_hex`, `authority:lowercase_hex`, `asset:hex32`, `fee_limit:decimal_string`, `not_before:decimal_string`, `not_after:decimal_string`, `payload_expires_at:decimal_string`, `idempotency_key:hex32` | [v1.kvx](../services/agent/schema/agent-api/v1.kvx) |
 | <a id="type-sessioncontext"></a>`SessionContext` | `tenant`, `agent_did`, `authority_ref`, `permitted_activity_types`, `expiry`, `client`, `policy_version` | [identity.kvx](../services/agent/schema/agent-api/identity.kvx) |
@@ -355,16 +356,7 @@ are reexported by their namespace in [lib.rs](../services/agent/crates/layerx-ag
 | <a id="type-programsubmission"></a>`ProgramSubmission` | `tx_hash`, `submission_ref`, `state`, `rung` | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
 | <a id="type-faucetgrant"></a>`FaucetGrant` | Not in the active Agent schema; the SDK RPC carrier retains funding ID, transaction ID, amount and network. `faucet.claim` is retired. | [rpc.rs](../services/agent/crates/layerx-sdk/src/rpc.rs) |
 | <a id="type-programexecutionevidence"></a>`ProgramExecutionEvidence` | SDK evidence carrier: payload hash, receipt, terminal payload, call graph, authorized batch, activity/program IDs and guest ABI version. | [programs.rs](../services/agent/crates/layerx-sdk/src/programs.rs) |
-| <a id="type-programexecutionv4"></a>`ProgramExecutionV4` | Removed legacy execution wrapper; use `ProgramSubmission` and current receipt lookup. | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
-| <a id="type-programexecutionv5"></a>`ProgramExecutionV5` | Removed legacy execution wrapper; use `ProgramSubmission` and current receipt lookup. | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
 | <a id="type-programfailure"></a>`ProgramFailure` | Runtime failure carried by the verified program proof; use the authenticated failure accessor. | [program.rs](../services/agent/crates/layerx-proof/src/program.rs) |
-| <a id="type-programlifecycleerror"></a>`ProgramLifecycleError` | Removed legacy lifecycle error shape; use the current lifecycle response and error envelope. | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
-| <a id="type-programlifecycleerrorenvelope"></a>`ProgramLifecycleErrorEnvelope` | Removed legacy lifecycle wrapper; preserve the current API error envelope. | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
-| <a id="type-programlifecyclereceipt"></a>`ProgramLifecycleReceipt` | Removed legacy receipt shape; use `ProgramSubmission` and the selected native receipt. | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
-| <a id="type-programlifecyclereceiptenvelope"></a>`ProgramLifecycleReceiptEnvelope` | Removed legacy receipt wrapper; use current submission/receipt responses. | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
-| <a id="type-programlifecycleresult"></a>`ProgramLifecycleResult` | Removed legacy lifecycle result; use `ProgramLifecycleResponse`. | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
-| <a id="type-programlifecycleresultenvelope"></a>`ProgramLifecycleResultEnvelope` | Removed legacy lifecycle wrapper; use the current Agent HTTP success/error envelope. | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
-| <a id="type-programlifecycleunknown"></a>`ProgramLifecycleUnknown` | Removed legacy unknown wrapper; preserve `Unknown` in `ProgramSubmission`. | [programs.kvx](../services/agent/schema/agent-api/programs.kvx) |
 | <a id="type-programoutcome"></a>`ProgramOutcome` | Canonical core-receipt Programs facts, including runtime/ABI versions, exact result, metering and effect roots. | [receipt.rs](../services/agent/crates/layerx-wire/src/receipt.rs) |
 | <a id="type-programsource"></a>`ProgramSource` | SDK source state: Unpublished, Verified with source/environment digests, or Mismatch with expected/reproduced artifact hashes. | [programs.rs](../services/agent/crates/layerx-sdk/src/programs.rs) |
 
@@ -391,7 +383,6 @@ A `program.receipt` query uses this version-1 envelope:
   }
 }
 ```
-
 
 
 The owner restores the exact signed EVM transaction from the durable outbox and
@@ -446,6 +437,3 @@ The Human-owner loopback health endpoint uses `LAYERX_AGENT_PROGRAM_BEARER_TOKEN
 Outbound authority calls use the distinct `LAYERX_AGENT_HUMAN_AUTHORITY_BEARER`.
 See [configuration](agent-config.md) for startup refusals and dependency checks.
 Health authentication never substitutes for an Agent RPC session credential.
-
-Executable proofs: `tests/repair_22_33_1533.rs` includes the production
-receipt/store/codec/TLS/SDK round-trip and its malformed-frame and restart cases.

@@ -87,7 +87,7 @@ The optional operation listener uses `LAYERX_AGENTD_RPC_LISTEN` with
 `LAYERX_AGENT_HUMAN_PEERS` is comma-separated, with exact ordered named fields:
 
 ```text
-uid=4020;tenant=beta;principal=did:layerx:beta:alice,uid=4021;tenant=other;principal=did:key:z123
+uid=4020;tenant=beta;principal=did:layerx:beta:agent-1,uid=4021;tenant=other;principal=did:key:z123
 ```
 
 [`human_peer_config.rs`](../services/agent/crates/layerx-agentd/src/human_peer_config.rs)
@@ -190,8 +190,8 @@ ambiguous active ranges and unusable authority are refused. Configuring NodeRpc
 as the sole trust source is currently refused by the verifier, rather than
 trusting an unprotected remote key list.
 
-`Gate::readiness_gate(&NodeRpc) -> Result<&ReadinessStatus, GateError>` is the
-current refresh interface. `ReadinessStatus` carries `generation`, `chain_id`
+`Gate::readiness_gate(&mut self, node: &NodeRpc) -> Result<&ReadinessStatus, GateError>`
+is the current refresh interface. `ReadinessStatus` carries `generation`, `chain_id`
 and fresh `receipt_keys`. The free `boot::readiness_gate(&NodeRpc)` only checks
 the connection and nonempty receipt keys and returns generation zero; callers
 requiring protected policy and guarded writes must use `Gate`.

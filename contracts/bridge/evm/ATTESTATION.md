@@ -5,22 +5,22 @@ Attestors sign one of two raw digests with secp256k1 ECDSA. The digest is
 prefix and no EIP-712 domain separator or struct hashing. Every integer is
 big-endian and fixed width; addresses are their 20 raw bytes; the domain is the
 ASCII string with no length prefix and no terminator. This is exactly
-Solidity `abi.encodePacked` of the listed types (`src/BridgeAttestation.sol`).
+Solidity `abi.encodePacked` of the listed types ([`src/BridgeAttestation.sol`](src/BridgeAttestation.sol)).
 
-## Outbound: Paxeer -> Ethereum (`PaxeerXVault.release`)
+## Outbound: Paxeer -> foreign EVM chain (`PaxeerXVault.release`)
 
 Domain `PAXEERX_BRIDGE_OUT_V1`. Preimage length 185 bytes.
 
-| Offset | Size | Field           | Encoding                                        |
-|-------:|-----:|-----------------|-------------------------------------------------|
-|      0 |   21 | domain          | ASCII `PAXEERX_BRIDGE_OUT_V1`                   |
-|     21 |   32 | chainId         | uint256, Ethereum chain id of the vault         |
-|     53 |   20 | vault           | address of the `PaxeerXVault`                   |
-|     73 |   32 | paxeerTxHash    | bytes32, Paxeer transaction hash of the burn    |
-|    105 |    8 | paxeerNonce     | uint64, Paxeer bridge nonce of the burn         |
-|    113 |   20 | recipient       | address receiving the release on Ethereum       |
-|    133 |   20 | asset           | ERC20 address, or `0x00..00` for native ETH     |
-|    153 |   32 | amount          | uint256, base units of `asset`                  |
+|   Offset |   Size | Field             | Encoding                                                 |
+| -------: | -----: | ----------------- | -------------------------------------------------------- |
+|        0 |     21 | domain            | ASCII `PAXEERX_BRIDGE_OUT_V1`                            |
+|       21 |     32 | chainId           | uint256, foreign chain id of the vault                   |
+|       53 |     20 | vault             | address of the `PaxeerXVault`                            |
+|       73 |     32 | paxeerTxHash      | bytes32, Paxeer transaction hash of the burn             |
+|      105 |      8 | paxeerNonce       | uint64, Paxeer bridge nonce of the burn                  |
+|      113 |     20 | recipient         | address receiving the release on the foreign chain       |
+|      133 |     20 | asset             | ERC20 address, or `0x00..00` for the chain's native coin |
+|      153 |     32 | amount            | uint256, base units of `asset`                           |
 
 `digest = keccak256(preimage)`; `PaxeerXVault.releaseDigest(...)` returns it for
 the deployed vault and current chain.
@@ -36,29 +36,29 @@ Signature rules enforced by the vault:
 - the nullifier `keccak256(paxeerTxHash (32) || paxeerNonce (8, big-endian))`
   is consumed by a successful release and can never be released again.
 
-## Inbound: Ethereum -> Paxeer (`BridgeDeposit` log, verified by `modules/layerxbridge`)
+## Inbound: Foreign EVM chain -> Paxeer (`BridgeDeposit` log, verified by `modules/layerxbridge`)
 
 Domain `PAXEERX_BRIDGE_IN_V1`. Preimage length 196 bytes. This mirrors the
-outbound layout; the Paxeer side (`modules/layerxbridge/ATTESTATION.md`) must
+outbound layout; the Paxeer side ([attestation specification](../../../modules/layerxbridge/ATTESTATION.md)) must
 use the same bytes.
 
-| Offset | Size | Field           | Encoding                                              |
-|-------:|-----:|-----------------|-------------------------------------------------------|
-|      0 |   20 | domain          | ASCII `PAXEERX_BRIDGE_IN_V1`                          |
-|     20 |   32 | chainId         | uint256, Ethereum chain id of the vault               |
-|     52 |   20 | vault           | address of the `PaxeerXVault` that emitted the log    |
-|     72 |   32 | txHash          | bytes32, Ethereum transaction hash of the deposit     |
-|    104 |    8 | logIndex        | uint64, log index of `BridgeDeposit` in its block     |
-|    112 |   32 | recipient       | bytes32 `paxeerRecipient` from the deposit            |
-|    144 |   20 | asset           | ERC20 address, or `0x00..00` for native ETH           |
-|    164 |   32 | amount          | uint256, base units of `asset`                        |
+|   Offset |   Size | Field             | Encoding                                                 |
+| -------: | -----: | ----------------- | -------------------------------------------------------- |
+|        0 |     20 | domain            | ASCII `PAXEERX_BRIDGE_IN_V1`                             |
+|       20 |     32 | chainId           | uint256, foreign chain id of the vault                   |
+|       52 |     20 | vault             | address of the `PaxeerXVault` that emitted the log       |
+|       72 |     32 | txHash            | bytes32, foreign transaction hash of the deposit         |
+|      104 |      8 | logIndex          | uint64, log index of `BridgeDeposit` in its block        |
+|      112 |     32 | recipient         | bytes32 `paxeerRecipient` from the deposit               |
+|      144 |     20 | asset             | ERC20 address, or `0x00..00` for the chain's native coin |
+|      164 |     32 | amount            | uint256, base units of `asset`                           |
 
 `PaxeerXVault.depositDigest(...)` returns it for the deployed vault and current
 chain.
 
 The deposit event is:
 
-```
+```solidity
 event BridgeDeposit(address indexed asset, uint256 amount, address indexed sender,
                     bytes32 indexed paxeerRecipient, uint64 nonce);
 ```

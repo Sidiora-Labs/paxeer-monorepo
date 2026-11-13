@@ -18,9 +18,9 @@ The two Foundry configurations at the repository root cover different source tre
 
 ## Kernel contracts
 
-The merged network uses the native bank and committed block state instead of the former kernel escrow, checkpoint registry and guarantor contracts. No separate kernel custody or settlement contract deployment is required.
+The merged network uses the native bank and committed block state for funding and finality.
 
-Current funding uses native bank balances and derived sub-accounts; see the [bank interface](../precompiles/bank/Bank.sol) and [account mapping](../modules/lxphost/accountmap.go). Block commitment supplies network finality. For bridged assets, outbound movement uses `bridgeOut` in the [bridge precompile interface](../precompiles/layerxbridge/LayerXBridge.sol), subject to registered chains, attestors, caps and pause state. The [external bridge custody boundary](bridge/README.md) remains distinct from the retired kernel custody-credit system. This does not claim that any external bridge is deployed or ready.
+Current funding uses native bank balances and derived sub-accounts; see the [bank interface](../precompiles/bank/Bank.sol) and [account mapping](../modules/lxphost/accountmap.go). Block commitment supplies network finality. For bridged assets, outbound movement uses `bridgeOut` in the [bridge precompile interface](../precompiles/layerxbridge/LayerXBridge.sol), subject to registered chains, attestors, caps and pause state. The [external bridge custody boundary](bridge/README.md) has its own deployment and registration requirements.
 
 The remaining root Solidity suite can be run from the repository root:
 
@@ -28,7 +28,7 @@ The remaining root Solidity suite can be run from the repository root:
 make test-contracts
 ```
 
-The [Make target](../Makefile) runs `scripts/ci/solidity-state-surface.sh`, then `FOUNDRY_TEST=tests/solidity forge test --offline --root . --no-dynamic-test-linking` with the root configuration. Output and cache use `build/forge-artifacts` and `build/forge-cache`. This suite is separate from the chain integration tests below.
+The [Make target](../Makefile) runs `scripts/ci/solidity-state-surface.sh`, then runs `forge test --offline --root . --no-dynamic-test-linking -vvv` once with `FOUNDRY_PROFILE=names` and once with `FOUNDRY_PROFILE=governance`. These profiles select `contracts/names` and `contracts/governance` with their corresponding tests under `tests/solidity`. Their output directories are `build/forge-artifacts-names` and `build/forge-artifacts-governance`; their caches are `build/forge-cache-names` and `build/forge-cache-governance`. This suite is separate from the chain integration tests below.
 
 ## Paxeer X chain contracts
 
