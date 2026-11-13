@@ -4,23 +4,23 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_crypto::{
     account_derivation::derive_from_seed,
-    disclosure::call::{ConstructMethod, bind_call},
+    disclosure::call::{bind_call, ConstructMethod},
     disclosure::{CounterpartyRole, Disclosure},
     evm_transaction::{decode_signed, recover_sender, transaction_hash},
     local::LocalSigner,
 };
 use layerx_programs::chain_proof::{
-    ChainProofVerifier,
     header::{ChainHeader, HeaderBlockId, HeaderTime, HeaderVersion},
     merkle::SimpleProof,
     validators::{TrustedValidator, ValidatorSet},
-    vote::{BlockId, PartSetHeader, Timestamp, vote_sign_bytes},
+    vote::{vote_sign_bytes, BlockId, PartSetHeader, Timestamp},
+    ChainProofVerifier,
 };
 use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_sdk::rpc::RpcClient;
 use layerx_types::{clock::ClockReading, clock_protocol};
 use layerx_wire::{encode::Encoder, receipt};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
     fs,
@@ -31,8 +31,8 @@ use std::{
         net::UnixListener,
     },
     sync::{
-        Arc, Mutex,
         atomic::{AtomicBool, AtomicU16, Ordering},
+        Arc, Mutex,
     },
     thread::{self, JoinHandle},
     time::{Duration, Instant},
@@ -322,11 +322,9 @@ impl Peer {
                     }
                     "eth_estimateGas" => {
                         assert_eq!(params[1], "pending");
-                        assert!(
-                            [hex(&sender), hex(&recipient_sender)]
-                                .iter()
-                                .any(|address| params[0]["from"] == *address)
-                        );
+                        assert!([hex(&sender), hex(&recipient_sender)]
+                            .iter()
+                            .any(|address| params[0]["from"] == *address));
                         assert_eq!(
                             params[0]["to"],
                             "0x000000000000000000000000000000000000101a"
@@ -435,11 +433,9 @@ impl Peer {
                         .protocol()
                         .expect("protocol receipt")
                         .resulting_state_root();
-                        assert!(
-                            checked(served_coverage.lock())
-                                .insert(hash, committed.coverage.clone())
-                                .is_none()
-                        );
+                        assert!(checked(served_coverage.lock())
+                            .insert(hash, committed.coverage.clone())
+                            .is_none());
                         assert!(
                             submitted.insert(hash, (answer, committed, 0)).is_none(),
                             "exactly one submission per activity"
@@ -485,11 +481,9 @@ impl Peer {
                     "px_getValidators" => {
                         assert_eq!(params.as_array().expect("validator params").len(), 1);
                         let height = params[0].as_str().expect("validator height");
-                        assert!(
-                            submitted
-                                .values()
-                                .any(|(_, committed, _)| committed.commit["height"] == height)
-                        );
+                        assert!(submitted
+                            .values()
+                            .any(|(_, committed, _)| committed.commit["height"] == height));
                         let validators: Vec<_> = (1..=3).map(|n| {
                             let public = SigningKey::from_bytes(&[n; 32]).verifying_key().to_bytes();
                             let address = layerx_agentd::read::CommitValidator::address_for_key(&public);
@@ -1010,10 +1004,10 @@ fn occupancy_maintenance(protocol: &receipt::ProtocolReceipt, batch_number: u64)
 
 fn commit_receipt(executed: &Value, raw: &[u8], signer: &SigningKey) -> CommittedReceipt {
     use layerx_client::rpc::receipt_commit::{
-        ReceiptCommitEvidence, SequenceBatch, verify_receipt_coverage,
+        verify_receipt_coverage, ReceiptCommitEvidence, SequenceBatch,
     };
     use layerx_proof::{
-        inclusion::{SequencerAuthorization, verify_receipt},
+        inclusion::{verify_receipt, SequencerAuthorization},
         merkle::build_proof,
     };
 

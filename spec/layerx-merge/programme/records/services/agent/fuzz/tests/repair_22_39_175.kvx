@@ -2,7 +2,7 @@
 requirement = "22998.1"
 decisions = ["3006", "3007"]
 gotcha = "3704"
-consumer = "services/agent/fuzz/tests/repair_22_33_1567.rs"
+consumer = "services/agent/fuzz/tests/payload_producer_corpus.rs"
 import_before = "use layerx_wire::{activity, encode::Encoder};"
 import_after = ["use layerx_wire::encode::Encoder;", "use layerx_wire::historical::activity;"]
 producer = "services/agent/crates/layerx-wire/src/lib.rs declares historical::activity over the retained activity codec, as decision 3006 requires for archived envelopes."
@@ -20,5 +20,5 @@ revision = "feea52c6ccd1587c84bcd8126ebb942375580801"
 command = "cg spec done 22.39.175 -f layerx-merge --root /work/paxeer-monorepo"
 exit = 1
 log = "/out/logs/verify-1.log"
-observed = "All seven tests passed, but the grouped-use grep also matched historical::activity inside the repaired grouped import; its only reported file was services/agent/fuzz/tests/repair_22_33_1567.rs."
+observed = "All seven tests passed, but the grouped-use grep also matched historical::activity inside the repaired grouped import; its only reported file was services/agent/fuzz/tests/payload_producer_corpus.rs."
 correction = "Use separate Encoder and historical::activity imports so the declared grep passes without weakening its pattern or any assertion."

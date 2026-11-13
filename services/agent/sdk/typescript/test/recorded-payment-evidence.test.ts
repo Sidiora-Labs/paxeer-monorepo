@@ -18,7 +18,7 @@ import { walletAccount } from "../src/rpc.js";
 import { verifySequencerReceipt } from "../src/verifier.js";
 import { buyer, exactRecording, ledgerRecording, meteredRules, recordedWebRpc, sellerExchange, unhex, webConfig, webReceiptKeys, localWebFixture, type RecordedRpc } from "./recorded-web-search.js";
 
-async function repair_22_33_24_replays_regenerated_metered_evidence(): Promise<void> {
+async function recorded_payments_replay_regenerated_metered_evidence(): Promise<void> {
   const root = new URL("../../../../../../", import.meta.url);
   const provenance = localWebFixture<{ readonly sources: Readonly<Record<string, string>> }>("provenance.json");
   for (const [path, digest] of Object.entries(provenance.sources)) {
@@ -56,7 +56,7 @@ async function repair_22_33_24_replays_regenerated_metered_evidence(): Promise<v
   }
 }
 
-async function repair_22_33_24_replays_current_ledger_reads(): Promise<void> {
+async function recorded_payments_replay_current_ledger_reads(): Promise<void> {
   const root = new URL("../../../../../../", import.meta.url);
   for (const [path, digest] of Object.entries(ledgerRecording.sources)) {
     assert.equal(createHash("sha256").update(readFileSync(new URL(path, root))).digest("hex"), digest, path);
@@ -102,7 +102,7 @@ async function repair_22_33_24_replays_current_ledger_reads(): Promise<void> {
   } finally { await rpc.close(); }
 }
 
-async function repair_22_33_24_replays_recorded_payment_reads(): Promise<void> {
+async function recorded_payments_replay_recorded_payment_reads(): Promise<void> {
   const payments = [
     ...meteredRules.filter(rule => rule.method === "eth_sendRawTransaction").map(rule => ({
       txHash: String(rule.result), rawTransaction: String(rule.params[0]),
@@ -130,10 +130,10 @@ async function repair_22_33_24_replays_recorded_payment_reads(): Promise<void> {
   } finally { await rpc.close(); }
 }
 
-function repair_22_33_24_preserves_recorded_producer_provenance(): void {
+function recorded_payments_preserve_producer_provenance(): void {
   const root = new URL("../../../../../../", import.meta.url);
   const source = (path: string): string => readFileSync(new URL(path, root), "utf8");
-  const committed = JSON.parse(source("services/agent/sdk/typescript/test/fixtures/repair-22-33-24/committed.json")) as {
+  const committed = JSON.parse(source("services/agent/sdk/typescript/test/fixtures/recorded-payment-evidence/committed.json")) as {
     readonly provenance: { readonly source: string; readonly sha256: string };
     readonly positive: {
       readonly rawTransaction: string;
@@ -170,8 +170,8 @@ function repair_22_33_24_preserves_recorded_producer_provenance(): void {
   assert.match(source("services/interop/crates/x-websearch/src/payment.rs"), /PAYER_ADDRESS: &str = "LAYERX-PAYER-ADDRESS"/u);
 }
 
-test(repair_22_33_24_preserves_recorded_producer_provenance);
-test(repair_22_33_24_replays_current_ledger_reads);
-test(repair_22_33_24_replays_recorded_payment_reads);
-test(repair_22_33_24_replays_regenerated_metered_evidence);
+test(recorded_payments_preserve_producer_provenance);
+test(recorded_payments_replay_current_ledger_reads);
+test(recorded_payments_replay_recorded_payment_reads);
+test(recorded_payments_replay_regenerated_metered_evidence);
 test(webSearchClientTests);

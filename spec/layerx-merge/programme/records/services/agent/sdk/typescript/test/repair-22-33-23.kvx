@@ -2,7 +2,7 @@
 audit = "spec/layerx-merge/programme/audit/records/22.30.101.kvx"
 input_revision = "f945549b95baf4ec2b0d6bb05148010091c762a2"
 requirement = "22998.1"
-verification = "cd services/agent/sdk/typescript && npm run build && node dist/test/repair-22-33-23.test.js"
+verification = "cd services/agent/sdk/typescript && npm run build && node dist/test/hosted-routing-and-exchange.test.js"
 evidence = "The runner records candidate revision, command, exit and private log in its hf-build/hf-done ledger; no gate is claimed here before it runs."
 baseline = "No baseline gate ran: the required repair entry point did not exist on input, and the ordered instructions prohibit testing before full implementation and require hf-build before hf-done; no before-change failures are claimed as executed."
 qualification = "Audit closure requires a passing hf-done; native execution is not established by byte comparisons, SDK payload round trips or source assertions."

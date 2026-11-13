@@ -40,5 +40,5 @@ before_change = "The first getReceiptKeys call reaches pxQuantity with an unsafe
 [qualification]
 verified_revision = "By reference: the successful hf-done candidate revision in /out/run/gates.jsonl; qualification is established only when that gate exits zero."
 build = "npm --prefix services/agent/sdk/typescript ci --no-audit --no-fund && pnpm --dir services/agent/sdk/typescript run build"
-verify = "test -s services/agent/sdk/repair_22_39_351.kvx && grep -q repair_22_39_351.kvx sdk/platform/pipeline.kvx && cd services/agent/sdk/typescript && node dist/test/px.test.js"
+verify = "test -s spec/layerx-merge/programme/records/services/agent/sdk/repair_22_39_351.kvx && grep -q repair_22_39_351.kvx sdk/platform/pipeline.kvx && cd services/agent/sdk/typescript && node dist/test/px.test.js"
 result = "The hf-build and hf-done ledger records the exact candidate revision, command, exit code and private evidence location; no unexecuted gate is claimed here."

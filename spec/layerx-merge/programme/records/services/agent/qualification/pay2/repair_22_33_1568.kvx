@@ -1,7 +1,7 @@
 [repair.22.33.1568]
 audit = "22.30.99"
 baseline = "The runner ledger contained no prior build or verify runs. The prerequisite already registered pay2e and repaired its public APIs. The corrected repair target did not exist before this task; no baseline execution is claimed because the ordered instructions require complete implementation, hf-build, then hf-done and prohibit a manual verify run."
-planned_path = "repair_m1568_test.go maps to tests/repair_22_33_1568.rs under the task's do_10 toolchain correction; no Go or subprocess toolchain is used."
+planned_path = "repair_m1568_test.go maps to tests/registered_scenario.rs under the task's do_10 toolchain correction; no Go or subprocess toolchain is used."
 evidence = "The runner-owned /out/run/gates.jsonl records the candidate revision, exact commands, exits and private logs. The final response copies the last gate evidence; no candidate file is changed after qualification."
 wiring_request = "services/agent/tests/support (agent domain) and services/platform/hosted (platform domain): provision the real funded node/gateway plus private PAY2_FUNDED_INPUTS, PAY2_COMMITTED_AUTHORITY and PAY2_EVIDENCE_OUT for the existing live pay2e scenario; the declared repair gate needs none of them."
 

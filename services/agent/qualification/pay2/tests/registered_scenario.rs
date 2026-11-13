@@ -12,16 +12,14 @@ mod required;
 use std::{fs, path::Path};
 
 #[test]
-#[allow(non_snake_case)]
-fn TestRepairM_1568_registered_target_executes_signed_scenario() {
+fn registered_target_executes_signed_scenario() {
     let manifest = include_str!("../Cargo.toml");
     assert!(manifest.contains("[[test]]\nname = \"pay2e\"\npath = \"pay2e_test.rs\""));
     registered_scenario::pay2_signed_payments_survive_restart();
 }
 
 #[test]
-#[allow(non_snake_case)]
-fn TestRepairM_1568_build_inputs_are_not_execution_evidence() {
+fn build_inputs_are_not_execution_evidence() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let inputs = build_script::pay2_build_inputs(manifest);
     assert_eq!(
