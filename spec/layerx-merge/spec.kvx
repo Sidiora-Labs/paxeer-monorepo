@@ -170152,7 +170152,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.109]
 title = "Move the task records and name the files after what they hold in sdk/launchpad/packages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204845,7 +204845,7 @@ do_7 = "do_7 Decision 3457, gotcha 4371. One file of services/human/tests reads 
 
 [task.22.43.149]
 title = "Move the task records and name the files after what they hold in services/human/crates/layerx-human-service/tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239221,7 +239221,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.173]
 title = "Move the task records and name the files after what they hold in services/platform/perps-data"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373078,7 +373078,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.121]
 title = "Name present pages in the gate files of tools/paxeer-x"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.41.119"]
@@ -373138,7 +373138,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.180]
 title = "Give the example environment files of the deployments under tools/ops the values of the deployment again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -449247,7 +449247,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.140]
 title = "Move the task records and name the files after what they hold in services/explorer/backend/apps/explorer/test/repair"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
