@@ -21835,3 +21835,8 @@ fix = "Decision 3488. Task 22.39.511 takes the full list by hand and follows the
 title = "The test target of the platform workspaces reaches the cases of the PaxAI participant member"
 symptom = "The target platform-test visits one member at a time, as gotcha 4400 says for the agent workspace. Behind the members inside the paths of task 22.39.504 it reaches the file tests/job_admission.rs of the PaxAI participant member. The cases of that file build their market through the operations of the member layerx-programs-ai-market in a form that predates the present operations, and the file lies outside the paths of the task."
 fix = "Decision 3489. Task 22.39.504 takes the test directory of that member into its paths and follows the rule."
+
+[gotcha.4403]
+title = "Pages across the repository open with the consensus family"
+symptom = "Beyond the entry pages of decision 3485, pages in the documentation, the wiki, the contract pages, the pages of services, kits and applications and pages of upstream specification carry one sentence that calls the network one BFT network and says that the kernel participates in block proposal. Thirteen Python tests read that sentence on the network page, the overview page, the documentation index and the page of the programs, and the index no longer holds it."
+fix = "Decision 3490. Tasks 22.43.295 to 22.43.303."
