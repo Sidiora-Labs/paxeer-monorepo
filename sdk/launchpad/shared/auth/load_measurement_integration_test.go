@@ -83,7 +83,7 @@ func admittedSignedLoadPlan(t *testing.T) SignedLoadPlan {
 			t.Fatal("source identity mismatch", relative)
 		}
 	}
-	spec, err := os.ReadFile("../../../../launchpad/spec/production-system/spec.kvx")
+	spec, err := os.ReadFile("../../../../spec/layerx-merge/spec.kvx")
 	if err != nil {
 		t.Fatal(err)
 	}

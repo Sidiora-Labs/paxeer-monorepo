@@ -299,8 +299,8 @@ def test_launchpad_baseline_names_only_reviewed_existing_tests():
         ]
         assert len(declarations) == 1, entry
         if entry["package"] == runner.SHARED + "auth":
-            assert "launchpad/spec/production-system/handoffs/L33/schema-proposal.sql" in entry["reason"]
-            assert "not tracked" in entry["reason"]
+            assert "migrations/registry.json" in entry["reason"]
+            assert "reviewed provenance" in entry["reason"]
     assert sum(entry["package"] == runner.SHARED + "auth" for entry in entries) == 6
 
 

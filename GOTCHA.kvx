@@ -21615,3 +21615,18 @@ fix = "Tasks 22.42.1 to 22.42.26 add the inventory of systems, the pages of vari
 title = "A file is named after what it holds and task records lie under the programme directory"
 symptom = "Files and directories across the tree carry the word repair with a task number in their names, and task records with the extension kvx lie beside the sources."
 fix = "Tasks 22.43.1 to 22.43.247 move the task records under spec/layerx-merge/programme/records and give the other files a name that states what they hold. A new test file is named after the behaviour it covers, and a new task record is written under that directory."
+
+[gotcha.4359]
+title = "A section of a member compiled only for the target wasm32 is built for that target after a change"
+symptom = "A member of the programs workspace holds a section that is compiled only for the target wasm32. A build or a lint for the native target does not read that section."
+fix = "After a change of such a member, build it for the target wasm32 as well. Task 22.39.512 builds the three members that hold such a section for both targets."
+
+[gotcha.4360]
+title = "The lock file of a workspace follows the manifests of the members it reads by path"
+symptom = "A workspace that reads a member of another workspace by path resolves the dependencies of that member in its own lock file, and a build with the option --locked reads that lock file."
+fix = "After a change of a dependency version in a manifest, refresh the lock file of every workspace that reads that member by path. Task 22.39.513 refreshes the lock file of the workspace services/agent."
+
+[gotcha.4361]
+title = "A task that moves a file names the destination among its paths"
+symptom = "A task moves files to a directory outside the paths it declares. The destination is then not among the paths of the task."
+fix = "Name the destination directory among the planned paths of the task. The open tasks of the series 22.43 name the directories under spec/layerx-merge/programme/records for the records they move."

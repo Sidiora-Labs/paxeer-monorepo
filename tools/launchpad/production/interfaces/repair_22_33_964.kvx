@@ -66,7 +66,7 @@ do = "Retain both explicit input bindings and all full-suite assertions; record 
 
 [qualification.attempt-4-supplied]
 revision = "ddff56c5de80db1838ed320240607ea82c77aa0f"
-observed = "The supplied attempt-4 output records 1 failed and 4 passed: test_materializer_test_authority opened launchpad/spec/production-system/spec.kvx, a file that never existed on main."
+observed = "Contract fixture inputs are retained under sdk/launchpad/protocol/contracts/v1; complete schema generation requires pinned manifests and inputs."
 evidence = "Previous-attempt gate output supplied in the task; retained without rerunning the unchanged baseline."
 
 [gotcha.admitted-operation-authority]

@@ -1,0 +1,92 @@
+[manifest]
+task = "22.43.12"
+records_moved = 12
+files_renamed = 10
+
+[file.1]
+from = "apps/launchpad/mobile/src/runtime/repair-22-31-30.kvx"
+to = "apps/launchpad/qualification/records/mobile/signed-account-operations.kvx"
+
+[file.2]
+from = "apps/launchpad/mobile/src/runtime/repair-22-33-926.kvx"
+to = "apps/launchpad/qualification/records/mobile/push-installation-authority.kvx"
+
+[file.3]
+from = "apps/launchpad/mobile/src/runtime/repair-22-33-927.kvx"
+to = "apps/launchpad/qualification/records/mobile/trade-recovery.kvx"
+
+[file.4]
+from = "apps/launchpad/mobile/test/repair-22-33-928.kvx"
+to = "apps/launchpad/qualification/records/mobile/offline-cache-admission.kvx"
+
+[file.5]
+from = "apps/launchpad/mobile/test/vitest/fixtures/repair-22-33-929-v2.json"
+to = "apps/launchpad/mobile/test/vitest/fixtures/market-route-v2.json"
+
+[file.6]
+from = "apps/launchpad/mobile/test/vitest/repair-22-31-30.test.ts"
+to = "apps/launchpad/mobile/test/vitest/signed-account-operations.test.ts"
+
+[file.7]
+from = "apps/launchpad/mobile/test/vitest/repair-22-31-31.test.ts"
+to = "apps/launchpad/mobile/test/vitest/live-cache-restore.test.ts"
+
+[file.8]
+from = "apps/launchpad/mobile/test/vitest/repair-22-33-926.test.ts"
+to = "apps/launchpad/mobile/test/vitest/push-installation-authority.test.ts"
+
+[file.9]
+from = "apps/launchpad/mobile/test/vitest/repair-22-33-927.test.ts"
+to = "apps/launchpad/mobile/test/vitest/trade-recovery.test.ts"
+
+[file.10]
+from = "apps/launchpad/mobile/test/vitest/repair-22-33-928.test.ts"
+to = "apps/launchpad/mobile/test/vitest/offline-cache-admission.test.ts"
+
+[file.11]
+from = "apps/launchpad/mobile/test/vitest/repair-22-33-929.kvx"
+to = "apps/launchpad/qualification/records/mobile/market-route-contracts.kvx"
+
+[file.12]
+from = "apps/launchpad/mobile/test/vitest/repair-22-33-929.test.ts"
+to = "apps/launchpad/mobile/test/vitest/market-route-contracts.test.ts"
+
+[file.13]
+from = "apps/launchpad/qualification/account-ui/repair_22_33_1026.kvx"
+to = "apps/launchpad/qualification/records/account-ui/documented-account-commands.kvx"
+
+[file.14]
+from = "apps/launchpad/qualification/account-ui/test_repair_22_33_1026.py"
+to = "apps/launchpad/qualification/account-ui/test_documented_account_commands.py"
+
+[file.15]
+from = "apps/launchpad/repair_22_39_272.kvx"
+to = "apps/launchpad/qualification/records/live-fee-accounting.kvx"
+
+[file.16]
+from = "apps/launchpad/web/repair-22-39-95.kvx"
+to = "apps/launchpad/qualification/records/web/launchpad-journeys.kvx"
+
+[file.17]
+from = "apps/launchpad/web/repair_22_39_399.kvx"
+to = "apps/launchpad/qualification/records/web/type-contracts.kvx"
+
+[file.18]
+from = "apps/launchpad/web/repair_22_39_455.kvx"
+to = "apps/launchpad/qualification/records/web/chart-recovery.kvx"
+
+[file.19]
+from = "apps/launchpad/web/src/app/api/errors/repair-22-33-974.kvx"
+to = "apps/launchpad/qualification/records/web/beacon-byte-limit.kvx"
+
+[file.20]
+from = "apps/launchpad/web/src/app/api/errors/repair-22-33-974.test.ts"
+to = "apps/launchpad/web/src/app/api/errors/beacon-byte-limit.test.ts"
+
+[file.21]
+from = "apps/launchpad/web/src/hooks/chat/repair-22-33-986.kvx"
+to = "apps/launchpad/qualification/records/web/conversation-read-markers.kvx"
+
+[file.22]
+from = "apps/launchpad/web/src/hooks/chat/repair-22-33-986.test.ts"
+to = "apps/launchpad/web/src/hooks/chat/conversation-read-markers.test.ts"
