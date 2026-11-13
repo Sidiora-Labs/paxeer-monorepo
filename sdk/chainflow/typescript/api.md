@@ -546,6 +546,9 @@ const coinMarketCap = await client.coinMarketCap.listListingsAPIAlias({
 
 ## `WebSockets`
 
+WebSocket upgrades resolve the REST key and token synchronously; supply
+strings or synchronous `AuthTokenProvider` functions for stream clients.
+
 These server-side Node.js examples use the REST client from Setup. Each
 explicitly mints the matching scope and creates a separate stream client with
 that token. See [the README](./README.md#websockets) for connection and credential

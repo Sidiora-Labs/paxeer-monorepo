@@ -1,16 +1,15 @@
 # Chainflow Data Gateway
 
 Asynchronous Rust client for the Chainflow Data Gateway REST API and WebSocket
-streams. The default gateway is `https://data.feed.chainflowtrading.com`.
+streams. The default gateway is selected by [`Environment`](src/client.rs).
 
 For Paxeer integrations, the network is one BFT chain with chain ID 125 (`0x7d`);
 its kernel proposes blocks and receipts are final when their block is committed.
-Node JSON-RPC uses the public node root path, for example
-`https://api1.mainnet-beta.paxeer.network/`. Configure node access separately from
-this market-data client; see [public RPC](../../../docs/site/docs/reference/public-rpc.md).
+Node JSON-RPC uses the public node root path. Configure node access separately
+from this market-data client; see [public RPC](../../../docs/site/docs/reference/public-rpc.md).
 
-See [api.md](./api.md) for operations, [reference.md](./reference.md) for runtime
-options, and the [Python guide](../python/SKILL.md) and
+See [api.md](./api.md) for operations, [reference.md](./reference.md) for routes
+and models, and the [Python guide](../python/SKILL.md) and
 [Python API reference](../python/api.md) for the same gateway's Python client.
 
 ## Installation
@@ -262,12 +261,10 @@ acquisition or renewal lifecycle to trace.
 cargo add chainflow-data-gateway --features tracing
 ```
 
-This crate emits events only and never installs a subscriber — your binary
-does that, e.g. with `tracing-subscriber`:
-
-```sh
-RUST_LOG=chainflow_data_gateway=debug cargo run
-```
+This crate emits events only. The application installs a subscriber, for
+example through `tracing-subscriber`, and selects the
+`chainflow_data_gateway=debug` filter there. `RUST_LOG` applies when the
+application's subscriber is configured to read it.
 
 Credentials never reach an event: URLs are logged with their query string
 redacted, header values and names are never logged, and request/response
@@ -336,10 +333,11 @@ Response bodies are untrusted, so the runtime bounds them by default:
   are consumed incrementally and are exempt.
 - Each attempt carries a 60-second deadline unless one is set explicitly; it
   covers request-body upload through response headers, and every retry gets a
-  fresh one. Reading a *buffered* response body is bounded the same way, so a
-  server that sends headers and then stalls cannot hang the call. The default
-  skips streamed and multipart uploads and the body of a binary download, and
-  streaming responses are always exempt.
+  fresh one. JSON response bodies get a separate read deadline using the
+  configured timeout, or 60 seconds by default.
+  Byte responses, including gateway health and UDF time, use a body-read
+  deadline only when `.timeout(...)` is set on the builder or operation.
+  Streaming response bodies are consumed without this read deadline.
 - The default `ReqwestTransport::new()` disables redirects to avoid forwarding
   credentials to another host. `ReqwestTransport::from_client(...)` preserves
   the supplied client's redirect policy; configure it explicitly as above.

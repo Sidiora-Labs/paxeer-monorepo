@@ -52,10 +52,10 @@ runs `rosetta-cli check:data` and `rosetta-cli check:construction`.
 
 ## Container entry points
 
-The Compose fixture and `simd` image recipe are retained as
+The fixture container definitions are
 [`docker-compose.yaml.historical`](docker-compose.yaml.historical) and
-[`node/Dockerfile.historical`](node/Dockerfile.historical). This checkout has no
-`simd` application source. The SDK Makefile's `test-rosetta` and `rosetta-data`
-targets refer to absent container entry points and are unsupported. Use the
-explicit Paxd image recipe with a fresh compatible chain home for local node
-operation.
+[`node/Dockerfile.historical`](node/Dockerfile.historical). The simulation
+application source is in
+[`interchain/testing/simapp/simd`](../../../interchain/testing/simapp/simd).
+For local Paxeer node operation, build the explicit Paxd image recipe with
+a fresh compatible chain home.

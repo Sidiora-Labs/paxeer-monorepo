@@ -2,8 +2,7 @@
 
 This library provides convenient access to the Chainflow Data Gateway REST API from TypeScript or JavaScript.
 
-The default data gateway is `https://data.feed.chainflowtrading.com`. It
-provides price feeds, market summaries, TradingView data and explorer
+The client provides price feeds, market summaries, TradingView data and explorer
 observations. Paxeer mainnet-beta is one BFT `paxd` network with EVM chain ID
 125 (`0x7d`); receipts become final when their block commits. Configure node
 JSON-RPC separately using the root URLs in the [public RPC reference](../../../docs/site/docs/reference/public-rpc.md).
@@ -105,6 +104,10 @@ token responses, connection URLs or complete connection events; events may
 contain transport errors. Use a separate stream client so its token does not
 also become a query parameter on REST calls.
 
+HTTP calls accept asynchronous `AuthTokenProvider` functions. WebSocket
+upgrades resolve the REST key and token synchronously, so use strings or
+synchronous providers for a stream client.
+
 <br />
 
 ## Authentication
@@ -132,7 +135,9 @@ Declared schemes:
 
 ## Errors
 
-Non-success responses throw generated API errors. Error objects expose status, headers, response body, and request metadata where the target runtime supports it.
+Non-success HTTP responses throw `APIError` instances with `status`, `headers`
+and the decoded JSON payload in `error`. Non-JSON response text contributes
+to the error message. Transport errors may have no HTTP status or headers.
 
 ```ts
 import { APIError } from '@sidioralabs/chainflow-data-gateway';
@@ -163,6 +168,9 @@ Configure the generated client by setting any of these options when you create i
 import ChainflowDataGateway from '@sidioralabs/chainflow-data-gateway';
 
 const client = new ChainflowDataGateway({
+  restAPIKey: process.env['REST_API_KEY'],
+  wsMintKey: null,
+  wsToken: null,
   timeout: 60000,
   maxRetries: 2,
   logLevel: 'warn',
@@ -175,7 +183,7 @@ const client = new ChainflowDataGateway({
 | `wsMintKey` | `string \| AuthTokenProvider \| null` | `process.env["WS_MINT_KEY"]` | WS minting key; overrides the shared HTTP authentication header when set. |
 | `wsToken` | `string \| AuthTokenProvider \| null` | `process.env["WS_TOKEN"]` | Opaque 300-second, scope-bound token from POST /auth/ws-token. Checked at handshake, not forcibly expired mid-session. |
 | `baseURL` | `string \| null` | `process.env["SIDIORALABS_BASE_URL"]`, otherwise the data gateway | Override the base URL. `null` selects the default data gateway. |
-| `timeout` | `number` | `60000` | Maximum time in milliseconds to wait for a response before aborting a request. |
+| `timeout` | `number` | `60000` | Time in milliseconds for each fetch attempt through response headers. |
 | `maxRetries` | `number` | `2` | Number of retries for temporary failures. |
 | `defaultHeaders` | `HeadersLike` | - | Headers sent with every request. |
 | `defaultQuery` | `Record<string, string \| undefined>` | - | Query parameters sent with every request. |
@@ -203,14 +211,22 @@ const client = new ChainflowDataGateway({
 
 ## Retries and Timeouts
 
-Generated clients support request timeouts and retry temporary failures such as network errors, 408, 409, 429, and 5xx responses. Retry delays honor `Retry-After` headers when present. Tune the retry and timeout client options shown above, or override them per request. HTTP timeouts apply to each attempt; retries can extend the total call duration. WebSocket reconnection uses separate connection options.
+HTTP requests retry network errors and responses with status 408, 409, 429 or
+5xx. The `x-should-retry` response header overrides status-based retry decisions
+when its value is `true` or `false`. Positive delays of at most 60 seconds from
+`retry-after-ms` or `Retry-After` are used; other values use exponential backoff
+with jitter. Tune `maxRetries` and `timeout` per client or request.
+
+The timeout covers each fetch attempt through response headers. Body parsing
+follows that phase, and retries add attempts and backoff to the total call
+duration. WebSocket reconnection uses separate connection options.
 
 <br />
 
 ## Helpers
 
 - Use `.withResponse()` on any request to inspect both parsed data and the raw `Response` object.
-- Every operation returns an `APIPromise`, so you can `await` it directly or chain `.withResponse()`.
+- Every HTTP operation returns an `APIPromise`, so you can `await` it directly or chain `.withResponse()`.
 
 <br />
 
@@ -227,5 +243,7 @@ Generated clients support request timeouts and retry temporary failures such as 
 
 ## Requirements
 
-- Node.js 20+ with `fetch` for the default entry point and its `ws` transport.
+- The default entry point uses Node.js and its `ws` transport. HTTP calls need
+  global `fetch` or a custom `fetch` option, plus Fetch API types such as
+  `Headers`, `Request` and `Response`.
 - Browser WebSockets require a browser transport and backend-issued tokens.
