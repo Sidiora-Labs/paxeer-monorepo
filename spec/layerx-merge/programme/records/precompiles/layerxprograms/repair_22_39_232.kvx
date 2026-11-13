@@ -46,7 +46,7 @@ action = "Use bounded section reads and concrete source paths from host.go; all 
 
 [qualification.blocker]
 task = "22.39.232"
-file = "precompiles/layerxprograms/repair_m212_test.go"
+file = "precompiles/layerxprograms/merge_contract_test.go"
 symbol = "node.App value assignments at lines 29 and 161"
 observed = "At revision 2477c9042440a7ced6f7b68e57e8d026f9eb8b37, go vet ./precompiles/layerxprograms/... exited 1; /out/logs/build-1.log reports both unchanged assignments copy node.App containing sync.RWMutex."
 assumption = "The pre-existing copylock failures require their owning task to repair them; this task records the blocker without changing those assignments or rerunning that failure."

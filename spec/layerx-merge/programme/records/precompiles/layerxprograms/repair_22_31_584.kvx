@@ -8,7 +8,7 @@ repair = "Pass fixture lease identity and receipt evidence into prepareSandboxEx
 
 [provenance.recording]
 test = "TestProgramsSandboxExecuteEmitsUsage"
-vector = "precompiles/layerxprograms/testdata/repair_m213_lease_request.hex"
+vector = "precompiles/layerxprograms/testdata/sandbox_lease_request.hex"
 binding = "Only the recording test asserts equality to the committed request bytes; its local decoded lease ID and receipt evidence reproduce the recorded fixture. The returned request decodes to the recorded program, asset, limits, activity ID and receipt digest and re-encodes byte for byte."
 regression = "TestRepair22_31_584/recording request codec round trip executes the recording test and its live native usage and committed result assertions."
 

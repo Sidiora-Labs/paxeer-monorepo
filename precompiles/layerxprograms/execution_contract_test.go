@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair251View(t *testing.T, h *harness, name string, args ...interface{}) []interface{} {
+func programsStaticView(t *testing.T, h *harness, name string, args ...interface{}) []interface{} {
 	t.Helper()
 	input, err := lp.ProgramsABI.Pack(name, args...)
 	require.NoError(t, err)
@@ -33,7 +33,7 @@ func repair251View(t *testing.T, h *harness, name string, args ...interface{}) [
 	return values
 }
 
-func TestRepair_251_QuoteAsset(t *testing.T) {
+func TestProgramsQuoteActiveAssetAcrossReopen(t *testing.T) {
 	h := newHarness(t)
 	budget := [7]uint64{19, 23, 29, 31, 37, 41, 43}
 	activeKey := append([]byte{1, 0, 9}, []byte("progfee/active/v1")...)
@@ -55,8 +55,8 @@ func TestRepair_251_QuoteAsset(t *testing.T) {
 			}
 			record, err := h.host.ReadFeeSchedule(h.stateDB.Ctx())
 			require.NoError(t, err)
-			schedule := repair251View(t, h, "getCurrentFeeSchedule")
-			quote := repair251View(t, h, "quoteCallFee", budget)
+			schedule := programsStaticView(t, h, "getCurrentFeeSchedule")
+			quote := programsStaticView(t, h, "quoteCallFee", budget)
 			require.Equal(t, schedule[0], quote[0])
 			require.Equal(t, [32]byte(record[65:97]), schedule[2])
 			require.Equal(t, schedule[2], quote[2], "feeAsset must select the active payment asset")
@@ -77,7 +77,7 @@ func TestRepair_251_QuoteAsset(t *testing.T) {
 	binary.BigEndian.PutUint64(record[137:145], math.MaxUint64)
 	h.stateDB.Ctx().KVStore(h.key).Set(activeKey, record)
 	maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 128), big.NewInt(1))
-	quote := repair251View(t, h, "quoteCallFee", [7]uint64{math.MaxUint64, 2})
+	quote := programsStaticView(t, h, "quoteCallFee", [7]uint64{math.MaxUint64, 2})
 	require.Equal(t, maximum, quote[1])
 	input, err := lp.ProgramsABI.Pack("quoteCallFee", [7]uint64{math.MaxUint64, 3})
 	require.NoError(t, err)
@@ -90,7 +90,7 @@ func TestRepair_251_QuoteAsset(t *testing.T) {
 	require.Equal(t, before, h.dump(h.stateDB.Ctx()))
 }
 
-func TestRepair_251_ValueFrozen(t *testing.T) {
+func TestProgramsValueFrozenAcrossReopen(t *testing.T) {
 	h, program, asset := registerAccountFixture(t)
 	seed := []byte("repair-251-vault")
 	conservationCall(t, h, "registerAccount", program, uint8(2), asset, seed)
@@ -128,7 +128,7 @@ func TestRepair_251_ValueFrozen(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tc.balance, value.Balance.BigInt())
 				require.Equal(t, tc.frozen, value.Frozen)
-				values := repair251View(t, h, "getValueAccount", program, account.AccountID)
+				values := programsStaticView(t, h, "getValueAccount", program, account.AccountID)
 				encodedBalance := tc.balance.FillBytes(make([]byte, 16))
 				require.Equal(t, []interface{}{new(big.Int).SetBytes(encodedBalance), tc.frozen}, values)
 			}
@@ -137,14 +137,14 @@ func TestRepair_251_ValueFrozen(t *testing.T) {
 	missing := [32]byte{0xff}
 	_, err = h.host.ReadValueAccount(h.stateDB.Ctx(), program, missing)
 	require.ErrorIs(t, err, lxphost.Code(-7))
-	require.Equal(t, []interface{}{new(big.Int).SetBytes(make([]byte, 16)), false}, repair251View(t, h, "getValueAccount", program, missing))
+	require.Equal(t, []interface{}{new(big.Int).SetBytes(make([]byte, 16)), false}, programsStaticView(t, h, "getValueAccount", program, missing))
 	proofProgramsReopen(t, h)
-	require.Equal(t, []interface{}{new(big.Int).SetBytes(make([]byte, 16)), false}, repair251View(t, h, "getValueAccount", program, missing))
+	require.Equal(t, []interface{}{new(big.Int).SetBytes(make([]byte, 16)), false}, programsStaticView(t, h, "getValueAccount", program, missing))
 }
 
 // The guest is executable Wasm: it publishes 64 bytes and transfers seven units
 // through the actual host import. No return, receipt or log is constructed here.
-func repair251Responder(t *testing.T) (*harness, []interface{}, []byte, []byte) {
+func programsTransferResponder(t *testing.T) (*harness, []interface{}, []byte, []byte) {
 	t.Helper()
 	h, args, _ := programsCallFixture(t)
 	// Install the production callWithWebRequests dispatch, also used when no
@@ -236,7 +236,7 @@ func repair251Responder(t *testing.T) (*harness, []interface{}, []byte, []byte) 
 	return h, args, payload, guest
 }
 
-func repair251Receipt(t *testing.T, h *harness, args []interface{}, payload []byte) (lxphost.Receipt, sdk.Context) {
+func programsReferenceCallReceipt(t *testing.T, h *harness, args []interface{}, payload []byte) (lxphost.Receipt, sdk.Context) {
 	t.Helper()
 	reference, _ := h.stateDB.Ctx().CacheContext()
 	method := lp.ProgramsABI.Methods["call"]
@@ -251,7 +251,7 @@ func repair251Receipt(t *testing.T, h *harness, args []interface{}, payload []by
 	return receipt, reference
 }
 
-func repair251TransferRoot(t *testing.T, receipt lxphost.Receipt) [32]byte {
+func programsReceiptTransferRoot(t *testing.T, receipt lxphost.Receipt) [32]byte {
 	t.Helper()
 	// Read the independent producer's terminal event, never the returned frame.
 	for _, event := range receipt.Events {
@@ -265,9 +265,9 @@ func repair251TransferRoot(t *testing.T, receipt lxphost.Receipt) [32]byte {
 	return [32]byte{}
 }
 
-func repair251AssertResponse(t *testing.T, output []byte, receipt lxphost.Receipt, guest []byte) {
+func assertProgramsTransferResponse(t *testing.T, output []byte, receipt lxphost.Receipt, guest []byte) {
 	t.Helper()
-	root := repair251TransferRoot(t, receipt)
+	root := programsReceiptTransferRoot(t, receipt)
 	require.NotEqual(t, [32]byte{}, root)
 	decoded, err := lp.DecodeProgramExecutionResult(output, 64, root)
 	require.NoError(t, err)
@@ -338,16 +338,16 @@ func repair251AssertResponse(t *testing.T, output []byte, receipt lxphost.Receip
 	require.Equal(t, before, output)
 }
 
-func TestRepair_251_CallResponse(t *testing.T) {
-	h, args, payload, guest := repair251Responder(t)
+func TestProgramsCallTransferResponseAcrossReopen(t *testing.T) {
+	h, args, payload, guest := programsTransferResponder(t)
 	proofProgramsReopen(t, h)
-	receipt, reference := repair251Receipt(t, h, args, payload)
+	receipt, reference := programsReferenceCallReceipt(t, h, args, payload)
 	input, err := lp.ProgramsABI.Pack("call", args...)
 	require.NoError(t, err)
 	output, _, err := h.evm.Call(h.caller, lp.Address, input, 20000000, uint256.NewInt(0))
 	reason, _ := abi.UnpackRevert(output)
 	require.NoError(t, err, "%s", reason)
-	repair251AssertResponse(t, output, receipt, guest)
+	assertProgramsTransferResponse(t, output, receipt, guest)
 	require.Equal(t, h.dump(reference), h.dump(h.stateDB.Ctx()))
 	logs := h.stateDB.GetAllLogs()
 	require.Len(t, logs, 1)
@@ -355,9 +355,9 @@ func TestRepair_251_CallResponse(t *testing.T) {
 	require.Equal(t, []common.Hash{lp.ProgramsABI.Events["ProgramCallOutcome"].ID, common.Hash(args[0].([32]byte))}, logs[0].Topics)
 	values, err := lp.ProgramsABI.Events["ProgramCallOutcome"].Inputs.NonIndexed().Unpack(logs[0].Data)
 	require.NoError(t, err)
-	require.Equal(t, repair251TransferRoot(t, receipt), values[9])
+	require.Equal(t, programsReceiptTransferRoot(t, receipt), values[9])
 	proofProgramsReopen(t, h)
-	repair251AssertResponse(t, output, receipt, guest)
+	assertProgramsTransferResponse(t, output, receipt, guest)
 	t.Run("legacy_execution", func(t *testing.T) {
 		legacy, legacyArgs, legacyPayload := programsCallFixture(t)
 		lp.ConfigureXWeb(legacy.executor, nil)
@@ -373,7 +373,7 @@ func TestRepair_251_CallResponse(t *testing.T) {
 	})
 }
 
-func repair251Stores(ctx sdk.Context) map[string]map[string][]byte {
+func programsPersistentAndTransientStores(ctx sdk.Context) map[string]map[string][]byte {
 	stores := make(map[string]map[string][]byte)
 	for _, key := range ctx.MultiStore().StoreKeys() {
 		switch key := key.(type) {
@@ -386,11 +386,11 @@ func repair251Stores(ctx sdk.Context) map[string]map[string][]byte {
 	return stores
 }
 
-func TestRepair_251_SimulationResponse(t *testing.T) {
-	h, args, payload, guest := repair251Responder(t)
+func TestProgramsSimulationTransferResponseAcrossReopen(t *testing.T) {
+	h, args, payload, guest := programsTransferResponder(t)
 	proofProgramsReopen(t, h)
-	receipt, reference := repair251Receipt(t, h, args, payload)
-	before := repair251Stores(h.stateDB.Ctx())
+	receipt, reference := programsReferenceCallReceipt(t, h, args, payload)
+	before := programsPersistentAndTransientStores(h.stateDB.Ctx())
 	events := slices.Clone(h.stateDB.Ctx().EventManager().Events())
 	input, err := lp.ProgramsABI.Pack("simulateCall", args...)
 	require.NoError(t, err)
@@ -402,13 +402,13 @@ func TestRepair_251_SimulationResponse(t *testing.T) {
 		output, _, err := h.evm.StaticCall(h.caller, lp.Address, input, 20000000)
 		reason, _ := abi.UnpackRevert(output)
 		require.NoError(t, err, "%s", reason)
-		repair251AssertResponse(t, output, receipt, guest)
+		assertProgramsTransferResponse(t, output, receipt, guest)
 		if repeat == 0 {
 			simulated = bytes.Clone(output)
 		} else {
 			require.Equal(t, simulated, output)
 		}
-		require.Equal(t, before, repair251Stores(h.stateDB.Ctx()))
+		require.Equal(t, before, programsPersistentAndTransientStores(h.stateDB.Ctx()))
 		require.Equal(t, events, h.stateDB.Ctx().EventManager().Events())
 		require.Empty(t, h.stateDB.GetAllLogs())
 	}
