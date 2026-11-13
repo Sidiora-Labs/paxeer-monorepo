@@ -88,7 +88,7 @@ deployment environment. Required fields and bounds are read by
 | `LAYERX_HUMAN_STORE_ROOT`, `LAYERX_HUMAN_CUSTODY_ROOT`, `LAYERX_HUMAN_AUTH_INDEX_ROOT` | Absolute durable-state roots |
 | `LAYERX_HUMAN_TENANCY_DIGEST` | Installed principal-to-tenant mapping digest |
 | `LAYERX_HUMAN_AUTH_INDEX_KEY`, `LAYERX_HUMAN_STREAM_CURSOR_KEY` | Authentication index and stream cursor keys |
-| `LAYERX_HUMAN_RP_ID`, `LAYERX_HUMAN_WEB_ORIGIN` | Passkey relying party and allowed browser origins; defaults are `paxportwallet.com` and `https://paxportwallet.com,https://api-mainnet-beta.paxeer.network` |
+| `LAYERX_HUMAN_RP_ID`, `LAYERX_HUMAN_WEB_ORIGIN` | Passkey relying party and comma-separated allowed browser origins; defaults are declared in `production_components.rs` |
 | `LAYERX_HUMAN_RP_NAME`, `LAYERX_HUMAN_ORIGIN` | Required passkey display name and ceremony origin |
 | `LAYERX_HUMAN_AGENT_SOCKET` | Agent boundary socket; its frame, connection, stream, queue and deadline limits use the same prefix |
 | `LAYERX_HUMAN_IDENTITY_SOCKET`, `LAYERX_HUMAN_SECURITY_SOCKET` | Local provider sockets; each has its own deadline and frame bounds, and identity also requires peer UID/GID |
@@ -102,12 +102,11 @@ deployment environment. Required fields and bounds are read by
 | `LAYERX_HUMAN_GAS_STATION_ENDPOINT` | Required sponsorship endpoint when the registry does not supply it |
 | `LAYERX_RUNTIME_CLOCK_SOCKET`, `LAYERX_RUNTIME_CLOCK_PID`, `LAYERX_RUNTIME_CLOCK_UID` | Authenticated runtime-clock supervisor bindings |
 
-The public node URL uses the root path, for example
-`https://api1.mainnet-beta.paxeer.network`. The
-[workspace guide](../../README.md) lists the public node names. The node serves
-`px_*` state reads; registration and funding use hosted services. Gateway
-projections carry `gateway-reported` evidence; they are not proof of a committed
-balance.
+Public node JSON-RPC uses the root path for transaction submission and receipt
+reads. The `px_*` methods belong to the hosted gateway, whose contract is
+[`openrpc.json`](../../../platform/hosted/gateway/openrpc.json). Registration and
+funding also use hosted services. Gateway projections carry `gateway-reported`
+evidence; committed balances require authenticated network evidence.
 
 Remote KMS settings are parsed by `RemoteKmsConfig::from_environment` in the
 production composition module: `LAYERX_HUMAN_KMS_PROVIDER_REFERENCE`,

@@ -20,10 +20,10 @@ Each file holds a JSON array of records:
 - `representation`: `http-header` or `json`
 - `header`: the exact header name a header representation travels in
 - `document`: the wire document, exactly as it travels
-- `validationScope`: `envelope-only` for retained representation cases or
+- `validationScope`: `envelope-only` for representation cases or
   `current-offer` for chain-125 offers bound to recorded payer bytes
-- `semanticExpectation`: the separate requirements, binding and settlement
-  expectations; `accepted` retains the envelope expectation
+- `semanticExpectation`: declarative requirements, binding and settlement
+  metadata; `accepted` classifies the role representation
 - `producerFixture`: the committed producer case, transaction hash and recorded
   observation time used by the current offers
 - `ingress`: the mounted route and expected response, when applicable
@@ -38,11 +38,10 @@ and the production encoder and decoder for this transport. The current codecs
 also invoke semantic validation. `profile_refusal` assigns `ProfileMissing`
 to the three `eip155_125_*` payment cases, and the harness checks that both
 encoding and decoding refuse them even when their envelope representation is
-classified as accepted.
+classified as accepted. `semanticExpectation` is separate metadata.
 
-The fault-injected settlement cases in that file are not vectors and are not
-counted: they drive a live sequencer signer and a canonical receipt encoder
-rather than a transport representation.
+Additional settlement cases in that file use a local receipt signer and
+canonical receipt encoder. They are outside the JSON vector count.
 
 `services/interop/deploy/gateway/render.py` derives the vector count and the SHA-256
 the gateway configuration declares from these files.
@@ -63,8 +62,8 @@ expiry checks. These bytes must not be submitted to a live endpoint.
 identifier. Offers on another network must omit the LayerX profile. The
 profile-free `eip155_125_*` records therefore produce `ProfileMissing`.
 
-The original pending settlement responses and opaque authorization fields are
-role representations; they do not establish successful settlement. Mounted
-payment ingress additionally requires authentication, typed signed payer bytes,
-a payment idempotency key and verified receipt evidence from its configured
-relay.
+Pending settlement responses and opaque authorization fields describe role
+representations. Successful settlement requires authenticated payment evidence.
+Mounted payment ingress additionally requires authentication, typed signed payer
+bytes, a payment idempotency key and verified receipt evidence from its
+configured relay.

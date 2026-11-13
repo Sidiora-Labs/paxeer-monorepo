@@ -33,9 +33,7 @@ parent-hash checks. For every transaction it requires a `pax_sequencerReceipt`
 answer at rung `committed`, matching the block number/hash and transaction hash,
 and verifies the receipt signature under pinned height-ranged keys.
 
-Use root HTTPS node URLs for Paxeer, such as
-`https://api1.mainnet-beta.paxeer.network/`; the public hosts are `api1` through
-`api14.mainnet-beta.paxeer.network` and `api-mainnet-beta.paxeer.network`.
+Use root HTTPS node URLs for Paxeer.
 The quorum transport requires two to eight independent HTTPS endpoints, a strict
 majority, explicit time/response bounds, and file-backed TLS and bearer material.
 Distinct DNS aliases do not establish independent backends: provide unique,
@@ -67,8 +65,8 @@ Each source declares `kind`, `id`, `rpc`, and `publisher_hex`, plus these pins:
 
 Provide real independently verified deployment values. The verifier uses hex
 pins, including Solana identity fields; publisher Solana configuration uses
-base58 for several corresponding fields. Do not copy publisher configuration
-into the verifier or use an old verifier example as a complete operational contract.
+base58 for several corresponding fields. Prepare each configuration using its
+own schema.
 
 A request contains exactly `batch_number`, `evidence` and `policy`.
 `batch_number` is a canonical decimal string naming the archived block height;
