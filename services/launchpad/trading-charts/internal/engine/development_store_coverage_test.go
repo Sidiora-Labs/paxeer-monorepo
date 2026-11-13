@@ -13,7 +13,7 @@ import (
 func TestDevelopmentStoreReadsLegacyProjectionAndConflictingIdentity(t *testing.T) {
 	ctx := context.Background()
 	builder, pool := chartDevelopmentBuilder(t)
-	first := repair1051Swap(0, 1704067260, "1000000000000000000")
+	first := developmentCandleTestSwap(0, 1704067260, "1000000000000000000")
 	if err := builder.ProcessSwap(ctx, first); err != nil {
 		t.Fatal(err)
 	}

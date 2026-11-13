@@ -18,7 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func repair1052Bind(t *testing.T, name string, value any, inline bool) {
+func rebuildRuntimeBind(t *testing.T, name string, value any, inline bool) {
 	t.Helper()
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -38,7 +38,7 @@ func repair1052Bind(t *testing.T, name string, value any, inline bool) {
 	}
 }
 
-func repair1052Expected() dbproduction.ExpectedSchema {
+func rebuildRuntimeExpected() dbproduction.ExpectedSchema {
 	return dbproduction.ExpectedSchema{
 		Service: "core/trading-charts", RuntimeRole: "candles_runtime",
 		RegistryDigest: strings.Repeat("a", 64), InterfaceDigest: strings.Repeat("b", 64),
@@ -48,7 +48,7 @@ func repair1052Expected() dbproduction.ExpectedSchema {
 	}
 }
 
-func repair1052Environment(t *testing.T, inline bool) {
+func rebuildRuntimeEnvironment(t *testing.T, inline bool) {
 	t.Helper()
 	var clear func(reflect.Type)
 	clear = func(typ reflect.Type) {
@@ -79,22 +79,22 @@ func repair1052Environment(t *testing.T, inline bool) {
 	} {
 		t.Setenv(key, roles[role].Address)
 	}
-	repair1052Bind(t, "DELIVERY_CONFIG", map[string]any{"schema": "candles", "sourceStream": "canonical_fills"}, inline)
-	repair1052Bind(t, "EXPECTED_SCHEMA", repair1052Expected(), inline)
+	rebuildRuntimeBind(t, "DELIVERY_CONFIG", map[string]any{"schema": "candles", "sourceStream": "canonical_fills"}, inline)
+	rebuildRuntimeBind(t, "EXPECTED_SCHEMA", rebuildRuntimeExpected(), inline)
 }
 
-func repair1052Args(manifest string) []string {
+func rebuildRuntimeArgs(manifest string) []string {
 	return []string{"--manifests", manifest, "--pool", "0x" + strings.Repeat("1", 40), "--run-id", "repair-m1052", "--from", "0", "--to", "60", "--promote"}
 }
 
-func TestRepairM_1052_DefaultTargetsProductionTables(t *testing.T) {
+func TestRebuildRuntimeDefaultTargetsProductionTables(t *testing.T) {
 	for _, inline := range []bool{false, true} {
 		name := "file"
 		if inline {
 			name = "inline"
 		}
 		t.Run(name, func(t *testing.T) {
-			repair1052Environment(t, inline)
+			rebuildRuntimeEnvironment(t, inline)
 			o, err := parseRebuildOptions(nil)
 			if err != nil || o.schema != "candles" {
 				t.Fatalf("default schema = %q, error = %v", o.schema, err)
@@ -139,7 +139,7 @@ func TestRepairM_1052_DefaultTargetsProductionTables(t *testing.T) {
 	}
 }
 
-func TestRepairM_1052_RejectMismatchedBindingsBeforeManifest(t *testing.T) {
+func TestRebuildRuntimeRejectMismatchedBindingsBeforeManifest(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		args   []string
@@ -155,31 +155,31 @@ func TestRepairM_1052_RejectMismatchedBindingsBeforeManifest(t *testing.T) {
 		{name: "container_port", change: func(t *testing.T) { t.Setenv("PORT", "3000") }, want: "container_bind_mismatch"},
 		{name: "owned_address", change: func(t *testing.T) { t.Setenv("RUNTIME_PROFILE", "owned_local") }, want: "owned_loopback_required"},
 		{name: "nonproduction", change: func(t *testing.T) { t.Setenv("NODE_ENV", "development") }, want: "production runtime profile"},
-		{name: "delivery_schema", change: func(t *testing.T) { repair1052Bind(t, "DELIVERY_CONFIG", map[string]any{"schema": "charts"}, true) }, want: "delivery schema binding mismatch"},
-		{name: "missing_delivery_schema", change: func(t *testing.T) { repair1052Bind(t, "DELIVERY_CONFIG", map[string]any{}, true) }, want: "delivery schema binding mismatch"},
-		{name: "wrong_delivery_type", change: func(t *testing.T) { repair1052Bind(t, "DELIVERY_CONFIG", map[string]any{"schema": 125}, true) }, want: "delivery schema binding mismatch"},
+		{name: "delivery_schema", change: func(t *testing.T) { rebuildRuntimeBind(t, "DELIVERY_CONFIG", map[string]any{"schema": "charts"}, true) }, want: "delivery schema binding mismatch"},
+		{name: "missing_delivery_schema", change: func(t *testing.T) { rebuildRuntimeBind(t, "DELIVERY_CONFIG", map[string]any{}, true) }, want: "delivery schema binding mismatch"},
+		{name: "wrong_delivery_type", change: func(t *testing.T) { rebuildRuntimeBind(t, "DELIVERY_CONFIG", map[string]any{"schema": 125}, true) }, want: "delivery schema binding mismatch"},
 		{name: "delivery_digest", change: func(t *testing.T) { t.Setenv("DELIVERY_CONFIG_SHA256", strings.Repeat("0", 64)) }, want: "binding_mismatch"},
 		{name: "expected_digest", change: func(t *testing.T) { t.Setenv("EXPECTED_SCHEMA_SHA256", strings.Repeat("0", 64)) }, want: "binding_mismatch"},
 		{name: "wrong_service", change: func(t *testing.T) {
-			expected := repair1052Expected()
+			expected := rebuildRuntimeExpected()
 			expected.Service = "core/stats-workers"
-			repair1052Bind(t, "EXPECTED_SCHEMA", expected, true)
+			rebuildRuntimeBind(t, "EXPECTED_SCHEMA", expected, true)
 		}, want: "runtime schema binding mismatch"},
 		{name: "wrong_schema", change: func(t *testing.T) {
-			expected := repair1052Expected()
+			expected := rebuildRuntimeExpected()
 			expected.Schemas = map[string]string{"charts": strings.Repeat("d", 64)}
-			repair1052Bind(t, "EXPECTED_SCHEMA", expected, true)
+			rebuildRuntimeBind(t, "EXPECTED_SCHEMA", expected, true)
 		}, want: "runtime schema binding mismatch"},
 		{name: "missing_binding", change: func(t *testing.T) { t.Setenv("EXPECTED_SCHEMA_FILE", "") }, want: "binding_missing"},
 		{name: "ambiguous_binding", change: func(t *testing.T) { t.Setenv("DELIVERY_CONFIG_DOCUMENT", "e30=") }, want: "both set"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repair1052Environment(t, false)
+			rebuildRuntimeEnvironment(t, false)
 			if tc.change != nil {
 				tc.change(t)
 			}
 			manifest := filepath.Join(t.TempDir(), "must-not-be-opened.json")
-			err := runArgs(append(repair1052Args(manifest), tc.args...))
+			err := runArgs(append(rebuildRuntimeArgs(manifest), tc.args...))
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("want %q before manifest access, got %v", tc.want, err)
 			}
@@ -191,7 +191,7 @@ func TestRepairM_1052_RejectMismatchedBindingsBeforeManifest(t *testing.T) {
 	}
 }
 
-func TestRepairM_1052_AdmittedProfilesReachManifest(t *testing.T) {
+func TestRebuildRuntimeAdmittedProfilesReachManifest(t *testing.T) {
 	for _, profile := range []string{"container", "owned_local"} {
 		for _, explicit := range []bool{false, true} {
 			name := profile + "/default"
@@ -199,13 +199,13 @@ func TestRepairM_1052_AdmittedProfilesReachManifest(t *testing.T) {
 				name = profile + "/explicit"
 			}
 			t.Run(name, func(t *testing.T) {
-				repair1052Environment(t, true)
+				rebuildRuntimeEnvironment(t, true)
 				t.Setenv("RUNTIME_PROFILE", profile)
 				if profile == "owned_local" {
 					t.Setenv("BIND_ADDRESS", "127.0.0.1")
 				}
 				manifest := filepath.Join(t.TempDir(), "approved-manifests.json")
-				args := repair1052Args(manifest)
+				args := rebuildRuntimeArgs(manifest)
 				if explicit {
 					args = append(args, "--schema", "candles")
 				}
@@ -219,16 +219,16 @@ func TestRepairM_1052_AdmittedProfilesReachManifest(t *testing.T) {
 	}
 }
 
-func TestRepairM_1052_RuntimeReadinessPrecedesReconstruction(t *testing.T) {
-	repair1052Environment(t, false)
-	expected := repair1052Expected()
+func TestRebuildRuntimeReadinessPrecedesReconstruction(t *testing.T) {
+	rebuildRuntimeEnvironment(t, false)
+	expected := rebuildRuntimeExpected()
 	expected.RuntimeRole = ""
-	repair1052Bind(t, "EXPECTED_SCHEMA", expected, false)
+	rebuildRuntimeBind(t, "EXPECTED_SCHEMA", expected, false)
 	manifest := filepath.Join(t.TempDir(), "manifests.json")
 	if err := os.WriteFile(manifest, []byte("[]"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	err := runArgs(repair1052Args(manifest))
+	err := runArgs(rebuildRuntimeArgs(manifest))
 	if err == nil || !strings.Contains(err.Error(), "rebuild runtime schema readiness: complete trusted expected-schema requirements required") {
 		t.Fatalf("unready schema was not rejected before database/RPC/archive reconstruction: %v", err)
 	}

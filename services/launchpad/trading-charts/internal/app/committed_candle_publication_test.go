@@ -28,7 +28,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-func repair73Source() accounting.FillV1 {
+func committedCandleSource() accounting.FillV1 {
 	f := accounting.FillV1{
 		Version:       accounting.FillVersion,
 		Position:      accounting.SourcePosition{ChainID: "125", Height: "100", TransactionIndex: "0", LogIndex: "7", TransactionHash: "0x" + strings.Repeat("a", 64), BlockHash: "0x" + strings.Repeat("b", 64)},
@@ -43,7 +43,7 @@ func repair73Source() accounting.FillV1 {
 	return f
 }
 
-func repair73Store(t *testing.T) (string, *store.ExactStore) {
+func committedCandleStore(t *testing.T) (string, *store.ExactStore) {
 	t.Helper()
 	dsn := internaltest.NewDatabase(t)
 	pool := internaltest.OpenPool(t, dsn)
@@ -63,7 +63,7 @@ func repair73Store(t *testing.T) (string, *store.ExactStore) {
 	return dsn, exact
 }
 
-func repair73Broker(t *testing.T) (string, *nats.Conn, jetstream.Stream) {
+func committedCandleBroker(t *testing.T) (string, *nats.Conn, jetstream.Stream) {
 	t.Helper()
 	binary, err := exec.LookPath("nats-server")
 	if err != nil {
@@ -97,7 +97,7 @@ func repair73Broker(t *testing.T) (string, *nats.Conn, jetstream.Stream) {
 	})
 	url := fmt.Sprintf("nats://127.0.0.1:%d", port)
 	var nc *nats.Conn
-	repair73Wait(t, func() bool {
+	committedCandleWait(t, func() bool {
 		nc, err = nats.Connect(url, nats.NoReconnect(), nats.Timeout(100*time.Millisecond))
 		return err == nil
 	})
@@ -113,7 +113,7 @@ func repair73Broker(t *testing.T) (string, *nats.Conn, jetstream.Stream) {
 	return url, nc, stream
 }
 
-func repair73Wait(t *testing.T, condition func() bool) {
+func committedCandleWait(t *testing.T, condition func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
@@ -125,7 +125,7 @@ func repair73Wait(t *testing.T, condition func() bool) {
 	t.Fatal("real relay did not reach the expected state before deadline")
 }
 
-func repair73Start(t *testing.T, st *store.ExactStore, nc *nats.Conn) *App {
+func committedCandleStart(t *testing.T, st *store.ExactStore, nc *nats.Conn) *App {
 	t.Helper()
 	publisher, err := natsdriver.NewPublisher(nc, "CHART_RELAY")
 	if err != nil {
@@ -143,7 +143,7 @@ func repair73Start(t *testing.T, st *store.ExactStore, nc *nats.Conn) *App {
 	return a
 }
 
-func repair73Apply(t *testing.T, st *store.ExactStore) pgx.Tx {
+func committedCandleApply(t *testing.T, st *store.ExactStore) pgx.Tx {
 	t.Helper()
 	ctx := context.Background()
 	tx, err := st.Pool.Begin(ctx)
@@ -151,13 +151,13 @@ func repair73Apply(t *testing.T, st *store.ExactStore) pgx.Tx {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = tx.Rollback(context.Background()) })
-	if err = engine.ApplySeriesTx(ctx, tx, st, repair73Source(), 1, engine.SeriesCheckpoint{Height: 100, Timestamp: 1500000060}); err != nil {
+	if err = engine.ApplySeriesTx(ctx, tx, st, committedCandleSource(), 1, engine.SeriesCheckpoint{Height: 100, Timestamp: 1500000060}); err != nil {
 		t.Fatal(err)
 	}
 	return tx
 }
 
-func repair73Pending(t *testing.T, st *store.ExactStore) int {
+func committedCandlePending(t *testing.T, st *store.ExactStore) int {
 	t.Helper()
 	var n int
 	if err := st.Pool.QueryRow(context.Background(), "SELECT count(*) FROM candles.chart_outbox WHERE published_at IS NULL").Scan(&n); err != nil {
@@ -166,7 +166,7 @@ func repair73Pending(t *testing.T, st *store.ExactStore) int {
 	return n
 }
 
-func repair73Messages(t *testing.T, stream jetstream.Stream) uint64 {
+func committedCandleMessages(t *testing.T, stream jetstream.Stream) uint64 {
 	t.Helper()
 	info, err := stream.Info(context.Background())
 	if err != nil {
@@ -175,7 +175,7 @@ func repair73Messages(t *testing.T, stream jetstream.Stream) uint64 {
 	return info.State.Msgs
 }
 
-func repair73Read(t *testing.T, nc *nats.Conn, want int) {
+func committedCandleRead(t *testing.T, nc *nats.Conn, want int) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -212,7 +212,7 @@ func repair73Read(t *testing.T, nc *nats.Conn, want int) {
 				t.Fatal(err)
 			}
 			expected := "candle_" + accounting.HashTuple("chart-outbox-v2", "125", bar.PoolAddress, bar.Interval, strconv.FormatInt(bar.Start, 10), strconv.FormatUint(bar.Revision, 10))
-			if message.EventID != expected || seen[expected] || bar.Revision != 1 || bar.Trades != 1 || bar.VolumeUsdlRaw != "5000000000" || bar.CloseSource.SourceFillID != repair73Source().SourceFillID || bar.AlgorithmVersion != engine.SeriesAlgorithm {
+			if message.EventID != expected || seen[expected] || bar.Revision != 1 || bar.Trades != 1 || bar.VolumeUsdlRaw != "5000000000" || bar.CloseSource.SourceFillID != committedCandleSource().SourceFillID || bar.AlgorithmVersion != engine.SeriesAlgorithm {
 				t.Fatalf("unexpected committed snapshot: id=%s bar=%+v", message.EventID, bar)
 			}
 			seen[expected] = true
@@ -226,30 +226,30 @@ func repair73Read(t *testing.T, nc *nats.Conn, want int) {
 	}
 }
 
-func TestRepair_73_CommittedOnlyPublication(t *testing.T) {
-	_, st := repair73Store(t)
-	_, nc, stream := repair73Broker(t)
-	tx := repair73Apply(t, st)
-	a := repair73Start(t, st, nc)
+func TestCandlePublicationRequiresCommit(t *testing.T) {
+	_, st := committedCandleStore(t)
+	_, nc, stream := committedCandleBroker(t)
+	tx := committedCandleApply(t, st)
+	a := committedCandleStart(t, st, nc)
 	time.Sleep(100 * time.Millisecond)
-	if got := repair73Messages(t, stream); got != 0 {
+	if got := committedCandleMessages(t, stream); got != 0 {
 		t.Fatalf("uncommitted rows published: %d", got)
 	}
 	if err := tx.Rollback(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if repair73Pending(t, st) != 0 {
+	if committedCandlePending(t, st) != 0 {
 		t.Fatal("rolled back rows survived")
 	}
-	tx = repair73Apply(t, st)
+	tx = committedCandleApply(t, st)
 	if err := tx.Commit(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	repair73Wait(t, func() bool { return repair73Pending(t, st) == 0 })
-	if got := repair73Messages(t, stream); got != uint64(len(engine.ExactIntervals)) {
+	committedCandleWait(t, func() bool { return committedCandlePending(t, st) == 0 })
+	if got := committedCandleMessages(t, stream); got != uint64(len(engine.ExactIntervals)) {
 		t.Fatalf("publication count=%d", got)
 	}
-	repair73Read(t, nc, len(engine.ExactIntervals))
+	committedCandleRead(t, nc, len(engine.ExactIntervals))
 	a.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -258,11 +258,11 @@ func TestRepair_73_CommittedOnlyPublication(t *testing.T) {
 	}
 }
 
-func TestRepair_73_RetryRestartAndGuardedRetention(t *testing.T) {
-	dsn, st := repair73Store(t)
-	url, nc, _ := repair73Broker(t)
+func TestCandlePublicationRetryRestartAndGuardedRetention(t *testing.T) {
+	dsn, st := committedCandleStore(t)
+	url, nc, _ := committedCandleBroker(t)
 	ctx := context.Background()
-	tx := repair73Apply(t, st)
+	tx := committedCandleApply(t, st)
 	if err := tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -272,8 +272,8 @@ CREATE TRIGGER reject_relay_mark BEFORE UPDATE ON candles.chart_outbox FOR EACH 
 	if _, err := st.Pool.Exec(ctx, fault); err != nil {
 		t.Fatal(err)
 	}
-	a := repair73Start(t, st, nc)
-	repair73Wait(t, func() bool {
+	a := committedCandleStart(t, st, nc)
+	committedCandleWait(t, func() bool {
 		var attempts int
 		if err := st.Pool.QueryRow(ctx, "SELECT last_value FROM candles.relay_mark_attempts").Scan(&attempts); err != nil {
 			t.Fatal(err)
@@ -281,13 +281,13 @@ CREATE TRIGGER reject_relay_mark BEFORE UPDATE ON candles.chart_outbox FOR EACH 
 		return attempts >= 2
 	})
 	a.Close()
-	if n := repair73Pending(t, st); n != len(engine.ExactIntervals) {
+	if n := committedCandlePending(t, st); n != len(engine.ExactIntervals) {
 		t.Fatalf("failed mark lost pending rows: %d", n)
 	}
-	if got := repair73MessagesAfterReconnect(t, url); got != 1 {
+	if got := committedCandleMessagesAfterReconnect(t, url); got != 1 {
 		t.Fatalf("retry was not duplicate safe: %d messages", got)
 	}
-	source := repair73Source()
+	source := committedCandleSource()
 	from, err := engine.BucketStart(1500000000, "1m")
 	if err != nil {
 		t.Fatal(err)
@@ -304,7 +304,7 @@ CREATE TRIGGER reject_relay_mark BEFORE UPDATE ON candles.chart_outbox FOR EACH 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if repair73Pending(t, reopened) != len(engine.ExactIntervals) {
+	if committedCandlePending(t, reopened) != len(engine.ExactIntervals) {
 		t.Fatal("pending publication state not recovered")
 	}
 	if _, err = pool.Exec(ctx, "DROP TRIGGER reject_relay_mark ON candles.chart_outbox"); err != nil {
@@ -314,12 +314,12 @@ CREATE TRIGGER reject_relay_mark BEFORE UPDATE ON candles.chart_outbox FOR EACH 
 	if err != nil {
 		t.Fatal(err)
 	}
-	restarted := repair73Start(t, reopened, reconnected)
-	repair73Wait(t, func() bool { return repair73Pending(t, reopened) == 0 })
-	if got := repair73MessagesAfterReconnect(t, url); got != uint64(len(engine.ExactIntervals)) {
+	restarted := committedCandleStart(t, reopened, reconnected)
+	committedCandleWait(t, func() bool { return committedCandlePending(t, reopened) == 0 })
+	if got := committedCandleMessagesAfterReconnect(t, url); got != uint64(len(engine.ExactIntervals)) {
 		t.Fatalf("recovery duplicated or lost publications: %d", got)
 	}
-	repair73Read(t, reconnected, len(engine.ExactIntervals))
+	committedCandleRead(t, reconnected, len(engine.ExactIntervals))
 	if err = reopened.HoldReplayRange(ctx, "live-reader", source.PoolAddress, from, from+60, time.Minute); err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +335,7 @@ CREATE TRIGGER reject_relay_mark BEFORE UPDATE ON candles.chart_outbox FOR EACH 
 	restarted.Close()
 }
 
-func repair73MessagesAfterReconnect(t *testing.T, url string) uint64 {
+func committedCandleMessagesAfterReconnect(t *testing.T, url string) uint64 {
 	t.Helper()
 	nc, err := nats.Connect(url, nats.NoReconnect())
 	if err != nil {
@@ -350,10 +350,10 @@ func repair73MessagesAfterReconnect(t *testing.T, url string) uint64 {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return repair73Messages(t, stream)
+	return committedCandleMessages(t, stream)
 }
 
-func TestRepair_73_AdmissionAndShutdown(t *testing.T) {
+func TestCandlePublicationAdmissionAndShutdown(t *testing.T) {
 	c := chartOutboxConfig{Stream: "CHART_RELAY", Subject: "candle.updated.v2", Batch: 2, IntervalMillis: 20}
 	policy := delivery.Policy{Subjects: map[string]bool{c.Subject: true}}
 	if err := c.validate(policy); err != nil {
@@ -369,9 +369,9 @@ func TestRepair_73_AdmissionAndShutdown(t *testing.T) {
 	if c.validate(delivery.Policy{}) == nil {
 		t.Fatal("unadmitted output subject accepted")
 	}
-	_, st := repair73Store(t)
-	_, nc, _ := repair73Broker(t)
-	a := repair73Start(t, st, nc)
+	_, st := committedCandleStore(t)
+	_, nc, _ := committedCandleBroker(t)
+	a := committedCandleStart(t, st, nc)
 	if err := a.startChartOutbox(context.Background(), slog.Default()); err == nil {
 		t.Fatal("duplicate participant admitted")
 	}
