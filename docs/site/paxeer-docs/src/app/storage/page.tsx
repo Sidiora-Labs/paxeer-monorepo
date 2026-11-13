@@ -13,7 +13,7 @@ export default function Storage() {
       </div>
 
       <h2>Overview</h2>
-      <p>Paxeer storage separates active state commitment from historical state queries and receipt storage. Each has its own configuration and retention behavior. The implementation is under <code>Paxeer-X-Network/storage/</code>.</p>
+      <p>Paxeer storage separates active state commitment from historical state queries and receipt storage. Each has its own configuration and retention behavior. The implementation is under <code>storage/</code> at the repository root.</p>
       <h2>State Commitment</h2>
       <p>The state-commit layer under <code>storage/state_db/sc/</code> includes MemIAVL, FlatKV, and a composite store that routes state operations. It participates in application commitment, snapshot import/export, and supported proof queries.</p>
       <p>The default write mode is <code>memiavl_only</code>. Other named modes support staged migration to FlatKV. Select routing modes according to the existing data layout and the chain&apos;s migration plan.</p>
@@ -32,7 +32,7 @@ ss-keep-recent = 100000`}</code></pre>
       <p>The default backend is Pebble and the default retention is 100,000 versions. <code>ss-keep-recent = 0</code> retains all available versions. The config also supports a separate EVM historical store through <code>evm-ss-split</code>; its data routing and missing-key behavior differ from the unsplit store.</p>
       <div className="source-note"><strong>Source:</strong> <code>storage/config/ss_config.go</code>, <code>storage/config/toml.go</code>, <code>storage/state_db/ss/</code>.</div>
       <h2>RocksDB Backend</h2>
-      <p>The optional RocksDB backend uses user-defined timestamps and column families for versioned state. Build it from the Paxeer subtree:</p>
+      <p>The optional RocksDB backend uses user-defined timestamps and column families for versioned state. Build RocksDB and install the node from the repository root:</p>
       <pre><code>{`make build-rocksdb
 make install-rocksdb`}</code></pre>
       <p>After installing the compatible binary, set <code>ss-backend = "rocksdb"</code> under <code>[state-store]</code>. When changing backends, import or restore data in the target backend&apos;s format.</p>
@@ -52,7 +52,7 @@ rs-backend = "pebbledb"`}</code></pre>
       <p>Changelogs and write-ahead logs support storage replay and recovery. Follow the recovery procedure for the selected store, and preserve consensus signer state alongside the validator key.</p>
       <div className="source-note"><strong>Source:</strong> <code>storage/wal/</code>, <code>storage/state_db/sc/composite/</code>, <code>consensus/privval/file.go</code>.</div>
       <h2>Inspection Tools</h2>
-      <p>The separate PaxDB command provides storage inspection and benchmark operations. Build or run it from the Paxeer subtree, using its help to select the correct database path and height:</p>
+      <p>The PaxDB command provides storage inspection and benchmark operations. Build or run it from the repository root, using its help to select the correct database path and height:</p>
       <pre><code>{`go run ./storage/tools/cmd/paxdb --help
 go run ./storage/tools/cmd/paxdb dump-iavl --help
 go run ./storage/tools/cmd/paxdb dump-db --help`}</code></pre>

@@ -46,7 +46,7 @@ payment    = min(claimable, stream_account_balance)`}</code></pre>
         <tr><td>Settle / claim</td><td>Pay accrued, unsettled value to the fixed recipient, limited to the funded balance.</td></tr>
         <tr><td>Pause</td><td>Payer checkpoints time accrual and stops further earning while paused.</td></tr>
         <tr><td>Resume</td><td>Payer restarts from the current batch timestamp without charging paused time.</td></tr>
-        <tr><td>Rate change</td><td>Replace the rate for subsequent accrual under a fresh idempotency key, without reopening the stream.</td></tr>
+        <tr><td>Rate change</td><td>Payer settles accrued value at the existing rate, then replaces the rate for subsequent accrual under a fresh idempotency key.</td></tr>
         <tr><td>Close / cancel</td><td>Payer settles payable accrued value, refunds the excess balance, and permanently closes the stream.</td></tr>
       </tbody></table>
       <h3>Underfunding</h3>
@@ -66,10 +66,10 @@ payment    = min(claimable, stream_account_balance)`}</code></pre>
         <tr><td><code>LX_STREAM_CLOSE</code></td><td><code>0x00040007</code></td><td>66</td></tr>
         <tr><td><code>LX_STREAM_RATE_CHANGE</code></td><td><code>0x00040008</code></td><td>82</td></tr>
       </tbody></table>
-      <p>The rate-change payload carries the stream ID, a new rate as an unsigned 128-bit integer, and an idempotency key. It changes the rate applied to subsequent accrual; already-accrued and settled amounts are not recomputed.</p>
+      <p>The rate-change payload carries the stream ID, a positive new rate as an unsigned 128-bit integer, and a nonzero idempotency key. The operation settles payable accrued value before storing the new rate. It preserves the stream&apos;s cap and rate unit.</p>
       <h3>Retries and Validation</h3>
       <p>Settle and close include a nonzero idempotency key. Retry the same economic operation with its original key and retain the result receipt. A key cannot identify a different stream or operation. Reject malformed versions, trailing payload bytes, meter regressions, unauthorized meters, and operations against a closed stream.</p>
-      <p>Funding, draws, and refunds use published transfer assets and follow asset pause and asset-match rules. The stream account only permits its protocol-authorized draw and refund paths.</p>
+      <p>Funding, draws, and refunds use published transfer assets and follow asset pause and asset-match rules. The stream account only permits its protocol-authorized draw and refund paths. Payloads are defined in <code>include/layerx/lx_stream.h</code> and <code>modules/layerxpay/types/payload_stream.go</code>; execution is implemented in <code>src/modules/stream/</code>.</p>
       <h2>Related Guides</h2>
       <ul><li><Link href="/escrow">Escrow and milestone payments</Link></li><li><Link href="/modules">Protocol modules</Link></li><li><Link href="/sdk">SDK integration</Link></li></ul>
     </DocsLayout>
