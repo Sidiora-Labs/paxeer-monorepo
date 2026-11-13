@@ -6,7 +6,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 )
 
-func TestRepair_22_39_328(t *testing.T) {
+func TestCapabilitiesUseCurrentDeploymentManifest(t *testing.T) {
 	current := deployment.Current()
 	if ManifestDigest != current.SourceManifestSHA256 {
 		t.Fatalf("tracker manifest digest = %s, current deployment = %s", ManifestDigest, current.SourceManifestSHA256)

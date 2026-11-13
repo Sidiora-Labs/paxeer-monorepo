@@ -40,22 +40,22 @@ import (
 )
 
 const (
-	repairM1015User   = "0x1dae78b53c9f39930a2ff2b6b7aac12ec75fb154"
-	repairM1015Pool   = "0xce20da50f92d21d8bee497910c782e9aa25b6263"
-	repairM1015Token  = "0x0f92fdd087c96dd3413ef98646b94d0d986192fa"
-	repairM1015Secret = "repair-m1015-loopback-only"
+	webhookRestartUser   = "0x1dae78b53c9f39930a2ff2b6b7aac12ec75fb154"
+	webhookRestartPool   = "0xce20da50f92d21d8bee497910c782e9aa25b6263"
+	webhookRestartToken  = "0x0f92fdd087c96dd3413ef98646b94d0d986192fa"
+	webhookRestartSecret = "repair-m1015-loopback-only"
 )
 
-func TestRepairM_1015_ProducerWebhookRestart(t *testing.T) {
-	repairM1015Restart(t)
+func TestProducerWebhookRestart(t *testing.T) {
+	replayWebhookAfterRestart(t)
 }
 
-func TestRepairM_1015_ProducerFixtureContract(t *testing.T) {
+func TestProducerWebhookFixtureContract(t *testing.T) {
 	var provenance struct {
 		Producer, Transport, Revision string
 		SHA256                        map[string]string `json:"sha256"`
 	}
-	if err := json.Unmarshal(repairM1015Fixture(t, "provenance.json"), &provenance); err != nil {
+	if err := json.Unmarshal(webhookRestartFixture(t, "provenance.json"), &provenance); err != nil {
 		t.Fatal(err)
 	}
 	if provenance.Revision != "caa8b41ee668274ee1e5c1df6691288455c46278" ||
@@ -64,7 +64,7 @@ func TestRepairM_1015_ProducerFixtureContract(t *testing.T) {
 		t.Fatalf("missing real legacy producer provenance: %+v", provenance)
 	}
 	for _, name := range []string{"buy.json", "sell.json"} {
-		body := repairM1015Fixture(t, name)
+		body := webhookRestartFixture(t, name)
 		digest := sha256.Sum256(body)
 		if got := hex.EncodeToString(digest[:]); got != provenance.SHA256[name] {
 			t.Fatalf("captured producer bytes changed for %s: got %s, want %s", name, got, provenance.SHA256[name])
@@ -99,9 +99,9 @@ func TestRepairM_1015_ProducerFixtureContract(t *testing.T) {
 	}
 }
 
-func TestRepairM_1015_WebhookAuthentication(t *testing.T) {
-	h := repairM1015NewHarness(t)
-	body := repairM1015Fixture(t, "buy.json")
+func TestProducerWebhookAuthentication(t *testing.T) {
+	h := webhookRestartNewHarness(t)
+	body := webhookRestartFixture(t, "buy.json")
 	h.seedCache(t)
 	for _, tc := range []struct {
 		name      string
@@ -116,14 +116,14 @@ func TestRepairM_1015_WebhookAuthentication(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			sig := tc.signature
 			if sig != "" {
-				sig = auth.SignWebhook(repairM1015Secret, tc.timestamp, string(body))
+				sig = auth.SignWebhook(webhookRestartSecret, tc.timestamp, string(body))
 			}
 			h.post(t, tc.body, tc.timestamp, sig, http.StatusUnauthorized)
-			rows, err := h.store.ListTrades(h.ctx, repairM1015User, store.TradeFilter{})
+			rows, err := h.store.ListTrades(h.ctx, webhookRestartUser, store.TradeFilter{})
 			if err != nil || len(rows) != 0 {
 				t.Fatalf("unauthenticated delivery changed trades: %+v, %v", rows, err)
 			}
-			pos, err := h.store.GetPosition(h.ctx, repairM1015User, repairM1015Pool)
+			pos, err := h.store.GetPosition(h.ctx, webhookRestartUser, webhookRestartPool)
 			if err != nil || pos != nil {
 				t.Fatalf("unauthenticated delivery changed position: %+v, %v", pos, err)
 			}
@@ -135,23 +135,23 @@ func TestRepairM_1015_WebhookAuthentication(t *testing.T) {
 	}
 }
 
-func repairM1015Fixture(t *testing.T, name string) []byte {
+func webhookRestartFixture(t *testing.T, name string) []byte {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("fixture source location unavailable")
 	}
-	body, err := os.ReadFile(filepath.Join(filepath.Dir(file), "testdata", "repair_m1015", name))
+	body, err := os.ReadFile(filepath.Join(filepath.Dir(file), "testdata", "indexer_webhooks", name))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return body
 }
 
-type repairM1015Harness struct {
+type webhookRestartHarness struct {
 	ctx       context.Context
-	db        *repairM1015Database
-	redisPeer *repairM1015Redis
+	db        *webhookRestartDatabase
+	redisPeer *webhookRestartRedis
 	pool      *pgxpool.Pool
 	store     *store.Store
 	redis     *goredis.Client
@@ -159,11 +159,11 @@ type repairM1015Harness struct {
 	server    *httptest.Server
 }
 
-func repairM1015NewHarness(t *testing.T) *repairM1015Harness {
+func webhookRestartNewHarness(t *testing.T) *webhookRestartHarness {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	t.Cleanup(cancel)
-	h := &repairM1015Harness{ctx: ctx, db: repairM1015NewDatabase(t), redisPeer: repairM1015NewRedis(t)}
+	h := &webhookRestartHarness{ctx: ctx, db: webhookRestartNewDatabase(t), redisPeer: webhookRestartNewRedis(t)}
 	h.redis = goredis.NewClient(&goredis.Options{
 		Addr: h.redisPeer.listener.Addr().String(), Protocol: 2,
 		DisableIdentity: true, ContextTimeoutEnabled: true,
@@ -180,7 +180,7 @@ func repairM1015NewHarness(t *testing.T) *repairM1015Harness {
 	return h
 }
 
-func (h *repairM1015Harness) open(t *testing.T) {
+func (h *webhookRestartHarness) open(t *testing.T) {
 	t.Helper()
 	cfg, err := pgxpool.ParseConfig("postgres://fixture@" + h.db.listener.Addr().String() + "/pnl?sslmode=disable")
 	if err != nil {
@@ -201,25 +201,25 @@ func (h *repairM1015Harness) open(t *testing.T) {
 	router := chi.NewRouter()
 	httpapi.RegisterWebhook(router, httpapi.WebhookDeps{
 		Swap:   position.NewConsumer(h.store, h.redis, discardLogger()),
-		Logger: discardLogger(), Secret: repairM1015Secret,
+		Logger: discardLogger(), Secret: webhookRestartSecret,
 	})
 	h.server = httptest.NewServer(router)
 }
 
-func (h *repairM1015Harness) reopen(t *testing.T) {
+func (h *webhookRestartHarness) reopen(t *testing.T) {
 	t.Helper()
 	h.server.Close()
 	h.pool.Close()
 	h.open(t)
 }
 
-func (h *repairM1015Harness) deliver(t *testing.T, body []byte) {
+func (h *webhookRestartHarness) deliver(t *testing.T, body []byte) {
 	t.Helper()
 	ts := strconv.FormatInt(time.Now().Unix(), 10)
-	h.post(t, body, ts, auth.SignWebhook(repairM1015Secret, ts, string(body)), http.StatusOK)
+	h.post(t, body, ts, auth.SignWebhook(webhookRestartSecret, ts, string(body)), http.StatusOK)
 }
 
-func (h *repairM1015Harness) post(t *testing.T, body []byte, ts, signature string, status int) {
+func (h *webhookRestartHarness) post(t *testing.T, body []byte, ts, signature string, status int) {
 	t.Helper()
 	req, err := http.NewRequestWithContext(h.ctx, http.MethodPost, h.server.URL+"/webhooks/events", bytes.NewReader(body))
 	if err != nil {
@@ -254,18 +254,18 @@ func (h *repairM1015Harness) post(t *testing.T, body []byte, ts, signature strin
 	}
 }
 
-func (h *repairM1015Harness) seedCache(t *testing.T) {
+func (h *webhookRestartHarness) seedCache(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{pnlcache.KeyPositions(repairM1015User), pnlcache.KeyPortfolio(repairM1015User), pnlcache.KeyPositions("unrelated"), pnlcache.KeyCard("immutable")} {
+	for _, key := range []string{pnlcache.KeyPositions(webhookRestartUser), pnlcache.KeyPortfolio(webhookRestartUser), pnlcache.KeyPositions("unrelated"), pnlcache.KeyCard("immutable")} {
 		if err := h.redis.Set(h.ctx, key, "stale", 0).Err(); err != nil {
 			t.Fatal(err)
 		}
 	}
 }
 
-func (h *repairM1015Harness) assertCache(t *testing.T, want string) {
+func (h *webhookRestartHarness) assertCache(t *testing.T, want string) {
 	t.Helper()
-	for _, key := range []string{pnlcache.KeyPositions(repairM1015User), pnlcache.KeyPortfolio(repairM1015User)} {
+	for _, key := range []string{pnlcache.KeyPositions(webhookRestartUser), pnlcache.KeyPortfolio(webhookRestartUser)} {
 		got, err := h.redis.Get(h.ctx, key).Result()
 		if want == "" {
 			if !errors.Is(err, goredis.Nil) {
@@ -282,7 +282,7 @@ func (h *repairM1015Harness) assertCache(t *testing.T, want string) {
 	}
 }
 
-func (h *repairM1015Harness) notification(t *testing.T, count int) {
+func (h *webhookRestartHarness) notification(t *testing.T, count int) {
 	t.Helper()
 	message, err := h.sub.ReceiveMessage(h.ctx)
 	if err != nil {
@@ -295,7 +295,7 @@ func (h *repairM1015Harness) notification(t *testing.T, count int) {
 	if err = json.Unmarshal([]byte(message.Payload), &payload); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(payload, map[string]string{"userAddress": repairM1015User}) {
+	if !reflect.DeepEqual(payload, map[string]string{"userAddress": webhookRestartUser}) {
 		t.Fatalf("pnl:update payload = %s", message.Payload)
 	}
 	if n := h.redisPeer.publishCount(); n != count {
@@ -306,17 +306,17 @@ func (h *repairM1015Harness) notification(t *testing.T, count int) {
 // The database peer stores the exact INSERT arguments emitted by the real
 // pgx Store. It has no fold, unit conversion, cache or consumer implementation.
 // It rejects every SQL statement outside the legacy store's declared surface.
-type repairM1015Rows struct {
+type webhookRestartRows struct {
 	trades    map[string][]*string
 	positions map[string][]*string
 }
 
-func repairM1015EmptyRows() repairM1015Rows {
-	return repairM1015Rows{trades: map[string][]*string{}, positions: map[string][]*string{}}
+func webhookRestartEmptyRows() webhookRestartRows {
+	return webhookRestartRows{trades: map[string][]*string{}, positions: map[string][]*string{}}
 }
 
-func (s repairM1015Rows) clone() repairM1015Rows {
-	out := repairM1015EmptyRows()
+func (s webhookRestartRows) clone() webhookRestartRows {
+	out := webhookRestartEmptyRows()
 	for k, row := range s.trades {
 		out.trades[k] = append([]*string(nil), row...)
 	}
@@ -326,21 +326,21 @@ func (s repairM1015Rows) clone() repairM1015Rows {
 	return out
 }
 
-type repairM1015Database struct {
+type webhookRestartDatabase struct {
 	t           *testing.T
 	listener    net.Listener
 	mu          sync.Mutex
-	rows        repairM1015Rows
+	rows        webhookRestartRows
 	connections sync.WaitGroup
 }
 
-func repairM1015NewDatabase(t *testing.T) *repairM1015Database {
+func webhookRestartNewDatabase(t *testing.T) *webhookRestartDatabase {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := &repairM1015Database{t: t, listener: listener, rows: repairM1015EmptyRows()}
+	db := &webhookRestartDatabase{t: t, listener: listener, rows: webhookRestartEmptyRows()}
 	db.connections.Add(1)
 	go func() {
 		defer db.connections.Done()
@@ -357,9 +357,9 @@ func repairM1015NewDatabase(t *testing.T) *repairM1015Database {
 	return db
 }
 
-func repairM1015Text(value string) *string { return &value }
+func webhookRestartText(value string) *string { return &value }
 
-func repairM1015Fields(names []string, types []uint32) []pgproto3.FieldDescription {
+func webhookRestartFields(names []string, types []uint32) []pgproto3.FieldDescription {
 	fields := make([]pgproto3.FieldDescription, len(names))
 	for i := range names {
 		fields[i] = pgproto3.FieldDescription{Name: []byte(names[i]), DataTypeOID: types[i], DataTypeSize: -1, TypeModifier: -1}
@@ -367,7 +367,7 @@ func repairM1015Fields(names []string, types []uint32) []pgproto3.FieldDescripti
 	return fields
 }
 
-func (db *repairM1015Database) serve(conn net.Conn) {
+func (db *webhookRestartDatabase) serve(conn net.Conn) {
 	_ = conn.SetDeadline(time.Now().Add(20 * time.Second))
 	b := pgproto3.NewBackend(conn, conn)
 	if _, err := b.ReceiveStartupMessage(); err != nil {
@@ -383,7 +383,7 @@ func (db *repairM1015Database) serve(conn net.Conn) {
 		db.t.Error(err)
 		return
 	}
-	var tx *repairM1015Rows
+	var tx *webhookRestartRows
 	defer func() {
 		if tx != nil {
 			db.mu.Unlock()
@@ -436,10 +436,10 @@ func (db *repairM1015Database) serve(conn net.Conn) {
 				b.Send(&pgproto3.EmptyQueryResponse{})
 			default:
 				if tx != nil {
-					fields, rows, tag, executeErr = repairM1015Execute(tx, sql)
+					fields, rows, tag, executeErr = webhookRestartExecute(tx, sql)
 				} else {
 					db.mu.Lock()
-					fields, rows, tag, executeErr = repairM1015Execute(&db.rows, sql)
+					fields, rows, tag, executeErr = webhookRestartExecute(&db.rows, sql)
 					db.mu.Unlock()
 				}
 			}
@@ -480,12 +480,12 @@ func (db *repairM1015Database) serve(conn net.Conn) {
 
 // These column lists describe the real legacy tables, including nullable
 // first_buy_ts. Reads return only arguments previously committed by Store.
-var repairM1015PositionColumns = []string{"user_address", "pool_address", "token_address", "total_usdl_spent", "total_tokens_bought", "total_usdl_received", "total_tokens_sold", "avg_cost_basis", "current_holdings", "realized_pnl_usdl", "first_buy_ts", "last_trade_ts", "trade_count"}
-var repairM1015PositionTypes = []uint32{25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 20, 20, 23}
-var repairM1015TradeColumns = []string{"id", "user_address", "pool_address", "token_address", "is_buy", "usdl_amount", "token_amount", "price", "fee", "block_number", "block_timestamp", "tx_hash"}
-var repairM1015TradeTypes = []uint32{25, 25, 25, 25, 16, 25, 25, 25, 25, 20, 20, 25}
+var webhookRestartPositionColumns = []string{"user_address", "pool_address", "token_address", "total_usdl_spent", "total_tokens_bought", "total_usdl_received", "total_tokens_sold", "avg_cost_basis", "current_holdings", "realized_pnl_usdl", "first_buy_ts", "last_trade_ts", "trade_count"}
+var webhookRestartPositionTypes = []uint32{25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 20, 20, 23}
+var webhookRestartTradeColumns = []string{"id", "user_address", "pool_address", "token_address", "is_buy", "usdl_amount", "token_amount", "price", "fee", "block_number", "block_timestamp", "tx_hash"}
+var webhookRestartTradeTypes = []uint32{25, 25, 25, 25, 16, 25, 25, 25, 25, 20, 20, 25}
 
-func repairM1015Execute(data *repairM1015Rows, sql string) ([]pgproto3.FieldDescription, [][]*string, string, error) {
+func webhookRestartExecute(data *webhookRestartRows, sql string) ([]pgproto3.FieldDescription, [][]*string, string, error) {
 	if strings.HasPrefix(sql, "SELECT pg_advisory_xact_lock(") {
 		return nil, nil, "SELECT 1", nil
 	}
@@ -495,7 +495,7 @@ func repairM1015Execute(data *repairM1015Rows, sql string) ([]pgproto3.FieldDesc
 			return nil, nil, "", fmt.Errorf("missing VALUES: %s", sql)
 		}
 		end := strings.Index(sql[start:], ")") + start
-		values, err := repairM1015Literals(sql[start+len("VALUES (") : end])
+		values, err := webhookRestartLiterals(sql[start+len("VALUES (") : end])
 		if err != nil {
 			return nil, nil, "", err
 		}
@@ -506,7 +506,7 @@ func repairM1015Execute(data *repairM1015Rows, sql string) ([]pgproto3.FieldDesc
 		}
 		columns := strings.Split(strings.ReplaceAll(sql[columnStart+1:columnEnd], " ", ""), ",")
 		if strings.HasPrefix(sql, "INSERT INTO pnl.user_trades (") {
-			if len(values) != len(repairM1015TradeColumns) || !reflect.DeepEqual(columns, repairM1015TradeColumns) || !strings.HasSuffix(sql, "ON CONFLICT (id) DO NOTHING") {
+			if len(values) != len(webhookRestartTradeColumns) || !reflect.DeepEqual(columns, webhookRestartTradeColumns) || !strings.HasSuffix(sql, "ON CONFLICT (id) DO NOTHING") {
 				return nil, nil, "", fmt.Errorf("unexpected trade INSERT: %s", sql)
 			}
 			key := *values[0]
@@ -520,7 +520,7 @@ func repairM1015Execute(data *repairM1015Rows, sql string) ([]pgproto3.FieldDesc
 			}
 			data.trades[key] = values
 		} else {
-			if len(values) != len(repairM1015PositionColumns) || !reflect.DeepEqual(columns, repairM1015PositionColumns) || !strings.Contains(sql, "ON CONFLICT (user_address, pool_address) DO UPDATE SET") {
+			if len(values) != len(webhookRestartPositionColumns) || !reflect.DeepEqual(columns, webhookRestartPositionColumns) || !strings.Contains(sql, "ON CONFLICT (user_address, pool_address) DO UPDATE SET") {
 				return nil, nil, "", fmt.Errorf("unexpected position INSERT: %s", sql)
 			}
 			data.positions[*values[0]+"|"+*values[1]] = values
@@ -541,14 +541,14 @@ func repairM1015Execute(data *repairM1015Rows, sql string) ([]pgproto3.FieldDesc
 	switch {
 	case strings.Contains(sql, " FROM indexer.pools WHERE "):
 		names, types = []string{"pool_address", "token_address"}, []uint32{25, 25}
-		candidates = [][]*string{{repairM1015Text(repairM1015Pool), repairM1015Text(repairM1015Token)}}
+		candidates = [][]*string{{webhookRestartText(webhookRestartPool), webhookRestartText(webhookRestartToken)}}
 	case strings.Contains(sql, " FROM pnl.user_positions WHERE "):
-		names, types = repairM1015PositionColumns, repairM1015PositionTypes
+		names, types = webhookRestartPositionColumns, webhookRestartPositionTypes
 		for _, row := range data.positions {
 			candidates = append(candidates, row)
 		}
 	case strings.Contains(sql, " FROM pnl.user_trades WHERE "):
-		names, types = repairM1015TradeColumns, repairM1015TradeTypes
+		names, types = webhookRestartTradeColumns, webhookRestartTradeTypes
 		for _, row := range data.trades {
 			candidates = append(candidates, row)
 		}
@@ -584,7 +584,7 @@ func repairM1015Execute(data *repairM1015Rows, sql string) ([]pgproto3.FieldDesc
 			if len(parts) != 2 {
 				return nil, nil, "", fmt.Errorf("unrecorded predicate %s", predicate)
 			}
-			values, err := repairM1015Literals(parts[1])
+			values, err := webhookRestartLiterals(parts[1])
 			if err != nil || len(values) != 1 {
 				return nil, nil, "", fmt.Errorf("invalid predicate %s: %v", predicate, err)
 			}
@@ -609,10 +609,10 @@ func repairM1015Execute(data *repairM1015Rows, sql string) ([]pgproto3.FieldDesc
 			result = append(result, selected)
 		}
 	}
-	return repairM1015Fields(columns, resultTypes), result, fmt.Sprintf("SELECT %d", len(result)), nil
+	return webhookRestartFields(columns, resultTypes), result, fmt.Sprintf("SELECT %d", len(result)), nil
 }
 
-func repairM1015Literals(sql string) ([]*string, error) {
+func webhookRestartLiterals(sql string) ([]*string, error) {
 	var result []*string
 	for len(strings.TrimSpace(sql)) > 0 {
 		sql = strings.TrimSpace(sql)
@@ -638,7 +638,7 @@ func repairM1015Literals(sql string) ([]*string, error) {
 			if !closed {
 				return nil, errors.New("unterminated SQL literal")
 			}
-			result = append(result, repairM1015Text(value.String()))
+			result = append(result, webhookRestartText(value.String()))
 			sql = strings.TrimSpace(sql[i:])
 		} else {
 			i := strings.IndexByte(sql, ',')
@@ -649,7 +649,7 @@ func repairM1015Literals(sql string) ([]*string, error) {
 			if value == "null" {
 				result = append(result, nil)
 			} else {
-				result = append(result, repairM1015Text(value))
+				result = append(result, webhookRestartText(value))
 			}
 			sql = strings.TrimSpace(sql[i:])
 		}
@@ -665,32 +665,32 @@ func repairM1015Literals(sql string) ([]*string, error) {
 
 // RESP storage is a peer of the production Redis client. Notifications travel
 // through the actual PublishJSON and PubSub client codecs over loopback TCP.
-type repairM1015Redis struct {
+type webhookRestartRedis struct {
 	t           *testing.T
 	listener    net.Listener
 	mu          sync.Mutex
 	keys        map[string]string
-	subs        map[*repairM1015RESP]map[string]bool
+	subs        map[*webhookRestartRESP]map[string]bool
 	published   int
 	connections sync.WaitGroup
 }
 
-type repairM1015RESP struct {
+type webhookRestartRESP struct {
 	sync.Mutex
 	conn   net.Conn
 	reader *bufio.Reader
 	writer *bufio.Writer
 }
 
-type repairM1015Status string
+type webhookRestartStatus string
 
-func repairM1015NewRedis(t *testing.T) *repairM1015Redis {
+func webhookRestartNewRedis(t *testing.T) *webhookRestartRedis {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := &repairM1015Redis{t: t, listener: listener, keys: map[string]string{}, subs: map[*repairM1015RESP]map[string]bool{}}
+	r := &webhookRestartRedis{t: t, listener: listener, keys: map[string]string{}, subs: map[*webhookRestartRESP]map[string]bool{}}
 	r.connections.Add(1)
 	go func() {
 		defer r.connections.Done()
@@ -707,15 +707,19 @@ func repairM1015NewRedis(t *testing.T) *repairM1015Redis {
 	return r
 }
 
-func (r *repairM1015Redis) publishCount() int { r.mu.Lock(); defer r.mu.Unlock(); return r.published }
+func (r *webhookRestartRedis) publishCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.published
+}
 
-func (p *repairM1015RESP) send(value any) error {
+func (p *webhookRestartRESP) send(value any) error {
 	p.Lock()
 	defer p.Unlock()
 	var write func(any) error
 	write = func(value any) error {
 		switch value := value.(type) {
-		case repairM1015Status:
+		case webhookRestartStatus:
 			_, err := fmt.Fprintf(p.writer, "+%s\r\n", value)
 			return err
 		case nil:
@@ -747,7 +751,7 @@ func (p *repairM1015RESP) send(value any) error {
 	return p.writer.Flush()
 }
 
-func (p *repairM1015RESP) receive() ([]string, error) {
+func (p *webhookRestartRESP) receive() ([]string, error) {
 	line, err := p.reader.ReadString('\n')
 	if err != nil {
 		return nil, err
@@ -781,9 +785,9 @@ func (p *repairM1015RESP) receive() ([]string, error) {
 	return args, nil
 }
 
-func (r *repairM1015Redis) serve(conn net.Conn) {
+func (r *webhookRestartRedis) serve(conn net.Conn) {
 	_ = conn.SetDeadline(time.Now().Add(20 * time.Second))
-	p := &repairM1015RESP{conn: conn, reader: bufio.NewReader(conn), writer: bufio.NewWriter(conn)}
+	p := &webhookRestartRESP{conn: conn, reader: bufio.NewReader(conn), writer: bufio.NewWriter(conn)}
 	defer func() { r.mu.Lock(); delete(r.subs, p); r.mu.Unlock() }()
 	for {
 		args, err := p.receive()
@@ -802,14 +806,14 @@ func (r *repairM1015Redis) serve(conn net.Conn) {
 			if len(args) < 2 || strings.ToLower(args[1]) != "setinfo" {
 				err = fmt.Errorf("unrecorded Redis command %v", args)
 			} else {
-				response = repairM1015Status("OK")
+				response = webhookRestartStatus("OK")
 			}
 		case "set":
 			if len(args) != 3 {
 				err = fmt.Errorf("unexpected SET arguments %v", args)
 			} else {
 				r.keys[args[1]] = args[2]
-				response = repairM1015Status("OK")
+				response = webhookRestartStatus("OK")
 			}
 		case "get":
 			if value, exists := r.keys[args[1]]; exists {

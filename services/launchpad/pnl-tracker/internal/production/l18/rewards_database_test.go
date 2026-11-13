@@ -33,20 +33,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const repair62Stream = "repair_62"
+const rewardHistoryStream = "reward_history"
 
-type repair62Object struct {
+type rewardHistoryObject struct {
 	Kind    string   `json:"kind"`
 	Columns []string `json:"columns"`
 	Source  string   `json:"source"`
 }
-type repair62Catalog struct {
-	RegistrySHA256 string                    `json:"registry_sha256"`
-	Applied        map[int64]string          `json:"applied"`
-	Sources        map[string]string         `json:"sources"`
-	Objects        map[string]repair62Object `json:"objects"`
+type rewardHistoryCatalog struct {
+	RegistrySHA256 string                         `json:"registry_sha256"`
+	Applied        map[int64]string               `json:"applied"`
+	Sources        map[string]string              `json:"sources"`
+	Objects        map[string]rewardHistoryObject `json:"objects"`
 }
-type repair62Transfer struct {
+type rewardHistoryTransfer struct {
 	NFTID     string `json:"nft_id"`
 	Height    uint64 `json:"height"`
 	TxIndex   int64  `json:"tx_index"`
@@ -54,7 +54,7 @@ type repair62Transfer struct {
 	Owner     string `json:"owner"`
 	BlockHash string `json:"block_hash"`
 }
-type repair62Claim struct {
+type rewardHistoryClaim struct {
 	Pool      string `json:"pool"`
 	Wallet    string `json:"wallet"`
 	Height    uint64 `json:"height"`
@@ -63,7 +63,7 @@ type repair62Claim struct {
 	BlockHash string `json:"block_hash"`
 	Data      string `json:"data"`
 }
-type repair62Market struct {
+type rewardHistoryMarket struct {
 	ID        string `json:"id"`
 	Pool      string `json:"pool"`
 	Creator   string `json:"creator"`
@@ -73,22 +73,22 @@ type repair62Market struct {
 	TxIndex   string `json:"tx_index"`
 	LogIndex  string `json:"log_index"`
 }
-type repair62Peers struct {
+type rewardHistoryPeers struct {
 	Admin, Alice, Bob       string
 	Initial, Aged, Advanced uint64
-	Markets                 []repair62Market
-	Transfers               []repair62Transfer
-	Claims                  []repair62Claim
+	Markets                 []rewardHistoryMarket
+	Transfers               []rewardHistoryTransfer
+	Claims                  []rewardHistoryClaim
 	Claimable               map[string]map[string]string
 }
 
-func repair62Root() string {
+func rewardHistoryRoot() string {
 	_, file, _, _ := runtime.Caller(0)
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "../../../../../.."))
 }
-func repair62Load(t *testing.T, name string, dst any) {
+func rewardHistoryLoad(t *testing.T, name string, dst any) {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(repair62Root(), "services/launchpad/pnl-tracker/internal/production/l18/testdata/repair_62", name))
+	raw, err := os.ReadFile(filepath.Join(rewardHistoryRoot(), "services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history", name))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,15 +96,15 @@ func repair62Load(t *testing.T, name string, dst any) {
 		t.Fatal(err)
 	}
 }
-func repair62Hash(n uint64) string { return fmt.Sprintf("0x%064x", n) }
-func repair62Uint(s string) uint64 {
+func rewardHistoryHash(n uint64) string { return fmt.Sprintf("0x%064x", n) }
+func rewardHistoryUint(s string) uint64 {
 	n, err := strconv.ParseUint(s, 10, 64)
 	if err != nil {
 		panic("invalid integer in peer transcript: " + s)
 	}
 	return n
 }
-func repair62Contains(list []string, s string) bool {
+func rewardHistoryContains(list []string, s string) bool {
 	for _, v := range list {
 		if v == s {
 			return true
@@ -117,12 +117,12 @@ func repair62Contains(list []string, s string) bool {
 // RoleManifest SQL to it. Missing objects/columns are errors, never suppressed.
 // PostgreSQL itself is not emulated: only the committed read-view transcript
 // and the service's durable write responses are served over its real protocol.
-type repair62Database struct {
+type rewardHistoryDatabase struct {
 	mu               sync.Mutex
-	catalog          repair62Catalog
+	catalog          rewardHistoryCatalog
 	manifest         production.RoleManifest
 	grants           map[string]map[string]bool
-	peers            repair62Peers
+	peers            rewardHistoryPeers
 	height           uint64
 	requests         map[string][]string
 	inbox            map[string]string
@@ -130,7 +130,7 @@ type repair62Database struct {
 	communityHistory map[string][][]string
 	strategies       map[string]uint8
 	airdropSupport   map[string]bool
-	transport        *repair1019Store
+	transport        *outboxDeliveryStore
 	scans            map[string]bool
 	outbox           map[string]string
 	audit            map[string]string
@@ -138,14 +138,14 @@ type repair62Database struct {
 	claimPages       []int
 }
 
-func repair62Bootstrap(t *testing.T) *repair62Database {
+func rewardHistoryBootstrap(t *testing.T) *rewardHistoryDatabase {
 	t.Helper()
-	d := &repair62Database{grants: map[string]map[string]bool{}, requests: map[string][]string{}, inbox: map[string]string{}, community: map[string][]string{}, scans: map[string]bool{}, outbox: map[string]string{}, audit: map[string]string{}}
-	repair62Load(t, "catalog.json", &d.catalog)
-	repair62Load(t, "peers.json", &d.peers)
+	d := &rewardHistoryDatabase{grants: map[string]map[string]bool{}, requests: map[string][]string{}, inbox: map[string]string{}, community: map[string][]string{}, scans: map[string]bool{}, outbox: map[string]string{}, audit: map[string]string{}}
+	rewardHistoryLoad(t, "catalog.json", &d.catalog)
+	rewardHistoryLoad(t, "peers.json", &d.peers)
 	d.height = d.peers.Initial
 	var registry production.MigrationRegistry
-	dir := filepath.Join(repair62Root(), "migrations")
+	dir := filepath.Join(rewardHistoryRoot(), "migrations")
 	raw, err := os.ReadFile(filepath.Join(dir, "registry.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func repair62Bootstrap(t *testing.T) *repair62Database {
 	// The full dependency plan, including legacy sources, is bound to its actual
 	// reviewed bytes. A stale response fixture cannot qualify a changed schema.
 	for path, sum := range d.catalog.Sources {
-		raw, err := os.ReadFile(filepath.Join(repair62Root(), path))
+		raw, err := os.ReadFile(filepath.Join(rewardHistoryRoot(), path))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -226,14 +226,14 @@ func repair62Bootstrap(t *testing.T) *repair62Database {
 	return d
 }
 
-var repair62Grant = regexp.MustCompile(`^GRANT (.+) ON (TABLE|SEQUENCE|FUNCTION) "([a-z0-9_]+)"\."([a-z0-9_]+)"(?:\([^)]*\))? TO "([a-z0-9_]+)"$`)
-var repair62Quoted = regexp.MustCompile(`"([a-z0-9_]+)"`)
+var rewardHistoryGrant = regexp.MustCompile(`^GRANT (.+) ON (TABLE|SEQUENCE|FUNCTION) "([a-z0-9_]+)"\."([a-z0-9_]+)"(?:\([^)]*\))? TO "([a-z0-9_]+)"$`)
+var rewardHistoryQuoted = regexp.MustCompile(`"([a-z0-9_]+)"`)
 
-func (d *repair62Database) applyGrant(sql string) error {
+func (d *rewardHistoryDatabase) applyGrant(sql string) error {
 	if strings.HasPrefix(sql, "GRANT USAGE ON SCHEMA ") {
 		return nil
 	}
-	m := repair62Grant.FindStringSubmatch(sql)
+	m := rewardHistoryGrant.FindStringSubmatch(sql)
 	if m == nil || m[5] != "pnl_runtime" {
 		return fmt.Errorf("unrecognized grant: %s", sql)
 	}
@@ -255,8 +255,8 @@ func (d *repair62Database) applyGrant(sql string) error {
 	privilege := m[1]
 	if i := strings.IndexByte(privilege, '('); i >= 0 {
 		p := strings.TrimSpace(privilege[:i])
-		for _, col := range repair62Quoted.FindAllStringSubmatch(privilege[i:], -1) {
-			if !repair62Contains(obj.Columns, col[1]) {
+		for _, col := range rewardHistoryQuoted.FindAllStringSubmatch(privilege[i:], -1) {
+			if !rewardHistoryContains(obj.Columns, col[1]) {
 				return &pgconn.PgError{Code: "42703", Message: "missing grant column " + object + "." + col[1]}
 			}
 			d.grants[object][p+":"+col[1]] = true
@@ -268,7 +268,7 @@ func (d *repair62Database) applyGrant(sql string) error {
 	}
 	return nil
 }
-func (d *repair62Database) permit(object, privilege string, columns ...string) error {
+func (d *rewardHistoryDatabase) permit(object, privilege string, columns ...string) error {
 	rights := d.grants[object]
 	if rights[privilege+":*"] {
 		return nil
@@ -284,16 +284,16 @@ func (d *repair62Database) permit(object, privilege string, columns ...string) e
 	return nil
 }
 
-type repair62Result struct {
+type rewardHistoryResult struct {
 	types []uint32
 	rows  [][]string
 	tag   string
 }
 
-func repair62Rows(types []uint32, rows ...[]string) repair62Result {
-	return repair62Result{types: types, rows: rows, tag: fmt.Sprintf("SELECT %d", len(rows))}
+func rewardHistoryRows(types []uint32, rows ...[]string) rewardHistoryResult {
+	return rewardHistoryResult{types: types, rows: rows, tag: fmt.Sprintf("SELECT %d", len(rows))}
 }
-func repair62Text(rows ...[]string) repair62Result {
+func rewardHistoryText(rows ...[]string) rewardHistoryResult {
 	var types []uint32
 	if len(rows) > 0 {
 		types = make([]uint32, len(rows[0]))
@@ -301,12 +301,12 @@ func repair62Text(rows ...[]string) repair62Result {
 			types[i] = 25
 		}
 	}
-	return repair62Rows(types, rows...)
+	return rewardHistoryRows(types, rows...)
 }
-func repair62Columns(columns string) []string {
+func rewardHistoryColumns(columns string) []string {
 	return strings.Fields(strings.ReplaceAll(columns, ",", " "))
 }
-func repair62Require(sql string, fragments ...string) error {
+func rewardHistoryRequire(sql string, fragments ...string) error {
 	for _, f := range fragments {
 		if !strings.Contains(sql, f) {
 			return fmt.Errorf("transcript predicate missing %q in %s", f, sql)
@@ -314,11 +314,11 @@ func repair62Require(sql string, fragments ...string) error {
 	}
 	return nil
 }
-func (d *repair62Database) owner(id string, height uint64) string {
-	var latest *repair62Transfer
+func (d *rewardHistoryDatabase) owner(id string, height uint64) string {
+	var latest *rewardHistoryTransfer
 	for i := range d.peers.Transfers {
 		x := &d.peers.Transfers[i]
-		if x.NFTID != id || x.Height > height || x.BlockHash != repair62Hash(x.Height) {
+		if x.NFTID != id || x.Height > height || x.BlockHash != rewardHistoryHash(x.Height) {
 			continue
 		}
 		if latest == nil || x.Height > latest.Height || x.Height == latest.Height && (x.TxIndex > latest.TxIndex || x.TxIndex == latest.TxIndex && x.LogIndex > latest.LogIndex) {
@@ -330,10 +330,10 @@ func (d *repair62Database) owner(id string, height uint64) string {
 	}
 	return latest.Owner
 }
-func repair62MarketRow(m repair62Market) []string {
+func rewardHistoryMarketRow(m rewardHistoryMarket) []string {
 	return []string{m.ID, m.Pool, m.Creator, strconv.FormatUint(m.Height, 10), m.BlockHash, m.TxHash, m.TxIndex, m.LogIndex}
 }
-func (d *repair62Database) query(sql string, args []string) (repair62Result, error) {
+func (d *rewardHistoryDatabase) query(sql string, args []string) (rewardHistoryResult, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	sql = strings.Join(strings.Fields(sql), " ")
@@ -343,12 +343,12 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 			return result, err
 		}
 	}
-	ok := repair62Result{tag: "SELECT 1"}
+	ok := rewardHistoryResult{tag: "SELECT 1"}
 	switch {
 	case sql == "begin" || sql == "commit" || sql == "rollback":
-		return repair62Result{tag: strings.ToUpper(sql)}, nil
+		return rewardHistoryResult{tag: strings.ToUpper(sql)}, nil
 	case strings.HasPrefix(sql, "SET LOCAL search_path TO "):
-		return repair62Result{tag: "SET"}, nil
+		return rewardHistoryResult{tag: "SET"}, nil
 	case strings.Contains(sql, `"recovery".assert_epoch`):
 		if err := d.permit("recovery.assert_epoch", "EXECUTE"); err != nil {
 			return ok, err
@@ -370,10 +370,10 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 		}
 	}
 	viewChecks := map[string][]string{
-		"indexer.indexer_canonical_creations_v1": repair62Columns("nft_id,pool,creator,height,block_hash,transaction_hash,transaction_index,log_index"),
-		"indexer.indexer_raw_logs_v1":            repair62Columns("chain_id,emitter,topics,height,transaction_index,log_index,block_hash,data"),
-		"indexer.indexer_block_completeness_v1":  repair62Columns("chain_id,stream_id,height,block_hash,fetch_complete,required_decode_complete"),
-		"indexer.indexer_ingest_watermarks_v1":   repair62Columns("chain_id,stream_id,raw_complete_height,typed_complete_height"),
+		"indexer.indexer_canonical_creations_v1": rewardHistoryColumns("nft_id,pool,creator,height,block_hash,transaction_hash,transaction_index,log_index"),
+		"indexer.indexer_raw_logs_v1":            rewardHistoryColumns("chain_id,emitter,topics,height,transaction_index,log_index,block_hash,data"),
+		"indexer.indexer_block_completeness_v1":  rewardHistoryColumns("chain_id,stream_id,height,block_hash,fetch_complete,required_decode_complete"),
+		"indexer.indexer_ingest_watermarks_v1":   rewardHistoryColumns("chain_id,stream_id,raw_complete_height,typed_complete_height"),
 	}
 	for name, cols := range viewChecks {
 		if strings.Contains(sql, name) {
@@ -384,24 +384,24 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 	}
 	switch {
 	case strings.Contains(sql, "FROM indexer.indexer_ingest_watermarks_v1"):
-		if len(args) != 1 || args[0] != repair62Stream {
+		if len(args) != 1 || args[0] != rewardHistoryStream {
 			return ok, fmt.Errorf("unadmitted stream")
 		}
-		return repair62Rows([]uint32{20, 20}, []string{strconv.FormatUint(d.height, 10), strconv.FormatUint(d.height, 10)}), nil
+		return rewardHistoryRows([]uint32{20, 20}, []string{strconv.FormatUint(d.height, 10), strconv.FormatUint(d.height, 10)}), nil
 	case strings.Contains(sql, "FROM indexer.indexer_block_completeness_v1"):
-		if len(args) != 2 || args[0] != repair62Stream || repair62Uint(args[1]) > d.height {
+		if len(args) != 2 || args[0] != rewardHistoryStream || rewardHistoryUint(args[1]) > d.height {
 			return ok, fmt.Errorf("unavailable source checkpoint")
 		}
-		return repair62Rows([]uint32{25, 16, 16}, []string{repair62Hash(repair62Uint(args[1])), "t", "t"}), nil
+		return rewardHistoryRows([]uint32{25, 16, 16}, []string{rewardHistoryHash(rewardHistoryUint(args[1])), "t", "t"}), nil
 	case strings.Contains(sql, "FROM indexer.indexer_raw_logs_v1"):
-		if err := repair62Require(sql, "b.stream_id=$1", "b.height=l.height", "b.block_hash=l.block_hash", "b.fetch_complete AND b.required_decode_complete", "l.chain_id=125", "l.topics->>0=$3"); err != nil {
+		if err := rewardHistoryRequire(sql, "b.stream_id=$1", "b.height=l.height", "b.block_hash=l.block_hash", "b.fetch_complete AND b.required_decode_complete", "l.chain_id=125", "l.topics->>0=$3"); err != nil {
 			return ok, err
 		}
-		if args[0] != repair62Stream {
+		if args[0] != rewardHistoryStream {
 			return ok, fmt.Errorf("unadmitted stream")
 		}
 		if strings.Contains(sql, "SELECT l.topics->>2") {
-			if err := repair62Require(sql, "l.emitter=$2", "l.topics->>3=$4", "jsonb_array_length(l.topics)=4", "l.height<=$5", "ORDER BY l.height DESC,l.transaction_index DESC,l.log_index DESC LIMIT 1"); err != nil {
+			if err := rewardHistoryRequire(sql, "l.emitter=$2", "l.topics->>3=$4", "jsonb_array_length(l.topics)=4", "l.height<=$5", "ORDER BY l.height DESC,l.transaction_index DESC,l.log_index DESC LIMIT 1"); err != nil {
 				return ok, err
 			}
 			if args[1] != NFT || args[2] != nft.Events["Transfer"].ID.Hex() {
@@ -409,30 +409,30 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 			}
 			n := new(big.Int)
 			n.SetString(strings.TrimPrefix(args[3], "0x"), 16)
-			who := d.owner(n.String(), repair62Uint(args[4]))
+			who := d.owner(n.String(), rewardHistoryUint(args[4]))
 			if who == "" {
-				return repair62Text(), nil
+				return rewardHistoryText(), nil
 			}
-			return repair62Text([]string{addressTopic(who)}), nil
+			return rewardHistoryText([]string{addressTopic(who)}), nil
 		}
-		if err := repair62Require(sql, "l.emitter=$2", "l.topics->>1=$4", "l.topics->>2=$5", "l.height BETWEEN $6 AND $7", "(l.height,l.transaction_index,l.log_index)>($8,$9,$10)", "ORDER BY l.height,l.transaction_index,l.log_index LIMIT 500"); err != nil {
+		if err := rewardHistoryRequire(sql, "l.emitter=$2", "l.topics->>1=$4", "l.topics->>2=$5", "l.height BETWEEN $6 AND $7", "(l.height,l.transaction_index,l.log_index)>($8,$9,$10)", "ORDER BY l.height,l.transaction_index,l.log_index LIMIT 500"); err != nil {
 			return ok, err
 		}
 		if args[1] != Accumulator || args[2] != accumulator.Events["FeesClaimed"].ID.Hex() {
 			return ok, fmt.Errorf("wrong claim interface")
 		}
-		from, to := repair62Uint(args[5]), repair62Uint(args[6])
+		from, to := rewardHistoryUint(args[5]), rewardHistoryUint(args[6])
 		height, _ := strconv.ParseInt(args[7], 10, 64)
 		ti, _ := strconv.ParseInt(args[8], 10, 64)
 		li, _ := strconv.ParseInt(args[9], 10, 64)
-		claims := append([]repair62Claim(nil), d.peers.Claims...)
+		claims := append([]rewardHistoryClaim(nil), d.peers.Claims...)
 		sort.Slice(claims, func(i, j int) bool {
 			a, b := claims[i], claims[j]
 			return a.Height < b.Height || a.Height == b.Height && (a.TxIndex < b.TxIndex || a.TxIndex == b.TxIndex && a.LogIndex < b.LogIndex)
 		})
-		result := repair62Rows([]uint32{20, 20, 20, 17, 3802})
+		result := rewardHistoryRows([]uint32{20, 20, 20, 17, 3802})
 		for _, x := range claims {
-			if x.Height < from || x.Height > to || x.BlockHash != repair62Hash(x.Height) || addressTopic(x.Pool) != args[3] || addressTopic(x.Wallet) != args[4] {
+			if x.Height < from || x.Height > to || x.BlockHash != rewardHistoryHash(x.Height) || addressTopic(x.Pool) != args[3] || addressTopic(x.Wallet) != args[4] {
 				continue
 			}
 			if int64(x.Height) < height || int64(x.Height) == height && (x.TxIndex < ti || x.TxIndex == ti && x.LogIndex <= li) {
@@ -463,14 +463,14 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 				if strings.HasPrefix(sql, "SELECT creator,pool") {
 					rows = append(rows, []string{m.Creator, m.Pool})
 				} else {
-					rows = append(rows, repair62MarketRow(m))
+					rows = append(rows, rewardHistoryMarketRow(m))
 				}
 			} else {
-				if err := repair62Require(sql, "nft_id>$1::numeric AND height<=$2 ORDER BY nft_id LIMIT 100"); err != nil {
+				if err := rewardHistoryRequire(sql, "nft_id>$1::numeric AND height<=$2 ORDER BY nft_id LIMIT 100"); err != nil {
 					return ok, err
 				}
-				if repair62Uint(m.ID) > repair62Uint(args[0]) && m.Height <= repair62Uint(args[1]) && len(rows) < 100 {
-					rows = append(rows, repair62MarketRow(m))
+				if rewardHistoryUint(m.ID) > rewardHistoryUint(args[0]) && m.Height <= rewardHistoryUint(args[1]) && len(rows) < 100 {
+					rows = append(rows, rewardHistoryMarketRow(m))
 				}
 			}
 		}
@@ -481,13 +481,13 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 		if strings.Contains(sql, "LEFT JOIN l18_community_scan") {
 			types = []uint32{25, 25, 25}
 		}
-		return repair62Rows(types, rows...), nil
+		return rewardHistoryRows(types, rows...), nil
 	case strings.HasPrefix(sql, "SELECT digest,response,expires_at,release_digest,interface_digest FROM l18_requests"):
 		value, found := d.requests[args[0]+":"+args[1]]
 		if !found {
-			return repair62Rows([]uint32{25, 17, 1184, 25, 25}), nil
+			return rewardHistoryRows([]uint32{25, 17, 1184, 25, 25}), nil
 		}
-		return repair62Rows([]uint32{25, 17, 1184, 25, 25}, value), nil
+		return rewardHistoryRows([]uint32{25, 17, 1184, 25, 25}, value), nil
 	case strings.HasPrefix(sql, "INSERT INTO l18_requests("):
 		if err := d.permit("pnl.l18_requests", "INSERT"); err != nil {
 			return ok, err
@@ -497,7 +497,7 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 			return ok, &pgconn.PgError{Code: "23505", Message: "duplicate request"}
 		}
 		d.requests[key] = []string{args[2], args[3], args[4], args[5], args[6]}
-		return repair62Result{tag: "INSERT 0 1"}, nil
+		return rewardHistoryResult{tag: "INSERT 0 1"}, nil
 	case strings.HasPrefix(sql, "INSERT INTO l18_outbox("):
 		if err := d.permit("pnl.l18_outbox", "INSERT"); err != nil {
 			return ok, err
@@ -506,40 +506,40 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 			return ok, &pgconn.PgError{Code: "23505", Message: "duplicate outbox identity"}
 		}
 		d.outbox[args[0]] = args[1]
-		return repair62Result{tag: "INSERT 0 1"}, nil
+		return rewardHistoryResult{tag: "INSERT 0 1"}, nil
 	case strings.HasPrefix(sql, "INSERT INTO l18_audit("):
 		if err := d.permit("pnl.l18_audit", "INSERT"); err != nil {
 			return ok, err
 		}
 		d.audit[args[0]] = args[1]
-		return repair62Result{tag: "INSERT 0 1"}, nil
+		return rewardHistoryResult{tag: "INSERT 0 1"}, nil
 	case strings.HasPrefix(sql, "INSERT INTO l18_inbox("):
 		if err := d.permit("pnl.l18_inbox", "INSERT"); err != nil {
 			return ok, err
 		}
 		if _, exists := d.inbox[args[0]]; exists {
-			return repair62Result{tag: "INSERT 0 0"}, nil
+			return rewardHistoryResult{tag: "INSERT 0 0"}, nil
 		}
 		d.inbox[args[0]] = args[1]
-		return repair62Result{tag: "INSERT 0 1"}, nil
+		return rewardHistoryResult{tag: "INSERT 0 1"}, nil
 	case strings.HasPrefix(sql, "SELECT digest FROM l18_inbox"):
 		v, exists := d.inbox[args[0]]
 		if !exists {
-			return repair62Text(), nil
+			return rewardHistoryText(), nil
 		}
-		return repair62Text([]string{v}), nil
+		return rewardHistoryText([]string{v}), nil
 	case strings.HasPrefix(sql, "SELECT owner,policy_digest FROM l18_community_history"):
 		v, exists := d.community[args[0]]
 		if !exists {
-			return repair62Rows([]uint32{25, 25}), nil
+			return rewardHistoryRows([]uint32{25, 25}), nil
 		}
-		return repair62Rows([]uint32{25, 25}, []string{v[3], v[4]}), nil
+		return rewardHistoryRows([]uint32{25, 25}, []string{v[3], v[4]}), nil
 	case strings.HasPrefix(sql, "SELECT EXISTS(SELECT 1 FROM l18_community_history"):
 		active := false
 		for _, v := range d.communityHistory[args[0]] {
 			active = active || v[2] == "active"
 		}
-		return repair62Rows([]uint32{16}, []string{strconv.FormatBool(active)}), nil
+		return rewardHistoryRows([]uint32{16}, []string{strconv.FormatBool(active)}), nil
 	case strings.HasPrefix(sql, "INSERT INTO l18_community_history("):
 		if err := d.permit("pnl.l18_community_history", "INSERT"); err != nil {
 			return ok, err
@@ -549,13 +549,13 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 			d.communityHistory = map[string][][]string{}
 		}
 		d.communityHistory[args[1]] = append(d.communityHistory[args[1]], append([]string(nil), args...))
-		return repair62Result{tag: "INSERT 0 1"}, nil
+		return rewardHistoryResult{tag: "INSERT 0 1"}, nil
 	case strings.HasPrefix(sql, "INSERT INTO l18_community_scan("):
 		if err := d.permit("pnl.l18_community_scan", "INSERT"); err != nil {
 			return ok, err
 		}
 		d.scans[args[0]] = true
-		return repair62Result{tag: "INSERT 0 1"}, nil
+		return rewardHistoryResult{tag: "INSERT 0 1"}, nil
 	default:
 		return ok, fmt.Errorf("query absent from committed peer interface: %s", sql)
 	}
@@ -563,7 +563,7 @@ func (d *repair62Database) query(sql string, args []string) (repair62Result, err
 
 // Serve real pgx queries through the PostgreSQL frontend/backend codec. Query
 // parameters retain their wire types; neither l18 nor its pool is replaced.
-func (d *repair62Database) pool(t *testing.T) *pgxpool.Pool {
+func (d *rewardHistoryDatabase) pool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -597,9 +597,9 @@ func (d *repair62Database) pool(t *testing.T) *pgxpool.Pool {
 
 // Statement metadata belongs to the committed peer interface. pgx uses it to
 // encode real typed parameters (notably jsonb versus bytea) just as at runtime.
-func repair62Signature(sql string) (params, fields []uint32) {
+func rewardHistorySignature(sql string) (params, fields []uint32) {
 	sql = strings.Join(strings.Fields(sql), " ")
-	if params, fields, handled := repair1019Signature(sql); handled {
+	if params, fields, handled := outboxDeliverySignature(sql); handled {
 		return params, fields
 	}
 	placeholders := regexp.MustCompile(`\$([0-9]+)`).FindAllStringSubmatch(sql, -1)
@@ -668,7 +668,7 @@ func repair62Signature(sql string) (params, fields []uint32) {
 	}
 	return params, fields
 }
-func (d *repair62Database) serve(conn net.Conn) {
+func (d *rewardHistoryDatabase) serve(conn net.Conn) {
 	b := pgproto3.NewBackend(conn, conn)
 	startup, err := b.ReceiveStartupMessage()
 	if err != nil {
@@ -687,7 +687,7 @@ func (d *repair62Database) serve(conn net.Conn) {
 	}
 	var sql string
 	var args []string
-	var result repair62Result
+	var result rewardHistoryResult
 	var queryErr error
 	status := byte('I')
 	failed := false
@@ -756,7 +756,7 @@ func (d *repair62Database) serve(conn net.Conn) {
 		switch m := message.(type) {
 		case *pgproto3.Parse:
 			sql = m.Query
-			params, fields = repair62Signature(sql)
+			params, fields = rewardHistorySignature(sql)
 			queryErr = nil
 			b.Send(&pgproto3.ParseComplete{})
 		case *pgproto3.Bind:
@@ -836,8 +836,8 @@ func (d *repair62Database) serve(conn net.Conn) {
 	}
 }
 
-type repair62Fixture struct {
-	db      *repair62Database
+type rewardHistoryFixture struct {
+	db      *rewardHistoryDatabase
 	ledger  *Ledger
 	creator *Creator
 	journey *JourneyService
@@ -845,9 +845,9 @@ type repair62Fixture struct {
 	rpc     *rpc.Client
 }
 
-func repair62Chain(t *testing.T) *repair62Fixture {
+func rewardHistoryChain(t *testing.T) *rewardHistoryFixture {
 	t.Helper()
-	f := &repair62Fixture{db: repair62Bootstrap(t)}
+	f := &rewardHistoryFixture{db: rewardHistoryBootstrap(t)}
 	f.chain.Pool = f.db.peers.Markets[0].Pool
 	f.chain.Admin = f.db.peers.Admin
 	f.chain.Alice = f.db.peers.Alice
@@ -880,23 +880,23 @@ func repair62Chain(t *testing.T) *repair62Fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.journey, err = f.journey.WithSourceStream(repair62Stream)
+	f.journey, err = f.journey.WithSourceStream(rewardHistoryStream)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return f
 }
-func (f *repair62Fixture) advance(height uint64) Checkpoint {
+func (f *rewardHistoryFixture) advance(height uint64) Checkpoint {
 	f.db.mu.Lock()
 	defer f.db.mu.Unlock()
 	f.db.height = height
-	return Checkpoint{Number: height, Hash: repair62Hash(height)}
+	return Checkpoint{Number: height, Hash: rewardHistoryHash(height)}
 }
-func repair62Pack(a abi.ABI, method string, value any) (string, error) {
+func rewardHistoryPack(a abi.ABI, method string, value any) (string, error) {
 	raw, err := a.Methods[method].Outputs.Pack(value)
 	return hexutil.Encode(raw), err
 }
-func (d *repair62Database) rpcResponse(w http.ResponseWriter, r *http.Request) {
+func (d *rewardHistoryDatabase) rpcResponse(w http.ResponseWriter, r *http.Request) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	var req struct {
@@ -916,7 +916,7 @@ func (d *repair62Database) rpcResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": req.ID, "result": result})
 }
-func (d *repair62Database) rpcResult(method string, args []json.RawMessage) (any, error) {
+func (d *rewardHistoryDatabase) rpcResult(method string, args []json.RawMessage) (any, error) {
 	switch method {
 	case "eth_chainId":
 		return "0x7d", nil
@@ -936,7 +936,7 @@ func (d *repair62Database) rpcResult(method string, args []json.RawMessage) (any
 		if height > d.height {
 			return nil, fmt.Errorf("unrecorded future block")
 		}
-		return map[string]string{"number": hexutil.EncodeUint64(height), "hash": repair62Hash(height)}, nil
+		return map[string]string{"number": hexutil.EncodeUint64(height), "hash": rewardHistoryHash(height)}, nil
 	case "eth_gasPrice":
 		return "0x3b9aca00", nil
 	case "eth_call", "eth_getCode", "eth_getStorageAt", "eth_estimateGas":
@@ -1001,15 +1001,15 @@ func (d *repair62Database) rpcResult(method string, args []json.RawMessage) (any
 				}
 				switch m.Name {
 				case "ownerOf":
-					return repair62Pack(a, m.Name, common.HexToAddress(d.owner(id, height)))
+					return rewardHistoryPack(a, m.Name, common.HexToAddress(d.owner(id, height)))
 				case "getPoolAddress":
-					return repair62Pack(a, m.Name, common.HexToAddress(market.Pool))
+					return rewardHistoryPack(a, m.Name, common.HexToAddress(market.Pool))
 				case "getFeeStrategy":
-					return repair62Pack(a, m.Name, d.strategies[id])
+					return rewardHistoryPack(a, m.Name, d.strategies[id])
 				}
 			}
 		case "supportsAirdrop":
-			return repair62Pack(a, m.Name, d.airdropSupport[strings.ToLower(values[0].(common.Address).Hex())])
+			return rewardHistoryPack(a, m.Name, d.airdropSupport[strings.ToLower(values[0].(common.Address).Hex())])
 		case "getAccumulatedFees":
 			pool := strings.ToLower(values[0].(common.Address).Hex())
 			for _, market := range d.peers.Markets {
@@ -1021,7 +1021,7 @@ func (d *repair62Database) rpcResult(method string, args []json.RawMessage) (any
 					return nil, fmt.Errorf("unrecorded accumulated fees")
 				}
 				n, _ := new(big.Int).SetString(raw, 10)
-				return repair62Pack(a, m.Name, n)
+				return rewardHistoryPack(a, m.Name, n)
 			}
 		}
 		return nil, fmt.Errorf("unrecorded ABI response: %s", m.Name)

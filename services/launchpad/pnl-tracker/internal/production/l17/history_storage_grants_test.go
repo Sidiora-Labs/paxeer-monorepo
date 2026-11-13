@@ -34,7 +34,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestRepair_64_HistoryRowInsertGrant(t *testing.T) {
+func TestHistoryRowInsertGrant(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("test source location unavailable")
@@ -123,7 +123,7 @@ func TestRepair_64_HistoryRowInsertGrant(t *testing.T) {
 	}
 
 	t.Run("select_only_rejects_copy_and_rolls_back_projection", func(t *testing.T) {
-		peer := repair64NewPeer(t, priorSQL)
+		peer := historyGrantNewPeer(t, priorSQL)
 		repo := peer.repository(t)
 		_, e := commit(repo)
 		var denied *pgconn.PgError
@@ -138,7 +138,7 @@ func TestRepair_64_HistoryRowInsertGrant(t *testing.T) {
 		}
 	})
 
-	peer := repair64NewPeer(t, sql)
+	peer := historyGrantNewPeer(t, sql)
 	repo := peer.repository(t)
 	saved, err := commit(repo)
 	if err != nil {
@@ -255,29 +255,29 @@ func TestRepair_64_HistoryRowInsertGrant(t *testing.T) {
 	}
 }
 
-// repair64Peer is a strict in-memory database peer for the production pgx client.
+// historyGrantPeer is a strict in-memory database peer for the production pgx client.
 // It accepts only the participant's SQL, enforces generated runtime grants, and
 // stores the producer's original values transactionally across client restarts.
 // It is not evidence of a PostgreSQL coordinator bootstrap or catalog check.
-type repair64Row [][]byte
-type repair64Peer struct {
+type historyGrantRow [][]byte
+type historyGrantPeer struct {
 	t          *testing.T
 	listener   net.Listener
 	mu         sync.Mutex
-	tables     map[string][]repair64Row
+	tables     map[string][]historyGrantRow
 	grants     map[string]map[string]bool
 	copied     int
 	copyDenied bool
 	wg         sync.WaitGroup
 }
 
-func repair64NewPeer(t *testing.T, grants []string) *repair64Peer {
+func historyGrantNewPeer(t *testing.T, grants []string) *historyGrantPeer {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	peer := &repair64Peer{t: t, listener: listener, tables: map[string][]repair64Row{}, grants: map[string]map[string]bool{}}
+	peer := &historyGrantPeer{t: t, listener: listener, tables: map[string][]historyGrantRow{}, grants: map[string]map[string]bool{}}
 	grantPattern := regexp.MustCompile(`^GRANT ([A-Z, ]+) ON TABLE "pnl"\."([a-z0-9_]+)" TO "pnl_runtime"$`)
 	for _, statement := range grants {
 		if match := grantPattern.FindStringSubmatch(statement); match != nil {
@@ -303,7 +303,7 @@ func repair64NewPeer(t *testing.T, grants []string) *repair64Peer {
 	return peer
 }
 
-func (p *repair64Peer) repository(t *testing.T) Repository {
+func (p *historyGrantPeer) repository(t *testing.T) Repository {
 	t.Helper()
 	config, err := pgxpool.ParseConfig("postgres://pnl_runtime@" + p.listener.Addr().String() + "/pnl?sslmode=disable")
 	if err != nil {
@@ -321,7 +321,7 @@ func (p *repair64Peer) repository(t *testing.T) Repository {
 	return Repository{Pool: pool}
 }
 
-func repair64Fields(query string) []pgproto3.FieldDescription {
+func historyGrantFields(query string) []pgproto3.FieldDescription {
 	var names []string
 	var oids []uint32
 	switch {
@@ -351,9 +351,9 @@ func repair64Fields(query string) []pgproto3.FieldDescription {
 	return fields
 }
 
-const repair64Timestamp = "2006-01-02 15:04:05.999999999Z07:00"
+const historyGrantTimestamp = "2006-01-02 15:04:05.999999999Z07:00"
 
-func repair64Params(query string) []uint32 {
+func historyGrantParams(query string) []uint32 {
 	switch {
 	case strings.HasPrefix(query, "SELECT pg_advisory_xact_lock("), strings.HasPrefix(query, "SELECT digest,summary"), strings.HasPrefix(query, "SELECT h.digest"):
 		return []uint32{25}
@@ -377,7 +377,7 @@ func repair64Params(query string) []uint32 {
 }
 
 // Preserve JSON exactly; use pgx's real scalar codecs for binary parameters.
-func repair64Parameter(oid uint32, format int16, raw []byte) ([]byte, error) {
+func historyGrantParameter(oid uint32, format int16, raw []byte) ([]byte, error) {
 	if format == 0 {
 		return bytes.Clone(raw), nil
 	}
@@ -394,13 +394,13 @@ func repair64Parameter(oid uint32, format int16, raw []byte) ([]byte, error) {
 	case int32:
 		return []byte(strconv.FormatInt(int64(v), 10)), nil
 	case time.Time:
-		return []byte(v.Format(repair64Timestamp)), nil
+		return []byte(v.Format(historyGrantTimestamp)), nil
 	default:
 		return nil, fmt.Errorf("unrecorded binary parameter type %T", value)
 	}
 }
 
-func repair64Result(oid uint32, format int16, raw []byte) ([]byte, error) {
+func historyGrantResult(oid uint32, format int16, raw []byte) ([]byte, error) {
 	if format == 0 {
 		return raw, nil
 	}
@@ -413,7 +413,7 @@ func repair64Result(oid uint32, format int16, raw []byte) ([]byte, error) {
 		}
 		value = int32(n)
 	case 1184:
-		instant, err := time.Parse(repair64Timestamp, string(raw))
+		instant, err := time.Parse(historyGrantTimestamp, string(raw))
 		if err != nil {
 			return nil, err
 		}
@@ -424,7 +424,7 @@ func repair64Result(oid uint32, format int16, raw []byte) ([]byte, error) {
 	return pgtype.NewMap().Encode(oid, format, value, nil)
 }
 
-func (p *repair64Peer) serve(conn net.Conn) {
+func (p *historyGrantPeer) serve(conn net.Conn) {
 	backend := pgproto3.NewBackend(conn, conn)
 	startup, err := backend.ReceiveStartupMessage()
 	if err != nil {
@@ -446,9 +446,9 @@ func (p *repair64Peer) serve(conn net.Conn) {
 	}
 	statements := map[string]string{}
 	query := ""
-	var args repair64Row
+	var args historyGrantRow
 	var formats []int16
-	var transaction map[string][]repair64Row
+	var transaction map[string][]historyGrantRow
 	status := byte('I')
 	failed := false
 	var copied bytes.Buffer
@@ -465,13 +465,13 @@ func (p *repair64Peer) serve(conn net.Conn) {
 		}
 		failed = true
 	}
-	execute := func(sql string, parameters repair64Row) {
+	execute := func(sql string, parameters historyGrantRow) {
 		switch {
 		case sql == "begin":
 			p.mu.Lock()
-			transaction = map[string][]repair64Row{}
+			transaction = map[string][]historyGrantRow{}
 			for table, rows := range p.tables {
-				transaction[table] = append([]repair64Row(nil), rows...)
+				transaction[table] = append([]historyGrantRow(nil), rows...)
 			}
 			p.mu.Unlock()
 			status = 'T'
@@ -504,14 +504,14 @@ func (p *repair64Peer) serve(conn net.Conn) {
 				return
 			}
 			for _, row := range rows {
-				encoded := make(repair64Row, len(row))
-				fields := repair64Fields(sql)
+				encoded := make(historyGrantRow, len(row))
+				fields := historyGrantFields(sql)
 				for i := range row {
 					format := int16(0)
 					if len(formats) > 0 {
 						format = formats[i%len(formats)]
 					}
-					encoded[i], e = repair64Result(fields[i].DataTypeOID, format, row[i])
+					encoded[i], e = historyGrantResult(fields[i].DataTypeOID, format, row[i])
 					if e != nil {
 						sendError(e)
 						return
@@ -537,9 +537,9 @@ func (p *repair64Peer) serve(conn net.Conn) {
 		case *pgproto3.Describe:
 			if m.ObjectType == 'S' {
 				query = statements[m.Name]
-				backend.Send(&pgproto3.ParameterDescription{ParameterOIDs: repair64Params(query)})
+				backend.Send(&pgproto3.ParameterDescription{ParameterOIDs: historyGrantParams(query)})
 			}
-			fields := repair64Fields(query)
+			fields := historyGrantFields(query)
 			if m.ObjectType == 'P' {
 				for i := range fields {
 					if len(formats) > 0 {
@@ -555,18 +555,18 @@ func (p *repair64Peer) serve(conn net.Conn) {
 		case *pgproto3.Bind:
 			query = statements[m.PreparedStatement]
 			formats = append([]int16(nil), m.ResultFormatCodes...)
-			oids := repair64Params(query)
+			oids := historyGrantParams(query)
 			if len(oids) != len(m.Parameters) {
 				p.t.Errorf("parameter contract mismatch: %s", query)
 				return
 			}
-			args = make(repair64Row, len(m.Parameters))
+			args = make(historyGrantRow, len(m.Parameters))
 			for i := range args {
 				format := int16(0)
 				if len(m.ParameterFormatCodes) > 0 {
 					format = m.ParameterFormatCodes[i%len(m.ParameterFormatCodes)]
 				}
-				args[i], err = repair64Parameter(oids[i], format, m.Parameters[i])
+				args[i], err = historyGrantParameter(oids[i], format, m.Parameters[i])
 				if err != nil {
 					p.t.Error(err)
 					return
@@ -624,7 +624,7 @@ func (p *repair64Peer) serve(conn net.Conn) {
 			}
 			// CopyDone supplies the end marker for pgx's protocol stream;
 			// unlike a binary COPY file, its CopyData has no -1 trailer.
-			rows, e := repair64DecodeCopy(append(copied.Bytes(), 0xff, 0xff))
+			rows, e := historyGrantDecodeCopy(append(copied.Bytes(), 0xff, 0xff))
 			if e != nil {
 				sendError(e)
 			} else {
@@ -649,14 +649,14 @@ func (p *repair64Peer) serve(conn net.Conn) {
 	}
 }
 
-func (p *repair64Peer) execute(tables map[string][]repair64Row, query string, args repair64Row) ([]repair64Row, error) {
+func (p *historyGrantPeer) execute(tables map[string][]historyGrantRow, query string, args historyGrantRow) ([]historyGrantRow, error) {
 	permission := func(table, privilege string) error {
 		if !p.grants[table][privilege] {
 			return &pgconn.PgError{Code: "42501", Message: "permission denied for table " + table}
 		}
 		return nil
 	}
-	value := func(row repair64Row, i int) string { return string(row[i]) }
+	value := func(row historyGrantRow, i int) string { return string(row[i]) }
 	switch {
 	case strings.HasPrefix(query, "SELECT pg_advisory_xact_lock("):
 		return nil, nil
@@ -680,7 +680,7 @@ func (p *repair64Peer) execute(tables map[string][]repair64Row, query string, ar
 		}
 		for _, row := range tables["portfolio_snapshots"] {
 			if value(row, 2) == value(args, 0) {
-				return []repair64Row{{row[3], row[6]}}, nil
+				return []historyGrantRow{{row[3], row[6]}}, nil
 			}
 		}
 		return nil, nil
@@ -690,7 +690,7 @@ func (p *repair64Peer) execute(tables map[string][]repair64Row, query string, ar
 		}
 		for _, row := range tables["portfolio_snapshots"] {
 			if value(row, 0) == value(args, 0) && value(row, 1) == value(args, 1) {
-				return []repair64Row{{row[6]}}, nil
+				return []historyGrantRow{{row[6]}}, nil
 			}
 		}
 		return nil, nil
@@ -707,10 +707,10 @@ func (p *repair64Peer) execute(tables map[string][]repair64Row, query string, ar
 					continue
 				}
 				if strings.HasPrefix(query, "SELECT h.digest") && value(history, 1) == value(args, 0) {
-					return []repair64Row{{history[2], history[0], snapshot[1]}}, nil
+					return []historyGrantRow{{history[2], history[0], snapshot[1]}}, nil
 				}
 				if strings.HasPrefix(query, "SELECT h.row_count") && value(history, 0) == value(args, 0) && value(snapshot, 1) == value(args, 1) {
-					return []repair64Row{{history[3], snapshot[5]}}, nil
+					return []historyGrantRow{{history[3], snapshot[5]}}, nil
 				}
 			}
 		}
@@ -727,14 +727,14 @@ func (p *repair64Peer) execute(tables map[string][]repair64Row, query string, ar
 		if e != nil {
 			return nil, e
 		}
-		var rows []repair64Row
+		var rows []historyGrantRow
 		for _, row := range tables["portfolio_history_rows"] {
 			ordinal, e := strconv.Atoi(value(row, 1))
 			if e != nil {
 				return nil, e
 			}
 			if value(row, 0) == value(args, 0) && ordinal > after && len(rows) < limit {
-				rows = append(rows, repair64Row{row[2]})
+				rows = append(rows, historyGrantRow{row[2]})
 			}
 		}
 		return rows, nil
@@ -743,22 +743,22 @@ func (p *repair64Peer) execute(tables map[string][]repair64Row, query string, ar
 			return nil, e
 		}
 		// This committed fixture contains one snapshot in one hour bucket.
-		from, e := time.Parse(repair64Timestamp, value(args, 2))
+		from, e := time.Parse(historyGrantTimestamp, value(args, 2))
 		if e != nil {
 			return nil, e
 		}
-		to, e := time.Parse(repair64Timestamp, value(args, 1))
+		to, e := time.Parse(historyGrantTimestamp, value(args, 1))
 		if e != nil {
 			return nil, e
 		}
-		var rows []repair64Row
+		var rows []historyGrantRow
 		for _, row := range tables["portfolio_snapshots"] {
-			observed, e := time.Parse(repair64Timestamp, value(row, 7))
+			observed, e := time.Parse(historyGrantTimestamp, value(row, 7))
 			if e != nil {
 				return nil, e
 			}
 			if value(row, 1) == value(args, 0) && !observed.Before(from) && observed.Before(to) {
-				rows = append(rows, repair64Row{row[6]})
+				rows = append(rows, historyGrantRow{row[6]})
 			}
 		}
 		return rows, nil
@@ -772,7 +772,7 @@ func (p *repair64Peer) execute(tables map[string][]repair64Row, query string, ar
 	}
 }
 
-func repair64DecodeCopy(raw []byte) ([]repair64Row, error) {
+func historyGrantDecodeCopy(raw []byte) ([]historyGrantRow, error) {
 	reader := bytes.NewReader(raw)
 	header := make([]byte, 19)
 	if _, err := io.ReadFull(reader, header); err != nil {
@@ -781,7 +781,7 @@ func repair64DecodeCopy(raw []byte) ([]repair64Row, error) {
 	if !bytes.Equal(header[:11], []byte("PGCOPY\n\xff\r\n\x00")) || binary.BigEndian.Uint32(header[11:15]) != 0 || binary.BigEndian.Uint32(header[15:19]) != 0 {
 		return nil, errors.New("invalid binary COPY header")
 	}
-	var rows []repair64Row
+	var rows []historyGrantRow
 	for {
 		var count int16
 		if err := binary.Read(reader, binary.BigEndian, &count); err != nil {
@@ -819,6 +819,6 @@ func repair64DecodeCopy(raw []byte) ([]repair64Row, error) {
 		if int(ordinal) != len(rows) {
 			return nil, errors.New("COPY history ordinal is not contiguous")
 		}
-		rows = append(rows, repair64Row{[]byte(id), []byte(strconv.Itoa(int(ordinal))), fields[2][1:]})
+		rows = append(rows, historyGrantRow{[]byte(id), []byte(strconv.Itoa(int(ordinal))), fields[2][1:]})
 	}
 }

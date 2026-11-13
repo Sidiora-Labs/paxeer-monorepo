@@ -11,9 +11,9 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/config"
 )
 
-// repairM977Environment supplies the production loader with the committed
+// reconcileIntervalEnvironment supplies the production loader with the committed
 // deployment fixture, independently of the environment running the gate.
-func repairM977Environment(t *testing.T) {
+func reconcileIntervalEnvironment(t *testing.T) {
 	t.Helper()
 	var clear func(reflect.Type)
 	clear = func(typ reflect.Type) {
@@ -35,7 +35,7 @@ func repairM977Environment(t *testing.T) {
 	setBaseEnv(t)
 }
 
-func TestRepairM_977_ValidIntervals(t *testing.T) {
+func TestReconcileIntervalValidValues(t *testing.T) {
 	const largestMS int64 = (1<<63 - 1) / 1_000_000
 	for _, tc := range []struct {
 		name  string
@@ -49,7 +49,7 @@ func TestRepairM_977_ValidIntervals(t *testing.T) {
 		{"maximum", strconv.FormatInt(largestMS, 10), largestMS},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repairM977Environment(t)
+			reconcileIntervalEnvironment(t)
 			if tc.input != "" {
 				t.Setenv("PNL_RECONCILE_INTERVAL_MS", tc.input)
 			}
@@ -72,7 +72,7 @@ func TestRepairM_977_ValidIntervals(t *testing.T) {
 	}
 }
 
-func TestRepairM_977_RejectInvalidIntervals(t *testing.T) {
+func TestReconcileIntervalRejectsInvalidValues(t *testing.T) {
 	for _, tc := range []struct{ name, input string }{
 		{"zero", "0"},
 		{"negative", "-1"},
@@ -84,7 +84,7 @@ func TestRepairM_977_RejectInvalidIntervals(t *testing.T) {
 		{"negative_integer_overflow", "-9223372036854775809"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			repairM977Environment(t)
+			reconcileIntervalEnvironment(t)
 			t.Setenv("PNL_RECONCILE_INTERVAL_MS", tc.input)
 			cfg, err := config.Load()
 			if err == nil {

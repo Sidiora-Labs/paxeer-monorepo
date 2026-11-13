@@ -63,7 +63,7 @@ func TestMintCapturesSnapshotAndPersists(t *testing.T) {
 	}
 
 	// Authentic archived rows remain readable without reissuing a public link.
-	row, snapshot := repair45ArchiveRow(t)
+	row, snapshot := legacyArchiveRow(t)
 	if err := st.InsertCard(ctx, row); err != nil {
 		t.Fatalf("persist archived disclosure: %v", err)
 	}

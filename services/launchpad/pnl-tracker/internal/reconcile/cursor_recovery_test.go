@@ -37,27 +37,27 @@ import (
 // pgx transactions, pnlmath, Reconciler, position.Consumer and go-redis are the
 // production implementations. Only storage/transport peers are fixtures; no
 // accounting or refresh behavior is implemented by them.
-type repair1014State struct {
+type cursorRecoveryState struct {
 	Swaps     []store.IndexerSwap
 	Trades    map[string][][]byte
 	Positions map[string][][]byte
 	Cursor    store.Cursor
 }
-type repair1014DB struct {
+type cursorRecoveryDB struct {
 	mu            sync.Mutex
 	path          string
-	state         repair1014State
+	state         cursorRecoveryState
 	cursorFailure bool
 }
 
-func repair1014Swap(id, user string, index int64) store.IndexerSwap {
+func cursorRecoverySwap(id, user string, index int64) store.IndexerSwap {
 	return store.IndexerSwap{ID: id, Sender: user, PoolAddress: "0xpool", TokenAddress: "0xtoken", IsBuy: true,
 		AmountIn: "1000000", AmountOut: oneToken, Price: "0", Fee: "0", BlockNumber: 100,
 		BlockTimestamp: 100, LogIndex: index, TxHash: strings.TrimSuffix(id, "-0")}
 }
-func repair1014Open(t *testing.T, path string, swaps []store.IndexerSwap) (*repair1014DB, *store.Store) {
+func cursorRecoveryOpen(t *testing.T, path string, swaps []store.IndexerSwap) (*cursorRecoveryDB, *store.Store) {
 	t.Helper()
-	db := &repair1014DB{path: path, state: repair1014State{Swaps: swaps, Trades: map[string][][]byte{}, Positions: map[string][][]byte{}, Cursor: store.Cursor{LastLogIndex: -1}}}
+	db := &cursorRecoveryDB{path: path, state: cursorRecoveryState{Swaps: swaps, Trades: map[string][][]byte{}, Positions: map[string][][]byte{}, Cursor: store.Cursor{LastLogIndex: -1}}}
 	raw, err := os.ReadFile(path)
 	if err == nil {
 		if err = json.Unmarshal(raw, &db.state); err != nil {
@@ -85,14 +85,14 @@ func repair1014Open(t *testing.T, path string, swaps []store.IndexerSwap) (*repa
 	t.Cleanup(pool.Close)
 	return db, store.New(pool)
 }
-func repair1014Describe(oids []uint32) *pgproto3.RowDescription {
+func cursorRecoveryDescribe(oids []uint32) *pgproto3.RowDescription {
 	d := &pgproto3.RowDescription{}
 	for i, oid := range oids {
 		d.Fields = append(d.Fields, pgproto3.FieldDescription{Name: []byte(fmt.Sprint(i)), DataTypeOID: oid, DataTypeSize: -1, TypeModifier: -1})
 	}
 	return d
 }
-func repair1014OIDs(q string) []uint32 {
+func cursorRecoveryOIDs(q string) []uint32 {
 	switch {
 	case strings.HasPrefix(q, "SELECT last_block"):
 		return []uint32{20, 20, 20}
@@ -112,7 +112,7 @@ func repair1014OIDs(q string) []uint32 {
 		return nil
 	}
 }
-func (db *repair1014DB) serve(t *testing.T, conn net.Conn) {
+func (db *cursorRecoveryDB) serve(t *testing.T, conn net.Conn) {
 	defer conn.Close()
 	b := pgproto3.NewBackend(conn, conn)
 	if _, err := b.ReceiveStartupMessage(); err != nil {
@@ -130,7 +130,7 @@ func (db *repair1014DB) serve(t *testing.T, conn net.Conn) {
 	var q string
 	var args [][]byte
 	var oids []uint32
-	var tx *repair1014State
+	var tx *cursorRecoveryState
 	status := byte('I')
 	result := func(rows [][][]byte, tag string, err error) {
 		if err != nil {
@@ -186,8 +186,8 @@ func (db *repair1014DB) serve(t *testing.T, conn net.Conn) {
 			}
 			b.Send(&pgproto3.BindComplete{})
 		case *pgproto3.Describe:
-			if cols := repair1014OIDs(q); len(cols) > 0 {
-				b.Send(repair1014Describe(cols))
+			if cols := cursorRecoveryOIDs(q); len(cols) > 0 {
+				b.Send(cursorRecoveryDescribe(cols))
 			} else {
 				b.Send(&pgproto3.NoData{})
 			}
@@ -199,7 +199,7 @@ func (db *repair1014DB) serve(t *testing.T, conn net.Conn) {
 			case "begin":
 				db.mu.Lock()
 				raw, e := json.Marshal(db.state)
-				tx = &repair1014State{}
+				tx = &cursorRecoveryState{}
 				if e == nil {
 					e = json.Unmarshal(raw, tx)
 				}
@@ -245,7 +245,7 @@ func (db *repair1014DB) serve(t *testing.T, conn net.Conn) {
 		}
 	}
 }
-func repair1014Bytes(values ...any) [][]byte {
+func cursorRecoveryBytes(values ...any) [][]byte {
 	row := make([][]byte, len(values))
 	for i, v := range values {
 		if v != nil {
@@ -254,7 +254,7 @@ func repair1014Bytes(values ...any) [][]byte {
 	}
 	return row
 }
-func (db *repair1014DB) query(q string, a [][]byte, tx *repair1014State) ([][][]byte, string, error) {
+func (db *cursorRecoveryDB) query(q string, a [][]byte, tx *cursorRecoveryState) ([][][]byte, string, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	s := tx
@@ -267,12 +267,12 @@ func (db *repair1014DB) query(q string, a [][]byte, tx *repair1014State) ([][][]
 	case strings.Contains(q, "pg_advisory_xact_lock"):
 		return nil, "SELECT 1", nil
 	case strings.HasPrefix(q, "SELECT last_block"):
-		return [][][]byte{repair1014Bytes(s.Cursor.LastBlock, s.Cursor.LastLogIndex, s.Cursor.UpdatedAt)}, "", nil
+		return [][][]byte{cursorRecoveryBytes(s.Cursor.LastBlock, s.Cursor.LastLogIndex, s.Cursor.UpdatedAt)}, "", nil
 	case strings.Contains(q, "FROM indexer.swaps"):
 		var rows [][][]byte
 		for _, sw := range s.Swaps {
 			if (sw.BlockNumber > num(0) || sw.BlockNumber == num(0) && sw.LogIndex > num(1)) && int64(len(rows)) < num(2) {
-				rows = append(rows, repair1014Bytes(sw.ID, sw.PoolAddress, sw.TokenAddress, sw.Sender, sw.IsBuy, sw.AmountIn, sw.AmountOut, sw.Fee, sw.Price, sw.BlockNumber, sw.BlockTimestamp, sw.LogIndex, sw.TxHash))
+				rows = append(rows, cursorRecoveryBytes(sw.ID, sw.PoolAddress, sw.TokenAddress, sw.Sender, sw.IsBuy, sw.AmountIn, sw.AmountOut, sw.Fee, sw.Price, sw.BlockNumber, sw.BlockTimestamp, sw.LogIndex, sw.TxHash))
 			}
 		}
 		return rows, "", nil
@@ -302,7 +302,7 @@ func (db *repair1014DB) query(q string, a [][]byte, tx *repair1014State) ([][][]
 		s.Positions[val(0)+"|"+val(1)] = a
 		return nil, "INSERT 0 1", nil
 	case strings.HasPrefix(q, "SELECT token_address FROM indexer.pools"):
-		return [][][]byte{repair1014Bytes("0xtoken")}, "", nil
+		return [][][]byte{cursorRecoveryBytes("0xtoken")}, "", nil
 	case strings.Contains(q, "FROM pnl.user_positions"):
 		var rows [][][]byte
 		for _, p := range s.Positions {
@@ -336,36 +336,36 @@ func (db *repair1014DB) query(q string, a [][]byte, tx *repair1014State) ([][][]
 // A small RESP2 peer with real key, WATCH, MULTI/EXEC and pub/sub semantics.
 // Failure injection drops EXEC's connection before or after atomic application,
 // covering both possible outcomes of an ambiguous Redis transaction response.
-type repair1014Redis struct {
+type cursorRecoveryRedis struct {
 	mu                    sync.Mutex
 	values                map[string]string
 	versions              map[string]int
-	subs                  map[string]map[*repair1014Conn]bool
+	subs                  map[string]map[*cursorRecoveryConn]bool
 	conns                 map[net.Conn]bool
 	dropBefore, dropAfter bool
 	published             int
 	listener              net.Listener
 }
-type repair1014Conn struct {
+type cursorRecoveryConn struct {
 	net.Conn
 	mu sync.Mutex
 }
 
-func (c *repair1014Conn) send(s string) error {
+func (c *cursorRecoveryConn) send(s string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	_, e := io.WriteString(c.Conn, s)
 	return e
 }
-func repair1014Bulk(s string) string { return fmt.Sprintf("$%d\r\n%s\r\n", len(s), s) }
-func repair1014Array(v ...string) string {
+func cursorRecoveryBulk(s string) string { return fmt.Sprintf("$%d\r\n%s\r\n", len(s), s) }
+func cursorRecoveryArray(v ...string) string {
 	s := fmt.Sprintf("*%d\r\n", len(v))
 	for _, x := range v {
-		s += repair1014Bulk(x)
+		s += cursorRecoveryBulk(x)
 	}
 	return s
 }
-func repair1014Read(r *bufio.Reader) ([]string, error) {
+func cursorRecoveryRead(r *bufio.Reader) ([]string, error) {
 	line, e := r.ReadString('\n')
 	if e != nil {
 		return nil, e
@@ -398,13 +398,13 @@ func repair1014Read(r *bufio.Reader) ([]string, error) {
 	}
 	return args, nil
 }
-func repair1014StartRedis(t *testing.T) *repair1014Redis {
+func cursorRecoveryStartRedis(t *testing.T) *cursorRecoveryRedis {
 	t.Helper()
 	l, e := net.Listen("tcp", "127.0.0.1:0")
 	if e != nil {
 		t.Fatal(e)
 	}
-	s := &repair1014Redis{values: map[string]string{}, versions: map[string]int{}, subs: map[string]map[*repair1014Conn]bool{}, conns: map[net.Conn]bool{}, listener: l}
+	s := &cursorRecoveryRedis{values: map[string]string{}, versions: map[string]int{}, subs: map[string]map[*cursorRecoveryConn]bool{}, conns: map[net.Conn]bool{}, listener: l}
 	t.Cleanup(func() {
 		l.Close()
 		s.mu.Lock()
@@ -427,13 +427,13 @@ func repair1014StartRedis(t *testing.T) *repair1014Redis {
 	}()
 	return s
 }
-func (s *repair1014Redis) client(t *testing.T) *goredis.Client {
+func (s *cursorRecoveryRedis) client(t *testing.T) *goredis.Client {
 	c := goredis.NewClient(&goredis.Options{Addr: s.listener.Addr().String(), Protocol: 2, MaxRetries: -1, DisableIdentity: true, ReadTimeout: 2 * time.Second, WriteTimeout: 2 * time.Second})
 	t.Cleanup(func() { c.Close() })
 	return c
 }
-func (s *repair1014Redis) serve(conn net.Conn) {
-	c := &repair1014Conn{Conn: conn}
+func (s *cursorRecoveryRedis) serve(conn net.Conn) {
+	c := &cursorRecoveryConn{Conn: conn}
 	defer func() {
 		conn.Close()
 		s.mu.Lock()
@@ -448,7 +448,7 @@ func (s *repair1014Redis) serve(conn net.Conn) {
 	var queued [][]string
 	multi := false
 	for {
-		a, e := repair1014Read(reader)
+		a, e := cursorRecoveryRead(reader)
 		if e != nil {
 			return
 		}
@@ -516,15 +516,15 @@ func (s *repair1014Redis) serve(conn net.Conn) {
 		case "subscribe":
 			for i, ch := range a[1:] {
 				if s.subs[ch] == nil {
-					s.subs[ch] = map[*repair1014Conn]bool{}
+					s.subs[ch] = map[*cursorRecoveryConn]bool{}
 				}
 				s.subs[ch][c] = true
-				response += fmt.Sprintf("*3\r\n%s%s:%d\r\n", repair1014Bulk("subscribe"), repair1014Bulk(ch), i+1)
+				response += fmt.Sprintf("*3\r\n%s%s:%d\r\n", cursorRecoveryBulk("subscribe"), cursorRecoveryBulk(ch), i+1)
 			}
 		case "unsubscribe":
 			for _, ch := range a[1:] {
 				delete(s.subs[ch], c)
-				response += fmt.Sprintf("*3\r\n%s%s:0\r\n", repair1014Bulk("unsubscribe"), repair1014Bulk(ch))
+				response += fmt.Sprintf("*3\r\n%s%s:0\r\n", cursorRecoveryBulk("unsubscribe"), cursorRecoveryBulk(ch))
 			}
 		default:
 			response = s.apply(a)
@@ -535,13 +535,13 @@ func (s *repair1014Redis) serve(conn net.Conn) {
 		}
 	}
 }
-func (s *repair1014Redis) apply(a []string) string {
+func (s *cursorRecoveryRedis) apply(a []string) string {
 	switch strings.ToLower(a[0]) {
 	case "ping":
 		return "+PONG\r\n"
 	case "get":
 		if v, ok := s.values[a[1]]; ok {
-			return repair1014Bulk(v)
+			return cursorRecoveryBulk(v)
 		}
 		return "$-1\r\n"
 	case "set":
@@ -569,7 +569,7 @@ func (s *repair1014Redis) apply(a []string) string {
 	case "publish":
 		s.published++
 		for c := range s.subs[a[1]] {
-			c.send(repair1014Array("message", a[1], a[2]))
+			c.send(cursorRecoveryArray("message", a[1], a[2]))
 		}
 		return fmt.Sprintf(":%d\r\n", len(s.subs[a[1]]))
 	default:
@@ -577,7 +577,7 @@ func (s *repair1014Redis) apply(a []string) string {
 	}
 }
 
-func repair1014Cache(t *testing.T, c *goredis.Client, user string) {
+func cursorRecoveryCache(t *testing.T, c *goredis.Client, user string) {
 	t.Helper()
 	for _, key := range []string{pnlcache.KeyPositions(user), pnlcache.KeyPortfolio(user)} {
 		if e := c.Set(context.Background(), key, "stale", 0).Err(); e != nil {
@@ -585,7 +585,7 @@ func repair1014Cache(t *testing.T, c *goredis.Client, user string) {
 		}
 	}
 }
-func repair1014AssertFresh(t *testing.T, c *goredis.Client, user string) {
+func cursorRecoveryAssertFresh(t *testing.T, c *goredis.Client, user string) {
 	t.Helper()
 	for _, key := range []string{pnlcache.KeyPositions(user), pnlcache.KeyPortfolio(user)} {
 		if _, e := c.Get(context.Background(), key).Result(); !errors.Is(e, goredis.Nil) {
@@ -593,7 +593,7 @@ func repair1014AssertFresh(t *testing.T, c *goredis.Client, user string) {
 		}
 	}
 }
-func repair1014AssertState(t *testing.T, st *store.Store, wantBlock, wantIndex int64) {
+func cursorRecoveryAssertState(t *testing.T, st *store.Store, wantBlock, wantIndex int64) {
 	t.Helper()
 	ctx := context.Background()
 	p, e := st.GetPosition(ctx, "0xuser", "0xpool")
@@ -613,7 +613,7 @@ func repair1014AssertState(t *testing.T, st *store.Store, wantBlock, wantIndex i
 		t.Fatalf("cursor=%+v err=%v want=(%d,%d)", cur, e, wantBlock, wantIndex)
 	}
 }
-func repair1014Subscribe(t *testing.T, c *goredis.Client) *goredis.PubSub {
+func cursorRecoverySubscribe(t *testing.T, c *goredis.Client) *goredis.PubSub {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -624,7 +624,7 @@ func repair1014Subscribe(t *testing.T, c *goredis.Client) *goredis.PubSub {
 	}
 	return sub
 }
-func repair1014Notification(t *testing.T, sub *goredis.PubSub, st *store.Store, c *goredis.Client) {
+func cursorRecoveryNotification(t *testing.T, sub *goredis.PubSub, st *store.Store, c *goredis.Client) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -664,39 +664,39 @@ func repair1014Notification(t *testing.T, sub *goredis.PubSub, st *store.Store, 
 	}
 }
 
-func TestRepairM_1014_PoisonPrefixRecovery(t *testing.T) {
+func TestCursorPoisonPrefixRecovery(t *testing.T) {
 	ctx := context.Background()
-	good := repair1014Swap("0xswap-0", "0xUsEr", 0)
-	poison := repair1014Swap("0xpoison-1", "0xother", 1)
+	good := cursorRecoverySwap("0xswap-0", "0xUsEr", 0)
+	poison := cursorRecoverySwap("0xpoison-1", "0xother", 1)
 	poison.AmountIn = "poison"
 	path := filepath.Join(t.TempDir(), "postgres.json")
-	_, st := repair1014Open(t, path, []store.IndexerSwap{good, poison})
-	peer := repair1014StartRedis(t)
+	_, st := cursorRecoveryOpen(t, path, []store.IndexerSwap{good, poison})
+	peer := cursorRecoveryStartRedis(t)
 	c := peer.client(t)
-	sub := repair1014Subscribe(t, peer.client(t))
-	repair1014Cache(t, c, "0xuser")
-	repair1014Cache(t, c, "0xunrelated")
+	sub := cursorRecoverySubscribe(t, peer.client(t))
+	cursorRecoveryCache(t, c, "0xuser")
+	cursorRecoveryCache(t, c, "0xunrelated")
 	worker := reconcile.New(st, c, discardLogger(), 500)
 	n, e := worker.RunOnce(ctx)
 	if n != 1 || e == nil || !strings.Contains(e.Error(), poison.ID) {
 		t.Fatalf("prefix=%d err=%v", n, e)
 	}
-	repair1014AssertState(t, st, 100, 0)
-	repair1014AssertFresh(t, c, "0xuser")
-	repair1014Notification(t, sub, st, c)
+	cursorRecoveryAssertState(t, st, 100, 0)
+	cursorRecoveryAssertFresh(t, c, "0xuser")
+	cursorRecoveryNotification(t, sub, st, c)
 	if v, e := c.Get(ctx, pnlcache.KeyPortfolio("0xunrelated")).Result(); e != nil || v != "stale" {
 		t.Fatalf("unrelated user's cache changed: %q %v", v, e)
 	}
 	st.Pool().Close()
 	c.Close()
-	_, st = repair1014Open(t, path, nil)
+	_, st = cursorRecoveryOpen(t, path, nil)
 	c = peer.client(t)
 	worker = reconcile.New(st, c, discardLogger(), 500)
 	n, e = worker.RunOnce(ctx)
 	if n != 0 || e == nil || !strings.Contains(e.Error(), poison.ID) {
 		t.Fatalf("reopened poison=%d err=%v", n, e)
 	}
-	repair1014AssertState(t, st, 100, 0)
+	cursorRecoveryAssertState(t, st, 100, 0)
 	peer.mu.Lock()
 	count := peer.published
 	peer.mu.Unlock()
@@ -705,33 +705,33 @@ func TestRepairM_1014_PoisonPrefixRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_1014_CursorFailureReplayDeduplicates(t *testing.T) {
+func TestCursorFailureReplayDeduplicates(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "postgres.json")
-	db, st := repair1014Open(t, path, []store.IndexerSwap{repair1014Swap("0xswap-0", "0xUsEr", 0)})
+	db, st := cursorRecoveryOpen(t, path, []store.IndexerSwap{cursorRecoverySwap("0xswap-0", "0xUsEr", 0)})
 	db.cursorFailure = true
-	peer := repair1014StartRedis(t)
+	peer := cursorRecoveryStartRedis(t)
 	c := peer.client(t)
-	sub := repair1014Subscribe(t, peer.client(t))
-	repair1014Cache(t, c, "0xuser")
+	sub := cursorRecoverySubscribe(t, peer.client(t))
+	cursorRecoveryCache(t, c, "0xuser")
 	n, e := reconcile.New(st, c, discardLogger(), 1).RunOnce(ctx)
 	if n != 1 || e == nil || !strings.Contains(e.Error(), "cursor write refused") {
 		t.Fatalf("cursor failure=%d %v", n, e)
 	}
-	repair1014AssertState(t, st, 0, -1)
-	repair1014AssertFresh(t, c, "0xuser")
-	repair1014Notification(t, sub, st, c)
+	cursorRecoveryAssertState(t, st, 0, -1)
+	cursorRecoveryAssertFresh(t, c, "0xuser")
+	cursorRecoveryNotification(t, sub, st, c)
 	st.Pool().Close()
 	c.Close()
-	_, st = repair1014Open(t, path, nil)
+	_, st = cursorRecoveryOpen(t, path, nil)
 	c = peer.client(t)
-	repair1014Cache(t, c, "0xuser")
+	cursorRecoveryCache(t, c, "0xuser")
 	n, e = reconcile.New(st, c, discardLogger(), 1).RunOnce(ctx)
 	if n != 1 || e != nil {
 		t.Fatalf("replay=%d %v", n, e)
 	}
-	repair1014AssertState(t, st, 100, 0)
-	repair1014AssertFresh(t, c, "0xuser")
+	cursorRecoveryAssertState(t, st, 100, 0)
+	cursorRecoveryAssertFresh(t, c, "0xuser")
 	peer.mu.Lock()
 	count := peer.published
 	peer.mu.Unlock()
@@ -740,16 +740,16 @@ func TestRepairM_1014_CursorFailureReplayDeduplicates(t *testing.T) {
 	}
 }
 
-func TestRepairM_1014_RestartRefreshObligation(t *testing.T) {
+func TestCursorRecoveryRestartRefreshObligation(t *testing.T) {
 	for _, after := range []bool{false, true} {
 		t.Run(fmt.Sprintf("redis_committed_%v", after), func(t *testing.T) {
 			ctx := context.Background()
 			path := filepath.Join(t.TempDir(), "postgres.json")
-			_, st := repair1014Open(t, path, []store.IndexerSwap{repair1014Swap("0xswap-0", "0xUsEr", 0)})
-			peer := repair1014StartRedis(t)
+			_, st := cursorRecoveryOpen(t, path, []store.IndexerSwap{cursorRecoverySwap("0xswap-0", "0xUsEr", 0)})
+			peer := cursorRecoveryStartRedis(t)
 			c := peer.client(t)
-			sub := repair1014Subscribe(t, peer.client(t))
-			repair1014Cache(t, c, "0xuser")
+			sub := cursorRecoverySubscribe(t, peer.client(t))
+			cursorRecoveryCache(t, c, "0xuser")
 			peer.mu.Lock()
 			peer.dropBefore = !after
 			peer.dropAfter = after
@@ -758,19 +758,19 @@ func TestRepairM_1014_RestartRefreshObligation(t *testing.T) {
 			if n != 1 || e == nil {
 				t.Fatalf("interrupted refresh=%d %v", n, e)
 			}
-			repair1014AssertState(t, st, 0, -1)
+			cursorRecoveryAssertState(t, st, 0, -1)
 			if !after {
 				if v, e := c.Get(ctx, pnlcache.KeyPortfolio("0xuser")).Result(); e != nil || v != "stale" {
 					t.Fatalf("uncommitted refresh changed cache: %q %v", v, e)
 				}
 			} else {
-				repair1014AssertFresh(t, c, "0xuser")
+				cursorRecoveryAssertFresh(t, c, "0xuser")
 			}
 			// Reopen all participant handles from committed peer state; no in-memory
 			// Reconciler touched-users set can survive this point.
 			st.Pool().Close()
 			c.Close()
-			_, st = repair1014Open(t, path, nil)
+			_, st = cursorRecoveryOpen(t, path, nil)
 			c = peer.client(t)
 			consumer := position.NewConsumer(st, c, discardLogger())
 			if e = consumer.ProcessEvent(ctx, position.SwapEvent{PoolAddress: "0xpool", Sender: "0xUsEr", IsBuy: true, AmountIn: "1000000", AmountOut: oneToken, Price: "0", Fee: "0", BlockNumber: 100, BlockTimestamp: 100, TxHash: "0xswap", LogIndex: 0}); e != nil {
@@ -781,9 +781,9 @@ func TestRepairM_1014_RestartRefreshObligation(t *testing.T) {
 			if n != 1 || e != nil {
 				t.Fatalf("recovery=%d %v", n, e)
 			}
-			repair1014AssertState(t, st, 100, 0)
-			repair1014AssertFresh(t, c, "0xuser")
-			repair1014Notification(t, sub, st, c)
+			cursorRecoveryAssertState(t, st, 100, 0)
+			cursorRecoveryAssertFresh(t, c, "0xuser")
+			cursorRecoveryNotification(t, sub, st, c)
 			if n, e = worker.RunOnce(ctx); n != 0 || e != nil {
 				t.Fatalf("idle=%d %v", n, e)
 			}
@@ -797,36 +797,36 @@ func TestRepairM_1014_RestartRefreshObligation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1014_PoisonCursorFailureRecovery(t *testing.T) {
+func TestPoisonCursorFailureRecovery(t *testing.T) {
 	ctx := context.Background()
-	good := repair1014Swap("0xswap-0", "0xUsEr", 0)
-	poison := repair1014Swap("0xpoison-1", "0xother", 1)
+	good := cursorRecoverySwap("0xswap-0", "0xUsEr", 0)
+	poison := cursorRecoverySwap("0xpoison-1", "0xother", 1)
 	poison.AmountIn = "poison"
 	path := filepath.Join(t.TempDir(), "postgres.json")
-	db, st := repair1014Open(t, path, []store.IndexerSwap{good, poison})
+	db, st := cursorRecoveryOpen(t, path, []store.IndexerSwap{good, poison})
 	db.cursorFailure = true
-	peer := repair1014StartRedis(t)
+	peer := cursorRecoveryStartRedis(t)
 	c := peer.client(t)
-	sub := repair1014Subscribe(t, peer.client(t))
-	repair1014Cache(t, c, "0xuser")
+	sub := cursorRecoverySubscribe(t, peer.client(t))
+	cursorRecoveryCache(t, c, "0xuser")
 	n, e := reconcile.New(st, c, discardLogger(), 500).RunOnce(ctx)
 	if n != 1 || e == nil || !strings.Contains(e.Error(), poison.ID) || !strings.Contains(e.Error(), "cursor write refused") {
 		t.Fatalf("poison plus cursor failure=%d %v", n, e)
 	}
-	repair1014AssertState(t, st, 0, -1)
-	repair1014AssertFresh(t, c, "0xuser")
-	repair1014Notification(t, sub, st, c)
+	cursorRecoveryAssertState(t, st, 0, -1)
+	cursorRecoveryAssertFresh(t, c, "0xuser")
+	cursorRecoveryNotification(t, sub, st, c)
 	st.Pool().Close()
 	c.Close()
-	_, st = repair1014Open(t, path, nil)
+	_, st = cursorRecoveryOpen(t, path, nil)
 	c = peer.client(t)
-	repair1014Cache(t, c, "0xuser")
+	cursorRecoveryCache(t, c, "0xuser")
 	n, e = reconcile.New(st, c, discardLogger(), 500).RunOnce(ctx)
 	if n != 1 || e == nil || !strings.Contains(e.Error(), poison.ID) {
 		t.Fatalf("recovery prefix=%d %v", n, e)
 	}
-	repair1014AssertState(t, st, 100, 0)
-	repair1014AssertFresh(t, c, "0xuser")
+	cursorRecoveryAssertState(t, st, 100, 0)
+	cursorRecoveryAssertFresh(t, c, "0xuser")
 	peer.mu.Lock()
 	count := peer.published
 	peer.mu.Unlock()

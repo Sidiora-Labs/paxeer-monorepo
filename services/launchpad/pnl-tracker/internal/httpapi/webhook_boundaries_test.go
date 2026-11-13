@@ -19,21 +19,21 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const repair979Secret = "0123456789abcdef0123456789abcdef"
+const webhookBoundarySecret = "0123456789abcdef0123456789abcdef"
 
-func repair979Webhook() http.Handler {
+func webhookBoundaryWebhook() http.Handler {
 	r := chi.NewRouter()
-	RegisterWebhook(r, WebhookDeps{Secret: repair979Secret, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	RegisterWebhook(r, WebhookDeps{Secret: webhookBoundarySecret, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	return r
 }
 
-func repair979Sign(req *http.Request, body []byte) {
+func webhookBoundarySign(req *http.Request, body []byte) {
 	ts := strconv.FormatInt(time.Now().Unix(), 10)
 	req.Header.Set("X-Sidiora-Timestamp", ts)
-	req.Header.Set("X-Sidiora-Signature", auth.SignWebhook(repair979Secret, ts, string(body)))
+	req.Header.Set("X-Sidiora-Signature", auth.SignWebhook(webhookBoundarySecret, ts, string(body)))
 }
 
-func repair979Result(t *testing.T, rec *httptest.ResponseRecorder, status int, message string) {
+func webhookBoundaryResult(t *testing.T, rec *httptest.ResponseRecorder, status int, message string) {
 	t.Helper()
 	if rec.Code != status {
 		t.Fatalf("status=%d want=%d body=%s", rec.Code, status, rec.Body.String())
@@ -47,7 +47,7 @@ func repair979Result(t *testing.T, rec *httptest.ResponseRecorder, status int, m
 	}
 }
 
-func TestRepairM_979_LegacyCardPublicationRetired(t *testing.T) {
+func TestLegacyCardPublicationRetired(t *testing.T) {
 	r := chi.NewRouter()
 	// These are real archive service/store instances without a database: a
 	// publication attempt cannot access storage or silently create a disclosure.
@@ -63,7 +63,7 @@ func TestRepairM_979_LegacyCardPublicationRetired(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/pnl/cards", io.TeeReader(strings.NewReader(body), &consumed))
 			rec := httptest.NewRecorder()
 			r.ServeHTTP(rec, req)
-			repair979Result(t, rec, http.StatusGone, "legacy card minting retired; use owner-approved /v3/me/portfolio/shares/preview and /v3/me/portfolio/shares")
+			webhookBoundaryResult(t, rec, http.StatusGone, "legacy card minting retired; use owner-approved /v3/me/portfolio/shares/preview and /v3/me/portfolio/shares")
 			if consumed.Len() != 0 || rec.Header().Get("Location") != "" || rec.Header().Get("Cache-Control") != "no-store" {
 				t.Fatalf("retired endpoint read body or advertised a publication: read=%d headers=%v", consumed.Len(), rec.Header())
 			}
@@ -83,11 +83,11 @@ func TestRepairM_979_LegacyCardPublicationRetired(t *testing.T) {
 	}
 }
 
-func TestRepairM_979_WebhookBodyBound(t *testing.T) {
+func TestWebhookBodyBound(t *testing.T) {
 	const limit = 1 << 20
 	for _, signed := range []bool{false, true} {
 		for _, knownLength := range []bool{false, true} {
-			t.Run(fmtRepair979Case(signed, knownLength), func(t *testing.T) {
+			t.Run(formatWebhookBoundaryCase(signed, knownLength), func(t *testing.T) {
 				payload := []byte(strings.Repeat("x", 3*limit))
 				var consumed bytes.Buffer
 				req := httptest.NewRequest(http.MethodPost, "/webhooks/events", io.TeeReader(bytes.NewReader(payload), &consumed))
@@ -98,11 +98,11 @@ func TestRepairM_979_WebhookBodyBound(t *testing.T) {
 					req.TransferEncoding = nil
 				}
 				if signed {
-					repair979Sign(req, payload)
+					webhookBoundarySign(req, payload)
 				}
 				rec := httptest.NewRecorder()
-				repair979Webhook().ServeHTTP(rec, req)
-				repair979Result(t, rec, http.StatusRequestEntityTooLarge, "webhook body exceeds limit")
+				webhookBoundaryWebhook().ServeHTTP(rec, req)
+				webhookBoundaryResult(t, rec, http.StatusRequestEntityTooLarge, "webhook body exceeds limit")
 				if consumed.Len() > limit+1 || (knownLength && consumed.Len() != 0) {
 					t.Fatalf("oversized request consumed %d bytes", consumed.Len())
 				}
@@ -111,7 +111,7 @@ func TestRepairM_979_WebhookBodyBound(t *testing.T) {
 	}
 	// Use a real HTTP connection as well: an unknown-length request is encoded
 	// as chunked by net/http, with no signature and no Content-Length shortcut.
-	server := httptest.NewServer(repair979Webhook())
+	server := httptest.NewServer(webhookBoundaryWebhook())
 	defer server.Close()
 	req, err := http.NewRequest(http.MethodPost, server.URL+"/webhooks/events", io.NopCloser(strings.NewReader(strings.Repeat("x", 3*limit))))
 	if err != nil {
@@ -135,11 +135,11 @@ func TestRepairM_979_WebhookBodyBound(t *testing.T) {
 	}
 }
 
-func fmtRepair979Case(signed, knownLength bool) string {
+func formatWebhookBoundaryCase(signed, knownLength bool) string {
 	return "signed=" + strconv.FormatBool(signed) + "/known-length=" + strconv.FormatBool(knownLength)
 }
 
-func TestRepairM_979_WebhookRawHMACAndBoundaries(t *testing.T) {
+func TestWebhookRawHMACAndBoundaries(t *testing.T) {
 	const limit = 1 << 20
 	// Whitespace, escaped text and large JSON integers must reach authentication
 	// as sent; decoding and re-encoding this payload changes the signature.
@@ -155,9 +155,9 @@ func TestRepairM_979_WebhookRawHMACAndBoundaries(t *testing.T) {
 		handler.ServeHTTP(w, r)
 	})
 	originalReq := httptest.NewRequest(http.MethodPost, "/webhooks/events", bytes.NewReader(body))
-	repair979Sign(originalReq, body)
+	webhookBoundarySign(originalReq, body)
 	originalRec := httptest.NewRecorder()
-	webhookAuth(repair979Secret)(observed).ServeHTTP(originalRec, originalReq)
+	webhookAuth(webhookBoundarySecret)(observed).ServeHTTP(originalRec, originalReq)
 	if originalRec.Code != http.StatusOK || !bytes.Equal(downstream.Bytes(), body) {
 		t.Fatalf("authenticated raw bytes changed before production handler: status=%d downstream=%q", originalRec.Code, downstream.Bytes())
 	}
@@ -165,11 +165,11 @@ func TestRepairM_979_WebhookRawHMACAndBoundaries(t *testing.T) {
 		t.Run(strconv.Itoa(size), func(t *testing.T) {
 			payload := append(bytes.Clone(body), bytes.Repeat([]byte(" "), size-len(body))...)
 			req := httptest.NewRequest(http.MethodPost, "/webhooks/events", bytes.NewReader(payload))
-			repair979Sign(req, payload)
+			webhookBoundarySign(req, payload)
 			rec := httptest.NewRecorder()
-			repair979Webhook().ServeHTTP(rec, req)
+			webhookBoundaryWebhook().ServeHTTP(rec, req)
 			if size > limit {
-				repair979Result(t, rec, http.StatusRequestEntityTooLarge, "webhook body exceeds limit")
+				webhookBoundaryResult(t, rec, http.StatusRequestEntityTooLarge, "webhook body exceeds limit")
 				return
 			}
 			var result struct {
@@ -190,25 +190,25 @@ func TestRepairM_979_WebhookRawHMACAndBoundaries(t *testing.T) {
 	}
 	for _, alias := range []bool{false, true} {
 		req := httptest.NewRequest(http.MethodPost, "/webhooks/events", bytes.NewReader(body))
-		repair979Sign(req, body)
+		webhookBoundarySign(req, body)
 		if alias {
 			req.Header.Set("X-Hub-Signature-256", req.Header.Get("X-Sidiora-Signature"))
 			req.Header.Del("X-Sidiora-Signature")
 		}
 		rec := httptest.NewRecorder()
-		repair979Webhook().ServeHTTP(rec, req)
+		webhookBoundaryWebhook().ServeHTTP(rec, req)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("HMAC alias=%v status=%d body=%s", alias, rec.Code, rec.Body.String())
 		}
 	}
 	req := httptest.NewRequest(http.MethodPost, "/webhooks/events", bytes.NewReader(append(bytes.Clone(body), ' ')))
-	repair979Sign(req, body)
+	webhookBoundarySign(req, body)
 	rec := httptest.NewRecorder()
-	repair979Webhook().ServeHTTP(rec, req)
-	repair979Result(t, rec, http.StatusUnauthorized, "invalid webhook signature")
+	webhookBoundaryWebhook().ServeHTTP(rec, req)
+	webhookBoundaryResult(t, rec, http.StatusUnauthorized, "invalid webhook signature")
 }
 
-func TestRepairM_979_WebhookEventBatchBound(t *testing.T) {
+func TestWebhookEventBatchBound(t *testing.T) {
 	for _, count := range []int{0, 999, 1000, 1001} {
 		t.Run(strconv.Itoa(count), func(t *testing.T) {
 			events := make([]WebhookEvent, count)
@@ -225,11 +225,11 @@ func TestRepairM_979_WebhookEventBatchBound(t *testing.T) {
 				t.Fatal(err)
 			}
 			req := httptest.NewRequest(http.MethodPost, "/webhooks/events", bytes.NewReader(body))
-			repair979Sign(req, body)
+			webhookBoundarySign(req, body)
 			rec := httptest.NewRecorder()
-			repair979Webhook().ServeHTTP(rec, req)
+			webhookBoundaryWebhook().ServeHTTP(rec, req)
 			if count > 1000 {
-				repair979Result(t, rec, http.StatusRequestEntityTooLarge, "webhook event batch exceeds limit")
+				webhookBoundaryResult(t, rec, http.StatusRequestEntityTooLarge, "webhook event batch exceeds limit")
 				return
 			}
 			var result struct {
@@ -251,13 +251,13 @@ func TestRepairM_979_WebhookEventBatchBound(t *testing.T) {
 	// Reject before decoding the first out-of-budget typed event as well.
 	body := []byte(`{"events":[` + strings.Repeat(`{},`, 1000) + `{"args":"invalid typed event"}]}`)
 	req := httptest.NewRequest(http.MethodPost, "/webhooks/events", bytes.NewReader(body))
-	repair979Sign(req, body)
+	webhookBoundarySign(req, body)
 	rec := httptest.NewRecorder()
-	repair979Webhook().ServeHTTP(rec, req)
-	repair979Result(t, rec, http.StatusRequestEntityTooLarge, "webhook event batch exceeds limit")
+	webhookBoundaryWebhook().ServeHTTP(rec, req)
+	webhookBoundaryResult(t, rec, http.StatusRequestEntityTooLarge, "webhook event batch exceeds limit")
 }
 
-func TestRepairM_979_WebhookMalformedAndUnauthorized(t *testing.T) {
+func TestWebhookMalformedAndUnauthorized(t *testing.T) {
 	for _, tc := range []struct{ body, message string }{
 		{`{}`, "events must be an array"}, {`{"events":null}`, "events must be an array"},
 		{`{"events":"nope"}`, "events must be an array"}, {`{"events":{}}`, "events must be an array"},
@@ -266,14 +266,14 @@ func TestRepairM_979_WebhookMalformedAndUnauthorized(t *testing.T) {
 	} {
 		t.Run(tc.body, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/webhooks/events", strings.NewReader(tc.body))
-			repair979Sign(req, []byte(tc.body))
+			webhookBoundarySign(req, []byte(tc.body))
 			rec := httptest.NewRecorder()
-			repair979Webhook().ServeHTTP(rec, req)
-			repair979Result(t, rec, http.StatusBadRequest, tc.message)
+			webhookBoundaryWebhook().ServeHTTP(rec, req)
+			webhookBoundaryResult(t, rec, http.StatusBadRequest, tc.message)
 		})
 	}
 	req := httptest.NewRequest(http.MethodPost, "/webhooks/events", strings.NewReader(`{"events":[]}`))
 	rec := httptest.NewRecorder()
-	repair979Webhook().ServeHTTP(rec, req)
-	repair979Result(t, rec, http.StatusUnauthorized, "invalid webhook signature")
+	webhookBoundaryWebhook().ServeHTTP(rec, req)
+	webhookBoundaryResult(t, rec, http.StatusUnauthorized, "invalid webhook signature")
 }

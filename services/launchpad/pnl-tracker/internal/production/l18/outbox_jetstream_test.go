@@ -20,18 +20,18 @@ import (
 // This committed protocol peer retains the producer's exact HPUB frame. The
 // production natsdriver client owns serialization, headers and persistence-ack
 // decoding; delivery.Store owns consumer identity and transactional effects.
-type repair1019JetStream struct {
+type outboxDeliveryJetStream struct {
 	dropPublishAck  atomic.Bool
 	dropConsumerAck atomic.Bool
 }
 
-func repair1019Broker(t *testing.T) (*repair1019JetStream, *nats.Conn) {
+func outboxDeliveryBroker(t *testing.T) (*outboxDeliveryJetStream, *nats.Conn) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	peer := &repair1019JetStream{}
+	peer := &outboxDeliveryJetStream{}
 	var worker sync.WaitGroup
 	worker.Add(1)
 	go func() {
@@ -55,7 +55,7 @@ func repair1019Broker(t *testing.T) (*repair1019JetStream, *nats.Conn) {
 	return peer, nc
 }
 
-func (p *repair1019JetStream) serve(conn net.Conn) error {
+func (p *outboxDeliveryJetStream) serve(conn net.Conn) error {
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 	if _, err := writer.WriteString("INFO {\"server_id\":\"L18_RECORDED_PEER\",\"version\":\"2.11.0\",\"proto\":1,\"headers\":true,\"max_payload\":1048576}\r\n"); err != nil {

@@ -28,59 +28,59 @@ import (
 // It speaks pgwire to the real coordinator and ledger; it is not a SQL engine.
 // Unrecorded queries fail. DDL is admitted only as exact registered source bytes,
 // as pnl_owner under the coordinator's locks and transaction timeout.
-type repairM917Table struct {
+type migrationContractTable struct {
 	Columns []string
 	Types   []uint32
 	Key     []string
 	Rights  map[string]bool
 	Rows    [][]string
 }
-type repairM917State struct {
-	Tables   map[string]*repairM917Table
+type migrationContractState struct {
+	Tables   map[string]*migrationContractTable
 	Applied  map[int64]string
 	History  []int64
 	Attempts map[string]string
 	DDL      []string
 	Legacy   map[string]string
 }
-type repairM917Peer struct {
+type migrationContractPeer struct {
 	mu       sync.Mutex
-	State    repairM917State
+	State    migrationContractState
 	file     string
 	sources  map[string]string
 	listener net.Listener
 	wg       sync.WaitGroup
 }
-type repairM917Session struct {
+type migrationContractSession struct {
 	user, role string
-	state      *repairM917State
+	state      *migrationContractState
 	timeout    bool
 	locked     bool
 }
-type repairM917Result struct {
+type migrationContractResult struct {
 	names []string
 	types []uint32
 	rows  [][]string
 	tag   string
 }
 
-func repairM917Rows(types []uint32, rows ...[]string) repairM917Result {
-	return repairM917Result{types: types, rows: rows, tag: fmt.Sprintf("SELECT %d", len(rows))}
+func migrationContractRows(types []uint32, rows ...[]string) migrationContractResult {
+	return migrationContractResult{types: types, rows: rows, tag: fmt.Sprintf("SELECT %d", len(rows))}
 }
-func repairM917Copy(state repairM917State) repairM917State {
+func migrationContractCopy(state migrationContractState) migrationContractState {
 	raw, err := json.Marshal(state)
 	if err != nil {
 		panic(err)
 	}
-	var copy repairM917State
+	var copy migrationContractState
 	if err := json.Unmarshal(raw, &copy); err != nil {
 		panic(err)
 	}
 	return copy
 }
-func repairM917Database(t *testing.T, file string, sources map[string]string) *repairM917Peer {
+func migrationContractDatabase(t *testing.T, file string, sources map[string]string) *migrationContractPeer {
 	t.Helper()
-	p := &repairM917Peer{file: file, sources: sources, State: repairM917State{Tables: map[string]*repairM917Table{}, Applied: map[int64]string{}, Attempts: map[string]string{}, Legacy: map[string]string{}}}
+	p := &migrationContractPeer{file: file, sources: sources, State: migrationContractState{Tables: map[string]*migrationContractTable{}, Applied: map[int64]string{}, Attempts: map[string]string{}, Legacy: map[string]string{}}}
 	raw, err := os.ReadFile(file)
 	if err == nil {
 		if err = json.Unmarshal(raw, &p.State); err != nil {
@@ -108,8 +108,8 @@ func repairM917Database(t *testing.T, file string, sources map[string]string) *r
 	t.Cleanup(p.stop)
 	return p
 }
-func (p *repairM917Peer) stop() { p.listener.Close(); p.wg.Wait() }
-func (p *repairM917Peer) pool(t *testing.T, user string) *pgxpool.Pool {
+func (p *migrationContractPeer) stop() { p.listener.Close(); p.wg.Wait() }
+func (p *migrationContractPeer) pool(t *testing.T, user string) *pgxpool.Pool {
 	t.Helper()
 	cfg, err := pgxpool.ParseConfig("postgres://" + user + "@" + p.listener.Addr().String() + "/reward?sslmode=disable")
 	if err != nil {
@@ -125,12 +125,12 @@ func (p *repairM917Peer) pool(t *testing.T, user string) *pgxpool.Pool {
 	t.Cleanup(pool.Close)
 	return pool
 }
-func (p *repairM917Peer) snapshot() repairM917State {
+func (p *migrationContractPeer) snapshot() migrationContractState {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return repairM917Copy(p.State)
+	return migrationContractCopy(p.State)
 }
-func (p *repairM917Peer) persist() error {
+func (p *migrationContractPeer) persist() error {
 	raw, err := json.Marshal(p.State)
 	if err != nil {
 		return err
@@ -140,7 +140,7 @@ func (p *repairM917Peer) persist() error {
 	}
 	return os.Rename(p.file+".next", p.file)
 }
-func repairM917Split(s string) []string {
+func migrationContractSplit(s string) []string {
 	var out []string
 	depth, start := 0, 0
 	quoted := false
@@ -166,11 +166,11 @@ func repairM917Split(s string) []string {
 	return append(out, strings.TrimSpace(s[start:]))
 }
 
-var repairM917Create = regexp.MustCompile(`CREATE TABLE (?:"pnl"\.)?([a-z][a-z0-9_]*)\s*\(`)
-var repairM917Type = map[string]uint32{"text": 25, "text[]": 1009, "uuid": 2950, "bytea": 17, "timestamptz": 1184, "jsonb": 3802, "bigint": 20, "bigserial": 20, "integer": 23, "boolean": 16, "numeric": 1700, "varchar": 1043, "date": 1082}
+var migrationContractCreate = regexp.MustCompile(`CREATE TABLE (?:"pnl"\.)?([a-z][a-z0-9_]*)\s*\(`)
+var migrationContractType = map[string]uint32{"text": 25, "text[]": 1009, "uuid": 2950, "bytea": 17, "timestamptz": 1184, "jsonb": 3802, "bigint": 20, "bigserial": 20, "integer": 23, "boolean": 16, "numeric": 1700, "varchar": 1043, "date": 1082}
 
-func repairM917Catalog(state *repairM917State, sql string) error {
-	for _, loc := range repairM917Create.FindAllStringSubmatchIndex(sql, -1) {
+func migrationContractCatalog(state *migrationContractState, sql string) error {
+	for _, loc := range migrationContractCreate.FindAllStringSubmatchIndex(sql, -1) {
 		name := sql[loc[2]:loc[3]]
 		start := loc[1]
 		depth, end := 1, start
@@ -188,8 +188,8 @@ func repairM917Catalog(state *repairM917State, sql string) error {
 		if state.Tables[name] != nil {
 			return fmt.Errorf("duplicate table %s", name)
 		}
-		table := &repairM917Table{Rights: map[string]bool{}}
-		for _, column := range repairM917Split(sql[start : end-1]) {
+		table := &migrationContractTable{Rights: map[string]bool{}}
+		for _, column := range migrationContractSplit(sql[start : end-1]) {
 			f := strings.Fields(column)
 			if strings.HasPrefix(column, "PRIMARY KEY(") {
 				table.Key = strings.Split(strings.TrimSuffix(strings.TrimPrefix(column, "PRIMARY KEY("), ")"), ",")
@@ -202,7 +202,7 @@ func repairM917Catalog(state *repairM917State, sql string) error {
 				return fmt.Errorf("invalid column %s", column)
 			}
 			typ := strings.Split(f[1], "(")[0]
-			oid, ok := repairM917Type[typ]
+			oid, ok := migrationContractType[typ]
 			if !ok {
 				return fmt.Errorf("unrecorded type %s", typ)
 			}
@@ -216,7 +216,7 @@ func repairM917Catalog(state *repairM917State, sql string) error {
 	}
 	return nil
 }
-func repairM917Signature(sql string) ([]uint32, []uint32) {
+func migrationContractSignature(sql string) ([]uint32, []uint32) {
 	switch {
 	case strings.HasPrefix(sql, "SELECT pg_try_advisory"), strings.HasPrefix(sql, "SELECT pg_advisory_unlock"):
 		return []uint32{20}, []uint32{16}
@@ -251,35 +251,35 @@ func repairM917Signature(sql string) ([]uint32, []uint32) {
 	}
 	return nil, nil
 }
-func (p *repairM917Peer) query(s *repairM917Session, sql string, args []string) (repairM917Result, error) {
+func (p *migrationContractPeer) query(s *migrationContractSession, sql string, args []string) (migrationContractResult, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	state := &p.State
 	if s.state != nil {
 		state = s.state
 	}
-	ok := repairM917Result{tag: "SELECT 0"}
+	ok := migrationContractResult{tag: "SELECT 0"}
 	normalized := strings.Join(strings.Fields(sql), " ")
 	switch {
 	case sql == production.MigrationControlDDL() || sql == production.OnlineIndexControlDDL() || sql == "CREATE ROLE pnl_owner NOLOGIN; GRANT USAGE, CREATE ON SCHEMA pnl TO pnl_owner":
 		if s.user != "migration_coordinator" || !s.locked {
 			return ok, fmt.Errorf("bootstrap escaped coordinator")
 		}
-		return repairM917Result{tag: "CREATE TABLE"}, nil
+		return migrationContractResult{tag: "CREATE TABLE"}, nil
 	case strings.HasPrefix(sql, "SET LOCAL ROLE migration_control_owner; CREATE TABLE "):
 		history, err := production.HistoryDDL("core/pnl-tracker", "pnl")
 		if err != nil || history != sql || s.state == nil || s.user != "migration_coordinator" {
 			return ok, fmt.Errorf("unrecorded history bootstrap")
 		}
-		return repairM917Result{tag: "CREATE TABLE"}, nil
+		return migrationContractResult{tag: "CREATE TABLE"}, nil
 	case normalized == "begin" || normalized == "begin read only":
 		if s.state != nil {
 			return ok, fmt.Errorf("nested transaction")
 		}
-		copy := repairM917Copy(p.State)
+		copy := migrationContractCopy(p.State)
 		s.state = &copy
 		s.timeout = false
-		return repairM917Result{tag: "BEGIN"}, nil
+		return migrationContractResult{tag: "BEGIN"}, nil
 	case normalized == "commit":
 		if s.state == nil {
 			return ok, fmt.Errorf("commit outside transaction")
@@ -288,43 +288,43 @@ func (p *repairM917Peer) query(s *repairM917Session, sql string, args []string) 
 		s.state = nil
 		s.role = ""
 		s.timeout = false
-		return repairM917Result{tag: "COMMIT"}, p.persist()
+		return migrationContractResult{tag: "COMMIT"}, p.persist()
 	case normalized == "rollback":
 		s.state = nil
 		s.role = ""
 		s.timeout = false
-		return repairM917Result{tag: "ROLLBACK"}, nil
+		return migrationContractResult{tag: "ROLLBACK"}, nil
 	case normalized == "SET LOCAL lock_timeout='2s'":
 		if s.state == nil {
 			return ok, fmt.Errorf("timeout outside transaction")
 		}
 		s.timeout = true
-		return repairM917Result{tag: "SET"}, nil
+		return migrationContractResult{tag: "SET"}, nil
 	case normalized == `SET LOCAL ROLE "pnl_owner"`:
 		if s.user != "migration_coordinator" || s.state == nil {
 			return ok, fmt.Errorf("owner outside coordinator transaction")
 		}
 		s.role = "pnl_owner"
-		return repairM917Result{tag: "SET"}, nil
+		return migrationContractResult{tag: "SET"}, nil
 	case normalized == "RESET ROLE":
 		s.role = ""
-		return repairM917Result{tag: "RESET"}, nil
+		return migrationContractResult{tag: "RESET"}, nil
 	case normalized == `SET LOCAL search_path TO "pnl"`:
-		return repairM917Result{tag: "SET"}, nil
+		return migrationContractResult{tag: "SET"}, nil
 	case strings.HasPrefix(sql, "SELECT pg_try_advisory_lock"):
 		if s.user != "migration_coordinator" {
 			return ok, fmt.Errorf("runtime coordinator lock")
 		}
 		s.locked = true
-		return repairM917Rows([]uint32{16}, []string{"t"}), nil
+		return migrationContractRows([]uint32{16}, []string{"t"}), nil
 	case strings.HasPrefix(sql, "SELECT pg_try_advisory_xact_lock"):
-		return repairM917Rows([]uint32{16}, []string{strconv.FormatBool(s.locked && s.state != nil)}), nil
+		return migrationContractRows([]uint32{16}, []string{strconv.FormatBool(s.locked && s.state != nil)}), nil
 	case strings.HasPrefix(sql, "SELECT pg_advisory_unlock"):
 		locked := s.locked
 		s.locked = false
-		return repairM917Rows([]uint32{16}, []string{strconv.FormatBool(locked)}), nil
+		return migrationContractRows([]uint32{16}, []string{strconv.FormatBool(locked)}), nil
 	case strings.HasPrefix(sql, "SELECT migration_id,checksum FROM migration_control.applied_migrations"):
-		r := repairM917Rows([]uint32{20, 25})
+		r := migrationContractRows([]uint32{20, 25})
 		ids := []int64{}
 		for id := range state.Applied {
 			ids = append(ids, id)
@@ -341,20 +341,20 @@ func (p *repairM917Peer) query(s *repairM917Session, sql string, args []string) 
 		}
 		id := strconv.Itoa(len(p.State.Attempts) + 1)
 		p.State.Attempts[id] = "started"
-		return repairM917Rows([]uint32{20}, []string{id}), p.persist()
+		return migrationContractRows([]uint32{20}, []string{id}), p.persist()
 	case strings.HasPrefix(sql, "UPDATE migration_control.migration_attempts"):
 		if p.State.Attempts[args[0]] != "started" {
 			return ok, fmt.Errorf("attempt not started")
 		}
 		p.State.Attempts[args[0]] = args[1]
-		return repairM917Result{tag: "UPDATE 1"}, p.persist()
+		return migrationContractResult{tag: "UPDATE 1"}, p.persist()
 	case strings.HasPrefix(sql, "INSERT INTO migration_control.pnl_tracker_versions"):
 		id, e := strconv.ParseInt(args[0], 10, 64)
 		if e != nil {
 			return ok, e
 		}
 		state.History = append(state.History, id)
-		return repairM917Result{tag: "INSERT 0 1"}, nil
+		return migrationContractResult{tag: "INSERT 0 1"}, nil
 	case strings.HasPrefix(sql, "INSERT INTO migration_control.applied_migrations"):
 		if s.state == nil || s.role != "" {
 			return ok, fmt.Errorf("migration history outside reset owner transaction")
@@ -367,17 +367,17 @@ func (p *repairM917Peer) query(s *repairM917Session, sql string, args []string) 
 			return ok, fmt.Errorf("duplicate migration")
 		}
 		state.Applied[id] = args[3]
-		return repairM917Result{tag: "INSERT 0 1"}, nil
+		return migrationContractResult{tag: "INSERT 0 1"}, nil
 	}
 	if source, registered := p.sources[sql]; registered {
 		if s.user != "migration_coordinator" || s.state == nil || s.role != "pnl_owner" || !s.timeout || !s.locked {
 			return ok, fmt.Errorf("DDL escaped coordinated owner transaction")
 		}
-		if e := repairM917Catalog(state, sql); e != nil {
+		if e := migrationContractCatalog(state, sql); e != nil {
 			return ok, e
 		}
 		state.DDL = append(state.DDL, source)
-		return repairM917Result{tag: "CREATE TABLE"}, nil
+		return migrationContractResult{tag: "CREATE TABLE"}, nil
 	}
 	if s.user != "pnl_runtime" {
 		return ok, fmt.Errorf("unrecorded coordinator SQL: %s", normalized)
@@ -387,12 +387,12 @@ func (p *repairM917Peer) query(s *repairM917Session, sql string, args []string) 
 		if s.state == nil || len(args) != 2 || args[0] != "1" || args[1] != "fixture-loopback" {
 			return ok, fmt.Errorf("epoch fence differs")
 		}
-		return repairM917Rows([]uint32{2278}, []string{""}), nil
+		return migrationContractRows([]uint32{2278}, []string{""}), nil
 	case strings.HasPrefix(sql, "SELECT pg_advisory_xact_lock"):
 		if s.state == nil {
 			return ok, fmt.Errorf("request lock outside transaction")
 		}
-		return repairM917Rows([]uint32{2278}, []string{""}), nil
+		return migrationContractRows([]uint32{2278}, []string{""}), nil
 	case strings.Contains(sql, "has_table_privilege"):
 		name := strings.TrimPrefix(strings.ReplaceAll(args[0], `"`, ""), "pnl.")
 		table := state.Tables[name]
@@ -403,7 +403,7 @@ func (p *repairM917Peer) query(s *repairM917Session, sql string, args []string) 
 		if err := pgtype.NewMap().Scan(1009, 0, []byte(args[1]), &wanted); err != nil {
 			return ok, err
 		}
-		return repairM917Rows([]uint32{16, 16}, []string{strconv.FormatBool(table.Rights["SELECT"] && table.Rights["INSERT"]), strconv.FormatBool(strings.Join(table.Key, ",") == strings.Join(wanted, ","))}), nil
+		return migrationContractRows([]uint32{16, 16}, []string{strconv.FormatBool(table.Rights["SELECT"] && table.Rights["INSERT"]), strconv.FormatBool(strings.Join(table.Key, ",") == strings.Join(wanted, ","))}), nil
 	case strings.HasSuffix(normalized, " LIMIT 0"):
 		re := regexp.MustCompile(`^SELECT (.+) FROM "pnl"\."([a-z0-9_]+)" LIMIT 0$`)
 		m := re.FindStringSubmatch(normalized)
@@ -414,7 +414,7 @@ func (p *repairM917Peer) query(s *repairM917Session, sql string, args []string) 
 		if table == nil {
 			return ok, fmt.Errorf("relation %s does not exist", m[2])
 		}
-		r := repairM917Rows(nil)
+		r := migrationContractRows(nil)
 		r.names = strings.Split(strings.ReplaceAll(m[1], `"`, ""), ",")
 		for _, name := range r.names {
 			found := false
@@ -435,7 +435,7 @@ func (p *repairM917Peer) query(s *repairM917Session, sql string, args []string) 
 		if table == nil || !table.Rights["SELECT"] {
 			return ok, fmt.Errorf("request storage unavailable")
 		}
-		r := repairM917Rows([]uint32{25, 17, 1184, 25, 25})
+		r := migrationContractRows([]uint32{25, 17, 1184, 25, 25})
 		for _, row := range table.Rows {
 			if row[0] == args[0] && row[1] == args[1] {
 				r.rows = append(r.rows, []string{row[2], row[5], row[6], row[7], row[8]})
@@ -445,13 +445,13 @@ func (p *repairM917Peer) query(s *repairM917Session, sql string, args []string) 
 		return r, nil
 	case strings.Contains(sql, "FROM indexer.indexer_canonical_creations_v1 WHERE nft_id=$1::numeric"):
 		if args[0] != "1" {
-			return repairM917Rows([]uint32{25, 25}), nil
+			return migrationContractRows([]uint32{25, 25}), nil
 		}
 		creator, pool := state.Legacy["creator"], state.Legacy["pool"]
 		if strings.HasPrefix(sql, "SELECT creator,pool") {
-			return repairM917Rows([]uint32{25, 25}, []string{creator, pool}), nil
+			return migrationContractRows([]uint32{25, 25}, []string{creator, pool}), nil
 		}
-		return repairM917Rows([]uint32{25, 25, 25, 20, 25, 25, 25, 25}, []string{"1", pool, creator, "10", fmt.Sprintf("0x%064x", 10), fmt.Sprintf("0x%064x", 1000001), "0", "1"}), nil
+		return migrationContractRows([]uint32{25, 25, 25, 20, 25, 25, 25, 25}, []string{"1", pool, creator, "10", fmt.Sprintf("0x%064x", 10), fmt.Sprintf("0x%064x", 1000001), "0", "1"}), nil
 	case strings.HasPrefix(sql, "INSERT INTO l18_requests"), strings.HasPrefix(sql, "INSERT INTO l18_outbox"), strings.HasPrefix(sql, "INSERT INTO l18_audit"):
 		if s.state == nil {
 			return ok, fmt.Errorf("write outside transaction")
@@ -473,12 +473,12 @@ func (p *repairM917Peer) query(s *repairM917Session, sql string, args []string) 
 			}
 		}
 		table.Rows = append(table.Rows, row)
-		return repairM917Result{tag: "INSERT 0 1"}, nil
+		return migrationContractResult{tag: "INSERT 0 1"}, nil
 	}
 	return ok, fmt.Errorf("unrecorded runtime SQL: %s", normalized)
 }
 
-func (p *repairM917Peer) serve(conn net.Conn) {
+func (p *migrationContractPeer) serve(conn net.Conn) {
 	b := pgproto3.NewBackend(conn, conn)
 	raw, err := b.ReceiveStartupMessage()
 	if err != nil {
@@ -488,7 +488,7 @@ func (p *repairM917Peer) serve(conn net.Conn) {
 	if !ok {
 		return
 	}
-	s := &repairM917Session{user: hello.Parameters["user"]}
+	s := &migrationContractSession{user: hello.Parameters["user"]}
 	if s.user != "migration_coordinator" && s.user != "pnl_runtime" {
 		return
 	}
@@ -534,7 +534,7 @@ func (p *repairM917Peer) serve(conn net.Conn) {
 		}
 		b.Send(&pgproto3.RowDescription{Fields: desc})
 	}
-	sendRows := func(r repairM917Result) {
+	sendRows := func(r migrationContractResult) {
 		for _, row := range r.rows {
 			values := make([][]byte, len(row))
 			for i, v := range row {
@@ -581,13 +581,13 @@ func (p *repairM917Peer) serve(conn net.Conn) {
 		case *pgproto3.Parse:
 			statements[m.Name] = m.Query
 			sql = m.Query
-			params, fields = repairM917Signature(sql)
+			params, fields = migrationContractSignature(sql)
 			formats = nil
 			b.Send(&pgproto3.ParseComplete{})
 		case *pgproto3.Describe:
 			if m.ObjectType == 'S' {
 				sql = statements[m.Name]
-				params, fields = repairM917Signature(sql)
+				params, fields = migrationContractSignature(sql)
 				if strings.HasSuffix(sql, " LIMIT 0") {
 					r, err := p.query(s, sql, nil)
 					if err != nil {
@@ -606,7 +606,7 @@ func (p *repairM917Peer) serve(conn net.Conn) {
 			}
 		case *pgproto3.Bind:
 			sql = statements[m.PreparedStatement]
-			params, fields = repairM917Signature(sql)
+			params, fields = migrationContractSignature(sql)
 			formats = append([]int16(nil), m.ResultFormatCodes...)
 			args = make([]string, len(m.Parameters))
 			if len(params) != len(args) {
@@ -668,7 +668,7 @@ func (p *repairM917Peer) serve(conn net.Conn) {
 	}
 }
 
-func repairM917Grant(t *testing.T, p *repairM917Peer, manifest production.RoleManifest) {
+func migrationContractGrant(t *testing.T, p *migrationContractPeer, manifest production.RoleManifest) {
 	t.Helper()
 	statements, err := manifest.GrantSQL()
 	if err != nil {
@@ -702,7 +702,7 @@ func repairM917Grant(t *testing.T, p *repairM917Peer, manifest production.RoleMa
 		t.Fatal(err)
 	}
 }
-func repairM917EqualJSON(a, b []byte) bool {
+func migrationContractEqualJSON(a, b []byte) bool {
 	var x, y any
 	if json.Unmarshal(a, &x) != nil || json.Unmarshal(b, &y) != nil {
 		return false
