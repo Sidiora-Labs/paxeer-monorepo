@@ -13,7 +13,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+RPC_REFERENCE = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (
     ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs"
     / "repair_22_33_359.kvx"
@@ -46,13 +48,16 @@ def section(heading, level=3):
 
 def test_doc_01_one_paxd_bft_network_embeds_kernel_execution():
     overview = section("What is Paxeer X Network?", 2)
+    assert "There is no separate LayerX interface, router, or sequencer service to deploy." in source(
+        "docs/wiki/PaxeerBoundary.md"
+    )
     for fact in (
         "one BFT network", "chain ID **125** (`0x7d`)",
         "kernel is embedded in the node", "block proposal and deterministic execution",
         "proposes blocks inside `paxd`", "validators commit those blocks through BFT consensus",
         "C17 kernel", "runs inside `paxd`", "modules/lxphost",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
-        "no router and no separate LayerX interface",
+        "The public API reaches the node directly at the root path on EVM chain ID 125",
     ):
         assert fact in overview, fact
     assert "app.LayerXHost, err = NewHost(" in source("node/app.go")
@@ -65,26 +70,31 @@ def test_doc_01_one_paxd_bft_network_embeds_kernel_execution():
         "subgraph Network[One Paxeer BFT network / EVM chain 125]",
         "subgraph Node[paxd]", "Embedded C17 kernel and Rust programs host",
         "RPC --> Order --> Host --> Native", "Validators -->|Commit| State",
-        "outside consensus", "does not provide another execution or finality domain",
+        "outside consensus", "The public API reaches the node directly at the root path on EVM chain ID 125",
     ):
         assert fact in topology, fact
+
+    assert "The embedded kernel and Go node share consensus and committed-state authority." in source(
+        "docs/MONOREPO.md"
+    )
+    assert "Hosted services, agents and applications consume that network;" in source("docs/MONOREPO.md")
 
 
 def test_doc_01_chain_125_root_rpc_hosts_and_request():
     quickstart = section("Quick start: connect to chain 125")
     for fact in (
-        "Public node JSON-RPC uses the root URL",
-        "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`",
-        "root path of these hosts, without a route suffix",
+        "Send HTTPS JSON-RPC requests to the root path without a route suffix.",
+        "Use `api1` through `api14.mainnet-beta.paxeer.network` or",
+        "root path without a route suffix",
         "node.hyperpaxeer.com` is only the hpx library mirror",
         "never a JSON-RPC endpoint", "compare `eth_blockNumber`",
     ):
-        assert fact in quickstart, fact
+        assert fact in quickstart + RPC_REFERENCE, fact
     allowed_hosts = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
-    urls = re.findall(r"https?://[^\s`<>)]+", README)
+    urls = re.findall(r"https?://[^\s`<>)]+", RPC_REFERENCE)
     public_urls = [urlsplit(url) for url in urls if "mainnet-beta.paxeer.network" in url]
     assert public_urls
     for url in public_urls:
@@ -97,8 +107,8 @@ def test_doc_01_chain_125_root_rpc_hosts_and_request():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
+    assert [arg for arg in argv if arg.startswith(("https://", "http://", "$"))] == [
+        "$PAXEER_RPC_URL"
     ]
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
@@ -185,7 +195,9 @@ def test_doc_01_custody_and_checkpoint_executors_are_retired():
 def test_doc_01_source_names_are_distinct_from_running_components():
     layout = section("Directory Structure", 2)
     assert "Source directory names describe code organization, not separate network deployments" in layout
-    assert "planned destinations under `core/` and `sdk/programs`" in layout
+    assert "`core/deps/` | Pinned snapshots of the upstream libraries the node builds from" in layout
+    assert "the framework fork in `sdk`" in layout
+    assert (ROOT / "core/deps").is_dir() and (ROOT / "sdk").is_dir()
     build = section("Build")
     for fact in (
         "make paxd-build", "build/liblayerx.a",
