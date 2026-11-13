@@ -12,7 +12,9 @@ import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK_PAGE = ROOT / "docs/readme/NETWORK.md"
+README = NETWORK_PAGE.read_text(encoding="utf-8")
+RPC_REFERENCE = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (
     ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_9.kvx"
 )
@@ -193,23 +195,23 @@ def test_f39_operator_build_uses_native_paxd_prerequisites():
 
 
 def test_f39_rpc_example_targets_chain_125_at_node_root():
-    documentation = section("Documentation", level=2)
+    documentation = section("Quick start: connect to chain 125")
     blocks = re.findall(r"```sh\n(.*?)\n```", documentation, re.S)
     assert len(blocks) == 1
     command = blocks[0].split("\n# Expected result:", 1)[0].replace("\\\n", " ")
     argv = shlex.split(command)
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
-    urls = [arg for arg in argv if arg.startswith("https://")]
-    assert urls == ["https://api1.mainnet-beta.paxeer.network"]
+    urls = [arg for arg in argv if arg.startswith(("https://", "http://", "$"))]
+    assert urls == ["$PAXEER_RPC_URL"]
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert "Public node JSON-RPC uses the root URL" in documentation
-    assert "api14.mainnet-beta.paxeer.network" in documentation
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in documentation
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix." in documentation
+    assert "api14.mainnet-beta.paxeer.network" in RPC_REFERENCE
+    assert "node.hyperpaxeer.com` is only the hpx library mirror" in RPC_REFERENCE
     assert "gateway contract does not establish method availability at public node URLs" in documentation
     contract = json.loads(source("services/platform/hosted/gateway/openrpc.json"))
     assert "px_getBalances" in {method["name"] for method in contract["methods"]}
@@ -237,7 +239,7 @@ def test_f39_historical_formats_and_source_links_are_explicit():
         assert links
         for target in links:
             assert not target.startswith(("http:", "https:"))
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (NETWORK_PAGE.parent / target.split("#", 1)[0]).exists(), target
 
 
 def test_f39_record_maps_finding_to_executed_proofs_and_limits():
