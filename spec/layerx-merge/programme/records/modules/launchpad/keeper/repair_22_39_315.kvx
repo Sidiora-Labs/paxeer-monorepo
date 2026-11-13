@@ -70,7 +70,7 @@ rule = "ABCI query failures identify the requested height consistently; issue 16
 
 [qualification.gates]
 build_command = "go build ./modules/launchpad/... ./sdk/baseapp/... && go vet ./modules/launchpad/keeper/"
-verify_command = "test -s modules/launchpad/keeper/repair_22_39_315.kvx && go test -count=1 -timeout 30m ./modules/launchpad/keeper/... && go test -count=1 ./sdk/baseapp/ -run 'GRPC|Query'"
+verify_command = "test -s spec/layerx-merge/programme/records/modules/launchpad/keeper/repair_22_39_315.kvx && go test -count=1 -timeout 30m ./modules/launchpad/keeper/... && go test -count=1 ./sdk/baseapp/ -run 'GRPC|Query'"
 wrapper_command = "cg spec done 22.39.315 -f layerx-merge --root /work/paxeer-monorepo"
 evidence = "Use the final hf-done JSON receipt's revision, command, exit and log, together with the matching hf-build receipt; no gate is claimed by this source record before it executes."
 scope = "Only the authorized keeper and baseapp files are edited; root gotcha/spec bookkeeping and publication belong to the runner."

@@ -36,14 +36,14 @@ import (
 // services over the production JSON-RPC codec. Each publish commits the
 // keeper's produced store, so queries use BaseApp's normal versioned reads
 // and error encoder, rather than the in-process test router's error bypass.
-type repairM943Network struct {
+type launchpadQueryNetwork struct {
 	app    *baseapp.BaseApp
 	key    sdk.StoreKey
 	rpc    *rpchttp.HTTP
 	client types.QueryClient
 }
 
-func newRepairM943Network(t *testing.T, e *env) *repairM943Network {
+func newLaunchpadQueryNetwork(t *testing.T, e *env) *launchpadQueryNetwork {
 	t.Helper()
 	app := baseapp.NewBaseApp(t.Name(), dbm.NewMemDB(), nil, nil, &sdktestutil.TestAppOpts{})
 	scConfig := paxdbconfig.DefaultStateCommitConfig()
@@ -74,10 +74,10 @@ func newRepairM943Network(t *testing.T, e *env) *repairM943Network {
 	rpc, err := rpchttp.NewWithTimeout(server.URL, 5*time.Second)
 	require.NoError(t, err)
 	clientCtx := sdkclient.Context{}.WithClient(rpc).WithInterfaceRegistry(registry)
-	return &repairM943Network{app: app, key: e.key, rpc: rpc, client: types.NewQueryClient(clientCtx)}
+	return &launchpadQueryNetwork{app: app, key: e.key, rpc: rpc, client: types.NewQueryClient(clientCtx)}
 }
 
-func (n *repairM943Network) publish(t *testing.T, e *env) {
+func (n *launchpadQueryNetwork) publish(t *testing.T, e *env) {
 	t.Helper()
 	ms := n.app.CommitMultiStore().CacheMultiStore()
 	header := tmproto.Header{ChainID: n.app.ChainID, Height: n.app.LastBlockHeight() + 1, Time: e.ctx.BlockTime()}
@@ -111,7 +111,7 @@ func (n *repairM943Network) publish(t *testing.T, e *env) {
 	}
 }
 
-func TestRepairM_943_f06_NFTMarketProjection(t *testing.T) {
+func TestNFTMarketProjectionNetwork(t *testing.T) {
 	e := newEnv(t)
 	a, b := e.account(10_000_000), e.account(10_000_000)
 	ownerA, ownerB := e.evmAddress(a), e.evmAddress(b)
@@ -123,7 +123,7 @@ func TestRepairM_943_f06_NFTMarketProjection(t *testing.T) {
 	collection := common.HexToAddress(market.FeeRightCollection)
 	id := new(big.Int).SetUint64(market.FeeRightID)
 	nftABI := proofModuleABI(t, types.RoleFeeRights)
-	network := newRepairM943Network(t, e)
+	network := newLaunchpadQueryNetwork(t, e)
 	check := func(owner common.Address, strategy types.FeeStrategy) {
 		t.Helper()
 		stored := e.market(market.Denom)
@@ -172,7 +172,7 @@ func TestRepairM_943_f06_NFTMarketProjection(t *testing.T) {
 	check(ownerB, types.FeeStrategyBurn)
 	_, err = e.k.ClaimFees(e.ctx, b, market.Denom, b)
 	require.ErrorIs(t, err, types.ErrWrongStrategy)
-	repair34Restart(t, e)
+	restartLaunchpadGenesis(t, e)
 	check(ownerB, types.FeeStrategyBurn)
 	mutate(ownerB, "setFeeStrategy", id, uint8(types.FeeStrategyClaim))
 	check(ownerB, types.FeeStrategyClaim)
@@ -183,13 +183,13 @@ func TestRepairM_943_f06_NFTMarketProjection(t *testing.T) {
 	require.Equal(t, before.Add(fees), e.usdlOf(b))
 	mutate(ownerB, "transferFrom", ownerB, ownerA, id)
 	check(ownerA, types.FeeStrategyClaim)
-	repair34Restart(t, e)
+	restartLaunchpadGenesis(t, e)
 	check(ownerA, types.FeeStrategyClaim)
 }
 
-func TestRepairM_943_f07_AccountingCountsNetwork(t *testing.T) {
+func TestFeeAccountingCountsNetwork(t *testing.T) {
 	e := newEnv(t)
-	network := newRepairM943Network(t, e)
+	network := newLaunchpadQueryNetwork(t, e)
 	check := func(pools, epochs, claims uint64, liabilities sdk.Int) {
 		t.Helper()
 		storedLiabilities, err := e.k.TotalLiabilities(e.ctx)
@@ -266,7 +266,7 @@ func TestRepairM_943_f07_AccountingCountsNetwork(t *testing.T) {
 	require.True(t, found)
 	require.NoError(t, e.k.SetPoolAirdropEpoch(e.ctx, record))
 	check(2, 1, 1, fees.Sub(share))
-	repair34Restart(t, e)
+	restartLaunchpadGenesis(t, e)
 	check(2, 1, 1, fees.Sub(share))
 	before = e.usdlOf(other)
 	e.ctx, triggered, err = e.k.ClaimAirdropEpoch(e.ctx, e.k.ModuleCaller(), pool, e.evmAddress(other), 1)
@@ -285,11 +285,11 @@ func TestRepairM_943_f07_AccountingCountsNetwork(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, newFees, triggered)
 	check(2, 2, 2, newFees)
-	repair34Restart(t, e)
+	restartLaunchpadGenesis(t, e)
 	check(2, 2, 2, newFees)
 }
 
-func TestRepairM_943_f22_RefusalNetwork(t *testing.T) {
+func TestFeeAccountingRefusalNetwork(t *testing.T) {
 	// Retain the nil request, exact returned-error and store-preservation proof.
 	TestQueryFeeAccountingRefusals(t)
 	for _, raw := range [][]byte{[]byte("invalid"), []byte("-1"), []byte(new(big.Int).Lsh(big.NewInt(1), 256).String())} {
@@ -305,7 +305,7 @@ func TestRepairM_943_f22_RefusalNetwork(t *testing.T) {
 			space, code, log := sdkerrors.ABCIInfo(produced, false)
 			require.Equal(t, types.ModuleName, space)
 			require.Equal(t, types.ErrOverflow.ABCICode(), code)
-			network := newRepairM943Network(t, e)
+			network := newLaunchpadQueryNetwork(t, e)
 			network.publish(t, e)
 			request, err := (&types.QueryFeeAccountingRequest{}).Marshal()
 			require.NoError(t, err)
@@ -324,6 +324,6 @@ func TestRepairM_943_f22_RefusalNetwork(t *testing.T) {
 	}
 }
 
-func TestRepairM_943_f08_ViewsUnderActualPoolLock(t *testing.T) {
+func TestViewsUnderActualPoolLock(t *testing.T) {
 	TestViewsAnswerUnderLock(t)
 }

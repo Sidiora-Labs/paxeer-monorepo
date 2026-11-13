@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM944Help(t *testing.T, name, example string) *cobra.Command {
+func launchpadQueryHelp(t *testing.T, name, example string) *cobra.Command {
 	t.Helper()
 	root, _ := paxcmd.NewRootCmd()
 	require.Equal(t, "paxd", root.Name())
@@ -35,25 +35,25 @@ func repairM944Help(t *testing.T, name, example string) *cobra.Command {
 	return command
 }
 
-func TestRepairM_944_f11_AirdropHelp(t *testing.T) {
-	repairM944Help(t, "airdrop-epoch", "paxd query launchpad airdrop-epoch 0x0000000000000000000000000000000000000001 1 --output json")
-	repairM944Help(t, "airdrop-claimed", "paxd query launchpad airdrop-claimed 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000002 1 --output json")
+func TestQueryAirdropHelp(t *testing.T) {
+	launchpadQueryHelp(t, "airdrop-epoch", "paxd query launchpad airdrop-epoch 0x0000000000000000000000000000000000000001 1 --output json")
+	launchpadQueryHelp(t, "airdrop-claimed", "paxd query launchpad airdrop-claimed 0x0000000000000000000000000000000000000001 0x0000000000000000000000000000000000000002 1 --output json")
 }
 
-func TestRepairM_944_f12_FeeRightHelp(t *testing.T) {
-	repairM944Help(t, "fee-right", "paxd query launchpad fee-right 0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B 1 --output json")
+func TestQueryFeeRightHelp(t *testing.T) {
+	launchpadQueryHelp(t, "fee-right", "paxd query launchpad fee-right 0xe8DcC844a8006dbf64f5Bb851bCad90292a6409B 1 --output json")
 }
 
-func TestRepairM_944_f13_MarketHelp(t *testing.T) {
-	repairM944Help(t, "market", "paxd query launchpad market launchpad/0x0000000000000000000000000000000000000001 --output json")
-	repairM944Help(t, "market-by-address", "paxd query launchpad market-by-address 0x0000000000000000000000000000000000000001 --output json")
+func TestQueryMarketHelp(t *testing.T) {
+	launchpadQueryHelp(t, "market", "paxd query launchpad market launchpad/0x0000000000000000000000000000000000000001 --output json")
+	launchpadQueryHelp(t, "market-by-address", "paxd query launchpad market-by-address 0x0000000000000000000000000000000000000001 --output json")
 }
 
-func TestRepairM_944_f14_CreatorPagination(t *testing.T) {
-	command := repairM944Help(t, "markets-by-creator", "paxd query launchpad markets-by-creator <creator> --offset 0 --limit 1 --output json")
+func TestQueryCreatorPagination(t *testing.T) {
+	command := launchpadQueryHelp(t, "markets-by-creator", "paxd query launchpad markets-by-creator <creator> --offset 0 --limit 1 --output json")
 	require.Equal(t, "0", command.Flags().Lookup(flags.FlagOffset).DefValue)
 	require.Equal(t, "100", command.Flags().Lookup(flags.FlagLimit).DefValue)
-	genesis, _, market := repair35State(t)
+	genesis, _, market := fundedQuoteGenesis(t)
 	cfg, net := proofModuleCliNetwork(t, genesis)
 	height, err := net.WaitForHeight(1)
 	require.NoError(t, err)
@@ -81,11 +81,11 @@ func TestRepairM_944_f14_CreatorPagination(t *testing.T) {
 	}
 }
 
-func TestRepairM_944_f15_FeeAccountingHelp(t *testing.T) {
-	repairM944Help(t, "fee-accounting", "paxd query launchpad fee-accounting --output json")
+func TestQueryFeeAccountingHelp(t *testing.T) {
+	launchpadQueryHelp(t, "fee-accounting", "paxd query launchpad fee-accounting --output json")
 }
 
-func TestRepairM_944_f17_MergedRoot(t *testing.T) {
+func TestQueryPaxdRoot(t *testing.T) {
 	require.Equal(t, "paxd", filepath.Base(proofModuleCliBinary(t)))
 	root, _ := paxcmd.NewRootCmd()
 	var output bytes.Buffer
@@ -96,10 +96,10 @@ func TestRepairM_944_f17_MergedRoot(t *testing.T) {
 	require.Equal(t, "paxd", root.Name())
 	require.Contains(t, output.String(), "paxd [command]")
 	require.NotContains(t, output.String(), "layerxd")
-	repairM944Help(t, "market", "paxd query launchpad market launchpad/0x0000000000000000000000000000000000000001 --output json")
+	launchpadQueryHelp(t, "market", "paxd query launchpad market launchpad/0x0000000000000000000000000000000000000001 --output json")
 }
 
-func TestRepairM_944_f18_AccountingFromGenesis(t *testing.T) {
+func TestQueryAccountingFromGenesis(t *testing.T) {
 	genesis, market, epoch := proofModuleCliState(t)
 	require.NotEmpty(t, genesis.FeeAccounting.Pools)
 	require.NotEmpty(t, genesis.FeeAccounting.Epochs)
@@ -128,7 +128,7 @@ func TestRepairM_944_f18_AccountingFromGenesis(t *testing.T) {
 	require.Equal(t, want, got.Accounting)
 }
 
-func TestRepairM_944_f09_FundedUint256Quote(t *testing.T) {
+func TestQueryFundedUint256Quote(t *testing.T) {
 	t.Run("arguments-and-height-overflow", TestCmdQueryPriceArgs)
 	t.Run("funded-network", TestCmdQueryPriceNetwork)
 }

@@ -33,7 +33,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func repair35State(t *testing.T) (*types.GenesisState, *evmtypes.GenesisState, types.Market) {
+func fundedQuoteGenesis(t *testing.T) (*types.GenesisState, *evmtypes.GenesisState, types.Market) {
 	t.Helper()
 	a := app.New(tmdb.NewMemDB(), nil, true, map[int64]bool{}, t.TempDir(), 1, true, nil, app.MakeEncodingConfig(),
 		wasm.EnableAllProposals, app.TestAppOpts{}, app.EmptyWasmOpts, nil)
@@ -88,9 +88,9 @@ func repair35State(t *testing.T) (*types.GenesisState, *evmtypes.GenesisState, t
 	return launchpadGenesis, evm.ExportGenesis(ctx, &a.EvmKeeper), market
 }
 
-func TestRepair_35_QuoteUint256(t *testing.T) {
+func TestQueryQuoteUint256(t *testing.T) {
 	cfg := network.DefaultConfig(t)
-	launchpadGenesis, evmGenesis, market := repair35State(t)
+	launchpadGenesis, evmGenesis, market := fundedQuoteGenesis(t)
 	var err error
 	cfg.GenesisState[types.ModuleName], err = json.Marshal(launchpadGenesis)
 	require.NoError(t, err)

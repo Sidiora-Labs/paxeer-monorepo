@@ -19,7 +19,7 @@ first_errors = "The inventory names TestGenesisRefusesGenerationOneState at gene
 [case.TestGenesisRefusesGenerationOneState]
 site = "modules/launchpad/types/genesis_test.go:contractGenesis"
 producer_commit = "74b08abddb101496da616c7337d2436500dd77d2"
-producer_record = "modules/launchpad/keeper/repair_34.kvx wiring_request_2, task 22.31.34"
+producer_record = "spec/layerx-merge/programme/records/modules/launchpad/keeper/repair_34.kvx wiring_request_2, task 22.31.34"
 cause = "The populated fixture retained the former schema without OwnerTokens after the producer added independent ERC721 owner enumeration and required it on genesis import. Its otherwise valid empty and null legacy sections therefore failed the unrelated fee-right validation."
 repair = "Supply both owned token IDs in explicit owner order [5, 2], independent of global token order [2, 5]; retain every empty/null success assertion and every populated legacy-section refusal. No inferred global-order fallback is added to the validator."
 
@@ -37,13 +37,13 @@ repair = "Each repeated corruption check uses a fresh real CacheContext branch w
 
 [runtime.rule]
 producer_commit = "68964425e4"
-record = "modules/launchpad/keeper/repair_22_39_315.kvx runtime.rules and runtime.writers, decision 3162"
+record = "spec/layerx-merge/programme/records/modules/launchpad/keeper/repair_22_39_315.kvx runtime.rules and runtime.writers, decision 3162"
 rule = "InstallRoleSurfaces and fresh-chain genesis install the guarded 51-byte SurfaceRuntime at role addresses; new pools use the same guarded runtime. Only historical v6.12.0 pool replay uses v6120PoolSurfaceRuntime, the installed 41-byte identity. Genesis JSON carries surface registrations, while its EVM state carries code."
 repair = "The proof calls the real InstallRoleSurfaces producer after importing registrations and asserts that every role address holds exactly keeper.SurfaceRuntime. Genesis validation and historical migration constants remain intact."
 
 [qualification.gates]
 build_command = "go build ./modules/launchpad/... && go test -count=1 -run '^$' ./modules/launchpad/types/..."
-verify_command = "test -s modules/launchpad/types/repair_22_39_320.kvx && go test -count=1 ./modules/launchpad/types/..."
+verify_command = "test -s spec/layerx-merge/programme/records/modules/launchpad/types/repair_22_39_320.kvx && go test -count=1 ./modules/launchpad/types/..."
 wrapper_command = "cg spec done 22.39.320 -f layerx-merge --root /work/paxeer-monorepo"
 evidence = "The final response copies revision, command, exit and log from hf-done; the candidate is unchanged between its matching build and verification receipts. No gate is rerun after a pass on an unchanged candidate."
 scope = "Only the two specified Go test files and this repair record are edited; runner bookkeeping, spec updates and publication belong to the runner."
