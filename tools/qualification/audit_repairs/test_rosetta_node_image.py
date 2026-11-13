@@ -193,7 +193,7 @@ def test_rosetta_node_image_source_isolates_archived_test_keys():
         genesis = json.load(genesis_file)
     assert genesis["chain_id"] == fixture["chain_id"] == "testing"
     readme = (NODE / "README.md").read_text()
-    for statement in ("default image excludes", "test-only signing keys", "never use those keys",
+    for statement in ("default image excludes", "**test-only signing keys**", "never use those keys",
                       "does not initialize genesis", "no registered"):
         assert statement in readme
 

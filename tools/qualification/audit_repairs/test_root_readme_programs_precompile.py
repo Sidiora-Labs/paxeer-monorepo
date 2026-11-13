@@ -14,7 +14,9 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-README = (ROOT / "README.md").read_text(encoding="utf-8")
+README_PATH = ROOT / "docs/readme/NETWORK.md"
+README = README_PATH.read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
 RECORD = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_216.kvx")
 
 
@@ -83,23 +85,21 @@ def test_doc03_one_paxd_network_embeds_kernel_and_commits_finality():
 
 def test_doc03_root_rpc_range_and_chain_125_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "`https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
     assert "gateway contract does not establish method availability at public node URLs" in quickstart
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
-    allowed = {
+    assert "Use `api1` through `api14.mainnet-beta.paxeer.network`" in PUBLIC_RPC
+    assert "`node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint" in PUBLIC_RPC
+    hosts = {
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
     urls = [
-        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", README)
+        urlsplit(url) for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC)
         if "mainnet-beta.paxeer.network" in url
     ]
-    assert urls
+    assert {url.hostname for url in urls} == hosts
     for url in urls:
-        assert url.scheme == "https" and url.hostname in allowed
+        assert url.scheme == "https" and url.hostname in hosts
         assert url.path in ("", "/") and not url.query and not url.fragment
         assert url.port is None and url.username is None and url.password is None
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
@@ -108,11 +108,10 @@ def test_doc03_root_rpc_range_and_chain_125_probe():
     assert argv[0] == "curl"
     assert argv[argv.index("--max-time") + 1] == "10"
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert argv[argv.index("-sS") + 1] == "$PAXEER_RPC_URL"
+    assert "Set `PAXEER_RPC_URL` to a node root URL from the [public RPC reference]" in quickstart
     assert json.loads(argv[argv.index("-d") + 1]) == {
-        "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
+        "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": [],
     }
     assert '# Expected result: "0x7d"' in blocks[0]
     assert 'if path == "" {\n\t\treturn r.URL.Path == "/"' in source("rpc/rpcstack.go")
@@ -228,7 +227,7 @@ def test_doc03_build_and_merged_developer_path():
         assert path in README and (ROOT / path).is_file(), path
     for target in re.findall(r"\]\(([^)]+)\)", README):
         if not target.startswith(("https:", "http:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (README_PATH.parent / target.split("#", 1)[0]).exists(), target
 
 
 def test_doc03_record_maps_finding_to_proofs_and_evidence():
