@@ -374409,7 +374409,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.317]
 title = "State on the release page that earlier release packages may hold retired components"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374469,7 +374469,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.315]
 title = "Let a wallet repair record that names its suites by path stand on those suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374529,7 +374529,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.312]
 title = "Take the retired finality vector out of the ledger fixture of the evidence tool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374589,7 +374589,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.310]
 title = "Bring four qualification test modules to the present fixture and helper paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374709,7 +374709,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.304]
 title = "Say what the history data of the RPC tests is without a planning number"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374769,7 +374769,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.301]
 title = "Bring the pages of the kits and the applications to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
