@@ -1,12 +1,6 @@
 package scenarios_test
 
-// Task 22.31.323 repair record:
-// contract-gas-pickers is proved by TestRepair_323_SignedProfileSelections,
-// TestRepair_323_RandomProfileSelections and TestRepair_323_InvalidSelections.
-// Wiring request: domain 16 owns tools/loadtest/generator/utils/utils.go;
-// move the scenario-options helper there when that path is authorized.
-// Baseline verification was not run: the explicit gate order requires the whole
-// implementation before hf-build and hf-done, and prohibits a manual verify run.
+// Tests cover signed transactions produced from profile gas and fee selections.
 
 import (
 	"bytes"
@@ -29,7 +23,7 @@ import (
 	"github.com/paxeer-network/pax-load/types"
 )
 
-var repair323Scenarios = []struct {
+var gasProfileScenarios = []struct {
 	name       string
 	defaultGas uint64
 	metadata   *bind.MetaData
@@ -44,7 +38,7 @@ var repair323Scenarios = []struct {
 	{scenarios.EVMTransferNoop, 21000, nil, ""},
 }
 
-func repair323Profile(t *testing.T, name, selections string) *config.LoadConfig {
+func gasProfileProfile(t *testing.T, name, selections string) *config.LoadConfig {
 	t.Helper()
 	var cfg config.LoadConfig
 	profile := fmt.Sprintf(`{"chainId":125,"mockDeploy":true,"accounts":{"count":1},"scenarios":[{"name":%q,"weight":1%s}]}`, name, selections)
@@ -54,7 +48,7 @@ func repair323Profile(t *testing.T, name, selections string) *config.LoadConfig 
 	return &cfg
 }
 
-func repair323Decode(t *testing.T, load *types.LoadTx) *ethtypes.Transaction {
+func gasProfileDecode(t *testing.T, load *types.LoadTx) *ethtypes.Transaction {
 	t.Helper()
 	var request struct {
 		Version string   `json:"jsonrpc"`
@@ -91,15 +85,15 @@ func repair323Decode(t *testing.T, load *types.LoadTx) *ethtypes.Transaction {
 	return &tx
 }
 
-func repair323AssertFees(t *testing.T, tx *ethtypes.Transaction, gas, tip, fee uint64) {
+func gasProfileAssertFees(t *testing.T, tx *ethtypes.Transaction, gas, tip, fee uint64) {
 	t.Helper()
 	if tx.Gas() != gas || tx.GasTipCap().Cmp(new(big.Int).SetUint64(tip)) != 0 || tx.GasFeeCap().Cmp(new(big.Int).SetUint64(fee)) != 0 {
 		t.Fatalf("signed gas/tip/fee = %d/%s/%s, want %d/%d/%d", tx.Gas(), tx.GasTipCap(), tx.GasFeeCap(), gas, tip, fee)
 	}
 }
 
-func TestRepair_323_SignedProfileSelections(t *testing.T) {
-	for _, sc := range repair323Scenarios {
+func TestGasPickerSignedProfileSelections(t *testing.T) {
+	for _, sc := range gasProfileScenarios {
 		t.Run(sc.name, func(t *testing.T) {
 			for _, tc := range []struct {
 				name       string
@@ -117,7 +111,7 @@ func TestRepair_323_SignedProfileSelections(t *testing.T) {
 				{"zero_fees", `,"gasTipCapPicker":{"Name":"fixed","Gas":0},"gasFeeCapPicker":{"Name":"fixed","Gas":0}`, sc.defaultGas, 0, 0},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
-					gen, err := generator.NewConfigBasedGenerator(repair323Profile(t, sc.name, tc.selections))
+					gen, err := generator.NewConfigBasedGenerator(gasProfileProfile(t, sc.name, tc.selections))
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -126,8 +120,8 @@ func TestRepair_323_SignedProfileSelections(t *testing.T) {
 						if !ok || load == nil {
 							t.Fatal("generator did not emit a transaction")
 						}
-						tx := repair323Decode(t, load)
-						repair323AssertFees(t, tx, tc.gas, tc.tip, tc.fee)
+						tx := gasProfileDecode(t, load)
+						gasProfileAssertFees(t, tx, tc.gas, tc.tip, tc.fee)
 						if tx.Nonce() != nonce || tx.To() == nil {
 							t.Fatalf("nonce or destination lost: %d / %v", tx.Nonce(), tx.To())
 						}
@@ -181,11 +175,11 @@ func TestRepair_323_SignedProfileSelections(t *testing.T) {
 	}
 }
 
-func TestRepair_323_RandomProfileSelections(t *testing.T) {
+func TestGasPickerRandomProfileSelections(t *testing.T) {
 	const selections = `,"gasPicker":{"Name":"random","Min":300000,"Max":400000},"gasTipCapPicker":{"Name":"random","Min":3000000000,"Max":4000000000},"gasFeeCapPicker":{"Name":"random","Min":30000000000,"Max":40000000000}`
-	for _, sc := range repair323Scenarios {
+	for _, sc := range gasProfileScenarios {
 		t.Run(sc.name, func(t *testing.T) {
-			gen, err := generator.NewConfigBasedGenerator(repair323Profile(t, sc.name, selections))
+			gen, err := generator.NewConfigBasedGenerator(gasProfileProfile(t, sc.name, selections))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -194,7 +188,7 @@ func TestRepair_323_RandomProfileSelections(t *testing.T) {
 				if !ok || load == nil {
 					t.Fatal("generator did not emit a transaction")
 				}
-				tx := repair323Decode(t, load)
+				tx := gasProfileDecode(t, load)
 				if tx.Gas() < 300000 || tx.Gas() > 400000 || tx.GasTipCap().Cmp(big.NewInt(3000000000)) < 0 || tx.GasTipCap().Cmp(big.NewInt(4000000000)) > 0 || tx.GasFeeCap().Cmp(big.NewInt(30000000000)) < 0 || tx.GasFeeCap().Cmp(big.NewInt(40000000000)) > 0 {
 					t.Fatalf("signed transaction does not preserve random picker bounds: %d / %s / %s", tx.Gas(), tx.GasTipCap(), tx.GasFeeCap())
 				}
@@ -203,8 +197,8 @@ func TestRepair_323_RandomProfileSelections(t *testing.T) {
 	}
 }
 
-func TestRepair_323_InvalidSelections(t *testing.T) {
-	for _, sc := range repair323Scenarios {
+func TestGasPickerInvalidSelections(t *testing.T) {
+	for _, sc := range gasProfileScenarios {
 		t.Run(sc.name, func(t *testing.T) {
 			for _, tc := range []struct {
 				name       string
@@ -221,7 +215,7 @@ func TestRepair_323_InvalidSelections(t *testing.T) {
 				{"fee_below_default_tip", `,"gasFeeCapPicker":{"Name":"fixed","Gas":1}`, "gasFeeCapPicker"},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
-					cfg := repair323Profile(t, sc.name, tc.selections)
+					cfg := gasProfileProfile(t, sc.name, tc.selections)
 					consumer := scenarios.CreateScenario(cfg.Scenarios[0])
 					if gen, err := generator.NewConfigBasedGenerator(cfg); gen != nil || err == nil || !strings.Contains(err.Error(), tc.field) {
 						t.Fatalf("invalid construction produced generator %v, error %v; want %s error", gen, err, tc.field)

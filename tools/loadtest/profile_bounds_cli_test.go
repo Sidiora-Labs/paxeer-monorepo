@@ -24,11 +24,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repair321SettingsMarker = "repair_321_effective_settings="
+const profileBoundsSettingsMarker = "profile_bounds_effective_settings="
 
 // Run the real main/Cobra handler in an isolated process. The wrapper only
 // observes the settings consumed by that handler, preserving its returned error.
-func repair321CLIChild(t *testing.T) bool {
+func profileBoundsCLIChild(t *testing.T) bool {
 	t.Helper()
 	separator := -1
 	for i, arg := range os.Args {
@@ -46,7 +46,7 @@ func repair321CLIChild(t *testing.T) bool {
 		err := handler(cmd, args)
 		encoded, encodeErr := json.Marshal(config.ResolveSettings())
 		require.NoError(t, encodeErr)
-		fmt.Printf("%s%s\n", repair321SettingsMarker, encoded)
+		fmt.Printf("%s%s\n", profileBoundsSettingsMarker, encoded)
 		return err
 	}
 	main()
@@ -54,7 +54,7 @@ func repair321CLIChild(t *testing.T) bool {
 	return true
 }
 
-func repair321Profile() config.LoadConfig {
+func profileBoundsProfile() config.LoadConfig {
 	return config.LoadConfig{
 		ChainID:   125,
 		Endpoints: []string{"http://127.0.0.1:1"},
@@ -65,7 +65,7 @@ func repair321Profile() config.LoadConfig {
 	}
 }
 
-type repair321Result struct {
+type profileBoundsResult struct {
 	stats    *stats.FinalStats
 	settings config.Settings
 	output   string
@@ -74,7 +74,7 @@ type repair321Result struct {
 
 // The producer is LoadConfig's real JSON codec; the consumer is the real CLI,
 // generator, dry-run sender, collector, JSON reporter and main's exit handling.
-func repair321RunCLI(t *testing.T, profile config.LoadConfig, args ...string) repair321Result {
+func profileBoundsRunCLI(t *testing.T, profile config.LoadConfig, args ...string) profileBoundsResult {
 	t.Helper()
 	dir := t.TempDir()
 	profilePath := filepath.Join(dir, "profile.json")
@@ -148,17 +148,17 @@ func repair321RunCLI(t *testing.T, profile config.LoadConfig, args ...string) re
 	var effective config.Settings
 	settingsFound := false
 	for _, line := range strings.Split(output.String(), "\n") {
-		if strings.HasPrefix(line, repair321SettingsMarker) {
-			require.NoError(t, json.Unmarshal([]byte(strings.TrimPrefix(line, repair321SettingsMarker)), &effective))
+		if strings.HasPrefix(line, profileBoundsSettingsMarker) {
+			require.NoError(t, json.Unmarshal([]byte(strings.TrimPrefix(line, profileBoundsSettingsMarker)), &effective))
 			settingsFound = true
 		}
 	}
 	require.True(t, settingsFound, "real CLI did not finish its handler: %s", output.String())
-	return repair321Result{stats: &finalStats, settings: effective, output: output.String(), exit: cmd.ProcessState.ExitCode()}
+	return profileBoundsResult{stats: &finalStats, settings: effective, output: output.String(), exit: cmd.ProcessState.ExitCode()}
 }
 
-func TestRepair_321_ProfileBounds(t *testing.T) {
-	if repair321CLIChild(t) {
+func TestCLIProfileBounds(t *testing.T) {
+	if profileBoundsCLIChild(t) {
 		return
 	}
 	for _, tc := range []struct {
@@ -173,10 +173,10 @@ func TestRepair_321_ProfileBounds(t *testing.T) {
 		{name: "all bounds pass", bounds: config.BoundsConfig{MinAverageTPS: 0.000001, MinTotalTxs: 1, MaxP99LatencyMs: 60000}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			profile := repair321Profile()
+			profile := profileBoundsProfile()
 			profile.Settings = &config.Settings{TPS: 20}
 			profile.Bounds = &tc.bounds
-			got := repair321RunCLI(t, profile)
+			got := profileBoundsRunCLI(t, profile)
 			require.Equal(t, tc.bounds.MinAverageTPS, got.settings.MinTPS)
 			require.Equal(t, tc.bounds.MinTotalTxs, got.settings.MinTotalTxs)
 			require.Equal(t, config.Duration(time.Duration(tc.bounds.MaxP99LatencyMs)*time.Millisecond), got.settings.MaxP99Latency)
@@ -197,8 +197,8 @@ func TestRepair_321_ProfileBounds(t *testing.T) {
 	}
 }
 
-func TestRepair_321_Precedence(t *testing.T) {
-	if repair321CLIChild(t) {
+func TestCLIProfileBoundsPrecedence(t *testing.T) {
+	if profileBoundsCLIChild(t) {
 		return
 	}
 	passing := config.Settings{MinTPS: 0.000001, MaxP99Latency: config.Duration(time.Minute), MinTotalTxs: 1}
@@ -218,10 +218,10 @@ func TestRepair_321_Precedence(t *testing.T) {
 			want: config.Settings{MaxP99Latency: config.Duration(-time.Millisecond), MinTotalTxs: math.MaxUint64}, wantFailure: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			profile := repair321Profile()
+			profile := profileBoundsProfile()
 			profile.Settings = &tc.settings
 			profile.Bounds = &config.BoundsConfig{MinAverageTPS: 1e12, MaxP99LatencyMs: -1, MinTotalTxs: math.MaxUint64}
-			got := repair321RunCLI(t, profile, tc.args...)
+			got := profileBoundsRunCLI(t, profile, tc.args...)
 			require.Equal(t, tc.want.MinTPS, got.settings.MinTPS)
 			require.Equal(t, tc.want.MaxP99Latency, got.settings.MaxP99Latency)
 			require.Equal(t, tc.want.MinTotalTxs, got.settings.MinTotalTxs)
@@ -238,8 +238,8 @@ func TestRepair_321_Precedence(t *testing.T) {
 	}
 }
 
-func TestRepair_321_OptionalSettings(t *testing.T) {
-	if repair321CLIChild(t) {
+func TestCLIOptionalSettings(t *testing.T) {
+	if profileBoundsCLIChild(t) {
 		return
 	}
 	for _, tc := range []struct {
@@ -252,9 +252,9 @@ func TestRepair_321_OptionalSettings(t *testing.T) {
 		{name: "omitted settings with profile bound", bounds: &config.BoundsConfig{MinTotalTxs: math.MaxUint64}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			profile := repair321Profile()
+			profile := profileBoundsProfile()
 			profile.Settings, profile.Bounds = tc.settings, tc.bounds
-			got := repair321RunCLI(t, profile)
+			got := profileBoundsRunCLI(t, profile)
 			defaults := config.DefaultSettings()
 			require.Equal(t, defaults.Workers, got.settings.Workers)
 			require.Equal(t, defaults.BufferSize, got.settings.BufferSize)

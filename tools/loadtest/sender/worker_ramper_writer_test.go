@@ -33,7 +33,7 @@ import (
 
 // Committed loopback peer: the production RPC codec transports signed bytes,
 // canonical receipts and full Ethereum headers, with explicit node outcomes.
-type RepairM821Node struct {
+type WorkerEvidenceNode struct {
 	mu          sync.Mutex
 	submitted   []common.Hash
 	receipts    map[common.Hash]*ethtypes.Receipt
@@ -44,7 +44,7 @@ type RepairM821Node struct {
 	feeds       chan chan *ethtypes.Header
 }
 
-func (n *RepairM821Node) SendRawTransaction(raw hexutil.Bytes) (common.Hash, error) {
+func (n *WorkerEvidenceNode) SendRawTransaction(raw hexutil.Bytes) (common.Hash, error) {
 	var tx ethtypes.Transaction
 	if err := tx.UnmarshalBinary(raw); err != nil {
 		return common.Hash{}, err
@@ -61,7 +61,7 @@ func (n *RepairM821Node) SendRawTransaction(raw hexutil.Bytes) (common.Hash, err
 	return tx.Hash(), nil
 }
 
-func (n *RepairM821Node) GetTransactionReceipt(ctx context.Context, hash common.Hash) (*ethtypes.Receipt, error) {
+func (n *WorkerEvidenceNode) GetTransactionReceipt(ctx context.Context, hash common.Hash) (*ethtypes.Receipt, error) {
 	n.mu.Lock()
 	n.active++
 	n.maxActive = max(n.maxActive, n.active)
@@ -78,7 +78,7 @@ func (n *RepairM821Node) GetTransactionReceipt(ctx context.Context, hash common.
 	return receipt, nil
 }
 
-func (n *RepairM821Node) NewHeads(ctx context.Context) (*gethrpc.Subscription, error) {
+func (n *WorkerEvidenceNode) NewHeads(ctx context.Context) (*gethrpc.Subscription, error) {
 	notifier, ok := gethrpc.NotifierFromContext(ctx)
 	if !ok {
 		return nil, errors.New("notifications unavailable")
@@ -105,9 +105,9 @@ func (n *RepairM821Node) NewHeads(ctx context.Context) (*gethrpc.Subscription, e
 	return sub, nil
 }
 
-func repairM821Node(t *testing.T) (*RepairM821Node, *httptest.Server, *httptest.Server) {
+func workerEvidenceNode(t *testing.T) (*WorkerEvidenceNode, *httptest.Server, *httptest.Server) {
 	t.Helper()
-	node := &RepairM821Node{receipts: make(map[common.Hash]*ethtypes.Receipt), feeds: make(chan chan *ethtypes.Header)}
+	node := &WorkerEvidenceNode{receipts: make(map[common.Hash]*ethtypes.Receipt), feeds: make(chan chan *ethtypes.Header)}
 	codec := gethrpc.NewServer()
 	require.NoError(t, codec.RegisterName("eth", node))
 	httpServer := httptest.NewServer(codec)
@@ -116,12 +116,12 @@ func repairM821Node(t *testing.T) (*RepairM821Node, *httptest.Server, *httptest.
 	return node, httpServer, wsServer
 }
 
-func repairM821Receipt(tx *types.LoadTx, status uint64) *ethtypes.Receipt {
+func workerEvidenceReceipt(tx *types.LoadTx, status uint64) *ethtypes.Receipt {
 	return &ethtypes.Receipt{Type: tx.EthTx.Type(), Status: status, CumulativeGasUsed: 21000, GasUsed: 21000,
 		TxHash: tx.EthTx.Hash(), BlockHash: common.HexToHash("0x1234"), BlockNumber: big.NewInt(9), Logs: []*ethtypes.Log{}}
 }
 
-func repairM821RunWorker(t *testing.T, w *Worker) (context.CancelFunc, <-chan error) {
+func workerEvidenceRunWorker(t *testing.T, w *Worker) (context.CancelFunc, <-chan error) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -137,7 +137,7 @@ func repairM821RunWorker(t *testing.T, w *Worker) (context.CancelFunc, <-chan er
 	return cancel, done
 }
 
-func TestRepairM_821_ParticipantRestartMetrics(t *testing.T) {
+func TestSenderParticipantRestartMetrics(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	otel.SetMeterProvider(provider)
@@ -159,8 +159,8 @@ func TestRepairM_821_ParticipantRestartMetrics(t *testing.T) {
 	first.SetDryRun(true)
 	// Exhaust the initial burst so the queue remains observable.
 	require.True(t, first.limiter.Allow())
-	require.NoError(t, first.Send(t.Context(), repair324Tx(t, 0)))
-	cancel, done := repairM821RunWorker(t, first)
+	require.NoError(t, first.Send(t.Context(), writerRPCTx(t, 0)))
+	cancel, done := workerEvidenceRunWorker(t, first)
 	require.Eventually(t, func() bool { return len(collect()) == 1 }, time.Second, time.Millisecond)
 	points := collect()
 	require.Equal(t, int64(1), points[0].Value)
@@ -170,9 +170,9 @@ func TestRepairM_821_ParticipantRestartMetrics(t *testing.T) {
 	second := NewWorker(1, "125", "http://second.invalid", 4, 1, rate.NewLimiter(0.01, 1))
 	second.SetDryRun(true)
 	require.True(t, second.limiter.Allow())
-	require.NoError(t, second.Send(t.Context(), repair324Tx(t, 1)))
-	require.NoError(t, second.Send(t.Context(), repair324Tx(t, 2)))
-	cancel2, done2 := repairM821RunWorker(t, second)
+	require.NoError(t, second.Send(t.Context(), writerRPCTx(t, 1)))
+	require.NoError(t, second.Send(t.Context(), writerRPCTx(t, 2)))
+	cancel2, done2 := workerEvidenceRunWorker(t, second)
 	require.Eventually(t, func() bool { return len(collect()) == 1 }, time.Second, time.Millisecond)
 	points = collect()
 	require.Equal(t, int64(2), points[0].Value)
@@ -188,17 +188,17 @@ func TestRepairM_821_ParticipantRestartMetrics(t *testing.T) {
 	require.Empty(t, collect())
 }
 
-func TestRepairM_821_SubmissionAndReceipts(t *testing.T) {
-	node, server, _ := repairM821Node(t)
-	txs := []*types.LoadTx{repair324Tx(t, 0), repair324Tx(t, 1), repair324Tx(t, 2)}
-	node.receipts[txs[0].EthTx.Hash()] = repairM821Receipt(txs[0], 1)
-	node.receipts[txs[1].EthTx.Hash()] = repairM821Receipt(txs[1], 0)
+func TestSenderSubmissionAndReceipts(t *testing.T) {
+	node, server, _ := workerEvidenceNode(t)
+	txs := []*types.LoadTx{writerRPCTx(t, 0), writerRPCTx(t, 1), writerRPCTx(t, 2)}
+	node.receipts[txs[0].EthTx.Hash()] = workerEvidenceReceipt(txs[0], 1)
+	node.receipts[txs[1].EthTx.Hash()] = workerEvidenceReceipt(txs[1], 0)
 	w := NewWorker(1, "125", server.URL, 2, 2, nil)
 	w.SetTrackReceipts(true)
 	w.receiptTimeout = 350 * time.Millisecond
 	collector := stats.NewCollector()
 	w.SetStatsCollector(collector, nil)
-	cancel, done := repairM821RunWorker(t, w)
+	cancel, done := workerEvidenceRunWorker(t, w)
 	for _, tx := range txs {
 		require.NoError(t, w.Send(t.Context(), tx))
 	}
@@ -212,9 +212,9 @@ func TestRepairM_821_SubmissionAndReceipts(t *testing.T) {
 	node.mu.Unlock()
 }
 
-func TestRepairM_821_RPCRefusal(t *testing.T) {
-	node, server, _ := repairM821Node(t)
-	tx := repair324Tx(t, 0)
+func TestSenderRPCRefusal(t *testing.T) {
+	node, server, _ := workerEvidenceNode(t)
+	tx := writerRPCTx(t, 0)
 	w := NewWorker(1, "125", server.URL, 1, 1, nil)
 	w.SetTrackReceipts(true)
 	node.reject = true
@@ -231,18 +231,18 @@ func TestRepairM_821_RPCRefusal(t *testing.T) {
 	}
 }
 
-func TestRepairM_821_TrackingSaturationAndShutdown(t *testing.T) {
-	node, server, _ := repairM821Node(t)
+func TestSenderTrackingSaturationAndShutdown(t *testing.T) {
+	node, server, _ := workerEvidenceNode(t)
 	gate := make(chan struct{})
 	node.receiptGate = gate
 	w := NewWorker(1, "125", server.URL, 1, 2, nil)
 	w.SetTrackReceipts(true)
-	cancel, done := repairM821RunWorker(t, w)
+	cancel, done := workerEvidenceRunWorker(t, w)
 	txs := make([]*types.LoadTx, 8)
 	for i := range txs {
-		txs[i] = repair324Tx(t, uint64(i))
+		txs[i] = writerRPCTx(t, uint64(i))
 		node.mu.Lock()
-		node.receipts[txs[i].EthTx.Hash()] = repairM821Receipt(txs[i], 1)
+		node.receipts[txs[i].EthTx.Hash()] = workerEvidenceReceipt(txs[i], 1)
 		node.mu.Unlock()
 	}
 	enqueued := make(chan error, 1)
@@ -271,7 +271,7 @@ func TestRepairM_821_TrackingSaturationAndShutdown(t *testing.T) {
 	}
 	require.Eventually(t, func() bool { return w.GetReceiptStats().Succeeded == 8 }, 2*time.Second, time.Millisecond)
 	// Keep a final accepted transaction unresolved and cancel during receipt work.
-	missing := repair324Tx(t, 99)
+	missing := writerRPCTx(t, 99)
 	require.NoError(t, w.Send(t.Context(), missing))
 	require.Eventually(t, func() bool { return w.GetReceiptStats().Accepted == 9 }, time.Second, time.Millisecond)
 	cancel()
@@ -283,12 +283,12 @@ func TestRepairM_821_TrackingSaturationAndShutdown(t *testing.T) {
 	node.mu.Unlock()
 }
 
-func TestRepairM_821_LowRateAndRecovery(t *testing.T) {
-	node, server, _ := repairM821Node(t)
+func TestSenderLowRateAndRecovery(t *testing.T) {
+	node, server, _ := workerEvidenceNode(t)
 	limiter := rate.NewLimiter(2, 1)
 	w := NewWorker(1, "125", server.URL, 4, 1, limiter)
-	cancel, done := repairM821RunWorker(t, w)
-	first, second := repair324Tx(t, 0), repair324Tx(t, 1)
+	cancel, done := workerEvidenceRunWorker(t, w)
+	first, second := writerRPCTx(t, 0), writerRPCTx(t, 1)
 	var cpuStart syscall.Rusage
 	require.NoError(t, syscall.Getrusage(syscall.RUSAGE_SELF, &cpuStart))
 	start := time.Now()
@@ -308,7 +308,7 @@ func TestRepairM_821_LowRateAndRecovery(t *testing.T) {
 	// The real recovery curve sets a 1 TPS interval; an exhausted limiter must
 	// leave pending work queued and cancellation must wake its reservation.
 	limiter.SetLimit(rate.Limit(NewRampCurveStep(20, 10, time.Second, time.Second).GetTPS(1500 * time.Millisecond)))
-	require.NoError(t, w.Send(t.Context(), repair324Tx(t, 2)))
+	require.NoError(t, w.Send(t.Context(), writerRPCTx(t, 2)))
 	time.Sleep(40 * time.Millisecond)
 	cancelStart := time.Now()
 	cancel()
@@ -320,7 +320,7 @@ func TestRepairM_821_LowRateAndRecovery(t *testing.T) {
 	require.Len(t, w.txChan, 1)
 }
 
-func repairM821StartCollector(t *testing.T, node *RepairM821Node, ws *httptest.Server, collector *stats.BlockCollector) (chan *ethtypes.Header, func()) {
+func workerEvidenceStartCollector(t *testing.T, node *WorkerEvidenceNode, ws *httptest.Server, collector *stats.BlockCollector) (chan *ethtypes.Header, func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
@@ -349,7 +349,7 @@ func repairM821StartCollector(t *testing.T, node *RepairM821Node, ws *httptest.S
 	return feed, stop
 }
 
-func repairM821Header(t *testing.T, feed chan *ethtypes.Header, collector *stats.BlockCollector, height uint64) {
+func workerEvidenceHeader(t *testing.T, feed chan *ethtypes.Header, collector *stats.BlockCollector, height uint64) {
 	t.Helper()
 	header := &ethtypes.Header{Number: new(big.Int).SetUint64(height), Difficulty: big.NewInt(0), Time: uint64(time.Now().Unix()), GasLimit: 30000000, GasUsed: 21000, BaseFee: big.NewInt(1), Extra: []byte{}}
 	select {
@@ -360,12 +360,12 @@ func repairM821Header(t *testing.T, feed chan *ethtypes.Header, collector *stats
 	require.Eventually(t, func() bool { return collector.GetBlockStats().MaxBlockNumber == height }, time.Second, time.Millisecond)
 }
 
-func TestRepairM_821_RamperLiveProgressSLOAndRestart(t *testing.T) {
-	node, _, ws := repairM821Node(t)
+func TestSenderRamperLiveProgressSLOAndRestart(t *testing.T) {
+	node, _, ws := workerEvidenceNode(t)
 	for run := range 2 {
 		collector := stats.NewBlockCollector("125")
 		require.Zero(t, collector.GetBlockStats().SampleCount)
-		feed, stopCollector := repairM821StartCollector(t, node, ws, collector)
+		feed, stopCollector := workerEvidenceStartCollector(t, node, ws, collector)
 		limiter := rate.NewLimiter(100, 1)
 		ramper := NewRamper(NewRampCurveStep(50, 25, 10*time.Second, time.Second), collector, limiter)
 		ramper.noProgressTimeout = 3 * time.Second
@@ -375,16 +375,16 @@ func TestRepairM_821_RamperLiveProgressSLOAndRestart(t *testing.T) {
 		// No distribution, then one interval: neither may advance the ramp.
 		time.Sleep(150 * time.Millisecond)
 		require.Equal(t, rate.Limit(1), limiter.Limit())
-		repairM821Header(t, feed, collector, uint64(run*10+1))
+		workerEvidenceHeader(t, feed, collector, uint64(run*10+1))
 		time.Sleep(120 * time.Millisecond)
-		repairM821Header(t, feed, collector, uint64(run*10+2))
+		workerEvidenceHeader(t, feed, collector, uint64(run*10+2))
 		time.Sleep(120 * time.Millisecond)
 		require.Equal(t, rate.Limit(1), limiter.Limit())
-		repairM821Header(t, feed, collector, uint64(run*10+3))
+		workerEvidenceHeader(t, feed, collector, uint64(run*10+3))
 		require.Eventually(t, func() bool { return limiter.Limit() == 50 }, time.Second, time.Millisecond)
 		require.Equal(t, 2, collector.GetWindowBlockStats().SampleCount)
 		time.Sleep(1100 * time.Millisecond)
-		repairM821Header(t, feed, collector, uint64(run*10+4))
+		workerEvidenceHeader(t, feed, collector, uint64(run*10+4))
 		select {
 		case err := <-done:
 			require.ErrorIs(t, err, ErrRampTestFailedSLO)
@@ -397,12 +397,12 @@ func TestRepairM_821_RamperLiveProgressSLOAndRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_821_RamperStalledEvidence(t *testing.T) {
+func TestSenderRamperStalledEvidence(t *testing.T) {
 	for _, afterProgress := range []bool{false, true} {
 		t.Run(fmt.Sprint(afterProgress), func(t *testing.T) {
-			node, _, ws := repairM821Node(t)
+			node, _, ws := workerEvidenceNode(t)
 			collector := stats.NewBlockCollector("125")
-			feed, _ := repairM821StartCollector(t, node, ws, collector)
+			feed, _ := workerEvidenceStartCollector(t, node, ws, collector)
 			limiter := rate.NewLimiter(100, 1)
 			ramper := NewRamper(NewRampCurveStep(50, 25, time.Second, time.Second), collector, limiter)
 			ramper.noProgressTimeout = 600 * time.Millisecond
@@ -414,7 +414,7 @@ func TestRepairM_821_RamperStalledEvidence(t *testing.T) {
 			require.Equal(t, rate.Limit(1), limiter.Limit())
 			if afterProgress {
 				for height := uint64(1); height <= 3; height++ {
-					repairM821Header(t, feed, collector, height)
+					workerEvidenceHeader(t, feed, collector, height)
 					time.Sleep(110 * time.Millisecond)
 				}
 				require.Eventually(t, func() bool { return limiter.Limit() == 50 }, 200*time.Millisecond, time.Millisecond)
@@ -430,39 +430,39 @@ func TestRepairM_821_RamperStalledEvidence(t *testing.T) {
 	}
 }
 
-func TestRepairM_821_WriterBlockLimit(t *testing.T) {
+func TestSenderWriterBlockLimit(t *testing.T) {
 	for _, blocks := range []uint64{0, 1, 3} {
 		t.Run(fmt.Sprint(blocks), func(t *testing.T) {
 			dir := t.TempDir()
 			writer := NewTxsWriter(21000, dir, 4, blocks)
 			for i := uint64(0); i < blocks; i++ {
-				require.NoError(t, writer.Send(t.Context(), repair324Tx(t, i)))
+				require.NoError(t, writer.Send(t.Context(), writerRPCTx(t, i)))
 			}
-			require.ErrorIs(t, writer.Send(t.Context(), repair324Tx(t, 99)), ErrWriterComplete)
+			require.ErrorIs(t, writer.Send(t.Context(), writerRPCTx(t, 99)), ErrWriterComplete)
 			require.NoError(t, writer.Flush())
 			require.NoError(t, writer.Flush())
 			files, err := filepath.Glob(filepath.Join(dir, "*_txs.json"))
 			require.NoError(t, err)
 			require.Len(t, files, int(blocks))
 			for i := uint64(0); i < blocks; i++ {
-				repair324ReadBatch(t, writer.batchPath(4+i), repair324Tx(t, i))
+				writerRPCReadBatch(t, writer.batchPath(4+i), writerRPCTx(t, i))
 			}
 			reopened := NewTxsWriter(21000, dir, 4, blocks)
-			require.ErrorIs(t, reopened.Send(t.Context(), repair324Tx(t, 100)), ErrWriterComplete)
+			require.ErrorIs(t, reopened.Send(t.Context(), writerRPCTx(t, 100)), ErrWriterComplete)
 			require.Empty(t, reopened.txBuffer)
 			require.Equal(t, blocks, reopened.blocksGenerated)
 		})
 	}
 	dir := t.TempDir()
 	writer := NewTxsWriter(20000, dir, 1, 1)
-	require.ErrorContains(t, writer.Send(t.Context(), repair324Tx(t, 0)), "exceeds block gas limit")
+	require.ErrorContains(t, writer.Send(t.Context(), writerRPCTx(t, 0)), "exceeds block gas limit")
 	require.Empty(t, writer.txBuffer)
 	entries, err := os.ReadDir(dir)
 	require.NoError(t, err)
 	require.Empty(t, entries)
 }
 
-func TestRepairM_821_WriterDispatcherTail(t *testing.T) {
+func TestSenderWriterDispatcherTail(t *testing.T) {
 	cfg := &config.LoadConfig{ChainID: 125}
 	accounts, err := types.NewAccountPool(&types.AccountConfig{Accounts: types.GenerateAccounts(2)})
 	require.NoError(t, err)
@@ -492,7 +492,7 @@ func TestRepairM_821_WriterDispatcherTail(t *testing.T) {
 	}
 }
 
-func TestRepairM_821_DispatcherCompletionAndWriteFailure(t *testing.T) {
+func TestSenderDispatcherCompletionAndWriteFailure(t *testing.T) {
 	cfg := &config.LoadConfig{ChainID: 125}
 	accounts, err := types.NewAccountPool(&types.AccountConfig{Accounts: types.GenerateAccounts(2)})
 	require.NoError(t, err)
@@ -514,32 +514,32 @@ func TestRepairM_821_DispatcherCompletionAndWriteFailure(t *testing.T) {
 	require.Zero(t, broken.GetStats().TotalSent)
 }
 
-func TestRepairM_821_WriterDurability(t *testing.T) {
+func TestSenderWriterDurability(t *testing.T) {
 	// Preserve the prerequisite's real-filesystem failure and restart assertions.
-	TestRepair_324_WriterErrorDataLoss(t)
-	TestRepair_324_WriterRestartRecovery(t)
-	TestRepair_324_WriterDuplicateHeight(t)
-	TestRepair_324_WriterRejectsCorruptRecovery(t)
+	TestWriterTransportWriterErrorDataLoss(t)
+	TestWriterTransportWriterRestartRecovery(t)
+	TestWriterTransportWriterDuplicateHeight(t)
+	TestWriterTransportWriterRejectsCorruptRecovery(t)
 	dir := t.TempDir()
 	writer := NewTxsWriter(42000, dir, 1, 1)
-	tx := repair324Tx(t, 0)
+	tx := writerRPCTx(t, 0)
 	require.NoError(t, writer.Send(t.Context(), tx))
-	require.NoError(t, writer.stageBatch(repair324Batch(t, tx)))
+	require.NoError(t, writer.stageBatch(writerRPCBatch(t, tx)))
 	require.NoFileExists(t, writer.batchPath(1))
 	pendingInfo, err := os.Stat(writer.pendingPath(1))
 	require.NoError(t, err)
 	pending, err := os.ReadFile(writer.pendingPath(1))
 	require.NoError(t, err)
-	require.Equal(t, repair324Batch(t, tx), pending)
+	require.Equal(t, writerRPCBatch(t, tx), pending)
 	reopened := NewTxsWriter(42000, dir, 1, 1)
 	require.NoError(t, reopened.resume())
 	require.NoFileExists(t, reopened.pendingPath(1))
 	publishedInfo, err := os.Stat(reopened.batchPath(1))
 	require.NoError(t, err)
 	require.True(t, os.SameFile(pendingInfo, publishedInfo), "publication links the complete synced inode atomically")
-	repair324ReadBatch(t, reopened.batchPath(1), tx)
+	writerRPCReadBatch(t, reopened.batchPath(1), tx)
 	files, err := filepath.Glob(filepath.Join(dir, "*_txs.json"))
 	require.NoError(t, err)
 	require.Len(t, files, 1)
-	require.ErrorIs(t, reopened.Send(t.Context(), repair324Tx(t, 1)), ErrWriterComplete)
+	require.ErrorIs(t, reopened.Send(t.Context(), writerRPCTx(t, 1)), ErrWriterComplete)
 }

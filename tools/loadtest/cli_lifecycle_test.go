@@ -41,15 +41,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair817Read(t *testing.T, path string) []byte {
+func cliLifecycleRead(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 	return data
 }
 
-func TestRepairM_817_LoadtestToolchainImage(t *testing.T) {
-	source := string(repair817Read(t, "Dockerfile"))
+func TestLoadtestLoadtestToolchainImage(t *testing.T) {
+	source := string(cliLifecycleRead(t, "Dockerfile"))
 	stages := regexp.MustCompile(`(?m)^FROM (\S+)`).FindAllStringSubmatch(source, -1)
 	require.Len(t, stages, 2)
 	require.Equal(t, "docker.io/golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084", stages[0][1])
@@ -57,13 +57,13 @@ func TestRepairM_817_LoadtestToolchainImage(t *testing.T) {
 	for _, fragment := range []string{"GOTOOLCHAIN=local", "CGO_ENABLED=0", `test "$(go env GOVERSION)" = "go1.25.8"`, "-mod=readonly -trimpath -buildvcs=false", "-buildid="} {
 		require.Contains(t, source, fragment)
 	}
-	require.Contains(t, string(repair817Read(t, "go.mod")), "\ngo 1.25.0\n")
+	require.Contains(t, string(cliLifecycleRead(t, "go.mod")), "\ngo 1.25.0\n")
 	require.Less(t, strings.Index(source, "go env GOVERSION"), strings.Index(source, "go mod download"))
 }
 
-func TestRepairM_817_BindingToolProvenance(t *testing.T) {
-	source := string(repair817Read(t, "Makefile"))
-	module := string(repair817Read(t, "go.mod"))
+func TestLoadtestBindingToolProvenance(t *testing.T) {
+	source := string(cliLifecycleRead(t, "Makefile"))
+	module := string(cliLifecycleRead(t, "go.mod"))
 	version := regexp.MustCompile(`github.com/ethereum/go-ethereum (v\S+)`).FindStringSubmatch(module)
 	require.Len(t, version, 2)
 	require.Contains(t, source, "ABIGEN_VERSION := "+version[1])
@@ -84,7 +84,7 @@ func TestRepairM_817_BindingToolProvenance(t *testing.T) {
 
 // This committed transcript uses a real loopback HTTP transport. It validates
 // signatures and chain identity from production-generated signed transactions.
-type repair817Peer struct {
+type cliLifecyclePeer struct {
 	mu       sync.Mutex
 	requests int
 	invalid  []string
@@ -94,9 +94,9 @@ type repair817Peer struct {
 	server   *httptest.Server
 }
 
-func repair817Endpoint(t *testing.T, reject bool) *repair817Peer {
+func cliLifecycleEndpoint(t *testing.T, reject bool) *cliLifecyclePeer {
 	t.Helper()
-	p := &repair817Peer{reject: reject, chain: "0x7d"}
+	p := &cliLifecyclePeer{reject: reject, chain: "0x7d"}
 	p.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Version string            `json:"jsonrpc"`
@@ -164,11 +164,11 @@ func repair817Endpoint(t *testing.T, reject bool) *repair817Peer {
 	return p
 }
 
-func repair817Config(endpoint string) config.LoadConfig {
+func cliLifecycleConfig(endpoint string) config.LoadConfig {
 	return config.LoadConfig{ChainID: 125, Endpoints: []string{endpoint}, Accounts: &config.AccountConfig{Accounts: 2}, Scenarios: []config.Scenario{{Name: "EVMTransfer", Weight: 1}}, Settings: &config.Settings{Workers: 2, BufferSize: 8, StatsInterval: config.Duration(20 * time.Millisecond), TPS: 200}}
 }
 
-func repair817WriteConfig(t *testing.T, cfg config.LoadConfig) string {
+func cliLifecycleWriteConfig(t *testing.T, cfg config.LoadConfig) string {
 	t.Helper()
 	data, err := json.Marshal(cfg)
 	require.NoError(t, err)
@@ -177,19 +177,19 @@ func repair817WriteConfig(t *testing.T, cfg config.LoadConfig) string {
 	return path
 }
 
-type repair817Output struct {
+type cliLifecycleOutput struct {
 	sync.Mutex
 	bytes.Buffer
 }
 
-func (w *repair817Output) Write(p []byte) (int, error) {
+func (w *cliLifecycleOutput) Write(p []byte) (int, error) {
 	w.Lock()
 	defer w.Unlock()
 	return w.Buffer.Write(p)
 }
-func (w *repair817Output) String() string { w.Lock(); defer w.Unlock(); return w.Buffer.String() }
+func (w *cliLifecycleOutput) String() string { w.Lock(); defer w.Unlock(); return w.Buffer.String() }
 
-type repair817Result struct {
+type cliLifecycleResult struct {
 	output string
 	exit   int
 	report *stats.FinalStats
@@ -197,9 +197,9 @@ type repair817Result struct {
 
 // Execute the already-running test executable's actual main entrypoint. This
 // needs neither a subprocess compiler nor an external CLI binary or environment.
-func repair817Child() bool {
+func cliLifecycleChild() bool {
 	for i, arg := range os.Args {
-		if arg == "--repair-m817-cli" {
+		if arg == "--cli-lifecycle-child" {
 			rootCmd.SetArgs(os.Args[i+1:])
 			main()
 			return true
@@ -208,18 +208,18 @@ func repair817Child() bool {
 	return false
 }
 
-func repair817Process(t *testing.T, cfg config.LoadConfig, signal syscall.Signal, beforeStop func(), flags ...string) repair817Result {
+func cliLifecycleProcess(t *testing.T, cfg config.LoadConfig, signal syscall.Signal, beforeStop func(), flags ...string) cliLifecycleResult {
 	t.Helper()
-	profile := repair817WriteConfig(t, cfg)
+	profile := cliLifecycleWriteConfig(t, cfg)
 	report := filepath.Join(t.TempDir(), "report.json")
-	args := []string{"-test.run=^TestRepairM_817_SignalExitCancellation$", "--", "--repair-m817-cli", "--config", profile, "--metricsListenAddr=127.0.0.1:0", "--report-path", report}
+	args := []string{"-test.run=^TestLoadtestSignalExitCancellation$", "--", "--cli-lifecycle-child", "--config", profile, "--metricsListenAddr=127.0.0.1:0", "--report-path", report}
 	args = append(args, flags...)
 	executable, err := os.Executable()
 	require.NoError(t, err)
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, executable, args...)
-	var output repair817Output
+	var output cliLifecycleOutput
 	cmd.Stdout, cmd.Stderr = &output, &output
 	require.NoError(t, cmd.Start())
 	done := make(chan error, 1)
@@ -235,18 +235,18 @@ func repair817Process(t *testing.T, cfg config.LoadConfig, signal syscall.Signal
 	case <-ctx.Done():
 		t.Fatalf("CLI did not drain: %s", output.String())
 	}
-	result := repair817Result{output: output.String(), exit: cmd.ProcessState.ExitCode()}
+	result := cliLifecycleResult{output: output.String(), exit: cmd.ProcessState.ExitCode()}
 	if err != nil {
 		var exit *exec.ExitError
 		require.ErrorAs(t, err, &exit, result.output)
 	}
 	require.Contains(t, result.output, "Received shutdown signal", result.output)
-	require.NoError(t, json.Unmarshal(repair817Read(t, report), &result.report), result.output)
+	require.NoError(t, json.Unmarshal(cliLifecycleRead(t, report), &result.report), result.output)
 	return result
 }
 
-func TestRepairM_817_SignalExitCancellation(t *testing.T) {
-	if repair817Child() {
+func TestLoadtestSignalExitCancellation(t *testing.T) {
+	if cliLifecycleChild() {
 		return
 	}
 	for _, tc := range []struct {
@@ -262,10 +262,10 @@ func TestRepairM_817_SignalExitCancellation(t *testing.T) {
 		{name: "failed_worker_SIGINT", signal: syscall.SIGINT, reject: true, exit: 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p := repair817Endpoint(t, tc.reject)
-			cfg := repair817Config(p.server.URL)
+			p := cliLifecycleEndpoint(t, tc.reject)
+			cfg := cliLifecycleConfig(p.server.URL)
 			cfg.Bounds = &config.BoundsConfig{MinTotalTxs: tc.minimum}
-			got := repair817Process(t, cfg, tc.signal, nil)
+			got := cliLifecycleProcess(t, cfg, tc.signal, nil)
 			require.Equal(t, tc.exit, got.exit, got.output)
 			require.Positive(t, got.report.OverallPerformance.TotalTransactions)
 			p.mu.Lock()
@@ -285,11 +285,11 @@ func TestRepairM_817_SignalExitCancellation(t *testing.T) {
 	}
 }
 
-func TestRepairM_817_SenderDrain(t *testing.T) {
+func TestLoadtestSenderDrain(t *testing.T) {
 	for _, reject := range []bool{false, true} {
 		t.Run(fmt.Sprintf("refused_%t", reject), func(t *testing.T) {
-			p := repair817Endpoint(t, reject)
-			cfg := repair817Config(p.server.URL)
+			p := cliLifecycleEndpoint(t, reject)
+			cfg := cliLifecycleConfig(p.server.URL)
 			cfg.MockDeploy = true
 			gen, err := generator.NewConfigBasedGenerator(&cfg)
 			require.NoError(t, err)
@@ -333,17 +333,17 @@ func TestRepairM_817_SenderDrain(t *testing.T) {
 	}
 }
 
-func TestRepairM_817_WriterShutdownTail(t *testing.T) {
-	p := repair817Endpoint(t, false)
-	cfg := repair817Config(p.server.URL)
+func TestLoadtestWriterShutdownTail(t *testing.T) {
+	p := cliLifecycleEndpoint(t, false)
+	cfg := cliLifecycleConfig(p.server.URL)
 	dir := t.TempDir()
 	cfg.Settings.TxsDir = dir
 	cfg.Settings.TargetGas = 1 << 63
 	cfg.Settings.NumBlocksToWrite = 4
-	got := repair817Process(t, cfg, syscall.SIGTERM, nil)
+	got := cliLifecycleProcess(t, cfg, syscall.SIGTERM, nil)
 	require.Zero(t, got.exit, got.output)
 	firstPath := filepath.Join(dir, "74_txs.json")
-	first := repair817Read(t, firstPath)
+	first := cliLifecycleRead(t, firstPath)
 	var batch sender.TxWriteData
 	require.NoError(t, json.Unmarshal(first, &batch))
 	require.NotEmpty(t, batch.TxPayloads)
@@ -364,9 +364,9 @@ func TestRepairM_817_WriterShutdownTail(t *testing.T) {
 	require.NoError(t, reopened.Close())
 	require.NoError(t, reopened.Close())
 	require.ErrorContains(t, reopened.Send(t.Context(), tx), "closed")
-	require.Equal(t, first, repair817Read(t, firstPath))
+	require.Equal(t, first, cliLifecycleRead(t, firstPath))
 	var tail sender.TxWriteData
-	require.NoError(t, json.Unmarshal(repair817Read(t, filepath.Join(dir, "75_txs.json")), &tail))
+	require.NoError(t, json.Unmarshal(cliLifecycleRead(t, filepath.Join(dir, "75_txs.json")), &tail))
 	require.Equal(t, [][]byte{tx.Payload}, tail.TxPayloads)
 	again := sender.NewTxsWriter(1<<63, dir, 74, 4)
 	require.NoError(t, again.Send(t.Context(), tx))
@@ -378,14 +378,14 @@ func TestRepairM_817_WriterShutdownTail(t *testing.T) {
 	t.Run("finalization_failure_survives_cancellation", func(t *testing.T) {
 		cfg.Settings.TxsDir = t.TempDir()
 		badPath := filepath.Join(cfg.Settings.TxsDir, "74_txs.json")
-		got := repair817Process(t, cfg, syscall.SIGINT, func() { require.NoError(t, os.Mkdir(badPath, 0700)) })
+		got := cliLifecycleProcess(t, cfg, syscall.SIGINT, func() { require.NoError(t, os.Mkdir(badPath, 0700)) })
 		require.Equal(t, 1, got.exit, got.output)
 		require.Contains(t, got.output, "74_txs.json")
 		require.Contains(t, got.output, "Error:")
 	})
 }
 
-func TestRepairM_817_MetricsServerLifecycle(t *testing.T) {
+func TestLoadtestMetricsServerLifecycle(t *testing.T) {
 	occupied, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	addr := occupied.Addr().String()
@@ -421,19 +421,19 @@ func TestRepairM_817_MetricsServerLifecycle(t *testing.T) {
 	occupied, err = net.Listen("tcp", addr)
 	require.NoError(t, err)
 	defer occupied.Close()
-	p := repair817Endpoint(t, false)
+	p := cliLifecycleEndpoint(t, false)
 	viper.Reset()
 	defer viper.Reset()
 	cmd, err := profiles.NewCommand()
 	require.NoError(t, err)
-	cmd.SetArgs([]string{"--config", repair817WriteConfig(t, repair817Config(p.server.URL)), "--metricsListenAddr", addr})
+	cmd.SetArgs([]string{"--config", cliLifecycleWriteConfig(t, cliLifecycleConfig(p.server.URL)), "--metricsListenAddr", addr})
 	require.ErrorContains(t, cmd.ExecuteContext(t.Context()), "bind metrics")
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	require.Zero(t, p.requests)
 }
 
-func TestRepairM_817_ServiceCancellation(t *testing.T) {
+func TestLoadtestServiceCancellation(t *testing.T) {
 	require.NoError(t, service.Run(t.Context(), func(ctx context.Context, s service.Scope) error {
 		s.SpawnBg(func() error { <-ctx.Done(); return fmt.Errorf("stopped: %w", context.Canceled) })
 		return nil
@@ -451,7 +451,7 @@ func TestRepairM_817_ServiceCancellation(t *testing.T) {
 	require.ErrorIs(t, service.Run(t.Context(), func(_ context.Context, _ service.Scope) error { return context.Canceled }), context.Canceled)
 }
 
-func TestRepairM_817_ConfigurationAdmission(t *testing.T) {
+func TestLoadtestConfigurationAdmission(t *testing.T) {
 	cases := []struct {
 		name, field string
 		mutate      func(*config.LoadConfig)
@@ -475,14 +475,14 @@ func TestRepairM_817_ConfigurationAdmission(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := repair817Config("http://127.0.0.1:8545")
+			cfg := cliLifecycleConfig("http://127.0.0.1:8545")
 			tc.mutate(&cfg)
-			_, err := cli.LoadConfig(repair817WriteConfig(t, cfg))
+			_, err := cli.LoadConfig(cliLifecycleWriteConfig(t, cfg))
 			require.ErrorContains(t, err, tc.field)
 		})
 	}
 	for _, value := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
-		cfg := repair817Config("http://127.0.0.1:8545")
+		cfg := cliLifecycleConfig("http://127.0.0.1:8545")
 		cfg.Accounts.NewAccountRate = value
 		require.ErrorContains(t, cfg.Validate(), "newAccountRate")
 	}
@@ -531,32 +531,32 @@ func TestRepairM_817_ConfigurationAdmission(t *testing.T) {
 		})
 	}
 	t.Run("flags_refused_before_startup", func(t *testing.T) {
-		p := repair817Endpoint(t, false)
+		p := cliLifecycleEndpoint(t, false)
 		viper.Reset()
 		defer viper.Reset()
 		cmd, err := profiles.NewCommand()
 		require.NoError(t, err)
-		cmd.SetArgs([]string{"--config", repair817WriteConfig(t, repair817Config(p.server.URL)), "--workers=-1", "--metricsListenAddr=invalid"})
+		cmd.SetArgs([]string{"--config", cliLifecycleWriteConfig(t, cliLifecycleConfig(p.server.URL)), "--workers=-1", "--metricsListenAddr=invalid"})
 		require.ErrorContains(t, cmd.ExecuteContext(t.Context()), "workers")
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		require.Zero(t, p.requests)
 	})
 	t.Run("chain_identity_before_generation", func(t *testing.T) {
-		p := repair817Endpoint(t, false)
+		p := cliLifecycleEndpoint(t, false)
 		p.chain = "0x1"
 		viper.Reset()
 		defer viper.Reset()
 		cmd, err := profiles.NewCommand()
 		require.NoError(t, err)
-		cmd.SetArgs([]string{"--config", repair817WriteConfig(t, repair817Config(p.server.URL)), "--metricsListenAddr=127.0.0.1:0"})
+		cmd.SetArgs([]string{"--config", cliLifecycleWriteConfig(t, cliLifecycleConfig(p.server.URL)), "--metricsListenAddr=127.0.0.1:0"})
 		require.ErrorContains(t, cmd.ExecuteContext(t.Context()), "eth_chainId mismatch")
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		require.Zero(t, p.requests)
 	})
 	// A fresh-only population is valid, and goes through the real generator.
-	cfg := repair817Config("http://127.0.0.1:8545")
+	cfg := cliLifecycleConfig("http://127.0.0.1:8545")
 	cfg.Accounts = &config.AccountConfig{NewAccountRate: 1}
 	cfg.MockDeploy = true
 	require.NoError(t, cfg.Validate())
@@ -567,7 +567,7 @@ func TestRepairM_817_ConfigurationAdmission(t *testing.T) {
 	require.EqualValues(t, 125, tx.EthTx.ChainId().Int64())
 }
 
-func TestRepairM_817_ScenarioTemplateSignature(t *testing.T) {
+func TestLoadtestScenarioTemplateSignature(t *testing.T) {
 	var rendered bytes.Buffer
 	require.NoError(t, scaffold.RenderScenario(&rendered, "ERC20Noop"))
 	source := rendered.String()
@@ -582,12 +582,12 @@ func TestRepairM_817_ScenarioTemplateSignature(t *testing.T) {
 	source = strings.Replace(source, `panic("unimplemented - add contract interaction logic here")`, `return s.contract.Transfer(auth, scenario.Receiver, big.NewInt(1))`, 1)
 	expected, err := format.Source([]byte(source))
 	require.NoError(t, err)
-	require.Equal(t, expected, repair817Read(t, "internal/scaffoldfixture/ERC20Noop.go"))
-	factorySource, err := scaffold.RenderFactory(repair817Read(t, "internal/scaffoldfixture/factory.go.input"), []string{"ERC20Noop"})
+	require.Equal(t, expected, cliLifecycleRead(t, "internal/scaffoldfixture/ERC20Noop.go"))
+	factorySource, err := scaffold.RenderFactory(cliLifecycleRead(t, "internal/scaffoldfixture/factory.go.input"), []string{"ERC20Noop"})
 	require.NoError(t, err)
 	factorySource, err = format.Source(factorySource)
 	require.NoError(t, err)
-	require.Equal(t, factorySource, repair817Read(t, "internal/scaffoldfixture/factory.go"))
+	require.Equal(t, factorySource, cliLifecycleRead(t, "internal/scaffoldfixture/factory.go"))
 	// Drive the renderer through the same Cobra command called by the shell.
 	viper.Reset()
 	defer viper.Reset()
@@ -596,10 +596,10 @@ func TestRepairM_817_ScenarioTemplateSignature(t *testing.T) {
 	output := filepath.Join(t.TempDir(), "ERC20Noop.go")
 	cmd.SetArgs([]string{"scaffold", "scenario", "ERC20Noop", output})
 	require.NoError(t, cmd.Execute())
-	require.Equal(t, rendered.Bytes(), repair817Read(t, output))
+	require.Equal(t, rendered.Bytes(), cliLifecycleRead(t, output))
 	require.NoError(t, os.WriteFile(output, []byte("implemented custom operations"), 0600))
 	require.NoError(t, cmd.Execute())
-	require.Equal(t, "implemented custom operations", string(repair817Read(t, output)))
+	require.Equal(t, "implemented custom operations", string(cliLifecycleRead(t, output)))
 	var scenarioCfg config.Scenario
 	require.NoError(t, json.Unmarshal([]byte(`{"name":"ERC20Noop","weight":1,"gasPicker":{"Name":"fixed","Gas":31337},"gasFeeCapPicker":{"Name":"fixed","Gas":4000000000},"gasTipCapPicker":{"Name":"fixed","Gas":1000000000}}`), &scenarioCfg))
 	scenario := fixture.CreateScenario(scenarioCfg)
@@ -623,21 +623,21 @@ func TestRepairM_817_ScenarioTemplateSignature(t *testing.T) {
 	require.Error(t, scaffold.RenderScenario(io.Discard, "../../bad"))
 }
 
-func TestRepairM_817_LoadtestReadme(t *testing.T) {
-	readme := string(repair817Read(t, "README.md"))
+func TestLoadtestLoadtestReadme(t *testing.T) {
+	readme := string(cliLifecycleRead(t, "README.md"))
 	for _, text := range []string{"build/paxload", "chain ID **125**", "eth_chainId", "--min-tps", "--max-p99-latency", "--min-total-txs", "--report-path", "settings.reportPath", "top-level", "exit status 0", "exit status 1", "profiles/evm_transfer.json"} {
 		require.Contains(t, readme, text)
 	}
 	require.NotContains(t, readme, "./paxload ")
 	// Run the documented shipped profile and its explicit flag/report precedence
 	// through the real executable, using an isolated loopback chain-125 transcript.
-	p := repair817Endpoint(t, false)
+	p := cliLifecycleEndpoint(t, false)
 	cfg, err := cli.LoadConfig("profiles/evm_transfer.json")
 	require.NoError(t, err)
 	cfg.Endpoints = []string{p.server.URL}
 	cfg.ReportPath = filepath.Join(t.TempDir(), "top.json")
 	cfg.Settings.ReportPath = filepath.Join(t.TempDir(), "nested.json")
-	got := repair817Process(t, *cfg, syscall.SIGINT, nil, "--dry-run", "--workers=2", "--buffer-size=8", "--stats-interval=20ms", "--tps=100", "--min-tps=0", "--max-p99-latency=0s", "--min-total-txs=1")
+	got := cliLifecycleProcess(t, *cfg, syscall.SIGINT, nil, "--dry-run", "--workers=2", "--buffer-size=8", "--stats-interval=20ms", "--tps=100", "--min-tps=0", "--max-p99-latency=0s", "--min-total-txs=1")
 	require.Zero(t, got.exit, got.output)
 	require.Positive(t, got.report.OverallPerformance.TotalTransactions)
 	require.NoFileExists(t, cfg.ReportPath)
