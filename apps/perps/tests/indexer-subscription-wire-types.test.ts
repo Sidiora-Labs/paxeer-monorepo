@@ -7,7 +7,7 @@ import type { Duplex } from "node:stream";
 import { after, before, test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import transcript from "../src/hooks/perps/repair-22-31-20-fixtures.json";
+import transcript from "../src/hooks/perps/indexer-wire-fixtures.json";
 import type {
   IndexerOrder,
   IndexerTrade,

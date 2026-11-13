@@ -1,5 +1,5 @@
 Code.require_file("../explorer/smart_contract/compiler_version_fixture.exs", __DIR__)
-Code.require_file("../explorer/smart_contract/repair_22_33_544_fixtures.exs", __DIR__)
+Code.require_file("../explorer/smart_contract/binary_getter_fixture.exs", __DIR__)
 
 defmodule Explorer.Repair.CompilerVersionConfigurationRestorationTest do
   use ExUnit.Case
