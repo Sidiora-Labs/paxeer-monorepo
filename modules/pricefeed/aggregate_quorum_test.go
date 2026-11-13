@@ -17,11 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_480_ModuleEvents(t *testing.T) {
+func TestAggregateModuleEvents(t *testing.T) {
 	TestAppModule(t)
 }
 
-func TestRepairM_480_UnequalPowerQuorum(t *testing.T) {
+func TestAggregateUnequalPowerQuorum(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		reporters  []int
@@ -52,9 +52,9 @@ func TestRepairM_480_UnequalPowerQuorum(t *testing.T) {
 			ctx = ctx.WithEventManager(sdk.NewEventManager())
 			am.MidBlock(ctx, ctx.BlockHeight())
 			if tc.aggregates {
-				assertRepairM480Aggregate(t, k, key, ctx, uint32(len(reporters)))
+				assertQuorumAggregate(t, k, key, ctx, uint32(len(reporters)))
 			} else {
-				assertRepairM480Skipped(t, k, ctx, len(reporters))
+				assertQuorumAggregateSkipped(t, k, ctx, len(reporters))
 				require.Nil(t, ctx.KVStore(key).Get(types.AggregateKey(0)))
 				price, err := keeper.NewQueryServerImpl(k).Price(sdk.WrapSDKContext(ctx), &types.QueryPriceRequest{MarketId: 0})
 				require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestRepairM_480_UnequalPowerQuorum(t *testing.T) {
 	}
 }
 
-func TestRepairM_480_GovernedMinSources(t *testing.T) {
+func TestAggregateGovernedMinSources(t *testing.T) {
 	am, k, key, ctx, operators := newQuorumModule(t)
 	params := types.DefaultParams(layerxgovtypes.GovernanceAuthority())
 	params.Markets = params.Markets[:1]
@@ -73,7 +73,7 @@ func TestRepairM_480_GovernedMinSources(t *testing.T) {
 	submitModulePrices(t, k, ctx, []sdk.ValAddress{operators[0], operators[2]})
 	ctx = ctx.WithEventManager(sdk.NewEventManager())
 	am.MidBlock(ctx, ctx.BlockHeight())
-	assertRepairM480Aggregate(t, k, key, ctx, 2)
+	assertQuorumAggregate(t, k, key, ctx, 2)
 	before := append([]byte(nil), ctx.KVStore(key).Get(types.AggregateKey(0))...)
 
 	registry := cdctypes.NewInterfaceRegistry()
@@ -103,7 +103,7 @@ func TestRepairM_480_GovernedMinSources(t *testing.T) {
 
 	ctx = ctx.WithEventManager(sdk.NewEventManager())
 	am.MidBlock(ctx, ctx.BlockHeight())
-	assertRepairM480Skipped(t, k, ctx, 2)
+	assertQuorumAggregateSkipped(t, k, ctx, 2)
 	require.Equal(t, before, ctx.KVStore(key).Get(types.AggregateKey(0)))
 	price, err := keeper.NewQueryServerImpl(k).Price(sdk.WrapSDKContext(ctx), &types.QueryPriceRequest{MarketId: 0})
 	require.NoError(t, err)
@@ -116,10 +116,10 @@ func TestRepairM_480_GovernedMinSources(t *testing.T) {
 	submitModulePrices(t, k, ctx, []sdk.ValAddress{operators[1]})
 	ctx = ctx.WithEventManager(sdk.NewEventManager())
 	am.MidBlock(ctx, ctx.BlockHeight())
-	assertRepairM480Aggregate(t, k, key, ctx, 3)
+	assertQuorumAggregate(t, k, key, ctx, 3)
 }
 
-func assertRepairM480Skipped(t *testing.T, k keeper.Keeper, ctx sdk.Context, sources int) {
+func assertQuorumAggregateSkipped(t *testing.T, k keeper.Keeper, ctx sdk.Context, sources int) {
 	t.Helper()
 	require.Empty(t, eventsOf(ctx, types.EventTypeAggregate))
 	skipped := eventsOf(ctx, types.EventTypeAggregateSkipped)
@@ -131,7 +131,7 @@ func assertRepairM480Skipped(t *testing.T, k keeper.Keeper, ctx sdk.Context, sou
 	}, attributes(skipped[0]))
 }
 
-func assertRepairM480Aggregate(t *testing.T, k keeper.Keeper, key sdk.StoreKey, ctx sdk.Context, sources uint32) {
+func assertQuorumAggregate(t *testing.T, k keeper.Keeper, key sdk.StoreKey, ctx sdk.Context, sources uint32) {
 	t.Helper()
 	var aggregate types.Aggregate
 	stored := ctx.KVStore(key).Get(types.AggregateKey(0))

@@ -29,7 +29,7 @@ queries, and the pricefeed EVM precompile in
 - [`module_query_test.go`](module_query_test.go) — message and query service registration tests.
 - [`module_test.go`](module_test.go) — module lifecycle and aggregation tests.
 - [`proof_pricefeed_0x1020_test.go`](proof_pricefeed_0x1020_test.go) — transaction encoding, admission, genesis, and precompile integration tests.
-- [`repair_m480_test.go`](repair_m480_test.go) — aggregation events, bonded-power quorum, and minimum-source tests.
+- [`aggregate_quorum_test.go`](aggregate_quorum_test.go) — aggregation events, bonded-power quorum, and minimum-source tests.
 
 ## Build and test
 
