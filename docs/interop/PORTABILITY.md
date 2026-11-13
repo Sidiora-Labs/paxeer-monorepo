@@ -46,12 +46,15 @@ or `committed`; those are stages within the same network.
 | `receiptKey.firstHeight` | string | Inclusive first signing height, `0x` quantity |
 | `receiptKey.lastHeight` | string | Inclusive last signing height, `0x` quantity |
 | `inclusionHeight` | string | Carried height at least the signed receipt height, `0x` quantity |
-| `rawTransaction` | optional string | Raw signed transaction, lowercase `0x` hex, hashed against the activity ID |
+| `rawTransaction` | optional string or `null` | Raw signed transaction, lowercase `0x` hex, hashed against the activity ID; `null` means no transaction bytes |
 
 JSON member order is insignificant. Quantities are unsigned 64-bit lowercase hex
 without leading zeroes (`0x0` for zero). Unknown or duplicate members are refused.
-A JSON document is at most 1,500,000 bytes; receipt and optional transaction bytes
-are each nonempty and at most 1,048,576 bytes. See the full wire layout in
+A JSON document is at most 1,500,000 bytes; receipt and supplied transaction bytes
+are each nonempty and at most 1,048,576 bytes. Serialization omits
+`rawTransaction` when no transaction bytes are carried. The JSON size limit
+also applies when receipt and transaction bytes each fit their individual limits.
+See the full wire layout in
 [FORMAT.md](../../services/interop/crates/layerx-portable/FORMAT.md).
 
 ### Verification Algorithm (v2)

@@ -45,19 +45,18 @@ specification; Swagger UI renders it. This guide covers the Cosmos API server's
 OpenAPI document, separately from EVM JSON-RPC and the hosted gateway contract.
 
 The checked-in [generation script](../scripts/update-swagger-ui-statik.sh) invokes
-`ignite generate openapi -y`, embeds `docs/swagger-ui/` with `statik`, and changes
-the generated registration to the `swagger` namespace used by the node.
+`ignite generate openapi -y`, stages `docs/swagger-ui/`, and embeds the staged
+assets with `statik`. Its [asset helper](../scripts/swagger_assets.py) validates
+the archive and registers it in both the default and `swagger` namespaces.
 
 ### Prerequisites
 
-The existing generation workflow calls for Ignite CLI **v0.23.0**. Obtain that
-version from its [release page](https://github.com/ignite/cli/releases/tag/v0.23.0)
-and confirm it with `ignite version`. The monorepo does not track a root Ignite
-project configuration; supply the generation configuration expected by that CLI
-before regenerating, rather than treating this script as a complete project
-bootstrap.
+Schema generation requires an Ignite installation supporting
+`ignite generate openapi -y` and its project configuration. To embed the
+checked-in schema without invoking Ignite, use `--assets-only` below.
 
-The script also requires `statik` on `PATH`. The version used in `go.mod` is
+The script requires Python 3 and `statik` on `PATH`. `STATIK` can select another
+statik executable. The version used in `go.mod` is
 `github.com/rakyll/statik v0.1.7`:
 
 ```bash
@@ -66,27 +65,24 @@ go install github.com/rakyll/statik@v0.1.7
 
 ### Running the script
 
-On a system with BSD `sed`, run:
+To regenerate the schema and embedded assets, run:
 
 ```bash
 ./scripts/update-swagger-ui-statik.sh
 ```
 
-The script's final `sed -i ''` command uses BSD syntax. On GNU/Linux, run the
-corresponding steps with GNU `sed` instead, stopping if generation fails:
+To embed the existing assets and schema, run:
 
 ```bash
-ignite generate openapi -y &&
-  statik -src=./docs/swagger-ui -dest=./docs -f -p swagger &&
-  sed -i 's/fs.Register(data)/fs.RegisterWithNamespace("swagger", data)/g' docs/swagger/statik.go
+./scripts/update-swagger-ui-statik.sh --assets-only
 ```
 
 The OpenAPI document is `docs/swagger-ui/swagger.yml`; the UI initializer loads
-it as `./swagger.yml`. `statik` embeds that document and the other files in
-`docs/swagger-ui/` into `docs/swagger/statik.go`. Review the generated document
-and embedded assets, then rebuild `paxd` using the repository's `make paxd-build`
-target. Changing the YAML or generated Go file alone does not update an already
-built binary.
+it as `./swagger.yml`. Staging adds an identical `swagger.yaml` alias to the
+archive. The script runs `statik` with `-f -m -p swagger`, validates the schema
+aliases and required UI assets, and atomically replaces `docs/swagger/statik.go`.
+It removes its staging directory on exit. Rebuild `paxd` using the repository's
+`make paxd-build` target to serve the embedded assets from a new binary.
 
 ## Serving the OpenAPI docs on the node
 

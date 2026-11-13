@@ -269,11 +269,9 @@ without `CG_SCALE`, the integration case selects 2,000 files.
 
 Some costs remain:
 
-- `hyperfide index --full` spends most of its time writing. It deletes and
-  re-inserts every FTS row, so it costs more per file than `hyperfide init`.
-- The scoped resolve still counts call verdicts over the whole refs table
-  (about 150–300 ms at 20000 files).
-- `git status` costs about 90 ms of a `walk = git` pass.
+- `hyperfide index --full` deletes and re-inserts the indexed FTS rows.
+- The scoped resolve still counts call verdicts over the whole refs table.
+- A `walk = git` pass also pays the cost of `git status`.
 - An unresolved import whose target lies outside the pass's scope waits
   for the next `--full`.
 
