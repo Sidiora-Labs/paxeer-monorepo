@@ -1,30 +1,33 @@
 # Git remote interoperability
 
-Status: proposed implementation contract. Product verification is UNRUN. The native requirements and pending tasks are in [spec.kvx](spec.kvx), requirements 9 and 10; acceptance and evidence rules are in [protocol.md](protocol.md). This document specifies the remote boundary without introducing Git objects, refs, packs, worktrees or subprocesses into native revision creation.
-
 ## 1. Existing implementation and transition boundary
 
-At the authoring baseline, [integration/publication.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/integration/publication.ts) persists publication intents and per-target locks, validates operation and branch generations, and reconciles uncertain remote results. [integration/github.ts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/integration/github.ts) inspects GitHub protection, issues scoped credentials and retains credential cleanup evidence, but publishes from a local Git repository. [the platform publisher](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/hyperfide-qualify/publication.ts) assembles full Git worktrees, squashes task commits and requires an absolute local bare remote. [the GitHub wave interface](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/github/wave-publication.ts) creates a pull request after publication. These are inspected code seams, not evidence that the proposed native exporter or GitLab adapter exists.
+The [Git adapter](../../../tools/hyperfide/core/control-plane/src/source_control/git/) implements object conversion, import, projection, transport and publication. [Export](../../../tools/hyperfide/core/control-plane/src/source_control/git/export.ts) constructs Git objects from native source; [transport](../../../tools/hyperfide/core/control-plane/src/source_control/git/transport.ts) sends the admitted update. [GitHub](../../../tools/hyperfide/core/control-plane/src/source_control/git/github.ts) and [GitLab](../../../tools/hyperfide/core/control-plane/src/source_control/git/gitlab.ts) provide remote adapters.
 
-The new implementation keeps authenticated authorization, exact intent binding, expected remote-head checks, uncertain-outcome reconciliation and historical receipts. It replaces the local source repository/worktree requirement with bounded traversal of native objects and generated Git object streams. The existing source-to-task proof chain migrates explicitly; a Git publication receipt does not become proof of native task qualification.
+Publication retains exact source inputs, expected remote-head checks, destination authorization and uncertain-outcome reconciliation. Native acceptance and remote publication have separate receipts.
 
 ## 2. Projection identity and publication intent
 
-A projection is a versioned, authorized mapping from one native repository into one remote Git repository. Project ownership and export scope do not define storage shards. An allowlisted projection contains:
+A projection maps authorized native source roots to a Git destination. [SourceProjectionPolicy](../../../tools/hyperfide/core/control-plane/src/source_control/git/provenance.ts) defines its exact fields.
 
-| Field | Meaning |
+| Field | Supported value or meaning |
 |---|---|
-| `projection_id`, `policy_version`, `policy_digest` | Stable identity and immutable policy version used to construct the exported history |
-| `repository_id`, `root_mapping`, `path_policy_digest` | Native input and authorized source roots mapped into the remote namespace |
-| `destination_id`, `provider`, `remote_repository_identity`, `target_ref` | Credential profile and exact destination, including stable provider repository identity |
-| `git_object_format`, `history_policy`, `grouping_policy` | Explicit SHA-1/SHA-256 Git format, ancestry projection and commit grouping |
-| `metadata_policy_digest`, `dependency_policy_digest` | Public authorship/message schema and treatment of dependencies outside the selected roots |
+| `schema_version`, `policy_id`, `version` | Version 1, UUID policy identity and positive integer policy version |
+| `project_id`, `repository_identity` | Logical project and remote repository identities |
+| `mappings` | One to 32 `{source_path, target_path}` mappings |
+| `dependencies` | At most 64 paths, treated as `INCLUDE` or `EXTERNAL_PIN`; external pins carry `revision_id` |
+| `no_visible_change` | `KEEP` or `COLLAPSE_TO_FIRST_PARENT` |
+| `merge_parents` | `ORDERED_UNIQUE` |
+| `public_metadata` | `NATIVE_PUBLIC_V1` |
+| `signature_policy` | `REJECT` or `PRESERVE_OBSERVATION` |
+| `tag_signing` | `REJECT` |
+| `object_format` | `sha1` |
 
-Names are proposed API fields. Credentials are references to the configured secret service and never projection metadata values. Changing path mappings, object format, ancestry treatment or commit metadata creates a new policy version. It never silently rewrites the existing published history.
+Policy versions are immutable. Target mappings cannot overlap, including after case folding and Unicode normalization. Included dependencies must be within mapped source roots; external dependencies require explicit native revision pins.
 
-An export intent pins the projection version, ordered native acceptance records, exact resulting source snapshot, grouping boundaries, expected previous export checkpoint, expected remote ref value, generated target Git object ID, authorization generation and idempotency identity. Grouping defaults to one public commit per accepted logical task/change, dispatched together at a configured wave boundary; checkpoints remain internal. A taskless accepted change has an explicit grouping identity. Other policies require a versioned projection choice, including the desired public provenance granularity.
+[SourceGitDestination](../../../tools/hyperfide/core/control-plane/src/source_control/git/types.ts) binds source scope, destination ID, provider, repository identity, configuration digest, remote key, allowed refs and transport. Credentials remain protected server configuration.
 
-Native IDs use `sha256:<64hex>`. Git IDs are namespaced as `git:sha1:<40hex>` or `git:sha256:<64hex>` and validated against the destination format. A native tree, a Git tree and a Git commit remain distinct types even if their digest strings have equal lengths.
+A publication request pins `acceptance_id`, `destination_id`, `target_ref` and `expected_old_oid`. The resulting record binds source revision/root, generated Git OID, operation identity, generation and publication status. Native object IDs use `sha256:<64hex>`; projected Git IDs use `git:sha1:<40hex>`. They are distinct identity types.
 
 ## 3. Deterministic object construction
 
@@ -34,15 +37,13 @@ The projection path policy uses the native canonical path representation. Legacy
 
 Commit serialization pins tree ID, ordered parent IDs, author/committer names and addresses allowed by the public metadata schema, integer timestamps with timezone offsets, message bytes and encoding policy. Values derived at intent creation, such as a publication committer timestamp, are persisted once and reused on retry. Traversal order, retry time, worker identity and transient pack layout cannot change a generated commit ID. Native private task packets, session metadata, memory, credentials and conversation contents are outside the export schema; the public message and optional provenance trailer are explicit allowlisted fields.
 
-The durable mapping key is `(organization, repository, projection_id, policy_version, native_revision_or_group_id, git_object_format)`. Its value records projected tree/commit IDs, parent mapping, metadata policy and the construction manifest digest. Native source history is not keyed by Git IDs. Mappings and accepted export checkpoints are retention roots.
+Durable mappings retain native identities, projected Git OIDs, policy and publication lineage. Confirmed export checkpoints support incremental projection. Native source history remains keyed by native identities.
 
 ### Filtered history, merges and tags
 
-An ordinary revision whose projected tree is unchanged maps to its preceding visible projected commit, with `NO_VISIBLE_CHANGE` provenance; it does not emit an arbitrary empty commit. A merge with two or more distinct projected parent commits preserves their order and emits a merge commit under the default `PRESERVE_PROJECTED_MERGES` policy even when its tree matches its first parent. Duplicate projected parents collapse deterministically. A merge reduced to one distinct projected parent with no visible tree change maps to that parent. The mapping retains every original native parent and the reason for collapse so ancestry queries can distinguish native and projected history.
+With `COLLAPSE_TO_FIRST_PARENT`, a revision with one projected parent and an unchanged projected tree maps to that parent. `KEEP` retains a commit. Parent ordering is preserved and duplicate projected parents collapse deterministically. Merges with multiple distinct projected parents retain that ancestry.
 
-A projection may choose an explicit linear task-publication policy instead; that policy maps grouped native revisions to a linear public parent chain and never claims that the public Git graph reproduces native merge ancestry. The policy choice is fixed before initial publication.
-
-Named releases/tags are optional export targets. An annotated tag pins target mapping, public tagger metadata, message bytes and signature policy. A filtered target resolves through its recorded projected mapping; an absent or ambiguous target fails rather than retargeting to current head. Native signatures do not become valid Git signatures. Original imported signed object bytes and verification observations remain historical records; newly generated commits/tags require new configured signing or an explicit unsigned policy. Tag replacement and deletion require separate authorized intents.
+Imported annotated commit tags retain their tagger, message and target provenance. Signed input follows the selected signature policy; preserved signature observations do not grant current authority. The supported tag-signing policy is `REJECT`.
 
 ## 4. Bounded transport and state machine
 
@@ -50,11 +51,7 @@ Initial export can traverse the complete authorized projection, but keeps bounde
 
 The native store contains no Git packfiles. The adapter emits a transient Git pack stream because Git remote transport requires that format. The first implementation may emit ordinary non-delta objects to keep generation deterministic and memory bounded; pack encoding is independent of object identity. Optional delta encoding requires its own measured bound. Spool files are explicit operation artifacts with size, ownership and retention limits. No native repack cycle, full-history checkout or mandatory shared Git object directory is introduced.
 
-The proposed states are:
-
-`QUEUED -> PREPARING -> READY -> SENDING -> PUBLISHED`
-
-with `BLOCKED_POLICY`, `REMOTE_DIVERGED`, `RETRYABLE` and `OUTCOME_UNKNOWN` observations. Native `ACCEPTED` is a separate fact and remains valid while a remote is unavailable. A remote destination cannot backpressure native revision creation except through an explicitly configured publication backlog/retention budget; it may delay a release that requires that destination's receipt.
+Publication states are `QUEUED`, `READY`, `DISPATCHED`, `OUTCOME_UNKNOWN`, `PUBLISHED`, `REMOTE_DIVERGED`, `REJECTED` and `CANCELLED`. Native acceptance remains a separate fact while a remote is unavailable. Publication backlog and retention have independent budgets.
 
 1. Persist an intent and retention roots before generating or sending external objects. Read the current destination identity, capabilities and protection profile. Reject a changed repository identity or unauthorized target.
 2. Validate exact native acceptance/evidence inputs and current export authorization, then finish the deterministic object construction manifest. Avoid a database transaction around storage downloads or transport.
@@ -64,7 +61,7 @@ with `BLOCKED_POLICY`, `REMOTE_DIVERGED`, `RETRYABLE` and `OUTCOME_UNKNOWN` obse
 
 A timeout or lost response enters `OUTCOME_UNKNOWN`. Observing the expected old head does not prove an already-issued push has stopped. The destination/ref remains fenced until transport and credential effects are settled. Observing the exact generated commit establishes an external source outcome only when bound to the admitted intent; observing a descendant requires a verified ancestry/publication chain and must not be reported as a fresh exact-head match. Unrelated changes enter `REMOTE_DIVERGED`. Recovery imports/proposes the external delta or creates an explicitly authorized repair intent; it never silently force-pushes or manufactures a successful receipt.
 
-GitHub and GitLab implement one capability interface for identity, advertised object format, ref observation, protection evidence, send/readback, credential cleanup, and optional pull/merge request creation. Unsupported provider features are explicit capability failures. Existing GitHub code is a reusable seam, not evidence of GitLab support or provider plan entitlements. A pull/merge request URL is a collaboration artifact, separate from branch publication and protected-target acceptance.
+GitHub and GitLab implement one capability interface for identity, advertised object format, ref observation, protection evidence, send/readback, credential cleanup, and optional pull/merge request creation. Unsupported provider features are explicit capability failures. Provider capabilities and credential profiles are explicit. A pull/merge request URL is a collaboration artifact, separate from branch publication and protected-target acceptance.
 
 ## 5. Dependencies and public projections
 

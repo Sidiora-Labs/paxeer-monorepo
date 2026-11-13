@@ -1,25 +1,16 @@
 # Native source storage and durability
 
-Status: proposed implementation contract. Runtime, AWS S3, recovery and scale cases are UNRUN. Requirements 2, 3 and 11 in [spec.kvx](spec.kvx) are normative; this chapter supplies their storage protocol. Exact wire fixtures are frozen by task 0.1 before the object service is implemented.
-
 ## 1. Existing seams and the change in responsibility
 
-The inspected checkout contains three distinct storage mechanisms. Their existence does not establish the proposed service's behaviour.
+[SourceObjectService](../../../tools/hyperfide/core/control-plane/src/source_control/objects.ts), [PersistentTree](../../../tools/hyperfide/core/control-plane/src/source_control/trees.ts) and [SourceMetadata](../../../tools/hyperfide/core/control-plane/src/source_control/metadata.ts) implement the storage and metadata boundary. The [S3 adapter](../../../tools/hyperfide/core/control-plane/src/source_control/s3.ts) handles immutable object transfers. Object identity and request formats are shared through the [SDK contracts](../../../tools/hyperfide/sdk/source-control/src/contracts.ts).
 
-| Source | Inspected behaviour | Required adaptation |
-| --- | --- | --- |
-| [`src/vcs.c`](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/src/vcs.c) | Local SHA-256 objects under `.codegraph/objects`, a flat sorted path manifest, workspace traversal with a stat cache, and a mutable local HEAD. The distributed descriptor marks this store non-authoritative. | Retain compatible local reading/import where required; online source authority moves to typed native revisions and bounded persistent trees. A flat manifest and whole-workspace traversal cannot be the normal server commit path. |
-| [`preparation/object_store.ts`](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/preparation/object_store.ts) | Provider/region selection currently resolves a bare Git store or mirror and compares advertised refs. GitHub is excluded as a workspace source. | Replace online source selection with native content endpoints and scoped object-transfer grants. Provider placement remains useful; Git refs and bare mirrors remain migration inputs. |
-| [`artifacts/objects.ts`](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/artifacts/objects.ts) | The S3 artifact adapter uses conditional PUT, verifies retrieved digest and length, exposes ambiguous outcomes, and limits individual artifact payloads and manifests. | Reuse reviewed transport patterns after qualification. Source objects require their own namespace, type/schema limits, graph references and lifecycle. Existing artifact size limits do not become source file limits. |
-| [`0710-source-snapshots.sql`](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/migrations/0710-source-snapshots.sql), [`0045-workspace-slices.sql`](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/migrations/0045-workspace-slices.sql) | Snapshot records bind attempts, Git tree identities, slice/checkpoint digests and immutable receipts. | Add native ID columns and an explicit import mapping. Existing Git OIDs must never be reinterpreted as native object IDs. |
-
-The proposed implementation lives under `core/control-plane/src/source_control/`. PostgreSQL is the initial metadata backend proposal, behind object/transaction interfaces. Object bytes live in S3; no metadata replica or worker requires every byte or the complete history in memory. Physical partitioning and routing must work within one repository. Project roots are logical scopes, not mandatory storage shards. Migration sequence numbers are allocated against the actual migration catalog during implementation preflight.
+Object bytes and transactional metadata have separate responsibilities. Native identities remain distinct from Git OIDs and legacy local snapshots. Project roots are logical source scopes rather than physical storage partitions.
 
 ## 2. Immutable objects and canonical identity
 
-An object is addressed by `sha256:<64 lowercase hexadecimal digits>`. Its digest covers a type-separated, versioned canonical envelope. The proposed v1 envelope is ASCII `hyperfide-source-control`, NUL, ASCII `v1`, NUL, kind, NUL, canonical decimal payload length, NUL, then payload bytes. The supported kind set is closed and versioned. Object identity is independent of S3 key spelling, upload time, compression, encryption, backend version ID and ETag.
+An object is addressed by `sha256:<64 lowercase hexadecimal digits>`. Its digest covers a type-separated, versioned canonical envelope. The v1 envelope is ASCII `hyperfide-source-control`, NUL, ASCII `v1`, NUL, kind, NUL, canonical decimal payload length, NUL, then payload bytes. The supported kind set is closed and versioned. Object identity is independent of S3 key spelling, upload time, compression, encryption, backend version ID and ETag.
 
-Blob payloads are exact bytes. Metadata payloads use a specified tuple encoding with fixed field positions, UTF-8 strings, decimal strings for large integers and canonical JSON array serialization. Task 0.1 must supply cross-language golden bytes for escaping, Unicode, empty values, integers, type separation and invalid input; a generic serializer's object-property order is insufficient. No floating-point number, duplicate map key, lone surrogate, unknown field or alternate numeric spelling is accepted. A future codec creates a new version; it never changes the meaning of an existing digest.
+Blob payloads are exact bytes. Metadata payloads use a specified tuple encoding with fixed field positions, UTF-8 strings, decimal strings for large integers and canonical JSON array serialization. Canonical fixtures cover escaping, Unicode, empty values, integers, type separation and invalid input. No floating-point number, duplicate map key, lone surrogate, unknown field or alternate numeric spelling is accepted. A future codec creates a new version; it never changes the meaning of an existing digest.
 
 | Kind | Logical contents | References |
 | --- | --- | --- |
@@ -35,7 +26,7 @@ Stable change IDs and authorization identities are scoped metadata identities, n
 
 Native paths are repository-relative UTF-8 sequences. The format rejects NUL, absolute paths, empty components, `.` and `..`; it preserves exact permitted bytes and never silently folds case or normalizes Unicode. Directory comparison uses unsigned UTF-8 byte order. The importer records unsupported names rather than silently renaming historical files. A client whose filesystem cannot represent a valid native path reports a typed incompatibility or uses API access. Executability, file kind and symlink target are explicit; timestamps, UID and host inode numbers are not source identity. Symlink resolution policy belongs to the materializer and must not permit path escape.
 
-The ordinary commit path accepts only bounded objects. Proposed initial tree-node bounds are 256 entries and 256 KiB encoded bytes, both enforced before persistence and benchmarked. The large-file chunk threshold/size are versioned format parameters selected in task 0.1 from representative source and binary fixtures; deployment settings cannot reinterpret old file descriptors. The file descriptor supports exact reassembly and range queries, including zero-byte files and a final short chunk.
+The ordinary commit path accepts only bounded objects. Tree leaves contain at most 256 entries and encoded tree nodes at most 256 KiB. The blob threshold and chunk size are both 4 MiB; encoded objects are bounded at 8 MiB. These are versioned format parameters; deployment settings cannot reinterpret old file descriptors. The file descriptor supports exact reassembly and range queries, including zero-byte files and a final short chunk.
 
 ## 3. Persistent trees and partitioning
 
@@ -57,7 +48,7 @@ AWS documents strong consistency for object reads/writes and atomicity per key, 
 
 ## 5. Upload and publication protocol
 
-1. `BeginUpload` authenticates scope, reserves byte/request budget and creates an idempotent session with a service-clock expiry. The session names expected type, digest, length, security domain and operation identity. It pins its prospective content and new tree nodes against collection.
+1. `source.uploads.prepare` authenticates scope, reserves byte/request budget and creates an idempotent session with a service-clock expiry. The session names expected type, digest, length, security domain and operation identity. It pins its prospective content and new tree nodes against collection.
 2. The uploader writes to a fresh physical incarnation using conditional creation. Large payloads use a tracked multipart upload. Parts do not make an object readable; completion and validation do. Retries observe and verify an existing matching object rather than replacing it. Conflicting bytes at an expected identity are an integrity failure.
 3. The verifier streams the canonical envelope, length and digest. A backend ETag, successful HEAD or client-supplied digest alone does not prove native content. A lost PUT/completion response leaves an `UNKNOWN` upload outcome until reconciliation; it must not be advertised as failed-and-safe-to-overwrite.
 4. The catalog marks the placement `VERIFIED`, with format/type validation and direct-child protection receipts where applicable. That state is distinct from a revision becoming authoritative. If the selected durability policy requires another region or store, verification waits for that explicitly defined acknowledgment as well.
@@ -96,7 +87,7 @@ Metadata failover fences the old writer before a new authority accepts mutations
 
 A backup consists of a consistent metadata checkpoint, routing/codec/policy versions, retained source roots and verified availability of their object closures. Restore loads metadata into a new authority epoch, verifies roots against preserved placements, reconciles incomplete upload/deletion/export intents, and reauthorizes transfer grants before writes resume. If some retained object is missing, affected roots report unavailable and restoration fails its completeness gate. Cache contents and a copied worker disk are not backups.
 
-Task 6.1 must kill processes at each protocol boundary, exercise primary fencing, restore metadata to a prior checkpoint, reconcile S3 version/delete state and demonstrate that newer accepted writes are either present or explicitly reconciled according to the profile. Security and destructive-operation authority are specified in [identity-security.md](identity-security.md). Every such case remains UNRUN until executed against the recorded backend and deployment profile.
+Task 6.1 must kill processes at each protocol boundary, exercise primary fencing, restore metadata to a prior checkpoint, reconcile S3 version/delete state and demonstrate that newer accepted writes are either present or explicitly reconciled according to the profile. Security and destructive-operation authority are specified in [identity-security.md](identity-security.md).
 
 ## 8. Resource and operational accounting
 

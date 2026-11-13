@@ -1,20 +1,10 @@
 # Hyperfide integration and product surfaces
 
-Status: proposed contract; all implementation and runtime qualification are UNRUN. This document supplies requirements 8 and 13 and task contracts 3.3, 4.2 and 4.3 in [spec.kvx](spec.kvx). [workspaces.md](workspaces.md) defines host behavior; [protocol.md](protocol.md) defines native source transactions.
-
 ## 1. Existing seams
 
-| Inspected source | Current seam | Required evolution |
-|---|---|---|
-| [Slice environment](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/environment-slices/server.ts) and [provider](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/environment-slices/provider.ts) | Environment creation requires a project checkout; the provider copies local objects and checks out source before pruning | Native admission by source identity and versioned scope, using the host materializer |
-| [Fleet worker](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/apps/host-daemon/src/fleet-worker.ts) | Job/attempt identity, withdrawn-job cancellation and completion acknowledgment retry | Bind source workspace generations and immutable result receipts to the same execution identity |
-| [Dispatch contracts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/hyperfide-dispatch/src/dispatcher/contracts.ts) | Runner results contain commit IDs; integration input contains a tip and Git bundle | Native revision/result identities and source manifests, with compatibility only at adapters |
-| [Integration queue](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/hyperfide-dispatch/src/integrate/queue.ts) | Fetches result bundles and prepares Git merge/worktree operations | Durable native candidate operations and source acceptance receipts |
-| [Qualification adapter](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/hyperfide-qualify/adapter.ts) and [receipts](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/hyperfide-qualify/receipts.ts) | Detached Git worktree environments and 40-hex commit receipts | Native immutable source identities, exact materialization manifests and versioned receipts |
-| [Graph RPC](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/hyperfide-graph/contract.ts) and [host](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/platform/plugins/hyperfide-graph/host.ts) | Host/repository path requests execute the graph binary | Source-pinned remote requests; local CLI becomes an optional facade |
-| [Published graph loader](https://github.com/Sidiora-Labs/hyperfide/blob/2f7331ef2085f6f374adf2d1e2ee01405fecb72d/services/hyperfide/src/graph/publication.ts) | Validates exact source set and graph coverage against published manifests | Preserve that evidence boundary while admitting native source IDs and reusable incremental extraction |
+The [fleet adapter](../../../tools/hyperfide/core/control-plane/src/source_control/fleet-adapter.ts) binds native workspaces, checkpoint generations and result custody to task attempts. [Run-source bindings](../../../tools/hyperfide/core/control-plane/src/source_control/fleet-run-source.ts) and [source selection](../../../tools/hyperfide/core/control-plane/src/source_control/fleet-source-selection.ts) pin native inputs for dispatch. The [graph adapter](../../../tools/hyperfide/core/control-plane/src/source_control/graph-adapter.ts) supplies source-pinned graph access.
 
-These observations locate implementation work. They do not establish deployment status, scalability or behavior of the proposed path. Existing Git environments remain separately identified during migration; the native environment must not silently fall back to them on an error.
+The [source-control plugin](../../../tools/hyperfide/plugins/hyperfide-source-control/README.md) exposes the shared client through the app and CLI. Legacy source environments retain their own format and authority bindings.
 
 ## 2. Authority ownership
 
@@ -57,7 +47,7 @@ Task 3.3 extends existing graph publication/source-set checks through a versione
 
 ## 6. CLI, SDK and UI journeys
 
-The public CLI remains under `hyperfide`; proposed source verbs and flags are frozen in the API contract before implementation. A shared client package supplies the C facade bridge, TypeScript SDK, host adapters and API automation with the same authentication, idempotency, pagination, cancellation and typed errors. Native read/query operations work with repository and revision identifiers and no current working directory inside a checkout. Git is invoked only by explicit compatibility adapters.
+The public CLI is `hyperfide platform source`. It reads `HF_SOURCE_CONFIG` or an explicit `--config` file. The [plugin guide](../../../tools/hyperfide/plugins/hyperfide-source-control/README.md) lists the supported verbs and flags. A shared client package supplies the C facade bridge, TypeScript SDK, host adapters and API automation with the same authentication, idempotency, pagination, cancellation and typed errors. Native read/query operations work with repository and revision identifiers and no current working directory inside a checkout. Git is invoked only by explicit compatibility adapters.
 
 The app and CLI expose the following journeys:
 
@@ -72,7 +62,7 @@ The app and CLI expose the following journeys:
 
 Human-facing screens use existing page headers, forms, status components and navigation conventions. Primary controls use human-readable project, task and revision summaries. Raw hashes remain available through copy/detail controls, not as a mandatory manual input workflow. Permission failures and conflicts identify the affected operation and recovery action without exposing unauthorized paths. Large directory/diff/history views are paginated and do not transfer a complete repository manifest to render a page.
 
-A UI success toast cannot substitute for the durable server receipt. Tests cover reconnect/resume and duplicate actions, along with desktop, tablet and mobile geometry for the affected journeys. Runtime and browser checks belong to implementation qualification; this document does not claim those journeys already exist.
+A UI success toast cannot substitute for the durable server receipt. Tests cover reconnect/resume and duplicate actions, along with desktop, tablet and mobile geometry for the affected journeys.
 
 ## 7. Observability and budgets
 
@@ -84,7 +74,7 @@ The operator view distinguishes repository size, active workspaces, dirty/upload
 
 ## 8. Proposed implementation ownership
 
-Task 2.2 adds the host materializer, immutable cache and watcher journal. Task 3.2 adds a pinned virtual adapter and explicit fallback capability. Task 3.3 extends native source identity through graph ingestion/publication and context APIs. Task 4.2 connects fleet dispatch, workspace capability, submission custody and native qualification. Task 4.3 ships the shared SDK, CLI facade and app journeys. New host modules are proposed under `core/host-daemon/src/source-control/`, client modules under `sdk/source-control/src/`, and source service adapters under `core/control-plane/src/source_control/`; existing environment/graph/dispatch/qualify files are adapted rather than duplicated as competing authority implementations.
+The service modules live under `tools/hyperfide/core/control-plane/src/source_control/`, the shared client and host implementation under `tools/hyperfide/sdk/source-control/src/`, and host integration under `tools/hyperfide/core/host-daemon/src/source-control/`. The source-control plugin connects those services to product journeys.
 
 ## Fleet prerequisite ownership
 

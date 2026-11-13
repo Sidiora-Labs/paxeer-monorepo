@@ -1,16 +1,12 @@
 # Native source-control design
 
-Status: design draft. The [native specification](spec.kvx) is normative; all product verification is UNRUN.
-
 ## 0. Repository-layout prerequisite
 
-The [category-layout contract](repository-layout.md) and [path mapping](repository-layout.json) precede native implementation. Tasks 0.3–0.9 reorganize the existing product; fleet tasks 0.10–0.14 follow its qualification, then task 0.1 requires the final fleet receipt. New source-control paths below are post-layout destinations. Inspected legacy source links remain baseline references.
-
-The [fleet contract](fleet-orchestration.md) gives the Primary and same-box Wave Managers planning authority through scoped tools. Deterministic enforcement belongs to the engine. The [sandbox manifest contract](sandbox-contracts.md) makes `.neron` source configuration and `package.kvx` environment installation prerequisites of worker execution, with selected [interface contracts](interface-contracts.md). An explicit existing-source adapter supports qualification before native SCM exists.
+The [category layout](repository-layout.md) places the implementation under `tools/hyperfide/`. The [fleet contract](fleet-orchestration.md) assigns planning authority to the Primary and same-box Wave Managers. The engine validates admitted actions and persists their effects. [Sandbox contracts](sandbox-contracts.md) define source configuration and environment installation, including selected [interface contracts](interface-contracts.md).
 
 ## 1. Product and responsibility boundaries
 
-Hyperfide source control is a native subsystem of the product, exposed through versioned APIs and separately scalable services. The existing C command line and TypeScript platform remain integration surfaces. The initial service implementation is proposed in `core/control-plane/src/source_control/`; that location is an implementation namespace, not a new global process or database bottleneck.
+Hyperfide source control is a native subsystem of the product, exposed through versioned APIs and separately scalable services. The existing C command line and TypeScript platform remain integration surfaces. The service implementation lives in `tools/hyperfide/core/control-plane/src/source_control/`; the [registration module](../../../tools/hyperfide/core/control-plane/src/source_control/registration.ts) composes its services.
 
 | Authority | Owns | Does not establish |
 |---|---|---|
@@ -39,7 +35,7 @@ Basic source operations also support authorized humans and automated tools witho
 
 One repository contains a shared namespace and revision DAG. A project identifies ownership, dependencies, and export scope; it is not a physical storage partition. A large project and even a hot directory can span multiple partitions. Storage partitions can split independently of project paths and repository identities.
 
-Source objects use versioned, type-tagged canonical encodings. The proposed identity format is `sha256:<64 lowercase hexadecimal digits>`. Git object IDs and existing raw snapshot identifiers have separate typed envelopes and explicit migration mappings. A stable logical change identity is not interchangeable with an immutable revision identity.
+Source objects use versioned, type-tagged canonical encodings. The identity format is `sha256:<64 lowercase hexadecimal digits>`. Git object IDs and existing raw snapshot identifiers have separate typed envelopes and explicit migration mappings. A stable logical change identity is not interchangeable with an immutable revision identity.
 
 Persistent bounded tree nodes map names to child objects. An immutable root identifies the entire logical source state without materializing it. Updating a file reuses unrelated subtrees; inserting into a huge directory must not rewrite all siblings. Schemas and algorithm rules are specified in [storage.md](storage.md).
 
@@ -99,4 +95,4 @@ The consistency and failure-domain contracts live in [protocol.md](protocol.md),
 
 This feature changes the source backend through explicit adapters. It preserves existing task authority, qualification semantics, product identity, and legacy evidence readability. [migration.md](migration.md) identifies the authority cutover and the exact earlier assumptions it replaces for migrated repositories.
 
-The first implementation delivers a real object-backed revision path consumed by a client; later tasks add materialization, server operations, qualification and acceptance, fleet integration, remote compatibility, consolidation, and fault/scale qualification. Each task pairs its producer with a direct consumer and real positive/negative checks. The final wave closes documentation and release evidence. No implementation status is inferred from this document.
+The service composes object-backed revisions, materialization, queries, transformations, candidate acceptance, fleet integration, remote projections and migration through explicit adapters. Source-control format and API versions are shared with clients.
