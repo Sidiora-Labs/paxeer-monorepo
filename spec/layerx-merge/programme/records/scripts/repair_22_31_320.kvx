@@ -29,13 +29,13 @@ rollback = "Use state_sync.sh with the same home/controller/config-loader and --
 limits = "Local signing, regular home entries and standard data directory only; symlinks, external identity paths and remote signers are refused. No production service or network is contacted by the gate. Native decoder packaging remains the explicit domain-5 wiring request."
 
 [fixtures]
-rpc = "scripts/fixtures/repair_22_31_320/block.json and status.json retain recorded Result payloads from consensus/spec/rpc/README.md; the loopback server uses native URI framing from consensus/rpc/jsonrpc/server/http_server.go and real application/json headers."
+rpc = "scripts/fixtures/maintenance_rpc/block.json and status.json retain recorded Result payloads from consensus/spec/rpc/README.md; the loopback server uses native URI framing from consensus/rpc/jsonrpc/server/http_server.go and real application/json headers."
 store = "The committed Python peer uses real SQLite backup/open/integrity-check and durable private-validator JSON; maintenance itself is always scripts/node_maintenance.py, including CLI parsing, lock, journal, fsync, replacement, rollback and RPC reads. SIGKILL stops the actual Python recovery process, then a fresh entry point reopens its journal."
 previous_harness = "Removed the first attempt's Go helper projects and external builds because gotchas 2962/2966 explicitly forbid them. All five original test functions remain, with environment-free peer proofs; native consensus and FilePV execution are explicitly assigned to domain 5."
 
 [qualification.previous_attempt]
 revision = "b1ef6926b3c51492059dcc9859f35ed5f7188eea"
-command = "python3 -m pytest -q scripts/test_repair_22_31_320.py (reported inside the supplied earlier hf-done result)"
+command = "python3 -m pytest -q scripts/test_maintenance_workflows.py (reported inside the supplied earlier hf-done result)"
 exit = 1
 log = "Previous attempt private evidence supplied in the task prompt; not present in this sandbox and not rerun."
 observed = "All five original tests failed because native URI GET returns the result object directly, while both clients required a JSON-RPC envelope."

@@ -4,7 +4,7 @@ gotcha = "4129"
 acceptance = "22998.1"
 implementation = "scripts/gates/run_gate.py:permitted_output"
 build = "python3 -m py_compile scripts/gates/run_gate.py scripts/gates/test_run_gate.py"
-verify = "test -s scripts/gates/repair_22_39_339.kvx && python3 -m pytest -q scripts/gates/test_run_gate.py scripts/gates/test_repair_22_33_899.py"
+verify = "test -s spec/layerx-merge/programme/records/scripts/gates/repair_22_39_339.kvx && python3 -m pytest -q scripts/gates/test_run_gate.py scripts/gates/test_gate_retention.py"
 revision_evidence = "The hf-build/hf-done private ledger records the exact qualified candidate revision, command, exit and log; no passing revision is claimed before qualification."
 
 [rules]

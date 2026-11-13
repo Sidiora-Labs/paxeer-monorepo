@@ -2,7 +2,7 @@
 audit = "22.30.185"
 acceptance = "22998.1"
 implementation = "run_gate.py"
-verify = "python3 -m pytest -q scripts/gates/test_repair_22_33_899.py"
+verify = "python3 -m pytest -q scripts/gates/test_gate_retention.py"
 revision_evidence = "The hf-build/hf-done private ledger records the exact candidate revision, command, exit and log; no revision is claimed before qualification."
 baseline = "Not executed: the explicit task order forbids tests before the full implementation and forbids running the verify command by hand; no baseline failure is claimed."
 proof = "TestRepair2233899 inherits every RunGateTest case. Each case commits the production runner into an isolated Git checkout and drives its actual CLI, child processes, filesystem logs and evidence records. Repeated and concurrent processes reopen retained evidence. No mocks or live services."

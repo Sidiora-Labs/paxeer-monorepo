@@ -4,7 +4,7 @@ audit = "22.30.178"
 base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
 mode = "BUILD"
 qualification = "hf-build followed by hf-done on the identical final candidate; the private gate ledger and final JSON name the verified revision, command, exit and log."
-verify_cmd = "python3 -m pytest -q scripts/qualification/paxeer-x/test_repair_22_33_808.py"
+verify_cmd = "python3 -m pytest -q scripts/qualification/paxeer-x/test_program_http_qualification.py"
 build_cmd = "python3 -m py_compile scripts/qualification/paxeer-x/program-http-producer.py scripts/qualification/paxeer-x/reference-custody.py"
 
 [finding.43]
