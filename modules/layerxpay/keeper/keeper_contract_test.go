@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func repairM1303Snapshot(ctx sdk.Context, key sdk.StoreKey) map[string][]byte {
+func escrowContractSnapshot(ctx sdk.Context, key sdk.StoreKey) map[string][]byte {
 	out := make(map[string][]byte)
 	it := ctx.KVStore(key).Iterator(nil, nil)
 	defer it.Close()
@@ -34,11 +34,11 @@ func repairM1303Snapshot(ctx sdk.Context, key sdk.StoreKey) map[string][]byte {
 	return out
 }
 
-func TestRepairM_1303_DeclarationAuthority(t *testing.T) {
-	keeper.ProveRepairM1303Authority(t)
+func TestPayCallerAuthorityContract(t *testing.T) {
+	keeper.ProvePayCallerAuthority(t)
 	// The family wrapper consumes the address-derived authority at Submit,
 	// and the real host receipt identifies the same caller and activity.
-	w := keeper.OpenRepairM1303World(t)
+	w := keeper.OpenEscrowContractWorld(t)
 	authority, err := w.Keeper.AuthorityFor(w.Context, w.Caller)
 	require.NoError(t, err)
 	_, main, err := lxphost.MainAccountID(authority.AuthorityKey)
@@ -56,8 +56,8 @@ func TestRepairM_1303_DeclarationAuthority(t *testing.T) {
 	require.Equal(t, main, record.Owner)
 }
 
-func TestRepairM_1303_DeclarationSubmit(t *testing.T) {
-	w := keeper.OpenRepairM1303World(t)
+func TestPaySubmitContract(t *testing.T) {
+	w := keeper.OpenEscrowContractWorld(t)
 	var submit func(sdk.Context, common.Address, string, []byte, [32]byte) (lxphost.Receipt, error) = w.Keeper.Submit
 	require.Equal(t, types.ActivityEscrowOpen, types.MethodActivity["escrowOpen"].Type)
 	result, found, err := w.Keeper.GetEscrowResult(w.Context, w.ID)
@@ -72,13 +72,13 @@ func TestRepairM_1303_DeclarationSubmit(t *testing.T) {
 	require.Equal(t, uint16(3), result.Ordinal)
 	require.Equal(t, codec.U128{Lo: 25}, result.Amount)
 	require.Equal(t, w.Receipt.GlobalSequence, result.GlobalSequence)
-	hostBefore, payBefore := repairM1303Snapshot(w.Context, w.HostKey), repairM1303Snapshot(w.Context, w.PayKey)
+	hostBefore, payBefore := escrowContractSnapshot(w.Context, w.HostKey), escrowContractSnapshot(w.Context, w.PayKey)
 	_, err = submit(w.Context, w.Caller, "notAPayMethod", nil, [32]byte{1})
 	require.ErrorIs(t, err, lxphost.Code(-106))
 	_, err = submit(w.Context, common.Address{}, "escrowCapture", nil, [32]byte{1})
 	require.ErrorIs(t, err, types.ErrUnboundCaller)
-	require.Equal(t, hostBefore, repairM1303Snapshot(w.Context, w.HostKey))
-	require.Equal(t, payBefore, repairM1303Snapshot(w.Context, w.PayKey))
+	require.Equal(t, hostBefore, escrowContractSnapshot(w.Context, w.HostKey))
+	require.Equal(t, payBefore, escrowContractSnapshot(w.Context, w.PayKey))
 	w.Reopen(t)
 	after, found, err := w.Keeper.GetEscrowResult(w.Context, w.ResultKey)
 	require.NoError(t, err)
@@ -86,10 +86,10 @@ func TestRepairM_1303_DeclarationSubmit(t *testing.T) {
 	require.Equal(t, result, after)
 }
 
-func TestRepairM_1303_DeclarationGate(t *testing.T) {
-	w := keeper.OpenRepairM1303World(t)
+func TestPayWriteGateContract(t *testing.T) {
+	w := keeper.OpenEscrowContractWorld(t)
 	var gate func(sdk.Context, string) error = w.Keeper.CheckWrite
-	hostBefore := repairM1303Snapshot(w.Context, w.HostKey)
+	hostBefore := escrowContractSnapshot(w.Context, w.HostKey)
 	w.Keeper.SetParams(w.Context, types.Params{BudgetEnabled: true})
 	require.ErrorIs(t, gate(w.Context, "escrowCapture"), types.ErrFamilyDisabled)
 	_, err := w.Keeper.EscrowCapture(w.Context, w.Beneficiary, w.ID, codec.U128{Lo: 1}, w.ResultKey)
@@ -100,21 +100,21 @@ func TestRepairM_1303_DeclarationGate(t *testing.T) {
 	require.ErrorIs(t, err, govtypes.ErrPausedScope)
 	require.NoError(t, gate(w.Context, "escrowRelease"))
 	require.NoError(t, gate(w.Context, "getEscrow"))
-	require.Equal(t, hostBefore, repairM1303Snapshot(w.Context, w.HostKey))
+	require.Equal(t, hostBefore, escrowContractSnapshot(w.Context, w.HostKey))
 	w.Keeper.SetParams(w.Context, types.Params{EscrowEnabled: true})
 	require.NoError(t, gate(w.Context, "escrowCapture"))
 	enableKey, err := types.KernelModuleEnableKey(types.MethodActivity["escrowCapture"].Module)
 	require.NoError(t, err)
 	w.Context.KVStore(w.HostKey).Delete(enableKey)
-	before := repairM1303Snapshot(w.Context, w.HostKey)
+	before := escrowContractSnapshot(w.Context, w.HostKey)
 	require.ErrorIs(t, gate(w.Context, "escrowCapture"), types.ErrKernelGateMismatch)
 	_, err = w.Keeper.EscrowCapture(w.Context, w.Beneficiary, w.ID, codec.U128{Lo: 1}, w.ResultKey)
 	require.ErrorIs(t, err, types.ErrKernelGateMismatch)
-	require.Equal(t, before, repairM1303Snapshot(w.Context, w.HostKey))
+	require.Equal(t, before, escrowContractSnapshot(w.Context, w.HostKey))
 }
 
-func TestRepairM_1303_DeclarationQuery(t *testing.T) {
-	w := keeper.OpenRepairM1303World(t)
+func TestPayParamsQueryContract(t *testing.T) {
+	w := keeper.OpenEscrowContractWorld(t)
 	var server types.QueryServer = keeper.Querier{Keeper: *w.Keeper}
 	response, err := server.Params(context.Background(), nil)
 	require.Nil(t, response)
@@ -129,25 +129,25 @@ func TestRepairM_1303_DeclarationQuery(t *testing.T) {
 	require.NotNil(t, route)
 	for _, params := range []types.Params{{Paused: true}, {EscrowEnabled: true, BudgetEnabled: true}} {
 		w.Keeper.SetParams(w.Context, params)
-		hostBefore, payBefore := repairM1303Snapshot(w.Context, w.HostKey), repairM1303Snapshot(w.Context, w.PayKey)
+		hostBefore, payBefore := escrowContractSnapshot(w.Context, w.HostKey), escrowContractSnapshot(w.Context, w.PayKey)
 		reply, err := route(w.Context, abci.RequestQuery{Data: cdc.MustMarshal(&types.QueryParamsRequest{})})
 		require.NoError(t, err)
 		var got types.QueryParamsResponse
 		require.NoError(t, cdc.Unmarshal(reply.Value, &got))
 		require.Equal(t, params, got.Params)
-		require.Equal(t, hostBefore, repairM1303Snapshot(w.Context, w.HostKey))
-		require.Equal(t, payBefore, repairM1303Snapshot(w.Context, w.PayKey))
+		require.Equal(t, hostBefore, escrowContractSnapshot(w.Context, w.HostKey))
+		require.Equal(t, payBefore, escrowContractSnapshot(w.Context, w.PayKey))
 	}
 }
 
-func TestRepairM_1303_DeclarationKeeper(t *testing.T)      { keeper.ProveRepairM1303Keeper(t) }
-func TestRepairM_1303_DeclarationConstructor(t *testing.T) { keeper.ProveRepairM1303Constructor(t) }
-func TestRepairM_1303_BudgetTimeView(t *testing.T)         { keeper.ProveRepairM1303BudgetTime(t) }
-func TestRepairM_1303_EscrowRecovery(t *testing.T)         { keeper.ProveRepairM1303EscrowRecovery(t) }
+func TestPayKeeperAssetBindingsContract(t *testing.T) { keeper.ProvePayKeeperAssetBindings(t) }
+func TestPayKeeperConstructorContract(t *testing.T)   { keeper.ProvePayKeeperConstructor(t) }
+func TestBudgetRemainingTimeProjection(t *testing.T)  { keeper.ProveBudgetTimeProjection(t) }
+func TestEscrowRecordRecovery(t *testing.T)           { keeper.ProveEscrowRecordRecovery(t) }
 
-func TestRepairM_1303_EscrowPublicReads(t *testing.T) {
-	keeper.ProveRepairM1303ServiceEscrowCorruption(t)
-	w := keeper.OpenRepairM1303World(t)
+func TestEscrowPublicReadCorruptionRefusal(t *testing.T) {
+	keeper.ProveServiceEscrowCorruptionRefusal(t)
+	w := keeper.OpenEscrowContractWorld(t)
 	w.Capture(t)
 	precompile, err := lp.NewPrecompile(w.Keeper)
 	require.NoError(t, err)
@@ -173,7 +173,7 @@ func TestRepairM_1303_EscrowPublicReads(t *testing.T) {
 	w.Keeper.SetParams(w.Context, types.Params{Paused: true})
 	assertReadable := func() {
 		t.Helper()
-		hostBefore, payBefore := repairM1303Snapshot(w.Context, w.HostKey), repairM1303Snapshot(w.Context, w.PayKey)
+		hostBefore, payBefore := escrowContractSnapshot(w.Context, w.HostKey), escrowContractSnapshot(w.Context, w.PayKey)
 		out, err := call("getEscrow", w.ID)
 		require.NoError(t, err)
 		tuple := reflect.ValueOf(out[0])
@@ -190,8 +190,8 @@ func TestRepairM_1303_EscrowPublicReads(t *testing.T) {
 		require.Equal(t, codec.U128{Lo: 25}, decoded.Amount)
 		require.Equal(t, w.Receipt.GlobalSequence, decoded.GlobalSequence)
 		require.True(t, decoded.ContextBound)
-		require.Equal(t, hostBefore, repairM1303Snapshot(w.Context, w.HostKey))
-		require.Equal(t, payBefore, repairM1303Snapshot(w.Context, w.PayKey))
+		require.Equal(t, hostBefore, escrowContractSnapshot(w.Context, w.HostKey))
+		require.Equal(t, payBefore, escrowContractSnapshot(w.Context, w.PayKey))
 	}
 	assertReadable()
 	for _, family := range []string{"hold", "result"} {
@@ -210,7 +210,7 @@ func TestRepairM_1303_EscrowPublicReads(t *testing.T) {
 					bad[243] = 1
 				}
 				w.Context.KVStore(w.HostKey).Set(key, bad)
-				before := repairM1303Snapshot(w.Context, w.HostKey)
+				before := escrowContractSnapshot(w.Context, w.HostKey)
 				names := []string{"getEscrowResult"}
 				id := w.ResultKey
 				if family == "hold" {
@@ -221,7 +221,7 @@ func TestRepairM_1303_EscrowPublicReads(t *testing.T) {
 					require.NotPanics(t, func() { _, readErr = call(name, id) })
 					require.ErrorIs(t, readErr, keeper.ErrEscrowCorruptState)
 				}
-				require.Equal(t, before, repairM1303Snapshot(w.Context, w.HostKey))
+				require.Equal(t, before, escrowContractSnapshot(w.Context, w.HostKey))
 				w.Context.KVStore(w.HostKey).Set(key, wire)
 				assertReadable()
 			})

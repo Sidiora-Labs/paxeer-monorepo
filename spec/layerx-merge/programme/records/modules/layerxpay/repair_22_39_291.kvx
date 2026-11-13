@@ -29,7 +29,7 @@ ledger = "/out/run/gates.jsonl"
 revision = "The final kind=verify ledger row names the verified candidate revision and must match the successful kind=build revision."
 build = "hf-build: go build ./modules/layerxpay/... && go vet ./modules/layerxpay/..."
 verify = "hf-done: cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s modules/layerxpay/repair_22_39_291.kvx && go test -count=1 ./modules/layerxpay/..."
+verify_cmd = "test -s spec/layerx-merge/programme/records/modules/layerxpay/repair_22_39_291.kvx && go test -count=1 ./modules/layerxpay/..."
 policy = "The gate ledger supplies exact revision, command, exit and private log location after execution; this record makes no advance success claim. Evidence stays external so build and verification use the same candidate. The runner owns publication."
 
 [qualification.task_repair]
@@ -66,7 +66,7 @@ severity = "blocker"
 
 [finding.recovery]
 task = "22.39.291"
-file = "modules/layerxpay/keeper/repair_131_test.go:81"
+file = "modules/layerxpay/keeper/pay_recovery_economics_test.go:81"
 symbol = "TestRepair_131_SnapshotGrowth"
 observed = "At revision 4c8c89da716772bd5d5773b8e482851fab1e3013, cg spec done 22.39.291 -f layerx-merge --root /work/paxeer-monorepo exited 1; recovery validation reports stream result has no stream; private log /out/logs/verify-1.log."
 assumption = "Recovery chunk validation is independent of the activity table and application fixture changed here."

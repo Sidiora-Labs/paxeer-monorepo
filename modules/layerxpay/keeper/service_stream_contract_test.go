@@ -31,10 +31,10 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairServiceKey(prefix string, id [32]byte) []byte {
+func serviceContractKey(prefix string, id [32]byte) []byte {
 	return types.KernelKVKey(types.ServiceModuleID, append([]byte(prefix), id[:]...))
 }
-func repairSnapshot(ctx sdk.Context, key sdk.StoreKey) map[string][]byte {
+func serviceContractSnapshot(ctx sdk.Context, key sdk.StoreKey) map[string][]byte {
 	values := make(map[string][]byte)
 	it := ctx.KVStore(key).Iterator(nil, nil)
 	defer it.Close()
@@ -44,7 +44,7 @@ func repairSnapshot(ctx sdk.Context, key sdk.StoreKey) map[string][]byte {
 	return values
 }
 
-func repairServiceProduce(t *testing.T, w *keeper.RepairM1304World) ([32]byte, [32]byte, types.ServiceDelivery) {
+func produceServiceProgressAndDelivery(t *testing.T, w *keeper.ServiceStreamWorld) ([32]byte, [32]byte, types.ServiceDelivery) {
 	t.Helper()
 	report, delivery := [32]byte{0xa1}, [32]byte{0xa2}
 	progressReceipt, err := w.Keeper.ServiceProgressReport(w.Context, w.Provider, report, w.Commitment, [32]byte{0xa3}, [32]byte{0xa4}, 5000, [32]byte{0xa5})
@@ -68,17 +68,17 @@ func repairServiceProduce(t *testing.T, w *keeper.RepairM1304World) ([32]byte, [
 	return report, delivery, got
 }
 
-func TestRepairM_1304_GenesisProofGap(t *testing.T) {
+func TestServiceGenesisRecordValidation(t *testing.T) {
 	// Both application JSON/reopen rounds and duplicate refusals remain part of
 	// this task's focused proof, including the strengthened malformed-export case.
 	TestProofPayGenesis(t)
-	w := keeper.OpenRepairM1304World(t, false)
-	_, delivery, _ := repairServiceProduce(t, w)
+	w := keeper.OpenServiceStreamWorld(t, false)
+	_, delivery, _ := produceServiceProgressAndDelivery(t, w)
 	exported := w.Keeper.ExportGenesis(w.Context)
 	require.NoError(t, keeper.ValidateOwnedGenesis(*exported))
 	wire, err := json.Marshal(exported)
 	require.NoError(t, err)
-	consumer := keeper.OpenRepairM1304World(t, false)
+	consumer := keeper.OpenServiceStreamWorld(t, false)
 	for _, mutation := range []string{"offer_bytes", "offer_id", "progress_bounds", "missing_item", "item_version", "delivery_count", "orphan_item", "bad_key", "duplicate"} {
 		t.Run(mutation, func(t *testing.T) {
 			var malformed types.GenesisState
@@ -99,16 +99,16 @@ func TestRepairM_1304_GenesisProofGap(t *testing.T) {
 				case mutation == "progress_bounds" && bytes.HasPrefix(r.Key[3:], []byte("progrs:1")):
 					binary.BigEndian.PutUint32(r.Value[225:229], 10001)
 					changed = true
-				case mutation == "missing_item" && bytes.Equal(r.Key, append(repairServiceKey("delitm:1", delivery), 0)):
+				case mutation == "missing_item" && bytes.Equal(r.Key, append(serviceContractKey("delitm:1", delivery), 0)):
 					malformed.KernelRecords = append(malformed.KernelRecords[:i], malformed.KernelRecords[i+1:]...)
 					changed = true
-				case mutation == "item_version" && bytes.Equal(r.Key, append(repairServiceKey("delitm:1", delivery), 0)):
+				case mutation == "item_version" && bytes.Equal(r.Key, append(serviceContractKey("delitm:1", delivery), 0)):
 					r.Value[0] = 2
 					changed = true
-				case mutation == "delivery_count" && bytes.Equal(r.Key, repairServiceKey("delivr:1", delivery)):
+				case mutation == "delivery_count" && bytes.Equal(r.Key, serviceContractKey("delivr:1", delivery)):
 					r.Value[129] = 17
 					changed = true
-				case mutation == "orphan_item" && bytes.Equal(r.Key, append(repairServiceKey("delitm:1", delivery), 0)):
+				case mutation == "orphan_item" && bytes.Equal(r.Key, append(serviceContractKey("delitm:1", delivery), 0)):
 					r.Key[len(r.Key)-1] = 16
 					changed = true
 				case mutation == "bad_key" && bytes.HasPrefix(r.Key[3:], []byte("offer::1")):
@@ -123,7 +123,7 @@ func TestRepairM_1304_GenesisProofGap(t *testing.T) {
 				}
 			}
 			require.True(t, changed)
-			beforeHost, beforePay := repairSnapshot(consumer.Context, consumer.HostKey), repairSnapshot(consumer.Context, consumer.PayKey)
+			beforeHost, beforePay := serviceContractSnapshot(consumer.Context, consumer.HostKey), serviceContractSnapshot(consumer.Context, consumer.PayKey)
 			validationErr := keeper.ValidateOwnedGenesis(malformed)
 			require.ErrorIs(t, validationErr, types.ErrInvalidGenesis)
 			detail := map[string]string{
@@ -144,8 +144,8 @@ func TestRepairM_1304_GenesisProofGap(t *testing.T) {
 			for n := 0; n < 2; n++ {
 				err := consumer.Keeper.InitGenesis(consumer.Context, malformed)
 				require.ErrorIs(t, err, types.ErrInvalidGenesis)
-				require.Equal(t, beforeHost, repairSnapshot(consumer.Context, consumer.HostKey))
-				require.Equal(t, beforePay, repairSnapshot(consumer.Context, consumer.PayKey))
+				require.Equal(t, beforeHost, serviceContractSnapshot(consumer.Context, consumer.HostKey))
+				require.Equal(t, beforePay, serviceContractSnapshot(consumer.Context, consumer.PayKey))
 			}
 			_, found, err := consumer.Keeper.ServiceViews().GetOffer(consumer.Context, [32]byte{0x81})
 			require.NoError(t, err)
@@ -154,9 +154,9 @@ func TestRepairM_1304_GenesisProofGap(t *testing.T) {
 	}
 }
 
-func TestRepairM_1304_ServiceCorruption(t *testing.T) {
-	w := keeper.OpenRepairM1304World(t, false)
-	report, delivery, _ := repairServiceProduce(t, w)
+func TestServiceRecordCorruptionRefusal(t *testing.T) {
+	w := keeper.OpenServiceStreamWorld(t, false)
+	report, delivery, _ := produceServiceProgressAndDelivery(t, w)
 	views := w.Keeper.ServiceViews()
 	cases := []struct {
 		prefix string
@@ -172,12 +172,12 @@ func TestRepairM_1304_ServiceCorruption(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.prefix, func(t *testing.T) {
 			store := w.Context.KVStore(w.HostKey)
-			key := repairServiceKey(tc.prefix, tc.id)
+			key := serviceContractKey(tc.prefix, tc.id)
 			original := bytes.Clone(store.Get(key))
 			require.NotEmpty(t, original)
 			for _, bad := range [][]byte{{1}, {255}, append(bytes.Clone(original), 0)} {
 				store.Set(key, bad)
-				beforeHost, beforePay := repairSnapshot(w.Context, w.HostKey), repairSnapshot(w.Context, w.PayKey)
+				beforeHost, beforePay := serviceContractSnapshot(w.Context, w.HostKey), serviceContractSnapshot(w.Context, w.PayKey)
 				var first string
 				for i := 0; i < 2; i++ {
 					found, err := tc.read()
@@ -189,8 +189,8 @@ func TestRepairM_1304_ServiceCorruption(t *testing.T) {
 						require.Equal(t, first, err.Error())
 					}
 				}
-				require.Equal(t, beforeHost, repairSnapshot(w.Context, w.HostKey))
-				require.Equal(t, beforePay, repairSnapshot(w.Context, w.PayKey))
+				require.Equal(t, beforeHost, serviceContractSnapshot(w.Context, w.HostKey))
+				require.Equal(t, beforePay, serviceContractSnapshot(w.Context, w.PayKey))
 			}
 			store.Delete(key)
 			found, err := tc.read()
@@ -202,7 +202,7 @@ func TestRepairM_1304_ServiceCorruption(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
-	itemKey := append(repairServiceKey("delitm:1", delivery), 0)
+	itemKey := append(serviceContractKey("delitm:1", delivery), 0)
 	item := bytes.Clone(w.Context.KVStore(w.HostKey).Get(itemKey))
 	w.Context.KVStore(w.HostKey).Delete(itemKey)
 	_, found, err := views.GetDelivery(w.Context, delivery)
@@ -210,12 +210,12 @@ func TestRepairM_1304_ServiceCorruption(t *testing.T) {
 	require.ErrorIs(t, err, keeper.ErrServiceCorruptState)
 	w.Context.KVStore(w.HostKey).Set(itemKey, item)
 	// Execution and dispute bytes are produced by their real signed keeper flows.
-	keeper.ProveRepairM1304AdditionalServiceRecords(t)
+	keeper.ProveServiceExecutionAndDisputeReads(t)
 }
 
-func TestRepairM_1304_ServiceIndexes(t *testing.T) {
-	w := keeper.OpenRepairM1304World(t, false)
-	_, _, want := repairServiceProduce(t, w)
+func TestServiceIndexIsolationAndBoundedReads(t *testing.T) {
+	w := keeper.OpenServiceStreamWorld(t, false)
+	_, _, want := produceServiceProgressAndDelivery(t, w)
 	read := func(ctx sdk.Context) uint64 {
 		t.Helper()
 		meter := sdk.NewInfiniteGasMeterWithMultiplier(ctx)
@@ -249,29 +249,29 @@ func TestRepairM_1304_ServiceIndexes(t *testing.T) {
 		var id [32]byte
 		id[0] = 0xf0
 		binary.BigEndian.PutUint64(id[24:], i)
-		w.Context.KVStore(w.HostKey).Set(repairServiceKey("delivr:1", id), []byte{255})
-		w.Context.KVStore(w.HostKey).Set(repairServiceKey("progrs:1", id), []byte{255})
+		w.Context.KVStore(w.HostKey).Set(serviceContractKey("delivr:1", id), []byte{255})
+		w.Context.KVStore(w.HostKey).Set(serviceContractKey("progrs:1", id), []byte{255})
 	}
-	beforeHost, beforePay := repairSnapshot(w.Context, w.HostKey), repairSnapshot(w.Context, w.PayKey)
+	beforeHost, beforePay := serviceContractSnapshot(w.Context, w.HostKey), serviceContractSnapshot(w.Context, w.PayKey)
 	require.Equal(t, cost, read(w.Context))
-	require.Equal(t, beforeHost, repairSnapshot(w.Context, w.HostKey))
-	require.Equal(t, beforePay, repairSnapshot(w.Context, w.PayKey))
+	require.Equal(t, beforeHost, serviceContractSnapshot(w.Context, w.HostKey))
+	require.Equal(t, beforePay, serviceContractSnapshot(w.Context, w.PayKey))
 	w.Reopen(t)
 	require.Equal(t, cost, read(w.Context))
 	// Explicit rebuild refuses corruption atomically instead of silently repairing.
-	beforePay = repairSnapshot(w.Context, w.PayKey)
+	beforePay = serviceContractSnapshot(w.Context, w.PayKey)
 	require.ErrorIs(t, w.Keeper.RebuildServiceIndexes(w.Context), keeper.ErrServiceCorruptState)
-	require.Equal(t, beforePay, repairSnapshot(w.Context, w.PayKey))
+	require.Equal(t, beforePay, serviceContractSnapshot(w.Context, w.PayKey))
 }
 
-func TestRepairM_1304_ServiceRecovery(t *testing.T) {
-	producer := keeper.OpenRepairM1304World(t, false)
-	_, _, want := repairServiceProduce(t, producer)
+func TestServiceIndexRecovery(t *testing.T) {
+	producer := keeper.OpenServiceStreamWorld(t, false)
+	_, _, want := produceServiceProgressAndDelivery(t, producer)
 	exported := producer.Keeper.ExportGenesis(producer.Context)
 	recovery := producer.Keeper.ExportRecoveryGenesis(producer.Context)
 	// Export a corrupt live record through the real recovery producer, obtaining
 	// a valid envelope checksum; refusal must come from owned-record validation.
-	offerKey := repairServiceKey("offer::1", [32]byte{0x81})
+	offerKey := serviceContractKey("offer::1", [32]byte{0x81})
 	original := bytes.Clone(producer.Context.KVStore(producer.HostKey).Get(offerKey))
 	producer.Context.KVStore(producer.HostKey).Set(offerKey, []byte{1})
 	corruptRecovery := producer.Keeper.ExportRecoveryGenesis(producer.Context)
@@ -279,13 +279,13 @@ func TestRepairM_1304_ServiceRecovery(t *testing.T) {
 
 	for _, chunked := range []bool{false, true} {
 		t.Run(fmt.Sprint(chunked), func(t *testing.T) {
-			consumer := keeper.OpenRepairM1304World(t, false)
-			beforeHost, beforePay := repairSnapshot(consumer.Context, consumer.HostKey), repairSnapshot(consumer.Context, consumer.PayKey)
+			consumer := keeper.OpenServiceStreamWorld(t, false)
+			beforeHost, beforePay := serviceContractSnapshot(consumer.Context, consumer.HostKey), serviceContractSnapshot(consumer.Context, consumer.PayKey)
 			for n := 0; n < 2; n++ {
 				require.ErrorIs(t, consumer.Keeper.InitRecoveryGenesis(consumer.Context, *corruptRecovery), types.ErrInvalidGenesis)
 			}
-			require.Equal(t, beforeHost, repairSnapshot(consumer.Context, consumer.HostKey))
-			require.Equal(t, beforePay, repairSnapshot(consumer.Context, consumer.PayKey))
+			require.Equal(t, beforeHost, serviceContractSnapshot(consumer.Context, consumer.HostKey))
+			require.Equal(t, beforePay, serviceContractSnapshot(consumer.Context, consumer.PayKey))
 			// A poisoned derived index is replaced only by the explicit import rebuild.
 			key := append([]byte("service/latest-delivery/v1/"), consumer.Agreement[:]...)
 			consumer.Context.KVStore(consumer.PayKey).Set(key, []byte{255})
@@ -311,7 +311,7 @@ func TestRepairM_1304_ServiceRecovery(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, found)
 			require.Equal(t, uint32(8000), high)
-			before := repairSnapshot(consumer.Context, consumer.PayKey)
+			before := serviceContractSnapshot(consumer.Context, consumer.PayKey)
 			// Losing the version marker requires an explicit migration, never a query scan.
 			consumer.Context.KVStore(consumer.PayKey).Delete([]byte("service/index-version"))
 			_, found, err = consumer.Keeper.ServiceViews().LatestDelivery(consumer.Context, consumer.Agreement)
@@ -321,7 +321,7 @@ func TestRepairM_1304_ServiceRecovery(t *testing.T) {
 			require.False(t, found)
 			require.ErrorIs(t, err, keeper.ErrServiceIndexesUnavailable)
 			require.NoError(t, consumer.Keeper.RebuildServiceIndexes(consumer.Context))
-			require.Equal(t, before, repairSnapshot(consumer.Context, consumer.PayKey))
+			require.Equal(t, before, serviceContractSnapshot(consumer.Context, consumer.PayKey))
 			_, found, err = consumer.Keeper.ServiceViews().LatestDelivery(consumer.Context, [32]byte{0x99})
 			require.NoError(t, err)
 			require.False(t, found)
@@ -333,17 +333,17 @@ func TestRepairM_1304_ServiceRecovery(t *testing.T) {
 	}
 }
 
-type repairAgent struct {
-	world      *keeper.RepairM1304World
+type agentStreamContractHarness struct {
+	world      *keeper.ServiceStreamWorld
 	precompile *agentcommon.Precompile
 	db         *state.DBImpl
 	machine    *vm.EVM
 	composite  storetypes.CacheMultiStore
 }
 
-func newRepairAgent(t *testing.T) *repairAgent {
+func newAgentStreamContractHarness(t *testing.T) *agentStreamContractHarness {
 	t.Helper()
-	w := keeper.OpenRepairM1304World(t, true)
+	w := keeper.OpenServiceStreamWorld(t, true)
 	application := testkeeper.EVMTestApp
 	appContext, _ := application.GetContextForDeliverTx(nil).CacheContext()
 	stores := map[storetypes.StoreKey]storetypes.CacheWrapper{}
@@ -360,17 +360,17 @@ func newRepairAgent(t *testing.T) *repairAgent {
 	}
 	composite := cachemulti.NewStore(dbm.NewMemDB(), stores, keys, nil, nil, nil, 0)
 	ctx := w.Context.WithMultiStore(composite).WithBlockHeight(100).WithEventManager(sdk.NewEventManager())
-	application.UpgradeKeeper.SetDone(ctx, "repair1304-merge")
-	p, err := streams.NewPrecompile(w.Keeper, &application.UpgradeKeeper, "repair1304-merge")
+	application.UpgradeKeeper.SetDone(ctx, "service-stream-contract")
+	p, err := streams.NewPrecompile(w.Keeper, &application.UpgradeKeeper, "service-stream-contract")
 	require.NoError(t, err)
 	db := state.NewDBImpl(ctx, &application.EvmKeeper, false)
 	block, err := application.EvmKeeper.GetVMBlockContext(ctx, core.GasPool(math.MaxUint64))
 	require.NoError(t, err)
 	chain := evmtypes.DefaultChainConfig().EthereumConfig(application.EvmKeeper.ChainID(ctx))
 	machine := vm.NewEVM(*block, db, chain, vm.Config{}, map[common.Address]vm.PrecompiledContract{p.Address(): p})
-	return &repairAgent{w, p, db, machine, composite}
+	return &agentStreamContractHarness{w, p, db, machine, composite}
 }
-func (h *repairAgent) call(t *testing.T, caller common.Address, name string, args ...interface{}) []interface{} {
+func (h *agentStreamContractHarness) call(t *testing.T, caller common.Address, name string, args ...interface{}) []interface{} {
 	t.Helper()
 	input, err := h.precompile.GetABI().Pack(name, args...)
 	require.NoError(t, err)
@@ -380,14 +380,14 @@ func (h *repairAgent) call(t *testing.T, caller common.Address, name string, arg
 	require.NoError(t, err)
 	return values
 }
-func (h *repairAgent) open(t *testing.T) *big.Int {
+func (h *agentStreamContractHarness) open(t *testing.T) *big.Int {
 	t.Helper()
 	return h.call(t, h.world.Provider, "open", h.world.Buyer, h.world.Token, big.NewInt(2), uint64(1700000000), uint64(1700000100), big.NewInt(100))[0].(*big.Int)
 }
-func (h *repairAgent) advance(seconds int64) {
+func (h *agentStreamContractHarness) advance(seconds int64) {
 	h.db.WithCtx(h.db.Ctx().WithBlockTime(time.Unix(1700000000+seconds, 0)).WithBlockHeight(h.db.Ctx().BlockHeight() + 1))
 }
-func (h *repairAgent) result(t *testing.T, id *big.Int, ordinal uint32, selector [4]byte, paid, refund uint64) {
+func (h *agentStreamContractHarness) result(t *testing.T, id *big.Int, ordinal uint32, selector [4]byte, paid, refund uint64) {
 	t.Helper()
 	key := types.DeriveIdempotencyKey([32]byte(h.db.Ctx().EVMTxHash()), ordinal, selector)
 	got, err := h.world.Keeper.GetStreamResult(h.db.Ctx(), key)
@@ -399,8 +399,8 @@ func (h *repairAgent) result(t *testing.T, id *big.Int, ordinal uint32, selector
 	require.Equal(t, codec.U128{Lo: refund}, got.Refunded)
 }
 
-func TestRepairM_1304_DeclarationAgentOpen(t *testing.T) {
-	h := newRepairAgent(t)
+func TestAgentStreamOpenContract(t *testing.T) {
+	h := newAgentStreamContractHarness(t)
 	id := h.open(t)
 	auth, err := h.world.Keeper.AuthorityFor(h.db.Ctx(), h.world.Provider)
 	require.NoError(t, err)
@@ -420,8 +420,8 @@ func TestRepairM_1304_DeclarationAgentOpen(t *testing.T) {
 	require.Len(t, logs, 2)
 	require.Equal(t, common.BigToHash(id), logs[0].Topics[1])
 }
-func TestRepairM_1304_DeclarationAgentSettle(t *testing.T) {
-	h := newRepairAgent(t)
+func TestAgentStreamSettleContract(t *testing.T) {
+	h := newAgentStreamContractHarness(t)
 	id := h.open(t)
 	h.advance(5)
 	require.Equal(t, []interface{}{big.NewInt(10)}, h.call(t, h.world.Buyer, "settle", id))
@@ -431,8 +431,8 @@ func TestRepairM_1304_DeclarationAgentSettle(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, big.NewInt(10), view.Settled)
 }
-func TestRepairM_1304_DeclarationAgentClose(t *testing.T) {
-	h := newRepairAgent(t)
+func TestAgentStreamCloseContract(t *testing.T) {
+	h := newAgentStreamContractHarness(t)
 	id := h.open(t)
 	h.advance(5)
 	require.Equal(t, []interface{}{big.NewInt(10)}, h.call(t, h.world.Provider, "close", id))
@@ -448,8 +448,8 @@ func TestRepairM_1304_DeclarationAgentClose(t *testing.T) {
 	require.True(t, found)
 	require.False(t, view.Active)
 }
-func TestRepairM_1304_DeclarationAgentRate(t *testing.T) {
-	h := newRepairAgent(t)
+func TestAgentStreamRateContract(t *testing.T) {
+	h := newAgentStreamContractHarness(t)
 	id := h.open(t)
 	h.advance(5)
 	require.Empty(t, h.call(t, h.world.Provider, "updateRate", id, big.NewInt(4)))
@@ -463,8 +463,8 @@ func TestRepairM_1304_DeclarationAgentRate(t *testing.T) {
 	h.advance(8)
 	require.Equal(t, []interface{}{big.NewInt(12)}, h.call(t, h.world.Buyer, "settle", id))
 }
-func TestRepairM_1304_DeclarationAgentView(t *testing.T) {
-	h := newRepairAgent(t)
+func TestAgentStreamViewRecoveryContract(t *testing.T) {
+	h := newAgentStreamContractHarness(t)
 	id := h.open(t)
 	type streamTuple struct {
 		Id                  *big.Int
@@ -500,18 +500,18 @@ func TestRepairM_1304_DeclarationAgentView(t *testing.T) {
 	require.ErrorContains(t, err, "address metadata")
 }
 
-func TestRepairM_1304_ServiceIndexWriterAtomicity(t *testing.T) {
-	w := keeper.OpenRepairM1304World(t, false)
+func TestServiceIndexWriterAtomicity(t *testing.T) {
+	w := keeper.OpenServiceStreamWorld(t, false)
 	report := [32]byte{0xa1}
 	_, err := w.Keeper.ServiceProgressReport(w.Context, w.Provider, report, w.Commitment, [32]byte{0xa3}, [32]byte{0xa4}, 5000, [32]byte{0xa5})
 	require.NoError(t, err)
 	key := append([]byte("service/progress-high-water/v1/"), w.Commitment[:]...)
 	w.Context.KVStore(w.PayKey).Set(key, []byte{255})
-	beforeHost, beforePay := repairSnapshot(w.Context, w.HostKey), repairSnapshot(w.Context, w.PayKey)
+	beforeHost, beforePay := serviceContractSnapshot(w.Context, w.HostKey), serviceContractSnapshot(w.Context, w.PayKey)
 	_, err = w.Keeper.ServiceProgressReport(w.Context, w.Provider, [32]byte{0xb1}, w.Commitment, [32]byte{0xa3}, [32]byte{0xa4}, 8000, [32]byte{0xb2})
 	require.ErrorIs(t, err, keeper.ErrServiceCorruptState)
-	require.Equal(t, beforeHost, repairSnapshot(w.Context, w.HostKey))
-	require.Equal(t, beforePay, repairSnapshot(w.Context, w.PayKey))
+	require.Equal(t, beforeHost, serviceContractSnapshot(w.Context, w.HostKey))
+	require.Equal(t, beforePay, serviceContractSnapshot(w.Context, w.PayKey))
 	require.NoError(t, w.Keeper.RebuildServiceIndexes(w.Context))
 	_, err = w.Keeper.ServiceProgressReport(w.Context, w.Provider, [32]byte{0xb1}, w.Commitment, [32]byte{0xa3}, [32]byte{0xa4}, 8000, [32]byte{0xb2})
 	require.NoError(t, err)

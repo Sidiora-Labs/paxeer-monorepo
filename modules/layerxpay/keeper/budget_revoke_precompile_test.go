@@ -23,10 +23,10 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepair_131_Budget0x101B(t *testing.T) {
+func TestBudgetRevokePrecompileRefundsUnusedFunds(t *testing.T) {
 	for _, spent := range []int64{0, 20} {
 		t.Run(fmt.Sprint(spent), func(t *testing.T) {
-			world := keeper.OpenRepair131BudgetWorld(t)
+			world := keeper.OpenBudgetRevokeWorld(t)
 			application := testkeeper.EVMTestApp
 			appContext, _ := application.GetContextForDeliverTx(nil).CacheContext()
 			stores := map[storetypes.StoreKey]storetypes.CacheWrapper{}

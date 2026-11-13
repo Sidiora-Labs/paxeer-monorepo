@@ -35,7 +35,7 @@ ledger = "/out/run/gates.jsonl"
 revision = "Read the revision field of the last kind=verify ledger row; it must equal the last successful kind=build row."
 build = "hf-build; command go vet ./modules/layerxpay/...; exact revision, exit and private log are in the final kind=build ledger row (first run log /out/logs/build-1.log)."
 verify = "hf-done; command cg spec done 22.39.231 -f layerx-merge --root /work/paxeer-monorepo; exact revision, exit and private log are in the final kind=verify ledger row (first run log /out/logs/verify-1.log)."
-verify_cmd = "test -s modules/layerxpay/keeper/repair_22_39_231.kvx && go test -count=1 ./modules/layerxpay/keeper/ -run 'TestServiceDisputeArbiterRefusals|TestServiceOfferPublishWithdraw'"
+verify_cmd = "test -s spec/layerx-merge/programme/records/modules/layerxpay/keeper/repair_22_39_231.kvx && go test -count=1 ./modules/layerxpay/keeper/ -run 'TestServiceDisputeArbiterRefusals|TestServiceOfferPublishWithdraw'"
 policy = "Evidence is recorded by reference before qualification to keep build and verification on the same candidate; this record does not declare a gate result before execution. Runner owns publication; no manual commit or push."
 
 [qualification.attempt_1]
