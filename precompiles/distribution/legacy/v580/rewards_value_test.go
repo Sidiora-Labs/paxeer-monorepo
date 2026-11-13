@@ -30,43 +30,43 @@ import (
 
 // These are recorded upgrade heights in the isolated store, not mainnet heights.
 const (
-	repair1254HistoricalHeight int64 = 5
-	repair1254MergeHeight      int64 = 10
+	rewardsValueHistoricalHeight int64 = 5
+	rewardsValueMergeHeight      int64 = 10
 )
 
 // Decode in ABI wire order; the production packing structs use field names.
-type repair1254Coin struct {
+type rewardsValueCoin struct {
 	Amount   *big.Int
 	Decimals *big.Int
 	Denom    string
 }
 
-type repair1254Reward struct {
-	Coins            []repair1254Coin
+type rewardsValueReward struct {
+	Coins            []rewardsValueCoin
 	ValidatorAddress string
 }
 
-type repair1254Rewards struct {
-	Rewards []repair1254Reward
-	Total   []repair1254Coin
+type rewardsValueRewards struct {
+	Rewards []rewardsValueReward
+	Total   []rewardsValueCoin
 }
 
-type repair1254Env struct {
+type rewardsValueEnv struct {
 	app      *node.App
 	ctx      sdk.Context
 	caller   common.Address
-	expected repair1254Rewards
+	expected rewardsValueRewards
 }
 
-func newRepair1254Env(t *testing.T, height int64, tracing, mergeApplied bool) *repair1254Env {
+func newRewardsValueEnv(t *testing.T, height int64, tracing, mergeApplied bool) *rewardsValueEnv {
 	t.Helper()
 	a := testkeeper.EVMTestApp
 	ctx, _ := a.NewContext(false, tmtypes.Header{Height: 2, Time: time.Unix(1, 0).UTC()}).CacheContext()
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, pcommon.MergeUpgrade))
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair1254HistoricalHeight), "v5.8.0")
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueHistoricalHeight), "v5.8.0")
 	if mergeApplied {
-		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair1254MergeHeight), pcommon.MergeUpgrade)
+		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueMergeHeight), pcommon.MergeUpgrade)
 	}
 
 	key := &secp256k1.PrivKey{Key: make([]byte, 32)}
@@ -92,27 +92,27 @@ func newRepair1254Env(t *testing.T, height int64, tracing, mergeApplied bool) *r
 	require.NoError(t, a.BankKeeper.MintCoins(ctx, evmtypes.ModuleName, funds))
 	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, evmtypes.ModuleName, delegator, funds))
 	ctx = ctx.WithBlockHeight(height).WithIsTracing(tracing)
-	require.Equal(t, mergeApplied && height >= repair1254MergeHeight, pcommon.MergePlanActive(ctx, &a.EvmKeeper))
+	require.Equal(t, mergeApplied && height >= rewardsValueMergeHeight, pcommon.MergePlanActive(ctx, &a.EvmKeeper))
 
 	response, err := a.DistrKeeper.DelegationTotalRewards(sdk.WrapSDKContext(ctx), &distrtypes.QueryDelegationTotalRewardsRequest{DelegatorAddress: delegator.String()})
 	require.NoError(t, err)
 	require.NotEmpty(t, response.Rewards)
 	require.True(t, response.Total.AmountOf("uhpx").IsPositive())
-	expected := repair1254Rewards{Rewards: make([]repair1254Reward, 0), Total: make([]repair1254Coin, 0)}
+	expected := rewardsValueRewards{Rewards: make([]rewardsValueReward, 0), Total: make([]rewardsValueCoin, 0)}
 	for _, reward := range response.Rewards {
-		row := repair1254Reward{ValidatorAddress: reward.ValidatorAddress, Coins: make([]repair1254Coin, 0)}
+		row := rewardsValueReward{ValidatorAddress: reward.ValidatorAddress, Coins: make([]rewardsValueCoin, 0)}
 		for _, coin := range reward.Reward {
-			row.Coins = append(row.Coins, repair1254Coin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
+			row.Coins = append(row.Coins, rewardsValueCoin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
 		}
 		expected.Rewards = append(expected.Rewards, row)
 	}
 	for _, coin := range response.Total {
-		expected.Total = append(expected.Total, repair1254Coin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
+		expected.Total = append(expected.Total, rewardsValueCoin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
 	}
-	return &repair1254Env{app: a, ctx: ctx, caller: caller, expected: expected}
+	return &rewardsValueEnv{app: a, ctx: ctx, caller: caller, expected: expected}
 }
 
-func (e *repair1254Env) call(t *testing.T, value int64, static, historical, rejected bool) {
+func (e *rewardsValueEnv) call(t *testing.T, value int64, static, historical, rejected bool) {
 	t.Helper()
 	k := &e.app.EvmKeeper
 	address := common.HexToAddress(v580.DistrAddress)
@@ -164,7 +164,7 @@ func (e *repair1254Env) call(t *testing.T, value int64, static, historical, reje
 		decoded, err := servedABI.Methods[v580.RewardsMethod].Outputs.Unpack(output)
 		require.NoError(t, err)
 		require.Len(t, decoded, 1)
-		require.Equal(t, e.expected, *abi.ConvertType(decoded[0], new(repair1254Rewards)).(*repair1254Rewards))
+		require.Equal(t, e.expected, *abi.ConvertType(decoded[0], new(rewardsValueRewards)).(*rewardsValueRewards))
 	}
 	// Compare numeric balances; big.Int can represent zero with nil or empty limbs.
 	callerAfter := new(big.Int).Sub(callerBefore, paid)
@@ -181,48 +181,48 @@ func (e *repair1254Env) call(t *testing.T, value int64, static, historical, reje
 	require.Zero(t, precompileAfter.Cmp(reopened.GetBalance(address).ToBig()), "balance must equal %s", precompileAfter)
 }
 
-func TestRepairM_1254_HistoricalRawCALLPayment(t *testing.T) {
-	for _, height := range []int64{repair1254HistoricalHeight, repair1254MergeHeight - 1} {
+func TestRewardsValueHistoricalRawCALLPayment(t *testing.T) {
+	for _, height := range []int64{rewardsValueHistoricalHeight, rewardsValueMergeHeight - 1} {
 		for _, value := range []int64{1, 1_000_000_000_001} {
 			t.Run(fmt.Sprintf("height_%d/value_%d", height, value), func(t *testing.T) {
-				newRepair1254Env(t, height, true, true).call(t, value, false, true, false)
+				newRewardsValueEnv(t, height, true, true).call(t, value, false, true, false)
 			})
 		}
 	}
 }
 
-func TestRepairM_1254_LiveRoutingRejectsPayment(t *testing.T) {
-	for _, height := range []int64{repair1254MergeHeight, repair1254MergeHeight + 1} {
+func TestRewardsValueLiveRoutingRejectsPayment(t *testing.T) {
+	for _, height := range []int64{rewardsValueMergeHeight, rewardsValueMergeHeight + 1} {
 		for _, tracing := range []bool{false, true} {
 			for _, value := range []int64{1, 1_000_000_000_001} {
 				t.Run(fmt.Sprintf("height_%d/tracing_%t/value_%d", height, tracing, value), func(t *testing.T) {
-					newRepair1254Env(t, height, tracing, true).call(t, value, false, false, true)
+					newRewardsValueEnv(t, height, tracing, true).call(t, value, false, false, true)
 				})
 			}
 		}
 	}
 }
 
-func TestRepairM_1254_ZeroValueRewards(t *testing.T) {
-	for _, height := range []int64{repair1254HistoricalHeight, repair1254MergeHeight - 1, repair1254MergeHeight, repair1254MergeHeight + 1} {
+func TestRewardsValueZeroValueRewards(t *testing.T) {
+	for _, height := range []int64{rewardsValueHistoricalHeight, rewardsValueMergeHeight - 1, rewardsValueMergeHeight, rewardsValueMergeHeight + 1} {
 		for _, tracing := range []bool{false, true} {
 			for _, static := range []bool{false, true} {
 				t.Run(fmt.Sprintf("height_%d/tracing_%t/static_%t", height, tracing, static), func(t *testing.T) {
-					newRepair1254Env(t, height, tracing, true).call(t, 0, static, tracing && height < repair1254MergeHeight, false)
+					newRewardsValueEnv(t, height, tracing, true).call(t, 0, static, tracing && height < rewardsValueMergeHeight, false)
 				})
 			}
 		}
 	}
 }
 
-func TestRepairM_1254_PreActivationCompatibility(t *testing.T) {
+func TestRewardsValuePreActivationCompatibility(t *testing.T) {
 	for _, applied := range []bool{false, true} {
-		height := repair1254MergeHeight + 1
+		height := rewardsValueMergeHeight + 1
 		if applied {
-			height = repair1254MergeHeight - 1
+			height = rewardsValueMergeHeight - 1
 		}
 		t.Run(fmt.Sprintf("merge_applied_%t", applied), func(t *testing.T) {
-			newRepair1254Env(t, height, false, applied).call(t, 1_000_000_000_001, false, false, false)
+			newRewardsValueEnv(t, height, false, applied).call(t, 1_000_000_000_001, false, false, false)
 		})
 	}
 }

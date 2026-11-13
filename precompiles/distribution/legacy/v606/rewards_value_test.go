@@ -42,39 +42,39 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-const repairM1256HistoricalHeight int64 = 151573570
+const rewardsValueHistoricalHeight int64 = 151573570
 
 // The merge height is a committed store fixture, not a claimed network height.
-const repairM1256MergeHeight = repairM1256HistoricalHeight + 10
+const rewardsValueMergeHeight = rewardsValueHistoricalHeight + 10
 
 // Tuple decoding follows ABI wire order, including nested tuple fields.
-type repairM1256Coin struct {
+type rewardsValueCoin struct {
 	Amount   *big.Int
 	Decimals *big.Int
 	Denom    string
 }
 
-type repairM1256Reward struct {
-	Coins            []repairM1256Coin
+type rewardsValueReward struct {
+	Coins            []rewardsValueCoin
 	ValidatorAddress string
 }
 
-type repairM1256Rewards struct {
-	Rewards []repairM1256Reward
-	Total   []repairM1256Coin
+type rewardsValueRewards struct {
+	Rewards []rewardsValueReward
+	Total   []rewardsValueCoin
 }
 
-type repairM1256Env struct {
-	app       *repairM1256App
+type rewardsValueEnv struct {
+	app       *rewardsValueApp
 	ctx       sdk.Context
 	caller    common.Address
 	delegator sdk.AccAddress
-	expected  repairM1256Rewards
+	expected  rewardsValueRewards
 }
 
 // This assembly supplies real keepers to the production version registry.
 // Unused interfaces are deliberately unbound; no test double handles a call.
-type repairM1256App struct {
+type rewardsValueApp struct {
 	utils.Keepers
 	EvmKeeper     evmkeeper.Keeper
 	UpgradeKeeper upgradekeeper.Keeper
@@ -83,10 +83,10 @@ type repairM1256App struct {
 	DistrKeeper   distrkeeper.Keeper
 }
 
-func (a *repairM1256App) EVMK() utils.EVMKeeper                   { return &a.EvmKeeper }
-func (a *repairM1256App) DistributionK() utils.DistributionKeeper { return a.DistrKeeper }
+func (a *rewardsValueApp) EVMK() utils.EVMKeeper                   { return &a.EvmKeeper }
+func (a *rewardsValueApp) DistributionK() utils.DistributionKeeper { return a.DistrKeeper }
 
-func newRepairM1256App(t *testing.T) (*repairM1256App, sdk.Context) {
+func newRewardsValueApp(t *testing.T) (*rewardsValueApp, sdk.Context) {
 	t.Helper()
 	unit, registered := sdk.GetDenomUnit("uhpx")
 	require.True(t, registered, "production initialization must register uhpx")
@@ -125,7 +125,7 @@ func newRepairM1256App(t *testing.T) (*repairM1256App, sdk.Context) {
 	for name, perms := range permissions {
 		ak.SetModuleAccount(ctx, authtypes.NewEmptyModuleAccount(name, perms...))
 	}
-	a := &repairM1256App{}
+	a := &rewardsValueApp{}
 	a.BankKeeper = bankkeeper.NewBaseKeeper(cdc, keys[banktypes.StoreKey], ak, subspace(banktypes.ModuleName), map[string]bool{})
 	a.BankKeeper.InitGenesis(ctx, banktypes.DefaultGenesisState())
 	a.StakingKeeper = stakingkeeper.NewKeeper(cdc, keys[stakingtypes.StoreKey], ak, a.BankKeeper, subspace(stakingtypes.ModuleName))
@@ -145,14 +145,14 @@ func newRepairM1256App(t *testing.T) (*repairM1256App, sdk.Context) {
 	return a, ctx
 }
 
-func newRepairM1256Env(t *testing.T, height int64, tracing, mergeApplied bool) *repairM1256Env {
+func newRewardsValueEnv(t *testing.T, height int64, tracing, mergeApplied bool) *rewardsValueEnv {
 	t.Helper()
-	a, ctx := newRepairM1256App(t)
+	a, ctx := newRewardsValueApp(t)
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, pcommon.MergeUpgrade))
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repairM1256HistoricalHeight), "v6.0.6")
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueHistoricalHeight), "v6.0.6")
 	if mergeApplied {
-		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repairM1256MergeHeight), pcommon.MergeUpgrade)
+		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueMergeHeight), pcommon.MergeUpgrade)
 	}
 
 	key := &secp256k1.PrivKey{Key: make([]byte, 32)}
@@ -179,21 +179,21 @@ func newRepairM1256Env(t *testing.T, height int64, tracing, mergeApplied bool) *
 	require.NoError(t, err)
 	require.NotEmpty(t, response.Rewards)
 	require.True(t, response.Total.AmountOf("uhpx").IsPositive())
-	expected := repairM1256Rewards{Rewards: make([]repairM1256Reward, 0), Total: make([]repairM1256Coin, 0)}
+	expected := rewardsValueRewards{Rewards: make([]rewardsValueReward, 0), Total: make([]rewardsValueCoin, 0)}
 	for _, reward := range response.Rewards {
-		row := repairM1256Reward{ValidatorAddress: reward.ValidatorAddress, Coins: make([]repairM1256Coin, 0)}
+		row := rewardsValueReward{ValidatorAddress: reward.ValidatorAddress, Coins: make([]rewardsValueCoin, 0)}
 		for _, coin := range reward.Reward {
-			row.Coins = append(row.Coins, repairM1256Coin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
+			row.Coins = append(row.Coins, rewardsValueCoin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
 		}
 		expected.Rewards = append(expected.Rewards, row)
 	}
 	for _, coin := range response.Total {
-		expected.Total = append(expected.Total, repairM1256Coin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
+		expected.Total = append(expected.Total, rewardsValueCoin{Amount: coin.Amount.BigInt(), Decimals: big.NewInt(sdk.Precision), Denom: coin.Denom})
 	}
-	return &repairM1256Env{app: a, ctx: ctx, caller: caller, delegator: delegator, expected: expected}
+	return &rewardsValueEnv{app: a, ctx: ctx, caller: caller, delegator: delegator, expected: expected}
 }
 
-func (e *repairM1256Env) evm(t *testing.T, historical bool) (*vm.EVM, *state.DBImpl, abi.ABI) {
+func (e *rewardsValueEnv) evm(t *testing.T, historical bool) (*vm.EVM, *state.DBImpl, abi.ABI) {
 	t.Helper()
 	k := &e.app.EvmKeeper
 	address := common.HexToAddress(v606.DistrAddress)
@@ -223,19 +223,19 @@ func (e *repairM1256Env) evm(t *testing.T, historical bool) (*vm.EVM, *state.DBI
 	return evm, db, contractABI
 }
 
-func (e *repairM1256Env) assertRewards(t *testing.T, contractABI abi.ABI, output []byte) {
+func (e *rewardsValueEnv) assertRewards(t *testing.T, contractABI abi.ABI, output []byte) {
 	t.Helper()
 	decoded, err := contractABI.Methods[v606.RewardsMethod].Outputs.Unpack(output)
 	require.NoError(t, err)
 	require.Len(t, decoded, 1)
-	actual := abi.ConvertType(decoded[0], new(repairM1256Rewards)).(*repairM1256Rewards)
+	actual := abi.ConvertType(decoded[0], new(rewardsValueRewards)).(*rewardsValueRewards)
 	require.Equal(t, e.expected, *actual)
 	response, err := e.app.DistrKeeper.DelegationTotalRewards(sdk.WrapSDKContext(e.ctx), &distrtypes.QueryDelegationTotalRewardsRequest{DelegatorAddress: e.delegator.String()})
 	require.NoError(t, err)
 	require.True(t, response.Total.AmountOf("uhpx").IsPositive(), "query must leave rewards unwithdrawn")
 }
 
-func (e *repairM1256Env) call(t *testing.T, historical, reject bool, value int64) {
+func (e *rewardsValueEnv) call(t *testing.T, historical, reject bool, value int64) {
 	t.Helper()
 	evm, db, contractABI := e.evm(t, historical)
 	input, err := contractABI.Pack(v606.RewardsMethod, e.caller)
@@ -269,12 +269,12 @@ func (e *repairM1256Env) call(t *testing.T, historical, reject bool, value int64
 	require.Equal(t, uint256.MustFromBig(precompileExpected).Bytes32(), reopened.GetBalance(address).Bytes32())
 }
 
-func TestRepairM_1256_HistoricalRawCALL(t *testing.T) {
-	for _, height := range []int64{repairM1256HistoricalHeight, repairM1256HistoricalHeight + 1, repairM1256MergeHeight - 1} {
+func TestRewardsValueHistoricalRawCALL(t *testing.T) {
+	for _, height := range []int64{rewardsValueHistoricalHeight, rewardsValueHistoricalHeight + 1, rewardsValueMergeHeight - 1} {
 		for _, applied := range []bool{false, true} {
 			for _, value := range []int64{1, 1_000_000_000_000, 1_000_000_000_001} {
 				t.Run(fmt.Sprintf("height=%d/merge=%t/value=%d", height, applied, value), func(t *testing.T) {
-					e := newRepairM1256Env(t, height, true, applied)
+					e := newRewardsValueEnv(t, height, true, applied)
 					require.False(t, pcommon.MergePlanActive(e.ctx, &e.app.EvmKeeper))
 					e.call(t, true, false, value)
 				})
@@ -283,12 +283,12 @@ func TestRepairM_1256_HistoricalRawCALL(t *testing.T) {
 	}
 }
 
-func TestRepairM_1256_LiveRoutingActivation(t *testing.T) {
+func TestRewardsValueLiveRoutingActivation(t *testing.T) {
 	for _, tracing := range []bool{false, true} {
-		for _, height := range []int64{repairM1256MergeHeight, repairM1256MergeHeight + 1} {
+		for _, height := range []int64{rewardsValueMergeHeight, rewardsValueMergeHeight + 1} {
 			for _, value := range []int64{1, 1_000_000_000_000, 1_000_000_000_001} {
 				t.Run(fmt.Sprintf("tracing=%t/height=%d/value=%d", tracing, height, value), func(t *testing.T) {
-					e := newRepairM1256Env(t, height, tracing, true)
+					e := newRewardsValueEnv(t, height, tracing, true)
 					require.True(t, pcommon.MergePlanActive(e.ctx, &e.app.EvmKeeper))
 					require.Equal(t, pcommon.MergeUpgrade, e.app.EvmKeeper.GetCustomPrecompilesVersions(e.ctx)[common.HexToAddress(v606.DistrAddress)])
 					e.call(t, false, true, value)
@@ -298,26 +298,26 @@ func TestRepairM_1256_LiveRoutingActivation(t *testing.T) {
 	}
 	for _, applied := range []bool{false, true} {
 		t.Run(fmt.Sprintf("inactive-merge=%t", applied), func(t *testing.T) {
-			height := repairM1256MergeHeight - 1
+			height := rewardsValueMergeHeight - 1
 			if !applied {
-				height = repairM1256MergeHeight + 1
+				height = rewardsValueMergeHeight + 1
 			}
-			e := newRepairM1256Env(t, height, false, applied)
+			e := newRewardsValueEnv(t, height, false, applied)
 			require.False(t, pcommon.MergePlanActive(e.ctx, &e.app.EvmKeeper))
 			e.call(t, false, false, 1_000_000_000_001)
 		})
 	}
 }
 
-func TestRepairM_1256_ZeroValueQueries(t *testing.T) {
+func TestRewardsValueZeroValueQueries(t *testing.T) {
 	for _, historical := range []bool{false, true} {
 		for _, static := range []bool{false, true} {
 			t.Run(fmt.Sprintf("historical=%t/static=%t", historical, static), func(t *testing.T) {
-				height := repairM1256MergeHeight
+				height := rewardsValueMergeHeight
 				if historical {
-					height = repairM1256HistoricalHeight
+					height = rewardsValueHistoricalHeight
 				}
-				e := newRepairM1256Env(t, height, historical, true)
+				e := newRewardsValueEnv(t, height, historical, true)
 				if !static {
 					e.call(t, historical, false, 0)
 					return

@@ -41,13 +41,13 @@ import (
 )
 
 const (
-	repair1263HistoricalHeight int64 = 10
-	repair1263NextHeight       int64 = 20
-	repair1263LiveHeight       int64 = 30
+	historicalStaticCallHistoricalHeight int64 = 10
+	historicalStaticCallNextHeight       int64 = 20
+	historicalStaticCallLiveHeight       int64 = 30
 )
 
-type repair1263Env struct {
-	app        *repair1263Keepers
+type historicalStaticCallEnv struct {
+	app        *historicalStaticCallKeepers
 	ctx        sdk.Context
 	caller     common.Address
 	delegator  sdk.AccAddress
@@ -57,7 +57,7 @@ type repair1263Env struct {
 	denom      string
 }
 
-type repair1263Keepers struct {
+type historicalStaticCallKeepers struct {
 	utils.EmptyKeepers
 	AccountKeeper authkeeper.AccountKeeper
 	BankKeeper    bankkeeper.BaseKeeper
@@ -68,13 +68,13 @@ type repair1263Keepers struct {
 	keys          map[string]*sdk.KVStoreKey
 }
 
-var _ utils.Keepers = (*repair1263Keepers)(nil)
+var _ utils.Keepers = (*historicalStaticCallKeepers)(nil)
 
-func (k *repair1263Keepers) EVMK() utils.EVMKeeper                   { return &k.EvmKeeper }
-func (k *repair1263Keepers) DistributionK() utils.DistributionKeeper { return k.DistrKeeper }
-func (k *repair1263Keepers) GetKey(name string) *sdk.KVStoreKey      { return k.keys[name] }
+func (k *historicalStaticCallKeepers) EVMK() utils.EVMKeeper                   { return &k.EvmKeeper }
+func (k *historicalStaticCallKeepers) DistributionK() utils.DistributionKeeper { return k.DistrKeeper }
+func (k *historicalStaticCallKeepers) GetKey(name string) *sdk.KVStoreKey      { return k.keys[name] }
 
-func newRepair1263Keepers(t *testing.T) (*repair1263Keepers, sdk.Context) {
+func newHistoricalStaticCallKeepers(t *testing.T) (*historicalStaticCallKeepers, sdk.Context) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -107,7 +107,7 @@ func newRepair1263Keepers(t *testing.T) (*repair1263Keepers, sdk.Context) {
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 		authtypes.FeeCollectorName:     nil,
 	}
-	k := &repair1263Keepers{keys: keys}
+	k := &historicalStaticCallKeepers{keys: keys}
 	k.AccountKeeper = authkeeper.NewAccountKeeper(cdc, keys[authtypes.StoreKey], subspace(authtypes.ModuleName), authtypes.ProtoBaseAccount, permissions)
 	k.AccountKeeper.SetParams(ctx, authtypes.DefaultParams())
 	for name, perms := range permissions {
@@ -131,10 +131,10 @@ func newRepair1263Keepers(t *testing.T) (*repair1263Keepers, sdk.Context) {
 	return k, ctx
 }
 
-func newRepair1263Env(t *testing.T, height int64, tracing bool) *repair1263Env {
+func newHistoricalStaticCallEnv(t *testing.T, height int64, tracing bool) *historicalStaticCallEnv {
 	t.Helper()
-	a, ctx := newRepair1263Keepers(t)
-	e := &repair1263Env{app: a, ctx: ctx, denom: a.StakingKeeper.GetParams(ctx).BondDenom}
+	a, ctx := newHistoricalStaticCallKeepers(t)
+	e := &historicalStaticCallEnv{app: a, ctx: ctx, denom: a.StakingKeeper.GetParams(ctx).BondDenom}
 	key := func(seed byte) *secp256k1.PrivKey {
 		k := &secp256k1.PrivKey{Key: make([]byte, 32)}
 		k.Key[31] = seed
@@ -182,14 +182,14 @@ func newRepair1263Env(t *testing.T, height int64, tracing bool) *repair1263Env {
 	}
 	require.NoError(t, a.BankKeeper.MintCoins(ctx, evmtypes.ModuleName, sdk.NewCoins(sdk.NewInt64Coin(e.denom, 2000))))
 	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToModule(ctx, evmtypes.ModuleName, distrtypes.ModuleName, sdk.NewCoins(sdk.NewInt64Coin(e.denom, 2000))))
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair1263HistoricalHeight), "v5.6.2")
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair1263NextHeight), "v5.8.0")
-	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair1263LiveHeight), pcommon.MergeUpgrade)
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(historicalStaticCallHistoricalHeight), "v5.6.2")
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(historicalStaticCallNextHeight), "v5.8.0")
+	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(historicalStaticCallLiveHeight), pcommon.MergeUpgrade)
 	e.ctx = ctx.WithBlockHeight(height).WithIsTracing(tracing)
 	return e
 }
 
-func (e *repair1263Env) args(method string) []interface{} {
+func (e *historicalStaticCallEnv) args(method string) []interface{} {
 	switch method {
 	case legacy.SetWithdrawAddressMethod:
 		return []interface{}{e.withdraw}
@@ -202,7 +202,7 @@ func (e *repair1263Env) args(method string) []interface{} {
 	}
 }
 
-func (e *repair1263Env) stores(t *testing.T, ctx sdk.Context) map[string]map[string][]byte {
+func (e *historicalStaticCallEnv) stores(t *testing.T, ctx sdk.Context) map[string]map[string][]byte {
 	t.Helper()
 	result := make(map[string]map[string][]byte)
 	for _, name := range []string{banktypes.StoreKey, distrtypes.StoreKey} {
@@ -217,7 +217,7 @@ func (e *repair1263Env) stores(t *testing.T, ctx sdk.Context) map[string]map[str
 	return result
 }
 
-func (e *repair1263Env) evm(t *testing.T) (*vm.EVM, *state.DBImpl, vm.PrecompiledContract) {
+func (e *historicalStaticCallEnv) evm(t *testing.T) (*vm.EVM, *state.DBImpl, vm.PrecompiledContract) {
 	t.Helper()
 	k := &e.app.EvmKeeper
 	db := state.NewDBImpl(e.ctx, k, false)
@@ -232,15 +232,15 @@ func (e *repair1263Env) evm(t *testing.T) (*vm.EVM, *state.DBImpl, vm.Precompile
 	return evm, db, precompiles[address]
 }
 
-func repair1263Methods() []string {
+func historicalStaticCallMethods() []string {
 	return []string{legacy.SetWithdrawAddressMethod, legacy.WithdrawDelegationRewardsMethod, legacy.WithdrawMultipleDelegationRewardsMethod}
 }
 
-func TestRepairM_1263_HistoricalStaticCallStateDiff(t *testing.T) {
-	for _, height := range []int64{repair1263HistoricalHeight, repair1263NextHeight - 1} {
-		for _, method := range repair1263Methods() {
+func TestDistributionHistoricalStaticCallStateDiff(t *testing.T) {
+	for _, height := range []int64{historicalStaticCallHistoricalHeight, historicalStaticCallNextHeight - 1} {
+		for _, method := range historicalStaticCallMethods() {
 			t.Run(fmt.Sprintf("%d/%s", height, method), func(t *testing.T) {
-				e := newRepair1263Env(t, height, true)
+				e := newHistoricalStaticCallEnv(t, height, true)
 				evm, db, selected := e.evm(t)
 				p, ok := selected.(*legacycommon.DynamicGasPrecompile)
 				require.True(t, ok, "historical-height dispatch must select the v562 wrapper")
@@ -291,12 +291,12 @@ func TestRepairM_1263_HistoricalStaticCallStateDiff(t *testing.T) {
 	}
 }
 
-func TestRepairM_1263_LiveStaticCallPreservesState(t *testing.T) {
-	for _, height := range []int64{repair1263LiveHeight, repair1263LiveHeight + 1} {
+func TestDistributionLiveStaticCallPreservesState(t *testing.T) {
+	for _, height := range []int64{historicalStaticCallLiveHeight, historicalStaticCallLiveHeight + 1} {
 		for _, tracing := range []bool{false, true} {
-			for _, method := range repair1263Methods() {
+			for _, method := range historicalStaticCallMethods() {
 				t.Run(fmt.Sprintf("%d/tracing=%t/%s", height, tracing, method), func(t *testing.T) {
-					e := newRepair1263Env(t, height, tracing)
+					e := newHistoricalStaticCallEnv(t, height, tracing)
 					evm, db, selected := e.evm(t)
 					p, ok := selected.(*pcommon.DynamicGasPrecompile)
 					require.True(t, ok, "live dispatch must select the current wrapper")
@@ -321,8 +321,8 @@ func TestRepairM_1263_LiveStaticCallPreservesState(t *testing.T) {
 	}
 }
 
-func TestRepairM_1263_LegacyConstructorIsolation(t *testing.T) {
-	e := newRepair1263Env(t, repair1263LiveHeight, false)
+func TestDistributionLegacyConstructorIsolation(t *testing.T) {
+	e := newHistoricalStaticCallEnv(t, historicalStaticCallLiveHeight, false)
 	keepers := e.app
 	for _, latest := range []string{pcommon.MergeUpgrade, "v8.0"} {
 		versions := distribution.GetVersioned(latest, keepers)

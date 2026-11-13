@@ -30,42 +30,42 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repair183ActivationHeight int64 = 10
+const rewardsValueActivationHeight int64 = 10
 
-type repair183Coin struct {
+type rewardsValueCoin struct {
 	Amount   *big.Int
 	Decimals *big.Int
 	Denom    string
 }
 
-type repair183Reward struct {
-	Coins            []repair183Coin
+type rewardsValueReward struct {
+	Coins            []rewardsValueCoin
 	ValidatorAddress string
 }
 
-type repair183Rewards struct {
-	Rewards []repair183Reward
-	Total   []repair183Coin
+type rewardsValueRewards struct {
+	Rewards []rewardsValueReward
+	Total   []rewardsValueCoin
 }
 
-type repair183Env struct {
+type rewardsValueEnv struct {
 	app        *node.App
 	ctx        sdk.Context
 	key        *ecdsa.PrivateKey
 	caller     common.Address
 	delegator  sdk.AccAddress
 	precompile *pcommon.DynamicGasPrecompile
-	expected   repair183Rewards
+	expected   rewardsValueRewards
 }
 
-func newRepair183Env(t *testing.T, height int64, applied bool) *repair183Env {
+func newRewardsValueEnv(t *testing.T, height int64, applied bool) *rewardsValueEnv {
 	t.Helper()
 	a := testkeeper.EVMTestApp
 	ctx, _ := a.NewContext(false, tmtypes.Header{Height: 2, Time: time.Unix(1, 0).UTC()}).CacheContext()
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, pcommon.MergeUpgrade))
 	if applied {
-		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(repair183ActivationHeight), pcommon.MergeUpgrade)
+		a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(rewardsValueActivationHeight), pcommon.MergeUpgrade)
 	}
 	key := &secp256k1.PrivKey{Key: make([]byte, 32)}
 	key.Key[31] = 183
@@ -89,21 +89,21 @@ func newRepair183Env(t *testing.T, height int64, applied bool) *repair183Env {
 	require.NoError(t, err)
 	require.NotEmpty(t, response.Rewards)
 	require.True(t, response.Total.AmountOf("uhpx").IsPositive())
-	expected := repair183Rewards{Rewards: make([]repair183Reward, 0), Total: make([]repair183Coin, 0)}
+	expected := rewardsValueRewards{Rewards: make([]rewardsValueReward, 0), Total: make([]rewardsValueCoin, 0)}
 	for _, reward := range response.Rewards {
-		row := repair183Reward{ValidatorAddress: reward.ValidatorAddress, Coins: make([]repair183Coin, 0)}
+		row := rewardsValueReward{ValidatorAddress: reward.ValidatorAddress, Coins: make([]rewardsValueCoin, 0)}
 		for _, coin := range reward.Reward {
-			row.Coins = append(row.Coins, repair183Coin{Amount: coin.Amount.BigInt(), Denom: coin.Denom, Decimals: big.NewInt(sdk.Precision)})
+			row.Coins = append(row.Coins, rewardsValueCoin{Amount: coin.Amount.BigInt(), Denom: coin.Denom, Decimals: big.NewInt(sdk.Precision)})
 		}
 		expected.Rewards = append(expected.Rewards, row)
 	}
 	for _, coin := range response.Total {
-		expected.Total = append(expected.Total, repair183Coin{Amount: coin.Amount.BigInt(), Denom: coin.Denom, Decimals: big.NewInt(sdk.Precision)})
+		expected.Total = append(expected.Total, rewardsValueCoin{Amount: coin.Amount.BigInt(), Denom: coin.Denom, Decimals: big.NewInt(sdk.Precision)})
 	}
-	return &repair183Env{app: a, ctx: ctx, key: ecdsaKey, caller: caller, delegator: delegator, precompile: precompile, expected: expected}
+	return &rewardsValueEnv{app: a, ctx: ctx, key: ecdsaKey, caller: caller, delegator: delegator, precompile: precompile, expected: expected}
 }
 
-func (e *repair183Env) transaction(t *testing.T, value *big.Int) *ethtypes.Transaction {
+func (e *rewardsValueEnv) transaction(t *testing.T, value *big.Int) *ethtypes.Transaction {
 	t.Helper()
 	input, err := e.precompile.Pack(distribution.RewardsMethod, e.caller)
 	require.NoError(t, err)
@@ -119,7 +119,7 @@ func (e *repair183Env) transaction(t *testing.T, value *big.Int) *ethtypes.Trans
 	return decoded
 }
 
-func (e *repair183Env) evm(t *testing.T) (*vm.EVM, *state.DBImpl) {
+func (e *rewardsValueEnv) evm(t *testing.T) (*vm.EVM, *state.DBImpl) {
 	t.Helper()
 	k := &e.app.EvmKeeper
 	db := state.NewDBImpl(e.ctx, k, false)
@@ -131,20 +131,20 @@ func (e *repair183Env) evm(t *testing.T) (*vm.EVM, *state.DBImpl) {
 	return evm, db
 }
 
-func (e *repair183Env) assertRewards(t *testing.T, output []byte) {
+func (e *rewardsValueEnv) assertRewards(t *testing.T, output []byte) {
 	t.Helper()
 	decoded, err := e.precompile.Methods[distribution.RewardsMethod].Outputs.Unpack(output)
 	require.NoError(t, err)
 	require.Len(t, decoded, 1)
-	actual := abi.ConvertType(decoded[0], new(repair183Rewards)).(*repair183Rewards)
+	actual := abi.ConvertType(decoded[0], new(rewardsValueRewards)).(*rewardsValueRewards)
 	require.Equal(t, e.expected, *actual)
 }
 
-func TestRepair_183_PositiveValueRawCALL(t *testing.T) {
-	for _, height := range []int64{repair183ActivationHeight, repair183ActivationHeight + 1} {
+func TestRewardsValuePositiveValueRawCALL(t *testing.T) {
+	for _, height := range []int64{rewardsValueActivationHeight, rewardsValueActivationHeight + 1} {
 		for _, value := range []int64{1, 1_000_000_000_000} {
 			t.Run(big.NewInt(height).String()+"/"+big.NewInt(value).String(), func(t *testing.T) {
-				e := newRepair183Env(t, height, true)
+				e := newRewardsValueEnv(t, height, true)
 				tx := e.transaction(t, big.NewInt(value))
 				msg, err := core.TransactionToMessage(tx, ethtypes.LatestSignerForChainID(tx.ChainId()), nil)
 				require.NoError(t, err)
@@ -168,10 +168,10 @@ func TestRepair_183_PositiveValueRawCALL(t *testing.T) {
 	}
 }
 
-func TestRepair_183_ZeroValueRealRewards(t *testing.T) {
-	for _, height := range []int64{repair183ActivationHeight - 1, repair183ActivationHeight} {
+func TestRewardsValueZeroValueRealRewards(t *testing.T) {
+	for _, height := range []int64{rewardsValueActivationHeight - 1, rewardsValueActivationHeight} {
 		for _, static := range []bool{false, true} {
-			e := newRepair183Env(t, height, true)
+			e := newRewardsValueEnv(t, height, true)
 			tx := e.transaction(t, big.NewInt(0))
 			evm, db := e.evm(t)
 			callerBefore := db.GetBalance(e.caller).ToBig()
@@ -191,13 +191,13 @@ func TestRepair_183_ZeroValueRealRewards(t *testing.T) {
 	}
 }
 
-func TestRepair_183_HistoricalReplay(t *testing.T) {
+func TestRewardsValueHistoricalReplay(t *testing.T) {
 	for _, applied := range []bool{false, true} {
-		height := repair183ActivationHeight - 1
+		height := rewardsValueActivationHeight - 1
 		if !applied {
-			height = repair183ActivationHeight + 1
+			height = rewardsValueActivationHeight + 1
 		}
-		e := newRepair183Env(t, height, applied)
+		e := newRewardsValueEnv(t, height, applied)
 		require.False(t, pcommon.MergePlanActive(e.ctx, &e.app.EvmKeeper))
 		tx := e.transaction(t, big.NewInt(1_000_000_000_001))
 		evm, db := e.evm(t)
@@ -211,8 +211,8 @@ func TestRepair_183_HistoricalReplay(t *testing.T) {
 	}
 }
 
-func TestRepair_183_RawTransactionReverts(t *testing.T) {
-	e := newRepair183Env(t, repair183ActivationHeight, true)
+func TestRewardsValueRawTransactionReverts(t *testing.T) {
+	e := newRewardsValueEnv(t, rewardsValueActivationHeight, true)
 	tx := e.transaction(t, big.NewInt(1))
 	data, err := ethtx.NewLegacyTx(tx)
 	require.NoError(t, err)

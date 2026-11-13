@@ -44,16 +44,16 @@ import (
 )
 
 //go:embed distribution.go
-var repairM1262ReplaySource []byte
+var historicalStaticCallReplaySource []byte
 
 const (
-	repairM1262HistoricalHeight int64  = 20
-	repairM1262NextHeight       int64  = 30
-	repairM1262LiveHeight       int64  = 40
-	repairM1262Gas              uint64 = 10_000_000
+	historicalStaticCallHistoricalHeight int64  = 20
+	historicalStaticCallNextHeight       int64  = 30
+	historicalStaticCallLiveHeight       int64  = 40
+	historicalStaticCallGas              uint64 = 10_000_000
 )
 
-type repairM1262Env struct {
+type historicalStaticCallEnv struct {
 	accounts    authkeeper.AccountKeeper
 	bank        bankkeeper.BaseKeeper
 	staking     stakingkeeper.Keeper
@@ -69,16 +69,16 @@ type repairM1262Env struct {
 	validator   sdk.ValAddress
 }
 
-type repairM1262Keepers struct {
+type historicalStaticCallKeepers struct {
 	putils.EmptyKeepers
 	evm   *evmkeeper.Keeper
 	distr distrkeeper.Keeper
 }
 
-func (k *repairM1262Keepers) EVMK() putils.EVMKeeper                   { return k.evm }
-func (k *repairM1262Keepers) DistributionK() putils.DistributionKeeper { return k.distr }
+func (k *historicalStaticCallKeepers) EVMK() putils.EVMKeeper                   { return k.evm }
+func (k *historicalStaticCallKeepers) DistributionK() putils.DistributionKeeper { return k.distr }
 
-func newRepairM1262Env(t *testing.T) *repairM1262Env {
+func newHistoricalStaticCallEnv(t *testing.T) *historicalStaticCallEnv {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -157,17 +157,17 @@ func newRepairM1262Env(t *testing.T) *repairM1262Env {
 	k.SetAddressMapping(ctx, delegator, caller)
 	k.SetAddressMapping(ctx, withdrawSDK, withdraw)
 	for version, height := range map[string]int64{
-		"v5.5.2": 10, "v5.5.5": repairM1262HistoricalHeight,
-		"v5.6.2": repairM1262NextHeight, pcommon.MergeUpgrade: repairM1262LiveHeight,
+		"v5.5.2": 10, "v5.5.5": historicalStaticCallHistoricalHeight,
+		"v5.6.2": historicalStaticCallNextHeight, pcommon.MergeUpgrade: historicalStaticCallLiveHeight,
 	} {
 		upgrades.SetDone(ctx.WithBlockHeight(height), version)
 	}
-	versions := distribution.GetVersioned(pcommon.MergeUpgrade, &repairM1262Keepers{distr: distr, evm: k})
+	versions := distribution.GetVersioned(pcommon.MergeUpgrade, &historicalStaticCallKeepers{distr: distr, evm: k})
 	k.SetCustomPrecompiles(map[common.Address]putils.VersionedPrecompiles{common.HexToAddress(v555.DistrAddress): versions}, pcommon.MergeUpgrade)
-	return &repairM1262Env{accounts: accounts, bank: bank, staking: staking, distr: distr, keys: keys, keeper: *k, ctx: ctx, versions: versions, caller: caller, delegator: delegator, withdraw: withdraw, withdrawSDK: withdrawSDK, validator: validator}
+	return &historicalStaticCallEnv{accounts: accounts, bank: bank, staking: staking, distr: distr, keys: keys, keeper: *k, ctx: ctx, versions: versions, caller: caller, delegator: delegator, withdraw: withdraw, withdrawSDK: withdrawSDK, validator: validator}
 }
 
-func (e *repairM1262Env) input(t *testing.T, method string) []byte {
+func (e *historicalStaticCallEnv) input(t *testing.T, method string) []byte {
 	t.Helper()
 	var arg interface{}
 	switch method {
@@ -190,7 +190,7 @@ func (e *repairM1262Env) input(t *testing.T, method string) []byte {
 	return input
 }
 
-func (e *repairM1262Env) execution(t *testing.T, height int64, historical bool) (*vm.EVM, *state.DBImpl, sdk.Context) {
+func (e *historicalStaticCallEnv) execution(t *testing.T, height int64, historical bool) (*vm.EVM, *state.DBImpl, sdk.Context) {
 	t.Helper()
 	ctx, _ := e.ctx.WithBlockHeight(height).WithIsTracing(historical).CacheContext()
 	precompiles := e.keeper.CustomPrecompiles(ctx)
@@ -209,7 +209,7 @@ func (e *repairM1262Env) execution(t *testing.T, height int64, historical bool) 
 	return evm, db, ctx
 }
 
-func (e *repairM1262Env) stores(t *testing.T, ctx sdk.Context) map[string]map[string]string {
+func (e *historicalStaticCallEnv) stores(t *testing.T, ctx sdk.Context) map[string]map[string]string {
 	t.Helper()
 	result := make(map[string]map[string]string)
 	for _, name := range []string{distrtypes.StoreKey, banktypes.StoreKey} {
@@ -224,7 +224,7 @@ func (e *repairM1262Env) stores(t *testing.T, ctx sdk.Context) map[string]map[st
 	return result
 }
 
-func (e *repairM1262Env) assertMutation(t *testing.T, before, after sdk.Context, method string) {
+func (e *historicalStaticCallEnv) assertMutation(t *testing.T, before, after sdk.Context, method string) {
 	t.Helper()
 	if method == v555.SetWithdrawAddressMethod {
 		require.Equal(t, e.delegator, e.distr.GetDelegatorWithdrawAddr(before, e.delegator))
@@ -245,17 +245,17 @@ func (e *repairM1262Env) assertMutation(t *testing.T, before, after sdk.Context,
 	require.Equal(t, uint64(after.BlockHeight()), e.distr.GetDelegatorStartingInfo(after, e.validator, e.delegator).Height)
 }
 
-var repairM1262Mutations = []string{
+var historicalStaticCallMutations = []string{
 	v555.SetWithdrawAddressMethod,
 	v555.WithdrawDelegationRewardsMethod,
 	v555.WithdrawMultipleDelegationRewardsMethod,
 }
 
-func TestRepairM_1262_HistoricalStaticCallStateDiff(t *testing.T) {
-	for _, height := range []int64{repairM1262HistoricalHeight, repairM1262NextHeight - 1} {
-		for _, method := range repairM1262Mutations {
+func TestDistributionHistoricalStaticCallStateDiff(t *testing.T) {
+	for _, height := range []int64{historicalStaticCallHistoricalHeight, historicalStaticCallNextHeight - 1} {
+		for _, method := range historicalStaticCallMutations {
 			t.Run(fmt.Sprintf("%d/%s", height, method), func(t *testing.T) {
-				e := newRepairM1262Env(t)
+				e := newHistoricalStaticCallEnv(t)
 				input := e.input(t, method)
 				var callState map[string]map[string]string
 				for _, static := range []bool{false, true} {
@@ -265,14 +265,14 @@ func TestRepairM_1262_HistoricalStaticCallStateDiff(t *testing.T) {
 					var remaining uint64
 					var err error
 					if static {
-						output, remaining, err = evm.StaticCall(e.caller, common.HexToAddress(v555.DistrAddress), input, repairM1262Gas)
+						output, remaining, err = evm.StaticCall(e.caller, common.HexToAddress(v555.DistrAddress), input, historicalStaticCallGas)
 					} else {
-						output, remaining, err = evm.Call(e.caller, common.HexToAddress(v555.DistrAddress), input, repairM1262Gas, uint256.NewInt(0))
+						output, remaining, err = evm.Call(e.caller, common.HexToAddress(v555.DistrAddress), input, historicalStaticCallGas, uint256.NewInt(0))
 					}
 					require.NoError(t, err)
 					require.NoError(t, db.GetPrecompileError())
 					require.Greater(t, remaining, uint64(0))
-					require.Less(t, remaining, repairM1262Gas)
+					require.Less(t, remaining, historicalStaticCallGas)
 					a := v555.GetABI()
 					decoded, err := a.Methods[method].Outputs.Unpack(output)
 					require.NoError(t, err)
@@ -294,15 +294,15 @@ func TestRepairM_1262_HistoricalStaticCallStateDiff(t *testing.T) {
 	}
 }
 
-func TestRepairM_1262_LiveStaticCallRefusesSameWrites(t *testing.T) {
-	for _, height := range []int64{repairM1262LiveHeight, repairM1262LiveHeight + 1} {
-		for _, method := range repairM1262Mutations {
+func TestDistributionLiveStaticCallRefusesSameWrites(t *testing.T) {
+	for _, height := range []int64{historicalStaticCallLiveHeight, historicalStaticCallLiveHeight + 1} {
+		for _, method := range historicalStaticCallMutations {
 			t.Run(fmt.Sprintf("%d/%s", height, method), func(t *testing.T) {
-				e := newRepairM1262Env(t)
+				e := newHistoricalStaticCallEnv(t)
 				input := e.input(t, method)
 				evm, db, root := e.execution(t, height, false)
 				before := e.stores(t, db.Ctx())
-				output, remaining, err := evm.StaticCall(e.caller, common.HexToAddress(v555.DistrAddress), input, repairM1262Gas)
+				output, remaining, err := evm.StaticCall(e.caller, common.HexToAddress(v555.DistrAddress), input, historicalStaticCallGas)
 				require.ErrorIs(t, err, vm.ErrExecutionReverted)
 				require.EqualError(t, db.GetPrecompileError(), "cannot call distr precompile from staticcall")
 				require.Empty(t, output)
@@ -313,7 +313,7 @@ func TestRepairM_1262_LiveStaticCallRefusesSameWrites(t *testing.T) {
 				require.Equal(t, before, e.stores(t, root))
 
 				evm, db, root = e.execution(t, height, false)
-				output, _, err = evm.Call(e.caller, common.HexToAddress(v555.DistrAddress), input, repairM1262Gas, uint256.NewInt(0))
+				output, _, err = evm.Call(e.caller, common.HexToAddress(v555.DistrAddress), input, historicalStaticCallGas, uint256.NewInt(0))
 				require.NoError(t, err)
 				a := v555.GetABI()
 				decoded, err := a.Methods[method].Outputs.Unpack(output)
@@ -325,21 +325,21 @@ func TestRepairM_1262_LiveStaticCallRefusesSameWrites(t *testing.T) {
 	}
 }
 
-func TestRepairM_1262_ReplayAndActivationIsolation(t *testing.T) {
-	require.Equal(t, "d1d8873dbf48da4c75dad806184abf2817fe1924d1a57c6ea9e10ec9c611ec64", fmt.Sprintf("%x", sha256.Sum256(repairM1262ReplaySource)))
-	e := newRepairM1262Env(t)
+func TestDistributionReplayAndActivationIsolation(t *testing.T) {
+	require.Equal(t, "d1d8873dbf48da4c75dad806184abf2817fe1924d1a57c6ea9e10ec9c611ec64", fmt.Sprintf("%x", sha256.Sum256(historicalStaticCallReplaySource)))
+	e := newHistoricalStaticCallEnv(t)
 	address := common.HexToAddress(v555.DistrAddress)
 	for _, tc := range []struct {
 		height   int64
 		version  string
 		contract vm.PrecompiledContract
 	}{
-		{repairM1262HistoricalHeight - 1, "v5.5.2", &v552.Precompile{}},
-		{repairM1262HistoricalHeight, "v5.5.5", &v555.Precompile{}},
-		{repairM1262NextHeight - 1, "v5.5.5", &v555.Precompile{}},
-		{repairM1262NextHeight, "v5.6.2", &pcommonv562.DynamicGasPrecompile{}},
-		{repairM1262LiveHeight, pcommon.MergeUpgrade, &pcommon.DynamicGasPrecompile{}},
-		{repairM1262LiveHeight + 1, pcommon.MergeUpgrade, &pcommon.DynamicGasPrecompile{}},
+		{historicalStaticCallHistoricalHeight - 1, "v5.5.2", &v552.Precompile{}},
+		{historicalStaticCallHistoricalHeight, "v5.5.5", &v555.Precompile{}},
+		{historicalStaticCallNextHeight - 1, "v5.5.5", &v555.Precompile{}},
+		{historicalStaticCallNextHeight, "v5.6.2", &pcommonv562.DynamicGasPrecompile{}},
+		{historicalStaticCallLiveHeight, pcommon.MergeUpgrade, &pcommon.DynamicGasPrecompile{}},
+		{historicalStaticCallLiveHeight + 1, pcommon.MergeUpgrade, &pcommon.DynamicGasPrecompile{}},
 	} {
 		ctx := e.ctx.WithBlockHeight(tc.height).WithIsTracing(true)
 		require.Equal(t, tc.version, e.keeper.GetCustomPrecompilesVersions(ctx)[address])
@@ -348,7 +348,7 @@ func TestRepairM_1262_ReplayAndActivationIsolation(t *testing.T) {
 		require.Same(t, e.versions[pcommon.MergeUpgrade], e.keeper.CustomPrecompiles(ctx.WithIsTracing(false))[address])
 	}
 	for _, latest := range []string{pcommon.MergeUpgrade, "v7.1"} {
-		versions := distribution.GetVersioned(latest, &repairM1262Keepers{distr: e.distr, evm: &e.keeper})
+		versions := distribution.GetVersioned(latest, &historicalStaticCallKeepers{distr: e.distr, evm: &e.keeper})
 		require.IsType(t, &pcommon.DynamicGasPrecompile{}, versions[latest])
 		for version, contract := range versions {
 			_, historical := contract.(*v555.Precompile)

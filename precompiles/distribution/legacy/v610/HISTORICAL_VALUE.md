@@ -14,6 +14,6 @@ the recorded `v7.0` upgrade done height, inclusive. The EVM then reverts the
 payment. A scheduled or unapplied plan does not activate that check.
 Zero-value queries return the keeper's rewards through either implementation.
 
-[Routing and value tests](repair_m1257_test.go) cover historical payments,
+[Routing and value tests](rewards_value_test.go) cover historical payments,
 the current activation boundary, persisted balances, and zero-value
 `CALL` and `STATICCALL` results.
