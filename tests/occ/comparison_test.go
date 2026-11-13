@@ -15,7 +15,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM790StoreContext(t *testing.T, values map[string]string) sdk.Context {
+func newStoreComparisonContext(t *testing.T, values map[string]string) sdk.Context {
 	t.Helper()
 	stores := make(map[sdk.StoreKey]sdk.CacheWrapper, len(values))
 	keys := make(map[string]sdk.StoreKey, len(values))
@@ -34,34 +34,34 @@ func repairM790StoreContext(t *testing.T, values map[string]string) sdk.Context 
 	return sdk.NewContext(ms, tmproto.Header{}, false)
 }
 
-func TestRepairM_790_StoreNames(t *testing.T) {
-	expected := repairM790StoreContext(t, map[string]string{"bank": "100", "auth": "1"})
-	actual := repairM790StoreContext(t, map[string]string{"auth": "1", "bank": "100"})
+func TestCompareStoreKeyNames(t *testing.T) {
+	expected := newStoreComparisonContext(t, map[string]string{"bank": "100", "auth": "1"})
+	actual := newStoreComparisonContext(t, map[string]string{"auth": "1", "bank": "100"})
 	assertEqualState(t, expected, actual, t.Name())
 
-	replaced := repairM790StoreContext(t, map[string]string{"auth": "1", "replacement": "100"})
+	replaced := newStoreComparisonContext(t, map[string]string{"auth": "1", "replacement": "100"})
 	for _, pair := range [][2]sdk.Context{{expected, replaced}, {replaced, expected}} {
 		err := compareStoreKeyNames(pair[0].MultiStore().StoreKeys(), pair[1].MultiStore().StoreKeys())
 		require.ErrorContains(t, err, "store names do not match")
 	}
-	missing := repairM790StoreContext(t, map[string]string{"auth": "1"})
+	missing := newStoreComparisonContext(t, map[string]string{"auth": "1"})
 	require.ErrorContains(t, compareStoreKeyNames(expected.MultiStore().StoreKeys(), missing.MultiStore().StoreKeys()), "number of stores")
 
 	// Ignored stores still belong to the named set; only their contents may differ.
-	ignoredExpected := repairM790StoreContext(t, map[string]string{
+	ignoredExpected := newStoreComparisonContext(t, map[string]string{
 		"bank": "100", "mem_capability": "before", "epoch": "before", "deferredcache": "before",
 	})
-	ignoredActual := repairM790StoreContext(t, map[string]string{
+	ignoredActual := newStoreComparisonContext(t, map[string]string{
 		"bank": "100", "mem_capability": "after", "epoch": "after", "deferredcache": "after",
 	})
 	assertEqualState(t, ignoredExpected, ignoredActual, t.Name())
-	ignoredReplaced := repairM790StoreContext(t, map[string]string{
+	ignoredReplaced := newStoreComparisonContext(t, map[string]string{
 		"bank": "100", "mem_capability": "after", "epoch": "after", "replacement": "after",
 	})
 	require.Error(t, compareStoreKeyNames(ignoredExpected.MultiStore().StoreKeys(), ignoredReplaced.MultiStore().StoreKeys()))
 }
 
-func TestRepairM_790_EventAttributes(t *testing.T) {
+func TestCompareEventAttributeOccurrences(t *testing.T) {
 	em := sdk.NewEventManager()
 	em.EmitEvent(sdk.NewEvent("transfer", sdk.NewAttribute("amount", "1"), sdk.NewAttribute("amount", "2")))
 	encoded, err := em.ABCIEvents()[0].Marshal()
@@ -88,7 +88,7 @@ func TestRepairM_790_EventAttributes(t *testing.T) {
 	assertEqualEventAttributes(t, t.Name(), nil, nil)
 }
 
-func TestRepairM_790_ExecTxResults(t *testing.T) {
+func TestCompareExecTxResultOccurrences(t *testing.T) {
 	accts := utils.NewTestAccounts(2)
 	blockTime := time.Unix(1700000000, 0)
 	sequential := utils.NewTestContext(t, accts, blockTime, 1, false)
