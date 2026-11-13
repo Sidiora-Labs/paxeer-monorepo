@@ -1,57 +1,14 @@
 # @pax-js/cosmos
 
-`@pax-js/cosmos` provides TypeScript message types, Protobuf codecs, CosmJS
-registries and Cosmos REST query helpers for Paxeer's native modules. The
-package exports the module subpaths selected by its manifest; it does not
-cover every capability of the network.
+`sdk/js` is the first-party `@pax-js/cosmos` package, edited in place and
+aligned to the protos of this repository. Its [manifest](package.json)
+declares module type, encoding and REST subpaths. Runtime use requires the
+compiled files and declarations at the distribution targets below.
 
-## Package layout
+## Package exports
 
-The [package manifest](./package.json) declares its distribution exports under
-`dist`. This checkout contains the manifest and package tests. Consumers need
-the compiled runtime files and declarations selected by those exports.
-
-## Network and connection configuration
-
-Paxeer mainnet-beta is one BFT network running `paxd`. The kernel is part of
-the network and proposes blocks. A transaction receipt is final once its
-block is committed.
-
-For EVM clients, public JSON-RPC uses HTTPS at the node's root path. The EVM
-chain ID is `125` (`0x7d`). See [Public RPC endpoints](../../docs/site/docs/reference/public-rpc.md)
-for the node list and method contracts.
-
-The Cosmos examples below require operator-provided connections to that same
-network: a Cosmos REST base URL for `Querier`, or a CometBFT-compatible RPC URL
-for `SigningStargateClient`. Public EVM JSON-RPC URLs do not establish that
-these Cosmos APIs are available. Obtain the Cosmos chain ID and compatible
-wallet signer from your operator; the EVM numeric chain ID is not the Cosmos
-signing chain ID. Choose transfer denoms, fee denoms, amounts and gas from the
-network configuration and the intended operation.
-
-### Installation
-
-```sh
-npm install @pax-js/cosmos
-```
-
-### Exported Packages
-
-- [@pax-js/cosmos/types](#pax-jscosmostypes): module-specific TypeScript types
-  and enums, imported through `@pax-js/cosmos/types/<module>`.
-- [@pax-js/cosmos/encoding](#pax-jscosmosencoding): `Encoder`,
-  `paxProtoRegistry` and `aminoConverters`.
-- [@pax-js/cosmos/rest](#pax-jscosmosrest): the `Querier` namespace.
-
-These are the public subpaths declared in [package.json](./package.json).
-Import registries and converters from `/encoding`; there are no public
-`/encoding/amino` or `/encoding/registry` subpaths, aggregate `/types` entry,
-or package-root entry.
-
-## Package
-
-The [manifest](./package.json) selects these shipped targets; `*` is the
-module path, for example `cosmos/bank/v1beta1` or `evm`.
+The package version is `0.1.0`. Its published file selection is `dist`.
+The wildcard `*` represents a module path.
 
 | Export | ESM import | CommonJS require | Type declarations |
 | --- | --- | --- | --- |
@@ -60,41 +17,17 @@ module path, for example `cosmos/bank/v1beta1` or `evm`.
 | `./encoding` | `./dist/esm/encoding/index.js` | `./dist/cjs/encoding/index.js` | `./dist/types/encoding/index.d.ts` |
 
 `typesVersions` maps `types/*`, `rest` and `encoding` to the same declaration
-files. Runtime imports use the CJS or ESM trees, never the declaration tree.
-The package has no root entry.
+files. The manifest has no package-root export or aggregate `./types` export.
+Its dependencies are `@bufbuild/protobuf` `^2.1.0`,
+`@cosmjs/proto-signing` `^0.39.0` and `@cosmjs/stargate` `^0.39.0`.
 
-## Integration contracts
+## Message types
 
-- [Encoding and signing](#pax-jscosmosencoding) documents message fields,
-  Protobuf bytes, type URLs, registries and transaction failures.
-- [Cosmos REST](#pax-jscosmosrest) documents the base URL, query route,
-  response shape, HTTP failures and cancellation.
-- [Bridge interface contracts](../../contracts/bridge/README.md#interface-contracts)
-  link deployment, attestation encodings, vectors and operator recovery.
-- [Explorer HTTP schema](../../apps/explorer/public/openapi.yaml) describes
-  explorer HTTP routes and response/error schemas; the backend also serves
-  its schema at `/api/v2/openapi`.
-- [Explorer WebSocket payload types](../../apps/explorer/lib/socket/types.ts)
-  describe Phoenix channel events and payloads. The
-  [socket declarations](../../services/explorer/backend/apps/block_scout_web/lib/block_scout_web/endpoint.ex)
-  define `/socket` and `/socket/v2`; the
-  [frontend socket lifecycle](../../apps/explorer/lib/socket/useSocketChannel.tsx)
-  handles channel joining and cleanup.
-
-Explorer HTTP and Phoenix WebSocket APIs are separate from Cosmos REST,
-Cosmos signing RPC and the node's EVM JSON-RPC. Select the transport for the
-operation; an explorer URL is not a signing endpoint.
-
-## `@pax-js/cosmos/types`
-
-Module subpaths provide transaction, query and response types. Use type-only
-imports for interfaces. For example, the bank messages use `from_address`,
-`to_address` and an array of coins; coin amounts are decimal strings in the
-specified denom's base units.
-
-### Example Usage
-
-#### Bank send message
+The bank send message is defined in
+[`tx.proto`](../proto/cosmos/bank/v1beta1/tx.proto) with `from_address`,
+`to_address` and repeated `amount` coins. Each coin has a denom and a
+decimal-string amount in base units. The corresponding module import uses
+the `types/*` export:
 
 ```typescript
 import type { MsgSend } from '@pax-js/cosmos/types/cosmos/bank/v1beta1';
@@ -113,211 +46,44 @@ function bankSend(
 }
 ```
 
-#### TokenFactory messages
+Constructing a message does not sign or broadcast it. Choose addresses,
+denoms, amounts, fees and gas for the intended operation and network.
 
-Creating a denom and minting it use separate messages. After creating the
-denom successfully, use the returned `new_token_denom` for minting. Factory
-denoms have the form `factory/{creator}/{subdenom}`; minting requires the
-appropriate authority. These helpers construct messages without submitting
-them or checking on-chain permissions.
+## Network configuration
 
-```typescript
-import type { MsgCreateDenom, MsgMint } from '@pax-js/cosmos/types/tokenfactory';
+Paxeer mainnet-beta is one BFT network running `paxd`. The kernel is part of
+the network and proposes blocks. A transaction receipt is final once its
+block is committed. The EVM chain ID is `125` (`0x7d`), and public EVM
+JSON-RPC uses HTTPS at the node's root path. See the
+[public RPC reference](../../docs/site/docs/reference/public-rpc.md).
 
-function createDenom(sender: string, subdenom: string): MsgCreateDenom {
-  return { sender, subdenom };
-}
+Cosmos REST and Cosmos signing clients require compatible connections to
+that same network and an operator-supplied Cosmos signing chain ID. The
+numeric EVM chain ID does not identify a Cosmos signing chain. A public
+EVM endpoint alone does not establish a Cosmos REST or signing transport.
 
-function mintDenom(sender: string, createdDenom: string, amount: string): MsgMint {
-  return { sender, amount: { denom: createdDenom, amount } };
-}
-```
+Related interface contracts are available for
+[SDK packaging](../../contracts/sdk-js.md),
+[bridge interfaces](../../contracts/bridge/README.md#interface-contracts),
+[explorer HTTP](../../apps/explorer/public/openapi.yaml) and
+[explorer WebSocket payloads](../../apps/explorer/lib/socket/types.ts).
 
-`MsgCreateDenom` also accepts an optional `allow_list` with an `addresses`
-array. See the [TokenFactory package contract](../../contracts/sdk-js.md#encoding-tokenfactory)
-for the retained message families.
+## Package commands
 
-## `@pax-js/cosmos/encoding`
-
-`Encoder` contains Protobuf codecs organized by module. Each codec exposes
-`fromPartial`, `encode`, `decode` and `$type`. Encoding produces bytes; it does
-not sign or broadcast a transaction, or provide a gRPC transport. The same
-codecs are usable when building transactions for CosmJS clients.
-
-### Importing
-
-```typescript
-import {
-  Encoder,
-  aminoConverters,
-  paxProtoRegistry,
-} from '@pax-js/cosmos/encoding';
-```
-
-### Encoding/Decoding and getting type URLs
-
-The runtime codec supplies `$type`; a TypeScript interface alone has no
-runtime value. Prefix `$type` with `/` to obtain the registered type URL.
-The bank send type URL is `/cosmos.bank.v1beta1.MsgSend`.
-
-```typescript
-import { Encoder } from '@pax-js/cosmos/encoding';
-import type { MsgSend } from '@pax-js/cosmos/types/cosmos/bank/v1beta1';
-
-function encodeBankSend(message: MsgSend) {
-  const codec = Encoder.cosmos.bank.v1beta1.MsgSend;
-  const msgSend = codec.fromPartial(message);
-  const encoded = codec.encode(msgSend).finish();
-  const decoded = codec.decode(encoded);
-  const protoMsgSend = { typeUrl: `/${codec.$type}`, value: encoded };
-  return { protoMsgSend, decoded };
-}
-```
-
-`protoMsgSend` has the byte-valued shape used by a Protobuf `Any` envelope.
-For CosmJS `signAndBroadcast`, supply the unencoded message object as `value`,
-as shown below. Constructing an envelope alone does not create a signed
-transaction.
-
-### Usage with @cosmjs/stargate
-
-`paxProtoRegistry` contains type URL/codec pairs for `Registry`;
-`aminoConverters` supplies the converter map for `AminoTypes`. Both exports
-come from `/encoding`. Import `AminoTypes` explicitly from `@cosmjs/stargate`.
-The package depends on CosmJS `^0.39.0`; use compatible versions in your
-application.
-
-This helper takes a wallet-provided `OfflineSigner`, a compatible Cosmos RPC
-URL, the operator's Cosmos chain ID and explicit transfer and fee settings.
-Enable the intended chain in the wallet before obtaining its signer. It
-checks the connected chain before signing and rejects an empty account list
-or an unsuccessful transaction result.
-
-```typescript
-import { Encoder, aminoConverters, paxProtoRegistry } from '@pax-js/cosmos/encoding';
-import { AminoTypes, SigningStargateClient } from '@cosmjs/stargate';
-import { Registry } from '@cosmjs/proto-signing';
-import type { OfflineSigner } from '@cosmjs/proto-signing';
-
-async function sendBankTokens(
-  cosmosRpcUrl: string,
-  offlineSigner: OfflineSigner,
-  options: {
-    chainId: string;
-    recipient: string;
-    denom: string;
-    amount: string;
-    feeDenom: string;
-    feeAmount: string;
-    gas: string;
-  },
-) {
-  const client = await SigningStargateClient.connectWithSigner(
-    cosmosRpcUrl,
-    offlineSigner,
-    {
-      aminoTypes: new AminoTypes(aminoConverters),
-      registry: new Registry(paxProtoRegistry),
-    },
-  );
-
-  try {
-    if ((await client.getChainId()) !== options.chainId) {
-      throw new Error('Connected Cosmos chain ID differs from the configured chain');
-    }
-    const [account] = await offlineSigner.getAccounts();
-    if (!account) {
-      throw new Error('The signer has no accounts');
-    }
-
-    const codec = Encoder.cosmos.bank.v1beta1.MsgSend;
-    const message = {
-      typeUrl: `/${codec.$type}`,
-      value: codec.fromPartial({
-        from_address: account.address,
-        to_address: options.recipient,
-        amount: [{ denom: options.denom, amount: options.amount }],
-      }),
-    };
-    const result = await client.signAndBroadcast(account.address, [message], {
-      amount: [{ denom: options.feeDenom, amount: options.feeAmount }],
-      gas: options.gas,
-    });
-    if (result.code !== 0) {
-      throw new Error(`Transaction ${result.transactionHash} failed: ${result.rawLog}`);
-    }
-    return result;
-  } finally {
-    client.disconnect();
-  }
-}
-```
-
-### Interoperability with @pax-js/cosmos/types
-
-The encoding declarations use the module interfaces from `/types/*`.
-`fromPartial` returns a typed message with defaults for omitted fields, but
-those defaults do not guarantee a valid transaction. Supply the required
-addresses, amounts and other fields for the operation; the chain validates
-transaction semantics and permissions.
-
-### Usage with Ledger
-
-An external Ledger integration must provide a compatible Cosmos
-`OfflineAminoSigner` for the intended network and account. Pass that signer
-to the signing helper above: `AminoTypes(aminoConverters)` supplies the Amino
-conversion, and `Registry(paxProtoRegistry)` supplies the Protobuf codecs.
-Device transport, wallet setup and derivation paths belong to the wallet
-integration; this package does not implement them.
-
-## `@pax-js/cosmos/rest`
-
-`Querier` exposes typed query helpers for its retained Cosmos REST routes.
-For example, `AllBalances` issues a GET to
-`/cosmos/bank/v1beta1/balances/{address}`. Configure `pathPrefix` as the
-operator's Cosmos REST base URL without a trailing slash; the helper
-concatenates it with the route. The runtime must provide `fetch`.
-
-### Example Usage
-
-```typescript
-import { Querier } from '@pax-js/cosmos/rest';
-
-async function queryBalances(cosmosRestUrl: string, address: string) {
-  const response = await Querier.cosmos.bank.v1beta1.AllBalances(
-    { address },
-    { pathPrefix: cosmosRestUrl },
-  );
-  return response;
-}
-```
-
-This example retrieves the first page, including `balances` and optional
-`pagination`. The helpers return parsed JSON without converting wire values
-to Protobuf objects, and throw the parsed response body on a non-success
-HTTP status. They do not add automatic retries or deadlines; pass a `signal`
-in the second argument to control cancellation.
-
-## Local Package Development
-
-Install the locked dependencies from the repository root:
+From the repository root, install the locked dependencies:
 
 ```sh
 npm --prefix sdk/js ci
 ```
 
-The package tests require the distribution artifacts selected by the manifest.
-Once those artifacts are available, run:
+The manifest provides a test script and no build script. With the declared
+distribution files available, run:
 
 ```sh
 npm --prefix sdk/js test
 ```
 
-The tests exercise the package's exported CommonJS entries, declarations,
-codecs, registries and REST routes. The package has
-no build script. Its manifest selects runtime files and declarations under
-`dist/cjs`, `dist/esm` and `dist/types`, which are absent from this checkout.
-
-The README example test compiles every TypeScript code block independently
-against this package's public subpaths with TypeScript's compiler API. It
-does not connect to a node, obtain a signer or broadcast a transaction.
+The [package tests](test/) cover distribution entry points, declarations,
+codecs, registries and REST routes. The
+[README example test](test/readme-examples.test.cjs) compiles each TypeScript
+block independently against the public package subpaths.
