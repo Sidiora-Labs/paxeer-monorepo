@@ -44,7 +44,7 @@
   },
   "devDependencies": {
     "@types/node": "22.18.1",
-    "@types/ws": "8.18.1",
+    "@types/ws": "8.18.2",
     "typescript": "5.9.2"
   },
   "dependencies": {
@@ -53,7 +53,7 @@
     "@noble/hashes": "2.4.0",
     "@scure/bip32": "2.4.0",
     "@scure/bip39": "2.4.0",
-    "ws": "8.21.3"
+    "ws": "8.22.2"
   },
   "module": "./dist/src/index.js",
   "sdkTestRequirements": {
