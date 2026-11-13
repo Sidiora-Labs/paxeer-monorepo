@@ -13,6 +13,7 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--output-dir',type=pathlib.Path,required=True)
     parser.add_argument('--phase',type=int,choices=(2,3,4),default=2)
+    parser.add_argument('--capabilities',type=pathlib.Path)
     parser.add_argument('--release-digest',required=True)
     parser.add_argument('--interface-digest',required=True)
     args=parser.parse_args()
@@ -39,6 +40,12 @@ def main():
         finally:
             (output/'commands.json').write_text(json.dumps({'phase':4,'release_digest':args.release_digest,'interface_digest':args.interface_digest,'commands':[{'command':command,'exit':code}],'capacity_qualified':False,'payout_qualified':False,'global_qualification_owner':'serial9.1'},indent=2)+'\n')
         return code
+    if args.capabilities is None:
+        parser.error('--capabilities is required for phase 2 and phase 3')
+    capabilities = args.capabilities.resolve()
+    blockers = json.loads(capabilities.read_text())['mandatory_release_blockers']
+    if not isinstance(blockers, list):
+        raise ValueError('mandatory_release_blockers must be a list')
     if not os.environ.get('L18_POSTGRES_DSN'):
         raise RuntimeError('root-admitted real PostgreSQL required; no fallback DSN')
     location=pathlib.Path(__file__).resolve()
@@ -65,8 +72,6 @@ def main():
     finally:
         if child is not None:lifecycle.stop(child)
         (output/'commands.json').write_text(json.dumps({'phase':args.phase,'release_digest':args.release_digest,'interface_digest':args.interface_digest,'commands':commands,'capacity_qualified':False,'payout_qualified':False},indent=2)+'\n')
-    capabilities=location.parents[6]/'launchpad/spec/production-system/handoffs/L18/phase2/capabilities.json'
-    blockers=json.loads(capabilities.read_text())['mandatory_release_blockers']
     if blockers:
         (output/'remaining-blockers.json').write_text(json.dumps(blockers,indent=2)+'\n')
         return 2

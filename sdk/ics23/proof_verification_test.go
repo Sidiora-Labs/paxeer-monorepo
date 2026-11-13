@@ -11,14 +11,14 @@ import (
 	"testing"
 )
 
-type repairM1359Vector struct {
+type proofVector struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 	Root  string `json:"root"`
 	Proof string `json:"proof"`
 }
 
-func repairM1359Hex(t *testing.T, value string) []byte {
+func decodeVectorHex(t *testing.T, value string) []byte {
 	t.Helper()
 	bz, err := hex.DecodeString(value)
 	if err != nil {
@@ -27,24 +27,24 @@ func repairM1359Hex(t *testing.T, value string) []byte {
 	return bz
 }
 
-func repairM1359Load(t *testing.T, tree, name string) (*CommitmentProof, CommitmentRoot, []byte, []byte) {
+func loadProofVector(t *testing.T, tree, name string) (*CommitmentProof, CommitmentRoot, []byte, []byte) {
 	t.Helper()
-	bz, err := os.ReadFile(filepath.Join("testdata", "repair_m1359", tree, name+".json"))
+	bz, err := os.ReadFile(filepath.Join("testdata", "producer_vectors", tree, name+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var vector repairM1359Vector
+	var vector proofVector
 	if err := json.Unmarshal(bz, &vector); err != nil {
 		t.Fatal(err)
 	}
 	proof := new(CommitmentProof)
-	if err := proof.Unmarshal(repairM1359Hex(t, vector.Proof)); err != nil {
+	if err := proof.Unmarshal(decodeVectorHex(t, vector.Proof)); err != nil {
 		t.Fatal(err)
 	}
-	return proof, repairM1359Hex(t, vector.Root), repairM1359Hex(t, vector.Key), repairM1359Hex(t, vector.Value)
+	return proof, decodeVectorHex(t, vector.Root), decodeVectorHex(t, vector.Key), decodeVectorHex(t, vector.Value)
 }
 
-func repairM1359Transport(t *testing.T, proof *CommitmentProof) *CommitmentProof {
+func roundTripProof(t *testing.T, proof *CommitmentProof) *CommitmentProof {
 	t.Helper()
 	bz, err := proof.Marshal()
 	if err != nil {
@@ -57,7 +57,7 @@ func repairM1359Transport(t *testing.T, proof *CommitmentProof) *CommitmentProof
 	return decoded
 }
 
-func repairM1359Reject(t *testing.T, proof *CommitmentProof) {
+func assertMalformedProofRejected(t *testing.T, proof *CommitmentProof) {
 	t.Helper()
 	if got, err := Decompress(proof); err == nil || got != nil {
 		t.Fatalf("Decompress = %v, %v; want nil, error", got, err)
@@ -85,11 +85,11 @@ func repairM1359Reject(t *testing.T, proof *CommitmentProof) {
 	}
 }
 
-func TestRepairM_1359_VerificationCoverage(t *testing.T) {
+func TestProofVerificationCoverage(t *testing.T) {
 	for tree, spec := range map[string]*ProofSpec{"tendermint": TendermintSpec, "iavl": IavlSpec} {
 		for _, name := range []string{"exist_left", "exist_middle", "exist_right", "nonexist_left", "nonexist_middle", "nonexist_right"} {
 			t.Run(tree+"/"+name, func(t *testing.T) {
-				proof, root, key, value := repairM1359Load(t, tree, name)
+				proof, root, key, value := loadProofVector(t, tree, name)
 				check := func(proof *CommitmentProof) {
 					t.Helper()
 					calculated, err := proof.Calculate()
@@ -147,7 +147,7 @@ func TestRepairM_1359_VerificationCoverage(t *testing.T) {
 				if got, err := Compress(compressed); err != nil || got != compressed {
 					t.Fatalf("compression not idempotent: %v", err)
 				}
-				decoded := repairM1359Transport(t, compressed)
+				decoded := roundTripProof(t, compressed)
 				check(decoded)
 				expanded, err := Decompress(decoded)
 				if err != nil {
@@ -177,7 +177,7 @@ func TestRepairM_1359_VerificationCoverage(t *testing.T) {
 	}
 }
 
-func TestRepairM_1359_ProtobufRetirement(t *testing.T) {
+func TestProtobufGenerationRetired(t *testing.T) {
 	readme, err := os.ReadFile("README.md")
 	if err != nil {
 		t.Fatal(err)
@@ -198,12 +198,12 @@ func TestRepairM_1359_ProtobufRetirement(t *testing.T) {
 		t.Fatal("generation targets must explicitly refuse retired generation")
 	}
 	// The published producer's transport remains consumable by the retained codec.
-	proof, root, key, value := repairM1359Load(t, "tendermint", "exist_middle")
+	proof, root, key, value := loadProofVector(t, "tendermint", "exist_middle")
 	wire, err := proof.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
-	decoded := repairM1359Transport(t, proof)
+	decoded := roundTripProof(t, proof)
 	reencoded, err := decoded.Marshal()
 	if err != nil {
 		t.Fatal(err)
@@ -213,24 +213,24 @@ func TestRepairM_1359_ProtobufRetirement(t *testing.T) {
 	}
 }
 
-func TestRepairM_1359_CompressEmptyVariant(t *testing.T) {
+func TestCompressRejectsEmptyVariants(t *testing.T) {
 	var nilExist *BatchEntry_Exist
 	var nilNonexist *BatchEntry_Nonexist
 	cases := []*BatchEntry{nil, {}, {Proof: nilExist}, {Proof: nilNonexist}, {Proof: &BatchEntry_Exist{}}, {Proof: &BatchEntry_Nonexist{}}, {Proof: &BatchEntry_Nonexist{Nonexist: &NonExistenceProof{}}}}
 	for i, entry := range cases {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			proof := &CommitmentProof{Proof: &CommitmentProof_Batch{Batch: &BatchProof{Entries: []*BatchEntry{entry}}}}
-			repairM1359Reject(t, proof)
+			assertMalformedProofRejected(t, proof)
 		})
 	}
-	decoded := repairM1359Transport(t, &CommitmentProof{Proof: &CommitmentProof_Batch{Batch: &BatchProof{Entries: []*BatchEntry{{}}}}})
+	decoded := roundTripProof(t, &CommitmentProof{Proof: &CommitmentProof_Batch{Batch: &BatchProof{Entries: []*BatchEntry{{}}}}})
 	if len(decoded.GetBatch().Entries) != 1 || decoded.GetBatch().Entries[0].GetProof() != nil {
 		t.Fatal("codec did not preserve unset entry oneof")
 	}
-	repairM1359Reject(t, decoded)
+	assertMalformedProofRejected(t, decoded)
 }
 
-func TestRepairM_1359_CompressedIndexBounds(t *testing.T) {
+func TestCompressedProofIndexBounds(t *testing.T) {
 	for _, nonexist := range []bool{false, true} {
 		for _, index := range []int32{-1, -2147483648, 0, 2147483647} {
 			for _, empty := range []bool{false, true} {
@@ -239,7 +239,7 @@ func TestRepairM_1359_CompressedIndexBounds(t *testing.T) {
 					if nonexist {
 						name = "nonexist_middle"
 					}
-					proof, root, key, value := repairM1359Load(t, "tendermint", name)
+					proof, root, key, value := loadProofVector(t, "tendermint", name)
 					compressed, err := CombineProofs([]*CommitmentProof{proof})
 					if err != nil {
 						t.Fatal(err)
@@ -260,7 +260,7 @@ func TestRepairM_1359_CompressedIndexBounds(t *testing.T) {
 						existence = entry.GetExist()
 					}
 					existence.Path[0] = badIndex
-					decoded := repairM1359Transport(t, compressed)
+					decoded := roundTripProof(t, compressed)
 					var path []int32
 					if nonexist {
 						path = decoded.GetCompressed().Entries[0].GetNonexist().Left.Path
@@ -270,7 +270,7 @@ func TestRepairM_1359_CompressedIndexBounds(t *testing.T) {
 					if path[0] != badIndex {
 						t.Fatal("wire codec changed malformed index")
 					}
-					repairM1359Reject(t, decoded)
+					assertMalformedProofRejected(t, decoded)
 					if VerifyMembership(TendermintSpec, root, decoded, key, value) || VerifyNonMembership(TendermintSpec, root, decoded, key) {
 						t.Fatal("invalid decoded index accepted against real root")
 					}
@@ -278,28 +278,28 @@ func TestRepairM_1359_CompressedIndexBounds(t *testing.T) {
 			}
 		}
 	}
-	proof, _, _, _ := repairM1359Load(t, "tendermint", "exist_middle")
+	proof, _, _, _ := loadProofVector(t, "tendermint", "exist_middle")
 	compressed, err := CombineProofs([]*CommitmentProof{proof})
 	if err != nil {
 		t.Fatal(err)
 	}
 	compressed.GetCompressed().LookupInners[0] = nil
-	repairM1359Reject(t, compressed)
+	assertMalformedProofRejected(t, compressed)
 }
 
-func TestRepairM_1359_PublicVerifierInputs(t *testing.T) {
+func TestPublicVerifierInputs(t *testing.T) {
 	var exist *CommitmentProof_Exist
 	var nonexist *CommitmentProof_Nonexist
 	var batch *CommitmentProof_Batch
 	var compressed *CommitmentProof_Compressed
 	cases := []*CommitmentProof{nil, {}, {Proof: exist}, {Proof: nonexist}, {Proof: batch}, {Proof: compressed}, {Proof: &CommitmentProof_Exist{}}, {Proof: &CommitmentProof_Nonexist{}}, {Proof: &CommitmentProof_Batch{}}, {Proof: &CommitmentProof_Compressed{}}, {Proof: &CommitmentProof_Batch{Batch: &BatchProof{}}}, {Proof: &CommitmentProof_Compressed{Compressed: &CompressedBatchProof{}}}}
 	for i, proof := range cases {
-		t.Run(fmt.Sprint(i), func(t *testing.T) { repairM1359Reject(t, proof) })
+		t.Run(fmt.Sprint(i), func(t *testing.T) { assertMalformedProofRejected(t, proof) })
 	}
 	for _, proof := range []*CommitmentProof{{}, {Proof: &CommitmentProof_Exist{}}, {Proof: &CommitmentProof_Nonexist{}}, {Proof: &CommitmentProof_Batch{}}, {Proof: &CommitmentProof_Compressed{}}} {
-		repairM1359Reject(t, repairM1359Transport(t, proof))
+		assertMalformedProofRejected(t, roundTripProof(t, proof))
 	}
-	proof, root, key, value := repairM1359Load(t, "tendermint", "exist_middle")
+	proof, root, key, value := loadProofVector(t, "tendermint", "exist_middle")
 	badSpecs := []*ProofSpec{nil, {}, {LeafSpec: TendermintSpec.LeafSpec}, {InnerSpec: TendermintSpec.InnerSpec}}
 	for _, change := range []func(*ProofSpec){
 		func(p *ProofSpec) { p.InnerSpec.ChildSize = 0 },
@@ -319,7 +319,7 @@ func TestRepairM_1359_PublicVerifierInputs(t *testing.T) {
 		change(&p)
 		badSpecs = append(badSpecs, &p)
 	}
-	non, nonRoot, nonKey, _ := repairM1359Load(t, "tendermint", "nonexist_middle")
+	non, nonRoot, nonKey, _ := loadProofVector(t, "tendermint", "nonexist_middle")
 	for i, spec := range badSpecs {
 		t.Run(fmt.Sprintf("spec/%d", i), func(t *testing.T) {
 			if VerifyMembership(spec, root, proof, key, value) || BatchVerifyMembership(spec, root, proof, nil) || VerifyNonMembership(spec, nonRoot, non, nonKey) || BatchVerifyNonMembership(spec, nonRoot, non, nil) {
@@ -334,17 +334,17 @@ func TestRepairM_1359_PublicVerifierInputs(t *testing.T) {
 		})
 	}
 	proof.GetExist().Path[0] = nil
-	repairM1359Reject(t, proof)
+	assertMalformedProofRejected(t, proof)
 	// A valid entry must not hide a malformed sibling entry.
-	valid, _, _, _ := repairM1359Load(t, "tendermint", "exist_middle")
+	valid, _, _, _ := loadProofVector(t, "tendermint", "exist_middle")
 	mixed := &CommitmentProof{Proof: &CommitmentProof_Batch{Batch: &BatchProof{Entries: []*BatchEntry{{Proof: &BatchEntry_Exist{Exist: valid.GetExist()}}, {}}}}}
-	repairM1359Reject(t, repairM1359Transport(t, mixed))
+	assertMalformedProofRejected(t, roundTripProof(t, mixed))
 	if VerifyMembership(TendermintSpec, root, mixed, key, value) {
 		t.Fatal("valid entry concealed malformed batch entry")
 	}
 }
 
-func TestRepairM_1359_RootLengthError(t *testing.T) {
+func TestRootHashLengthValidation(t *testing.T) {
 	for _, childSize := range []int32{32, 33, 48, 63} {
 		t.Run(fmt.Sprint(childSize), func(t *testing.T) {
 			spec := *TendermintSpec
@@ -352,7 +352,7 @@ func TestRepairM_1359_RootLengthError(t *testing.T) {
 			spec.InnerSpec = &inner
 			spec.InnerSpec.Hash = HashOp_SHA512
 			spec.InnerSpec.ChildSize = childSize
-			proof := repairM1359Transport(t, &CommitmentProof{Proof: &CommitmentProof_Exist{Exist: &ExistenceProof{Key: []byte("key"), Value: []byte("value"), Leaf: spec.LeafSpec, Path: []*InnerOp{{Hash: HashOp_SHA512, Prefix: []byte{1}, Suffix: make([]byte, childSize)}}}}})
+			proof := roundTripProof(t, &CommitmentProof{Proof: &CommitmentProof_Exist{Exist: &ExistenceProof{Key: []byte("key"), Value: []byte("value"), Leaf: spec.LeafSpec, Path: []*InnerOp{{Hash: HashOp_SHA512, Prefix: []byte{1}, Suffix: make([]byte, childSize)}}}}})
 			exist := proof.GetExist()
 			if err := exist.CheckAgainstSpec(&spec); err != nil {
 				t.Fatalf("size mismatch must reach calculation: %v", err)
@@ -384,28 +384,28 @@ func TestRepairM_1359_RootLengthError(t *testing.T) {
 	}
 }
 
-func TestRepairM_1359_DecompressEmptyVariant(t *testing.T) {
+func TestDecompressRejectsEmptyVariants(t *testing.T) {
 	var exist *CompressedBatchEntry_Exist
 	var nonexist *CompressedBatchEntry_Nonexist
 	for i, entry := range []*CompressedBatchEntry{nil, {}, {Proof: exist}, {Proof: nonexist}, {Proof: &CompressedBatchEntry_Exist{}}, {Proof: &CompressedBatchEntry_Nonexist{}}, {Proof: &CompressedBatchEntry_Nonexist{Nonexist: &CompressedNonExistenceProof{}}}} {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			proof := &CommitmentProof{Proof: &CommitmentProof_Compressed{Compressed: &CompressedBatchProof{Entries: []*CompressedBatchEntry{entry}}}}
-			repairM1359Reject(t, proof)
+			assertMalformedProofRejected(t, proof)
 		})
 	}
 	for i, entry := range []*CompressedBatchEntry{{}, {Proof: &CompressedBatchEntry_Exist{}}, {Proof: &CompressedBatchEntry_Nonexist{}}} {
 		t.Run(fmt.Sprintf("decoded/%d", i), func(t *testing.T) {
-			proof := repairM1359Transport(t, &CommitmentProof{Proof: &CommitmentProof_Compressed{Compressed: &CompressedBatchProof{Entries: []*CompressedBatchEntry{entry}}}})
+			proof := roundTripProof(t, &CommitmentProof{Proof: &CommitmentProof_Compressed{Compressed: &CompressedBatchProof{Entries: []*CompressedBatchEntry{entry}}}})
 			if len(proof.GetCompressed().Entries) != 1 {
 				t.Fatal("empty message was not decoded as a compressed entry")
 			}
-			repairM1359Reject(t, proof)
+			assertMalformedProofRejected(t, proof)
 		})
 	}
 }
 
-func TestRepairM_1359_NeighborPathPanics(t *testing.T) {
-	proof, root, key, _ := repairM1359Load(t, "tendermint", "nonexist_middle")
+func TestNonMembershipNeighborPaths(t *testing.T) {
+	proof, root, key, _ := loadProofVector(t, "tendermint", "nonexist_middle")
 	non := proof.GetNonexist()
 	left, right := non.Left.Path, non.Right.Path
 	if !IsLeftNeighbor(TendermintSpec.InnerSpec, left, right) || !VerifyNonMembership(TendermintSpec, root, proof, key) {
@@ -449,7 +449,7 @@ func TestRepairM_1359_NeighborPathPanics(t *testing.T) {
 		key         string
 		left, right *ExistenceProof
 	}{{"a", nil, single}, {"c", single, nil}} {
-		p := repairM1359Transport(t, &CommitmentProof{Proof: &CommitmentProof_Nonexist{Nonexist: &NonExistenceProof{Key: []byte(c.key), Left: c.left, Right: c.right}}})
+		p := roundTripProof(t, &CommitmentProof{Proof: &CommitmentProof_Nonexist{Nonexist: &NonExistenceProof{Key: []byte(c.key), Left: c.left, Right: c.right}}})
 		if !VerifyNonMembership(TendermintSpec, singleRoot, p, []byte(c.key)) {
 			t.Fatal("single-leaf boundary rejected")
 		}
@@ -459,9 +459,9 @@ func TestRepairM_1359_NeighborPathPanics(t *testing.T) {
 		func(p *NonExistenceProof) { p.Right.Path = p.Left.Path },
 		func(p *NonExistenceProof) { p.Left.Path[0] = &InnerOp{Hash: HashOp_SHA256} },
 	} {
-		p, _, _, _ := repairM1359Load(t, "tendermint", "nonexist_middle")
+		p, _, _, _ := loadProofVector(t, "tendermint", "nonexist_middle")
 		mutate(p.GetNonexist())
-		decoded := repairM1359Transport(t, p)
+		decoded := roundTripProof(t, p)
 		if VerifyNonMembership(TendermintSpec, root, decoded, key) {
 			t.Fatal("malformed decoded non-membership accepted")
 		}

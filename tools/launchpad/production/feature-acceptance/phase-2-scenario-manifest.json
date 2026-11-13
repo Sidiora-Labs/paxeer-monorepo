@@ -63,6 +63,6 @@
     "spec": "spec/layerx-merge/spec.kvx",
     "section": "task.2.50",
     "class": "retired-reference",
-    "reason": "decision.1803 retires launchpad/spec/production-system/spec.kvx; task.2.50 is absent from spec/layerx-merge/spec.kvx"
+    "reason": "decision.1803 retires the launchpad production-system specification; task.2.50 is absent from spec/layerx-merge/spec.kvx"
   }
 }

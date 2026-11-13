@@ -120,7 +120,7 @@ type registryDocument struct {
 }
 
 // RepositoryRoot is the monorepo root (the reviewed migration inputs live
-// under launchpad/spec/production-system).
+// in migrations at the repository root).
 func RepositoryRoot(t testing.TB) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
