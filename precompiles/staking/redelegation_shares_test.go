@@ -27,12 +27,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repair126PlanHeight int64 = 100
+const mergePlanHeight int64 = 100
 
 // Produce the entry through BeginRedelegation, after a real slash has changed
 // the destination's exchange rate. No query response or ABI output is supplied
 // by the fixture: both are produced by the real keepers and precompile.
-func repair126RedelegationState(t *testing.T) (*app.App, sdk.Context, *stakingtypes.QueryRedelegationsRequest) {
+func redelegationState(t *testing.T) (*app.App, sdk.Context, *stakingtypes.QueryRedelegationsRequest) {
 	t.Helper()
 	a := testkeeper.EVMTestApp
 	ctx, _ := a.GetContextForDeliverTx(nil).WithBlockHeight(20).
@@ -78,7 +78,7 @@ func repair126RedelegationState(t *testing.T) (*app.App, sdk.Context, *stakingty
 	}
 }
 
-func repair126Query(t *testing.T, a *app.App, ctx sdk.Context, req *stakingtypes.QueryRedelegationsRequest) *stakingtypes.QueryRedelegationsResponse {
+func queryRedelegations(t *testing.T, a *app.App, ctx sdk.Context, req *stakingtypes.QueryRedelegationsRequest) *stakingtypes.QueryRedelegationsResponse {
 	t.Helper()
 	response, err := (stakingkeeper.Querier{Keeper: a.StakingKeeper}).Redelegations(sdk.WrapSDKContext(ctx), req)
 	require.NoError(t, err)
@@ -87,7 +87,7 @@ func repair126Query(t *testing.T, a *app.App, ctx sdk.Context, req *stakingtypes
 	return response
 }
 
-func repair126Call(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner vm.DynamicGasPrecompiledContract, contractABI abi.ABI, req *stakingtypes.QueryRedelegationsRequest) ([]byte, staking.RedelegationsResponse) {
+func callRedelegations(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner vm.DynamicGasPrecompiledContract, contractABI abi.ABI, req *stakingtypes.QueryRedelegationsRequest) ([]byte, staking.RedelegationsResponse) {
 	t.Helper()
 	input, err := contractABI.Pack(staking.RedelegationsMethod, req.DelegatorAddr, req.SrcValidatorAddr, req.DstValidatorAddr, req.Pagination.Key)
 	require.NoError(t, err)
@@ -104,9 +104,9 @@ func repair126Call(t *testing.T, ctx sdk.Context, k *evmkeeper.Keeper, runner vm
 	return ret, *decoded
 }
 
-func TestRepair_126_RedelegationShares(t *testing.T) {
-	a, base, request := repair126RedelegationState(t)
-	a.UpgradeKeeper.SetDone(base.WithBlockHeight(repair126PlanHeight), pcommon.MergeUpgrade)
+func TestRedelegationShares(t *testing.T) {
+	a, base, request := redelegationState(t)
+	a.UpgradeKeeper.SetDone(base.WithBlockHeight(mergePlanHeight), pcommon.MergeUpgrade)
 	precompile, err := staking.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
 	for _, sourceIndex := range []bool{false, true} {
@@ -115,13 +115,13 @@ func TestRepair_126_RedelegationShares(t *testing.T) {
 			if sourceIndex {
 				req.DelegatorAddr, req.DstValidatorAddr = "", ""
 			}
-			ctx, _ := base.WithBlockHeight(repair126PlanHeight).CacheContext()
-			producer := repair126Query(t, a, ctx, &req)
+			ctx, _ := base.WithBlockHeight(mergePlanHeight).CacheContext()
+			producer := queryRedelegations(t, a, ctx, &req)
 			entry := producer.RedelegationResponses[0].Entries[0]
 			// SharesFromTokens uses Dec.QuoInt, which truncates to 18 places.
 			require.Equal(t, "11.666666666666666666", entry.RedelegationEntry.SharesDst.String())
 			require.NotEqual(t, entry.Balance.ToDec(), entry.RedelegationEntry.SharesDst)
-			_, consumer := repair126Call(t, ctx, &a.EvmKeeper, precompile, precompile.GetABI(), &req)
+			_, consumer := callRedelegations(t, ctx, &a.EvmKeeper, precompile, precompile.GetABI(), &req)
 			redel := consumer.Redelegations[0]
 			require.Equal(t, request.DelegatorAddr, redel.DelegatorAddress)
 			require.Equal(t, request.SrcValidatorAddr, redel.ValidatorSrcAddress)
@@ -136,8 +136,8 @@ func TestRepair_126_RedelegationShares(t *testing.T) {
 	}
 }
 
-func TestRepair_126_UpgradeReplay(t *testing.T) {
-	a, base, req := repair126RedelegationState(t)
+func TestRedelegationSharesUpgradeReplay(t *testing.T) {
+	a, base, req := redelegationState(t)
 	k := a.EvmKeeper
 	address := common.HexToAddress(staking.StakingAddress)
 	versions := staking.GetVersioned(pcommon.MergeUpgrade, a.GetPrecompileKeepers())
@@ -148,19 +148,19 @@ func TestRepair_126_UpgradeReplay(t *testing.T) {
 	require.NoError(t, err)
 	current := versions[pcommon.MergeUpgrade].(*pcommon.DynamicGasPrecompile)
 	contractABI := current.GetABI()
-	producer := repair126Query(t, a, base, req)
+	producer := queryRedelegations(t, a, base, req)
 	entry := producer.RedelegationResponses[0].Entries[0]
 
 	for _, phase := range []string{"unscheduled", "scheduled", "applied"} {
 		switch phase {
 		case "scheduled":
 			require.NoError(t, a.UpgradeKeeper.ScheduleUpgrade(base, upgradetypes.Plan{
-				Name: pcommon.MergeUpgrade, Height: repair126PlanHeight,
+				Name: pcommon.MergeUpgrade, Height: mergePlanHeight,
 			}))
 		case "applied":
-			a.UpgradeKeeper.SetDone(base.WithBlockHeight(repair126PlanHeight), pcommon.MergeUpgrade)
+			a.UpgradeKeeper.SetDone(base.WithBlockHeight(mergePlanHeight), pcommon.MergeUpgrade)
 		}
-		for _, height := range []int64{89, repair126PlanHeight - 1, repair126PlanHeight, repair126PlanHeight + 1} {
+		for _, height := range []int64{89, mergePlanHeight - 1, mergePlanHeight, mergePlanHeight + 1} {
 			for _, tracing := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s/height_%d/tracing_%t", phase, height, tracing), func(t *testing.T) {
 					ctx, _ := base.WithBlockHeight(height).WithIsTracing(tracing).CacheContext()
@@ -169,16 +169,16 @@ func TestRepair_126_UpgradeReplay(t *testing.T) {
 					runner, ok := served.(vm.DynamicGasPrecompiledContract)
 					require.True(t, ok)
 					wantVersion := "v6.4.0"
-					if phase == "applied" && height >= repair126PlanHeight {
+					if phase == "applied" && height >= mergePlanHeight {
 						wantVersion = pcommon.MergeUpgrade
 					}
 					require.Equal(t, wantVersion, k.GetCustomPrecompilesVersions(ctx)[address])
-					actual, decoded := repair126Call(t, ctx, &k, runner, contractABI, req)
+					actual, decoded := callRedelegations(t, ctx, &k, runner, contractABI, req)
 					legacyCtx, _ := ctx.CacheContext()
-					historical, historicalDecoded := repair126Call(t, legacyCtx, &k, legacy, contractABI, req)
+					historical, historicalDecoded := callRedelegations(t, legacyCtx, &k, legacy, contractABI, req)
 					require.Equal(t, entry.Balance.String(), historicalDecoded.Redelegations[0].Entries[0].SharesDst,
 						"archived implementation must preserve historical bytes even after activation")
-					if phase == "applied" && height >= repair126PlanHeight {
+					if phase == "applied" && height >= mergePlanHeight {
 						require.Equal(t, entry.RedelegationEntry.SharesDst.String(), decoded.Redelegations[0].Entries[0].SharesDst)
 						expected := historicalDecoded
 						expected.Redelegations[0].Entries[0].SharesDst = entry.RedelegationEntry.SharesDst.String()
