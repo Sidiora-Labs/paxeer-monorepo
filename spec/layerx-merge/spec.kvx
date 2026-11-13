@@ -170854,7 +170854,7 @@ do_5 = "do_5 Decision 3445, gotcha 4361. The planned paths of this task hold the
 
 [task.22.43.4]
 title = "Move the task records and name the files after what they hold in apps/explorer/nextjs and 3 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
