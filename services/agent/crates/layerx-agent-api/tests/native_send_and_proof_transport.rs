@@ -1,19 +1,4 @@
-//! Task 22.31.214 repair record (the gate ledger supplies the verified revision).
-//! native-send-owner: `rotated_owner_consent_crosses_transport_signing_and_reopen`;
-//! native-send-owner: `native_send_refuses_legacy_domains_and_noncanonical_frames`.
-//! proof-rung: `committed_activity_and_receipt_cross_shared_rpc_codecs`;
-//! proof-rung: `proof_rung_refuses_downgrades_and_inconsistent_evidence`.
-//! Baseline: no existing repair test or prior gate ledger; unchanged verification
-//! was not run because the enforced gate order requires complete implementation first.
-//! Wiring request, agent domain 9: services/agent/schema/agent-api/v1.kvx must declare `NativeSendPurposeV2` and `SignedNativeSendPurposeV2` byte layouts and explicit V1 refusal.
-//! Wiring request, agent domain 9: services/agent/crates/layerx-agentd/src/{`agent_rpc_wire`.rs,`human_runtime`.rs,capability/binding.rs} must adopt V2, resolve current stable owner/key/address, verify consent and recovered sender, and persist/revalidate V2 across daemon restart.
-//! Wiring request, agent domain 9: services/agent/crates/layerx-sdk/src/{`native_effect`.rs,`agent_envelope`.rs} must adopt the V2 carrier and prove a real committed receipt through daemon RPC and SDK end to end.
-//! Wiring request, Human domain 10: services/human/crates/layerx-human-service/src/{`server/native_send`.rs,`server/agent_runtime`.rs,journeys/engine.rs,custody/provider.rs} and services/human/crates/layerx-human-kms/src/attestor.rs must adopt V2, sign SHA256(V2 canonical purpose) with the current consent key and independently recover the type-2 sender on chain 125 before release, including owner rotation and process restart.
-//! Wiring request, agent domain 9: `services/agent/crates/layerx-agent-api/tests/read_heights`.rs still asserts achieved == selector minimum; update its obsolete expectation in its owning task without weakening the minimum or requested-rung checks.
-//! These tests prove the real shared contract codecs, pinned receipt signatures,
-//! current-owner/preparation comparisons and genuine Ed25519 consent signatures.
-//! They do not claim daemon/Human/custody migration or independent Comet finality
-//! authentication, which need the out-of-scope consumers above.
+//! Native-send owner consent and proof bundles across shared transport codecs.
 
 use std::fs;
 use std::io::{Read as _, Write as _};
@@ -45,7 +30,7 @@ struct Directory(PathBuf);
 impl Directory {
     fn new() -> Self {
         let path = std::env::temp_dir().join(format!(
-            "repair-22-31-214-{}-{}",
+            "native-send-proof-transport-{}-{}",
             std::process::id(),
             NEXT_TEMP.fetch_add(1, Ordering::Relaxed)
         ));

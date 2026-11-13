@@ -18,7 +18,7 @@ packages_moved = []
 [qualification]
 build = "hf-build: cargo metadata --manifest-path services/agent/Cargo.toml --format-version 1 > /dev/null"
 verify = "hf-done: cg spec done 22.39.283 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s services/agent/repair_22_39_283.kvx && cargo metadata --locked --manifest-path services/agent/Cargo.toml --format-version 1 > /dev/null && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox_recover"
+verify_cmd = "test -s spec/layerx-merge/programme/records/services/agent/repair_22_39_283.kvx && cargo metadata --locked --manifest-path services/agent/Cargo.toml --format-version 1 > /dev/null && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test outbox_recover"
 verified_revision = "The matching final build and verify revision in the private /out/run/gates.jsonl ledger; this record makes no gate-result claim before execution."
 evidence = "The private ledger retains the exact revision, command, exit code and log path for each gate; final qualification uses /out/logs/build-2.log and /out/logs/verify-1.log."
 

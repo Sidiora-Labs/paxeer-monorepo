@@ -421,7 +421,7 @@ impl Drop for NodeTranscript {
 }
 fn producer() -> Value {
     must(serde_json::from_str(include_str!(
-        "../../layerx-agentd-host/src/repair_22_31_363_receipts.json"
+        "../../layerx-agentd-host/src/payer_payment_receipts.json"
     )))
 }
 fn fixed<const N: usize>(value: &Value) -> [u8; N] {

@@ -3358,115 +3358,115 @@ lint = "clippy::unreadable_literal"
 repair = "Add digit separators without changing value"
 
 [repair.558]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 111
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.559]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 103
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.560]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 98
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.561]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 90
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.562]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 84
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.563]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 76
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.564]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 70
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.565]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 69
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.566]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 67
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.567]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 65
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.568]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 61
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.569]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 59
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.570]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 59
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.571]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 54
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.572]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 43
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.573]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 1
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.574]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 37
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.575]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 35
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.576]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 33
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
@@ -3490,619 +3490,619 @@ lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.580]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 709
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.581]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 685
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.582]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 668
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.583]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 652
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.584]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 650
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.585]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 649
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.586]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 647
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.587]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 646
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.588]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 645
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.589]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 2
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.590]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 634
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.591]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 625
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.592]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 624
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.593]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 623
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.594]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 621
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.595]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 619
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.596]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 618
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.597]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 617
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.598]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 615
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.599]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 613
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.600]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 1
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.601]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 574
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.602]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 569
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.603]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 553
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.604]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 552
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.605]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 550
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.606]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 547
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.607]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 547
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.608]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 546
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.609]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 544
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.610]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 544
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.611]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 541
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.612]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 540
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.613]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 529
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.614]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 528
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.615]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 507
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.616]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 501
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.617]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 501
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.618]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 501
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.619]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 440
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.620]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 439
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.621]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 438
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.622]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 437
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.623]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 436
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.624]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 2
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.625]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 2
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.626]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 385
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.627]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 384
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.628]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 350
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.629]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 349
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.630]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 346
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.631]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 326
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.632]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 323
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.633]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 320
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.634]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 319
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.635]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 318
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.636]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 297
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.637]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 277
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.638]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 273
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.639]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 270
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.640]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 268
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.641]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 266
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.642]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 262
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.643]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 262
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.644]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 256
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.645]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 252
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.646]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 236
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.647]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 235
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.648]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 234
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.649]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 233
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.650]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 227
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.651]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 213
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.652]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 210
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.653]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 207
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.654]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 203
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.655]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 202
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.656]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 192
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.657]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 189
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.658]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 187
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.659]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 186
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.660]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 185
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.661]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 183
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.662]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 180
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.663]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 178
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.664]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 176
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.665]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 175
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.666]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 155
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.667]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 154
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.668]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 153
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.669]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 149
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.670]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 140
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.671]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 138
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.672]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 131
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.673]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 130
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.674]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 127
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.675]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 114
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.676]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 112
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.677]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 103
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.678]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 90
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.679]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 89
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.680]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 73
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.681]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 63
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.682]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 52
 lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
@@ -4384,43 +4384,43 @@ lint = "clippy::expect_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.729]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 164
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.730]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 140
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.731]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 97
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.732]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 46
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.733]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 45
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.734]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 23
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
 
 [repair.735]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 22
 lint = "clippy::unwrap_used"
 repair = "Match success and panic on the original failure condition"
@@ -7059,7 +7059,7 @@ lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.53]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 48
 lint = "clippy::similar_names"
 repair = "Keep scalar limbs in indexed storage and use distinct power/verification variable names."
@@ -7083,73 +7083,73 @@ lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.57]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 22
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.58]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 42
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.59]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 39
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.60]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 48
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.61]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 97
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.62]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 95
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.63]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 98
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.64]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 100
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.65]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 144
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.66]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 152
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.67]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 170
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.68]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs"
+file = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs"
 line = 175
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
@@ -7533,25 +7533,25 @@ lint = "clippy::identity_op"
 repair = "Remove zero shifts/additions and pre-evaluate literal schedule indices."
 
 [attempt_2.lint.132]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 6
 lint = "clippy::doc_markdown"
 repair = "Put code vocabulary in backticks without changing the documented contract."
 
 [attempt_2.lint.133]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 7
 lint = "clippy::doc_markdown"
 repair = "Put code vocabulary in backticks without changing the documented contract."
 
 [attempt_2.lint.134]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 8
 lint = "clippy::doc_markdown"
 repair = "Put code vocabulary in backticks without changing the documented contract."
 
 [attempt_2.lint.135]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 9
 lint = "clippy::doc_markdown"
 repair = "Put code vocabulary in backticks without changing the documented contract."
@@ -8685,217 +8685,217 @@ lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.324]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 36
 lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.325]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 35
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.326]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 38
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.327]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 40
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.328]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 46
 lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.329]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 45
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.330]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 53
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.331]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 50
 lint = "clippy::format_collect"
 repair = "Append both lowercase hexadecimal digits directly for each byte."
 
 [attempt_2.lint.332]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 56
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.333]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 61
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.334]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 69
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.335]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 75
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.336]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 86
 lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.337]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 85
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.338]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 80
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.339]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 90
 lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.340]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 89
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.341]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 94
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.342]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 96
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.343]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 101
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.344]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 107
 lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.345]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 106
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.346]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 108
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.347]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 110
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.348]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 120
 lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.349]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 119
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.350]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 131
 lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.351]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 130
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.352]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 137
 lint = "clippy::manual_let_else"
 repair = "Replace the identity success match with unwrap_or_else, preserving the panic and concrete error; Option failures retain their panic."
 
 [attempt_2.lint.353]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 139
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.354]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 151
 lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.355]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 150
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.356]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 159
 lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.357]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 158
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
 
 [attempt_2.lint.358]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 170
 lint = "clippy::unnecessary_semicolon"
 repair = "Replace the unit-result match with a checked method call whose statement semicolon is required."
 
 [attempt_2.lint.359]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_33_1505.rs"
+file = "services/agent/crates/layerx-agent-api/tests/committed_landing_proofs.rs"
 line = 169
 lint = "clippy::match_wild_err_arm"
 repair = "Retain the concrete error in the fail-fast closure and diagnostic."
@@ -8944,7 +8944,7 @@ file = "services/agent/crates/layerx-agent-api/tests/proof_agent_api.rs"
 count = 2
 
 [attempt_2.remaining_file.2]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 count = 10
 
 [attempt_2.remaining_file.3]
@@ -8967,70 +8967,70 @@ lint = "unused_parens"
 status = "Unrepaired: the bounded gate budget is spent."
 
 [attempt_2.remaining_lint.2]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 740
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 status = "Unrepaired: the bounded gate budget is spent."
 
 [attempt_2.remaining_lint.3]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 744
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 status = "Unrepaired: the bounded gate budget is spent."
 
 [attempt_2.remaining_lint.4]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 748
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 status = "Unrepaired: the bounded gate budget is spent."
 
 [attempt_2.remaining_lint.5]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 754
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 status = "Unrepaired: the bounded gate budget is spent."
 
 [attempt_2.remaining_lint.6]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 760
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 status = "Unrepaired: the bounded gate budget is spent."
 
 [attempt_2.remaining_lint.7]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 855
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 status = "Unrepaired: the bounded gate budget is spent."
 
 [attempt_2.remaining_lint.8]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 859
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 status = "Unrepaired: the bounded gate budget is spent."
 
 [attempt_2.remaining_lint.9]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 863
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 status = "Unrepaired: the bounded gate budget is spent."
 
 [attempt_2.remaining_lint.10]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 867
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 status = "Unrepaired: the bounded gate budget is spent."
 
 [attempt_2.remaining_lint.11]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 871
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
@@ -9102,70 +9102,70 @@ lint = "unused_parens"
 repair = "Remove the parentheses around the returned sum."
 
 [attempt_3.repair.2]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 740
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 repair = "Terminate the assignment statement with a semicolon."
 
 [attempt_3.repair.3]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 744
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 repair = "Terminate the assignment statement with a semicolon."
 
 [attempt_3.repair.4]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 748
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 repair = "Terminate the assignment statement with a semicolon."
 
 [attempt_3.repair.5]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 754
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 repair = "Terminate the assignment statement with a semicolon."
 
 [attempt_3.repair.6]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 760
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 repair = "Terminate the assignment statement with a semicolon."
 
 [attempt_3.repair.7]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 855
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 repair = "Terminate the assignment statement with a semicolon."
 
 [attempt_3.repair.8]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 859
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 repair = "Terminate the assignment statement with a semicolon."
 
 [attempt_3.repair.9]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 863
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 repair = "Terminate the assignment statement with a semicolon."
 
 [attempt_3.repair.10]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 867
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"
 repair = "Terminate the assignment statement with a semicolon."
 
 [attempt_3.repair.11]
-file = "services/agent/crates/layerx-agent-api/tests/repair_22_31_214.rs"
+file = "services/agent/crates/layerx-agent-api/tests/native_send_and_proof_transport.rs"
 line = 871
 column = 13
 lint = "clippy::semicolon_if_nothing_returned"

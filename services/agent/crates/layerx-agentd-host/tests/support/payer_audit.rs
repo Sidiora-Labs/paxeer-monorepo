@@ -78,7 +78,7 @@ fn hex(bytes: &[u8]) -> String {
 
 fn exact_case() -> Value {
     let recordings: Value = must(serde_json::from_str(include_str!(
-        "../../src/repair_22_31_363_receipts.json"
+        "../../src/payer_payment_receipts.json"
     )));
     assert_eq!(
         recordings["provenance"]["generator"],

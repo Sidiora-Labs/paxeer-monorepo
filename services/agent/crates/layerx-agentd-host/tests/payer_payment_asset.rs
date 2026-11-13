@@ -1,9 +1,4 @@
-//! Task 22.31.363 closes `payer_payment_asset` with
-//! `payer_payment_asset_accepts_node_payment` and `payer_payment_asset_refuses_node_revert`;
-//! `payer_payment_asset_retains_independent_bindings` proves denomination and fee checks.
-//! Baseline verification was not run: the ordered gate instructions forbid testing
-//! before implementation or invoking the verify command outside hf-done.
-//! Out-of-path wiring requests: none.
+//! Payment receipts bind the payment asset independently from fees.
 
 use layerx_agentd_host::payer;
 
@@ -45,7 +40,7 @@ fn producer() -> &'static Value {
     static PRODUCER: OnceLock<Value> = OnceLock::new();
     PRODUCER.get_or_init(|| {
         must(serde_json::from_str(include_str!(
-            "../src/repair_22_31_363_receipts.json"
+            "../src/payer_payment_receipts.json"
         )))
     })
 }
