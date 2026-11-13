@@ -202,7 +202,7 @@ def test_tracked_candidate_has_no_old_directory_references():
             ":(exclude)**/spec/**",
             ":(exclude)GOTCHA.kvx",
             ":(exclude)**/GOTCHA.kvx",
-            ":(exclude)tools/qualification/audit_repairs/test_repair_22_36_1.py",
+            ":(exclude)tools/qualification/audit_repairs/test_hyperfide_relocation.py",
         ],
         capture_output=True,
         text=True,

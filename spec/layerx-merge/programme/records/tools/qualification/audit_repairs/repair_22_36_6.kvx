@@ -10,7 +10,7 @@ baseline = "Only runner-supplied .cgignore and spec task-status changes existed 
 
 [qualification]
 build_cmd = "python3 --version"
-verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_6.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_documentation_index.py"
 done_cmd = "cg spec done 22.36.6 -f layerx-merge --root /work/paxeer-monorepo"
 evidence_ledger = "/out/run/gates.jsonl"
 verified_revision = "The exact revision in the final passing kind=verify row of evidence_ledger; it must equal the revision of the final passing kind=build row."

@@ -12,7 +12,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 DOCS = ROOT / "docs/agent/inference-market"
 PAGES = ("README.md", "protocol.md", "operator.md", "client.md", "threats.md")
-RECORD = ROOT / "tools/qualification/audit_repairs/repair_22_38_35.kvx"
+RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_38_35.kvx"
 DEVELOPMENT_ENVELOPE_SENTENCE = (
     "Only the development attestation envelope is accepted today."
 )
