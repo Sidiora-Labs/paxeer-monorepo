@@ -1,5 +1,8 @@
 # One graph for every branch and worktree
 
+Implementation and test paths on this page are relative to `tools/hyperfide`.
+
+
 A fleet works on many branches at once, in many worktrees of the same
 repository. Hyperfide tracks all of them in **one** `.codegraph/` — one
 database, one memory, one registry — rather than one index per checkout.
@@ -12,7 +15,7 @@ from the same executable, with identical arguments, JSON and exit codes
 (`hyperfide help`, under "command names"). Some messages quoted below still
 print a `cg:` prefix, because that is what this build prints.
 
-Implemented in `src/db.c`, `src/gitint.c`, `src/scan.c`, and `src/main.c`
+Implemented in `core/native/src/db.c`, `core/native/src/gitint.c`, `core/native/src/scan.c`, and `core/native/src/main.c`
 (the `--branch` and `--all-branches` scope); covered by
 `tests/integration/27_branches.sh`.
 
@@ -22,7 +25,7 @@ Implemented in `src/db.c`, `src/gitint.c`, `src/scan.c`, and `src/main.c`
 and the **shared project** that owns the database. They differ only inside
 a linked git worktree.
 
-```
+```console
 $ hyperfide root --json
 {"root":"/path/proj","shared":"/path/proj","worktree":false,"branch":"main"}
 
@@ -36,7 +39,7 @@ repository's shared `.codegraph` through git's common directory.
 **joins** it instead of refusing or creating a second database. It indexes
 the worktree's tree under its own branch and says so:
 
-```
+```console
 $ hyperfide init
 indexed 2 files (0 unchanged, 0 removed, 0 skipped) in 13ms — 2 symbols, 1 refs, 0 routes, 0 comments, 0 soft [2 workers]
 joined /path/proj as worktree /path/wt on branch wave/x
@@ -45,7 +48,7 @@ joined /path/proj as worktree /path/wt on branch wave/x
 No `.codegraph` is created in the worktree. `hyperfide info` states the
 relationship:
 
-```
+```text
 project root: /path/wt
 worktree of: /path/proj
 branch: wave/x
@@ -101,7 +104,7 @@ rows on **its** branch only. A file created on `wave/x` never appears in
 Every query command answers for the branch you are on. Two flags widen
 that:
 
-```
+```text
 --branch <name>     ask another branch instead
 --all-branches      ask every branch in the graph
 ```
@@ -112,7 +115,7 @@ They apply to the query commands, among them `search`, `symbol`, `grep`,
 is in scope**, so ordinary single-branch output is exactly what it always
 was:
 
-```
+```console
 $ hyperfide search alpha
 function   alpha                        a.c:1  int alpha(void)
 
@@ -134,7 +137,7 @@ Ten worktrees of one repository are mostly the same bytes. The indexer
 keys parsed content by **hash**, so a file whose content another branch has
 already parsed is reused rather than re-parsed:
 
-```
+```console
 $ hyperfide sync
 indexed 50 files (162 unchanged, 0 removed, 0 skipped, 40 reused) in 2086ms — …
 ```
@@ -145,7 +148,7 @@ costs a walk and a copy, not a full parse.
 
 ## Per-branch freshness and gates
 
-Freshness bookkeeping is keyed by branch id (`cg_bkey` in `src/db.c` →
+Freshness bookkeeping is keyed by branch id (`cg_bkey` in `core/native/src/db.c` →
 `last_index_at:3`, `index_pending_resolve:3`, `project_files:3`), so a
 newly created worktree is never reported fresh because a sibling branch
 walked seconds ago:
@@ -163,7 +166,7 @@ total budget bounded. See [sync.md](sync.md).
 
 ## `hyperfide branches`
 
-```
+```console
 $ hyperfide branches
   main                              2 files  3be99812 /path/proj                               0s ago
 * wave/x                            3 files  3be99812 /path/wt                                 0s ago
@@ -177,7 +180,7 @@ and per-branch `id`, `name`, `worktree`, `head`, `base`, `files`,
 ## Durable columns: schema v16 to v18
 
 The graph's schema stamp in this tree is **18** (`SCHEMA_VERSION` in
-`src/db.c`). `v15` introduced the registry and `files.branch_id`. `v16`
+`core/native/src/db.c`). `v15` introduced the registry and `files.branch_id`. `v16`
 widened two durable tables in place, with `ALTER TABLE`, so nothing is
 rebuilt:
 
@@ -201,7 +204,7 @@ The `attempts` columns are what make a claim answer *which branch was this
 done on* after the session is gone. The `claims:` lines of
 `hyperfide spec status` name it:
 
-```
+```text
   2.1      claimed by w-fleet-1 [worker under fm-fleet] on wave/fleet/1 (attempt 3f2a9c1b0d4e, fence 2, 58 min left)
 ```
 
@@ -213,7 +216,7 @@ per-branch freshness marks go with the rows they described so the next sync
 walks. The branch registry, agent registry, memories, git history, leases,
 attempts, runtime events, and work evidence are never touched.
 
-```
+```text
 cg: schema upgraded to v18 — run 'cg sync' to rebuild the graph
 ```
 
@@ -228,8 +231,8 @@ An older binary — an editor's or MCP server's installed one — must never
 rebuild it, and the two would take turns re-indexing the whole tree on
 every open. It refuses instead, and names the fix:
 
-```
-cg: /path/proj/.codegraph/graph.db is schema v99, but this cg (2.0.0-dev) only knows v18.
+```text
+cg: /path/proj/.codegraph/graph.db is schema v99, but this cg (2.2.0) only knows v18.
     A newer cg indexed it — install that build (make install) or run it from its tree.
 ```
 
@@ -241,7 +244,7 @@ A memory records the branch it was made on (`memories.branch`), because a
 decision taken on a wave branch is not yet a decision of the project. When
 that branch merges, the notes go with it:
 
-```
+```console
 $ hyperfide fleet merge-up 2.1
 merged wave/fleet/1 into feature/fleet: 1 commit (head 227a1f98) at …/feature-fleet
   promoted 3 memories to feature/fleet
@@ -257,7 +260,7 @@ same body, type, and task — so merging twice does not duplicate a decision.
 other branches with work in the graph, so a session that resumes in the
 wrong tree finds out immediately:
 
-```
+```console
 $ hyperfide brief
 project: /path/proj/.codegraph/worktrees/wave-fleet-1
 branch: wave/fleet/1 — worktree /path/proj/.codegraph/worktrees/wave-fleet-1
@@ -270,7 +273,7 @@ task: 2.1 — Alpha work  (in progress)
 One watcher process for every worktree the graph knows about, instead of
 one per tree:
 
-```
+```console
 $ hyperfide watch --fleet
 watching every worktree of /path/proj (debounce 300ms, background passes) — ctrl-c to stop
 following main at /path/proj
@@ -283,13 +286,13 @@ registry is rescanned periodically, so a worktree added by
 `hyperfide fleet begin` is followed seconds later without a restart. A
 build without inotify falls back to periodic reconciliation: every
 registered worktree is synced in the background every debounce interval or
-3 seconds, whichever is longer, and it says so on stderr (`src/watch.c`).
+3 seconds, whichever is longer, and it says so on stderr (`core/native/src/watch.c`).
 
 ## The Hyperfide control plane
 
 Everything above is the local binary working on the checkout's own
 SQLite graph. The binary selects an authority mode before it opens that
-graph (`src/hyperfide/client.c`); `hyperfide authority mode` prints it.
+graph (`core/native/src/hyperfide/client.c`); `hyperfide authority mode` prints it.
 With no descriptor the mode is `local` and every command here behaves as
 documented. With a distributed descriptor (`.hyperfide/authority.json` in
 the tree or above it, or `HYPERFIDE_AUTHORITY_DESCRIPTOR`), commands with
@@ -302,9 +305,7 @@ ownership generations (`core/control-plane/src/scheduler/claim.ts`,
 `scheduler/leases.ts`) and the central versioned graph
 (`core/control-plane/src/graph/`). Import of an existing SQLite graph,
 including the branch registry and attempts, is
-`core/control-plane/src/migration/sqlite.ts`. The corresponding tasks
-(5.1, 7.1 to 7.4, 25.1, 25.3) are `pending` in `spec/hyperfide/spec.kvx`,
-so distributed operation is not qualified in this revision; see
+`core/control-plane/src/migration/sqlite.ts`. See
 [docs/hyperfide/operations.md](hyperfide/operations.md).
 
 ## Limitations
@@ -312,7 +313,7 @@ so distributed operation is not qualified in this revision; see
 - `--branch` names a branch **in the graph**, not in git. An unknown one is
   refused rather than guessed at:
 
-  ```
+  ```text
   cg: no branch named 'no-such-branch' in this graph (cg branches lists them)
   ```
 

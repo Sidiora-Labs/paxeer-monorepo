@@ -154,11 +154,11 @@ _Note_ Here, all values are arrays of up to two strings. The first string repres
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value |
 | --- | --- | --- | --- | --- | --- |
-| background | `[string, string]` | Banner background (could be a solid color, gradient or picture). The string should be a valid `background` CSS property value. | - | `['radial-gradient(103.03% 103.03% at 0% 0%, rgba(183, 148, 244, 0.8) 0%, rgba(0, 163, 196, 0.8) 100%), var(--chakra-colors-blue-400)']` | `['lightpink','no-repeat bottom 20% right 0px/100% url(https://placekitten/1400/200)']` |
-| text_color | `[string, string]` | Banner text background. The string should be a valid `color` CSS property value. | - | `['white']` | `['lightpink','#DCFE76']` |
-| border | `[string, string]` | Banner border. The string should be a valid `border` CSS property value. | - | - | `['1px solid yellow','4px dashed #DCFE76']` |
-| search | `{ border_width: [string, string] }` | Search bar customization. Currently supports only width of the border (in px). | - | - | `{ 'border_width': ['0px', '2px'] }` |
-| button | `Partial<Record<'_default' \| '_hover' \| '_selected', {'background'?: [string, string]; 'text_color?:[string, string]'}>>` | The button on the banner. It has three possible states: `_default`, `_hover`, and `_selected`. The `_selected` state reflects when the user is logged in or their wallet is connected to the app. | - | - | `{'_default':{'background':['deeppink'],'text_color':['white']}}` |
+| background | `Array<string \| undefined>` | Banner background (could be a solid color, gradient or picture). The string should be a valid `background` CSS property value. | - | `['radial-gradient(103.03% 103.03% at 0% 0%, rgba(183, 148, 244, 0.8) 0%, rgba(0, 163, 196, 0.8) 100%), var(--chakra-colors-blue-400)']` | `['lightpink','no-repeat bottom 20% right 0px/100% url(https://placekitten/1400/200)']` |
+| text_color | `Array<string \| undefined>` | Banner text color. The string should be a valid `color` CSS property value. | - | `['white']` | `['lightpink','#DCFE76']` |
+| border | `Array<string \| undefined>` | Banner border. The string should be a valid `border` CSS property value. | - | - | `['1px solid yellow','4px dashed #DCFE76']` |
+| search | `{ border_width: Array<string \| undefined> }` | Search bar customization. Currently supports only width of the border (in px). | - | - | `{ 'border_width': ['0px', '2px'] }` |
+| button | `Partial<Record<'_default' \| '_hover' \| '_selected', {background?: Array<string \| undefined>; text_color?: Array<string \| undefined>}>>` | The button on the banner. It has three possible states: `_default`, `_hover`, and `_selected`. The `_selected` state reflects when the user is logged in or their wallet is connected to the app. | - | - | `{'_default':{'background':['deeppink'],'text_color':['white']}}` |
 
 #### Highlights banner configuration properties
 
@@ -166,13 +166,13 @@ _Note_ Some properties can hold an array of up to two strings. The first string 
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value |
 | --- | --- | --- | --- | --- | --- |
-| title | `string` | Title on the banner | Required | - | `Duck Deep into Transactions` |
+| title | `string` | Title on the banner | Required | - | `Dive Deep into Transactions` |
 | description | `string` | Short description of the feature | Required | - | `Explore and track all blockchain transactions` |
-| title_color | `[string, string]` | Text color of the title. | - | `['#101112', '#F8FCFF']` | `['#FFB8D4', '#D9FE41']` |
-| description_color | `[string, string]` | Text color of the description. | - | `['#718096', '#AEB1B6']` | `['#FFB8D4', '#D9FE41']` |
-| background | `[string, string]` | Banner background (could be a solid color, gradient or picture). The string should be a valid `background` CSS property value. | - | `['#EFF7FF', '#2A3340']` | `['deeppink']` |
-| side_img_url | `[string, string]` | URL of an image that appears on the right side of the banner. | - | - | `https://placekitten/1400/200` |
-| is_pinned | `boolean` | Indicates whether the banner should remain always visible despite potential rotation. | - | - | `https://placekitten/1400/200` |
+| title_color | `Array<string \| undefined>` | Text color of the title. | - | `['#101112', '#F8FCFF']` | `['#FFB8D4', '#D9FE41']` |
+| description_color | `Array<string \| undefined>` | Text color of the description. | - | `['#718096', '#AEB1B6']` | `['#FFB8D4', '#D9FE41']` |
+| background | `Array<string \| undefined>` | Banner background (could be a solid color, gradient or picture). The string should be a valid `background` CSS property value. | - | `['#EFF7FF', '#2A3340']` | `['deeppink']` |
+| side_img_url | `Array<string \| undefined>` | URL of an image that appears on the right side of the banner. | - | - | `["https://example.com/banner.png"]` |
+| is_pinned | `boolean` | Indicates whether the banner should remain always visible despite potential rotation. | - | - | `true` |
 | page_path | `string` | Internal page path for constructing the banner link. | - | - | `/pools` |
 | redirect_url | `string` | External link on the banner. | - | - | `https://example.com` |
 
@@ -191,6 +191,26 @@ _Note_ Some properties can hold an array of up to two strings. The first string 
 | NEXT_PUBLIC_NAVIGATION_HIGHLIGHTED_ROUTES | `Array<string>` | List of menu item routes that should have a lightning label | - | - | `['/accounts']` | v1.31.0+ |
 | NEXT_PUBLIC_NAVIGATION_LAYOUT | `vertical \| horizontal` | Navigation menu layout type | - | `vertical` | `horizontal` | v1.32.0+ |
 | NEXT_PUBLIC_NAVIGATION_PROMO_BANNER_CONFIG | `string` | Configuration of promo banner in the navigation menu. See [below](#navigation-promo-banner-configuration-properties) list of available properties for particular banner type | - | - | `{'img_url': 'https://example.com/promo.svg', 'text': 'Promo text', 'bg_color': {'light': 'rgb(250, 245, 255)', 'dark': 'rgb(68, 51, 122)'}, 'text_color': {'light': 'rgb(107, 70, 193)', 'dark': 'rgb(233, 216, 253)'}, 'link_url': 'https://example.com'}` | v2.3.0+ |
+
+#### Navigation promo banner configuration properties
+
+##### Text promo banner:
+
+| Variable | Type| Description | Compulsoriness  | Default value | Example value |
+| --- | --- | --- | --- | --- | --- |
+| img_url | `string` | Displayed icon url. The recommended minimum image size is 60x60 pixels (1:1 aspect ratio). | Required | - | `https://example.com/promo.svg` |
+| text | `string` | Displayed text | Required | - | `Promo text` |
+| bg_color | `{'light': string, 'dark': string}` | Background color | Required | - | `{'light': 'rgb(250, 245, 255)', 'dark': 'rgb(68, 51, 122)'}` |
+| text_color | `{'light': string, 'dark': string}` | Text color | Required | - | `{'light': 'rgb(107, 70, 193)', 'dark': 'rgb(233, 216, 253)'}` |
+| link_url | `string` | Redirect link url | Required | - | `https://example.com` |
+
+##### Image promo banner:
+
+| Variable | Type| Description | Compulsoriness  | Default value | Example value |
+| --- | --- | --- | --- | --- | --- |
+| img_url | `{'small': string, 'large': string}` | Displayed image urls. Small image is used in the collapsed navigation menu and in horizontal navigation, large image is used in the expanded navigation menu and in tooltip. The recommended minimum image sizes are 120x120 pixels (1:1 aspect ratio) for small image and 500x250 pixels (2:1 aspect ratio) for large image. | Required | - | `{'small': 'https://example.com/promo-sm.svg', 'large': 'https://example.com/promo-lg.svg'}` |
+| link_url | `string` | Redirect link url | Required | - | `https://example.com` |
+
 
 ### Featured networks
 
@@ -211,24 +231,6 @@ _Note_ Some properties can hold an array of up to two strings. The first string 
 | isActive | `boolean` | Pass `true` if item should be shown as active in the menu | - | - | `true` |
 | invertIconInDarkMode | `boolean` | Pass `true` if icon colors should be inverted in dark mode | - | - | `true` |
 
-#### Navigation promo banner configuration properties
-
-##### Text promo banner:
-
-| Variable | Type| Description | Compulsoriness  | Default value | Example value |
-| --- | --- | --- | --- | --- | --- |
-| img_url | `string` | Displayed icon url. The recommended minimum image size is 60x60 pixels (1:1 aspect ratio). | Required | - | `https://example.com/promo.svg` |
-| text | `string` | Displayed text | Required | - | `Promo text` |
-| bg_color | `{'light': string, 'dark': string}` | Background color | Required | - | `{'light': 'rgb(250, 245, 255)', 'dark': 'rgb(68, 51, 122)'}` |
-| text_color | `{'light': string, 'dark': string}` | Text color | Required | - | `{'light': 'rgb(107, 70, 193)', 'dark': 'rgb(233, 216, 253)'}` |
-| link_url | `string` | Redirect link url | Required | - | `https://example.com` |
-
-##### Image promo banner:
-
-| Variable | Type| Description | Compulsoriness  | Default value | Example value |
-| --- | --- | --- | --- | --- | --- |
-| img_url | `{'small': string, 'large': string}` | Displayed image urls. Small image is used in the collapsed navigation menu and in horizontal navigation, large image is used in the expanded navigation menu and in tooltip. The recommended minimum image sizes are 120x120 pixels (1:1 aspect ratio) for small image and 500x250 pixels (2:1 aspect ratio) for large image. | Required | - | `{'small': 'https://example.com/promo-sm.svg', 'large': 'https://example.com/promo-lg.svg'}` |
-| link_url | `string` | Redirect link url | Required | - | `https://example.com` |
 
 &nbsp;
 
@@ -430,8 +432,8 @@ Settings for meta tags, OG tags and SEO
 | --- | --- | --- | --- | --- | --- | --- |
 | NEXT_PUBLIC_IS_ACCOUNT_SUPPORTED | `boolean` | Set to true if network has account feature | Required | - | `true` | v1.0.x+ |
 | NEXT_PUBLIC_ACCOUNT_AUTH_PROVIDER | `auth0 \| dynamic` | Auth provider that enables basic user authentication.  | - | `auth0` | `dynamic` | v2.7.0+ |
-| NEXT_PUBLIC_ACCOUNT_DYNAMIC_ENVIRONMENT_ID | `string` | Environment ID of the Dynamic project.  | Required, if provider is `dynamic` | - | `<your-secret>` | v2.7.0+ |
-| NEXT_PUBLIC_RE_CAPTCHA_APP_SITE_KEY | `boolean` | See [below](#google-recaptcha) | Required, if provided is `auth0` | - | `<your-secret>` | v1.0.x+ |
+| NEXT_PUBLIC_ACCOUNT_DYNAMIC_ENVIRONMENT_ID | `string` | Environment ID of the Dynamic project.  | Required, if provider is `dynamic` | - | `<environment-id>` | v2.7.0+ |
+| NEXT_PUBLIC_RE_CAPTCHA_APP_SITE_KEY | `string` | See [below](#google-recaptcha) | Required, if provider is `auth0` | - | `<site-key>` | v1.0.x+ |
 | NEXT_PUBLIC_ACCOUNT_API_KEYS_BUTTON | `boolean \| string` | Pass `true` or `false` to enable or disable the "Add API key" button, or provide a URL to convert it into a link. | - | `true` | `https://example.com` | v2.7.0+ |
 
 &nbsp;
@@ -472,9 +474,9 @@ This feature is **enabled by default**. To switch it off pass `NEXT_PUBLIC_ADVAN
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
-| NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID | `string` | Project id for [Reown AppKit](https://cloud.reown.com//) integration | Required | - | `<your-secret>` | v1.0.x+ |
-| NEXT_PUBLIC_WALLET_CONNECT_FEATURED_WALLET_IDS | `Array<string>` | List of [featured wallet IDs](https://docs.reown.com/appkit/react/core/options#featuredwalletids) in the "Connect your wallet" modal. To obtain the wallet ID, please use [WalletGuild](https://walletguide.walletconnect.network). | - | - | `['c286eebc742a537cd1d6818363e9dc53b21759a1e8e5d9b263d0c03ec7703576']` | v2.6.0+ |
-| NEXT_PUBLIC_NETWORK_RPC_URL | `string` | See in [Blockchain parameters](#blockchain-parameters) section | Required | - | `https://core.poa.network` | v1.0.x+ |
+| NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID | `string` | Project id for [Reown AppKit](https://cloud.reown.com/) integration | Required | - | `<project-id>` | v1.0.x+ |
+| NEXT_PUBLIC_WALLET_CONNECT_FEATURED_WALLET_IDS | `Array<string>` | List of [featured wallet IDs](https://docs.reown.com/appkit/react/core/options#featuredwalletids) in the "Connect your wallet" modal. To obtain the wallet ID, please use [WalletGuide](https://walletguide.walletconnect.network). | - | - | `['c286eebc742a537cd1d6818363e9dc53b21759a1e8e5d9b263d0c03ec7703576']` | v2.6.0+ |
+| NEXT_PUBLIC_NETWORK_RPC_URL | `string \| Array<string>` | See in [Blockchain parameters](#blockchain-parameters) section | Required | - | `https://core.poa.network` | v1.0.x+ |
 | NEXT_PUBLIC_NETWORK_NAME | `string` | See in [Blockchain parameters](#blockchain-parameters) section | Required | - | `Gnosis Chain` | v1.0.x+ |
 | NEXT_PUBLIC_NETWORK_ID | `number` | See in [Blockchain parameters](#blockchain-parameters) section | Required | -  | `99` | v1.0.x+ |
 | NEXT_PUBLIC_NETWORK_CURRENCY_NAME | `string` | See in [Blockchain parameters](#blockchain-parameters) section | Required | - | `Ether` | v1.0.x+ |
@@ -485,21 +487,21 @@ This feature is **enabled by default**. To switch it off pass `NEXT_PUBLIC_ADVAN
 
 ### Banner ads
 
-Ads are enabled by default on all self-hosted instances. If you would like to disable ads, you can do so using the [Autoscout hosted service](https://docs.blockscout.com/using-blockscout/autoscout).
+Set the provider variable to `none` to disable this ad feature. The Paxeer X presets disable both banner and text ads.
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
 | NEXT_PUBLIC_AD_BANNER_PROVIDER | `slise` \| `adbutler` \| `coinzilla` \| `none` | Ads provider  | - | `slise` | `coinzilla` | v1.0.x+ |
 | NEXT_PUBLIC_AD_BANNER_ADDITIONAL_PROVIDER | `adbutler` | Additional ads provider to mix with the main one | - | - | `adbutler` | v1.28.0+ |
 | NEXT_PUBLIC_AD_ADBUTLER_CONFIG_DESKTOP | `{ id: string; width: string; height: string }` | Placement config for desktop Adbutler banner | - | - | `{'id':'123456','width':'728','height':'90'}` | v1.3.0+ |
-| NEXT_PUBLIC_AD_ADBUTLER_CONFIG_MOBILE | `{ id: string; width: number; height: number }` | Placement config for mobile Adbutler banner | - | - | `{'id':'654321','width':'300','height':'100'}` | v1.3.0+ |
+| NEXT_PUBLIC_AD_ADBUTLER_CONFIG_MOBILE | `{ id: string; width: string; height: string }` | Placement config for mobile Adbutler banner | - | - | `{'id':'654321','width':'300','height':'100'}` | v1.3.0+ |
 | NEXT_PUBLIC_AD_BANNER_ENABLE_SPECIFY | `boolean` | Enables Specify ads in addition to the main ad banner provider | - | - | `true` | v2.4.0+ |
 
 &nbsp;
 
 ### Text ads
 
-Ads are enabled by default on all self-hosted instances. If you would like to disable ads, you can do so using the [Autoscout hosted service](https://docs.blockscout.com/using-blockscout/autoscout).
+Set the provider variable to `none` to disable this ad feature. The Paxeer X presets disable both banner and text ads.
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -551,7 +553,7 @@ Ads are enabled by default on all self-hosted instances. If you would like to di
 | baseUrl | `string` | Base url of the chain explorer. | Required | - | `https://explorer.duckchain.io` |
 | id | `number` | Chain id, see [https://chainlist.org](https://chainlist.org) for the reference. | - | - | `42` |
 | name | `string` | Displayed name of the chain. Set to customize parent chain transaction status labels in the UI (e.g., "Sent to <chain-name>"). Currently, this setting is applicable only for Arbitrum-based chains. | - | - | `DuckChain` |
-| rpcUrls | `Array<string>` | Chain public RPC server urls, see [https://chainlist.org](https://chainlist.org) for the reference. | - | - | `['https://rpc.duckchain.io']` |
+| rpcUrls | `Array<string>` | Chain public RPC server urls, see [https://chainlist.org](https://chainlist.org) for the reference. | - | - | `['https://example.com']` |
 | currency | `{ name: string; symbol: string; decimals: number; }` | Chain currency config. | - | - | `{ name: Quack, symbol: QUA, decimals: 18 }` |
 | isTestnet | `boolean` | Set to true if network is testnet. | - | - | `true` |
 
@@ -562,7 +564,7 @@ Ads are enabled by default on all self-hosted instances. If you would like to di
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
-| NEXT_PUBLIC_RE_CAPTCHA_APP_SITE_KEY | `string` | See [below](#google-recaptcha) | true | - | `<your-secret>` | v1.0.x+ |
+| NEXT_PUBLIC_RE_CAPTCHA_APP_SITE_KEY | `string` | See [below](#google-recaptcha) | true | - | `<site-key>` | v1.0.x+ |
 
 &nbsp;
 
@@ -610,7 +612,7 @@ Ads are enabled by default on all self-hosted instances. If you would like to di
 | NEXT_PUBLIC_ADMIN_SERVICE_API_HOST | `string` | Admin Service API endpoint url. Can be used instead of NEXT_PUBLIC_MARKETPLACE_CONFIG_URL | - | - | `https://admin-rs.services.blockscout.com` | v1.1.0+ |
 | NEXT_PUBLIC_MARKETPLACE_SUBMIT_FORM | `string` | Link to form where authors can submit their dapps to the marketplace | Required | - | `https://airtable.com/shrqUAcjgGJ4jU88C` | v1.0.x+ |
 | NEXT_PUBLIC_MARKETPLACE_SUGGEST_IDEAS_FORM | `string` | Link to form where users can suggest ideas for the marketplace | - | - | `https://airtable.com/appiy5yijZpMMSKjT/pag3t82DUCyhGRZZO/form` | v1.24.0+ |
-| NEXT_PUBLIC_NETWORK_RPC_URL | `string` | See in [Blockchain parameters](#blockchain-parameters) section | Required | - | `https://core.poa.network` | v1.0.x+ |
+| NEXT_PUBLIC_NETWORK_RPC_URL | `string \| Array<string>` | See in [Blockchain parameters](#blockchain-parameters) section | Required | - | `https://core.poa.network` | v1.0.x+ |
 | NEXT_PUBLIC_MARKETPLACE_CATEGORIES_URL | `string` | URL of configuration file (`.json` format only) which contains the list of categories to be displayed on the marketplace page in the specified order. If no URL is provided, then the list of categories will be compiled based on the `categories` fields from the marketplace (apps) configuration file | - | - | `https://example.com/marketplace_categories.json` | v1.23.0+ |
 | NEXT_PUBLIC_MARKETPLACE_FEATURED_APP | `string` | ID of the featured application to be displayed on the banner on the Marketplace page | - | - | `uniswap` | v1.29.0+ |
 | NEXT_PUBLIC_MARKETPLACE_BANNER_CONTENT_URL | `string` | URL of the banner HTML content | - | - | `https://example.com/banner` | v1.29.0+ |
@@ -674,7 +676,7 @@ Essential dapps are built-in dapps that are displayed on the Marketplace page in
 
 ### Web3 wallet integration (add token or network to the wallet)
 
-This feature is **enabled by default** with the `['metamask']` value. To switch it off pass `NEXT_PUBLIC_WEB3_WALLETS=none`.
+Outside private mode, this feature is **enabled by default** with `['metamask', 'rabby', 'coinbase', 'trust', 'okx', 'token_pocket']`. To switch it off pass `NEXT_PUBLIC_WEB3_WALLETS=none`.
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -748,7 +750,7 @@ This feature allows you to submit an application with a public address tag.
 | --- | --- | --- | --- | --- | --- | --- |
 | NEXT_PUBLIC_METADATA_SERVICE_API_HOST | `string` | Metadata Service API endpoint url | Required | - | `https://metadata.services.blockscout.com` | v1.30.0+ |
 | NEXT_PUBLIC_ADMIN_SERVICE_API_HOST | `string` | Admin Service API endpoint url | Required | - | `https://admin-rs.services.blockscout.com` | v1.1.0+ |
-| NEXT_PUBLIC_RE_CAPTCHA_APP_SITE_KEY | `string` | See [below](#google-recaptcha) | true | - | `<your-secret>` | v1.0.x+ |
+| NEXT_PUBLIC_RE_CAPTCHA_APP_SITE_KEY | `string` | See [below](#google-recaptcha) | true | - | `<site-key>` | v1.0.x+ |
 
 &nbsp;
 
@@ -798,7 +800,7 @@ For the smart contract addresses which are [Safe{Core} accounts](https://safe.gl
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
-| NEXT_PUBLIC_SAFE_TX_SERVICE_URL | `string` | The Safe transaction service URL. See full list of supported networks [here](https://docs.safe.global/api-supported-networks). | - | - | `uniswap` | v1.26.0+ |
+| NEXT_PUBLIC_SAFE_TX_SERVICE_URL | `string` | The Safe transaction service URL. See full list of supported networks [here](https://docs.safe.global/api-supported-networks). | - | - | `https://example.com/transactions` | v1.26.0+ |
 
 &nbsp;
 
@@ -808,7 +810,7 @@ This feature allows the integration of an external API to fetch user info for ad
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
-| NEXT_PUBLIC_ADDRESS_USERNAME_TAG | `{api_url: string; tag_link_template: string; tag_icon: string; tag_bg_color: string; tag_text_color: string}` | Address profile API tag configuration properties. See [below](#address-profile-api-configuration-properties). | - | - | `uniswap` | v1.35.0+ |
+| NEXT_PUBLIC_ADDRESS_USERNAME_TAG | `{api_url_template: string; tag_link_template?: string; tag_icon?: string; tag_bg_color?: string; tag_text_color?: string}` | Address profile API tag configuration properties. See [below](#address-profile-api-configuration-properties). | - | - | `{"api_url_template":"https://example.com/profiles/{address}"}` | v1.35.0+ |
 
 &nbsp;
 
@@ -817,7 +819,7 @@ This feature allows the integration of an external API to fetch user info for ad
 | Variable | Type| Description | Compulsoriness  | Default value | Example value |
 | --- | --- | --- | --- | --- | --- |
 | api_url_template | `string` | User profile API URL. Should be a template with `{address}` variable | Required | - | `https://example-api.com/{address}` |
-| tag_link_template | `string` | External link to the profile. Should be a template with `{username}` variable | - | - | `https://example.com/{address}` |
+| tag_link_template | `string` | External link to the profile. Should be a template with `{username}` variable | - | - | `https://example.com/{username}` |
 | tag_icon | `string` | Public tag icon (.svg) url | - | - | `https://example.com/icon.svg` |
 | tag_bg_color | `string` | Public tag background color (escape "#" symbol if you use HEX color codes or use rgba-value instead) | - | - | `\#000000` |
 | tag_text_color | `string` | Public tag text color (escape "#" symbol if you use HEX color codes or use rgba-value instead) | - | - | `\#FFFFFF` |
@@ -906,7 +908,7 @@ The feature enables the Validators page which provides detailed information abou
 
 ### OpenTelemetry
 
-OpenTelemetry SDK for Node.js app could be enabled by passing `OTEL_SDK_ENABLED=true` variable. Configure the OpenTelemetry Protocol Exporter by using the generic environment variables described in the [OT docs](https://opentelemetry.io/docs/specs/otel/protocol/exporter/#configuration-options). Note that this Next.js feature is currently experimental. The Docker image should be built with the `NEXT_OPEN_TELEMETRY_ENABLED=true` argument to enable it.
+Set `NEXT_OPEN_TELEMETRY_ENABLED=true` to load Node.js instrumentation and `OTEL_SDK_ENABLED=true` to start the OpenTelemetry SDK. For the Docker image, pass `--build-arg NEXT_OPEN_TELEMETRY_ENABLED=true` when building. Configure the exporter with the [OpenTelemetry environment variables](https://opentelemetry.io/docs/specs/otel/protocol/exporter/#configuration-options).
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -1006,7 +1008,7 @@ This feature allows users to view [Flashblocks](https://docs.base.org/base-chain
 
 &nbsp;
 
-#### Address 3rd party widget
+### Address 3rd party widget
 
 This feature allows to display widgets on the address page with data from 3rd party services.
 
@@ -1099,7 +1101,7 @@ This feature enables cross-chain transaction tracking and visualization, allowin
 
 ### Paxeer X Network
 
-Unified Paxeer X Network surfaces (unified account view, status ladder, anchors and receipts). Only meaningful on a Paxeer X Network instance; the backend must expose the `/api/v2/paxeer-x` routes.
+Enables Paxeer X navigation and the tenant-chain lists and feed. These views use the backend’s `/api/v2/paxeer-x` routes. Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`) and PAX with 18 decimals. A transaction receipt is final when its block is committed. Sub-chains are tenant domains in the network database. Configure `NEXT_PUBLIC_NETWORK_RPC_URL` with the node’s root-path JSON-RPC URL.
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |

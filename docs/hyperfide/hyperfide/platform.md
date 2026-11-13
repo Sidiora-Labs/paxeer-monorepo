@@ -1,12 +1,12 @@
 # Hyperfide platform
 
-The platform runtime is the Node 24, pnpm 9.15 workspace at the repository root.
+The platform runtime is the Node 24, pnpm 9.15 workspace in `tools/hyperfide`. Implementation paths and commands below are relative to that directory.
 The C binary is the public front door. Runtime threads execute work; the spec,
 Asks, independent checks and qualification receipts govern task completion.
 
 ## Four layers
 
-| Layer | Responsibility | Proof from the repository root |
+| Layer | Responsibility | Check from `tools/hyperfide` |
 | --- | --- | --- |
 | Surfaces | Web app, desktop, mobile, CLI and editor language client. | `pnpm exec turbo run typecheck test --filter=./apps/web`; `bash tests/integration/14_vscode.sh` |
 | Execution | Server, host daemons, providers, environments and machines run work where the workspace lives. | `pnpm exec turbo run typecheck test --filter=./core/server --filter=./core/host-daemon` |
@@ -14,9 +14,7 @@ Asks, independent checks and qualification receipts govern task completion.
 | Proof | Graph, lane receipts, independent checker and wave closure establish results. | `python3 tests/hyperfide/cases/v22/4_5.py` |
 
 These commands are reproducible checks, not a claim of production qualification.
-The active feature is `spec/hyperfide-v22/spec.kvx`: implemented records coding
-completion; done records qualification. Tests using projection adapters prove
-those adapter contracts rather than deployment of every plugin together.
+`implemented` records coding completion; `done` records qualification. Tests using projection adapters exercise those adapter contracts.
 
 ## Front door
 
@@ -38,7 +36,7 @@ Host binary verification and graph context are checked by
 
 ## Plugin inventory
 
-These are the seven `hyperfide-*` source directories at this revision. Directory
+These are the seven `hyperfide-*` plugin directories. Directory
 presence does not imply every capability is automatically installed or wired.
 Inspect the running registry with `hyperfide platform plugin list`.
 
@@ -82,8 +80,7 @@ Neither establishes live fleet throughput. See [operations](operations.md) and
 ## Authority and storage
 
 `core/control-plane` is the PostgreSQL control plane. The platform runtime
-database remains SQLite at this revision: task 6.1 is pending, its
-`HYPERFIDE_DATABASE_URL` dialect selection and verification case are absent.
+database uses SQLite.
 `HYPERFIDE_AUTHORITY_URL` selects the authority endpoint separately.
 Operator authentication, receipts and plugin transactions use that authority;
 local runtime storage does not grant distributed authority. Plugin state records
@@ -106,11 +103,13 @@ credentials. This is a fixture proof, not a deployed multi-host campaign.
 ## Slices and memory
 
 `plugins/environment-slices` provides repository-selectable snapshot
-and slice environments. It invokes `hyperfide snapshot` and `hyperfide slice`,
+and slice environments. It invokes `hyperfide commit` and `hyperfide slice`,
 records the base and subsequent snapshot chain, and exposes slice detail.
-Edits stay in the slice; Git is used for publication through the supplied wave
-publication interface. Proof: `bash tests/hyperfide/cases/v22/7_1.sh` exercises
-create, edit, snapshot, discard and publish with the real binary.
+Edits stay in the slice. `SlicesProvider.publish` exports a snapshot through a
+supplied publication adapter; wave publication currently accepts Git task commits
+and does not import these snapshots. `bash tests/hyperfide/cases/v22/7_1.sh`
+exercises create, edit, snapshot, discard and export into a Git worktree with the
+real binary. See [source tracking](source-tracking.md) for runtime integration.
 
 `plugins/memory` retains private versioned memories and adds durable
 repository/task decisions through the binary store:

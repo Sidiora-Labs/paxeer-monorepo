@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.10"
+pages = 40
+
+[page.1]
+path = "docs/explorer/CONTRIBUTING.md"
+status = "corrected"
+
+[page.2]
+path = "docs/explorer/CUSTOM_BUILD.md"
+status = "corrected"
+
+[page.3]
+path = "docs/explorer/DEPRECATED_ENVS.md"
+status = "corrected"
+
+[page.4]
+path = "docs/explorer/ENVS.md"
+status = "corrected"
+
+[page.5]
+path = "docs/explorer/PULL_REQUEST_TEMPLATE.md"
+status = "reviewed"
+
+[page.6]
+path = "docs/explorer/RELEASE_NOTES.md"
+status = "corrected"
+
+[page.7]
+path = "docs/explorer/UPSTREAM.md"
+status = "corrected"
+
+[page.8]
+path = "docs/hyperfide/ANCHORS.md"
+status = "corrected"
+
+[page.9]
+path = "docs/hyperfide/ARCHITECTURE.md"
+status = "corrected"
+
+[page.10]
+path = "docs/hyperfide/DOCUMENTATION.md"
+status = "corrected"
+
+[page.11]
+path = "docs/hyperfide/SOURCE-REFERENCE.md"
+status = "reviewed"
+
+[page.12]
+path = "docs/hyperfide/TEST-REFERENCE.md"
+status = "reviewed"
+
+[page.13]
+path = "docs/hyperfide/branches.md"
+status = "corrected"
+
+[page.14]
+path = "docs/hyperfide/codemap.md"
+status = "corrected"
+
+[page.15]
+path = "docs/hyperfide/config.md"
+status = "corrected"
+
+[page.16]
+path = "docs/hyperfide/drift.md"
+status = "corrected"
+
+[page.17]
+path = "docs/hyperfide/events.md"
+status = "corrected"
+
+[page.18]
+path = "docs/hyperfide/hierarchy.md"
+status = "corrected"
+
+[page.19]
+path = "docs/hyperfide/history/runtime-port.md"
+status = "corrected"
+
+[page.20]
+path = "docs/hyperfide/hyperfide/cli.md"
+status = "corrected"
+
+[page.21]
+path = "docs/hyperfide/hyperfide/console-evaluation.md"
+status = "corrected"
+
+[page.22]
+path = "docs/hyperfide/hyperfide/editors.md"
+status = "corrected"
+
+[page.23]
+path = "docs/hyperfide/hyperfide/fleet.md"
+status = "corrected"
+
+[page.24]
+path = "docs/hyperfide/hyperfide/operations.md"
+status = "corrected"
+
+[page.25]
+path = "docs/hyperfide/hyperfide/platform.md"
+status = "corrected"
+
+[page.26]
+path = "docs/hyperfide/hyperfide/source-control-migration.md"
+status = "corrected"
+
+[page.27]
+path = "docs/hyperfide/hyperfide/source-control-recovery.md"
+status = "corrected"
+
+[page.28]
+path = "docs/hyperfide/hyperfide/source-control.md"
+status = "corrected"
+
+[page.29]
+path = "docs/hyperfide/hyperfide/source-engine-evaluation.md"
+status = "corrected"
+
+[page.30]
+path = "docs/hyperfide/hyperfide/source-measurement.md"
+status = "corrected"
+
+[page.31]
+path = "docs/hyperfide/hyperfide/source-tracking.md"
+status = "corrected"
+
+[page.32]
+path = "docs/hyperfide/i18n/README.ar.md"
+status = "corrected"
+
+[page.33]
+path = "docs/hyperfide/i18n/README.es.md"
+status = "corrected"
+
+[page.34]
+path = "docs/hyperfide/i18n/README.fr.md"
+status = "corrected"
+
+[page.35]
+path = "docs/hyperfide/i18n/README.hi.md"
+status = "corrected"
+
+[page.36]
+path = "docs/hyperfide/i18n/README.pt-BR.md"
+status = "corrected"
+
+[page.37]
+path = "docs/hyperfide/i18n/README.zh-CN.md"
+status = "corrected"
+
+[page.38]
+path = "docs/hyperfide/indexing.md"
+status = "corrected"
+
+[page.39]
+path = "docs/hyperfide/integrate.md"
+status = "corrected"
+
+[page.40]
+path = "docs/hyperfide/jev.md"
+status = "corrected"

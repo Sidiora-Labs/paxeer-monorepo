@@ -117,4 +117,4 @@ The 5.3 driver kills a real service actor with SIGKILL before and after the quie
 
 Inside the driver's private PID namespace, an init process reaps the case and orphaned descendants and returns the case's exit status. Root runs retain their existing user namespace so the isolation observer can inspect inherited process handles.
 
-The receipt records the exercised `crash_boundaries`, component `status`, and a separate `deployment_migration: "UNRUN"`. A component PASS does not report a deployment migration as executed. Gate runs attach revision and build/verification log references to the 5.3 receipt; the task's completion record remains the authority for the final verification exit code.
+The receipt records the exercised `crash_boundaries`, component `status`, and a separate `deployment_migration: "UNRUN"`. A component PASS does not report a deployment migration as executed.

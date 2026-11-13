@@ -1,11 +1,14 @@
 # Drift
 
+Implementation and test paths on this page are relative to `tools/hyperfide`.
+
+
 A fleet drifts in four ways: a task changes code it never declared, two
 tasks that run at once step on each other, a merge changes a symbol another
 live branch depends on, or a feature lands with acceptance criteria no
 qualified task covers. Hyperfide looks for each before the change merges,
 records every finding as an event, and shows it in `hyperfide brief`, `hyperfide fleet
-tree`, and the editor's agent chat.
+tree`, and event clients.
 
 Drift **warns by default**. It blocks only where `spec/workflow.kvx` asks
 for it, through a role's `approve` list.
@@ -13,7 +16,7 @@ for it, through a role's `approve` list.
 `hyperfide` is the command; `cg` is the deprecated compatibility alias from
 the same executable, with identical arguments, JSON and exit codes.
 
-Implemented in `src/drift.c`; covered by `tests/integration/33_drift.sh`
+Implemented in `core/native/src/drift.c`; covered by `tests/integration/33_drift.sh`
 and the fleet end-to-end suite `tests/integration/35_fleet_e2e.sh`.
 
 ## Spec drift
@@ -26,7 +29,7 @@ public symbols whose lines changed but are not among the declared symbols.
 It runs on its own at `hyperfide spec done` and at `hyperfide fleet merge-up`, and on
 demand:
 
-```
+```console
 $ hyperfide drift check 3.2 --base feature/alpha
 drift: 3 path(s) changed outside the task's touches: src/a.ts src/b.ts src/b1.ts
 drift: 4 public symbol(s) changed but not declared: alpha (src/a.ts) beta (src/b.ts) b1 (src/b1.ts) delta (src/d.ts)
@@ -48,7 +51,7 @@ declared symbols that call one another directly in the graph. Predicted
 collisions run one after the other instead of side by side, and the
 serialization is recorded once as a `drift.collision` event.
 
-```
+```console
 $ hyperfide drift collisions -f gamma
 2.1      2.2      both touch src/*.ts / src/d.ts
 ```
@@ -79,7 +82,7 @@ signature, the referencing sites, and the agents on those branches:
 Each of those workers, and the manager it reports to, is steered with the
 change (see [events.md](events.md#steering-a-running-agent)):
 
-```
+```text
 Interface drift on feature/alpha: `alpha` (src/a.ts) was changed by a merge into
 feature/alpha for alpha/2.2. Your branch task/alpha/3.2 references it — rebase or
 merge feature/alpha and adjust before you qualify. New signature: export function
@@ -99,7 +102,7 @@ is traced to a qualified task. An uncovered criterion is printed; the land
 continues unless a role lists `coverage` in `approve`, in which case it
 waits for approval. The same report on demand:
 
-```
+```console
 $ hyperfide drift coverage -f alpha
 coverage: every acceptance criterion of alpha has a qualified task
 ```
@@ -110,7 +113,7 @@ it when there is one, and the start of its text.
 
 ## Where findings show up
 
-```
+```console
 $ hyperfide drift summary -f alpha
 drift for alpha:
   spec: 6 (latest #101)
@@ -120,18 +123,17 @@ drift for alpha:
 The same counts appear in `hyperfide brief` (`drift on alpha: 7 finding(s) — cg
 drift summary`) and under the feature manager in `hyperfide fleet tree`. The `#`
 numbers are event sequence numbers: `hyperfide events --since 100 -n 1` shows the
-latest spec finding. In the editor, an interface-drift finding appears as a
-notice in the agent chat, and a chat attached to a fleet agent shows that
-agent's drift events inline.
+latest spec finding. Event clients can subscribe to these findings through
+`hyperfide serve`; the [platform](hyperfide/platform.md) provides task and fleet surfaces.
 
 ## The Hyperfide control plane
 
 Every drift check here is the binary's, run against the local checkout, its
-git history and its SQLite graph (`src/drift.c`, called from `src/spec.c`,
-`src/fleet.c` and `src/orchestrate.c`). In distributed authority mode (a
+git history and its SQLite graph (`core/native/src/drift.c`, called from `core/native/src/spec.c`,
+`core/native/src/fleet.c` and `core/native/src/orchestrate.c`). In distributed authority mode (a
 `.hyperfide/authority.json` descriptor, or `HYPERFIDE_AUTHORITY_DESCRIPTOR`;
 `hyperfide authority mode` prints the mode), `hyperfide drift` refuses with
-`DISTRIBUTED_COMMAND_UNSUPPORTED`, exit 78 (`src/hyperfide/client.c`), as
+`DISTRIBUTED_COMMAND_UNSUPPORTED`, exit 78 (`core/native/src/hyperfide/client.c`), as
 do `hyperfide fleet merge-up` and `hyperfide fleet land`, which run the
 drift and coverage gates.
 
@@ -141,9 +143,7 @@ contracts and behavioural impact analysis
 qualification coverage (`core/control-plane/src/assurance/coverage.ts`),
 assurance invalidation when an input changes
 (`core/control-plane/src/assurance/validity.ts`), and task, wave and
-programme closure (`core/control-plane/src/integration/closure.ts`). Tasks
-16.3, 16.4, 17.2 and 19.3 are `pending` in `spec/hyperfide/spec.kvx`, so
-that path is not qualified in this revision.
+programme closure (`core/control-plane/src/integration/closure.ts`).
 
 ## Limitations
 

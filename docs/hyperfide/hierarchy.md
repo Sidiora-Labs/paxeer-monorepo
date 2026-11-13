@@ -1,5 +1,8 @@
 # The fleet hierarchy
 
+Implementation and test paths on this page are relative to `tools/hyperfide`.
+
+
 One repository, a tree of agents. A **main** agent owns the task list and
 merges pull requests. A **wave manager** per wave owns that wave's branch,
 cut from main. A **task worker** per task implements one task on a branch
@@ -7,7 +10,7 @@ cut from its wave's branch. Work flows upward through verified merges: task
 branch into wave branch, wave branch into local main, main out through a
 pull request.
 
-```
+```text
 main
 ├── wm-<feature>-1   wave/<feature>/1   ← main
 │   ├── w-<feature>-2.1   task/<feature>/2.1   ← wave/<feature>/1
@@ -27,25 +30,19 @@ Codex or Claude Code process until its work is qualified and merged, and
 survives being killed.
 
 Every example here uses `hyperfide`, the canonical command (the binary
-reports `2.0.0-dev`). `cg` is a deprecated compatibility alias from the
+reports `2.2.0`). `cg` is a deprecated compatibility alias from the
 same executable, with identical arguments, JSON and exit codes, kept for
 the compatibility window of the approved release. Some messages the binary
 prints still name the old command; they are quoted here as printed.
 
-Implemented in `src/fleet.c`, `src/gitint.c`, and `src/orchestrate.c`;
+Implemented in `core/native/src/fleet.c`, `core/native/src/gitint.c`, and `core/native/src/orchestrate.c`;
 covered by `tests/integration/26_fleet.sh`, `32_supervisor.sh`,
 `34_context.sh`, the end-to-end `35_fleet_e2e.sh`, and `50_discover.sh`
 for transcript discovery. The event stream, `hyperfide serve`, and the
 drivers are in [events.md](events.md); drift is in [drift.md](drift.md);
 the projection is in [projection.md](projection.md).
 
-This is the local, single-machine fleet. It is not a client of the
-Hyperfide control service and grants no distributed authority: the
-distributed leader, manager and sandboxed-worker roles described in
-[hyperfide/operations.md](hyperfide/operations.md) belong to Hyperfide
-specification tasks (role ownership 3.1, scoped fleet stop 24.3, among
-others) that are still pending, and nothing in this document is qualified
-at any fleet size in this revision.
+This page describes the local fleet supervisor and its SQLite state. Distributed leader, manager and sandbox roles use the control service described in [operations](hyperfide/operations.md).
 
 ## Declaring the hierarchy
 
@@ -53,7 +50,7 @@ Two kinds of section in `spec/workflow.kvx`. Both are optional: a
 repository with no `[hierarchy]` section runs flat, and the fleet commands
 then show the defaults they *would* use, marked `not configured`.
 
-```ini
+```kvx
 [hierarchy]
 enabled    = true
 main       = "main"                          # the branch everything lands on
@@ -105,7 +102,7 @@ Templates without the placeholders give the hierarchy Codify had before
 v1.5: one feature manager per feature, and a worker per wave that does its
 wave's tasks one after the other on one branch.
 
-```ini
+```kvx
 [role.feature]
 title  = "Feature Manager"
 agent  = "fm-{feature}"
@@ -125,7 +122,7 @@ feature. Everything else in this document works the same way in both shapes.
 
 `hyperfide fleet roles` prints the resolved tree:
 
-```
+```text
 hierarchy: enabled (/path/to/proj/spec/workflow.kvx)
 main branch: main   remote: origin   worktrees: .codegraph/worktrees
 gates: test `sh gate.sh`   lint `sh lint.sh`
@@ -143,7 +140,7 @@ may spend. Nothing here is required: every key has a default, and the
 defaults are chosen so that a multi-day run never inherits "unlimited" by
 accident.
 
-```ini
+```kvx
 [agents]
 driver      = "claude"        # the default driver for every role
 max         = 6               # the default worker concurrency
@@ -176,7 +173,7 @@ retries = 2                   # attempts after the first
 | `spend` | USD budget per attempt | none | none | none |
 | `retries` | attempts after the first, per task | 0 | 1 | 2 |
 | `stall` | time without progress before a nudge | 30m | 30m | 15m |
-| `approve` | gates that wait for approval: `land`, `pr`, `drift`, `coverage` (`retry` is accepted but not yet enforced) | none | none | none |
+| `approve` | gates that wait for approval: `land`, `pr`, `drift`, `coverage` | none | none | none |
 
 Durations take `90s`, `30m`, `2h`, `1d`, or plain seconds; `0` means no
 limit. `approve` may be a list or a single string. Blocking is opt-in:
@@ -189,7 +186,7 @@ every wave; in the older shape it is how many features run at once under
 A value that cannot be used is reported, never silently dropped, and the
 default is kept:
 
-```
+```text
 warn: [role.worker] wall = "soon" is not a duration (90s, 30m, 2h, or seconds) — default kept
 warn: [role.worker] approve gate "merge" is not land, pr, retry, drift, or coverage — ignored
 ```
@@ -198,7 +195,7 @@ warn: [role.worker] approve gate "merge" is not land, pr, retry, drift, or cover
 `--json` carries them as `roles[].caps` with `wall_s`, `stall_s`, and
 `spend_usd`, plus a top-level `problems` list:
 
-```
+```text
 role     driver  model           max   wall    spend  retries  stall  approve
 main     custom  —               1     1h      —        0    30m  —
 manager  custom  —             all     1h      —        1    30m  —
@@ -239,13 +236,13 @@ do the fleet reports, so a manager that only reads still shows up as alive.
 The identity reaches the ordinary commands too. `hyperfide brief` gains a
 line:
 
-```
+```text
 agent: w-fleet-2.1 — Task Worker, reports to wm-fleet-1 (feature fleet, wave 1)
 ```
 
 and `hyperfide spec status` carries it into the claim:
 
-```
+```text
   2.1      claimed by w-fleet-2.1 [worker under wm-fleet-1] on task/fleet/2.1 (attempt fd4374c04e17, fence 1, 30 min left)
 ```
 
@@ -255,7 +252,7 @@ work done on* after the session is gone.
 
 ## The branch flow
 
-```
+```text
   task/<feature>/<id>  ──merge-up──►  wave/<feature>/<wave>  ──land──►  main  ──pr──►  origin/main
        task worker                       wave manager               (gates)        checkpoint
 ```
@@ -270,7 +267,7 @@ it happens to be standing on is irrelevant to what they do.
 Creates or reuses the task's branch and worktree, cut from its wave's
 branch, then claims the task for its worker.
 
-```
+```console
 $ hyperfide fleet begin 2.1
 begin 2.1 — wave 1 of fleet
   agent:    w-fleet-2.1 (worker, reports to wm-fleet-1)
@@ -297,7 +294,7 @@ holds (`2.1 is already claimed by intruder` … `task/fleet/2.1 and
 Merges the task's branch into its wave branch, in the wave manager's own
 worktree.
 
-```
+```console
 $ hyperfide fleet merge-up 2.1
 merged task/fleet/2.1 into wave/fleet/1: 1 commit (head 1484f740) at …/wave-fleet-1
   promoted 1 memory to wave/fleet/1
@@ -307,7 +304,7 @@ It is refused until the task's status **on the branch tip** says `done` —
 the spec file as committed on the task branch, not the one in the main
 tree. A merge of unproven work is what the hierarchy exists to prevent.
 
-```
+```text
 2.1 is in_progress on task/fleet/2.1, not done — qualify it
 (cg spec done 2.1) and commit, or --force
 ```
@@ -315,7 +312,7 @@ tree. A merge of unproven work is what the hierarchy exists to prevent.
 A conflict is reported by path and the wave worktree is left exactly as it
 was:
 
-```
+```text
 cg fleet: task/fleet/2.2 does not merge into wave/fleet/1
   conflicts in 1 path(s):
     docs/d.md
@@ -361,7 +358,7 @@ named by its number or by any of its task ids; `-f` names the feature when
 it is not the active one, and a wave manager's `HYPERFIDE_WAVE` is used when
 nothing is given.
 
-```
+```console
 $ hyperfide fleet land 1
 landed wave/fleet/1 into main: 2 commits, gates green (head 67187334)
   test: `sh gate.sh` ok in 5 ms
@@ -371,14 +368,14 @@ landed wave/fleet/1 into main: 2 commits, gates green (head 67187334)
 A wave lands whole or not at all. While any of its tasks is open the land
 is refused before anything is merged, and the open tasks are named:
 
-```
+```text
 cg fleet: wave 1 of fleet is not done — 1 task open: 2.2 (pending)
 ```
 
 Red gates mean main is reset to where it was. Landing is all or nothing: a
 half-landed main is the one state nobody can reason about.
 
-```
+```text
 landing refused: test gate `sh gate.sh` failed (exit 1) — main reset to b5d899dd
   log: /path/proj/.codegraph/fleet/land-fleet-1-test.log
 ```
@@ -397,7 +394,7 @@ feature (`hyperfide fleet land fleet`) and merges `feature/fleet`.
 Pushes the landed branch — a wave's, or in the older shape the feature's —
 and opens the pull request against `<remote>/<main>` through `gh`.
 
-```
+```console
 $ hyperfide fleet pr 1
 opened https://github.com/acme/repo/pull/7 (wave/fleet/1 → main)
 ```
@@ -407,7 +404,7 @@ would run and calls nothing. When `gh` is absent the exact commands are
 printed instead, runnable as they stand — the body file is written either
 way:
 
-```
+```text
 pull request (gh not found): run these to open wave/fleet/1 against origin/main:
   git -C '/path/proj' push -u 'origin' 'wave/fleet/1'
   cd '/path/proj' && 'gh' pr create --base 'main' --head 'wave/fleet/1' --title 'feature/fleet' --body-file '/path/proj/.codegraph/fleet/pr-fleet-1.md'
@@ -448,7 +445,7 @@ order stays what a reader expects. Anything else is skipped by name
 (`skipped #8 hotfix/x — not a wave/* branch`). Local main then
 fast-forwards to the remote when it is clean.
 
-```
+```console
 $ hyperfide fleet checkpoint --dry-run
 checkpoint (dry-run): merge the open wave/* pull requests lowest number first:
   gh pr list --base 'main' --state open --json number,headRefName,title,url
@@ -469,7 +466,7 @@ hyperfide fleet                    # same as status
 left, live agents on the right, a manager row per wave and a worker row per
 task under it:
 
-```
+```text
 fleet plan — feature fleet (hierarchy enabled)
 main      gideon               main                                                  live: —
 wave 1    wm-fleet-1           wave/fleet/1                 ← main                 live: —
@@ -491,7 +488,7 @@ wave.
 progress, whether each wave branch is ahead of main or already merged, and
 the state and heartbeat of every worker:
 
-```
+```console
 $ hyperfide fleet tree
 fleet tree — fleet
 main     gideon           branch main
@@ -526,43 +523,9 @@ newer; see [projection.md](projection.md).
 
 ### Native sessions in the editor
 
-The fleet roles are the agents Hyperfide spawned. A Claude Code or Codex
-session working on the project, and every subagent it spawns through its
-own Agent tool, is recorded by `hyperfide hook event` (see
-[events.md](events.md#native-agents-hyperfide-hook-event)) and shown in the VS Code fleet view
-under a **Sessions** root beside Main Gideon — and on its own when the
-repository has no `[hierarchy]`. One row per host session, its subagents
-nested under it, each reading:
+`hyperfide hook event` records native Claude Code and Codex sessions and their subagents. `hyperfide fleet tree --json` reports the native session rows with their state, worktree branch, task, last tool and transcript path; `hyperfide fleet status --json` is available without a hierarchy. Clients can take a snapshot and consume `agent.native.*` events from `hyperfide serve`.
 
-```
-Sessions                       2 live · 1 subagent · 1 worktree branch
-  claude:5e55105a              live · just now
-    general-purpose — Alpha implementer
-                               live · 12s ago · worktree-agent-a1b2c3d4 (unmerged)
-                               · task fleet/2.2 (prompt) · › Edit
-```
-
-- **state** — `live`, `stale` (no hook for 120 s), `pending` (a spawn not
-  yet started) or `stopped`, and the age since the last hook;
-- **worktree branch** — the branch of the linked worktree the agent works
-  in, with `(merged)` or `(unmerged)` when the branch registry holds heads
-  for it and its base (the session's branch), and `worktree gone` when the
-  folder was removed;
-- **task** and where it came from (`env`, `attempt`, `prompt`, `parent`);
-- **last tool**, and in the tooltip the model, tool-call count, cwd, and the
-  subagent's last message once it stopped.
-
-The rows come from `hyperfide fleet tree --json` (`hyperfide fleet status --json` in a
-flat repository) on each refresh. Between refreshes every
-`agent.native.*` event the `hyperfide serve` connection pushes is folded by the
-serve reducer and patches its row in place — a tool call moves the last
-tool and the age, a stop greys the row — so the view follows a native
-agent the moment its hook fires. **Open Native Agent Worktree** opens the
-worktree folder (a new window, or added to this workspace) and **Open
-Native Agent Transcript** opens the JSONL transcript the host writes; a
-click on a row opens the transcript too. A live subagent's transcript is
-found where the host keeps it, `<session>/subagents/agent-<id>.jsonl`
-beside the session's.
+The VS Code extension provides language navigation, KVX editing and links to the platform app. See [the editor guide](hyperfide/editors.md) for the current commands and settings.
 
 ### Native agents from transcripts: `hyperfide fleet discover`
 
@@ -659,12 +622,12 @@ mode section of the [README](../../tools/hyperfide/README.md#parallel-mode).
 Everything above is the manual path. `hyperfide fleet up` drives the same
 commands for you, as a supervisor that outlives your terminal:
 
-```
+```text
 hyperfide fleet up [--foreground] [--resume [RUN]] [-f F | --all] [-n N]
             [--driver D] [--max-fail K] [--max-rounds R] [--dry-run]
 ```
 
-```
+```console
 $ hyperfide fleet up --all -n 3
 fleet up: run dc70cdc5f81a — supervisor pid 2970055
   log:    /path/proj/.codegraph/fleet/supervisor-dc70cdc5f81a.log
@@ -698,7 +661,7 @@ stopped.
 A real run reports each spawn and each result, and ends on the merge rather
 than on a process exiting:
 
-```
+```text
 [fleet] alpha — a manager per wave (all at once) + 3 worker slot(s), driver custom, 48 wake(s)
 [fleet] run dc70cdc5f81a — supervisor pid 2970055
 [fleet] manager wm-alpha-1 on wave/alpha/1 (47 wake(s) left), log .codegraph/agents/alpha-manager-1.log
@@ -755,7 +718,7 @@ memories, and checkpoints. Without it, "main" is you.
 
 ### Runs: down, pause, resume
 
-```
+```console
 $ hyperfide fleet runs
 run          feature            state     supervisor  live nodes fails  reason
 a6e57e899fc5 beta               complete  —            0     3     0  merged
@@ -778,8 +741,7 @@ owns and `GONE` for an unfinished run whose supervisor died.
 These controls act on the local supervisor and the processes it started.
 `hyperfide fleet down --drain` does not stop remote sandboxes; the
 distributed stop controls are described in
-[hyperfide/operations.md](hyperfide/operations.md) and belong to pending
-specification tasks.
+[hyperfide/operations.md](hyperfide/operations.md).
 
 **Crash resume.** Kill the supervisor — `kill -9` in the end-to-end test —
 and `hyperfide fleet up --resume` continues the run. Every node still marked live
@@ -844,7 +806,7 @@ command that reaches it stop and ask:
 Gates apply to fleet agents (a process with `HYPERFIDE_ROLE` set); a person
 running the same command by hand is not stopped. The agent sees:
 
-```
+```text
 cg fleet: land of alpha waits for approval #3 — a person runs `cg fleet approve 3` (or --reject); exit now and it is retried on your next wake
 ```
 
@@ -867,7 +829,7 @@ fitted to a token budget (`HYPERFIDE_PACKET_BUDGET`, 6000 for a worker and
 4000 for a manager by default). The same worker packet is what `hyperfide
 resume --task <id> --prompt` prints (`--budget N` sets the budget there):
 
-```
+```markdown
 ## Task 2.2 — Stalls once, changes alpha
 
 Acceptance criteria — the work is judged against these:
@@ -896,7 +858,7 @@ A manager packet (`hyperfide fleet brief <feature>`) holds its subtree's state,
 the live workers, failed attempts with their triage, merge conflicts to
 resolve, and pending approvals:
 
-```
+```console
 $ hyperfide fleet brief alpha
 ### Your subtree: 1 of 4 task(s) done
 - 1.1 (wave 0) done — First task
@@ -939,8 +901,7 @@ name.
   two independent `hyperfide fleet up` calls in one repository are refused.
 - `--dry-run` previews one feature — the one named by `-f`, else the
   active feature — even with `--all`.
-- The `retry` approval gate is accepted in `approve` but nothing stops on
-  it yet; retries run up to the role's limit and then escalate.
+- Retries run up to the role’s limit and then escalate.
 - The manager packet lists recent merge conflicts from the event log,
   including ones a later merge already resolved, and does not yet include
   drift findings.
@@ -951,8 +912,7 @@ name.
   CLIs it starts.
 - Several messages, the `next:` line of `begin`, the agents' prompts and
   the pull request body still print the compatibility command name or
-  "Codify"; the rename of that output belongs to Hyperfide specification
-  tasks 26.1–26.4, which are pending.
+  "Codify".
 
 ## Waves side by side
 

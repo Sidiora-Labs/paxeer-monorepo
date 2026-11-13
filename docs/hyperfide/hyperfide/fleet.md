@@ -138,7 +138,7 @@ implementing agent run. Local SIGKILL restoration does not establish provider ho
 
 The owner supplies a configured provider pool, model backend, object-store credentials,
 private native profile and the trusted live database target. Follow the exact journey
-commands and input requirements in [operations](operations.md#prerequisite-handoff).
+commands and input requirements in [operations](operations.md#fleet-campaign-configuration).
 `build/fleet/0.14/actor-receipt.json` retains the real three-model actor checks;
 `build/fleet/0.14/live-receipt.json` requires the complete live evidence index and
 read-only database verification. An explicit `--receipt` selects a private owner
