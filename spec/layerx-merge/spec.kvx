@@ -187974,7 +187974,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.510]
 title = "Bring the inventory check of the repository in line"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
