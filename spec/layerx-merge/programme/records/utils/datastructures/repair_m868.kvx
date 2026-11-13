@@ -2,7 +2,7 @@
 task = "22.33.868"
 audit = "22.30.182"
 base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
-baseline = "Not run: the explicit gate order requires complete implementation, hf-build, then hf-done and forbids a manual verify run; repair_m868_test.go did not exist on the starting tree, so no baseline test failures are claimed."
+baseline = "Not run: the explicit gate order requires complete implementation, hf-build, then hf-done and forbids a manual verify run; concurrent_collections_test.go did not exist on the starting tree, so no baseline test failures are claimed."
 evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log in the runner gate ledger; qualification is established only by their results."
 wiring_requests = []
 

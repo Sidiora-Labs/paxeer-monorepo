@@ -1,4 +1,4 @@
-package v575_test
+package v600_test
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ import (
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils/helpers"
-	legacy "github.com/Sidiora-Labs/Paxeer-X-Network/utils/helpers/legacy/v575"
+	legacy "github.com/Sidiora-Labs/Paxeer-X-Network/utils/helpers/legacy/v600"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -32,7 +32,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair784Fixture struct {
+type associationFixture struct {
 	ctx  sdk.Context
 	auth authkeeper.AccountKeeper
 	bank bankkeeper.BaseKeeper
@@ -40,7 +40,7 @@ type repair784Fixture struct {
 	keys []*sdk.KVStoreKey
 }
 
-func repair784Keepers(t *testing.T) repair784Fixture {
+func newAssociationFixture(t *testing.T) associationFixture {
 	t.Helper()
 	db := dbm.NewMemDB()
 	cms := store.NewCommitMultiStore(db)
@@ -65,7 +65,7 @@ func repair784Keepers(t *testing.T) repair784Fixture {
 	amino := codec.NewLegacyAmino()
 	auth := authkeeper.NewAccountKeeper(cdc, authKey,
 		paramtypes.NewSubspace(cdc, amino, paramsKey, paramsTransient, authtypes.ModuleName),
-		authtypes.ProtoBaseAccount, map[string][]string{"repair784": {authtypes.Minter}})
+		authtypes.ProtoBaseAccount, map[string][]string{"association": {authtypes.Minter}})
 	bank := bankkeeper.NewBaseKeeper(cdc, bankKey, auth,
 		paramtypes.NewSubspace(cdc, amino, paramsKey, paramsTransient, banktypes.ModuleName), map[string]bool{})
 	evm := evmkeeper.NewKeeper(evmKey, evmTransient,
@@ -74,11 +74,11 @@ func repair784Keepers(t *testing.T) repair784Fixture {
 	ctx := sdk.NewContext(cms, tmproto.Header{Height: 1, Time: time.Unix(1700000000, 0)}, false)
 	auth.SetParams(ctx, authtypes.DefaultParams())
 	bank.SetParams(ctx, banktypes.DefaultParams())
-	return repair784Fixture{ctx: ctx, auth: auth, bank: bank, evm: evm, keys: keys}
+	return associationFixture{ctx: ctx, auth: auth, bank: bank, evm: evm, keys: keys}
 }
 
 // Recover an identity from a real signed transaction after its wire round trip.
-func repair784Identity(t *testing.T, ctx sdk.Context) (common.Address, sdk.AccAddress, cryptotypes.PubKey) {
+func recoverTransactionIdentity(t *testing.T, ctx sdk.Context) (common.Address, sdk.AccAddress, cryptotypes.PubKey) {
 	t.Helper()
 	key, err := crypto.HexToECDSA("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
@@ -99,19 +99,25 @@ func repair784Identity(t *testing.T, ctx sdk.Context) (common.Address, sdk.AccAd
 	expected := &secp256k1.PubKey{Key: crypto.CompressPubkey(&key.PublicKey)}
 	require.Equal(t, expected.Bytes(), pub.Bytes())
 	require.Equal(t, sdk.AccAddress(expected.Address()), pax)
+	// Context-free callers remain source-compatible and always take validated routing.
+	publicEVM, publicPax, publicPub, err := legacy.GetAddresses(v, r, s, signer.Hash(&decoded))
+	require.NoError(t, err)
+	require.Equal(t, evm, publicEVM)
+	require.Equal(t, pax, publicPax)
+	require.Equal(t, pub.Bytes(), publicPub.Bytes())
 	return evm, pax, pub
 }
 
-func repair784Fund(t *testing.T, f repair784Fixture, address sdk.AccAddress) sdk.Coins {
+func fundAssociationAccount(t *testing.T, f associationFixture, address sdk.AccAddress) sdk.Coins {
 	t.Helper()
 	coins := sdk.NewCoins(sdk.NewInt64Coin("uhpx", 100), sdk.NewInt64Coin("replaytoken", 23))
-	require.NoError(t, f.bank.MintCoins(f.ctx, "repair784", coins))
-	require.NoError(t, f.bank.SendCoinsFromModuleToAccount(f.ctx, "repair784", address, coins))
+	require.NoError(t, f.bank.MintCoins(f.ctx, "association", coins))
+	require.NoError(t, f.bank.SendCoinsFromModuleToAccount(f.ctx, "association", address, coins))
 	require.NoError(t, f.bank.AddWei(f.ctx, address, sdk.NewInt(19)))
 	return coins
 }
 
-func repair784Snapshot(t *testing.T, f repair784Fixture) map[string]map[string][]byte {
+func snapshotAssociationStores(t *testing.T, f associationFixture) map[string]map[string][]byte {
 	t.Helper()
 	out := map[string]map[string][]byte{}
 	for _, key := range f.keys {
@@ -126,7 +132,7 @@ func repair784Snapshot(t *testing.T, f repair784Fixture) map[string]map[string][
 	return out
 }
 
-func TestRepairM_784_KeyRoutingAndReplay(t *testing.T) {
+func TestKeyRoutingAndReplay(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		upgrade    string
@@ -136,24 +142,25 @@ func TestRepairM_784_KeyRoutingAndReplay(t *testing.T) {
 		{"unselected", "", false, false},
 		{"missing upgrade", "", true, false},
 		{"invalid upgrade", "unknown", true, false},
-		{"before range", "v5.6.2", true, false},
-		{"range start", "v5.7.5", true, true},
-		{"inside range", "v5.8.0", true, true},
-		{"last patch", "v5.99.99", true, true},
-		{"range end", "v6.0.0", true, false},
+		{"before range", "v5.7.5", true, false},
+		{"before range prerelease", "v6.0.0-rc.1", true, false},
+		{"range start", "v6.0.0", true, true},
+		{"build metadata", "v6.0.0+replay", true, true},
+		{"before range end", "v6.0.1-rc.1", true, true},
+		{"range end", "v6.0.1", true, false},
 		{"current replay", "v6.12.0", true, false},
-		{"current execution at old height", "v5.7.5", false, false},
+		{"current execution at old height", "v6.0.0", false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := sdk.Context{}.WithIsTracing(tc.tracing).WithClosestUpgradeName(tc.upgrade)
 			require.Equal(t, tc.historical, legacy.IsHistoricalReplay(ctx))
-			repair784Identity(t, ctx)
+			recoverTransactionIdentity(t, ctx)
 			if tc.historical {
 				// The old unchecked parse is a deliberate replay result, confined to this range.
-				require.Panics(t, func() { _, _, _, _ = legacy.GetAddressesFromPubkeyBytes(ctx, []byte{4}) })
+				require.Panics(t, func() { _, _, _, _ = legacy.GetAddressesFromPubkeyBytesForContext(ctx, []byte{4}) })
 			} else {
 				require.NotPanics(t, func() {
-					evm, pax, pub, err := legacy.GetAddressesFromPubkeyBytes(ctx, []byte{4})
+					evm, pax, pub, err := legacy.GetAddressesFromPubkeyBytesForContext(ctx, []byte{4})
 					require.ErrorIs(t, err, helpers.ErrInvalidPubkey)
 					require.Equal(t, common.Address{}, evm)
 					require.Empty(t, pax)
@@ -164,7 +171,7 @@ func TestRepairM_784_KeyRoutingAndReplay(t *testing.T) {
 	}
 }
 
-func TestRepairM_784_InvalidNewKeys(t *testing.T) {
+func TestInvalidNewKeys(t *testing.T) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	valid := crypto.FromECDSAPub(&key.PublicKey)
@@ -177,7 +184,7 @@ func TestRepairM_784_InvalidNewKeys(t *testing.T) {
 			pub, err := legacy.PubkeyBytesToPaxPubKey(input)
 			require.ErrorIs(t, err, helpers.ErrInvalidPubkey)
 			require.Empty(t, pub.Key)
-			_, pax, recovered, err := legacy.GetAddressesFromPubkeyBytes(sdk.Context{}, input)
+			_, pax, recovered, err := legacy.GetAddressesFromPubkeyBytes(input)
 			require.ErrorIs(t, err, helpers.ErrInvalidPubkey)
 			require.Empty(t, pax)
 			require.Nil(t, recovered)
@@ -203,8 +210,8 @@ func TestRepairM_784_InvalidNewKeys(t *testing.T) {
 	}
 }
 
-func TestRepairM_784_AssociationCurrentRouting(t *testing.T) {
-	for _, upgrade := range []string{"", "unknown", "v5.6.2", "v5.7.5", "v6.0.0", "v6.12.0"} {
+func TestAssociationCurrentRouting(t *testing.T) {
+	for _, upgrade := range []string{"", "unknown", "v5.7.5", "v6.0.0", "v6.0.1", "v6.12.0"} {
 		for _, tracing := range []bool{false, true} {
 			ctx := sdk.Context{}.WithClosestUpgradeName(upgrade).WithIsTracing(tracing)
 			if legacy.IsHistoricalReplay(ctx) {
@@ -212,26 +219,26 @@ func TestRepairM_784_AssociationCurrentRouting(t *testing.T) {
 			}
 			t.Run(upgrade+"/tracing="+strconv.FormatBool(tracing), func(t *testing.T) {
 				for _, identical := range []bool{false, true} {
-					routed, direct := repair784Keepers(t), repair784Keepers(t)
+					routed, direct := newAssociationFixture(t), newAssociationFixture(t)
 					routed.ctx = routed.ctx.WithClosestUpgradeName(upgrade).WithIsTracing(tracing)
 					direct.ctx = direct.ctx.WithClosestUpgradeName(upgrade).WithIsTracing(tracing)
-					evm, pax, pub := repair784Identity(t, routed.ctx)
+					evm, pax, pub := recoverTransactionIdentity(t, routed.ctx)
 					cast := sdk.AccAddress(evm.Bytes())
 					if identical {
 						pax = cast
 					}
-					for _, f := range []repair784Fixture{routed, direct} {
+					for _, f := range []associationFixture{routed, direct} {
 						f.auth.SetAccount(f.ctx, authtypes.NewBaseAccount(cast, nil, 42, 7))
-						repair784Fund(t, f, cast)
+						fundAssociationAccount(t, f, cast)
 					}
 					if !identical {
 						require.Nil(t, routed.auth.GetAccount(routed.ctx, pax))
 					}
-					require.NoError(t, legacy.NewAssociationHelper(routed.evm, routed.bank, routed.auth, "").
+					require.NoError(t, legacy.NewAssociationHelper(routed.evm, routed.bank, routed.auth).
 						AssociateAddresses(routed.ctx, pax, evm, pub))
 					require.NoError(t, helpers.NewAssociationHelper(direct.evm, direct.bank, direct.auth).
 						AssociateAddresses(direct.ctx, pax, evm, pub, false))
-					require.Equal(t, repair784Snapshot(t, direct), repair784Snapshot(t, routed))
+					require.Equal(t, snapshotAssociationStores(t, direct), snapshotAssociationStores(t, routed))
 					require.Equal(t, direct.ctx.EventManager().Events(), routed.ctx.EventManager().Events())
 					acc := routed.auth.GetAccount(routed.ctx, pax)
 					require.NotNil(t, acc)
@@ -251,31 +258,31 @@ func TestRepairM_784_AssociationCurrentRouting(t *testing.T) {
 					require.True(t, found)
 					require.Equal(t, evm, mappedEVM)
 					// Direct calls to the migration entry point must use the same current guard.
-					before := repair784Snapshot(t, routed)
-					require.NoError(t, legacy.NewAssociationHelper(routed.evm, routed.bank, routed.auth, "").
+					before := snapshotAssociationStores(t, routed)
+					require.NoError(t, legacy.NewAssociationHelper(routed.evm, routed.bank, routed.auth).
 						MigrateBalance(routed.ctx, evm, sdk.AccAddress(evm.Bytes())))
-					require.Equal(t, before, repair784Snapshot(t, routed))
+					require.Equal(t, before, snapshotAssociationStores(t, routed))
 				}
 			})
 		}
 	}
 }
 
-func TestRepairM_784_AssociationHistoricalReplay(t *testing.T) {
+func TestAssociationHistoricalReplay(t *testing.T) {
 	for _, identical := range []bool{false, true} {
-		f := repair784Keepers(t)
-		f.ctx = f.ctx.WithIsTracing(true).WithClosestUpgradeName("v5.7.5")
-		evm, pax, pub := repair784Identity(t, f.ctx)
+		f := newAssociationFixture(t)
+		f.ctx = f.ctx.WithIsTracing(true).WithClosestUpgradeName("v6.0.0")
+		evm, pax, pub := recoverTransactionIdentity(t, f.ctx)
 		cast := sdk.AccAddress(evm.Bytes())
 		if identical {
 			pax = cast
 		}
 		f.auth.SetAccount(f.ctx, authtypes.NewBaseAccount(cast, nil, 42, 7))
-		coins := repair784Fund(t, f, cast)
+		coins := fundAssociationAccount(t, f, cast)
 		if !identical {
 			require.Nil(t, f.auth.GetAccount(f.ctx, pax))
 		}
-		require.NoError(t, legacy.NewAssociationHelper(f.evm, f.bank, f.auth, "v5.7.5").AssociateAddresses(f.ctx, pax, evm, pub))
+		require.NoError(t, legacy.NewAssociationHelper(f.evm, f.bank, f.auth).AssociateAddresses(f.ctx, pax, evm, pub))
 		require.Equal(t, coins, f.bank.GetAllBalances(f.ctx, pax))
 		require.Equal(t, sdk.NewInt(19), f.bank.GetWeiBalance(f.ctx, pax))
 		if identical {
@@ -298,124 +305,26 @@ func TestRepairM_784_AssociationHistoricalReplay(t *testing.T) {
 	}
 }
 
-func TestRepairM_784_AssociationRejectsNewInvalidKey(t *testing.T) {
-	for _, pub := range []cryptotypes.PubKey{nil, (*secp256k1.PubKey)(nil), &secp256k1.PubKey{}, &secp256k1.PubKey{Key: []byte{4}}} {
+func TestAssociationRejectsNewInvalidKey(t *testing.T) {
+	key, err := crypto.HexToECDSA("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	require.NoError(t, err)
+	for _, pub := range []cryptotypes.PubKey{nil, (*secp256k1.PubKey)(nil), &secp256k1.PubKey{}, &secp256k1.PubKey{Key: []byte{4}}, &secp256k1.PubKey{Key: crypto.FromECDSAPub(&key.PublicKey)}, &secp256k1.PubKey{Key: append([]byte{2}, bytes.Repeat([]byte{255}, 32)...)}} {
 		for _, routed := range []bool{false, true} {
-			f := repair784Keepers(t)
-			evm, pax, _ := repair784Identity(t, f.ctx)
-			before := repair784Snapshot(t, f)
+			f := newAssociationFixture(t)
+			evm, pax, _ := recoverTransactionIdentity(t, f.ctx)
+			before := snapshotAssociationStores(t, f)
 			events := f.ctx.EventManager().Events()
 			require.NotPanics(t, func() {
 				var err error
 				if routed {
-					err = legacy.NewAssociationHelper(f.evm, f.bank, f.auth, "").AssociateAddresses(f.ctx, pax, evm, pub)
+					err = legacy.NewAssociationHelper(f.evm, f.bank, f.auth).AssociateAddresses(f.ctx, pax, evm, pub)
 				} else {
 					err = helpers.NewAssociationHelper(f.evm, f.bank, f.auth).AssociateAddresses(f.ctx, pax, evm, pub, false)
 				}
 				require.ErrorIs(t, err, helpers.ErrInvalidPubkey)
 			})
-			require.Equal(t, before, repair784Snapshot(t, f))
+			require.Equal(t, before, snapshotAssociationStores(t, f))
 			require.Equal(t, events, f.ctx.EventManager().Events())
-		}
-	}
-}
-
-func TestIssue1682AssociationReplay(t *testing.T) {
-	for _, tc := range []struct {
-		name       string
-		selected   string
-		closest    string
-		tracing    bool
-		historical bool
-	}{
-		{"start", "v5.7.5", "v5.7.5", true, true},
-		{"next v580", "v5.7.5", "v5.8.0", true, true},
-		{"next v590", "v5.7.5", "v5.9.0", true, true},
-		{"next v600", "v5.7.5", "v6.0.0", true, true},
-		{"no closest upgrade", "v5.7.5", "", true, true},
-		{"unselected trace", "", "v5.7.5", true, false},
-		{"other selection", "v6.0.0", "v5.7.5", true, false},
-		{"non tracing start", "v5.7.5", "v5.7.5", false, false},
-		{"non tracing next v600", "v5.7.5", "v6.0.0", false, false},
-	} {
-		for _, migrationOnly := range []bool{false, true} {
-			for _, identical := range []bool{false, true} {
-				t.Run(tc.name+"/migration="+strconv.FormatBool(migrationOnly)+"/self="+strconv.FormatBool(identical), func(t *testing.T) {
-					f := repair784Keepers(t)
-					f.ctx = f.ctx.WithIsTracing(tc.tracing).WithClosestUpgradeName(tc.closest)
-					evm, pax, pub := repair784Identity(t, f.ctx)
-					cast := sdk.AccAddress(evm.Bytes())
-					if identical {
-						pax = cast
-					}
-					f.auth.SetAccount(f.ctx, authtypes.NewBaseAccount(cast, nil, 42, 7))
-					coins := repair784Fund(t, f, cast)
-					probe, _ := f.ctx.CacheContext()
-					nextNumber := f.auth.GetNextAccountNumber(probe)
-					h := legacy.NewAssociationHelper(f.evm, f.bank, f.auth, tc.selected)
-					if migrationOnly {
-						require.NoError(t, h.MigrateBalance(f.ctx, evm, pax))
-					} else {
-						require.NoError(t, h.AssociateAddresses(f.ctx, pax, evm, pub))
-					}
-					require.Equal(t, coins, f.bank.GetAllBalances(f.ctx, pax))
-					require.Equal(t, sdk.NewInt(19), f.bank.GetWeiBalance(f.ctx, pax))
-					acc := f.auth.GetAccount(f.ctx, pax)
-					if identical && tc.historical {
-						require.Nil(t, acc)
-					} else {
-						require.NotNil(t, acc)
-						if identical || (!migrationOnly && !tc.historical) {
-							require.Equal(t, uint64(42), acc.GetAccountNumber())
-							require.Equal(t, uint64(7), acc.GetSequence())
-						} else {
-							require.Equal(t, nextNumber, acc.GetAccountNumber())
-							require.NotEqual(t, uint64(42), acc.GetAccountNumber())
-							require.Zero(t, acc.GetSequence())
-						}
-						if migrationOnly {
-							require.Nil(t, acc.GetPubKey())
-						} else {
-							require.Equal(t, pub.Bytes(), acc.GetPubKey().Bytes())
-						}
-					}
-					if !identical {
-						require.Nil(t, f.auth.GetAccount(f.ctx, cast))
-						require.True(t, f.bank.GetAllBalances(f.ctx, cast).IsZero())
-						require.True(t, f.bank.GetWeiBalance(f.ctx, cast).IsZero())
-					}
-					mapped, found := f.evm.GetPaxAddress(f.ctx, evm)
-					require.Equal(t, !migrationOnly, found)
-					mappedEVM, reverseFound := f.evm.GetEVMAddress(f.ctx, pax)
-					require.Equal(t, !migrationOnly, reverseFound)
-					if migrationOnly {
-						require.Empty(t, mapped)
-						require.Equal(t, common.Address{}, mappedEVM)
-					} else {
-						require.Equal(t, pax, mapped)
-						require.Equal(t, evm, mappedEVM)
-					}
-				})
-			}
-		}
-		if !tc.historical {
-			for _, pub := range []cryptotypes.PubKey{nil, (*secp256k1.PubKey)(nil), &secp256k1.PubKey{}, &secp256k1.PubKey{Key: []byte{4}}} {
-				t.Run(tc.name+"/invalid key", func(t *testing.T) {
-					f := repair784Keepers(t)
-					f.ctx = f.ctx.WithIsTracing(tc.tracing).WithClosestUpgradeName(tc.closest)
-					evm, pax, _ := repair784Identity(t, f.ctx)
-					f.auth.SetAccount(f.ctx, authtypes.NewBaseAccount(sdk.AccAddress(evm.Bytes()), nil, 42, 7))
-					repair784Fund(t, f, sdk.AccAddress(evm.Bytes()))
-					before := repair784Snapshot(t, f)
-					events := f.ctx.EventManager().Events()
-					require.NotPanics(t, func() {
-						err := legacy.NewAssociationHelper(f.evm, f.bank, f.auth, tc.selected).AssociateAddresses(f.ctx, pax, evm, pub)
-						require.ErrorIs(t, err, helpers.ErrInvalidPubkey)
-					})
-					require.Equal(t, before, repair784Snapshot(t, f))
-					require.Equal(t, events, f.ctx.EventManager().Events())
-				})
-			}
 		}
 	}
 }

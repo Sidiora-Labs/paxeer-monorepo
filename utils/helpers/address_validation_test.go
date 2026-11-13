@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_783_AddressInvalidKey(t *testing.T) {
+func TestAddressValidationAndRecovery(t *testing.T) {
 	privateKey, err := crypto.HexToECDSA("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
 	valid := crypto.FromECDSAPub(&privateKey.PublicKey)
@@ -80,11 +80,11 @@ func TestRepairM_783_AddressInvalidKey(t *testing.T) {
 	require.Equal(t, expectedPubkey, pubkey.Bytes())
 }
 
-func TestRepairM_783_AddressTestChain(t *testing.T) {
+func TestAddressRecoveryChainDomains(t *testing.T) {
 	TestRecoverAddressesFromTx_Mainnet125(t)
 }
 
-func TestRepairM_783_AddressTestInvalidKey(t *testing.T) {
+func TestAddressConversionValidation(t *testing.T) {
 	TestEdgeCases(t)
 	TestAddressConversions(t)
 	TestKeyConversionConsistency(t)
