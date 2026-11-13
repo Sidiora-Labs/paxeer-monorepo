@@ -8,7 +8,6 @@ import re
 import shlex
 import subprocess
 
-import pytest
 import yaml
 
 
@@ -346,13 +345,6 @@ def workflow_coverage(manifests):
     return covered
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        ".github/workflows/docs-site.yml does not run "
-        "docs/site/paxeer-docs/package.json's test:static script."
-    ),
-)
 def test_js_test_scripts_have_runner():
     manifests = tracked_manifests()
     packages = packages_with_tests(manifests)
