@@ -12,7 +12,7 @@
  * changing the input. Receipt inputs use the production ABIs; matcher results, ledger patches,
  * phases and wallet requests passed to consumers are produced by the real modules, never doubles.
  */
-import { settlementSubmissionReopensThroughBroadcastRevertAndConfirmation } from './repair-22-33-266.proofs';
+import { settlementSubmissionReopensThroughBroadcastRevertAndConfirmation } from './bridge-lifecycle.proofs';
 
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';

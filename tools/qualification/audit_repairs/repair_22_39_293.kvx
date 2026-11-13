@@ -37,28 +37,28 @@ assertion = "Select each install by command and directory; require services/wall
 producer_task = "22.39.178"
 
 [case.launchpad_test]
-test_file = "tools/qualification/audit_repairs/test_repair_22_33_1016.py"
+test_file = "tools/qualification/audit_repairs/test_launchpad_package_discovery.py"
 test = "test_each_workspace_gate_requires_successful_discovery"
 producers = ["services/launchpad/Makefile", "tests/ci/data/launchpad_go_tests.py"]
 assertion = "test requires successful discovery before the current runner, propagates failure, and records empty coverage explicitly where applicable."
 producer_task = "22.39.75"
 
 [case.launchpad_race]
-test_file = "tools/qualification/audit_repairs/test_repair_22_33_1016.py"
+test_file = "tools/qualification/audit_repairs/test_launchpad_package_discovery.py"
 test = "test_each_workspace_gate_requires_successful_discovery"
 producers = ["services/launchpad/Makefile", "tests/ci/data/launchpad_go_tests.py"]
 assertion = "race requires successful discovery before the current runner, propagates failure, and records empty coverage explicitly where applicable."
 producer_task = "22.39.75"
 
 [case.launchpad_cover]
-test_file = "tools/qualification/audit_repairs/test_repair_22_33_1016.py"
+test_file = "tools/qualification/audit_repairs/test_launchpad_package_discovery.py"
 test = "test_each_workspace_gate_requires_successful_discovery"
 producers = ["services/launchpad/Makefile", "tests/ci/data/launchpad_go_tests.py"]
 assertion = "cover requires successful discovery before the current runner, propagates failure, and records empty coverage explicitly where applicable."
 producer_task = "22.39.75"
 
 [case.coverage]
-test_file = "tools/qualification/audit_repairs/test_repair_22_33_1017.py"
+test_file = "tools/qualification/audit_repairs/test_launchpad_coverage_inventory.py"
 test = "test_makefile_boundary_and_wiring_request_are_explicit"
 producers = ["services/launchpad/Makefile", "tests/ci/data/launchpad_go_tests.py"]
 assertion = "Exact coverage runner profile argument, atomic per-package profiles and final profile serialization; inventory and money-module checks retained."

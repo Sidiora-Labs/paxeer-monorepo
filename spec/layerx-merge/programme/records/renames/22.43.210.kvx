@@ -1,0 +1,12 @@
+[manifest]
+task = "22.43.210"
+records_moved = 0
+files_renamed = 2
+
+[file.1]
+from = "tools/deploy/repair-22.33.728.kvx"
+to = "tools/deploy/railway-error-redaction.kvx"
+
+[file.2]
+from = "tools/deploy/tests/test_repair_22_33_728.py"
+to = "tools/deploy/tests/test_railway_error_redaction.py"
