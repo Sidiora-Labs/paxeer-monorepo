@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.43"
+pages = 20
+
+[page.1]
+path = "apps/explorer/CLAUDE.md"
+status = "corrected"
+
+[page.2]
+path = "apps/explorer/README.md"
+status = "corrected"
+
+[page.3]
+path = "apps/explorer/public/README.md"
+status = "corrected"
+
+[page.4]
+path = "apps/explorer/public/static/fonts/README.md"
+status = "reviewed"
+
+[page.5]
+path = "apps/explorer/toolkit/package/README.md"
+status = "corrected"
+
+[page.6]
+path = "apps/explorer/ui/snippets/user/README.md"
+status = "corrected"
+
+[page.7]
+path = "apps/inference-peer/README.md"
+status = "corrected"
+
+[page.8]
+path = "apps/launchpad/mobile/ARCHITECTURE.md"
+status = "corrected"
+
+[page.9]
+path = "apps/launchpad/qualification/account-ui/README.md"
+status = "reviewed"
+
+[page.10]
+path = "apps/launchpad/qualification/market-ui/README.md"
+status = "reviewed"
+
+[page.11]
+path = "apps/perps/deploy/README.md"
+status = "corrected"
+
+[page.12]
+path = "apps/perps/src/app/modals/SettingsModal.md"
+status = "reviewed"
+
+[page.13]
+path = "apps/perps/src/components/paxeer/README.md"
+status = "reviewed"
+
+[page.14]
+path = "apps/perps/src/core/feeds.md"
+status = "corrected"
+
+[page.15]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/bug_report.md"
+status = "corrected"
+
+[page.16]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/feature_request.md"
+status = "corrected"
+
+[page.17]
+path = "apps/wallet/.github/ISSUE_TEMPLATE/question.md"
+status = "corrected"
+
+[page.18]
+path = "apps/wallet/.github/PULL_REQUEST_TEMPLATE.md"
+status = "corrected"
+
+[page.19]
+path = "apps/wallet/.github/copilot-instructions.md"
+status = "reviewed"
+
+[page.20]
+path = "apps/wallet/README.md"
+status = "corrected"

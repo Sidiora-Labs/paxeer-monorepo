@@ -45,8 +45,8 @@ Reown. With neither connector configured, blockchain interaction is disabled.
 [Web3Provider](../../shared/web3/Web3Provider.tsx) selects the matching provider.
 
 For Paxeer, set `NEXT_PUBLIC_NETWORK_ID=125` and supply
-`NEXT_PUBLIC_NETWORK_RPC_URL`, for example
-`https://api1.mainnet-beta.paxeer.network/`, alongside the other chain parameters.
+`NEXT_PUBLIC_NETWORK_RPC_URL` with a node root URL alongside the other chain
+parameters.
 The RPC input accepts a URL or JSON array of URLs in
 [chain.ts](../../../configs/app/chain.ts). The tracked Paxeer presets supply the
 chain identity and currency but leave this RPC input unset.

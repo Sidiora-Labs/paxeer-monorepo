@@ -101,8 +101,10 @@ The request requires Content-Length and application/json and is limited to
 `await identity.enrolPeer(enrolUrl, { document, headers })` sends the document
 unchanged when supplied as text or UTF-8 bytes, or JSON-encodes an object. It
 returns `{ enrolled: true, manifest_digest, acceptance, bond_lock, bid }` with
-hex digests and authenticated transaction IDs. Refusals preserve HTTP status and
-JSON reason: framing/JSON errors use 400, a missing length 411, an oversized body
+hex digests and authenticated transaction IDs. On an HTTP refusal, `enrolPeer`
+throws an `Error` whose message includes the status and up to 4096 characters
+of response text. The host returns JSON errors: framing/JSON errors use 400,
+a missing length 411, an oversized body
 413, a non-JSON content type 415, invalid documents 422, program refusals 409,
 relay failures 502, and missing host enrolment settings or unavailable chain
 state 503. `test/fixtures/host-enrol-route.json` is shared by host and peer tests.
@@ -116,8 +118,8 @@ and quote records for current chain state.
 
 ## Protocol fixtures
 
-`test/fixtures/host-signal-frames.json` contains all eleven directional signalling
-vectors, a public deterministic test seed/key, and the exact hello and deal
+`test/fixtures/host-signal-frames.json` contains eleven directional signalling
+vectors for connection setup, relay and deal acknowledgement, a public deterministic test seed/key, and the exact hello and deal
 acknowledgement signing bytes and signatures. Tests use real loopback WebSockets
 and verify hello bytes independently of the client's signing helper.
 
