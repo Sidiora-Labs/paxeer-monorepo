@@ -47,13 +47,13 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-const repairM1208Height int64 = 100
-const repairM1208Gas uint64 = 2_000_000
+const stakingReplayHeight int64 = 100
+const stakingReplayGas uint64 = 2_000_000
 
-var repairM1208Address = common.HexToAddress(staking.StakingAddress)
+var stakingReplayAddress = common.HexToAddress(staking.StakingAddress)
 
-type repairM1208Env struct {
-	app     *repairM1208Keepers
+type stakingReplayEnv struct {
+	app     *stakingReplayKeepers
 	keeper  evmkeeper.Keeper
 	ctx     sdk.Context
 	key     *ecdsa.PrivateKey
@@ -64,7 +64,7 @@ type repairM1208Env struct {
 	stake   sdk.Int
 }
 
-type repairM1208Keepers struct {
+type stakingReplayKeepers struct {
 	utils.Keepers
 	BankKeeper         bankkeeper.BaseKeeper
 	AccountKeeper      authkeeper.AccountKeeper
@@ -74,18 +74,18 @@ type repairM1208Keepers struct {
 	DistributionKeeper distrkeeper.Keeper
 }
 
-func (k *repairM1208Keepers) BankK() utils.BankKeeper { return k.BankKeeper }
-func (k *repairM1208Keepers) EVMK() utils.EVMKeeper   { return k.EvmKeeper }
-func (k *repairM1208Keepers) StakingK() utils.StakingKeeper {
+func (k *stakingReplayKeepers) BankK() utils.BankKeeper { return k.BankKeeper }
+func (k *stakingReplayKeepers) EVMK() utils.EVMKeeper   { return k.EvmKeeper }
+func (k *stakingReplayKeepers) StakingK() utils.StakingKeeper {
 	return stakingkeeper.NewMsgServerImpl(k.StakingKeeper)
 }
-func (k *repairM1208Keepers) StakingQ() utils.StakingQuerier {
+func (k *stakingReplayKeepers) StakingQ() utils.StakingQuerier {
 	return stakingkeeper.Querier{Keeper: k.StakingKeeper}
 }
-func (k *repairM1208Keepers) DistributionK() utils.DistributionKeeper { return k.DistributionKeeper }
-func (k *repairM1208Keepers) GetPrecompileKeepers() utils.Keepers     { return k }
+func (k *stakingReplayKeepers) DistributionK() utils.DistributionKeeper { return k.DistributionKeeper }
+func (k *stakingReplayKeepers) GetPrecompileKeepers() utils.Keepers     { return k }
 
-func repairM1208Fixture(t *testing.T) (*repairM1208Keepers, sdk.Context) {
+func stakingReplayFixture(t *testing.T) (*stakingReplayKeepers, sdk.Context) {
 	t.Helper()
 	if _, registered := sdk.GetDenomUnit("uhpx"); !registered {
 		require.NoError(t, sdk.RegisterDenom("uhpx", sdk.OneDec()))
@@ -103,7 +103,7 @@ func repairM1208Fixture(t *testing.T) (*repairM1208Keepers, sdk.Context) {
 		multi.MountStoreWithDB(key, sdk.StoreTypeTransient, nil)
 	}
 	require.NoError(t, multi.LoadLatestVersion())
-	ctx := sdk.NewContext(multi, tmproto.Header{ChainID: "repair-m1208", Height: repairM1208Height,
+	ctx := sdk.NewContext(multi, tmproto.Header{ChainID: "repair-m1208", Height: stakingReplayHeight,
 		Time: time.Unix(1_800_000_000, 0).UTC()}, false).
 		WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 	registry := codectypes.NewInterfaceRegistry()
@@ -121,7 +121,7 @@ func repairM1208Fixture(t *testing.T) (*repairM1208Keepers, sdk.Context) {
 		stakingtypes.BondedPoolName:    {authtypes.Burner, authtypes.Staking},
 		stakingtypes.NotBondedPoolName: {authtypes.Burner, authtypes.Staking},
 	}
-	k := &repairM1208Keepers{}
+	k := &stakingReplayKeepers{}
 	k.AccountKeeper = authkeeper.NewAccountKeeper(cdc, keys[authtypes.StoreKey], subspace(authtypes.ModuleName), authtypes.ProtoBaseAccount, permissions)
 	k.AccountKeeper.SetParams(ctx, authtypes.DefaultParams())
 	for name, perms := range permissions {
@@ -145,9 +145,9 @@ func repairM1208Fixture(t *testing.T) (*repairM1208Keepers, sdk.Context) {
 	return k, ctx
 }
 
-func newRepairM1208Env(t *testing.T) *repairM1208Env {
+func newStakingReplayEnv(t *testing.T) *stakingReplayEnv {
 	t.Helper()
-	a, ctx := repairM1208Fixture(t)
+	a, ctx := stakingReplayFixture(t)
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, pcommon.MergeUpgrade))
 	private := &secp256k1.PrivKey{Key: make([]byte, 32)}
 	private.Key[30], private.Key[31] = 12, 8
@@ -163,27 +163,27 @@ func newRepairM1208Env(t *testing.T) *repairM1208Env {
 	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(ctx, "mint", payer, funds))
 	current, err := staking.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
-	return &repairM1208Env{app: a, keeper: *a.EvmKeeper, ctx: ctx, key: key, caller: caller,
+	return &stakingReplayEnv{app: a, keeper: *a.EvmKeeper, ctx: ctx, key: key, caller: caller,
 		payer: payer, current: current, stake: stake, value: new(big.Int).Mul(stake.BigInt(), big.NewInt(1_000_000_000_000))}
 }
 
-func (e *repairM1208Env) activate() {
-	e.app.UpgradeKeeper.SetDone(e.ctx.WithBlockHeight(repairM1208Height), pcommon.MergeUpgrade)
+func (e *stakingReplayEnv) activate() {
+	e.app.UpgradeKeeper.SetDone(e.ctx.WithBlockHeight(stakingReplayHeight), pcommon.MergeUpgrade)
 }
 
-func (e *repairM1208Env) input(t *testing.T, key string) []byte {
+func (e *stakingReplayEnv) input(t *testing.T, key string) []byte {
 	t.Helper()
 	input, err := e.current.Pack(staking.CreateValidatorMethod, key, "repair-m1208", "0.05", "0.20", "0.01", big.NewInt(1))
 	require.NoError(t, err)
 	return input
 }
 
-func (e *repairM1208Env) message(t *testing.T, key string) *core.Message {
+func (e *stakingReplayEnv) message(t *testing.T, key string) *core.Message {
 	t.Helper()
 	signer := ethtypes.LatestSignerForChainID(e.keeper.ChainID(e.ctx))
 	tx, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{
-		GasPrice: big.NewInt(1_000_000_000_000), Gas: repairM1208Gas,
-		To: &repairM1208Address, Value: e.value, Data: e.input(t, key),
+		GasPrice: big.NewInt(1_000_000_000_000), Gas: stakingReplayGas,
+		To: &stakingReplayAddress, Value: e.value, Data: e.input(t, key),
 	}), signer, e.key)
 	require.NoError(t, err)
 	wire, err := tx.MarshalBinary()
@@ -197,7 +197,7 @@ func (e *repairM1208Env) message(t *testing.T, key string) *core.Message {
 	return msg
 }
 
-func (e *repairM1208Env) evm(t *testing.T, contracts map[common.Address]vm.PrecompiledContract) (*vm.EVM, *state.DBImpl) {
+func (e *stakingReplayEnv) evm(t *testing.T, contracts map[common.Address]vm.PrecompiledContract) (*vm.EVM, *state.DBImpl) {
 	t.Helper()
 	db := state.NewDBImpl(e.ctx, &e.keeper, false)
 	t.Cleanup(db.Cleanup)
@@ -208,7 +208,7 @@ func (e *repairM1208Env) evm(t *testing.T, contracts map[common.Address]vm.Preco
 	return evm, db
 }
 
-type repairM1208State struct {
+type stakingReplayState struct {
 	Balances    []sdk.Coins
 	Wei         []sdk.Int
 	Validators  []stakingtypes.Validator
@@ -216,11 +216,11 @@ type repairM1208State struct {
 	Supply      sdk.Coin
 }
 
-func (e *repairM1208Env) state(ctx sdk.Context) repairM1208State {
-	addresses := []sdk.AccAddress{e.payer, e.keeper.GetPaxAddressOrDefault(ctx, repairM1208Address),
+func (e *stakingReplayEnv) state(ctx sdk.Context) stakingReplayState {
+	addresses := []sdk.AccAddress{e.payer, e.keeper.GetPaxAddressOrDefault(ctx, stakingReplayAddress),
 		e.app.AccountKeeper.GetModuleAddress(stakingtypes.NotBondedPoolName),
 		e.app.AccountKeeper.GetModuleAddress(stakingtypes.BondedPoolName)}
-	result := repairM1208State{Validators: e.app.StakingKeeper.GetAllValidators(ctx),
+	result := stakingReplayState{Validators: e.app.StakingKeeper.GetAllValidators(ctx),
 		Delegations: e.app.StakingKeeper.GetAllDelegations(ctx),
 		Supply:      e.app.BankKeeper.GetSupply(ctx, sdk.MustGetBaseDenom())}
 	for _, address := range addresses {
@@ -230,7 +230,7 @@ func (e *repairM1208Env) state(ctx sdk.Context) repairM1208State {
 	return result
 }
 
-func TestRepairM_1208_KeyLengthRefusal(t *testing.T) {
+func TestKeyLengthRefusal(t *testing.T) {
 	cases := []struct{ name, key, reason string }{
 		{"empty", "", "invalid public key length: expected 32 bytes, got 0"},
 		{"one_byte", "ab", "invalid public key length: expected 32 bytes, got 1"},
@@ -242,10 +242,10 @@ func TestRepairM_1208_KeyLengthRefusal(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			e := newRepairM1208Env(t)
+			e := newStakingReplayEnv(t)
 			e.activate()
 			msg := e.message(t, tc.key)
-			evm, db := e.evm(t, map[common.Address]vm.PrecompiledContract{repairM1208Address: e.current})
+			evm, db := e.evm(t, map[common.Address]vm.PrecompiledContract{stakingReplayAddress: e.current})
 			before := e.state(db.Ctx())
 			require.NotPanics(t, func() {
 				_, left, err := evm.Call(msg.From, *msg.To, msg.Data, msg.GasLimit, uint256.MustFromBig(msg.Value))
@@ -262,20 +262,20 @@ func TestRepairM_1208_KeyLengthRefusal(t *testing.T) {
 	}
 }
 
-func TestRepairM_1208_BeforePayment(t *testing.T) {
+func TestBeforePayment(t *testing.T) {
 	for _, size := range []int{0, 31, 33} {
 		t.Run(fmt.Sprint(size), func(t *testing.T) {
-			e := newRepairM1208Env(t)
+			e := newStakingReplayEnv(t)
 			e.activate()
-			precompile := e.keeper.GetPaxAddressOrDefault(e.ctx, repairM1208Address)
+			precompile := e.keeper.GetPaxAddressOrDefault(e.ctx, stakingReplayAddress)
 			require.NoError(t, e.app.BankKeeper.SendCoins(e.ctx, e.payer, precompile,
 				sdk.NewCoins(sdk.NewCoin(sdk.MustGetBaseDenom(), e.stake))))
-			evm, db := e.evm(t, map[common.Address]vm.PrecompiledContract{repairM1208Address: e.current})
+			evm, db := e.evm(t, map[common.Address]vm.PrecompiledContract{stakingReplayAddress: e.current})
 			before := e.state(db.Ctx())
 			payments := 0
 			hooks := &tracing.Hooks{OnEnter: func(int, byte, common.Address, common.Address, []byte, uint64, *big.Int) { payments++ }}
 			_, _, err := e.current.RunAndCalculateGas(evm, e.caller, e.caller,
-				e.input(t, strings.Repeat("ab", size)), repairM1208Gas, e.value, hooks, false, false)
+				e.input(t, strings.Repeat("ab", size)), stakingReplayGas, e.value, hooks, false, false)
 			require.ErrorIs(t, err, vm.ErrExecutionReverted)
 			require.EqualError(t, db.GetPrecompileError(), fmt.Sprintf("invalid public key length: expected 32 bytes, got %d", size))
 			require.Zero(t, payments, "the payment refund must never start")
@@ -285,18 +285,18 @@ func TestRepairM_1208_BeforePayment(t *testing.T) {
 	}
 }
 
-func TestRepairM_1208_ValidKey(t *testing.T) {
+func TestValidKey(t *testing.T) {
 	public := ed25519.GenPrivKeyFromSecret([]byte("repair-m1208-consensus")).PubKey()
 	for _, upper := range []bool{false, true} {
 		t.Run(fmt.Sprintf("uppercase_%t", upper), func(t *testing.T) {
-			e := newRepairM1208Env(t)
+			e := newStakingReplayEnv(t)
 			e.activate()
 			key := hex.EncodeToString(public.Bytes())
 			if upper {
 				key = strings.ToUpper(key)
 			}
 			msg := e.message(t, key)
-			evm, db := e.evm(t, map[common.Address]vm.PrecompiledContract{repairM1208Address: e.current})
+			evm, db := e.evm(t, map[common.Address]vm.PrecompiledContract{stakingReplayAddress: e.current})
 			before := e.state(db.Ctx())
 			out, left, err := evm.Call(msg.From, *msg.To, msg.Data, msg.GasLimit, uint256.MustFromBig(msg.Value))
 			require.NoError(t, err)
@@ -328,35 +328,35 @@ func TestRepairM_1208_ValidKey(t *testing.T) {
 	}
 }
 
-func TestRepairM_1208_HistoricalReplay(t *testing.T) {
+func TestHistoricalReplay(t *testing.T) {
 	for _, phase := range []string{"unscheduled", "scheduled", "applied"} {
-		for _, height := range []int64{repairM1208Height - 1, repairM1208Height, repairM1208Height + 1} {
+		for _, height := range []int64{stakingReplayHeight - 1, stakingReplayHeight, stakingReplayHeight + 1} {
 			for _, trace := range []bool{false, true} {
 				t.Run(fmt.Sprintf("%s/height_%d/tracing_%t", phase, height, trace), func(t *testing.T) {
-					e := newRepairM1208Env(t)
+					e := newStakingReplayEnv(t)
 					e.app.UpgradeKeeper.SetDone(e.ctx.WithBlockHeight(1), "v6.1.4")
 					if phase != "unscheduled" {
 						require.NoError(t, e.app.UpgradeKeeper.ScheduleUpgrade(e.ctx.WithBlockHeight(2),
-							upgradetypes.Plan{Name: pcommon.MergeUpgrade, Height: repairM1208Height}))
+							upgradetypes.Plan{Name: pcommon.MergeUpgrade, Height: stakingReplayHeight}))
 					}
 					if phase == "applied" {
 						e.activate()
 					}
 					e.ctx = e.ctx.WithBlockHeight(height).WithIsTracing(trace)
 					versions := staking.GetVersioned(pcommon.MergeUpgrade, e.app.GetPrecompileKeepers())
-					e.keeper.SetCustomPrecompiles(map[common.Address]utils.VersionedPrecompiles{repairM1208Address: versions}, pcommon.MergeUpgrade)
-					served := e.keeper.CustomPrecompiles(e.ctx)[repairM1208Address]
+					e.keeper.SetCustomPrecompiles(map[common.Address]utils.VersionedPrecompiles{stakingReplayAddress: versions}, pcommon.MergeUpgrade)
+					served := e.keeper.CustomPrecompiles(e.ctx)[stakingReplayAddress]
 					require.NotNil(t, served)
-					active := phase == "applied" && height >= repairM1208Height
+					active := phase == "applied" && height >= stakingReplayHeight
 					wantVersion := "v6.1.4"
 					if active {
 						wantVersion = pcommon.MergeUpgrade
 					}
-					require.Equal(t, wantVersion, e.keeper.GetCustomPrecompilesVersions(e.ctx)[repairM1208Address])
+					require.Equal(t, wantVersion, e.keeper.GetCustomPrecompilesVersions(e.ctx)[stakingReplayAddress])
 					if trace {
 						require.Same(t, versions[wantVersion], served)
 					}
-					evm, db := e.evm(t, map[common.Address]vm.PrecompiledContract{repairM1208Address: served})
+					evm, db := e.evm(t, map[common.Address]vm.PrecompiledContract{stakingReplayAddress: served})
 					msg := e.message(t, strings.Repeat("ab", 31))
 					call := func() {
 						_, _, err := evm.Call(msg.From, *msg.To, msg.Data, msg.GasLimit, uint256.MustFromBig(msg.Value))
@@ -372,7 +372,7 @@ func TestRepairM_1208_HistoricalReplay(t *testing.T) {
 					require.NoError(t, err)
 					legacyCtx, _ := e.ctx.CacheContext()
 					e.ctx = legacyCtx
-					legacyEVM, _ := e.evm(t, map[common.Address]vm.PrecompiledContract{repairM1208Address: legacy})
+					legacyEVM, _ := e.evm(t, map[common.Address]vm.PrecompiledContract{stakingReplayAddress: legacy})
 					require.PanicsWithValue(t, "pubkey is incorrect size", func() {
 						_, _, _ = legacyEVM.Call(msg.From, *msg.To, msg.Data, msg.GasLimit, uint256.MustFromBig(msg.Value))
 					})

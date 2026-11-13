@@ -2,6 +2,6 @@ package addr_test
 
 import "testing"
 
-func TestRepairM_1266_AddrGasChargeLiteral(t *testing.T) {
+func TestAddrGasChargeLiteral(t *testing.T) {
 	TestAddrGasGolden(t)
 }
