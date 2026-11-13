@@ -18,7 +18,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 )
 
-type repairM1Document struct {
+type nativeWitnessDocument struct {
 	MaxModule uint16 `json:"max_module"`
 	Spot      uint16
 	Service   uint16
@@ -26,13 +26,13 @@ type repairM1Document struct {
 	Vectors   []repairNativeWitness
 }
 
-func repairM1Fixture(t *testing.T, compatibility bool) repairM1Document {
+func loadNativeWitnessFixture(t *testing.T, compatibility bool) nativeWitnessDocument {
 	t.Helper()
 	raw, err := nativefixture.Document(compatibility)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var document repairM1Document
+	var document nativeWitnessDocument
 	if err := json.Unmarshal(raw, &document); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func repairM1Fixture(t *testing.T, compatibility bool) repairM1Document {
 	return document
 }
 
-func repairM1CheckWitness(t *testing.T, native repairNativeWitness, width uint32) {
+func checkNativeWitnessCompatibility(t *testing.T, native repairNativeWitness, width uint32) {
 	t.Helper()
 	raw := repairBytes(t, native.Proof)
 	trusted := repairHash(t, native.Root)
@@ -145,7 +145,7 @@ func repairM1CheckWitness(t *testing.T, native repairNativeWitness, width uint32
 	}
 }
 
-func repairM1CurrentHost(t *testing.T) {
+func checkCurrentHostWitnesses(t *testing.T) {
 	t.Helper()
 	root, err := testvectors.RepositoryRoot()
 	if err != nil {
@@ -180,7 +180,7 @@ func repairM1CurrentHost(t *testing.T) {
 	if string(snapshot) != preamble {
 		t.Fatal("fixture must compile the current production node creation and reset code")
 	}
-	document := repairM1Fixture(t, false)
+	document := loadNativeWitnessFixture(t, false)
 	want := map[uint16]int{1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 9: 0, 10: 0}
 	if document.Spot != 10 || document.Service != 5 || len(document.Modules) != len(want) {
 		t.Fatalf("unexpected current host registration: %+v", document)
@@ -217,7 +217,7 @@ func repairM1CurrentHost(t *testing.T) {
 		} else {
 			t.Fatalf("unknown universal witness %s", native.Name)
 		}
-		t.Run(native.Name, func(t *testing.T) { repairM1CheckWitness(t, native, 11) })
+		t.Run(native.Name, func(t *testing.T) { checkNativeWitnessCompatibility(t, native, 11) })
 	}
 	for module, count := range want {
 		if count != 3 {
@@ -229,9 +229,9 @@ func repairM1CurrentHost(t *testing.T) {
 	}
 }
 
-func repairM1Compatibility(t *testing.T) {
+func checkReservedModuleWitnesses(t *testing.T) {
 	t.Helper()
-	document := repairM1Fixture(t, true)
+	document := loadNativeWitnessFixture(t, true)
 	if len(document.Vectors) != 2 {
 		t.Fatalf("got %d compatibility witnesses, want 2", len(document.Vectors))
 	}
@@ -244,18 +244,18 @@ func repairM1Compatibility(t *testing.T) {
 		if native.Root != document.Vectors[0].Root {
 			t.Fatal("compatibility witnesses have different roots")
 		}
-		t.Run(native.Name, func(t *testing.T) { repairM1CheckWitness(t, native, 12) })
+		t.Run(native.Name, func(t *testing.T) { checkNativeWitnessCompatibility(t, native, 12) })
 	}
 	if !seen[10] || !seen[11] {
 		t.Fatal("missing module 10 or 11 inclusion")
 	}
 }
 
-func TestRepairM_1_CurrentHostNativeWitnesses(t *testing.T) { repairM1CurrentHost(t) }
+func TestCurrentHostNativeWitnesses(t *testing.T) { checkCurrentHostWitnesses(t) }
 
-func TestRepairM_1_TwelveLeafModuleInclusion(t *testing.T) { repairM1Compatibility(t) }
+func TestTwelveLeafModuleInclusion(t *testing.T) { checkReservedModuleWitnesses(t) }
 
-func TestRepairM_1_PreservedRefusals(t *testing.T) {
+func TestNativeWitnessHistoricalRefusals(t *testing.T) {
 	TestStateWitnessRefusalClasses(t)
 	testHistoricalNativeStateProofsFromCore(t)
 }

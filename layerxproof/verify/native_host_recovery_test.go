@@ -17,46 +17,46 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 )
 
-type repairM2Path struct {
+type nativeRecoveryPath struct {
 	Index    uint32   `json:"index"`
 	Count    uint32   `json:"count"`
 	Siblings []string `json:"siblings"`
 }
 
-type repairM2Account struct {
-	ID            string       `json:"id"`
-	Name          string       `json:"name"`
-	Kind          uint8        `json:"kind"`
-	Asset         string       `json:"asset"`
-	Balance       codec.U128   `json:"balance"`
-	Proof         string       `json:"proof"`
-	Key           string       `json:"key"`
-	Value         string       `json:"value"`
-	AccountPath   repairM2Path `json:"account_path"`
-	ModulePath    repairM2Path `json:"module_path"`
-	CompositePath repairM2Path `json:"composite_path"`
+type nativeRecoveryAccount struct {
+	ID            string             `json:"id"`
+	Name          string             `json:"name"`
+	Kind          uint8              `json:"kind"`
+	Asset         string             `json:"asset"`
+	Balance       codec.U128         `json:"balance"`
+	Proof         string             `json:"proof"`
+	Key           string             `json:"key"`
+	Value         string             `json:"value"`
+	AccountPath   nativeRecoveryPath `json:"account_path"`
+	ModulePath    nativeRecoveryPath `json:"module_path"`
+	CompositePath nativeRecoveryPath `json:"composite_path"`
 }
 
-type repairM2State struct {
-	Root         string            `json:"root"`
-	Width        uint32            `json:"width"`
-	NextSequence uint64            `json:"next_sequence"`
-	Modules      []uint16          `json:"modules"`
-	Accounts     []repairM2Account `json:"accounts"`
+type nativeRecoveryState struct {
+	Root         string                  `json:"root"`
+	Width        uint32                  `json:"width"`
+	NextSequence uint64                  `json:"next_sequence"`
+	Modules      []uint16                `json:"modules"`
+	Accounts     []nativeRecoveryAccount `json:"accounts"`
 }
 
-type repairM2Transcript struct {
-	Producer       string            `json:"producer"`
-	SourceHashes   map[string]string `json:"source_hashes"`
-	GlobalSequence uint64            `json:"global_sequence"`
-	Before         repairM2State     `json:"before"`
-	Snapshot       string            `json:"snapshot"`
-	SnapshotDigest string            `json:"snapshot_digest"`
-	ReceiptRoot    string            `json:"receipt_root"`
-	After          repairM2State     `json:"after"`
+type nativeRecoveryTranscript struct {
+	Producer       string              `json:"producer"`
+	SourceHashes   map[string]string   `json:"source_hashes"`
+	GlobalSequence uint64              `json:"global_sequence"`
+	Before         nativeRecoveryState `json:"before"`
+	Snapshot       string              `json:"snapshot"`
+	SnapshotDigest string              `json:"snapshot_digest"`
+	ReceiptRoot    string              `json:"receipt_root"`
+	After          nativeRecoveryState `json:"after"`
 }
 
-func repairM2Bytes(t *testing.T, encoded string) []byte {
+func decodeNativeRecoveryBytes(t *testing.T, encoded string) []byte {
 	t.Helper()
 	raw, err := hex.DecodeString(encoded)
 	if err != nil {
@@ -68,22 +68,22 @@ func repairM2Bytes(t *testing.T, encoded string) []byte {
 	return raw
 }
 
-func repairM2Hash(t *testing.T, encoded string) [32]byte {
+func decodeNativeRecoveryHash(t *testing.T, encoded string) [32]byte {
 	t.Helper()
-	raw := repairM2Bytes(t, encoded)
+	raw := decodeNativeRecoveryBytes(t, encoded)
 	if len(raw) != 32 {
 		t.Fatalf("native hash has %d bytes", len(raw))
 	}
 	return [32]byte(raw)
 }
 
-func repairM2Load(t *testing.T) repairM2Transcript {
+func loadNativeRecoveryTranscript(t *testing.T) nativeRecoveryTranscript {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/repair_m2.json")
+	raw, err := os.ReadFile("testdata/native_host_recovery.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var transcript repairM2Transcript
+	var transcript nativeRecoveryTranscript
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&transcript); err != nil {
@@ -94,7 +94,7 @@ func repairM2Load(t *testing.T) repairM2Transcript {
 	}
 	sources := []string{
 		"modules/lxphost/host.go",
-		"layerxproof/verify/testdata/repair_m2.c",
+		"layerxproof/verify/testdata/native_host_recovery.c",
 		"src/state/lxp_state_root.c",
 		"src/state/lxp_state_proof.c",
 		"src/state/lxp_snapshot.c",
@@ -108,28 +108,28 @@ func repairM2Load(t *testing.T) repairM2Transcript {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if sha256.Sum256(raw) != repairM2Hash(t, transcript.SourceHashes[source]) {
+		if sha256.Sum256(raw) != decodeNativeRecoveryHash(t, transcript.SourceHashes[source]) {
 			t.Fatalf("native producer %s changed; regenerate the recorded transcript", source)
 		}
 	}
 	return transcript
 }
 
-func repairM2CheckPath(t *testing.T, native repairM2Path, index, count uint32, siblings [][32]byte) {
+func checkNativeRecoveryPath(t *testing.T, native nativeRecoveryPath, index, count uint32, siblings [][32]byte) {
 	t.Helper()
 	if native.Index != index || native.Count != count || len(native.Siblings) != len(siblings) {
 		t.Fatalf("Go path (%d/%d, %d siblings) differs from C path %+v", index, count, len(siblings), native)
 	}
 	for i, sibling := range siblings {
-		if sibling != repairM2Hash(t, native.Siblings[i]) {
+		if sibling != decodeNativeRecoveryHash(t, native.Siblings[i]) {
 			t.Fatalf("sibling %d differs from the C producer", i)
 		}
 	}
 }
 
-func repairM2CheckState(t *testing.T, state repairM2State) {
+func checkNativeRecoveryState(t *testing.T, state nativeRecoveryState) {
 	t.Helper()
-	root := repairM2Hash(t, state.Root)
+	root := decodeNativeRecoveryHash(t, state.Root)
 	if state.Width != 11 || state.NextSequence != 2 {
 		t.Fatalf("current host width/sequence = %d/%d, want 11/2", state.Width, state.NextSequence)
 	}
@@ -149,9 +149,9 @@ func repairM2CheckState(t *testing.T, state repairM2State) {
 	seenIndices := make(map[uint32]bool)
 	seenIDs := make(map[[32]byte]bool)
 	for _, native := range state.Accounts {
-		name := string(repairM2Bytes(t, native.Name))
+		name := string(decodeNativeRecoveryBytes(t, native.Name))
 		t.Run(name, func(t *testing.T) {
-			id, asset := repairM2Hash(t, native.ID), repairM2Hash(t, native.Asset)
+			id, asset := decodeNativeRecoveryHash(t, native.ID), decodeNativeRecoveryHash(t, native.Asset)
 			if seenIDs[id] {
 				t.Fatal("duplicate native account")
 			}
@@ -175,7 +175,7 @@ func repairM2CheckState(t *testing.T, state repairM2State) {
 			if err != nil || derived != id {
 				t.Fatalf("Go/C account identity differs: %x, %v", derived, err)
 			}
-			wire := repairM2Bytes(t, native.Proof)
+			wire := decodeNativeRecoveryBytes(t, native.Proof)
 			witness, err := verify.StateProof(wire, root)
 			if err != nil {
 				t.Fatalf("C witness -> Go StateProof: %v", err)
@@ -186,8 +186,8 @@ func repairM2CheckState(t *testing.T, state repairM2State) {
 			}
 			key := append([]byte{4}, id[:]...)
 			if witness.ModuleID != 0 || !bytes.Equal(witness.Key, key) ||
-				!bytes.Equal(witness.Key, repairM2Bytes(t, native.Key)) ||
-				!bytes.Equal(witness.Value, repairM2Bytes(t, native.Value)) || witness.AccountPath == nil {
+				!bytes.Equal(witness.Key, decodeNativeRecoveryBytes(t, native.Key)) ||
+				!bytes.Equal(witness.Value, decodeNativeRecoveryBytes(t, native.Value)) || witness.AccountPath == nil {
 				t.Fatal("Go witness differs from the native account leaf")
 			}
 			if witness.AccountPath.Count != 3 || witness.LeafCountB != state.Width || len(witness.SiblingsB) != 4 {
@@ -197,9 +197,9 @@ func repairM2CheckState(t *testing.T, state repairM2State) {
 				t.Fatal("duplicate native account tree position")
 			}
 			seenIndices[witness.AccountPath.Index] = true
-			repairM2CheckPath(t, native.AccountPath, witness.AccountPath.Index, witness.AccountPath.Count, witness.AccountPath.Siblings)
-			repairM2CheckPath(t, native.ModulePath, witness.LeafIndexA, witness.LeafCountA, witness.SiblingsA)
-			repairM2CheckPath(t, native.CompositePath, uint32(witness.ModuleID), witness.LeafCountB, witness.SiblingsB)
+			checkNativeRecoveryPath(t, native.AccountPath, witness.AccountPath.Index, witness.AccountPath.Count, witness.AccountPath.Siblings)
+			checkNativeRecoveryPath(t, native.ModulePath, witness.LeafIndexA, witness.LeafCountA, witness.SiblingsA)
+			checkNativeRecoveryPath(t, native.CompositePath, uint32(witness.ModuleID), witness.LeafCountB, witness.SiblingsB)
 			account, err := verify.AccountProof(wire, root, id, &asset)
 			if err != nil {
 				t.Fatalf("C witness -> Go AccountProof: %v", err)
@@ -221,19 +221,19 @@ func repairM2CheckState(t *testing.T, state repairM2State) {
 	}
 }
 
-func TestRepairM_2_CurrentCHostStateAndAccountProof(t *testing.T) {
-	transcript := repairM2Load(t)
-	repairM2CheckState(t, transcript.Before)
+func TestCurrentCHostStateAndAccountProof(t *testing.T) {
+	transcript := loadNativeRecoveryTranscript(t)
+	checkNativeRecoveryState(t, transcript.Before)
 }
 
-func TestRepairM_2_PersistedCHostRecovery(t *testing.T) {
+func TestPersistedCHostRecovery(t *testing.T) {
 	// This transcript was captured across snapshot_store_write, host destruction,
 	// snapshot_store_read and snapshot_load into a newly created production host.
 	// The verifier is the real consumer; its C peer is a recorded transcript.
-	transcript := repairM2Load(t)
-	snapshot := repairM2Bytes(t, transcript.Snapshot)
-	root := repairM2Hash(t, transcript.Before.Root)
-	receiptRoot := repairM2Hash(t, transcript.ReceiptRoot)
+	transcript := loadNativeRecoveryTranscript(t)
+	snapshot := decodeNativeRecoveryBytes(t, transcript.Snapshot)
+	root := decodeNativeRecoveryHash(t, transcript.Before.Root)
+	receiptRoot := decodeNativeRecoveryHash(t, transcript.ReceiptRoot)
 	if root == receiptRoot {
 		t.Fatal("fixture must distinguish the canonical root from the receipt chain root")
 	}
@@ -245,7 +245,7 @@ func TestRepairM_2_PersistedCHostRecovery(t *testing.T) {
 	canonical := append([]byte("LXS2"), fields[:]...)
 	canonical = append(canonical, snapshot...)
 	digest, err := codec.DomainHash(codec.DomainSnapshot, canonical)
-	if err != nil || digest != repairM2Hash(t, transcript.SnapshotDigest) {
+	if err != nil || digest != decodeNativeRecoveryHash(t, transcript.SnapshotDigest) {
 		t.Fatalf("C snapshot manifest does not bind the committed root and persisted bytes: %x, %v", digest, err)
 	}
 	// Snapshot records use canonical ID order; registry insertion order is not
@@ -259,16 +259,16 @@ func TestRepairM_2_PersistedCHostRecovery(t *testing.T) {
 	if !reflect.DeepEqual(transcript.Before, transcript.After) {
 		t.Fatal("snapshot reload changed the host root, registrations, accounts or regenerated witness bytes")
 	}
-	repairM2CheckState(t, transcript.After)
+	checkNativeRecoveryState(t, transcript.After)
 }
 
-func TestRepairM_2_RestoredProofRejectsForeignBindingsAndTampering(t *testing.T) {
-	transcript := repairM2Load(t)
-	root := repairM2Hash(t, transcript.After.Root)
+func TestRestoredProofRejectsForeignBindingsAndTampering(t *testing.T) {
+	transcript := loadNativeRecoveryTranscript(t)
+	root := decodeNativeRecoveryHash(t, transcript.After.Root)
 	for _, native := range transcript.After.Accounts {
-		t.Run(string(repairM2Bytes(t, native.Name)), func(t *testing.T) {
-			wire := repairM2Bytes(t, native.Proof)
-			id, asset := repairM2Hash(t, native.ID), repairM2Hash(t, native.Asset)
+		t.Run(string(decodeNativeRecoveryBytes(t, native.Name)), func(t *testing.T) {
+			wire := decodeNativeRecoveryBytes(t, native.Proof)
+			id, asset := decodeNativeRecoveryHash(t, native.ID), decodeNativeRecoveryHash(t, native.Asset)
 			foreignID := id
 			foreignID[0] ^= 1
 			if _, err := verify.AccountProof(wire, root, foreignID, &asset); !errors.Is(err, codec.ErrAccountIdentity) {
@@ -279,7 +279,7 @@ func TestRepairM_2_RestoredProofRejectsForeignBindingsAndTampering(t *testing.T)
 			if _, err := verify.AccountProof(wire, root, id, &foreignAsset); !errors.Is(err, verify.ErrAssetIdentity) {
 				t.Fatalf("foreign asset: got %v, want ErrAssetIdentity", err)
 			}
-			wrongRoot := repairM2Hash(t, transcript.ReceiptRoot)
+			wrongRoot := decodeNativeRecoveryHash(t, transcript.ReceiptRoot)
 			if _, err := verify.StateProof(wire, wrongRoot); !errors.Is(err, codec.ErrStateRoot) {
 				t.Fatalf("receipt root substituted for committed state root: %v", err)
 			}
@@ -294,7 +294,7 @@ func TestRepairM_2_RestoredProofRejectsForeignBindingsAndTampering(t *testing.T)
 			if valueOffset < 0 {
 				t.Fatal("native value missing from its wire encoding")
 			}
-			balanceOffset := valueOffset + 2 + len(repairM2Bytes(t, native.Name)) + 1
+			balanceOffset := valueOffset + 2 + len(decodeNativeRecoveryBytes(t, native.Name)) + 1
 			// The account-tree leaf is module-zero index 9 of 11. Its
 			// parent at index 2 of 3 duplicates itself, so changing a balance
 			// violates the canonical duplicate sibling before root comparison.

@@ -63,7 +63,7 @@ func repairCheckPath(t *testing.T, native repairNativePath, index, count uint32,
 	}
 }
 
-func TestRepair_1_NativeProducerTransportConsumer(t *testing.T) {
+func TestNativeStateWitnessProducerTransportConsumer(t *testing.T) {
 	root, err := testvectors.RepositoryRoot()
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestRepair_1_NativeProducerTransportConsumer(t *testing.T) {
 	library := filepath.Join(root, "build/liblayerx.a")
 	compile := exec.CommandContext(t.Context(), "cc", "-std=c17", "-O2",
 		"-I"+temp, "-I"+filepath.Join(root, "include"), "-I"+filepath.Join(root, "build/generated"),
-		filepath.Join(root, "layerxproof/codec/testdata/repair_1.c"), library,
+		filepath.Join(root, "layerxproof/codec/testdata/native_state_witness.c"), library,
 		filepath.Join(root, "programs/target/release/liblayerx_programs_sandbox.a"), library,
 		"-lssl", "-lcrypto", "-pthread", "-ldl", "-lm", "-o", binaryPath)
 	if output, err := compile.CombinedOutput(); err != nil {

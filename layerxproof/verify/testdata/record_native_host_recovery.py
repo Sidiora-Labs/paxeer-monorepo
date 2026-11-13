@@ -26,7 +26,7 @@ def main():
             "cc", "-std=c17", "-O2", "-Werror=implicit-function-declaration", "-I" + str(temporary),
             "-I" + str(root / "include"),
             "-I" + str(root / "build/generated"),
-            str(directory / "repair_m2.c"), str(library),
+            str(directory / "native_host_recovery.c"), str(library),
             str(root / "programs/target/release/liblayerx_programs_sandbox.a"),
             str(library), "-lssl", "-lcrypto", "-pthread", "-ldl", "-lm",
             "-o", str(binary),
@@ -38,13 +38,13 @@ def main():
         transcript = json.loads(result.stdout)
         transcript["source_hashes"] = {
             str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in [host, directory / "repair_m2.c",
+            for path in [host, directory / "native_host_recovery.c",
                          root / "src/state/lxp_state_root.c",
                          root / "src/state/lxp_state_proof.c",
                          root / "src/state/lxp_snapshot.c",
                          root / "src/storage/lxp_snapshot_store.c"]
         }
-        (directory / "repair_m2.json").write_text(
+        (directory / "native_host_recovery.json").write_text(
             json.dumps(transcript, indent=2, sort_keys=True) + "\n"
         )
 
