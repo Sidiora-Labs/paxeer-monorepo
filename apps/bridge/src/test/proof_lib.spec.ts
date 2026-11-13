@@ -18,7 +18,7 @@
  */
 // @vitest-environment jsdom
 
-import { libraryHttpBundleReachesReloadedWithdrawalAndStrictThresholdChecks } from './repair-22-33-266.proofs';
+import { libraryHttpBundleReachesReloadedWithdrawalAndStrictThresholdChecks } from './bridge-lifecycle.proofs';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement, type FunctionComponentElement } from 'react';
