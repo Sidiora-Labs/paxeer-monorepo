@@ -15,7 +15,7 @@ export default function RestGrpc() {
       </div>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>api/</code> proto definitions, <code>docs/</code>
+        <strong>Source:</strong> <code>api/</code> proto definitions, <code>node/app.go</code> route registration
       </div>
 
       <h2>Overview</h2>
@@ -27,14 +27,14 @@ export default function RestGrpc() {
       <h3>Protocol Buffers</h3>
 
       <p>
-        All services are defined in <code>api/</code> using Protocol Buffers v3. The proto files generate:
+        Chain-module and admin service definitions use Protocol Buffers v3 under <code>api/</code>. SDK, consensus and Wasm definitions also live in their own trees. Generation provides:
       </p>
 
       <ul>
-        <li>Go types under <code>modules/*/types</code></li>
+        <li>Go types at each file’s go_package path, including modules, precompiles and admin types</li>
         <li>gRPC server and client interfaces</li>
         <li>REST endpoints via <code>google.api.http</code> annotations</li>
-        <li>OpenAPI/Swagger documentation</li>
+        <li>Swagger input from HTTP-annotated query definitions</li>
       </ul>
 
       <h3>Code Generation</h3>
@@ -46,7 +46,7 @@ export default function RestGrpc() {
       <pre><code>{`./scripts/protoc.sh`}</code></pre>
 
       <p>
-        The script builds the pinned <code>protoc-gen-gocosmos</code> plugin and runs <code>buf generate</code> (through <code>buf@v1.58.0</code>) with the root <code>buf.yaml</code> / <code>buf.gen.yaml</code> configuration — the only Buf configuration for <code>api/</code> — then copies the generated Go files into their module directories. See <code>api/README.md</code>. Ignite is not used.
+        The script builds <code>protoc-gen-gocosmos</code> from cosmos-proto v0.3.1 and runs <code>buf generate</code> through <code>buf@v1.58.0</code>. It uses root <code>buf.yaml</code> / <code>buf.gen.yaml</code> and the two consensus/internal templates, then copies generated Go files into their package directories. See <code>api/README.md</code>.
       </p>
 
       <h2>EVM Module Query Service</h2>
@@ -101,7 +101,7 @@ export default function RestGrpc() {
       <h3>Pointer Queries</h3>
 
       <p>
-        Pointers bridge Cosmos-native assets (CW20/CW721/CW1155) to EVM addresses:
+        Pointer queries resolve native denominations and CW20, CW721, CW1155 or ERC token mappings according to the requested pointer type:
       </p>
 
       <table>
@@ -116,12 +116,12 @@ export default function RestGrpc() {
           <tr>
             <td><code>Pointer</code></td>
             <td><code>GET /pax-protocol/paxchain/evm/pointer</code></td>
-            <td>Get EVM pointer for Cosmos contract</td>
+            <td>Get a registered pointer for the requested type and pointee</td>
           </tr>
           <tr>
             <td><code>Pointee</code></td>
             <td><code>GET /pax-protocol/paxchain/evm/pointee</code></td>
-            <td>Get Cosmos contract from EVM pointer</td>
+            <td>Get the registered pointee for the requested pointer type and address</td>
           </tr>
           <tr>
             <td><code>PointerVersion</code></td>
@@ -277,7 +277,7 @@ export default function RestGrpc() {
           </tr>
           <tr>
             <td><code>DenomAuthorityMetadata</code></td>
-            <td><code>GET /pax-protocol/paxchain/tokenfactory/denoms/{`{denom}`}/authority_metadata</code> (additional binding: <code>GET …/tokenfactory/denom_authority_metadata</code>)</td>
+            <td><code>GET /pax-protocol/paxchain/tokenfactory/denoms/{`{denom}`}/authority_metadata</code> (additional binding: <code>GET /pax-protocol/paxchain/tokenfactory/denom_authority_metadata</code>)</td>
             <td>Get denom authority metadata</td>
           </tr>
           <tr>
@@ -297,7 +297,7 @@ export default function RestGrpc() {
           </tr>
           <tr>
             <td><code>DenomPaused</code></td>
-            <td><code>GET /pax-protocol/paxchain/tokenfactory/denoms/{`{denom}`}/paused</code> (additional binding: <code>GET …/tokenfactory/denom_paused</code>)</td>
+            <td><code>GET /pax-protocol/paxchain/tokenfactory/denoms/{`{denom}`}/paused</code> (additional binding: <code>GET /pax-protocol/paxchain/tokenfactory/denom_paused</code>)</td>
             <td>Query the pause status and issuer DID of a denom</td>
           </tr>
         </tbody>
@@ -342,13 +342,13 @@ export default function RestGrpc() {
       <h2>Other Module Query Services</h2>
 
       <p>
-        The services above are not the whole REST/gRPC surface. The <code>api/</code> tree also defines <code>Query</code> services with <code>google.api.http</code> bindings for <code>launchpad</code>, <code>layerxagent</code>, <code>layerxpay</code>, <code>layerxprograms</code>, <code>pricefeed</code> and <code>xweb</code>, alongside the <code>layerxanchor</code>, <code>layerxauth</code>, <code>layerxbridge</code>, <code>layerxcustody</code>, <code>layerxexchange</code>, <code>layerxgov</code>, <code>layerxledger</code>, <code>spot</code>, <code>perps</code> and <code>eth</code> proto trees. Read each module&apos;s <code>query.proto</code> for its methods and REST paths; this page details the EVM, Epoch, Oracle, TokenFactory and Mint services.
+        The <code>api/</code> tree also contains definitions for <code>launchpad</code>, <code>layerxagent</code>, <code>layerxpay</code>, <code>layerxprograms</code>, <code>pricefeed</code>, <code>xweb</code> and other chain modules. Read each service’s <code>query.proto</code> and its registration in <code>node/app.go</code> before selecting a method. HTTP bindings are declared per method; a gRPC method does not automatically have a REST route. This page details EVM, Epoch, Oracle, TokenFactory and Mint queries.
       </p>
 
       <h2>Admin gRPC Service</h2>
 
       <p>
-        The Admin service provides runtime log level control. It runs on a separate loopback-only gRPC server (default <code>127.0.0.1:9095</code>):
+        The Admin service provides runtime log level control. It runs on a separate loopback-only gRPC server (default port <code>9095</code>) and is disabled by default:
       </p>
 
       <table>
@@ -375,12 +375,12 @@ export default function RestGrpc() {
       </table>
 
       <p>
-        Enable in <code>app.toml</code>:
+        Enable in <code>app.toml</code>, replacing the address placeholder with a loopback IP and port:
       </p>
 
       <pre><code>{`[admin_server]
 admin_enabled = true
-admin_address = "127.0.0.1:9095"`}</code></pre>
+admin_address = "<loopback-ip>:9095"`}</code></pre>
 
       <div className="source-note">
         <strong>Proto:</strong> <code>api/pax/admin/v0/admin.proto</code><br />
@@ -390,13 +390,13 @@ admin_address = "127.0.0.1:9095"`}</code></pre>
       <h2>OpenAPI / Swagger Documentation</h2>
 
       <p>
-        Paxeer generates OpenAPI documentation from proto annotations. To regenerate:
+        The Swagger script generates OpenAPI documentation with Ignite, then embeds prepared assets with statik. To regenerate from the repository root:
       </p>
 
       <pre><code>{`./scripts/update-swagger-ui-statik.sh`}</code></pre>
 
       <p>
-        This generates <code>docs/swagger-ui/swagger.yml</code> and embeds it in <code>docs/swagger/statik.go</code>.
+        The script prepares <code>docs/swagger-ui/</code>, including <code>swagger.yml</code>, and writes the embedded assets to <code>docs/swagger/statik.go</code>. Use <code>./scripts/update-swagger-ui-statik.sh --assets-only</code> to embed existing assets without OpenAPI generation.
       </p>
 
       <h3>Serving Swagger UI</h3>
@@ -410,32 +410,32 @@ enable = true
 swagger = true`}</code></pre>
 
       <p>
-        Access at <code>http://&lt;node-ip&gt;:&lt;port&gt;/swagger/</code>.
+        The enabled API listener serves the embedded assets at <code>/swagger/</code>.
       </p>
 
       <div className="source-note">
-        <strong>See:</strong> <code>docs/README.md</code> for generation instructions
+        <strong>See:</strong> <code>scripts/update-swagger-ui-statik.sh</code> and <code>scripts/swagger_assets.py</code>
       </div>
 
       <h2>gRPC Endpoints</h2>
 
       <p>
-        gRPC services are exposed on the Cosmos SDK gRPC port (default <code>9090</code>). Use any gRPC client (e.g., <code>grpcurl</code>):
+        Enabled gRPC listeners use port <code>9090</code> by default. Set <code>GRPC_ADDRESS</code> to your listener’s host and port; it is an example client variable. For a plaintext listener, <code>grpcurl</code> can list services and request epoch parameters:
       </p>
 
-      <pre><code>{`grpcurl -plaintext localhost:9090 list
-grpcurl -plaintext localhost:9090 paxprotocol.paxchain.evm.Query/Pointer`}</code></pre>
+      <pre><code>{`grpcurl -plaintext "$GRPC_ADDRESS" list
+grpcurl -plaintext "$GRPC_ADDRESS" paxprotocol.paxchain.epoch.Query/Params`}</code></pre>
 
       <h2>REST Gateway</h2>
 
       <p>
-        REST endpoints are served via gRPC-Gateway on the API port (default <code>1317</code>). All gRPC methods have corresponding REST endpoints defined by <code>google.api.http</code> annotations in the proto files.
+        REST query routes are served via gRPC-Gateway on the API listener, whose default port is <code>1317</code>. The API is enabled by the full and archive initialization profiles. Only registered methods with HTTP bindings have the annotated REST paths.
       </p>
 
       <h2>Transaction Services</h2>
 
       <p>
-        Each module also defines a <code>Msg</code> service for transactions (e.g., <code>evm/tx.proto</code>, <code>epoch/tx.proto</code>). These are not query endpoints but message types for state-changing operations. Submit via standard Cosmos SDK transaction APIs.
+        State-changing messages are declared in <code>Msg</code> services, including <code>api/evm/tx.proto</code> and <code>api/tokenfactory/tx.proto</code>. These differ from query methods. Encode and sign the appropriate transaction, then submit through the Cosmos SDK transaction service.
       </p>
 
       <div className="prev-next">
