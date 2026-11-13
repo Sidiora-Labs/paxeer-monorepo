@@ -38,18 +38,18 @@ import (
 // CanonicalInputReader, FrozenInputs, pgx codec or ranker being exercised.
 // Query text and bindings must match; every unknown statement is rejected by
 // the existing transactional in-memory PostgreSQL protocol fixture.
-type repair931Read struct {
+type canonicalPublicationRead struct {
 	SQL  string
 	Args []string
 	Rows [][]string
 }
 
-func TestRepairM_931_PublicationCategories(t *testing.T) {
-	t.Run("rollback-and-completed-empty-recovery", TestRepair_32_HeavyRunRollbackAndEmptyCompletion)
-	t.Run("immutable-heavy-membership", TestRepair_32_RejectIncompleteOrMismatchedHeavyRuns)
+func TestCanonicalPublicationCategories(t *testing.T) {
+	t.Run("rollback-and-completed-empty-recovery", TestPublicationHeavyRunRollbackAndEmptyCompletion)
+	t.Run("immutable-heavy-membership", TestPublicationRejectIncompleteOrMismatchedHeavyRuns)
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "publication.json")
-	pool := repair32OpenPool(t, path)
+	pool := publicationOpenPool(t, path)
 	defer pool.Close()
 	guard, err := queue.NewEpochGuard("recovery", 1, "fixture-loopback")
 	if err != nil {
@@ -59,11 +59,11 @@ func TestRepairM_931_PublicationCategories(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshots, err := ranker.ComputeRun(repair32PopulatedInput(t), false)
+	snapshots, err := ranker.ComputeRun(publicationPopulatedInput(t), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair931Membership(t, snapshots, ranker.HeavyCategoryNames())
+	canonicalPublicationMembership(t, snapshots, ranker.HeavyCategoryNames())
 	if err = publication.Complete(ctx, snapshots); err != nil {
 		t.Fatal(err)
 	}
@@ -100,14 +100,14 @@ func TestRepairM_931_PublicationCategories(t *testing.T) {
 	}
 }
 
-func TestRepairM_931_ProductionUniverseCategories(t *testing.T) {
+func TestCanonicalProductionUniverseCategories(t *testing.T) {
 	// This committed fixture drives every producer category through real
 	// persistence, the stream writer, frame parser and HTTP stored-page consumer,
 	// stopping and reopening the pool/store while intents are pending.
-	TestRepair_32_CoordinatorDurableStreamAndHTTPAcrossRestart(t)
+	TestPublicationCoordinatorDurableStreamAndHTTPAcrossRestart(t)
 }
 
-func repair931Membership(t *testing.T, snapshots []ranker.Snapshot, want []string) {
+func canonicalPublicationMembership(t *testing.T, snapshots []ranker.Snapshot, want []string) {
 	t.Helper()
 	seen := map[string]bool{}
 	for _, snapshot := range snapshots {
@@ -125,13 +125,13 @@ func repair931Membership(t *testing.T, snapshots []ranker.Snapshot, want []strin
 	}
 }
 
-func repair931HistoricalSamples(t *testing.T, count int, step time.Duration) []ranker.HistoricalReplaySample {
+func canonicalPublicationHistoricalSamples(t *testing.T, count int, step time.Duration) []ranker.HistoricalReplaySample {
 	t.Helper()
 	directory := t.TempDir()
 	cutoff := time.Now().UTC().Truncate(time.Second).Add(-time.Duration(count-1) * step)
 	var samples []ranker.HistoricalReplaySample
 	for i := 0; i < count; i++ {
-		in := repair32PopulatedInput(t)
+		in := publicationPopulatedInput(t)
 		in.CutoffTimeUTC = cutoff.Add(time.Duration(i) * step).Unix()
 		in.Provenance.Watermark.ObservedAt = time.Unix(in.CutoffTimeUTC, 0).UTC().Format("2006-01-02T15:04:05.000Z")
 		in.Provenance.WindowStart, in.Provenance.WindowEnd = in.CutoffTimeUTC-86400, in.CutoffTimeUTC
@@ -149,7 +149,7 @@ func repair931HistoricalSamples(t *testing.T, count int, step time.Duration) []r
 			t.Fatal(err)
 		}
 		all := append(heavy, newest...)
-		repair931Membership(t, all, ranker.Categories[:])
+		canonicalPublicationMembership(t, all, ranker.Categories[:])
 		for _, snapshot := range all {
 			if len(snapshot.Entries()) == 0 {
 				t.Fatalf("historical %s fixture must exercise scoring", snapshot.Category())
@@ -169,10 +169,10 @@ func repair931HistoricalSamples(t *testing.T, count int, step time.Duration) []r
 	return samples
 }
 
-func TestRepairM_931_HistoricalReplayCategories(t *testing.T) {
-	samples := repair931HistoricalSamples(t, 14, 6*time.Hour)
+func TestCanonicalHistoricalReplayCategories(t *testing.T) {
+	samples := canonicalPublicationHistoricalSamples(t, 14, 6*time.Hour)
 	cutoff := time.Unix(samples[0].Cutoff, 0)
-	if err := store.RepairM931Replay(t, samples); err != nil {
+	if err := store.HistoricalCategoryReplay(t, samples); err != nil {
 		t.Fatalf("all canonical historical categories rejected: %v", err)
 	}
 	t.Run("legacy-six-category-subset", func(t *testing.T) {
@@ -182,19 +182,19 @@ func TestRepairM_931_HistoricalReplayCategories(t *testing.T) {
 				subset = append(subset, sample)
 			}
 		}
-		if err := store.RepairM931Replay(t, subset); err == nil {
+		if err := store.HistoricalCategoryReplay(t, subset); err == nil {
 			t.Fatal("obsolete six-category evidence admitted")
 		}
 	})
 	t.Run("missing-at-one-cutoff", func(t *testing.T) {
-		if err := store.RepairM931Replay(t, samples[1:]); err == nil {
+		if err := store.HistoricalCategoryReplay(t, samples[1:]); err == nil {
 			t.Fatal("missing category admitted")
 		}
 	})
 	t.Run("duplicate-category", func(t *testing.T) {
 		duplicate := append([]ranker.HistoricalReplaySample(nil), samples...)
 		duplicate[1] = duplicate[0]
-		if err := store.RepairM931Replay(t, duplicate); err == nil {
+		if err := store.HistoricalCategoryReplay(t, duplicate); err == nil {
 			t.Fatal("duplicate admitted")
 		}
 	})
@@ -207,13 +207,13 @@ func TestRepairM_931_HistoricalReplayCategories(t *testing.T) {
 		}
 		// Thirteen complete cutoffs remain across 78 hours, so this reaches
 		// the six-hour sampling-gap check rather than the minimum-size guard.
-		if err := store.RepairM931Replay(t, gap); err == nil || !strings.Contains(err.Error(), "gap") {
+		if err := store.HistoricalCategoryReplay(t, gap); err == nil || !strings.Contains(err.Error(), "gap") {
 			t.Fatalf("historical gap not rejected by gap gate: %v", err)
 		}
 	})
 	t.Run("less-than-72-hours", func(t *testing.T) {
-		short := repair931HistoricalSamples(t, 14, 5*time.Hour)
-		if err := store.RepairM931Replay(t, short); err == nil || !strings.Contains(err.Error(), "span") {
+		short := canonicalPublicationHistoricalSamples(t, 14, 5*time.Hour)
+		if err := store.HistoricalCategoryReplay(t, short); err == nil || !strings.Contains(err.Error(), "span") {
 			t.Fatalf("short span was not rejected by span gate: %v", err)
 		}
 	})
@@ -254,26 +254,26 @@ func TestRepairM_931_HistoricalReplayCategories(t *testing.T) {
 		if _, err = ranker.ReadComparisonArtifact(raw, changed[0].Original.SHA256); err != nil {
 			t.Fatalf("fixture must pass artifact integrity before replay: %v", err)
 		}
-		if err = store.RepairM931Replay(t, changed); err == nil || !strings.Contains(err.Error(), "replay differs") {
+		if err = store.HistoricalCategoryReplay(t, changed); err == nil || !strings.Contains(err.Error(), "replay differs") {
 			t.Fatalf("changed computed output was not rejected by replay equality: %v", err)
 		}
 	})
 	t.Run("digest-mismatch", func(t *testing.T) {
 		changed := append([]ranker.HistoricalReplaySample(nil), samples...)
 		changed[0].Original.SHA256 = strings.Repeat("0", 64)
-		if err := store.RepairM931Replay(t, changed); err == nil {
+		if err := store.HistoricalCategoryReplay(t, changed); err == nil {
 			t.Fatal("unbound artifact admitted")
 		}
 	})
 }
 
-func TestRepairM_931_PublicationHealthCategories(t *testing.T) {
+func TestCanonicalPublicationHealthCategories(t *testing.T) {
 	cutoff := time.Now().UTC().Truncate(time.Second)
-	snapshots, err := ranker.ComputeRun(repair32Input(), false)
+	snapshots, err := ranker.ComputeRun(publicationInput(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	newest, err := ranker.ComputeRun(repair32Input(), true)
+	newest, err := ranker.ComputeRun(publicationInput(), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +296,7 @@ func TestRepairM_931_PublicationHealthCategories(t *testing.T) {
 		{name: "five-minute-boundary", ages: map[string]int64{"volume": 391}, since: 300, stale: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			state := repair32State{Snapshots: map[string]*repair32Stored{}, Heads: map[string]string{}, Frames: map[string]json.RawMessage{}}
+			state := publicationState{Snapshots: map[string]*publicationStored{}, Heads: map[string]string{}, Frames: map[string]json.RawMessage{}}
 			for _, snapshot := range all {
 				category := snapshot.Category()
 				if category == test.missing {
@@ -308,7 +308,7 @@ func TestRepairM_931_PublicationHealthCategories(t *testing.T) {
 				}
 				key := snapshot.RunID() + "/" + category
 				state.Heads[category] = key
-				state.Snapshots[key] = &repair32Stored{Header: ranker.Header{Category: category, CutoffTime: cutoff.Unix() - age}}
+				state.Snapshots[key] = &publicationStored{Header: ranker.Header{Category: category, CutoffTime: cutoff.Unix() - age}}
 			}
 			raw, err := json.Marshal(state)
 			if err != nil {
@@ -318,7 +318,7 @@ func TestRepairM_931_PublicationHealthCategories(t *testing.T) {
 			if err = os.WriteFile(path, raw, 0600); err != nil {
 				t.Fatal(err)
 			}
-			pool := repair32OpenPool(t, path)
+			pool := publicationOpenPool(t, path)
 			defer pool.Close()
 			storage, err := store.NewSnapshotStore(pool, "ranking")
 			if err != nil {
@@ -355,12 +355,12 @@ func TestRepairM_931_PublicationHealthCategories(t *testing.T) {
 	t.Run("invalid-cutoff", func(t *testing.T) {
 		for _, invalid := range []int64{0, cutoff.Unix() + 1, math.MaxInt64} {
 			path := filepath.Join(t.TempDir(), "invalid.json")
-			state := repair32State{Snapshots: map[string]*repair32Stored{"x": {Header: ranker.Header{Category: "volume", CutoffTime: invalid}}}, Heads: map[string]string{"volume": "x"}}
+			state := publicationState{Snapshots: map[string]*publicationStored{"x": {Header: ranker.Header{Category: "volume", CutoffTime: invalid}}}, Heads: map[string]string{"volume": "x"}}
 			raw, _ := json.Marshal(state)
 			if err := os.WriteFile(path, raw, 0600); err != nil {
 				t.Fatal(err)
 			}
-			pool := repair32OpenPool(t, path)
+			pool := publicationOpenPool(t, path)
 			storage, err := store.NewSnapshotStore(pool, "ranking")
 			if err != nil {
 				t.Fatal(err)
@@ -374,7 +374,7 @@ func TestRepairM_931_PublicationHealthCategories(t *testing.T) {
 	})
 }
 
-func repair931FrozenPool(t *testing.T, cutoff time.Time, evidence *store.HTTPCanonicalEvidence) (*pgxpool.Pool, *store.FrozenInputs) {
+func canonicalPublicationFrozenPool(t *testing.T, cutoff time.Time, evidence *store.HTTPCanonicalEvidence) (*pgxpool.Pool, *store.FrozenInputs) {
 	t.Helper()
 	const address = "0x00000000000000000000000000000000000000a1"
 	visibilityServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -390,7 +390,7 @@ func repair931FrozenPool(t *testing.T, cutoff time.Time, evidence *store.HTTPCan
 		t.Fatal(err)
 	}
 	reader.Evidence = evidence
-	universeSQL := store.RepairM931UniverseSQL(reader)
+	universeSQL := store.CanonicalUniverseSQL(reader)
 	for _, required := range []string{"round_trips AS", "SUM(2*LEAST(b,s))", "(c.fill->'position'->>'height')::numeric<=$2", "(c.fill->>'blockTimestampSeconds')::bigint<=$3", "WHERE ts>$3-86400"} {
 		if !strings.Contains(universeSQL, required) {
 			t.Fatalf("canonical query missing cutoff/heuristic separation %s", required)
@@ -401,13 +401,13 @@ func repair931FrozenPool(t *testing.T, cutoff time.Time, evidence *store.HTTPCan
 	}
 	// Committed canonical read transcript: ordinary buy 500 USDL and partial
 	// sell 130 USDL, at heights 160 and 170 in a complete height-200 history.
-	reads := []repair931Read{
+	reads := []canonicalPublicationRead{
 		{SQL: `SELECT w.raw_complete_height,w.typed_complete_height,l.expires_at>clock_timestamp() FROM "indexer"."indexer_ingest_watermarks_v1" w JOIN "indexer"."indexer_ingest_leases_v1" l USING(chain_id,stream_id) WHERE w.chain_id=125 AND w.stream_id=$1`, Args: []string{"canonical"}, Rows: [][]string{{"200", "200", "t"}}},
 		{SQL: `SELECT block_hash,completed_at,fetch_complete AND required_decode_complete FROM "indexer"."indexer_block_completeness_v1" WHERE chain_id=125 AND stream_id=$1 AND height=$2`, Args: []string{"canonical", "200"}, Rows: [][]string{{fmt.Sprintf("0x%064x", 200), cutoff.Add(-time.Second).Format("2006-01-02 15:04:05Z07:00"), "t"}}},
 		{SQL: `SELECT NOT EXISTS(SELECT 1 FROM "stats"."accounting_pool_fences_v2" WHERE frozen) AND NOT EXISTS(SELECT 1 FROM "indexer"."indexer_accounting_fills_v1" f WHERE (f.payload->'position'->>'height')::numeric<=$2 AND NOT EXISTS(SELECT 1 FROM "stats"."accounting_market_commits_v2" c WHERE c.projection_version=$1 AND c.source_fill_id=f.source_fill_id AND c.source_fact_digest=f.source_fact_digest AND c.fill=f.payload)) AND NOT EXISTS(SELECT 1 FROM "stats"."accounting_market_commits_v2" c WHERE c.projection_version=$1 AND (c.fill->'position'->>'height')::numeric<=$2 AND NOT EXISTS(SELECT 1 FROM "indexer"."indexer_accounting_fills_v1" f WHERE f.source_fill_id=c.source_fill_id AND f.source_fact_digest=c.source_fact_digest AND f.payload=c.fill))`, Args: []string{"accounting-v2", "200"}, Rows: [][]string{{"t"}}},
 		{SQL: universeSQL, Args: []string{"accounting-v2", "200", strconv.FormatInt(cutoff.Unix(), 10)}, Rows: [][]string{{address, "100", "0", "0", strconv.FormatInt(cutoff.Unix()-90000, 10), "630000000", "630000000", "130000000", "1", "1", "1", "260000000", "1400000000000000000000", "100000000000000000000", "1485000000", "130000000", "2", "130000000", "100000000000000000000", "18", "1000000000", "1000000000000000000000", "18"}}},
 	}
-	pool := repair32OpenPool(t, filepath.Join(t.TempDir(), "canonical.json"), reads...)
+	pool := publicationOpenPool(t, filepath.Join(t.TempDir(), "canonical.json"), reads...)
 	frozen, err := store.NewFrozenInputs(pool, reader)
 	if err != nil {
 		pool.Close()
@@ -416,7 +416,7 @@ func repair931FrozenPool(t *testing.T, cutoff time.Time, evidence *store.HTTPCan
 	return pool, frozen
 }
 
-func TestRepairM_931_CanonicalPauseAndRecoveredEvidence(t *testing.T) {
+func TestCanonicalCanonicalPauseAndRecoveredEvidence(t *testing.T) {
 	cutoff := time.Now().UTC().Truncate(time.Second).Add(-time.Second)
 	const address = "0x00000000000000000000000000000000000000a1"
 	paused, unpaused := true, false
@@ -452,7 +452,7 @@ func TestRepairM_931_CanonicalPauseAndRecoveredEvidence(t *testing.T) {
 			// Close and reopen the actual pool/reader to prove recovered observations
 			// are read again rather than inferred from an earlier unpaused default.
 			for reopen := 0; reopen < 2; reopen++ {
-				pool, frozen := repair931FrozenPool(t, cutoff, evidence)
+				pool, frozen := canonicalPublicationFrozenPool(t, cutoff, evidence)
 				in, err := frozen.Freeze(context.Background(), uuid.NewString(), cutoff)
 				pool.Close()
 				if err != nil {
@@ -491,7 +491,7 @@ func TestRepairM_931_CanonicalPauseAndRecoveredEvidence(t *testing.T) {
 		})
 	}
 	t.Run("unwired-evidence-remains-unknown", func(t *testing.T) {
-		pool, frozen := repair931FrozenPool(t, cutoff, nil)
+		pool, frozen := canonicalPublicationFrozenPool(t, cutoff, nil)
 		defer pool.Close()
 		in, err := frozen.Freeze(context.Background(), uuid.NewString(), cutoff)
 		if err != nil {
@@ -503,7 +503,7 @@ func TestRepairM_931_CanonicalPauseAndRecoveredEvidence(t *testing.T) {
 	})
 }
 
-func TestRepairM_931_CanonicalVolumeEvidence(t *testing.T) {
+func TestCanonicalCanonicalVolumeEvidence(t *testing.T) {
 	store.TestProductionUniverseActivityEvidence(t)
 	cutoff := time.Now().UTC().Truncate(time.Second).Add(-time.Second)
 	const address = "0x00000000000000000000000000000000000000a1"
@@ -525,7 +525,7 @@ func TestRepairM_931_CanonicalVolumeEvidence(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			pool, frozen := repair931FrozenPool(t, cutoff, evidence)
+			pool, frozen := canonicalPublicationFrozenPool(t, cutoff, evidence)
 			defer pool.Close()
 			in, err := frozen.Freeze(context.Background(), uuid.NewString(), cutoff)
 			if err != nil {
@@ -535,17 +535,17 @@ func TestRepairM_931_CanonicalVolumeEvidence(t *testing.T) {
 			if c.Activity.RawVolume != "630.000000" || c.Pool.Volume24h != "630.000000" || c.Activity.AdjustedVolume != test.want {
 				t.Fatalf("raw facts changed or incorrect discount: %+v", c.Activity)
 			}
-			if contains931(c.Activity.Flags, "evidenced-self-volume") != (test.volume != "") || !contains931(c.Activity.Flags, "round-trip-activity") {
+			if containsCategory(c.Activity.Flags, "evidenced-self-volume") != (test.volume != "") || !containsCategory(c.Activity.Flags, "round-trip-activity") {
 				t.Fatalf("proof and heuristic conflated: %+v", c.Activity)
 			}
-			if contains931(c.NullableMetrics.Unavailable, "canonical-self-volume-unavailable") != (test.volume == "") {
+			if containsCategory(c.NullableMetrics.Unavailable, "canonical-self-volume-unavailable") != (test.volume == "") {
 				t.Fatal("unknown self evidence not exposed")
 			}
 			heavy, err := ranker.ComputeRun(in, false)
 			if err != nil {
 				t.Fatal(err)
 			}
-			repair931Membership(t, heavy, ranker.HeavyCategoryNames())
+			canonicalPublicationMembership(t, heavy, ranker.HeavyCategoryNames())
 			// The normal wallet must remain eligible all the way into production
 			// scoring; independently proven wash discounts the score, not raw facts.
 			for _, snapshot := range heavy {
@@ -556,7 +556,7 @@ func TestRepairM_931_CanonicalVolumeEvidence(t *testing.T) {
 		})
 	}
 }
-func contains931(values []string, want string) bool {
+func containsCategory(values []string, want string) bool {
 	for _, value := range values {
 		if value == want {
 			return true
@@ -565,7 +565,7 @@ func contains931(values []string, want string) bool {
 	return false
 }
 
-func TestRepairM_931_RejectUnboundCanonicalEvidence(t *testing.T) {
+func TestCanonicalRejectUnboundCanonicalEvidence(t *testing.T) {
 	cutoff := time.Now().UTC().Truncate(time.Second).Add(-time.Second)
 	const address = "0x00000000000000000000000000000000000000a1"
 	unpaused := false
@@ -608,7 +608,7 @@ func TestRepairM_931_RejectUnboundCanonicalEvidence(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			pool, frozen := repair931FrozenPool(t, cutoff, evidence)
+			pool, frozen := canonicalPublicationFrozenPool(t, cutoff, evidence)
 			defer pool.Close()
 			if in, err := frozen.Freeze(context.Background(), uuid.NewString(), cutoff); err == nil {
 				t.Fatalf("unqualified evidence froze a complete run: %+v", in)
@@ -617,7 +617,7 @@ func TestRepairM_931_RejectUnboundCanonicalEvidence(t *testing.T) {
 	}
 }
 
-func TestRepairM_931_PauseEvidenceRecovery(t *testing.T) {
+func TestCanonicalPauseEvidenceRecovery(t *testing.T) {
 	cutoff := time.Now().UTC().Truncate(time.Second).Add(-time.Second)
 	const address = "0x00000000000000000000000000000000000000a1"
 	// Each stage is immutable until the corresponding request and freeze finish.
@@ -637,7 +637,7 @@ func TestRepairM_931_PauseEvidenceRecovery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			pool, frozen := repair931FrozenPool(t, cutoff, evidence)
+			pool, frozen := canonicalPublicationFrozenPool(t, cutoff, evidence)
 			in, err := frozen.Freeze(context.Background(), uuid.NewString(), cutoff)
 			pool.Close()
 			if err != nil {
@@ -661,27 +661,27 @@ func TestRepairM_931_PauseEvidenceRecovery(t *testing.T) {
 // The broker peer speaks the committed NATS publish/ack transcript over a
 // loopback socket. The actual nats client, JetStream publisher, outbox and
 // acknowledgement checks run unchanged. Stored producer frames survive reopen.
-type repair931BrokerMessage struct {
+type canonicalPublicationBrokerMessage struct {
 	ID, Topic string
 	Wire      []byte
 	Sequence  uint64
 }
-type repair931Broker struct {
+type canonicalPublicationBroker struct {
 	t        *testing.T
 	listener net.Listener
 	path     string
 	badAck   bool
 	mu       sync.Mutex
-	messages []repair931BrokerMessage
+	messages []canonicalPublicationBrokerMessage
 }
 
-func repair931OpenBroker(t *testing.T, path string, badAck bool) *repair931Broker {
+func canonicalPublicationOpenBroker(t *testing.T, path string, badAck bool) *canonicalPublicationBroker {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	broker := &repair931Broker{t: t, listener: listener, path: path, badAck: badAck}
+	broker := &canonicalPublicationBroker{t: t, listener: listener, path: path, badAck: badAck}
 	if raw, err := os.ReadFile(path); err == nil {
 		if err = json.Unmarshal(raw, &broker.messages); err != nil {
 			t.Fatal(err)
@@ -700,7 +700,7 @@ func repair931OpenBroker(t *testing.T, path string, badAck bool) *repair931Broke
 	}()
 	return broker
 }
-func (b *repair931Broker) serve(conn net.Conn) {
+func (b *canonicalPublicationBroker) serve(conn net.Conn) {
 	defer conn.Close()
 	if _, err := fmt.Fprintf(conn, "INFO {\"server_id\":\"repair-m931\",\"server_name\":\"repair-m931\",\"version\":\"2.10.0\",\"proto\":1,\"headers\":true,\"max_payload\":1048576}\r\n"); err != nil {
 		return
@@ -784,7 +784,7 @@ func (b *repair931Broker) serve(conn net.Conn) {
 			}
 			if !duplicate {
 				sequence = uint64(len(b.messages) + 1)
-				b.messages = append(b.messages, repair931BrokerMessage{ID: id, Topic: fields[1], Wire: append([]byte(nil), payload...), Sequence: sequence})
+				b.messages = append(b.messages, canonicalPublicationBrokerMessage{ID: id, Topic: fields[1], Wire: append([]byte(nil), payload...), Sequence: sequence})
 				raw, err := json.Marshal(b.messages)
 				if err != nil {
 					b.t.Error(err)
@@ -823,7 +823,7 @@ func (b *repair931Broker) serve(conn net.Conn) {
 		}
 	}
 }
-func repair931Publisher(t *testing.T, broker *repair931Broker) (*nats.Conn, *natsdriver.Publisher) {
+func canonicalPublicationPublisher(t *testing.T, broker *canonicalPublicationBroker) (*nats.Conn, *natsdriver.Publisher) {
 	t.Helper()
 	conn, err := nats.Connect("nats://"+broker.listener.Addr().String(), nats.NoReconnect(), nats.Timeout(time.Second))
 	if err != nil {
@@ -837,13 +837,13 @@ func repair931Publisher(t *testing.T, broker *repair931Broker) (*nats.Conn, *nat
 	return conn, publisher
 }
 
-func TestRepairM_931_PublicationAcknowledgementsAndExhaustion(t *testing.T) {
+func TestCanonicalPublicationAcknowledgementsAndExhaustion(t *testing.T) {
 	ctx := context.Background()
-	snapshots, err := ranker.ComputeRun(repair32Input(), false)
+	snapshots, err := ranker.ComputeRun(publicationInput(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair931Membership(t, snapshots, ranker.HeavyCategoryNames())
+	canonicalPublicationMembership(t, snapshots, ranker.HeavyCategoryNames())
 	guard, err := queue.NewEpochGuard("recovery", 1, "fixture-loopback")
 	if err != nil {
 		t.Fatal(err)
@@ -852,7 +852,7 @@ func TestRepairM_931_PublicationAcknowledgementsAndExhaustion(t *testing.T) {
 		t.Run(fmt.Sprintf("exhaustion=%v", exhaust), func(t *testing.T) {
 			directory := t.TempDir()
 			databasePath, brokerPath := filepath.Join(directory, "publication.json"), filepath.Join(directory, "broker.json")
-			pool := repair32OpenPool(t, databasePath)
+			pool := publicationOpenPool(t, databasePath)
 			publication, err := store.NewPublicationStore(pool, "ranking", guard)
 			if err != nil {
 				t.Fatal(err)
@@ -860,8 +860,8 @@ func TestRepairM_931_PublicationAcknowledgementsAndExhaustion(t *testing.T) {
 			if err = publication.Complete(ctx, snapshots); err != nil {
 				t.Fatal(err)
 			}
-			broker := repair931OpenBroker(t, brokerPath, true)
-			conn, publisher := repair931Publisher(t, broker)
+			broker := canonicalPublicationOpenBroker(t, brokerPath, true)
+			conn, publisher := canonicalPublicationPublisher(t, broker)
 			attempts := 1
 			if exhaust {
 				attempts = 2 * len(snapshots)
@@ -876,15 +876,15 @@ func TestRepairM_931_PublicationAcknowledgementsAndExhaustion(t *testing.T) {
 			pool.Close()
 			// Stop and reopen both peers and the production publisher/store. The
 			// accepted broker message and the unacknowledged intent must keep identity.
-			pool = repair32OpenPool(t, databasePath)
+			pool = publicationOpenPool(t, databasePath)
 			defer pool.Close()
 			publication, err = store.NewPublicationStore(pool, "ranking", guard)
 			if err != nil {
 				t.Fatal(err)
 			}
-			broker = repair931OpenBroker(t, brokerPath, false)
+			broker = canonicalPublicationOpenBroker(t, brokerPath, false)
 			defer broker.listener.Close()
-			conn, publisher = repair931Publisher(t, broker)
+			conn, publisher = canonicalPublicationPublisher(t, broker)
 			defer conn.Close()
 			if exhaust {
 				if worked, err := publication.DispatchOnce(ctx, publisher, "RANKING", 2); err != nil || worked {
@@ -904,7 +904,7 @@ func TestRepairM_931_PublicationAcknowledgementsAndExhaustion(t *testing.T) {
 					t.Fatalf("acknowledged intent replayed: %v %v", worked, err)
 				}
 				pool.Close()
-				var state repair32State
+				var state publicationState
 				raw, err := os.ReadFile(databasePath)
 				if err != nil || json.Unmarshal(raw, &state) != nil {
 					t.Fatal("read durable ack", err)
@@ -916,7 +916,7 @@ func TestRepairM_931_PublicationAcknowledgementsAndExhaustion(t *testing.T) {
 				}
 			}
 			broker.mu.Lock()
-			messages := append([]repair931BrokerMessage(nil), broker.messages...)
+			messages := append([]canonicalPublicationBrokerMessage(nil), broker.messages...)
 			broker.mu.Unlock()
 			if len(messages) != len(snapshots) {
 				t.Fatalf("broker message count=%d want=%d", len(messages), len(snapshots))

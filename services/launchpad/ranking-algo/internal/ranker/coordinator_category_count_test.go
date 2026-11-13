@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestRepairM_932_CoordinatorCategoryCount(t *testing.T) {
+func TestCoordinatorCategoryCount(t *testing.T) {
 	want := []string{"trending", "breakout", "volume", "gainers", "losers", "movers", "unusual"}
 	if got := HeavyCategoryNames(); !slices.Equal(got, want) {
 		t.Fatalf("HeavyCategoryNames() = %v, want %v", got, want)

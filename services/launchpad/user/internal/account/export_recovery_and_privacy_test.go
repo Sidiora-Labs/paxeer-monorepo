@@ -33,20 +33,20 @@ import (
 
 // This persistence peer stores opaque production records. All authorization,
 // claim, fencing, expiry and consumption decisions run in exportDownloads.
-type repairM1063Records struct {
+type durableExportRecords struct {
 	mu           sync.Mutex
 	file         *os.File
 	job, account uuid.UUID
 }
 
-func repairM1063OpenRecords(t *testing.T, path string, job, account uuid.UUID) *repairM1063Records {
+func openDurableExportRecords(t *testing.T, path string, job, account uuid.UUID) *durableExportRecords {
 	t.Helper()
 	file, err := os.OpenFile(path, os.O_RDWR, 0600)
 	must(t, err)
-	return &repairM1063Records{file: file, job: job, account: account}
+	return &durableExportRecords{file: file, job: job, account: account}
 }
 
-func (r *repairM1063Records) read() (exportDownloadRecord, error) {
+func (r *durableExportRecords) read() (exportDownloadRecord, error) {
 	var record exportDownloadRecord
 	if _, err := r.file.Seek(0, io.SeekStart); err != nil {
 		return record, err
@@ -55,7 +55,7 @@ func (r *repairM1063Records) read() (exportDownloadRecord, error) {
 	return record, err
 }
 
-func (r *repairM1063Records) update(ctx context.Context, job, account uuid.UUID, mutate func(*exportDownloadRecord) error) error {
+func (r *durableExportRecords) update(ctx context.Context, job, account uuid.UUID, mutate func(*exportDownloadRecord) error) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -84,7 +84,7 @@ func (r *repairM1063Records) update(ctx context.Context, job, account uuid.UUID,
 	return r.file.Sync()
 }
 
-func (r *repairM1063Records) snapshot(t *testing.T) exportDownloadRecord {
+func (r *durableExportRecords) snapshot(t *testing.T) exportDownloadRecord {
 	t.Helper()
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -95,14 +95,14 @@ func (r *repairM1063Records) snapshot(t *testing.T) exportDownloadRecord {
 
 // The loopback object peer speaks the HTTP operations used by storage.Client;
 // it retains the actual encrypted bytes emitted by the production worker.
-type repairM1063Objects struct {
+type exportObjectServer struct {
 	mu              sync.Mutex
 	objects         map[string][]byte
 	outage, corrupt bool
 	reads           int
 }
 
-func (o *repairM1063Objects) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (o *exportObjectServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	switch r.Method {
@@ -136,15 +136,15 @@ func (o *repairM1063Objects) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (o *repairM1063Objects) failure(outage, corrupt bool) {
+func (o *exportObjectServer) failure(outage, corrupt bool) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.outage, o.corrupt = outage, corrupt
 }
 
-type repairM1063Export struct {
-	records              *repairM1063Records
-	objects              *repairM1063Objects
+type exportRecoveryFixture struct {
+	records              *durableExportRecords
+	objects              *exportObjectServer
 	objectServer, server *httptest.Server
 	runtime              *Runtime
 	job                  Job
@@ -153,9 +153,9 @@ type repairM1063Export struct {
 	snapshot             json.RawMessage
 }
 
-func repairM1063NewExport(t *testing.T) *repairM1063Export {
+func newExportRecoveryFixture(t *testing.T) *exportRecoveryFixture {
 	t.Helper()
-	f := &repairM1063Export{now: time.Date(2026, 10, 12, 9, 30, 0, 0, time.UTC), path: filepath.Join(t.TempDir(), "export.json"), objects: &repairM1063Objects{objects: map[string][]byte{}}}
+	f := &exportRecoveryFixture{now: time.Date(2026, 10, 12, 9, 30, 0, 0, time.UTC), path: filepath.Join(t.TempDir(), "export.json"), objects: &exportObjectServer{objects: map[string][]byte{}}}
 	f.objectServer = httptest.NewServer(f.objects)
 	t.Cleanup(f.close)
 	client := s3.NewFromConfig(aws.Config{Region: "test", Credentials: credentials.NewStaticCredentialsProvider("fixture", "fixture", ""), HTTPClient: f.objectServer.Client(), RetryMaxAttempts: 1}, func(o *s3.Options) { o.BaseEndpoint = aws.String(f.objectServer.URL); o.UsePathStyle = true })
@@ -174,15 +174,15 @@ func repairM1063NewExport(t *testing.T) *repairM1063Export {
 	raw, err := json.Marshal(exportDownloadRecord{Payload: payload, Hash: hash[:], ExpiresAt: &expires, State: "ready"})
 	must(t, err)
 	must(t, os.WriteFile(f.path, raw, 0600))
-	f.records = repairM1063OpenRecords(t, f.path, f.job.ID, f.job.AccountID)
+	f.records = openDurableExportRecords(t, f.path, f.job.ID, f.job.AccountID)
 	return f
 }
 
-func (f *repairM1063Export) downloads() exportDownloads {
+func (f *exportRecoveryFixture) downloads() exportDownloads {
 	return exportDownloads{records: f.records, now: func() time.Time { return f.now }}
 }
 
-func (f *repairM1063Export) start(t *testing.T) (*http.Client, string) {
+func (f *exportRecoveryFixture) start(t *testing.T) (*http.Client, string) {
 	t.Helper()
 	if f.server != nil {
 		t.Fatal("service already running")
@@ -207,17 +207,17 @@ func (f *repairM1063Export) start(t *testing.T) (*http.Client, string) {
 	return f.server.Client(), f.server.URL
 }
 
-func (f *repairM1063Export) reopen(t *testing.T) {
+func (f *exportRecoveryFixture) reopen(t *testing.T) {
 	t.Helper()
 	if f.server != nil {
 		f.server.Close()
 		f.server = nil
 	}
 	must(t, f.records.file.Close())
-	f.records = repairM1063OpenRecords(t, f.path, f.job.ID, f.job.AccountID)
+	f.records = openDurableExportRecords(t, f.path, f.job.ID, f.job.AccountID)
 }
 
-func (f *repairM1063Export) close() {
+func (f *exportRecoveryFixture) close() {
 	if f.server != nil {
 		f.server.Close()
 		f.server = nil
@@ -231,7 +231,7 @@ func (f *repairM1063Export) close() {
 	}
 }
 
-func repairM1063Request(t *testing.T, client *http.Client, target string, headers map[string]string, status int) []byte {
+func exportRecoveryRequest(t *testing.T, client *http.Client, target string, headers map[string]string, status int) []byte {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, target, nil)
 	must(t, err)
@@ -252,9 +252,9 @@ func repairM1063Request(t *testing.T, client *http.Client, target string, header
 	return raw
 }
 
-func repairM1063DownloadURL(t *testing.T, f *repairM1063Export, client *http.Client, base string) *url.URL {
+func exportRecoveryDownloadURL(t *testing.T, f *exportRecoveryFixture, client *http.Client, base string) *url.URL {
 	t.Helper()
-	raw := repairM1063Request(t, client, base+"/status", nil, http.StatusOK)
+	raw := exportRecoveryRequest(t, client, base+"/status", nil, http.StatusOK)
 	response, err := v2.DecodeAccountExportStatusResponse(raw)
 	must(t, err)
 	if response.Data.DownloadUrl == nil {
@@ -265,14 +265,14 @@ func repairM1063DownloadURL(t *testing.T, f *repairM1063Export, client *http.Cli
 	return target
 }
 
-func TestRepairM_1063_export_failed_read_consumes_token(t *testing.T) {
+func TestExportFailedReadRetainsAuthorization(t *testing.T) {
 	for _, failure := range []string{"storage outage", "corrupt ciphertext"} {
 		t.Run(failure, func(t *testing.T) {
-			f := repairM1063NewExport(t)
+			f := newExportRecoveryFixture(t)
 			client, base := f.start(t)
-			target := repairM1063DownloadURL(t, f, client, base)
+			target := exportRecoveryDownloadURL(t, f, client, base)
 			f.objects.failure(failure == "storage outage", failure == "corrupt ciphertext")
-			raw := repairM1063Request(t, client, target.String(), nil, http.StatusServiceUnavailable)
+			raw := exportRecoveryRequest(t, client, target.String(), nil, http.StatusServiceUnavailable)
 			if bytes.Contains(raw, []byte(`"preferences"`)) {
 				t.Fatal("failed retrieval produced export bytes")
 			}
@@ -283,13 +283,13 @@ func TestRepairM_1063_export_failed_read_consumes_token(t *testing.T) {
 			f.reopen(t)
 			f.objects.failure(false, false)
 			client, base = f.start(t)
-			plain := repairM1063Request(t, client, base+target.RequestURI(), nil, http.StatusOK)
+			plain := exportRecoveryRequest(t, client, base+target.RequestURI(), nil, http.StatusOK)
 			if !bytes.Equal(plain, f.snapshot) {
 				t.Fatal("wrong recovered export", string(plain))
 			}
 			f.reopen(t)
 			client, base = f.start(t)
-			repairM1063Request(t, client, base+target.RequestURI(), nil, http.StatusForbidden)
+			exportRecoveryRequest(t, client, base+target.RequestURI(), nil, http.StatusForbidden)
 			if f.records.snapshot(t).ConsumedAt == nil {
 				t.Fatal("consumption was not durable")
 			}
@@ -297,10 +297,10 @@ func TestRepairM_1063_export_failed_read_consumes_token(t *testing.T) {
 	}
 }
 
-func TestRepairM_1063_abandoned_claim_recovery_and_fencing(t *testing.T) {
-	f := repairM1063NewExport(t)
+func TestExportAbandonedClaimRecoveryAndFencing(t *testing.T) {
+	f := newExportRecoveryFixture(t)
 	client, base := f.start(t)
-	target := repairM1063DownloadURL(t, f, client, base)
+	target := exportRecoveryDownloadURL(t, f, client, base)
 	p := Principal{AccountID: f.job.AccountID}
 	old, err := f.downloads().claim(context.Background(), p, f.job.ID, target.Query().Get("authorization"))
 	must(t, err)
@@ -310,7 +310,7 @@ func TestRepairM_1063_abandoned_claim_recovery_and_fencing(t *testing.T) {
 	}
 	f.reopen(t)
 	client, base = f.start(t)
-	repairM1063Request(t, client, base+target.RequestURI(), nil, http.StatusForbidden)
+	exportRecoveryRequest(t, client, base+target.RequestURI(), nil, http.StatusForbidden)
 	f.server.Close()
 	f.server = nil
 	f.now = f.now.Add(exportDownloadLease)
@@ -329,16 +329,16 @@ func TestRepairM_1063_abandoned_claim_recovery_and_fencing(t *testing.T) {
 	}
 	must(t, f.downloads().release(context.Background(), newer))
 	client, base = f.start(t)
-	repairM1063Request(t, client, base+target.RequestURI(), nil, http.StatusOK)
+	exportRecoveryRequest(t, client, base+target.RequestURI(), nil, http.StatusOK)
 	f.reopen(t)
 	client, base = f.start(t)
-	repairM1063Request(t, client, base+target.RequestURI(), nil, http.StatusForbidden)
+	exportRecoveryRequest(t, client, base+target.RequestURI(), nil, http.StatusForbidden)
 }
 
-func TestRepairM_1063_claim_refusals_and_concurrent_delivery(t *testing.T) {
-	f := repairM1063NewExport(t)
+func TestExportClaimRefusalsAndConcurrentDelivery(t *testing.T) {
+	f := newExportRecoveryFixture(t)
 	client, base := f.start(t)
-	target := repairM1063DownloadURL(t, f, client, base)
+	target := exportRecoveryDownloadURL(t, f, client, base)
 	const count = 12
 	codes := make(chan int, count)
 	for i := 0; i < count; i++ {
@@ -372,10 +372,10 @@ func TestRepairM_1063_claim_refusals_and_concurrent_delivery(t *testing.T) {
 	}
 	f.reopen(t)
 	client, base = f.start(t)
-	repairM1063Request(t, client, base+target.RequestURI(), nil, http.StatusForbidden)
+	exportRecoveryRequest(t, client, base+target.RequestURI(), nil, http.StatusForbidden)
 	for _, reason := range []string{"expired", "deleted", "wrong state", "wrong token", "cancelled", "nil account"} {
 		t.Run(reason, func(t *testing.T) {
-			f := repairM1063NewExport(t)
+			f := newExportRecoveryFixture(t)
 			record := f.records.snapshot(t)
 			h := HTTP{Store: Store{Clock: func() time.Time { return f.now }}, Runtime: f.runtime}
 			h.Runtime.DownloadBaseURL = "https://example.com"
@@ -415,7 +415,7 @@ func TestRepairM_1063_claim_refusals_and_concurrent_delivery(t *testing.T) {
 	}
 }
 
-func TestRepairM_1063_provisioned_privacy_default(t *testing.T) {
+func TestProvisionedPrivacyDefaults(t *testing.T) {
 	at := time.Date(2026, 10, 12, 9, 30, 0, 0, time.UTC)
 	gateway := initialPreferences(at)
 	backfill := initialPreferences(at)
@@ -508,7 +508,7 @@ func TestRepairM_1063_provisioned_privacy_default(t *testing.T) {
 	}
 }
 
-func TestRepairM_1063_deletion_fixture_schema_source(t *testing.T) {
+func TestDeletionFixtureUsesTrackedSchema(t *testing.T) {
 	file, err := parser.ParseFile(token.NewFileSet(), "v2_owner_http_test.go", nil, 0)
 	must(t, err)
 	found := false
@@ -583,7 +583,7 @@ func TestRepairM_1063_deletion_fixture_schema_source(t *testing.T) {
 	}
 }
 
-func TestRepairM_1063_completed_export_fixture(t *testing.T) {
+func TestCompletedExportParticipantAndWireSchema(t *testing.T) {
 	testCompletedExportParticipant(t)
 	// Preserve all malformed-envelope, field, kind and unsafe-URL rejections.
 	TestAdaptV2AccountJobsMatchFrozenSchema(t)
@@ -591,7 +591,7 @@ func TestRepairM_1063_completed_export_fixture(t *testing.T) {
 
 // The connected proof keeps the real PostgreSQL producers and mutation-history
 // assertions available without adding infrastructure to the focused gate.
-func TestConnectedRepairM1063ProvisionedPrivacyDefaults(t *testing.T) {
+func TestConnectedProvisionedPrivacyDefaults(t *testing.T) {
 	s := connectedLegacyFixture(t)
 	at := s.now()
 	s.Clock = func() time.Time { return at }
@@ -636,7 +636,7 @@ func TestConnectedRepairM1063ProvisionedPrivacyDefaults(t *testing.T) {
 	must(t, s.PatchExtendedPreferences(ctx, p, ExtendedPreferencesPatch{PreferencesPatch: PreferencesPatch{ExpectedRevision: repaired.Revision}, PrivateActivity: &private}))
 	chosen, err := s.ReadPreferences(ctx, p, p.AccountID)
 	must(t, err)
-	s = repair76Reopen(t, s)
+	s = reopenAccountStore(t, s)
 	must(t, s.ensureIdentityAccount(ctx, sharedauth.PostgresIdentityResolver{Pool: s.DB}, gateway))
 	persisted, err := s.ReadPreferences(ctx, p, p.AccountID)
 	must(t, err)

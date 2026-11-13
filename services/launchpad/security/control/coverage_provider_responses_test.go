@@ -36,7 +36,7 @@ func TestPayoutProviderRejectsUnconfirmedResponses(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			provider, err := NewPayoutProvider(server.URL, strings.Repeat("p", 32), "payout controller", custody, repairM1020Transport(server))
+			provider, err := NewPayoutProvider(server.URL, strings.Repeat("p", 32), "payout controller", custody, workflowRecoveryTransport(server))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -72,7 +72,7 @@ func TestRevocationProviderRequiresBoundAcknowledgement(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			provider, err := NewRevocationProvider(server.URL, strings.Repeat("r", 32), repairM1020Transport(server))
+			provider, err := NewRevocationProvider(server.URL, strings.Repeat("r", 32), workflowRecoveryTransport(server))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -114,7 +114,7 @@ func TestReplayProviderRequiresBoundOwnerResult(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			provider, err := NewReplayProvider(server.URL, strings.Repeat("r", 32), repairM1020Transport(server))
+			provider, err := NewReplayProvider(server.URL, strings.Repeat("r", 32), workflowRecoveryTransport(server))
 			if err != nil {
 				t.Fatal(err)
 			}

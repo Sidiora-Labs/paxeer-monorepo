@@ -30,7 +30,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func repair76Reopen(t *testing.T, s Store) Store {
+func reopenAccountStore(t *testing.T, s Store) Store {
 	t.Helper()
 	cfg := s.DB.Config().Copy()
 	s.DB.Close()
@@ -42,7 +42,7 @@ func repair76Reopen(t *testing.T, s Store) Store {
 	return s
 }
 
-func repair76Publisher(t *testing.T, s Store, kinds ...string) (*delivery.Store, map[string]string) {
+func accountEventPublisher(t *testing.T, s Store, kinds ...string) (*delivery.Store, map[string]string) {
 	t.Helper()
 	schema := s.DB.Config().ConnConfig.RuntimeParams["search_path"]
 	if schema == "" {
@@ -62,7 +62,7 @@ func repair76Publisher(t *testing.T, s Store, kinds ...string) (*delivery.Store,
 	return publisher, subjects
 }
 
-func TestConnectedRepair76_device_token_rotation(t *testing.T) {
+func TestConnectedAccountDeviceTokenRotation(t *testing.T) {
 	s := connectedFixture(t)
 	s.Clock = func() time.Time { return time.Now().UTC() }
 	ctx := context.Background()
@@ -73,7 +73,7 @@ func TestConnectedRepair76_device_token_rotation(t *testing.T) {
 	must(t, s.SetConsent(ctx, p, p.AccountID, "0", Consent{Category: "watchlist", Channel: "push", Enabled: true, Source: "settings", PolicyVersion: "1"}))
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	must(t, err)
-	publisher, subjects := repair76Publisher(t, s, "endpoint.bound")
+	publisher, subjects := accountEventPublisher(t, s, "endpoint.bound")
 	runtime := &Runtime{EndpointKey: bytes.Repeat([]byte{76}, 32), EndpointFingerprintKey: bytes.Repeat([]byte{77}, 32), DeviceVerifier: CompactDeviceProofVerifier(public), Delivery: publisher, Subjects: subjects}
 	identity := sharedauth.IdentityPrincipal{AccountID: p.AccountID.String(), SessionID: session.String(), Wallet: wallet, ProofAt: p.ProofAt, AccessExpiresAt: time.Now().Add(time.Hour)}
 	core := (HTTP{Store: s, Runtime: runtime}).Handler()
@@ -125,7 +125,7 @@ func TestConnectedRepair76_device_token_rotation(t *testing.T) {
 	register(device, "current-token-at-capacity", http.StatusOK)
 	register(uuid.New(), "over-capacity", http.StatusConflict)
 	server.Close()
-	s = repair76Reopen(t, s)
+	s = reopenAccountStore(t, s)
 	devices, err := s.Devices(ctx, p)
 	must(t, err)
 	if len(devices) != 32 {
@@ -163,7 +163,7 @@ func TestConnectedRepair76_device_token_rotation(t *testing.T) {
 	}
 }
 
-func TestConnectedRepair76_backfill_profile_fields(t *testing.T) {
+func TestConnectedAccountBackfillProfileFields(t *testing.T) {
 	s := connectedLegacyFixture(t)
 	ctx := context.Background()
 	p := owner(t, s, 7602)
@@ -171,7 +171,7 @@ func TestConnectedRepair76_backfill_profile_fields(t *testing.T) {
 	seedConnectedIdentity(t, s, p, uuid.New(), wallet)
 	_, err := s.DB.Exec(ctx, `INSERT INTO users.user_profiles(wallet_address,display_name,bio,website,twitter,telegram,discord,created_at,updated_at) VALUES($1,'Legacy profile','Legacy biography','https://example.org/profile','https://x.com/profile','https://t.me/profile','https://discord.com/profile',1,2)`, wallet)
 	must(t, err)
-	publisher, subjects := repair76Publisher(t, s, "account.backfill.completed")
+	publisher, subjects := accountEventPublisher(t, s, "account.backfill.completed")
 	runtime := &Runtime{Delivery: publisher, Subjects: subjects}
 	counts, err := (HTTP{Store: s, Runtime: runtime}).BackfillLegacyRange(ctx, BackfillRange{ID: "full-profile", Limit: 100})
 	must(t, err)
@@ -181,7 +181,7 @@ func TestConnectedRepair76_backfill_profile_fields(t *testing.T) {
 	must(t, s.SetStableAccountReads(ctx, false))
 	before, err := s.PublicFromReadSwitch(ctx, wallet)
 	must(t, err)
-	s = repair76Reopen(t, s)
+	s = reopenAccountStore(t, s)
 	must(t, s.SetStableAccountReads(ctx, true))
 	after, err := s.PublicFromReadSwitch(ctx, wallet)
 	must(t, err)
@@ -216,7 +216,7 @@ func TestConnectedRepair76_backfill_profile_fields(t *testing.T) {
 	}
 }
 
-func TestConnectedRepair76_backfill_unresolved_fields_and_assets(t *testing.T) {
+func TestConnectedAccountBackfillUnresolvedFieldsAndAssets(t *testing.T) {
 	for _, asset := range []bool{false, true} {
 		t.Run(fmt.Sprintf("asset_%t", asset), func(t *testing.T) {
 			s := connectedLegacyFixture(t)
@@ -235,7 +235,7 @@ func TestConnectedRepair76_backfill_unresolved_fields_and_assets(t *testing.T) {
 			if counts.Quarantined != 1 || counts.Verified != 0 || counts.Linked != 0 {
 				t.Fatal(counts)
 			}
-			s = repair76Reopen(t, s)
+			s = reopenAccountStore(t, s)
 			var state, reason string
 			must(t, s.DB.QueryRow(ctx, `SELECT state,reason FROM account_backfill WHERE source_key=$1`, "legacy:"+wallet).Scan(&state, &reason))
 			if state != "quarantined" || reason == "" {
@@ -253,7 +253,7 @@ func TestConnectedRepair76_backfill_unresolved_fields_and_assets(t *testing.T) {
 	}
 }
 
-func TestConnectedRepair76_backfill_provisioning_order(t *testing.T) {
+func TestConnectedAccountBackfillProvisioningOrder(t *testing.T) {
 	for _, identityFirst := range []bool{false, true} {
 		t.Run(fmt.Sprintf("identity_first_%t", identityFirst), func(t *testing.T) {
 			s := connectedLegacyFixture(t)
@@ -281,7 +281,7 @@ func TestConnectedRepair76_backfill_provisioning_order(t *testing.T) {
 			if !identityFirst {
 				provision()
 			}
-			s = repair76Reopen(t, s)
+			s = reopenAccountStore(t, s)
 			profile, err := s.Public(ctx, wallet)
 			must(t, err)
 			if profile.DisplayName != "Legacy name" || profile.Bio != "Legacy bio" {
@@ -298,7 +298,7 @@ func TestConnectedRepair76_backfill_provisioning_order(t *testing.T) {
 			if counts.Quarantined != 1 || counts.Verified != 0 {
 				t.Fatal(counts)
 			}
-			s = repair76Reopen(t, s)
+			s = reopenAccountStore(t, s)
 			profile, err = s.Public(ctx, wallet)
 			must(t, err)
 			if profile.DisplayName != "Later user edit" {
@@ -313,14 +313,14 @@ func TestConnectedRepair76_backfill_provisioning_order(t *testing.T) {
 	}
 }
 
-func TestConnectedRepair76_export_sdk_authorization(t *testing.T) {
+func TestConnectedAccountExportSDKAuthorization(t *testing.T) {
 	s := connectedFixture(t)
 	s.Clock = func() time.Time { return time.Now().UTC() }
 	ctx := context.Background()
 	p := owner(t, s, 7605)
 	other := owner(t, s, 7606)
 	objects := internaltest.NewStore(t, "repair-76-exports")
-	publisher, subjects := repair76Publisher(t, s, "account.export.requested")
+	publisher, subjects := accountEventPublisher(t, s, "account.export.requested")
 	runtime := &Runtime{ExportKey: bytes.Repeat([]byte{76}, 32), Objects: objects, Metrics: &Metrics{}, Delivery: publisher, Subjects: subjects}
 	core := (HTTP{Store: s, Runtime: runtime}).Handler()
 	start := func() *httptest.Server {
@@ -367,7 +367,7 @@ func TestConnectedRepair76_export_sdk_authorization(t *testing.T) {
 	downloadURL, err := url.Parse(*typed.Data.DownloadUrl)
 	must(t, err)
 	server.Close()
-	s = repair76Reopen(t, s)
+	s = reopenAccountStore(t, s)
 	core = (HTTP{Store: s, Runtime: runtime}).Handler()
 	server = start()
 	runtime.DownloadBaseURL = server.URL
@@ -388,7 +388,7 @@ func TestConnectedRepair76_export_sdk_authorization(t *testing.T) {
 
 // Keep the service-bound integration proofs above intact. The repair gate below
 // exercises the production decisions and wire codecs without external services.
-func repair76ReopenJSON(t *testing.T, value any, recovered any) {
+func reopenAccountJSON(t *testing.T, value any, recovered any) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "record.json")
 	writer, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
@@ -402,7 +402,7 @@ func repair76ReopenJSON(t *testing.T, value any, recovered any) {
 	must(t, reader.Close())
 }
 
-func TestRepair_76_device_token_rotation(t *testing.T) {
+func TestAccountDeviceTokenRotation(t *testing.T) {
 	// The cap counts the exact rows the delivery authority enumerates, including
 	// revoked rows and historical duplicates replaced by this installation.
 	for _, tc := range []struct {
@@ -451,7 +451,7 @@ func TestRepair_76_device_token_rotation(t *testing.T) {
 		binding.Token = oldToken
 	}
 	var recovered []byte
-	repair76ReopenJSON(t, lastCiphertext, &recovered)
+	reopenAccountJSON(t, lastCiphertext, &recovered)
 	plain, err := Open(key, recovered, []byte(binding.AccountID.String()))
 	must(t, err)
 	if string(plain) != "installation-token-39" {
@@ -462,7 +462,7 @@ func TestRepair_76_device_token_rotation(t *testing.T) {
 	}
 }
 
-func repair76LegacyProfile(t *testing.T) (string, json.RawMessage, Profile) {
+func legacyProfileFixture(t *testing.T) (string, json.RawMessage, Profile) {
 	t.Helper()
 	wallet := fmt.Sprintf("0x%040x", 7602)
 	raw, err := json.Marshal(map[string]any{
@@ -478,10 +478,10 @@ func repair76LegacyProfile(t *testing.T) (string, json.RawMessage, Profile) {
 	return wallet, raw, profile
 }
 
-func TestRepair_76_backfill_profile_fields(t *testing.T) {
-	wallet, raw, source := repair76LegacyProfile(t)
+func TestAccountBackfillProfileFields(t *testing.T) {
+	wallet, raw, source := legacyProfileFixture(t)
 	var recovered Profile
-	repair76ReopenJSON(t, source, &recovered)
+	reopenAccountJSON(t, source, &recovered)
 	if !sameLegacyProfile(source, recovered) || !reflect.DeepEqual(source, recovered) {
 		t.Fatal("profile content changed across codec reopen", source, recovered)
 	}
@@ -524,8 +524,8 @@ func TestRepair_76_backfill_profile_fields(t *testing.T) {
 	}
 }
 
-func TestRepair_76_backfill_unresolved_fields_and_assets(t *testing.T) {
-	wallet, raw, _ := repair76LegacyProfile(t)
+func TestAccountBackfillUnresolvedFieldsAndAssets(t *testing.T) {
+	wallet, raw, _ := legacyProfileFixture(t)
 	for _, field := range []string{"website", "twitter", "telegram", "discord"} {
 		var fields map[string]any
 		must(t, json.Unmarshal(raw, &fields))
@@ -546,8 +546,8 @@ func TestRepair_76_backfill_unresolved_fields_and_assets(t *testing.T) {
 	}
 }
 
-func TestRepair_76_backfill_provisioning_order(t *testing.T) {
-	wallet, _, source := repair76LegacyProfile(t)
+func TestAccountBackfillProvisioningOrder(t *testing.T) {
+	wallet, _, source := legacyProfileFixture(t)
 	for _, identityFirst := range []bool{false, true} {
 		t.Run(fmt.Sprintf("identity_first_%t", identityFirst), func(t *testing.T) {
 			current := source
@@ -557,7 +557,7 @@ func TestRepair_76_backfill_provisioning_order(t *testing.T) {
 			profile, err := reconcileLegacyProfile(current, source, 7, false)
 			must(t, err)
 			var recovered Profile
-			repair76ReopenJSON(t, profile, &recovered)
+			reopenAccountJSON(t, profile, &recovered)
 			if !sameLegacyProfile(source, recovered) {
 				t.Fatal("provisioning discarded legacy content", recovered)
 			}
@@ -596,14 +596,14 @@ func TestRepair_76_backfill_provisioning_order(t *testing.T) {
 	}
 }
 
-func TestRepair_76_export_sdk_authorization(t *testing.T) {
+func TestAccountExportSDKAuthorization(t *testing.T) {
 	at := time.Now().UTC()
 	job := Job{ID: uuid.New(), AccountID: uuid.New(), Kind: "export", State: "ready", RequestedAt: at}
 	key := bytes.Repeat([]byte{76}, 32)
 	payload, digest, err := newExportMetadata(key, job.ID, "account-exports/"+job.ID.String()+"/1", at)
 	must(t, err)
 	var recovered json.RawMessage
-	repair76ReopenJSON(t, json.RawMessage(payload), &recovered)
+	reopenAccountJSON(t, json.RawMessage(payload), &recovered)
 	h := HTTP{Store: Store{Clock: func() time.Time { return at }}, Runtime: &Runtime{ExportKey: key, DownloadBaseURL: "https://exports.example.org"}}
 	expires := at.Add(15 * time.Minute)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

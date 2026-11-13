@@ -19,12 +19,12 @@ import (
 )
 
 func TestNotificationAuthorityTargetLifecycle(t *testing.T) {
-	f := repairM1062New(t)
+	f := newNotificationQuietHoursFixture(t)
 	pki := testpki.New(t)
 	serverLeaf := pki.Leaf("user", "user.test")
 	clientLeaf := pki.Leaf("notifications", "notifications.test")
 	runtime := &account.Runtime{EndpointKey: bytes.Repeat([]byte{62}, 32)}
-	server := httptest.NewUnstartedServer(accountNotificationAuthority(f.store, runtime, repairM1062Token, clientLeaf.SHA256))
+	server := httptest.NewUnstartedServer(accountNotificationAuthority(f.store, runtime, notificationQuietHoursToken, clientLeaf.SHA256))
 	server.TLS = &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{serverLeaf.Pair}, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: pki.Roots()}
 	server.StartTLS()
 	t.Cleanup(server.Close)
@@ -47,7 +47,7 @@ func TestNotificationAuthorityTargetLifecycle(t *testing.T) {
 			t.Fatal(err)
 		}
 		if authorized {
-			req.Header.Set("Authorization", "Bearer "+repairM1062Token)
+			req.Header.Set("Authorization", "Bearer "+notificationQuietHoursToken)
 		}
 		response, err := client.Do(req)
 		if err != nil {

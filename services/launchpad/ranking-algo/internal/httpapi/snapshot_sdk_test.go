@@ -21,7 +21,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func repair33Root(t *testing.T) string {
+func snapshotSDKRoot(t *testing.T) string {
 	t.Helper()
 	_, source, _, ok := runtime.Caller(0)
 	if !ok {
@@ -30,7 +30,7 @@ func repair33Root(t *testing.T) string {
 	return filepath.Clean(filepath.Join(filepath.Dir(source), "../../../../.."))
 }
 
-func repair33SDK(t *testing.T, endpoint, script string, expected any) {
+func snapshotSDKSDK(t *testing.T, endpoint, script string, expected any) {
 	t.Helper()
 	raw, err := json.Marshal(expected)
 	if err != nil {
@@ -38,12 +38,12 @@ func repair33SDK(t *testing.T, endpoint, script string, expected any) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	sdk := &url.URL{Scheme: "file", Path: filepath.Join(repair33Root(t), "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts")}
+	sdk := &url.URL{Scheme: "file", Path: filepath.Join(snapshotSDKRoot(t), "sdk/launchpad/packages/ranking-algo-sdk/src/index.ts")}
 	cmd := exec.CommandContext(ctx, "node", "--input-type=module", "-e", `
 import assert from 'node:assert/strict';
 const { RankingHttpClient, RankingHttpError, rankingCategories } = await import(process.argv[1]);
 const client = new RankingHttpClient();
-client.configure({ baseUrl: process.argv[2], headers: { 'X-Repair-33': 'snapshot-sdk-response' } });
+client.configure({ baseUrl: process.argv[2], headers: { 'X-Snapshot-SDK': 'snapshot-sdk-response' } });
 const expected = JSON.parse(process.argv[3]);
 `+script, sdk.String(), endpoint, string(raw))
 	output, err := cmd.CombinedOutput()
@@ -52,9 +52,9 @@ const expected = JSON.parse(process.argv[3]);
 	}
 }
 
-func repair33Server(t *testing.T, repository snapshotReader, visibility VisibilityFence) (*httptest.Server, *Snapshots) {
+func snapshotSDKServer(t *testing.T, repository snapshotReader, visibility VisibilityFence) (*httptest.Server, *Snapshots) {
 	t.Helper()
-	codec, err := ranker.NewCursorCodec([]byte(strings.Repeat("repair33-cursor-key", 2)))
+	codec, err := ranker.NewCursorCodec([]byte(strings.Repeat("snapshotSDK-cursor-key", 2)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,26 +71,26 @@ func repair33Server(t *testing.T, repository snapshotReader, visibility Visibili
 
 // Only persistence and visibility are doubled. The HTTP handler, wire encoder,
 // cursor codec and SDK client execute their production implementations.
-type repair33Store struct {
+type snapshotSDKStore struct {
 	headers map[string]ranker.Header
 	items   []ranker.RankedItem
 }
 
-func (s *repair33Store) Current(_ context.Context, category string) (ranker.Header, error) {
+func (s *snapshotSDKStore) Current(_ context.Context, category string) (ranker.Header, error) {
 	header, ok := s.headers[category]
 	if !ok {
 		return ranker.Header{}, pgx.ErrNoRows
 	}
 	return header, header.Validate()
 }
-func (s *repair33Store) Header(ctx context.Context, runID, category string) (ranker.Header, error) {
+func (s *snapshotSDKStore) Header(ctx context.Context, runID, category string) (ranker.Header, error) {
 	header, err := s.Current(ctx, category)
 	if err == nil && header.RunID != runID {
 		err = pgx.ErrNoRows
 	}
 	return header, err
 }
-func (s *repair33Store) Page(_ context.Context, header ranker.Header, offset int64, limit int) (ranker.StoredPage, error) {
+func (s *snapshotSDKStore) Page(_ context.Context, header ranker.Header, offset int64, limit int) (ranker.StoredPage, error) {
 	page := ranker.StoredPage{Header: header, Offset: offset, Items: []ranker.RankedItem{}}
 	if header.Validate() != nil || offset < 0 || offset > header.Total || limit < 1 || limit > 100 || header.Total > int64(len(s.items)) {
 		return page, ranker.ErrUnavailable
@@ -99,7 +99,7 @@ func (s *repair33Store) Page(_ context.Context, header ranker.Header, offset int
 	page.Items = append(page.Items, s.items[offset:end]...)
 	return page, page.Validate()
 }
-func (s *repair33Store) ValidateBoundary(_ context.Context, header ranker.Header, ref ranker.PageReference) error {
+func (s *snapshotSDKStore) ValidateBoundary(_ context.Context, header ranker.Header, ref ranker.PageReference) error {
 	if header.Validate() != nil || ref.RunID != header.RunID || ref.Category != header.Category || ref.InputDigest != header.InputDigest || ref.OutputDigest != header.OutputDigest || ref.Expires != header.CutoffTime+900 || ref.Offset < 1 || ref.Offset >= header.Total || ref.Offset > int64(len(s.items)) {
 		return ranker.ErrCursorInvalid
 	}
@@ -110,18 +110,18 @@ func (s *repair33Store) ValidateBoundary(_ context.Context, header ranker.Header
 	return nil
 }
 
-type repair33Visibility struct {
+type snapshotSDKVisibility struct {
 	observed time.Time
 }
 
-func (v repair33Visibility) CurrentRankingRevision(context.Context) (string, time.Time, error) {
+func (v snapshotSDKVisibility) CurrentRankingRevision(context.Context) (string, time.Time, error) {
 	return "moderation-33", v.observed, nil
 }
 
-func repair33MemoryStore(t *testing.T) (*repair33Store, VisibilityFence) {
+func snapshotSDKMemoryStore(t *testing.T) (*snapshotSDKStore, VisibilityFence) {
 	t.Helper()
 	now := time.Now().UTC().Truncate(time.Second)
-	repository := &repair33Store{headers: map[string]ranker.Header{}}
+	repository := &snapshotSDKStore{headers: map[string]ranker.Header{}}
 	for i, score := range []string{"0.123456789012345678901234567890", "0.012345678901234567890", "0"} {
 		repository.items = append(repository.items, ranker.RankedItem{Address: fmt.Sprintf("0x%040x", i+1), Score: score, Rank: int64(i + 1)})
 	}
@@ -145,12 +145,12 @@ func repair33MemoryStore(t *testing.T) (*repair33Store, VisibilityFence) {
 		}
 		repository.headers[category] = header
 	}
-	return repository, repair33Visibility{observed: now}
+	return repository, snapshotSDKVisibility{observed: now}
 }
 
-func TestRepair_33_SuccessAndContinuation(t *testing.T) {
-	repository, visibility := repair33MemoryStore(t)
-	server, _ := repair33Server(t, repository, visibility)
+func TestSnapshotSDKSuccessAndContinuation(t *testing.T) {
+	repository, visibility := snapshotSDKMemoryStore(t)
+	server, _ := snapshotSDKServer(t, repository, visibility)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	type expectedPage struct {
@@ -186,7 +186,7 @@ func TestRepair_33_SuccessAndContinuation(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected["second"] = expectedPage{second, strconv.FormatInt(header.Revision, 10)}
-	repair33SDK(t, server.URL, `
+	snapshotSDKSDK(t, server.URL, `
 assert.deepEqual(rankingCategories, ['trending','breakout','volume','gainers','losers','movers','unusual','new']);
 let first;
 for (const category of rankingCategories) {
@@ -222,9 +222,9 @@ assert.equal(page.data.snapshot.items[0].score, '0');
 `, expected)
 }
 
-func TestRepair_33_Expiry(t *testing.T) {
-	repository, visibility := repair33MemoryStore(t)
-	server, handler := repair33Server(t, repository, visibility)
+func TestSnapshotSDKExpiry(t *testing.T) {
+	repository, visibility := snapshotSDKMemoryStore(t)
+	server, handler := snapshotSDKServer(t, repository, visibility)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	header, err := repository.Current(ctx, "trending")
@@ -244,7 +244,7 @@ func TestRepair_33_Expiry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair33SDK(t, server.URL, `
+	snapshotSDKSDK(t, server.URL, `
 await assert.rejects(client.getRankings('trending', { limit: 1, cursor: expected.cursor }), error => {
   assert.ok(error instanceof RankingHttpError);
   assert.equal(error.status, 410);
@@ -264,10 +264,10 @@ assert.equal(restarted.data.snapshot.items[0].rank, 1);
 `, map[string]string{"cursor": cursor, "runId": header.RunID})
 }
 
-func TestRepair_33_UnavailableAndInvalidRequests(t *testing.T) {
-	repository := &repair33Store{headers: map[string]ranker.Header{}}
-	server, handler := repair33Server(t, repository, repair33Visibility{})
-	repair33SDK(t, server.URL, `
+func TestSnapshotSDKUnavailableAndInvalidRequests(t *testing.T) {
+	repository := &snapshotSDKStore{headers: map[string]ranker.Header{}}
+	server, handler := snapshotSDKServer(t, repository, snapshotSDKVisibility{})
+	snapshotSDKSDK(t, server.URL, `
 await assert.rejects(client.getRankings('trending'), error => {
   assert.ok(error instanceof RankingHttpError);
   assert.equal(error.status, 503);
@@ -301,7 +301,7 @@ await assert.rejects(client.getRankings('trending',{signal:controller.signal}), 
 `, nil)
 	handler.admission <- struct{}{}
 	defer func() { <-handler.admission }()
-	repair33SDK(t, server.URL, `
+	snapshotSDKSDK(t, server.URL, `
 await assert.rejects(client.getRankings('trending'), error => {
   assert.ok(error instanceof RankingHttpError);
   assert.equal(error.status,503);
@@ -314,8 +314,8 @@ await assert.rejects(client.getRankings('trending'), error => {
 `, nil)
 }
 
-func TestRepair_33_EmptyAndStale(t *testing.T) {
-	repository, visibility := repair33MemoryStore(t)
+func TestSnapshotSDKEmptyAndStale(t *testing.T) {
+	repository, visibility := snapshotSDKMemoryStore(t)
 	empty := repository.headers["new"]
 	empty.Total = 0
 	repository.headers["new"] = empty
@@ -326,8 +326,8 @@ func TestRepair_33_EmptyAndStale(t *testing.T) {
 	stale.Provenance.WindowStart -= 120
 	stale.Provenance.WindowEnd -= 120
 	repository.headers["trending"] = stale
-	server, _ := repair33Server(t, repository, visibility)
-	repair33SDK(t, server.URL, `
+	server, _ := snapshotSDKServer(t, repository, visibility)
+	snapshotSDKSDK(t, server.URL, `
 const empty = await client.getRankings('new');
 assert.deepEqual(empty.data.snapshot.items, []);
 assert.equal(empty.data.snapshot.totalEligible, '0');

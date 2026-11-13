@@ -652,4 +652,4 @@ func containsString(values []string, want string) bool {
 	return false
 }
 
-func RepairM931UniverseSQL(r *CanonicalInputReader) string { return r.universeQuery() }
+func CanonicalUniverseSQL(r *CanonicalInputReader) string { return r.universeQuery() }

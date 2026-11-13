@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestRepair471_SealedExportBound(t *testing.T) {
+func TestSealedExportSizeBound(t *testing.T) {
 	s := fixture(t)
 	objects := internaltest.NewStore(t, "repair471-exports")
 	ctx := context.Background()
