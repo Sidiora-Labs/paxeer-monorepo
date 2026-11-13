@@ -2,7 +2,7 @@
 members = ["layerx-platform-kvx", "layerx-platform-workspace-gate", "layerx-platform-benchmark"]
 
 [lint.expect_used]
-files = ["services/platform/tools/workspace-gate/tests/repair_22_33_1414.rs"]
+files = ["services/platform/tools/workspace-gate/tests/workspace_path_containment.rs"]
 resolution = "Workspace refusal tests assert that validation returns an error."
 
 [lint.struct_field_names]

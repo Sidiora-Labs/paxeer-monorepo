@@ -1,12 +1,9 @@
-//! Task 22.33.1416 closes audit 22.30.79 finding 034 with the tests below.
-//! Baseline at e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f was not run: the
-//! task's gate order requires implementation before its sole verification run.
-//! No out-of-path wiring is required; qualification records the verified revision.
+//! Quoted strings, keys, and lists preserve escaped values and reject malformed input.
 
 use layerx_platform_kvx::{parse, quote, string_list, unquote};
 
 #[test]
-fn finding_034_quote_unquote_round_trip() {
+fn quote_unquote_round_trip() {
     for (plain, encoded) in [
         ("", "\"\""),
         ("a,b", r#""a,b""#),
@@ -29,7 +26,7 @@ fn finding_034_quote_unquote_round_trip() {
 }
 
 #[test]
-fn finding_034_list_round_trip_through_document() {
+fn list_round_trip_through_document() {
     let values = [
         "a,b",
         r#"say "yes, please""#,
@@ -56,7 +53,7 @@ fn finding_034_list_round_trip_through_document() {
 }
 
 #[test]
-fn finding_034_escape_and_delimiter_combinations_round_trip() {
+fn escape_and_delimiter_combinations_round_trip() {
     let parts = ["", "a", ",", "\"", "\\", " ", "[", "]", "é"];
     let mut values = Vec::new();
     for first in parts {
@@ -86,7 +83,7 @@ fn finding_034_escape_and_delimiter_combinations_round_trip() {
 }
 
 #[test]
-fn finding_034_escaped_quoted_key_round_trip() {
+fn escaped_quoted_key_round_trip() {
     let key = r#"say "hello, world"\path"#;
     let source = format!("[record]\n{} = {}\n", quote(key), quote("value, intact"));
     let document = parse(&source).unwrap_or_else(|error| panic!("parse: {error}"));
@@ -98,7 +95,7 @@ fn finding_034_escaped_quoted_key_round_trip() {
 }
 
 #[test]
-fn finding_034_rejects_malformed_strings_and_lists() {
+fn rejects_malformed_strings_and_lists() {
     for invalid in [
         "",
         "bare",

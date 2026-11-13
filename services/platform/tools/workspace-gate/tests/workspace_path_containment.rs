@@ -93,7 +93,7 @@ fn write_file(path: &Path) {
 }
 
 #[test]
-fn finding_040_default_validates_checked_in_split_tree_before_mutations() {
+fn default_validates_checked_in_split_tree_before_mutations() {
     gate::default_workspace_gate(&repository())
         .unwrap_or_else(|error| panic!("default on checked-in tree: {error}"));
     let fixture = Fixture::new();
@@ -129,7 +129,7 @@ fn finding_040_default_validates_checked_in_split_tree_before_mutations() {
 }
 
 #[test]
-fn finding_032_rejects_directory_traversal_and_absolute_paths() {
+fn rejects_directory_traversal_and_absolute_paths() {
     let fixture = Fixture::new();
     fs::create_dir_all(fixture.root.join("services/outside"))
         .unwrap_or_else(|error| panic!("create traversal target: {error}"));
@@ -149,7 +149,7 @@ fn finding_032_rejects_directory_traversal_and_absolute_paths() {
 }
 
 #[test]
-fn finding_032_rejects_directory_symlink_escapes_before_missing_leaf() {
+fn rejects_directory_symlink_escapes_before_missing_leaf() {
     let fixture = Fixture::new();
     let outside = fixture.root.join("outside");
     fs::create_dir(&outside).unwrap_or_else(|error| panic!("create outside: {error}"));
@@ -175,7 +175,7 @@ fn finding_032_rejects_directory_symlink_escapes_before_missing_leaf() {
 }
 
 #[test]
-fn finding_032_contains_every_ecosystem_policy_path() {
+fn contains_every_ecosystem_policy_path() {
     let fixture = Fixture::new();
     let outside = fixture.root.join("services/outside-policy");
     write_file(&outside);
@@ -211,7 +211,7 @@ fn finding_032_contains_every_ecosystem_policy_path() {
 }
 
 #[test]
-fn finding_032_rejects_workspace_root_escapes() {
+fn rejects_workspace_root_escapes() {
     let fixture = Fixture::new();
     let absolute = fixture.root.join("services/platform");
     for root in [
@@ -236,7 +236,7 @@ fn finding_032_rejects_workspace_root_escapes() {
 }
 
 #[test]
-fn finding_032_accepts_normalized_paths_and_contained_symlinks() {
+fn accepts_normalized_paths_and_contained_symlinks() {
     let fixture = Fixture::new();
     symlink(
         fixture.root.join("services/platform/middleware"),

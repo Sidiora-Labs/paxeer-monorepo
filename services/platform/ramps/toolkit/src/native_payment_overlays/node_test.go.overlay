@@ -16,7 +16,7 @@ import (
 
 // Loaded into the existing native node integration package using Go's overlay.
 // The producer, root RPC registration, execution, WAL and standby are real.
-func TestRepairRampNode2231211(t *testing.T) {
+func TestRampNodeReceiptExchange(t *testing.T) {
 	admissionChainID(t, 125)
 	h := newRPCE2EHarness(t)
 	primary := h.node.App.GetCheckCtx().WithBlockHeight(openHeight)

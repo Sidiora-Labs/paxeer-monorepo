@@ -724,7 +724,7 @@ impl NativeProcess {
                 );
             }
         });
-        let source = root.join("services/platform/ramps/toolkit/src/repair_22_31_211");
+        let source = root.join("services/platform/ramps/toolkit/src/native_payment_overlays");
         // The general RPC fixture deliberately disables custom precompiles.
         // Enable the production constructors and activation gates for this
         // native payment proof, rather than calling an empty EVM account.
@@ -836,7 +836,7 @@ fn native_keeper_expiry_consumes_ramp_calldata_before_and_at_expiry() {
     let mut process = NativeProcess::start(
         &files,
         "./modules/layerxledger/keeper",
-        "^TestRepairRampExpiry2231211$",
+        "^TestRampPaymentExpiryAtNativeBoundary$",
         Some(&data),
     );
     process.finish();
@@ -851,7 +851,7 @@ fn native_customer_budget_debits_through_maintained_authority_and_decodes_paymen
     let mut process = NativeProcess::start(
         &files,
         "./precompiles/layerxpay",
-        "^TestRepairRampCustomerPayment2231211$",
+        "^TestRampCustomerBudgetPayment$",
         None,
     );
     let bindings = process.wait_file(&files.path("budget.json"));
@@ -962,7 +962,7 @@ fn recovery_node_durable_transaction_and_failed_native_custody_use_real_root_rpc
     let mut process = NativeProcess::start(
         &files,
         "./node/sequencer",
-        "^TestRepairRampNode2231211$",
+        "^TestRampNodeReceiptExchange$",
         None,
     );
     let bindings = process.wait_file(&files.path("node.json"));
