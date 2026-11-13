@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.52"
+pages = 20
+
+[page.1]
+path = "contracts/launchpad/docs/test/MockERC20.md"
+status = "corrected"
+
+[page.2]
+path = "contracts/launchpad/docs/test/MockERC20Base.md"
+status = "corrected"
+
+[page.3]
+path = "contracts/launchpad/docs/test/MockERC721Base.md"
+status = "corrected"
+
+[page.4]
+path = "contracts/launchpad/docs/test/MockERC721Enumerable.md"
+status = "corrected"
+
+[page.5]
+path = "contracts/launchpad/docs/test/MockEventEmitter.md"
+status = "corrected"
+
+[page.6]
+path = "contracts/launchpad/docs/test/MockInitializable.md"
+status = "corrected"
+
+[page.7]
+path = "contracts/launchpad/docs/test/MockMulticall.md"
+status = "corrected"
+
+[page.8]
+path = "contracts/launchpad/docs/test/MockNonStandardERC20.md"
+status = "corrected"
+
+[page.9]
+path = "contracts/launchpad/docs/test/MockOptical.md"
+status = "corrected"
+
+[page.10]
+path = "contracts/launchpad/docs/test/MockOpticalRegistry.md"
+status = "reviewed"
+
+[page.11]
+path = "contracts/launchpad/docs/test/MockPausable.md"
+status = "corrected"
+
+[page.12]
+path = "contracts/launchpad/docs/test/MockPoolForOptical.md"
+status = "corrected"
+
+[page.13]
+path = "contracts/launchpad/docs/test/MockPoolRegistry.md"
+status = "reviewed"
+
+[page.14]
+path = "contracts/launchpad/docs/test/MockProxy.md"
+status = "corrected"
+
+[page.15]
+path = "contracts/launchpad/docs/test/MockReentrancy.md"
+status = "corrected"
+
+[page.16]
+path = "contracts/launchpad/docs/test/MockRevertingERC20.md"
+status = "corrected"
+
+[page.17]
+path = "contracts/launchpad/docs/test/MockUUPS.md"
+status = "corrected"
+
+[page.18]
+path = "contracts/launchpad/docs/test/PoolAddressWrapper.md"
+status = "corrected"
+
+[page.19]
+path = "contracts/launchpad/docs/test/ReserveLibWrapper.md"
+status = "reviewed"
+
+[page.20]
+path = "contracts/launchpad/docs/test/SidioraMathWrapper.md"
+status = "reviewed"

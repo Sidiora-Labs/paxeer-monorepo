@@ -9,31 +9,31 @@ Simplified mock EventEmitter for testing contracts that emit events through it
 ### lastConfigKey
 
 ```solidity
-bytes32 lastConfigKey
+bytes32 public lastConfigKey
 ```
 
 ### lastConfigOldValue
 
 ```solidity
-uint256 lastConfigOldValue
+uint256 public lastConfigOldValue
 ```
 
 ### lastConfigNewValue
 
 ```solidity
-uint256 lastConfigNewValue
+uint256 public lastConfigNewValue
 ```
 
 ### configUpdateCount
 
 ```solidity
-uint256 configUpdateCount
+uint256 public configUpdateCount
 ```
 
 ### authorizedEmitters
 
 ```solidity
-mapping(address => bool) authorizedEmitters
+mapping(address => bool) public authorizedEmitters
 ```
 
 ### ConfigUpdated

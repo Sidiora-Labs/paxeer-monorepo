@@ -7,19 +7,19 @@ Source: [MockUUPS.sol](../../contracts/test/MockUUPS.sol).
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### upgrader
 
 ```solidity
-address upgrader
+address public upgrader
 ```
 
 ### initialize
 
 ```solidity
-function initialize(address _upgrader) external
+function initialize(address _upgrader) external initializer
 ```
 
 ### setValue
@@ -45,19 +45,19 @@ function _authorizeUpgrade(address) internal view
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### upgrader
 
 ```solidity
-address upgrader
+address public upgrader
 ```
 
 ### extra
 
 ```solidity
-uint256 extra
+uint256 public extra
 ```
 
 ### setValue
@@ -91,7 +91,7 @@ _Simple ERC1967 proxy for UUPS testing_
 ### constructor
 
 ```solidity
-constructor(address implementation, bytes data) public
+constructor(address implementation, bytes memory data)
 ```
 
 ### \_implementation

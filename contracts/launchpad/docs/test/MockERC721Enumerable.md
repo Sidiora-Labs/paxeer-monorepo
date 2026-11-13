@@ -7,7 +7,7 @@ Source: [MockERC721Enumerable.sol](../../contracts/test/MockERC721Enumerable.sol
 ### constructor
 
 ```solidity
-constructor() public
+constructor()
 ```
 
 ### mint

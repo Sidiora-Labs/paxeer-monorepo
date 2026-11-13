@@ -7,19 +7,19 @@ Source: [MockPausable.sol](../../contracts/test/MockPausable.sol).
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### protectedAction
 
 ```solidity
-function protectedAction(uint256 _val) external
+function protectedAction(uint256 _val) external whenNotPaused
 ```
 
 ### emergencyAction
 
 ```solidity
-function emergencyAction() external returns (bool)
+function emergencyAction() external whenPaused returns (bool)
 ```
 
 ### pause

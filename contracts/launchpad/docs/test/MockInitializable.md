@@ -7,31 +7,31 @@ Source: [MockInitializable.sol](../../contracts/test/MockInitializable.sol).
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### initialized
 
 ```solidity
-bool initialized
+bool public initialized
 ```
 
 ### initialize
 
 ```solidity
-function initialize(uint256 _value) external
+function initialize(uint256 _value) external initializer
 ```
 
 ### reinitialize2
 
 ```solidity
-function reinitialize2(uint256 _value) external
+function reinitialize2(uint256 _value) external reinitializer(2)
 ```
 
 ### reinitialize3
 
 ```solidity
-function reinitialize3(uint256 _value) external
+function reinitialize3(uint256 _value) external reinitializer(3)
 ```
 
 ### getInitializedVersion
@@ -51,19 +51,19 @@ function isInitializing() external view returns (bool)
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### constructor
 
 ```solidity
-constructor() public
+constructor()
 ```
 
 ### initialize
 
 ```solidity
-function initialize(uint256 _value) external
+function initialize(uint256 _value) external initializer
 ```
 
 ## MockInitializableChild
@@ -71,23 +71,23 @@ function initialize(uint256 _value) external
 ### childValue
 
 ```solidity
-uint256 childValue
+uint256 public childValue
 ```
 
 ### parentValue
 
 ```solidity
-uint256 parentValue
+uint256 public parentValue
 ```
 
 ### initialize
 
 ```solidity
-function initialize(uint256 _parent, uint256 _child) external
+function initialize(uint256 _parent, uint256 _child) external initializer
 ```
 
 ### \_initParent
 
 ```solidity
-function _initParent(uint256 _val) internal
+function _initParent(uint256 _val) internal onlyInitializing
 ```
