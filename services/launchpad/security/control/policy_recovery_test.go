@@ -29,7 +29,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func repair65Get(t *testing.T, e *phase2Environment, role, path string, out any) int {
+func controlRecoveryGet(t *testing.T, e *phase2Environment, role, path string, out any) int {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, e.server.URL+"/v2/control/"+path, nil)
 	must(t, err)
@@ -45,7 +45,7 @@ func repair65Get(t *testing.T, e *phase2Environment, role, path string, out any)
 	return res.StatusCode
 }
 
-func TestRepair_65_PolicyWriteReadShape(t *testing.T) {
+func TestControlPolicyWriteReadShape(t *testing.T) {
 	e := phase2EnvironmentFor(t)
 	ctx := context.Background()
 	owner := e.actors["user"]
@@ -58,7 +58,7 @@ func TestRepair_65_PolicyWriteReadShape(t *testing.T) {
 		var envelope struct {
 			Data CampaignView `json:"data"`
 		}
-		if status = repair65Get(t, e, "user", "campaigns/"+p.ID, &envelope); status != http.StatusOK {
+		if status = controlRecoveryGet(t, e, "user", "campaigns/"+p.ID, &envelope); status != http.StatusOK {
 			t.Fatalf("GET campaign: %d", status)
 		}
 		v := envelope.Data
@@ -70,10 +70,10 @@ func TestRepair_65_PolicyWriteReadShape(t *testing.T) {
 		if !reflect.DeepEqual(v.BudgetAsset, expectedAsset) {
 			t.Fatalf("asset encoding: %+v", v.BudgetAsset)
 		}
-		if status = repair65Get(t, e, "", "campaigns/"+p.ID, nil); status != http.StatusUnauthorized {
+		if status = controlRecoveryGet(t, e, "", "campaigns/"+p.ID, nil); status != http.StatusUnauthorized {
 			t.Fatalf("anonymous GET: %d", status)
 		}
-		if status = repair65Get(t, e, "support", "campaigns/"+p.ID, nil); status != http.StatusForbidden {
+		if status = controlRecoveryGet(t, e, "support", "campaigns/"+p.ID, nil); status != http.StatusForbidden {
 			t.Fatalf("foreign GET: %d", status)
 		}
 		must(t, e.store.SetBudget(ctx, e.credentials["user"], owner, "explicit owner budget", Budget{Owner: owner, Asset: asset, Requests: 3, Spend: p.Spend, Expires: time.Now().Add(time.Hour)}, 0))
@@ -86,7 +86,7 @@ func TestRepair_65_PolicyWriteReadShape(t *testing.T) {
 		var recommendation struct {
 			Data RecommendationView `json:"data"`
 		}
-		if status = repair65Get(t, e, "user", "recommendations/"+requestKey, &recommendation); status != http.StatusOK {
+		if status = controlRecoveryGet(t, e, "user", "recommendations/"+requestKey, &recommendation); status != http.StatusOK {
 			t.Fatalf("GET recommendation: %d", status)
 		}
 		if recommendation.Data.Campaign.CampaignID != p.ID || recommendation.Data.Campaign.AccountID != owner || !reflect.DeepEqual(recommendation.Data.Campaign.AssetAllowlist, p.Instruments) || recommendation.Data.Reservation.Instrument != beneficiary || recommendation.Data.Campaign.State != "blocked" {
@@ -95,7 +95,7 @@ func TestRepair_65_PolicyWriteReadShape(t *testing.T) {
 	}
 }
 
-func TestRepair_65_PolicyRejectsMalformedBeforeCommit(t *testing.T) {
+func TestControlPolicyRejectsMalformedBeforeCommit(t *testing.T) {
 	e := phase2EnvironmentFor(t)
 	ctx := context.Background()
 	cases := []struct {
@@ -135,10 +135,10 @@ func TestRepair_65_PolicyRejectsMalformedBeforeCommit(t *testing.T) {
 	is(t, e.store.CreatePolicy(ctx, e.credentials["user"], "owner", "malformed owner", p), Invalid)
 }
 
-func repair65RuntimeStore(t *testing.T, e *phase2Environment) *Store {
+func controlRecoveryRuntimeStore(t *testing.T, e *phase2Environment) *Store {
 	t.Helper()
 	ctx := context.Background()
-	role := "repair65_runtime_" + strings.ReplaceAll(id(), "-", "")[:12]
+	role := "controlRecovery_runtime_" + strings.ReplaceAll(id(), "-", "")[:12]
 	quotedRole := pgx.Identifier{role}.Sanitize()
 	secret := readySecret(t)
 	_, err := e.store.pool.Exec(ctx, "CREATE ROLE "+quotedRole+" LOGIN PASSWORD '"+secret+"' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS")
@@ -207,7 +207,7 @@ func repair65RuntimeStore(t *testing.T, e *phase2Environment) *Store {
 	return store
 }
 
-func repair65RecoveryApproval(t *testing.T, e *phase2Environment, incident, approval string) {
+func controlRecoveryRecoveryApproval(t *testing.T, e *phase2Environment, incident, approval string) {
 	t.Helper()
 	payload := map[string]string{"incident": incident, "rotation": "rotation." + incident, "integrity": "integrity." + incident}
 	a, err := e.store.Propose(context.Background(), e.credentials["infrastructure"], approval, "incident_recovery", "service", "review independent recovery evidence", digest(payload), time.Now().Add(time.Hour))
@@ -216,7 +216,7 @@ func repair65RecoveryApproval(t *testing.T, e *phase2Environment, incident, appr
 	must(t, err)
 }
 
-func repair65Recover(t *testing.T, e *phase2Environment, incident, approval string) error {
+func controlRecoveryRecover(t *testing.T, e *phase2Environment, incident, approval string) error {
 	t.Helper()
 	revision := uint64(1)
 	status, raw := e.post(t, "infrastructure", "recover-incident", IncidentRecoveryRequest{TransitionRequest: TransitionRequest{Scope: "service", Key: incident, Reason: "recover verified current quarantine", Expected: &revision}, ApprovalKey: approval, Rotation: "rotation." + incident, Integrity: "integrity." + incident})
@@ -228,7 +228,7 @@ func repair65Recover(t *testing.T, e *phase2Environment, incident, approval stri
 	return Fault(result.Rule)
 }
 
-func repair65RecordRecoveryEvidence(t *testing.T, e *phase2Environment, incident, identity string) {
+func controlRecoveryRecordRecoveryEvidence(t *testing.T, e *phase2Environment, incident, identity string) {
 	t.Helper()
 	// Independent adapter evidence lives in the real durable outbox consumed by
 	// IncidentRecovery. Credentials are actually revoked by IncidentWorker first.
@@ -244,12 +244,12 @@ func repair65RecordRecoveryEvidence(t *testing.T, e *phase2Environment, incident
 	must(t, err)
 }
 
-func TestRepair_65_RecoveryWithProductionGrants(t *testing.T) {
+func TestControlRecoveryWithProductionGrants(t *testing.T) {
 	e := phase2EnvironmentFor(t)
 	ctx := context.Background()
 	actor := e.actors["finance"]
 	original := e.credentials["finance"]
-	runtimeStore := repair65RuntimeStore(t, e)
+	runtimeStore := controlRecoveryRuntimeStore(t, e)
 	service, err := NewHTTPService(runtimeStore, nil)
 	must(t, err)
 	e.server.Close()
@@ -257,19 +257,19 @@ func TestRepair_65_RecoveryWithProductionGrants(t *testing.T) {
 	t.Cleanup(e.server.Close)
 	must(t, runtimeStore.DetectIncident(ctx, e.credentials["infrastructure"], "service", "incident65", "contain compromised service", actor, "retained-detection"))
 	is(t, runtimeStore.Access(ctx, original, "platform", "blocked operation", "finance_liabilities", "", false), Denied)
-	repair65RecoveryApproval(t, e, "incident65", "approval65")
-	is(t, repair65Recover(t, e, "incident65", "approval65"), Unavailable)
+	controlRecoveryRecoveryApproval(t, e, "incident65", "approval65")
+	is(t, controlRecoveryRecover(t, e, "incident65", "approval65"), Unavailable)
 	if load[Action](t, e.store, "action", "approval65").State != "approved" {
 		t.Fatal("unverified recovery consumed approval")
 	}
-	repair65RecordRecoveryEvidence(t, e, "incident65", actor)
+	controlRecoveryRecordRecoveryEvidence(t, e, "incident65", actor)
 	// Rotate to a real fresh credential for the same service identity.
 	replacement := readySecret(t)
 	hash := sha256.Sum256([]byte(replacement))
 	_, err = e.store.pool.Exec(ctx, "INSERT INTO "+e.store.schema+".authority_credentials(credential_id,actor_id,role,scopes,token_hash,expires_at) VALUES($1,$2,'finance',$3,$4,clock_timestamp()+interval '15 minutes')", id(), actor, []string{"platform", "service", actor}, hash[:])
 	must(t, err)
 	is(t, runtimeStore.Access(ctx, replacement, "platform", "still contained after rotation", "finance_liabilities", "", false), Denied)
-	must(t, repair65Recover(t, e, "incident65", "approval65"))
+	must(t, controlRecoveryRecover(t, e, "incident65", "approval65"))
 	marker := load[map[string]string](t, e.store, "quarantine", actor)
 	incident := load[Incident](t, e.store, "incident", "incident65")
 	if marker["incident"] != "incident65" || marker["state"] != "recovered" || incident.State != "recovered" || incident.Revision != 2 || incident.DetectionReference != "retained-detection" || incident.RotationReference != "rotation.incident65" || incident.IntegrityReference != "integrity.incident65" || load[Action](t, e.store, "action", "approval65").State != "succeeded" {
@@ -289,13 +289,13 @@ func TestRepair_65_RecoveryWithProductionGrants(t *testing.T) {
 	must(t, err)
 	oldApprover := e.credentials["operator2"]
 	e.credentials["operator2"] = thirdToken
-	repair65RecoveryApproval(t, e, "approver65", "approver-recovery65")
-	repair65RecordRecoveryEvidence(t, e, "approver65", infraActor)
+	controlRecoveryRecoveryApproval(t, e, "approver65", "approver-recovery65")
+	controlRecoveryRecordRecoveryEvidence(t, e, "approver65", infraActor)
 	rotatedApprover := readySecret(t)
 	rotatedHash := sha256.Sum256([]byte(rotatedApprover))
 	_, err = e.store.pool.Exec(ctx, "INSERT INTO "+e.store.schema+".authority_credentials(credential_id,actor_id,role,scopes,token_hash,expires_at) VALUES($1,$2,'infrastructure',$3,$4,clock_timestamp()+interval '15 minutes')", id(), infraActor, []string{"platform", "service", infraActor}, rotatedHash[:])
 	must(t, err)
-	must(t, repair65Recover(t, e, "approver65", "approver-recovery65"))
+	must(t, controlRecoveryRecover(t, e, "approver65", "approver-recovery65"))
 	e.credentials["operator2"] = rotatedApprover
 	a, err := runtimeStore.Propose(ctx, e.credentials["infrastructure"], "recovered-approver-action", "bulk_export", "platform", "review export", digest(map[string]string{"dataset": "finance_liabilities", "scope": "platform"}), time.Now().Add(time.Hour))
 	must(t, err)
@@ -313,14 +313,14 @@ func TestRepair_65_RecoveryWithProductionGrants(t *testing.T) {
 	}
 }
 
-func TestRepair_65_RecoveryPreservesNewerQuarantine(t *testing.T) {
+func TestControlRecoveryPreservesNewerQuarantine(t *testing.T) {
 	e := phase2EnvironmentFor(t)
 	ctx := context.Background()
-	runtimeStore := repair65RuntimeStore(t, e)
+	runtimeStore := controlRecoveryRuntimeStore(t, e)
 	actor := e.actors["finance"]
 	must(t, runtimeStore.DetectIncident(ctx, e.credentials["infrastructure"], "service", "older65", "first containment", actor, "first-detection"))
-	repair65RecoveryApproval(t, e, "older65", "older-approval65")
-	repair65RecordRecoveryEvidence(t, e, "older65", actor)
+	controlRecoveryRecoveryApproval(t, e, "older65", "older-approval65")
+	controlRecoveryRecordRecoveryEvidence(t, e, "older65", actor)
 	must(t, runtimeStore.DetectIncident(ctx, e.credentials["infrastructure"], "service", "latest65", "second containment", actor, "second-detection"))
 	is(t, runtimeStore.RecoverIncident(ctx, e.credentials["infrastructure"], "service", "older65", "stale recovery", "older-approval65", "rotation.older65", "integrity.older65", 1, IncidentRecovery{runtimeStore}), Conflict)
 	if load[Incident](t, e.store, "incident", "older65").State != "contained" || load[Action](t, e.store, "action", "older-approval65").State != "approved" {
@@ -335,7 +335,7 @@ func TestRepair_65_RecoveryPreservesNewerQuarantine(t *testing.T) {
 // This local provider accepts the real PayoutProvider HTTP request, persists its
 // key in PostgreSQL and executes a real Anvil transfer. Its responses are derived
 // from the transaction receipt; it does not manufacture settlement evidence.
-type repair65PayoutEndpoint struct {
+type controlRecoveryPayoutEndpoint struct {
 	store                   *Store
 	chain                   *ethclient.Client
 	obligation              Obligation
@@ -344,7 +344,7 @@ type repair65PayoutEndpoint struct {
 	puts                    atomic.Int32
 }
 
-func (p *repair65PayoutEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (p *controlRecoveryPayoutEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Authorization") != "Bearer "+p.token || r.Header.Get("Idempotency-Key") != p.obligation.IdempotencyKey || r.URL.Path != "/v1/settlements/"+p.obligation.IdempotencyKey {
 		http.Error(w, "unauthorized payout request", http.StatusForbidden)
 		return
@@ -355,7 +355,7 @@ func (p *repair65PayoutEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "repair65 payout endpoint:", err)
+		fmt.Fprintln(os.Stderr, "controlRecovery payout endpoint:", err)
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
@@ -363,7 +363,7 @@ func (p *repair65PayoutEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Reques
 	_ = json.NewEncoder(w).Encode(result)
 }
 
-func (p *repair65PayoutEndpoint) handle(r *http.Request) (PayoutResult, error) {
+func (p *controlRecoveryPayoutEndpoint) handle(r *http.Request) (PayoutResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	var result PayoutResult
@@ -454,7 +454,7 @@ func (p *repair65PayoutEndpoint) handle(r *http.Request) (PayoutResult, error) {
 	return result, nil
 }
 
-func repair65Transport(cert *x509.Certificate) *http.Transport {
+func controlRecoveryTransport(cert *x509.Certificate) *http.Transport {
 	roots := x509.NewCertPool()
 	roots.AddCert(cert)
 	return &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}, DisableKeepAlives: true}
@@ -462,19 +462,19 @@ func repair65Transport(cert *x509.Certificate) *http.Transport {
 
 // TestMain dispatches only the dedicated worker subprocess here, so killing the
 // worker leaves the parent's real PostgreSQL, TLS provider and chain running.
-func repair65RunWorker() error {
+func controlRecoveryRunWorker() error {
 	ctx := context.Background()
-	config, err := pgxpool.ParseConfig(os.Getenv("L47_REPAIR65_DSN"))
+	config, err := pgxpool.ParseConfig(os.Getenv("L47_CONTROL_RECOVERY_DSN"))
 	if err != nil {
 		return err
 	}
-	config.ConnConfig.RuntimeParams["application_name"] = os.Getenv("L47_REPAIR65_APP")
+	config.ConnConfig.RuntimeParams["application_name"] = os.Getenv("L47_CONTROL_RECOVERY_APP")
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
-	schema := os.Getenv("L47_REPAIR65_SCHEMA")
+	schema := os.Getenv("L47_CONTROL_RECOVERY_SCHEMA")
 	identity, err := NewPostgresIdentity(pool, schema, schema)
 	if err != nil {
 		return err
@@ -492,7 +492,7 @@ func repair65RunWorker() error {
 	if err != nil {
 		return err
 	}
-	certificate, err := os.ReadFile(os.Getenv("L47_REPAIR65_CA"))
+	certificate, err := os.ReadFile(os.Getenv("L47_CONTROL_RECOVERY_CA"))
 	if err != nil {
 		return err
 	}
@@ -504,12 +504,12 @@ func repair65RunWorker() error {
 	if err != nil {
 		return err
 	}
-	transport := repair65Transport(cert)
-	if os.Getenv("L47_REPAIR65_BOUNDARY") == "intent" {
+	transport := controlRecoveryTransport(cert)
+	if os.Getenv("L47_CONTROL_RECOVERY_BOUNDARY") == "intent" {
 		var dials atomic.Int32
 		transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
 			if dials.Add(1) == 2 {
-				if err := os.WriteFile(os.Getenv("L47_REPAIR65_MARKER"), []byte("intent committed before submission"), 0600); err != nil {
+				if err := os.WriteFile(os.Getenv("L47_CONTROL_RECOVERY_MARKER"), []byte("intent committed before submission"), 0600); err != nil {
 					return nil, err
 				}
 				<-ctx.Done()
@@ -518,7 +518,7 @@ func repair65RunWorker() error {
 			return (&net.Dialer{}).DialContext(ctx, network, address)
 		}
 	}
-	provider, err := NewPayoutProvider(os.Getenv("L47_REPAIR65_URL"), os.Getenv("L47_REPAIR65_TOKEN"), "isolated real payout endpoint", custody, transport)
+	provider, err := NewPayoutProvider(os.Getenv("L47_CONTROL_RECOVERY_URL"), os.Getenv("L47_CONTROL_RECOVERY_TOKEN"), "isolated real payout endpoint", custody, transport)
 	if err != nil {
 		return err
 	}
@@ -526,11 +526,11 @@ func repair65RunWorker() error {
 	if err != nil {
 		return err
 	}
-	_, err = worker.Process(ctx, os.Getenv("L47_REPAIR65_CREDENTIAL"), "service", os.Getenv("L47_REPAIR65_KEY"), "process durable payout in subprocess")
+	_, err = worker.Process(ctx, os.Getenv("L47_CONTROL_RECOVERY_CREDENTIAL"), "service", os.Getenv("L47_CONTROL_RECOVERY_KEY"), "process durable payout in subprocess")
 	return fmt.Errorf("worker returned before process-loss boundary: %v", err)
 }
 
-func repair65Eventually(t *testing.T, condition func() bool) {
+func controlRecoveryEventually(t *testing.T, condition func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
@@ -542,7 +542,7 @@ func repair65Eventually(t *testing.T, condition func() bool) {
 	t.Fatal("real worker did not reach the required process-loss boundary")
 }
 
-func repair65Reopen(t *testing.T, schema string) *Store {
+func controlRecoveryReopen(t *testing.T, schema string) *Store {
 	t.Helper()
 	pool, err := pgxpool.New(context.Background(), fixtureDSN)
 	must(t, err)
@@ -554,7 +554,7 @@ func repair65Reopen(t *testing.T, schema string) *Store {
 	return store
 }
 
-func TestRepair_65_RoutingRestart(t *testing.T) {
+func TestControlRoutingRestart(t *testing.T) {
 	for _, boundary := range []string{"intent", "send", "response"} {
 		t.Run(boundary, func(t *testing.T) {
 			ctx := context.Background()
@@ -572,14 +572,14 @@ func TestRepair_65_RoutingRestart(t *testing.T) {
 			original := load[Obligation](t, e.store, "settlement", key)
 			nonceBefore, err := verifier.client.NonceAt(ctx, common.HexToAddress(custody), nil)
 			must(t, err)
-			endpoint := &repair65PayoutEndpoint{store: e.store, chain: verifier.client, obligation: original, token: readySecret(t), boundary: boundary, sent: make(chan struct{}), release: make(chan struct{}), accepted: make(chan struct{})}
+			endpoint := &controlRecoveryPayoutEndpoint{store: e.store, chain: verifier.client, obligation: original, token: readySecret(t), boundary: boundary, sent: make(chan struct{}), release: make(chan struct{}), accepted: make(chan struct{})}
 			server := httptest.NewTLSServer(endpoint)
 			t.Cleanup(server.Close)
 			temp := t.TempDir()
 			ca := filepath.Join(temp, "provider.pem")
 			must(t, os.WriteFile(ca, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0600))
 			marker := filepath.Join(temp, "intent")
-			app := "repair65_" + strings.ReplaceAll(id(), "-", "")
+			app := "controlRecovery_" + strings.ReplaceAll(id(), "-", "")
 			// A real PostgreSQL lock pauses the final response write, after provider
 			// acceptance, without inserting any synthetic payout_attempt state.
 			var lock *pgxpool.Conn
@@ -596,12 +596,12 @@ func TestRepair_65_RoutingRestart(t *testing.T) {
 			defer output.Close()
 			process := exec.Command(os.Args[0])
 			process.Env = append(os.Environ(),
-				"L47_REPAIR65_WORKER=1", "L47_REPAIR65_DSN="+fixtureDSN,
-				"L47_REPAIR65_SCHEMA="+strings.Trim(e.store.schema, "\""),
-				"L47_REPAIR65_APP="+app, "L47_REPAIR65_CA="+ca,
-				"L47_REPAIR65_URL="+server.URL, "L47_REPAIR65_TOKEN="+endpoint.token,
-				"L47_REPAIR65_CREDENTIAL="+e.credentials["finance"], "L47_REPAIR65_KEY="+key,
-				"L47_REPAIR65_BOUNDARY="+boundary, "L47_REPAIR65_MARKER="+marker)
+				"L47_CONTROL_RECOVERY_WORKER=1", "L47_CONTROL_RECOVERY_DSN="+fixtureDSN,
+				"L47_CONTROL_RECOVERY_SCHEMA="+strings.Trim(e.store.schema, "\""),
+				"L47_CONTROL_RECOVERY_APP="+app, "L47_CONTROL_RECOVERY_CA="+ca,
+				"L47_CONTROL_RECOVERY_URL="+server.URL, "L47_CONTROL_RECOVERY_TOKEN="+endpoint.token,
+				"L47_CONTROL_RECOVERY_CREDENTIAL="+e.credentials["finance"], "L47_CONTROL_RECOVERY_KEY="+key,
+				"L47_CONTROL_RECOVERY_BOUNDARY="+boundary, "L47_CONTROL_RECOVERY_MARKER="+marker)
 			process.Stdout = output
 			process.Stderr = output
 			must(t, process.Start())
@@ -626,9 +626,9 @@ func TestRepair_65_RoutingRestart(t *testing.T) {
 			})
 			switch boundary {
 			case "intent":
-				repair65Eventually(t, func() bool { _, err := os.Stat(marker); return err == nil })
+				controlRecoveryEventually(t, func() bool { _, err := os.Stat(marker); return err == nil })
 			case "send":
-				repair65Eventually(t, func() bool {
+				controlRecoveryEventually(t, func() bool {
 					select {
 					case <-endpoint.sent:
 						return true
@@ -637,7 +637,7 @@ func TestRepair_65_RoutingRestart(t *testing.T) {
 					}
 				})
 			case "response":
-				repair65Eventually(t, func() bool {
+				controlRecoveryEventually(t, func() bool {
 					var waiting bool
 					err := e.store.pool.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name=$1 AND wait_event='advisory')", app).Scan(&waiting)
 					return err == nil && waiting
@@ -661,7 +661,7 @@ func TestRepair_65_RoutingRestart(t *testing.T) {
 				close(endpoint.release)
 			}
 			if boundary != "intent" {
-				repair65Eventually(t, func() bool {
+				controlRecoveryEventually(t, func() bool {
 					select {
 					case <-endpoint.accepted:
 						return true
@@ -683,8 +683,8 @@ func TestRepair_65_RoutingRestart(t *testing.T) {
 			if wait > 0 {
 				time.Sleep(wait)
 			}
-			reopened := repair65Reopen(t, e.store.schema)
-			provider, err := NewPayoutProvider(server.URL, endpoint.token, "isolated real payout endpoint", custody, repair65Transport(server.Certificate()))
+			reopened := controlRecoveryReopen(t, e.store.schema)
+			provider, err := NewPayoutProvider(server.URL, endpoint.token, "isolated real payout endpoint", custody, controlRecoveryTransport(server.Certificate()))
 			must(t, err)
 			// Provider acceptance alone cannot release inventory: the independently
 			// configured chain reader is actually disconnected for this first recovery.
@@ -713,7 +713,7 @@ func TestRepair_65_RoutingRestart(t *testing.T) {
 				t.Fatalf("unverified payout released inventory: %+v", inventory)
 			}
 			reopened.pool.Close()
-			recovered := repair65Reopen(t, e.store.schema)
+			recovered := controlRecoveryReopen(t, e.store.schema)
 			worker, err = NewSettlementWorker(recovered, provider)
 			must(t, err)
 			settled, err := worker.Process(ctx, e.credentials["finance"], "service", key, "recover and independently verify receipt")
@@ -746,11 +746,11 @@ func TestRepair_65_RoutingRestart(t *testing.T) {
 	}
 }
 
-func TestRepair_65_RecoveryMarkerFailsClosed(t *testing.T) {
+func TestControlRecoveryMarkerFailsClosed(t *testing.T) {
 	e := phase2EnvironmentFor(t)
 	ctx := context.Background()
 	actor := e.actors["finance"]
-	runtimeStore := repair65RuntimeStore(t, e)
+	runtimeStore := controlRecoveryRuntimeStore(t, e)
 	must(t, runtimeStore.DetectIncident(ctx, e.credentials["infrastructure"], "service", "unverified65", "contain identity", actor, "retained-detection"))
 	for _, incident := range []string{"unverified65", "missing65"} {
 		raw, err := json.Marshal(map[string]string{"incident": incident, "state": "recovered"})

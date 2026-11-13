@@ -35,7 +35,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func repair32Input() ranker.InputSnapshot {
+func publicationInput() ranker.InputSnapshot {
 	cutoff := time.Now().UTC().Truncate(time.Second)
 	in := ranker.InputSnapshot{
 		RunID: uuid.NewString(), Complete: true, AlgorithmVersion: ranker.AlgorithmVersion,
@@ -49,8 +49,8 @@ func repair32Input() ranker.InputSnapshot {
 	return in
 }
 
-func TestRepair_32_RejectIncompleteOrMismatchedHeavyRuns(t *testing.T) {
-	in := repair32Input()
+func TestPublicationRejectIncompleteOrMismatchedHeavyRuns(t *testing.T) {
+	in := publicationInput()
 	compute := func(input ranker.InputSnapshot, newOnly bool) []ranker.Snapshot {
 		t.Helper()
 		snapshots, err := ranker.ComputeRun(input, newOnly)
@@ -104,7 +104,7 @@ func TestRepair_32_RejectIncompleteOrMismatchedHeavyRuns(t *testing.T) {
 	}
 }
 
-func TestRepair_32_ProducerRunsReachTransaction(t *testing.T) {
+func TestPublicationProducerRunsReachTransaction(t *testing.T) {
 	pool, err := pgxpool.New(context.Background(), "postgres://repair:repair@localhost:1/repair?sslmode=disable")
 	if err != nil {
 		t.Fatal(err)
@@ -119,7 +119,7 @@ func TestRepair_32_ProducerRunsReachTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, newOnly := range []bool{false, true} {
-		snapshots, e := ranker.ComputeRun(repair32Input(), newOnly)
+		snapshots, e := ranker.ComputeRun(publicationInput(), newOnly)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -132,7 +132,7 @@ func TestRepair_32_ProducerRunsReachTransaction(t *testing.T) {
 	}
 }
 
-func TestRepair_32_CoordinatorDurableStreamAndHTTPAcrossRestart(t *testing.T) {
+func TestPublicationCoordinatorDurableStreamAndHTTPAcrossRestart(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	path := filepath.Join(t.TempDir(), "publication.json")
@@ -149,7 +149,7 @@ func TestRepair_32_CoordinatorDurableStreamAndHTTPAcrossRestart(t *testing.T) {
 	})
 	open := func() {
 		t.Helper()
-		pool = repair32OpenPool(t, path)
+		pool = publicationOpenPool(t, path)
 		guard, e := queue.NewEpochGuard("recovery", 1, "fixture-loopback")
 		if e != nil {
 			t.Fatal(e)
@@ -160,7 +160,7 @@ func TestRepair_32_CoordinatorDurableStreamAndHTTPAcrossRestart(t *testing.T) {
 		}
 	}
 	open()
-	source := repair32Source{input: repair32PopulatedInput(t)}
+	source := publicationSource{input: publicationPopulatedInput(t)}
 	visibility := source
 	coordinator, err := ranker.NewCoordinator(source, publication)
 	if err != nil {
@@ -237,7 +237,7 @@ func TestRepair_32_CoordinatorDurableStreamAndHTTPAcrossRestart(t *testing.T) {
 	}
 	serve := func() {
 		t.Helper()
-		codec, e := ranker.NewCursorCodec([]byte(strings.Repeat("repair32-cursor-key", 2)))
+		codec, e := ranker.NewCursorCodec([]byte(strings.Repeat("publication-cursor-key", 2)))
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -339,9 +339,9 @@ func TestRepair_32_CoordinatorDurableStreamAndHTTPAcrossRestart(t *testing.T) {
 
 // Only the source facts, visibility fence and PostgreSQL storage boundary are
 // doubled. Coordinator, PublicationStore, pgx, StreamWriter and HTTP are real.
-type repair32Source struct{ input ranker.InputSnapshot }
+type publicationSource struct{ input ranker.InputSnapshot }
 
-func (s repair32Source) Freeze(_ context.Context, id string, cutoff time.Time) (ranker.InputSnapshot, error) {
+func (s publicationSource) Freeze(_ context.Context, id string, cutoff time.Time) (ranker.InputSnapshot, error) {
 	raw, err := json.Marshal(s.input)
 	if err != nil {
 		return ranker.InputSnapshot{}, err
@@ -356,12 +356,12 @@ func (s repair32Source) Freeze(_ context.Context, id string, cutoff time.Time) (
 	in.RunID = id
 	return in, nil
 }
-func (s repair32Source) CurrentRankingRevision(context.Context) (string, time.Time, error) {
+func (s publicationSource) CurrentRankingRevision(context.Context) (string, time.Time, error) {
 	return s.input.Provenance.ModerationRevision, time.Unix(s.input.CutoffTimeUTC, 0), nil
 }
-func repair32PopulatedInput(t *testing.T) ranker.InputSnapshot {
+func publicationPopulatedInput(t *testing.T) ranker.InputSnapshot {
 	t.Helper()
-	in := repair32Input()
+	in := publicationInput()
 	in.CutoffHeight = 100
 	in.Provenance.Watermark.Height = "100"
 	for i := 1; i <= 60; i++ {
@@ -383,12 +383,12 @@ func repair32PopulatedInput(t *testing.T) ranker.InputSnapshot {
 	return in
 }
 
-type repair32Stored struct {
+type publicationStored struct {
 	Artifact []byte
 	Header   ranker.Header
 	Items    []ranker.RankedItem
 }
-type repair32Intent struct {
+type publicationIntent struct {
 	Key                        string
 	Sequence, CategorySequence int64
 	Published                  bool
@@ -396,24 +396,24 @@ type repair32Intent struct {
 	BrokerStream               string
 	BrokerSequence             int64
 }
-type repair32State struct {
-	Snapshots      map[string]*repair32Stored
+type publicationState struct {
+	Snapshots      map[string]*publicationStored
 	Heads          map[string]string
-	Outbox         []repair32Intent
+	Outbox         []publicationIntent
 	Frames         map[string]json.RawMessage
 	RejectCategory string
 }
-type repair32Database struct {
+type publicationDatabase struct {
 	mu    sync.Mutex
 	path  string
-	state repair32State
+	state publicationState
 	t     *testing.T
-	reads []repair931Read
+	reads []canonicalPublicationRead
 }
 
-func repair32OpenPool(t *testing.T, path string, reads ...repair931Read) *pgxpool.Pool {
+func publicationOpenPool(t *testing.T, path string, reads ...canonicalPublicationRead) *pgxpool.Pool {
 	t.Helper()
-	db := &repair32Database{path: path, t: t, reads: reads, state: repair32State{Snapshots: map[string]*repair32Stored{}, Heads: map[string]string{}, Frames: map[string]json.RawMessage{}}}
+	db := &publicationDatabase{path: path, t: t, reads: reads, state: publicationState{Snapshots: map[string]*publicationStored{}, Heads: map[string]string{}, Frames: map[string]json.RawMessage{}}}
 	raw, err := os.ReadFile(path)
 	if err == nil {
 		if err = json.Unmarshal(raw, &db.state); err != nil {
@@ -441,13 +441,13 @@ func repair32OpenPool(t *testing.T, path string, reads ...repair931Read) *pgxpoo
 	return pool
 }
 
-type repair32Result struct {
+type publicationResult struct {
 	oids []uint32
 	rows [][]string
 	tag  string
 }
 
-func repair32Columns(sql string) []uint32 {
+func publicationColumns(sql string) []uint32 {
 	switch {
 	case strings.HasPrefix(sql, "SELECT category,cutoff_time"):
 		return []uint32{25, 20}
@@ -483,7 +483,7 @@ func repair32Columns(sql string) []uint32 {
 		return nil
 	}
 }
-func repair32Description(oids []uint32) *pgproto3.RowDescription {
+func publicationDescription(oids []uint32) *pgproto3.RowDescription {
 	desc := &pgproto3.RowDescription{}
 	for i, oid := range oids {
 		desc.Fields = append(desc.Fields, pgproto3.FieldDescription{Name: []byte(fmt.Sprint(i)), DataTypeOID: oid, DataTypeSize: -1, TypeModifier: -1, Format: 0})
@@ -494,7 +494,7 @@ func repair32Description(oids []uint32) *pgproto3.RowDescription {
 // A fail-closed, transactional storage double behind the actual pgx pool.
 // It accepts only the SQL exercised here; unknown statements fail the test.
 // Committed state is written to disk, and every reopen constructs a new server.
-func (db *repair32Database) serve(conn net.Conn) {
+func (db *publicationDatabase) serve(conn net.Conn) {
 	defer conn.Close()
 	b := pgproto3.NewBackend(conn, conn)
 	if _, err := b.ReceiveStartupMessage(); err != nil {
@@ -512,16 +512,16 @@ func (db *repair32Database) serve(conn net.Conn) {
 	statements := map[string]*pgproto3.Parse{}
 	var sql string
 	var args []string
-	var tx *repair32State
+	var tx *publicationState
 	var copyData []byte
 	status := byte('I')
-	sendResult := func(r repair32Result, err error) {
+	sendResult := func(r publicationResult, err error) {
 		if err != nil {
 			b.Send(&pgproto3.ErrorResponse{Severity: "ERROR", Code: "P0001", Message: err.Error()})
 			return
 		}
 		if len(r.oids) > 0 {
-			b.Send(repair32Description(r.oids))
+			b.Send(publicationDescription(r.oids))
 		}
 		for _, row := range r.rows {
 			values := make([][]byte, len(row))
@@ -588,8 +588,8 @@ func (db *repair32Database) serve(conn net.Conn) {
 				query = p.Query
 				b.Send(&pgproto3.ParameterDescription{ParameterOIDs: p.ParameterOIDs})
 			}
-			if oids := repair32Columns(query); len(oids) > 0 {
-				b.Send(repair32Description(oids))
+			if oids := publicationColumns(query); len(oids) > 0 {
+				b.Send(publicationDescription(oids))
 			} else {
 				b.Send(&pgproto3.NoData{})
 			}
@@ -605,12 +605,12 @@ func (db *repair32Database) serve(conn net.Conn) {
 				db.mu.Lock()
 				raw, e := json.Marshal(db.state)
 				if e == nil {
-					tx = &repair32State{}
+					tx = &publicationState{}
 					e = json.Unmarshal(raw, tx)
 				}
 				db.mu.Unlock()
 				status = 'T'
-				sendResult(repair32Result{tag: "BEGIN"}, e)
+				sendResult(publicationResult{tag: "BEGIN"}, e)
 			case query == "commit":
 				db.mu.Lock()
 				raw, e := json.Marshal(tx)
@@ -623,11 +623,11 @@ func (db *repair32Database) serve(conn net.Conn) {
 				db.mu.Unlock()
 				tx = nil
 				status = 'I'
-				sendResult(repair32Result{tag: "COMMIT"}, e)
+				sendResult(publicationResult{tag: "COMMIT"}, e)
 			case query == "rollback":
 				tx = nil
 				status = 'I'
-				sendResult(repair32Result{tag: "ROLLBACK"}, nil)
+				sendResult(publicationResult{tag: "ROLLBACK"}, nil)
 			case strings.HasPrefix(query, "copy "):
 				copyData = nil
 				b.Send(&pgproto3.CopyInResponse{OverallFormat: 1, ColumnFormatCodes: []uint16{1, 1, 1, 1, 1}})
@@ -644,8 +644,8 @@ func (db *repair32Database) serve(conn net.Conn) {
 			copyData = append(copyData, m.Data...)
 			continue
 		case *pgproto3.CopyDone:
-			n, e := repair32Copy(tx, copyData)
-			sendResult(repair32Result{tag: fmt.Sprintf("COPY %d", n)}, e)
+			n, e := publicationCopy(tx, copyData)
+			sendResult(publicationResult{tag: fmt.Sprintf("COPY %d", n)}, e)
 			b.Send(&pgproto3.ReadyForQuery{TxStatus: status})
 		case *pgproto3.Sync:
 			b.Send(&pgproto3.ReadyForQuery{TxStatus: status})
@@ -667,7 +667,7 @@ func (db *repair32Database) serve(conn net.Conn) {
 	}
 }
 
-func repair32Copy(tx *repair32State, raw []byte) (int, error) {
+func publicationCopy(tx *publicationState, raw []byte) (int, error) {
 	if tx == nil || len(raw) < 19 || !bytes.Equal(raw[:11], []byte("PGCOPY\n\xff\r\n\x00")) {
 		return 0, fmt.Errorf("invalid binary COPY")
 	}
@@ -713,14 +713,14 @@ func repair32Copy(tx *repair32State, raw []byte) (int, error) {
 	return n, nil
 }
 
-func (db *repair32Database) query(sql string, args []string, tx **repair32State) (repair32Result, error) {
+func (db *publicationDatabase) query(sql string, args []string, tx **publicationState) (publicationResult, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	s := *tx
 	if s == nil {
 		s = &db.state
 	}
-	result := repair32Result{oids: repair32Columns(sql)}
+	result := publicationResult{oids: publicationColumns(sql)}
 	for _, read := range db.reads {
 		if sql == read.SQL {
 			if !reflect.DeepEqual(args, read.Args) {
@@ -755,7 +755,7 @@ func (db *repair32Database) query(sql string, args []string, tx **repair32State)
 			return result, err
 		}
 		h := ranker.Header{RunID: args[0], Category: args[1], InputDigest: args[2], OutputDigest: args[3], AlgorithmVersion: public.AlgorithmVersion, CutoffTime: public.Cutoff, CompletedAt: time.Now().UTC().Truncate(time.Millisecond), Total: public.Total, Provenance: public.Provenance}
-		s.Snapshots[key()] = &repair32Stored{Artifact: []byte(args[4]), Header: h, Items: []ranker.RankedItem{}}
+		s.Snapshots[key()] = &publicationStored{Artifact: []byte(args[4]), Header: h, Items: []ranker.RankedItem{}}
 		result.tag = "INSERT 0 1"
 	case strings.HasPrefix(sql, "SELECT artifact="):
 		stored := s.Snapshots[key()]
@@ -772,7 +772,7 @@ func (db *repair32Database) query(sql string, args []string, tx **repair32State)
 		if args[1] == s.RejectCategory {
 			return result, fmt.Errorf("publication outbox constraint rejected %s", args[1])
 		}
-		s.Outbox = append(s.Outbox, repair32Intent{Key: key(), Sequence: int64(len(s.Outbox) + 1), CategorySequence: integer(3)})
+		s.Outbox = append(s.Outbox, publicationIntent{Key: key(), Sequence: int64(len(s.Outbox) + 1), CategorySequence: integer(3)})
 		result.tag = "INSERT 0 1"
 	case strings.HasPrefix(sql, "SELECT run_id FROM"):
 		if stored := s.Snapshots[s.Heads[args[0]]]; stored != nil {
@@ -914,11 +914,11 @@ func (db *repair32Database) query(sql string, args []string, tx **repair32State)
 	return result, nil
 }
 
-func TestRepair_32_HeavyRunRollbackAndEmptyCompletion(t *testing.T) {
+func TestPublicationHeavyRunRollbackAndEmptyCompletion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	path := filepath.Join(t.TempDir(), "rollback.json")
-	state := repair32State{Snapshots: map[string]*repair32Stored{}, Heads: map[string]string{}, Frames: map[string]json.RawMessage{}, RejectCategory: "volume"}
+	state := publicationState{Snapshots: map[string]*publicationStored{}, Heads: map[string]string{}, Frames: map[string]json.RawMessage{}, RejectCategory: "volume"}
 	raw, err := json.Marshal(state)
 	if err != nil {
 		t.Fatal(err)
@@ -926,7 +926,7 @@ func TestRepair_32_HeavyRunRollbackAndEmptyCompletion(t *testing.T) {
 	if err = os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	pool := repair32OpenPool(t, path)
+	pool := publicationOpenPool(t, path)
 	defer func() { pool.Close() }()
 	guard, err := queue.NewEpochGuard("recovery", 1, "fixture-loopback")
 	if err != nil {
@@ -936,7 +936,7 @@ func TestRepair_32_HeavyRunRollbackAndEmptyCompletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshots, err := ranker.ComputeRun(repair32PopulatedInput(t), false)
+	snapshots, err := ranker.ComputeRun(publicationPopulatedInput(t), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -966,12 +966,12 @@ func TestRepair_32_HeavyRunRollbackAndEmptyCompletion(t *testing.T) {
 	if err = os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	pool = repair32OpenPool(t, path)
+	pool = publicationOpenPool(t, path)
 	publication, err = store.NewPublicationStore(pool, "ranking", guard)
 	if err != nil {
 		t.Fatal(err)
 	}
-	empty, err := ranker.ComputeRun(repair32Input(), false)
+	empty, err := ranker.ComputeRun(publicationInput(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -982,7 +982,7 @@ func TestRepair_32_HeavyRunRollbackAndEmptyCompletion(t *testing.T) {
 		t.Fatalf("empty heavy retry: %v", err)
 	}
 	pool.Close()
-	pool = repair32OpenPool(t, path)
+	pool = publicationOpenPool(t, path)
 	publication, err = store.NewPublicationStore(pool, "ranking", guard)
 	if err != nil {
 		t.Fatal(err)

@@ -34,7 +34,7 @@ import (
 
 // This peer serves the social ranking-visibility transcript shape and revision
 // algorithm from social/internal/app/app.go over the production mTLS interface.
-func repairM934VisibilityPeer(t *testing.T, pki *testPKI, social, client leaf, pools map[string]bool, observedAt ...time.Time) (*httptest.Server, *atomic.Bool) {
+func publicationRecoveryVisibilityPeer(t *testing.T, pki *testPKI, social, client leaf, pools map[string]bool, observedAt ...time.Time) (*httptest.Server, *atomic.Bool) {
 	t.Helper()
 	authority := &atomic.Bool{}
 	authority.Store(true)
@@ -79,7 +79,7 @@ func repairM934VisibilityPeer(t *testing.T, pki *testPKI, social, client leaf, p
 	return peer, authority
 }
 
-type repairM934Fixture struct {
+type publicationRecoveryFixture struct {
 	cfg       config.Config
 	dsn       string
 	evidence  *store.HTTPCanonicalEvidence
@@ -92,7 +92,7 @@ type repairM934Fixture struct {
 	client    *http.Client
 }
 
-func repairM934NewFixture(t *testing.T) *repairM934Fixture {
+func publicationRecoveryNewFixture(t *testing.T) *publicationRecoveryFixture {
 	t.Helper()
 	cutoff := time.Now().UTC().Truncate(time.Second)
 	pki := newPKI(t)
@@ -104,13 +104,13 @@ func repairM934NewFixture(t *testing.T) *repairM934Fixture {
 	for i := 1; i <= 61; i++ {
 		pools[fmt.Sprintf("0x%040x", i)] = i != 61
 	}
-	peer, authority := repairM934VisibilityPeer(t, pki, social, client, pools, cutoff)
+	peer, authority := publicationRecoveryVisibilityPeer(t, pki, social, client, pools, cutoff)
 	dir := t.TempDir()
 	binding := config.RankingRuntimeBinding{
 		Version: 2, RankingSchema: "ranking", StatsSchema: "stats", SourceSchema: "indexer", SourceStream: sourceStream, ProjectionVersion: projection,
-		CacheNamespace: "snapshots", CursorKeyReference: "REPAIR_M934_CURSOR_KEY", RecoverySchema: "recovery", RecoveryEpoch: 1, RecoveryRegion: "fixture-loopback",
+		CacheNamespace: "snapshots", CursorKeyReference: "PUBLICATION_RECOVERY_CURSOR_KEY", RecoverySchema: "recovery", RecoveryEpoch: 1, RecoveryRegion: "fixture-loopback",
 		VisibilityEndpoint: peer.URL + "/internal/v2/social/ranking-visibility", VisibilityDNS: visibilityDNS, VisibilityCertSHA256: social.pin(), GatewayDNS: gatewayDNS, GatewayCertSHA256: gateway.pin(),
-		CAFile: filepath.Join(dir, "ca.pem"), ClientCertFile: filepath.Join(dir, "client.pem"), ClientKeyReference: "REPAIR_M934_CLIENT_KEY", ServerCertFile: filepath.Join(dir, "server.pem"), ServerKeyReference: "REPAIR_M934_SERVER_KEY", MaxAttempts: 10, MaximumReads: 8,
+		CAFile: filepath.Join(dir, "ca.pem"), ClientCertFile: filepath.Join(dir, "client.pem"), ClientKeyReference: "PUBLICATION_RECOVERY_CLIENT_KEY", ServerCertFile: filepath.Join(dir, "server.pem"), ServerKeyReference: "PUBLICATION_RECOVERY_SERVER_KEY", MaxAttempts: 10, MaximumReads: 8,
 	}
 	binding.CASHA256 = writeBound(t, binding.CAFile, pki.caPEM)
 	binding.ClientCertSHA256 = writeBound(t, binding.ClientCertFile, client.certPEM)
@@ -128,8 +128,8 @@ func repairM934NewFixture(t *testing.T) *repairM934Fixture {
 	roots := x509.NewCertPool()
 	roots.AddCert(pki.caCert)
 	db := internaltest.NewRankingRuntimeDatabase(t)
-	f := &repairM934Fixture{cfg: cfg, dsn: db.AdminDSN, cutoff: cutoff, gateway: gateway, roots: roots, authority: authority}
-	repairM934Seed(t, db.AdminDSN, cutoff)
+	f := &publicationRecoveryFixture{cfg: cfg, dsn: db.AdminDSN, cutoff: cutoff, gateway: gateway, roots: roots, authority: authority}
+	publicationRecoverySeed(t, db.AdminDSN, cutoff)
 	// The publication fixture carries explicit canonical pause observations,
 	// just as the store's production-universe fixture does. An observation for
 	// another height, block or time must never make a pool eligible here.
@@ -158,9 +158,9 @@ func repairM934NewFixture(t *testing.T) *repairM934Fixture {
 	return f
 }
 
-func (f *repairM934Fixture) open(t *testing.T) {
+func (f *publicationRecoveryFixture) open(t *testing.T) {
 	t.Helper()
-	pool := repairM934OpenPool(t, f.dsn)
+	pool := publicationRecoveryOpenPool(t, f.dsn)
 	// Cache loss must leave durable publication readable. A closed production
 	// client exercises that existing path without requiring a Redis process.
 	cache := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
@@ -180,7 +180,7 @@ func (f *repairM934Fixture) open(t *testing.T) {
 	f.client = &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: f.roots, ServerName: rankingDNS, Certificates: []tls.Certificate{f.gateway.pair(t)}}}}
 }
 
-func (f *repairM934Fixture) close() {
+func (f *publicationRecoveryFixture) close() {
 	if f.client != nil {
 		f.client.CloseIdleConnections()
 		f.client = nil
@@ -195,7 +195,7 @@ func (f *repairM934Fixture) close() {
 	}
 }
 
-func (f *repairM934Fixture) get(t *testing.T, path string) (int, []byte, http.Header) {
+func (f *publicationRecoveryFixture) get(t *testing.T, path string) (int, []byte, http.Header) {
 	t.Helper()
 	response, err := f.client.Get(f.server.URL + path)
 	if err != nil {
@@ -209,8 +209,8 @@ func (f *repairM934Fixture) get(t *testing.T, path string) (int, []byte, http.He
 	return response.StatusCode, raw, response.Header
 }
 
-func TestRepairM_934_PublicationEveryCategoryAndRestartRecovery(t *testing.T) {
-	f := repairM934NewFixture(t)
+func TestApplicationPublicationEveryCategoryAndRestartRecovery(t *testing.T) {
+	f := publicationRecoveryNewFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	input, err := f.app.native.reader.MarshalUniverse(ctx, f.app.pool, uuid.NewString(), f.cutoff)
@@ -367,8 +367,8 @@ func TestRepairM_934_PublicationEveryCategoryAndRestartRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_934_NoAuthorityRefusesPublicationAndReads(t *testing.T) {
-	f := repairM934NewFixture(t)
+func TestApplicationNoAuthorityRefusesPublicationAndReads(t *testing.T) {
+	f := publicationRecoveryNewFixture(t)
 	f.authority.Store(false)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -394,8 +394,8 @@ func TestRepairM_934_NoAuthorityRefusesPublicationAndReads(t *testing.T) {
 	}
 }
 
-func TestRepairM_934_VisibilityRequiresMutualTLSAndPinnedIdentity(t *testing.T) {
-	f := repairM934NewFixture(t)
+func TestApplicationVisibilityRequiresMutualTLSAndPinnedIdentity(t *testing.T) {
+	f := publicationRecoveryNewFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if _, err := f.app.native.visibility.ReadRankingVisibility(ctx); err != nil {

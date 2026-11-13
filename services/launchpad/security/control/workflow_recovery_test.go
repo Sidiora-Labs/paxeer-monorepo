@@ -21,7 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-type repairM1020Environment struct {
+type workflowRecoveryEnvironment struct {
 	store       *Store
 	authority   *LocalCredentialAuthority
 	credentials map[string]string
@@ -30,9 +30,9 @@ type repairM1020Environment struct {
 	server      *httptest.Server
 }
 
-func repairM1020EnvironmentFor(t *testing.T, verifier EvidenceVerifier) *repairM1020Environment {
+func workflowRecoveryEnvironmentFor(t *testing.T, verifier EvidenceVerifier) *workflowRecoveryEnvironment {
 	t.Helper()
-	e := &repairM1020Environment{authority: NewLocalCredentialAuthority(), credentials: map[string]string{}, actors: map[string]string{}, path: filepath.Join(t.TempDir(), "objects.json")}
+	e := &workflowRecoveryEnvironment{authority: NewLocalCredentialAuthority(), credentials: map[string]string{}, actors: map[string]string{}, path: filepath.Join(t.TempDir(), "objects.json")}
 	for _, role := range []string{"infrastructure", "operator2", "finance", "support"} {
 		actual := role
 		if role == "operator2" {
@@ -49,13 +49,13 @@ func repairM1020EnvironmentFor(t *testing.T, verifier EvidenceVerifier) *repairM
 	t.Cleanup(func() { e.server.Close(); must(t, e.store.CloseLocal()) })
 	return e
 }
-func (e *repairM1020Environment) mount(t *testing.T) {
+func (e *workflowRecoveryEnvironment) mount(t *testing.T) {
 	t.Helper()
 	service, err := NewHTTPService(e.store, nil)
 	must(t, err)
 	e.server = httptest.NewServer(service.Handler())
 }
-func (e *repairM1020Environment) reopen(t *testing.T) {
+func (e *workflowRecoveryEnvironment) reopen(t *testing.T) {
 	t.Helper()
 	e.server.Close()
 	verifier := e.store.verifier
@@ -67,7 +67,7 @@ func (e *repairM1020Environment) reopen(t *testing.T) {
 	e.store.replay = provider
 	e.mount(t)
 }
-func (e *repairM1020Environment) post(t *testing.T, role, operation string, body any) (int, []byte) {
+func (e *workflowRecoveryEnvironment) post(t *testing.T, role, operation string, body any) (int, []byte) {
 	t.Helper()
 	raw, err := json.Marshal(body)
 	must(t, err)
@@ -82,13 +82,13 @@ func (e *repairM1020Environment) post(t *testing.T, role, operation string, body
 	must(t, err)
 	return response.StatusCode, raw
 }
-func repairM1020Read[T any](t *testing.T, s *Store, kind, key string) T {
+func workflowRecoveryRead[T any](t *testing.T, s *Store, kind, key string) T {
 	t.Helper()
 	var out T
 	must(t, s.readObject(context.Background(), kind, key, &out))
 	return out
 }
-func repairM1020Transport(server *httptest.Server) *http.Transport {
+func workflowRecoveryTransport(server *httptest.Server) *http.Transport {
 	roots := x509.NewCertPool()
 	roots.AddCert(server.Certificate())
 	return &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}
@@ -97,25 +97,25 @@ func repairM1020Transport(server *httptest.Server) *http.Transport {
 // The peer is an explicitly scoped owner-adapter transcript. It consumes actual
 // requests emitted by ReplayProvider, retaining completion by the producer's
 // identity. It is not a substitute for the indexer's qualified ReplayRunner.
-func repairM1020ReplayProvider(t *testing.T, serve func(http.ResponseWriter, *http.Request)) *ReplayProvider {
+func workflowRecoveryReplayProvider(t *testing.T, serve func(http.ResponseWriter, *http.Request)) *ReplayProvider {
 	t.Helper()
 	if serve == nil {
 		serve = func(w http.ResponseWriter, r *http.Request) { http.Error(w, "owner unavailable", 503) }
 	}
 	server := httptest.NewTLSServer(http.HandlerFunc(serve))
 	t.Cleanup(server.Close)
-	provider, err := NewReplayProvider(server.URL, strings.Repeat("r", 32), repairM1020Transport(server))
+	provider, err := NewReplayProvider(server.URL, strings.Repeat("r", 32), workflowRecoveryTransport(server))
 	must(t, err)
 	return provider
 }
-func TestRepairM_1020_ReplayExecutionRetryRestart(t *testing.T) {
+func TestWorkflowReplayExecutionRetryRestart(t *testing.T) {
 	ctx := context.Background()
-	e := repairM1020EnvironmentFor(t, nil)
+	e := workflowRecoveryEnvironmentFor(t, nil)
 	var mu sync.Mutex
 	requests := []ReplayExecution{}
 	completions := map[string]ReplayResult{}
 	effects := 0
-	e.store.replay = repairM1020ReplayProvider(t, func(w http.ResponseWriter, r *http.Request) {
+	e.store.replay = workflowRecoveryReplayProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
 		if r.Method != http.MethodPut || r.Header.Get("Authorization") != "Bearer "+strings.Repeat("r", 32) {
@@ -163,14 +163,14 @@ func TestRepairM_1020_ReplayExecutionRetryRestart(t *testing.T) {
 	}
 	worker := ReplayWorker{Store: e.store, Provider: e.store.replay, Credential: e.credentials["infrastructure"], Observe: func(string, error) {}}
 	is(t, worker.Process(ctx, proposal.Key, "service"), Unavailable)
-	if repairM1020Read[Action](t, e.store, "action", proposal.Key).State != "executing" {
+	if workflowRecoveryRead[Action](t, e.store, "action", proposal.Key).State != "executing" {
 		t.Fatal("lost acknowledgement became success")
 	}
-	schedule := repairM1020Read[workSchedule](t, e.store, "work_schedule", "job."+action.JobID)
+	schedule := workflowRecoveryRead[workSchedule](t, e.store, "work_schedule", "job."+action.JobID)
 	e.reopen(t)
 	worker.Store = e.store
 	is(t, worker.Process(ctx, proposal.Key, "service"), Unavailable)
-	if got := repairM1020Read[workSchedule](t, e.store, "work_schedule", "job."+action.JobID); got != schedule {
+	if got := workflowRecoveryRead[workSchedule](t, e.store, "work_schedule", "job."+action.JobID); got != schedule {
 		t.Fatal("restart lost retry schedule")
 	}
 	mu.Lock()
@@ -183,11 +183,11 @@ func TestRepairM_1020_ReplayExecutionRetryRestart(t *testing.T) {
 		time.Sleep(delay + 10*time.Millisecond)
 	}
 	must(t, worker.Drain(ctx))
-	final := repairM1020Read[Action](t, e.store, "action", proposal.Key)
+	final := workflowRecoveryRead[Action](t, e.store, "action", proposal.Key)
 	if final.State != "succeeded" || final.JobID != action.JobID {
 		t.Fatal(final)
 	}
-	result := repairM1020Read[ReplayResult](t, e.store, "executor_result", action.JobID)
+	result := workflowRecoveryRead[ReplayResult](t, e.store, "executor_result", action.JobID)
 	must(t, (DurableJobResults{e.store}).Verify(ctx, final, result.State, result.Reference))
 	forged := final
 	forged.CompletionIdentity = "another-job"
@@ -207,8 +207,8 @@ func workerDrainLocalReplay(store *Store, provider *ReplayProvider, credential s
 	return (ReplayWorker{store, provider, credential, func(string, error) {}}).Drain(context.Background())
 }
 
-func TestRepairM_1020_ReplayUnavailableWithoutOwner(t *testing.T) {
-	e := repairM1020EnvironmentFor(t, nil)
+func TestWorkflowReplayUnavailableWithoutOwner(t *testing.T) {
+	e := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
 	action, err := e.store.ProposeReplay(ctx, e.credentials["infrastructure"], ReplayProposal{"unwired", "service", "restore", time.Now().Add(time.Hour), ReplayPayload{"125", "1", "2", "candles", true}})
 	must(t, err)
@@ -218,13 +218,13 @@ func TestRepairM_1020_ReplayUnavailableWithoutOwner(t *testing.T) {
 	if status != 503 || !bytes.Contains(raw, []byte(Unavailable)) {
 		t.Fatalf("%d %s", status, raw)
 	}
-	if got := repairM1020Read[Action](t, e.store, "action", "unwired"); got.State != "approved" || got.JobID != "" {
+	if got := workflowRecoveryRead[Action](t, e.store, "action", "unwired"); got.State != "approved" || got.JobID != "" {
 		t.Fatal(got)
 	}
 }
 
-func TestRepairM_1020_IncidentDrainFairness(t *testing.T) {
-	e := repairM1020EnvironmentFor(t, nil)
+func TestWorkflowIncidentDrainFairness(t *testing.T) {
+	e := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
 	calls := map[string]int{}
 	var mu sync.Mutex
@@ -245,7 +245,7 @@ func TestRepairM_1020_IncidentDrainFairness(t *testing.T) {
 		must(t, json.NewEncoder(w).Encode(RevocationAcknowledgement{input.Incident, input.Identity, "rotation." + input.Incident, "integrity." + input.Incident, true, true}))
 	}))
 	defer endpoint.Close()
-	provider, err := NewRevocationProvider(endpoint.URL, strings.Repeat("v", 32), repairM1020Transport(endpoint))
+	provider, err := NewRevocationProvider(endpoint.URL, strings.Repeat("v", 32), workflowRecoveryTransport(endpoint))
 	must(t, err)
 	worker := IncidentWorker{Store: e.store, Revocation: provider, Credential: e.credentials["infrastructure"], Observe: func(string, error) {}}
 	detect := func(k string) string {
@@ -264,7 +264,7 @@ func TestRepairM_1020_IncidentDrainFairness(t *testing.T) {
 	for n, token := range oldTokens {
 		_, err := e.store.identity.Resolve(ctx, token)
 		is(t, err, Denied)
-		if repairM1020Read[map[string]string](t, e.store, "incident_outbox", fmt.Sprintf("a%03d", n))["state"] != "completed" {
+		if workflowRecoveryRead[map[string]string](t, e.store, "incident_outbox", fmt.Sprintf("a%03d", n))["state"] != "completed" {
 			t.Fatal("old work incomplete")
 		}
 	}
@@ -273,18 +273,18 @@ func TestRepairM_1020_IncidentDrainFairness(t *testing.T) {
 	}
 	lastToken := detect("c-later")
 	must(t, worker.Drain(ctx))
-	if repairM1020Read[map[string]string](t, e.store, "incident_outbox", "c-later")["state"] != "pending" {
+	if workflowRecoveryRead[map[string]string](t, e.store, "incident_outbox", "c-later")["state"] != "pending" {
 		t.Fatal("batch ceiling was not exercised")
 	}
 	e.reopen(t)
 	worker.Store = e.store
 	must(t, worker.Drain(ctx))
-	if repairM1020Read[map[string]string](t, e.store, "incident_outbox", "c-later")["state"] != "completed" {
+	if workflowRecoveryRead[map[string]string](t, e.store, "incident_outbox", "c-later")["state"] != "completed" {
 		t.Fatal("old failures starved later identity")
 	}
 	_, err = e.store.identity.Resolve(ctx, lastToken)
 	is(t, err, Denied)
-	schedule := repairM1020Read[workSchedule](t, e.store, "work_schedule", "incident.b000")
+	schedule := workflowRecoveryRead[workSchedule](t, e.store, "work_schedule", "incident.b000")
 	if schedule.Attempts != 1 || !schedule.Next.After(time.Now()) {
 		t.Fatal("retry schedule not retained", schedule)
 	}
@@ -300,12 +300,12 @@ func TestRepairM_1020_IncidentDrainFairness(t *testing.T) {
 	}
 }
 
-func TestRepairM_1020_SettlementDrainFairness(t *testing.T) {
+func TestWorkflowSettlementDrainFairness(t *testing.T) {
 	node := &cometNode{header: &types.Header{Number: big.NewInt(33963716), Difficulty: big.NewInt(0), GasLimit: 100000000, Time: 1, Extra: []byte{}}, balance: big.NewInt(100000)}
 	node.receiptBlock = node.hash()
 	verifier, err := NewChainVerifier(node.serve(t), custody, fixtureManifest, fixtureAuthority{}, fixtureAward{})
 	must(t, err)
-	e := repairM1020EnvironmentFor(t, verifier)
+	e := workflowRecoveryEnvironmentFor(t, verifier)
 	ctx := context.Background()
 	must(t, e.store.Reconcile(ctx, e.credentials["finance"], "platform", "observed inventory", usdl))
 	for n := 0; n < 101; n++ {
@@ -353,7 +353,7 @@ func TestRepairM_1020_SettlementDrainFairness(t *testing.T) {
 		must(t, json.NewEncoder(w).Encode(PayoutResult{"confirmed", reference}))
 	}))
 	defer endpoint.Close()
-	provider, err := NewPayoutProvider(endpoint.URL, strings.Repeat("p", 32), "recorded payout authority", custody, repairM1020Transport(endpoint))
+	provider, err := NewPayoutProvider(endpoint.URL, strings.Repeat("p", 32), "recorded payout authority", custody, workflowRecoveryTransport(endpoint))
 	must(t, err)
 	worker, err := NewSettlementWorker(e.store, provider)
 	must(t, err)
@@ -370,18 +370,18 @@ func TestRepairM_1020_SettlementDrainFairness(t *testing.T) {
 	worker, err = NewSettlementWorker(e.store, provider)
 	must(t, err)
 	must(t, worker.Drain(ctx, e.credentials["finance"], observe))
-	obligation := repairM1020Read[Obligation](t, e.store, "settlement", "bounty.q100")
+	obligation := workflowRecoveryRead[Obligation](t, e.store, "settlement", "bounty.q100")
 	if obligation.State != "settled" || obligation.SettlementReference != reference || observed["bounty.q100"] != nil {
 		t.Fatal("later payout starved", obligation, observed["bounty.q100"])
 	}
-	inventory := repairM1020Read[Inventory](t, e.store, "inventory", usdl.Key())
+	inventory := workflowRecoveryRead[Inventory](t, e.store, "inventory", usdl.Key())
 	if inventory.Settled != "80" || inventory.Pending != "8000" || inventory.Reserved != "8000" {
 		t.Fatal(inventory)
 	}
-	if repairM1020Read[Obligation](t, e.store, "settlement", "bounty.q000").State != "unknown" {
+	if workflowRecoveryRead[Obligation](t, e.store, "settlement", "bounty.q000").State != "unknown" {
 		t.Fatal("uncertainty hidden")
 	}
-	schedule := repairM1020Read[workSchedule](t, e.store, "work_schedule", "settlement.bounty.q000")
+	schedule := workflowRecoveryRead[workSchedule](t, e.store, "work_schedule", "settlement.bounty.q000")
 	if schedule.Attempts != 1 || !schedule.Next.After(time.Now()) {
 		t.Fatal(schedule)
 	}
@@ -392,8 +392,8 @@ func TestRepairM_1020_SettlementDrainFairness(t *testing.T) {
 	}
 }
 
-func TestRepairM_1020_AuthenticatedRecoveryRestart(t *testing.T) {
-	e := repairM1020EnvironmentFor(t, nil)
+func TestWorkflowAuthenticatedRecoveryRestart(t *testing.T) {
+	e := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
 	original := e.credentials["finance"]
 	status, raw := e.post(t, "infrastructure", "incidents", IncidentRequest{"service", "recovery", "contain compromise", e.actors["finance"], "retained detection"})
@@ -418,7 +418,7 @@ func TestRepairM_1020_AuthenticatedRecoveryRestart(t *testing.T) {
 		must(t, json.NewEncoder(w).Encode(RevocationAcknowledgement{input.Incident, input.Identity, payload["rotation"], payload["integrity"], true, true}))
 	}))
 	defer endpoint.Close()
-	provider, err := NewRevocationProvider(endpoint.URL, strings.Repeat("v", 32), repairM1020Transport(endpoint))
+	provider, err := NewRevocationProvider(endpoint.URL, strings.Repeat("v", 32), workflowRecoveryTransport(endpoint))
 	must(t, err)
 	must(t, (IncidentWorker{Store: e.store, Revocation: provider, Credential: e.credentials["infrastructure"], Observe: func(string, error) {}}).Drain(ctx))
 	_, err = e.store.identity.Resolve(ctx, original)
@@ -436,7 +436,7 @@ func TestRepairM_1020_AuthenticatedRecoveryRestart(t *testing.T) {
 	is(t, e.store.Access(ctx, e.credentials["support"], "platform", "unrelated denial", "finance_liabilities", "", false), Denied)
 	_, err = e.store.Propose(ctx, replacement, "finance-no-infra", "replay", "service", "unrelated mutation", strings.Repeat("a", 64), time.Now().Add(time.Hour))
 	is(t, err, Denied)
-	if repairM1020Read[Incident](t, e.store, "incident", "recovery").State != "recovered" || repairM1020Read[Action](t, e.store, "action", "recovery-approval").State != "succeeded" {
+	if workflowRecoveryRead[Incident](t, e.store, "incident", "recovery").State != "recovered" || workflowRecoveryRead[Action](t, e.store, "action", "recovery-approval").State != "succeeded" {
 		t.Fatal("restart lost verified recovery")
 	}
 	_, err = e.store.identity.Resolve(ctx, original)
@@ -448,7 +448,7 @@ func TestRepairM_1020_AuthenticatedRecoveryRestart(t *testing.T) {
 	}
 }
 
-func TestRepairM_1020_DocumentedBoundaries(t *testing.T) {
+func TestWorkflowDocumentedBoundaries(t *testing.T) {
 	raw, err := os.ReadFile("README.md")
 	must(t, err)
 	for _, required := range []string{"python3 services/launchpad/security/control/check.py", "NewRuntime", "SettlementWorker.Process", "RevocationProvider", "unknown", "production", "work_schedule", "ReplayProvider"} {
@@ -456,7 +456,7 @@ func TestRepairM_1020_DocumentedBoundaries(t *testing.T) {
 			t.Fatalf("missing lifecycle documentation: %s", required)
 		}
 	}
-	record, err := os.ReadFile("repair_m1020.kvx")
+	record, err := os.ReadFile("../../../../spec/layerx-merge/programme/records/services/launchpad/security/control/repair_m1020.kvx")
 	must(t, err)
 	for _, finding := range []string{"control-readme-behavior", "replay-executor-missing", "registry-contract-pages-missing", "incident-drain-fairness", "settlement-drain-fairness", "workflow-production-role-proof"} {
 		if !bytes.Contains(record, []byte("[finding."+finding+"]")) {
@@ -472,7 +472,7 @@ func TestRepairM_1020_DocumentedBoundaries(t *testing.T) {
 	}
 }
 
-func TestRepairM_1020_RegistryContractPages(t *testing.T) {
+func TestWorkflowRegistryContractPages(t *testing.T) {
 	// The audit describes the older missing pages. They are present on this
 	// task's base; qualify their current owning locations without rewriting rows
 	// outside scope or claiming they were missing in this unchanged checkout.
@@ -511,10 +511,10 @@ func TestRepairM_1020_RegistryContractPages(t *testing.T) {
 	}
 }
 
-func TestRepairM_1020_ReplayRevokedApprovalCannotComplete(t *testing.T) {
-	e := repairM1020EnvironmentFor(t, nil)
+func TestWorkflowReplayRevokedApprovalCannotComplete(t *testing.T) {
+	e := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
-	e.store.replay = repairM1020ReplayProvider(t, func(w http.ResponseWriter, r *http.Request) {
+	e.store.replay = workflowRecoveryReplayProvider(t, func(w http.ResponseWriter, r *http.Request) {
 		var request ReplayExecution
 		must(t, json.NewDecoder(r.Body).Decode(&request))
 		must(t, e.authority.Reader().RevokeIdentity(ctx, e.actors["operator2"]))
@@ -528,10 +528,10 @@ func TestRepairM_1020_ReplayRevokedApprovalCannotComplete(t *testing.T) {
 	must(t, err)
 	worker := ReplayWorker{e.store, e.store.replay, e.credentials["infrastructure"], func(string, error) {}}
 	is(t, worker.Process(ctx, "revoked-approval", "service"), Denied)
-	if repairM1020Read[Action](t, e.store, "action", "revoked-approval").State != "executing" {
+	if workflowRecoveryRead[Action](t, e.store, "action", "revoked-approval").State != "executing" {
 		t.Fatal("revoked approval completed action")
 	}
-	result := repairM1020Read[ReplayResult](t, e.store, "executor_result", action.JobID)
+	result := workflowRecoveryRead[ReplayResult](t, e.store, "executor_result", action.JobID)
 	if result.Reference != "retained-owner-checkpoint" {
 		t.Fatal(result)
 	}
@@ -540,8 +540,8 @@ func TestRepairM_1020_ReplayRevokedApprovalCannotComplete(t *testing.T) {
 	is(t, worker.Process(ctx, "revoked-approval", "service"), Denied)
 }
 
-func TestRepairM_1020_LocalStoreRollbackAndExclusiveReopen(t *testing.T) {
-	e := repairM1020EnvironmentFor(t, nil)
+func TestWorkflowLocalStoreRollbackAndExclusiveReopen(t *testing.T) {
+	e := workflowRecoveryEnvironmentFor(t, nil)
 	ctx := context.Background()
 	other, err := OpenLocalStore(e.path, e.authority.Reader(), nil)
 	if err == nil {

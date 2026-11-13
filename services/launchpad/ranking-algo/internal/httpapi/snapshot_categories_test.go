@@ -11,13 +11,13 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func TestRepairM_933_SnapshotQueryContract(t *testing.T) {
+func TestSnapshotQueryContract(t *testing.T) {
 	t.Run("bounds_and_canonical_categories", TestSnapshotQueryBoundsAndCanonicalCategories)
 	t.Run("actual_dependencies_required", TestSnapshotRoutesRequireActualDependencies)
 	t.Run("frozen_contract_categories", TestSnapshotRoutesAcceptEveryFrozenRankingCategory)
 }
 
-func TestRepairM_933_FrozenCategoryRouting(t *testing.T) {
+func TestFrozenCategoryRouting(t *testing.T) {
 	router := chi.NewRouter()
 	RegisterSnapshots(router, &Snapshots{})
 	server := httptest.NewServer(router)
@@ -49,7 +49,7 @@ func TestRepairM_933_FrozenCategoryRouting(t *testing.T) {
 	}
 }
 
-func TestRepairM_933_UnknownCategoryGuidance(t *testing.T) {
+func TestUnknownCategoryGuidance(t *testing.T) {
 	frozen := []string{"trending", "breakout", "volume", "gainers", "losers", "movers", "unusual", "new"}
 	router := chi.NewRouter()
 	RegisterSnapshots(router, &Snapshots{})

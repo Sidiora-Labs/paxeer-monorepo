@@ -18,7 +18,7 @@ import (
 // Each reopen connects to the same real, isolated PostgreSQL database. The
 // registered migrations, constraints, transactions and stream function govern
 // persistence across the application restarts exercised by the tests.
-func repairM934OpenPool(t *testing.T, dsn string) *pgxpool.Pool {
+func publicationRecoveryOpenPool(t *testing.T, dsn string) *pgxpool.Pool {
 	t.Helper()
 	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
@@ -27,10 +27,10 @@ func repairM934OpenPool(t *testing.T, dsn string) *pgxpool.Pool {
 	return pool
 }
 
-func repairM934Seed(t *testing.T, dsn string, cutoff time.Time) {
+func publicationRecoverySeed(t *testing.T, dsn string, cutoff time.Time) {
 	t.Helper()
 	ctx := context.Background()
-	pool := repairM934OpenPool(t, dsn)
+	pool := publicationRecoveryOpenPool(t, dsn)
 	defer pool.Close()
 	exec := func(sql string, args ...any) {
 		t.Helper()
