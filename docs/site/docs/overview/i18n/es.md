@@ -19,10 +19,9 @@ Las subcadenas son dominios de inquilino: espacios de nombres en la base de dato
 
 ## Probar la conexión
 
-El JSON-RPC público se sirve por HTTPS en la raíz de `api1.mainnet-beta.paxeer.network` a `api14.mainnet-beta.paxeer.network`, y de `api-mainnet-beta.paxeer.network`. Estas consultas solo leen el ID de cadena y la altura del bloque. `PAXEER_RPC_URL` es una variable local de shell en este ejemplo.
+El JSON-RPC público se sirve por HTTPS en la raíz del nodo elegido. Asigne su origen HTTPS a la variable local de shell `PAXEER_RPC_URL`; véanse los [endpoints RPC públicos](../../reference/public-rpc.md). Estas consultas solo leen el ID de cadena y la altura del bloque.
 
 ```sh
-PAXEER_RPC_URL=https://api-mainnet-beta.paxeer.network
 curl --fail --silent --show-error --max-time 30 "$PAXEER_RPC_URL" \
   --header 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'

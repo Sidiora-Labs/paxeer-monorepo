@@ -34,9 +34,8 @@ The maintained payment paths compile signed EVM transactions:
 | Off-ramp | Customer-authorised `budgetSpend(bytes32,bytes32,uint128)` at `0x000000000000000000000000000000000000101b`, paying the configured operator from the customer's budget authority. |
 
 `compile_operator_send` and `compile_customer_payment` implement these
-paths in `toolkit/src/lib.rs`. The compatibility name
-`compile_payer_grant_draw` delegates to the customer budget path. Historical
-activity-envelope send/receive and ledger-draw instructions are retired.
+paths in `toolkit/src/lib.rs`. `compile_payer_grant_draw` also delegates to
+the customer budget path.
 
 The client submits exact signed bytes through `eth_sendRawTransaction`,
 retains their hash and resolves them through `pax_sequencerReceipt`.

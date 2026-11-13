@@ -80,8 +80,9 @@ Merchant discovery and shopping REST endpoints belong to the merchant's
 pinned UCP contract. The interop service registers the adapter wrapper
 `POST /v1/http/ucp/checkouts/complete`; it does not register a public UCP
 discovery or order-read endpoint. The wrapper uses `UcpServicePlane`
-with the default empty service configuration and returns
-`CurrencyBindingRequired`. Configured embeddings use
+with the default empty service configuration. For an otherwise valid request,
+the library refuses completion with `CurrencyBindingRequired`, which the HTTP
+wrapper maps to `400` with code `invalid_ucp_request`. Configured embeddings use
 `UcpServiceConfig::bind_plane` with the merchant currency binding above.
 
 No public merchant origin is established by this crate. Deployment inputs

@@ -1,9 +1,9 @@
-# Guarantor checkpoint production
+# Network finality
 
-The guarantor role and its checkpoint producer, publication tooling, and
-authority scripts are retired.
-
-Settlement finality is the committed block of the chain.
+Paxeer mainnet-beta uses EVM chain ID `125` (`0x7d`). The kernel is part of
+`paxd` and participates in block proposal. A receipt is final when its block
+is committed by BFT consensus; execution status determines whether the
+transaction succeeded.
 
 See the [node operator guide](../platform/hosted-node.md) and
 [payments guide](../overview/payments.md) for the current operating and

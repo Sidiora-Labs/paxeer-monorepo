@@ -5,10 +5,9 @@ Solana. The archives carry commitments and retrievable data. They create no
 vault, custody or withdrawal authority on the destination chain. Network
 balances and finality belong to the same Paxeer network, EVM chain ID `125`.
 
-The current archive format is v4. It retains the committed block header and
-canonical signed receipts. Historical names such as `batch_number` remain
-in the API, but the current source coordinate is a committed block height
-and hash. Separate checkpoint finality is retired.
+The archive format is v4. It retains the committed block header and
+canonical signed receipts. The API field `batch_number` identifies a
+committed block height; the archive also binds its block hash.
 
 ## Publisher and verifier
 

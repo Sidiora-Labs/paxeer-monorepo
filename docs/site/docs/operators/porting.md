@@ -21,9 +21,8 @@ effects commit through that same network. The `settle` functions below name
 the runtime's checked application of effects through `KernelTransferPrimitive`,
 not an asynchronous handoff to another chain.
 
-Use the public node root URLs, such as
-`https://api-mainnet-beta.paxeer.network` or
-`https://api1.mainnet-beta.paxeer.network`, for JSON-RPC. The full list is in
+Use the selected public node's HTTPS origin at the root path for JSON-RPC.
+Node selection is described in
 [Public RPC endpoints](../reference/public-rpc.md). Hosted gateway `px_` methods
 are declared separately in `services/platform/hosted/gateway/openrpc.json`;
 do not infer their presence on a node from the Programs ABI or crate names.
@@ -333,7 +332,8 @@ Entries exported from `lib.rs` or their named public modules (`programs/porting/
 | `MethodAbi::new` / `calldata` | canonical signature; words | selector-plus-words (`programs/porting/evm/src/semantics.rs`) |
 | `external_call` | `ProgramId`, `&MethodAbi`, `&[Word]` | `CallRequest { callee, input, authority: Capability::Call }` (`programs/porting/evm/src/semantics.rs`) |
 | `ValueFlow::translate` / `translate_with_program_account` / `translate_all` | asset, principal; plus owner/seed/source | `Transfer402Plan` or `TranslatedValueFlow` (`programs/porting/evm/src/monetary.rs`) |
-| `source_archive` / `published_source` / `build_plan` / `validated_module` | `&PublicLockPort` (and URI for published source) | archive, `PublishedSource`, `BuildPlan`, `ValidatedModule` (`programs/porting/evm/src/qualify.rs`) |
+| `source_archive` / `published_source` / `validated_module` | `&PublicLockPort` (and URI for published source) | `SourceArchive`, `PublishedSource`, `ValidatedModule` (`programs/porting/evm/src/qualify.rs`) |
+| `build_plan` | none | `BuildPlan` (`programs/porting/evm/src/qualify.rs`) |
 | `deploy_and_verify` | port, `Publication`, source, lifecycle, registry | `DeployedLock` (`programs/porting/evm/src/qualify.rs`) |
 | `execute_purchase` | port, `&Invocation`, `&mut Storage`, `periods` | `AuthorizedExecutionRecord` (`programs/porting/evm/src/qualify.rs`) |
 | `execute_has_valid_key` / `execute_remaining_periods` | `&Invocation`, `&mut Storage` | `AuthorizedExecutionRecord` (`programs/porting/evm/src/qualify.rs`) |
@@ -546,7 +546,8 @@ Entries exported from `lib.rs` or their named public modules (`programs/porting/
 | `ContractEvent::response` / `custom` / `data` | attributes; event type | topic plus framed attributes (`programs/porting/cosmwasm/src/messages.rs`) |
 | `execute_submessage` | `ProgramId`, `&MessageVariant`, `&[FieldValue]` | `CallRequest` (`programs/porting/cosmwasm/src/messages.rs`) |
 | `ValueFlow::translate` / `translate_with_program_account` / `translate_all` | asset, principal; plus owner/seed/source | `Transfer402Plan` or `TranslatedValueFlow` (`programs/porting/cosmwasm/src/monetary.rs`) |
-| `source_archive` / `published_source` / `build_plan` / `validated_module` | `&DonationPort` | archive, source, plan, module (`programs/porting/cosmwasm/src/qualify.rs`) |
+| `source_archive` / `published_source` / `validated_module` | `&DonationPort` (and URI for published source) | `SourceArchive`, `PublishedSource`, `ValidatedModule` (`programs/porting/cosmwasm/src/qualify.rs`) |
+| `build_plan` | none | `BuildPlan` (`programs/porting/cosmwasm/src/qualify.rs`) |
 | `deploy_and_verify` | port, `Publication`, source, lifecycle, registry | `DeployedContract` (`programs/porting/cosmwasm/src/qualify.rs`) |
 | `execute_donate` | port, `&Invocation`, storage, `times` | `AuthorizedExecutionRecord` (`programs/porting/cosmwasm/src/qualify.rs`) |
 | `execute_donations` / `execute_remaining` | `&Invocation`, storage | `AuthorizedExecutionRecord` (`programs/porting/cosmwasm/src/qualify.rs`) |
