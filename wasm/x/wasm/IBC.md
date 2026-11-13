@@ -175,8 +175,7 @@ Wasm code through `InitializePinnedCodes` after loading the latest version.
 Relayers must resume delivery of pending packets, acknowledgements or timeout
 proofs after restart. Contract protocols should persist pending-operation data
 in contract storage so that later callbacks can settle it. These storage and
-initialization paths describe the recovery mechanism; they do not establish a
-production restart rehearsal.
+initialization paths restore the state used by subsequent callbacks.
 
 ## Design limits
 
@@ -206,9 +205,9 @@ versions are refused. On connect it creates a reflect account. A packet with
 `{"who_am_i":{}}` returns a JSON acknowledgement naming that account. Query
 `{"list_accounts":{}}` to read the stored channel/account association.
 
-`TestRepairM_1289_IBC` in [repair_m1289_test.go](repair_m1289_test.go) exercises
-this native contract through the module callback adapter, including version
+[Native callback tests](repair_m1289_test.go) exercise this contract through
+the module callback adapter, including version
 refusal, receive acknowledgements, acknowledgement and timeout callbacks.
-It commits the channel/account association, closes the native VM and persistent
-store, reopens them, restores capabilities and pins, and repeats the query and
-receive callback against the recovered state. These are local recovery checks.
+The tests commit the channel/account association, close the native VM and persistent
+store, reopen them, restore capabilities and pins, and repeat the query and
+receive callback against the recovered state.

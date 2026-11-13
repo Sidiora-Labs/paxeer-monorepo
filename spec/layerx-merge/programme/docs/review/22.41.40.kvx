@@ -1,0 +1,79 @@
+[manifest]
+task = "22.41.40"
+pages = 19
+
+[page.1]
+path = "utils/metrics/README.md"
+status = "corrected"
+
+[page.2]
+path = "wasm-runtime/README.md"
+status = "corrected"
+
+[page.3]
+path = "wasm-runtime/builders/README.md"
+status = "corrected"
+
+[page.4]
+path = "wasm-runtime/internal/api/testdb/README.md"
+status = "corrected"
+
+[page.5]
+path = "wasm-runtime/spec/Architecture.md"
+status = "corrected"
+
+[page.6]
+path = "wasm-runtime/spec/Index.md"
+status = "corrected"
+
+[page.7]
+path = "wasm-runtime/spec/Specification.md"
+status = "corrected"
+
+[page.8]
+path = "wasm/contrib/devtools/README.md"
+status = "corrected"
+
+[page.9]
+path = "wasm/contrib/local/README.md"
+status = "corrected"
+
+[page.10]
+path = "wasm/contrib/prometheus/README.md"
+status = "corrected"
+
+[page.11]
+path = "wasm/contrib/prototools-docker/README.md"
+status = "corrected"
+
+[page.12]
+path = "wasm/contrib/relayer-tests/README.md"
+status = "corrected"
+
+[page.13]
+path = "wasm/scripts/README.md"
+status = "corrected"
+
+[page.14]
+path = "wasm/x/wasm/Governance.md"
+status = "corrected"
+
+[page.15]
+path = "wasm/x/wasm/IBC.md"
+status = "corrected"
+
+[page.16]
+path = "wasm/x/wasm/README.md"
+status = "reviewed"
+
+[page.17]
+path = "wasm/x/wasm/artifacts/v152/api/testdb/README.md"
+status = "corrected"
+
+[page.18]
+path = "wasm/x/wasm/artifacts/v155/api/testdb/README.md"
+status = "corrected"
+
+[page.19]
+path = "wasm/x/wasm/ibctesting/README.md"
+status = "corrected"
