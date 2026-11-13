@@ -165,5 +165,5 @@ func (suite *IntegrationTestSuite) TestQuerierRouteNotFound() {
 // TestQuerier_QueryTotalSupplyRESTPagination retains the direct querier assertions
 // and compares them with requests produced by the registered legacy REST handler.
 func (suite *IntegrationTestSuite) TestQuerier_QueryTotalSupplyRESTPagination() {
-	repairM665SupplyPages(suite.T())
+	bankQuerySupplyPages(suite.T())
 }

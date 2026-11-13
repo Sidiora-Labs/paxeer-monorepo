@@ -23,7 +23,7 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 vi.setConfig({ testTimeout: 60_000 });
 
 import AddressPageContent from './Address';
-import { addressDetailFixtures } from './repair-22-33-314.fixtures';
+import { addressDetailFixtures } from './LivePageConsumers.fixtures';
 
 const HASH = addressMock.hash;
 

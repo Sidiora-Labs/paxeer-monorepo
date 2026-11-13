@@ -12,6 +12,40 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 )
 
+func TestConsumerRepeatedEmptyPullsKeepOneBrokerWaiter(t *testing.T) {
+	nc, js := realBroker(t)
+	publisher, consumer, cfg := provision(t, nc, js)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	for i := 0; i < 20; i++ {
+		messages, err := consumer.Fetch(ctx)
+		if err != nil || len(messages) != 0 {
+			t.Fatalf("empty pull %d: %d messages, %v", i, len(messages), err)
+		}
+	}
+	wire := []byte("committed-after-empty-pulls")
+	ack, err := publisher.Publish(ctx, cfg.Subject, "after_empty_pulls", wire)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		messages, err := consumer.Fetch(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(messages) == 0 {
+			continue
+		}
+		if len(messages) != 1 || messages[0].EventID != "after_empty_pulls" || string(messages[0].Wire) != string(wire) || messages[0].Stream != ack.Stream || messages[0].Sequence != ack.Sequence {
+			t.Fatalf("committed publication changed: %+v", messages)
+		}
+		if err := messages[0].Ack(ctx); err != nil {
+			t.Fatal(err)
+		}
+		break
+	}
+}
+
 func TestConsumerRequiresBoundedFileBackedDurable(t *testing.T) {
 	nc, js := realBroker(t)
 	_, consumer, cfg := provision(t, nc, js)

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Declared service integration target: repair_m796_test.go,
-# TestRepairM_796_FleetTransportDeadlines and
-# TestRepairM_796_FleetInterruptionRecovery. Those cases use the real owner,
+# Declared service integration target: fleet_foundation_test.go,
+# TestFleetTransportDeadlines and
+# TestFleetInterruptionRecovery. Those cases use the real owner,
 # SSH transport, durable journal and disposable loopback service lifecycles;
 # this historical command harness is not interruption/recovery evidence.
 
@@ -739,7 +739,7 @@ chmod +x "$work/bin/journalctl"
 # neither these external tools nor a systemd deployment.
 export SYNC_FLEET_TEST_UPGRADE=1 UPGRADE_POLL=1 UPGRADE_RECOVERY_TIMEOUT=10
 export UPGRADE_JOURNAL="$work/upgrade.json"
-python3 "$root/tools/bringup/tests/fixtures/repair_m798/upgrade_peers.py" \
+python3 "$root/tools/bringup/tests/fixtures/upgrade_observation/upgrade_peers.py" \
  "$root/services/platform/hosted/node/tests/fixtures/repair_22_31_355/native_configuration.json" "$work/upgrade-endpoints" &
 upgrade_peer_pid=$!
 for ((attempt=0; attempt<100; attempt++)); do

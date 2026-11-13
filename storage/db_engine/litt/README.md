@@ -426,8 +426,8 @@ group once on a fresh segment. `Segment.Write` still checks the bounds. After a 
 configured size target, reaching `MaxSegmentKeyCount`, or reaching `TargetSegmentKeyFileSize` also
 causes rollover. A single legal value may exceed a smaller configured target, but never the format limit.
 See [control_loop.go](disktable/control_loop.go) and [segment.go](disktable/segment/segment.go).
-The [capacity regression test](disktable/repair_111_test.go) exercises pre-write rotation at
-the uint32 boundary; [TestRepairM_1165_BoundedValue](repair_m1165_test.go) ties this documentation
+The [capacity regression test](disktable/segment_capacity_test.go) exercises pre-write rotation at
+the uint32 boundary; [TestBoundedValue](table_limits_and_lifecycle_test.go) ties this documentation
 to the same disk write, address codec and recovery path.
 
 Each segment may split its data into multiple [shards](#shard). The number of shards in a segment is called the

@@ -1,4 +1,4 @@
-Code.require_file("repair_22_33_555_support.exs", __DIR__)
+Code.require_file("recorded_fetcher_support.exs", __DIR__)
 
 defmodule Indexer.Fetcher.InternalTransactionTest do
   use EthereumJSONRPC.Case, async: false
@@ -40,7 +40,7 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
   for variant <- [EthereumJSONRPC.Geth, EthereumJSONRPC.PaxeerX] do
     @tag no_geth: false
     test "012: #{inspect(variant)} imports a recorded Paxeer trace after restart and retry" do
-      Indexer.Fetcher.Repair2233555.assert_trace_recovery(unquote(variant))
+      Indexer.Fetcher.RecordedFetcherSupport.assert_trace_recovery(unquote(variant))
     end
   end
 
@@ -771,3 +771,4 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
     defp start_token_balance_fetcher(_json_rpc_named_arguments), do: :ok
   end
 end
+

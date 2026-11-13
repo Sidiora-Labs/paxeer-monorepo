@@ -8,7 +8,7 @@ import (
 )
 
 func TestAccountingBindingsCutoverMovesBothRoutesTogether(t *testing.T) {
-	runtime := repairM992Runtime(t, repairM992Config(t, 0))
+	runtime := runtimeAdmissionRuntime(t, runtimeAdmissionConfig(t, 0))
 	b := runtime.bindings
 	for _, tc := range []struct {
 		name, expected, next, version string

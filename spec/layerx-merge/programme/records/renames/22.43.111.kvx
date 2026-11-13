@@ -1,0 +1,408 @@
+[manifest]
+task = "22.43.111"
+records_moved = 19
+files_renamed = 16
+
+[file.1]
+from = "sdk/launchpad/shared/auth/repair_m960_test.go"
+to = "sdk/launchpad/shared/auth/audit_consumer_provisioning_test.go"
+
+[file.2]
+from = "sdk/launchpad/shared/chain/repair_26_test.go"
+to = "sdk/launchpad/shared/chain/receipt_projection_test.go"
+
+[file.3]
+from = "sdk/launchpad/shared/chain/repair_m912_test.go"
+to = "sdk/launchpad/shared/chain/rpc_correlation_test.go"
+
+[file.4]
+from = "sdk/launchpad/shared/config/capabilities/cmd/measure/repair_m951_test.go"
+to = "sdk/launchpad/shared/config/capabilities/cmd/measure/source_index_test.go"
+
+[file.5]
+from = "sdk/launchpad/shared/config/capabilities/repair_38_test.go"
+to = "sdk/launchpad/shared/config/capabilities/preflight_pool_identity_test.go"
+
+[file.6]
+from = "sdk/launchpad/shared/config/capabilities/repair_m950_test.go"
+to = "sdk/launchpad/shared/config/capabilities/preflight_epoch_drift_test.go"
+
+[file.7]
+from = "sdk/launchpad/shared/config/capabilities/testdata/repair38-rpc.json"
+to = "sdk/launchpad/shared/config/capabilities/testdata/preflight-rpc.json"
+
+[file.8]
+from = "sdk/launchpad/shared/config/deployment/repair_m953_test.go"
+to = "sdk/launchpad/shared/config/deployment/rpc_export_test.go"
+
+[file.9]
+from = "sdk/launchpad/shared/config/repair_m952_test.go"
+to = "sdk/launchpad/shared/config/rpc_environment_test.go"
+
+[file.10]
+from = "sdk/launchpad/shared/db/production/repair_m957_test.go"
+to = "sdk/launchpad/shared/db/production/frozen_contract_fixture_test.go"
+
+[file.11]
+from = "sdk/launchpad/shared/delivery/natsdriver/repair_m961_test.go"
+to = "sdk/launchpad/shared/delivery/natsdriver/epoch_recovery_test.go"
+
+[file.12]
+from = "sdk/launchpad/shared/delivery/repair_41_test.go"
+to = "sdk/launchpad/shared/delivery/active_rebuild_recovery_test.go"
+
+[file.13]
+from = "sdk/launchpad/shared/delivery/repair_m962_test.go"
+to = "sdk/launchpad/shared/delivery/replay_lifecycle_test.go"
+
+[file.14]
+from = "sdk/launchpad/shared/http/repair_m975_test.go"
+to = "sdk/launchpad/shared/http/forwarded_identity_test.go"
+
+[file.15]
+from = "sdk/launchpad/shared/storage/repair_m981_test.go"
+to = "sdk/launchpad/shared/storage/buffer_limits_test.go"
+
+[file.16]
+from = "sdk/launchpad/shared/telemetry/repair_m1013_test.go"
+to = "sdk/launchpad/shared/telemetry/mutation_commit_test.go"
+
+[file.17]
+from = "sdk/launchpad/shared/auth/repair_m960.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/auth/repair_m960.kvx"
+
+[file.18]
+from = "sdk/launchpad/shared/chain/repair_26.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/chain/repair_26.kvx"
+
+[file.19]
+from = "sdk/launchpad/shared/chain/repair_m912.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/chain/repair_m912.kvx"
+
+[file.20]
+from = "sdk/launchpad/shared/config/capabilities/cmd/measure/repair_m951.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/config/capabilities/cmd/measure/repair_m951.kvx"
+
+[file.21]
+from = "sdk/launchpad/shared/config/capabilities/repair_38.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/config/capabilities/repair_38.kvx"
+
+[file.22]
+from = "sdk/launchpad/shared/config/capabilities/repair_m950.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/config/capabilities/repair_m950.kvx"
+
+[file.23]
+from = "sdk/launchpad/shared/config/deployment/repair_22_39_295.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/config/deployment/repair_22_39_295.kvx"
+
+[file.24]
+from = "sdk/launchpad/shared/config/deployment/repair_m953.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/config/deployment/repair_m953.kvx"
+
+[file.25]
+from = "sdk/launchpad/shared/config/repair_m952.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/config/repair_m952.kvx"
+
+[file.26]
+from = "sdk/launchpad/shared/db/production/repair_m957.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/db/production/repair_m957.kvx"
+
+[file.27]
+from = "sdk/launchpad/shared/delivery/natsdriver/repair_m961.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/delivery/natsdriver/repair_m961.kvx"
+
+[file.28]
+from = "sdk/launchpad/shared/delivery/repair_41.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/delivery/repair_41.kvx"
+
+[file.29]
+from = "sdk/launchpad/shared/delivery/repair_m962.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/delivery/repair_m962.kvx"
+
+[file.30]
+from = "sdk/launchpad/shared/http/repair_m975.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/http/repair_m975.kvx"
+
+[file.31]
+from = "sdk/launchpad/shared/repair_22_39_117.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/repair_22_39_117.kvx"
+
+[file.32]
+from = "sdk/launchpad/shared/repair_22_39_459.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/repair_22_39_459.kvx"
+
+[file.33]
+from = "sdk/launchpad/shared/repair_22_39_475.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/repair_22_39_475.kvx"
+
+[file.34]
+from = "sdk/launchpad/shared/storage/repair_m981.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/storage/repair_m981.kvx"
+
+[file.35]
+from = "sdk/launchpad/shared/telemetry/repair_m1013.kvx"
+to = "spec/layerx-merge/programme/records/sdk/launchpad/shared/telemetry/repair_m1013.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "TestRepair_38"
+
+[reference.2]
+file = "apps/launchpad/mobile/test/vitest/fixtures/market-route-v2.json"
+name = "repair38-rpc.json"
+
+[reference.3]
+file = "modules/launchpad/keeper/repair_22_39_315.kvx"
+name = "repair_22_39_295.kvx"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair38-rpc.json"
+
+[reference.5]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_26_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "repair_38_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair_m957_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/programme/records/apps/launchpad/web/src/core/network/repair_22_39_313.kvx"
+name = "repair_22_39_295.kvx"
+
+[reference.9]
+file = "spec/layerx-merge/programme/records/renames/22.43.216.kvx"
+name = "repair_m957.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_38"
+
+[reference.11]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_38_NativeCostSpender"
+
+[reference.12]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_26_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_38_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m957_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_38_NativeCostSpender"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_295.kvx"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_459.kvx"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_475.kvx"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_26_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_38_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_41_test.go"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1013_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m912_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m950_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m951_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m952_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m953_test.go"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m957_test.go"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m960_test.go"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m961_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m962_test.go"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m975_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m981_test.go"
+
+[reference.34]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_912_ContractFixtureCorrelation"
+
+[reference.35]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_912_RPCFixtureCorrelation"
+
+[reference.36]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_912_RPCFixtureIDTypes"
+
+[reference.37]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_950_CurrentNativeCreation"
+
+[reference.38]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_950_CurrentNativeDrift"
+
+[reference.39]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_950_HistoricalDrift"
+
+[reference.40]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_950_HistoricalSolidityManifest"
+
+[reference.41]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_953_PublicExportRPCFixture"
+
+[reference.42]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_953_SerialExportRPCFixture"
+
+[reference.43]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_981_BudgetValidation"
+
+[reference.44]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_981_BufferBoundaries"
+
+[reference.45]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_981_IncorrectSize"
+
+[reference.46]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_981_MaximumPlusOne"
+
+[reference.47]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_981_ReadFailures"
+
+[reference.48]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_981_StreamingLargerObject"
+
+[reference.49]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_26_ContractCreation"
+
+[reference.50]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_26_Events"
+
+[reference.51]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_26_Reversion"
+
+[reference.52]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_26_Transfer"
+
+[reference.53]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_38_DeploymentAuthority"
+
+[reference.54]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_38_HistoricalPoolIdentity"
+
+[reference.55]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_38_NativeCostSpender"
+
+[reference.56]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_38_NativeIdentityRefusals"
+
+[reference.57]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_38_NativePoolIdentity"
+
+[reference.58]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_41_ActiveRebuildRestart"
+
+[reference.59]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_41_RejectInconsistentActiveRecovery"
+
+[reference.60]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_26_test.go"
+
+[reference.61]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_38_test.go"
+
+[reference.62]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_41_test.go"
+
+[reference.63]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m912_test.go"
+
+[reference.64]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m950_test.go"
+
+[reference.65]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m953_test.go"
+
+[reference.66]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m981_test.go"

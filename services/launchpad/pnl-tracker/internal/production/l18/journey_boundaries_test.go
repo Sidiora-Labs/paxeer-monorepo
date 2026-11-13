@@ -18,7 +18,7 @@ import (
 )
 
 func TestCommunityAuthorityTracksOwnerAndApprovedWallet(t *testing.T) {
-	f := repair62Chain(t)
+	f := rewardHistoryChain(t)
 	ctx := context.Background()
 	for _, tc := range []struct {
 		approved []string
@@ -125,7 +125,7 @@ func TestRewardCursorBindsResourceWalletAndCheckpoint(t *testing.T) {
 }
 
 func TestRewardHTTPRejectsInvalidQueriesAndOversizedClaims(t *testing.T) {
-	f := repair62Chain(t)
+	f := rewardHistoryChain(t)
 	handler := f.handler(f.chain.Alice)
 	for _, query := range []string{"unknown=1", "limit=1&limit=2", "limit=abc", "limit=0", "programId=" + strings.Repeat("x", 65), "cursor=" + strings.Repeat("x", 2049)} {
 		out := httptest.NewRecorder()

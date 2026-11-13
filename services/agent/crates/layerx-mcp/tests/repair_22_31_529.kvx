@@ -35,7 +35,7 @@ revision = "2a037f89252f3acf95468a678175d751956af304"
 command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agentd-host"
 exit = 101
 log = "/out/logs/dependents-1.log"
-observed = "hf-done exited 7 before cg spec done or the verify command ran: E0063 at services/agent/crates/layerx-agentd-host/tests/repair_22_31_532.rs:590, GrantTerms initializer missing receiver_did_key."
+observed = "hf-done exited 7 before cg spec done or the verify command ran: E0063 at services/agent/crates/layerx-agentd-host/tests/payer_signing_and_approval.rs:590, GrantTerms initializer missing receiver_did_key."
 assumption = "This dependent test is outside scope and was unchanged by this task; record the prerequisite failure without repairing or rerunning it. Task remains implemented, not qualified; this evidence-only addition has not been built."
 
 [continuation_after_22_31_536]

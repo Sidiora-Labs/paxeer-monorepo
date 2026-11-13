@@ -380,7 +380,7 @@ func TestRehearseStopsOnMismatch(t *testing.T) {
 }
 
 func TestLoadOptionsRequiresEveryInput(t *testing.T) {
-	env := rehearsal.RepairM174Environment(t)
+	env := rehearsal.IsolatedRehearsalEnvironment(t)
 	// RPCURL from delivery is optional to the rehearsal override; the rest
 	// are mandatory inputs to the current loader.
 	delete(env, "CEREMONY_RPC_URL")

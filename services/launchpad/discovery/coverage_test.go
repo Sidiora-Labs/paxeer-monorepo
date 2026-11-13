@@ -231,10 +231,10 @@ func TestDiscoveryRankIntervalsFromPersistedBuckets(t *testing.T) {
 		if i == 1 {
 			net = "-1000000"
 		}
-		bucket := map[string]any{"Start": start, "End": start.Add(time.Hour), "grossProceedsUsdlRaw": "4000000", "knownAllocatedBasisUsdlRaw": "10000000", "realizedPnlUsdlRaw": net, "tradeCount": 2, "accountingComplete": true, "fees": []any{map[string]any{"asset": map[string]any{"kind": "erc20", "chainId": 125, "address": repair46USDL, "decimals": 6}, "amountRaw": "500000"}}}
+		bucket := map[string]any{"Start": start, "End": start.Add(time.Hour), "grossProceedsUsdlRaw": "4000000", "knownAllocatedBasisUsdlRaw": "10000000", "realizedPnlUsdlRaw": net, "tradeCount": 2, "accountingComplete": true, "fees": []any{map[string]any{"asset": map[string]any{"kind": "erc20", "chainId": 125, "address": squadAlertUSDL, "decimals": 6}, "amountRaw": "500000"}}}
 		coverageExec(t, s.DB, `INSERT INTO pnl.inventory_l16_wallet_intervals_v3 VALUES($1,'1h',$2,$3)`, snapshot, start, encode(bucket))
 	}
-	intervals := SQLIntervalAuthority{DB: s.DB, Attribution: a, QuoteTokenAddress: repair46USDL}
+	intervals := SQLIntervalAuthority{DB: s.DB, Attribution: a, QuoteTokenAddress: squadAlertUSDL}
 	rows, err := intervals.Intervals(ctx, start, end)
 	if err != nil || len(rows) != 2 {
 		t.Fatalf("intervals: %+v %v", rows, err)

@@ -1,0 +1,36 @@
+[manifest]
+task = "22.43.58"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "modules/layerxchains/keeper/repair_196_test.go"
+to = "modules/layerxchains/keeper/genesis_history_test.go"
+
+[file.2]
+from = "modules/layerxchains/keeper/repair_m1424_test.go"
+to = "modules/layerxchains/keeper/genesis_accounting_test.go"
+
+[file.3]
+from = "modules/layerxchains/keeper/repair_196.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxchains/keeper/repair_196.kvx"
+
+[file.4]
+from = "modules/layerxchains/keeper/repair_m1424.kvx"
+to = "spec/layerx-merge/programme/records/modules/layerxchains/keeper/repair_m1424.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxchains/keeper/repair_196_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/layerxchains/keeper/repair_m1424_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_196_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1424_"

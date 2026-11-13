@@ -48,7 +48,7 @@ func TestVectorV6SponsoredBindVerifies(t *testing.T) {
 	require.Error(t, prepared.configureV6Genesis(), "do not silently replace existing token code")
 	// The qualification test starts real primary/standby sequencers and their HTTP
 	// transport in this process. It needs no external node, executable or env vars.
-	start := repairM1092PrepareRecorder(t, false, func(ctx sdk.Context, a *app.App, _ *ecdsa.PrivateKey) {
+	start := prepareRecorder(t, false, func(ctx sdk.Context, a *app.App, _ *ecdsa.PrivateKey) {
 		c, _, _, err := v6LoadContracts()
 		require.NoError(t, err)
 		require.NotEmpty(t, c.Token.RuntimeCode)
