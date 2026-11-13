@@ -29,7 +29,7 @@ request = "apps/web/src/app/explorer/programs/[programId]/page.tsx and apps/web/
 request = "spec/layerx-merge/spec.kvx req.14041/14042 and spec/layerx-merge/contracts/web-client.md — spec owner: replace frozen retired /v1 index paths with registered native address/archive/program read contracts and opaque cursor refusal semantics."
 
 [proof.native-http]
-fixture = "apps/web/src/explorer/fixtures/repair-22-31-383-native-http.json"
+fixture = "apps/web/src/explorer/fixtures/account-history-http.json"
 provenance = "Native HTTP contract response snapshots transcribed from unified_account_controller.ex, unified_account_controller_test.exs, archive_controller_test.exs and archive_view.ex; source paths and the opaque fixture cursor boundary are included in the fixture."
 path = "Each test starts a loopback HTTP listener, sets the production explorer origin to its bound port, validates fixture documents with production codecs and drives the real client, page loader and React renderer without replacing fetch. Every request must match an explicit native response entry; unexpected paths or credentials fail."
 restart = "The test retains only the native continuation URL, closes all HTTP connections and the listener, starts a new listener on the same port and reloads the second page and the original snapshot through the production page loader."
