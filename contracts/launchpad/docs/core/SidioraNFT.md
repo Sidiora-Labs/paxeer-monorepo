@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [SidioraNFT.sol](../../contracts/core/SidioraNFT.sol).
+
 ## SidioraNFT
 
 ERC721 representing fee rights for a pool. One NFT per pool.
@@ -35,41 +37,41 @@ address eventEmitter
 ### constructor
 
 ```solidity
-constructor() public
+constructor() ERC721Base("", "")
 ```
 
 ### initialize
 
 ```solidity
-function initialize(string _name, string _symbol, address _eventEmitter, address _admin) external
+function initialize( string calldata _name, string calldata _symbol, address _eventEmitter, address _admin ) external initializer
 ```
 
 ### mint
 
 ```solidity
-function mint(address to, address pool, uint8 strategy) external returns (uint256 tokenId)
+function mint( address to, address pool, uint8 strategy ) external override onlyRole(MINTER_ROLE) returns (uint256 tokenId)
 ```
 
 Mint a new pool NFT (factory-only via MINTER_ROLE)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| to | address | The NFT recipient (pool creator) |
-| pool | address | The pool address this NFT represents |
-| strategy | uint8 | Initial fee strategy |
+| Name     | Type    | Description                          |
+| -------- | ------- | ------------------------------------ |
+| to       | address | The NFT recipient (pool creator)     |
+| pool     | address | The pool address this NFT represents |
+| strategy | uint8   | Initial fee strategy                 |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name    | Type    | Description         |
+| ------- | ------- | ------------------- |
 | tokenId | uint256 | The minted token ID |
 
 ### getFeeStrategy
 
 ```solidity
-function getFeeStrategy(uint256 tokenId) external view returns (uint8)
+function getFeeStrategy(uint256 tokenId) external view override returns (uint8)
 ```
 
 Get the fee strategy for a token
@@ -77,15 +79,17 @@ Get the fee strategy for a token
 ### setFeeStrategy
 
 ```solidity
-function setFeeStrategy(uint256 tokenId, uint8 newStrategy) external
+function setFeeStrategy(uint256 tokenId, uint8 newStrategy) external override
 ```
 
-Set the fee strategy for a token (caller must be owner or approved)
+Sets the fee strategy. The caller must be the owner, an approved caller, or hold
+`STRATEGY_SETTER_ROLE`. Strategy 2 requires a token with supported historical checkpoints through
+its pool’s FeeAccumulator.
 
 ### getPoolAddress
 
 ```solidity
-function getPoolAddress(uint256 tokenId) external view returns (address)
+function getPoolAddress(uint256 tokenId) external view override returns (address)
 ```
 
 Get the pool address associated with an NFT
@@ -93,14 +97,22 @@ Get the pool address associated with an NFT
 ### supportsInterface
 
 ```solidity
-function supportsInterface(bytes4 interfaceId) public view virtual returns (bool)
+function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool)
 ```
 
 ERC165 override
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
-function _authorizeUpgrade(address) internal
+function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE)
 ```
 
+### migratePoolIndex
+
+```solidity
+function migratePoolIndex(uint256 maxItems) external onlyRole(DEFAULT_ADMIN_ROLE)
+```
+
+Populates the pool uniqueness index in batches of 1–1,000 entries. Minting requires the index to be
+ready; duplicate pools revert with `DuplicatePool()`.

@@ -1,6 +1,6 @@
 # Solana
 
-PAX against SOL. This page is the Solana leg of the Paxeer X Network bridge: an SPL deposit locked by the custody program in `contracts/bridge/solana` is released as its bridged denom on Paxeer X Network, and a burn of that denom on Paxeer X Network is attested over the same outbound digest the EVM vaults release against. Solana is also Sidiora's foreign home. The operator runbook is `contracts/bridge/README.md`; this page lists what Solana needs that the EVM chains do not.
+PAX against SOL. This page is the Solana leg of the Paxeer X Network bridge: an SPL deposit locked by the custody program in `contracts/bridge/solana` mints its bridged denom on Paxeer X Network, and a burn of that denom on Paxeer X Network is attested over the same outbound digest the EVM vaults release against. Solana is also Sidiora's foreign home. The operator runbook is [bridge runbook](../../../README.md); this page lists what Solana needs that the EVM chains do not.
 
 | Field | Value |
 | --- | --- |
@@ -10,12 +10,12 @@ PAX against SOL. This page is the Solana leg of the Paxeer X Network bridge: an 
 | Finality depth | `32` slots |
 | Commitment | `finalized` |
 | Program id | `PLACEHOLDER:program-id` as committed; filled in after the first deployment |
-| Attestors | 5 secp256k1 addresses, signing at a threshold of 3 - the same set and the same signatures as every EVM chain |
+| Attestors | 1 secp256k1 address at threshold 1 in the tracked configuration; attestation encoding is shared with the EVM chains |
 | Configuration | `contracts/bridge/solana/chains/solana/config.json` |
 
 ## Assets
 
-The configuration registers two assets, in this order. The wrapped SOL mint is first and always registered, so the default pair works the moment the chain is opened.
+The configuration registers two assets, in this order. The wrapped SOL mint is first and always registered, and requires custody and Paxeer-side registration before deposits are used.
 
 | Asset | Mint | Asset id | Decimals | Per-transaction cap | Total cap |
 | --- | --- | --- | --- | --- | --- |
@@ -38,7 +38,7 @@ The configuration names the first three; neither the configuration nor the scrip
 
 | Variable | Holds |
 | --- | --- |
-| `PAXEER_BRIDGE_SOLANA_RPC_URL` | the cluster endpoint, `http` or `https`; the Solana CLI takes no authorization header, so an endpoint that needs a credential must carry it in its URL |
+| `PAXEER_BRIDGE_SOLANA_RPC_URL` | the cluster endpoint, `http` or `https` |
 | `PAXEER_BRIDGE_SOLANA_KEYPAIR_FILE` | the path of the publisher keypair file, which pays for the deployment and becomes the program's upgrade authority |
 | `PAXEER_BRIDGE_SOLANA_TOOLCHAIN_BIN` | the directory of the pinned Solana toolchain holding `solana`, `solana-keygen` and `cargo-build-sbf` |
 | `PAXEER_BRIDGE_DEPLOYMENT_RECORD` | where the deployment record is written |
@@ -46,14 +46,16 @@ The configuration names the first three; neither the configuration nor the scrip
 | `PAXEER_BRIDGE_SOLANA_PROGRAM_KEYPAIR_FILE` | optional; the program keypair, so a redeployment keeps its id. Required once `solana.program_id` is filled in |
 | `PAXEER_BRIDGE_SOLANA_EXECUTABLE_WAIT_SECONDS` | optional; the bound, in seconds, on the wait for the deployed program to become executable, `120` when unset |
 | `PAXEER_BRIDGE_SOLANA_CHAINS_ROOT` | optional; a chains root holding `solana/config.json`, in place of `contracts/bridge/solana/chains` |
+| `BRIDGE_DEPLOY_OVERLAY` | optional; JSON overlay for owner, attestors, environment names, caps and program id |
+| `PAXEER_BRIDGE_ATTESTOR_MANIFEST` | optional; approved signer manifest, defaulting to `services/bridge/deploy/attestors.json` |
 
 ## Before running the deploy script
 
-- `owner` carries `PLACEHOLDER:owner` and the five `attestors` carry `PLACEHOLDER:` values; every tool refuses them. The owner is a base58 Solana key; the attestors are 20-byte secp256k1 addresses, strictly ascending.
+- `owner` requires a base58 Solana public key. Supply it in private configuration or `BRIDGE_DEPLOY_OVERLAY`. Attestors are nonzero 20-byte secp256k1 addresses in strictly ascending order; use the signer set and threshold approved for the bridge.
 - `solana.program_id` may stay `PLACEHOLDER:program-id` for the first deployment only. That run deploys, writes a record naming the program id and the vault authority, keeps the program keypair it generated at the record's path with `-program-keypair.json` in place of `.json`, and stops before the initialise step, naming the id. Write the id into the configuration; every later run must deploy with the keypair of that id through `PAXEER_BRIDGE_SOLANA_PROGRAM_KEYPAIR_FILE`. A first run refuses to overwrite a program keypair already at that path.
-- `jq`, `python3`, `cast` and `sha256sum` are on the `PATH`.
+- `jq`, `python3`, `cast`, `sha256sum` and `flock` are on the `PATH`.
 - The toolchain's `cargo-build-sbf` builds `contracts/bridge/solana` with platform tools `v1.56`, passed as `--tools-version` and fetched by `cargo-build-sbf` on first use, because the locked dependency graph, `contracts/bridge/solana/Cargo.lock`, includes crates whose manifests declare edition 2024 and the release the Solana toolchain installs by default refuses them.
-- `PAXEER_BRIDGE_SOLANA_ADMIN_CLI` names the admin client, `paxeer-x-bridge-solana-admin` in `contracts/bridge/solana/admin`, built with `cargo build --locked --release --manifest-path contracts/bridge/solana/Cargo.toml -p paxeer-x-bridge-solana-admin`. The script calls it as `initialise` with `--url`, `--keypair`, `--program-id`, `--commitment`, `--owner`, `--attestors` and `--threshold`, then once per asset as `register-asset` with `--url`, `--keypair`, `--program-id`, `--commitment`, `--mint`, `--asset-id`, `--decimals`, `--per-tx-cap` and `--total-cap`; the client checks every value against the configuration and stops on a disagreement. The script refuses to run, `--preflight` included, until the variable names an executable.
+- `PAXEER_BRIDGE_SOLANA_ADMIN_CLI` names the admin client, `paxeer-x-bridge-solana-admin` in `contracts/bridge/solana/admin`, built with `cargo build --locked --release --manifest-path contracts/bridge/solana/Cargo.toml -p paxeer-x-bridge-solana-admin`. The script calls it as `initialise` with `--config`, `--url`, `--keypair`, `--program-id`, `--commitment`, `--owner`, `--attestors` and `--threshold`, then once per asset as `register-asset` with `--config`, `--url`, `--keypair`, `--program-id`, `--commitment`, `--mint`, `--asset-id`, `--decimals`, `--per-tx-cap` and `--total-cap`; the client checks every value against the configuration and stops on a disagreement. The script refuses to run, `--preflight` included, until the variable names an executable.
 
 ```sh
 bash services/bridge/deploy/deploy-solana-program.sh --preflight
@@ -69,7 +71,8 @@ The admin client also runs on its own against the configuration: `apply`, `initi
 The vault Paxeer X Network registers for Solana is the handle of the program's vault-authority PDA, derived from the single seed `vault-authority` - the seed `contracts/bridge/solana/src/state.rs` declares as `VAULT_SEED` and `contracts/bridge/ATTESTATION-SOLANA.md` specifies. `services/bridge/deploy/deploy-solana-program.sh` derives the address it records as `vault_authority` from that seed, and the `vault_handle` next to it is the last 20 bytes of `keccak256` of that 32-byte address, as `contracts/bridge/vectors/solana.go` computes it. The same address can be derived by hand:
 
 ```sh
-"$PAXEER_BRIDGE_SOLANA_TOOLCHAIN_BIN/solana" find-program-derived-address <program id> string:vault-authority
+program_id=$(jq -r .program_id "$PAXEER_BRIDGE_DEPLOYMENT_RECORD")
+"$PAXEER_BRIDGE_SOLANA_TOOLCHAIN_BIN/solana" find-program-derived-address "$program_id" string:vault-authority
 ```
 
 ## The program at a glance

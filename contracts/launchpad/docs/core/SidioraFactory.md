@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [SidioraFactory.sol](../../contracts/core/SidioraFactory.sol).
+
 ## SidioraFactory
 
 Market creation orchestrator. One transaction creates token + pool + NFT.
@@ -75,96 +77,104 @@ address usdlAddress
 ### constructor
 
 ```solidity
-constructor() public
+constructor()
 ```
 
 ### initialize
 
 ```solidity
-function initialize(address _poolBeacon, address _nftContract, address _poolRegistry, address _eventEmitter, address _protocolConfig, address _treasury, address _feeAccumulator, address _usdlAddress, address _admin) external
+function initialize( address _poolBeacon, address _nftContract, address _poolRegistry, address _eventEmitter, address _protocolConfig, address _treasury, address _feeAccumulator, address _usdlAddress, address _admin ) external initializer
 ```
 
 ### createMarket
 
 ```solidity
-function createMarket(string name, string symbol, uint8 feeStrategy, address optical) external returns (address tokenAddr, address poolAddr, uint256 nftId)
+function createMarket( string calldata name, string calldata symbol, uint8 feeStrategy, address optical ) external override returns (address tokenAddr, address poolAddr, uint256 nftId)
 ```
 
 Create a new market (token + pool + NFT)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| name | string | Token name |
-| symbol | string | Token symbol |
-| feeStrategy | uint8 | Initial fee strategy for the pool NFT (0=CLAIM,1=BURN,2=AIRDROP,3=LP_REWARDS) |
-| optical | address | Optional optical hook contract (address(0) for none) |
+| Name        | Type    | Description                                                                   |
+| ----------- | ------- | ----------------------------------------------------------------------------- |
+| name        | string  | Token name                                                                    |
+| symbol      | string  | Token symbol                                                                  |
+| feeStrategy | uint8   | Initial fee strategy for the pool NFT (0=CLAIM,1=BURN,2=AIRDROP,3=LP_REWARDS) |
+| optical     | address | Optional optical hook contract (address(0) for none)                          |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description                |
+| --------- | ------- | -------------------------- |
 | tokenAddr | address | The deployed token address |
-| poolAddr | address | The deployed pool address |
-| nftId | uint256 | The minted NFT token ID |
+| poolAddr  | address | The deployed pool address  |
+| nftId     | uint256 | The minted NFT token ID    |
 
 ### createMarketFor
 
 ```solidity
-function createMarketFor(address creator, string name, string symbol, uint8 feeStrategy, address optical) external returns (address tokenAddr, address poolAddr, uint256 nftId)
+function createMarketFor( address creator, string calldata name, string calldata symbol, uint8 feeStrategy, address optical ) external override onlyRole(ROUTER_ROLE) returns (address tokenAddr, address poolAddr, uint256 nftId)
 ```
 
 Create a new market on behalf of a creator (Router-only via ROUTER_ROLE)
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| creator | address | The actual creator address (receives NFT, becomes guardian) |
-| name | string | Token name |
-| symbol | string | Token symbol |
-| feeStrategy | uint8 | Initial fee strategy for the pool NFT |
-| optical | address | Optional optical hook contract (address(0) for none) |
+| Name        | Type    | Description                                                 |
+| ----------- | ------- | ----------------------------------------------------------- |
+| creator     | address | The actual creator address (receives NFT, becomes guardian) |
+| name        | string  | Token name                                                  |
+| symbol      | string  | Token symbol                                                |
+| feeStrategy | uint8   | Initial fee strategy for the pool NFT                       |
+| optical     | address | Optional optical hook contract (address(0) for none)        |
 
 #### Return Values
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
+| Name      | Type    | Description                |
+| --------- | ------- | -------------------------- |
 | tokenAddr | address | The deployed token address |
-| poolAddr | address | The deployed pool address |
-| nftId | uint256 | The minted NFT token ID |
+| poolAddr  | address | The deployed pool address  |
+| nftId     | uint256 | The minted NFT token ID    |
 
 ### getNonce
 
 ```solidity
-function getNonce(address creator) external view returns (uint256)
+function getNonce(address creator) external view override returns (uint256)
 ```
 
 Get the nonce for a creator (used for CREATE2 determinism)
 
-### _createMarket
+### \_createMarket
 
 ```solidity
-function _createMarket(address creator, string name, string symbol, uint8 feeStrategy, address optical) internal returns (address tokenAddr, address poolAddr, uint256 nftId)
+function _createMarket( address creator, string calldata name, string calldata symbol, uint8 feeStrategy, address optical ) internal returns (address tokenAddr, address poolAddr, uint256 nftId)
 ```
 
-### _deployBeaconProxy
+### \_deployBeaconProxy
 
 ```solidity
-function _deployBeaconProxy(bytes32 salt, bytes initData) internal returns (address proxy)
+function _deployBeaconProxy(bytes32 salt, bytes memory initData) internal returns (address proxy)
 ```
 
-### _authorizeUpgrade
+### \_authorizeUpgrade
 
 ```solidity
-function _authorizeUpgrade(address) internal
+function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE)
 ```
+
+### predictPoolAddress
+
+```solidity
+function predictPoolAddress(address token, address creator, address optical) external view returns (address)
+```
+
+Predicts the pool CREATE2 address from the current configuration and supplied identities.
 
 ## BeaconProxyDeployer
 
-_Minimal beacon proxy for CREATE2 deployment by factory.
-     Reads implementation from beacon, delegates all calls._
+_Minimal beacon proxy for CREATE2 deployment by factory. Reads implementation from beacon, delegates
+all calls._
 
 ### BeaconCallFailed
 
@@ -175,7 +185,7 @@ error BeaconCallFailed()
 ### constructor
 
 ```solidity
-constructor(address beacon, bytes data) public
+constructor(address beacon, bytes memory data)
 ```
 
 ### fallback
@@ -190,15 +200,14 @@ fallback() external payable
 receive() external payable
 ```
 
-### _beacon
+### \_beacon
 
 ```solidity
 function _beacon() internal view returns (address b)
 ```
 
-### _getImpl
+### \_getImpl
 
 ```solidity
 function _getImpl(address beacon) internal view returns (address impl)
 ```
-

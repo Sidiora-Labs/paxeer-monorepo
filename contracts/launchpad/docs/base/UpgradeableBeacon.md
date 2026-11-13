@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [UpgradeableBeacon.sol](../../contracts/base/UpgradeableBeacon.sol).
+
 ## UpgradeableBeacon
 
 Stores and upgrades the implementation address for beacon proxies
@@ -27,19 +29,19 @@ error ZeroAddress()
 ### Upgraded
 
 ```solidity
-event Upgraded(address implementation)
+event Upgraded(address indexed implementation)
 ```
 
 ### OwnershipTransferred
 
 ```solidity
-event OwnershipTransferred(address previousOwner, address newOwner)
+event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)
 ```
 
 ### constructor
 
 ```solidity
-constructor(address initialImplementation, address initialOwner) public
+constructor(address initialImplementation, address initialOwner)
 ```
 
 ### onlyOwner
@@ -67,7 +69,7 @@ Returns the current owner
 ### upgradeTo
 
 ```solidity
-function upgradeTo(address newImplementation) external
+function upgradeTo(address newImplementation) external onlyOwner
 ```
 
 Upgrades the implementation to a new address
@@ -75,8 +77,30 @@ Upgrades the implementation to a new address
 ### transferOwnership
 
 ```solidity
-function transferOwnership(address newOwner) external
+function transferOwnership(address newOwner) external onlyOwner
 ```
 
-Transfers ownership to a new address
+Proposes a nonzero pending owner. The current owner retains authority until acceptance.
 
+### pendingOwner
+
+```solidity
+address public pendingOwner
+```
+
+The proposed owner, cleared after acceptance.
+
+### OwnershipTransferStarted
+
+```solidity
+event OwnershipTransferStarted(address indexed previousOwner, address indexed pendingOwner)
+```
+
+### acceptOwnership
+
+```solidity
+function acceptOwnership() external
+```
+
+Only the pending owner can accept the transfer. Emits `OwnershipTransferred` and clears
+`pendingOwner`.

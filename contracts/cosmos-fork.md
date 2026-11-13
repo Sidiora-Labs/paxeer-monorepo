@@ -14,19 +14,14 @@ Paxeer mainnet-beta is one BFT network, run by `paxd`, with EVM chain ID **125**
 receipt is final when its block is committed. Sub-chains are tenant domains in
 the database, launchable without separate chain infrastructure.
 
-Public Ethereum JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network`
-through `api14.mainnet-beta.paxeer.network`, or
-`api-mainnet-beta.paxeer.network`; for example,
-`https://api5.mainnet-beta.paxeer.network`. Node namespaces are `debug`, `echo`,
-`eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
-`node.hyperpaxeer.com` is only the build library mirror, not an RPC endpoint.
+Public Ethereum JSON-RPC uses HTTPS at the configured node’s root path.
+See [node transport and served methods](evm-rpc.md) and
+[the hosted gateway contract](../services/platform/hosted/gateway/openrpc.json)
+for their respective method catalogs.
 
 The SDK's consensus client, gRPC services and REST gateway use their own
 protocols and configured listeners. See the [consensus contract](consensus-fork.md)
-for consensus transport. The pre-merge public router, separate LayerX interface
-and `layerxd` binary are retired.
+for consensus transport.
 
 ## Go API
 
@@ -177,7 +172,7 @@ be registered by the application to become reachable.
 | `chain-id` | Empty string; configure the consensus genesis chain ID |
 | `keyring-backend` | `os` |
 | `output` | `text` |
-| `node` | `tcp://localhost:26657`, the consensus listener |
+| `node` | Loopback TCP consensus listener on port 26657 |
 | `broadcast-mode` | `sync` |
 
 These defaults come from [`config.go`](../sdk/client/config/config.go). The root
@@ -353,20 +348,3 @@ name, aggregating matching data points. Tests should compare before/after values
 for the real operation because collection is cumulative and the provider is
 shared. `InstallLegacySink(t)` captures legacy emissions and `Keys()` returns
 their sorted names; test cleanup replaces that sink with a blackhole sink.
-
-## Audit reconciliation
-
-Audit 22.30.165 described this contract as missing at its reviewed revision.
-The anchors `#go-api`, `#cli`, `#errors` and `#error-codes` above now describe the
-fork's API and transport; store ranges, bulk namespaces, historical state and
-genesis completion have explicit lifecycle sections. Legacy store behavior is
-separate from the PaxDB store installed by `paxd`. In particular, unsupported
-history, rollback, snapshots and proofs must not be advertised as successful
-recovery. The non-debug error encoder described above still exposes error text;
-this page makes no redaction claim.
-
-This page does not certify upgrade readiness or close other findings in that
-audit. Registry retirement of removed legacy metrics and documentation in other
-domains require their owners' changes. The bounded repair record and proving
-tests for the store findings are in
-[`sdk/store/repair_m636.kvx`](../sdk/store/repair_m636.kvx).
