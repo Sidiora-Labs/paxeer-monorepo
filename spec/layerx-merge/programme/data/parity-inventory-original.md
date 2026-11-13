@@ -1,176 +1,344 @@
 # Parity inventory
 
-Requirement 1 (feature parity): every kernel construct folded into Paxeer X Network keeps its behaviour, shown by the kernel's own tests and goldens re-targeted at the chain and by a differential harness, the parity oracle. Every path below was checked with git at the spec revision; paths marked planned are created by the task that names them.
+Parity coverage connects kernel constructs to their chain implementations and
+client-visible results. The tests below cover result codes, state transitions,
+receipts, events and ordering through the corresponding packages. The selector
+list is also represented in [parity.kvx](parity.kvx).
 
-Counts: 464 existing parity targets (section 2), 37 new targets (section 3), 14 features that need a first test written plus 9 contract vectors to be written (section 4), 3 cut-over goldens (section 5), 8 waves (0 to 7).
+## Implementations and fixtures
 
-## 1 Parity oracle
+| Surface | Source and test roots |
+| --- | --- |
+| Native kernel | `src`, `include/layerx`, `tests/ledger`, `tests/modules`, `tests/programs` |
+| Chain constructs | `modules/layerxledger`, `modules/layerxauth`, `modules/layerxpay`, `precompiles` |
+| Sequencing and committed receipts | `node/sequencer`, `modules/sequencer`, `rpc` |
+| Programs | `programs/crates`, `programs/fixtures`, `programs/tests/vectors` |
+| Web requests | `modules/xweb`, `precompiles/xweb`, `services/interop/crates/x-websearch` |
+| Agent clients | `services/agent/crates`, `services/agent/sdk` |
+| Wallet clients | `apps/wallet`, `services/wallet`, `sdk/wallet` |
+| Explorer | `apps/explorer`, `services/explorer/backend` |
+| Platform clients and services | `sdk/platform`, `services/platform/hosted` |
+| Bridge and mirror | `modules/layerxbridge`, `services/interop`, `contracts/bridge` |
 
-### What it replays
+The ledger, pay and auth construct precompiles use `0x101A`, `0x101B` and
+`0x101C`; Programs uses `0x101D`, and chain domains use `0x101E`. Addresses are
+short forms of twenty-byte EVM addresses padded with leading zero bytes. The
+[activation table](../../docs/plans/activation-and-migration.md#merge-precompiles)
+defines the merge entries and module gates.
 
-| Input | Path | Content |
-|---|---|---|
-| Kernel replay corpus | `tests/vectors/replay_corpus.lxb` | corpus read by the qualification replay (corpus header `tests/qualification/lxp_qual_replay.c:21`, activity type list `tests/qualification/lxp_qual_replay.c:28`) |
-| Replay digest | `tests/vectors/qualification_replay_10m.digest` | expected kernel digest of the long replay |
-| Cross-architecture activity list | `tests/test_replay_crossarch.c` | activity types 0x00010001 to 0x0005000d replayed by `make test-replay-crossarch` (`Makefile:1074`, list at `tests/test_replay_crossarch.c:9-26`) |
-| Kernel goldens and fixtures | `tests/fixtures/`, `tests/replay/golden/history.lxl` (`make test-replay-golden-local`, `Makefile:381`) | receipts, grants, sessions, custody credits, genesis and module tables listed per construct in section 2 |
-| Trading payload vectors | `tests/fixtures/trading-payloads/vectors.json` | 17 perps and spot payload vectors (producer `tests/modules/dump_trading_vectors.c`) |
-| Program vectors | `programs/tests/vectors/`, `programs/fixtures/`, `programs/abi-frozen.sha256` | ABI v1 to v5 manifests, program fixtures, frozen ABI digest |
-| Web preimage vectors | `modules/xweb/types/testdata/preimage-vectors.json`, `tests/fixtures/web/observation-activity.hex` | origin 1 and origin 2 attestation preimages and the canonical observation bytes |
-| Client goldens | `agent/schema/agent-api/golden/`, `sdk/platform/conformance/fixtures/`, `human/schema/human-api/golden/` | wire and receipt goldens consumed by the agent, SDK and human clients in wave 5 |
+## Construct coverage
 
-Each corpus activity runs twice: once through liblayerx (the kernel execution function) and once as the mapped EVM transaction against the chain construct that replaces it (layerxledger 0x101A, layerxpay 0x101B, layerxauth 0x101C, layerxprograms 0x101D, layerxexchange 0x1015, xweb 0x1019).
+### Sequencer execution and block parity
 
-### What it diffs
+- `node/sequencer/mixed_load_test.go::TestMixedLoadSealedEqualsProcessBlock`
+- `node/sequencer/seal_giga_test.go::TestSealBatchEqualsGigaProcessBlock`
 
-| Dimension | Kernel side | Chain side | Equality rule |
-|---|---|---|---|
-| Result | `lxp_result` code (`include/layerx/lxp_result.h`) | transaction status and the mapped error code of the precompile revert | same code for every activity, success and refusal alike |
-| State | per-account, per-asset balances; asset supply; module records | bank balances at the derived addresses; denom supply; keeper store records | equal deltas per account and asset, equal supply deltas, equal record fields |
-| Receipts | kernel receipt | sequencer-signed receipt and `eth_getTransactionReceipt` (`rpc/tx.go:106`) | status, gas used, logs and order equal |
-| Events | kernel events | EVM logs of the construct | same events in the same order with equal fields |
-| Conservation | `LXP_ERR_CONSERVATION` (`include/layerx/lxp_result.h:84`, raised at `src/ledger/lxp_apply.c:412`) | same refusal from the chain construct | a conservation refusal on one side is a conservation refusal on the other |
+### Receipts and admission
 
-The comparison follows the pattern already used for parallel execution: `tests/occ/occ_test.go:198-232` runs the same transactions sequentially and under OCC and asserts equal result codes, events (`tests/occ/occ_test.go:55`), transaction results (`tests/occ/occ_test.go:83`) and store state (`tests/occ/occ_test.go:17`).
+- `node/sequencer/receipt_equality_test.go::TestReceiptEqualsCommittedReceipt`
+- `node/sequencer/receipt_equality_test.go::TestReceiptLogEffects`
 
-### Where and when it runs
+### Fees, fee token and sponsored gas
 
-The parity oracle runs once per wave on the merged wave revision, never per task. Task gates run the focused tests named in sections 2 to 5; the oracle then covers every construct landed up to that wave. Wave 2 adds ledger, pay and auth activities; wave 3 adds programs, origin-2 web and native trading; wave 6 adds the cut-over goldens of section 5.
+- `precompiles/feetoken/feetoken_test.go::TestFeeDenomRoundTripAndCallerIsolation`
+- `precompiles/feetoken/feetoken_test.go::TestFeeDenomRefusalsPreservePreference`
+- `precompiles/feetoken/feetoken_test.go::TestFeeDenomRefusalsCarryRegistryCodesAtMergeHeight`
+- `precompiles/feetoken/feetoken_test.go::TestFeeDenomClearAfterGovernanceChanges`
+- `precompiles/feetoken/feetoken_test.go::TestFeeDenomClearWithdrawnPreference`
+- `precompiles/feetoken/feetoken_test.go::TestFeeDenomViewDoesNotWriteOrChargeAnteGas`
+- `precompiles/feetoken/feetoken_test.go::TestFeeDenomGasAndTransactions`
+- `precompiles/feetoken/feetoken_test.go::TestFeeDenomStaticClearAndRollback`
+- `precompiles/feetoken/feetoken_test.go::TestFeeDenomStoreOutOfGasPropagates`
+- `precompiles/feetoken/feetoken_test.go::TestFeeDenomMissingKeeper`
 
-| Wave | Constructs landed (the oracle starts at wave 2) |
-|---|---|
-| 0 | sequencer execution, signed receipts, pending reads, fee policy, address table |
-| 1 | C-module host shim, account and asset maps, archive proofs |
-| 2 | layerxledger, layerxpay, layerxauth, governance pause and fee parameters |
-| 3 | layerxprograms, program-origin xweb, layerxexchange native perps and spot |
-| 4 | AI and market guests, keeper and sidecar drivers |
-| 5 | re-pointed callers: router, gateway, agent stack, wallet, explorer, bridge relayer |
-| 6 | cut-over: freeze, balance export, upgrade handlers |
-| 7 | retirement of the two-domain components |
+### Kernel replay corpus
 
-### Command shape
+- `tests/test_qual_replay_tail.c::main`
 
-| Gate | Command | Path |
-|---|---|---|
-| Parity oracle (planned) | `go test -count=1 ./tests/parity/kernel_chain/` | `tests/parity/kernel_chain/` (planned; same Go test layout as the existing `tests/chain/` package) |
-| Kernel reference side | `make test-replay-crossarch` | `tests/test_replay_crossarch.c` |
+### Asset ledger
 
-## 2 Existing targets by construct
+- `modules/layerxledger/keeper/assets_test.go::TestRegisterAsset`
+- `modules/layerxledger/keeper/assets_test.go::TestRegisterAssetTwiceRefused`
+- `modules/layerxledger/keeper/assets_test.go::TestPauseUnpauseAsset`
+- `modules/layerxledger/keeper/supply_test.go::TestMintWithinCap`
+- `modules/layerxledger/keeper/supply_test.go::TestBurnReducesBalance`
+- `modules/layerxledger/keeper/accounts_test.go::TestOpenAccount`
+- `modules/layerxledger/keeper/accounts_test.go::TestOpenAccountPausedAsset`
+- `modules/layerxledger/keeper/send_test.go::TestSendMovesBalance`
+- `modules/layerxledger/keeper/send_test.go::TestSendRefusals`
+- `modules/layerxledger/keeper/payexact_test.go::TestPayExact`
+- `modules/layerxledger/keeper/payexact_test.go::TestPayExactExpired`
+- `modules/layerxledger/keeper/views_test.go::TestLedgerViews`
+- `modules/layerxledger/keeper/views_test.go::TestNextSequence`
 
-Each row lists the kernel tests, goldens and client tests that are re-targeted at the chain-side construct in that wave. The count follows the construct name.
+### Authority, sessions and idempotency
 
-| Construct | Kernel test or golden path | Chain-side target (method or module) | Wave |
-|---|---|---|---|
-| Sequencer execution and block parity (14) | `tests/occ/occ_test.go`; `node/optimistic_processing_test.go`; `node/receipt_test.go`; `node/receipt_translation_test.go`; `node/check_total_block_gas_test.go`; `node/app_test.go`; `node/ante_test.go`; `node/app_feetoken_test.go`; `rpc/state_test.go`; `rpc/tx_test.go`; `rpc/simulate_test.go`; `rpc/subscribe_test.go`; `consensus/internal/consensus/wal_test.go`; `consensus/test/e2e` | node/sequencer Accept, Seal and WAL; ProcessProposal order check; pending tag in rpc; modules/sequencer order commitment | 0 |
-| Receipts and admission (8) | `tests/sequencer/lxp_test_admission.c`; `tests/protocol/lxp_test_receipts.c`; `tests/ledger/test_receipt.c`; `tests/fixtures/receipt-supply-v2.bin`; `tests/protocol/lxp_test_fee_gate.c`; `tests/protocol/paxeer_x_rejection_policy.py`; `tests/protocol/lxp_test_terminal_rejection.c`; `tests/test_receipt_offline.c` | pax_sequencerReceipt (signed receipt) and eth_getTransactionReceipt (rpc/tx.go:106) | 0 |
-| Fees, fee token and sponsored gas (15) | `tests/test_fees.c`; `tests/test_fee_replay.c`; `tests/fixtures/fee-params-v3.bin`; `tests/fixtures/fee-params-v4.bin`; `agent/sdk/typescript/test/gas-station.test.ts`; `interop/crates/layerx-gas-station/tests/station.rs`; `interop/crates/layerx-gas-station/tests/service.rs`; `interop/crates/layerx-gas-station/tests/rate.rs`; `interop/crates/layerx-gas-station/tests/fixtures/paymaster_rate.json`; `contracts/test/BatchCallAndSponsorTest.t.sol`; `human/apps/web/e2e/gas-station.test.ts`; `precompiles/feetoken/feetoken_test.go`; `modules/evm/keeper/feetoken_test.go`; `interop/crates/layerx-gas-station/tests`; `tests/test_fees_v4.c` | gas floor in the node ante; feeToken 0x1018 (precompiles/feetoken/feetoken.go:22); gas station and BatchCallAndSponsor sponsorship | 0 |
-| Operations (2) | `tools/ops/monitoring/rules_test.yml`; `tools/rollout/tests/rollout.test.sh` | receipt-order divergence monitoring and rollout checks | 0 |
-| Kernel replay corpus (4) | `tests/qualification/lxp_qual_replay.c`; `tests/test_replay_crossarch.c`; `tests/vectors/replay_corpus.lxb`; `tests/vectors/qualification_replay_10m.digest` | every corpus activity type through its chain construct (harness input, section 1) | 2 |
-| Asset ledger (20) | `tests/ledger/test_send.c`; `tests/ledger/test_receive.c`; `tests/ledger/test_send_allowance.c`; `tests/ledger/test_transfer_set.c`; `tests/ledger/test_apply_transfer.c`; `tests/modules/test_asset_registry.c`; `tests/modules/test_asset_state.c`; `tests/modules/test_asset_transfer.c`; `tests/modules/test_asset_withdraw.c`; `tests/modules/test_asset_withdraw_activity.c`; `tests/fixtures/asset/supply-pause.receipt`; `tests/fixtures/asset/supply-unpause.receipt`; `tests/fixtures/asset/bound-native-withdrawal`; `tests/fixtures/asset/unbound-native-withdrawal`; `tests/modules/test_asset_payloads.h`; `tests/test_genesis_manifest.c`; `tests/test_state_commitment_transition.c`; `tests/test_gateway_receive.c`; `tests/daemon/lxp_test_asset_inventory.c`; `tests/ledger/test_account_id.c` | layerxledger 0x101A: register, pause, unpause, openAccount, send, draw, payExact, issueGrant, revokeGrant, mint, burn | 2 |
-| Authority, sessions and idempotency (18) | `tests/state/lxp_test_grants.c`; `tests/state/lxp_test_revocation.c`; `tests/state/lxp_test_rotation.c`; `tests/state/lxp_test_authority_resolve.c`; `tests/state/lxp_test_identity.c`; `tests/state/lxp_test_idempotency.c`; `tests/state/lxp_test_state_proof.c`; `tests/protocol/lxp_test_owner_rotation.c`; `tests/fixtures/authority/native-sessions`; `tests/fixtures/authority/native-fee-grants`; `tests/qualification/paxeer_x_idempotency_lifecycle.py`; `tests/daemon/lxp_test_grant_issuance.c`; `human/crates/layerx-intents/tests/native_session.rs`; `agent/crates/layerx-crypto/tests/native_fee_grant.rs`; `tests/daemon/lxp_test_metered_allowance.c`; `tests/test_authority_multisig.c`; `tests/state/lxp_test_allowance.c`; `tests/daemon/lxp_test_daemon_allowance.c` | layerxauth 0x101C: grantSession, grantSessionSuccessor, grantCapability, revokeGrant; keyed idempotency on the 0x101A methods | 2 |
-| Escrow (8) | `tests/modules/test_escrow_open.c`; `tests/modules/test_escrow_capture.c`; `tests/modules/test_escrow_timeout.c`; `tests/modules/test_escrow_dispute.c`; `tests/modules/test_escrow_invariants.c`; `tests/modules/paxeer_x_escrow_replay_binding.py`; `tests/daemon/lxp_test_epoch_escrow_timeout.c`; `tests/daemon/lxp_test_escrow_replay_client.c` | layerxpay 0x101B: escrowOpen, escrowCapture, escrowPartialCapture, escrowRelease, escrowTimeout, escrowDisputeOpen, escrowDisputeResolve | 2 |
-| Budget (8) | `tests/modules/test_budget_create.c`; `tests/modules/test_budget_close.c`; `tests/modules/test_budget_delegate.c`; `tests/modules/test_budget_period.c`; `tests/modules/test_budget_spend.c`; `tests/modules/paxeer_x_budget_lifecycle.py`; `tests/daemon/lxp_test_budget_lifecycle.c`; `tests/daemon/lxp_test_epoch_budget_rollback.c` | layerxpay 0x101B: budgetCreate, budgetFund, budgetAmend, budgetSpend, budgetPull, budgetDelegateAdd, budgetDelegateRemove, budgetDelegateSpend, budgetDefund, budgetRevoke, budgetClose | 2 |
-| Stream (6) | `tests/modules/test_stream_open.c`; `tests/modules/test_stream_accrue.c`; `tests/modules/test_stream_lifecycle.c`; `tests/modules/test_stream_meter.c`; `tests/modules/test_stream_settle.c`; `tests/modules/paxeer_x_metered_end_boundary.py` | layerxpay 0x101B: streamOpen, streamTopUp, streamMeter, streamSettle, streamPause, streamResume, streamClose | 2 |
-| Service (7) | `tests/modules/test_service_offer.c`; `tests/modules/test_service_acceptance.c`; `tests/modules/test_service_attest.c`; `tests/modules/test_service_commit.c`; `tests/modules/test_service_deliver.c`; `tests/modules/test_service_dispute.c`; `tests/daemon/lxp_test_epoch_service_acceptance.c` | layerxpay 0x101B: serviceOfferPublish, serviceOfferWithdraw, serviceAgreementPropose, serviceAgreementAccept, serviceCommitTask, serviceCommitAbandon, serviceProgressReport, serviceToolExecAttest, serviceDeliver, serviceAccept, serviceReject, serviceDisputeOpen, serviceDisputeResolve | 2 |
-| Native perps, spot and oracle intake (30) | `tests/modules/test_perps_book.c`; `tests/modules/test_perps_funding.c`; `tests/modules/test_perps_insurance.c`; `tests/modules/test_perps_liquidate.c`; `tests/modules/test_perps_market.c`; `tests/modules/test_perps_position.c`; `tests/fixtures/trading-payloads/vectors.json`; `tests/modules/dump_trading_vectors.c`; `tests/qualification/paxeer_x_exchange_tif.py`; `tests/modules/test_oracle_checks.c`; `tests/modules/test_oracle_halt.c`; `tests/modules/test_oracle_intake.c`; `tests/modules/test_oracle_transport.c`; `tests/qualification/paxeer_x_oracle_transport.py`; `tests/modules/test_spot_book.c`; `tests/daemon/lxp_test_oracle_transport_client.c`; `tests/daemon/lxp_test_exchange_tif_client.c`; `modules/layerxexchange/keeper/keeper_test.go`; `precompiles/layerxexchange/layerxexchange_test.go`; `modules/oracle`; `tests/agent/sdk/python/test_trading_payload.py`; `tests/agent/sdk/python/test_precompile_calls.py`; `agent/sdk/typescript/test/trading-payload.test.ts`; `agent/sdk/typescript/test/precompile-calls.test.ts`; `human/wallet/sdk/test/modules.test.ts`; `tests/daemon/lxp_test_module_maintenance.c`; `tests/test_genesis_module_table.c`; `tests/network/test_oracle_adapter.c`; `tests/sequencer/test_oracle_root.c`; `tests/test_programs_oracle_read.c` | layerxexchange 0x1015 (modules/layerxexchange/types/ids.go:15): createPerpsMarket, setPerpsHalt, pushOracle, placeOrder, cancelOrder, openPosition, increasePosition, closePosition, fundingTick, liquidate, adl, registerMargin, withdrawMargin, createSpotMarket, placeSpotOrder, cancelSpotOrder, setSpotHalt | 3 |
-| Launchpad (4) | `modules/launchpad/keeper/keeper_test.go`; `modules/launchpad/keeper/history_test.go`; `modules/launchpad/keeper/invariants.go`; `precompiles/launchpad/launchpad_test.go` | launchpad 0x1017 (modules/launchpad/types/keys.go:26): methods L1-L12 with protocol fees held per market | 3 |
-| Web requests, origin 1 and origin 2 (18) | `tests/modules/test_web_intake.c`; `tests/fixtures/web/observation-activity.hex`; `programs/crates/layerx-programs-runtime/tests/web_read.rs`; `tests/test_web_program_path.c`; `tests/test_programs_web_read.c`; `modules/xweb/keeper/request_test.go`; `modules/xweb/keeper/fulfil_test.go`; `modules/xweb/keeper/msg_server_test.go`; `modules/xweb/keeper/refund_test.go`; `precompiles/xweb/xweb_test.go`; `modules/xweb/types/testdata/preimage-vectors.json`; `programs/sdk/rust/examples/web-reader`; `modules/xweb/types/msgs_test.go`; `modules/xweb/types/attestation_test.go`; `tests/protocol/lxp_test_dispatch.c`; `tests/protocol/lxp_test_kernel.c`; `tests/network/test_web_adapter.c`; `tests/sequencer/test_web_root.c` | xweb 0x1019 (precompiles/xweb/xweb.go:58) and modules/xweb: request, fulfil, refund, fulfilProgram, getProgramResult, attestor set messages | 3 |
-| Programs (62) | `tests/programs/test_fee_governance.c`; `tests/programs/test_registration.c`; `tests/programs/test_call_activity.c`; `tests/programs/test_lifecycle.c`; `tests/programs/test_metering_schedule.c`; `tests/programs/test_winddown.c`; `tests/programs/test_monetary_law.c`; `tests/fixtures/programs/account-bound-call`; `tests/programs/test_metered_call.c`; `tests/programs/test_execution_context.c`; `tests/programs/test_balance_read.c`; `tests/programs/test_accounts.c`; `tests/programs/test_spend_capability_composition.c`; `tests/programs/test_occupancy_batch.c`; `tests/programs/test_blob_admission.c`; `tests/programs/test_blob_lifecycle.c`; `tests/programs/test_paxai_native_gaps.c`; `tests/programs/test_interface_protocol.c`; `tests/programs/test_market_attestation.c`; `tests/programs/test_language_abi.c`; `tests/programs/test_ai_host_boundary.c`; `tests/programs/test_programs_abi5_admission.c`; `tests/programs/test_terminal_v5.c`; `tests/programs/test_reference_custody.c`; `tests/programs/check-abi-drift.sh`; `tests/programs/runtime-module-boundaries.sh`; `programs/tests/vectors/abi-v1.hex`; `programs/tests/vectors/abi-v5.hex`; `programs/abi-frozen.sha256`; `programs/tests/differential/parallel.c`; `programs/tests/conservation/run.sh`; `programs/fixtures/pay5`; `programs/fixtures/pay5/account-authorization-vectors.json`; `programs/crates/layerx-programs-runtime/tests/lifecycle.rs`; `programs/crates/layerx-programs-runtime/tests/validation.rs`; `programs/crates/layerx-programs-runtime/tests/execution.rs`; `programs/crates/layerx-programs-runtime/tests/execution_abi5.rs`; `programs/crates/layerx-programs-runtime/tests/determinism.rs`; `programs/crates/layerx-programs-runtime/tests/calldata_golden_vectors.rs`; `programs/crates/layerx-programs-runtime/tests/composition.rs`; `programs/crates/layerx-programs-runtime/tests/storage_scan.rs`; `programs/crates/layerx-programs-runtime/tests/shared_storage.rs`; `programs/crates/layerx-programs-runtime/tests/signature_vectors.rs`; `programs/crates/layerx-programs-runtime/tests/hash_determinism.rs`; `programs/crates/layerx-programs-runtime/tests/monetary_law.rs`; `programs/crates/layerx-programs-runtime/tests/isolation.rs`; `programs/crates/layerx-programs-runtime/tests/fee_governance.rs`; `programs/crates/layerx-programs-runtime/tests/activity_budget.rs`; `programs/crates/layerx-programs-runtime/tests/program_account_derivation.rs`; `programs/crates/layerx-programs-runtime/tests/namespace_drop.rs`; `programs/crates/layerx-programs-runtime/tests/replay.rs`; `programs/crates/layerx-programs-runtime/tests/program_replay.rs`; `programs/crates/layerx-programs-runtime/tests/program_spend_composition.rs`; `programs/crates/layerx-programs-runtime/tests/dynamic_spend.rs`; `programs/crates/layerx-programs-runtime/tests/interpreter_program.rs`; `programs/crates/layerx-programs-runtime/tests/step_conformance.rs`; `tests/replay/lxp_test_golden_replay.c`; `tests/replay/golden/history.lxl`; `programs/crates/layerx-programs-sandbox/tests/lease.rs`; `programs/tests/vectors/abi-v2.hex`; `programs/tests/vectors/abi-v3.hex`; `programs/tests/vectors/abi-v4.hex` | layerxprograms 0x101D: deploy, upgrade, call, simulateCall, registryRead, transfer, registerAccount, setExitRoute, deprecate, tombstone, exitValue, exitValueBounded, sandboxExecute, sandboxFund, sandboxActivate, retireStorage | 3 |
-| AI and market guests (15) | `programs/crates/layerx-programs-runtime/src/market_tests.rs`; `programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs`; `programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs`; `programs/crates/layerx-programs-arbiter/tests/verified_step.rs`; `programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs`; `programs/crates/layerx-programs-ai-market/tests/f04_canonical.rs`; `programs/tests/ai-market/run-aggregation-runtime.sh`; `services/platform/hosted/paxai-worker/tests/real_workload.rs`; `services/platform/hosted/ai-artifacts/tests/artifact_service.rs`; `services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs`; `services/platform/hosted/indexer/tests/ai_health_privacy.rs`; `services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs`; `agent/sdk/typescript/test/ai-market.test.ts`; `agent/crates/layerx-client/tests/ai_market_client.rs`; `tests/agent/sdk/python/test_ai_market.py` | guest programs on layerxprograms 0x101D (ai-market, compute-lease market, interpreter) and their chain readers | 4 |
-| Web search sidecar and 402LXP payment (21) | `interop/crates/x-websearch/tests/kernel.rs`; `interop/crates/x-websearch/tests/submit.rs`; `interop/crates/x-websearch/tests/binary.rs`; `interop/crates/x-websearch/tests/payment.rs`; `interop/crates/x-websearch/tests/attest.rs`; `interop/crates/x-websearch/tests/api.rs`; `interop/crates/x-websearch/tests/canonical.rs`; `interop/crates/x-websearch/tests/fetch.rs`; `interop/crates/x-websearch/tests/server.rs`; `interop/crates/x-websearch/tests/crawl.rs`; `interop/crates/x-websearch/tests/search.rs`; `interop/crates/x-websearch/tests/content.rs`; `interop/crates/layerx-x402/tests/seller.rs`; `interop/crates/layerx-x402/tests/e2e.rs`; `interop/crates/layerx-x402/tests/pinned_spec.rs`; `tests/agent/sdk/python/test_web_search.py`; `agent/sdk/typescript/test/web-search.test.ts`; `tools/bringup/check-live.test.sh`; `agent/crates/layerx-mcp/tests/web.rs`; `tools/qualification/paxeer-x/mcp_web_payer.py`; `tools/qualification/paxeer-x/wallet-402-caps.py` | origin 1 and origin 2 fulfilment by the sidecar; payment draws on layerxledger 0x101A through the sequencer | 4 |
-| Bridge (14) | `interop/crates/layerx-bridge-relayer/tests`; `precompiles/layerxbridge/layerxbridge_test.go`; `modules/layerxbridge/keeper/keeper_test.go`; `modules/layerxbridge/keeper/attestation_test.go`; `modules/layerxbridge/keeper/genesis_test.go`; `modules/layerxbridge/keeper/sidiora_test.go`; `interop/crates/layerx-bridge-relayer/tests/loops.rs`; `interop/crates/layerx-bridge-relayer/tests/solana_release.rs`; `bridge/evm/test/RelayerAbiParity.t.sol`; `bridge/evm/test/PaxeerXVault.t.sol`; `bridge/solana/tests/core.rs`; `bridge/solana/tests/release.rs`; `bridge/vectors/solana_test.go`; `bridge/deploy/tests` | layerxBridge 0x1016 (modules/layerxbridge/types/keys.go:27), methods unchanged; relayer confirms by signed receipt | 5 |
-| Agent daemon, SDKs, MCP and CLI (109) | `agent/crates/layerx-sdk/tests/native_programs.rs`; `agent/tests/boundary/cases.rs`; `agent/crates/layerx-agentd/tests/prepare.rs`; `agent/crates/layerx-agentd/tests/prepare_expiry.rs`; `agent/crates/layerx-agentd/tests/disclosure.rs`; `agent/crates/layerx-agentd/tests/signing.rs`; `agent/crates/layerx-agentd/tests/signature_binding.rs`; `agent/crates/layerx-agentd/tests/session_seed.rs`; `agent/crates/layerx-agentd/tests/outbox.rs`; `agent/crates/layerx-agentd/tests/delivery.rs`; `agent/crates/layerx-agentd/tests/receipts.rs`; `agent/crates/layerx-agentd/tests/outbox_recover.rs`; `agent/crates/layerx-agentd/tests/recovery.rs`; `agent/crates/layerx-agentd/tests/protocol2_restart.rs`; `agent/crates/layerx-agentd/tests/unknown.rs`; `agent/crates/layerx-agentd/tests/budget_unknown.rs`; `agent/crates/layerx-agentd/tests/idempotency.rs`; `agent/crates/layerx-agentd/tests/finality.rs`; `agent/crates/layerx-agentd/tests/native_owner_receipts.rs`; `agent/crates/layerx-agentd/tests/fee_projection_program_state.rs`; `agent/crates/layerx-agentd/tests/balance.rs`; `agent/crates/layerx-agentd/tests/history.rs`; `agent/crates/layerx-agentd/tests/checkpoint.rs`; `agent/crates/layerx-agentd/tests/native_reads_daemon.rs`; `agent/crates/layerx-agentd/tests/availability.rs`; `agent/crates/layerx-agentd/tests/export.rs`; `agent/crates/layerx-agentd/tests/export_offline_bounds.rs`; `agent/crates/layerx-agentd/tests/budget_create.rs`; `agent/crates/layerx-agentd/tests/budget_reserve.rs`; `agent/crates/layerx-agentd/tests/budget_schema.rs`; `agent/crates/layerx-agentd/tests/budget_reconcile.rs`; `agent/crates/layerx-agentd/tests/budget_divergence.rs`; `agent/crates/layerx-agentd/tests/budget_proof_intake.rs`; `agent/crates/layerx-agentd/tests/budget_durable_limits.rs`; `agent/crates/layerx-agentd/tests/capability.rs`; `agent/crates/layerx-agentd/tests/attenuation.rs`; `agent/crates/layerx-agentd/tests/w8_capability.rs`; `agent/crates/layerx-agentd/tests/narrowing.rs`; `agent/crates/layerx-agentd/tests/session.rs`; `agent/crates/layerx-agentd/tests/revocation.rs`; `agent/crates/layerx-agentd/tests/w7_owner_binding.rs`; `agent/crates/layerx-agentd/tests/subscription.rs`; `agent/crates/layerx-agentd/tests/degraded.rs`; `agent/crates/layerx-client/tests/submit.rs`; `agent/crates/layerx-client/tests/module_reads.rs`; `agent/crates/layerx-client/tests/batch.rs`; `agent/crates/layerx-client/tests/reads.rs`; `agent/crates/layerx-client/tests/finality_evidence.rs`; `agent/crates/layerx-client/tests/program_read.rs`; `agent/crates/layerx-sdk/tests/account_reads.rs`; `agent/crates/layerx-sdk/tests/offline_export.rs`; `agent/crates/layerx-sdk/tests/sdk.rs`; `agent/crates/layerx-sdk/tests/receipt_fixture.rs`; `agent/crates/layerx-mcp/tests/write.rs`; `agent/crates/layerx-mcp/tests/daemon_bound.rs`; `agent/crates/layerx-mcp/tests/scope.rs`; `agent/crates/layerx-mcp/tests/read.rs`; `agent/crates/layerx-mcp/tests/readonly.rs`; `agent/crates/layerx-mcp/tests/approval.rs`; `agent/crates/layerx-mcp/tests/faucet.rs`; `agent/qualification/pay2/pay2e_test.rs`; `sdk/platform/conformance/fixtures/native-program-call-v3.json`; `sdk/platform/conformance/fixtures/native-program-call-v4.json`; `sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json`; `sdk/platform/conformance/fixtures/native-program-deploy-v3.json`; `sdk/platform/conformance/fixtures/native-program-deploy-v4.json`; `sdk/platform/conformance/fixtures/native-program-upgrade-v3.json`; `sdk/platform/conformance/fixtures/native-program-upgrade-v4.json`; `sdk/platform/conformance/fixtures/receipt-positive-v1.json`; `sdk/platform/conformance/fixtures/receipt-positive-v2.json`; `sdk/platform/conformance/fixtures/receipt-refusals-v1.json`; `sdk/platform/conformance/fixtures/receipt-refusals-v2.json`; `sdk/platform/conformance/fixtures/receipt-refusals-v3.json`; `sdk/platform/conformance/fixtures/account-derivation-v1.json`; `sdk/platform/conformance/fixtures/intent-plan-v1.json`; `sdk/platform/conformance/streaming-resumability.test.ts`; `sdk/platform/conformance/streaming-resumability.test.py`; `sdk/platform/conformance/streaming-resumability.test.rs`; `sdk/platform/conformance/terminal-v4.test.py`; `agent/schema/agent-api/golden/version-request.hex`; `agent/schema/agent-api/golden/version-response.hex`; `agent/sdk/typescript/test/px.test.ts`; `agent/sdk/typescript/test/native-batch-header.test.ts`; `agent/sdk/typescript/test/program-executed-v3.test.ts`; `agent/sdk/typescript/test/program-lifecycle.test.ts`; `agent/sdk/typescript/test/integration.test.ts`; `agent/sdk/typescript/test/agent-operation-envelope.test.ts`; `agent/sdk/typescript/test/rpc.test.ts`; `agent/sdk/typescript/test/intent.test.ts`; `agent/sdk/typescript/test/xweb-api.test.ts`; `agent/sdk/typescript/test/account-derivation.test.ts`; `tests/agent/sdk/python/test_px.py`; `tests/agent/sdk/python/test_native_batch_header.py`; `tests/agent/sdk/python/test_program_executed_v3.py`; `tests/agent/sdk/python/test_agent_operation_envelope.py`; `tests/agent/sdk/python/test_x402.py`; `tests/agent/sdk/python/test_intent.py`; `tests/agent/sdk/python/test_xweb_api.py`; `tests/agent/sdk/python/test_account_derivation.py`; `sdk/platform/go/native_program_lifecycle_test.go`; `sdk/platform/go/agent_operation_envelope_test.go`; `platform/cli/tests/rpc_identity.rs`; `platform/cli/tests/mcp_daemon_bound.rs`; `platform/cli/tests/wallet_send.rs`; `platform/cli/tests/wallet_derive.rs`; `platform/cli/tests/wallet_commands.rs`; `platform/cli/tests/commands.rs`; `platform/cli/tests/emulator.rs`; `cmd/layerxctl/tests/files.rs` | JSON-RPC through the unified router; signed receipt verification; user-signed EVM transactions | 5 |
-| Router, gateway, authority and indexer (21) | `services/platform/hosted/gateway/tests/local/lifecycle.rs`; `services/platform/hosted/gateway/tests/local/withdrawal.rs`; `services/platform/hosted/gateway/tests/degraded.rs`; `services/platform/hosted/gateway/tests/unified_service_paths.rs`; `services/platform/hosted/gateway/src/rpc.rs`; `services/platform/hosted/gateway/src/rpc_faucet.rs`; `services/platform/hosted/gateway/src/ws.rs`; `services/platform/hosted/gateway/src/evm.rs`; `services/platform/hosted/gateway/src/capabilities.rs`; `services/platform/hosted/gateway/src/paxeer.rs`; `services/platform/hosted/gateway/src/history.rs`; `services/platform/hosted/gateway/src/ui_proxy.rs`; `services/platform/hosted/gateway/src/ai_views.rs`; `services/platform/hosted/gateway/src/settlement.rs`; `services/platform/hosted/authority/tests/real_node.rs`; `services/platform/hosted/authority/tests/budget_proof_exports.rs`; `services/platform/hosted/registry/tests/journal.rs`; `services/platform/hosted/core/tests`; `services/platform/hosted/indexer/src/paxeer.rs`; `interop/crates/layerx-interop-service/tests`; `interop/crates/layerx-migrate/src/mapping_v2.rs` | router px_* methods and gateway paths over chain state; authority receipts from sequencer receipts | 5 |
-| Wallet, human service and explorer (45) | `human/apps/wallet/e2e/send.spec.ts`; `human/wallet/gateway/test/e2e/gateway.e2e.test.ts`; `human/apps/wallet/src/surfaces/ExchangeView.test.tsx`; `human/apps/wallet/src/surfaces/BridgeView.test.tsx`; `human/apps/wallet/src/surfaces/FeeChoice.test.tsx`; `human/wallet/sdk/test/endpoint.test.ts`; `human/wallet/sdk/test/client.test.ts`; `human/wallet/sdk/test/ladder.test.ts`; `human/wallet/sdk/test/eip6963.test.ts`; `human/wallet/sdk/test/agent.test.ts`; `human/apps/wallet/src/account/HistoryView.test.tsx`; `human/apps/wallet/src/account/StatusLadder.test.tsx`; `human/crates/layerx-human-service/tests/intent_submit.rs`; `human/crates/layerx-human-service/tests/wallet_identity_e2e.rs`; `human/crates/layerx-human-service/tests/detail.rs`; `human/crates/layerx-human-service/tests/render.rs`; `human/crates/layerx-human-service/tests/move_money.rs`; `human/crates/layerx-human-service/tests/agent_create.rs`; `human/crates/layerx-human-service/tests/agent_controls.rs`; `human/crates/layerx-human-service/tests/agent_recovery.rs`; `human/crates/layerx-human-service/tests/reclaim.rs`; `human/crates/layerx-human-service/tests/approvals.rs`; `human/crates/layerx-human-service/tests/native_journey_approval.rs`; `human/crates/layerx-human-service/tests/activity.rs`; `human/crates/layerx-human-service/tests/export.rs`; `human/crates/layerx-human-service/tests/notify.rs`; `human/crates/layerx-human-service/tests/onboarding.rs`; `human/crates/layerx-human-service/tests/auth.rs`; `human/crates/layerx-human-service/tests/session_keys.rs`; `human/crates/layerx-human-service/tests/native_send_producer.rs`; `human/crates/layerx-human-service/tests/native_send_purpose.rs`; `explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs`; `explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs`; `explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs`; `explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_boot_test.exs`; `explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs`; `explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/account_binding_test.exs`; `explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/identity_test.exs`; `explorer/backend/apps/block_scout_web/test/block_scout_web/schemas/api/v2/paxeer_x/unified_account_test.exs`; `explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs`; `human/apps/web/e2e/native-fee-budget.test.ts`; `human/apps/web/e2e/explorer.spec.ts`; `human/apps/web/e2e/explorer-account.test.ts`; `human/wallet/gateway/test/provisioning.test.ts`; `human/wallet/gateway/test/agent.test.ts` | wallet and human-service submission through the sequencer; explorer views of chain logs | 5 |
-| Cut-over balances and genesis import (6) | `tests/fixtures/custody/daemon-credit-receipt`; `tests/fixtures/custody/native-credit-receipt`; `tests/fixtures/custody/daemon-light-credit-receipt`; `tests/fixtures/public-testnet-genesis`; `tests/fixtures/public-testnet-genesis-v3`; `tests/fixtures/public-testnet-modules` | layerxcustody upgrade handler (credit to 0x1004-resolved addresses); genesis and import reconcile | 6 |
-| Retired two-domain surfaces (2) | `precompiles/layerxcustody/layerxcustody_test.go`; `precompiles/layerxverify/layerxverify_test.go` | retired executor returning Error(string) at the gate height: layerxVerify 0x1012, layerxCustody 0x1013 | 7 |
-| Mirror (7) | `sdk/platform/conformance/mirror-v2.json`; `interop/crates/layerx-mirror/tests/checkpoint_vectors.rs`; `interop/crates/layerx-mirror/tests/publish.rs`; `interop/contracts/ethereum-mirror/test/LayerXMirrorArchive.t.sol`; `scripts/qualify-mirror-live.sh`; `interop/crates/layerx-mirror-signer/tests/bridge.rs`; `interop/crates/layerx-mirror-signer/tests/round_trip.rs` | mirror chain of custody | 7 |
+- `modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay`
+- `modules/layerxauth/keeper/execute_test.go::TestAuthExecuteSequenceReused`
+- `modules/layerxauth/keeper/sessions_test.go::TestGrantSession`
+- `modules/layerxauth/keeper/sessions_test.go::TestGrantSessionSuccessor`
+- `modules/layerxauth/keeper/capability_test.go::TestGrantCapability`
+- `modules/layerxauth/keeper/capability_test.go::TestGrantCapabilityRefusesOwnKey`
+- `modules/layerxauth/keeper/revoke_test.go::TestRevokeGrantAdvancesRevocation`
+- `modules/layerxauth/keeper/revoke_test.go::TestRevokeGrantRefusesOtherGrantor`
+- `modules/layerxauth/keeper/views_test.go::TestAuthGrantViews`
+- `modules/layerxauth/keeper/views_test.go::TestAuthIsLive`
+- `modules/layerxauth/keeper/views_test.go::TestAuthCheckActivity`
+- `modules/layerxauth/keeper/retire_test.go::TestAuthModuleStoreHasNoIdempotencyKeys`
 
-## 3 New targets
+### Escrow
 
-32 new test paths (planned) and 5 new cases inside files that exist today.
+- `modules/layerxpay/keeper/escrow_open_test.go::TestEscrowOpenLocksFunds`
+- `modules/layerxpay/keeper/escrow_open_test.go::TestEscrowCaptureAndPartialCapture`
+- `modules/layerxpay/keeper/escrow_settle_test.go::TestEscrowReleaseAndTimeout`
+- `modules/layerxpay/keeper/escrow_settle_test.go::TestEscrowDisputeResolveSplit`
+- `modules/layerxpay/keeper/escrow_views_test.go::TestEscrowViewsReadKernelRecord`
+- `modules/layerxpay/keeper/escrow_views_test.go::TestEscrowViewsUnknownIDEmpty`
 
-| Construct | Test path | What it asserts | Wave | Command |
-|---|---|---|---|---|
-| Parity oracle | `tests/parity/kernel_chain/` (planned) | each corpus activity through liblayerx and as the mapped EVM transaction: equal result code, per-account per-asset deltas, supply deltas, module record fields | 2 to 7 | `go test -count=1 ./tests/parity/kernel_chain/` |
-| Sequencer | `node/sequencer/sequencer_test.go` (planned) | 200 mixed transactions through Accept: receipts before Seal, pending reads match, Seal equals WAL order, validator OCC replay gives the same app hash and receipts, a swapped pair is refused at ProcessProposal, WAL replay reproduces every receipt | 0 | `go test -count=1 -run TestSequencerAccept ./node/sequencer/` |
-| Sequencer receipt | `node/sequencer/receipt_equality_test.go` (planned) | Accept receipt field-equal to the committed receipt of `rpc/tx.go:106` except blockHash | 0 | `go test -count=1 -run TestAcceptReceiptEquality ./node/sequencer/` |
-| Sequencer standby | `node/sequencer/standby_test.go` (planned) | stop the primary after N receipts; the standby replays the WAL and the block holds seq 1..N | 0 | `go test -count=1 -run TestStandbyReplay ./node/sequencer/` |
-| Order commitment | `modules/sequencer/keeper/` tests (planned) | an out-of-order block is refused | 0 | `go test -count=1 -run TestOutOfOrderBlockRejected ./modules/sequencer/keeper/` |
-| Sponsored gas | `interop/crates/layerx-gas-station/tests/did_budget.rs` (planned) | two addresses bound to one DID share one budget | 0 | `cargo test --locked --manifest-path interop/Cargo.toml -p layerx-gas-station --test did_budget` |
-| Asset ledger proofs | `modules/layerxledger/keeper/proof_test.go` (planned) | ICS23 verification over the new stores | 2 | `go test -count=1 ./modules/layerxledger/keeper/` |
-| Asset ledger idempotency | `modules/layerxledger/keeper/idempotent_replay_test.go` (planned) | a replayed idempotency key at a new nonce returns the equivalent of `LXP_ERR_IDEMPOTENT_REPLAY` (`include/layerx/lxp_result.h:73`) | 2 | `go test -count=1 ./modules/layerxledger/keeper/` |
-| Authority | `modules/layerxauth/keeper/session_fee_resolve_test.go` (planned) | session fee resolution equal to `lxp_authority_fee_resolve` (`include/layerx/lxp_authority.h:122`) | 2 | `go test -count=1 ./modules/layerxauth/keeper/` |
-| Budget | `modules/layerxpay/keeper/budget_test.go` (planned) | replays the `src/modules/budget` cases and the refusal codes of `src/modules/budget/lx_budget_delegate.c:38-42` | 2 | `go test -count=1 ./modules/layerxpay/keeper/` |
-| Governance pause | `modules/layerxgov/keeper/pause_test.go` (planned) | a paused module refuses writes and serves reads | 2 | `go test -count=1 -run TestPause ./modules/layerxgov/keeper/` |
-| Programs registry | `modules/layerxprograms/keeper/registry_query_test.go` (planned) | registry reads through layerxprograms equal the kernel registry reads | 3 | `go test -count=1 ./modules/layerxprograms/keeper/` |
-| Programs deploy | `modules/layerxprograms/keeper/deploy_test.go` (planned) | deploy from `programs/fixtures/pay5` wasm through the cgo adapter; upgrade with a wrong old hash gives CONTEXT_MISMATCH, a caller without authority gives AUTH_SCOPE | 3 | `go test -count=1 ./modules/layerxprograms/keeper/` |
-| Programs sandbox | `modules/layerxprograms/keeper/abci_test.go` (planned) | sandbox expiry sweep in EndBlocker | 3 | `go test -count=1 ./modules/layerxprograms/keeper/` |
-| Programs events | `modules/layerxprograms/keeper/events_test.go` (planned) | event order equals `tests/programs/test_interface_protocol.c` | 3 | `go test -count=1 ./modules/layerxprograms/keeper/` |
-| Programs archive proof | `modules/layerxprograms/keeper/archive_proof_test.go` (planned) | proof of program state at an old height from the archive node | 3 | `go test -count=1 ./modules/layerxprograms/keeper/` |
-| Web origin 2 | `modules/xweb/keeper/program_test.go` (planned) | attestor cases against MsgRegisterAttestor and MsgSetThreshold, program request capture and fee, origin-2 intake, refund refused for origin 2 | 3 | `go test -count=1 -run TestProgramOrigin ./modules/xweb/keeper/` |
-| Perps markets | `modules/layerxexchange/keeper/perps_market_test.go` (planned) | replays the create vectors of `tests/fixtures/trading-payloads/vectors.json` | 3 | `go test -count=1 ./modules/layerxexchange/...` |
-| Native engine differential | `modules/layerxexchange/native/differential_test.go` (planned) | the same activity list through the paxd module context and the keeper gives equal KV bytes and events | 3 | `go test -count=1 ./modules/layerxexchange/...` |
-| Funding | `modules/layerxexchange/keeper/funding_pending_test.go` (planned) | a funding tick is read on the pending branch | 3 | `go test -count=1 ./modules/layerxexchange/...` |
-| Liquidation | `tests/integration/perps_liquidation/` (planned) | a price below maintenance is liquidated within one receipt round on a single-validator chain | 4 | `python3 tests/integration/scripts/runner.py tests/integration/perps_liquidation/perps_liquidation_test.yaml` |
-| Agent signing | `agent/crates/layerx-agentd/tests/evm_preimage_golden.rs` (planned) | unsigned RLP and disclosure golden per MCP native alias | 5 | `cargo test --locked --manifest-path agent/Cargo.toml -p layerx-agentd --test evm_preimage_golden` |
-| Agent web payer | `agent/crates/layerx-agentd-host/tests/payer.rs` (planned) | receipt check mirroring `agent/crates/layerx-agentd-host/src/payer.rs:83-88` and `agent/crates/layerx-agentd-host/src/payer.rs:273` | 5 | `cargo test --locked --manifest-path agent/Cargo.toml -p layerx-agentd-host --test payer` |
-| Python SDK gas station | `tests/agent/sdk/python/test_gas_station.py` (planned) | Python counterpart of `agent/sdk/typescript/test/gas-station.test.ts` | 5 | `python3 -m pytest -q tests/agent/sdk/python/test_gas_station.py` |
-| Sponsored bind and send | `tests/integration/sponsored_bind_send/` (planned) | end-to-end sponsored DID bind followed by a send | 5 | `python3 tests/integration/scripts/runner.py` over the suite in that directory |
-| Router checkpoint | `services/platform/hosted/gateway/tests/header_hash_equality.rs` (planned) | the checkpoint answer equals the header hash at the height | 5 | `cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test header_hash_equality` |
-| Router balances | `services/platform/hosted/gateway/tests/balances_one_source.rs` (planned) | px_getBalances equals the pre-fold kernel plus chain sum on a migrated fixture | 5 | `cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test unified_service_paths --test balances_one_source` |
-| Authority block order | `services/platform/hosted/authority/tests/block_order.rs` (planned) | block order equals signed receipt order | 5 | `cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test block_order` |
-| Explorer signature | `explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs` (planned) | the transaction page serves the sequencer signature | 5 | `cd explorer/backend && mix test apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs` |
-| Custody import | `modules/layerxcustody/keeper/upgrade_import_test.go` (planned) | pending withdrawals and proven-uncredited deposits imported once, no double credit | 6 | `go test -count=1 -run TestCustodyMigration\|TestUpgradeImport ./modules/layerxcustody/keeper/` |
-| Custody balances | `modules/layerxcustody/keeper/migration_test.go` (planned) | cut-over golden, section 5 | 6 | `go test -count=1 -run TestCustodyMigration\|TestUpgradeImport ./modules/layerxcustody/keeper/` |
-| Anchor bonds | `modules/layerxanchor/keeper/unbond_migration_test.go` (planned) | cut-over golden, section 5 | 6 | `go test -count=1 -run TestUnbondMigration ./modules/layerxanchor/keeper/` |
-| Address binding (new case) | `platform/cli/tests/rpc_identity.rs` | bind through an EIP-7702 authorization | 5 | `cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-cli --test rpc_identity` |
-| MetaMask pending read (new case) | `human/wallet/sdk/test/eip6963.test.ts` | a pending-tag read through the injected provider | 5 | the wallet SDK test runner over that file |
-| Signed-receipt logs (new case) | `human/apps/wallet/e2e/send.spec.ts`; `human/apps/wallet/src/surfaces/BridgeView.test.tsx`; a swap test beside `human/apps/wallet/src/lib/swap/executor.ts` (planned) | each flow asserts the logs of the signed receipt | 5 | the wallet test runners over those files |
-| Retired methods (new case) | `precompiles/layerxcustody/layerxcustody_test.go`; `precompiles/layerxverify/layerxverify_test.go`; `precompiles/layerxanchor/` | every retired method returns Error(string) at its gate height, never an empty success | 7 | `go test -count=1 ./precompiles/layerxcustody/` and `go test -count=1 ./precompiles/layerxanchor/ ./precompiles/layerxverify/` |
-| Web conformance digest (new case) | `interop/crates/x-websearch/tests/binary.rs` | a re-recorded `CONFORMANCE_SUITE_DIGEST` (`interop/crates/x-websearch/src/lib.rs:43`) asserted at `interop/crates/x-websearch/tests/binary.rs:583` | 7 | `cargo test --locked --manifest-path interop/Cargo.toml -p x-websearch --test binary` |
+### Budget
 
-## 4 Targets that need a first test written
+- `modules/layerxpay/keeper/budget_create_test.go::TestBudgetCreateAndFund`
+- `modules/layerxpay/keeper/budget_create_test.go::TestBudgetNativeVariantsAndAmend`
+- `modules/layerxpay/keeper/budget_spend_test.go::TestBudgetSpendWithinPeriodLimit`
+- `modules/layerxpay/keeper/budget_spend_test.go::TestBudgetDelegateSpendDerivedKey`
+- `modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullIsRetired`
+- `modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullRefusesMalformedGrant`
+- `modules/layerxpay/keeper/budget_close_test.go::TestBudgetCloseDrainsToOwner`
+- `modules/layerxpay/keeper/budget_close_test.go::TestBudgetDefundAndRevoke`
+- `modules/layerxpay/keeper/budget_views_test.go::TestBudgetViewsReadKernelRecord`
 
-### Features (14)
+### Stream
 
-| Construct | Code path | Test |
-|---|---|---|
-| Merchant settlement `/v1/settle` | `services/platform/hosted/gateway/src/settlement.rs:1` | test to be written: settlement verified by the signed receipt and its inclusion |
-| AI market views `/v1/ai/markets/*` | `services/platform/hosted/gateway/src/ai_views.rs:1` | test to be written: views projected from the folded AI market logs |
-| Wallet portfolio, token and transaction detail | `human/apps/wallet/src/app/api/wallet/[...path]/route.ts:54` | test to be written |
-| Wallet off-chain services (names, points, prices, metadata, notifications, settings) | `human/apps/wallet/src/app/api/` | test to be written |
-| Message, typed-data and digest signing | `human/wallet/gateway/src/routes/sign.ts:486` | test to be written |
-| Key ceremony and earlier-account migration | `human/wallet/ceremony/internal/migrate/migrate.go:951` | test to be written |
-| Agent precompile routes 0x0901 to 0x0908 | `human/wallet/gateway/src/routes/agentPrecompiles.ts:67` | test to be written against the layerxagent precompiles (contract vectors below) |
-| Agent control plane | `human/wallet/gateway/src/routes/agents.ts:97` | test to be written |
-| Web launchpad page | `human/apps/web/src/api/precompiles.ts:167` | test to be written |
-| Web SID fee preference | `human/apps/web/src/api/wallet.ts:59`; `human/apps/web/src/api/gas-station.ts:26` | test to be written |
-| Web security settings and recovery | `human/apps/web/src/settings/security/security-screen.tsx` | test to be written |
-| Web support, performance and shared UI | `human/apps/web/packages/layerx-ui/package.json` | test to be written |
-| Identity provider, security provider, KMS | `human/crates/layerx-human-identity-provider/Cargo.toml`; `human/crates/layerx-human-security-provider/Cargo.toml`; `human/crates/layerx-human-kms/Cargo.toml` | test to be written |
-| Bridge reads `getChain`, `getAttestors`, `getCap`, `isPaused`, `isNullified` | `precompiles/layerxbridge/layerxbridge.go:158` | test to be written |
+- `modules/layerxpay/keeper/stream_open_test.go::TestStreamOpenFundsFromPayer`
+- `modules/layerxpay/keeper/stream_open_test.go::TestStreamTopUpAddsFunding`
+- `modules/layerxpay/keeper/stream_settle_test.go::TestStreamSettlePaysAccrued`
+- `modules/layerxpay/keeper/stream_settle_test.go::TestStreamMeterThenClose`
+- `modules/layerxpay/keeper/stream_lifecycle_test.go::TestStreamPauseResumeStopsAccrual`
+- `modules/layerxpay/keeper/stream_lifecycle_test.go::TestStreamRateChangeSettlesAtOldRate`
+- `modules/layerxpay/keeper/stream_views_test.go::TestStreamAccruedAtBlockOpen`
+- `modules/layerxpay/keeper/stream_views_test.go::TestStreamRecordAndResultViews`
+- `modules/layerxpay/keeper/stream_agent_test.go::TestAgentStreamOpenMapsTokenAndUnits`
+- `modules/layerxpay/keeper/stream_agent_test.go::TestAgentStreamSettleCloseRateAndView`
+- `modules/layerxpay/keeper/stream_agent_test.go::TestAgentStreamUnknownTokenRefused`
 
-### Contract vectors (9)
+### Service
 
-| Construct | Path | Test |
-|---|---|---|
-| layerxledger openAccount, issueGrant | `include/layerx/lx_asset.h:24` (ACCOUNT_OPEN), `include/layerx/lx_asset.h:27` (GRANT_ISSUE) | focused C execute test and replay cases, then re-targeted through layerxledger: account record and grant record with their events |
-| layerxauth revokeGrant | `tests/daemon/lxp_test_grant_issuance.c` | focused C execute test and replay case for governance sub-operation 6: revocation record and revocation sequence bump |
-| layerxpay budgetDefund, budgetRevoke | `include/layerx/lx_budget.h:23-24` | replay cases for 0x00030008 and 0x00030009 added to `tests/test_replay_crossarch.c` (list ends at 0x00030007, `tests/test_replay_crossarch.c:16-18`) and `tests/qualification/lxp_qual_replay.c` |
-| layerxpay budgetPull, budgetDelegateSpend | `src/modules/budget/lx_budget_delegate.c:146` | execute-level vector through the activity types (`tests/modules/test_budget_delegate.c` covers the library call) |
-| Keyed methods (idempotency) | `src/state/lxp_idempotency.c:107` | required change: idempotency entries carry an expiry; vector for expiry and reuse after expiry |
-| layerxprograms sandboxExecute, sandbox destroy | `src/modules/programs/sandbox.c:306`; `src/modules/programs/sandbox_expiry.c:244` | focused C execute tests and replay cases, then re-targeted through the shim |
-| layerxexchange withdrawMargin | `precompiles/layerxexchange/layerxexchange_test.go` | initial margin ratio 1000 bps, position notional 1200 at the oracle price, margin 200: withdrawMargin 80 succeeds with one MarginWithdrawn, 81 is refused with LXP_MARGIN_INSUFFICIENT and no state change |
-| launchpad protocol fees per market | `modules/launchpad/keeper/keeper_test.go:194`; `modules/launchpad/keeper/keeper_test.go:348` | assertions on the global GetProtocolFeesPending become per-market assertions |
-| layerxagent 0x0901 to 0x0908 | packages `precompiles/layerxagent/{orob,clearing,oracle,pofq,scheduler,streams,teeattestor,eip712}` (planned) | Go tests against the real precompiles: resolveOffset, computeClearing, scoreFill, updateRollingScore, getValidatorPrice; schedule, cancel, getJob, pending; open, settle, close, accrued; verify, rootCount; domainSeparator and hashTypedData golden vectors; 0x0906 through the 0x101B stream keeper (kernel side `tests/modules/test_stream_open.c`, `tests/modules/test_stream_settle.c`, `tests/modules/test_stream_lifecycle.c`, `tests/modules/test_stream_accrue.c`); getValidatorPrice against `tests/test_programs_oracle_read.c:467-475`. The earlier implementation's tests lived outside this repository and are written new here |
+- `modules/layerxpay/keeper/service_offer_test.go::TestServiceOfferPublishWithdraw`
+- `modules/layerxpay/keeper/service_agreement_test.go::TestServiceAgreementProposeAccept`
+- `modules/layerxpay/keeper/service_agreement_test.go::TestServiceCommitAndAbandon`
+- `modules/layerxpay/keeper/service_delivery_test.go::TestServiceDeliverAcceptFlow`
+- `modules/layerxpay/keeper/service_delivery_test.go::TestServiceRejectAndToolAttest`
+- `modules/layerxpay/keeper/service_dispute_test.go::TestServiceDisputeResolvedByEscrowArbiter`
+- `modules/layerxpay/keeper/service_dispute_test.go::TestServiceDisputeArbiterRefusals`
+- `modules/layerxpay/keeper/service_views_test.go::TestServiceViewsReadKernelRecords`
+- `modules/layerxpay/keeper/service_views_test.go::TestServiceViewsUnknownEmpty`
 
-## 5 Cut-over goldens
+### Native perps, spot and oracle intake
 
-These three goldens run on the merged candidate of wave 6 and gate the cut-over.
+- `modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketListsNewMarket`
+- `modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketRefusesUnlistedPricefeedMarket`
+- `modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketRefusesIdentityChange`
+- `modules/perps/keeper/funding_test.go::TestFundingPremiumSample`
+- `modules/perps/keeper/funding_test.go::TestFundingRateFormula`
+- `modules/perps/keeper/funding_test.go::TestFundingSettlementIndex`
+- `modules/perps/keeper/funding_test.go::TestFundingRoundingTowardVenue`
+- `modules/perps/keeper/funding_test.go::TestFundingBeforeLiquidation`
+- `modules/perps/keeper/liquidation_test.go::TestLiquidationAccountLevel`
+- `modules/perps/keeper/liquidation_test.go::TestLiquidationSlices`
+- `modules/perps/keeper/liquidation_test.go::TestLiquidationPerBlockBound`
+- `modules/perps/keeper/liquidation_test.go::TestLiquidationPriceFormula`
+- `modules/perps/keeper/liquidation_test.go::TestLiquidationHealthyRefused`
 
-| Golden | Test path | Assertion | Command |
-|---|---|---|---|
-| Balance conservation | `modules/layerxcustody/keeper/migration_test.go` (planned); `modules/layerxcustody/keeper/upgrade_import_test.go` (planned); `services/platform/hosted/gateway/tests/balances_one_source.rs` (planned) | per asset: custody module balance = custodied − released − pending = sum of kernel balances; per account: bank delta equals the kernel balance paid to the 0x1004-resolved address; unbound accounts receive a claim record payable after bind; pending withdrawals and proven-uncredited deposits imported once. Deposits enter the custody module account at `modules/layerxcustody/keeper/deposit.go:83`; the exchange margin path calls it at `modules/layerxexchange/keeper/intents.go:63` until the wave-3 margin escrow lands | `go test -count=1 -run TestCustodyMigration\|TestUpgradeImport ./modules/layerxcustody/keeper/` |
-| Bond return | `modules/layerxanchor/keeper/unbond_migration_test.go` (planned) | sum of guarantor bonds and open challenge deposits returned equals the anchor module balance; bonds enter the module account at `modules/layerxanchor/keeper/guarantors.go:142`; unbound accounts receive a claim record payable after bind | `go test -count=1 -run TestUnbondMigration ./modules/layerxanchor/keeper/` |
-| Receipt-order equality | `node/sequencer/sequencer_test.go` (planned); `node/sequencer/receipt_equality_test.go` (planned); `services/platform/hosted/authority/tests/block_order.rs` (planned); `tests/occ/occ_test.go` re-targeted | Seal equals WAL order; block order equals signed receipt order; validator OCC replay of the sealed block gives the same app hash and receipts field-equal to `eth_getTransactionReceipt` (`rpc/tx.go:106`) except blockHash; OCC and sequential execution agree (`tests/occ/occ_test.go:198-232`) | `go test -count=1 -run TestSequencerAccept ./node/sequencer/` and `go test -count=1 -run TestAcceptReceiptEquality ./node/sequencer/` |
+### Launchpad
+
+- `modules/launchpad/keeper/keeper_test.go::TestCreateMarketChargesFeeAndEscrowsSupply`
+- `modules/launchpad/keeper/keeper_test.go::TestSwapVectors`
+- `modules/launchpad/keeper/keeper_test.go::TestBuyMovesUsdlIntoCustody`
+- `modules/launchpad/keeper/keeper_test.go::TestSnapshotRingWraps`
+- `modules/launchpad/keeper/keeper_test.go::TestQuoteConservation`
+- `modules/launchpad/keeper/keeper_test.go::TestSwapRejections`
+- `modules/launchpad/keeper/keeper_test.go::TestFeeSplitMatchesFeeAccumulator`
+- `modules/launchpad/keeper/keeper_test.go::TestFeeStrategies`
+- `modules/launchpad/keeper/keeper_test.go::TestAirdropSharesByHolding`
+- `modules/launchpad/keeper/keeper_test.go::TestGuardianPause`
+- `modules/launchpad/keeper/keeper_test.go::TestParamsChangeOnlyThroughGovernance`
+- `modules/launchpad/keeper/keeper_test.go::TestGenesisRoundTrip`
+- `modules/launchpad/keeper/keeper_test.go::TestMsgUpdateParamsGovernanceRoute`
+- `modules/launchpad/keeper/keeper_test.go::TestMsgUpdateParamsCodecAndSigners`
+- `modules/launchpad/keeper/keeper_test.go::TestMsgUpdateParamsRefusals`
+- `modules/launchpad/keeper/keeper_test.go::TestAirdropEntitlements`
+- `modules/launchpad/keeper/history_test.go::TestAirdropHoldingHistory`
+
+### Web requests, origin 1 and origin 2
+
+- `modules/xweb/keeper/request_test.go::TestRequestStoresUnderTheNextNonceAndTakesTheFee`
+- `modules/xweb/keeper/request_test.go::TestRequestEventCarriesWhatAnAttestorNeeds`
+- `modules/xweb/keeper/request_test.go::TestRequestRefusals`
+- `modules/xweb/keeper/request_test.go::TestApiRequestStoresTheLevelAndTheNamedAttestor`
+- `modules/xweb/keeper/request_test.go::TestApiRequestRefusals`
+- `modules/xweb/keeper/fulfil_test.go::TestFulfilAtThresholdStoresTheResultAndSplitsTheFee`
+- `modules/xweb/keeper/fulfil_test.go::TestFulfilByEveryAttestorSplitsThreeWays`
+- `modules/xweb/keeper/fulfil_test.go::TestFulfilKeeperAttestationMatchesTheIndependentPreimage`
+- `modules/xweb/keeper/fulfil_test.go::TestFulfilSignatureRefusals`
+- `modules/xweb/keeper/fulfil_test.go::TestFulfilSizeRefusals`
+- `modules/xweb/keeper/fulfil_test.go::TestFulfilStateRefusals`
+- `modules/xweb/keeper/fulfil_test.go::TestRecordCallback`
+- `modules/xweb/keeper/fulfil_test.go::TestFulfilSingleLevelTakesTheNamedAttestorAlone`
+- `modules/xweb/keeper/fulfil_test.go::TestFulfilSingleLevelRefusals`
+- `modules/xweb/keeper/fulfil_test.go::TestFulfilMajorityApiRequestKeepsTheThreshold`
+- `modules/xweb/keeper/refund_test.go::TestRefundAfterTimeoutReturnsTheFeeOnce`
+- `modules/xweb/keeper/refund_test.go::TestRefundRefusals`
+- `modules/xweb/keeper/refund_test.go::TestRefundKeepsTheStoredTimeoutAndWorksWhilePaused`
+
+### Programs
+
+- `programs/crates/layerx-programs-runtime/tests/lifecycle.rs::deploy_returns_an_opaque_receipt_without_a_runtime_trust_bypass`
+- `programs/crates/layerx-programs-runtime/tests/lifecycle.rs::immutable_is_default_and_upgrade_records_hash_history`
+- `programs/crates/layerx-programs-runtime/tests/lifecycle.rs::deploy_and_upgrade_record_exact_hashes_and_migration_outcome`
+- `programs/crates/layerx-programs-runtime/tests/lifecycle.rs::deploy_refuses_a_mismatched_code_hash_without_installing_the_program`
+- `programs/crates/layerx-programs-runtime/tests/lifecycle.rs::upgrade_refuses_a_mismatched_code_hash_without_advancing_history`
+- `programs/crates/layerx-programs-runtime/tests/lifecycle.rs::zero_upgrade_authorities_are_never_admitted`
+- `programs/crates/layerx-programs-runtime/tests/lifecycle.rs::failed_validation_is_preserved_but_never_executable`
+- `programs/crates/layerx-programs-runtime/tests/lifecycle.rs::unknown_program_and_incompatible_abi_are_typed`
+- `programs/crates/layerx-programs-runtime/tests/lifecycle.rs::abi_upgrades_are_monotonic_and_historical_versions_remain_admitted`
+- `programs/crates/layerx-programs-runtime/tests/lifecycle.rs::every_supported_abi_transition_preserves_lifecycle_history`
+
+### AI and market guests
+
+- `programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a01_create_registers_once_at_committed_origin`
+- `programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a03_policy_staging_activation_boundary_cancellation_and_history`
+- `programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a05_suspend_preserves_admitted_work_and_clears_schedule`
+- `programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a06_concurrent_stage_stale_revision_replay_and_domain_binding`
+- `programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a10_operator_grant_replacement_revocation_and_metadata_isolation`
+- `programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a19_treasury_binding_presence_rules_and_section_worksheet`
+
+### Web search sidecar and 402LXP payment
+
+- `services/interop/crates/x-websearch/tests/submit.rs::the_kernel_network_id_is_read_from_the_xweb_precompile`
+- `services/interop/crates/x-websearch/tests/submit.rs::fulfil_calldata_and_the_signed_transaction_match_an_independent_encoder`
+- `services/interop/crates/x-websearch/tests/payment.rs::a_pending_exact_payment_recovers_from_the_sequencer_receipt_and_releases_once`
+- `services/interop/crates/x-websearch/tests/attest.rs::the_watcher_follows_requested_logs_to_the_confirmation_depth`
+- `services/interop/crates/x-websearch/tests/attest.rs::scanned_requests_stay_journalled_across_restart_until_retired`
+- `services/interop/crates/x-websearch/tests/api.rs::the_api_payload_codec_matches_every_pinned_vector_and_refusal`
+
+### Bridge
+
+- `modules/layerxbridge/keeper/keeper_test.go::TestDefaultGenesisIsDormant`
+- `modules/layerxbridge/keeper/keeper_test.go::TestGovernanceMessagesRequireTheAuthority`
+- `modules/layerxbridge/keeper/keeper_test.go::TestMsgServiceRoutesEveryGovernanceMessageToTheKeeper`
+- `modules/layerxbridge/keeper/keeper_test.go::TestMsgServiceRefusesAWrongAuthority`
+- `modules/layerxbridge/keeper/keeper_test.go::TestBridgeInMintsAtThreshold`
+- `modules/layerxbridge/keeper/keeper_test.go::TestBridgeInRefusals`
+- `modules/layerxbridge/keeper/keeper_test.go::TestBridgeOutBurnsAndEmits`
+- `modules/layerxbridge/keeper/keeper_test.go::TestGenesisRoundTrip`
+- `modules/layerxbridge/keeper/keeper_test.go::TestProposalHandlerExecutesEveryCarriedMessage`
+- `modules/layerxbridge/keeper/keeper_test.go::TestProposalHandlerRefusesAWrongAuthority`
+- `modules/layerxbridge/keeper/keeper_test.go::TestProposalHandlerRefusesAMalformedProposal`
+- `modules/layerxbridge/keeper/keeper_test.go::TestSidioraHomeChainIDIsSolana`
+- `modules/layerxbridge/keeper/keeper_test.go::TestMsgServiceRegistersTheSidioraPair`
+- `modules/layerxbridge/keeper/keeper_test.go::TestSidioraPairIsRefusedOnceACapBoundItElsewhere`
+- `modules/layerxbridge/keeper/keeper_test.go::TestProposalHandlerRegistersTheSidioraPairAheadOfItsCap`
+- `modules/layerxbridge/keeper/keeper_test.go::TestBridgeOutReleaseCapBoundary`
+- `modules/layerxbridge/keeper/attestation_test.go::TestDigestVectorsFromAttestationDoc`
+
+### Agent daemon, SDKs, MCP and CLI
+
+- `services/agent/crates/layerx-sdk/tests/native_programs.rs::native_request_binds_real_signed_fixture`
+
+### Hosted gateway, authority and indexer
+
+- `services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_balances_reads_bank_all_balances_at_one_height`
+- `services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_account_reads_no_kernel_backend`
+- `services/platform/hosted/gateway/tests/one_source_reads.rs::px_list_assets_joins_indexer_assets_with_chain_metadata`
+- `services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_network_reports_the_consensus_head`
+
+### Wallet, human service and explorer
+
+- `apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload`
+
+### Wallet, human service and explorer
+
+- `apps/wallet/src/surfaces/BridgeView.test.tsx::bridge_view_shows_the_receipted_rung_and_events_from_the_sequencer_receipt`
+- `apps/wallet/src/account/StatusLadder.test.tsx::status_ladder_labels_submitted_receipted_and_committed`
+- `apps/wallet/src/account/StatusLadder.test.tsx::transaction_ladder_reaches_receipted_from_the_sequencer_before_the_explorer`
+
+### Cut-over balances and genesis import
+
+- `modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority`
+- `modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredCancelsPendingClaims`
+- `modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight`
+
+### Retired two-domain surfaces
+
+- `precompiles/layerxcustody/retire_test.go::TestEveryCustodyMethodRevertsModuleDisabledFromTheMergePlanHeight`
+- `precompiles/layerxcustody/retire_test.go::TestCustodyRetiredGateRunsBeforeTheCallShapeChecks`
+- `precompiles/layerxcustody/retire_test.go::TestCustodyViewsRevertModuleDisabledUnderStaticcall`
+
+### Mirror
+
+- `services/interop/crates/layerx-mirror/tests/publish.rs::confirms_and_retrieves_the_same_archive_on_both_test_networks`
+- `services/interop/crates/layerx-mirror/tests/publish.rs::publishes_pure_archives_without_custody_semantics`
+- `services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::every_shared_receipted_case_verifies_in_the_mirror`
+- `services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::every_shared_v3_case_is_classified_at_the_signature_only_boundary`
+- `services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::shared_signature_and_decode_refusals_reach_the_mirror_consumer`
+- `services/interop/crates/layerx-mirror/tests/committed_freshness.rs::freshness_reports_committed_lag_in_blocks`
+
+## Additional behavior coverage
+
+| Behavior | Selectors |
+| --- | --- |
+| Sequencer | `node/sequencer/executor_test.go::TestExecutorSequentialOrder`<br>`node/sequencer/mixed_load_test.go::TestMixedLoadSealedEqualsProcessBlock` |
+| Sequencer receipt | `node/sequencer/receipt_equality_test.go::TestReceiptEqualsCommittedReceipt` |
+| Sequencer standby | `node/sequencer/standby_test.go::TestStandbyReplayMatchesPrimary` |
+| Order commitment | `node/process_proposal_order_test.go::TestOrderCheckRefusesSeqGap`<br>`node/process_proposal_order_test.go::TestOrderCheckRefusesPrevSeqHashMismatch` |
+| Sponsored gas | `services/interop/crates/layerx-gas-station/tests/did_budget.rs::accounts_sharing_did_share_budget` |
+| Asset ledger idempotency | `modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay` |
+| Budget | `modules/layerxpay/keeper/budget_create_test.go::TestBudgetCreateAndFund`<br>`modules/layerxpay/keeper/budget_create_test.go::TestBudgetNativeVariantsAndAmend`<br>`modules/layerxpay/keeper/budget_spend_test.go::TestBudgetSpendWithinPeriodLimit`<br>`modules/layerxpay/keeper/budget_spend_test.go::TestBudgetDelegateSpendDerivedKey`<br>`modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullIsRetired`<br>`modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullRefusesMalformedGrant`<br>`modules/layerxpay/keeper/budget_close_test.go::TestBudgetCloseDrainsToOwner`<br>`modules/layerxpay/keeper/budget_close_test.go::TestBudgetDefundAndRevoke`<br>`modules/layerxpay/keeper/budget_views_test.go::TestBudgetViewsReadKernelRecord` |
+| Governance pause | `modules/layerxgov/handler_pay_pause_live_test.go::TestLayerXProposalPausesPayLive`<br>`modules/layerxgov/handler_pause_live_test.go::TestLayerXProposalPausesLedgerAndAuthLive` |
+| Programs registry | `precompiles/layerxprograms/method_registry_test.go::TestProgramsRegistryReadEmitsEvent`<br>`precompiles/layerxprograms/method_registry_test.go::TestProgramsRegistryReadZeroProgramReverts`<br>`precompiles/layerxprograms/view_registry_test.go::TestProgramsViewGetProgramRecord`<br>`precompiles/layerxprograms/view_registry_test.go::TestProgramsViewGetInterfaceAndAbsent` |
+| Programs deploy | `precompiles/layerxprograms/method_deploy_test.go::TestProgramsDeployRegistersProgram`<br>`precompiles/layerxprograms/method_deploy_test.go::TestProgramsDeployRefusesCodeHashMismatch`<br>`precompiles/layerxprograms/method_upgrade_test.go::TestProgramsUpgradeReplacesCodeHash`<br>`precompiles/layerxprograms/method_upgrade_test.go::TestProgramsUpgradeRefusesStaleOldHash` |
+| Programs events | `precompiles/layerxprograms/events_test.go::TestProgramsLifecycleEventsFromReceipt`<br>`precompiles/layerxprograms/events_test.go::TestProgramsWindDownAndAccountEventsFromReceipt`<br>`precompiles/layerxprograms/events_call_test.go::TestProgramsGuestEventLogs`<br>`precompiles/layerxprograms/events_call_test.go::TestProgramsCallOutcomeLog`<br>`precompiles/layerxprograms/events_sandbox_test.go::TestProgramsSandboxUsageReceiptLog`<br>`precompiles/layerxprograms/events_sandbox_test.go::TestProgramsSandboxDestroyedAndRetiredLogs` |
+| Programs archive proof | `programs/crates/layerx-programs-registry/tests/chain_verifier_deployment.rs::chain_deployment_current_and_historical_verify`<br>`programs/crates/layerx-programs-registry/tests/chain_verifier_deployment.rs::chain_deployment_refuses_code_hash_mismatch` |
+| Web origin 2 | `modules/xweb/keeper/program_kernel_parity_test.go::TestFulfilProgramMatchesTheKernelRefusalMatrix`<br>`modules/xweb/keeper/program_kernel_parity_test.go::TestFulfilProgramAcceptsTheKernelFirstObservation`<br>`modules/xweb/keeper/program_record_parity_test.go::TestDecodeProgramRequestMatchesTheKernelRecordRows`<br>`modules/xweb/keeper/program_record_parity_test.go::TestFulfilProgramTwiceMatchesTheKernelReuseRefusal`<br>`modules/xweb/keeper/program_read_parity_test.go::TestGetProgramResultMatchesTheKernelCommittedRead` |
+| Perps markets | `modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketListsNewMarket`<br>`modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketRefusesUnlistedPricefeedMarket`<br>`modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketRefusesIdentityChange` |
+| Agent signing | `services/agent/crates/layerx-agentd/tests/evm_preimage_golden.rs::prepared_transfer_signing_hash_matches_the_eip1559_golden`<br>`services/agent/crates/layerx-agentd/tests/evm_preimage_golden.rs::prepare_refuses_an_expected_nonce_behind_the_pending_nonce`<br>`services/agent/crates/layerx-agentd/tests/evm_preimage_golden.rs::prepare_derives_fee_caps_from_the_head_base_fee` |
+| Agent web payer | `services/agent/crates/layerx-agentd-host/tests/payer.rs::web_payment_receipt_must_be_signed_by_a_published_key`<br>`services/agent/crates/layerx-agentd-host/tests/payer.rs::web_payment_reports_the_pay_exact_log_amount` |
+| Hosted gateway balances | `services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_balances_reads_bank_all_balances_at_one_height`<br>`services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_account_reads_no_kernel_backend` |
+| Explorer signature | `services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs::signature_route_returns_verified_receipt`<br>`services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs::signature_route_404_when_unverified` |
+| Custody balances | `modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority`<br>`modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredCancelsPendingClaims`<br>`modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight` |
+| Anchor bonds | `modules/layerxanchor/keeper/retire_merge_test.go::TestRetireAtMergeReturnsBondsAndEmits` |
+| Signed-receipt logs | `apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload`<br>`apps/wallet/src/surfaces/BridgeView.test.tsx::bridge_view_shows_the_receipted_rung_and_events_from_the_sequencer_receipt`<br>`apps/wallet/src/lib/swap/executor.test.ts::execute_swap_returns_after_the_receipt`<br>`apps/wallet/src/lib/swap/executor.test.ts::execute_swap_refuses_a_reverted_swap` |
+| Retired methods | `precompiles/layerxcustody/retire_test.go::TestEveryCustodyMethodRevertsModuleDisabledFromTheMergePlanHeight`<br>`precompiles/layerxcustody/retire_test.go::TestCustodyRetiredGateRunsBeforeTheCallShapeChecks`<br>`precompiles/layerxcustody/retire_test.go::TestCustodyViewsRevertModuleDisabledUnderStaticcall` |
+| Web conformance digest | `services/interop/crates/x-websearch/tests/binary.rs::the_pinned_conformance_suite_is_the_recorded_gateway_exchange`<br>`services/interop/crates/x-websearch/tests/binary.rs::the_conformance_vector_count_is_the_number_of_recorded_answers` |
+
+## Activation and retirement
+
+Custody release cancels pending claims and transfers registered custody balances
+to the configured authority. Anchor retirement refunds bonds to their recorded
+operators and returns open challenge deposits to challengers. These are separate
+operations within the merge handler; they do not import a second ledger or create
+unbound-account claims. The anchor store is deleted by a later plan, with the
+executor retained for retirement responses.
+
+### Balance conservation
+
+- `modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority`
+- `modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredCancelsPendingClaims`
+- `modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight`
+
+### Bond return
+
+- `modules/layerxanchor/keeper/retire_merge_test.go::TestRetireAtMergeReturnsBondsAndEmits`
+
+### Receipt-order equality
+
+- `node/sequencer/receipt_equality_test.go::TestReceiptEqualsCommittedReceipt`
+- `node/sequencer/executor_test.go::TestExecutorSequentialOrder`
+- `node/sequencer/mixed_load_test.go::TestMixedLoadSealedEqualsProcessBlock`
+
+The signed receipt's full-block position includes the sequence batch at position
+zero. JSON-RPC exposes an EVM-only transaction index. The receipt equality tests
+compare those projections explicitly. See the
+[activation and migration page](../../docs/plans/activation-and-migration.md) for
+height boundaries and the [test plan](../../docs/plans/test-plan.md) for focused
+runner examples and native-library dependencies.

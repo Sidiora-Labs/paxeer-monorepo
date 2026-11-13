@@ -8,7 +8,7 @@ main, and writes one report `<N>.kvx` in this directory. The report is checked b
 
 ## Report shape
 
-```
+```kvx
 [issue.<N>]
 number = <N>
 title = "<issue title>"
@@ -21,7 +21,7 @@ close_comment = "<one or two sentences in product wording, postable on the issue
 When the verdict is `task`, the report continues with exactly three blocks, blank-line
 separated, JSON lists for list values, every string double-quoted on one line:
 
-```
+```kvx
 [task.18.<N>.1]
 title = "Issue #<N>: <imperative one-line title, product wording>"
 status = "pending"
