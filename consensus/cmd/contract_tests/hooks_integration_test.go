@@ -33,14 +33,14 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repairM1151Case(t *testing.T, id, uri string) transaction.Transaction {
+func contractHookTransaction(t *testing.T, id, uri string) transaction.Transaction {
 	t.Helper()
 	var tx transaction.Transaction
 	require.NoError(t, json.Unmarshal([]byte(fmt.Sprintf(`{"id":%q,"name":%q,"request":{"uri":%q,"method":"GET","headers":{"X-Contract":"retained"}},"expected":{"statusCode":"200","body":"unchanged contract example","bodySchema":{"type":"object"},"headers":{"content-type":"application/json"}}}`, id, "opaque "+id, uri)), &tx))
 	return tx
 }
 
-func repairM1151Execute(t *testing.T, remote string, tx transaction.Transaction) transaction.Transaction {
+func executeContractHookTransaction(t *testing.T, remote string, tx transaction.Transaction) transaction.Transaction {
 	t.Helper()
 	u, err := url.Parse(tx.Request.URI)
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func repairM1151Execute(t *testing.T, remote string, tx transaction.Transaction)
 	return tx
 }
 
-func repairM1151Hooks(t *testing.T, runner *HooksRunner) *rpc.Client {
+func contractHooksClient(t *testing.T, runner *HooksRunner) *rpc.Client {
 	t.Helper()
 	handler, err := hookHandler(runner)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func repairM1151Hooks(t *testing.T, runner *HooksRunner) *rpc.Client {
 	return client
 }
 
-func TestRepairM_1151_LiveContractHooks(t *testing.T) {
+func TestLiveContractHooks(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
 	t.Cleanup(cancel)
 	conf, err := rpctest.CreateConfig(t, t.Name())
@@ -141,12 +141,12 @@ func TestRepairM_1151_LiveContractHooks(t *testing.T) {
 	require.NoError(t, err)
 	runner, err := newHooksRunner(rpcClient, decoded)
 	require.NoError(t, err)
-	hooks := repairM1151Hooks(t, runner)
+	hooks := contractHooksClient(t, runner)
 
 	paths := []string{"/broadcast_tx_sync?tx=456", "/broadcast_tx?tx=456", "/broadcast_tx_async?tx=123", "/broadcast_tx_commit?tx=785", "/check_tx?tx=785", "/tx?hash=0x00&prove=true", "/tx_search?query=invalid&prove=true&order_by=asc", "/abci_query?path=/a/b/c&data=IHAVENOIDEA&prove=false", "/broadcast_evidence?evidence=JSON_EVIDENCE_encoded"}
 	cases := make([]*transaction.Transaction, len(paths))
 	for i, path := range paths {
-		tx := repairM1151Case(t, fmt.Sprintf("case-%d", i), path)
+		tx := contractHookTransaction(t, fmt.Sprintf("case-%d", i), path)
 		cases[i] = &tx
 	}
 	var prepared []*transaction.Transaction
@@ -170,7 +170,7 @@ func TestRepairM_1151_LiveContractHooks(t *testing.T) {
 			require.Equal(t, fixtures.Seed.Hash().Bytes(), params.Hash)
 			require.True(t, params.Prove)
 		}
-		tx = repairM1151Execute(t, remote, tx)
+		tx = executeContractHookTransaction(t, remote, tx)
 		var validated transaction.Transaction
 		require.NoError(t, hooks.Call("HooksRunner.RunBeforeEachValidation", tx, &validated), "endpoint %s: %s", paths[i], tx.Real.Body)
 		require.Equal(t, original.Expected, validated.Expected)
@@ -199,7 +199,7 @@ func TestRepairM_1151_LiveContractHooks(t *testing.T) {
 		rpcserver.RegisterRPCFuncs(mux, map[string]*rpcserver.RPCFunc{"broadcast_evidence": rpcserver.NewRPCFunc((&core.Environment{}).BroadcastEvidence)})
 		server := httptest.NewServer(mux)
 		defer server.Close()
-		failed := repairM1151Execute(t, server.URL, emitted[8])
+		failed := executeContractHookTransaction(t, server.URL, emitted[8])
 		var reply transaction.Transaction
 		require.Error(t, hooks.Call("HooksRunner.RunBeforeEachValidation", failed, &reply))
 	})
@@ -219,13 +219,13 @@ func TestRepairM_1151_LiveContractHooks(t *testing.T) {
 		require.NoError(t, err)
 		r, err := newHooksRunner(client, unsupportedFixtures)
 		require.NoError(t, err)
-		h := repairM1151Hooks(t, r)
-		original := repairM1151Case(t, "unsupported", "/broadcast_evidence?evidence=dummy")
+		h := contractHooksClient(t, r)
+		original := contractHookTransaction(t, "unsupported", "/broadcast_evidence?evidence=dummy")
 		var all []*transaction.Transaction
 		require.NoError(t, h.Call("HooksRunner.RunBeforeAll", []*transaction.Transaction{&original}, &all))
 		var tx transaction.Transaction
 		require.NoError(t, h.Call("HooksRunner.RunBeforeEach", original, &tx))
-		failed := repairM1151Execute(t, server.URL, tx)
+		failed := executeContractHookTransaction(t, server.URL, tx)
 		var validated transaction.Transaction
 		require.NoError(t, h.Call("HooksRunner.RunBeforeEachValidation", failed, &validated))
 		require.False(t, validated.Skip)
@@ -234,7 +234,7 @@ func TestRepairM_1151_LiveContractHooks(t *testing.T) {
 		require.NoError(t, json.Unmarshal([]byte(validated.Real.Body), &got))
 		require.Equal(t, want, got)
 		// A supported response must not pass the unsupported assertion.
-		success := repairM1151Execute(t, remote, tx)
+		success := executeContractHookTransaction(t, remote, tx)
 		require.Error(t, h.Call("HooksRunner.RunBeforeEachValidation", success, &validated))
 		// Nor may an unrelated error satisfy it.
 		unexpected := failed
@@ -248,7 +248,7 @@ func TestRepairM_1151_LiveContractHooks(t *testing.T) {
 		invalid.Seed = types.Tx("val:invalid")
 		r, err := newHooksRunner(rpcClient, invalid)
 		require.NoError(t, err)
-		original := repairM1151Case(t, "seed-fails", "/tx")
+		original := contractHookTransaction(t, "seed-fails", "/tx")
 		var reply []*transaction.Transaction
 		require.Error(t, r.RunBeforeAll([]*transaction.Transaction{&original}, &reply))
 		var tx transaction.Transaction
@@ -256,7 +256,7 @@ func TestRepairM_1151_LiveContractHooks(t *testing.T) {
 	})
 }
 
-func TestRepairM_1151_SetupValidationAndNoNameBasedSkips(t *testing.T) {
+func TestContractHooksSetupValidationAndNoNameBasedSkips(t *testing.T) {
 	client, err := jsonclient.New("http://127.0.0.1:1")
 	require.NoError(t, err)
 	fixtures := Fixtures{Seed: types.Tx("seed=value")}
@@ -274,7 +274,7 @@ func TestRepairM_1151_SetupValidationAndNoNameBasedSkips(t *testing.T) {
 		t.Run(path, func(t *testing.T) {
 			r, err := newHooksRunner(client, fixtures)
 			require.NoError(t, err)
-			original := repairM1151Case(t, path, path)
+			original := contractHookTransaction(t, path, path)
 			var all []*transaction.Transaction
 			require.Error(t, r.RunBeforeAll([]*transaction.Transaction{&original}, &all))
 			require.False(t, original.Skip)
@@ -283,14 +283,14 @@ func TestRepairM_1151_SetupValidationAndNoNameBasedSkips(t *testing.T) {
 	r, err := newHooksRunner(client, fixtures)
 	require.NoError(t, err)
 	for _, name := range []string{"Tx > /health", "Info > /tx misleading name", "Info > /broadcast_evidence", "ABCI > /abci_query"} {
-		original := repairM1151Case(t, name, "/health")
+		original := contractHookTransaction(t, name, "/health")
 		original.Name = name
 		var reply transaction.Transaction
 		require.NoError(t, r.RunBeforeEach(original, &reply))
 		require.True(t, reflect.DeepEqual(original, reply))
 		require.False(t, reply.Skip)
 	}
-	original := repairM1151Case(t, "not-prepared", "/tx")
+	original := contractHookTransaction(t, "not-prepared", "/tx")
 	var reply transaction.Transaction
 	require.Error(t, r.RunBeforeEach(original, &reply))
 	require.False(t, reply.Skip)

@@ -25,7 +25,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-type repairM1150Signer struct {
+type signerServerFixture struct {
 	server     *grpc.Server
 	listener   net.Listener
 	metrics    utils.Option[prometheusServer]
@@ -38,7 +38,7 @@ type repairM1150Signer struct {
 	running    *scope.GlobalHandle[error]
 }
 
-func repairM1150NewSigner(t *testing.T, withMetrics bool, opts ...grpc.ServerOption) *repairM1150Signer {
+func newSignerServerFixture(t *testing.T, withMetrics bool, opts ...grpc.ServerOption) *signerServerFixture {
 	t.Helper()
 	dir := t.TempDir()
 	keyPath, statePath := filepath.Join(dir, "key.json"), filepath.Join(dir, "state.json")
@@ -55,7 +55,7 @@ func repairM1150NewSigner(t *testing.T, withMetrics bool, opts ...grpc.ServerOpt
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &repairM1150Signer{server: server, listener: listener, validator: pv, chainID: t.Name(), keyPath: keyPath, statePath: statePath, terminated: make(chan struct{})}
+	f := &signerServerFixture{server: server, listener: listener, validator: pv, chainID: t.Name(), keyPath: keyPath, statePath: statePath, terminated: make(chan struct{})}
 	t.Cleanup(func() {
 		if f.cancel != nil {
 			f.cancel()
@@ -84,7 +84,7 @@ func repairM1150NewSigner(t *testing.T, withMetrics bool, opts ...grpc.ServerOpt
 	return f
 }
 
-func (f *repairM1150Signer) start(t *testing.T) {
+func (f *signerServerFixture) start(t *testing.T) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	f.cancel = cancel
@@ -94,7 +94,7 @@ func (f *repairM1150Signer) start(t *testing.T) {
 	})
 }
 
-func (f *repairM1150Signer) join(t *testing.T) error {
+func (f *signerServerFixture) join(t *testing.T) error {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -105,7 +105,7 @@ func (f *repairM1150Signer) join(t *testing.T) error {
 	return err
 }
 
-func (f *repairM1150Signer) client(t *testing.T) *grpcprivval.SignerClient {
+func (f *signerServerFixture) client(t *testing.T) *grpcprivval.SignerClient {
 	t.Helper()
 	conn, err := grpc.DialContext(t.Context(), f.listener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -119,7 +119,7 @@ func (f *repairM1150Signer) client(t *testing.T) *grpcprivval.SignerClient {
 	return client
 }
 
-func (f *repairM1150Signer) publicKey(t *testing.T) {
+func (f *signerServerFixture) publicKey(t *testing.T) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -132,7 +132,7 @@ func (f *repairM1150Signer) publicKey(t *testing.T) {
 	}
 }
 
-func repairM1150AssertClosed(t *testing.T, lis net.Listener) {
+func assertSignerListenerClosed(t *testing.T, lis net.Listener) {
 	t.Helper()
 	conn, err := net.DialTimeout("tcp", lis.Addr().String(), time.Second)
 	if err == nil {
@@ -141,18 +141,18 @@ func repairM1150AssertClosed(t *testing.T, lis net.Listener) {
 	}
 }
 
-func TestRepairM_1150_LiveServerTermination(t *testing.T) {
-	f := repairM1150NewSigner(t, true)
+func TestSignerLiveServerTermination(t *testing.T) {
+	f := newSignerServerFixture(t, true)
 	f.start(t)
 	f.publicKey(t)
 	metrics := f.metrics.OrPanic("metrics enabled")
-	repairM1150Scrape(t, metrics)
+	scrapeSignerMetrics(t, metrics)
 	f.cancel()
 	if err := f.join(t); err != nil {
 		t.Fatalf("normal cancellation returned an error: %v", err)
 	}
-	repairM1150AssertClosed(t, f.listener)
-	repairM1150AssertClosed(t, metrics.listener)
+	assertSignerListenerClosed(t, f.listener)
+	assertSignerListenerClosed(t, metrics.listener)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 	if _, err := f.client(t).GetPubKey(ctx); err == nil {
@@ -160,39 +160,39 @@ func TestRepairM_1150_LiveServerTermination(t *testing.T) {
 	}
 }
 
-func TestRepairM_1150_NormalServerStop(t *testing.T) {
+func TestSignerNormalServerStop(t *testing.T) {
 	for _, withMetrics := range []bool{false, true} {
 		t.Run(map[bool]string{false: "without_metrics", true: "with_metrics"}[withMetrics], func(t *testing.T) {
-			f := repairM1150NewSigner(t, withMetrics)
+			f := newSignerServerFixture(t, withMetrics)
 			f.start(t)
 			f.publicKey(t)
 			f.server.GracefulStop()
 			if err := f.join(t); err != nil {
 				t.Fatalf("normal gRPC stop returned an error: %v", err)
 			}
-			repairM1150AssertClosed(t, f.listener)
+			assertSignerListenerClosed(t, f.listener)
 			if metrics, ok := f.metrics.Get(); ok {
-				repairM1150AssertClosed(t, metrics.listener)
+				assertSignerListenerClosed(t, metrics.listener)
 			}
 		})
 	}
 }
 
-func TestRepairM_1150_CancelBeforeServe(t *testing.T) {
-	f := repairM1150NewSigner(t, true)
+func TestSignerCancelBeforeServe(t *testing.T) {
+	f := newSignerServerFixture(t, true)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	if err := serveSigner(ctx, f.server, f.listener, f.metrics); err != nil {
 		t.Fatal(err)
 	}
-	repairM1150AssertClosed(t, f.listener)
-	repairM1150AssertClosed(t, f.metrics.OrPanic("metrics enabled").listener)
+	assertSignerListenerClosed(t, f.listener)
+	assertSignerListenerClosed(t, f.metrics.OrPanic("metrics enabled").listener)
 }
 
-func TestRepairM_1150_ServeFailureStopsPeer(t *testing.T) {
+func TestSignerServeFailureStopsPeer(t *testing.T) {
 	for _, failedServer := range []string{"grpc", "metrics"} {
 		t.Run(failedServer, func(t *testing.T) {
-			f := repairM1150NewSigner(t, true)
+			f := newSignerServerFixture(t, true)
 			metrics := f.metrics.OrPanic("metrics enabled")
 			failedListener := f.listener
 			if failedServer == "metrics" {
@@ -205,13 +205,13 @@ func TestRepairM_1150_ServeFailureStopsPeer(t *testing.T) {
 			if err := f.join(t); !errors.Is(err, net.ErrClosed) {
 				t.Fatalf("expected listener failure to be propagated, got %v", err)
 			}
-			repairM1150AssertClosed(t, f.listener)
-			repairM1150AssertClosed(t, metrics.listener)
+			assertSignerListenerClosed(t, f.listener)
+			assertSignerListenerClosed(t, metrics.listener)
 		})
 	}
 }
 
-func repairM1150Scrape(t *testing.T, metrics prometheusServer) map[string]float64 {
+func scrapeSignerMetrics(t *testing.T, metrics prometheusServer) map[string]float64 {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -253,11 +253,11 @@ func repairM1150Scrape(t *testing.T, metrics prometheusServer) map[string]float6
 	return values
 }
 
-func TestRepairM_1150_SignerPrometheusMetrics(t *testing.T) {
-	f := repairM1150NewSigner(t, true)
+func TestSignerPrometheusMetrics(t *testing.T) {
+	f := newSignerServerFixture(t, true)
 	f.start(t)
 	metrics := f.metrics.OrPanic("metrics enabled")
-	before := repairM1150Scrape(t, metrics)
+	before := scrapeSignerMetrics(t, metrics)
 	client := f.client(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -286,7 +286,7 @@ func TestRepairM_1150_SignerPrometheusMetrics(t *testing.T) {
 	if err := key.Verify(types.VoteSignBytes(f.chainID, vote), signature); err != nil {
 		t.Fatalf("RPC signing result is invalid: %v", err)
 	}
-	after := repairM1150Scrape(t, metrics)
+	after := scrapeSignerMetrics(t, metrics)
 	for _, method := range []string{"GetPubKey", "SignVote"} {
 		for _, family := range []string{"grpc_server_started_total", "grpc_server_handled_total", "grpc_server_msg_received_total", "grpc_server_msg_sent_total"} {
 			name := family + "/" + method
@@ -308,14 +308,14 @@ func TestRepairM_1150_SignerPrometheusMetrics(t *testing.T) {
 	}
 }
 
-func TestRepairM_1150_DrainInFlightRPC(t *testing.T) {
+func TestSignerDrainInFlightRPC(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	unblock := sync.OnceFunc(func() { close(release) })
 	defer unblock()
 	// This middleware only synchronizes the live RPC; the production signer
 	// handler, file validator, gRPC transport and shutdown path all run normally.
-	f := repairM1150NewSigner(t, true, grpc.ChainUnaryInterceptor(func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+	f := newSignerServerFixture(t, true, grpc.ChainUnaryInterceptor(func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		close(entered)
 		select {
 		case <-release:
@@ -363,6 +363,6 @@ func TestRepairM_1150_DrainInFlightRPC(t *testing.T) {
 	if err := f.join(t); err != nil {
 		t.Fatal(err)
 	}
-	repairM1150AssertClosed(t, f.listener)
-	repairM1150AssertClosed(t, f.metrics.OrPanic("metrics enabled").listener)
+	assertSignerListenerClosed(t, f.listener)
+	assertSignerListenerClosed(t, f.metrics.OrPanic("metrics enabled").listener)
 }
