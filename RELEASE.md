@@ -114,6 +114,7 @@ linux/amd64 build host for the complete release package.
 ## Verifying a published binary
 
 Rebuild a tag with its build script and compare the resulting release package.
+For an earlier release package, read its script and asset list first; its package may include retired components.
 
 ```sh
 git clone https://github.com/Sidiora-Labs/paxeer-monorepo.git

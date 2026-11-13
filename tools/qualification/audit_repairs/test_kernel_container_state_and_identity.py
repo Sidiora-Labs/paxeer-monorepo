@@ -23,7 +23,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 KERNEL = ROOT / 'docker/kernel'
 NODE = ROOT / 'services/platform/hosted/node'
-FIXTURES = NODE / 'tests/fixtures/native_lifecycle'
+FIXTURES = NODE / 'tests/fixtures' / 'native_lifecycle'
 CAPTURE = json.loads((FIXTURES / 'native_configuration.json').read_text())
 GENESIS = hashlib.sha256((FIXTURES / 'genesis.json').read_bytes()).hexdigest()
 COMMIT_TIME = datetime.fromisoformat(
@@ -67,7 +67,6 @@ def transport():
     # never another test function or a replacement production implementation.
     return load_source(
         'kernel_node_transcript', Path(__file__).with_name('test_kernel_backend_readiness.py'),
-        {'tests/fixtures/repair_22_31_355': 'tests/fixtures/native_lifecycle'},
     )
 
 
