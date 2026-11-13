@@ -21,6 +21,7 @@ cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.to
 
 These tests need no environment variables, credentials, live endpoint or
 subprocesses.
-The existing `outbound_tls::private_ca_checks_the_actual_server_identity`
-library test remains a separate shared boundary harness with its existing
-external binary requirements; the filter above does not select it.
+The `outbound_tls::private_ca_checks_the_actual_server_identity` library test
+uses the separate shared boundary harness and its external binaries, described
+in the [daemon guide](../../README.md#outbound-tls). The filter above does not
+select it.
