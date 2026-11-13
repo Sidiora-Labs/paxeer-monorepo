@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_868_SyncSetReadLocks(t *testing.T) {
+func TestSyncSetSnapshotComparatorReentry(t *testing.T) {
 	set := datastructures.NewSyncSet([]int{3, 1, 2})
 	type result struct {
 		snapshot []int
@@ -48,19 +48,19 @@ func TestRepairM_868_SyncSetReadLocks(t *testing.T) {
 	require.Equal(t, 3, set.Size())
 }
 
-func TestRepairM_868_SyncSetMixedCoverage(t *testing.T) {
+func TestSyncSetConcurrentReadsAndWrites(t *testing.T) {
 	testSyncSetMixedReadWrite(t)
 }
 
-func TestRepairM_868_TypedMapRangeDelete(t *testing.T) {
+func TestTypedSyncMapRangeCallbackDeletion(t *testing.T) {
 	testTypedSyncMapRangeDeletes(t)
 }
 
-func TestRepairM_868_TypedMapRangeStop(t *testing.T) {
+func TestTypedSyncMapRangeEarlyTermination(t *testing.T) {
 	testTypedSyncMapRangeStops(t)
 }
 
-func TestRepairM_868_TypedMapRangeCoverage(t *testing.T) {
+func TestTypedSyncMapRangeConcurrentMutations(t *testing.T) {
 	m := datastructures.NewTypedSyncMap[int, *string]()
 	first, removed, original, updated, added := "first", "removed", "original", "updated", "added"
 	m.Store(3, &original)
