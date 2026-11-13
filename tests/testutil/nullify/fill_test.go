@@ -10,7 +10,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/nullify"
 )
 
-func TestRepairM_774_ResponseRoundTrip(t *testing.T) {
+func TestFillResponseRoundTrip(t *testing.T) {
 	produced := sdk.TxResponse{
 		Height: 42,
 		Logs: sdk.ABCIMessageLogs{
@@ -52,7 +52,7 @@ func TestRepairM_774_ResponseRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepairM_774_DifferentPayloadsRemainDistinct(t *testing.T) {
+func TestFillDifferentPayloadsRemainDistinct(t *testing.T) {
 	cases := []struct {
 		name  string
 		left  interface{}
@@ -74,7 +74,7 @@ func TestRepairM_774_DifferentPayloadsRemainDistinct(t *testing.T) {
 	}
 }
 
-func TestRepairM_774_NestedSlicesAndPointers(t *testing.T) {
+func TestFillNestedSlicesAndPointers(t *testing.T) {
 	type payload struct {
 		Bytes [][]byte
 		Logs  []*sdk.ABCIMessageLog

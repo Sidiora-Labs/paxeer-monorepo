@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_773_SequentialFixtures(t *testing.T) {
+func TestEVMKeeperSequentialFixtureIsolation(t *testing.T) {
 	addr := common.HexToAddress("0x773")
 	slot := common.HexToHash("0x773")
 	value := common.HexToHash("0x1234")
@@ -71,7 +71,7 @@ func TestRepairM_773_SequentialFixtures(t *testing.T) {
 	}
 }
 
-func TestRepairM_773_ConcurrentFixtures(t *testing.T) {
+func TestEVMKeeperConcurrentFixtureIsolation(t *testing.T) {
 	const callers = 3
 	type fixture struct {
 		keeper *evmkeeper.Keeper

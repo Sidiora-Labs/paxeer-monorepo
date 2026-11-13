@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_775_Send(t *testing.T) {
+func TestBalanceSendPreservesLargeAmounts(t *testing.T) {
 	large := sdk.NewIntFromUint64(uint64(1) << 63)
 	for _, tc := range []struct {
 		name     string
@@ -28,15 +28,15 @@ func TestRepairM_775_Send(t *testing.T) {
 		{"small_balance", sdk.NewInt(100), sdk.NewInt(7), 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			a := repairM775App(t)
+			a := newBalanceTestApp(t)
 			sender, recipient := a.NewAccount(), a.NewAccount()
-			repairM775Fund(t, a, sender, sdk.NewCoins(sdk.NewCoin("repaircoin", tc.initial), sdk.NewInt64Coin("othercoin", 100)))
+			fundBalanceTestAccount(t, a, sender, sdk.NewCoins(sdk.NewCoin("repaircoin", tc.initial), sdk.NewInt64Coin("othercoin", 100)))
 			msgs := make([]sdk.Msg, tc.messages)
 			for i := range msgs {
 				msgs[i] = banktypes.NewMsgSend(sender, recipient, sdk.NewCoins(sdk.NewCoin("repaircoin", tc.amount), sdk.NewInt64Coin("othercoin", 3)))
 			}
-			tx := repairM775Tx(t, sender, nil, msgs...)
-			codes := Balance(t, a, func() []uint32 { return repairM775Deliver(t, a, tx) }, []signing.Tx{tx})()
+			tx := encodeBalanceTestTx(t, sender, nil, msgs...)
+			codes := Balance(t, a, func() []uint32 { return deliverBalanceTestTx(t, a, tx) }, []signing.Tx{tx})()
 			require.Equal(t, []uint32{0}, codes)
 			total := tc.amount.MulRaw(int64(tc.messages))
 			require.True(t, a.BankKeeper.GetBalance(a.Ctx(), sender, "repaircoin").Amount.Equal(tc.initial.Sub(total)))
@@ -46,11 +46,11 @@ func TestRepairM_775_Send(t *testing.T) {
 	}
 }
 
-func TestRepairM_775_MultiSend(t *testing.T) {
-	a := repairM775App(t)
+func TestBalanceMultiSendPreservesLargeAmounts(t *testing.T) {
+	a := newBalanceTestApp(t)
 	sender, first, second := a.NewAccount(), a.NewAccount(), a.NewAccount()
 	large := sdk.NewIntFromUint64(uint64(1) << 63).MulRaw(2)
-	repairM775Fund(t, a, sender, sdk.NewCoins(sdk.NewCoin("repaircoin", large.MulRaw(4))))
+	fundBalanceTestAccount(t, a, sender, sdk.NewCoins(sdk.NewCoin("repaircoin", large.MulRaw(4))))
 	msg := banktypes.NewMsgMultiSend(
 		[]banktypes.Input{{Address: sender.String(), Coins: sdk.NewCoins(sdk.NewCoin("repaircoin", large.MulRaw(3)))}},
 		[]banktypes.Output{
@@ -58,23 +58,23 @@ func TestRepairM_775_MultiSend(t *testing.T) {
 			{Address: second.String(), Coins: sdk.NewCoins(sdk.NewCoin("repaircoin", large))},
 			{Address: sender.String(), Coins: sdk.NewCoins(sdk.NewCoin("repaircoin", large))},
 		})
-	tx := repairM775Tx(t, sender, nil, msg)
-	require.Equal(t, []uint32{0}, Balance(t, a, func() []uint32 { return repairM775Deliver(t, a, tx) }, []signing.Tx{tx})())
+	tx := encodeBalanceTestTx(t, sender, nil, msg)
+	require.Equal(t, []uint32{0}, Balance(t, a, func() []uint32 { return deliverBalanceTestTx(t, a, tx) }, []signing.Tx{tx})())
 	require.True(t, a.BankKeeper.GetBalance(a.Ctx(), sender, "repaircoin").Amount.Equal(large.MulRaw(2)))
 	for _, recipient := range []sdk.AccAddress{first, second} {
 		require.True(t, a.BankKeeper.GetBalance(a.Ctx(), recipient, "repaircoin").Amount.Equal(large))
 	}
 }
 
-func TestRepairM_775_Fees(t *testing.T) {
-	a := repairM775App(t)
+func TestBalanceFeesPreserveLargeAmounts(t *testing.T) {
+	a := newBalanceTestApp(t)
 	payer, sender, recipient := a.NewAccount(), a.NewAccount(), a.NewAccount()
 	large := sdk.NewIntFromUint64(uint64(1) << 63)
 	fee := sdk.NewCoins(sdk.NewCoin("repaircoin", large.AddRaw(5)))
-	repairM775Fund(t, a, payer, sdk.NewCoins(sdk.NewCoin("repaircoin", large.MulRaw(3))))
-	repairM775Fund(t, a, sender, sdk.NewCoins(sdk.NewCoin("repaircoin", large.MulRaw(2))))
-	tx := repairM775Tx(t, payer, fee, banktypes.NewMsgSend(sender, recipient, sdk.NewCoins(sdk.NewCoin("repaircoin", large))))
-	require.Equal(t, []uint32{0}, Balance(t, a, func() []uint32 { return repairM775Deliver(t, a, tx) }, []signing.Tx{tx})())
+	fundBalanceTestAccount(t, a, payer, sdk.NewCoins(sdk.NewCoin("repaircoin", large.MulRaw(3))))
+	fundBalanceTestAccount(t, a, sender, sdk.NewCoins(sdk.NewCoin("repaircoin", large.MulRaw(2))))
+	tx := encodeBalanceTestTx(t, payer, fee, banktypes.NewMsgSend(sender, recipient, sdk.NewCoins(sdk.NewCoin("repaircoin", large))))
+	require.Equal(t, []uint32{0}, Balance(t, a, func() []uint32 { return deliverBalanceTestTx(t, a, tx) }, []signing.Tx{tx})())
 	require.True(t, a.BankKeeper.GetBalance(a.Ctx(), payer, "repaircoin").Amount.Equal(large.MulRaw(2).SubRaw(5)))
 	require.True(t, a.BankKeeper.GetBalance(a.Ctx(), sender, "repaircoin").Amount.Equal(large))
 	require.True(t, a.BankKeeper.GetBalance(a.Ctx(), recipient, "repaircoin").Amount.Equal(large))
@@ -82,20 +82,20 @@ func TestRepairM_775_Fees(t *testing.T) {
 	require.True(t, a.BankKeeper.GetBalance(a.Ctx(), collector, "repaircoin").Amount.Equal(fee.AmountOf("repaircoin")))
 }
 
-func repairM775App(t *testing.T) *processblock.App {
+func newBalanceTestApp(t *testing.T) *processblock.App {
 	t.Helper()
 	a := processblock.NewTestApp(t)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
 	return a
 }
 
-func repairM775Fund(t *testing.T, a *processblock.App, account sdk.AccAddress, coins sdk.Coins) {
+func fundBalanceTestAccount(t *testing.T, a *processblock.App, account sdk.AccAddress, coins sdk.Coins) {
 	t.Helper()
 	require.NoError(t, a.BankKeeper.MintCoins(a.Ctx(), minttypes.ModuleName, coins))
 	require.NoError(t, a.BankKeeper.SendCoinsFromModuleToAccount(a.Ctx(), minttypes.ModuleName, account, coins))
 }
 
-func repairM775Tx(t *testing.T, payer sdk.AccAddress, fees sdk.Coins, msgs ...sdk.Msg) signing.Tx {
+func encodeBalanceTestTx(t *testing.T, payer sdk.AccAddress, fees sdk.Coins, msgs ...sdk.Msg) signing.Tx {
 	t.Helper()
 	config := node.MakeEncodingConfig().TxConfig
 	builder := config.NewTxBuilder()
@@ -114,7 +114,7 @@ func repairM775Tx(t *testing.T, payer sdk.AccAddress, fees sdk.Coins, msgs ...sd
 	return tx
 }
 
-func repairM775Deliver(t *testing.T, a *processblock.App, tx signing.Tx) []uint32 {
+func deliverBalanceTestTx(t *testing.T, a *processblock.App, tx signing.Tx) []uint32 {
 	t.Helper()
 	if !tx.GetFee().IsZero() {
 		require.NoError(t, a.BankKeeper.SendCoinsFromAccountToModule(a.Ctx(), tx.FeePayer(), authtypes.FeeCollectorName, tx.GetFee()))
