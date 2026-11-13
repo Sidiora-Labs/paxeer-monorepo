@@ -16,7 +16,7 @@ action = "Use the API module's existing imports and fixture helpers; keep this r
 revision = "The verified revision is recorded in the matching build and verify rows of /out/run/gates.jsonl."
 build = "hf-build: cd services/launchpad/api && go build ./... && go vet ./internal/app/ ./internal/store/ ./internal/rest/"
 verify = "hf-done: cg spec done 22.39.357 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s services/launchpad/api/repair_22_39_357.kvx && cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/app/ -run 'TestRepair_22_39_314|TestRepair_22_39_357|DevStream'"
+verify_cmd = "test -s spec/layerx-merge/programme/records/services/launchpad/api/repair_22_39_357.kvx && cd services/launchpad/api && go test -count=1 -timeout 20m ./internal/app/ -run 'TestRepair_22_39_314|TestRepair_22_39_357|DevStream'"
 ledger = "/out/run/gates.jsonl"
 build_log = "/out/logs/build-1.log"
 verify_log = "/out/logs/verify-1.log"

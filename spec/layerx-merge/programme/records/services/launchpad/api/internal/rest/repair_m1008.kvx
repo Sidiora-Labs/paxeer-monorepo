@@ -20,7 +20,7 @@ proof = "Real in-process geth nodes run on 125 and 1337. A loopback hop switches
 [finding.9]
 test = "TestRepairM_1008_RealCreationAndRestart"
 repair = "dev_market_test.go executes the real archived EventEmitter UUPS proxy and implementation on chain 125, initializes its authority and calls its generated EmitMarketCreated binding. Both code hashes match the reviewed deployment, and the generated event decoder asserts all seven actual event inputs. The production API chain lookup, document renderer, HTTP transport and generated Go PoolListResponse decoder retain exact creation coordinates and raw amounts after a stopped/reopened consumer."
-fixture = "testdata/repair_m1008_emitter.json contains unchanged eth_chainId, proxy code, implementation code and implementation-slot replies from the committed indexer chainfixture archive at its original block hash; no event or receipt is manufactured. The indexed-row peer is a disk fixture; it is not an indexer implementation or a claim of indexer durability."
+fixture = "testdata/emitter_chain_state.json contains unchanged eth_chainId, proxy code, implementation code and implementation-slot replies from the committed indexer chainfixture archive at its original block hash; no event or receipt is manufactured. The indexed-row peer is a disk fixture; it is not an indexer implementation or a claim of indexer durability."
 
 [finding.10]
 test = "TestRepairM_1008_RankingsReference"

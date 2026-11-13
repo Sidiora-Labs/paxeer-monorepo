@@ -39,7 +39,7 @@ import (
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
-func TestRepair_58_SearchErrors(t *testing.T) {
+func TestSearchErrors(t *testing.T) {
 	frozenBytes, err := os.ReadFile("testdata/contracts/v2/openapi.json")
 	if err != nil {
 		t.Fatal(err)
@@ -167,7 +167,7 @@ func TestRepair_58_SearchErrors(t *testing.T) {
 	}
 }
 
-type repair58Chain struct {
+type receiptRecoveryChain struct {
 	backend *simulated.Backend
 	key     *ecdsa.PrivateKey
 	nonce   uint64
@@ -176,7 +176,7 @@ type repair58Chain struct {
 	token   common.Address
 }
 
-func newRepair58Chain(t *testing.T) *repair58Chain {
+func newReceiptRecoveryChain(t *testing.T) *receiptRecoveryChain {
 	t.Helper()
 	key, err := crypto.GenerateKey()
 	if err != nil {
@@ -195,14 +195,14 @@ func newRepair58Chain(t *testing.T) *repair58Chain {
 		n.HTTPHost, n.HTTPPort, n.HTTPModules = "127.0.0.1", port, []string{"eth"}
 	})
 	t.Cleanup(func() { _ = backend.Close() })
-	chain := &repair58Chain{backend: backend, key: key, origin: "http://127.0.0.1:" + strconv.Itoa(port)}
+	chain := &receiptRecoveryChain{backend: backend, key: key, origin: "http://127.0.0.1:" + strconv.Itoa(port)}
 	// Runtime copies calldata[96:] and emits LOG3 with the first three words.
 	chain.emitter = chain.deploy(t, []byte{0x60, 0x60, 0x36, 0x03, 0x80, 0x60, 0x60, 0x60, 0x00, 0x37, 0x60, 0x40, 0x35, 0x60, 0x20, 0x35, 0x60, 0x00, 0x35, 0x83, 0x60, 0x00, 0xa3, 0x00})
 	chain.token = chain.deploy(t, []byte{0x60, 0x12, 0x60, 0x00, 0x52, 0x60, 0x20, 0x60, 0x00, 0xf3})
 	return chain
 }
 
-func (c *repair58Chain) send(t *testing.T, to *common.Address, data []byte) *types.Receipt {
+func (c *receiptRecoveryChain) send(t *testing.T, to *common.Address, data []byte) *types.Receipt {
 	t.Helper()
 	ctx := context.Background()
 	client := c.backend.Client()
@@ -232,14 +232,14 @@ func (c *repair58Chain) send(t *testing.T, to *common.Address, data []byte) *typ
 	return receipt
 }
 
-func (c *repair58Chain) deploy(t *testing.T, runtime []byte) common.Address {
+func (c *receiptRecoveryChain) deploy(t *testing.T, runtime []byte) common.Address {
 	t.Helper()
 	n := byte(len(runtime))
 	init := append([]byte{0x60, n, 0x60, 0x0c, 0x60, 0x00, 0x39, 0x60, n, 0x60, 0x00, 0xf3}, runtime...)
 	return c.send(t, nil, init).ContractAddress
 }
 
-func TestRepair_58_ReceiptRecoveryAfterRestart(t *testing.T) {
+func TestReceiptRecoveryAfterRestart(t *testing.T) {
 	for _, fault := range []string{"rpc_error", "null_receipt"} {
 		t.Run(fault, func(t *testing.T) {
 			ctx := context.Background()
@@ -262,7 +262,7 @@ func TestRepair_58_ReceiptRecoveryAfterRestart(t *testing.T) {
 			if applied != 2 {
 				t.Fatalf("indexer migration applied %d tables", applied)
 			}
-			chain := newRepair58Chain(t)
+			chain := newReceiptRecoveryChain(t)
 			target, err := url.Parse(chain.origin)
 			if err != nil {
 				t.Fatal(err)

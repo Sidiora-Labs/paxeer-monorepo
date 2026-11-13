@@ -34,7 +34,7 @@ import (
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
-func TestRepairM_1008_CursorParity(t *testing.T) {
+func TestCursorParity(t *testing.T) {
 	admission, err := rest.NewAdmission(16, 16, 50*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +70,7 @@ func TestRepairM_1008_CursorParity(t *testing.T) {
 
 // A real geth node on its default signing domain is the mismatched peer.
 // No RPC result is rewritten to manufacture the mismatch.
-func repair1008WrongNode(t *testing.T) string {
+func publicReadWrongNode(t *testing.T) string {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -99,7 +99,7 @@ func repair1008WrongNode(t *testing.T) string {
 }
 
 // Switching a network hop preserves the actual nodes' JSON-RPC responses.
-func repair1008Switch(t *testing.T, initial string) (*httptest.Server, *atomic.Value) {
+func publicReadSwitch(t *testing.T, initial string) (*httptest.Server, *atomic.Value) {
 	t.Helper()
 	upstream := &atomic.Value{}
 	upstream.Store(initial)
@@ -115,14 +115,14 @@ func repair1008Switch(t *testing.T, initial string) (*httptest.Server, *atomic.V
 	return server, upstream
 }
 
-func TestRepairM_1008_ChainAdmissionAndReadiness(t *testing.T) {
+func TestChainAdmissionAndReadiness(t *testing.T) {
 	ctx := context.Background()
-	wrong := repair1008WrongNode(t)
+	wrong := publicReadWrongNode(t)
 	if err := rest.RegisterDevelopmentMarketReads(ctx, chi.NewRouter(), rest.DevelopmentMarketOptions{ChainRPCURL: wrong}); err == nil {
 		t.Fatal("development startup admitted chain 1337 as chain 125")
 	}
 	supported := newMktChain(t)
-	hop, upstream := repair1008Switch(t, supported.url)
+	hop, upstream := publicReadSwitch(t, supported.url)
 	var readiness func(context.Context) error
 	router := chi.NewRouter()
 	err := rest.RegisterDevelopmentMarketReads(ctx, router, rest.DevelopmentMarketOptions{
@@ -154,7 +154,7 @@ func TestRepairM_1008_ChainAdmissionAndReadiness(t *testing.T) {
 	}
 }
 
-func TestRepairM_1008_RealCreationAndRestart(t *testing.T) {
+func TestRealCreationAndRestart(t *testing.T) {
 	chain := newMktChain(t)
 	const optical = "0x0000000000000000000000000000000000000000"
 	receipt := chain.emitMarketCreated(t, mktPoolID(mktPoolA), mktTokenA, mktCreator, mktPoolA, optical)
@@ -180,7 +180,7 @@ func TestRepairM_1008_RealCreationAndRestart(t *testing.T) {
 	if err := os.WriteFile(path, raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	hop, upstream := repair1008Switch(t, chain.url)
+	hop, upstream := publicReadSwitch(t, chain.url)
 	var first interfaces.Pool
 	for restart := 0; restart < 2; restart++ {
 		raw, err := os.ReadFile(path)
@@ -191,7 +191,7 @@ func TestRepairM_1008_RealCreationAndRestart(t *testing.T) {
 		if err := json.Unmarshal(raw, &recovered); err != nil {
 			t.Fatal(err)
 		}
-		handler, closeChain, err := rest.RepairM1008CreationHandler(context.Background(), hop.URL, recovered)
+		handler, closeChain, err := rest.PublicReadCreationHandler(context.Background(), hop.URL, recovered)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -215,7 +215,7 @@ func TestRepairM_1008_RealCreationAndRestart(t *testing.T) {
 		if restart == 0 {
 			first = pool
 			// Even a warm creation/head cache cannot cross an endpoint drift.
-			upstream.Store(repair1008WrongNode(t))
+			upstream.Store(publicReadWrongNode(t))
 			assertV2Error(t, getV2(t, server.URL+"/v2/pools?sort=new"), 503, "DEPENDENCY_UNAVAILABLE")
 			upstream.Store(chain.url)
 		} else if !reflect.DeepEqual(pool, first) {
@@ -226,7 +226,7 @@ func TestRepairM_1008_RealCreationAndRestart(t *testing.T) {
 	}
 }
 
-func repair1008RankingProjection(t *testing.T) store.PublicProjection {
+func publicReadRankingProjection(t *testing.T) store.PublicProjection {
 	t.Helper()
 	watermark := json.RawMessage(`{"chainId":"125","height":"33963716","blockHash":"0x367aa367ab921f314429468f9023ba3ec4410a43afd00305f9b2cc3b53d3186e","projectionRevision":"123","observedAt":"2026-10-13T10:00:00.000Z","integrity":"healthy"}`)
 	items := make([]map[string]any, 75)
@@ -243,10 +243,10 @@ func repair1008RankingProjection(t *testing.T) store.PublicProjection {
 	return store.PublicProjection{Topic: "market.rankings.trending", Sequence: "17", Revision: "123", Watermark: watermark, Payload: payload, OccurredAt: "2026-10-13T10:00:00.000Z"}
 }
 
-func TestRepairM_1008_RankingsReference(t *testing.T) {
-	full := repair1008RankingProjection(t)
+func TestRankingsReference(t *testing.T) {
+	full := publicReadRankingProjection(t)
 	router := chi.NewRouter()
-	router.Method("GET", "/v2/rankings/{category}", rest.RepairM1008RankingsHandler(full))
+	router.Method("GET", "/v2/rankings/{category}", rest.PublicReadRankingsHandler(full))
 	server := httptest.NewServer(router)
 	defer server.Close()
 	for _, limit := range []int{0, 1, 3, 50, 74, 75, 100} {
@@ -332,7 +332,7 @@ func TestRepairM_1008_RankingsReference(t *testing.T) {
 		t.Fatal(err)
 	}
 	router = chi.NewRouter()
-	router.Method("GET", "/v2/rankings/{category}", rest.RepairM1008RankingsHandler(full))
+	router.Method("GET", "/v2/rankings/{category}", rest.PublicReadRankingsHandler(full))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, httptest.NewRequest("GET", "/v2/rankings/trending?limit=100", nil))
 	if recorder.Code != 200 || restMeasurementRankingsReference("/v2/rankings/trending?limit=100", recorder.Body.Bytes(), full) != nil {
@@ -340,7 +340,7 @@ func TestRepairM_1008_RankingsReference(t *testing.T) {
 	}
 }
 
-func TestRepairM_1008_ServiceContracts(t *testing.T) {
+func TestServiceContracts(t *testing.T) {
 	path := "../../../../../contracts/services.md"
 	raw, err := os.ReadFile(path)
 	if err != nil {

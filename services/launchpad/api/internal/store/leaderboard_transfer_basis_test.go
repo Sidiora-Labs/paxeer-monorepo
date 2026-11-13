@@ -11,11 +11,11 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 )
 
-const repairM984Token = "0x3333333333333333333333333333333333333333"
+const transferBasisToken = "0x3333333333333333333333333333333333333333"
 
 // The fixture goes through the production accounting producer and strict wire
 // codec before entering the same projection reconciliation used by SQL reads.
-func repairM984Fill(t *testing.T, side, sender, owner string, height, timestamp int64, token, paid, usdl string) (accounting.FillV1, traderTokenTransfer) {
+func transferBasisFill(t *testing.T, side, sender, owner string, height, timestamp int64, token, paid, usdl string) (accounting.FillV1, traderTokenTransfer) {
 	t.Helper()
 	position := accounting.SourcePosition{ChainID: "125", Height: strconv.FormatInt(height, 10), TransactionIndex: "0", LogIndex: "2", TransactionHash: fmt.Sprintf("0x%064x", height), BlockHash: fmt.Sprintf("0x%064x", height+1000)}
 	receipt := fmt.Sprintf("%064x", height+2000)
@@ -26,7 +26,7 @@ func repairM984Fill(t *testing.T, side, sender, owner string, height, timestamp 
 	}
 	f := accounting.FillV1{
 		Version: accounting.FillVersion, Position: position, ActualEmitter: realizedPool, PoolAddress: realizedPool,
-		Token: accounting.Asset{Address: repairM984Token, Decimals: 18}, Settlement: accounting.Asset{Address: "0x4444444444444444444444444444444444444444", Decimals: 6},
+		Token: accounting.Asset{Address: transferBasisToken, Decimals: 18}, Settlement: accounting.Asset{Address: "0x4444444444444444444444444444444444444444", Decimals: 6},
 		Side: side, TokenAmountRaw: token, PaidInputRaw: paid, USDLAmountRaw: usdl, FeeRaw: "0", InputDerivationQuality: "receipt_incomplete", FeeDisposition: disposition,
 		Attribution: accounting.Attribution{TransactionSender: sender, Trader: &sender, Payer: &owner, Recipient: &owner, Quality: "exact_receipt", Evidence: []accounting.EvidenceRef{{Kind: kind, ArtifactSHA256: receipt, ArtifactID: position.TransactionHash, LogIndex: &logIndex}}},
 		Execution:   accounting.ExecutionPolicy{Quality: "unavailable", Evidence: []accounting.EvidenceRef{}},
@@ -53,7 +53,7 @@ func repairM984Fill(t *testing.T, side, sender, owner string, height, timestamp 
 	}
 	transferPosition := position
 	transferPosition.LogIndex = logIndex
-	movement := traderTokenTransfer{Token: repairM984Token, From: from, To: to, AmountRaw: token, Position: transferPosition, Provenance: f.Provenance}
+	movement := traderTokenTransfer{Token: transferBasisToken, From: from, To: to, AmountRaw: token, Position: transferPosition, Provenance: f.Provenance}
 	raw, err = json.Marshal(movement)
 	if err != nil {
 		t.Fatal(err)
@@ -64,13 +64,13 @@ func repairM984Fill(t *testing.T, side, sender, owner string, height, timestamp 
 	return *decoded.Fill, movement
 }
 
-func repairM984Movement(height int64, from, to, amount string) traderTokenTransfer {
-	return traderTokenTransfer{Token: repairM984Token, From: from, To: to, AmountRaw: amount,
+func transferBasisMovement(height int64, from, to, amount string) traderTokenTransfer {
+	return traderTokenTransfer{Token: transferBasisToken, From: from, To: to, AmountRaw: amount,
 		Position:   accounting.SourcePosition{ChainID: "125", Height: strconv.FormatInt(height, 10), TransactionIndex: "0", LogIndex: "0", TransactionHash: fmt.Sprintf("0x%064x", height), BlockHash: fmt.Sprintf("0x%064x", height+1000)},
 		Provenance: accounting.Provenance{ReceiptSHA256: fmt.Sprintf("%064x", height+2000)}}
 }
 
-func repairM984Snapshot(t *testing.T, fills []accounting.FillV1, movements []traderTokenTransfer, from, end int64) (*LeaderboardSnapshot, int) {
+func transferBasisSnapshot(t *testing.T, fills []accounting.FillV1, movements []traderTokenTransfer, from, end int64) (*LeaderboardSnapshot, int) {
 	t.Helper()
 	rows, err := traderProjectionRows(fills, movements)
 	if err != nil {
@@ -84,25 +84,25 @@ func repairM984Snapshot(t *testing.T, fills []accounting.FillV1, movements []tra
 	return traderLeaderboardSnapshot("trader", "24h", end, entries, excluded, watermark), excluded
 }
 
-func TestRepairM_984_TransfersCannotReuseStaleBasis(t *testing.T) {
-	buy, buyMove := repairM984Fill(t, "buy", realizedAlice, realizedAlice, 10, 900, "100", "110", "110")
-	sell, sellMove := repairM984Fill(t, "sell", realizedAlice, realizedAlice, 20, 1200, "100", "100", "180")
+func TestTransfersCannotReuseStaleBasis(t *testing.T) {
+	buy, buyMove := transferBasisFill(t, "buy", realizedAlice, realizedAlice, 10, 900, "100", "110", "110")
+	sell, sellMove := transferBasisFill(t, "sell", realizedAlice, realizedAlice, 20, 1200, "100", "100", "180")
 	for _, tc := range []struct {
 		name  string
 		moves []traderTokenTransfer
 	}{
-		{"transfer_out_then_unrelated_in", []traderTokenTransfer{repairM984Movement(12, realizedAlice, realizedBob, "100"), repairM984Movement(14, realizedCarol, realizedAlice, "100")}},
-		{"transfer_out_only", []traderTokenTransfer{repairM984Movement(12, realizedAlice, realizedBob, "60")}},
-		{"unrelated_transfer_in_only", []traderTokenTransfer{repairM984Movement(14, realizedCarol, realizedAlice, "100")}},
-		{"unknown_inventory_before_buy", []traderTokenTransfer{repairM984Movement(8, realizedCarol, realizedAlice, "100")}},
+		{"transfer_out_then_unrelated_in", []traderTokenTransfer{transferBasisMovement(12, realizedAlice, realizedBob, "100"), transferBasisMovement(14, realizedCarol, realizedAlice, "100")}},
+		{"transfer_out_only", []traderTokenTransfer{transferBasisMovement(12, realizedAlice, realizedBob, "60")}},
+		{"unrelated_transfer_in_only", []traderTokenTransfer{transferBasisMovement(14, realizedCarol, realizedAlice, "100")}},
+		{"unknown_inventory_before_buy", []traderTokenTransfer{transferBasisMovement(8, realizedCarol, realizedAlice, "100")}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			movements := append([]traderTokenTransfer{sellMove, buyMove}, tc.moves...)
-			snapshot, excluded := repairM984Snapshot(t, []accounting.FillV1{sell, buy}, movements, 1000, 2000)
+			snapshot, excluded := transferBasisSnapshot(t, []accounting.FillV1{sell, buy}, movements, 1000, 2000)
 			if excluded != 1 || len(snapshot.Entries) != 0 || snapshot.Quality != "partial" {
 				t.Fatalf("unsupported realized profit: %+v excluded=%d", snapshot, excluded)
 			}
-			replay, again := repairM984Snapshot(t, []accounting.FillV1{buy, sell}, movements, 1000, 2000)
+			replay, again := transferBasisSnapshot(t, []accounting.FillV1{buy, sell}, movements, 1000, 2000)
 			if again != excluded || !reflect.DeepEqual(snapshot, replay) {
 				t.Fatalf("unstable projection: %+v %+v", snapshot, replay)
 			}
@@ -110,17 +110,17 @@ func TestRepairM_984_TransfersCannotReuseStaleBasis(t *testing.T) {
 	}
 }
 
-func TestRepairM_984_ReceiptMatchedBasisAndWindow(t *testing.T) {
-	buy, buyMove := repairM984Fill(t, "buy", realizedBob, realizedAlice, 10, 900, "100", "110", "110")
-	sell, sellMove := repairM984Fill(t, "sell", realizedBob, realizedAlice, 20, 1200, "50", "50", "80")
+func TestReceiptMatchedBasisAndWindow(t *testing.T) {
+	buy, buyMove := transferBasisFill(t, "buy", realizedBob, realizedAlice, 10, 900, "100", "110", "110")
+	sell, sellMove := transferBasisFill(t, "sell", realizedBob, realizedAlice, 20, 1200, "50", "50", "80")
 	movements := []traderTokenTransfer{sellMove, buyMove,
-		repairM984Movement(11, realizedAlice, realizedAlice, "100"),
-		repairM984Movement(12, realizedCarol, realizedAlice, "0"),
-		repairM984Movement(22, realizedAlice, realizedCarol, "50")}
-	otherAsset := repairM984Movement(13, realizedCarol, realizedAlice, "100")
+		transferBasisMovement(11, realizedAlice, realizedAlice, "100"),
+		transferBasisMovement(12, realizedCarol, realizedAlice, "0"),
+		transferBasisMovement(22, realizedAlice, realizedCarol, "50")}
+	otherAsset := transferBasisMovement(13, realizedCarol, realizedAlice, "100")
 	otherAsset.Token = "0x5555555555555555555555555555555555555555"
 	movements = append(movements, otherAsset)
-	snapshot, excluded := repairM984Snapshot(t, []accounting.FillV1{sell, buy}, movements, 1000, 2000)
+	snapshot, excluded := transferBasisSnapshot(t, []accounting.FillV1{sell, buy}, movements, 1000, 2000)
 	if excluded != 0 || len(snapshot.Entries) != 1 || snapshot.Quality != "complete" {
 		t.Fatalf("proven position lost: %+v excluded=%d", snapshot, excluded)
 	}
@@ -132,15 +132,15 @@ func TestRepairM_984_ReceiptMatchedBasisAndWindow(t *testing.T) {
 	if public["metricSigned"] != "25" || public["wallet"] != realizedAlice || public["quality"] != "complete" {
 		t.Fatal(public)
 	}
-	late, excluded := repairM984Snapshot(t, []accounting.FillV1{buy, sell}, movements, 1200, 2000)
+	late, excluded := transferBasisSnapshot(t, []accounting.FillV1{buy, sell}, movements, 1200, 2000)
 	if excluded != 0 || len(late.Entries) != 0 || late.Quality != "complete" {
 		t.Fatalf("window boundary: %+v %d", late, excluded)
 	}
 }
 
-func TestRepairM_984_MissingOrMismatchedProvenanceIsUnknown(t *testing.T) {
-	buy, buyMove := repairM984Fill(t, "buy", realizedAlice, realizedAlice, 10, 900, "100", "110", "110")
-	sell, sellMove := repairM984Fill(t, "sell", realizedAlice, realizedAlice, 20, 1200, "50", "50", "80")
+func TestMissingOrMismatchedProvenanceIsUnknown(t *testing.T) {
+	buy, buyMove := transferBasisFill(t, "buy", realizedAlice, realizedAlice, 10, 900, "100", "110", "110")
+	sell, sellMove := transferBasisFill(t, "sell", realizedAlice, realizedAlice, 20, 1200, "50", "50", "80")
 	for _, tc := range []struct {
 		name   string
 		change func(*traderTokenTransfer)
@@ -161,7 +161,7 @@ func TestRepairM_984_MissingOrMismatchedProvenanceIsUnknown(t *testing.T) {
 			if !tc.omit {
 				moves = append(moves, move)
 			}
-			snapshot, excluded := repairM984Snapshot(t, []accounting.FillV1{buy, sell}, moves, 1000, 2000)
+			snapshot, excluded := transferBasisSnapshot(t, []accounting.FillV1{buy, sell}, moves, 1000, 2000)
 			if excluded != 1 || len(snapshot.Entries) != 0 || snapshot.Quality != "partial" {
 				t.Fatalf("unproven basis admitted: %+v %d", snapshot, excluded)
 			}
@@ -169,18 +169,18 @@ func TestRepairM_984_MissingOrMismatchedProvenanceIsUnknown(t *testing.T) {
 	}
 }
 
-func TestRepairM_984_UnknownBasisPersistsAndCountsWalletOnce(t *testing.T) {
-	buy, buyMove := repairM984Fill(t, "buy", realizedAlice, realizedAlice, 10, 900, "100", "110", "110")
-	sell, sellMove := repairM984Fill(t, "sell", realizedAlice, realizedAlice, 20, 1200, "100", "100", "180")
-	nextBuy, nextMove := repairM984Fill(t, "buy", realizedAlice, realizedAlice, 25, 1500, "50", "60", "60")
-	nextSell, lastMove := repairM984Fill(t, "sell", realizedAlice, realizedAlice, 30, 1800, "50", "50", "90")
-	moves := []traderTokenTransfer{buyMove, sellMove, nextMove, lastMove, repairM984Movement(12, realizedAlice, realizedBob, "100"), repairM984Movement(14, realizedCarol, realizedAlice, "100")}
+func TestUnknownBasisPersistsAndCountsWalletOnce(t *testing.T) {
+	buy, buyMove := transferBasisFill(t, "buy", realizedAlice, realizedAlice, 10, 900, "100", "110", "110")
+	sell, sellMove := transferBasisFill(t, "sell", realizedAlice, realizedAlice, 20, 1200, "100", "100", "180")
+	nextBuy, nextMove := transferBasisFill(t, "buy", realizedAlice, realizedAlice, 25, 1500, "50", "60", "60")
+	nextSell, lastMove := transferBasisFill(t, "sell", realizedAlice, realizedAlice, 30, 1800, "50", "50", "90")
+	moves := []traderTokenTransfer{buyMove, sellMove, nextMove, lastMove, transferBasisMovement(12, realizedAlice, realizedBob, "100"), transferBasisMovement(14, realizedCarol, realizedAlice, "100")}
 	fills := []accounting.FillV1{buy, sell, nextBuy, nextSell}
-	snapshot, excluded := repairM984Snapshot(t, fills, moves, 1000, 2000)
+	snapshot, excluded := transferBasisSnapshot(t, fills, moves, 1000, 2000)
 	if excluded != 1 || len(snapshot.Entries) != 0 || snapshot.Quality != "partial" {
 		t.Fatalf("unknown wallet counted incorrectly: %+v %d", snapshot, excluded)
 	}
-	later, excluded := repairM984Snapshot(t, fills, moves, 1600, 2000)
+	later, excluded := transferBasisSnapshot(t, fills, moves, 1600, 2000)
 	if excluded != 1 || later.Quality != "partial" || len(later.Entries) != 0 {
 		t.Fatalf("later buy restored unknown basis: %+v %d", later, excluded)
 	}
@@ -191,8 +191,8 @@ func TestRepairM_984_UnknownBasisPersistsAndCountsWalletOnce(t *testing.T) {
 	}
 }
 
-func TestRepairM_984_MalformedProjectionIsRejected(t *testing.T) {
-	buy, move := repairM984Fill(t, "buy", realizedAlice, realizedAlice, 10, 900, "100", "110", "110")
+func TestMalformedProjectionIsRejected(t *testing.T) {
+	buy, move := transferBasisFill(t, "buy", realizedAlice, realizedAlice, 10, 900, "100", "110", "110")
 	bad := move
 	bad.AmountRaw = "-1"
 	if _, err := traderProjectionRows([]accounting.FillV1{buy}, []traderTokenTransfer{bad}); err != ErrDataIntegrity {
@@ -207,13 +207,13 @@ func TestRepairM_984_MalformedProjectionIsRejected(t *testing.T) {
 	}
 }
 
-func TestRepairM_984_ExclusionPreservesProvenWallets(t *testing.T) {
-	buy, buyMove := repairM984Fill(t, "buy", realizedAlice, realizedAlice, 10, 900, "100", "110", "110")
-	sell, sellMove := repairM984Fill(t, "sell", realizedAlice, realizedAlice, 20, 1200, "100", "100", "180")
-	cleanBuy, cleanBuyMove := repairM984Fill(t, "buy", realizedBob, realizedBob, 11, 950, "100", "110", "110")
-	cleanSell, cleanSellMove := repairM984Fill(t, "sell", realizedBob, realizedBob, 21, 1300, "50", "50", "80")
-	moves := []traderTokenTransfer{buyMove, sellMove, cleanBuyMove, cleanSellMove, repairM984Movement(12, realizedAlice, realizedCarol, "100"), repairM984Movement(14, realizedCarol, realizedAlice, "100")}
-	snapshot, excluded := repairM984Snapshot(t, []accounting.FillV1{sell, cleanBuy, buy, cleanSell}, moves, 1000, 2000)
+func TestExclusionPreservesProvenWallets(t *testing.T) {
+	buy, buyMove := transferBasisFill(t, "buy", realizedAlice, realizedAlice, 10, 900, "100", "110", "110")
+	sell, sellMove := transferBasisFill(t, "sell", realizedAlice, realizedAlice, 20, 1200, "100", "100", "180")
+	cleanBuy, cleanBuyMove := transferBasisFill(t, "buy", realizedBob, realizedBob, 11, 950, "100", "110", "110")
+	cleanSell, cleanSellMove := transferBasisFill(t, "sell", realizedBob, realizedBob, 21, 1300, "50", "50", "80")
+	moves := []traderTokenTransfer{buyMove, sellMove, cleanBuyMove, cleanSellMove, transferBasisMovement(12, realizedAlice, realizedCarol, "100"), transferBasisMovement(14, realizedCarol, realizedAlice, "100")}
+	snapshot, excluded := transferBasisSnapshot(t, []accounting.FillV1{sell, cleanBuy, buy, cleanSell}, moves, 1000, 2000)
 	if excluded != 1 || len(snapshot.Entries) != 1 || snapshot.Quality != "partial" {
 		t.Fatalf("mixed projection: %+v %d", snapshot, excluded)
 	}

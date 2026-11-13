@@ -30,14 +30,14 @@ import (
 // The fixture peer is an actual, pure Go SQL database. Only PostgreSQL syntax is
 // translated; SQL reads, constraints, JSON updates, transactions and persistence
 // are executed by SQLite. One connection serializes writes in place of advisory
-// locks. This is not PostgreSQL lock/privilege qualification (see repair_m983.kvx).
-type repairM983Driver struct{ driver.Driver }
-type repairM983Conn struct{ driver.Conn }
+// locks. This is not PostgreSQL lock/privilege qualification (see ../../../spec/layerx-merge/programme/records/services/launchpad/discovery/repair_m983.kvx).
+type squadPersistenceDriver struct{ driver.Driver }
+type squadPersistenceConn struct{ driver.Conn }
 
-var repairM983Parameters = regexp.MustCompile(`\$(\d+)`)
-var repairM983JSONText = regexp.MustCompile(`([a-zA-Z_.]+)->>'([a-zA-Z_]+)'`)
+var squadPersistenceParameters = regexp.MustCompile(`\$(\d+)`)
+var squadPersistenceJSONText = regexp.MustCompile(`([a-zA-Z_.]+)->>'([a-zA-Z_]+)'`)
 
-func repairM983SQL(query string) string {
+func squadPersistenceSQL(query string) string {
 	query = strings.NewReplacer(
 		"narrative_discovery.", "",
 		" FOR UPDATE SKIP LOCKED", "",
@@ -47,23 +47,23 @@ func repairM983SQL(query string) string {
 		"clock_timestamp()-interval '1 minute'", "strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 minute')",
 		"clock_timestamp()", "strftime('%Y-%m-%dT%H:%M:%fZ','now')",
 		"pg_advisory_xact_lock(hashtextextended($1,210021))", "length($1)",
-		"jsonb_set(", "repair_m983_json_set(",
+		"jsonb_set(", "squad_persistence_json_set(",
 	).Replace(query)
-	query = repairM983JSONText.ReplaceAllString(query, "repair_m983_json_text($1,'$2')")
-	return repairM983Parameters.ReplaceAllString(query, "?$1")
+	query = squadPersistenceJSONText.ReplaceAllString(query, "squad_persistence_json_text($1,'$2')")
+	return squadPersistenceParameters.ReplaceAllString(query, "?$1")
 }
 
-func (d *repairM983Driver) Open(name string) (driver.Conn, error) {
+func (d *squadPersistenceDriver) Open(name string) (driver.Conn, error) {
 	c, err := d.Driver.Open(name)
 	if err != nil {
 		return nil, err
 	}
-	return &repairM983Conn{c}, nil
+	return &squadPersistenceConn{c}, nil
 }
-func (c *repairM983Conn) Prepare(query string) (driver.Stmt, error) {
-	return c.Conn.Prepare(repairM983SQL(query))
+func (c *squadPersistenceConn) Prepare(query string) (driver.Stmt, error) {
+	return c.Conn.Prepare(squadPersistenceSQL(query))
 }
-func (c *repairM983Conn) CheckNamedValue(v *driver.NamedValue) error {
+func (c *squadPersistenceConn) CheckNamedValue(v *driver.NamedValue) error {
 	switch x := v.Value.(type) {
 	case []byte:
 		v.Value = string(x)
@@ -78,11 +78,11 @@ func (c *repairM983Conn) CheckNamedValue(v *driver.NamedValue) error {
 	}
 	return nil
 }
-func (c *repairM983Conn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	return c.Conn.(driver.ExecerContext).ExecContext(ctx, repairM983SQL(query), args)
+func (c *squadPersistenceConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	return c.Conn.(driver.ExecerContext).ExecContext(ctx, squadPersistenceSQL(query), args)
 }
-func (c *repairM983Conn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	return c.Conn.(driver.QueryerContext).QueryContext(ctx, repairM983SQL(query), args)
+func (c *squadPersistenceConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	return c.Conn.(driver.QueryerContext).QueryContext(ctx, squadPersistenceSQL(query), args)
 }
 
 func init() {
@@ -90,11 +90,11 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	sql.Register("repair-m983-sql", &repairM983Driver{registered.Driver()})
+	sql.Register("squad-persistence-sql", &squadPersistenceDriver{registered.Driver()})
 	if err := registered.Close(); err != nil {
 		panic(err)
 	}
-	sqlite.MustRegisterDeterministicScalarFunction("repair_m983_json_set", 3, func(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+	sqlite.MustRegisterDeterministicScalarFunction("squad_persistence_json_set", 3, func(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
 		var doc map[string]json.RawMessage
 		if err := json.Unmarshal([]byte(args[0].(string)), &doc); err != nil {
 			return nil, err
@@ -111,7 +111,7 @@ func init() {
 		raw, err := json.Marshal(doc)
 		return string(raw), err
 	})
-	sqlite.MustRegisterDeterministicScalarFunction("repair_m983_json_text", 2, func(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+	sqlite.MustRegisterDeterministicScalarFunction("squad_persistence_json_text", 2, func(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
 		var doc map[string]any
 		d := json.NewDecoder(strings.NewReader(args[0].(string)))
 		d.UseNumber()
@@ -126,7 +126,7 @@ func init() {
 	})
 }
 
-type repairM983Fixture struct {
+type squadPersistenceFixture struct {
 	t        *testing.T
 	store    Store
 	path     string
@@ -134,9 +134,9 @@ type repairM983Fixture struct {
 	password string
 }
 
-func repairM983Open(t *testing.T) *repairM983Fixture {
+func squadPersistenceOpen(t *testing.T) *squadPersistenceFixture {
 	t.Helper()
-	f := &repairM983Fixture{t: t, path: filepath.Join(t.TempDir(), "discovery.sqlite"), password: uuid.NewString()}
+	f := &squadPersistenceFixture{t: t, path: filepath.Join(t.TempDir(), "discovery.sqlite"), password: uuid.NewString()}
 	f.open()
 	for _, statement := range strings.Split(Schema, ";") {
 		statement = strings.TrimSpace(statement)
@@ -152,9 +152,9 @@ func repairM983Open(t *testing.T) *repairM983Fixture {
 	return f
 }
 
-func (f *repairM983Fixture) open() {
+func (f *squadPersistenceFixture) open() {
 	f.t.Helper()
-	db, err := sql.Open("repair-m983-sql", f.path)
+	db, err := sql.Open("squad-persistence-sql", f.path)
 	if err != nil {
 		f.t.Fatal(err)
 	}
@@ -165,18 +165,18 @@ func (f *repairM983Fixture) open() {
 	f.store = Store{DB: db}
 }
 
-func (f *repairM983Fixture) start() {
+func (f *squadPersistenceFixture) start() {
 	h := HTTP{Store: f.store, Authenticate: func(r *http.Request) (string, error) {
 		account, password, ok := r.BasicAuth()
 		if !ok || account == "" || password != f.password {
 			return "", ErrForbidden
 		}
 		return account, nil
-	}, Wallet: func(*http.Request) (string, error) { return repair46Wallet, nil }}
+	}, Wallet: func(*http.Request) (string, error) { return squadAlertWallet, nil }}
 	f.server = httptest.NewServer(h.Handler())
 }
 
-func (f *repairM983Fixture) reopen() {
+func (f *squadPersistenceFixture) reopen() {
 	f.t.Helper()
 	f.server.CloseClientConnections()
 	f.server.Close()
@@ -191,11 +191,11 @@ func (f *repairM983Fixture) reopen() {
 	f.start()
 }
 
-func (f *repairM983Fixture) request(actor, method, path string, input any, status int, schema string, dst any) []byte {
+func (f *squadPersistenceFixture) request(actor, method, path string, input any, status int, schema string, dst any) []byte {
 	f.t.Helper()
 	var body []byte
 	if input != nil {
-		body = repair46JSON(f.t, input)
+		body = squadAlertJSON(f.t, input)
 	}
 	req, err := http.NewRequest(method, f.server.URL+path, bytes.NewReader(body))
 	if err != nil {
@@ -231,7 +231,7 @@ func (f *repairM983Fixture) request(actor, method, path string, input any, statu
 	return raw
 }
 
-func (f *repairM983Fixture) create(owner, policy string) Squad {
+func (f *squadPersistenceFixture) create(owner, policy string) Squad {
 	f.t.Helper()
 	var result v2.SquadCreateResponse
 	f.request(owner, "POST", "/v2/squads", v2.SquadCreateBody{Name: "Research", Description: "Persisted contract", Visibility: "private", JoinPolicy: policy}, 201, "SquadCreateResponse", &result)
@@ -242,7 +242,7 @@ func (f *repairM983Fixture) create(owner, policy string) Squad {
 	return q
 }
 
-func (f *repairM983Fixture) membership(actor, id, account, action, expected string, status int) v2.SquadMembershipResponse {
+func (f *squadPersistenceFixture) membership(actor, id, account, action, expected string, status int) v2.SquadMembershipResponse {
 	f.t.Helper()
 	var result v2.SquadMembershipResponse
 	schema, dst := "SquadMembershipResponse", any(&result)
@@ -253,7 +253,7 @@ func (f *repairM983Fixture) membership(actor, id, account, action, expected stri
 	return result
 }
 
-func (f *repairM983Fixture) member(id, account string) Membership {
+func (f *squadPersistenceFixture) member(id, account string) Membership {
 	f.t.Helper()
 	var raw []byte
 	if err := f.store.DB.QueryRow(`SELECT document FROM narrative_discovery.members WHERE squad_id=$1 AND account_id=$2`, id, account).Scan(&raw); err != nil {
@@ -266,11 +266,11 @@ func (f *repairM983Fixture) member(id, account string) Membership {
 	return m
 }
 
-func TestRepairM_983_alert_registry_signature(t *testing.T) {
-	f := repairM983Open(t)
+func TestAlertRegistrySignature(t *testing.T) {
+	f := squadPersistenceOpen(t)
 	owner := uuid.NewString()
 	at := time.Now().UTC().Truncate(time.Millisecond)
-	chain, currency, provider, asset := "125", "USD", "market-provider", repair46Wallet
+	chain, currency, provider, asset := "125", "USD", "market-provider", squadAlertWallet
 	decimals := v2.SafeInteger(18)
 	input := v2.AlertCreateBody{PoolAddress: asset, Direction: "crosses_above", CooldownSeconds: 300, Threshold: v2.InputPrice{
 		Numerator: "900719925474099312345678901234567890", Denominator: "1000000000000000001",
@@ -295,12 +295,12 @@ func TestRepairM_983_alert_registry_signature(t *testing.T) {
 	// This typed call is a compiling proof of both the registry signature and
 	// the actual handler's consumer shape, read from persisted producer state.
 	var adapt func(AlertRule, string, v2.InputPrice, string, time.Time) (v2.AlertCreateResponse, error) = AdaptV2AlertCreate
-	produced, err := adapt(rule, repair46Wallet, *rule.Price, discoveryErrorRequestID, at)
+	produced, err := adapt(rule, squadAlertWallet, *rule.Price, discoveryErrorRequestID, at)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var consumed v2.AlertCreateResponse
-	if err := proofDiscoveryDecode("AlertCreateResponse", repair46JSON(t, produced), &consumed); err != nil {
+	if err := proofDiscoveryDecode("AlertCreateResponse", squadAlertJSON(t, produced), &consumed); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(consumed.Data, created.Data) || consumed.Revision == nil || *consumed.Revision != "1" {
@@ -308,20 +308,20 @@ func TestRepairM_983_alert_registry_signature(t *testing.T) {
 	}
 	mismatch := *rule.Price
 	mismatch.Source.ProviderId = func() *string { v := "different-provider"; return &v }()
-	if _, err := adapt(rule, repair46Wallet, mismatch, discoveryErrorRequestID, at); !errors.Is(err, ErrInvalid) {
+	if _, err := adapt(rule, squadAlertWallet, mismatch, discoveryErrorRequestID, at); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("unpersisted provenance accepted: %v", err)
 	}
 	mismatch = *rule.Price
 	mismatch.Numerator = "1"
-	if _, err := adapt(rule, repair46Wallet, mismatch, discoveryErrorRequestID, at); !errors.Is(err, ErrInvalid) {
+	if _, err := adapt(rule, squadAlertWallet, mismatch, discoveryErrorRequestID, at); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("unpersisted ratio accepted: %v", err)
 	}
 }
 
-func TestRepairM_983_invite_revision_race(t *testing.T) {
+func TestInviteRevisionRace(t *testing.T) {
 	for _, route := range []string{"store", "frozen HTTP", "connected HTTP"} {
 		t.Run(route, func(t *testing.T) {
-			f := repairM983Open(t)
+			f := squadPersistenceOpen(t)
 			ctx := context.Background()
 			owner, recipient := uuid.NewString(), uuid.NewString()
 			q := f.create(owner, "invite")
@@ -437,8 +437,8 @@ func TestRepairM_983_invite_revision_race(t *testing.T) {
 	}
 }
 
-func TestRepairM_983_join_registry_signature(t *testing.T) {
-	f := repairM983Open(t)
+func TestJoinRegistrySignature(t *testing.T) {
+	f := squadPersistenceOpen(t)
 	ctx := context.Background()
 	owner, applicant, httpApplicant := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	q := f.create(owner, "request")
@@ -494,8 +494,8 @@ func TestRepairM_983_join_registry_signature(t *testing.T) {
 	}
 }
 
-func TestRepairM_983_squad_boundary_tests(t *testing.T) {
-	f := repairM983Open(t)
+func TestSquadBoundaryTests(t *testing.T) {
+	f := squadPersistenceOpen(t)
 	assertSquadTextBoundaries(t, f.store)
 	owner := uuid.NewString()
 	for _, symbol := range []string{"a", "é", "🛰"} {
@@ -517,8 +517,8 @@ func TestRepairM_983_squad_boundary_tests(t *testing.T) {
 	}
 }
 
-func TestRepairM_983_squad_revision_test_fixture(t *testing.T) {
-	f := repairM983Open(t)
+func TestSquadRevisionTestFixture(t *testing.T) {
+	f := squadPersistenceOpen(t)
 	ctx := context.Background()
 	owner, applicant := uuid.NewString(), uuid.NewString()
 	q := f.create(owner, "request")
@@ -570,12 +570,12 @@ func TestRepairM_983_squad_revision_test_fixture(t *testing.T) {
 
 // Publisher is the committed loopback transport peer. Runtime.PublishBatch and
 // Store.DeleteAccount remain the production components under test.
-type repairM983Publisher struct {
+type squadPersistencePublisher struct {
 	client *http.Client
 	url    string
 }
 
-func (p repairM983Publisher) Publish(ctx context.Context, kind, id string, body json.RawMessage) error {
+func (p squadPersistencePublisher) Publish(ctx context.Context, kind, id string, body json.RawMessage) error {
 	req, err := http.NewRequestWithContext(ctx, "POST", p.url, bytes.NewReader(body))
 	if err != nil {
 		return err
@@ -593,15 +593,15 @@ func (p repairM983Publisher) Publish(ctx context.Context, kind, id string, body 
 	return nil
 }
 
-func TestRepairM_983_deleted_actor_outbox(t *testing.T) {
-	f := repairM983Open(t)
+func TestDeletedActorOutbox(t *testing.T) {
+	f := squadPersistenceOpen(t)
 	ctx := context.Background()
 	actor, otherActor := uuid.NewString(), uuid.NewString()
 	created := time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
 	var ids []string
 	// Produce events through the exact persistence path shared by Publish/Edit.
 	for _, author := range []string{actor, actor, otherActor} {
-		c := Callout{ID: uuid.NewString(), AuthorAccountID: author, PoolAddress: repair46Wallet, Body: "Private old body", Direction: "bullish", Disclosure: "none", ModerationStatus: "approved", PositionDisclosure: "private position", CreatedAt: created, Revision: 1}
+		c := Callout{ID: uuid.NewString(), AuthorAccountID: author, PoolAddress: squadAlertWallet, Body: "Private old body", Direction: "bullish", Disclosure: "none", ModerationStatus: "approved", PositionDisclosure: "private position", CreatedAt: created, Revision: 1}
 		if err := f.store.transaction(ctx, func(tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, `INSERT INTO narrative_discovery.callouts(id,document)VALUES($1,$2)`, c.ID, encode(c)); err != nil {
 				return err
@@ -698,7 +698,7 @@ func TestRepairM_983_deleted_actor_outbox(t *testing.T) {
 		w.WriteHeader(204)
 	}))
 	defer consumer.Close()
-	publisher := repairM983Publisher{consumer.Client(), consumer.URL}
+	publisher := squadPersistencePublisher{consumer.Client(), consumer.URL}
 	if n, err := (Runtime{Store: f.store, Publisher: publisher}).PublishBatch(ctx, 100); err == nil || n != 0 {
 		t.Fatalf("failed transport acknowledged: %d %v", n, err)
 	}
@@ -717,7 +717,7 @@ func TestRepairM_983_deleted_actor_outbox(t *testing.T) {
 	}
 }
 
-func TestRepairM_983_missing_interface_contract_pages(t *testing.T) {
+func TestMissingInterfaceContractPages(t *testing.T) {
 	// Each affected canonical registry target has an in-scope maintained page
 	// with the same anchor. Registry publication belongs to the contract owner.
 	mapping := map[string]string{
@@ -786,7 +786,7 @@ func TestRepairM_983_missing_interface_contract_pages(t *testing.T) {
 			t.Fatalf("maintained contract omits %s", contract)
 		}
 	}
-	record, err := os.ReadFile("repair_m983.kvx")
+	record, err := os.ReadFile("../../../spec/layerx-merge/programme/records/services/launchpad/discovery/repair_m983.kvx")
 	if err != nil {
 		t.Fatal(err)
 	}

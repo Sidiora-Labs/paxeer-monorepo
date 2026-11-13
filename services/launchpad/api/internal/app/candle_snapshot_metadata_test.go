@@ -22,11 +22,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func TestRepair_22_39_357_candle_page_items_carry_the_page_snapshot(t *testing.T) {
+func TestCandlePageItemsCarryThePageSnapshot(t *testing.T) {
 	ctx := context.Background()
 	dsn, pool := internaltest.NewPostgresWithDSN(t)
 	redisURL := internaltest.NewRedisURL(t)
-	repair314ChartWriterSchema(t, pool)
+	candleDeliveryChartWriterSchema(t, pool)
 	dstApplyIndexerMigration(t, pool, "cursors", "swaps")
 	chain := newDstChain(t)
 	opt, err := redis.ParseURL(redisURL)

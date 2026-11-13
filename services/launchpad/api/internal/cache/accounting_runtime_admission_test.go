@@ -23,9 +23,9 @@ import (
 	redisclient "github.com/redis/go-redis/v9"
 )
 
-const repairM992Pool = "0x1111111111111111111111111111111111111111"
+const runtimeAdmissionPool = "0x1111111111111111111111111111111111111111"
 
-func repairM992Config(t *testing.T, replica int) AccountingRuntimeConfig {
+func runtimeAdmissionConfig(t *testing.T, replica int) AccountingRuntimeConfig {
 	t.Helper()
 	// Closed real clients make every dependency access deterministic and local:
 	// retained public snapshots may use the approved emergency allocation, but
@@ -66,7 +66,7 @@ func repairM992Config(t *testing.T, replica int) AccountingRuntimeConfig {
 	}
 }
 
-func repairM992Runtime(t *testing.T, c AccountingRuntimeConfig) *AccountingRuntime {
+func runtimeAdmissionRuntime(t *testing.T, c AccountingRuntimeConfig) *AccountingRuntime {
 	t.Helper()
 	a, err := NewAccountingRuntime(c)
 	if err != nil {
@@ -76,15 +76,15 @@ func repairM992Runtime(t *testing.T, c AccountingRuntimeConfig) *AccountingRunti
 	return a
 }
 
-func repairM992Seed(t *testing.T, a *AccountingRuntime, candles bool) (string, url.Values) {
+func runtimeAdmissionSeed(t *testing.T, a *AccountingRuntime, candles bool) (string, url.Values) {
 	t.Helper()
-	request := store.AccountingPageRequest{Pool: repairM992Pool, Limit: 50}
+	request := store.AccountingPageRequest{Pool: runtimeAdmissionPool, Limit: 50}
 	route := "accounting_trades"
-	path := "/v2/pools/" + repairM992Pool + "/trades"
+	path := "/v2/pools/" + runtimeAdmissionPool + "/trades"
 	query := url.Values{}
 	if candles {
 		route = "accounting_candles"
-		path = "/v2/pools/" + repairM992Pool + "/candles"
+		path = "/v2/pools/" + runtimeAdmissionPool + "/candles"
 		request.Interval = "1m"
 		request.From = time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
 		request.To = request.From + 60000
@@ -119,7 +119,7 @@ func repairM992Seed(t *testing.T, a *AccountingRuntime, candles bool) (string, u
 	return path, parameters
 }
 
-func repairM992Request(t *testing.T, client *http.Client, path string) (int, http.Header, []byte) {
+func runtimeAdmissionRequest(t *testing.T, client *http.Client, path string) (int, http.Header, []byte) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, path, nil)
 	if err != nil {
@@ -140,11 +140,11 @@ func repairM992Request(t *testing.T, client *http.Client, path string) (int, htt
 	return response.StatusCode, response.Header, value
 }
 
-func TestRepairM_992_MountedReplicaAdmission(t *testing.T) {
+func TestMountedReplicaAdmission(t *testing.T) {
 	admitted, limited := 0, 0
 	for replica := 0; replica < 3; replica++ {
-		a := repairM992Runtime(t, repairM992Config(t, replica))
-		path, _ := repairM992Seed(t, a, false)
+		a := runtimeAdmissionRuntime(t, runtimeAdmissionConfig(t, replica))
+		path, _ := runtimeAdmissionSeed(t, a, false)
 		router := chi.NewRouter()
 		if err := a.bindings.Register(router, a.admission); err != nil {
 			t.Fatal(err)
@@ -152,7 +152,7 @@ func TestRepairM_992_MountedReplicaAdmission(t *testing.T) {
 		server := httptest.NewServer(router)
 		t.Cleanup(server.Close)
 		for i := 0; i < 5; i++ {
-			status, headers, body := repairM992Request(t, server.Client(), server.URL+path)
+			status, headers, body := runtimeAdmissionRequest(t, server.Client(), server.URL+path)
 			switch status {
 			case 200:
 				admitted++
@@ -185,16 +185,16 @@ func TestRepairM_992_MountedReplicaAdmission(t *testing.T) {
 	}
 }
 
-func TestRepairM_992_MountedCodecAndScope(t *testing.T) {
-	a := repairM992Runtime(t, repairM992Config(t, 0))
-	path, _ := repairM992Seed(t, a, true)
+func TestMountedCodecAndScope(t *testing.T) {
+	a := runtimeAdmissionRuntime(t, runtimeAdmissionConfig(t, 0))
+	path, _ := runtimeAdmissionSeed(t, a, true)
 	router := chi.NewRouter()
 	if err := a.bindings.Register(router, a.admission); err != nil {
 		t.Fatal(err)
 	}
 	server := httptest.NewServer(router)
 	defer server.Close()
-	status, _, body := repairM992Request(t, server.Client(), server.URL+path)
+	status, _, body := runtimeAdmissionRequest(t, server.Client(), server.URL+path)
 	if status != 200 || interfaces.ValidateJSON("CandlesResponse", body) != nil {
 		t.Fatalf("real codec/binding mismatch: %d %s", status, body)
 	}
@@ -203,7 +203,7 @@ func TestRepairM_992_MountedCodecAndScope(t *testing.T) {
 		status int
 		code   string
 	}{{"&wallet=secret", 422, "FIELD_INVALID"}, {"&limit=1&limit=2", 400, "QUERY_INVALID"}, {"&cursor=invalid", 400, "CURSOR_INVALID"}} {
-		status, _, body = repairM992Request(t, server.Client(), server.URL+path+invalid.suffix)
+		status, _, body = runtimeAdmissionRequest(t, server.Client(), server.URL+path+invalid.suffix)
 		if status != invalid.status {
 			t.Fatalf("invalid request reached cache: %d %s", status, body)
 		}
@@ -221,51 +221,51 @@ func TestRepairM_992_MountedCodecAndScope(t *testing.T) {
 	}
 }
 
-func TestRepairM_992_InvalidationAndRestartRefuseOldSnapshot(t *testing.T) {
-	c := repairM992Config(t, 0)
+func TestInvalidationAndRestartRefuseOldSnapshot(t *testing.T) {
+	c := runtimeAdmissionConfig(t, 0)
 	c.Adapter.Emergency.AggregateLimit = 100
-	a := repairM992Runtime(t, c)
-	path, parameters := repairM992Seed(t, a, false)
+	a := runtimeAdmissionRuntime(t, c)
+	path, parameters := runtimeAdmissionSeed(t, a, false)
 	router := chi.NewRouter()
 	if err := a.bindings.Register(router, a.admission); err != nil {
 		t.Fatal(err)
 	}
 	server := httptest.NewServer(router)
 	defer server.Close()
-	status, _, _ := repairM992Request(t, server.Client(), server.URL+path)
+	status, _, _ := runtimeAdmissionRequest(t, server.Client(), server.URL+path)
 	if status != 200 {
 		t.Fatal("retained snapshot unavailable before invalidation", status)
 	}
 	if err := a.adapter.Invalidate(context.Background(), "accounting_trades", parameters, VerifiedScope{}, "g1", "2"); !errors.Is(err, redisclient.ErrClosed) {
 		t.Fatal("unavailable shared fence was acknowledged", err)
 	}
-	status, _, body := repairM992Request(t, server.Client(), server.URL+path)
+	status, _, body := runtimeAdmissionRequest(t, server.Client(), server.URL+path)
 	if status != 503 || !strings.Contains(string(body), "DEPENDENCY_UNAVAILABLE") {
 		t.Fatalf("invalidated snapshot resurrected: %d %s", status, body)
 	}
 	a.Close()
-	reopened := repairM992Runtime(t, c)
+	reopened := runtimeAdmissionRuntime(t, c)
 	restartedRouter := chi.NewRouter()
 	if err := reopened.bindings.Register(restartedRouter, reopened.admission); err != nil {
 		t.Fatal(err)
 	}
 	restarted := httptest.NewServer(restartedRouter)
 	defer restarted.Close()
-	status, _, body = repairM992Request(t, restarted.Client(), restarted.URL+path)
+	status, _, body = runtimeAdmissionRequest(t, restarted.Client(), restarted.URL+path)
 	if status != 503 || !strings.Contains(string(body), "DEPENDENCY_UNAVAILABLE") {
 		t.Fatalf("restart served unverified old state: %d %s", status, body)
 	}
 }
 
-func TestRepairM_992_ConsumerLifecycleRefusal(t *testing.T) {
-	a := repairM992Runtime(t, repairM992Config(t, 0))
+func TestConsumerLifecycleRefusal(t *testing.T) {
+	a := runtimeAdmissionRuntime(t, runtimeAdmissionConfig(t, 0))
 	router := chi.NewRouter()
 	if err := a.Mount(router); err != nil {
 		t.Fatal(err)
 	}
 	server := httptest.NewServer(router)
 	defer server.Close()
-	path, _ := repairM992Seed(t, a, false)
+	path, _ := runtimeAdmissionSeed(t, a, false)
 	if err := a.Start(context.Background(), nil); err == nil {
 		t.Fatal("missing actual broker accepted")
 	}
@@ -276,7 +276,7 @@ func TestRepairM_992_ConsumerLifecycleRefusal(t *testing.T) {
 		t.Fatal("invented broker position admitted")
 	}
 	for i := 0; i < 2; i++ {
-		status, _, body := repairM992Request(t, server.Client(), server.URL+path)
+		status, _, body := runtimeAdmissionRequest(t, server.Client(), server.URL+path)
 		if status != 503 || !strings.Contains(string(body), "DEPENDENCY_UNAVAILABLE") {
 			t.Fatalf("route served without live invalidation consumer: %d %s", status, body)
 		}
@@ -290,7 +290,7 @@ func TestRepairM_992_ConsumerLifecycleRefusal(t *testing.T) {
 	}
 }
 
-func TestRepairM_992_RejectUnboundAllocations(t *testing.T) {
+func TestRejectUnboundAllocations(t *testing.T) {
 	for _, change := range []func(*AccountingRuntimeConfig){
 		func(c *AccountingRuntimeConfig) { c.Adapter.Budget.Pool = nil },
 		func(c *AccountingRuntimeConfig) { c.Adapter.Budget.Limit = 0 },
@@ -302,7 +302,7 @@ func TestRepairM_992_RejectUnboundAllocations(t *testing.T) {
 		func(c *AccountingRuntimeConfig) { c.MarketConsumer.Batch = 0 },
 		func(c *AccountingRuntimeConfig) { c.Admission = nil },
 	} {
-		c := repairM992Config(t, 0)
+		c := runtimeAdmissionConfig(t, 0)
 		change(&c)
 		if a, err := NewAccountingRuntime(c); err == nil || a != nil {
 			t.Fatal("unbound runtime accepted")
