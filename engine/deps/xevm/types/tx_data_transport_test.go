@@ -16,13 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair96Transaction struct {
+type registeredTransactionFixture struct {
 	name string
 	data ethtx.TxData
 	eth  *ethtypes.Transaction
 }
 
-func repair96Transactions(t *testing.T) []repair96Transaction {
+func registeredTransactionFixtures(t *testing.T) []registeredTransactionFixture {
 	t.Helper()
 	chainID := big.NewInt(125)
 	to := common.HexToAddress("0x1122334455667788990011223344556677889900")
@@ -75,7 +75,7 @@ func repair96Transactions(t *testing.T) []repair96Transaction {
 			AuthList: []ethtypes.SetCodeAuthorization{auth, secondAuth},
 		}},
 	}
-	transactions := make([]repair96Transaction, 0, 6)
+	transactions := make([]registeredTransactionFixture, 0, 6)
 	for _, input := range inputs {
 		var signed *ethtypes.Transaction
 		// Use a nonzero recovery parity so every signature field is populated on the wire.
@@ -93,14 +93,14 @@ func repair96Transactions(t *testing.T) []repair96Transaction {
 		}
 		txData, err := ethtx.NewTxDataFromTx(signed)
 		require.NoError(t, err)
-		transactions = append(transactions, repair96Transaction{input.name, txData, signed})
+		transactions = append(transactions, registeredTransactionFixture{input.name, txData, signed})
 	}
 	associate, err := ethtx.NewAssociateTx(transactions[0].eth, "repair 96 association")
 	require.NoError(t, err)
-	return append(transactions, repair96Transaction{"AssociateTx", associate, nil})
+	return append(transactions, registeredTransactionFixture{"AssociateTx", associate, nil})
 }
 
-func repair96Transport(t *testing.T, packed *codectypes.Any) *codectypes.Any {
+func transportTxDataAny(t *testing.T, packed *codectypes.Any) *codectypes.Any {
 	t.Helper()
 	wire, err := proto.Marshal(packed)
 	require.NoError(t, err)
@@ -112,11 +112,11 @@ func repair96Transport(t *testing.T, packed *codectypes.Any) *codectypes.Any {
 	return &transported
 }
 
-func TestRepair_96_RegisteredTransactionRoundTrip(t *testing.T) {
+func TestTxDataRegisteredTransactionRoundTrip(t *testing.T) {
 	registry := codectypes.NewInterfaceRegistry()
 	types.RegisterInterfaces(registry)
 	registered := registry.ListImplementations("paxprotocol.paxchain.gigaevm.TxData")
-	transactions := repair96Transactions(t)
+	transactions := registeredTransactionFixtures(t)
 	require.Len(t, registered, len(transactions))
 	for _, transaction := range transactions {
 		t.Run(transaction.name, func(t *testing.T) {
@@ -126,7 +126,7 @@ func TestRepair_96_RegisteredTransactionRoundTrip(t *testing.T) {
 			cached, err := types.UnpackTxData(packed)
 			require.NoError(t, err)
 			require.Same(t, transaction.data, cached)
-			transported := repair96Transport(t, packed)
+			transported := transportTxDataAny(t, packed)
 			decoded, err := types.UnpackTxData(transported)
 			require.NoError(t, err)
 			require.IsType(t, transaction.data, decoded)
@@ -155,7 +155,7 @@ func TestRepair_96_RegisteredTransactionRoundTrip(t *testing.T) {
 	}
 }
 
-func TestRepair_96_RejectUnknownAndMismatchedURLs(t *testing.T) {
+func TestTxDataRejectUnknownAndMismatchedURLs(t *testing.T) {
 	decoded, err := types.UnpackTxData(nil)
 	require.Error(t, err)
 	require.Nil(t, decoded)
@@ -165,13 +165,13 @@ func TestRepair_96_RejectUnknownAndMismatchedURLs(t *testing.T) {
 	decoded, err = types.UnpackTxData(foreignCache)
 	require.Error(t, err)
 	require.Nil(t, decoded)
-	for _, transaction := range repair96Transactions(t) {
+	for _, transaction := range registeredTransactionFixtures(t) {
 		t.Run(transaction.name, func(t *testing.T) {
 			packed, err := types.PackTxData(transaction.data)
 			require.NoError(t, err)
 			correctURL := packed.TypeUrl
 			if transaction.name == "LegacyTx" {
-				mismatched := repair96Transport(t, packed)
+				mismatched := transportTxDataAny(t, packed)
 				mismatched.TypeUrl = "/" + proto.MessageName(&ethtx.SetCodeTx{})
 				decoded, err := types.UnpackTxData(mismatched)
 				require.Error(t, err)
@@ -179,7 +179,7 @@ func TestRepair_96_RejectUnknownAndMismatchedURLs(t *testing.T) {
 			}
 			for _, url := range []string{"", "/unknown.TxData", "/" + proto.MessageName(&types.MsgEVMTransaction{}), "type.googleapis.com" + correctURL} {
 				packed.TypeUrl = url
-				for _, any := range []*codectypes.Any{packed, repair96Transport(t, packed)} {
+				for _, any := range []*codectypes.Any{packed, transportTxDataAny(t, packed)} {
 					decoded, err := types.UnpackTxData(any)
 					require.Error(t, err, "URL %q must be rejected", url)
 					require.Nil(t, decoded)
@@ -201,12 +201,12 @@ func TestRepair_96_RejectUnknownAndMismatchedURLs(t *testing.T) {
 	}
 }
 
-func TestRepair_96_RejectMalformedPayload(t *testing.T) {
-	for _, transaction := range repair96Transactions(t) {
+func TestTxDataRejectMalformedPayload(t *testing.T) {
+	for _, transaction := range registeredTransactionFixtures(t) {
 		t.Run(transaction.name, func(t *testing.T) {
 			packed, err := types.PackTxData(transaction.data)
 			require.NoError(t, err)
-			transported := repair96Transport(t, packed)
+			transported := transportTxDataAny(t, packed)
 			transported.Value = append(transported.Value, 0x80)
 			decoded, err := types.UnpackTxData(transported)
 			require.Error(t, err)

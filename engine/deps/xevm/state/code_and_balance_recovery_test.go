@@ -34,14 +34,14 @@ import (
 	tmdb "github.com/tendermint/tm-db"
 )
 
-type repair95Keeper struct {
+type stateRecoveryKeeper struct {
 	k      *evmkeeper.Keeper
 	ctx    sdk.Context
 	root   *rootmulti.Store
 	closed bool
 }
 
-func openRepair95Keeper(t *testing.T, dir string) *repair95Keeper {
+func openStateRecoveryKeeper(t *testing.T, dir string) *stateRecoveryKeeper {
 	t.Helper()
 	backing, err := tmdb.NewDB("repair95", tmdb.GoLevelDBBackend, dir)
 	require.NoError(t, err)
@@ -78,12 +78,12 @@ func openRepair95Keeper(t *testing.T, dir string) *repair95Keeper {
 	k := evmkeeper.NewKeeper(evmKey, transientKey, subspace("evm"), nil, bk, &ak, nil, transferkeeper.Keeper{}, nil, nil, nil)
 	bk.RegisterRecipientChecker(k.CanAddressReceive)
 	k.SetAddressMapping(ctx, ak.GetModuleAddress(authtypes.FeeCollectorName), evmkeeper.GetCoinbaseAddress())
-	h := &repair95Keeper{k: k, ctx: ctx, root: root}
+	h := &stateRecoveryKeeper{k: k, ctx: ctx, root: root}
 	t.Cleanup(func() { h.close(t) })
 	return h
 }
 
-func (h *repair95Keeper) close(t *testing.T) {
+func (h *stateRecoveryKeeper) close(t *testing.T) {
 	t.Helper()
 	if !h.closed {
 		require.NoError(t, h.root.Close())
@@ -91,7 +91,7 @@ func (h *repair95Keeper) close(t *testing.T) {
 	}
 }
 
-func (h *repair95Keeper) commit(t *testing.T, db *state.DBImpl) {
+func (h *stateRecoveryKeeper) commit(t *testing.T, db *state.DBImpl) {
 	t.Helper()
 	_, err := db.Finalize()
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func (h *repair95Keeper) commit(t *testing.T, db *state.DBImpl) {
 	db.Cleanup()
 }
 
-func newRepair95EVM(db vm.StateDB) *vm.EVM {
+func newStateRecoveryEVM(db vm.StateDB) *vm.EVM {
 	return vm.NewEVM(vm.BlockContext{
 		CanTransfer: core.CanTransfer, Transfer: core.Transfer,
 		BlockNumber: big.NewInt(1), Time: 1, GasLimit: 1_000_000,
@@ -109,21 +109,21 @@ func newRepair95EVM(db vm.StateDB) *vm.EVM {
 	}, db, params.AllEthashProtocolChanges, vm.Config{}, nil)
 }
 
-func repair95CodeHash(t *testing.T, db *state.DBImpl, target common.Address) common.Hash {
+func executeCodeHashProbe(t *testing.T, db *state.DBImpl, target common.Address) common.Hash {
 	t.Helper()
 	probe := common.HexToAddress("0x9501")
 	code := append([]byte{byte(vm.PUSH20)}, target.Bytes()...)
 	code = append(code, byte(vm.EXTCODEHASH), byte(vm.PUSH1), 0, byte(vm.MSTORE),
 		byte(vm.PUSH1), 32, byte(vm.PUSH1), 0, byte(vm.RETURN))
 	db.SetCode(probe, code)
-	result, _, err := newRepair95EVM(db).Call(common.HexToAddress("0x9502"), probe, nil, 100_000, new(uint256.Int))
+	result, _, err := newStateRecoveryEVM(db).Call(common.HexToAddress("0x9502"), probe, nil, 100_000, new(uint256.Int))
 	require.NoError(t, err)
 	require.NoError(t, db.Err())
 	require.Len(t, result, 32)
 	return common.BytesToHash(result)
 }
 
-func repair95CallGas(t *testing.T, db *state.DBImpl, target common.Address) uint64 {
+func executeCallGasProbe(t *testing.T, db *state.DBImpl, target common.Address) uint64 {
 	t.Helper()
 	probe := common.HexToAddress("0x9503")
 	// CALL with value 1 and no input/output, returning its success word.
@@ -135,16 +135,16 @@ func repair95CallGas(t *testing.T, db *state.DBImpl, target common.Address) uint
 	db.AddBalance(probe, uint256.NewInt(10), tracing.BalanceChangeUnspecified)
 	db.AddAddressToAccessList(target)
 	const gas = uint64(100_000)
-	result, left, err := newRepair95EVM(db).Call(common.HexToAddress("0x9502"), probe, nil, gas, new(uint256.Int))
+	result, left, err := newStateRecoveryEVM(db).Call(common.HexToAddress("0x9502"), probe, nil, gas, new(uint256.Int))
 	require.NoError(t, err)
 	require.NoError(t, db.Err())
 	require.Equal(t, common.BigToHash(big.NewInt(1)).Bytes(), result)
 	return gas - left
 }
 
-func TestRepair_95_010_EmptyCodeAndGethReopen(t *testing.T) {
+func TestStateRecoveryEmptyCodeAndGethReopen(t *testing.T) {
 	dir := t.TempDir()
-	h := openRepair95Keeper(t, dir)
+	h := openStateRecoveryKeeper(t, dir)
 	db := state.NewDBImpl(h.ctx, h.k, false)
 	nilCode := common.HexToAddress("0x9510")
 	cleared := common.HexToAddress("0x9511")
@@ -162,7 +162,7 @@ func TestRepair_95_010_EmptyCodeAndGethReopen(t *testing.T) {
 	db.SetNonce(withNonce, 1, tracing.NonceChangeUnspecified)
 	db.SetCode(withCode, []byte{byte(vm.STOP)})
 	creator := common.HexToAddress("0x9516")
-	code, deployed, _, err := newRepair95EVM(db).Create(creator,
+	code, deployed, _, err := newStateRecoveryEVM(db).Create(creator,
 		[]byte{byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.RETURN)}, 100_000, new(uint256.Int))
 	require.NoError(t, err)
 	require.Empty(t, code)
@@ -172,7 +172,7 @@ func TestRepair_95_010_EmptyCodeAndGethReopen(t *testing.T) {
 	require.Equal(t, gethtypes.EmptyCodeHash, db.GetCodeHash(deployed))
 	h.commit(t, db)
 	h.close(t)
-	h = openRepair95Keeper(t, dir)
+	h = openStateRecoveryKeeper(t, dir)
 	db = state.NewDBImpl(h.ctx, h.k, false)
 	for _, target := range []common.Address{nilCode, cleared, absent} {
 		require.True(t, db.Empty(target), target.Hex())
@@ -182,17 +182,17 @@ func TestRepair_95_010_EmptyCodeAndGethReopen(t *testing.T) {
 			require.Equal(t, gethtypes.EmptyCodeHash, h.k.GetCodeHash(db.Ctx(), target))
 			require.True(t, db.Exist(target))
 		}
-		require.Equal(t, common.Hash{}, repair95CodeHash(t, db, target))
+		require.Equal(t, common.Hash{}, executeCodeHashProbe(t, db, target))
 	}
 	for _, target := range []common.Address{withBalance, withNonce, deployed} {
 		require.False(t, db.Empty(target), target.Hex())
-		require.Equal(t, gethtypes.EmptyCodeHash, repair95CodeHash(t, db, target))
+		require.Equal(t, gethtypes.EmptyCodeHash, executeCodeHashProbe(t, db, target))
 	}
 	require.False(t, db.Empty(withCode))
-	require.Equal(t, crypto.Keccak256Hash([]byte{byte(vm.STOP)}), repair95CodeHash(t, db, withCode))
+	require.Equal(t, crypto.Keccak256Hash([]byte{byte(vm.STOP)}), executeCodeHashProbe(t, db, withCode))
 	for _, target := range []common.Address{nilCode, cleared, absent, deployed, withCode} {
 		snapshot := db.Snapshot()
-		used := repair95CallGas(t, db, target)
+		used := executeCallGasProbe(t, db, target)
 		// Seven pushes, warm CALL, value transfer, stipend refund, and return/memory.
 		want := uint64(7*3 + params.WarmStorageReadCostEIP2929 + params.CallValueTransferGas - params.CallStipend + 15)
 		if target == nilCode || target == cleared || target == absent {
@@ -207,14 +207,14 @@ func TestRepair_95_010_EmptyCodeAndGethReopen(t *testing.T) {
 	require.True(t, db.Empty(cleared))
 }
 
-func TestRepair_95_011_PreviousBalanceHooksAndRollback(t *testing.T) {
+func TestStateRecoveryPreviousBalanceHooksAndRollback(t *testing.T) {
 	for _, hooked := range []bool{false, true} {
 		name := "StateDB"
 		if hooked {
 			name = "HookedStateDB"
 		}
 		t.Run(name, func(t *testing.T) {
-			h := openRepair95Keeper(t, t.TempDir())
+			h := openStateRecoveryKeeper(t, t.TempDir())
 			addr := common.HexToAddress("0x9520")
 			paxAddr := sdk.AccAddress(addr.Bytes())
 			h.k.SetAddressMapping(h.ctx, paxAddr, addr)

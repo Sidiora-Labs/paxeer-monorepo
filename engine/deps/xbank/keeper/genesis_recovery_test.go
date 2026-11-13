@@ -23,9 +23,9 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-const repairM1125GenesisRefusal = "Giga bank genesis is unsupported; use the canonical bank keeper for initialization and recovery"
+const gigaGenesisRefusal = "Giga bank genesis is unsupported; use the canonical bank keeper for initialization and recovery"
 
-type repairM1125Fixture struct {
+type bankRecoveryFixture struct {
 	bank   bankkeeper.BaseKeeper
 	giga   gigakeeper.BaseKeeper
 	auth   authkeeper.AccountKeeper
@@ -36,7 +36,7 @@ type repairM1125Fixture struct {
 	closed bool
 }
 
-func repairM1125Open(t *testing.T, dir string) *repairM1125Fixture {
+func openBankRecoveryFixture(t *testing.T, dir string) *bankRecoveryFixture {
 	t.Helper()
 	if _, ok := sdk.GetDenomUnit(sdk.DefaultBondDenom); !ok {
 		require.NoError(t, sdk.RegisterDenom(sdk.DefaultBondDenom, sdk.OneDec()))
@@ -71,7 +71,7 @@ func repairM1125Open(t *testing.T, dir string) *repairM1125Fixture {
 	}
 	cache := cachemulti.NewFromKVStore(dbadapter.Store{DB: db}, stores, nil, keys,
 		[]storetypes.StoreKey{bankKey}, nil, nil, 0)
-	f := &repairM1125Fixture{
+	f := &bankRecoveryFixture{
 		bank: bk, giga: gk, auth: ak, store: cms, cache: cache, cdc: cdc,
 		ctx: sdk.NewContext(cms, tmproto.Header{Height: 1, Time: time.Unix(1, 0)}, false),
 	}
@@ -79,7 +79,7 @@ func repairM1125Open(t *testing.T, dir string) *repairM1125Fixture {
 	return f
 }
 
-func (f *repairM1125Fixture) close(t *testing.T) {
+func (f *bankRecoveryFixture) close(t *testing.T) {
 	t.Helper()
 	if !f.closed {
 		f.cache.Close()
@@ -88,13 +88,13 @@ func (f *repairM1125Fixture) close(t *testing.T) {
 	}
 }
 
-func repairM1125Addresses() (sdk.AccAddress, sdk.AccAddress) {
+func bankRecoveryAddresses() (sdk.AccAddress, sdk.AccAddress) {
 	return sdk.AccAddress([]byte("recovery_sender_____")), sdk.AccAddress([]byte("recovery_recipient__"))
 }
 
-func repairM1125Seed(t *testing.T, f *repairM1125Fixture) {
+func seedBankRecoveryFixture(t *testing.T, f *bankRecoveryFixture) {
 	t.Helper()
-	from, to := repairM1125Addresses()
+	from, to := bankRecoveryAddresses()
 	f.auth.SetParams(f.ctx, authtypes.DefaultParams())
 	for _, addr := range []sdk.AccAddress{from, to} {
 		f.auth.SetAccount(f.ctx, f.auth.NewAccountWithAddress(f.ctx, addr))
@@ -115,9 +115,9 @@ func repairM1125Seed(t *testing.T, f *repairM1125Fixture) {
 	f.bank.InitGenesis(f.ctx, genesis)
 }
 
-func repairM1125AssertRecovered(t *testing.T, f *repairM1125Fixture) {
+func assertBankRecovered(t *testing.T, f *bankRecoveryFixture) {
 	t.Helper()
-	from, to := repairM1125Addresses()
+	from, to := bankRecoveryAddresses()
 	ctx := f.ctx.WithMultiStore(f.cache)
 	require.Equal(t, f.bank.GetParams(f.ctx), f.giga.GetParams(ctx))
 	require.False(t, f.giga.GetParams(ctx).DefaultSendEnabled)
@@ -138,47 +138,47 @@ func repairM1125AssertRecovered(t *testing.T, f *repairM1125Fixture) {
 	require.Equal(t, "recovered metadata", metadata.Description)
 }
 
-func TestRepairM_1125_GenesisRefusalAndRestartRecovery(t *testing.T) {
+func TestBankRecoveryGenesisRefusalAndRestartRecovery(t *testing.T) {
 	dir := t.TempDir()
-	source := repairM1125Open(t, dir)
-	repairM1125Seed(t, source)
+	source := openBankRecoveryFixture(t, dir)
+	seedBankRecoveryFixture(t, source)
 	before := source.bank.ExportGenesis(source.ctx)
 	for _, regular := range []bool{false, true} {
 		giga := source.giga
 		giga.UseRegularStore = regular
 		ctx := source.ctx.WithMultiStore(source.cache)
-		require.PanicsWithValue(t, repairM1125GenesisRefusal, func() { giga.InitGenesis(ctx, gigatypes.DefaultGenesisState()) })
-		require.PanicsWithValue(t, repairM1125GenesisRefusal, func() { giga.InitGenesis(ctx, nil) })
-		require.PanicsWithValue(t, repairM1125GenesisRefusal, func() { giga.ExportGenesis(ctx) })
+		require.PanicsWithValue(t, gigaGenesisRefusal, func() { giga.InitGenesis(ctx, gigatypes.DefaultGenesisState()) })
+		require.PanicsWithValue(t, gigaGenesisRefusal, func() { giga.InitGenesis(ctx, nil) })
+		require.PanicsWithValue(t, gigaGenesisRefusal, func() { giga.ExportGenesis(ctx) })
 		require.Equal(t, before, source.bank.ExportGenesis(source.ctx))
-		repairM1125AssertRecovered(t, source)
+		assertBankRecovered(t, source)
 	}
 	// The supported producer emits the transport consumed by fresh bank genesis.
 	transport := source.cdc.MustMarshalJSON(before)
 	require.EqualValues(t, 1, source.store.Commit(true).Version)
 	source.close(t)
-	reopened := repairM1125Open(t, dir)
+	reopened := openBankRecoveryFixture(t, dir)
 	require.Equal(t, before, reopened.bank.ExportGenesis(reopened.ctx))
-	repairM1125AssertRecovered(t, reopened)
+	assertBankRecovered(t, reopened)
 	reopened.close(t)
 
 	freshDir := t.TempDir()
-	fresh := repairM1125Open(t, freshDir)
+	fresh := openBankRecoveryFixture(t, freshDir)
 	var recovered banktypes.GenesisState
 	require.NoError(t, fresh.cdc.UnmarshalAsJSON(transport, &recovered))
 	fresh.bank.InitGenesis(fresh.ctx, &recovered)
 	require.Equal(t, before, fresh.bank.ExportGenesis(fresh.ctx))
 	require.EqualValues(t, 1, fresh.store.Commit(true).Version)
 	fresh.close(t)
-	restarted := repairM1125Open(t, freshDir)
+	restarted := openBankRecoveryFixture(t, freshDir)
 	require.Equal(t, before, restarted.bank.ExportGenesis(restarted.ctx))
-	repairM1125AssertRecovered(t, restarted)
+	assertBankRecovered(t, restarted)
 }
 
-func TestRepairM_1125_GigaViewAndTrace(t *testing.T) {
+func TestBankRecoveryGigaViewAndTrace(t *testing.T) {
 	TestGigaBankKeeperViewAndTrace(t)
 }
 
-func TestRepairM_1125_CanonicalViewAndTrace(t *testing.T) {
+func TestBankRecoveryCanonicalViewAndTrace(t *testing.T) {
 	TestCanonicalBankKeeperViewAndTrace(t)
 }

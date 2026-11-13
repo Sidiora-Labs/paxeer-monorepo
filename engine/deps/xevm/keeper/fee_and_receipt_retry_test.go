@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newRepairM1130Keeper(t *testing.T) (*evmkeeper.Keeper, sdk.Context) {
+func newFeeAndReceiptKeeper(t *testing.T) (*evmkeeper.Keeper, sdk.Context) {
 	t.Helper()
 	key := sdk.NewKVStoreKey("repair_m1130")
 	tkey := sdk.NewTransientStoreKey("repair_m1130_transient")
@@ -38,7 +38,7 @@ func newRepairM1130Keeper(t *testing.T) (*evmkeeper.Keeper, sdk.Context) {
 	return k, ctx
 }
 
-func clearRepairM1130MinimumFee(t *testing.T, k *evmkeeper.Keeper, ctx sdk.Context) {
+func clearMinimumFeeParameter(t *testing.T, k *evmkeeper.Keeper, ctx sdk.Context) {
 	t.Helper()
 	key := append([]byte(k.Paramstore.Name()+"/"), types.KeyMinFeePerGas...)
 	ctx.KVStore(k.GetStoreKey()).Delete(key)
@@ -46,13 +46,13 @@ func clearRepairM1130MinimumFee(t *testing.T, k *evmkeeper.Keeper, ctx sdk.Conte
 	require.True(t, k.GetMinimumFeePerGas(ctx).IsNil())
 }
 
-func TestRepairM_1130_NilMinimumFeeFixtures(t *testing.T) {
+func TestKeeperNilMinimumFeeFixtures(t *testing.T) {
 	t.Run("dynamic fee", TestGetDynamicBaseFeePerGasWithNilMinFee)
 	t.Run("previous block fee", TestGetPrevBlockBaseFeePerGasWithNilMinFee)
 }
 
-func TestRepairM_1130_ConfiguredMinimumFee(t *testing.T) {
-	k, ctx := newRepairM1130Keeper(t)
+func TestKeeperConfiguredMinimumFee(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
 	minimum := sdk.NewDec(123)
 	k.Paramstore.Set(ctx, types.KeyMinFeePerGas, minimum)
 	k.SetCurrBaseFeePerGas(ctx, sdk.NewDec(456))
@@ -65,8 +65,8 @@ func TestRepairM_1130_ConfiguredMinimumFee(t *testing.T) {
 	require.Equal(t, stored, k.GetNextBaseFeePerGas(ctx))
 }
 
-func TestRepairM_1130_InvalidAttempts(t *testing.T) {
-	k, ctx := newRepairM1130Keeper(t)
+func TestReceiptRetryInvalidAttempts(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
 	hash := common.HexToHash("0x1130")
 	require.NoError(t, k.ReceiptStore().SetReceipts(ctx, []receipts.ReceiptRecord{{
 		TxHash: hash, Receipt: &evmtypes.Receipt{TxHashHex: hash.Hex(), Status: 1},
@@ -78,8 +78,8 @@ func TestRepairM_1130_InvalidAttempts(t *testing.T) {
 	}
 }
 
-func TestRepairM_1130_MissingReceipt(t *testing.T) {
-	k, ctx := newRepairM1130Keeper(t)
+func TestReceiptRetryMissingReceipt(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
 	hash := common.HexToHash("0x1131")
 	r, err := k.ReceiptStore().GetReceipt(ctx, hash)
 	require.ErrorIs(t, err, receipts.ErrNotFound)
@@ -91,8 +91,8 @@ func TestRepairM_1130_MissingReceipt(t *testing.T) {
 	}
 }
 
-func TestRepairM_1130_StoreFailure(t *testing.T) {
-	k, ctx := newRepairM1130Keeper(t)
+func TestReceiptRetryStoreFailure(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
 	hash := common.HexToHash("0x1132")
 	// An incomplete protobuf varint exercises the configured store's decode error.
 	require.NoError(t, k.ReceiptStore().SetReceipts(ctx, []receipts.ReceiptRecord{{
@@ -113,8 +113,8 @@ func TestRepairM_1130_StoreFailure(t *testing.T) {
 	require.Less(t, time.Since(started), 200*time.Millisecond)
 }
 
-func TestRepairM_1130_ReceiptAvailableAfterRetry(t *testing.T) {
-	k, ctx := newRepairM1130Keeper(t)
+func TestReceiptRetryReceiptAvailableAfterRetry(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
 	hash := common.HexToHash("0x1133")
 	expected := &evmtypes.Receipt{TxHashHex: hash.Hex(), Status: 1, GasUsed: 21000, BlockNumber: 1}
 	_, err := k.GetReceipt(ctx, hash)
@@ -139,8 +139,8 @@ func TestRepairM_1130_ReceiptAvailableAfterRetry(t *testing.T) {
 	require.Equal(t, r, stored)
 }
 
-func TestRepairM_1130_Cancellation(t *testing.T) {
-	k, ctx := newRepairM1130Keeper(t)
+func TestReceiptRetryCancellation(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
 	hash := common.HexToHash("0x1134")
 	t.Run("during backoff", func(t *testing.T) {
 		_, err := k.GetReceipt(ctx, hash)
@@ -176,8 +176,8 @@ func TestRepairM_1130_Cancellation(t *testing.T) {
 	})
 }
 
-func TestRepairM_1130_LegacyReceipt(t *testing.T) {
-	k, ctx := newRepairM1130Keeper(t)
+func TestReceiptRetryLegacyReceipt(t *testing.T) {
+	k, ctx := newFeeAndReceiptKeeper(t)
 	hash := common.HexToHash("0x1135")
 	expected := &types.Receipt{TxHashHex: hash.Hex(), Status: 1, GasUsed: 42000}
 	bz, err := expected.Marshal()

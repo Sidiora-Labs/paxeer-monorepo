@@ -10,7 +10,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair94Backing(t *testing.T, values map[string]string) types.KVStore {
+func newNestedCacheBacking(t *testing.T, values map[string]string) types.KVStore {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -21,7 +21,7 @@ func repair94Backing(t *testing.T, values map[string]string) types.KVStore {
 	return backing
 }
 
-func repair94AssertState(t *testing.T, store types.KVStore, values map[string]string) {
+func assertNestedCacheState(t *testing.T, store types.KVStore, values map[string]string) {
 	t.Helper()
 	keys := make([]string, 0, len(values))
 	for key := range values {
@@ -39,9 +39,9 @@ func repair94AssertState(t *testing.T, store types.KVStore, values map[string]st
 	}
 }
 
-func repair94Nested(t *testing.T) (types.KVStore, *gigastore.Store, types.CacheKVStore) {
+func newNestedCache(t *testing.T) (types.KVStore, *gigastore.Store, types.CacheKVStore) {
 	t.Helper()
-	backing := repair94Backing(t, map[string]string{
+	backing := newNestedCacheBacking(t, map[string]string{
 		"a": "base-a", "d": "base-d", "m": "base-m", "t": "base-t", "z": "base-z",
 	})
 	key := types.NewKVStoreKey("repair94")
@@ -58,15 +58,15 @@ func repair94Nested(t *testing.T) (types.KVStore, *gigastore.Store, types.CacheK
 	return backing, outer, child
 }
 
-func TestRepair_94_NestedRange(t *testing.T) {
-	backing, outer, child := repair94Nested(t)
+func TestNestedCacheRange(t *testing.T) {
+	backing, outer, child := newNestedCache(t)
 	initial := map[string]string{
 		"a": "base-a", "d": "base-d", "m": "base-m", "t": "base-t", "z": "base-z",
 	}
 	merged := map[string]string{
 		"a": "base-a", "c": "child-c", "m": "child-m", "z": "base-z", "\xff": "child-high",
 	}
-	reference := repair94Backing(t, merged)
+	reference := newNestedCacheBacking(t, merged)
 	checkRanges := func(t *testing.T, store types.KVStore) {
 		t.Helper()
 		for _, tc := range []struct {
@@ -85,11 +85,11 @@ func TestRepair_94_NestedRange(t *testing.T) {
 				require.ElementsMatch(t, tc.want, store.GetAllKeyStrsInRange(tc.start, tc.end))
 			})
 		}
-		repair94AssertState(t, store, merged)
+		assertNestedCacheState(t, store, merged)
 	}
 
-	repair94AssertState(t, backing, initial)
-	repair94AssertState(t, outer, map[string]string{
+	assertNestedCacheState(t, backing, initial)
+	assertNestedCacheState(t, outer, map[string]string{
 		"a": "base-a", "b": "outer-b", "m": "outer-m", "t": "base-t", "z": "base-z",
 	})
 	t.Run("pending", func(t *testing.T) { checkRanges(t, child) })
@@ -98,7 +98,7 @@ func TestRepair_94_NestedRange(t *testing.T) {
 		checkRanges(t, child)
 		checkRanges(t, outer)
 	})
-	repair94AssertState(t, backing, initial)
+	assertNestedCacheState(t, backing, initial)
 	outer.Write()
 	t.Run("outer-written", func(t *testing.T) {
 		checkRanges(t, backing)
@@ -107,7 +107,7 @@ func TestRepair_94_NestedRange(t *testing.T) {
 	})
 }
 
-func TestRepair_94_NestedDeleteAll(t *testing.T) {
+func TestNestedCacheDeleteAll(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		start, end []byte
@@ -119,28 +119,28 @@ func TestRepair_94_NestedDeleteAll(t *testing.T) {
 		{"bounded", []byte("m"), []byte("z"), map[string]string{"a": "base-a", "c": "child-c", "z": "base-z", "\xff": "child-high"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			backing, outer, child := repair94Nested(t)
+			backing, outer, child := newNestedCache(t)
 			merged := map[string]string{
 				"a": "base-a", "c": "child-c", "m": "child-m", "z": "base-z", "\xff": "child-high",
 			}
-			reference := repair94Backing(t, merged)
-			repair94AssertState(t, child, merged)
+			reference := newNestedCacheBacking(t, merged)
+			assertNestedCacheState(t, child, merged)
 			require.NoError(t, reference.DeleteAll(tc.start, tc.end))
 			require.NoError(t, child.DeleteAll(tc.start, tc.end))
-			repair94AssertState(t, reference, tc.remaining)
-			repair94AssertState(t, child, tc.remaining)
-			repair94AssertState(t, outer, map[string]string{
+			assertNestedCacheState(t, reference, tc.remaining)
+			assertNestedCacheState(t, child, tc.remaining)
+			assertNestedCacheState(t, outer, map[string]string{
 				"a": "base-a", "b": "outer-b", "m": "outer-m", "t": "base-t", "z": "base-z",
 			})
 			child.Write()
-			repair94AssertState(t, child, tc.remaining)
-			repair94AssertState(t, outer, tc.remaining)
-			repair94AssertState(t, backing, map[string]string{
+			assertNestedCacheState(t, child, tc.remaining)
+			assertNestedCacheState(t, outer, tc.remaining)
+			assertNestedCacheState(t, backing, map[string]string{
 				"a": "base-a", "d": "base-d", "m": "base-m", "t": "base-t", "z": "base-z",
 			})
 			outer.Write()
-			repair94AssertState(t, backing, tc.remaining)
-			repair94AssertState(t, outer, tc.remaining)
+			assertNestedCacheState(t, backing, tc.remaining)
+			assertNestedCacheState(t, outer, tc.remaining)
 		})
 	}
 }

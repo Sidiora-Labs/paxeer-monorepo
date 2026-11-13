@@ -16,14 +16,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1127_012_EmptyCodeReloadGasAndHash(t *testing.T) {
-	checkEmptyCodeReloadM1127(t)
+func TestStateCodeEmptyCodeReloadGasAndHash(t *testing.T) {
+	checkEmptyCodeReload(t)
 }
 
-func checkEmptyCodeReloadM1127(t *testing.T) {
+func checkEmptyCodeReload(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	h := openRepair95Keeper(t, dir)
+	h := openStateRecoveryKeeper(t, dir)
 	require.False(t, h.k.UseRegularStore, "exercise the Giga adapter")
 	db := state.NewDBImpl(h.ctx, h.k, false)
 	nilCode := common.HexToAddress("0x112701")
@@ -47,7 +47,7 @@ func checkEmptyCodeReloadM1127(t *testing.T) {
 	db.SetNonce(nonce, 1, tracing.NonceChangeUnspecified)
 	db.SetCode(nonempty, []byte{byte(vm.STOP)})
 	creator := common.HexToAddress("0x112708")
-	code, deployed, _, err := newRepair95EVM(db).Create(creator,
+	code, deployed, _, err := newStateRecoveryEVM(db).Create(creator,
 		[]byte{byte(vm.PUSH1), 0, byte(vm.PUSH1), 0, byte(vm.RETURN)},
 		100_000, new(uint256.Int))
 	require.NoError(t, err)
@@ -79,14 +79,14 @@ func checkEmptyCodeReloadM1127(t *testing.T) {
 				t.Run(target.name, func(t *testing.T) {
 					require.Equal(t, target.empty, db.Empty(target.addr))
 					require.Equal(t, target.storedHash, h.k.GetCodeHash(db.Ctx(), target.addr))
-					require.Equal(t, target.vmHash, repair95CodeHash(t, db, target.addr), "real EXTCODEHASH")
+					require.Equal(t, target.vmHash, executeCodeHashProbe(t, db, target.addr), "real EXTCODEHASH")
 					if target.addr != nonempty {
 						require.Empty(t, db.GetCode(target.addr))
 						require.Zero(t, db.GetCodeSize(target.addr))
 					}
 					snapshot := db.Snapshot()
 					before := db.GetBalance(target.addr).ToBig()
-					used := repair95CallGas(t, db, target.addr)
+					used := executeCallGasProbe(t, db, target.addr)
 					// Seven pushes, warm CALL, value transfer, stipend refund,
 					// and the memory/return sequence; EIP-161 adds 25000 for empties.
 					want := uint64(7*3 + params.WarmStorageReadCostEIP2929 + params.CallValueTransferGas - params.CallStipend + 15)
@@ -105,26 +105,26 @@ func checkEmptyCodeReloadM1127(t *testing.T) {
 		if phase == "before close" {
 			h.commit(t, db)
 			h.close(t)
-			h = openRepair95Keeper(t, dir)
+			h = openStateRecoveryKeeper(t, dir)
 			db = state.NewDBImpl(h.ctx, h.k, false)
 		}
 	}
 }
 
-func TestRepairM_1127_013_RefuseRealChainsBeforeFunding(t *testing.T) {
+func TestMockBalancesRefuseRealChainsBeforeFunding(t *testing.T) {
 	for _, chainID := range []string{
 		"hyperpax_125-1", "125", "hyperpax_125-2", "pacific-1",
 		"atlantic-2", "arctic-1", "", "unknown-chain", "test-chain",
 		"mock-balances-local-2", "mock-balances-local-1 ", "MOCK-BALANCES-LOCAL-1",
 	} {
 		t.Run(chainID, func(t *testing.T) {
-			h := openRepair95Keeper(t, t.TempDir())
+			h := openStateRecoveryKeeper(t, t.TempDir())
 			db := state.NewDBImpl(h.ctx.WithChainID(chainID), h.k, false)
 			addr := common.HexToAddress("0x112713")
 			paxAddr := h.k.GetPaxAddressOrDefault(db.Ctx(), addr)
 			bank := h.k.BankKeeper()
 			denom := h.k.GetBaseDenom(db.Ctx())
-			minimum, sufficient := state.RepairM1127MockBalanceHooks(db)
+			minimum, sufficient := state.MockBalanceHooksForTesting(db)
 			for _, hook := range []struct {
 				name string
 				call func()
@@ -150,10 +150,10 @@ func TestRepairM_1127_013_RefuseRealChainsBeforeFunding(t *testing.T) {
 	}
 }
 
-func TestRepairM_1127_013_DisposableChainFunding(t *testing.T) {
-	h := openRepair95Keeper(t, t.TempDir())
+func TestMockBalancesDisposableChainFunding(t *testing.T) {
+	h := openStateRecoveryKeeper(t, t.TempDir())
 	db := state.NewDBImpl(h.ctx.WithChainID("mock-balances-local-1"), h.k, false)
-	minimum, sufficient := state.RepairM1127MockBalanceHooks(db)
+	minimum, sufficient := state.MockBalanceHooksForTesting(db)
 	bank := h.k.BankKeeper()
 	denom := h.k.GetBaseDenom(db.Ctx())
 	topOff := new(big.Int).Mul(big.NewInt(100), big.NewInt(1_000_000_000_000_000_000))
@@ -187,10 +187,10 @@ func TestRepairM_1127_013_DisposableChainFunding(t *testing.T) {
 	require.True(t, bank.GetSupply(db.Ctx(), denom).Amount.Equal(supply), "sufficient funds do not mint again")
 }
 
-func TestRepairM_1127_013_OrdinaryBuildDoesNotFund(t *testing.T) {
+func TestMockBalancesOrdinaryBuildDoesNotFund(t *testing.T) {
 	for _, chainID := range []string{"hyperpax_125-1", "mock-balances-local-1"} {
 		t.Run(chainID, func(t *testing.T) {
-			h := openRepair95Keeper(t, t.TempDir())
+			h := openStateRecoveryKeeper(t, t.TempDir())
 			db := state.NewDBImpl(h.ctx.WithChainID(chainID), h.k, false)
 			addr := common.HexToAddress("0x112716")
 			bank := h.k.BankKeeper()

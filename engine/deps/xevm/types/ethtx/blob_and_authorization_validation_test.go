@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repairM1128Blob(t *testing.T) *ethtypes.Transaction {
+func newSignedBlobTransaction(t *testing.T) *ethtypes.Transaction {
 	t.Helper()
 	key, err := crypto.HexToECDSA("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
@@ -46,7 +46,7 @@ func repairM1128Blob(t *testing.T) *ethtypes.Transaction {
 	return signed
 }
 
-func repairM1128Transport(t *testing.T, data proto.Message, cache bool) *evmtypes.MsgEVMTransaction {
+func transportTransactionMessage(t *testing.T, data proto.Message, cache bool) *evmtypes.MsgEVMTransaction {
 	t.Helper()
 	produced, err := evmtypes.NewMsgEVMTransaction(data)
 	require.NoError(t, err)
@@ -64,13 +64,13 @@ func repairM1128Transport(t *testing.T, data proto.Message, cache bool) *evmtype
 	return &decoded
 }
 
-func repairM1128InvalidMessage(t *testing.T, data ethtx.TxData, field string) {
+func assertInvalidTransactionMessage(t *testing.T, data ethtx.TxData, field string) {
 	t.Helper()
 	produced, err := evmtypes.NewMsgEVMTransaction(data)
 	require.NoError(t, err)
 	require.NotPanics(t, func() { require.ErrorContains(t, produced.ValidateBasic(), field) })
 	for _, cache := range []bool{false, true} {
-		decoded := repairM1128Transport(t, data, cache)
+		decoded := transportTransactionMessage(t, data, cache)
 		require.NotPanics(t, func() { require.ErrorContains(t, decoded.ValidateBasic(), field) })
 		unpacked, err := evmtypes.UnpackTxData(decoded.Data)
 		require.NoError(t, err)
@@ -78,7 +78,7 @@ func repairM1128InvalidMessage(t *testing.T, data ethtx.TxData, field string) {
 	}
 }
 
-func repairM1128SameTransaction(t *testing.T, expected, actual *ethtypes.Transaction, signer ethtypes.Signer) {
+func assertSameSignedTransaction(t *testing.T, expected, actual *ethtypes.Transaction, signer ethtypes.Signer) {
 	t.Helper()
 	require.NotNil(t, actual)
 	want, err := expected.MarshalBinary()
@@ -94,8 +94,8 @@ func repairM1128SameTransaction(t *testing.T, expected, actual *ethtypes.Transac
 	require.Equal(t, wantSender, gotSender)
 }
 
-func TestRepairM_1128_BlobMalformedMessage(t *testing.T) {
-	signed := repairM1128Blob(t)
+func TestTransactionValidationBlobMalformedMessage(t *testing.T) {
+	signed := newSignedBlobTransaction(t)
 	cases := []struct {
 		name   string
 		field  string
@@ -174,13 +174,13 @@ func TestRepairM_1128_BlobMalformedMessage(t *testing.T) {
 			tx, err := ethtx.NewBlobTx(signed)
 			require.NoError(t, err)
 			tc.mutate(tx)
-			repairM1128InvalidMessage(t, tx, tc.field)
+			assertInvalidTransactionMessage(t, tx, tc.field)
 		})
 	}
 }
 
-func TestRepairM_1128_BlobUninitializedCap(t *testing.T) {
-	tx, err := ethtx.NewBlobTx(repairM1128Blob(t))
+func TestTransactionValidationBlobUninitializedCap(t *testing.T) {
+	tx, err := ethtx.NewBlobTx(newSignedBlobTransaction(t))
 	require.NoError(t, err)
 	tx.BlobFeeCap = new(sdk.Int)
 	require.NotPanics(t, func() { require.ErrorContains(t, tx.Validate(), "blob fee cap") })
@@ -191,8 +191,8 @@ func TestRepairM_1128_BlobUninitializedCap(t *testing.T) {
 	require.NotPanics(t, func() { require.ErrorContains(t, produced.ValidateBasic(), "blob fee cap") })
 }
 
-func TestRepairM_1128_BlobRoundTrip(t *testing.T) {
-	signed := repairM1128Blob(t)
+func TestTransactionValidationBlobRoundTrip(t *testing.T) {
+	signed := newSignedBlobTransaction(t)
 	for _, sidecar := range []bool{false, true} {
 		for _, cache := range []bool{false, true} {
 			t.Run(fmt.Sprintf("sidecar_%t_cache_%t", sidecar, cache), func(t *testing.T) {
@@ -202,11 +202,11 @@ func TestRepairM_1128_BlobRoundTrip(t *testing.T) {
 				}
 				tx, err := ethtx.NewBlobTx(expected)
 				require.NoError(t, err)
-				msg := repairM1128Transport(t, tx, cache)
+				msg := transportTransactionMessage(t, tx, cache)
 				require.NoError(t, msg.ValidateBasic())
 				var converted *ethtypes.Transaction
 				require.NotPanics(t, func() { converted, _ = msg.AsTransaction() })
-				repairM1128SameTransaction(t, expected, converted, ethtypes.NewCancunSigner(big.NewInt(125)))
+				assertSameSignedTransaction(t, expected, converted, ethtypes.NewCancunSigner(big.NewInt(125)))
 				require.Equal(t, expected.BlobHashes(), converted.BlobHashes())
 				require.Equal(t, expected.BlobTxSidecar(), converted.BlobTxSidecar())
 				require.Equal(t, uint64(2*params.BlobTxBlobGasPerBlob), tx.BlobGas())
@@ -225,14 +225,14 @@ func TestRepairM_1128_BlobRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	zero := sdk.ZeroInt()
 	tx.BlobFeeCap = &zero
-	msg := repairM1128Transport(t, tx, true)
+	msg := transportTransactionMessage(t, tx, true)
 	require.NoError(t, msg.ValidateBasic())
 	converted, _ := msg.AsTransaction()
 	require.Zero(t, converted.BlobGasFeeCap().Sign())
 	require.Equal(t, big.NewInt(100000*100), tx.Fee())
 }
 
-func repairM1128SetCode(t *testing.T, domain *uint256.Int) *ethtypes.Transaction {
+func newSignedAuthorizationTransaction(t *testing.T, domain *uint256.Int) *ethtypes.Transaction {
 	t.Helper()
 	key, err := crypto.HexToECDSA("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
@@ -252,15 +252,15 @@ func repairM1128SetCode(t *testing.T, domain *uint256.Int) *ethtypes.Transaction
 	return signed
 }
 
-func TestRepairM_1128_AuthDomains(t *testing.T) {
+func TestTransactionValidationAuthDomains(t *testing.T) {
 	max := new(uint256.Int).SetAllOne()
 	for _, domain := range []*uint256.Int{uint256.NewInt(0), uint256.NewInt(125), max} {
 		t.Run(domain.ToBig().String(), func(t *testing.T) {
-			signed := repairM1128SetCode(t, domain)
+			signed := newSignedAuthorizationTransaction(t, domain)
 			for _, cache := range []bool{false, true} {
 				tx, err := ethtx.NewSetCodeTx(signed)
 				require.NoError(t, err)
-				msg := repairM1128Transport(t, tx, cache)
+				msg := transportTransactionMessage(t, tx, cache)
 				require.NoError(t, msg.ValidateBasic())
 				data, err := evmtypes.UnpackTxData(msg.Data)
 				require.NoError(t, err)
@@ -270,7 +270,7 @@ func TestRepairM_1128_AuthDomains(t *testing.T) {
 				require.Equal(t, signed.SetCodeAuthorizations(), *checked)
 				var converted *ethtypes.Transaction
 				require.NotPanics(t, func() { converted, _ = msg.AsTransaction() })
-				repairM1128SameTransaction(t, signed, converted, ethtypes.NewPragueSigner(big.NewInt(125)))
+				assertSameSignedTransaction(t, signed, converted, ethtypes.NewPragueSigner(big.NewInt(125)))
 				for i, auth := range converted.SetCodeAuthorizations() {
 					require.Equal(t, domain, &auth.ChainID)
 					want := signed.SetCodeAuthorizations()[i]
@@ -285,8 +285,8 @@ func TestRepairM_1128_AuthDomains(t *testing.T) {
 	}
 }
 
-func TestRepairM_1128_AuthMalformedMessage(t *testing.T) {
-	signed := repairM1128SetCode(t, uint256.NewInt(125))
+func TestTransactionValidationAuthMalformedMessage(t *testing.T) {
+	signed := newSignedAuthorizationTransaction(t, uint256.NewInt(125))
 	max := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
 	for _, domain := range []*big.Int{big.NewInt(-1), big.NewInt(-125), new(big.Int).Neg(max)} {
 		t.Run(domain.String(), func(t *testing.T) {
@@ -294,7 +294,7 @@ func TestRepairM_1128_AuthMalformedMessage(t *testing.T) {
 			require.NoError(t, err)
 			chainID := sdk.NewIntFromBigInt(domain)
 			tx.AuthList[1].ChainID = &chainID
-			repairM1128InvalidMessage(t, tx, "auth list chain id")
+			assertInvalidTransactionMessage(t, tx, "auth list chain id")
 			var converted *[]ethtypes.SetCodeAuthorization
 			require.NotPanics(t, func() { converted, err = tx.AuthList.ToEthAuthListChecked() })
 			require.ErrorContains(t, err, "unsigned 256-bit")
@@ -305,7 +305,7 @@ func TestRepairM_1128_AuthMalformedMessage(t *testing.T) {
 		tx, err := ethtx.NewSetCodeTx(signed)
 		require.NoError(t, err)
 		tx.AuthList[1].ChainID = nil
-		repairM1128InvalidMessage(t, tx, "auth list chain id")
+		assertInvalidTransactionMessage(t, tx, "auth list chain id")
 		converted, err := tx.AuthList.ToEthAuthListChecked()
 		require.Error(t, err)
 		require.Nil(t, converted)
@@ -325,8 +325,8 @@ func TestRepairM_1128_AuthMalformedMessage(t *testing.T) {
 	})
 }
 
-func TestRepairM_1128_AuthOversizedDomain(t *testing.T) {
-	tx, err := ethtx.NewSetCodeTx(repairM1128SetCode(t, uint256.NewInt(125)))
+func TestTransactionValidationAuthOversizedDomain(t *testing.T) {
+	tx, err := ethtx.NewSetCodeTx(newSignedAuthorizationTransaction(t, uint256.NewInt(125)))
 	require.NoError(t, err)
 	// sdk.Int retains the supplied big.Int. Its producer can mutate it after construction.
 	backing := big.NewInt(125)
@@ -340,7 +340,7 @@ func TestRepairM_1128_AuthOversizedDomain(t *testing.T) {
 	msg, err := evmtypes.NewMsgEVMTransaction(tx)
 	require.NoError(t, err)
 	require.NotPanics(t, func() { require.ErrorContains(t, msg.ValidateBasic(), "auth list chain id") })
-	decoded := repairM1128Transport(t, tx, false)
+	decoded := transportTransactionMessage(t, tx, false)
 	require.NotPanics(t, func() { require.ErrorContains(t, decoded.ValidateBasic(), "integer out of range") })
 	registry := codectypes.NewInterfaceRegistry()
 	evmtypes.RegisterInterfaces(registry)

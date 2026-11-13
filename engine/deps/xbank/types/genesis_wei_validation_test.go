@@ -25,7 +25,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM1126Fixture struct {
+type weiGenesisFixture struct {
 	bank      keeper.BaseKeeper
 	canonical bankkeeper.BaseKeeper
 	cache     cachemulti.Store
@@ -34,7 +34,7 @@ type repairM1126Fixture struct {
 	keys      []sdk.StoreKey
 }
 
-func repairM1126Keeper(t *testing.T) repairM1126Fixture {
+func newWeiGenesisFixture(t *testing.T) weiGenesisFixture {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	authtypes.RegisterInterfaces(registry)
@@ -66,17 +66,17 @@ func repairM1126Keeper(t *testing.T) repairM1126Fixture {
 	bankParams := paramtypes.NewSubspace(cdc, amino, paramsKey, transientKey, banktypes.ModuleName).WithKeyTable(banktypes.ParamKeyTable())
 	bk := keeper.NewBaseKeeper(cdc, bankKey, ak, bankParams, nil)
 	canonical := bankkeeper.NewBaseKeeper(cdc, bankKey, ak, bankParams, nil)
-	return repairM1126Fixture{bank: bk, canonical: canonical, cache: ms,
+	return weiGenesisFixture{bank: bk, canonical: canonical, cache: ms,
 		ctx: sdk.NewContext(ms, tmproto.Header{Height: 1}, false), cdc: cdc, keys: keys}
 }
 
-func (f repairM1126Fixture) transport(gs *types.GenesisState) *types.GenesisState {
+func (f weiGenesisFixture) transport(gs *types.GenesisState) *types.GenesisState {
 	return types.GetGenesisStateFromAppState(f.cdc, map[string]json.RawMessage{
 		types.ModuleName: f.cdc.MustMarshalJSON(gs),
 	})
 }
 
-func (f repairM1126Fixture) initialize(gs *types.GenesisState) error {
+func (f weiGenesisFixture) initialize(gs *types.GenesisState) error {
 	if err := gs.Validate(); err != nil {
 		return err
 	}
@@ -94,13 +94,13 @@ func (f repairM1126Fixture) initialize(gs *types.GenesisState) error {
 	return nil
 }
 
-func repairM1126Addresses() (sdk.AccAddress, sdk.AccAddress, sdk.AccAddress) {
+func weiGenesisAddresses() (sdk.AccAddress, sdk.AccAddress, sdk.AccAddress) {
 	return sdk.AccAddress(bytes.Repeat([]byte{1}, 20)),
 		sdk.AccAddress(bytes.Repeat([]byte{2}, 20)),
 		sdk.AccAddress(bytes.Repeat([]byte{3}, 20))
 }
 
-func repairM1126BaseDenom(t *testing.T) string {
+func weiGenesisBaseDenom(t *testing.T) string {
 	t.Helper()
 	if _, err := sdk.GetBaseDenom(); err != nil {
 		require.NoError(t, sdk.RegisterDenom(sdk.DefaultBondDenom, sdk.OneDec()))
@@ -110,9 +110,9 @@ func repairM1126BaseDenom(t *testing.T) string {
 	return denom
 }
 
-func TestRepairM_1126_InvalidEntriesBeforeInitGenesis(t *testing.T) {
-	repairM1126BaseDenom(t)
-	a, b, _ := repairM1126Addresses()
+func TestWeiGenesisInvalidEntriesBeforeInitGenesis(t *testing.T) {
+	weiGenesisBaseDenom(t)
+	a, b, _ := weiGenesisAddresses()
 	unit := types.OneUhpxInWei
 	for _, tc := range []struct {
 		name      string
@@ -131,7 +131,7 @@ func TestRepairM_1126_InvalidEntriesBeforeInitGenesis(t *testing.T) {
 		{"duplicate_decoded_address", []types.WeiBalance{{Address: a.String(), Amount: unit}, {Address: strings.ToUpper(a.String()), Amount: unit}}, "duplicate wei balance", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := repairM1126Keeper(t)
+			f := newWeiGenesisFixture(t)
 			gs := types.NewGenesisState(types.DefaultParams(), nil, nil, nil, tc.balances)
 			if !tc.direct {
 				gs = f.transport(gs)
@@ -148,9 +148,9 @@ func TestRepairM_1126_InvalidEntriesBeforeInitGenesis(t *testing.T) {
 	}
 }
 
-func TestRepairM_1126_AcceptedTotalsPreserveSupply(t *testing.T) {
-	denom := repairM1126BaseDenom(t)
-	a, b, c := repairM1126Addresses()
+func TestWeiGenesisAcceptedTotalsPreserveSupply(t *testing.T) {
+	denom := weiGenesisBaseDenom(t)
+	a, b, c := weiGenesisAddresses()
 	unit := types.OneUhpxInWei
 	for _, explicitSupply := range []bool{false, true} {
 		name := "computed_supply"
@@ -158,7 +158,7 @@ func TestRepairM_1126_AcceptedTotalsPreserveSupply(t *testing.T) {
 			name = "explicit_supply"
 		}
 		t.Run(name, func(t *testing.T) {
-			f := repairM1126Keeper(t)
+			f := newWeiGenesisFixture(t)
 			supply := sdk.NewCoins(sdk.NewInt64Coin(denom, 12), sdk.NewInt64Coin("other", 7))
 			gs := types.NewGenesisState(types.DefaultParams(), []types.Balance{
 				{Address: a.String(), Coins: sdk.NewCoins(sdk.NewInt64Coin(denom, 5), sdk.NewInt64Coin("other", 7))},
@@ -192,9 +192,9 @@ func TestRepairM_1126_AcceptedTotalsPreserveSupply(t *testing.T) {
 	}
 }
 
-func TestRepairM_1126_SupplyChecksRemainEnforced(t *testing.T) {
-	denom := repairM1126BaseDenom(t)
-	a, _, _ := repairM1126Addresses()
+func TestWeiGenesisSupplyChecksRemainEnforced(t *testing.T) {
+	denom := weiGenesisBaseDenom(t)
+	a, _, _ := weiGenesisAddresses()
 	for _, tc := range []struct {
 		name      string
 		amount    sdk.Int
@@ -205,7 +205,7 @@ func TestRepairM_1126_SupplyChecksRemainEnforced(t *testing.T) {
 		{"incorrect_supply", types.OneUhpxInWei, sdk.NewCoins(sdk.NewInt64Coin(denom, 2)), "genesis supply is incorrect"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := repairM1126Keeper(t)
+			f := newWeiGenesisFixture(t)
 			gs := f.transport(types.NewGenesisState(types.DefaultParams(), nil, tc.supply, nil,
 				[]types.WeiBalance{{Address: a.String(), Amount: tc.amount}}))
 			require.ErrorContains(t, gs.Validate(), tc.errorText)

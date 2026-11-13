@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func repair97Transport(t *testing.T, destination string, cache bool) (*evmtypes.MsgEVMTransaction, *ethtypes.Transaction) {
+func transportSetCodeDestination(t *testing.T, destination string, cache bool) (*evmtypes.MsgEVMTransaction, *ethtypes.Transaction) {
 	t.Helper()
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -67,9 +67,9 @@ func repair97Transport(t *testing.T, destination string, cache bool) (*evmtypes.
 	return &decoded, signed
 }
 
-func TestRepair_97_AbsentDestination(t *testing.T) {
+func TestSetCodeAbsentDestination(t *testing.T) {
 	for _, cache := range []bool{false, true} {
-		msg, _ := repair97Transport(t, "", cache)
+		msg, _ := transportSetCodeDestination(t, "", cache)
 		txData, err := evmtypes.UnpackTxData(msg.Data)
 		require.NoError(t, err)
 		require.EqualError(t, txData.Validate(), "invalid to address")
@@ -77,7 +77,7 @@ func TestRepair_97_AbsentDestination(t *testing.T) {
 	}
 }
 
-func TestRepair_97_MalformedDestination(t *testing.T) {
+func TestSetCodeMalformedDestination(t *testing.T) {
 	for _, destination := range []string{
 		"0x", "0x1234", "not-an-address",
 		"0x1122334455667788990011223344556677889900ff",
@@ -86,7 +86,7 @@ func TestRepair_97_MalformedDestination(t *testing.T) {
 	} {
 		t.Run(destination, func(t *testing.T) {
 			for _, cache := range []bool{false, true} {
-				msg, _ := repair97Transport(t, destination, cache)
+				msg, _ := transportSetCodeDestination(t, destination, cache)
 				txData, err := evmtypes.UnpackTxData(msg.Data)
 				require.NoError(t, err)
 				require.EqualError(t, txData.Validate(), "invalid to address")
@@ -96,7 +96,7 @@ func TestRepair_97_MalformedDestination(t *testing.T) {
 	}
 }
 
-func TestRepair_97_ValidDestinationRoundTrip(t *testing.T) {
+func TestSetCodeValidDestinationRoundTrip(t *testing.T) {
 	address := common.HexToAddress("0xabcdef1234567890abcdef1234567890abcdef12")
 	for _, destination := range []string{
 		address.Hex(), strings.ToLower(address.Hex()), strings.ToUpper(address.Hex()),
@@ -104,7 +104,7 @@ func TestRepair_97_ValidDestinationRoundTrip(t *testing.T) {
 	} {
 		t.Run(destination, func(t *testing.T) {
 			for _, cache := range []bool{false, true} {
-				msg, signed := repair97Transport(t, destination, cache)
+				msg, signed := transportSetCodeDestination(t, destination, cache)
 				require.NoError(t, msg.ValidateBasic())
 				var converted *ethtypes.Transaction
 				var consumed ethtx.TxData
