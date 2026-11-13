@@ -1,0 +1,39 @@
+[manifest]
+task = "22.41.103"
+pages = 9
+
+[page.1]
+path = "docs/site/paxeer-docs/src/app/custody/page.tsx"
+status = "corrected"
+
+[page.2]
+path = "docs/site/paxeer-docs/src/app/data-availability/page.tsx"
+status = "corrected"
+
+[page.3]
+path = "docs/site/paxeer-docs/src/app/debugging-transactions/page.tsx"
+status = "corrected"
+
+[page.4]
+path = "docs/site/paxeer-docs/src/app/developer-funding/page.tsx"
+status = "corrected"
+
+[page.5]
+path = "docs/site/paxeer-docs/src/app/discovery/page.tsx"
+status = "corrected"
+
+[page.6]
+path = "docs/site/paxeer-docs/src/app/docker/page.tsx"
+status = "corrected"
+
+[page.7]
+path = "docs/site/paxeer-docs/src/app/emulator/page.tsx"
+status = "corrected"
+
+[page.8]
+path = "docs/site/paxeer-docs/src/app/engine/page.tsx"
+status = "corrected"
+
+[page.9]
+path = "docs/site/paxeer-docs/src/app/escrow/page.tsx"
+status = "corrected"

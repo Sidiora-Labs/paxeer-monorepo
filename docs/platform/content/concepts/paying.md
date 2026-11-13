@@ -46,7 +46,7 @@ A receipt is final once its block is committed. `checkpoint-finalised` is also a
 
 A journey carries evidence references rather than raw protocol structures. A reference with class `layerx-receipt` points at a canonical receipt you can fetch and verify yourself; see [Receipts and verification](receipts.md).
 
-For finality, use [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence): authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height.
+For finality, use [Committed block evidence](https://docs.paxeer.app/checkpoints/): authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height.
 
 ## Enforced by
 

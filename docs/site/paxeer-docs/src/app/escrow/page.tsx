@@ -12,7 +12,7 @@ export default function EscrowPage() {
         <p className="page-description">Reserve funds, capture milestone payments, refund unused balances, and resolve disputes through native Paxeer X escrow.</p>
       </div>
       <h2>Payment Guarantees for Agent Commerce</h2>
-      <p>Escrow separates a payment commitment from its final distribution. A buyer or agent funds a dedicated escrow account, a named beneficiary captures funds under the agreement, and a named arbiter resolves disputes. Marketplaces, service purchases, procurement, and milestone contracts use the same protocol lifecycle.</p>
+      <p>Escrow separates a payment commitment from its final distribution. An agent owner funds a dedicated escrow account from its main account, a named beneficiary captures funds under the agreement, and a named arbiter resolves disputes. Marketplaces, service purchases, procurement, and milestone contracts use the same protocol lifecycle.</p>
       <p>The escrow module stores the agreement terms and lifecycle. Every movement of value uses the shared <code>402LXP</code> transfer mechanism, including funding, beneficiary payments, refunds, and dispute splits. The account namespace is <code>{'agent:<did>:escrow:<id>'}</code>.</p>
       <h2>Define an Escrow</h2>
       <table><thead><tr><th>Field</th><th>Purpose</th></tr></thead><tbody>
@@ -39,7 +39,7 @@ export default function EscrowPage() {
       <div className="callout"><strong>Capture pays the beneficiary. Release refunds the owner.</strong> Keep these meanings visible in application buttons and transaction previews.</div>
       <h3>Authority and Deadlines</h3>
       <p>The beneficiary or an owner principal acting through a delegated capability authorizes capture. The owner authorizes release. Either owner or beneficiary can open a dispute while the hold is active and the dispute deadline has not passed. Only the designated arbiter resolves the dispute.</p>
-      <p>Captures fail at or after a nonzero expiry, even before a timeout sweep changes the recorded state. Batch maintenance processes due escrow deadlines using the batch timestamp, with a sweep capacity of 24 (<code>LX_ESCROW_SWEEP_CAPACITY</code>). Disputed holds do not follow the ordinary timeout refund path; they require resolution.</p>
+      <p>Captures fail at or after a nonzero expiry, even before a timeout sweep changes the recorded state. Batch maintenance processes due escrow deadlines using the batch timestamp. The sweep stores due holds in chunks of 24 (<code>LX_ESCROW_SWEEP_CAPACITY</code>) and allocates further chunks as needed. Disputed holds do not follow the ordinary timeout refund path; they require resolution.</p>
       <p>The dispute deadline is inclusive: a dispute opens when the batch timestamp equals <code>dispute_window</code>, and the window is closed only when the timestamp is greater than it. A zero dispute window disables dispute opening.</p>
       <h2>Milestone Payment Workflow</h2>
       <ol>
@@ -54,7 +54,7 @@ export default function EscrowPage() {
       <pre><code>{`beneficiary = floor(remaining_balance × beneficiary_basis_points / 10000)
 owner       = remaining_balance - beneficiary`}</code></pre>
       <h2>Protocol Reference</h2>
-      <p>Escrow is module <code>2</code>. Activity payloads use fixed-width IDs and integer amounts; they are protocol activities rather than EVM contract method names.</p>
+      <p>Escrow is module <code>2</code>, implemented in <code>src/modules/escrow/</code> with payload sizes declared in <code>include/layerx/lx_escrow.h</code>. Activity payloads use fixed-width IDs and integer amounts; they are protocol activities rather than EVM contract method names.</p>
       <table><thead><tr><th>Activity</th><th>Type</th><th>Payload bytes</th></tr></thead><tbody>
         <tr><td><code>LX_ESCROW_OPEN</code></td><td><code>0x00020001</code></td><td>288</td></tr>
         <tr><td><code>LX_ESCROW_CAPTURE</code></td><td><code>0x00020002</code></td><td>80</td></tr>

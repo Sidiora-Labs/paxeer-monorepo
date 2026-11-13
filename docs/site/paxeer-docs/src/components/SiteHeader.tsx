@@ -30,7 +30,7 @@ export function SiteHeader() {
         <Link href="/platform-api" aria-current={pathname === '/platform-api' ? 'page' : undefined}>API reference</Link>
         <Link href="/operators" aria-current={pathname === '/operators' ? 'page' : undefined}>Operate</Link>
       </nav>
-      <div className="header-tools"><Search /><button className="icon-button" onClick={toggleTheme} aria-label={light ? 'Switch to dark theme' : 'Switch to light theme'}><Icon name={light ? 'moon' : 'sun'} /></button><a className="header-github" href="https://github.com/Sidiora-Labs/Paxeer-X-Network" target="_blank" rel="noreferrer">GitHub <Icon name="arrow" size={14} /></a></div>
+      <div className="header-tools"><Search /><button className="icon-button" onClick={toggleTheme} aria-label={light ? 'Switch to dark theme' : 'Switch to light theme'}><Icon name={light ? 'moon' : 'sun'} /></button><a className="header-github" href="https://github.com/Sidiora-Labs/paxeer-monorepo" target="_blank" rel="noreferrer">GitHub <Icon name="arrow" size={14} /></a></div>
     </div>
   </header>
 }

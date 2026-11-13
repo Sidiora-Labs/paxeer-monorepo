@@ -49,7 +49,7 @@ The role implementations are
 ### Public transaction submission and recovery
 
 Use the configured node's HTTPS root for JSON-RPC; check `eth_chainId` returns
-`0x7d` before signing. The [public RPC reference](../site/docs/reference/public-rpc.md)
+`0x7d` before signing. The [public RPC reference](../site/paxeer-docs/src/app/public-rpc/page.tsx)
 lists the node endpoints. Hosted interop HTTP calls use the configured interop
 service's origin.
 

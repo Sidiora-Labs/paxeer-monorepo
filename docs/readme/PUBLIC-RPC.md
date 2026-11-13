@@ -71,6 +71,6 @@ served on mainnet chain ID `hyperpax_125-1`.
 `px_register` and `px_requestFunds`
 validate their parameters and answer `-32004` with error data code
 `hosted_gateway_service_required`: registration and funding are operations of
-the operator-deployed [hosted gateway](../site/docs/platform/gateway-rpc.md),
+the operator-deployed [hosted gateway](../site/paxeer-docs/src/app/platform-api/page.tsx),
 whose contract is
 [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).

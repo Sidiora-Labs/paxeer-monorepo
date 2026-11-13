@@ -80,7 +80,7 @@ Replay is first-class: a recorded execution can be replayed and any divergence r
 
 The runtime admits guest ABI versions 1 through 5. The Rust SDK's default `ABI_VERSION` is 4; the CLI's artifact fallback and call default are 2. Declare the ABI required by the artifact and use the deployed program's ABI for calls. `ProgramSpend` and `BalanceView` grants use the ABI-2 capability encoding, which is also used by ABI versions 3 through 5.
 
-Program transactions require a funded EVM sender. Follow the [network quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/overview/quickstart.md#2-derive-an-account-and-fund-it) and confirm the funding in committed chain state before spending.
+Program transactions require a funded EVM sender. Follow the [network quickstart](https://docs.paxeer.app/sdk-quickstarts/) and confirm the funding in committed chain state before spending.
 
 Before an escrow's `OPEN`, register its derived value account using `registerAccount(bytes32,uint8,bytes32,bytes)` on the [Programs precompile](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/precompiles/layerxprograms/LayerXPrograms.sol). Deployment does not register that account automatically. Use the same program, asset and seed as the escrow call.
 

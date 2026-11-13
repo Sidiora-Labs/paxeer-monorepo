@@ -15,13 +15,13 @@ export default function Store() {
       </div>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/store/handler.go</code>
+        <strong>Source:</strong> <code>modules/store/handler.go</code>
       </div>
 
       <h2>Overview</h2>
 
       <p>
-        <code>modules/store/</code> contains exactly one file, <code>handler.go</code> (11 lines), exporting one function. It has no <code>module.go</code>, keeper, types, genesis, messages, or queries, and it is not registered in <code>node/app.go</code>. <code>modules/README.md</code> lists it only as &quot;module-level store integration helpers&quot;.
+        <code>modules/store/</code> provides <code>handler.go</code>, which exports the cached-context helper. Keepers and module lifecycle registration live in <code>node/app.go</code>. <code>modules/README.md</code> describes this package as &quot;module-level store integration helpers&quot;.
       </p>
 
       <h2>GetCachedContext</h2>
@@ -42,12 +42,12 @@ func GetCachedContext(ctx sdk.Context) (sdk.Context, sdk.CacheMultiStore) {
         <code>GetCachedContext</code> wraps the context&apos;s multistore in a <code>CacheMultiStore</code> and returns both the derived context and the cache. Writes made through the derived context stay in the cache until the caller writes the cache through; discarding the cache discards the writes. This is the standard SDK pattern for speculative execution.
       </p>
 
-      <h2>What it is not</h2>
+      <h2>Using the cached context</h2>
 
       <ul>
-        <li>No key-formatting or prefix constants, iterator utilities, or codec helpers are defined here. Modules define their own prefixes and call the SDK <code>KVStore</code> and codec directly.</li>
-        <li>No state-migration utilities or test helpers (in-memory stores, mock contexts, snapshots) live in this package.</li>
-        <li>It is not a layer over <Link href="/storage">PaxDB storage</Link>; module keepers access state through the SDK multistore without going through this package.</li>
+        <li>Modules define their own prefixes and use the SDK <code>KVStore</code> and codec through the returned context.</li>
+        <li>Retain the returned cache when the caller needs to commit the buffered writes.</li>
+        <li>The SDK multistore supplies the cache used for speculative execution over <Link href="/storage">PaxDB storage</Link>.</li>
       </ul>
 
       <h2>Next Steps</h2>

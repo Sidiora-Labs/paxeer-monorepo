@@ -56,7 +56,7 @@ the configured chain ID. `HumanNodeEnvironment::from_environment` also
 requires the Human network ID to match. Use HTTPS outside loopback. The
 [node transport](../../services/agent/crates/layerx-agentd/src/node_rpc.rs)
 loads TLS roots and applies a finite deadline; a chain mismatch is a refusal.
-See [public RPC endpoints](../site/docs/reference/public-rpc.md) for the node
+See [public RPC endpoints](../site/paxeer-docs/src/app/public-rpc/page.tsx) for the node
 list and root-path examples.
 
 MCP installation does not select or read a CLI environment profile. For

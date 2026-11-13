@@ -115,8 +115,8 @@ def test_f22_current_node_and_hosted_gateway_interfaces_are_separate():
     assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
     assert "never a JSON-RPC endpoint" in quickstart
     paths = (
-        "docs/site/docs/reference/public-rpc.md", "rpc/server.go",
-        "docs/site/docs/platform/gateway-rpc.md",
+        "docs/site/paxeer-docs/src/app/public-rpc/page.tsx", "rpc/server.go",
+        "docs/site/paxeer-docs/src/app/platform-api/page.tsx",
         "services/platform/hosted/gateway/openrpc.json",
     )
     for path in paths:

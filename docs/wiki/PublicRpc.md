@@ -9,7 +9,7 @@ inside `paxd`; a transaction is final once its block is committed.
 See [Commitment levels](CommitmentLevels.md), [Assets](Assets.md) and the
 [Payments developer path](PaymentsQuickstart.md). The complete endpoint list,
 including the archive node, is in
-[Public RPC endpoints](../site/docs/reference/public-rpc.md).
+[Public RPC endpoints](../site/paxeer-docs/src/app/public-rpc/page.tsx).
 
 ## Node endpoints
 
@@ -103,7 +103,7 @@ Requests use JSON-RPC 2.0 with `Content-Type: application/json`, a single
 request or a batch of 1 to 32 entries, within an 8 MiB request bound.
 Notification-only requests return HTTP 204. The full method, error and
 authentication contract is in
-[Hosted gateway JSON-RPC](../site/docs/platform/gateway-rpc.md) and the
+[Hosted gateway JSON-RPC](../site/paxeer-docs/src/app/platform-api/page.tsx) and the
 [gateway README](../../services/platform/hosted/gateway/README.md).
 
 ## Source contract

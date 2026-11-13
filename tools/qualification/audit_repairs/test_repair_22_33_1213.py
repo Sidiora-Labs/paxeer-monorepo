@@ -74,7 +74,7 @@ def test_readme_describes_one_block_proposing_paxd_network():
 
 def test_readme_links_root_rpc_contract_and_chain_125_probe():
     quickstart = section("Quick start: connect to chain 125")
-    contract_path = "docs/site/docs/reference/public-rpc.md"
+    contract_path = "docs/site/paxeer-docs/src/app/public-rpc/page.tsx"
     assert f"]({contract_path})" in README
     contract = source(contract_path)
     assert "JSON-RPC is served over HTTPS at the root path" in contract

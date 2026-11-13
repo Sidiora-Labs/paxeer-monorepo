@@ -60,7 +60,7 @@ La mainnet beta pública usa el ID de cadena 125. Conecte las billeteras y los c
 | Nodo numerado | `https://api1.mainnet-beta.paxeer.network` |
 | WebSocket | `wss://api1.mainnet-beta.paxeer.network` |
 
-Los hosts numerados van de `api1.mainnet-beta.paxeer.network` a `api14.mainnet-beta.paxeer.network`. La lista completa y las indicaciones de uso están en [`docs/site/docs/reference/public-rpc.md`](../site/docs/reference/public-rpc.md). Compruebe el ID de cadena antes de firmar; esta consulta debe devolver `"0x7d"` como resultado:
+Los hosts numerados van de `api1.mainnet-beta.paxeer.network` a `api14.mainnet-beta.paxeer.network`. La lista completa y las indicaciones de uso están en [`docs/site/paxeer-docs/src/app/public-rpc/page.tsx`](../site/paxeer-docs/src/app/public-rpc/page.tsx). Compruebe el ID de cadena antes de firmar; esta consulta debe devolver `"0x7d"` como resultado:
 
 ```sh
 curl -sS --max-time 15 https://api1.mainnet-beta.paxeer.network \

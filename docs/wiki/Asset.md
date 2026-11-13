@@ -13,7 +13,7 @@ Account names, issuance, and the named fee schedule are on
 
 Sources: `include/layerx/lx_asset.h`, `src/modules/asset/lx_asset_registry.c`,
 `src/modules/asset/lx_asset_decode.c`, `src/modules/asset/lx_asset_transfer.c`,
-`docs/site/docs/concepts/assets.md`.
+`docs/site/paxeer-docs/src/app/assets/page.tsx`.
 
 ---
 

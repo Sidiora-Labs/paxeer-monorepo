@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[3]
 PAGES = (
     "contracts/operations.md",
     "deploy/launchpad/README.md",
-    "docs/site/docs/platform/webhooks.md",
+    "docs/site/paxeer-docs/src/app/webhooks/page.tsx",
     "docs/wiki/HostedDashboard.md",
     "docs/wiki/HostedWebhooks.md",
     "services/explorer/deploy/railway/README.md",
@@ -33,7 +33,7 @@ RETAINED_CONTRACTS = {
         "`/health/ready`",
         "`/api/health`",
     ),
-    "docs/site/docs/platform/webhooks.md": (
+    "docs/site/paxeer-docs/src/app/webhooks/page.tsx": (
         "rediss://OPERATOR_HOST:6379",
         "https://OPERATOR_HOST:9443",
         "`POST /internal/v1/events/{kind}/{source_event}`",

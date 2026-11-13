@@ -22,7 +22,7 @@ Use the transaction hash for `TX_HASH`. `receipt get` fetches `pax_sequencerRece
 
 ## Verify it yourself
 
-The sample is a local compatibility verifier for receipt bytes and caller-supplied batch facts, like `layerx receipt verify`. Its wire rank does not establish current network finality. A receipt is final once its block is committed. Verify the block header, CometBFT commit and transaction or state inclusion at the relevant height as described in [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+The sample is a local compatibility verifier for receipt bytes and caller-supplied batch facts, like `layerx receipt verify`. Its wire rank does not establish current network finality. A receipt is final once its block is committed. Verify the block header, CometBFT commit and transaction or state inclusion at the relevant height as described in [Committed block evidence](https://docs.paxeer.app/checkpoints/).
 
 The native transaction rungs are `submitted`, `receipted` and `committed`. Human-service journey states, such as `done` and `done-finalised`, are separate fields. Use the evidence supporting a response to determine whether block commitment has been verified.
 

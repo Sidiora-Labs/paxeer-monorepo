@@ -15,13 +15,13 @@ export default function EVM() {
       </div>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/</code>
+        <strong>Source:</strong> <code>modules/evm/</code>
       </div>
 
       <h2>Overview</h2>
 
       <p>
-        The EVM module (<code>modules/evm/</code>) provides full Ethereum Virtual Machine execution on Paxeer. It runs as a Cosmos SDK module and integrates with the <Link href="/engine">execution engine</Link> to process EVM transactions with chain ID <strong>125</strong>.
+        The EVM module (<code>modules/evm/</code>) executes Ethereum-format transactions on Paxeer. It integrates with the <Link href="/engine">execution engine</Link> inside the BFT node, using EVM chain ID <strong>125</strong>.
       </p>
 
       <p>
@@ -51,7 +51,7 @@ export default function EVM() {
       </ul>
 
       <p>
-        Cancun and Prague both activate at time 0 in the chain configuration, so all five types are accepted. <code>MsgEVMTransaction</code> also has an associate-transaction variant (<code>AssociateTx</code>, reported by <code>IsAssociateTx</code>) used for address association.
+        The default chain configuration enables Cancun and Prague at time 0. Its transaction-type allowlist includes all five types. <code>MsgEVMTransaction</code> also supports <code>AssociateTx</code>, identified by <code>IsAssociateTx</code>, for address association.
       </p>
 
       <p>
@@ -59,13 +59,13 @@ export default function EVM() {
       </p>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/ante/preprocess.go</code>, <code>modules/evm/types/codec.go</code>, <code>modules/evm/types/message_evm_transaction.go</code>, <code>modules/evm/types/config.go</code>
+        <strong>Source:</strong> <code>modules/evm/ante/preprocess.go</code>, <code>modules/evm/types/codec.go</code>, <code>modules/evm/types/message_evm_transaction.go</code>, <code>modules/evm/types/config.go</code>
       </div>
 
       <h2>Address Association</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/keeper/address.go</code>
+        <strong>Source:</strong> <code>modules/evm/keeper/address.go</code>
       </div>
 
       <p>
@@ -78,7 +78,7 @@ export default function EVM() {
       </ul>
 
       <p>
-        The EVM module maintains a bidirectional mapping between these formats. When a Cosmos account sends an EVM transaction, the module associates its <code>pax1...</code> address with the derived <code>0x...</code> address. This allows:
+        The EVM module stores a bidirectional mapping between these addresses. Transaction preprocessing derives both addresses from the signer and establishes their association when needed. This supports:
       </p>
 
       <ul>
@@ -90,7 +90,7 @@ export default function EVM() {
       <h2>State Management</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/keeper/state.go</code>
+        <strong>Source:</strong> <code>modules/evm/keeper/state.go</code>
       </div>
 
       <p>
@@ -99,13 +99,13 @@ export default function EVM() {
 
       <ul>
         <li><strong>Accounts:</strong> Nonce, balance (via bank module)</li>
-        <li><strong>Code:</strong> Contract bytecode (<code>keeper/code.go</code>)</li>
-        <li><strong>Storage:</strong> Contract storage slots (<code>keeper/state.go</code>)</li>
-        <li><strong>Receipts:</strong> Transaction receipts and logs (<code>keeper/receipt.go</code>)</li>
+        <li><strong>Code:</strong> Contract bytecode (<code>modules/evm/keeper/code.go</code>)</li>
+        <li><strong>Storage:</strong> Contract storage slots (<code>modules/evm/keeper/state.go</code>)</li>
+        <li><strong>Receipts:</strong> Transaction receipts and logs (<code>modules/evm/keeper/receipt.go</code>)</li>
       </ul>
 
       <p>
-        EVM state is stored in the module's KVStore. Account balances are managed by the bank module to maintain consistency with native token operations.
+        EVM state is stored in the module&apos;s KVStore. Account balances are managed by the bank module to maintain consistency with native token operations.
       </p>
 
       <h2>Transaction Execution Flow</h2>
@@ -120,14 +120,14 @@ export default function EVM() {
         <li>Msg server routes to EVM module</li>
         <li>Execution runs through the <Link href="/engine">engine executor</Link>; on the node Giga path this is <code>ExecuteTransactionFeeCharged</code>, with fees already charged</li>
         <li>Executor runs EVM bytecode against state DB</li>
-        <li>Module generates receipt (<code>keeper/receipt.go</code>) with logs, gas used, status</li>
+        <li>Module generates receipt (<code>modules/evm/keeper/receipt.go</code>) with logs, gas used, status</li>
         <li>Module emits events for indexing</li>
       </ol>
 
       <h2>Receipts</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/keeper/receipt.go</code>
+        <strong>Source:</strong> <code>modules/evm/keeper/receipt.go</code>
       </div>
 
       <p>
@@ -149,13 +149,13 @@ export default function EVM() {
       <h2>Pointers</h2>
 
       <p>
-        Pointers are a Paxeer-specific feature that links ERC-20 token contracts to native Cosmos denoms. A pointer allows:
+        Pointer contracts expose native denominations and CosmWasm tokens through ERC interfaces. Native token pointers use the bank module for balances and transfers. They support:
       </p>
 
       <ul>
         <li>ERC-20 <code>transfer</code> to move native tokens via bank module</li>
-        <li>Native token transfers to appear as ERC-20 events</li>
-        <li>Unified balance view across EVM and Cosmos APIs</li>
+        <li>ERC-20 balance queries for a registered native denomination</li>
+        <li>ERC token interfaces for registered CosmWasm assets</li>
       </ul>
 
       <p>
@@ -165,7 +165,7 @@ export default function EVM() {
       <h2>Precompile Integration</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/keeper/precompile.go</code>, <code>Paxeer-X-Network/precompiles/</code>
+        <strong>Source:</strong> <code>precompiles/setup.go</code>, <code>precompiles/</code>
       </div>
 
       <p>
@@ -173,13 +173,13 @@ export default function EVM() {
       </p>
 
       <p>
-        See <Link href="/precompiles">Precompiles documentation</Link> for the full list of Paxeer precompiles (bank, staking, oracle, IBC, etc.).
+        See <Link href="/precompiles">Precompiles documentation</Link> for the registered interfaces. Check each interface&apos;s availability before making a call.
       </p>
 
       <h2>Fee Collection</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/keeper/fee.go</code>, <code>Paxeer-X-Network/precompiles/feetoken/feetoken.go</code>
+        <strong>Source:</strong> <code>modules/evm/keeper/fee.go</code>, <code>modules/evm/keeper/feetoken.go</code>, <code>modules/evm/keeper/feecollect.go</code>, <code>precompiles/feetoken/feetoken.go</code>
       </div>
 
       <p>
@@ -187,10 +187,10 @@ export default function EVM() {
       </p>
 
       <ul>
-        <li>Charged in PAX (native gas token) by default. An account can select an allowed alternative fee denom, such as SID, through the fee-token precompile at <code>0x0000000000000000000000000000000000001018</code>. See <Link href="/sidiora">Sidiora</Link></li>
+        <li>Charged in PAX by default. When governance enables fee-token selection and configures an allowed denomination, an account can select it through the fee-token precompile at <code>0x0000000000000000000000000000000000001018</code>. See <Link href="/sidiora">Sidiora</Link></li>
         <li>Reported using receipt gas usage and the effective gas price; estimation and charge settlement depend on the configured execution path</li>
         <li>Sent to the fee collector module</li>
-        <li>Distributed to validators and stakers</li>
+        <li>Routed under the configured fee-distribution rules; alternative fee tokens are held separately when their distribution is disabled</li>
       </ul>
 
       <p>
@@ -200,7 +200,7 @@ export default function EVM() {
       <h2>Coinbase</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/keeper/coinbase.go</code>, <code>keeper.go</code>
+        <strong>Source:</strong> <code>modules/evm/keeper/coinbase.go</code>, <code>modules/evm/keeper/keeper.go</code>
       </div>
 
       <p>
@@ -216,7 +216,7 @@ export default function EVM() {
       <h2>Configuration</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/types/params.go</code>, <code>types/config.go</code>, <code>keeper/params.go</code>
+        <strong>Source:</strong> <code>modules/evm/types/params.go</code>, <code>modules/evm/types/config.go</code>, <code>modules/evm/keeper/params.go</code>
       </div>
 
       <p>
@@ -233,7 +233,7 @@ export default function EVM() {
       <h2>Genesis</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/keeper/genesis.go</code>
+        <strong>Source:</strong> <code>modules/evm/keeper/genesis.go</code>
       </div>
 
       <p>
@@ -249,7 +249,7 @@ export default function EVM() {
       <h2>Logging</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/keeper/log.go</code>
+        <strong>Source:</strong> <code>modules/evm/keeper/log.go</code>
       </div>
 
       <p>
@@ -259,11 +259,11 @@ export default function EVM() {
       <h2>Deferred Operations</h2>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/evm/keeper/deferred.go</code>
+        <strong>Source:</strong> <code>modules/evm/keeper/deferred.go</code>
       </div>
 
       <p>
-        Some EVM operations (like balance updates from precompiles) are deferred and batched for commit. This avoids redundant state writes during execution and improves performance.
+        <code>modules/evm/keeper/deferred.go</code> records each transaction&apos;s index, hash, bloom, and balance surplus in transient storage for block processing. It also tracks nonce bumps and execution errors.
       </p>
 
       <h2>Next Steps</h2>

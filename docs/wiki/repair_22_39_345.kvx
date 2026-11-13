@@ -12,7 +12,7 @@ record = "programs/crates/layerx-programs-runtime/repair_22_39_340.kvx"
 finding = "Version 2 binds source and destination names in leg order and recomputes the kernel endpoints and root; identity resolution requires exactly one payment account for the asset. Sets without an identity destination retain version 1 bytes."
 
 [place.site]
-file = "docs/site/docs/programs/index.md"
+file = "docs/site/paxeer-docs/src/app/programs/page.tsx"
 section = "Calls and receipt reads"
 change = "Beside the unchanged version 1 explanation, describe identity payment-account resolution, refusal without exactly one account, the NUL-terminated version 2 domain, original authorization length and bytes, both u16-length-prefixed names per leg, bound endpoints, unchanged grant checks and version 1 preservation."
 

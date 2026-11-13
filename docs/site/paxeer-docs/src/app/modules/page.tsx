@@ -15,7 +15,7 @@ export default function Modules() {
       </div>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/README.md</code>
+        <strong>Source:</strong> <code>modules/README.md</code>
       </div>
 
       <h2>Unified Paxeer X modules</h2>
@@ -49,7 +49,7 @@ export default function Modules() {
       <h2>Module Overview</h2>
 
       <p>
-        Paxeer X-specific chain modules live under <code>Paxeer-X-Network/modules/</code>. These extend the Cosmos SDK with functionality unique to Paxeer X’s EVM L1 design. The pages in this section document <code>epoch</code>, <code>mint</code>, <code>oracle</code>, <code>store</code>, and <code>tokenfactory</code> in detail; the modules above are documented in their own sections or in <code>modules/README.md</code>.
+        Paxeer X-specific chain modules live under <code>modules/</code>. These extend the Cosmos SDK with functionality unique to Paxeer X’s EVM L1 design. The pages in this section document <code>epoch</code>, <code>mint</code>, <code>oracle</code>, <code>store</code>, and <code>tokenfactory</code> in detail; the modules above are documented in their own sections or in <code>modules/README.md</code>.
       </p>
 
       <h2>Module List</h2>
@@ -102,7 +102,7 @@ export default function Modules() {
       </p>
 
       <ul>
-        <li><strong>EVM execution:</strong> Runs Ethereum transactions with full opcode compatibility</li>
+        <li><strong>EVM execution:</strong> Runs Ethereum transactions through the configured EVM and upgrade rules</li>
         <li><strong>Address association:</strong> Maps Cosmos addresses to EVM addresses</li>
         <li><strong>Receipts:</strong> Generates EVM transaction receipts</li>
         <li><strong>Pointers:</strong> Bridging between Cosmos and EVM state</li>
@@ -153,7 +153,7 @@ export default function Modules() {
       <ul>
         <li><strong>Exchange rate voting:</strong> Validators submit price observations for configured vote targets</li>
         <li><strong>Aggregation:</strong> Weighted-median computation in the mid-blocker at the last block of each vote period</li>
-        <li><strong>Penalties:</strong> Miss/abstain counters are processed at each slash window; this is not a check on whether a submitted price was &quot;bad data&quot;</li>
+        <li><strong>Penalties:</strong> The end-blocker processes miss/abstain counters at each slash window; counters reflect participation and in-range votes</li>
         <li><strong>EVM access:</strong> The oracle precompile at <code>0x…1008</code> is retired and reverts; use native or CosmWasm queries</li>
       </ul>
 

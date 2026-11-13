@@ -2,7 +2,7 @@
 
 Paxeer is one BFT network, with EVM chain id **125 (`0x7d`)**. The kernel is part of the network and proposes blocks; a receipt is final when its block is committed. Kernel accounts and EVM accounts use the same chain state. Tenant sub-chains are database domains, rather than separate infrastructure.
 
-Use `eth_call` for reads and `eth_sendRawTransaction` for signed writes through a node's root JSON-RPC endpoint. See [public JSON-RPC endpoints](../site/docs/reference/public-rpc.md) and [EVM JSON-RPC methods](rpc.md).
+Use `eth_call` for reads and `eth_sendRawTransaction` for signed writes through a node's root JSON-RPC endpoint. See [public JSON-RPC endpoints](../site/paxeer-docs/src/app/public-rpc/page.tsx) and [EVM JSON-RPC methods](rpc.md).
 
 This catalogue preserves the ABI functions, events, errors and Solidity declarations useful for encoding calls and decoding history. **An ABI file, an address constant or an ABI-discovery result does not establish that a method is currently served.** Select the implementation at the queried block height and apply the lifecycle notes below. Function counts count declarations, including retained or disabled functions. Mutability labels reproduce the ABI declaration, including historical declarations.
 

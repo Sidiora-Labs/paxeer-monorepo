@@ -1,5 +1,5 @@
 {
-  "_comment": "Decision 2809: page prefixes resolve against real project roots. Decisions 2943 and 2944 follow Jev prompt/output and public-node producers; prompt-led output is not shell, and decision 2810 root endpoints also carry WebSocket upgrades.",
+  "_comment": "Documentation command prefixes resolve against the owning project roots. Prompt-led output contains shell commands only at its prompts.",
   "page_roots": {
     "": ".",
     "apps/bridge/": "apps/bridge",
@@ -30,7 +30,8 @@
     "tools/loadtest/": "tools/loadtest",
     "tools/paxctl/": "tools/paxctl",
     "wasm-runtime/": "wasm-runtime",
-    "docs/site/README.md": "."
+    "docs/site/paxeer-docs/README.md": "docs/site/paxeer-docs",
+    "docs/site/docs-assistant/README.md": "docs/site/docs-assistant"
   },
   "allowed_inputs_and_outputs": [
     {
@@ -112,7 +113,7 @@
     {
       "pattern": "**/quickstart.mjs",
       "reason": "The quickstart instructs the reader to save the shown JavaScript in the temporary client directory.",
-      "producer": "docs/site/docs/overview/quickstart.md"
+      "producer": "docs/site/paxeer-docs/src/app/sdk-quickstarts/page.tsx"
     },
     {
       "pattern": "committed-fixture",
@@ -134,7 +135,7 @@
   ],
   "carry_cwd_pages": [
     "interchain/testing/simapp/README.md",
-    "docs/site/docs/overview/quickstart.md",
+    "docs/site/paxeer-docs/src/app/sdk-quickstarts/page.tsx",
     "wasm/contrib/local/README.md",
     "consensus/scripts/confix/testdata/README.md"
   ]

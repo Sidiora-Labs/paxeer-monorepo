@@ -152,7 +152,7 @@ def test_root_network_guide_native_funding_and_recovery_links():
     ):
         assert fact in accounts, fact
     for path in (
-        "docs/wiki/PaymentsQuickstart.md", "docs/site/docs/concepts/one-account.md",
+        "docs/wiki/PaymentsQuickstart.md", "docs/site/paxeer-docs/src/app/accounts/page.tsx",
     ):
         assert f"]({path})" in accounts
         assert (ROOT / path).is_file()

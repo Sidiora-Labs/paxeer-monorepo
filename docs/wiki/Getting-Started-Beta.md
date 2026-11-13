@@ -34,7 +34,7 @@ Check the address and balance with `eth_getBalance(address, "latest")`.
 A DID binding does not supply gas or create a ledger balance.
 
 For a wallet whose EVM key and DID derive from one secret, follow
-[One account](../site/docs/concepts/one-account.md). The CLI can derive the pair from
+[One account](../site/paxeer-docs/src/app/accounts/page.tsx). The CLI can derive the pair from
 standard input:
 
 ```sh
@@ -148,10 +148,10 @@ errors have their own declared method contract; preserve their typed data
 instead of interpreting unavailable evidence as a zero balance or success.
 
 For service-managed payments, use
-[Human service journeys](../site/docs/human/journeys.md) and the deployment's
+[Human service journeys](../site/paxeer-docs/src/app/human-interface/page.tsx) and the deployment's
 authentication and allowance policy.
 
-[One account](../site/docs/concepts/one-account.md) ·
+[One account](../site/paxeer-docs/src/app/accounts/page.tsx) ·
 [Unified network](UnifiedNetwork.md) ·
 [SDK terminal verification](SdkTerminalVerification.md) ·
 [Home](Home.md)

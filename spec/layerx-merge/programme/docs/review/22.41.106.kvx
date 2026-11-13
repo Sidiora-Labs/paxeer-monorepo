@@ -1,0 +1,43 @@
+[manifest]
+task = "22.41.106"
+pages = 10
+
+[page.1]
+path = "docs/site/paxeer-docs/src/app/mandates/page.tsx"
+status = "corrected"
+
+[page.2]
+path = "docs/site/paxeer-docs/src/app/market-makers/page.tsx"
+status = "corrected"
+
+[page.3]
+path = "docs/site/paxeer-docs/src/app/mcp/page.tsx"
+status = "corrected"
+
+[page.4]
+path = "docs/site/paxeer-docs/src/app/mirrors/page.tsx"
+status = "corrected"
+
+[page.5]
+path = "docs/site/paxeer-docs/src/app/modules/epoch/page.tsx"
+status = "corrected"
+
+[page.6]
+path = "docs/site/paxeer-docs/src/app/modules/mint/page.tsx"
+status = "corrected"
+
+[page.7]
+path = "docs/site/paxeer-docs/src/app/modules/oracle/page.tsx"
+status = "corrected"
+
+[page.8]
+path = "docs/site/paxeer-docs/src/app/modules/page.tsx"
+status = "corrected"
+
+[page.9]
+path = "docs/site/paxeer-docs/src/app/modules/store/page.tsx"
+status = "corrected"
+
+[page.10]
+path = "docs/site/paxeer-docs/src/app/modules/tokenfactory/page.tsx"
+status = "corrected"

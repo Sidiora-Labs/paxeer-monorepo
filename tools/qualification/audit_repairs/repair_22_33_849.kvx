@@ -80,7 +80,7 @@ owner_domain = "8 programs; 16 tools-ops artifact pipeline"
 request = "Build both library test binaries and the exact runtime WASM guest with the in-scope market_build.py producer and hand off its private manifest through LAYERX_MARKET_BUILD_MANIFEST; existing bare executable overrides no longer qualify."
 
 [wiring.onboarding]
-path = "docs/wiki/Getting-Started-Beta.md; docs/site/docs/overview; docs/site/docs/platform/index.md; docs/wiki/Quickstart.md; docs/wiki/PaymentsQuickstart.md"
+path = "docs/wiki/Getting-Started-Beta.md; docs/site/paxeer-docs/src/app/overview; docs/site/paxeer-docs/src/app/platform-api/page.tsx; docs/wiki/Quickstart.md; docs/wiki/PaymentsQuickstart.md"
 owner_domain = "17 documentation"
 request = "Replace surviving executable custody-credit funding recipes with native bank/ledger sends and current root-RPC instructions on every retained onboarding page; preserve private-network warnings and unserved-host refusals."
 
