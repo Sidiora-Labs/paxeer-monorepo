@@ -9,6 +9,8 @@ use layerx_agentd::read::{
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use serde_json::{json, Value};
 
+/// # Panics
+/// Panics if the supplied result is an error.
 pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("{error:?}"))
 }
@@ -19,6 +21,7 @@ pub const HEAD: u64 = 43;
 
 pub type Exchange = (&'static str, Value, Value);
 
+#[must_use = "use the constructed fixture value"]
 pub fn block(height: u64) -> Value {
     let hash = format!("0x{}", "ab".repeat(32));
     let transactions: Vec<Value> = (0..if height == 0 { 0 } else { 2 })
@@ -53,10 +56,14 @@ pub fn block(height: u64) -> Value {
     })
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn head_exchange() -> Exchange {
     ("eth_blockNumber", json!([]), json!(format!("{HEAD:#x}")))
 }
 
+#[must_use = "use the constructed fixture value"]
+/// # Panics
+/// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
 pub fn block_exchange(height: u64, full: bool, result: Value) -> Exchange {
     let result = if full || result.is_null() {
         result
@@ -78,6 +85,7 @@ pub fn block_exchange(height: u64, full: bool, result: Value) -> Exchange {
     )
 }
 
+#[must_use = "use the constructed fixture value"]
 pub fn available_exchanges(height: u64) -> Vec<Exchange> {
     vec![
         block_exchange(height, false, block(height)),
@@ -94,6 +102,9 @@ pub struct Node {
 }
 
 impl Node {
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the loopback listener or node endpoint cannot be initialized.
     pub fn connect(exchanges: Vec<Exchange>) -> Self {
         let listener = must(TcpListener::bind("127.0.0.1:0"));
         let url = format!("http://{}/", must(listener.local_addr()));
@@ -160,10 +171,18 @@ impl Node {
         must(self.server.join());
     }
 
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the request fails, the response is malformed, or the node returns an RPC error.
     pub fn rpc(&self, method: &str, params: Value) -> Value {
-        let mut response = must(self.agent.post(&self.url).send_json(json!({
-            "jsonrpc": "2.0", "id": 1, "method": method, "params": params
-        })));
+        let mut response = must(self.agent.post(&self.url).send_json(Value::Object(
+            serde_json::Map::from_iter([
+                ("jsonrpc".to_owned(), json!("2.0")),
+                ("id".to_owned(), json!(1)),
+                ("method".to_owned(), json!(method)),
+                ("params".to_owned(), params),
+            ]),
+        )));
         assert_eq!(response.status().as_u16(), 200);
         let bytes = must(
             response
@@ -182,6 +201,9 @@ impl Node {
             .clone()
     }
 
+    #[must_use = "use the constructed fixture value"]
+    /// # Panics
+    /// Panics if the supplied fixture data is invalid or an expected codec, signing, storage, or transport operation fails.
     pub fn head(&self) -> u64 {
         let answer = self.rpc("eth_blockNumber", json!([]));
         let text = answer
@@ -193,6 +215,7 @@ impl Node {
         must(u64::from_str_radix(digits, 16))
     }
 
+    #[must_use = "use the constructed fixture value"]
     pub fn block(&self, height: u64) -> Value {
         self.rpc(
             "eth_getBlockByNumber",
@@ -201,6 +224,9 @@ impl Node {
     }
 }
 
+#[must_use = "use the constructed fixture value"]
+/// # Panics
+/// Panics if the availability result disagrees with the block metadata served by the node.
 pub fn assert_available(node: &Node, height: u64) -> u64 {
     let block = node.block(height);
     assert!(block.is_object(), "test block must be retained: {height}");
@@ -258,7 +284,8 @@ fn available_block_matches_node_header() {
 #[test]
 fn genesis_availability_matches_node_header() {
     let node = Node::connect(available_exchanges(0));
-    assert_available(&node, 0);
+    // The helper asserts the complete metadata; genesis needs no count bound.
+    let _transaction_count = assert_available(&node, 0);
     node.finish();
 }
 
@@ -278,7 +305,8 @@ fn repeated_availability_reads_preserve_block_metadata() {
     let first = must(availability(&node.endpoint, &request));
     assert!(matches!(first, AvailabilityRead::Available { .. }));
     assert_eq!(must(availability(&node.endpoint, &request)), first);
-    assert_available(&node, request.height);
+    // The helper asserts metadata against the same recorded block.
+    let _transaction_count = assert_available(&node, request.height);
     node.finish();
 }
 

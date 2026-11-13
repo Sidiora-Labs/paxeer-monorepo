@@ -775104,122 +775104,122 @@ notes = "programme kvx reader with the grammar of CONTRACT section 1; refuses du
 [interface.22.inference-f11-operation-table]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/dispatch.rs"
-line = 0
-signature = "pub const OpenRoom: Operation = Operation(0x0B01) through CloseRoom = Operation(0x0B0C) and the reads RoomView = Operation(0x0B10) through BookView = Operation(0x0B14)"
-callers = []
-status = "new"
+line = 194
+signature = "pub const OpenRoom: Operation = Operation(0x0B01);"
+callers = ["programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+status = "served"
 contract = "contracts/inference-market.md#f11-operations"
-notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "F11 exposes twelve room-market writes and five reads, from OpenRoom through BookView."
 
 [interface.22.inference-f11-errors]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/errors.rs"
-line = 0
-signature = "pub const F11_ROOM_UNKNOWN and the other F11 error codes"
-callers = []
-status = "new"
+line = 244
+signature = "pub const F11_ROOM_UNKNOWN: ApplicationError = application_error(0x0B01);"
+callers = ["programs/crates/layerx-programs-ai-market/src/rooms.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs"]
+status = "served"
 contract = "contracts/inference-market.md#f11-operations"
-notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "F11 error codes cover room, ask, bid, roster, batch, challenge, bond and payout conditions."
 
 [interface.22.inference-f11-availability]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
-line = 0
+line = 1084
 signature = "pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]>"
-callers = []
-status = "new"
+callers = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
+status = "served"
 contract = "contracts/inference-market.md#f11-operations"
-notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "Availability decodes the captured state in F01 through F11 order."
 
 [interface.22.inference-room-profile]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/policy.rs"
-line = 0
-signature = "room profile fields of the market policy (host share, protocol share, bond, lap size, challenge window, maximum tokens)"
-callers = []
-status = "new"
+line = 430
+signature = "pub struct RoomProfile"
+callers = ["programs/crates/layerx-programs-ai-market/src/rooms.rs", "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
+status = "served"
 contract = "contracts/inference-market.md#f11-operations"
-notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "Room policy includes bond, canary, lap, challenge, payout, token, queue and peer deadline fields."
 
 [interface.22.inference-manifest-v2]
 kind = "file_format"
 path = "programs/crates/layerx-programs-ai-market/src/workers.rs"
-line = 0
-signature = "ManifestV2: v1 fields then runtime digest, model digest, device class, memory bytes, bandwidth class, price quote; domain PARTICIPANT_METADATA_DOMAIN_V2"
-callers = []
-status = "new"
+line = 756
+signature = "pub struct ManifestV2<'a>"
+callers = ["programs/crates/layerx-programs-ai-market/tests/manifest_v2_capabilities.rs"]
+status = "served"
 contract = "contracts/inference-market.md#manifest-v2"
-notes = "planned by task 22.38.2 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "Manifest v2 carries the v1 bytes and inference capability fields under PARTICIPANT_METADATA_DOMAIN_V2."
 
 [interface.22.inference-room-record]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/rooms.rs"
-line = 0
-signature = "pub struct RoomRecord, AskRecord, BidRecord, DealRecord and pub fn apply_record_deal"
-callers = []
-status = "new"
+line = 103
+signature = "pub struct RoomRecord"
+callers = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+status = "served"
 contract = "contracts/inference-market.md#room-records"
-notes = "planned by task 22.38.3 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "RoomRecord, AskRecord, BidRecord and DealRecord encode the room market; apply_record_deal binds its roster and layer plan."
 
 [interface.22.inference-lap-receipt]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/laps.rs"
-line = 0
-signature = "pub struct LapReceipt, ReceiptBatch and pub fn apply_settle_laps"
-callers = []
-status = "new"
+line = 25
+signature = "pub struct LapReceipt<'a>"
+callers = ["programs/crates/layerx-programs-ai-market/src/laps.rs", "programs/crates/layerx-programs-ai-market/tests/f11_lap_settlement.rs"]
+status = "served"
 contract = "contracts/inference-market.md#lap-receipts"
-notes = "planned by task 22.38.4 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "LapReceipt and ReceiptBatch carry countersigned lap evidence; apply_settle_laps records cumulative tokens."
 
 [interface.22.inference-canary-commitment]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/canary.rs"
-line = 0
-signature = "pub struct CanaryCommitment, pub fn apply_challenge_lap, apply_resolve_challenge, relative_tolerance_hit"
-callers = []
-status = "new"
+line = 228
+signature = "pub struct CanaryCommitment"
+callers = ["programs/crates/layerx-programs-ai-market/src/commit_reveal.rs", "programs/crates/layerx-programs-ai-market/src/canary.rs"]
+status = "served"
 contract = "contracts/inference-market.md#canary"
-notes = "planned by task 22.38.5 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "CanaryCommitment binds commit-reveal evidence used by apply_challenge_lap, apply_resolve_challenge and relative_tolerance_hit."
 
 [interface.22.inference-payout-split]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/rewards.rs"
-line = 0
-signature = "pub fn apply_split_payout and pub struct PayoutShares"
-callers = []
-status = "new"
+line = 3646
+signature = "pub fn apply_split_payout( ctx: &CallContext, envelope: &ValidatedEnvelope<'_>, current: &[u8], next: &mut [u8], scratch: &mut [u8], event: &mut [u8], ) -> CodecResult<crate::rooms::Outcome>"
+callers = ["programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
+status = "served"
 contract = "contracts/inference-market.md#payout-split"
-notes = "planned by task 22.38.6 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "PayoutShares allocates settled rewards among peers, the host and the protocol."
 
 [interface.22.inference-bond-record]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/bonds.rs"
-line = 0
-signature = "pub struct BondRecord, pub fn apply_lock_bond, apply_slash_bond, apply_refund_bond"
-callers = []
-status = "new"
+line = 21
+signature = "pub struct BondRecord"
+callers = ["programs/crates/layerx-programs-ai-market/src/rooms.rs", "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"]
+status = "served"
 contract = "contracts/inference-market.md#bonds"
-notes = "planned by task 22.38.7 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "BondRecord supports apply_lock_bond, apply_slash_bond and apply_refund_bond."
 
 [interface.22.inference-f11-views]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
-line = 0
-signature = "pub struct RoomView, DealView, PeerView, ReceiptBatchView and pub fn answer_room_view"
-callers = []
-status = "new"
+line = 67
+signature = "pub struct RoomView"
+callers = ["programs/crates/layerx-programs-ai-market/tests/f11_views.rs"]
+status = "served"
 contract = "contracts/inference-market.md#views"
-notes = "planned by task 22.38.8 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "RoomView, DealView, PeerView and ReceiptBatchView decode the fixed-width F11 reads."
 
 [interface.22.inference-placement-book]
 kind = "rust_pub_item"
 path = "programs/crates/layerx-programs-ai-market/src/placement.rs"
-line = 0
-signature = "pub struct PlacementBook, BookView and pub fn crossing_pairs"
-callers = []
-status = "new"
+line = 74
+signature = "pub struct PlacementBook<'a>"
+callers = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/tests/f11_placement_book.rs"]
+status = "served"
 contract = "contracts/inference-market.md#placement-book"
-notes = "planned by task 22.38.11 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "PlacementBook groups open asks and bids by model; BookView exposes crossing_pairs."
 
 [interface.22.pc-0x101b-streamopenforask]
 kind = "precompile_method"
@@ -775346,12 +775346,12 @@ notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e405404
 [interface.22.inference-mode-inference-market]
 kind = "rust_pub_item"
 path = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs"
-line = 0
-signature = "Mode::InferenceMarket parsed from the mode value inference-market"
-callers = []
-status = "new"
+line = 4
+signature = "pub enum Mode"
+callers = ["services/agent/crates/layerx-agentd/src/main.rs"]
+status = "served"
 contract = "contracts/inference-market.md#daemon-profile"
-notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "Mode::InferenceMarket is selected by the inference-market mode value and runs the off-chain profile."
 
 [interface.22.env-layerx-agent-inference-signal-listen]
 kind = "env_var"
@@ -775406,12 +775406,12 @@ notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e405404
 [interface.22.inference-signal-hello-frame]
 kind = "file_format"
 path = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs"
-line = 0
-signature = "hello frame (peer key, signature over room id and nonce, v2 manifest) answered by the room offer (room id, model digest, runtime digest, layer plan, price); frames at most 65536 bytes"
-callers = []
-status = "new"
+line = 25
+signature = "pub struct HelloFrame"
+callers = ["services/agent/crates/layerx-agentd/tests/inference_signal.rs"]
+status = "served"
 contract = "contracts/inference-market.md#signalling"
-notes = "planned by task 22.38.16 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "HelloFrame binds room, peer key, nonce, signature and manifest; RoomOffer answers admitted peers with a chain-anchored plan."
 
 [interface.22.ws-inference-signal]
 kind = "ws_route"
@@ -775446,12 +775446,12 @@ notes = "planned by task 22.38.21 (batch 581, decision 2752); absent at 8e405404
 [interface.22.inference-peer-wire-frame]
 kind = "file_format"
 path = "apps/inference-peer/src/wire.mjs"
-line = 0
-signature = "room wire frame encoded by encodeFrame and decoded by decodeFrame (kind, room id, sequence, payload)"
-callers = []
-status = "new"
+line = 45
+signature = "export function encodeFrame({ kind, roomId, sequence, payload })"
+callers = ["apps/inference-peer/src/transport.mjs", "apps/inference-peer/test/wire.test.mjs"]
+status = "served"
 contract = "contracts/inference-market.md#peer-wire"
-notes = "planned by task 22.38.24 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+notes = "encodeFrame and decodeFrame exchange bounded room frames with kind, room ID, sequence and payload."
 
 [interface.22.cli-inference-peer-join]
 kind = "cli_command"
@@ -775542,3 +775542,513 @@ callers = []
 status = "new"
 contract = "contracts/inference-market.md#qualification"
 notes = "planned by task 22.38.36 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.chainlaunch-method-launchchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 45
+signature = "launchChain(string,string,uint8,address,string,uint64,uint64,uint16)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-launchchainwithpermit]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 151
+signature = "launchChainWithPermit(string,string,uint8,address,string,uint64,uint64,uint16,tuple)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-openchainrevenueepoch]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 190
+signature = "openChainRevenueEpoch(uint32)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-claimchainrevenue]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 219
+signature = "claimChainRevenue(uint32,uint64)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-claimchainrevenuebatch]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 243
+signature = "claimChainRevenueBatch(uint32,uint64[])"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-pauselaunchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 262
+signature = "pauseLaunchedChain(uint32)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-resumelaunchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 275
+signature = "resumeLaunchedChain(uint32)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-retirelaunchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 288
+signature = "retireLaunchedChain(uint32)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-launchedchain]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 301
+signature = "launchedChain(uint32)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-launchedchainofpool]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 350
+signature = "launchedChainOfPool(address)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-homechainof]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 369
+signature = "homeChainOf(address)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-chainrevenueepoch]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 393
+signature = "chainRevenueEpoch(uint32,uint64)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-method-chainrevenueclaimable]
+kind = "precompile_method"
+path = "precompiles/launchpad/abi/ChainLaunch.json"
+line = 452
+signature = "chainRevenueClaimable(uint32,uint64,address)"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "method declaration for the chain launch"
+
+[interface.22.chainlaunch-event-chainlaunched]
+kind = "precompile_event"
+path = "precompiles/launchpad/abi.json"
+line = 3250
+signature = "ChainLaunched(uint32,address,address,uint64,uint256,address,uint256,uint256)"
+callers = ["precompiles/launchpad/events.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "event declaration for the chain launch"
+
+[interface.22.chainlaunch-event-chainrevenueepochopened]
+kind = "precompile_event"
+path = "precompiles/launchpad/abi.json"
+line = 3299
+signature = "ChainRevenueEpochOpened(uint32,uint64,uint256,uint64,uint256,uint256,uint256)"
+callers = ["precompiles/launchpad/events.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "event declaration for the chain launch"
+
+[interface.22.chainlaunch-event-chainrevenueclaimed]
+kind = "precompile_event"
+path = "precompiles/launchpad/abi.json"
+line = 3342
+signature = "ChainRevenueClaimed(uint32,uint64,address,uint256,uint256,uint256)"
+callers = ["precompiles/launchpad/events.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "event declaration for the chain launch"
+
+[interface.22.chainlaunch-event-launchedchainretired]
+kind = "precompile_event"
+path = "precompiles/launchpad/abi.json"
+line = 3379
+signature = "LaunchedChainRetired(uint32,address,uint256,uint256,uint256)"
+callers = ["precompiles/launchpad/events.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "event declaration for the chain launch"
+
+[interface.22.chainlaunch-error-wrongchain]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 4234
+signature = "WrongChain()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-error-notlaunchedchain]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 4224
+signature = "NotLaunchedChain()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-error-notfeerightholder]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 4219
+signature = "NotFeeRightHolder()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-error-epochtooearly]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 4214
+signature = "EpochTooEarly()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-error-nothingtodistribute]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 4229
+signature = "NothingToDistribute()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-error-alreadyclaimed]
+kind = "precompile_error"
+path = "precompiles/launchpad/abi.json"
+line = 3876
+signature = "AlreadyClaimed()"
+callers = ["precompiles/launchpad/errors.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#abi"
+notes = "error declaration for the chain launch"
+
+[interface.22.chainlaunch-store-launchedchain]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 60
+signature = "LaunchedChainPrefix     = []byte{0x53}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-store-launchedchainofpool]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 61
+signature = "ChainPoolPrefix         = []byte{0x54}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-store-homechainofpool]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 62
+signature = "HomeChainPrefix         = []byte{0x55}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-store-chainrevenuelastepoch]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 64
+signature = "ChainRevenueLastPrefix  = []byte{0x57}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-store-chainrevenueepoch]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 63
+signature = "ChainRevenueEpochPrefix = []byte{0x56}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-store-chainrevenueclaim]
+kind = "storage_key"
+path = "modules/launchpad/types/keys.go"
+line = 65
+signature = "ChainRevenueClaimPrefix = []byte{0x58}"
+callers = ["modules/launchpad/keeper/chainlaunch_store.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "store declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-launchchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch.go"
+line = 16
+signature = "func (k *Keeper) LaunchChain(ctx sdk.Context, caller NestedCaller, evm *vm.EVM, creator common.Address,"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-getlaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 13
+signature = "func (k *Keeper) GetLaunchedChain(ctx sdk.Context, number uint64) (types.LaunchedChain, bool, error) {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-getlaunchedchainofpool]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 51
+signature = "func (k *Keeper) RegistryNumberByPool(ctx sdk.Context, pool common.Address) (uint64, bool) {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-gethomechainofpool]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 60
+signature = "func (k *Keeper) HomeChainByPool(ctx sdk.Context, pool common.Address) uint64 {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#home-chain"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-sethomechainofpool]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 65
+signature = "func (k *Keeper) SetHomeChainByPool(ctx sdk.Context, pool common.Address, chain uint64) {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#home-chain"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-checkhomechain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/homechain.go"
+line = 10
+signature = "func (k *Keeper) checkHomeChain(ctx sdk.Context, pool common.Address) error {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#home-chain"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-getchainrevenueepoch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 75
+signature = "func (k *Keeper) GetChainRevenueEpoch(ctx sdk.Context, chain, epoch uint64) (types.ChainRevenueEpoch, bool, error) {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-getchainrevenuelastepoch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 109
+signature = "func (k *Keeper) LastChainRevenueEpoch(ctx sdk.Context, chain uint64) uint64 {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-hasclaimedchainrevenue]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainlaunch_store.go"
+line = 114
+signature = "func (k *Keeper) HasChainRevenueClaim(ctx sdk.Context, chain, epoch uint64, holder common.Address) bool {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#storage"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-openchainrevenueepoch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 18
+signature = "func (k *Keeper) OpenChainRevenueEpoch(ctx sdk.Context, caller NestedCaller, chain uint64) (types.ChainRevenueEpoch, error) {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-claimchainrevenue]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 159
+signature = "func (k *Keeper) ClaimChainRevenue(ctx sdk.Context, caller NestedCaller, chain, epoch uint64,"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-claimchainrevenuebatch]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 198
+signature = "func (k *Keeper) ClaimChainRevenueBatch(ctx sdk.Context, caller NestedCaller, chain uint64,"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-chainrevenueclaimable]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chainrevenue.go"
+line = 139
+signature = "func (k *Keeper) ChainRevenueClaimable(ctx sdk.Context, caller NestedCaller, chain, epoch uint64,"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#revenue"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-pauselaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chaincontrol.go"
+line = 32
+signature = "func (k *Keeper) PauseLaunchedChain(ctx sdk.Context, chain uint64, caller common.Address) error {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-resumelaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chaincontrol.go"
+line = 41
+signature = "func (k *Keeper) ResumeLaunchedChain(ctx sdk.Context, chain uint64, caller common.Address) error {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-keeper-retirelaunchedchain]
+kind = "go_exported"
+path = "modules/launchpad/keeper/chaincontrol.go"
+line = 50
+signature = "func (k *Keeper) RetireLaunchedChain(ctx sdk.Context, chain uint64, caller common.Address) error {"
+callers = ["precompiles/launchpad/chainlaunch.go"]
+status = "served"
+contract = "contracts/chain-launchpad.md#launch"
+notes = "keeper declaration for the chain launch"
+
+[interface.22.chainlaunch-route-list]
+kind = "rest_route"
+path = "services/launchpad/api/internal/rest/compatibility.go"
+line = 80
+signature = "GET /v2/chains"
+callers = ["sdk/launchpad/packages/sdk/src/chains.ts"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "route declaration for the chain launch"
+
+[interface.22.chainlaunch-route-detail]
+kind = "rest_route"
+path = "services/launchpad/api/internal/rest/compatibility.go"
+line = 81
+signature = "GET /v2/chains/{chain}"
+callers = ["sdk/launchpad/packages/sdk/src/chains.ts"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "route declaration for the chain launch"
+
+[interface.22.chainlaunch-route-revenue]
+kind = "rest_route"
+path = "services/launchpad/api/internal/rest/compatibility.go"
+line = 82
+signature = "GET /v2/chains/{chain}/revenue"
+callers = ["sdk/launchpad/packages/sdk/src/chains.ts"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "route declaration for the chain launch"
+
+[interface.22.chainlaunch-ts-listlaunchedchains]
+kind = "ts_export"
+path = "sdk/launchpad/packages/sdk/src/chains.ts"
+line = 84
+signature = "list(query: ChainPageQuery = {}, options: ChainRequestOptions = {}): Promise<ChainsResponse> {"
+callers = ["sdk/launchpad/packages/sdk/test/chains.test.mjs"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "ts declaration for the chain launch"
+
+[interface.22.chainlaunch-ts-getlaunchedchain]
+kind = "ts_export"
+path = "sdk/launchpad/packages/sdk/src/chains.ts"
+line = 88
+signature = "get(chain: string, options: ChainRequestOptions = {}): Promise<ChainDetailResponse> {"
+callers = ["sdk/launchpad/packages/sdk/test/chains.test.mjs"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "ts declaration for the chain launch"
+
+[interface.22.chainlaunch-ts-getlaunchedchainrevenue]
+kind = "ts_export"
+path = "sdk/launchpad/packages/sdk/src/chains.ts"
+line = 92
+signature = "revenue(chain: string, query: ChainRevenueQuery = {}, options: ChainRequestOptions = {}): Promise<ChainRevenueResponse> {"
+callers = ["sdk/launchpad/packages/sdk/test/chains.test.mjs"]
+status = "served"
+contract = "contracts/chain-launchpad.md#api"
+notes = "ts declaration for the chain launch"

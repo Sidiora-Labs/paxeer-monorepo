@@ -47,6 +47,10 @@ impl Timestamp {
         Ok(())
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn decode(bytes: &[u8]) -> Result<Self, ChainProofError> {
         let mut timestamp = Self::default();
         let mut reader = ProtoReader::new(bytes);
@@ -140,6 +144,10 @@ pub struct CommitSig {
 }
 
 impl CommitSig {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn decode(bytes: &[u8]) -> Result<Self, ChainProofError> {
         let mut flag = None;
         let mut validator_address = Vec::new();
@@ -187,6 +195,10 @@ impl CommitSig {
     }
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the supplied chain evidence cannot be decoded or verified.
 pub fn vote_sign_bytes(
     chain_id: &str,
     height: i64,
@@ -194,7 +206,10 @@ pub fn vote_sign_bytes(
     block_id: Option<&BlockId>,
     timestamp: Timestamp,
 ) -> Result<Vec<u8>, ChainProofError> {
-    let mut vote = vec![0x08, SIGNED_MSG_TYPE_PRECOMMIT as u8];
+    let mut vote = vec![
+        0x08,
+        u8::try_from(SIGNED_MSG_TYPE_PRECOMMIT).map_err(|_| ChainProofError::NonCanonical)?,
+    ];
     if height != 0 {
         vote.push(0x11);
         vote.extend_from_slice(&height.to_le_bytes());
@@ -218,10 +233,10 @@ pub fn vote_sign_bytes(
 
 fn write_varint(mut value: u64, bytes: &mut Vec<u8>) {
     while value >= 0x80 {
-        bytes.push((value & 0x7f) as u8 | 0x80);
+        bytes.push(value.to_le_bytes()[0] & 0x7f | 0x80);
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(value.to_le_bytes()[0]);
 }
 
 fn write_bytes(key: u8, value: &[u8], bytes: &mut Vec<u8>) {

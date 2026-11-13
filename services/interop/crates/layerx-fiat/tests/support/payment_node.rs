@@ -46,16 +46,19 @@ pub fn receipt_keys() -> [layerx_proof::inclusion::SequencerAuthorization; 1] {
 }
 
 pub fn hex(data: &[u8]) -> String {
-    format!(
-        "0x{}",
-        data.iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    )
+    let mut output = String::from("0x");
+    for byte in data {
+        assert!(std::fmt::Write::write_fmt(&mut output, format_args!("{byte:02x}")).is_ok());
+    }
+    output
 }
 
 fn blob(out: &mut Vec<u8>, data: &[u8]) {
-    out.extend_from_slice(&u32::try_from(data.len()).unwrap().to_be_bytes());
+    out.extend_from_slice(
+        &u32::try_from(data.len())
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .to_be_bytes(),
+    );
     out.extend_from_slice(data);
 }
 
@@ -200,8 +203,12 @@ fn read_body(stream: &mut TcpStream) -> Result<Vec<u8>> {
                 .lines()
                 .find_map(|line| {
                     let (key, value) = line.split_once(':')?;
-                    key.eq_ignore_ascii_case("content-length")
-                        .then(|| value.trim().parse().unwrap())
+                    key.eq_ignore_ascii_case("content-length").then(|| {
+                        value
+                            .trim()
+                            .parse()
+                            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+                    })
                 })
                 .ok_or("missing HTTP content length")?;
             if data.len() >= end + 4 + length {
@@ -222,11 +229,20 @@ impl PaymentNode {
         let shared = state.clone();
         let thread = std::thread::spawn(move || {
             for connection in listener.incoming() {
-                let mut stream = connection.unwrap();
-                let request: Value =
-                    serde_json::from_slice(&read_body(&mut stream).unwrap()).unwrap();
-                let mut state = shared.lock().unwrap();
-                let result = match request["method"].as_str().unwrap() {
+                let mut stream =
+                    connection.unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+                let request: Value = serde_json::from_slice(
+                    &read_body(&mut stream)
+                        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+                )
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+                let mut state = shared
+                    .lock()
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+                let result = match request["method"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("expected Some value"))
+                {
                     "fixture_stop" => break,
                     "fixture_submitPayment" => {
                         let raw = bytes(&request["params"][0]);
@@ -263,14 +279,16 @@ impl PaymentNode {
                 let body = serde_json::to_vec(
                     &json!({"jsonrpc": "2.0", "id": request["id"], "result": result}),
                 )
-                .unwrap();
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
                 write!(
                     stream,
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                     body.len()
                 )
-                .unwrap();
-                stream.write_all(&body).unwrap();
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+                stream
+                    .write_all(&body)
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
             }
         });
         Ok(Self {
@@ -280,7 +298,7 @@ impl PaymentNode {
         })
     }
 
-    pub fn rpc(&self, method: &str, params: Value) -> Result<Value> {
+    pub fn rpc(&self, method: &str, params: &Value) -> Result<Value> {
         let body = serde_json::to_vec(
             &json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}),
         )?;
@@ -305,19 +323,30 @@ impl PaymentNode {
         let signature = SigningKey::from_bytes(&TRANSACTION_SEED).sign(&raw);
         raw.extend_from_slice(&signature.to_bytes());
         let expected: [u8; 32] = Sha256::digest(&raw).into();
-        let result = self.rpc("fixture_submitPayment", json!([hex(&raw)]))?;
+        let result = self.rpc("fixture_submitPayment", &json!([hex(&raw)]))?;
         assert_eq!(array::<32>(&result), expected);
         Ok(expected)
     }
 
     pub fn ready(&self) {
-        self.state.lock().unwrap().ready = true;
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .ready = true;
     }
     pub fn submissions(&self) -> usize {
-        self.state.lock().unwrap().submissions
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .submissions
     }
     pub fn transcript(&self) -> Value {
-        self.state.lock().unwrap().case.clone().unwrap()
+        self.state
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .case
+            .clone()
+            .unwrap_or_else(|| panic!("expected Some value"))
     }
     pub fn calldata(case: &Value) -> Vec<u8> {
         bytes(&case["rawTransaction"])[DOMAIN.len()..DOMAIN.len() + 196].to_vec()

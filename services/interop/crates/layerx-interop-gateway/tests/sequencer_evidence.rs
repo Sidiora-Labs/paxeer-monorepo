@@ -32,8 +32,10 @@ fn fixture_case() -> &'static str {
 fn field<'a>(case: &'a str, name: &str) -> &'a str {
     case.split_once(&format!("\"{name}\": \""))
         .and_then(|(_, rest)| rest.split_once('"'))
-        .map(|(value, _)| value)
-        .unwrap_or_else(|| panic!("missing fixture field {name}"))
+        .map_or_else(
+            || panic!("missing fixture field {name}"),
+            |(value, _)| value,
+        )
 }
 
 fn hex(value: &str) -> Vec<u8> {
@@ -95,12 +97,12 @@ fn signed_recorded_payment(
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
     digest.update([0]);
-    let signer = SigningKey::from_bytes(&[0x5e; 32]);
+    let receipt_signer = SigningKey::from_bytes(&[0x5e; 32]);
     assert_eq!(
-        signer.verifying_key().to_bytes(),
+        receipt_signer.verifying_key().to_bytes(),
         array(field(case, "publicKey"))
     );
-    let signature = signer.sign(&digest.finalize()).to_bytes();
+    let signature = receipt_signer.sign(&digest.finalize()).to_bytes();
     unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
     unsigned.extend_from_slice(&signature);
     unsigned
@@ -111,8 +113,7 @@ fn recorded_evidence() -> SequencerEvidence {
     let recorded_topics: Vec<[u8; 32]> = case
         .split_once("\"topics\": [")
         .and_then(|(_, rest)| rest.split_once(']'))
-        .map(|(topics, _)| topics)
-        .unwrap_or_else(|| panic!("missing fixture topics"))
+        .map_or_else(|| panic!("missing fixture topics"), |(topics, _)| topics)
         .split('"')
         .filter(|value| value.starts_with("0x"))
         .map(array)
@@ -239,7 +240,8 @@ fn submitted_evidence_leaves_the_translation_pending() {
     let before = format!("{core:?}");
     let error = core
         .settle_with_sequencer_evidence(&principal, key, &evidence, &[], &trace, 3)
-        .unwrap_err();
+        .err()
+        .unwrap_or_else(|| panic!("expected Err value"));
     assert_eq!(
         error.error(),
         &SequencerSettlementError::Gateway(GatewayError::ReceiptPending)
@@ -258,7 +260,8 @@ fn submitted_evidence_leaves_the_translation_pending() {
     let absent = PrincipalId::new("absent").unwrap_or_else(|error| panic!("principal: {error}"));
     let error = core
         .settle_with_sequencer_evidence(&absent, key, &evidence, &[], &trace, 4)
-        .unwrap_err();
+        .err()
+        .unwrap_or_else(|| panic!("expected Err value"));
     assert_eq!(
         error.error(),
         &SequencerSettlementError::Gateway(GatewayError::ReceiptPending)

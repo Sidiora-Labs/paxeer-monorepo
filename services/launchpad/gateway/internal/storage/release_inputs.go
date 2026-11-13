@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
 )
 
 type LicensedFixture struct {
@@ -59,7 +61,7 @@ func ValidateMediaReleaseInputs(input MediaReleaseInputs, now time.Time) error {
 	if e != nil {
 		return errors.New("fixture root unavailable")
 	}
-	defer confined.Close()
+	defer cleanup.Close(confined)
 	seen := map[string]bool{}
 	for _, fixture := range input.Fixtures {
 		if fixture.ContainsCustomerData || !digest.MatchString(fixture.SHA256) || (fixture.Ownership != "owned" && fixture.Ownership != "licensed") || (fixture.Ownership == "licensed" && fixture.License == "") || filepath.IsAbs(fixture.Path) || fixture.Path == "" {

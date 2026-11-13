@@ -69,10 +69,17 @@ type Cap struct {
 	Daily          string `json:"daily,omitempty"`
 }
 
+type ProgramCallRule struct {
+	ProgramID   string   `json:"program_id"`
+	Entrypoints []string `json:"entrypoints"`
+	FeeLimit    string   `json:"fee_limit"`
+}
+
 type Rules struct {
-	ChainID *uint64        `json:"chain_id,omitempty"`
-	Kinds   []string       `json:"kinds,omitempty"`
-	Caps    map[string]Cap `json:"caps,omitempty"`
+	ProgramCalls []ProgramCallRule `json:"program_calls,omitempty"`
+	ChainID      *uint64           `json:"chain_id,omitempty"`
+	Kinds        []string          `json:"kinds,omitempty"`
+	Caps         map[string]Cap    `json:"caps,omitempty"`
 	// FeeCaps bound only the sponsored-fee leg of a sponsored batch; an
 	// asset listed here and not in Caps is refused everywhere else.
 	FeeCaps map[string]Cap `json:"fee_caps,omitempty"`
@@ -134,6 +141,9 @@ func LoadFile(path string) (*Document, error) {
 
 func merge(defaults, override Rules) Rules {
 	out := defaults
+	if override.ProgramCalls != nil {
+		out.ProgramCalls = override.ProgramCalls
+	}
 	if override.ChainID != nil {
 		out.ChainID = override.ChainID
 	}
@@ -193,18 +203,24 @@ type compiledCap struct {
 	daily          *big.Int
 }
 
+type compiledProgramCall struct {
+	entrypoints map[string]bool
+	feeLimit    *big.Int
+}
+
 type compiled struct {
-	chainID   *big.Int
-	kinds     map[string]bool
-	caps      map[string]compiledCap
-	feeCaps   map[string]compiledCap
-	rate      uint32
-	allow     map[common.Address]bool
-	deny      map[common.Address]bool
-	selectors map[common.Address]map[[4]byte]bool
-	trusted   map[common.Address]bool
-	delegates map[common.Address]bool
-	sponsors  map[common.Address]bool
+	programCalls map[[32]byte]compiledProgramCall
+	chainID      *big.Int
+	kinds        map[string]bool
+	caps         map[string]compiledCap
+	feeCaps      map[string]compiledCap
+	rate         uint32
+	allow        map[common.Address]bool
+	deny         map[common.Address]bool
+	selectors    map[common.Address]map[[4]byte]bool
+	trusted      map[common.Address]bool
+	delegates    map[common.Address]bool
+	sponsors     map[common.Address]bool
 }
 
 type missingField string
@@ -274,6 +290,35 @@ func compile(r Rules) (*compiled, error) {
 		rate:      *r.RatePerMinute,
 		selectors: make(map[common.Address]map[[4]byte]bool, len(r.Selectors)),
 	}
+	c.programCalls = make(map[[32]byte]compiledProgramCall, len(r.ProgramCalls))
+	for _, rule := range r.ProgramCalls {
+		id, err := hex.DecodeString(rule.ProgramID)
+		if err != nil || len(id) != 32 || rule.ProgramID != strings.ToLower(rule.ProgramID) {
+			return nil, errors.New("program_calls program_id must be 32 lowercase hex bytes")
+		}
+		key := [32]byte(id)
+		if _, exists := c.programCalls[key]; exists {
+			return nil, errors.New("program_calls program_id is repeated")
+		}
+		if len(rule.Entrypoints) == 0 {
+			return nil, errors.New("program_calls entrypoints must not be empty")
+		}
+		points := make(map[string]bool, len(rule.Entrypoints))
+		for _, point := range rule.Entrypoints {
+			if point == "" || strings.TrimSpace(point) != point || strings.ContainsRune(point, 0) || points[point] {
+				return nil, errors.New("program_calls entrypoint is empty, malformed or repeated")
+			}
+			points[point] = true
+		}
+		if rule.FeeLimit == "" || strings.IndexFunc(rule.FeeLimit, func(r rune) bool { return r < '0' || r > '9' }) >= 0 {
+			return nil, errors.New("program_calls fee_limit must be a non-negative decimal uint128")
+		}
+		limit, err := parseAmount(rule.FeeLimit)
+		if err != nil || limit.BitLen() > 128 {
+			return nil, errors.New("program_calls fee_limit must be a non-negative decimal uint128")
+		}
+		c.programCalls[key] = compiledProgramCall{entrypoints: points, feeLimit: limit}
+	}
 	for _, kind := range r.Kinds {
 		c.kinds[kind] = true
 	}
@@ -342,6 +387,7 @@ type Request struct {
 }
 
 type Context struct {
+	programCalls        map[[32]byte]compiledProgramCall
 	ChainID             *big.Int
 	Account             common.Address
 	ConstructState      *ConstructState
@@ -382,7 +428,14 @@ var pullCounted = map[common.Address]bool{
 	common.HexToAddress("0x0000000000000000000000000000000000001015"): true,
 }
 
+type ProgramCallInspection struct {
+	ProgramID  [32]byte
+	Entrypoint string
+	FeeLimit   *big.Int
+}
+
 type Inspection struct {
+	ProgramCalls []ProgramCallInspection
 	Destinations []Destination
 	Spends       []Spend
 	// Delegates are the EIP-7702 delegation targets the request signs.
@@ -493,7 +546,7 @@ func (p *Policy) Evaluate(account string, req Request, ledger Ledger) Decision {
 	if ledger == nil {
 		return denied(CodeLedgerError, "no ledger")
 	}
-	ctx := Context{ChainID: new(big.Int).Set(effective.chainID), Account: common.HexToAddress(account)}
+	ctx := Context{ChainID: new(big.Int).Set(effective.chainID), Account: common.HexToAddress(account), programCalls: effective.programCalls}
 	p.mu.RLock()
 	reader := p.constructReader
 	perpsReader := p.perpsCollateralReader
@@ -1102,6 +1155,7 @@ func inspectSponsoredBatch(ctx Context, view any) (Inspection, error) {
 		out.Destinations = append(out.Destinations, inspection.Destinations...)
 		out.Spends = append(out.Spends, inspection.Spends...)
 		out.Transfers = append(out.Transfers, inspection.Transfers...)
+		out.ProgramCalls = append(out.ProgramCalls, inspection.ProgramCalls...)
 		if inspection.ReviewedBlock != (common.Hash{}) {
 			if out.ReviewedBlock != (common.Hash{}) && out.ReviewedBlock != inspection.ReviewedBlock {
 				return Inspection{}, refuse(CodeMissingField, "batch reviewed state blocks disagree")

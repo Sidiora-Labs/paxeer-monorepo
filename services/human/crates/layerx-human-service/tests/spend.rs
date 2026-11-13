@@ -279,7 +279,7 @@ fn signed_receipt(
     );
     let decoded = layerx_intents::canonical::decode_receipt(&canonical_receipt)
         .unwrap_or_else(|error| panic!("spend producer receipt: {error:?}"));
-    let protocol = decoded.protocol().expect("spend protocol receipt");
+    let protocol = decoded.protocol().or_fail("spend protocol receipt");
     assert_eq!(protocol.previous_state_root(), fields.previous_state_root);
     assert_eq!(protocol.resulting_state_root(), fields.resulting_state_root);
     let evidence = support::raw_receipt_evidence(
@@ -309,7 +309,7 @@ fn signed_receipt(
     };
     let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
         .unwrap_or_else(|error| panic!("spend receipt: {error:?}"));
-    let protocol = receipt.protocol().expect("protocol spend receipt");
+    let protocol = receipt.protocol().or_fail("protocol spend receipt");
     assert_eq!(material.tx_hash, protocol.activity_id());
     assert_eq!(material.block_height, protocol.global_sequence());
     assert_eq!(
@@ -585,4 +585,10 @@ fn assert_real_budget_reservation_bounds() {
         Err(SpendError::ProtocolBudgetStateUnavailable)
     ));
     drop(budget_bound);
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

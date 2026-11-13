@@ -259,7 +259,7 @@ export async function sendWalletPrecompileCall(
       const consent =
         typeof window !== 'undefined' &&
         window.confirm(
-          `${review.consent}\nAccount: ${quoted.value.batch.account}\nNetwork: ${quoted.value.batch.chainId}`
+          `${review.consent}\nAccount: ${quoted.value.batch.account}\nNetwork: ${quoted.value.batch.chainId.toString()}`
         );
       return await sendWalletSponsoredBatch(quoted.value, consent ? review.identity : undefined);
     }
@@ -446,11 +446,12 @@ async function statusOutcome(report: SponsoredSubmissionEvidence): Promise<Preco
 }
 
 function sameCalls(calls: readonly PrecompileCall[], call: PrecompileCall): boolean {
+  const [first] = calls;
   return (
-    calls.length === 1 &&
-    calls[0]!.to.toLowerCase() === call.to.toLowerCase() &&
-    calls[0]!.value === call.value &&
-    calls[0]!.data.toLowerCase() === call.data.toLowerCase()
+    calls.length === 1 && first !== undefined &&
+    first.to.toLowerCase() === call.to.toLowerCase() &&
+    first.value === call.value &&
+    first.data.toLowerCase() === call.data.toLowerCase()
   );
 }
 

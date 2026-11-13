@@ -292,7 +292,7 @@ fn evm_output(data: &[u8], activity: [u8; 32]) -> Result<Vec<u8>> {
     while let Some(field) = response.next_field().map_err(|_| Error::Refused)? {
         match (field.number, field.value) {
             (1, ProtoValue::Varint(n)) if gas.is_none() => gas = Some(n),
-            (2, ProtoValue::Bytes(b)) if b.is_empty() => {}
+            (2, ProtoValue::Bytes([])) => {}
             (3, ProtoValue::Bytes(b)) if output.is_none() => output = Some(b.to_vec()),
             (4, ProtoValue::Bytes(b)) if hash.is_none() => hash = Some(b),
             (5, ProtoValue::Bytes(_)) => {}

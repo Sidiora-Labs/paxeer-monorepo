@@ -33,11 +33,11 @@ type Publisher struct {
 
 func eventType(action string) (string, error) {
 	switch action {
-	case "follow":
+	case followAction:
 		return "social.edge.changed", nil
-	case "comment", "comment_hide", "reaction":
+	case commentAction, commentHideAction, reactionAction:
 		return "social.comment.changed", nil
-	case "callout_reference":
+	case calloutReferenceAction:
 		return "social.callout.changed", nil
 	}
 	return "", ErrInvalid
@@ -49,7 +49,7 @@ func publicSnapshot(ctx context.Context, tx pgx.Tx, r Request) (PublicEvent, err
 		return PublicEvent{}, e
 	}
 	v := PublicEvent{AggregateID: aggregate, Revision: rev, Actor: r.Actor, Action: r.Action, Target: r.ID, Pool: r.Pool, Removed: r.Remove}
-	if r.Action == "comment" || r.Action == "comment_hide" {
+	if r.Action == commentAction || r.Action == commentHideAction {
 		var parent *string
 		if e := tx.QueryRow(ctx, `SELECT author,pool,body,parent,removed FROM interaction_comments WHERE id=$1`, r.ID).Scan(&v.Actor, &v.Pool, &v.Body, &parent, &v.Removed); e != nil {
 			return v, e
@@ -62,10 +62,10 @@ func publicSnapshot(ctx context.Context, tx pgx.Tx, r Request) (PublicEvent, err
 			v.Parent = ""
 		}
 	}
-	if r.Action == "callout_reference" {
+	if r.Action == calloutReferenceAction {
 		v.SourceRevision = r.Revision
 	}
-	if r.Action == "reaction" {
+	if r.Action == reactionAction {
 		if e := tx.QueryRow(ctx, `SELECT pool FROM interaction_comments WHERE id=$1`, r.ID).Scan(&v.Pool); e != nil {
 			return v, e
 		}
@@ -110,7 +110,7 @@ func (p *Publisher) Record(ctx context.Context, tx pgx.Tx, r Request) error {
 		return e
 	}
 	scopes := []string{"actor:" + r.Actor}
-	if r.Action == "follow" {
+	if r.Action == followAction {
 		scopes = append(scopes, "wallet:"+r.Actor, "wallet:"+r.ID)
 	}
 	if v.Pool != "" {
@@ -124,7 +124,7 @@ func (p *Publisher) Record(ctx context.Context, tx pgx.Tx, r Request) error {
 	if e = p.Delivery.Enqueue(ctx, tx, subject, envelope); e != nil {
 		return e
 	}
-	if r.Action == "callout_reference" {
+	if r.Action == calloutReferenceAction {
 		if p.NotificationSubject == "" {
 			return ErrDependency
 		}
@@ -216,5 +216,5 @@ func (s Store) PruneReplay(ctx context.Context, limit int) (int64, error) {
 }
 
 func (s Store) RecordRemovalTx(ctx context.Context, tx pgx.Tx, actor, pool, id string) error {
-	return s.recordChange(ctx, tx, Request{Actor: actor, Pool: pool, ID: id, Action: "comment", Remove: true})
+	return s.recordChange(ctx, tx, Request{Actor: actor, Pool: pool, ID: id, Action: commentAction, Remove: true})
 }

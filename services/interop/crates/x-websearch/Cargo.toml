@@ -29,9 +29,12 @@ serde_json.workspace = true
 sha2.workspace = true
 sha3.workspace = true
 signal-hook.workspace = true
-tantivy = "=0.26.2"
+tantivy.workspace = true
 unicode-normalization = "=0.1.25"
 zeroize.workspace = true
+
+[dev-dependencies]
+nix = { version = "=0.29.0", features = ["sched"] }
 
 [lints]
 workspace = true

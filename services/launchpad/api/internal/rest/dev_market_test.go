@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"encoding/base64"
 	"encoding/json"
 	"math/big"
 	"net"
@@ -15,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -384,6 +386,24 @@ func mktAssertWatermark(t *testing.T, raw any, header *types.Header) {
 	}
 }
 
+func mktWaitForHead(t *testing.T, read func() v2Response, height string) v2Response {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		result := read()
+		var envelope struct {
+			Revision *string `json:"revision"`
+		}
+		if result.status == http.StatusOK && json.Unmarshal(result.body, &envelope) == nil && envelope.Revision != nil && *envelope.Revision == height {
+			return result
+		}
+		if !time.Now().Before(deadline) {
+			t.Fatalf("chain head %s was not ready: status %d body %s", height, result.status, result.body)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 func TestDevelopmentMarketReadsZeroPools(t *testing.T) {
 	f := newMktMarketFixture(t, true)
 	ctx := context.Background()
@@ -394,7 +414,7 @@ func TestDevelopmentMarketReadsZeroPools(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, sort := range []string{"new", "volume", "trending"} {
-		envelope := assertV2Success(t, getV2(t, f.srv.URL+"/v2/pools?sort="+sort), "PoolListResponse")
+		envelope := assertV2Success(t, mktWaitForHead(t, func() v2Response { return getV2(t, f.srv.URL+"/v2/pools?sort="+sort) }, head.Number.String()), "PoolListResponse")
 		if items := mktData(envelope)["items"].([]any); len(items) != 0 || envelope["nextCursor"] != nil || envelope["revision"] != head.Number.String() {
 			t.Fatalf("empty pool list %s: %v", sort, envelope)
 		}
@@ -427,7 +447,7 @@ func TestDevelopmentMarketReadsZeroPools(t *testing.T) {
 	if len(mktData(rewardPools)["items"].([]any)) != 0 || rewardPools["nextCursor"] != nil {
 		t.Fatalf("empty holder reward pools: %v", rewardPools)
 	}
-	platform := assertV2Success(t, getV2(t, f.srv.URL+"/v2/platform/metrics?window=24h"), "PlatformResponse")
+	platform := assertV2Success(t, waitForV2Ready(t, func() v2Response { return getV2(t, f.srv.URL+"/v2/platform/metrics?window=24h") }), "PlatformResponse")
 	if d := mktData(platform); d["pools"] != "0" || d["volumeUsdlRaw"] != "0" {
 		t.Fatalf("platform: %v", d)
 	}
@@ -473,8 +493,31 @@ func TestDevelopmentMarketReadsWithoutChainRPC(t *testing.T) {
 
 func TestDevelopmentMarketReadsPools(t *testing.T) {
 	f := newMktMarketFixture(t, true)
+	raw, err := os.ReadFile("testdata/repair_22_39_372_token.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var artifact struct {
+		ABI      json.RawMessage `json:"abi"`
+		Bytecode string          `json:"bytecode"`
+	}
+	if err = json.Unmarshal(raw, &artifact); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := abi.JSON(strings.NewReader(string(artifact.ABI)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var tokenAddress common.Address
+	f.chain.emitterTransaction(t, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		var tx *types.Transaction
+		var deployErr error
+		tokenAddress, tx, _, deployErr = bind.DeployContract(opts, parsed, common.FromHex(artifact.Bytecode), f.chain.backend.Client(), "Verified Market Token", "VMT", big.NewInt(123456789), common.HexToAddress(mktCreator))
+		return tx, deployErr
+	})
+	verifiedToken := strings.ToLower(tokenAddress.Hex())
 	now := time.Now().Unix()
-	receiptA := f.createPool(t, mktPoolA, mktTokenA, "0x0000000000000000000000000000000000000000", now-2*86400)
+	receiptA := f.createPool(t, mktPoolA, verifiedToken, "0x0000000000000000000000000000000000000000", now-2*86400)
 	receiptB := f.createPool(t, mktPoolB, mktTokenB, "0x0000000000000000000000000000000000000000", now-3600)
 	receiptC := f.createPool(t, mktPoolOptical, mktTokenC, "0x"+strings.Repeat("9", 40), now-60)
 	head := f.chain.head(t)
@@ -490,7 +533,7 @@ func TestDevelopmentMarketReadsPools(t *testing.T) {
 	f.insertSwap(t, mktPoolA, mktTraderTwo, true, "9000000", "9000000000000000000", "90000", 15, now-3*86400, 1)
 	f.insertSwap(t, mktPoolB, mktTraderTwo, true, "400000", "1000", "10000", 23, now-70, 1)
 	f.insertSwap(t, mktPoolOptical, mktTraderOne, true, "1000000", "1000", "10000", 24, now-60, 1)
-	f.insertPoolStats(t, mktPoolA, mktTokenA, "3600000", "250", 2, 1, 3, now-2*86400, now-5)
+	f.insertPoolStats(t, mktPoolA, verifiedToken, "3600000", "250", 2, 1, 3, now-2*86400, now-5)
 	f.insertPoolStats(t, mktPoolB, mktTokenB, "400000", "-40", 1, 0, 1, now-3600, now-5)
 	f.insertPoolStats(t, mktPoolOptical, mktTokenC, "1000000", "0", 1, 0, 1, now-60, now-5)
 	f.rank(t, "trending", goredis.Z{Score: 9.5, Member: mktPoolA}, goredis.Z{Score: 3.25, Member: mktPoolB})
@@ -498,11 +541,11 @@ func TestDevelopmentMarketReadsPools(t *testing.T) {
 	f.rank(t, "new", goredis.Z{Score: 3, Member: mktPoolOptical}, goredis.Z{Score: 2, Member: mktPoolB}, goredis.Z{Score: 1, Member: mktPoolA})
 
 	// Pool detail: registry, indexed state, observed fee, chain positions.
-	detail := assertV2Success(t, getV2(t, f.srv.URL+"/v2/pools/"+mktPoolA), "PoolDetailResponse")
+	detail := assertV2Success(t, waitForV2Ready(t, func() v2Response { return getV2(t, f.srv.URL+"/v2/pools/"+mktPoolA) }), "PoolDetailResponse")
 	mktAssertWatermark(t, detail["watermark"], head)
 	pool := mktData(detail)["pool"].(map[string]any)
 	created := pool["createdPosition"].(map[string]any)
-	if pool["feeBps"] != float64(100) || pool["effectivePricingUsdlReserveRaw"] != "1250000000" || pool["creator"] != mktCreator || pool["tokenAddress"] != mktTokenA {
+	if pool["feeBps"] != float64(100) || pool["effectivePricingUsdlReserveRaw"] != "1250000000" || pool["creator"] != mktCreator || pool["tokenAddress"] != verifiedToken {
 		t.Fatalf("pool document: %v", pool)
 	}
 	if created["height"] != receiptA.BlockNumber.String() || created["blockHash"] != strings.ToLower(receiptA.BlockHash.Hex()) || created["transactionHash"] != strings.ToLower(receiptA.TxHash.Hex()) || created["logIndex"] != strconv.FormatUint(uint64(receiptA.Logs[0].Index), 10) || created["transactionIndex"] != strconv.FormatUint(uint64(receiptA.TransactionIndex), 10) {
@@ -516,7 +559,7 @@ func TestDevelopmentMarketReadsPools(t *testing.T) {
 		t.Fatalf("source upper position: %v", upper)
 	}
 	token := mktData(detail)["token"].(map[string]any)
-	if token["address"] != mktTokenA || token["decimalsQuality"] != "unavailable" || token["sourcePosition"] != nil {
+	if token["address"] != verifiedToken || token["name"] != "Verified Market Token" || token["symbol"] != "VMT" || token["decimals"] != float64(6) || token["totalSupplyRaw"] != "123456789" || token["decimalsQuality"] != "verified" || token["supplyQuality"] != "verified" || token["sourcePosition"] == nil {
 		t.Fatalf("token: %v", token)
 	}
 	assertV2Error(t, getV2(t, f.srv.URL+"/v2/pools/"+mktPoolOptical), 503, "DEPENDENCY_UNAVAILABLE")
@@ -591,6 +634,31 @@ func TestDevelopmentMarketReadsPools(t *testing.T) {
 		t.Fatalf("trader leaderboard page two: %s", got)
 	}
 
+	cursorBytes, err := base64.RawURLEncoding.DecodeString(paged["nextCursor"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cursorFields map[string]any
+	if err := json.Unmarshal(cursorBytes, &cursorFields); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		snapshot string
+		offset   int
+		status   int
+		code     string
+	}{
+		{cursorFields["snapshotId"].(string), 1000, 400, "CURSOR_INVALID"},
+		{"different", 0, 409, "RESNAPSHOT_REQUIRED"},
+	} {
+		cursorFields["snapshotId"], cursorFields["offset"] = tc.snapshot, tc.offset
+		raw, err := json.Marshal(cursorFields)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cursor := base64.RawURLEncoding.EncodeToString(raw)
+		assertV2Error(t, getV2(t, f.srv.URL+"/v2/leaderboards/trader?window=24h&cursor="+cursor), tc.status, tc.code)
+	}
 	// Holders: keyset pages, pool contract excluded.
 	f.insertHolder(t, mktPoolA, mktPoolA, "700000000000000000000000000")
 	f.insertHolder(t, mktPoolA, mktHolderOne, "3000")
@@ -602,7 +670,7 @@ func TestDevelopmentMarketReadsPools(t *testing.T) {
 		out := []string{}
 		for _, item := range mktData(envelope)["items"].([]any) {
 			entry := item.(map[string]any)
-			if entry["tokenAddress"] != mktTokenA || entry["share"] != nil {
+			if entry["tokenAddress"] != verifiedToken || entry["share"] != nil {
 				t.Fatalf("holder entry: %v", entry)
 			}
 			out = append(out, entry["wallet"].(string)+"="+entry["balanceRaw"].(string))

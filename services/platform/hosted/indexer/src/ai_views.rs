@@ -15,6 +15,10 @@ pub struct AiViews {
     pub limiter: QueryLimiter,
 }
 impl AiViews {
+    /// Opens the durable projection reader and initializes query admission.
+    ///
+    /// # Errors
+    /// Returns `ViewError::Store` if the database cannot be opened or initialized.
     pub fn open(path: &Path, generation: u32, cursor_secret: [u8; 32]) -> Result<Self, ViewError> {
         Ok(Self {
             store: ProjectionStore::open(path)?,
@@ -25,6 +29,11 @@ impl AiViews {
 
     /// Invoke the gateway's current credential lookup on every request, before
     /// limiter admission or projection reads. Authentication remains owned by the gateway.
+    ///
+    /// # Errors
+    /// Returns the authentication callback error as the outer result when the
+    /// current credential lookup fails. The inner result reports an invalid
+    /// principal or any query refusal described by `Self::query`.
     pub fn authenticated_query<E>(
         &self,
         authenticate: impl FnOnce() -> Result<String, E>,
@@ -48,6 +57,11 @@ impl AiViews {
     }
 
     /// The caller supplies a viewer only after reauthenticating the current request.
+    ///
+    /// # Errors
+    /// Returns an error for disabled or exhausted query admission, an unknown view,
+    /// invalid query encoding, unavailable or unfinalized content, invalid or expired
+    /// cursors, oversized responses, or projection store and integrity failures.
     pub fn query(
         &self,
         viewer: &Viewer,

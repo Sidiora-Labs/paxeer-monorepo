@@ -16,6 +16,9 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+mod registration;
+use registration::SignedRegistration;
+
 pub(super) fn requested(params: &BTreeMap<String, String>) -> bool {
     params.keys().any(|key| {
         matches!(
@@ -136,18 +139,23 @@ fn current_account(
     policy: &PrincipalPolicy,
 ) -> Result<Current, Response> {
     let refused = || unavailable("subject_checkpoint_proof_unavailable");
-    let session = budget_state::Session::open(config).map_err(|()| refused())?;
-    let (account, _) = session.identity(did, owner).map_err(|()| refused())?;
+    let session = budget_state::Session::open(config)
+        .map_err(|layerx_platform_authority::AuthorityError| refused())?;
+    let (account, _) = session
+        .identity(did, owner)
+        .map_err(|layerx_platform_authority::AuthorityError| refused())?;
     if account["kind"].as_u64() != Some(1)
         || account["frozen"].as_bool() != Some(false)
         || account["asset_id"].as_str() != Some(hex::encode(&asset).as_str())
     {
         return Err(refused());
     }
+    session.fresh(policy.maximum_age_seconds).map_err(
+        |layerx_platform_authority::AuthorityError| unavailable("subject_checkpoint_stale"),
+    )?;
     session
-        .fresh(policy.maximum_age_seconds)
-        .map_err(|()| unavailable("subject_checkpoint_stale"))?;
-    session.unchanged().map_err(|()| refused())?;
+        .unchanged()
+        .map_err(|layerx_platform_authority::AuthorityError| refused())?;
     Ok(Current {
         committed_height: session.committed_height,
         state_height: session.finality.state_height,
@@ -234,13 +242,13 @@ fn registration_binding(
     network: u32,
     owner: &str,
     target: &str,
-) -> Result<(Activity, layerx_crypto::payments::SponsoredRegistration), Response> {
+) -> Result<(Activity, SignedRegistration), Response> {
     let activity = signed(bytes, registry, network)?;
-    let registration = layerx_crypto::payments::SponsoredRegistration::decode(activity.payload())
-        .map_err(|_| refusal(403, "child_not_bound", None))?;
+    let registration = SignedRegistration::decode(activity.payload())
+        .map_err(|()| refusal(403, "child_not_bound", None))?;
     registration
         .validate_outer(&activity)
-        .map_err(|_| refusal(403, "child_not_bound", None))?;
+        .map_err(|()| refusal(403, "child_not_bound", None))?;
     if activity.actor_did() != owner.as_bytes()
         || registration.consent.target.as_bytes() != target.as_bytes()
     {
@@ -666,7 +674,9 @@ mod tests;
 
 #[cfg(test)]
 impl Config {
-    pub(crate) fn fixture_subject_head(
+    /// # Errors
+    /// Returns the authority response when the policy or committed subject is unavailable.
+    pub fn fixture_subject_head(
         &self,
         policy: &serde_json::Value,
         did: &str,

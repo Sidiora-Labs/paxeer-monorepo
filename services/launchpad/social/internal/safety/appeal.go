@@ -42,7 +42,7 @@ func (s *Store) ReviewAppeal(ctx context.Context, id string, expected int64, rea
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var issuer, caseID, pool, state, caseState string
 	var rev int64
 	e = tx.QueryRow(ctx, `SELECT a.actor,c.id,c.pool_id,ap.state,ap.revision,c.state FROM safety_appeals ap JOIN safety_actions a ON a.id=ap.action_id JOIN safety_cases c ON c.id=a.case_id WHERE ap.id=$1 FOR UPDATE OF c,ap`, id).Scan(&issuer, &caseID, &pool, &state, &rev, &caseState)
@@ -50,10 +50,10 @@ func (s *Store) ReviewAppeal(ctx context.Context, id string, expected int64, rea
 		return e
 	}
 	if issuer == p.Wallet || !Authorized(p, pool, true, s.now()) {
-		tx.Rollback(ctx)
+		rollbackTx(ctx, tx)
 		return s.denial(ctx, p, "appeal_review")
 	}
-	if rev != expected || state != "submitted" || caseState != "appealed" {
+	if rev != expected || state != submittedState || caseState != appealedState {
 		return ErrConflict
 	}
 	if _, e = tx.Exec(ctx, `UPDATE safety_appeals SET state='reviewing',revision=revision+1,reviewer=$2 WHERE id=$1`, id, p.Wallet); e != nil {

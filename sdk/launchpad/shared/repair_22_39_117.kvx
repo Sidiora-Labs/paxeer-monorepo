@@ -1,0 +1,22 @@
+[task]
+id = "22.39.117"
+summary = "The five shared service packages run with configured integration services or local fixtures, and their test baseline entries are retired."
+
+[fixtures]
+chain = "Chain integration cases use KINDLE_L01_REAL_FIXTURE_JSON and KINDLE_L01_PHASE4_INPUT_JSON when configured."
+database = "Database and delivery integration cases use their named PostgreSQL, broker and object storage settings when configured."
+coordinator = "Private database cleanup retains the shared migration ledger owner while independent fixtures use it."
+broker = "NATS driver cases use file-backed loopback JetStream; the API relay starts one when no broker URL is configured."
+baseline = "The Makefile derives its test, race and coverage baseline from the launchpad JSON inventory."
+
+[delivery]
+quarantine = "A poison envelope with no affected pools commits one immutable quarantine row across a store restart."
+transaction = "A cancelled transaction releases its connection before the next operation acquires the pool slot."
+
+[deployment]
+identity = "Surface roles carry active and named staged runtime identities in the manifest and browser deployment data."
+approval = "An approved role accepts a recorded identity without the staged pair; a supplied staged pair must match the approved pair."
+receipt = "Indexer manifest comparisons preserve role address, kind and runtime identity while allowing an absent approved staged pair."
+
+[processor]
+home_chain = "The in-process projection store assigns a pool's home chain when its address and token match a launched chain and preserves its chain otherwise."

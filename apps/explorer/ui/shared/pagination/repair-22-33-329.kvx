@@ -30,3 +30,8 @@ assumption = "Domain 14 must reconcile the declared pnpm gates with the owning a
 observed = "Preserved the seeded pagination implementation and all four executable proof functions; the current build and verify gates use the explorer package manager through corepack yarn."
 baseline = "The seeded tree already contains the repair; the implementation-first gate order permits no unchanged-tree baseline, and no baseline failure is claimed."
 evidence = "The final hf-done ledger line records the qualified candidate revision, command, exit code and private log; no subsequent candidate edits are made."
+
+[retained.22_39_337]
+consumer = "apps/explorer/ui/pages/PaxeerXReceipts.tsx uses Pagination and useQueryWithPages with general:paxeer_x_receipts and the id/items_count cursor; retain shared pagination after removing the unreachable anchors page."
+search = "rg -n 'Pagination|useQueryWithPages|paxeer_x_receipts|next_page_params' apps/explorer/ui/pages/PaxeerXReceipts.tsx"
+record = "apps/explorer/repair_22_39_337.kvx"

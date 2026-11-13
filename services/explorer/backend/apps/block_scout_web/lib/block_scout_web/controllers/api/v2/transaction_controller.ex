@@ -56,7 +56,7 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
   alias Explorer.Chain.Arbitrum.Reader.API.Settlement, as: ArbitrumSettlementReader
   alias Explorer.Chain.Beacon.Deposit, as: BeaconDeposit
   alias Explorer.Chain.Beacon.Reader, as: BeaconReader
-  alias Explorer.Chain.Cache.Counters.{NewPendingTransactionsCount, Transactions24hCount}
+  alias Explorer.Chain.Cache.Counters.{NewPendingTransactionsCount, Transactions24hCount, TransactionsCount}
   alias Explorer.Chain.{Hash, Transaction}
   alias Explorer.Chain.Optimism.TransactionBatch, as: OptimismTransactionBatch
   alias Explorer.Chain.PaxeerX.{PriceFeed, PriceUpdate}
@@ -1096,12 +1096,18 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
            type: :object,
            properties: %{
              transactions_count_24h: Schemas.General.IntegerString,
+             price_updates_count_24h: Schemas.General.IntegerString,
+             total_price_updates_count: Schemas.General.IntegerString,
+             total_transactions_count: Schemas.General.IntegerString,
              pending_transactions_count: Schemas.General.IntegerString,
              transaction_fees_sum_24h: Schemas.General.IntegerString,
              transaction_fees_avg_24h: Schemas.General.IntegerString
            },
            required: [
              :transactions_count_24h,
+             :price_updates_count_24h,
+             :total_price_updates_count,
+             :total_transactions_count,
              :pending_transactions_count,
              :transaction_fees_sum_24h,
              :transaction_fees_avg_24h
@@ -1117,21 +1123,24 @@ defmodule BlockScoutWeb.API.V2.TransactionController do
   @spec stats(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def stats(conn, _params) do
     transactions_count = Transactions24hCount.fetch_count(@api_true)
+    price_updates_count = PriceFeed.update_count_24h()
+    total_price_updates_count = PriceFeed.total_update_count()
+    total_transactions_count = TransactionsCount.get() + total_price_updates_count
     pending_transactions_count = NewPendingTransactionsCount.fetch(@api_true)
     transaction_fees_sum = Transactions24hCount.fetch_fee_sum(@api_true)
     transaction_fees_avg = Transactions24hCount.fetch_fee_average(@api_true)
 
     conn
     |> put_status(200)
-    |> render(
-      :stats,
-      %{
-        transactions_count_24h: transactions_count,
-        pending_transactions_count: pending_transactions_count,
-        transaction_fees_sum_24h: transaction_fees_sum,
-        transaction_fees_avg_24h: transaction_fees_avg
-      }
-    )
+    |> json(%{
+      transactions_count_24h: (Decimal.to_integer(transactions_count) + price_updates_count) |> Integer.to_string(),
+      price_updates_count_24h: Integer.to_string(price_updates_count),
+      total_price_updates_count: Integer.to_string(total_price_updates_count),
+      total_transactions_count: Integer.to_string(total_transactions_count),
+      pending_transactions_count: pending_transactions_count,
+      transaction_fees_sum_24h: transaction_fees_sum,
+      transaction_fees_avg_24h: transaction_fees_avg
+    })
   end
 
   operation :beacon_deposits,

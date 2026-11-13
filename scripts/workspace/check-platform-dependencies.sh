@@ -6,7 +6,7 @@ actual=$(mktemp)
 declared=$(mktemp)
 trap 'rm -f "$actual" "$declared"' EXIT HUP INT TERM
 
-find services/platform -type d \( -name target -o -name node_modules -o -name build -o -name .build \) -prune -o \
+find services/platform -type d \( -name target -o -name node_modules -o -name build -o -name .build -o -name .next \) -prune -o \
     -type f \( -name Cargo.toml -o -name go.mod -o -name package.json -o -name pom.xml \
     -o -name Package.swift -o -name Package.resolved -o -name '*.csproj' -o -name pyproject.toml \
     -o -name requirements.txt -o -name settings.gradle.kts -o -name build.gradle.kts \) \
@@ -21,6 +21,20 @@ while IFS='|' read -r kind path classification; do
         locked-workspace-root|locked-independent)
             test "$kind" = rust
             test -s "${path%/Cargo.toml}/Cargo.lock"
+            ;;
+        covered-by-test:*)
+            test "$kind" = rust
+            covering=${classification#covered-by-test:}
+            case "$covering" in *_test.go) ;; *) exit 1 ;; esac
+            test -s "$covering"
+            ;;
+        covered-by-python-source:*)
+            test "$kind" = python
+            covering=${classification#covered-by-python-source:}
+            case "$covering" in *.py) ;; *) exit 1 ;; esac
+            test -s "$covering"
+            grep -q '^cryptography' "$path"
+            grep -q '^from cryptography\.' "$covering"
             ;;
         revision-locked)
             test "$kind" = swift-lock

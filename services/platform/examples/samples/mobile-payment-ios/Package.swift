@@ -12,7 +12,10 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "MobilePayment",
-            dependencies: ["LayerXMobile", "LayerXSDK"],
+            dependencies: [
+                .product(name: "LayerXMobile", package: "ios"),
+                .product(name: "LayerXSDK", package: "swift")
+            ],
             path: "Sources/MobilePayment"
         )
     ]

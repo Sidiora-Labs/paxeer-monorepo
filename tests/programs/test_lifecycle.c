@@ -2093,10 +2093,10 @@ static int lifecycle_environment(lxp_kernel **kernel,
     lxp_identity *governor;
     uint8_t public_key[32];
     AUDIT_CHECK(audit_init(f) == 0);
-    AUDIT_CHECK(public_key_for(audit_owner_seed, public_key) == 0);
-    AUDIT_RESULT(lxp_identity_register(&f->identities,
+    AUDIT_CHECK(f->identities.count == 1U);
+    AUDIT_RESULT(lxp_identity_resolve(&f->identities,
         (const uint8_t *)"did:lxp:native-migration-owner", 30U,
-        public_key, &lifecycle_owner), LXP_OK);
+        &lifecycle_owner), LXP_OK);
     AUDIT_CHECK(public_key_for(audit_governor_seed, public_key) == 0);
     AUDIT_RESULT(lxp_identity_register(&f->identities,
         (const uint8_t *)"did:lxp:native-migration-governor", 33U,
@@ -2200,6 +2200,7 @@ static int audit_migration_receipt_and_duplicate_recovery(void)
     AUDIT_RESULT(lxp_state_root(kernel, before), LXP_OK);
     (void)memcpy(kernel->current_state_root, before, 32U);
     AUDIT_RESULT(lxp_arena_init(&snapshot_arena, snapshot_bytes, ADMISSION_BUFFER_BYTES), LXP_OK);
+    uint64_t prestate_epoch = kernel->epoch;
     uint64_t prestate_sequence = f->state.next_sequence - 1U;
     AUDIT_RESULT(lxp_snapshot_write(kernel, prestate_sequence, &snapshot_arena, &snapshot), LXP_OK);
     AUDIT_RESULT(lxp_snapshot_manifest_build(snapshot.bytes, snapshot.length,
@@ -2273,6 +2274,7 @@ static int audit_migration_receipt_and_duplicate_recovery(void)
     AUDIT_RESULT(lxp_arena_reset(&receipt_arena, 0U), LXP_OK);
     AUDIT_RESULT(lxp_receipt_verify(&decoded, public_key, &receipt_arena), LXP_OK);
     AUDIT_CHECK(audit_reopen(f) == 0);
+    kernel->epoch = prestate_epoch;
     AUDIT_RESULT(lxp_identity_resolve(&f->identities, activity.actor_did.bytes,
         activity.actor_did.length, &loaded_owner), LXP_OK);
     AUDIT_CHECK(loaded_owner->next_sequence == activity.account_sequence + 1U);
@@ -2307,6 +2309,7 @@ static int audit_migration_receipt_and_duplicate_recovery(void)
     AUDIT_CHECK(audit_register(f) == 0 && migration_runtime(kernel) == 0);
     AUDIT_RESULT(lxp_snapshot_load(snapshot.bytes, snapshot.length, &manifest, kernel), LXP_OK);
     AUDIT_RESULT(lxp_snapshot_verify_root(kernel, &manifest), LXP_OK);
+    kernel->epoch = prestate_epoch;
     f->identities = prestate_identities;
     AUDIT_RESULT(lxp_identity_resolve(&f->identities, activity.actor_did.bytes,
         activity.actor_did.length, &loaded_owner), LXP_OK);

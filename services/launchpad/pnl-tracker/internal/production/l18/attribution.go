@@ -137,7 +137,7 @@ func (a *Attribution) Binding(ctx context.Context, actor string) (Binding, error
 	if e != nil {
 		return Binding{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var out Binding
 	e = tx.QueryRow(ctx, `SELECT campaign,beneficiary,policy_version,referrer,attribution,issued_at,consent_at,token_nonce FROM l18_bindings WHERE campaign=$1 AND beneficiary=$2`, a.campaign, who).Scan(&out.Campaign, &out.Beneficiary, &out.PolicyVersion, &out.Referrer, &out.Attribution, &out.IssuedAt, &out.ConsentAt, &out.Nonce)
 	if e != nil {
@@ -185,13 +185,13 @@ func (a *Attribution) Bind(ctx context.Context, request, actor string, consent b
 		out.Referrer = c.Referrer
 		out.IssuedAt = c.IssuedAt
 		out.Nonce = c.Nonce
-		out.Attribution = "referred"
+		out.Attribution = statusReferred
 	}
 	tx, e := a.ledger.begin(ctx)
 	if e != nil {
 		return Binding{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "referral-account:"+a.campaign+":"+who); e != nil {
 		return Binding{}, e
 	}

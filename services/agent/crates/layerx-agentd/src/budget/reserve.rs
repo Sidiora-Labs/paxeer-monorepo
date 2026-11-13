@@ -70,6 +70,9 @@ impl BudgetLimiter {
             .any(|limit| limit.held.contains_key(&reservation_id)))
     }
 
+    /// # Errors
+    /// Returns an error if the reservation or limit configuration is invalid, missing,
+    /// inconsistent or unavailable, or its accounting overflows.
     pub fn remaining_after_reservation(
         &self,
         reservation_id: [u8; 32],
@@ -86,6 +89,9 @@ impl BudgetLimiter {
         )
     }
 
+    /// # Errors
+    /// Returns an error if the reservation or limit configuration is invalid, missing,
+    /// inconsistent or unavailable, or its accounting overflows.
     pub fn remaining_after_reservation_bound(
         &self,
         reservation_id: [u8; 32],
@@ -103,6 +109,9 @@ impl BudgetLimiter {
         )
     }
 
+    /// # Errors
+    /// Returns an error if the reservation or limit configuration is invalid, missing,
+    /// inconsistent or unavailable, or its accounting overflows.
     pub fn remaining_after_retained_reservation_bound(
         &self,
         reservation_id: [u8; 32],
@@ -172,15 +181,15 @@ impl BudgetLimiter {
             if head.retired || !head.scalar_allowed || head.denomination != original.denomination {
                 return Err(LimitRefusal::InvalidConfiguration);
             }
-            let held = lineage_held(&limits, head_id)?;
-            greatest_held = greatest_held.max(held);
+            let lineage_reservation = lineage_held(&limits, head_id)?;
+            greatest_held = greatest_held.max(lineage_reservation);
             let available = head
                 .config
                 .ceiling
                 .checked_sub(
                     head.config
                         .consumed
-                        .checked_add(held)
+                        .checked_add(lineage_reservation)
                         .ok_or(LimitRefusal::Arithmetic)?,
                 )
                 .ok_or(LimitRefusal::Arithmetic)?;
@@ -221,7 +230,7 @@ impl BudgetLimiter {
             let reserved = record
                 .holds
                 .iter()
-                .find(|held| held.reservation.limit_id == id)
+                .find(|lineage_reservation| lineage_reservation.reservation.limit_id == id)
                 .ok_or(LimitRefusal::InvalidRequest)?;
             let original = limits.get(&id).ok_or(LimitRefusal::UnknownLimit(id))?;
             if original.denomination != Some(reserved.denomination)
@@ -251,15 +260,15 @@ impl BudgetLimiter {
             if head.retired || head.denomination != original.denomination {
                 return Err(LimitRefusal::InvalidConfiguration);
             }
-            let held = lineage_held(&limits, head_id)?;
-            greatest_held = greatest_held.max(held);
+            let lineage_reservation = lineage_held(&limits, head_id)?;
+            greatest_held = greatest_held.max(lineage_reservation);
             let local = head
                 .config
                 .ceiling
                 .checked_sub(
                     head.config
                         .consumed
-                        .checked_add(held)
+                        .checked_add(lineage_reservation)
                         .ok_or(LimitRefusal::Arithmetic)?,
                 )
                 .ok_or(LimitRefusal::Arithmetic)?;
@@ -310,12 +319,12 @@ impl BudgetLimiter {
             if !head.scalar_allowed || head.denomination != limit.denomination {
                 return Err(LimitRefusal::InvalidConfiguration);
             }
-            let held = lineage_held(&limits, head_id)?;
-            greatest_held = greatest_held.max(held);
+            let lineage_reservation = lineage_held(&limits, head_id)?;
+            greatest_held = greatest_held.max(lineage_reservation);
             let exposure = head
                 .config
                 .consumed
-                .checked_add(held)
+                .checked_add(lineage_reservation)
                 .ok_or(LimitRefusal::Arithmetic)?;
             let available = head.config.ceiling.checked_sub(exposure).ok_or_else(|| {
                 LimitRefusal::Exceeded {
@@ -323,7 +332,7 @@ impl BudgetLimiter {
                     name: head.config.name.clone(),
                     ceiling: head.config.ceiling,
                     consumed: head.config.consumed,
-                    held,
+                    held: lineage_reservation,
                     requested: 0,
                 }
             })?;
@@ -1183,6 +1192,9 @@ fn program_totals(
 }
 
 impl ProgramBudgetReservation {
+    /// # Errors
+    /// Returns an error if the reservation or limit configuration is invalid, missing,
+    /// inconsistent or unavailable, or its accounting overflows.
     pub fn validate(&self) -> Result<(), LimitRefusal> {
         if self.id == [0; 32]
             || self.expiry_sequence == 0
@@ -1226,6 +1238,9 @@ impl ProgramBudgetReservation {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if the reservation or limit configuration is invalid, missing,
+    /// inconsistent or unavailable, or its accounting overflows.
     pub fn encode(&self) -> Result<Vec<u8>, LimitRefusal> {
         self.validate()?;
         if self.allocation.is_some() {
@@ -1280,82 +1295,47 @@ impl ProgramBudgetReservation {
         Ok(bytes)
     }
 
+    /// # Errors
+    /// Returns an error if the reservation or limit configuration is invalid, missing,
+    /// inconsistent or unavailable, or its accounting overflows.
     pub fn decode(bytes: &[u8]) -> Result<Self, LimitRefusal> {
+        use layerx_wire::decode::Decoder;
+
         if bytes.starts_with(b"LXPB\x02") {
             return Self::decode_allocated(bytes);
         }
-        use layerx_wire::decode::Decoder;
-        fn fixed<const N: usize>(decoder: &mut Decoder<'_>) -> Result<[u8; N], LimitRefusal> {
-            decoder
-                .fixed(N)
-                .map_err(|_| LimitRefusal::InvalidRequest)?
-                .try_into()
-                .map_err(|_| LimitRefusal::InvalidRequest)
-        }
-        if bytes.len() < 32 || bytes.len() > 5_000_000 {
-            return Err(LimitRefusal::InvalidRequest);
-        }
+
+        crate::reject_if(bytes.len() < 32 || bytes.len() > 5_000_000, || {
+            LimitRefusal::InvalidRequest
+        })?;
         let (body, digest) = bytes.split_at(bytes.len() - 32);
         let expected: [u8; 32] = Sha256::new()
             .chain_update(b"layerx:program-budget:v1\0")
             .chain_update(body)
             .finalize()
             .into();
-        if digest != expected {
-            return Err(LimitRefusal::InvalidRequest);
-        }
+        crate::reject_if(digest != expected, || LimitRefusal::InvalidRequest)?;
         let mut decoder = Decoder::new(body, 0);
-        if fixed::<5>(&mut decoder)? != *b"LXPB\x01" {
-            return Err(LimitRefusal::InvalidRequest);
-        }
-        let id = fixed::<32>(&mut decoder)?;
-        let expiry_sequence = u64::from_be_bytes(fixed::<8>(&mut decoder)?);
-        let tag = fixed::<1>(&mut decoder)?[0];
-        let deadline = u64::from_be_bytes(fixed::<8>(&mut decoder)?);
+        crate::reject_if(
+            reservation_fixed::<5>(&mut decoder)? != *b"LXPB\x01",
+            || LimitRefusal::InvalidRequest,
+        )?;
+        let id = reservation_fixed::<32>(&mut decoder)?;
+        let expiry_sequence = u64::from_be_bytes(reservation_fixed::<8>(&mut decoder)?);
+        let tag = reservation_fixed::<1>(&mut decoder)?[0];
+        let deadline = u64::from_be_bytes(reservation_fixed::<8>(&mut decoder)?);
         let core_deadline = match (tag, deadline) {
             (0, 0) => None,
             (1, value) if value != 0 => Some(CoreTimestampMs(value)),
             _ => return Err(LimitRefusal::InvalidRequest),
         };
-        let count = usize::from(u16::from_be_bytes(fixed::<2>(&mut decoder)?));
-        if count == 0 || count > 256 {
-            return Err(LimitRefusal::InvalidRequest);
-        }
-        let mut charges = Vec::with_capacity(count);
-        for _ in 0..count {
-            let kind = match fixed::<1>(&mut decoder)?[0] {
-                1 => ProgramChargeKind::Principal,
-                2 => ProgramChargeKind::ProgramSpend,
-                3 => ProgramChargeKind::Fee,
-                _ => return Err(LimitRefusal::InvalidRequest),
-            };
-            let source = fixed::<32>(&mut decoder)?;
-            let asset = fixed::<32>(&mut decoder)?;
-            let amount = u128::from_be_bytes(fixed::<16>(&mut decoder)?);
-            let count = usize::from(u16::from_be_bytes(fixed::<2>(&mut decoder)?));
-            if count == 0 || count > 1024 {
-                return Err(LimitRefusal::InvalidRequest);
-            }
-            let mut applicable_limits = Vec::with_capacity(count);
-            for _ in 0..count {
-                applicable_limits.push(LimitId(fixed::<16>(&mut decoder)?));
-            }
-            charges.push(ProgramBudgetCharge {
-                kind,
-                source,
-                asset,
-                amount,
-                applicable_limits,
-            });
-        }
-        let count = usize::from(u16::from_be_bytes(fixed::<2>(&mut decoder)?));
-        if count == 0 || count > 1024 {
-            return Err(LimitRefusal::InvalidRequest);
-        }
+        let charges = decode_program_charges(&mut decoder)?;
+        let count = usize::from(u16::from_be_bytes(reservation_fixed::<2>(&mut decoder)?));
+        crate::reject_if(count == 0 || count > 1024, || LimitRefusal::InvalidRequest)?;
         let mut holds = Vec::with_capacity(count);
         for _ in 0..count {
-            let limit_id = LimitId(fixed::<16>(&mut decoder)?);
-            let scope = fixed::<33>(&mut decoder)?;
+            let limit_id = LimitId(reservation_fixed::<16>(&mut decoder)?);
+            let scope = reservation_fixed::<33>(&mut decoder)?;
             let scope = super::scope_from(
                 scope[0],
                 scope[1..]
@@ -1363,12 +1343,12 @@ impl ProgramBudgetReservation {
                     .map_err(|_| LimitRefusal::InvalidRequest)?,
             )
             .map_err(|_| LimitRefusal::InvalidRequest)?;
-            let amount = u128::from_be_bytes(fixed::<16>(&mut decoder)?);
-            let ceiling = u128::from_be_bytes(fixed::<16>(&mut decoder)?);
-            let digest = fixed::<32>(&mut decoder)?;
-            let asset = fixed::<32>(&mut decoder)?;
-            let tag = fixed::<1>(&mut decoder)?[0];
-            let source = fixed::<32>(&mut decoder)?;
+            let amount = u128::from_be_bytes(reservation_fixed::<16>(&mut decoder)?);
+            let ceiling = u128::from_be_bytes(reservation_fixed::<16>(&mut decoder)?);
+            let digest = reservation_fixed::<32>(&mut decoder)?;
+            let asset = reservation_fixed::<32>(&mut decoder)?;
+            let tag = reservation_fixed::<1>(&mut decoder)?[0];
+            let source = reservation_fixed::<32>(&mut decoder)?;
             let source = match (tag, source) {
                 (0, source) if source == [0; 32] => None,
                 (1, source) if source != [0; 32] => Some(source),
@@ -1460,6 +1440,9 @@ impl BudgetLimiter {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if the reservation or limit configuration is invalid, missing,
+    /// inconsistent or unavailable, or its accounting overflows.
     pub fn stage_program_reservation(
         &self,
         request: &ProgramReservationRequest,
@@ -1532,6 +1515,9 @@ impl BudgetLimiter {
         })
     }
 
+    /// # Errors
+    /// Returns an error if the reservation or limit configuration is invalid, missing,
+    /// inconsistent or unavailable, or its accounting overflows.
     pub fn restore_program_reservation(
         &self,
         record: &ProgramBudgetReservation,
@@ -1710,6 +1696,9 @@ impl ProgramBudgetReservation {
         self.allocation.as_ref().map(|value| value.batch_number)
     }
 
+    /// # Errors
+    /// Returns an error if the reservation or limit configuration is invalid, missing,
+    /// inconsistent or unavailable, or its accounting overflows.
     pub fn settlement_binding(&self) -> Result<[u8; 32], LimitRefusal> {
         if self.allocation.is_none() {
             return Err(LimitRefusal::InvalidRequest);
@@ -1873,6 +1862,9 @@ impl ProgramBudgetReservation {
 }
 
 impl BudgetLimiter {
+    /// # Errors
+    /// Returns an error if the reservation or limit configuration is invalid, missing,
+    /// inconsistent or unavailable, or its accounting overflows.
     pub fn stage_program_allocation(
         &self,
         request: &ProgramReservationRequest,
@@ -2093,18 +2085,19 @@ impl BudgetLimiter {
         prior: Option<&[u8]>,
     ) -> Result<StagedProgramSettlement<'_>, LimitRefusal> {
         record.validate()?;
-        if record.allocation.is_none() || totals.len() != record.holds.len() {
-            return Err(LimitRefusal::InvalidRequest);
-        }
+        crate::reject_if(
+            record.allocation.is_none() || totals.len() != record.holds.len(),
+            || LimitRefusal::InvalidRequest,
+        )?;
         let limits = self.limits.lock().map_err(|_| LimitRefusal::Poisoned)?;
         let held_count = limits
             .values()
             .filter(|limit| limit.held.contains_key(&record.id))
             .count();
         if let Some(prior) = prior {
-            if prior != marker.as_slice() || held_count != 0 {
-                return Err(LimitRefusal::InvalidRequest);
-            }
+            crate::reject_if(prior != marker.as_slice() || held_count != 0, || {
+                LimitRefusal::InvalidRequest
+            })?;
             return Ok(StagedProgramSettlement {
                 limits,
                 settled: None,
@@ -2116,9 +2109,9 @@ impl BudgetLimiter {
                 inserts: Vec::new(),
             });
         }
-        if held_count != record.holds.len() {
-            return Err(LimitRefusal::InvalidRequest);
-        }
+        crate::reject_if(held_count != record.holds.len(), || {
+            LimitRefusal::InvalidRequest
+        })?;
         let mut settled = limits.clone();
         let mut deltas: BTreeMap<LimitId, u128> = BTreeMap::new();
         let mut actual_holds = Vec::with_capacity(record.holds.len());
@@ -2134,22 +2127,22 @@ impl BudgetLimiter {
             let amount = *totals
                 .get(&original.limit_id)
                 .ok_or(LimitRefusal::InvalidRequest)?;
-            if amount > original.amount
-                || !held.allocated_program
-                || held.amount != original.amount
-                || held.expiry_sequence != original.expiry_sequence
-                || held.core_deadline != record.core_deadline
-                || limit.denomination != Some(reserved.denomination)
-                || limit.config.scope != original.scope
-                || limit.config.ceiling != original.ceiling
-            {
-                return Err(LimitRefusal::InvalidRequest);
-            }
+            crate::reject_if(
+                amount > original.amount
+                    || !held.allocated_program
+                    || held.amount != original.amount
+                    || held.expiry_sequence != original.expiry_sequence
+                    || held.core_deadline != record.core_deadline
+                    || limit.denomination != Some(reserved.denomination)
+                    || limit.config.scope != original.scope
+                    || limit.config.ceiling != original.ceiling,
+                || LimitRefusal::InvalidRequest,
+            )?;
             limit.held.remove(&record.id);
-            let head = live_head(&settled, original.limit_id)?;
+            let current_limit = live_head(&settled, original.limit_id)?;
             for id in [
                 Some(original.limit_id),
-                (head != original.limit_id).then_some(head),
+                (current_limit != original.limit_id).then_some(current_limit),
             ]
             .into_iter()
             .flatten()
@@ -2162,37 +2155,7 @@ impl BudgetLimiter {
             actual.digest = actual.canonical_digest();
             actual_holds.push(actual);
         }
-        let mut expected_limits = Vec::with_capacity(deltas.len());
-        for (id, amount) in &deltas {
-            let limit = settled.get_mut(id).ok_or(LimitRefusal::UnknownLimit(*id))?;
-            expected_limits.push((
-                *id,
-                limit.config.scope,
-                limit.config.ceiling,
-                limit.config.consumed,
-                limit
-                    .denomination
-                    .ok_or(LimitRefusal::InvalidConfiguration)?,
-            ));
-            limit.config.consumed = limit
-                .config
-                .consumed
-                .checked_add(*amount)
-                .filter(|value| *value <= limit.config.ceiling)
-                .ok_or(LimitRefusal::Arithmetic)?;
-        }
-        for id in deltas.keys() {
-            let limit = settled.get(id).ok_or(LimitRefusal::UnknownLimit(*id))?;
-            if limit
-                .config
-                .consumed
-                .checked_add(lineage_held(&settled, *id)?)
-                .ok_or(LimitRefusal::Arithmetic)?
-                > limit.config.ceiling
-            {
-                return Err(LimitRefusal::InvalidConfiguration);
-            }
-        }
+        let expected_limits = apply_program_deltas(&mut settled, &deltas)?;
         Ok(StagedProgramSettlement {
             limits,
             settled: Some(settled),
@@ -2204,6 +2167,44 @@ impl BudgetLimiter {
             inserts: Vec::new(),
         })
     }
+}
+fn apply_program_deltas(
+    settled: &mut BTreeMap<LimitId, LimitState>,
+    deltas: &BTreeMap<LimitId, u128>,
+) -> Result<Vec<ExpectedProgramLimit>, LimitRefusal> {
+    let mut expected_limits = Vec::with_capacity(deltas.len());
+    for (id, amount) in deltas {
+        let limit = settled.get_mut(id).ok_or(LimitRefusal::UnknownLimit(*id))?;
+        expected_limits.push((
+            *id,
+            limit.config.scope,
+            limit.config.ceiling,
+            limit.config.consumed,
+            limit
+                .denomination
+                .ok_or(LimitRefusal::InvalidConfiguration)?,
+        ));
+        limit.config.consumed = limit
+            .config
+            .consumed
+            .checked_add(*amount)
+            .filter(|value| *value <= limit.config.ceiling)
+            .ok_or(LimitRefusal::Arithmetic)?;
+    }
+    for id in deltas.keys() {
+        let limit = settled.get(id).ok_or(LimitRefusal::UnknownLimit(*id))?;
+        crate::reject_if(
+            limit
+                .config
+                .consumed
+                .checked_add(lineage_held(settled, *id)?)
+                .ok_or(LimitRefusal::Arithmetic)?
+                > limit.config.ceiling,
+            || LimitRefusal::InvalidConfiguration,
+        )?;
+    }
+
+    Ok(expected_limits)
 }
 
 impl BudgetLimiter {
@@ -3044,8 +3045,16 @@ mod program_actual_allocation_tests {
         assert_eq!(limiter.consumed(LimitId([1; 16])), Ok(0));
     }
 
-    #[test]
-    fn program_actual_store_commit_is_atomic_and_restart_replays_without_double_charge() {
+    struct ActualFixture {
+        root: std::path::PathBuf,
+        tenant: TenantId,
+        configs: Vec<LimitConfig>,
+        store: Store,
+        limiter: BudgetLimiter,
+        ids: [LimitId; 4],
+    }
+
+    fn actual_fixture() -> ActualFixture {
         let stamp =
             must(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)).as_nanos();
         let root = std::env::temp_dir().join(format!(
@@ -3128,16 +3137,23 @@ mod program_actual_allocation_tests {
             )),
             vec![ids[0]]
         );
-        let record = codec_record(&limiter, rows(ids));
-        assert!(crate::budget::program_consumption_updates(&store, &tenant, &record).is_err());
-        let companion = must(TenantKey::new(
-            tenant.clone(),
-            ObjectKind::Configuration,
-            b"allocation-companion".to_vec(),
-        ));
-        must(store.put_local(companion.clone(), must(record.encode())));
-        must(limiter.restore_program_reservation(&record));
-        let mut live_configs = configs.clone();
+        ActualFixture {
+            root,
+            tenant,
+            configs,
+            store,
+            limiter,
+            ids,
+        }
+    }
+
+    fn install_actual_renewal(
+        store: &mut Store,
+        limiter: &BudgetLimiter,
+        tenant: &TenantId,
+        configs: &[LimitConfig],
+    ) -> (Vec<LimitConfig>, LimitId) {
+        let mut live_configs = configs.to_vec();
         live_configs[0] = LimitConfig {
             id: LimitId([6; 16]),
             name: "renewed-global".to_owned(),
@@ -3146,9 +3162,9 @@ mod program_actual_allocation_tests {
             consumed: 0,
         };
         let renewed = must(crate::budget::install_enrolment_renewals(
-            &mut store,
-            &limiter,
-            &tenant,
+            store,
+            limiter,
+            tenant,
             &live_configs,
             &[crate::budget::EnrolmentPredecessor {
                 successor: live_configs[0].id,
@@ -3160,13 +3176,34 @@ mod program_actual_allocation_tests {
             .find(|row| row.enrolment == live_configs[0].id)
             .unwrap_or_else(|| panic!("missing successor"))
             .limit_id;
+        (live_configs, successor)
+    }
+
+    #[test]
+    fn program_actual_store_commit_is_atomic_and_restart_replays_without_double_charge() {
+        let ActualFixture {
+            root,
+            tenant,
+            configs,
+            mut store,
+            limiter,
+            ids,
+        } = actual_fixture();
+        let record = codec_record(&limiter, rows(ids));
+        assert!(crate::budget::program_consumption_updates(&store, &tenant, &record).is_err());
+        let companion = must(TenantKey::new(
+            tenant.clone(),
+            ObjectKind::Configuration,
+            b"allocation-companion".to_vec(),
+        ));
+        must(store.put_local(companion.clone(), must(record.encode())));
+        must(limiter.restore_program_reservation(&record));
+        let (live_configs, successor) =
+            install_actual_renewal(&mut store, &limiter, &tenant, &configs);
         assert_eq!(limiter.held_exposure(successor), Ok(90));
-        assert_eq!(
-            must(crate::budget::program_settlement_recorded(
-                &store, &tenant, record.id
-            )),
-            false
-        );
+        assert!(!must(crate::budget::program_settlement_recorded(
+            &store, &tenant, record.id
+        )));
         let (totals, actual) = must(program_actual_totals(&record, &debits()));
         let marker = must(program_settlement_marker(&record, [11; 32], &actual));
         let key = must(crate::budget::program_settlement_key(&tenant, record.id));
@@ -3213,21 +3250,18 @@ mod program_actual_allocation_tests {
             &live_configs,
         ));
         assert_eq!(restarted.consumed(successor), Ok(20));
-        assert_eq!(
-            must(crate::budget::program_settlement_recorded(
-                &store, &tenant, record.id
-            )),
-            true
-        );
+        assert!(must(crate::budget::program_settlement_recorded(
+            &store, &tenant, record.id
+        )));
         assert_eq!(restarted.consumed(ids[0]), Ok(20));
         assert_eq!(restarted.consumed(ids[1]), Ok(7));
         assert_eq!(restarted.consumed(ids[2]), Ok(11));
         assert_eq!(restarted.consumed(ids[3]), Ok(19));
         assert_eq!(
-            store.get(&companion).map(|value| value.bytes()),
+            store.get(&companion).map(crate::store::StoredValue::bytes),
             Some(b"settled".as_slice())
         );
-        let prior = store.get(&key).map(|value| value.bytes());
+        let prior = store.get(&key).map(crate::store::StoredValue::bytes);
         let replay = must(restarted.stage_program_actuals(&record, &totals, marker, prior));
         let replay = must(crate::budget::finish_program_settlement_stage(
             &store, &tenant, key, replay,
@@ -3536,4 +3570,46 @@ mod retained_terminal_budget_tests {
             .remaining_after_retained_reservation_bound(held.id, 20, &held.durable, true, 80)
             .is_err());
     }
+}
+
+fn reservation_fixed<const N: usize>(
+    decoder: &mut layerx_wire::decode::Decoder<'_>,
+) -> Result<[u8; N], LimitRefusal> {
+    decoder
+        .fixed(N)
+        .map_err(|_| LimitRefusal::InvalidRequest)?
+        .try_into()
+        .map_err(|_| LimitRefusal::InvalidRequest)
+}
+fn decode_program_charges(
+    decoder: &mut layerx_wire::decode::Decoder<'_>,
+) -> Result<Vec<ProgramBudgetCharge>, LimitRefusal> {
+    let count = usize::from(u16::from_be_bytes(reservation_fixed::<2>(decoder)?));
+    crate::reject_if(count == 0 || count > 256, || LimitRefusal::InvalidRequest)?;
+    let mut charges = Vec::with_capacity(count);
+    for _ in 0..count {
+        let kind = match reservation_fixed::<1>(decoder)?[0] {
+            1 => ProgramChargeKind::Principal,
+            2 => ProgramChargeKind::ProgramSpend,
+            3 => ProgramChargeKind::Fee,
+            _ => return Err(LimitRefusal::InvalidRequest),
+        };
+        let source = reservation_fixed::<32>(decoder)?;
+        let asset = reservation_fixed::<32>(decoder)?;
+        let amount = u128::from_be_bytes(reservation_fixed::<16>(decoder)?);
+        let count = usize::from(u16::from_be_bytes(reservation_fixed::<2>(decoder)?));
+        crate::reject_if(count == 0 || count > 1024, || LimitRefusal::InvalidRequest)?;
+        let mut applicable_limits = Vec::with_capacity(count);
+        for _ in 0..count {
+            applicable_limits.push(LimitId(reservation_fixed::<16>(decoder)?));
+        }
+        charges.push(ProgramBudgetCharge {
+            kind,
+            source,
+            asset,
+            amount,
+            applicable_limits,
+        });
+    }
+    Ok(charges)
 }

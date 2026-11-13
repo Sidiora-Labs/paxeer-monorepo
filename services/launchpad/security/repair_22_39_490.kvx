@@ -1,0 +1,11 @@
+[coverage.security]
+package = "security/policy"
+before_percent = 74.9
+after_percent = 86.1
+minimum_percent = 85
+
+[coverage.control]
+package = "security/control"
+before_percent = 69.7
+after_percent = 86.0
+minimum_percent = 85

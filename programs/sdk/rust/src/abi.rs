@@ -231,6 +231,8 @@ pub const CANDIDATE_ABI_MANIFEST: &str = V2_ABI_MANIFEST;
 /// Compatibility spelling for the frozen ABI-v2 response namespace.
 pub const CANDIDATE_HOST_FUNCTIONS: [HostFunction; 19] = V2_HOST_FUNCTIONS;
 
+pub const SHARED_ABI_MANIFEST_TSV: &str = include_str!("../../abi-manifest.tsv");
+
 #[cfg(test)]
 mod tests {
     use super::V2_HOST_FUNCTIONS;
@@ -333,5 +335,3 @@ mod tests {
         }
     }
 }
-
-pub const SHARED_ABI_MANIFEST_TSV: &str = include_str!("../../abi-manifest.tsv");

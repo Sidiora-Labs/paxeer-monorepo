@@ -132,7 +132,7 @@ func TestPhase2RealPostgresKeyRotationFirstBindingAndRollback(t *testing.T) {
 		t.Fatalf("partial inbox count=%d error=%v", count, e)
 	}
 }
-func TestPhase2ActualCommittedCreatorAuthorityAndReceipt(t *testing.T) {
+func TestProductionCommittedCreatorAuthorityAndReceipt(t *testing.T) {
 	path := localChainFixture(t)
 	if path == "" {
 		t.Fatal("actual owned Anvil fixture required")

@@ -1074,6 +1074,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "tungstenite",
  "ureq",
  "zeroize",
 ]
@@ -1122,6 +1123,7 @@ dependencies = [
  "zeroize",
 ]
 
+# The runtime grant encoder is now a regular layerx-client dependency.
 [[package]]
 name = "layerx-client"
 version = "0.1.0"
@@ -1131,12 +1133,14 @@ dependencies = [
  "getrandom 0.4.3",
  "layerx-crypto",
  "layerx-platform-gateway",
+ "layerx-program-sdk",
  "layerx-programs-ai-market",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
+ "native-tls",
  "rustix",
  "rustls",
  "serde_json",

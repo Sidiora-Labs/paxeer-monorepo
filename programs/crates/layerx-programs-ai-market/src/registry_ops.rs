@@ -552,7 +552,7 @@ impl CreateRequest {
             rewards: AccountId,
             refund: AccountId,
         );
-        let treasury = r.presence(|r| r.principal_id())?;
+        let treasury = r.presence(super::codec::Reader::principal_id)?;
         let policy = TaskPolicyV1::decode(r.take(TASK_POLICY_BYTES)?)?;
         let metadata = r.metadata_digest()?;
         r.finish()?;

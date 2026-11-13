@@ -1,25 +1,7 @@
-//! Proves: State/route/perform_work/rebalance -> serve/exchange over TLS HTTP -> ramp_request/decode_ramp_response and check-live.sh ramp.
-//!
-//! Repairs main.rs::verified_recovery: fresh, empty journals need no external
-//! settlement recovery; failed RPC discovery used to halt their local readiness.
-//! Repairs main.rs::rebalance error mapping: custody transport failures from
-//! MutualTlsClient must report paxeer_unavailable, not provider_unavailable.
-//! Repairs main.rs::decode_rebalance: tagged-enum buffering rejected even valid
-//! u128 amounts; strict per-action decoding preserves the complete numeric range.
-//! Repairs prepare-production.py decoding and next.config.mjs readiness caching:
-//! HTTP 200 alone is insufficient and readiness must be fetched without caching.
-//! No external settlement service is replaced. Valid POSTs prove the current
-//! fail-closed behavior when an order is unknown or custody is unavailable; a
-//! failed broadcast retains the real Journal::plan_paxeer intent across restart.
-//! In services/platform/ramps/toolkit/src/clients.rs::verify_recovery_settlement,
-//! retained journals require external chain evidence even for a planned transfer;
-//! the expected restart result is 503 until that evidence can be verified.
-//! The shared /readyz spelling in swagger_spot.json, next.config.mjs,
-//! docker/kernel/init.sh and human-service/server/http.rs does not make those
-//! independent services ramp consumers. Their distinct contracts stay explicit.
-//! services/platform/ramps/reference/tests/work_routes.rs::work_route_refuses_native_payload_field
-//! retains an expectation of 503 for a fresh journal; this proof instead asserts
-//! 404/order_not_found for its unknown identifier after the bootstrap repair.
+//! TLS routes expose local readiness, operator work, and custody rebalance responses.
+//! HTTP consumers validate response envelopes and refuse malformed values.
+
+include!("../src/required.rs");
 
 use std::fs;
 use std::io::Read as _;
@@ -38,14 +20,14 @@ impl Workspace {
     fn new() -> Self {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .expect("clock")
+            .required("clock")
             .as_nanos();
         let workspace = Self(
             std::env::temp_dir().join(format!("layerx-ramp-work-{}-{nanos}", std::process::id())),
         );
-        fs::create_dir(&workspace.0).expect("create workspace");
+        fs::create_dir(&workspace.0).required("create workspace");
         fs::set_permissions(&workspace.0, fs::Permissions::from_mode(0o700))
-            .expect("private workspace");
+            .required("private workspace");
         for args in [
             vec![
                 "req",
@@ -90,7 +72,7 @@ impl Workspace {
                 .args(args)
                 .current_dir(&workspace.0)
                 .output()
-                .expect("generate client TLS material");
+                .required("generate client TLS material");
             assert!(
                 output.status.success(),
                 "{}",
@@ -101,7 +83,7 @@ impl Workspace {
             workspace.path("identity.p12"),
             fs::Permissions::from_mode(0o600),
         )
-        .expect("private TLS identity");
+        .required("private TLS identity");
         workspace.private_file("password", b"ramp-test-password\n");
         workspace.private_file("service-token", b"work-route-service-token\n");
         workspace.private_file("operator-token", b"work-route-operator-token\n");
@@ -114,8 +96,8 @@ impl Workspace {
 
     fn private_file(&self, name: &str, bytes: &[u8]) -> PathBuf {
         let path = self.path(name);
-        fs::write(&path, bytes).expect("write protected file");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).expect("protect file");
+        fs::write(&path, bytes).required("write protected file");
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).required("protect file");
         path
     }
 
@@ -188,7 +170,7 @@ impl Workspace {
                 }],
                 "max_fee_per_gas": 1000,
                 "max_priority_fee_per_gas": 2,
-                "gas_limit_cap": 100000,
+                "gas_limit_cap": 100_000,
                 "signer_endpoint": "https://signer.example.test",
                 "signer_token_file": p("service-token"),
                 "actor_did": did
@@ -209,7 +191,7 @@ impl Workspace {
         });
         self.private_file(
             "config.json",
-            &serde_json::to_vec(&config).expect("encode config"),
+            &serde_json::to_vec(&config).required("encode config"),
         )
     }
 }
@@ -230,28 +212,28 @@ impl Ramp {
                 .stdout(Stdio::null())
                 .stderr(Stdio::piped())
                 .spawn()
-                .expect("start ramp"),
+                .required("start ramp"),
         );
         let deadline = Instant::now() + Duration::from_secs(30);
         loop {
-            if let Some(status) = ramp.0.try_wait().expect("poll ramp") {
+            if let Some(status) = ramp.0.try_wait().required("poll ramp") {
                 let mut stderr = String::new();
                 ramp.0
                     .stderr
                     .take()
-                    .expect("ramp stderr")
+                    .required("ramp stderr")
                     .read_to_string(&mut stderr)
-                    .expect("read startup error");
+                    .required("read startup error");
                 panic!("ramp exited before listening: {status}: {stderr}");
             }
             let probe = Command::new("curl")
                 .args(["-fsS", "--max-time", "1", "--cacert"])
-                .arg(config.parent().expect("workspace").join("cert.pem"))
+                .arg(config.parent().required("workspace").join("cert.pem"))
                 .arg(format!("https://localhost:{}/livez", address.port()))
                 .output()
-                .expect("probe real TLS listener");
+                .required("probe real TLS listener");
             if probe.status.success() {
-                let body: Value = serde_json::from_slice(&probe.stdout).expect("liveness JSON");
+                let body: Value = serde_json::from_slice(&probe.stdout).required("liveness JSON");
                 assert_eq!(body["live"], true);
                 return ramp;
             }
@@ -272,12 +254,12 @@ fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../..")
         .canonicalize()
-        .expect("repository root")
+        .required("repository root")
 }
 
 fn consumer(workspace: &Workspace, address: SocketAddr, assertions: &str) {
     let script = format!(
-        r#"
+        r"
 import json, pathlib, runpy, ssl, sys, urllib.error, urllib.request
 module = runpy.run_path(str(pathlib.Path(sys.argv[1]) / 'apps/web/e2e/prepare-production.py'))
 context = ssl.create_default_context(cafile=sys.argv[2])
@@ -292,7 +274,7 @@ rebalance_path = '/internal/v1/rebalances'
 key = [7] * 32
 lookup = rebalance_path + '/' + '07' * 32
 {assertions}
-"#
+"
     );
     let output = Command::new("python3")
         .args(["-B", "-c", &script])
@@ -300,7 +282,7 @@ lookup = rebalance_path + '/' + '07' * 32
         .arg(workspace.path("cert.pem"))
         .arg(format!("https://localhost:{}", address.port()))
         .output()
-        .expect("run actual Python ramp consumer");
+        .required("run actual Python ramp consumer");
     assert!(
         output.status.success(),
         "consumer exit {:?}: {}\n{}",
@@ -321,7 +303,7 @@ fn wallet_consumer(workspace: &Workspace, address: SocketAddr, ready: bool) {
         .env("CHECK_LIVE_CA", workspace.path("cert.pem"))
         .env("CHECK_LIVE_TIMEOUT", "5")
         .output()
-        .expect("run deployed ramp check");
+        .required("run deployed ramp check");
     assert_eq!(
         output.status.success(),
         ready,
@@ -330,28 +312,14 @@ fn wallet_consumer(workspace: &Workspace, address: SocketAddr, ready: bool) {
         String::from_utf8_lossy(&output.stderr)
     );
     if ready {
-        let stdout = String::from_utf8(output.stdout).expect("check output");
+        let stdout = String::from_utf8(output.stdout).required("check output");
         for path in ["/readyz", "/internal/v1/work", "/internal/v1/rebalances"] {
             assert!(stdout.contains(&format!("pass ramp {path}")), "{stdout}");
         }
     }
 }
 
-#[test]
-fn method() {
-    let workspace = Workspace::new();
-    let reservation = TcpListener::bind("127.0.0.1:0").expect("reserve listener");
-    let address = reservation.local_addr().expect("listener address");
-    let config = workspace.config(address);
-    drop(reservation);
-    let ramp = Ramp::start(&config, address);
-    for _ in 0..2 {
-        wallet_consumer(&workspace, address, true);
-    }
-    consumer(
-        &workspace,
-        address,
-        r#"
+const READY_CONSUMER: &str = r#"
 for _ in range(2):
     status, ready = request()
     assert status == 200 and ready['ready'] is True
@@ -446,13 +414,27 @@ spot = json.loads((pathlib.Path(sys.argv[1]) / 'apps/perps/swagger_spot.json').r
 schema = spot['paths']['/readyz']['get']['responses']['200']['content']['application/json']['schema']
 assert set(schema['required']) == {'status', 'service'}
 assert not set(schema['required']).issubset(ready)
-"#,
-    );
+"#;
+
+#[test]
+fn method() {
+    let workspace = Workspace::new();
+    let reservation = TcpListener::bind("127.0.0.1:0").required("reserve listener");
+    let address = reservation.local_addr().required("listener address");
+    let config = workspace.config(address);
+    drop(reservation);
+    let ramp = Ramp::start(&config, address);
+    for _ in 0..2 {
+        wallet_consumer(&workspace, address, true);
+    }
+    consumer(&workspace, address, READY_CONSUMER);
     drop(ramp);
     // Observe the durable producer result only after the real process has stopped
     // and reopened its journal. Unverified recovery must keep writes unavailable.
-    let reservation = TcpListener::bind("127.0.0.1:0").expect("reserve reopened listener");
-    let address = reservation.local_addr().expect("reopened listener address");
+    let reservation = TcpListener::bind("127.0.0.1:0").required("reserve reopened listener");
+    let address = reservation
+        .local_addr()
+        .required("reopened listener address");
     let config = workspace.config(address);
     drop(reservation);
     let _reopened = Ramp::start(&config, address);
@@ -462,7 +444,7 @@ assert not set(schema['required']).issubset(ready)
     consumer(
         &workspace,
         address,
-        r#"
+        r"
 for _ in range(2):
     try:
         request()
@@ -489,14 +471,14 @@ for _ in range(2):
         503, {'error': 'journal_recovery_required'})
     assert request(rebalance_path, {'action': 'submit', 'idempotency_key': key,
         'asset': [1] * 32, 'amount': 100}, token) == (503, {'error': 'journal_recovery_required'})
-"#,
+",
     );
 
     let node = Command::new("node")
         .args([
             "--input-type=module",
             "-e",
-            r#"
+            r"
 import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 const { default: config } = await import(pathToFileURL(process.argv[1]));
@@ -510,11 +492,11 @@ assert.deepEqual(rules.find(rule => rule.source === '/readyz'), {
 assert(!rules.some(rule => rule.source.startsWith('/internal/')));
 assert.deepEqual((await config.headers()).find(rule => rule.source === '/readyz').headers,
     [{key: 'Cache-Control', value: 'no-store'}]);
-"#,
+",
         ])
         .arg(repo().join("apps/web/next.config.mjs"))
         .output()
-        .expect("run real Next configuration functions");
+        .required("run real Next configuration functions");
     assert!(
         node.status.success(),
         "{}",

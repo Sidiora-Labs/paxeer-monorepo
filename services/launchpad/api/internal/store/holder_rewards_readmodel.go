@@ -62,7 +62,7 @@ func committedWatermark(ctx context.Context, tx pgx.Tx) (ChainWatermark, error) 
 		return ChainWatermark{}, ErrDataIntegrity
 	}
 	switch integrity {
-	case "healthy":
+	case literalHealthy:
 	case "quarantined":
 		return ChainWatermark{}, ErrWatermarkQuarantined
 	default:
@@ -113,7 +113,7 @@ func holderRewardsTotals(ctx context.Context, tx pgx.Tx) (UInt256, int64, error)
 // strategy-2 distribution, a holder claim, or an active airdrop strategy),
 // ordered by the requested sort with the pool address as the final tiebreak.
 func (s *Store) HolderRewardPools(ctx context.Context, sortKey string) (*HolderRewardPoolsSnapshot, error) {
-	if sortKey != "rewards" && sortKey != "mcap" && sortKey != "holders" && sortKey != "age" {
+	if sortKey != literalRewards && sortKey != literalMcap && sortKey != literalHolders && sortKey != literalAge {
 		return nil, ErrDataIntegrity
 	}
 	ctx, cancel, tx, err := s.beginLegacyRead(ctx)
@@ -158,7 +158,7 @@ ORDER BY lower(p.pool_address)`, feeStrategyAirdrop)
 // the snapshot partial and is left out.
 func scanHolderRewardPools(rows pgx.Rows) ([]HolderRewardPoolRow, string, error) {
 	items := []HolderRewardPoolRow{}
-	quality := "complete"
+	quality := literalComplete
 	for rows.Next() {
 		var row HolderRewardPoolRow
 		var distributed string
@@ -178,7 +178,7 @@ func scanHolderRewardPools(rows pgx.Rows) ([]HolderRewardPoolRow, string, error)
 			return nil, "", ErrDataIntegrity
 		}
 		if strategy == nil {
-			quality = "partial"
+			quality = literalPartial
 			continue
 		}
 		row.StrategyActive = *strategy == feeStrategyAirdrop
@@ -204,19 +204,19 @@ func orderHolderRewardPools(sortKey string, items []HolderRewardPoolRow, waterma
 	sort.SliceStable(items, func(i, j int) bool {
 		a, b := items[i], items[j]
 		switch sortKey {
-		case "rewards":
+		case literalRewards:
 			if c := uint256Compare(a.DistributedRaw, b.DistributedRaw); c != 0 {
 				return c > 0
 			}
-		case "holders":
+		case literalHolders:
 			if a.HoldersPaid != b.HoldersPaid {
 				return a.HoldersPaid > b.HoldersPaid
 			}
-		case "age":
+		case literalAge:
 			if a.CreatedAt != b.CreatedAt {
 				return a.CreatedAt > b.CreatedAt
 			}
-		case "mcap":
+		case literalMcap:
 			switch {
 			case a.MarketCap != nil && b.MarketCap != nil:
 				if c := a.MarketCap.Cmp(b.MarketCap); c != 0 {
@@ -250,5 +250,5 @@ func uint256Compare(a, b UInt256) int {
 
 // Public renders the row in the contract HolderRewardPool shape.
 func (r HolderRewardPoolRow) Public() map[string]any {
-	return map[string]any{"poolAddress": r.Pool, "tokenAddress": r.Token, "distributedRaw": string(r.DistributedRaw), "holdersPaid": r.HoldersPaid, "strategyActive": r.StrategyActive, "createdAt": time.Unix(r.CreatedAt, 0).UTC().Format(watermarkTimeLayout)}
+	return map[string]any{literalPoolAddress: r.Pool, "tokenAddress": r.Token, "distributedRaw": string(r.DistributedRaw), "holdersPaid": r.HoldersPaid, "strategyActive": r.StrategyActive, "createdAt": time.Unix(r.CreatedAt, 0).UTC().Format(watermarkTimeLayout)}
 }

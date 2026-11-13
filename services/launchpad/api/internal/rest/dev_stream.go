@@ -47,6 +47,9 @@ import (
 //     the Swap log itself. The watermark is the fill's own block with the
 //     node-reported hash and projectionRevision = the per-pool fill revision,
 //     exactly as production's append_market_trade requires.
+//   - market.candles.<pool>.<interval>: committed chart builder state with
+//     receipt-verified OHLC source positions, atomically appended to history
+//     and the development stream.
 //   - market.stats.<pool>: the development PoolStats document the market reads
 //     serve (stats.pool_stats + indexer state), with the indexer-cursor
 //     watermark (eth_getBlockByNumber reported hash) as its revision.
@@ -95,6 +98,15 @@ var developmentStreamDDL = []string{
 	`CREATE TRIGGER stream_delivery_immutable BEFORE UPDATE ON ` + DevelopmentStreamSchema + `.stream_delivery_outbox FOR EACH ROW EXECUTE FUNCTION ` + DevelopmentStreamSchema + `.stream_immutable()`,
 	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.stream_snapshots(snapshot_id uuid PRIMARY KEY,account_id uuid NOT NULL,session_id uuid NOT NULL,auth_epoch bigint NOT NULL CHECK(auth_epoch>=0),filter_digest text NOT NULL CHECK(filter_digest ~ '^[0-9a-f]{64}$'),generation uuid NOT NULL,scope jsonb NOT NULL,initial_offsets jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),expires_at timestamptz NOT NULL,CHECK(expires_at>created_at AND expires_at<=created_at+interval '72 hours'))`,
 	`CREATE INDEX IF NOT EXISTS stream_snapshot_expiry ON ` + DevelopmentStreamSchema + `.stream_snapshots(expires_at)`,
+	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.candle_projection(pool_address text NOT NULL,timeframe text NOT NULL,candle_start bigint NOT NULL,source_revision bigint NOT NULL CHECK(source_revision>0),topic_sequence bigint NOT NULL CHECK(topic_sequence>0),payload bytea NOT NULL,watermark bytea NOT NULL,PRIMARY KEY(pool_address,timeframe,candle_start))`,
+	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.trade_projection(swap_id text PRIMARY KEY,pool_address text NOT NULL,block_number bigint NOT NULL,transaction_index bigint NOT NULL,log_index integer NOT NULL,event_id text NOT NULL UNIQUE,payload bytea NOT NULL CHECK(octet_length(payload)<=262144))`,
+	`CREATE INDEX IF NOT EXISTS trade_projection_pool_order ON ` + DevelopmentStreamSchema + `.trade_projection(pool_address,block_number DESC,transaction_index DESC,log_index DESC,event_id DESC)`,
+	`DO $backfill$ BEGIN IF to_regclass('indexer.swaps') IS NOT NULL THEN
+ INSERT INTO ` + DevelopmentStreamSchema + `.trade_projection(swap_id,pool_address,block_number,transaction_index,log_index,event_id,payload)
+ SELECT s.id,s.pool_address,s.block_number,(convert_from(o.frame,'UTF8')::jsonb->'payload'->'position'->>'transactionIndex')::bigint,s.log_index,o.event_id,convert_to((convert_from(o.frame,'UTF8')::jsonb->'payload')::text,'UTF8')
+ FROM indexer.swaps s JOIN ` + DevelopmentStreamSchema + `.stream_delivery_outbox o ON o.event_id='125:'||lower(s.tx_hash)||':'||s.log_index::text
+ JOIN ` + DevelopmentStreamSchema + `.stream_projection h ON h.partition_id=o.partition_id AND h.topic='market.trades.'||s.pool_address
+ ON CONFLICT(swap_id) DO NOTHING; END IF; END $backfill$`,
 	`CREATE TABLE IF NOT EXISTS ` + DevelopmentStreamSchema + `.projector_cursor(singleton boolean PRIMARY KEY DEFAULT true CHECK(singleton),block_number bigint NOT NULL,log_index integer NOT NULL,updated_at timestamptz NOT NULL DEFAULT clock_timestamp())`,
 	`INSERT INTO ` + DevelopmentStreamSchema + `.projector_cursor(singleton,block_number,log_index) VALUES(true,0,-1) ON CONFLICT DO NOTHING`,
 }
@@ -223,7 +235,11 @@ func (d *DevelopmentStream) Run(ctx context.Context) {
 	wake := make(chan struct{}, 1)
 	if d.redis != nil {
 		sub := d.redis.Subscribe(ctx, constants.ChannelSwap, constants.ChannelPoolStateUpdated)
-		defer sub.Close()
+		defer func() {
+			if err := sub.Close(); err != nil {
+				slog.Warn("close stream subscription", "error", err)
+			}
+		}()
 		messages := sub.Channel()
 		go func() {
 			for range messages {
@@ -301,6 +317,9 @@ func (d *DevelopmentStream) Project(ctx context.Context) error {
 		d.statsAt = time.Now()
 	}
 	d.mu.Unlock()
+	if err := d.projectCandles(ctx); err != nil {
+		return err
+	}
 	if len(touched) == 0 && !sweep {
 		return nil
 	}
@@ -308,10 +327,10 @@ func (d *DevelopmentStream) Project(ctx context.Context) error {
 }
 
 type developmentSwap struct {
-	id, poolID, pool, sender, amountIn, amountOut, fee, txHash, token, optical string
-	isBuy                                                                      bool
-	block, timestamp                                                           int64
-	logIndex                                                                   int32
+	id, poolID, pool, sender, amountIn, amountOut, fee, txHash, token, optical, price string
+	isBuy                                                                             bool
+	block, timestamp                                                                  int64
+	logIndex                                                                          int32
 }
 
 type streamReceipt struct {
@@ -467,7 +486,7 @@ func isTransport(err error) bool {
 }
 
 func (d *DevelopmentStream) skip(s developmentSwap, reason string) {
-	d.logger.Warn("development stream skipped swap", slog.String("swap", s.id), slog.String("pool", s.pool), slog.String("reason", reason))
+	d.logger.Warn("development stream skipped swap", slog.String("swap", s.id), slog.String(literalPool, s.pool), slog.String("reason", reason))
 }
 
 // swapPosition checks the receipt's Swap log at the indexed log index against
@@ -478,12 +497,12 @@ func swapPosition(s developmentSwap, r *streamReceipt) (projectedSwap, string) {
 	}
 	height, errHeight := hexutil.DecodeUint64(r.BlockNumber)
 	txIndex, errTx := hexutil.DecodeUint64(r.TransactionIndex)
-	if errHeight != nil || errTx != nil || r.Status != "0x1" || height != uint64(s.block) || !validHash(r.BlockHash) || !strings.EqualFold(r.TransactionHash, s.txHash) {
+	if errHeight != nil || errTx != nil || r.Status != "0x1" || s.block < 0 || height != uint64(s.block) || !validHash(r.BlockHash) || !strings.EqualFold(r.TransactionHash, s.txHash) {
 		return projectedSwap{}, "receipt does not match the indexed swap"
 	}
 	for _, l := range r.Logs {
 		li, err := hexutil.DecodeUint64(l.LogIndex)
-		if err != nil || li != uint64(s.logIndex) {
+		if err != nil || s.logIndex < 0 || li != uint64(s.logIndex) {
 			continue
 		}
 		if l.Removed || len(l.Topics) != 3 || len(l.Topics[2]) != 66 || !strings.EqualFold(l.Topics[0], swapEventTopic) || !strings.EqualFold(l.Topics[1], s.poolID) || !strings.EqualFold("0x"+l.Topics[2][26:], s.sender) {
@@ -497,6 +516,9 @@ func swapPosition(s developmentSwap, r *streamReceipt) (projectedSwap, string) {
 		isBuy := word(0)
 		if isBuy.BitLen() > 1 || (isBuy.Sign() == 1) != s.isBuy || word(1).String() != s.amountIn || word(2).String() != s.amountOut || word(3).String() != s.fee {
 			return projectedSwap{}, "Swap amounts differ from the indexed row"
+		}
+		if s.price != "" && (word(4).String() != s.price || word(5).String() != strconv.FormatInt(s.timestamp, 10) || word(6).String() != strconv.FormatInt(s.block, 10)) {
+			return projectedSwap{}, "Swap price or time differs from committed candle source"
 		}
 		emitter := strings.ToLower(l.Address)
 		if _, err := store.Address(emitter); err != nil {
@@ -520,6 +542,9 @@ func (d *DevelopmentStream) codeEpoch(ctx context.Context, emitter string, block
 	if ok {
 		return epoch, nil
 	}
+	if block < 0 {
+		return "", errChainReferenceUnavailable
+	}
 	var code hexutil.Bytes
 	if err := d.market.chain.client.CallContext(ctx, &code, "eth_getCode", emitter, hexutil.EncodeUint64(uint64(block))); err != nil {
 		return "", err
@@ -542,8 +567,11 @@ func (d *DevelopmentStream) tokenDecimals(ctx context.Context, token string, blo
 	if ok {
 		return decimals, nil
 	}
+	if block < 0 {
+		return 0, errChainReferenceUnavailable
+	}
 	var raw hexutil.Bytes
-	call := map[string]any{"to": token, "data": erc20DecimalsSelector}
+	call := map[string]any{"to": token, literalData: erc20DecimalsSelector}
 	if err := d.market.chain.client.CallContext(ctx, &raw, "eth_call", call, hexutil.EncodeUint64(uint64(block))); err != nil {
 		return 0, err
 	}
@@ -656,6 +684,17 @@ func (d *DevelopmentStream) appendTrades(ctx context.Context, fromBlock int64, f
 		if err = d.appendFrame(ctx, tx, head, eventID, tradeTopic, revision.String(), occurred, watermark, trade); err != nil {
 			return fmt.Errorf("append %s: %w", tradeTopic, err)
 		}
+		transactionIndex, err := strconv.ParseInt(p.position.TransactionIndex, 10, 64)
+		if err != nil {
+			return err
+		}
+		payload, err := json.Marshal(trade)
+		if err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO `+streamTable("trade_projection")+`(swap_id,pool_address,block_number,transaction_index,log_index,event_id,payload) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(swap_id) DO NOTHING`, p.swap.id, p.swap.pool, p.swap.block, transactionIndex, p.swap.logIndex, eventID, payload); err != nil {
+			return err
+		}
 		if price != nil {
 			priceTopic := "market.price." + p.swap.pool
 			priceHead, err := readTopicHead(ctx, tx, priceTopic)
@@ -709,13 +748,13 @@ func developmentTradeDocuments(p projectedSwap) (map[string]any, map[string]any,
 	position := chainPosition(p.position)
 	trade := map[string]any{
 		"eventId":                "125:" + p.position.TransactionHash + ":" + p.position.LogIndex,
-		"poolAddress":            s.pool,
+		literalPoolAddress:       s.pool,
 		"sender":                 s.sender,
 		"recipient":              nil,
 		"side":                   side,
 		"tokenAmountRaw":         tokenAmount,
 		"usdlAmountRaw":          usdlAmount,
-		"position":               position,
+		literalPosition:          position,
 		"feeRaw":                 s.fee,
 		"feeAssetAddress":        feeAsset,
 		"feeAssetDecimals":       feeDecimals,
@@ -724,7 +763,7 @@ func developmentTradeDocuments(p projectedSwap) (map[string]any, map[string]any,
 		"pricedInputRaw":         priced,
 		"ammInputAfterFeeRaw":    net,
 		"inputDerivationQuality": quality,
-		"recipientAttribution":   "unavailable",
+		"recipientAttribution":   literalUnavailable,
 		"recipientEvidenceRefs":  []string{},
 		"emittingContract":       p.emitter,
 		"codeEpoch":              p.epoch,
@@ -739,7 +778,7 @@ func developmentTradeDocuments(p projectedSwap) (map[string]any, map[string]any,
 	}
 	ratio := new(big.Rat).SetFrac(new(big.Int).Mul(usdl, new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(p.tokenDecimals)), nil)), new(big.Int).Mul(token, big.NewInt(1000000)))
 	asset := func(address string, decimals int) map[string]any {
-		return map[string]any{"kind": "erc20", "chainId": "125", "address": address, "currencyCode": nil, "decimals": decimals}
+		return map[string]any{literalKind: "erc20", literalChainId: "125", literalAddress: address, "currencyCode": nil, literalDecimals: decimals}
 	}
 	price := map[string]any{
 		"numerator":   ratio.Num().String(),
@@ -747,12 +786,12 @@ func developmentTradeDocuments(p projectedSwap) (map[string]any, map[string]any,
 		"baseAsset":   asset(s.token, p.tokenDecimals),
 		"quoteAsset":  asset(usdlAddress, 6),
 		"source": map[string]any{
-			"kind":            "gross_execution",
+			literalKind:       "gross_execution",
 			"amountBasis":     "paid_input",
 			"sourceEventId":   trade["eventId"],
-			"position":        position,
+			literalPosition:   position,
 			"providerId":      nil,
-			"observedAt":      wireTime(time.Unix(s.timestamp, 0)),
+			literalObservedAt: wireTime(time.Unix(s.timestamp, 0)),
 			"sourceReference": nil,
 		},
 	}
@@ -874,12 +913,12 @@ func sameStatsContent(prior map[string]any, next map[string]any) bool {
 	}
 	a, b := map[string]any{}, map[string]any{}
 	for k, v := range prior {
-		if k != "watermark" {
+		if k != literalWatermark {
 			a[k] = v
 		}
 	}
 	for k, v := range decoded {
-		if k != "watermark" {
+		if k != literalWatermark {
 			b[k] = v
 		}
 	}

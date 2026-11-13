@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"net/url"
@@ -40,7 +41,7 @@ func ResponseMetadata(next http.Handler) http.Handler {
 		q, parseErr := url.ParseQuery(r.URL.RawQuery)
 		queryErr := QueryParameters(q)
 		if parseErr != nil || queryErr != nil || len(r.URL.RawQuery) > 8192 {
-			code := "QUERY_INVALID"
+			code := literalQUERYINVALID
 			if queryErr != nil {
 				code = queryErr.Error()
 			}
@@ -76,6 +77,9 @@ func RegisterProductionReads(r chi.Router, o ProductionReadOptions) error {
 		r.Method(method, path, ResponseMetadata(o.Admission.Middleware(class)(h)))
 	}
 	register("GET", "/v2/pools", AdmissionAggregate, poolList(o))
+	register("GET", "/v2/chains", AdmissionAggregate, chainsList(o.Store))
+	register("GET", "/v2/chains/{chain}", AdmissionCached, chainsDetail(o.Store))
+	register("GET", "/v2/chains/{chain}/revenue", AdmissionAggregate, chainsRevenue(o.Store))
 	register("GET", "/v2/pools/{poolAddress}", AdmissionCached, poolDetail(o))
 	register("GET", "/v2/pools/{poolAddress}/holders", AdmissionAggregate, holdersProxy(holders))
 	register("GET", "/v2/pools/{poolAddress}/stats", AdmissionCached, projectionStats(o.Model))
@@ -102,9 +106,9 @@ func writePagedProjectionEnvelope(w http.ResponseWriter, r *http.Request, name s
 		watermark = p.Watermark
 		generated = p.OccurredAt
 	}
-	body, err := json.Marshal(map[string]any{"requestId": responseRequestID(w), "data": data, "revision": revision, "watermark": watermark, "quality": "partial", "nextCursor": next, "generatedAt": generated})
+	body, err := json.Marshal(map[string]any{literalRequestId: responseRequestID(w), literalData: data, literalRevision: revision, literalWatermark: watermark, literalQuality: literalPartial, literalNextCursor: next, literalGeneratedAt: generated})
 	if err != nil || len(body) > store.PublicJSONMaxBytes || interfaces.ValidateJSON(name, body) != nil {
-		WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -118,7 +122,7 @@ func projectionStats(model *store.AccountingReadModel) http.HandlerFunc {
 			return
 		}
 		if len(r.URL.Query()) != 0 {
-			WriteV2APIError(w, r, 400, "QUERY_INVALID")
+			WriteV2APIError(w, r, 400, literalQUERYINVALID)
 			return
 		}
 		values, err := model.PublicProjections(r.Context(), []string{"market.stats." + pool})
@@ -127,10 +131,10 @@ func projectionStats(model *store.AccountingReadModel) http.HandlerFunc {
 			return
 		}
 		if len(values) != 1 {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
-		writeProjectionEnvelope(w, r, "StatsResponse", map[string]any{"stats": values[0].Payload}, &values[0])
+		writeProjectionEnvelope(w, r, "StatsResponse", map[string]any{literalStats: values[0].Payload}, &values[0])
 	}
 }
 
@@ -139,32 +143,36 @@ func projectionStats(model *store.AccountingReadModel) http.HandlerFunc {
 // failure it has already written the v2 error.
 func statsBatchRequest(w http.ResponseWriter, r *http.Request) ([]string, bool) {
 	if len(r.URL.RawQuery) != 0 {
-		WriteV2APIError(w, r, 400, "QUERY_INVALID")
+		WriteV2APIError(w, r, 400, literalQUERYINVALID)
 		return nil, false
 	}
 	mediaType, _, typeErr := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if typeErr != nil || mediaType != "application/json" {
-		WriteV2APIError(w, r, 422, "FIELD_INVALID")
+		WriteV2APIError(w, r, 422, literalFIELDINVALID)
 		return nil, false
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 8192)
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			slog.Warn("close request body", "error", err)
+		}
+	}()
 	var body json.RawMessage
 	decoder := json.NewDecoder(r.Body)
 	if decoder.Decode(&body) != nil || interfaces.ValidateJSON("StatsBatchRequest", body) != nil {
-		WriteV2APIError(w, r, 422, "FIELD_INVALID")
+		WriteV2APIError(w, r, 422, literalFIELDINVALID)
 		return nil, false
 	}
 	var extra any
 	if decoder.Decode(&extra) != io.EOF {
-		WriteV2APIError(w, r, 400, "QUERY_INVALID")
+		WriteV2APIError(w, r, 400, literalQUERYINVALID)
 		return nil, false
 	}
 	var request struct {
 		Pools []string `json:"poolAddresses"`
 	}
 	if json.Unmarshal(body, &request) != nil {
-		WriteV2APIError(w, r, 422, "FIELD_INVALID")
+		WriteV2APIError(w, r, 422, literalFIELDINVALID)
 		return nil, false
 	}
 	seen := map[string]bool{}
@@ -172,7 +180,7 @@ func statsBatchRequest(w http.ResponseWriter, r *http.Request) ([]string, bool) 
 	for _, input := range request.Pools {
 		pool, err := store.Address(input)
 		if err != nil {
-			WriteV2APIError(w, r, 422, "FIELD_INVALID")
+			WriteV2APIError(w, r, 422, literalFIELDINVALID)
 			return nil, false
 		}
 		if seen[pool] {
@@ -213,50 +221,50 @@ func projectionStatsBatch(model *store.AccountingReadModel) http.HandlerFunc {
 			}
 		}
 		if len(missing) > 0 {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
-		writeProjectionEnvelope(w, r, "StatsBatchResponse", map[string]any{"items": items, "missing": missing}, nil)
+		writeProjectionEnvelope(w, r, "StatsBatchResponse", map[string]any{literalItems: items, "missing": missing}, nil)
 	}
 }
 
 // rankingsRequest validates GET /v2/rankings/{category}: a contract category
 // and bounded first-snapshot parameters. On failure it has written the v2 error.
 func rankingsRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
-	category := chi.URLParam(r, "category")
+	category := chi.URLParam(r, literalCategory)
 	valid := false
-	for _, v := range []string{"trending", "breakout", "volume", "gainers", "losers", "movers", "unusual", "new"} {
+	for _, v := range []string{literalTrending, literalBreakout, literalVolume, "gainers", "losers", literalMovers, literalUnusual, literalNew} {
 		if category == v {
 			valid = true
 		}
 	}
 	if !valid || QueryParameters(r.URL.Query()) != nil {
-		WriteV2APIError(w, r, 422, "FIELD_INVALID")
+		WriteV2APIError(w, r, 422, literalFIELDINVALID)
 		return "", false
 	}
 	// The contract declares optional cursor and limit (1..100) query
 	// parameters; anything else is rejected.
 	for key, values := range r.URL.Query() {
 		switch key {
-		case "limit":
+		case literalLimit:
 			n, err := strconv.Atoi(values[0])
 			if err != nil || n < 1 || n > 100 {
-				WriteV2APIError(w, r, 422, "FIELD_INVALID")
+				WriteV2APIError(w, r, 422, literalFIELDINVALID)
 				return "", false
 			}
-		case "cursor":
+		case literalCursor:
 			if values[0] == "" {
-				WriteV2APIError(w, r, 422, "FIELD_INVALID")
+				WriteV2APIError(w, r, 422, literalFIELDINVALID)
 				return "", false
 			}
 		default:
-			WriteV2APIError(w, r, 422, "FIELD_INVALID")
+			WriteV2APIError(w, r, 422, literalFIELDINVALID)
 			return "", false
 		}
 	}
 	// Rankings are replacement snapshots and never issue continuation cursors.
-	if r.URL.Query().Get("cursor") != "" {
-		WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+	if r.URL.Query().Get(literalCursor) != "" {
+		WriteV2APIError(w, r, 400, literalCURSORINVALID)
 		return "", false
 	}
 	return category, true
@@ -265,7 +273,7 @@ func rankingsRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 // rankingsLimit returns the validated limit query parameter or the contract
 // default of 50. Call only after rankingsRequest accepted the request.
 func rankingsLimit(r *http.Request) int {
-	if v := r.URL.Query().Get("limit"); v != "" {
+	if v := r.URL.Query().Get(literalLimit); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			return n
 		}
@@ -285,7 +293,7 @@ func projectionRankings(model *store.AccountingReadModel) http.HandlerFunc {
 			return
 		}
 		if len(values) != 1 {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		writeRankingsProjection(w, r, values[0], rankingsLimit(r))
@@ -298,67 +306,67 @@ func projectionRankings(model *store.AccountingReadModel) http.HandlerFunc {
 func writeRankingsProjection(w http.ResponseWriter, r *http.Request, value store.PublicProjection, limit int) {
 	var snapshot map[string]json.RawMessage
 	var items []json.RawMessage
-	if json.Unmarshal(value.Payload, &snapshot) != nil || json.Unmarshal(snapshot["items"], &items) != nil {
-		WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+	if json.Unmarshal(value.Payload, &snapshot) != nil || json.Unmarshal(snapshot[literalItems], &items) != nil {
+		WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	if len(items) > limit {
 		bounded, err := json.Marshal(items[:limit])
 		if err != nil {
-			WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 			return
 		}
-		snapshot["items"] = bounded
+		snapshot[literalItems] = bounded
 		snapshot["truncated"] = json.RawMessage("true")
 	}
-	writeProjectionEnvelope(w, r, "RankingsResponse", map[string]any{"snapshot": snapshot}, &value)
+	writeProjectionEnvelope(w, r, "RankingsResponse", map[string]any{literalSnapshot: snapshot}, &value)
 }
 func streamSnapshot(o ProductionReadOptions) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		if QueryParameters(q) != nil || len(r.URL.RawQuery) > 8192 {
-			WriteV2APIError(w, r, 400, "QUERY_INVALID")
+			WriteV2APIError(w, r, 400, literalQUERYINVALID)
 			return
 		}
 		for k, values := range q {
-			if (k != "topics" && k != "cursor" && k != "normalizedFilters") || len(values) != 1 {
+			if (k != literalTopics && k != literalCursor && k != "normalizedFilters") || len(values) != 1 {
 				WriteV2APIError(w, r, 422, "FIELD_UNKNOWN")
 				return
 			}
 		}
-		topics := strings.Split(q.Get("topics"), ",")
+		topics := strings.Split(q.Get(literalTopics), ",")
 		if r.Header.Get("Authorization") != "" || !broker.PublicTopics(topics) {
 			w.Header().Set("Cache-Control", "private, no-store")
 		}
 		sort.Strings(topics)
-		requestShape := map[string]any{"topics": topics}
-		if token := q.Get("cursor"); token != "" {
-			requestShape["cursor"] = token
+		requestShape := map[string]any{literalTopics: topics}
+		if token := q.Get(literalCursor); token != "" {
+			requestShape[literalCursor] = token
 		}
 		if filters := q.Get("normalizedFilters"); filters != "" {
 			var normalized map[string]json.RawMessage
 			if json.Unmarshal([]byte(filters), &normalized) != nil || interfaces.ValidateJSON("InputTopicFilters", []byte(filters)) != nil {
-				WriteV2APIError(w, r, 422, "FIELD_INVALID")
+				WriteV2APIError(w, r, 422, literalFIELDINVALID)
 				return
 			}
 			for key, raw := range normalized {
 				var value string
 				if key == "unreadOnly" {
 					if string(raw) != "false" {
-						WriteV2APIError(w, r, 422, "FIELD_INVALID")
+						WriteV2APIError(w, r, 422, literalFIELDINVALID)
 						return
 					}
 					continue
 				}
 				if json.Unmarshal(raw, &value) != nil {
-					WriteV2APIError(w, r, 422, "FIELD_INVALID")
+					WriteV2APIError(w, r, 422, literalFIELDINVALID)
 					return
 				}
-				if key == "poolAddress" {
+				if key == literalPoolAddress {
 					var err error
 					value, err = store.Address(value)
 					if err != nil {
-						WriteV2APIError(w, r, 422, "FIELD_INVALID")
+						WriteV2APIError(w, r, 422, literalFIELDINVALID)
 						return
 					}
 				}
@@ -366,15 +374,15 @@ func streamSnapshot(o ProductionReadOptions) http.HandlerFunc {
 					parts := strings.Split(topic, ".")
 					matches := false
 					switch key {
-					case "poolAddress":
+					case literalPoolAddress:
 						matches = len(parts) >= 3 && parts[2] == value
-					case "category":
+					case literalCategory:
 						matches = topic == "market.rankings."+value
 					case "interval":
 						matches = len(parts) == 4 && parts[0] == "market" && parts[1] == "candles" && parts[3] == value
 					}
 					if !matches {
-						WriteV2APIError(w, r, 422, "FIELD_INVALID")
+						WriteV2APIError(w, r, 422, literalFIELDINVALID)
 						return
 					}
 				}
@@ -383,23 +391,26 @@ func streamSnapshot(o ProductionReadOptions) http.HandlerFunc {
 		}
 		shape, _ := json.Marshal(requestShape)
 		if interfaces.ValidateJSON("TopicSnapshotReadRequest", shape) != nil {
-			WriteV2APIError(w, r, 422, "FIELD_INVALID")
+			WriteV2APIError(w, r, 422, literalFIELDINVALID)
 			return
 		}
 		var snapshot json.RawMessage
 		var err error
 		auth := r.Header.Get("Authorization")
 		if auth == "" && broker.PublicTopics(topics) {
-			if token := q.Get("cursor"); token != "" {
+			if token := q.Get(literalCursor); token != "" {
 				replay, resumeErr := o.Stream.PublicResume(r.Context(), topics, token)
 				if resumeErr != nil {
 					writeSnapshotError(w, r, resumeErr)
 					return
 				}
 				defer replay.Close()
+				checked := make(chan error, 1)
+				go func() { checked <- replay.Check(r.Context()) }()
 				snapshot, err = o.Model.TopicSnapshotAt(r.Context(), topics, replay.Cursor.Offsets, replay.Cursor.Scope.SnapshotID, token)
+				checkErr := <-checked
 				if err == nil {
-					err = replay.Check(r.Context())
+					err = checkErr
 				}
 			} else {
 				snapshot, err = o.Stream.PublicSnapshot(r.Context(), topics)
@@ -423,16 +434,19 @@ func streamSnapshot(o ProductionReadOptions) http.HandlerFunc {
 				WriteV2APIError(w, r, 403, "SCOPE_DENIED")
 				return
 			}
-			if token := q.Get("cursor"); token != "" {
+			if token := q.Get(literalCursor); token != "" {
 				replay, resumeErr := o.Stream.Resume(r.Context(), principal, binding, token)
 				if resumeErr != nil {
 					writeSnapshotError(w, r, resumeErr)
 					return
 				}
 				defer replay.Close()
+				checked := make(chan error, 1)
+				go func() { checked <- replay.Check(r.Context()) }()
 				snapshot, err = o.Model.TopicSnapshotAt(r.Context(), topics, replay.Cursor.Offsets, replay.Cursor.Scope.SnapshotID, token)
+				checkErr := <-checked
 				if err == nil {
-					err = replay.Check(r.Context())
+					err = checkErr
 				}
 			} else {
 				snapshot, err = o.Stream.Snapshot(r.Context(), principal, binding)
@@ -443,10 +457,10 @@ func streamSnapshot(o ProductionReadOptions) http.HandlerFunc {
 			return
 		}
 		w.Header().Set("Cache-Control", "private, no-store")
-		data := map[string]any{"snapshot": snapshot}
-		body, marshalErr := json.Marshal(map[string]any{"requestId": responseRequestID(w), "data": data, "watermark": nil, "revision": nil, "quality": "partial", "nextCursor": nil, "generatedAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
+		data := map[string]any{literalSnapshot: snapshot}
+		body, marshalErr := json.Marshal(map[string]any{literalRequestId: responseRequestID(w), literalData: data, literalWatermark: nil, literalRevision: nil, literalQuality: literalPartial, literalNextCursor: nil, literalGeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
 		if marshalErr != nil || len(body) > store.PublicJSONMaxBytes || interfaces.ValidateJSON("TopicSnapshotReadResponse", body) != nil {
-			WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+			WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -459,12 +473,12 @@ func writeSnapshotError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, broker.ErrExpired):
 		WriteV2APIError(w, r, 409, "RESNAPSHOT_REQUIRED")
 	case errors.Is(err, broker.ErrCursor), errors.Is(err, broker.ErrSequence):
-		WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+		WriteV2APIError(w, r, 400, literalCURSORINVALID)
 	case errors.Is(err, sharedauth.ErrScopeDenied):
 		WriteV2APIError(w, r, 403, "SCOPE_DENIED")
 	case errors.Is(err, broker.ErrFrame), errors.Is(err, store.ErrDataIntegrity):
-		WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 	default:
-		WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 	}
 }

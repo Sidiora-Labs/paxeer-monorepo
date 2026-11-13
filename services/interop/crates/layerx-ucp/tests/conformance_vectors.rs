@@ -849,7 +849,7 @@ fn sequencer_receipt_refuses_invalid_checkout() {
 }
 
 #[path = "support/producer_checkout.rs"]
-mod producer_checkout;
+pub mod producer_checkout;
 
 #[test]
 fn ucp_conformance_producer() {

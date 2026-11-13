@@ -118,6 +118,8 @@ impl PolicyRegistry {
         Ok(Self::initial(initial, None))
     }
 
+    /// # Errors
+    /// Returns an error if the protected policy source cannot be read, validated or activated.
     pub fn from_source(source: &[u8]) -> Result<Self, PolicySourceError> {
         let policy = load_policy_source(source)?;
         Ok(Self::initial(policy, Some(Arc::from(source))))
@@ -167,6 +169,8 @@ impl PolicyRegistry {
         self.versions.get(version).map(|retained| &retained.policy)
     }
 
+    /// # Errors
+    /// Returns an error if policy history is corrupt, unavailable or cannot retain the decision.
     pub fn record_decision(
         &mut self,
         request_id: [u8; 32],
@@ -403,6 +407,8 @@ fn source_digest(source: &[u8]) -> [u8; 32] {
 }
 
 impl PolicyRegistry {
+    /// # Errors
+    /// Returns an error if policy history is corrupt, unavailable or cannot retain the decision.
     pub fn open(
         store: Arc<Mutex<Store>>,
         tenant: TenantId,
@@ -450,10 +456,12 @@ impl PolicyRegistry {
         Ok(registry)
     }
 
+    #[must_use]
     pub fn tenant(&self) -> Option<&TenantId> {
         self.durable.as_ref().map(|history| history.key.tenant())
     }
 
+    #[must_use]
     pub fn retained_snapshot(&self, version: &str) -> Option<PolicySnapshot> {
         self.versions.get(version).map(|retained| PolicySnapshot {
             retained: Arc::clone(retained),
@@ -461,6 +469,7 @@ impl PolicyRegistry {
         })
     }
 
+    #[must_use]
     pub fn reconstruct_decision(
         &self,
         request_id: [u8; 32],
@@ -795,7 +804,9 @@ mod approval_source_tests {
     #[test]
     fn approval_source_v2_carries_required_approval_and_exact_source() {
         let source = b"schema=layerx.policy.source.v2\nversion=approval-v2\nsteps=4\nrule=review,permit,required_approval\nrule=ordinary,permit,no_approval\nrule=blocked,deny,no_approval\n";
-        let registry = PolicyRegistry::from_source(source).expect("real configured policy");
+        let Ok(registry) = PolicyRegistry::from_source(source) else {
+            panic!("real configured policy");
+        };
         let snapshot = registry.begin_request();
         assert_eq!(snapshot.source(), Some(source.as_slice()));
         assert_eq!(snapshot.generation(), 1);
@@ -836,9 +847,11 @@ mod approval_source_tests {
 
     #[test]
     fn unprofiled_policy_source_keeps_two_field_grammar_and_refusals() {
-        let policy =
+        let Ok(policy) =
             load_policy_source(b"version=v1\nsteps=2\nrule=ordinary,permit\nrule=blocked,deny\n")
-                .expect("original configured source");
+        else {
+            panic!("original configured source");
+        };
         assert!(policy
             .rules
             .iter()

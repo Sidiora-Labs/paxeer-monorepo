@@ -303,6 +303,8 @@ fn tenancy() -> crate::store::TenancyMap {
     )
 }
 
+// The included producer_test_support.rs contains a transport test with many steps.
+#[allow(clippy::too_many_lines)]
 #[path = "../../../../platform/hosted/internal/src/producer_test_support.rs"]
 mod transport;
 

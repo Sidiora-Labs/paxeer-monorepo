@@ -2,7 +2,7 @@
 mod repair_22_33_1470;
 
 #[allow(dead_code)]
-#[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/mod.rs"]
+#[path = "support/journal/mod.rs"]
 mod support;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -656,13 +656,24 @@ fn legacy_two_file_units_load_when_complete_and_quarantine_when_not() {
         Ok(vec![evidence.deploy.proof().clone()])
     );
 
-    let journal = open(&root);
+    assert_legacy_upgrade_and_discard(&root, &evidence, first, second, &interrupted);
+    fs::remove_dir_all(&root).unwrap_or_else(|error| panic!("cleanup: {error}"));
+}
+
+fn assert_legacy_upgrade_and_discard(
+    root: &Path,
+    evidence: &Evidence,
+    first: [u8; 32],
+    second: [u8; 32],
+    interrupted: &PathBuf,
+) {
+    let journal = open(root);
     assert_eq!(append(&journal, &evidence.replacement), second);
     let loaded = load(&journal);
     assert_eq!(digests(&loaded), BTreeSet::from([first, second]));
     assert!(loaded.quarantined.is_empty());
     assert_eq!(loaded.leftovers, vec![interrupted.clone()]);
-    assert_eq!(replay(&journal, &evidence), expected_projection(&evidence));
+    assert_eq!(replay(&journal, evidence), expected_projection(evidence));
 
     assert_eq!(append(&journal, &evidence.deploy), first);
     let loaded = load(&journal);
@@ -670,9 +681,9 @@ fn legacy_two_file_units_load_when_complete_and_quarantine_when_not() {
     assert_eq!(
         loaded.leftovers.iter().collect::<BTreeSet<_>>(),
         BTreeSet::from([
-            &unit_path(&root, first, "deployment"),
-            &unit_path(&root, first, "admission"),
-            &interrupted,
+            &unit_path(root, first, "deployment"),
+            &unit_path(root, first, "admission"),
+            interrupted,
         ])
     );
 
@@ -688,7 +699,6 @@ fn legacy_two_file_units_load_when_complete_and_quarantine_when_not() {
         journal.canonical_record(first),
         Err(RegistryError::JournalUnavailable)
     );
-    fs::remove_dir_all(&root).unwrap_or_else(|error| panic!("cleanup: {error}"));
 }
 
 #[test]

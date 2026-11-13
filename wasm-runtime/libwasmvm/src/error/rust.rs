@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn from_std_str_utf8error_works() {
-        let broken = b"Hello \xF0\x90\x80World";
+        let broken = std::hint::black_box(b"Hello \xF0\x90\x80World");
         let error: RustError = str::from_utf8(broken).unwrap_err().into();
         match error {
             RustError::InvalidUtf8 { msg, .. } => {

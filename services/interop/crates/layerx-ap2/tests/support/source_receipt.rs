@@ -25,23 +25,36 @@ pub struct IntentKey {
 }
 
 impl IntentKey {
+    ///
+    /// # Panics
+    /// Panics when a recorded value fails its required checks.
+    #[must_use]
     pub fn new(case: &Value) -> Self {
         Self {
             public_key: array(&case["intentPublicKey"]),
             authorizations: case["intentAuthorizations"]
                 .as_array()
-                .expect("producer-signed intent authorizations")
+                .unwrap_or_else(|| panic!("producer-signed intent authorizations"))
                 .iter()
                 .map(|entry| (array(&entry["input"]), array(&entry["signature"])))
                 .collect(),
         }
     }
 
+    ///
+    /// # Panics
+    /// Panics when a recorded value fails its required checks.
+    #[must_use]
     pub fn sign(&self, message: &[u8]) -> [u8; 64] {
         self.authorizations
             .iter()
             .find(|(input, _)| input.as_slice() == message)
-            .expect("unchanged producer-signed authorization for this exact request")
+            .unwrap_or_else(|| {
+                panic!(
+                    "{}",
+                    "unchanged producer-signed authorization for this exact request"
+                )
+            })
             .1
     }
 }
@@ -53,6 +66,7 @@ pub struct RecordedPlane {
 }
 
 impl RecordedPlane {
+    #[must_use]
     pub fn new(case: Value) -> Self {
         Self {
             case,
@@ -68,11 +82,13 @@ impl LayerXIntentPlane for RecordedPlane {
         payment: &AuthorizedPayment,
         _: &TraceId,
     ) -> Result<CompiledIntent, Ap2Error> {
-        assert_mandate_reference(&self.case, &evidence(&self.case), payment);
+        let _ = assert_mandate_reference(&self.case, &evidence(&self.case), payment);
         let key = IntentKey::new(&self.case);
         let send = LxpSend::new(
-            AccountId::parse("agent:buyer:main").expect("payer account"),
-            AccountId::parse("agent:merchant:main").expect("payee account"),
+            AccountId::parse("agent:buyer:main")
+                .unwrap_or_else(|error| panic!("payer account: {error:?}")),
+            AccountId::parse("agent:merchant:main")
+                .unwrap_or_else(|error| panic!("payee account: {error:?}")),
             AssetId::new(payment.asset()),
             Amount::from_u128(payment.amount()),
             Sequence::from_u64(0),
@@ -84,21 +100,21 @@ impl LayerXIntentPlane for RecordedPlane {
                 PublicKey::new(key.public_key),
                 AuthorizationSignature::new(key.sign(&payment.request_digest())),
             ),
-            NetworkId::new(125).expect("network"),
-            ProtocolVersion::new(2).expect("protocol"),
+            NetworkId::new(125).unwrap_or_else(|error| panic!("network: {error:?}")),
+            ProtocolVersion::new(2).unwrap_or_else(|error| panic!("protocol: {error:?}")),
         )
         .map_err(|_| Ap2Error::IntentCompilation)?;
-        let activity = ActivityType::new(ModuleId::Asset, 5).expect("asset send");
+        let activity = ActivityType::new(ModuleId::Asset, 5)
+            .unwrap_or_else(|error| panic!("asset send: {error:?}"));
         let registry =
-            ModuleRegistry::new(&[
-                ModuleRegistration::new(ModuleId::Asset, &[activity]).expect("asset registration")
-            ])
-            .expect("registry");
+            ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &[activity])
+                .unwrap_or_else(|error| panic!("asset registration: {error:?}"))])
+            .unwrap_or_else(|error| panic!("registry: {error:?}"));
         let intent = Intent::v1(IntentKind::LxpSend(send));
         let compiled = compile(&intent, &registry).map_err(|_| Ap2Error::IntentCompilation)?;
         compiled
             .verify_disclosure(&intent)
-            .expect("real compiler disclosure");
+            .unwrap_or_else(|error| panic!("real compiler disclosure: {error:?}"));
         assert_eq!(
             compiled.payload().as_bytes(),
             bytes(&self.case["compiledPayload"])
@@ -118,10 +134,14 @@ impl LayerXIntentPlane for RecordedPlane {
         _: &TraceId,
     ) -> Result<PlaneOutcome, Ap2Error> {
         compiled
-            .verify_disclosure(self.intent.as_ref().expect("compile precedes execution"))
-            .expect("unchanged compiled intent at the consumer");
+            .verify_disclosure(
+                self.intent
+                    .as_ref()
+                    .unwrap_or_else(|| panic!("compile precedes execution")),
+            )
+            .unwrap_or_else(|error| panic!("unchanged compiled intent at the consumer: {error:?}"));
         let evidence = evidence(&self.case);
-        assert_mandate_reference(&self.case, &evidence, payment);
+        let _ = assert_mandate_reference(&self.case, &evidence, payment);
         self.executions += 1;
         Ok(PlaneOutcome::Executed(Box::new(ExecutedPayment {
             evidence,
@@ -130,56 +150,75 @@ impl LayerXIntentPlane for RecordedPlane {
     }
 }
 
+///
+/// # Panics
+/// Panics when a recorded value fails its required checks.
+#[must_use]
 pub fn bytes(value: &Value) -> Vec<u8> {
     hex::decode(
         value
             .as_str()
-            .expect("fixture hex")
+            .unwrap_or_else(|| panic!("fixture hex"))
             .strip_prefix("0x")
-            .expect("hex prefix"),
+            .unwrap_or_else(|| panic!("hex prefix")),
     )
-    .expect("fixture bytes")
+    .unwrap_or_else(|error| panic!("fixture bytes: {error:?}"))
 }
 
+///
+/// # Panics
+/// Panics when a recorded value fails its required checks.
+#[must_use]
 pub fn array<const N: usize>(value: &Value) -> [u8; N] {
-    bytes(value).try_into().expect("fixture field width")
+    bytes(value)
+        .try_into()
+        .unwrap_or_else(|error| panic!("fixture field width: {error:?}"))
 }
 
+#[must_use]
 pub fn case() -> Value {
     named_case("settlement")
 }
 
+///
+/// # Panics
+/// Panics when a recorded value fails its required checks.
+#[must_use]
 pub fn named_case(name: &str) -> Value {
     let fixture: Value =
         serde_json::from_str(include_str!("../fixtures/ap2-mandate-pay-exact.json"))
-            .expect("node-produced fixture");
+            .unwrap_or_else(|error| panic!("node-produced fixture: {error:?}"));
     assert_eq!(
         fixture["provenance"]["generator"],
         "daemon/committed-fixture"
     );
     fixture["cases"]
         .as_array()
-        .expect("cases")
+        .unwrap_or_else(|| panic!("cases"))
         .iter()
         .find(|case| case["id"] == name)
-        .expect("node-produced payExact")
+        .unwrap_or_else(|| panic!("node-produced payExact"))
         .clone()
 }
 
+///
+/// # Panics
+/// Panics when a recorded value fails its required checks.
+#[must_use]
 pub fn evidence(case: &Value) -> SequencerEvidence {
     SequencerEvidence {
         transaction_hash: array(&case["receiptJson"]["txHash"]),
         signed_receipt: bytes(&case["signedReceipt"]),
         logs: case["receiptJson"]["logs"]
             .as_array()
-            .expect("logs")
+            .unwrap_or_else(|| panic!("logs"))
             .iter()
             .map(|log| {
                 SequencerLog::new(
                     array(&log["address"]),
                     log["topics"]
                         .as_array()
-                        .expect("topics")
+                        .unwrap_or_else(|| panic!("topics"))
                         .iter()
                         .map(array)
                         .collect(),
@@ -192,28 +231,42 @@ pub fn evidence(case: &Value) -> SequencerEvidence {
     }
 }
 
+///
+/// # Panics
+/// Panics when a recorded value fails its required checks.
+#[must_use]
 pub fn payment_log(evidence: &SequencerEvidence) -> &SequencerLog {
     let topic: [u8; 32] =
         hex::decode("c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1")
-            .expect("PaymentExact topic")
+            .unwrap_or_else(|error| panic!("PaymentExact topic: {error:?}"))
             .try_into()
-            .expect("topic width");
+            .unwrap_or_else(|error| panic!("topic width: {error:?}"));
     let mut payments = evidence
         .logs
         .iter()
         .filter(|log| log.topics().first() == Some(&topic));
-    let payment = payments.next().expect("node PaymentExact event");
+    let payment = payments
+        .next()
+        .unwrap_or_else(|| panic!("node PaymentExact event"));
     assert!(payments.next().is_none(), "exactly one PaymentExact event");
     payment
 }
 
+///
+/// # Panics
+/// Panics when a recorded value fails its required checks.
+#[must_use]
 pub fn pin(case: &Value) -> SequencerAuthorization {
     let key = &case["pinnedKey"];
     SequencerAuthorization::new(
         array(&key["keyId"]),
         array(&key["publicKey"]),
-        key["firstHeight"].as_u64().expect("first height"),
-        key["lastHeight"].as_u64().expect("last height"),
+        key["firstHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("first height")),
+        key["lastHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("last height")),
     )
 }
 
@@ -221,14 +274,18 @@ fn quantity(value: &Value) -> u64 {
     u64::from_str_radix(
         value
             .as_str()
-            .expect("quantity")
+            .unwrap_or_else(|| panic!("quantity"))
             .strip_prefix("0x")
-            .expect("quantity prefix"),
+            .unwrap_or_else(|| panic!("quantity prefix")),
         16,
     )
-    .expect("quantity value")
+    .unwrap_or_else(|error| panic!("quantity value: {error:?}"))
 }
 
+///
+/// # Panics
+/// Panics when a recorded value fails its required checks.
+#[must_use]
 pub fn calldata(case: &Value) -> [[u8; 32]; 6] {
     let raw = bytes(&case["rawTransaction"]);
     let offsets: Vec<_> = raw
@@ -241,10 +298,14 @@ pub fn calldata(case: &Value) -> [[u8; 32]; 6] {
     std::array::from_fn(|word| {
         raw[start + word * 32..start + (word + 1) * 32]
             .try_into()
-            .expect("payExact word")
+            .unwrap_or_else(|error| panic!("payExact word: {error:?}"))
     })
 }
 
+///
+/// # Panics
+/// Panics when a recorded value fails its required checks.
+#[must_use]
 pub fn assert_source(case: &Value, evidence: &SequencerEvidence) -> [u8; 32] {
     assert_eq!(
         evidence,
@@ -259,12 +320,20 @@ pub fn assert_source(case: &Value, evidence: &SequencerEvidence) -> [u8; 32] {
     let raw = bytes(&case["rawTransaction"]);
     let portable =
         PortableReceiptV2::from_sequencer_receipt(&case["receiptJson"], &pins, Some(&raw))
-            .expect("node transaction and receipt must share their original identity");
-    let verified = portable.verify_v2(&pins).expect("pinned portable evidence");
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{}: {error:?}",
+                    "node transaction and receipt must share their original identity"
+                )
+            });
+    let verified = portable
+        .verify_v2(&pins)
+        .unwrap_or_else(|error| panic!("pinned portable evidence: {error:?}"));
     let recorded = PortableReceiptV2::from_json(
-        &serde_json::to_vec(&case["portableEvidence"]).expect("recorded portable bytes"),
+        &serde_json::to_vec(&case["portableEvidence"])
+            .unwrap_or_else(|error| panic!("recorded portable bytes: {error:?}")),
     )
-    .expect("producer-exported portable evidence");
+    .unwrap_or_else(|error| panic!("producer-exported portable evidence: {error:?}"));
     assert_eq!(
         portable, recorded,
         "retain the production encoder's original export"
@@ -278,10 +347,13 @@ pub fn assert_source(case: &Value, evidence: &SequencerEvidence) -> [u8; 32] {
         canonical_receipt_digest(&evidence.signed_receipt),
         Ok(digest)
     );
-    let receipt =
-        verify_sequencer_signature(&evidence.signed_receipt, &pins).expect("original signature");
-    verify_logs(&receipt, evidence.logs.clone()).expect("original signed log commitments");
-    let protocol = receipt.protocol().expect("protocol receipt");
+    let receipt = verify_sequencer_signature(&evidence.signed_receipt, &pins)
+        .unwrap_or_else(|error| panic!("original signature: {error:?}"));
+    verify_logs(&receipt, evidence.logs.clone())
+        .unwrap_or_else(|error| panic!("original signed log commitments: {error:?}"));
+    let protocol = receipt
+        .protocol()
+        .unwrap_or_else(|| panic!("protocol receipt"));
     assert_eq!(protocol.result_code(), 0);
     assert_eq!(
         protocol.global_sequence(),
@@ -316,6 +388,10 @@ pub fn assert_source(case: &Value, evidence: &SequencerEvidence) -> [u8; 32] {
     digest
 }
 
+///
+/// # Panics
+/// Panics when a recorded value fails its required checks.
+#[must_use]
 pub fn assert_mandate_reference(
     case: &Value,
     evidence: &SequencerEvidence,

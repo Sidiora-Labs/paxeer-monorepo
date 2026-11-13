@@ -1,12 +1,12 @@
 //! Repair record 22.33.1520 (audit 22.30.92, requirement 22998.1).
 //!
-//! missing_contracts -> proof_v2_contract_refuses_retired_versions.
-//! proof_owner_join -> proof_owner_join_refuses_rehashed_identity_substitution.
-//! daemon_atomic_creation -> daemon_creation_reopens_at_durable_admission_boundary.
-//! execution_state_test -> execution_state_uses_receipt_prestate_and_authenticated_account_status.
-//! fee_fixture -> fee_preferences_reach_preparation_and_reservation_at_historical_height.
-//! enrolment_atomic_creation -> enrolment_creation_reopens_at_durable_admission_boundary.
-//! reservation_zero_id -> scalar_zero_id_refusal_and_durable_recovery_agree.
+//! `missing_contracts` -> `proof_v2_contract_refuses_retired_versions`.
+//! `proof_owner_join` -> `proof_owner_join_refuses_rehashed_identity_substitution`.
+//! `daemon_atomic_creation` -> `daemon_creation_reopens_at_durable_admission_boundary`.
+//! `execution_state_test` -> `execution_state_uses_receipt_prestate_and_authenticated_account_status`.
+//! `fee_fixture` -> `fee_preferences_reach_preparation_and_reservation_at_historical_height`.
+//! `enrolment_atomic_creation` -> `enrolment_creation_reopens_at_durable_admission_boundary`.
+//! `reservation_zero_id` -> `scalar_zero_id_refusal_and_durable_recovery_agree`.
 //!
 //! Wiring request: domain 9 owns spec/layerx-merge/interfaces.kvx and
 //! contracts/agent-{formats,api,rust-api,config}.md; publish proof v2, canonical
@@ -23,6 +23,14 @@
 //! shared signed receipt/account-witness producer. Consumers are production
 //! preparation, proof verification, query, limiter, codec and file store paths.
 
+fn require_ok<T, E: std::fmt::Debug>(result: Result<T, E>, message: &str) -> T {
+    result.unwrap_or_else(|error| panic!("{message}: {error:?}"))
+}
+
+fn require_some<T>(value: Option<T>, message: &str) -> T {
+    value.unwrap_or_else(|| panic!("{message}"))
+}
+
 #[path = "support/budget_native_capture.rs"]
 mod native_capture;
 use serde_json::json;
@@ -32,26 +40,19 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use layerx_agentd::budget::native_binding::{
-    restore_native_preparation, validate_native_preparation, validate_retained_preparation,
-    verify_native_budget_submission,
-};
+use layerx_agentd::budget::native_binding::restore_native_preparation;
 use layerx_agentd::budget::*;
 use layerx_agentd::prepare::{
     prepare_bound, AbiArgument, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest,
     EvmPrepared, PrecompileCall, PrecompileTarget,
 };
-use layerx_agentd::protocol_evidence::{
-    EvidenceAuthority, RawReceiptEvidence, VerifiedReceiptEvidence,
-};
 use layerx_agentd::sign::{verify_before_submit, SigningPreparation, VerifiedSubmission};
 use layerx_agentd::store::{ObjectKind, Store, TenantId, TenantKey};
-use layerx_client::sequencer::{SequencerEndpoint, SequencerReceipt};
+use layerx_client::sequencer::SequencerEndpoint;
 use layerx_crypto::evm_transaction::{
     decode_signed, recover_sender, transaction_hash, Eip1559Call,
 };
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::receipt::{AuthorizedBatch, MaintainedOutcomeEvidence};
 use layerx_types::ids::Did;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use serde_json::Value;
@@ -65,32 +66,27 @@ fn number(value: u128) -> [u8; 32] {
 
 fn construct(value: &Value) -> PrecompileCall {
     let value = &value["construct"];
-    let target = match value["target"].as_str().expect("target") {
+    let target = match require_some(value["target"].as_str(), "target") {
         "pay" => PrecompileTarget::Pay,
         "ledger" => PrecompileTarget::Ledger,
         "programs" => PrecompileTarget::Programs,
         other => panic!("unexpected native target {other}"),
     };
-    let selector = transaction_hash(
-        value["signature"]
-            .as_str()
-            .expect("ABI signature")
-            .as_bytes(),
-    );
+    let selector =
+        transaction_hash(require_some(value["signature"].as_str(), "ABI signature").as_bytes());
     PrecompileCall {
         target,
-        selector: selector[..4].try_into().expect("selector"),
-        arguments: value["arguments"]
-            .as_array()
-            .expect("ABI arguments")
+        selector: require_ok(selector[..4].try_into(), "selector"),
+        arguments: require_some(value["arguments"].as_array(), "ABI arguments")
             .iter()
             .map(|value| {
                 if let Some(word) = value.get("word") {
                     AbiArgument::Word(fixed(word))
                 } else {
-                    AbiArgument::Bytes(
-                        hex::decode(value["bytes"].as_str().expect("bytes")).expect("ABI bytes"),
-                    )
+                    AbiArgument::Bytes(require_ok(
+                        hex::decode(require_some(value["bytes"].as_str(), "bytes")),
+                        "ABI bytes",
+                    ))
                 }
             })
             .collect(),
@@ -108,11 +104,15 @@ struct Replay {
 
 impl Replay {
     fn new(answers: Vec<Value>) -> Self {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("fixture listener");
-        listener
-            .set_nonblocking(true)
-            .expect("nonblocking listener");
-        let url = format!("http://{}", listener.local_addr().expect("fixture address"));
+        let listener = require_ok(
+            std::net::TcpListener::bind("127.0.0.1:0"),
+            "fixture listener",
+        );
+        require_ok(listener.set_nonblocking(true), "nonblocking listener");
+        let url = format!(
+            "http://{}",
+            require_ok(listener.local_addr(), "fixture address")
+        );
         let stopped = Arc::new(AtomicBool::new(false));
         let stop = Arc::clone(&stopped);
         let missing = Arc::new(Mutex::new(Vec::new()));
@@ -131,31 +131,32 @@ impl Replay {
                     }
                     Err(error) => panic!("fixture accept: {error}"),
                 };
-                stream
-                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                    .expect("read deadline");
+                require_ok(
+                    stream.set_read_timeout(Some(std::time::Duration::from_secs(5))),
+                    "read deadline",
+                );
                 let mut headers = Vec::new();
                 while !headers.ends_with(b"\r\n\r\n") {
                     let mut byte = [0];
-                    stream.read_exact(&mut byte).expect("HTTP header");
+                    require_ok(stream.read_exact(&mut byte), "HTTP header");
                     headers.push(byte[0]);
                     assert!(headers.len() <= 8192, "bounded HTTP header");
                 }
-                let headers = String::from_utf8(headers).expect("HTTP headers");
-                let length: usize = headers
-                    .lines()
-                    .find_map(|line| {
+                let headers = require_ok(String::from_utf8(headers), "HTTP headers");
+                let length: usize = require_some(
+                    headers.lines().find_map(|line| {
                         let (key, value) = line.split_once(':')?;
                         key.eq_ignore_ascii_case("content-length")
-                            .then(|| value.trim().parse().expect("length"))
-                    })
-                    .expect("content length");
+                            .then(|| require_ok(value.trim().parse(), "length"))
+                    }),
+                    "content length",
+                );
                 assert!(length <= 4_194_304);
                 let mut bytes = vec![0; length];
-                stream.read_exact(&mut bytes).expect("RPC request");
-                let request: Value = serde_json::from_slice(&bytes).expect("request JSON");
-                received.lock().unwrap().push(request.clone());
-                let answers = served.lock().expect("peer answers");
+                require_ok(stream.read_exact(&mut bytes), "RPC request");
+                let request: Value = require_ok(serde_json::from_slice(&bytes), "request JSON");
+                require_ok(received.lock(), "required test value").push(request.clone());
+                let answers = require_ok(served.lock(), "peer answers");
                 let answer = answers.iter().find(|answer| {
                     answer["method"] == request["method"] && answer["params"] == request["params"]
                 });
@@ -166,15 +167,12 @@ impl Replay {
                         json!({"jsonrpc":"2.0", "id":request["id"], "result":answer["result"]})
                     }
                 } else {
-                    unrecorded
-                        .lock()
-                        .expect("unrecorded calls")
-                        .push(request.clone());
+                    require_ok(unrecorded.lock(), "unrecorded calls").push(request.clone());
                     json!({"jsonrpc":"2.0", "id":request["id"], "error":{"code":-32602,"message":"request absent from committed peer transcript"}})
                 };
-                let body = serde_json::to_vec(&response).expect("response JSON");
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).expect("HTTP response");
-                stream.write_all(&body).expect("response body");
+                let body = require_ok(serde_json::to_vec(&response), "response JSON");
+                require_ok(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()), "HTTP response");
+                require_ok(stream.write_all(&body), "response body");
             }
         });
         Self {
@@ -188,18 +186,21 @@ impl Replay {
     }
 
     fn endpoint(&self) -> SequencerEndpoint {
-        SequencerEndpoint::new(&self.url, &[]).expect("loopback production client")
+        require_ok(
+            SequencerEndpoint::new(&self.url, &[]),
+            "loopback production client",
+        )
     }
 }
 
 impl Drop for Replay {
     fn drop(&mut self) {
         self.stopped.store(true, Ordering::SeqCst);
-        let result = self.worker.take().expect("replay worker").join();
+        let result = require_some(self.worker.take(), "replay worker").join();
         if !std::thread::panicking() {
-            result.expect("peer replay");
+            require_ok(result, "peer replay");
             assert!(
-                self.missing.lock().expect("unrecorded calls").is_empty(),
+                require_ok(self.missing.lock(), "unrecorded calls").is_empty(),
                 "every request must match the committed peer transcript"
             );
         }
@@ -207,20 +208,26 @@ impl Drop for Replay {
 }
 
 fn add_account_and_fee_answers(answers: &mut Vec<Value>, case: &Value) {
-    let corpus: Value =
-        serde_json::from_slice(include_bytes!("fixtures/repair_22_31_217/corpus.json"))
-            .expect("corpus");
+    let corpus: Value = require_ok(
+        serde_json::from_slice(include_bytes!("fixtures/repair_22_31_217/corpus.json")),
+        "corpus",
+    );
     let views = &corpus["peer_views"];
     let identity = &views["identity"];
     let public: [u8; 32] = fixed(&identity["public"]);
     let owner: [u8; 32] = fixed(&identity["owner"]);
     let main: [u8; 32] = fixed(&identity["main"]);
     let sender = |seed: u8| {
-        let key = k256::ecdsa::SigningKey::from_bytes((&[seed; 32]).into()).expect("fixture key");
-        layerx_crypto::secp256k1::evm_address(
-            key.verifying_key().to_encoded_point(false).as_bytes(),
+        let key = require_ok(
+            k256::ecdsa::SigningKey::from_bytes((&[seed; 32]).into()),
+            "fixture key",
+        );
+        require_ok(
+            layerx_crypto::secp256k1::evm_address(
+                key.verifying_key().to_encoded_point(false).as_bytes(),
+            ),
+            "fixture sender",
         )
-        .expect("fixture sender")
     };
     let fee_payer = sender(fixed::<32>(&case["signing_seed"])[0]);
     let address = [vec![0; 12], fee_payer.to_vec()].concat();
@@ -240,6 +247,55 @@ fn add_account_and_fee_answers(answers: &mut Vec<Value>, case: &Value) {
         &public,
         address.clone(),
     );
+    verify_add_account_and_fee_answers_2_repair_22_33_1520(
+        VerifyAddAccountAndFeeAnswers2Repair22331520Context {
+            case,
+            views,
+            identity,
+            public,
+            owner,
+            main,
+            sender,
+            address,
+            add,
+            addr,
+        },
+    );
+}
+
+struct VerifyAddAccountAndFeeAnswers2Repair22331520Context<'a, F0, F1> {
+    case: &'a Value,
+    views: &'a Value,
+    identity: &'a Value,
+    public: [u8; 32],
+    owner: [u8; 32],
+    main: [u8; 32],
+    sender: F0,
+    address: Vec<u8>,
+    add: F1,
+    addr: [u8; 20],
+}
+
+fn verify_add_account_and_fee_answers_2_repair_22_33_1520(
+    context: VerifyAddAccountAndFeeAnswers2Repair22331520Context<
+        '_,
+        impl Fn(u8) -> [u8; 20],
+        impl FnMut([u8; 20], &[u8], &[u8], Vec<u8>),
+    >,
+) {
+    let VerifyAddAccountAndFeeAnswers2Repair22331520Context {
+        case,
+        views,
+        identity,
+        public,
+        owner,
+        main,
+        sender,
+        address,
+        mut add,
+        addr,
+    } = context;
+
     add(
         addr,
         b"getUnifiedAccount(address)",
@@ -250,7 +306,10 @@ fn add_account_and_fee_answers(answers: &mut Vec<Value>, case: &Value) {
         addr,
         b"getLayerXDid(address)",
         &address,
-        hex::decode(identity["did_result"].as_str().expect("DID reply")).expect("ABI reply"),
+        require_ok(
+            hex::decode(require_some(identity["did_result"].as_str(), "DID reply")),
+            "ABI reply",
+        ),
     );
     for (seed, asset) in [(0xa5, [4; 32]), (0xa6, [5; 32])] {
         let view = &views["fee_assets"][hex::encode(asset)];
@@ -262,14 +321,22 @@ fn add_account_and_fee_answers(answers: &mut Vec<Value>, case: &Value) {
             fee_token,
             b"getFeeDenom(address)",
             &payer,
-            hex::decode(view["denomination"].as_str().expect("denomination reply"))
-                .expect("ABI reply"),
+            require_ok(
+                hex::decode(require_some(
+                    view["denomination"].as_str(),
+                    "denomination reply",
+                )),
+                "ABI reply",
+            ),
         );
         add(
             PrecompileTarget::Ledger.address(),
             b"getAsset(bytes32)",
             &asset,
-            hex::decode(view["metadata"].as_str().expect("metadata reply")).expect("ABI reply"),
+            require_ok(
+                hex::decode(require_some(view["metadata"].as_str(), "metadata reply")),
+                "ABI reply",
+            ),
         );
     }
     let asset: [u8; 32] = fixed(&case["fee_asset"]);
@@ -285,6 +352,42 @@ fn add_account_and_fee_answers(answers: &mut Vec<Value>, case: &Value) {
         &main,
         owner.to_vec(),
     );
+    verify_add_account_and_fee_answers_1_repair_22_33_1520(
+        VerifyAddAccountAndFeeAnswers1Repair22331520Context {
+            case,
+            views,
+            owner,
+            main,
+            add,
+            asset,
+        },
+    );
+}
+
+struct VerifyAddAccountAndFeeAnswers1Repair22331520Context<'a, F0> {
+    case: &'a Value,
+    views: &'a Value,
+    owner: [u8; 32],
+    main: [u8; 32],
+    add: F0,
+    asset: [u8; 32],
+}
+
+fn verify_add_account_and_fee_answers_1_repair_22_33_1520(
+    context: VerifyAddAccountAndFeeAnswers1Repair22331520Context<
+        '_,
+        impl FnMut([u8; 20], &[u8], &[u8], Vec<u8>),
+    >,
+) {
+    let VerifyAddAccountAndFeeAnswers1Repair22331520Context {
+        case,
+        views,
+        owner,
+        main,
+        mut add,
+        asset,
+    } = context;
+
     add(
         PrecompileTarget::Ledger.address(),
         b"balanceOf(bytes32,bytes32)",
@@ -333,12 +436,13 @@ fn add_account_and_fee_answers(answers: &mut Vec<Value>, case: &Value) {
         PrecompileTarget::Programs.address(),
         b"getValueAccount(bytes32,bytes32)",
         &[[0x11; 32], [0x33; 32]].concat(),
-        hex::decode(
-            views["value_account"]
-                .as_str()
-                .expect("value account reply"),
-        )
-        .expect("ABI reply"),
+        require_ok(
+            hex::decode(require_some(
+                views["value_account"].as_str(),
+                "value account reply",
+            )),
+            "ABI reply",
+        ),
     );
 }
 
@@ -350,99 +454,24 @@ fn node_receipt_at(
     state: [u8; 32],
     denom: &str,
 ) -> Value {
-    use ed25519_dalek::{Signer as _, SigningKey};
-    use layerx_wire::encode::Encoder;
-    use layerx_wire::limits::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
-    let (call, signature) = decode_signed(signed).expect("peer signed transaction");
-    let sender = recover_sender(&call, &signature).expect("peer sender");
-    let tx_hash = transaction_hash(signed);
-    let mut summary = Encoder::new(512);
-    summary.u64(100_000).unwrap();
-    summary.u64(100_000).unwrap();
-    summary.u64(1).unwrap();
-    summary.u32(0).unwrap();
-    summary.fixed(&[0; 20]).unwrap();
-    summary.fixed(&[0; 20]).unwrap();
-    summary.fixed(&Sha256::digest([])).unwrap();
-    summary.u32(0).unwrap();
-    summary.u32(logs.len().try_into().unwrap()).unwrap();
-    summary.u8(denom.len().try_into().unwrap()).unwrap();
-    summary.fixed(denom.as_bytes()).unwrap();
-    let mut effects = vec![summary.finish()];
-    for log in logs {
-        let mut body = log.address.to_vec();
-        body.push(log.topics.len().try_into().unwrap());
-        body.extend(log.topics.concat());
-        body.extend(Sha256::digest(&log.data));
-        effects.push(body);
-    }
-    let encode = |signature: Option<[u8; 64]>| {
-        let mut e = Encoder::new(MAX_MESSAGE_BYTES);
-        e.structure_header_version(0x5201, PROTOCOL_VERSION)
-            .unwrap();
-        e.u16(PROTOCOL_VERSION).unwrap();
-        e.bytes(&tx_hash, 32).unwrap();
-        e.u64(height).unwrap();
-        e.bytes(&previous, 32).unwrap();
-        e.bytes(&state, 32).unwrap();
-        e.bytes(&[8; 32], 32).unwrap();
-        e.i32(0).unwrap();
-        e.sequence_length(effects.len(), 512).unwrap();
-        for (index, body) in effects.iter().enumerate() {
-            e.u16(12).unwrap();
-            e.u16(index as u16).unwrap();
-            e.u16(0).unwrap();
-            e.u8(if index == 0 { 1 } else { 3 }).unwrap();
-            e.u8(0).unwrap();
-            e.bytes(&[0; 32], 32).unwrap();
-            e.bytes(body, 256).unwrap();
-        }
-        e.u128(100_000).unwrap();
-        e.bytes(&number(height.into()), 32).unwrap();
-        e.u16(12).unwrap();
-        e.u32(1).unwrap();
-        e.u32(0).unwrap();
-        e.u8(2).unwrap();
-        e.bytes(&Sha256::digest(denom.as_bytes()), 32).unwrap();
-        e.u128(0).unwrap();
-        e.bytes(&[vec![0; 12], sender.to_vec()].concat(), 32)
-            .unwrap();
-        e.u128(1_000_000).unwrap();
-        e.u128(900_000).unwrap();
-        e.u64(call.nonce).unwrap();
-        e.bytes(&[vec![0; 12], call.to.to_vec()].concat(), 32)
-            .unwrap();
-        e.u128(0).unwrap();
-        e.u128(0).unwrap();
-        e.bytes(&[0; 32], 32).unwrap();
-        e.bytes(&[0; 32], 32).unwrap();
-        e.bytes(&[1; 32], 32).unwrap();
-        e.u64(1_700_000_001_000).unwrap();
-        e.u8(u8::from(signature.is_some())).unwrap();
-        if let Some(signature) = signature {
-            e.bytes(&signature, 64).unwrap();
-        }
-        e.finish()
-    };
-    let key = SigningKey::from_bytes(&[8; 32]);
-    let signature = key
-        .sign(&layerx_wire::hash::receipt_digest(&encode(None)).unwrap())
-        .to_bytes();
-    let canonical = encode(Some(signature));
-    let authorization = [SequencerAuthorization::new(
-        [1; 32],
-        key.verifying_key().to_bytes(),
-        1,
-        100,
-    )];
-    let verified = layerx_proof::receipt::verify_sequencer_signature(&canonical, &authorization)
-        .expect("peer receipt signature and exact canonical encoding");
-    let protocol = verified.protocol().expect("native node receipt");
-    assert_eq!(
-        protocol.protocol_version(),
-        2,
-        "native sequencer receipt ABI"
-    );
+    let (call, signature) = require_ok(decode_signed(signed), "peer signed transaction");
+    let NodeReceipt {
+        sender,
+        tx_hash,
+        key,
+        canonical,
+        verified,
+    } = verify_node_receipt_at_2_repair_22_33_1520(VerifyNodeReceiptAt2Repair22331520Context {
+        signed,
+        logs,
+        height,
+        previous,
+        state,
+        denom,
+        call: &call,
+        signature,
+    });
+    let protocol = require_some(verified.protocol(), "native node receipt");
     assert_eq!(protocol.module_id(), 12);
     assert_eq!(protocol.operation(), signed[0]);
     assert_eq!(
@@ -453,20 +482,22 @@ fn node_receipt_at(
     assert_eq!(protocol.debit_sequence(), call.nonce);
     assert_eq!(protocol.from()[12..], sender);
     assert_eq!(protocol.to()[12..], call.to);
-    layerx_proof::sequencer_logs::verify_logs(
-        &verified,
-        logs.iter()
-            .map(|log| {
-                layerx_proof::sequencer_logs::SequencerLog::new(
-                    log.address,
-                    log.topics.clone(),
-                    log.data.clone(),
-                    log.log_index,
-                )
-            })
-            .collect(),
-    )
-    .expect("peer log bytes match the signed log effects");
+    require_ok(
+        layerx_proof::sequencer_logs::verify_logs(
+            &verified,
+            logs.iter()
+                .map(|log| {
+                    layerx_proof::sequencer_logs::SequencerLog::new(
+                        log.address,
+                        log.topics.clone(),
+                        log.data.clone(),
+                        log.log_index,
+                    )
+                })
+                .collect(),
+        ),
+        "peer log bytes match the signed log effects",
+    );
     let h = |bytes: &[u8]| format!("0x{}", hex::encode(bytes));
     json!({
         "rung":"committed", "txHash":h(&tx_hash), "nonce":"0x0", "seq":format!("0x{height:x}"), "height":format!("0x{height:x}"),
@@ -480,58 +511,278 @@ fn node_receipt_at(
     })
 }
 
+#[derive(Clone, Copy)]
+struct VerifyNodeReceiptAt2Repair22331520Context<'a> {
+    signed: &'a [u8],
+    logs: &'a [layerx_client::sequencer::SequencerLog],
+    height: u64,
+    previous: [u8; 32],
+    state: [u8; 32],
+    denom: &'a str,
+    call: &'a Eip1559Call,
+    signature: layerx_crypto::signer::AgentSignature,
+}
+
+fn verify_node_receipt_at_2_repair_22_33_1520(
+    context: VerifyNodeReceiptAt2Repair22331520Context<'_>,
+) -> NodeReceipt {
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_wire::encode::Encoder;
+    use layerx_wire::limits::MAX_MESSAGE_BYTES;
+
+    let VerifyNodeReceiptAt2Repair22331520Context {
+        signed,
+        logs,
+        height,
+        previous,
+        state,
+        denom,
+        call,
+        signature,
+    } = context;
+
+    let sender = require_ok(recover_sender(call, &signature), "peer sender");
+    let tx_hash = transaction_hash(signed);
+    let mut summary = Encoder::new(512);
+    require_ok(summary.u64(100_000), "required test value");
+    require_ok(summary.u64(100_000), "required test value");
+    require_ok(summary.u64(1), "required test value");
+    require_ok(summary.u32(0), "required test value");
+    require_ok(summary.fixed(&[0; 20]), "required test value");
+    require_ok(summary.fixed(&[0; 20]), "required test value");
+    require_ok(summary.fixed(&Sha256::digest([])), "required test value");
+    require_ok(summary.u32(0), "required test value");
+    require_ok(
+        summary.u32(require_ok(logs.len().try_into(), "required test value")),
+        "required test value",
+    );
+    require_ok(
+        summary.u8(require_ok(denom.len().try_into(), "required test value")),
+        "required test value",
+    );
+    require_ok(summary.fixed(denom.as_bytes()), "required test value");
+    let mut effects = vec![summary.finish()];
+    for log in logs {
+        let mut body = log.address.to_vec();
+        body.push(require_ok(
+            log.topics.len().try_into(),
+            "required test value",
+        ));
+        body.extend(log.topics.concat());
+        body.extend(Sha256::digest(&log.data));
+        effects.push(body);
+    }
+    let encode = |signature: Option<[u8; 64]>| {
+        let e = Encoder::new(MAX_MESSAGE_BYTES);
+        verify_node_receipt_at_1_repair_22_33_1520(VerifyNodeReceiptAt1Repair22331520Context {
+            height,
+            previous,
+            state,
+            denom,
+            call,
+            sender,
+            tx_hash,
+            effects: &effects,
+            signature,
+            e,
+        })
+    };
+    let key = SigningKey::from_bytes(&[8; 32]);
+    let signature = key
+        .sign(&require_ok(
+            layerx_wire::hash::receipt_digest(&encode(None)),
+            "required test value",
+        ))
+        .to_bytes();
+    let canonical = encode(Some(signature));
+    let authorization = [SequencerAuthorization::new(
+        [1; 32],
+        key.verifying_key().to_bytes(),
+        1,
+        100,
+    )];
+    let verified = require_ok(
+        layerx_proof::receipt::verify_sequencer_signature(&canonical, &authorization),
+        "peer receipt signature and exact canonical encoding",
+    );
+    let protocol = require_some(verified.protocol(), "native node receipt");
+    assert_eq!(
+        protocol.protocol_version(),
+        2,
+        "native sequencer receipt ABI"
+    );
+    NodeReceipt {
+        sender,
+        tx_hash,
+        key,
+        canonical,
+        verified,
+    }
+}
+
+struct VerifyNodeReceiptAt1Repair22331520Context<'a> {
+    height: u64,
+    previous: [u8; 32],
+    state: [u8; 32],
+    denom: &'a str,
+    call: &'a Eip1559Call,
+    sender: [u8; 20],
+    tx_hash: [u8; 32],
+    effects: &'a [Vec<u8>],
+    signature: Option<[u8; 64]>,
+    e: layerx_wire::encode::Encoder,
+}
+
+fn verify_node_receipt_at_1_repair_22_33_1520(
+    context: VerifyNodeReceiptAt1Repair22331520Context<'_>,
+) -> Vec<u8> {
+    use layerx_wire::limits::PROTOCOL_VERSION;
+
+    let VerifyNodeReceiptAt1Repair22331520Context {
+        height,
+        previous,
+        state,
+        denom,
+        call,
+        sender,
+        tx_hash,
+        effects,
+        signature,
+        mut e,
+    } = context;
+
+    require_ok(
+        e.structure_header_version(0x5201, PROTOCOL_VERSION),
+        "required test value",
+    );
+    require_ok(e.u16(PROTOCOL_VERSION), "required test value");
+    require_ok(e.bytes(&tx_hash, 32), "required test value");
+    require_ok(e.u64(height), "required test value");
+    require_ok(e.bytes(&previous, 32), "required test value");
+    require_ok(e.bytes(&state, 32), "required test value");
+    require_ok(e.bytes(&[8; 32], 32), "required test value");
+    require_ok(e.i32(0), "required test value");
+    require_ok(e.sequence_length(effects.len(), 512), "required test value");
+    for (index, body) in effects.iter().enumerate() {
+        require_ok(e.u16(12), "required test value");
+        require_ok(
+            e.u16(require_ok(u16::try_from(index), "test value fits u16")),
+            "required test value",
+        );
+        require_ok(e.u16(0), "required test value");
+        require_ok(e.u8(if index == 0 { 1 } else { 3 }), "required test value");
+        require_ok(e.u8(0), "required test value");
+        require_ok(e.bytes(&[0; 32], 32), "required test value");
+        require_ok(e.bytes(body, 256), "required test value");
+    }
+    require_ok(e.u128(100_000), "required test value");
+    require_ok(e.bytes(&number(height.into()), 32), "required test value");
+    require_ok(e.u16(12), "required test value");
+    require_ok(e.u32(1), "required test value");
+    require_ok(e.u32(0), "required test value");
+    require_ok(e.u8(2), "required test value");
+    require_ok(
+        e.bytes(&Sha256::digest(denom.as_bytes()), 32),
+        "required test value",
+    );
+    require_ok(e.u128(0), "required test value");
+    require_ok(
+        e.bytes(&[vec![0; 12], sender.to_vec()].concat(), 32),
+        "required test value",
+    );
+    require_ok(e.u128(1_000_000), "required test value");
+    require_ok(e.u128(900_000), "required test value");
+    require_ok(e.u64(call.nonce), "required test value");
+    require_ok(
+        e.bytes(&[vec![0; 12], call.to.to_vec()].concat(), 32),
+        "required test value",
+    );
+    require_ok(e.u128(0), "required test value");
+    require_ok(e.u128(0), "required test value");
+    require_ok(e.bytes(&[0; 32], 32), "required test value");
+    require_ok(e.bytes(&[0; 32], 32), "required test value");
+    require_ok(e.bytes(&[1; 32], 32), "required test value");
+    require_ok(e.u64(1_700_000_001_000), "required test value");
+    require_ok(e.u8(u8::from(signature.is_some())), "required test value");
+    if let Some(signature) = signature {
+        require_ok(e.bytes(&signature, 64), "required test value");
+    }
+    e.finish()
+}
+
 fn fixed_bytes(value: &Value) -> Vec<u8> {
-    hex::decode(value.as_str().unwrap().trim_start_matches("0x")).unwrap()
+    require_ok(
+        hex::decode(require_some(value.as_str(), "required test value").trim_start_matches("0x")),
+        "required test value",
+    )
 }
 
 fn registry(module: ModuleId, ordinal: u16) -> ModuleRegistry {
-    let kind = ActivityType::new(module, ordinal).expect("operation");
-    ModuleRegistry::new(&[ModuleRegistration::new(module, &[kind]).expect("registration")])
-        .expect("registry")
+    let kind = require_ok(ActivityType::new(module, ordinal), "operation");
+    require_ok(
+        ModuleRegistry::new(&[require_ok(
+            ModuleRegistration::new(module, &[kind]),
+            "registration",
+        )]),
+        "registry",
+    )
 }
 
 fn fixed<const N: usize>(value: &Value) -> [u8; N] {
-    hex::decode(
-        value
-            .as_str()
-            .expect("hex bytes")
-            .strip_prefix("0x")
-            .unwrap_or(value.as_str().expect("hex bytes")),
+    require_ok(
+        hex::decode(
+            require_some(value.as_str(), "hex bytes")
+                .strip_prefix("0x")
+                .unwrap_or(require_some(value.as_str(), "hex bytes")),
+        ),
+        "hex encoding",
     )
-    .expect("hex encoding")
     .try_into()
     .unwrap_or_else(|_| panic!("expected {N} bytes"))
 }
 
 fn temporary(name: &str) -> PathBuf {
     let mut suffix = [0; 16];
-    getrandom::fill(&mut suffix).expect("temporary identity");
+    require_ok(getrandom::fill(&mut suffix), "temporary identity");
     std::env::temp_dir().join(format!("repair-22-33-1520-{name}-{}", hex::encode(suffix)))
+}
+
+struct NativeCapture {
+    proofs: BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
 }
 
 struct Case {
     value: Value,
     endpoint: SequencerEndpoint,
     replay: Replay,
-    native_capture: Option<native_capture::NativeCapture>,
+    native_capture: Option<NativeCapture>,
 }
 
 impl Case {
     fn open(name: &str, execution: bool) -> Self {
-        let corpus: Value =
-            serde_json::from_slice(include_bytes!("fixtures/repair_22_31_217/corpus.json"))
-                .unwrap();
+        let corpus: Value = require_ok(
+            serde_json::from_slice(include_bytes!("fixtures/repair_22_31_217/corpus.json")),
+            "required test value",
+        );
         let mut value = corpus["cases"][name].clone();
         assert!(value.is_object());
         let root =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/repair_22_31_217");
-        let mut answers: Vec<Value> = serde_json::from_slice(
-            &std::fs::read(root.join(value["rpc_answers"].as_str().unwrap())).unwrap(),
-        )
-        .unwrap();
+        let mut answers: Vec<Value> = require_ok(
+            serde_json::from_slice(&require_ok(
+                std::fs::read(root.join(require_some(
+                    value["rpc_answers"].as_str(),
+                    "required test value",
+                ))),
+                "required test value",
+            )),
+            "required test value",
+        );
         add_account_and_fee_answers(&mut answers, &value);
-        let native_capture =
-            execution.then(|| native_capture::configure(name, &mut value, &mut answers));
+        let native_capture = execution.then(|| {
+            let (proofs, _) = native_capture::configure(name, &mut value, &mut answers);
+            NativeCapture { proofs }
+        });
         let replay = Replay::new(answers);
         let endpoint = replay.endpoint();
         Self {
@@ -546,79 +797,94 @@ impl Case {
         fixed(&self.value[name])
     }
     fn tenant(&self) -> TenantId {
-        TenantId::new(self.value["tenant"].as_str().unwrap()).unwrap()
+        require_ok(
+            TenantId::new(require_some(
+                self.value["tenant"].as_str(),
+                "required test value",
+            )),
+            "required test value",
+        )
     }
     fn did(&self) -> Did {
-        Did::new(self.value["did"].as_str().unwrap().as_bytes()).unwrap()
+        require_ok(
+            Did::new(require_some(self.value["did"].as_str(), "required test value").as_bytes()),
+            "required test value",
+        )
     }
 
     fn transaction(&self) -> (EvmPrepared, VerifiedSubmission, ModuleRegistry) {
         let call = construct(&self.value);
-        let signed = Eip1559Call {
-            chain_id: 125,
-            nonce: 0,
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 3,
-            gas_limit: 100_000,
-            to: call.target.address(),
-            data: call.encode().unwrap(),
-        }
-        .sign(&fixed(&self.value["signing_seed"]))
-        .unwrap();
-        let (native, signature) = decode_signed(&signed).unwrap();
-        let payer = recover_sender(&native, &signature).unwrap();
-        let prepared = prepare_bound(
-            EvmPreparationState {
+        let signed = require_ok(
+            Eip1559Call {
                 chain_id: 125,
-                pending_nonce: 0,
-                base_fee_per_gas: 1,
-                head_height: 8,
-            },
-            EvmPreparationDefaults {
+                nonce: 0,
                 max_priority_fee_per_gas: 1,
                 max_fee_per_gas: 3,
-                maximum_payload_bytes: 4_194_304,
-            },
-            EvmPrepareRequest {
-                from: payer,
-                call,
-                expected_nonce: Some(0),
-                max_priority_fee_per_gas: None,
-                max_fee_per_gas: None,
-                declared_payload_limit: 4_194_304,
-            },
-            100_000,
-        )
-        .unwrap();
+                gas_limit: 100_000,
+                to: call.target.address(),
+                data: require_ok(call.encode(), "required test value"),
+            }
+            .sign(&fixed(&self.value["signing_seed"])),
+            "required test value",
+        );
+        let (native, signature) = require_ok(decode_signed(&signed), "required test value");
+        let payer = require_ok(recover_sender(&native, &signature), "required test value");
+        let prepared = require_ok(
+            prepare_bound(
+                EvmPreparationState {
+                    chain_id: 125,
+                    pending_nonce: 0,
+                    base_fee_per_gas: 1,
+                    head_height: 8,
+                },
+                EvmPreparationDefaults {
+                    max_priority_fee_per_gas: 1,
+                    max_fee_per_gas: 3,
+                    maximum_payload_bytes: 4_194_304,
+                },
+                EvmPrepareRequest {
+                    from: payer,
+                    call,
+                    expected_nonce: Some(0),
+                    max_priority_fee_per_gas: None,
+                    max_fee_per_gas: None,
+                    declared_payload_limit: 4_194_304,
+                },
+                100_000,
+            ),
+            "required test value",
+        );
         assert_eq!(prepared.call, native);
         let registry = registry(
             prepared.disclosure.activity_type.module(),
             prepared.disclosure.activity_type.ordinal(),
         );
-        let submission = verify_before_submit(
-            &signed,
-            &SigningPreparation {
-                actor_address: payer,
-                transaction: prepared.clone(),
-            },
-            &payer,
-            &registry,
-        )
-        .unwrap();
+        let submission = require_ok(
+            verify_before_submit(
+                &signed,
+                &SigningPreparation {
+                    actor_address: payer,
+                    transaction: prepared.clone(),
+                },
+                &payer,
+                &registry,
+            ),
+            "required test value",
+        );
         (prepared, submission, registry)
     }
 
     fn caps(&self, height: u64) -> layerx_agentd::read::CommittedCaps {
-        let assets = self.value["assets"]
-            .as_array()
-            .unwrap()
+        let assets = require_some(self.value["assets"].as_array(), "required test value")
             .iter()
             .map(fixed)
             .collect::<Vec<_>>();
-        layerx_agentd::read::CommittedReads::open(&self.endpoint, height)
-            .unwrap()
-            .inventory(&self.did(), &assets, self.id("fee_asset"))
-            .unwrap()
+        require_ok(
+            layerx_agentd::read::CommittedReads::open(&self.endpoint, height)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value"))
+                .inventory(&self.did(), &assets, self.id("fee_asset")),
+            "required test value",
+        )
     }
 }
 
@@ -627,41 +893,39 @@ fn execution_state_uses_receipt_prestate_and_authenticated_account_status() {
     use native_settlement::committed_native_execution_state_with_account_proofs;
     for name in ["deploy", "wind_down_exit"] {
         let case = Case::open(name, true);
-        let (native, submission, registry) = case.transaction();
-        let prepared = restore_native_preparation(
-            &native.call.encode_unsigned(),
-            native.from,
-            native.observed_head_height,
-        )
-        .unwrap();
+        let (native, submission, _registry) = case.transaction();
+        let prepared = require_ok(
+            restore_native_preparation(
+                &native.call.encode_unsigned(),
+                native.from,
+                native.observed_head_height,
+            ),
+            "required test value",
+        );
         native_capture::execute(&case);
         let caps = case.caps(9);
-        let accounts = case.value["accounts"]
-            .as_array()
-            .unwrap()
+        let accounts = require_some(case.value["accounts"].as_array(), "required test value")
             .iter()
             .map(fixed)
             .collect::<Vec<_>>();
-        let proofs = &case.native_capture.as_ref().unwrap().proofs;
-        case.replay.requests.lock().unwrap().clear();
-        let state = committed_native_execution_state_with_account_proofs(
-            &mut case.replay.endpoint(),
-            &case.endpoint,
-            &prepared,
-            &submission,
-            &caps,
-            case.id("program"),
-            &accounts,
-            proofs,
-        )
-        .expect("production receipt-bound execution prestate and witness consumer");
+        let proofs = &require_some(case.native_capture.as_ref(), "required test value").proofs;
+        require_ok(case.replay.requests.lock(), "required test value").clear();
+        let state = require_ok(
+            committed_native_execution_state_with_account_proofs(
+                &mut case.replay.endpoint(),
+                &case.endpoint,
+                &prepared,
+                &submission,
+                &caps,
+                case.id("program"),
+                &accounts,
+                proofs,
+            ),
+            "production receipt-bound execution prestate and witness consumer",
+        );
         assert_eq!(state.prestate_height(), 8);
         assert_eq!(state.program_existed(), name != "deploy");
-        let calls = case
-            .replay
-            .requests
-            .lock()
-            .unwrap()
+        let calls = require_ok(case.replay.requests.lock(), "required test value")
             .iter()
             .filter(|r| r["method"] == "eth_call")
             .cloned()
@@ -680,11 +944,15 @@ fn execution_state_uses_receipt_prestate_and_authenticated_account_status() {
             let mut data = transaction_hash(b"getValueAccount(bytes32,bytes32)")[..4].to_vec();
             data.extend(case.id("program"));
             data.extend(account);
-            let answer = case
-                .endpoint
-                .call_at(8, &PrecompileTarget::Programs.address(), &data)
-                .unwrap();
-            let observed = decode_program_value_observation(&answer).unwrap();
+            let answer = require_ok(
+                case.endpoint
+                    .call_at(8, &PrecompileTarget::Programs.address(), &data),
+                "required test value",
+            );
+            let observed = require_ok(
+                decode_program_value_observation(&answer),
+                "required test value",
+            );
             assert_eq!((observed.balance, observed.exists), (77, true));
             assert!(
                 committed_native_execution_state_with_account_proofs(
@@ -703,11 +971,12 @@ fn execution_state_uses_receipt_prestate_and_authenticated_account_status() {
         } else {
             assert!(accounts.is_empty());
             assert_eq!(state.account_status([1; 32]), None);
-            let get_program = hex::encode(transaction_hash(b"getProgram(bytes32)")[..4].to_vec());
-            assert!(calls.iter().any(|r| r["params"][0]["data"]
-                .as_str()
-                .unwrap()
-                .starts_with(&format!("0x{get_program}"))));
+            let get_program = hex::encode(&transaction_hash(b"getProgram(bytes32)")[..4]);
+            assert!(calls.iter().any(|r| require_some(
+                r["params"][0]["data"].as_str(),
+                "required test value"
+            )
+            .starts_with(&format!("0x{get_program}"))));
         }
     }
 }
@@ -717,33 +986,45 @@ fn fee_preferences_reach_preparation_and_reservation_at_historical_height() {
     let mut selected = Vec::new();
     for name in ["fee_payer_a", "fee_payer_b"] {
         let case = Case::open(name, false);
-        let (native, _, registry) = case.transaction();
-        let prepared = restore_native_preparation(
-            &native.call.encode_unsigned(),
-            native.from,
-            native.observed_head_height,
-        )
-        .unwrap();
+        let (native, _, _registry) = case.transaction();
+        let prepared = require_ok(
+            restore_native_preparation(
+                &native.call.encode_unsigned(),
+                native.from,
+                native.observed_head_height,
+            ),
+            "required test value",
+        );
         let signing = SigningPreparation {
             actor_address: native.from,
             transaction: native.clone(),
         };
         // The preference is read at the held preparation height even after the head advances.
-        case.replay
-            .answers
-            .lock()
-            .unwrap()
-            .iter_mut()
-            .find(|r| r["method"] == "eth_blockNumber")
-            .unwrap()["result"] = json!("0x9");
-        let fee = fee_policy::native_fee_policy_for(&case.endpoint, 8, native.from).unwrap();
+        require_some(
+            case.replay
+                .answers
+                .lock()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value"))
+                .iter_mut()
+                .find(|r| r["method"] == "eth_blockNumber"),
+            "required test value",
+        )["result"] = json!("0x9");
+        let fee = require_ok(
+            fee_policy::native_fee_policy_for(&case.endpoint, 8, native.from),
+            "required test value",
+        );
         assert_eq!(fee.observed_sequence, 8);
-        assert_eq!(fee.state_root, case.endpoint.state_root(8).unwrap());
+        assert_eq!(
+            fee.state_root,
+            require_ok(case.endpoint.state_root(8), "required test value")
+        );
         assert_eq!(fee.value.asset.asset_id, case.id("fee_asset"));
-        let metadata = layerx_agentd::read::CommittedReads::open(&case.endpoint, 8)
-            .unwrap()
-            .effective_asset(case.id("fee_asset"))
-            .unwrap();
+        let metadata = require_ok(
+            layerx_agentd::read::CommittedReads::open(&case.endpoint, 8)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "required test value"))
+                .effective_asset(case.id("fee_asset")),
+            "required test value",
+        );
         assert_eq!(
             &fee.value.asset,
             metadata.metadata(),
@@ -764,26 +1045,45 @@ fn fee_preferences_reach_preparation_and_reservation_at_historical_height() {
             "stale preparation must refuse admission"
         );
         let case = Case::open(name, false);
-        let sources = read_native_effect_budget_sources(
-            &mut case.replay.endpoint(),
-            &prepared,
-            Some(&signing),
-            &case.caps(8),
-            1_700_000_000_000,
-            1,
-            layerx_agentd::capability::NativeAdmissionProfile::Effect,
-        )
-        .unwrap();
-        let fee_charge = sources
+        let sources = require_ok(
+            read_native_effect_budget_sources(
+                &mut case.replay.endpoint(),
+                &prepared,
+                Some(&signing),
+                &case.caps(8),
+                1_700_000_000_000,
+                1,
+                layerx_agentd::capability::NativeAdmissionProfile::Effect,
+            ),
+            "required test value",
+        );
+        complete_fee_preferences_reach_preparation_and_reservation_at_historical_height_2_repair_22_33_1520(name, prepared, fee, case, &sources);
+    }
+    assert_ne!(selected[0], selected[1]);
+}
+
+fn complete_fee_preferences_reach_preparation_and_reservation_at_historical_height_2_repair_22_33_1520(
+    name: &'static str,
+    prepared: layerx_agentd::prepare::Prepared,
+    fee: layerx_client::rpc::payments::CommittedSnapshot<
+        layerx_client::rpc::payments::NativeFeePolicy,
+    >,
+    case: Case,
+    sources: &VerifiedResolvedProgramCharges,
+) {
+    let fee_charge = require_some(
+        sources
             .charges()
             .iter()
-            .find(|charge| charge.source.kind() == ProgramChargeKind::Fee)
-            .unwrap();
-        assert_eq!(fee_charge.asset, fee.value.asset.asset_id);
-        let root = temporary(name);
-        let mut store = Store::open(&root).unwrap();
-        let limiter = BudgetLimiter::new(vec![]).unwrap();
-        let limit = install_enrolment_limits(
+            .find(|charge| charge.source.kind() == ProgramChargeKind::Fee),
+        "required test value",
+    );
+    assert_eq!(fee_charge.asset, fee.value.asset.asset_id);
+    let root = temporary(name);
+    let mut store = require_ok(Store::open(&root), "required test value");
+    let limiter = require_ok(BudgetLimiter::new(vec![]), "required test value");
+    let limit = require_ok(
+        install_enrolment_limits(
             &mut store,
             &limiter,
             &case.tenant(),
@@ -794,55 +1094,105 @@ fn fee_preferences_reach_preparation_and_reservation_at_historical_height() {
                 ceiling: 1_000_000,
                 consumed: 0,
             }],
-        )
-        .unwrap()
-        .remove(0);
-        let allocations = sources
-            .budget_allocations(|_| Ok(vec![limit.limit_id]))
-            .unwrap();
-        let first = allocations.charges().first().unwrap();
-        assert!(allocations
-            .charges()
-            .iter()
-            .all(|row| row.asset == first.asset && row.source == first.source));
-        let config_path = root.join("denominations.json");
-        std::fs::write(&config_path, serde_json::to_vec(&json!({"version":1,"tenant":case.tenant().as_str(),"limits":[{
-            "stable_id":hex::encode(limit.stable_id),"asset":hex::encode(first.asset),"source":hex::encode(first.source)
-        }]})).unwrap()).unwrap();
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&config_path, std::fs::Permissions::from_mode(0o600)).unwrap();
-        let denominations =
-            layerx_agentd::config::load_program_budget_denominations(&config_path, &case.tenant())
-                .unwrap();
-        install_program_enrolment_denominations(&mut store, &limiter, &denominations).unwrap();
-        let reservation = limiter
-            .stage_program_allocation(
-                &ProgramReservationRequest {
-                    id: allocations.preparation_digest(),
-                    charges: allocations.charges().to_vec(),
-                    expiry_sequence: 18,
-                    current_sequence: 8,
-                    core_deadline: None,
-                },
-                &allocations,
-                CoreTimestampMs(1_700_000_000_000),
-            )
-            .unwrap()
-            .publish();
-        assert!(reservation
-            .charges
-            .iter()
-            .any(|row| row.kind == ProgramChargeKind::Fee
-                && row.asset == fee.value.asset.asset_id
-                && row.amount == prepared.disclosure.fee_limit));
-        assert_eq!(
-            ProgramBudgetReservation::decode(&reservation.encode().unwrap()).unwrap(),
-            reservation
-        );
-        drop(store);
-        std::fs::remove_dir_all(root).unwrap();
-    }
-    assert_ne!(selected[0], selected[1]);
+        ),
+        "required test value",
+    )
+    .remove(0);
+    let allocations = require_ok(
+        sources.budget_allocations(|_| Ok(vec![limit.limit_id])),
+        "required test value",
+    );
+    let first = require_some(allocations.charges().first(), "required test value");
+    assert!(allocations
+        .charges()
+        .iter()
+        .all(|row| row.asset == first.asset && row.source == first.source));
+    let config_path = root.join("denominations.json");
+    require_ok(
+        std::fs::write(
+            &config_path,
+            require_ok(
+                serde_json::to_vec(
+                    &json!({"version":1,"tenant":case.tenant().as_str(),"limits":[{
+                        "stable_id":hex::encode(limit.stable_id),"asset":hex::encode(first.asset),"source":hex::encode(first.source)
+                    }]}),
+                ),
+                "required test value",
+            ),
+        ),
+        "required test value",
+    );
+
+    complete_fee_preferences_reach_preparation_and_reservation_at_historical_height_1_repair_22_33_1520(CompleteFeePreferencesReachPreparationAndReservationAtHistoricalHeight1Repair22331520Context { prepared, fee, case, root, store, limiter, allocations, config_path });
+}
+
+struct CompleteFeePreferencesReachPreparationAndReservationAtHistoricalHeight1Repair22331520Context
+{
+    prepared: layerx_agentd::prepare::Prepared,
+    fee: layerx_client::rpc::payments::CommittedSnapshot<
+        layerx_client::rpc::payments::NativeFeePolicy,
+    >,
+    case: Case,
+    root: PathBuf,
+    store: Store,
+    limiter: BudgetLimiter,
+    allocations: VerifiedProgramBudgetAllocations,
+    config_path: PathBuf,
+}
+
+fn complete_fee_preferences_reach_preparation_and_reservation_at_historical_height_1_repair_22_33_1520(
+    context: CompleteFeePreferencesReachPreparationAndReservationAtHistoricalHeight1Repair22331520Context,
+) {
+    let CompleteFeePreferencesReachPreparationAndReservationAtHistoricalHeight1Repair22331520Context { prepared, fee, case, root, mut store, limiter, allocations, config_path } = context;
+
+    require_ok(
+        std::fs::set_permissions(
+            &config_path,
+            <std::fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o600),
+        ),
+        "required test value",
+    );
+    let denominations = require_ok(
+        layerx_agentd::config::load_program_budget_denominations(&config_path, &case.tenant()),
+        "required test value",
+    );
+    require_ok(
+        install_program_enrolment_denominations(&mut store, &limiter, &denominations),
+        "required test value",
+    );
+    let reservation = require_ok(
+        limiter.stage_program_allocation(
+            &ProgramReservationRequest {
+                id: allocations.preparation_digest(),
+                charges: allocations.charges().to_vec(),
+                expiry_sequence: 18,
+                current_sequence: 8,
+                core_deadline: None,
+            },
+            &allocations,
+            CoreTimestampMs(1_700_000_000_000),
+        ),
+        "required test value",
+    )
+    .publish();
+    assert!(reservation
+        .charges
+        .iter()
+        .any(|row| row.kind == ProgramChargeKind::Fee
+            && row.asset == fee.value.asset.asset_id
+            && row.amount == prepared.disclosure.fee_limit));
+    assert_eq!(
+        require_ok(
+            ProgramBudgetReservation::decode(&require_ok(
+                reservation.encode(),
+                "required test value"
+            )),
+            "required test value"
+        ),
+        reservation
+    );
+    drop(store);
+    require_ok(std::fs::remove_dir_all(root), "required test value");
 }
 
 fn daemon_record(tenant: TenantId) -> DaemonLimitRecord {
@@ -863,36 +1213,42 @@ fn daemon_record(tenant: TenantId) -> DaemonLimitRecord {
 }
 
 fn store_seed(root: &std::path::Path, tenant: &TenantId) {
-    let mut store = Store::open(root).unwrap();
-    store
-        .put_local(
-            TenantKey::new(tenant.clone(), ObjectKind::Configuration, b"seed".to_vec()).unwrap(),
+    let mut store = require_ok(Store::open(root), "required test value");
+    require_ok(
+        store.put_local(
+            require_ok(
+                TenantKey::new(tenant.clone(), ObjectKind::Configuration, b"seed".to_vec()),
+                "required test value",
+            ),
             vec![1],
-        )
-        .unwrap();
+        ),
+        "required test value",
+    );
 }
 
 fn configuration_key(tenant: &TenantId, prefix: &[u8], id: &[u8]) -> TenantKey {
-    TenantKey::new(
-        tenant.clone(),
-        ObjectKind::Configuration,
-        [prefix, id].concat(),
+    require_ok(
+        TenantKey::new(
+            tenant.clone(),
+            ObjectKind::Configuration,
+            [prefix, id].concat(),
+        ),
+        "required test value",
     )
-    .unwrap()
 }
 
 #[test]
 fn daemon_creation_reopens_at_durable_admission_boundary() {
     let root = temporary("daemon-atomic");
-    let tenant = TenantId::new("atomic-daemon").unwrap();
+    let tenant = require_ok(TenantId::new("atomic-daemon"), "required test value");
     store_seed(&root, &tenant);
     let record = daemon_record(tenant.clone());
     let index = configuration_key(&tenant, b"budget/daemon/limit-id/", &record.limit_id.0);
     let key = configuration_key(&tenant, b"budget/daemon/limit/", &record.budget_id);
-    let limiter = BudgetLimiter::new(vec![]).unwrap();
-    let before = std::fs::read(root.join("store.bin")).unwrap();
+    let limiter = require_ok(BudgetLimiter::new(vec![]), "required test value");
+    let before = require_ok(std::fs::read(root.join("store.bin")), "required test value");
     // An interrupted publication must leave neither companion in memory or on disk.
-    let mut read_only = Store::open_read_only(&root).unwrap();
+    let mut read_only = require_ok(Store::open_read_only(&root), "required test value");
     assert!(matches!(
         create_daemon_limit(&mut read_only, &limiter, record.clone(), CoreTimestampMs(1)),
         Err(DaemonLimitError::Store(_))
@@ -903,17 +1259,22 @@ fn daemon_creation_reopens_at_durable_admission_boundary() {
         Err(LimitRefusal::UnknownLimit(_))
     ));
     drop(read_only);
-    assert_eq!(std::fs::read(root.join("store.bin")).unwrap(), before);
-    let mut store = Store::open(&root).unwrap();
+    assert_eq!(
+        require_ok(std::fs::read(root.join("store.bin")), "required test value"),
+        before
+    );
+    let mut store = require_ok(Store::open(&root), "required test value");
     // Stop admission after the durable publish, before the new limiter can install it.
-    let occupied = BudgetLimiter::new(vec![LimitConfig {
-        id: record.limit_id,
-        name: "occupied admission stage".into(),
-        scope: LimitScope::Agent(record.agent_digest),
-        ceiling: 100,
-        consumed: 0,
-    }])
-    .unwrap();
+    let occupied = require_ok(
+        BudgetLimiter::new(vec![LimitConfig {
+            id: record.limit_id,
+            name: "occupied admission stage".into(),
+            scope: LimitScope::Agent(record.agent_digest),
+            ceiling: 100,
+            consumed: 0,
+        }]),
+        "required test value",
+    );
     assert!(matches!(
         create_daemon_limit(&mut store, &occupied, record.clone(), CoreTimestampMs(1)),
         Err(DaemonLimitError::Limit(LimitRefusal::InvalidConfiguration))
@@ -921,42 +1282,65 @@ fn daemon_creation_reopens_at_durable_admission_boundary() {
     assert!(store.get(&index).is_some() && store.get(&key).is_some());
     drop(store);
     drop(occupied);
-    let mut reopened = Store::open(&root).unwrap();
+    let mut reopened = require_ok(Store::open(&root), "required test value");
     assert_eq!(
-        daemon_limits(&reopened, &tenant).unwrap(),
+        require_ok(daemon_limits(&reopened, &tenant), "required test value"),
         vec![record.clone()]
     );
-    let restored = BudgetLimiter::new(vec![]).unwrap();
+    let restored = require_ok(BudgetLimiter::new(vec![]), "required test value");
     assert_eq!(
-        load_daemon_limits(&reopened, &restored).unwrap(),
+        require_ok(
+            load_daemon_limits(&reopened, &restored),
+            "required test value"
+        ),
         vec![record.clone()]
     );
     assert_eq!(
-        create_daemon_limit(&mut reopened, &restored, record.clone(), CoreTimestampMs(1)).unwrap(),
+        require_ok(
+            create_daemon_limit(&mut reopened, &restored, record.clone(), CoreTimestampMs(1)),
+            "required test value"
+        ),
         record
     );
-    let held = reserve(
-        &restored,
-        &ReservationRequest {
-            id: [1; 32],
-            amount: 100,
-            expiry_sequence: 10,
-            current_sequence: 1,
-            applicable_limits: vec![record.limit_id],
-        },
-    )
-    .unwrap();
-    assert_eq!(restored.held_exposure(record.limit_id).unwrap(), 100);
-    release(&restored, held.id, ReleaseKind::Failed, 1).unwrap();
-    assert_eq!(restored.held_exposure(record.limit_id).unwrap(), 0);
+    let held = require_ok(
+        reserve(
+            &restored,
+            &ReservationRequest {
+                id: [1; 32],
+                amount: 100,
+                expiry_sequence: 10,
+                current_sequence: 1,
+                applicable_limits: vec![record.limit_id],
+            },
+        ),
+        "required test value",
+    );
+    assert_eq!(
+        require_ok(
+            restored.held_exposure(record.limit_id),
+            "required test value"
+        ),
+        100
+    );
+    require_ok(
+        release(&restored, held.id, ReleaseKind::Failed, 1),
+        "required test value",
+    );
+    assert_eq!(
+        require_ok(
+            restored.held_exposure(record.limit_id),
+            "required test value"
+        ),
+        0
+    );
     drop(reopened);
-    std::fs::remove_dir_all(root).unwrap();
+    require_ok(std::fs::remove_dir_all(root), "required test value");
 }
 
 #[test]
 fn enrolment_creation_reopens_at_durable_admission_boundary() {
     let root = temporary("enrolment-atomic");
-    let tenant = TenantId::new("atomic-enrolment").unwrap();
+    let tenant = require_ok(TenantId::new("atomic-enrolment"), "required test value");
     store_seed(&root, &tenant);
     let config = LimitConfig {
         id: LimitId([3; 16]),
@@ -969,11 +1353,16 @@ fn enrolment_creation_reopens_at_durable_admission_boundary() {
     let id = daemon_limit_id(stable);
     let index = configuration_key(&tenant, b"budget/daemon/limit-id/", &id.0);
     let key = configuration_key(&tenant, b"budget/enrolment/limit/", &stable);
-    let limiter = BudgetLimiter::new(vec![]).unwrap();
-    let before = std::fs::read(root.join("store.bin")).unwrap();
-    let mut read_only = Store::open_read_only(&root).unwrap();
+    let limiter = require_ok(BudgetLimiter::new(vec![]), "required test value");
+    let before = require_ok(std::fs::read(root.join("store.bin")), "required test value");
+    let mut read_only = require_ok(Store::open_read_only(&root), "required test value");
     assert!(matches!(
-        install_enrolment_limits(&mut read_only, &limiter, &tenant, &[config.clone()]),
+        install_enrolment_limits(
+            &mut read_only,
+            &limiter,
+            &tenant,
+            std::slice::from_ref(&config)
+        ),
         Err(DaemonLimitError::Store(_))
     ));
     assert!(read_only.get(&index).is_none() && read_only.get(&key).is_none());
@@ -982,8 +1371,14 @@ fn enrolment_creation_reopens_at_durable_admission_boundary() {
         Err(LimitRefusal::UnknownLimit(_))
     ));
     drop(read_only);
-    assert_eq!(std::fs::read(root.join("store.bin")).unwrap(), before);
-    let poisoned = BudgetLimiter::new(vec![config.clone()]).unwrap();
+    assert_eq!(
+        require_ok(std::fs::read(root.join("store.bin")), "required test value"),
+        before
+    );
+    let poisoned = require_ok(
+        BudgetLimiter::new(vec![config.clone()]),
+        "required test value",
+    );
     let successor = LimitConfig {
         id: LimitId([4; 16]),
         ..config.clone()
@@ -994,40 +1389,108 @@ fn enrolment_creation_reopens_at_durable_admission_boundary() {
         });
     }))
     .is_err());
-    let mut store = Store::open(&root).unwrap();
+    let store = require_ok(Store::open(&root), "required test value");
+    complete_enrolment_creation_reopens_at_durable_admission_boundary_1_repair_22_33_1520(
+        CompleteEnrolmentCreationReopensAtDurableAdmissionBoundary1Repair22331520Context {
+            root,
+            tenant,
+            config,
+            stable,
+            id,
+            index,
+            key,
+            poisoned,
+            store,
+        },
+    );
+}
+
+struct CompleteEnrolmentCreationReopensAtDurableAdmissionBoundary1Repair22331520Context {
+    root: PathBuf,
+    tenant: TenantId,
+    config: LimitConfig,
+    stable: [u8; 32],
+    id: LimitId,
+    index: TenantKey,
+    key: TenantKey,
+    poisoned: BudgetLimiter,
+    store: Store,
+}
+
+fn complete_enrolment_creation_reopens_at_durable_admission_boundary_1_repair_22_33_1520(
+    context: CompleteEnrolmentCreationReopensAtDurableAdmissionBoundary1Repair22331520Context,
+) {
+    let CompleteEnrolmentCreationReopensAtDurableAdmissionBoundary1Repair22331520Context {
+        root,
+        tenant,
+        config,
+        stable,
+        id,
+        index,
+        key,
+        poisoned,
+        mut store,
+    } = context;
+
     assert!(matches!(
-        install_enrolment_limits(&mut store, &poisoned, &tenant, &[config.clone()]),
+        install_enrolment_limits(
+            &mut store,
+            &poisoned,
+            &tenant,
+            std::slice::from_ref(&config)
+        ),
         Err(DaemonLimitError::Limit(LimitRefusal::Poisoned))
     ));
     assert!(store.get(&index).is_some() && store.get(&key).is_some());
     drop(store);
     drop(poisoned);
-    let mut reopened = Store::open(&root).unwrap();
-    let restored = BudgetLimiter::new(vec![]).unwrap();
-    let installed =
-        install_enrolment_limits(&mut reopened, &restored, &tenant, &[config.clone()]).unwrap();
+    let mut reopened = require_ok(Store::open(&root), "required test value");
+    let restored = require_ok(BudgetLimiter::new(vec![]), "required test value");
+    let installed = require_ok(
+        install_enrolment_limits(
+            &mut reopened,
+            &restored,
+            &tenant,
+            std::slice::from_ref(&config),
+        ),
+        "required test value",
+    );
     assert_eq!(installed[0].stable_id, stable);
-    assert_eq!(restored.consumed(id).unwrap(), 7);
+    assert_eq!(require_ok(restored.consumed(id), "required test value"), 7);
     assert_eq!(
-        install_enrolment_limits(&mut reopened, &restored, &tenant, &[config]).unwrap(),
+        require_ok(
+            install_enrolment_limits(&mut reopened, &restored, &tenant, &[config]),
+            "required test value"
+        ),
         installed
     );
-    let held = reserve(
-        &restored,
-        &ReservationRequest {
-            id: [1; 32],
-            amount: 93,
-            expiry_sequence: 10,
-            current_sequence: 1,
-            applicable_limits: vec![id],
-        },
-    )
-    .unwrap();
-    assert_eq!(restored.held_exposure(id).unwrap(), 93);
-    release(&restored, held.id, ReleaseKind::Executed, 1).unwrap();
-    assert_eq!(restored.consumed(id).unwrap(), 100);
+    let held = require_ok(
+        reserve(
+            &restored,
+            &ReservationRequest {
+                id: [1; 32],
+                amount: 93,
+                expiry_sequence: 10,
+                current_sequence: 1,
+                applicable_limits: vec![id],
+            },
+        ),
+        "required test value",
+    );
+    assert_eq!(
+        require_ok(restored.held_exposure(id), "required test value"),
+        93
+    );
+    require_ok(
+        release(&restored, held.id, ReleaseKind::Executed, 1),
+        "required test value",
+    );
+    assert_eq!(
+        require_ok(restored.consumed(id), "required test value"),
+        100
+    );
     drop(reopened);
-    std::fs::remove_dir_all(root).unwrap();
+    require_ok(std::fs::remove_dir_all(root), "required test value");
 }
 
 #[test]
@@ -1049,7 +1512,7 @@ fn scalar_zero_id_refusal_and_durable_recovery_agree() {
             consumed: 11,
         },
     ];
-    let limiter = BudgetLimiter::new(configs.clone()).unwrap();
+    let limiter = require_ok(BudgetLimiter::new(configs.clone()), "required test value");
     let mut request = ReservationRequest {
         id: [0; 32],
         amount: 19,
@@ -1065,16 +1528,25 @@ fn scalar_zero_id_refusal_and_durable_recovery_agree() {
         reserve_until_core_time(&limiter, &request, CoreTimestampMs(100), CoreTimestampMs(1)),
         Err(LimitRefusal::InvalidRequest)
     );
-    assert_eq!(limiter.held_reservations().unwrap(), 0);
+    assert_eq!(
+        require_ok(limiter.held_reservations(), "required test value"),
+        0
+    );
     for config in &configs {
-        assert_eq!(limiter.held_exposure(config.id).unwrap(), 0);
-        assert_eq!(limiter.consumed(config.id).unwrap(), config.consumed);
+        assert_eq!(
+            require_ok(limiter.held_exposure(config.id), "required test value"),
+            0
+        );
+        assert_eq!(
+            require_ok(limiter.consumed(config.id), "required test value"),
+            config.consumed
+        );
     }
     request.id = [8; 32];
-    let held = reserve(&limiter, &request).unwrap();
+    let held = require_ok(reserve(&limiter, &request), "required test value");
     assert_eq!(held.durable.len(), 2);
     let root = temporary("scalar-reopen");
-    let tenant = TenantId::new("scalar").unwrap();
+    let tenant = require_ok(TenantId::new("scalar"), "required test value");
     let preparation = DurablePreparation {
         tenant: tenant.clone(),
         preparation_id: held.id,
@@ -1087,46 +1559,127 @@ fn scalar_zero_id_refusal_and_durable_recovery_agree() {
         holds: held.durable.iter().cloned().map(|h| (h, None)).collect(),
         extensions: BTreeMap::new(),
     };
-    let key = DurablePreparation::store_key(&tenant, held.id).unwrap();
-    let encoded = preparation.encode().unwrap();
-    let mut store = Store::open(&root).unwrap();
-    store.put_local(key.clone(), encoded.clone()).unwrap();
+    let key = require_ok(
+        DurablePreparation::store_key(&tenant, held.id),
+        "required test value",
+    );
+    complete_scalar_zero_id_refusal_and_durable_recovery_agree_1_repair_22_33_1520(
+        CompleteScalarZeroIdRefusalAndDurableRecoveryAgree1Repair22331520Context {
+            configs,
+            limiter,
+            request,
+            held,
+            root,
+            tenant,
+            preparation,
+            key,
+        },
+    );
+}
+
+struct CompleteScalarZeroIdRefusalAndDurableRecoveryAgree1Repair22331520Context {
+    configs: Vec<LimitConfig>,
+    limiter: BudgetLimiter,
+    request: ReservationRequest,
+    held: BudgetReservation,
+    root: PathBuf,
+    tenant: TenantId,
+    preparation: layerx_agentd::prepare::DurablePreparation,
+    key: TenantKey,
+}
+
+fn complete_scalar_zero_id_refusal_and_durable_recovery_agree_1_repair_22_33_1520(
+    context: CompleteScalarZeroIdRefusalAndDurableRecoveryAgree1Repair22331520Context,
+) {
+    use layerx_agentd::prepare::DurablePreparation;
+
+    let CompleteScalarZeroIdRefusalAndDurableRecoveryAgree1Repair22331520Context {
+        configs,
+        limiter,
+        request,
+        held,
+        root,
+        tenant,
+        preparation,
+        key,
+    } = context;
+
+    let encoded = require_ok(preparation.encode(), "required test value");
+    let mut store = require_ok(Store::open(&root), "required test value");
+    require_ok(
+        store.put_local(key.clone(), encoded.clone()),
+        "required test value",
+    );
     drop(store);
     drop(limiter);
-    let store = Store::open(&root).unwrap();
-    let recovered = DurablePreparation::decode(tenant, store.get(&key).unwrap().bytes()).unwrap();
-    assert_eq!(recovered.encode().unwrap(), encoded);
+    let store = require_ok(Store::open(&root), "required test value");
+    let recovered = require_ok(
+        DurablePreparation::decode(
+            tenant,
+            require_some(store.get(&key), "required test value").bytes(),
+        ),
+        "required test value",
+    );
+    assert_eq!(
+        require_ok(recovered.encode(), "required test value"),
+        encoded
+    );
     assert_eq!(recovered.holds, preparation.holds);
-    let restored = BudgetLimiter::new(configs.clone()).unwrap();
-    restore_bounded(&restored, &recovered.holds).unwrap();
+    let restored = require_ok(BudgetLimiter::new(configs.clone()), "required test value");
+    require_ok(
+        restore_bounded(&restored, &recovered.holds),
+        "required test value",
+    );
     for config in &configs {
-        assert_eq!(restored.held_exposure(config.id).unwrap(), 19);
-        assert_eq!(restored.consumed(config.id).unwrap(), config.consumed);
+        assert_eq!(
+            require_ok(restored.held_exposure(config.id), "required test value"),
+            19
+        );
+        assert_eq!(
+            require_ok(restored.consumed(config.id), "required test value"),
+            config.consumed
+        );
     }
-    assert!(restored.has_reservation(request.id).unwrap());
-    release(&restored, held.id, ReleaseKind::Executed, 1).unwrap();
+    assert!(require_ok(
+        restored.has_reservation(request.id),
+        "required test value"
+    ));
+    require_ok(
+        release(&restored, held.id, ReleaseKind::Executed, 1),
+        "required test value",
+    );
     for config in &configs {
-        assert_eq!(restored.held_exposure(config.id).unwrap(), 0);
-        assert_eq!(restored.consumed(config.id).unwrap(), config.consumed + 19);
+        assert_eq!(
+            require_ok(restored.held_exposure(config.id), "required test value"),
+            0
+        );
+        assert_eq!(
+            require_ok(restored.consumed(config.id), "required test value"),
+            config.consumed + 19
+        );
     }
     drop(store);
-    std::fs::remove_dir_all(root).unwrap();
+    require_ok(std::fs::remove_dir_all(root), "required test value");
 }
 
 fn rehash_export(document: &mut Value) {
-    let did = document["proofs"]["account_join"]["account"]["layerx_did"]
-        .as_str()
-        .unwrap();
+    let did = require_some(
+        document["proofs"]["account_join"]["account"]["layerx_did"].as_str(),
+        "required test value",
+    );
     let identity = [
         b"LXP/v1/did-id\0".as_slice(),
-        &(did.len() as u16).to_be_bytes(),
+        &(require_ok(u16::try_from(did.len()), "test value fits u16")).to_be_bytes(),
         did.as_bytes(),
     ]
     .concat();
     document["identity_key"] = json!(hex::encode(Sha256::digest(identity)));
     let budget = fixed_bytes(&document["proofs"]["budget_call"]["result"]);
     let remaining = fixed_bytes(&document["proofs"]["remaining_call"]["result"]);
-    let join = serde_json::to_vec(&document["proofs"]["account_join"]).unwrap();
+    let join = require_ok(
+        serde_json::to_vec(&document["proofs"]["account_join"]),
+        "required test value",
+    );
     let mut digest = Sha256::new();
     digest.update(b"layerx-human/rpc-budget-evidence/v2\0");
     digest.update(fixed::<32>(&document["head"]["block_hash"]));
@@ -1140,16 +1693,20 @@ fn rehash_export(document: &mut Value) {
 }
 
 fn proof_peer() -> (Value, Replay) {
-    let mut document: Value = serde_json::from_slice(include_bytes!(
-        "../../../../../tests/vectors/budget-proof-v2/export.json"
-    ))
-    .unwrap();
+    let mut document: Value = require_ok(
+        serde_json::from_slice(include_bytes!(
+            "../../../../../tests/vectors/budget-proof-v2/export.json"
+        )),
+        "required test value",
+    );
     document["budget_state"]["verification"] =
         json!(layerx_types::verify::VerificationLevel::COMMITTED.wire_rank());
-    let mut answers: Vec<Value> = serde_json::from_slice(include_bytes!(
-        "../../../../../tests/vectors/budget-proof-v2/node-answers.json"
-    ))
-    .unwrap();
+    let mut answers: Vec<Value> = require_ok(
+        serde_json::from_slice(include_bytes!(
+            "../../../../../tests/vectors/budget-proof-v2/node-answers.json"
+        )),
+        "required test value",
+    );
     let owner_account = fixed::<32>(&document["accounts"]["owner"]);
     let identity = fixed::<32>(&document["identity_key"]);
     let mut add = |target: [u8; 20], signature: &[u8], args: &[u8], result: Vec<u8>| {
@@ -1196,23 +1753,28 @@ fn with_proof_trust(
     replay: &Replay,
     run: impl FnOnce(&BudgetProofTrust<'_>, [u8; 32]),
 ) {
-    let bytes = serde_json::to_vec(document).unwrap();
-    let (height, hash) = budget_proof_committed_head(&bytes).unwrap();
+    let bytes = require_ok(serde_json::to_vec(document), "required test value");
+    let (height, hash) = require_ok(budget_proof_committed_head(&bytes), "required test value");
     let endpoint = replay.endpoint();
-    let checkpoint = layerx_agentd::read::ServedCheckpoint::acquire_at_committed_block(
-        &endpoint,
-        height,
-        Some(hash),
-        "125",
-    )
-    .unwrap();
-    let did = Did::new(
-        document["proofs"]["account_join"]["account"]["layerx_did"]
-            .as_str()
-            .unwrap()
+    let checkpoint = require_ok(
+        layerx_agentd::read::ServedCheckpoint::acquire_at_committed_block(
+            &endpoint,
+            height,
+            Some(hash),
+            "125",
+        ),
+        "required test value",
+    );
+    let did = require_ok(
+        Did::new(
+            require_some(
+                document["proofs"]["account_join"]["account"]["layerx_did"].as_str(),
+                "required test value",
+            )
             .as_bytes(),
-    )
-    .unwrap();
+        ),
+        "required test value",
+    );
     run(
         &BudgetProofTrust {
             tenant: "tenant",
@@ -1235,8 +1797,14 @@ fn proof_owner_join_refuses_rehashed_identity_substitution() {
     use layerx_agentd::budget::budget_proof::BudgetProofError;
     let (document, replay) = proof_peer();
     with_proof_trust(&document, &replay, |trust, id| {
-        let verified =
-            verify_budget_proof(&serde_json::to_vec(&document).unwrap(), id, trust).unwrap();
+        let verified = require_ok(
+            verify_budget_proof(
+                &require_ok(serde_json::to_vec(&document), "required test value"),
+                id,
+                trust,
+            ),
+            "required test value",
+        );
         assert_eq!(verified.remaining(), 77);
         assert_eq!(verified.source_account(), [2; 32]);
     });
@@ -1264,19 +1832,23 @@ fn proof_owner_join_refuses_rehashed_identity_substitution() {
     with_proof_trust(&forged, &replay, |trust, id| {
         assert!(
             matches!(
-                verify_budget_proof(&serde_json::to_vec(&forged).unwrap(), id, trust),
+                verify_budget_proof(
+                    &require_ok(serde_json::to_vec(&forged), "required test value"),
+                    id,
+                    trust
+                ),
                 Err(BudgetProofError::Refused)
             ),
             "a different authenticated DID cannot own the real budget by rehashing the export"
         );
     });
-    let requests = replay.requests.lock().unwrap();
+    let requests = require_ok(replay.requests.lock(), "required test value");
     let owner_selector = format!(
         "0x{}",
         hex::encode(&transaction_hash(b"accountOwner(bytes32)")[..4])
     );
     assert!(requests.iter().filter(|r| r["method"] == "eth_call"
-        && r["params"][0]["data"].as_str().unwrap().starts_with(&owner_selector)).count() >= 4,
+        && require_some(r["params"][0]["data"].as_str(), "required test value").starts_with(&owner_selector)).count() >= 4,
         "both genuine and substituted identities reach the historical owner query and independent re-read");
 }
 
@@ -1286,11 +1858,13 @@ fn proof_v2_contract_refuses_retired_versions() {
     let (document, replay) = proof_peer();
     assert_eq!(document["schema"], BUDGET_PROOF_SCHEMA);
     with_proof_trust(&document, &replay, |trust, id| {
-        let bytes = serde_json::to_vec(&document).unwrap();
+        let bytes = require_ok(serde_json::to_vec(&document), "required test value");
         assert_eq!(
-            verify_budget_proof(&bytes, id, trust)
-                .unwrap()
-                .canonical_export_bytes(),
+            require_ok(
+                verify_budget_proof(&bytes, id, trust),
+                "required test value"
+            )
+            .canonical_export_bytes(),
             bytes
         );
         for schema in [
@@ -1301,9 +1875,21 @@ fn proof_v2_contract_refuses_retired_versions() {
             let mut retired = document.clone();
             retired["schema"] = json!(schema);
             assert!(matches!(
-                verify_budget_proof(&serde_json::to_vec(&retired).unwrap(), id, trust),
+                verify_budget_proof(
+                    &require_ok(serde_json::to_vec(&retired), "required test value"),
+                    id,
+                    trust
+                ),
                 Err(BudgetProofError::Refused)
             ));
         }
     });
+}
+
+struct NodeReceipt {
+    sender: [u8; 20],
+    tx_hash: [u8; 32],
+    key: ed25519_dalek::SigningKey,
+    canonical: Vec<u8>,
+    verified: layerx_wire::receipt::Receipt,
 }

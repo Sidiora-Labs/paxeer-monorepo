@@ -126,7 +126,7 @@ func newExternalPostgres(t *testing.T, ctx context.Context, admin string) (strin
 	if err != nil {
 		t.Fatalf("connect %s: %v", postgresDSNEnv, err)
 	}
-	defer conn.Close(ctx)
+	defer func() { _ = conn.Close(ctx) }()
 	if _, err = conn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
 		t.Fatalf("create test database: %v", err)
 	}
@@ -136,7 +136,7 @@ func newExternalPostgres(t *testing.T, ctx context.Context, admin string) (strin
 			t.Logf("drop test database: %v", err)
 			return
 		}
-		defer c.Close(context.Background())
+		defer func() { _ = c.Close(context.Background()) }()
 		if _, err = c.Exec(context.Background(), "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
 			t.Logf("drop test database: %v", err)
 		}

@@ -28,18 +28,18 @@ var LaunchpadPrecompileAddress = common.HexToAddress("0x000000000000000000000000
 // launchpadOrigin names the role whose contract flow emits each launchpad
 // family event at the precompile.
 var launchpadOrigin = map[string]string{
-	"Swap":               "SidioraPool",
-	"PoolStateUpdated":   "SidioraPool",
-	"TokenDeployed":      "SidioraFactory",
-	"MarketCreated":      "SidioraFactory",
-	"NftMint":            "SidioraNFT",
-	"FeeStrategyChanged": "SidioraNFT",
-	"NftTransfer":        "SidioraNFT",
-	"PoolRegistered":     "PoolRegistry",
-	"RouterTrade":        "Router",
-	"ConfigUpdated":      "ProtocolConfig",
-	"FeeFlow":            "FeeAccumulator",
-	"FeeDistributed":     "FeesRouter",
+	valueSwap:             "SidioraPool",
+	valuePoolStateUpdated: "SidioraPool",
+	"TokenDeployed":       "SidioraFactory",
+	"MarketCreated":       "SidioraFactory",
+	"NftMint":             valueSidioraNFT,
+	"FeeStrategyChanged":  valueSidioraNFT,
+	"NftTransfer":         valueSidioraNFT,
+	"PoolRegistered":      "PoolRegistry",
+	"RouterTrade":         valueRouter,
+	valueConfigUpdated:    "ProtocolConfig",
+	"FeeFlow":             "FeeAccumulator",
+	"FeeDistributed":      "FeesRouter",
 }
 
 // Order includes transaction and log index: upgrades can activate within a block.
@@ -246,20 +246,27 @@ func NewRegistry(catalogJSON []byte, deployments []Deployment) (*Registry, error
 		events := make(map[common.Hash]abi.Event)
 		for _, ev := range parsed[key].Events {
 			events[ev.ID] = ev
-			state := "required"
-			if abiName == "EventEmitter" && optionalEvent(ev.Name) && !optionalEnabled(d, ev.Name) {
-				state = "unsupported"
+			state := valueRequired
+			if abiName == valueEventEmitter && optionalEvent(ev.Name) && !optionalEnabled(d, ev.Name) {
+				state = valueUnsupported
 			}
 			if d.Optional {
-				state = "optional_deployed"
+				state = valueOptionalDeployed
 				if !d.Enabled {
-					state = "unsupported"
+					state = valueUnsupported
 				}
 			}
 			if declaredOnly(abiName, ev.Name) {
-				state = "unsupported"
+				state = valueUnsupported
 			}
 			r.coverage = append(r.coverage, Coverage{d.Role, d.ABIRevision, ev.Name, ev.Sig, state, authority(abiName, ev.Name), eventFamily(abiName, ev.Name)})
+		}
+		if d.Role == LaunchpadPrecompileRole {
+			for _, ev := range chainLaunchEvents {
+				events[ev.ID] = ev
+				r.known[ev.ID] = true
+				r.coverage = append(r.coverage, Coverage{d.Role, d.ABIRevision, ev.Name, ev.Sig, valueRequired, valueNative, "chain"})
+			}
 		}
 		epoch := registryEpoch{d, events}
 		for _, old := range r.epochs[d.Address] {
@@ -280,7 +287,7 @@ func NewRegistry(catalogJSON []byte, deployments []Deployment) (*Registry, error
 		if !deployed[key] {
 			c := contracts[key]
 			for _, ev := range a.Events {
-				r.coverage = append(r.coverage, Coverage{c.Name, c.ABIRevision, ev.Name, ev.Sig, "unsupported", authority(c.Name, ev.Name), eventFamily(c.Name, ev.Name)})
+				r.coverage = append(r.coverage, Coverage{c.Name, c.ABIRevision, ev.Name, ev.Sig, valueUnsupported, authority(c.Name, ev.Name), eventFamily(c.Name, ev.Name)})
 			}
 		}
 	}
@@ -303,9 +310,9 @@ func precompileRouter(deployments []Deployment, contracts map[string]CatalogCont
 	var precompiles, routers []Deployment
 	for _, d := range deployments {
 		switch {
-		case d.Role == "Router" && d.Address == LaunchpadPrecompileAddress:
+		case d.Role == valueRouter && d.Address == LaunchpadPrecompileAddress:
 			return deployments, nil
-		case d.Role == "Router":
+		case d.Role == valueRouter:
 			routers = append(routers, Deployment{ABIRevision: d.ABIRevision, From: d.From, Until: d.Until})
 		case d.Role == LaunchpadPrecompileRole:
 			precompiles = append(precompiles, d)
@@ -316,7 +323,7 @@ func precompileRouter(deployments []Deployment, contracts map[string]CatalogCont
 	}
 	if len(routers) == 0 {
 		for _, c := range contracts {
-			if c.Name == "Router" {
+			if c.Name == valueRouter {
 				routers = append(routers, Deployment{ABIRevision: c.ABIRevision})
 			}
 		}
@@ -355,14 +362,14 @@ func precompileRouter(deployments []Deployment, contracts map[string]CatalogCont
 			if until != nil && !from.less(*until) {
 				continue
 			}
-			out = append(out, Deployment{Address: LaunchpadPrecompileAddress, Role: "Router", ABIRevision: r.ABIRevision, From: from, Until: until})
+			out = append(out, Deployment{Address: LaunchpadPrecompileAddress, Role: valueRouter, ABIRevision: r.ABIRevision, From: from, Until: until})
 		}
 	}
 	return out, nil
 }
 func abiRole(role string) string {
 	if role == LaunchpadPrecompileRole {
-		return "EventEmitter"
+		return valueEventEmitter
 	}
 	return role
 }
@@ -451,7 +458,7 @@ func validatePolicies(a abi.ABI, d Deployment) error {
 }
 func (r *Registry) Coverage() []Coverage { return append([]Coverage(nil), r.coverage...) }
 func rawMetadata(l ethtypes.Log) RawLog {
-	return RawLog{Identity: RawIdentity{125, l.BlockHash.Hex(), l.TxHash.Hex(), l.Index}, Emitter: strings.ToLower(l.Address.Hex()), Order: Order{l.BlockNumber, l.TxIndex, l.Index}, Removed: l.Removed}
+	return RawLog{Identity: RawIdentity{125, l.BlockHash.Hex(), l.TxHash.Hex(), l.Index}, Emitter: "0x" + hex.EncodeToString(l.Address[:]), Order: Order{l.BlockNumber, l.TxIndex, l.Index}, Removed: l.Removed}
 }
 func validIdentity(l ethtypes.Log) bool {
 	return l.Address != (common.Address{}) && l.BlockHash != (common.Hash{}) && l.TxHash != (common.Hash{})
@@ -472,16 +479,17 @@ func rawLog(l ethtypes.Log) RawLog {
 	for i, t := range l.Topics {
 		topics[i] = t.Hex()
 	}
-	return RawLog{RawIdentity{125, l.BlockHash.Hex(), l.TxHash.Hex(), l.Index}, strings.ToLower(l.Address.Hex()), Order{l.BlockNumber, l.TxIndex, l.Index}, topics, "0x" + hex.EncodeToString(l.Data), l.Removed}
+	return RawLog{RawIdentity{125, l.BlockHash.Hex(), l.TxHash.Hex(), l.Index}, "0x" + hex.EncodeToString(l.Address[:]), Order{l.BlockNumber, l.TxIndex, l.Index}, topics, "0x" + hex.EncodeToString(l.Data), l.Removed}
 }
 func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
-	e := &DecodedEnvelope{Raw: rawMetadata(l), DerivedRevision: "decoder-v1", Status: "opaque", Opaque: true}
+	e := &DecodedEnvelope{DerivedRevision: "decoder-v1", Status: "opaque", Opaque: true}
 	fail := func(reason string, err error) (*DecodedEnvelope, error) {
-		e.Status = "quarantined"
+		e.Status = valueQuarantined
 		e.FailureReason = reason
 		return e, err
 	}
 	if !rawSizeAllowed(l) {
+		e.Raw = rawMetadata(l)
 		e.RawSummary = summarizeRaw(l)
 		return fail("bounds", fmt.Errorf("raw envelope exceeds bounded admission"))
 	}
@@ -493,7 +501,8 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 	if l.Removed {
 		return fail("removed_log", fmt.Errorf("removed log on committed-finality chain"))
 	}
-	var active []registryEpoch
+	var firstActive [1]registryEpoch
+	active := firstActive[:0]
 	for _, candidate := range r.epochs[l.Address] {
 		d := candidate.deployment
 		if !e.Raw.Order.less(d.From) && (d.Until == nil || e.Raw.Order.less(*d.Until)) && (!d.Optional || d.Enabled) {
@@ -513,12 +522,12 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 	}
 	if epoch == nil {
 		if len(l.Topics) > 0 {
-			e.EventSignature = l.Topics[0].Hex()
+			e.EventSignature = e.Raw.Topics[0]
 			if r.known[l.Topics[0]] {
 				return fail("unauthorized_signature", fmt.Errorf("signature not approved for any role at %s", l.Address))
 			}
 		}
-		e.FailureReason = "unknown_signature"
+		e.FailureReason = valueUnknownSignature
 		return e, nil
 	}
 	d := epoch.deployment
@@ -526,16 +535,16 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 	e.ABIRevision = d.ABIRevision
 	e.EmitterRole = d.Role
 	if len(l.Topics) == 0 {
-		e.FailureReason = "unknown_signature"
+		e.FailureReason = valueUnknownSignature
 		return e, nil
 	}
-	e.EventSignature = l.Topics[0].Hex()
+	e.EventSignature = e.Raw.Topics[0]
 	ev, ok := epoch.events[l.Topics[0]]
 	if !ok {
 		if r.known[l.Topics[0]] {
 			return fail("unauthorized_signature", fmt.Errorf("signature not approved for %s", d.Role))
 		}
-		e.FailureReason = "unknown_signature"
+		e.FailureReason = valueUnknownSignature
 		return e, nil
 	}
 	e.EventName = ev.Name
@@ -546,7 +555,7 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 		e.FailureReason = "declared_not_emitted"
 		return e, nil
 	}
-	if abiName == "EventEmitter" && optionalEvent(ev.Name) && !optionalEnabled(d, ev.Name) {
+	if abiName == valueEventEmitter && optionalEvent(ev.Name) && !optionalEnabled(d, ev.Name) {
 		e.FailureReason = "unsupported_capability"
 		return e, nil
 	}
@@ -555,14 +564,13 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 	if err != nil {
 		return fail(reason, err)
 	}
-	payload, marshalErr := json.Marshal(args)
-	if marshalErr != nil || len(payload) > MaxEnvelopeBytes {
-		return fail("bounds", fmt.Errorf("decoded payload exceeds envelope limit"))
+	if err := validateDecodedPayload(args); err != nil {
+		return fail("bounds", err)
 	}
-	e.Status = "decoded"
+	e.Status = valueDecoded
 	e.Opaque = strings.HasPrefix(ev.Name, "EventLog")
-	e.Event = &Event{ev.Name, ev.Sig, args, l.BlockNumber, strings.ToLower(l.TxHash.Hex()), l.Index}
-	e.Family = &FamilyDTO{eventFamily(abiName, ev.Name), args, abiName == "EventEmitter" && ev.Name == "Swap", authority(abiName, ev.Name)}
+	e.Event = &Event{ev.Name, ev.Sig, args, l.BlockNumber, e.Raw.Identity.TransactionHash, l.Index}
+	e.Family = &FamilyDTO{eventFamily(abiName, ev.Name), args, abiName == valueEventEmitter && ev.Name == valueSwap, authority(abiName, ev.Name)}
 	if e.Family.EconomicFill || optionalEconomic(e) {
 		e.Actors = eventActors(e)
 	}
@@ -580,21 +588,26 @@ func (r *Registry) Decode(l ethtypes.Log) (*DecodedEnvelope, error) {
 	return e, nil
 }
 func authority(role, name string) string {
-	if role == "EventEmitter" {
+	if isChainLaunchEvent(name) {
+		return valueNative
+	}
+	if role == valueEventEmitter {
 		switch name {
-		case "Swap", "PoolStateUpdated", "ConfigUpdated":
+		case valueSwap, valuePoolStateUpdated, valueConfigUpdated:
 			return "primary"
-		case "RoleAdminChanged", "RoleGranted", "RoleRevoked", "Upgraded", "Initialized":
-			return "native"
+		case "RoleAdminChanged", "RoleGranted", "RoleRevoked", valueUpgraded, "Initialized":
+			return valueNative
 		default:
 			return "mirror"
 		}
 	}
-	return "native"
+	return valueNative
 }
 func family(name string) string {
 	switch name {
-	case "Swap", "MarketCreated", "PoolRegistered", "TokenDeployed", "PoolStateUpdated", "RouterTrade", "Buy", "Sell", "MultihopSwap":
+	case "ChainLaunched", "ChainRevenueEpochOpened", "ChainRevenueClaimed", "LaunchedChainRetired":
+		return "chain"
+	case valueSwap, "MarketCreated", "PoolRegistered", "TokenDeployed", valuePoolStateUpdated, "RouterTrade", "Buy", "Sell", "MultihopSwap":
 		return "amm"
 	case "FeeRecorded", "FeeDistributed", "FeeStrategyChanged", "FeeFlow", "AirdropClaimed":
 		return "fees"
@@ -609,7 +622,7 @@ func family(name string) string {
 
 func optionalEvent(name string) bool {
 	switch name {
-	case "PecorSwap", "PecorOrderCreated", "PecorOrderLifecycle", "BestRouteSwap", "VaultFlow", "PriceUpdated", "CircuitBreakerTriggered", "OracleAdapterLifecycle":
+	case valuePecorSwap, valuePecorOrderCreated, valuePecorOrderLifecycle, valueBestRouteSwap, valueVaultFlow, valuePriceUpdated, valueCircuitBreakerTriggered, valueOracleAdapterLifecycle:
 		return true
 	}
 	return false
@@ -624,12 +637,12 @@ func optionalEnabled(d Deployment, name string) bool {
 }
 
 func declaredOnly(role, name string) bool {
-	return role == "ProtocolConfig" && name == "ConfigUpdated" || role == "FeeAccumulator" && name == "ProtocolFeeSwept"
+	return role == "ProtocolConfig" && name == valueConfigUpdated || role == "FeeAccumulator" && name == "ProtocolFeeSwept"
 }
 
 func optionalRole(role string) bool {
 	switch role {
-	case "PECOR", "PECOROrders", "PECORVault", "MetaAGRouter", "MetaAGQuoter", "PriceOracle", "OracleHub", "TransactionTracker", "SidioraAdapter", "VaultAdapter":
+	case valuePECOR, valuePECOROrders, valuePECORVault, valueMetaAGRouter, "MetaAGQuoter", valuePriceOracle, valueOracleHub, valueTransactionTracker, "SidioraAdapter", "VaultAdapter":
 		return true
 	}
 	return false

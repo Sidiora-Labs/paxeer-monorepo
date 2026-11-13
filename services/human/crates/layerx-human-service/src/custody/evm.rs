@@ -15,6 +15,8 @@ pub struct EvmTransaction {
 
 impl EvmTransaction {
     /// Builds the canonical bank call for an exact first-funding disclosure.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn with_bank_transfer(
         mut self,
         sender: [u8; 20],
@@ -97,18 +99,22 @@ pub struct SignedBankTransfer {
 }
 
 impl SignedBankTransfer {
+    #[must_use]
     pub fn raw_transaction(&self) -> &[u8] {
         &self.raw_transaction
     }
 
+    #[must_use]
     pub const fn signature(&self) -> &[u8; 65] {
         &self.signature
     }
 
+    #[must_use]
     pub const fn sender(&self) -> [u8; 20] {
         self.sender
     }
 
+    #[must_use]
     pub fn transaction_hash(&self) -> [u8; 32] {
         layerx_crypto::evm_transaction::transaction_hash(&self.raw_transaction)
     }
@@ -116,6 +122,8 @@ impl SignedBankTransfer {
 
 impl super::CustodySigner {
     /// Authorizes first funding as an exact EIP-1559 bank transfer.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn authorize_send_transaction(
         &self,
         principal: &crate::store::PrincipalId,
@@ -155,6 +163,8 @@ impl Keystore {
         Ok(record.provider_reference)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn public_wallet_identity(
         &self,
         principal: &PrincipalId,
@@ -397,6 +407,10 @@ impl Keystore {
 
     /// Refuses the retired kernel SEND authorization, which has no EIP-1559 call.
     /// Callers must supply an exact transaction to `authorize_send_transaction`.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
+    // The receiver is part of the public Keystore signature.
+    #[allow(clippy::unused_self)]
     pub fn authorize_send(
         &self,
         _principal: &PrincipalId,

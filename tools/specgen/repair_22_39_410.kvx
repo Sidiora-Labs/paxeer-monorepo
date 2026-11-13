@@ -1,0 +1,4 @@
+[specgen]
+reads = ["spec/workflow.kvx", "spec/<active_feature>/spec.kvx"]
+compares = ["CLAUDE.md", "AGENTS.md", ".cursor/rules/spec-workflow.mdc", ".github/copilot-instructions.md"]
+test = "TestActiveFeatureSpecParses parses the active feature spec and validates every section and value through ParseFile."

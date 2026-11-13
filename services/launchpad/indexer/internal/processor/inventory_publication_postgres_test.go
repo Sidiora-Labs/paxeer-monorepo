@@ -64,7 +64,7 @@ func newInventoryHarnessWithWait(t *testing.T, ctx context.Context, wait int64) 
 	return newInventoryHarnessOnPool(t, ctx, wait, pool)
 }
 
-func newInventoryHarnessOnPool(t *testing.T, ctx context.Context, wait int64, pool *pgxpool.Pool) inventoryHarness {
+func newInventoryHarnessOnPool(t *testing.T, ctx context.Context, wait int64, pool *pgxpool.Pool, latest ...uint64) inventoryHarness {
 	t.Helper()
 	applyProductionSchema(t, ctx, pool)
 	ddl := []string{`CREATE SCHEMA IF NOT EXISTS "pnl"`}
@@ -87,7 +87,7 @@ func newInventoryHarnessOnPool(t *testing.T, ctx context.Context, wait int64, po
 			t.Fatalf("pnl schema: %v", err)
 		}
 	}
-	url := repairM1000RecordedRPC(t)
+	url := repairM1000RecordedRPC(t, latest...)
 	options := repairM1000ReceiptOptions(t, repair54ReceiptInputs(t))
 	client, closeClient, err := receipt.NewBoundedRPCClient(ctx, url, "")
 	if err != nil {

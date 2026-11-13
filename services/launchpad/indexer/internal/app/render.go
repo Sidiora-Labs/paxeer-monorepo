@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/publisher"
@@ -23,9 +24,22 @@ import (
 // baselines (pnl.inventory_l16_baselines_v1.projection_generation) and the
 // version stamps every accounting.inventory.v1 partition position.
 type DeliveryParameters struct {
+	MaxDeliveryLagMS                                            int64
+	DeadLetters                                                 *DeadLetterParameters
 	Owner, Region, Stream, CanonicalStreamID, ProjectionVersion string
 	InventoryGeneration, InventoryProjectionVersion             string
 	Epoch                                                       int64
+}
+
+type DeadLetterParameters struct {
+	SecuritySchema  string `json:"securitySchema"`
+	Audience        string `json:"audience"`
+	PolicyVersion   string `json:"policyVersion"`
+	Issuer          string `json:"issuer"`
+	PeerCertSHA256  string `json:"peerCertSHA256"`
+	PublicKey       []byte `json:"publicKey"`
+	AssertionHeader string `json:"assertionHeader"`
+	SignatureHeader string `json:"signatureHeader"`
 }
 
 // DefaultDeliveryParameters are the Railway production values. The inventory
@@ -57,8 +71,9 @@ func RenderRuntimeDocuments(in runtimedocs.Inputs, p DeliveryParameters) (map[st
 	if err != nil {
 		return nil, err
 	}
-	receiptDoc := receiptRuntimeDocument{Realm: "production", Production: authority}
+	receiptDoc := receiptRuntimeDocument{Realm: valueProduction, Production: authority}
 	deliveryDoc := deliveryRuntimeDocument{
+		MaxDeliveryLagMS: p.MaxDeliveryLagMS, DeadLetters: p.DeadLetters,
 		Schema: "indexer", Owner: p.Owner, Epoch: p.Epoch, Region: p.Region, Stream: p.Stream,
 		CanonicalStreamID: p.CanonicalStreamID, DeploymentID: authority.Manifest.DeploymentVersion,
 		ProjectionVersion: p.ProjectionVersion, InventoryProjectionVersion: p.InventoryProjectionVersion, Generation: p.InventoryGeneration,
@@ -68,10 +83,17 @@ func RenderRuntimeDocuments(in runtimedocs.Inputs, p DeliveryParameters) (map[st
 		},
 		Subjects: map[string]string{publisher.CanonicalCreationEventType: publisher.CanonicalCreationSubject, accounting.MarketSubject: accounting.MarketSubject},
 	}
+	if err = deliveryDoc.validateStatus(); err != nil {
+		return nil, err
+	}
 	if p.InventoryGeneration != "" {
 		deliveryDoc.Policy.Subjects[accounting.InventorySubject] = true
 		deliveryDoc.Policy.EventTypes[accounting.InventorySubject] = true
 		deliveryDoc.Subjects[accounting.InventorySubject] = accounting.InventorySubject
+	}
+	anchorHeightInt64, conversionErr := checked.Convert[int64](in.Anchor.Height)
+	if conversionErr != nil {
+		return nil, conversionErr
 	}
 	lifecycleDoc := lifecycleRuntimeDocument{
 		Version: 2, Committed: committed,
@@ -80,7 +102,7 @@ func RenderRuntimeDocuments(in runtimedocs.Inputs, p DeliveryParameters) (map[st
 		Webhooks:                 lifecycleWebhookDocument{Targets: []delivery.WebhookTarget{}},
 		ReplayBatchSize:          32, WorkConcurrency: 4, WorkBurst: 32, EventsPerSecond: 200,
 		ReplayRequests: []store.ReplayRequest{}, Rebuilds: []lifecycleRebuildDocument{}, Operations: map[string]store.OperationScope{},
-		InitialCheckpointHeight: int64(in.Anchor.Height), InitialCheckpointHash: strings.ToLower(in.Anchor.Hash.Hex()),
+		InitialCheckpointHeight: anchorHeightInt64, InitialCheckpointHash: strings.ToLower(in.Anchor.Hash.Hex()),
 	}
 	if err = bindRuntimeAnchor(&lifecycleDoc, authority); err != nil {
 		return nil, err

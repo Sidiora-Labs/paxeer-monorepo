@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use layerx_committed_proof::{
     commit::{self, Commit},
@@ -30,7 +31,7 @@ use layerx_programs_ai_market::{
     types::{ChainDomain, Digest32, MarketId, PrincipalId, ProgramId, StateDigest},
     MAX_STATE_BYTES,
 };
-use rusqlite::{params, Connection, OptionalExtension, Transaction};
+use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBehavior};
 use sha2::{Digest, Sha256};
 
 use crate::codec::hex0x;
@@ -851,6 +852,9 @@ impl QueryLimiter {
     }
 
     /// Number of retained principal quotas, including outstanding permits.
+    ///
+    /// # Errors
+    /// Returns `ViewError::Store` if the quota mutex is poisoned.
     pub fn retained_principals(&self) -> ViewResult<usize> {
         self.buckets
             .lock()
@@ -1209,7 +1213,7 @@ fn quarantine(
     error: ViewError,
 ) -> ViewError {
     let outcome = (|| -> ViewResult<()> {
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         tx.execute(
             "INSERT INTO ai_stream (market, observed_sequence, observed_root, next_subject, quarantine) \
              VALUES (?1, 0, NULL, 1, ?2) \
@@ -1390,6 +1394,7 @@ impl ProjectionStore {
     /// Store failures.
     pub fn open(path: &Path) -> ViewResult<Self> {
         let connection = Connection::open(path)?;
+        connection.busy_timeout(Duration::from_secs(5))?;
         connection.pragma_update(None, "journal_mode", "WAL")?;
         Self::initialise(connection)
     }
@@ -1455,7 +1460,7 @@ impl ProjectionStore {
             }
             Err(e) => return Err(e),
         };
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let outcome = Self::insert_observation(
             &tx,
             observation,
@@ -1661,7 +1666,7 @@ impl ProjectionStore {
         }
         let mut encoded = [0u8; BINDING_MAX_BYTES];
         let n = binding.encode(&mut encoded)?;
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         tx.execute(
             "UPDATE ai_snapshot SET projection = 3, binding = ?2, checkpoint = ?3, rank = ?4, \
              publication_time_ms = ?5, epoch = ?6 WHERE snapshot_id = ?1",
@@ -1712,7 +1717,7 @@ impl ProjectionStore {
                 ViewError::RollbackRefused,
             ));
         }
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let m = market.as_bytes().as_slice();
         let removed = tx.execute(
             "DELETE FROM ai_snapshot WHERE market = ?1 AND observed_sequence > ?2 \
@@ -1897,10 +1902,10 @@ impl ProjectionStore {
     /// `CapacityExceeded` while a cursor lease pins it.
     pub fn archive(&self, snapshot_id: &Digest32, now_ms: u64) -> ViewResult<()> {
         let mut conn = self.lock()?;
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let conn = &tx;
-        let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
-        let latest = load_stream(&conn, &record.market)?.and_then(|s| s.finalized_snapshot);
+        let record = load_record(conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
+        let latest = load_stream(conn, &record.market)?.and_then(|s| s.finalized_snapshot);
         if record.projection != ProjectionState::FinalizedPublishable
             || latest == Some(*snapshot_id)
         {
@@ -1920,12 +1925,24 @@ impl ProjectionStore {
     }
 
     /// Recover a digest-addressed archived body after reopening the database.
+    ///
+    /// # Errors
+    /// Returns `ProjectionUnavailable` if the snapshot or its archive is absent or
+    /// the snapshot is not archived, `IntegrityFailure` if retained digest or binding
+    /// checks fail, `CapacityExceeded` if cache space cannot be made, and store or
+    /// encoding errors when loading records or converting stored values fails.
     pub fn recover_archived(&self, snapshot_id: &Digest32, now_ms: u64) -> ViewResult<()> {
         self.restore_content(snapshot_id, None, now_ms)
     }
 
     /// Restores supplied archived content only after checking its retained digest,
     /// binding and rows. Operational recovery normally uses `recover_archived`.
+    ///
+    /// # Errors
+    /// Returns `ProjectionUnavailable` if the snapshot is absent or not archived,
+    /// `IntegrityFailure` if the supplied content disagrees with its retained digest
+    /// or binding, `CapacityExceeded` if cache space cannot be made, and store or
+    /// encoding errors when reading records or converting stored values fails.
     pub fn restore_archived(&self, snapshot_id: &Digest32, state: &[u8]) -> ViewResult<()> {
         self.restore_content(snapshot_id, Some(state), 0)
     }
@@ -1938,17 +1955,16 @@ impl ProjectionStore {
     ) -> ViewResult<()> {
         let mut conn = self.lock()?;
         let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
-        let tx = conn.transaction()?;
+        let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let archived;
-        let state = match supplied {
-            Some(state) => state,
-            None => {
-                archived = tx.query_row(
-                    "SELECT a.state FROM ai_archive a JOIN ai_snapshot_archive l USING(state_digest) WHERE l.snapshot_id = ?1",
-                    params![snapshot_id.as_bytes().as_slice()], |r| r.get::<_, Vec<u8>>(0)).optional()?
-                    .ok_or(ViewError::ProjectionUnavailable)?;
-                &archived
-            }
+        let state = if let Some(state) = supplied {
+            state
+        } else {
+            archived = tx.query_row(
+                "SELECT a.state FROM ai_archive a JOIN ai_snapshot_archive l USING(state_digest) WHERE l.snapshot_id = ?1",
+                params![snapshot_id.as_bytes().as_slice()], |r| r.get::<_, Vec<u8>>(0)).optional()?
+                .ok_or(ViewError::ProjectionUnavailable)?;
+            &archived
         };
         match Self::restore_body(&tx, snapshot_id, state, now_ms) {
             Ok(()) => {
@@ -1976,7 +1992,7 @@ impl ProjectionStore {
         state: &[u8],
         now_ms: u64,
     ) -> ViewResult<()> {
-        let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
+        let record = load_record(conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
         if record.projection != ProjectionState::Archived {
             return Err(ViewError::ProjectionUnavailable);
         }

@@ -31,7 +31,7 @@ fn handle_cpu_loop_with_cache() {
     };
 
     // store code
-    let checksum = cache.save_wasm(CYBERPUNK).unwrap();
+    let checksum = cache.store_code(CYBERPUNK, true, true).unwrap();
 
     // instantiate
     let env = mock_env();

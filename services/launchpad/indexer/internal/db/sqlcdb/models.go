@@ -107,6 +107,7 @@ type IndexerOpticalExecution struct {
 
 type IndexerPool struct {
 	PoolAddress  string
+	HomeChain    int64
 	TokenAddress string
 	Creator      string
 	Optical      string

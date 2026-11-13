@@ -10,7 +10,7 @@ use layerx_human_test_support as support;
 use layerx_types::rung::Rung;
 
 fn record_event(scope: &mut PrincipalScope<'_>, sequence: u8, rung: Rung) -> ActivityEntryId {
-    let entry_id = ActivityEntryId::new(format!("act_rung{sequence}")).expect("entry id");
+    let entry_id = ActivityEntryId::new(format!("act_rung{sequence}")).or_fail("entry id");
     let activity = AgentActivity::new(
         entry_id.clone(),
         ActivityKind::AgentAction,
@@ -19,7 +19,7 @@ fn record_event(scope: &mut PrincipalScope<'_>, sequence: u8, rung: Rung) -> Act
         PendingStatus::Processing,
         VerifiedStatus::Done,
     )
-    .expect("activity");
+    .or_fail("activity");
     let delivery = EventDelivery::new(
         EventIdentity::new([sequence; 32]),
         vec![sequence],
@@ -29,13 +29,13 @@ fn record_event(scope: &mut PrincipalScope<'_>, sequence: u8, rung: Rung) -> Act
             log_index: 0,
         },
         ReceiptReference::Verified {
-            receipt_ref: ReceiptRef::new(format!("receipt-{sequence}")).expect("receipt ref"),
+            receipt_ref: ReceiptRef::new(format!("receipt-{sequence}")).or_fail("receipt ref"),
             rung,
         },
     )
-    .expect("delivery");
+    .or_fail("delivery");
     let entry = Feed::record_agent_event(scope, &activity, &delivery, u64::from(sequence))
-        .expect("record agent event");
+        .or_fail("record agent event");
     assert_eq!(entry.entry_id(), &entry_id);
     assert_eq!(entry.receipts().len(), 1);
     assert_eq!(entry.receipts()[0].rung(), rung);
@@ -50,54 +50,54 @@ fn agent_event_is_recorded_and_reread_with_its_rung() {
     let (mut store, digest) = support::install_and_open(&root, &tenancy, retention);
     let alice = support::principal("alice");
     let ids = {
-        let mut scope = store.principal(&alice).expect("principal scope");
+        let mut scope = store.principal(&alice).or_fail("principal scope");
         let receipted = record_event(&mut scope, 1, Rung::Receipted);
         let committed = record_event(&mut scope, 2, Rung::Committed);
         let row = scope
             .get(
                 Table::Journeys,
-                &RowKey::new("activity-feed").expect("feed key"),
+                &RowKey::new("activity-feed").or_fail("feed key"),
             )
-            .expect("stored feed");
-        let state: serde_json::Value = serde_json::from_slice(row.bytes()).expect("stored JSON");
+            .or_fail("stored feed");
+        let state: serde_json::Value = serde_json::from_slice(row.bytes()).or_fail("stored JSON");
         assert_eq!(state["revisions"][0]["receipts"][0]["level"], 1);
         assert_eq!(state["revisions"][1]["receipts"][0]["level"], 2);
         [receipted, committed]
     };
     drop(store);
 
-    let mut store = PrincipalStore::open(&root, retention, digest).expect("reopen store");
+    let mut store = PrincipalStore::open(&root, retention, digest).or_fail("reopen store");
     {
-        let scope = store.principal(&alice).expect("reopened scope");
+        let scope = store.principal(&alice).or_fail("reopened scope");
         for (entry_id, expected_rung, expected_status) in [
             (&ids[0], Rung::Receipted, ActivityStatus::Done),
             (&ids[1], Rung::Committed, ActivityStatus::DoneFinalised),
         ] {
             let entry = Feed::entry(&scope, entry_id)
-                .expect("reread entry")
-                .expect("entry exists");
+                .or_fail("reread entry")
+                .or_fail("entry exists");
             assert_eq!(entry.receipts().len(), 1);
             assert_eq!(entry.receipts()[0].rung(), expected_rung);
             assert_eq!(entry.status(), expected_status);
         }
         let page = Feed::new(5)
-            .expect("feed")
+            .or_fail("feed")
             .page(
                 &scope,
                 PageRequest::new(
                     10,
-                    Feed::apply_filters(FilterDraft::new()).expect("filters"),
+                    Feed::apply_filters(FilterDraft::new()).or_fail("filters"),
                 ),
                 2,
                 2,
             )
-            .expect("feed page");
+            .or_fail("feed page");
         assert_eq!(page.entries().len(), 2);
         assert_eq!(page.entries()[0].receipts()[0].rung(), Rung::Committed);
         assert_eq!(page.entries()[1].receipts()[0].rung(), Rung::Receipted);
     }
     drop(store);
-    std::fs::remove_dir_all(&root).expect("remove temp store");
+    std::fs::remove_dir_all(&root).or_fail("remove temp store");
 }
 
 #[test]
@@ -108,12 +108,12 @@ fn stored_verification_byte_above_committed_is_refused() {
     let (mut store, digest) = support::install_and_open(&root, &tenancy, retention);
     let alice = support::principal("alice");
     let entry_id = {
-        let mut scope = store.principal(&alice).expect("principal scope");
+        let mut scope = store.principal(&alice).or_fail("principal scope");
         let entry_id = record_event(&mut scope, 1, Rung::Receipted);
-        let key = RowKey::new("activity-feed").expect("feed key");
-        let row = scope.get(Table::Journeys, &key).expect("stored feed");
+        let key = RowKey::new("activity-feed").or_fail("feed key");
+        let row = scope.get(Table::Journeys, &key).or_fail("stored feed");
         let mut state: serde_json::Value =
-            serde_json::from_slice(row.bytes()).expect("stored JSON");
+            serde_json::from_slice(row.bytes()).or_fail("stored JSON");
         assert_eq!(state["revisions"][0]["receipts"][0]["level"], 1);
         state["revisions"][0]["receipts"][0]["level"] = serde_json::json!(3);
         scope
@@ -121,16 +121,16 @@ fn stored_verification_byte_above_committed_is_refused() {
                 Table::Journeys,
                 key,
                 2,
-                serde_json::to_vec(&state).expect("encode corruption"),
+                serde_json::to_vec(&state).or_fail("encode corruption"),
             )
-            .expect("persist corrupt verification byte");
+            .or_fail("persist corrupt verification byte");
         entry_id
     };
     drop(store);
 
-    let mut store = PrincipalStore::open(&root, retention, digest).expect("reopen store");
+    let mut store = PrincipalStore::open(&root, retention, digest).or_fail("reopen store");
     {
-        let scope = store.principal(&alice).expect("reopened scope");
+        let scope = store.principal(&alice).or_fail("reopened scope");
         assert!(matches!(
             Feed::entry(&scope, &entry_id),
             Err(FeedError::CorruptState)
@@ -139,11 +139,11 @@ fn stored_verification_byte_above_committed_is_refused() {
             Feed::projected_agent_head(&scope),
             Err(FeedError::CorruptState)
         ));
-        let page = Feed::new(5).expect("feed").page(
+        let page = Feed::new(5).or_fail("feed").page(
             &scope,
             PageRequest::new(
                 10,
-                Feed::apply_filters(FilterDraft::new()).expect("filters"),
+                Feed::apply_filters(FilterDraft::new()).or_fail("filters"),
             ),
             2,
             1,
@@ -151,5 +151,11 @@ fn stored_verification_byte_above_committed_is_refused() {
         assert!(matches!(page, Err(FeedError::CorruptState)));
     }
     drop(store);
-    std::fs::remove_dir_all(&root).expect("remove temp store");
+    std::fs::remove_dir_all(&root).or_fail("remove temp store");
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

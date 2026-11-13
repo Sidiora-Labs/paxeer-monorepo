@@ -584,17 +584,7 @@ fn encode_anchored_metadata(event: &CoreEvent, anchor: Option<CursorAnchor>) -> 
     bytes
 }
 
-fn decode_metadata(
-    bytes: &[u8],
-) -> Result<
-    (
-        Option<[u8; 32]>,
-        legacy::VerificationLevel,
-        EventAttributes,
-        Option<CursorAnchor>,
-    ),
-    IngestError,
-> {
+fn decode_metadata(bytes: &[u8]) -> Result<DecodedMetadata, IngestError> {
     if bytes.len() < 38 || &bytes[..4] != METADATA_MAGIC || bytes[5] > 1 {
         return Err(IngestError::CorruptEvent);
     }
@@ -735,11 +725,17 @@ pub struct EthereumLog {
 }
 
 impl CoreEvent {
+    /// # Errors
+    /// Returns an error if an event, head or block is invalid, out of order or blocked by a gap,
+    /// or subscription storage or delivery fails.
     pub fn from_log(log: &Value, attributes: EventAttributes) -> Result<Self, IngestError> {
         let bytes = serde_json::to_vec(log).map_err(|_| IngestError::InvalidLog)?;
         Self::from_log_bytes(bytes, attributes)
     }
 
+    /// # Errors
+    /// Returns an error if an event, head or block is invalid, out of order or blocked by a gap,
+    /// or subscription storage or delivery fails.
     pub fn from_log_bytes(
         bytes: Vec<u8>,
         attributes: EventAttributes,
@@ -756,6 +752,7 @@ impl CoreEvent {
         Ok(event)
     }
 
+    #[must_use]
     pub fn position(&self) -> Option<Cursor> {
         self.log().ok().map(|log| Cursor {
             block_height: log.block_height,
@@ -764,10 +761,14 @@ impl CoreEvent {
         })
     }
 
+    #[must_use]
     pub fn rung(&self) -> Option<Rung> {
         self.receipt_verification_level.rung()
     }
 
+    /// # Errors
+    /// Returns an error if an event, head or block is invalid, out of order or blocked by a gap,
+    /// or subscription storage or delivery fails.
     pub fn log(&self) -> Result<EthereumLog, IngestError> {
         decode_log(
             &self.canonical_bytes,
@@ -834,11 +835,14 @@ pub(super) fn decode_log(bytes: &[u8], rung: Rung) -> Result<EthereumLog, Ingest
             })
             .collect::<Result<_, _>>()?,
         data: log_bytes(&value["data"])?,
-        rung: rung,
+        rung,
     })
 }
 
 impl EventIngestor {
+    /// # Errors
+    /// Returns an error if an event, head or block is invalid, out of order or blocked by a gap,
+    /// or subscription storage or delivery fails.
     pub fn read_log(
         &mut self,
         subscription: &mut NodeSubscription,
@@ -848,6 +852,9 @@ impl EventIngestor {
         self.ingest_log(&log, attributes)
     }
 
+    /// # Errors
+    /// Returns an error if an event, head or block is invalid, out of order or blocked by a gap,
+    /// or subscription storage or delivery fails.
     pub fn ingest_log(
         &mut self,
         log: &Value,
@@ -858,9 +865,10 @@ impl EventIngestor {
 
     fn queue_log(&mut self, event: CoreEvent) -> Result<(), IngestError> {
         validate_event(&event)?;
-        if !matches!(event.rung(), Some(Rung::Receipted | Rung::Committed)) {
-            return Err(IngestError::ReceiptEvidenceMismatch);
-        }
+        crate::reject_if(
+            !matches!(event.rung(), Some(Rung::Receipted | Rung::Committed)),
+            || IngestError::ReceiptEvidenceMismatch,
+        )?;
         let position = event.position().ok_or(IngestError::InvalidLog)?;
         let pending_match = self
             .pending
@@ -869,9 +877,10 @@ impl EventIngestor {
         if let Some((&old_position, pending)) = pending_match {
             let reconciled = reconcile_log(pending, &event)?;
             let new_position = reconciled.position().ok_or(IngestError::InvalidLog)?;
-            if old_position != new_position && self.pending.contains_key(&new_position) {
-                return Err(IngestError::InvalidLog);
-            }
+            crate::reject_if(
+                old_position != new_position && self.pending.contains_key(&new_position),
+                || IngestError::InvalidLog,
+            )?;
             if old_position == new_position {
                 self.store.put_local(
                     pending_key(self.tenant.clone(), old_position)?,
@@ -888,9 +897,9 @@ impl EventIngestor {
             self.pending.insert(new_position, reconciled);
             return Ok(());
         }
-        if self.pending.contains_key(&position) {
-            return Err(IngestError::InvalidLog);
-        }
+        crate::reject_if(self.pending.contains_key(&position), || {
+            IngestError::InvalidLog
+        })?;
         let stored_match = durable_sequences(&self.store, &self.tenant)?
             .into_iter()
             .map(|sequence| durable_event(&self.store, &self.tenant, sequence))
@@ -898,45 +907,13 @@ impl EventIngestor {
             .into_iter()
             .find(|stored| same_log_identity(stored, &event));
         if let Some(stored) = stored_match {
-            if stored.log()?.transaction_hash.is_none() {
-                return Err(IngestError::Repeated {
+            crate::reject_if(stored.log()?.transaction_hash.is_none(), || {
+                IngestError::Repeated {
                     sequence: position.block_height,
-                });
-            }
+                }
+            })?;
             let reconciled = reconcile_log(&stored, &event)?;
-            if reconciled.log()?.block_hash.is_some() {
-                let original = self
-                    .store
-                    .get(&event_key(self.tenant.clone(), stored.global_sequence)?)
-                    .ok_or(IngestError::CorruptEvent)?;
-                let original_log = decode_log(original.bytes(), Rung::Receipted)?;
-                let original_position = Cursor {
-                    block_height: original_log.block_height,
-                    tx_index: original_log.tx_index,
-                    log_index: original_log.log_index,
-                };
-                let evidence_key = committed_log_key(self.tenant.clone(), original_position)?;
-                let mut watermark = self.watermark;
-                if watermark.last_ingested == Some(stored.global_sequence) {
-                    watermark.last_position = reconciled.position();
-                }
-                let updates = vec![(
-                    watermark_key(self.tenant.clone())?,
-                    encode_watermark(watermark),
-                )];
-                if self.store.get(&evidence_key).is_some() {
-                    let mut updates = updates;
-                    updates.push((evidence_key, reconciled.canonical_bytes.clone()));
-                    self.store.update_local_batch(updates)?;
-                } else {
-                    self.store.update_local_batch_with_companion(
-                        updates,
-                        evidence_key,
-                        reconciled.canonical_bytes.clone(),
-                    )?;
-                }
-                self.watermark = watermark;
-            }
+            self.reconcile_stored_log(&stored, &reconciled)?;
             for buffered in &mut self.buffered {
                 if buffered.global_sequence == stored.global_sequence {
                     *buffered = reconciled.clone();
@@ -944,23 +921,23 @@ impl EventIngestor {
             }
             return Ok(());
         }
-        if self
-            .watermark
-            .last_position
-            .is_some_and(|last| position <= last)
-        {
-            return Err(IngestError::InvalidLog);
-        }
-        if self.head.is_some_and(|head| position.block_height < head) {
-            return Err(IngestError::Repeated {
+        crate::reject_if(
+            self.watermark
+                .last_position
+                .is_some_and(|last| position <= last),
+            || IngestError::InvalidLog,
+        )?;
+        crate::reject_if(
+            self.head.is_some_and(|head| position.block_height < head),
+            || IngestError::Repeated {
                 sequence: position.block_height,
-            });
-        }
-        if self.buffered_len() >= self.capacity {
-            return Err(IngestError::Backpressure {
+            },
+        )?;
+        crate::reject_if(self.buffered_len() >= self.capacity, || {
+            IngestError::Backpressure {
                 capacity: self.capacity,
-            });
-        }
+            }
+        })?;
         self.store.put_local(
             pending_key(self.tenant.clone(), position)?,
             encode_pending(&event)?,
@@ -968,7 +945,51 @@ impl EventIngestor {
         self.pending.insert(position, event);
         Ok(())
     }
+    fn reconcile_stored_log(
+        &mut self,
+        stored: &CoreEvent,
+        reconciled: &CoreEvent,
+    ) -> Result<(), IngestError> {
+        if reconciled.log()?.block_hash.is_some() {
+            let original = self
+                .store
+                .get(&event_key(self.tenant.clone(), stored.global_sequence)?)
+                .ok_or(IngestError::CorruptEvent)?;
+            let original_log = decode_log(original.bytes(), Rung::Receipted)?;
+            let original_position = Cursor {
+                block_height: original_log.block_height,
+                tx_index: original_log.tx_index,
+                log_index: original_log.log_index,
+            };
+            let evidence_key = committed_log_key(self.tenant.clone(), original_position)?;
+            let mut watermark = self.watermark;
+            if watermark.last_ingested == Some(stored.global_sequence) {
+                watermark.last_position = reconciled.position();
+            }
+            let updates = vec![(
+                watermark_key(self.tenant.clone())?,
+                encode_watermark(watermark),
+            )];
+            if self.store.get(&evidence_key).is_some() {
+                let mut updates = updates;
+                updates.push((evidence_key, reconciled.canonical_bytes.clone()));
+                self.store.update_local_batch(updates)?;
+            } else {
+                self.store.update_local_batch_with_companion(
+                    updates,
+                    evidence_key,
+                    reconciled.canonical_bytes.clone(),
+                )?;
+            }
+            self.watermark = watermark;
+        }
 
+        Ok(())
+    }
+
+    /// # Errors
+    /// Returns an error if an event, head or block is invalid, out of order or blocked by a gap,
+    /// or subscription storage or delivery fails.
     pub fn read_head(
         &mut self,
         subscription: &mut NodeSubscription,
@@ -987,6 +1008,13 @@ impl EventIngestor {
         )
     }
 
+    /// # Errors
+    /// Returns an error if an event, head or block is invalid, out of order or blocked by a gap,
+    /// or subscription storage or delivery fails.
+    #[allow(
+        clippy::needless_pass_by_value,
+        reason = "Preserve the public API signature used by daemon consumers."
+    )]
     pub fn new_head(
         &mut self,
         height: u64,
@@ -1046,10 +1074,10 @@ impl EventIngestor {
                         if planned_pending.insert(new_position, merged).is_some() {
                             return Err(IngestError::InvalidLog);
                         }
-                    } else if !self
+                    } else if self
                         .watermark
                         .last_position
-                        .is_some_and(|last| item.position.block_height <= last.block_height)
+                        .is_none_or(|last| item.position.block_height > last.block_height)
                         && planned_pending
                             .insert(item.position, event.clone())
                             .is_some()
@@ -1087,6 +1115,9 @@ impl EventIngestor {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if an event, head or block is invalid, out of order or blocked by a gap,
+    /// or subscription storage or delivery fails.
     pub fn commit_block(
         &mut self,
         checkpoint: &crate::read::ServedCheckpoint,
@@ -1186,7 +1217,7 @@ fn reconcile_log(stored: &CoreEvent, incoming: &CoreEvent) -> Result<CoreEvent, 
     }
     let mut event = stored.clone();
     if left.block_hash.is_none() && right.block_hash.is_some() {
-        event.canonical_bytes = incoming.canonical_bytes.clone();
+        event.canonical_bytes.clone_from(&incoming.canonical_bytes);
     }
     Ok(event)
 }
@@ -1231,7 +1262,7 @@ fn log_bytes(value: &Value) -> Result<Vec<u8>, IngestError> {
             let digit = |byte: u8| {
                 (byte as char)
                     .to_digit(16)
-                    .map(|digit| digit as u8)
+                    .and_then(|digit| u8::try_from(digit).ok())
                     .ok_or(IngestError::InvalidLog)
             };
             Ok((digit(pair[0])? << 4) | digit(pair[1])?)
@@ -1280,6 +1311,38 @@ fn decode_pending(bytes: &[u8]) -> Result<CoreEvent, IngestError> {
 }
 
 #[cfg(test)]
+trait AssertTestValue<T> {
+    fn assert_value(self, context: &str) -> T;
+}
+
+#[cfg(test)]
+impl<T> AssertTestValue<T> for Option<T> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T, E: std::fmt::Debug> AssertTestValue<T> for Result<T, E> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
+type DecodedMetadata = (
+    Option<[u8; 32]>,
+    legacy::VerificationLevel,
+    EventAttributes,
+    Option<CursorAnchor>,
+);
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::read::ServedCheckpoint;
@@ -1319,7 +1382,7 @@ mod tests {
                 result_code: 0,
             },
         )
-        .unwrap()
+        .assert_value("expected value")
     }
 
     #[test]
@@ -1334,7 +1397,7 @@ mod tests {
                 decode_metadata(&metadata),
                 Err(IngestError::CorruptEvent)
             ));
-            let mut pending = encode_pending(&event).unwrap();
+            let mut pending = encode_pending(&event).assert_value("expected value");
             pending[4 + event.canonical_bytes.len() + 4] = 5;
             assert!(matches!(
                 decode_pending(&pending),
@@ -1346,107 +1409,165 @@ mod tests {
     #[test]
     fn committed_promotion_validates_and_reopens_pending_and_retained_logs() {
         let root = directory();
-        let tenant = TenantId::new("committed-promotion").unwrap();
+        let tenant = TenantId::new("committed-promotion").assert_value("expected value");
         let checkpoint = ServedCheckpoint::test_fixture(11, 1234, 0);
         let mut retained = receipted_log(&checkpoint, 0);
         retained.receipt_reference = Some([9; 32]);
         let mut pending = receipted_log(&checkpoint, 1);
         pending.receipt_reference = Some([10; 32]);
-        let position = pending.position().unwrap();
-        let mut ingestor =
-            EventIngestor::open(Store::open(&root).unwrap(), tenant.clone(), 4, 0).unwrap();
-        ingestor.queue_log(pending.clone()).unwrap();
+        let position = pending.position().assert_value("expected value");
+        let mut ingestor = EventIngestor::open(
+            Store::open(&root).assert_value("expected value"),
+            tenant.clone(),
+            4,
+            0,
+        )
+        .assert_value("expected value");
+        ingestor
+            .queue_log(pending.clone())
+            .assert_value("expected value");
         ingest_with_class(
             &mut ingestor,
             retained.clone(),
             StorageClass::CoreProducedCache,
         )
-        .unwrap();
+        .assert_value("expected value");
 
-        ingestor.commit_block(&checkpoint).unwrap();
+        ingestor
+            .commit_block(&checkpoint)
+            .assert_value("expected value");
         retained.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
         pending.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
         assert_eq!(ingestor.pending.get(&position), Some(&pending));
-        validate_event(ingestor.pending.get(&position).unwrap()).unwrap();
+        validate_event(
+            ingestor
+                .pending
+                .get(&position)
+                .assert_value("expected value"),
+        )
+        .assert_value("expected value");
         assert_eq!(ingestor.buffered.front(), Some(&retained));
-        validate_event(ingestor.buffered.front().unwrap()).unwrap();
-        assert_eq!(ingestor.retained_event(0).unwrap(), retained);
+        validate_event(ingestor.buffered.front().assert_value("expected value"))
+            .assert_value("expected value");
+        assert_eq!(
+            ingestor.retained_event(0).assert_value("expected value"),
+            retained
+        );
         let metadata = ingestor
             .store()
-            .get(&metadata_key(tenant.clone(), 0).unwrap())
-            .unwrap();
+            .get(&metadata_key(tenant.clone(), 0).assert_value("expected value"))
+            .assert_value("expected value");
         assert_eq!(metadata.bytes()[4], 6);
         let encoded_pending = ingestor
             .store()
-            .get(&pending_key(tenant.clone(), position).unwrap())
-            .unwrap();
+            .get(&pending_key(tenant.clone(), position).assert_value("expected value"))
+            .assert_value("expected value");
         assert_eq!(
             encoded_pending.bytes()[4 + pending.canonical_bytes.len() + 4],
             6
         );
-        assert_eq!(decode_pending(encoded_pending.bytes()).unwrap(), pending);
+        assert_eq!(
+            decode_pending(encoded_pending.bytes()).assert_value("expected value"),
+            pending
+        );
         assert_eq!(ingestor.take_next(), Some(retained.clone()));
         drop(ingestor);
 
-        let reopened = EventIngestor::open(Store::open(&root).unwrap(), tenant, 4, 0).unwrap();
-        let restored = reopened.pending.get(&position).unwrap();
+        let reopened = EventIngestor::open(
+            Store::open(&root).assert_value("expected value"),
+            tenant,
+            4,
+            0,
+        )
+        .assert_value("expected value");
+        let restored = reopened
+            .pending
+            .get(&position)
+            .assert_value("expected value");
         assert_eq!(restored, &pending);
         assert_eq!(restored.rung(), Some(Rung::Committed));
-        validate_event(restored).unwrap();
-        assert_eq!(reopened.retained_event(0).unwrap(), retained);
+        validate_event(restored).assert_value("expected value");
+        assert_eq!(
+            reopened.retained_event(0).assert_value("expected value"),
+            retained
+        );
         drop(reopened);
-        std::fs::remove_dir_all(root).unwrap();
+        std::fs::remove_dir_all(root).assert_value("expected value");
     }
 
     #[test]
     fn legacy_rank_four_durable_records_migrate_to_committed_on_read() {
         let root = directory();
-        let tenant = TenantId::new("legacy-commit").unwrap();
+        let tenant = TenantId::new("legacy-commit").assert_value("expected value");
         let checkpoint = ServedCheckpoint::test_fixture(11, 1234, 0);
         let mut retained = receipted_log(&checkpoint, 0);
         retained.receipt_reference = Some([9; 32]);
         retained.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
         let mut pending = receipted_log(&checkpoint, 1);
         pending.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
-        let position = pending.position().unwrap();
-        let mut ingestor =
-            EventIngestor::open(Store::open(&root).unwrap(), tenant.clone(), 4, 0).unwrap();
+        let position = pending.position().assert_value("expected value");
+        let mut ingestor = EventIngestor::open(
+            Store::open(&root).assert_value("expected value"),
+            tenant.clone(),
+            4,
+            0,
+        )
+        .assert_value("expected value");
         ingest_with_class(
             &mut ingestor,
             retained.clone(),
             StorageClass::CoreProducedCache,
         )
-        .unwrap();
+        .assert_value("expected value");
         let mut metadata = encode_metadata(&retained);
         metadata[4] = 4;
-        let mut encoded_pending = encode_pending(&pending).unwrap();
+        let mut encoded_pending = encode_pending(&pending).assert_value("expected value");
         encoded_pending[4 + pending.canonical_bytes.len() + 4] = 4;
         ingestor
             .store
-            .put_local(metadata_key(tenant.clone(), 0).unwrap(), metadata)
-            .unwrap();
+            .put_local(
+                metadata_key(tenant.clone(), 0).assert_value("expected value"),
+                metadata,
+            )
+            .assert_value("expected value");
         ingestor
             .store
             .put_local(
-                pending_key(tenant.clone(), position).unwrap(),
+                pending_key(tenant.clone(), position).assert_value("expected value"),
                 encoded_pending,
             )
-            .unwrap();
+            .assert_value("expected value");
         drop(ingestor);
 
-        let reopened = EventIngestor::open(Store::open(&root).unwrap(), tenant, 4, 0).unwrap();
-        assert_eq!(reopened.retained_event(0).unwrap(), retained);
-        let restored = reopened.pending.get(&position).unwrap();
+        let reopened = EventIngestor::open(
+            Store::open(&root).assert_value("expected value"),
+            tenant,
+            4,
+            0,
+        )
+        .assert_value("expected value");
+        assert_eq!(
+            reopened.retained_event(0).assert_value("expected value"),
+            retained
+        );
+        let restored = reopened
+            .pending
+            .get(&position)
+            .assert_value("expected value");
         assert_eq!(restored, &pending);
         assert_eq!(restored.rung(), Some(Rung::Committed));
-        validate_event(restored).unwrap();
-        assert_eq!(encode_metadata(&reopened.retained_event(0).unwrap())[4], 6);
+        validate_event(restored).assert_value("expected value");
         assert_eq!(
-            encode_pending(restored).unwrap()[4 + restored.canonical_bytes.len() + 4],
+            encode_metadata(&reopened.retained_event(0).assert_value("expected value"))[4],
+            6
+        );
+        assert_eq!(
+            encode_pending(restored).assert_value("expected value")
+                [4 + restored.canonical_bytes.len() + 4],
             6
         );
         drop(reopened);
-        std::fs::remove_dir_all(root).unwrap();
+        std::fs::remove_dir_all(root).assert_value("expected value");
     }
 
     #[test]
@@ -1455,10 +1576,14 @@ mod tests {
         let mut event = receipted_log(&checkpoint, 0);
         event.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
         assert!(event.receipt_reference.is_none());
-        assert_eq!(event.log().unwrap().rung, Rung::Committed);
-        validate_event(&event).unwrap();
         assert_eq!(
-            decode_pending(&encode_pending(&event).unwrap()).unwrap(),
+            event.log().assert_value("expected value").rung,
+            Rung::Committed
+        );
+        validate_event(&event).assert_value("expected value");
+        assert_eq!(
+            decode_pending(&encode_pending(&event).assert_value("expected value"))
+                .assert_value("expected value"),
             event
         );
 

@@ -156,6 +156,8 @@ The draft records its creator, root chain ID 125, name, tier and fee share (0 to
 
 The adapter checks wallet account and chain 125, submits exactly one `createChain` transaction, waits for its receipt, decodes `ChainCreated`, then reads the registry record through `getChain`. A taken name or changed wallet blocks launch. Progress covers wallet confirmation, waiting for the block and readiness. The ready panel includes registry ID, derived chain ID, copyable RPC URL, explorer link and the EIP-3085 add-to-wallet action described above. Draft persistence and server rendering followed by hydration preserve the journey.
 
+The launchpad's combined market and chain flow is specified in [chain-launchpad.md](chain-launchpad.md). Its registry number uses this contract's chain ID and scoped RPC rules; direct `createChain` remains the registry call described above.
+
 ## sdk
 
 Requirement `20009.1`; tasks `20.9.1` through `20.9.8`.

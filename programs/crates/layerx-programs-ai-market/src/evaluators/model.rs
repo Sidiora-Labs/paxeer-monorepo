@@ -1,8 +1,8 @@
 //! F03 value representations only: nomination is not accepted F08 membership.
 use crate::{
-    codec::{derive_evaluator, ReportBody},
+    codec::{ReportBody, derive_evaluator},
     errors::{
-        ApplicationError, CodecResult, ARITHMETIC, F03_BAD_ACTIVATION, F08_BAD_CONSENT,
+        ARITHMETIC, ApplicationError, CodecResult, F03_BAD_ACTIVATION, F08_BAD_CONSENT,
         NON_CANONICAL,
     },
     types::{

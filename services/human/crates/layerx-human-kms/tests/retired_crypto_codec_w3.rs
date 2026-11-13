@@ -1,43 +1,44 @@
-#[test]
-fn no_retired_layerx_crypto_codec_paths_w3() {
-    fn collect_paths(tokens: &[String], cursor: &mut usize, prefix: &str, paths: &mut Vec<String>) {
-        let mut path = prefix.to_owned();
-        while let Some(token) = tokens.get(*cursor) {
-            if token == "{" {
-                *cursor += 1;
-                while tokens.get(*cursor).is_some_and(|token| token != "}") {
-                    let previous = *cursor;
-                    collect_paths(tokens, cursor, &path, paths);
-                    if *cursor == previous || tokens.get(*cursor).is_some_and(|token| token == ",")
-                    {
-                        *cursor += 1;
-                    }
-                }
-                *cursor += 1;
-                return;
-            }
-            if !token
-                .chars()
-                .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
-            {
-                return;
-            }
-            if !path.is_empty() {
-                path.push_str("::");
-            }
-            path.push_str(token);
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
+use sha3::{Digest as _, Keccak256};
+
+fn collect_paths(tokens: &[String], cursor: &mut usize, prefix: &str, paths: &mut Vec<String>) {
+    let mut path = prefix.to_owned();
+    while let Some(token) = tokens.get(*cursor) {
+        if token == "{" {
             *cursor += 1;
-            if tokens.get(*cursor).is_some_and(|token| token == ":")
-                && tokens.get(*cursor + 1).is_some_and(|token| token == ":")
-            {
-                *cursor += 2;
-            } else {
-                paths.push(path);
-                return;
+            while tokens.get(*cursor).is_some_and(|token| token != "}") {
+                let previous = *cursor;
+                collect_paths(tokens, cursor, &path, paths);
+                if *cursor == previous || tokens.get(*cursor).is_some_and(|token| token == ",") {
+                    *cursor += 1;
+                }
             }
+            *cursor += 1;
+            return;
+        }
+        if !token
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+        {
+            return;
+        }
+        if !path.is_empty() {
+            path.push_str("::");
+        }
+        path.push_str(token);
+        *cursor += 1;
+        if tokens.get(*cursor).is_some_and(|token| token == ":")
+            && tokens.get(*cursor + 1).is_some_and(|token| token == ":")
+        {
+            *cursor += 2;
+        } else {
+            paths.push(path);
+            return;
         }
     }
+}
 
+fn assert_no_retired_crypto_paths() {
     let retired = [
         "layerx_crypto::disclosure::bind",
         "layerx_crypto::disclosure::bind_budget_mutation",
@@ -108,10 +109,11 @@ fn no_retired_layerx_crypto_codec_paths_w3() {
         "retired wiring.J44.25 paths remain:\n{}",
         violations.join("\n")
     );
+}
 
-    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
-    use sha3::{Digest as _, Keccak256};
-
+#[test]
+fn no_retired_layerx_crypto_codec_paths_w3() {
+    assert_no_retired_crypto_paths();
     let mut to = [0; 20];
     to[18..].copy_from_slice(&[0x10, 0x1a]);
     let call = Eip1559Call {
@@ -127,16 +129,20 @@ fn no_retired_layerx_crypto_codec_paths_w3() {
         ]
         .concat(),
     };
-    let raw = call.sign(&[1; 32]).expect("valid secp256k1 key");
-    let (decoded, signature) = decode_signed(&raw).expect("canonical signed call");
-    let from = recover_sender(&decoded, &signature).expect("recover sender");
+    let raw = call
+        .sign(&[1; 32])
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "valid secp256k1 key"));
+    let (decoded, signature) = decode_signed(&raw)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "canonical signed call"));
+    let from = recover_sender(&decoded, &signature)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "recover sender"));
     assert_eq!(
         layerx_human_service::custody::signer::attach_call_signature(
             &call,
             *signature.as_bytes(),
             from
         )
-        .expect("attach verified call signature"),
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "attach verified call signature")),
         raw
     );
     let mut wrong_from = from;

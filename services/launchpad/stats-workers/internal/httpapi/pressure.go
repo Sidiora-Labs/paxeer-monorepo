@@ -2,13 +2,14 @@ package httpapi
 
 import (
 	"encoding/json"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/risk"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/risk"
 
 	"github.com/go-chi/chi/v5"
 	goredis "github.com/redis/go-redis/v9"
@@ -45,7 +46,7 @@ func direction(buyPct float64) string {
 
 func pressure(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		poolAddress := chi.URLParam(r, "poolAddress")
+		poolAddress := chi.URLParam(r, valuePoolAddress)
 		ctx := r.Context()
 		cacheKey := "pressure:" + poolAddress
 
@@ -77,7 +78,7 @@ func pressure(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 		}
 
 		result := map[string]any{
-			"poolAddress": poolAddress,
+			valuePoolAddress: poolAddress,
 			"24h": map[string]any{
 				"buyCount":  ps.BuyCount24h,
 				"sellCount": ps.SellCount24h,
@@ -111,14 +112,14 @@ func pressure(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 func RegisterDurableAnalytics(r chi.Router, a analytics.ReactionAuthority) {
 	snapshot := func(model string) http.HandlerFunc {
 		return func(w http.ResponseWriter, request *http.Request) {
-			pool := strings.ToLower(chi.URLParam(request, "poolAddress"))
+			pool := strings.ToLower(chi.URLParam(request, valuePoolAddress))
 			result, err := a.ReadSnapshot(request.Context(), pool, model, time.Now().Unix())
 			if err != nil {
 				durableReactionError(w, err)
 				return
 			}
 			w.Header().Set("Cache-Control", "no-store")
-			response := map[string]any{"snapshot": result.Snapshot, "stale": result.Stale}
+			response := map[string]any{"snapshot": result.Snapshot, valueStale: result.Stale}
 			if model == risk.ModelVersion {
 				response["model_metadata"] = risk.ModelMetadata()
 			}
@@ -129,7 +130,7 @@ func RegisterDurableAnalytics(r chi.Router, a analytics.ReactionAuthority) {
 	r.Get("/v2/stats/{poolAddress}/risk", snapshot(risk.ModelVersion))
 	r.Get("/v2/stats/{poolAddress}/analytics/revisions", func(w http.ResponseWriter, request *http.Request) {
 		limit := 100
-		if raw := request.URL.Query().Get("limit"); raw != "" {
+		if raw := request.URL.Query().Get(valueLimit); raw != "" {
 			n, err := strconv.Atoi(raw)
 			if err != nil || n < 1 || n > 100 {
 				sharedhttp.WriteError(w, 400, "Bad Request", "invalid analytics page limit")
@@ -141,7 +142,7 @@ func RegisterDurableAnalytics(r chi.Router, a analytics.ReactionAuthority) {
 		if after == "" {
 			after = "0"
 		}
-		page, err := a.ReplaySnapshots(request.Context(), strings.ToLower(chi.URLParam(request, "poolAddress")), after, limit)
+		page, err := a.ReplaySnapshots(request.Context(), strings.ToLower(chi.URLParam(request, valuePoolAddress)), after, limit)
 		if err != nil {
 			durableReactionError(w, err)
 			return

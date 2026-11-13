@@ -247,19 +247,19 @@ func (s *LifecycleStore) TransitionTx(ctx context.Context, tx pgx.Tx, id, actor,
 	if o.Revision != revision {
 		return Operation{}, ErrConflict
 	}
-	next, intent := o.State, o.Intent
+	next, intent := o.State, ""
 	switch action {
 	case "start":
-		if o.State != "READY" {
+		if o.State != stateReady {
 			return Operation{}, ErrConflict
 		}
 		intent = "start"
-	case "end":
-		if o.State == "ENDED" || o.State == "FAILED" {
+	case endAction:
+		if o.State == stateEnded || o.State == stateFailed {
 			return o, nil
 		}
-		next = "ENDING"
-		intent = "end"
+		next = stateEnding
+		intent = endAction
 	default:
 		return Operation{}, ErrInvalid
 	}
@@ -309,7 +309,7 @@ func (s *LifecycleStore) Observe(ctx context.Context, event ProviderEvent) (stri
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if !identityPattern.MatchString(event.EventID) || !identityPattern.MatchString(event.ProviderID) || (event.State != "LIVE" && event.State != "READY" && event.State != "ENDED") || event.ObservedAt.IsZero() || event.ObservedAt.After(time.Now().Add(5*time.Minute)) {
+	if !identityPattern.MatchString(event.EventID) || !identityPattern.MatchString(event.ProviderID) || (event.State != stateLive && event.State != stateReady && event.State != stateEnded) || event.ObservedAt.IsZero() || event.ObservedAt.After(time.Now().Add(5*time.Minute)) {
 		return "", ErrInvalid
 	}
 	tx, e := s.pool.Begin(ctx)
@@ -339,7 +339,7 @@ func (s *LifecycleStore) Observe(ctx context.Context, event ProviderEvent) (stri
 		outcome = "quarantined_unknown"
 	} else if e != nil {
 		return "", e
-	} else if o.State == "ENDED" || o.State == "FAILED" || (o.State == "SUSPENDED" && event.State != "ENDED") || (o.State == "ENDING" && event.State != "ENDED") || (o.ProviderTime != nil && !event.ObservedAt.After(*o.ProviderTime)) {
+	} else if o.State == stateEnded || o.State == stateFailed || (o.State == stateSuspended && event.State != stateEnded) || (o.State == stateEnding && event.State != stateEnded) || (o.ProviderTime != nil && !event.ObservedAt.After(*o.ProviderTime)) {
 		outcome = "ignored_stale_or_terminal"
 	} else {
 		o, e = readOperation(tx.QueryRow(ctx, fmt.Sprintf("UPDATE %s.stream_operations SET state=$2,provider_time=$3,revision=revision+1,retry_at=NULL,terminal_at=CASE WHEN $2='ENDED' THEN clock_timestamp() ELSE terminal_at END WHERE id=$1 RETURNING "+opColumns, s.schema), o.ID, event.State, event.ObservedAt))
@@ -420,7 +420,7 @@ func (s *LifecycleStore) Suspend(ctx context.Context, id string, d SuspensionDec
 	if !d.ExpiresAt.After(time.Now()) {
 		return Operation{}, ErrDenied
 	}
-	if o.Revision != d.Revision || o.State == "ENDED" || o.State == "FAILED" {
+	if o.Revision != d.Revision || o.State == stateEnded || o.State == stateFailed {
 		return Operation{}, ErrConflict
 	}
 	o, e = readOperation(tx.QueryRow(ctx, fmt.Sprintf("UPDATE %s.stream_operations SET state='SUSPENDED',intent='end',revision=revision+1 WHERE id=$1 RETURNING "+opColumns, s.schema), id))
@@ -437,7 +437,7 @@ func (s *LifecycleStore) Suspend(ctx context.Context, id string, d SuspensionDec
 	return o, tx.Commit(ctx)
 }
 
-func (o Operation) PlaybackAllowed() bool { return o.State == "LIVE" }
+func (o Operation) PlaybackAllowed() bool { return o.State == stateLive }
 
 // ReconcileTermination runs only after a durable intent. HTTP success is merely
 // control-plane acknowledgement: provider evidence is still required for ENDED.
@@ -448,7 +448,7 @@ func (s *LifecycleStore) ReconcileTermination(ctx context.Context, id string, pr
 	if e != nil {
 		return e
 	}
-	if o.State != "ENDING" && o.State != "SUSPENDED" {
+	if o.State != stateEnding && o.State != stateSuspended {
 		return ErrConflict
 	}
 	if provider == nil || o.ProviderID == "" {
@@ -473,7 +473,7 @@ func (s *LifecycleStore) ReconcileTermination(ctx context.Context, id string, pr
 }
 
 func (s *LifecycleStore) enqueue(ctx context.Context, tx pgx.Tx, o Operation, kind string) error {
-	payload, err := json.Marshal(map[string]string{"operationId": o.ID, "streamId": o.ID, "state": o.State, "revision": fmt.Sprint(o.Revision)})
+	payload, err := json.Marshal(map[string]string{"operationId": o.ID, streamIDField: o.ID, "state": o.State, "revision": fmt.Sprint(o.Revision)})
 	if err != nil {
 		return err
 	}

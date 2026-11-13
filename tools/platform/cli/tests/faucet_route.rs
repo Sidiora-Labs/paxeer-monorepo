@@ -1,5 +1,5 @@
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::process::{Child, Command, Output, Stdio};
 use std::time::{Duration, Instant};
 
@@ -28,10 +28,11 @@ impl FaucetCli {
         let public_key = ed25519_dalek::SigningKey::from_bytes(&[0x42; 32])
             .verifying_key()
             .to_bytes();
-        let trust_anchor = public_key
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>();
+        let trust_anchor = public_key.iter().fold(String::new(), |mut output, byte| {
+            std::fmt::Write::write_fmt(&mut output, format_args!("{byte:02x}"))
+                .unwrap_or_else(|error| panic!("{error:?}"));
+            output
+        });
         let configured = cli.run(
             &[
                 "environment",
@@ -145,6 +146,53 @@ fn faucet_posts_service_claim_route() -> TestResult {
             Err(error) => return Err(error.into()),
         }
     };
+    let (mut reader, request) = receive_faucet_request(stream, session, &cli)?;
+    let funding = json!({"funded":true,"funding_id":"ef".repeat(32),"transaction_id":"cd".repeat(32),"amount":"1000000","network":"layerx-testnet"});
+    let reply = serde_json::to_vec(&json!({"jsonrpc":"2.0","id":request["id"],"result":funding}))?;
+    write!(reader.get_mut(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",reply.len())?;
+    reader.get_mut().write_all(&reply)?;
+    reader.get_mut().flush()?;
+    drop(reader);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while invocation.0.try_wait()?.is_none() {
+        assert!(
+            Instant::now() < deadline,
+            "faucet did not consume its funding response"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    let mut stderr = String::new();
+    invocation
+        .0
+        .stderr
+        .take()
+        .ok_or("missing stderr")?
+        .read_to_string(&mut stderr)?;
+    assert!(invocation.0.wait()?.success(), "{stderr}");
+    let mut stdout = String::new();
+    invocation
+        .0
+        .stdout
+        .take()
+        .ok_or("missing stdout")?
+        .read_to_string(&mut stdout)?;
+    let result: Value = serde_json::from_str(&stdout)?;
+    assert_eq!(result["ok"], true);
+    assert_eq!(result["kind"], "faucet.claimed");
+    assert_eq!(result["data"]["claim"]["funded"], true);
+    assert_eq!(result["data"]["claim"]["txHash"], funding["transaction_id"]);
+    assert_eq!(result["data"]["claim"]["amount"], "1000000");
+    assert!(
+        matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+    );
+    Ok(())
+}
+
+fn receive_faucet_request(
+    stream: TcpStream,
+    session: &str,
+    cli: &FaucetCli,
+) -> Result<(BufReader<TcpStream>, Value), Box<dyn std::error::Error>> {
     stream.set_read_timeout(Some(Duration::from_secs(5)))?;
     let mut reader = BufReader::new(stream);
     let mut request_line = String::new();
@@ -194,45 +242,7 @@ fn faucet_posts_service_claim_route() -> TestResult {
         })
     );
     assert!(!String::from_utf8_lossy(&body).contains("lx_requestFunds"));
-    let funding = json!({"funded":true,"funding_id":"ef".repeat(32),"transaction_id":"cd".repeat(32),"amount":"1000000","network":"layerx-testnet"});
-    let reply = serde_json::to_vec(&json!({"jsonrpc":"2.0","id":request["id"],"result":funding}))?;
-    write!(reader.get_mut(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",reply.len())?;
-    reader.get_mut().write_all(&reply)?;
-    reader.get_mut().flush()?;
-    drop(reader);
-    let deadline = Instant::now() + Duration::from_secs(10);
-    while invocation.0.try_wait()?.is_none() {
-        assert!(
-            Instant::now() < deadline,
-            "faucet did not consume its funding response"
-        );
-        std::thread::sleep(Duration::from_millis(10));
-    }
-    let mut stderr = String::new();
-    invocation
-        .0
-        .stderr
-        .take()
-        .ok_or("missing stderr")?
-        .read_to_string(&mut stderr)?;
-    assert!(invocation.0.wait()?.success(), "{stderr}");
-    let mut stdout = String::new();
-    invocation
-        .0
-        .stdout
-        .take()
-        .ok_or("missing stdout")?
-        .read_to_string(&mut stdout)?;
-    let result: Value = serde_json::from_str(&stdout)?;
-    assert_eq!(result["ok"], true);
-    assert_eq!(result["kind"], "faucet.claimed");
-    assert_eq!(result["data"]["claim"]["funded"], true);
-    assert_eq!(result["data"]["claim"]["txHash"], funding["transaction_id"]);
-    assert_eq!(result["data"]["claim"]["amount"], "1000000");
-    assert!(
-        matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
-    );
-    Ok(())
+    Ok((reader, request))
 }
 
 #[test]

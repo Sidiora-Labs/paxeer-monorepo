@@ -31,12 +31,12 @@ func (a *LocalCredentialAuthority) Grant(credential string, p Principal, expires
 		return Invalid
 	}
 	validRole := false
-	for _, role := range []string{"user", "infrastructure", "finance", "moderator", "support"} {
+	for _, role := range []string{controlUser, "infrastructure", "finance", "moderator", "support"} {
 		if p.Role == role {
 			validRole = true
 		}
 	}
-	if !validRole || (p.Role == "user" && !uuidPattern.MatchString(p.SessionID)) {
+	if !validRole || (p.Role == controlUser && !uuidPattern.MatchString(p.SessionID)) {
 		return Invalid
 	}
 	for _, scope := range p.Scopes {

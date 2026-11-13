@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it } from 'vitest';
+import { JSDOM } from 'jsdom';
 import {
   createPublicClient,
   createWalletClient,
@@ -28,17 +29,49 @@ import {
   parsePrivateFixtureAuthorityProfileV1,
 } from '@/core/runtime-authority';
 
+const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+const originalFetch = globalThis.fetch;
+let browser: JSDOM | undefined;
+beforeAll(() => {
+  const file = process.env.L27_AUTHORITY_PROFILE;
+  if (!file) throw new Error('Owned creation authority profile is required');
+  const profile = parsePrivateFixtureAuthorityProfileV1(
+    JSON.parse(readFileSync(file, 'utf8'))
+  );
+  browser = new JSDOM('', { url: profile.applicationOrigin });
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: browser.window });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: browser.window.document,
+  });
+  globalThis.fetch = (input, init) =>
+    originalFetch(
+      typeof input === 'string' ? new URL(input, profile.applicationOrigin) : input,
+      init
+    );
+});
+afterAll(() => {
+  globalThis.fetch = originalFetch;
+  browser?.window.close();
+  if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+  else Reflect.deleteProperty(globalThis, 'window');
+  if (previousDocument) Object.defineProperty(globalThis, 'document', previousDocument);
+  else Reflect.deleteProperty(globalThis, 'document');
+});
+
 it('executes creation fee, exact approval, native hash resolution and protected first purchase against real compiled chain125 contracts', async () => {
   const file = process.env.L27_PHASE2_FIXTURE;
   if (!file)
     throw new Error(
-      'Run the owned chain fixture with --phase2; no synthetic provider is accepted.',
+      'Run the owned chain fixture with --phase2; no synthetic provider is accepted.'
     );
   const fixture = JSON.parse(readFileSync(file, 'utf8')).phase2 as {
     ownedFixture: boolean;
     rpcUrl: string;
     creator: Address;
     admin: Address;
+    accounts: Address[];
     deployment: LaunchDeployment;
     createA: string;
     createB: string;
@@ -52,7 +85,7 @@ it('executes creation fee, exact approval, native hash resolution and protected 
     nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 },
     rpcUrls: { default: { http: [fixture.rpcUrl] } },
   });
-  const client = createPublicClient({ chain, transport: http(fixture.rpcUrl) }),
+  const client = createPublicClient({ chain, cacheTime: 0, transport: http(fixture.rpcUrl) }),
     wallet = createWalletClient({
       account: fixture.creator,
       chain,
@@ -63,6 +96,11 @@ it('executes creation fee, exact approval, native hash resolution and protected 
       chain,
       transport: http(fixture.rpcUrl),
     });
+  expect(await client.getChainId()).toBe(125);
+  expect(await wallet.getAddresses()).toEqual(fixture.accounts);
+  expect(wallet.account.address).toBe(fixture.creator);
+  expect(await admin.getAddresses()).toEqual(fixture.accounts);
+  expect(admin.account.address).toBe(fixture.admin);
   const scope = {
     creator: fixture.creator.toLowerCase(),
     chainId: 125,
@@ -71,20 +109,18 @@ it('executes creation fee, exact approval, native hash resolution and protected 
   const profileFile = process.env.L27_AUTHORITY_PROFILE;
   if (!profileFile)
     throw new Error(
-      'Set L27_AUTHORITY_PROFILE to the owned private-fixture authority profile; creation admission is never bypassed.',
+      'Set L27_AUTHORITY_PROFILE to the owned private-fixture authority profile; creation admission is never bypassed.'
     );
   const authority = await loadRuntimeAuthority(
     AbortSignal.timeout(30000),
-    parsePrivateFixtureAuthorityProfileV1(
-      JSON.parse(readFileSync(profileFile, 'utf8')),
-    ),
+    parsePrivateFixtureAuthorityProfileV1(JSON.parse(readFileSync(profileFile, 'utf8')))
   );
   const adapter = new ChainCreationAdapter(
     client as PublicClient,
     wallet as WalletClient,
     fixture.deployment,
     () => scope,
-    runtimeCreationAdmission(authority, fixture.deployment),
+    runtimeCreationAdmission(authority, fixture.deployment)
   );
   const draft: CreationDraftV2 = {
     draftId: crypto.randomUUID(),
@@ -105,9 +141,7 @@ it('executes creation fee, exact approval, native hash resolution and protected 
   expect(validateCreationDraft(draft)).toEqual({});
   const first = await adapter.readFunding(draft, scope);
   expect(first.cost.protocolFeeRaw).toBe('1000000');
-  expect(first.cost.protocolFeeAssetRef).toBe(
-    fixture.deployment.usdl.toLowerCase(),
-  );
+  expect(first.cost.protocolFeeAssetRef).toBe(fixture.deployment.usdl.toLowerCase());
   expect(BigInt(first.cost.gasEstimatePaxRaw)).toBeGreaterThan(0n);
   expect(creationFunding(first).state).toBe('approval_required');
   const allowanceAbi = parseAbi([
@@ -115,7 +149,7 @@ it('executes creation fee, exact approval, native hash resolution and protected 
     'function balanceOf(address) view returns(uint256)',
   ]);
   expect(fixture.deployment.usdlSpender.toLowerCase()).toBe(
-    '0x0000000000000000000000000000000000001017',
+    authority.network.network.addresses.Router!.toLowerCase()
   );
   expect(
     await client.readContract({
@@ -123,7 +157,7 @@ it('executes creation fee, exact approval, native hash resolution and protected 
       abi: allowanceAbi,
       functionName: 'allowance',
       args: [fixture.creator, fixture.deployment.usdlSpender as Address],
-    }),
+    })
   ).toBe(0n);
   const balanceBefore = await client.readContract({
     address: fixture.deployment.usdl as Address,
@@ -131,20 +165,17 @@ it('executes creation fee, exact approval, native hash resolution and protected 
     functionName: 'balanceOf',
     args: [fixture.creator],
   });
-  const storage: Pick<CreationStorage, keyof CreationStorage> =
-    new MemoryCreationStore(scope.creator);
-  const controller = new CreationController(
-    adapter,
-    storage as CreationStorage,
-    (message) => wallet.signMessage({ message }),
+  const storage: Pick<CreationStorage, keyof CreationStorage> = new MemoryCreationStore(
+    scope.creator
+  );
+  const controller = new CreationController(adapter, storage as CreationStorage, (message) =>
+    wallet.signMessage({ message })
   );
   try {
     await controller.reviewDraft(draft);
     await controller.approve();
     expect(controller.state.reviewed).toBeUndefined();
-    expect(creationFunding(await adapter.readFunding(draft, scope)).state).toBe(
-      'signable',
-    );
+    expect(creationFunding(await adapter.readFunding(draft, scope)).state).toBe('signable');
     const configAbi = parseAbi(['function setCreationFee(uint256)']);
     try {
       const change = await admin.writeContract({
@@ -155,7 +186,7 @@ it('executes creation fee, exact approval, native hash resolution and protected 
       });
       await client.waitForTransactionReceipt({ hash: change });
       await expect(adapter.readFunding(draft, scope)).rejects.toThrow(
-        'configuration_blocked',
+        'configuration_blocked'
       );
     } finally {
       const restore = await admin.writeContract({
@@ -183,16 +214,12 @@ it('executes creation fee, exact approval, native hash resolution and protected 
       throw new Error('Native creation event did not resolve.');
     expect(created.expectedCreator).toBe(fixture.creator.toLowerCase());
     expect(created.registryVerified).toBe(true);
-    expect(
-      (await adapter.createdPools(fixture.creator)).includes(
-        created.poolAddress,
-      ),
-    ).toBe(true);
+    expect((await adapter.createdPools(fixture.creator)).includes(created.poolAddress)).toBe(
+      true
+    );
     await controller.approvePurchase(attempt.intentId);
     const quote = await controller.reviewPurchase(attempt.intentId, 100);
-    expect(BigInt(quote.minOutRaw)).toBe(
-      (BigInt(quote.amountOutRaw) * 9900n) / 10000n,
-    );
+    expect(BigInt(quote.minOutRaw)).toBe((BigInt(quote.amountOutRaw) * 9900n) / 10000n);
     expect(BigInt(quote.minOutRaw)).toBeGreaterThan(1n);
     const purchase = await controller.buy(attempt.intentId, false, false);
     const buy = purchase.purchaseTxHash!;
@@ -205,7 +232,7 @@ it('executes creation fee, exact approval, native hash resolution and protected 
         abi: allowanceAbi,
         functionName: 'allowance',
         args: [fixture.creator, fixture.deployment.usdlSpender as Address],
-      }),
+      })
     ).toBe(0n);
     expect(
       balanceBefore -
@@ -214,11 +241,11 @@ it('executes creation fee, exact approval, native hash resolution and protected 
           abi: allowanceAbi,
           functionName: 'balanceOf',
           args: [fixture.creator],
-        })),
+        }))
     ).toBe(2_000_000n);
     scope.epoch++;
     await expect(
-      adapter.sendPurchase(quote, { ...scope, epoch: scope.epoch - 1 }),
+      adapter.sendPurchase(quote, { ...scope, epoch: scope.epoch - 1 })
     ).rejects.toThrow('Wallet changed');
   } finally {
     controller.dispose();
@@ -233,6 +260,7 @@ it('rejects hostile creation and purchase context against the actual deployment 
     rpcUrl: string;
     creator: Address;
     admin: Address;
+    accounts: Address[];
     deployment: LaunchDeployment;
     createA: string;
     createB: string;
@@ -251,6 +279,9 @@ it('rejects hostile creation and purchase context against the actual deployment 
       chain,
       transport: http(fixture.rpcUrl),
     });
+  expect(await client.getChainId()).toBe(125);
+  expect(await wallet.getAddresses()).toEqual(fixture.accounts);
+  expect(wallet.account.address).toBe(fixture.creator);
   const scope = {
       creator: fixture.creator.toLowerCase(),
       chainId: 125,
@@ -260,7 +291,7 @@ it('rejects hostile creation and purchase context against the actual deployment 
       client as PublicClient,
       wallet as WalletClient,
       fixture.deployment,
-      () => scope,
+      () => scope
     );
   const draft: CreationDraftV2 = {
     draftId: crypto.randomUUID(),
@@ -278,9 +309,7 @@ it('rejects hostile creation and purchase context against the actual deployment 
     updatedAt: Date.now(),
     feeStrategy: 0,
   };
-  const balanceAbi = parseAbi([
-    'function balanceOf(address) view returns (uint256)',
-  ]);
+  const balanceAbi = parseAbi(['function balanceOf(address) view returns (uint256)']);
   const before = await client.readContract({
     address: fixture.deployment.usdl as Address,
     abi: balanceAbi,
@@ -288,11 +317,9 @@ it('rejects hostile creation and purchase context against the actual deployment 
     args: [fixture.creator],
   });
   const pools = await adapter.createdPools(fixture.creator);
-  await expect(adapter.resolve(fixture.createA, fixture.admin)).rejects.toThrow(
-    'scope',
-  );
+  await expect(adapter.resolve(fixture.createA, fixture.admin)).rejects.toThrow('scope');
   await expect(
-    adapter.resolve(fixture.createA, fixture.creator, undefined, draft),
+    adapter.resolve(fixture.createA, fixture.creator, undefined, draft)
   ).rejects.toThrow('reviewed draft');
   for (const fields of [
     { name: 'unsafe\u202Ename' },
@@ -301,11 +328,9 @@ it('rejects hostile creation and purchase context against the actual deployment 
     { firstBuyRaw: '1e6' },
   ]) {
     const hostile = { ...draft, ...fields };
-    expect(Object.keys(validateCreationDraft(hostile)).length).toBeGreaterThan(
-      0,
-    );
+    expect(Object.keys(validateCreationDraft(hostile)).length).toBeGreaterThan(0);
     await expect(adapter.sendCreation(hostile, scope)).rejects.toThrow(
-      'Invalid creation fields',
+      'Invalid creation fields'
     );
   }
   const encoded = adapter.calldata(draft);
@@ -319,22 +344,21 @@ it('rejects hostile creation and purchase context against the actual deployment 
     adapter.quotePurchase(recovered.poolAddress, '1000000', 100, {
       ...scope,
       creator: fixture.admin.toLowerCase(),
-    }),
+    })
   ).rejects.toThrow('Wallet changed');
   await expect(
-    adapter.verifyPurchasePool(recovered.poolAddress, fixture.admin),
+    adapter.verifyPurchasePool(recovered.poolAddress, fixture.admin)
   ).rejects.toThrow('reviewed creator');
   const old = await adapter.resolve(fixture.createA, fixture.creator);
   expect(old.state).toBe('resolved');
-  if (old.state === 'resolved')
-    expect(old.poolAddress).toBe(recovered.poolAddress);
+  if (old.state === 'resolved') expect(old.poolAddress).toBe(recovered.poolAddress);
   expect(
     await client.readContract({
       address: fixture.deployment.usdl as Address,
       abi: balanceAbi,
       functionName: 'balanceOf',
       args: [fixture.creator],
-    }),
+    })
   ).toBe(before);
   expect(await adapter.createdPools(fixture.creator)).toEqual(pools);
   const unavailable = createPublicClient({
@@ -345,11 +369,9 @@ it('rejects hostile creation and purchase context against the actual deployment 
     unavailable as PublicClient,
     wallet as WalletClient,
     fixture.deployment,
-    () => scope,
+    () => scope
   );
   await expect(offline.readFunding(draft, scope)).rejects.toThrow();
   scope.epoch++;
-  expect(() => adapter.scope({ ...scope, epoch: scope.epoch - 1 })).toThrow(
-    'Wallet changed',
-  );
+  expect(() => adapter.scope({ ...scope, epoch: scope.epoch - 1 })).toThrow('Wallet changed');
 }, 180000);

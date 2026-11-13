@@ -45,10 +45,10 @@ type DevelopmentMarketOptions struct {
 
 // developmentRankingKeys maps contract ranking categories onto the Redis
 // ZSETs core/ranking-algo writes in development mode.
-var developmentRankingKeys = map[string]string{"trending": "trending", "breakout": "breakout", "volume": "top_volume", "movers": "movers", "unusual": "unusual", "new": "new"}
+var developmentRankingKeys = map[string]string{literalTrending: literalTrending, literalBreakout: literalBreakout, literalVolume: "top_volume", literalMovers: literalMovers, literalUnusual: literalUnusual, literalNew: literalNew}
 
 // developmentPoolListKeys maps the pool list sort onto the same ZSETs.
-var developmentPoolListKeys = map[string]string{"new": "new", "volume": "top_volume", "trending": "trending"}
+var developmentPoolListKeys = map[string]string{literalNew: literalNew, literalVolume: "top_volume", literalTrending: literalTrending}
 
 const (
 	developmentRankingModel      = "ranking-algo-dev-zset-v1"
@@ -98,7 +98,8 @@ func RegisterDevelopmentMarketReads(ctx context.Context, r chi.Router, o Develop
 			}
 			if chain.client != nil {
 				if err := chain.checkChain(req.Context()); err != nil {
-					WriteV2APIError(w, req, 503, "DEPENDENCY_UNAVAILABLE")
+					noteDevelopmentReadError(req, err)
+					WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 					return
 				}
 			}
@@ -108,7 +109,7 @@ func RegisterDevelopmentMarketReads(ctx context.Context, r chi.Router, o Develop
 		if o.Admission != nil {
 			handler = o.Admission.Middleware(class)(h)
 		}
-		r.Method(method, path, ResponseMetadata(handler))
+		r.Method(method, path, ResponseMetadata(logDevelopmentReadFailures(path, handler)))
 	}
 	register("GET", "/v2/pools", AdmissionAggregate, d.poolList)
 	register("GET", "/v2/pools/{poolAddress}", AdmissionCached, d.poolDetail)
@@ -130,9 +131,9 @@ func writeMarketEnvelope(w http.ResponseWriter, r *http.Request, name string, da
 	if wm != nil {
 		watermark, revision = *wm, wm.ProjectionRevision
 	}
-	body, err := json.Marshal(map[string]any{"requestId": responseRequestID(w), "data": data, "revision": revision, "watermark": watermark, "quality": quality, "nextCursor": next, "generatedAt": time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
+	body, err := json.Marshal(map[string]any{literalRequestId: responseRequestID(w), literalData: data, literalRevision: revision, literalWatermark: watermark, literalQuality: quality, literalNextCursor: next, literalGeneratedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z")})
 	if err != nil || len(body) > store.PublicJSONMaxBytes || interfaces.ValidateJSON(name, body) != nil {
-		WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -177,14 +178,14 @@ func developmentPoolDocument(row store.DevelopmentPool, created accounting.Sourc
 		return nil, store.ErrDataIntegrity
 	}
 	return map[string]any{
-		"chainId":                        "125",
-		"poolAddress":                    row.Pool,
-		"tokenAddress":                   row.Token,
-		"creator":                        row.Creator,
+		literalChainId:                   "125",
+		literalPoolAddress:               row.Pool,
+		literalTokenAddress:              row.Token,
+		literalCreator:                   row.Creator,
 		"createdPosition":                chainPosition(created),
-		"createdAt":                      time.Unix(row.CreatedAt, 0).UTC().Format("2006-01-02T15:04:05.000Z"),
+		literalCreatedAt:                 time.Unix(row.CreatedAt, 0).UTC().Format("2006-01-02T15:04:05.000Z"),
 		"virtualUsdlReserveRaw":          string(row.Reserves.VirtualUsdl),
-		"realUsdlBalanceRaw":             string(row.Reserves.RealUsdl),
+		literalRealUsdlBalanceRaw:        string(row.Reserves.RealUsdl),
 		"effectivePricingUsdlReserveRaw": effective.String(),
 		"tokenReserveRaw":                string(row.Reserves.Token),
 		"quoteAssetAddress":              strings.ToLower(profile.USDLAddress),
@@ -209,7 +210,7 @@ func developmentPoolStats(row store.DevelopmentPool, raw json.RawMessage, upper 
 	}
 	windowEnd := legacy.UpdatedAt
 	var change any
-	baseline := "unavailable"
+	baseline := literalUnavailable
 	if signedIntegerPattern.MatchString(legacy.PriceChange24h) {
 		change = legacy.PriceChange24h
 		baseline = "insufficient_history"
@@ -219,21 +220,21 @@ func developmentPoolStats(row store.DevelopmentPool, raw json.RawMessage, upper 
 	}
 	format := func(seconds int64) string { return time.Unix(seconds, 0).UTC().Format("2006-01-02T15:04:05.000Z") }
 	return map[string]any{
-		"poolAddress":                 row.Pool,
+		literalPoolAddress:            row.Pool,
 		"volume24hRaw":                legacy.Volume24h,
 		"buys24h":                     strconv.Itoa(legacy.BuyCount24h),
 		"sells24h":                    strconv.Itoa(legacy.SellCount24h),
 		"holderCount":                 strconv.Itoa(legacy.HolderCount),
-		"realUsdlBalanceRaw":          string(row.Reserves.RealUsdl),
+		literalRealUsdlBalanceRaw:     string(row.Reserves.RealUsdl),
 		"indicativeTvlUsdlRaw":        nil,
 		"valuationMethod":             nil,
 		"windowStart":                 format(windowEnd - developmentStatsWindowSecond),
 		"windowEnd":                   format(windowEnd),
 		"sourceUpperPosition":         chainPosition(upper),
-		"watermark":                   wm,
+		literalWatermark:              wm,
 		"totalSupplyValuationUsdlRaw": nil,
 		"circulatingMarketCapUsdlRaw": nil,
-		"supplyValuationQuality":      "unavailable",
+		"supplyValuationQuality":      literalUnavailable,
 		"priceChangeBps24h":           change,
 		"valuationChangeUsdlRaw":      nil,
 		"changeBaselineQuality":       baseline,
@@ -312,34 +313,37 @@ func (d *developmentMarket) stats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(r.URL.Query()) != 0 {
-		WriteV2APIError(w, r, 400, "QUERY_INVALID")
+		WriteV2APIError(w, r, 400, literalQUERYINVALID)
 		return
 	}
 	in, err := d.readStatsInputs(r.Context(), []string{pool})
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
 	if _, known := in.rows[pool]; !known {
-		WriteV2APIError(w, r, 404, "NOT_FOUND")
+		WriteV2APIError(w, r, 404, literalNOTFOUND)
 		return
 	}
 	wm, err := d.requiredWatermark(r.Context(), in.head, in.headErr)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writeComputedReadError(w, r, err)
 		return
 	}
 	docs, err := d.statsDocuments(r.Context(), in, []string{pool}, wm)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
 	doc, found := docs[pool]
 	if !found {
-		WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 		return
 	}
-	writeMarketEnvelope(w, r, "StatsResponse", map[string]any{"stats": doc}, &wm, "partial", nil)
+	writeMarketEnvelope(w, r, "StatsResponse", map[string]any{literalStats: doc}, &wm, literalPartial, nil)
 }
 
 func (d *developmentMarket) statsBatch(w http.ResponseWriter, r *http.Request) {
@@ -349,6 +353,7 @@ func (d *developmentMarket) statsBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	in, err := d.readStatsInputs(r.Context(), pools)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
@@ -362,6 +367,7 @@ func (d *developmentMarket) statsBatch(w http.ResponseWriter, r *http.Request) {
 		}
 		wm = &required
 		if docs, err = d.statsDocuments(r.Context(), in, pools, required); err != nil {
+			noteDevelopmentReadError(r, err)
 			writePoolReadError(w, r, err)
 			return
 		}
@@ -377,7 +383,7 @@ func (d *developmentMarket) statsBatch(w http.ResponseWriter, r *http.Request) {
 			missing = append(missing, pool)
 		}
 	}
-	writeMarketEnvelope(w, r, "StatsBatchResponse", map[string]any{"items": items, "missing": missing}, wm, "partial", nil)
+	writeMarketEnvelope(w, r, "StatsBatchResponse", map[string]any{literalItems: items, "missing": missing}, wm, literalPartial, nil)
 }
 
 func (d *developmentMarket) poolDetail(w http.ResponseWriter, r *http.Request) {
@@ -386,49 +392,58 @@ func (d *developmentMarket) poolDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(r.URL.Query()) != 0 {
-		WriteV2APIError(w, r, 400, "QUERY_INVALID")
+		WriteV2APIError(w, r, 400, literalQUERYINVALID)
 		return
 	}
 	in, err := d.readStatsInputs(r.Context(), []string{pool})
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
 	row, known := in.rows[pool]
 	if !known {
-		WriteV2APIError(w, r, 404, "NOT_FOUND")
+		WriteV2APIError(w, r, 404, literalNOTFOUND)
 		return
 	}
 	if _, hasStats := in.stats[pool]; !hasStats || row.Reserves == nil || row.FeeBps == nil {
-		WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 		return
 	}
 	wm, err := d.requiredWatermark(r.Context(), in.head, in.headErr)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writeComputedReadError(w, r, err)
 		return
 	}
 	created, found := d.chain.creationPositions(r.Context(), []store.DevelopmentPool{row})[pool]
 	if !found {
-		WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 		return
 	}
 	poolDoc, err := developmentPoolDocument(row, created)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
 	stats, err := d.statsDocuments(r.Context(), in, []string{pool}, wm)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
 	if stats[pool] == nil {
-		WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+		WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 		return
 	}
-	token := tokenDocument(store.PoolRegistryRow{Token: row.Token})
-	writeMarketEnvelope(w, r, "PoolDetailResponse", map[string]any{"pool": poolDoc, "token": token, "stats": stats[pool]}, &wm, "partial", nil)
+	token, err := d.chain.tokenDocument(r.Context(), row.Token, wm)
+	if err != nil {
+		noteDevelopmentReadError(r, err)
+		writePoolReadError(w, r, err)
+		return
+	}
+	writeMarketEnvelope(w, r, "PoolDetailResponse", map[string]any{literalPool: poolDoc, literalToken: token, literalStats: stats[pool]}, &wm, literalPartial, nil)
 }
 
 func developmentSnapshotID(namespace uuid.UUID, parts ...string) string {
@@ -446,6 +461,7 @@ func (d *developmentMarket) poolList(w http.ResponseWriter, r *http.Request) {
 	}
 	members, _, err := d.st.RankingMembers(r.Context(), developmentPoolListKeys[request.sort], developmentPoolListMax)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		WriteReadError(w, r, err)
 		return
 	}
@@ -458,7 +474,7 @@ func (d *developmentMarket) poolList(w http.ResponseWriter, r *http.Request) {
 	if request.hasCursor {
 		cursor, cursorErr := decodePoolListCursor(request.cursor)
 		if cursorErr != nil {
-			WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, r, 400, literalCURSORINVALID)
 			return
 		}
 		if cursor.SnapshotID != snapshotID {
@@ -466,7 +482,7 @@ func (d *developmentMarket) poolList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if cursor.Offset > len(members) {
-			WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, r, 400, literalCURSORINVALID)
 			return
 		}
 		offset = cursor.Offset
@@ -482,6 +498,7 @@ func (d *developmentMarket) poolList(w http.ResponseWriter, r *http.Request) {
 	rows := map[string]store.DevelopmentPool{}
 	if len(page) > 0 {
 		if rows, err = d.st.DevelopmentPools(r.Context(), page); err != nil {
+			noteDevelopmentReadError(r, err)
 			writePoolReadError(w, r, err)
 			return
 		}
@@ -491,7 +508,7 @@ func (d *developmentMarket) poolList(w http.ResponseWriter, r *http.Request) {
 	for _, pool := range page {
 		row, found := rows[pool]
 		if !found || row.Reserves == nil || row.FeeBps == nil {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		pending = append(pending, row)
@@ -501,7 +518,7 @@ func (d *developmentMarket) poolList(w http.ResponseWriter, r *http.Request) {
 	for _, row := range pending {
 		position, found := created[row.Pool]
 		if !found {
-			WriteV2APIError(w, r, 503, "DEPENDENCY_UNAVAILABLE")
+			WriteV2APIError(w, r, 503, literalDEPENDENCYUNAVAILABLE)
 			return
 		}
 		doc, docErr := developmentPoolDocument(row, position)
@@ -515,7 +532,7 @@ func (d *developmentMarket) poolList(w http.ResponseWriter, r *http.Request) {
 	if end < len(members) {
 		next = encodePoolListCursor(poolListCursor{SnapshotID: snapshotID, Offset: end})
 	}
-	writeMarketEnvelope(w, r, "PoolListResponse", map[string]any{"items": items}, d.optionalWatermark(r.Context(), head, headErr), "partial", next)
+	writeMarketEnvelope(w, r, "PoolListResponse", map[string]any{literalItems: items}, d.optionalWatermark(r.Context(), head, headErr), literalPartial, next)
 }
 
 // developmentScore renders a ranking score in the contract decimal form.
@@ -536,6 +553,7 @@ func (d *developmentMarket) rankings(w http.ResponseWriter, r *http.Request) {
 	if key, zset := developmentRankingKeys[category]; zset {
 		members, card, err := d.st.RankingMembers(r.Context(), key, developmentRankingMax)
 		if err != nil {
+			noteDevelopmentReadError(r, err)
 			WriteReadError(w, r, err)
 			return
 		}
@@ -546,6 +564,7 @@ func (d *developmentMarket) rankings(w http.ResponseWriter, r *http.Request) {
 	} else {
 		movers, count, err := d.st.DevelopmentPriceMovers(r.Context(), category == "gainers", developmentRankingMax)
 		if err != nil {
+			noteDevelopmentReadError(r, err)
 			WriteReadError(w, r, err)
 			return
 		}
@@ -557,6 +576,7 @@ func (d *developmentMarket) rankings(w http.ResponseWriter, r *http.Request) {
 	head, headErr := d.st.DevelopmentIndexerHead(r.Context())
 	wm, err := d.requiredWatermark(r.Context(), head, headErr)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writeComputedReadError(w, r, err)
 		return
 	}
@@ -568,24 +588,24 @@ func (d *developmentMarket) rankings(w http.ResponseWriter, r *http.Request) {
 	}
 	for i, e := range entries {
 		parts = append(parts, e.pool+":"+e.score)
-		items = append(items, map[string]any{"poolAddress": e.pool, "category": category, "rank": i + 1, "score": e.score, "modelVersion": model, "computedAt": computedAt})
+		items = append(items, map[string]any{literalPoolAddress: e.pool, literalCategory: category, "rank": i + 1, "score": e.score, "modelVersion": model, "computedAt": computedAt})
 	}
 	if total < int64(len(items)) {
-		WriteV2APIError(w, r, 503, "INTEGRITY_QUARANTINED")
+		WriteV2APIError(w, r, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
 	snapshot := map[string]any{
-		"snapshotId":    developmentSnapshotID(developmentRankingNamespace, parts...),
-		"category":      category,
-		"modelVersion":  model,
-		"computedAt":    computedAt,
-		"watermark":     wm,
-		"items":         items,
-		"totalEligible": strconv.FormatInt(total, 10),
-		"truncated":     total > int64(len(items)),
-		"replace":       true,
+		literalSnapshotId: developmentSnapshotID(developmentRankingNamespace, parts...),
+		literalCategory:   category,
+		"modelVersion":    model,
+		"computedAt":      computedAt,
+		literalWatermark:  wm,
+		literalItems:      items,
+		"totalEligible":   strconv.FormatInt(total, 10),
+		"truncated":       total > int64(len(items)),
+		"replace":         true,
 	}
-	writeMarketEnvelope(w, r, "RankingsResponse", map[string]any{"snapshot": snapshot}, &wm, "partial", nil)
+	writeMarketEnvelope(w, r, "RankingsResponse", map[string]any{literalSnapshot: snapshot}, &wm, literalPartial, nil)
 }
 
 func (d *developmentMarket) leaderboard(ctx context.Context, category, window string, windowEnd int64) (*store.LeaderboardSnapshot, error) {
@@ -656,23 +676,25 @@ func (d *developmentMarket) holders(w http.ResponseWriter, r *http.Request) {
 	if request.hasCursor {
 		var err error
 		if after, err = decodeHoldersCursor(request.cursor, request.pool); err != nil {
-			WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+			WriteV2APIError(w, r, 400, literalCURSORINVALID)
 			return
 		}
 	}
 	rows, err := d.st.DevelopmentPools(r.Context(), []string{request.pool})
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
 	row, known := rows[request.pool]
 	if !known {
-		WriteV2APIError(w, r, 404, "NOT_FOUND")
+		WriteV2APIError(w, r, 404, literalNOTFOUND)
 		return
 	}
 	excluded := []string{request.pool}
 	holders, err := d.st.DevelopmentHolders(r.Context(), request.pool, excluded, after.Balance, after.Wallet, request.limit+1)
 	if err != nil {
+		noteDevelopmentReadError(r, err)
 		writePoolReadError(w, r, err)
 		return
 	}
@@ -685,9 +707,9 @@ func (d *developmentMarket) holders(w http.ResponseWriter, r *http.Request) {
 	}
 	items := make([]map[string]any, 0, len(holders))
 	for _, h := range holders {
-		items = append(items, map[string]any{"wallet": h.Wallet, "tokenAddress": row.Token, "balanceRaw": string(h.Balance), "share": nil})
+		items = append(items, map[string]any{"wallet": h.Wallet, literalTokenAddress: row.Token, "balanceRaw": string(h.Balance), "share": nil})
 	}
 	sort.Strings(excluded)
-	data := map[string]any{"items": items, "coverage": "partial", "fromPosition": nil, "toPosition": nil, "exclusionPolicyVersion": developmentHolderPolicy, "excludedProtocolAddresses": excluded}
-	writeMarketEnvelope(w, r, "HoldersResponse", data, d.optionalWatermark(r.Context(), head, headErr), "partial", next)
+	data := map[string]any{literalItems: items, "coverage": literalPartial, "fromPosition": nil, "toPosition": nil, "exclusionPolicyVersion": developmentHolderPolicy, "excludedProtocolAddresses": excluded}
+	writeMarketEnvelope(w, r, "HoldersResponse", data, d.optionalWatermark(r.Context(), head, headErr), literalPartial, next)
 }

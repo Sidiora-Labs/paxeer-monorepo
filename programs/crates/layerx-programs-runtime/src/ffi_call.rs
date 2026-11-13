@@ -1,8 +1,9 @@
 //! Scalar-only C ingress for one real Programs CALL activity.
 
+use crate::call_occupancy::{settle_call_occupancy, CallOccupancySettlement};
 use crate::occupancy::{
     OccupancyAuthority, OccupancyDebitAuthority, OccupancyError, OccupancyLedger, OccupancyUsage,
-    MAX_OCCUPANCY_EVIDENCE_BYTES, MAX_OCCUPANCY_LEDGER_BYTES, MAX_OCCUPANCY_POSITIONS,
+    MAX_OCCUPANCY_LEDGER_BYTES, MAX_OCCUPANCY_POSITIONS,
 };
 use crate::validate::AbiRevision;
 use crate::{
@@ -358,6 +359,7 @@ pub unsafe extern "C" fn layerx_programs_schedule_plan(
 
 const OK: i32 = 0;
 const NON_CANONICAL: i32 = -3;
+const UNAUTHORIZED_DEBIT: i32 = -207;
 const UNKNOWN_FIELD: i32 = -7;
 const MARKET_HALTED: i32 = -703;
 const LENGTH_LIMIT: i32 = -5;
@@ -440,8 +442,8 @@ impl ProgramResolver for CachedProgramResolver {
                 self.token,
                 program.bytes().as_ptr(),
                 hash.as_ptr(),
-                &mut wasm,
-                &mut length,
+                &raw mut wasm,
+                &raw mut length,
             )
         } != OK
             || unsafe {
@@ -1614,6 +1616,18 @@ impl ReceiptOracle for CReceiptOracle {
 }
 
 unsafe extern "C" {
+    fn layerx_programs_call_destination_name_byte(
+        token: u64,
+        t0: u64,
+        t1: u64,
+        t2: u64,
+        t3: u64,
+        a0: u64,
+        a1: u64,
+        a2: u64,
+        a3: u64,
+        offset: u32,
+    ) -> i32;
     fn layerx_programs_call_payment_name_byte(
         token: u64,
         a0: u64,
@@ -1626,7 +1640,33 @@ unsafe extern "C" {
 
 fn bind_payment_accounts(token: u64, set: &mut AtomicTransferSet) -> Result<(), i32> {
     let mut names = Vec::with_capacity(set.legs().len());
+    let mut destination_names = Vec::with_capacity(set.legs().len());
     for leg in set.legs() {
+        let destination = words(leg.to);
+        let asset = words(leg.asset);
+        let read_destination = |offset| unsafe {
+            layerx_programs_call_destination_name_byte(
+                token,
+                destination[0],
+                destination[1],
+                destination[2],
+                destination[3],
+                asset[0],
+                asset[1],
+                asset[2],
+                asset[3],
+                offset,
+            )
+        };
+        let length = read_destination(u32::MAX);
+        if length < 0 {
+            return Err(length);
+        }
+        let length = usize::try_from(length).map_err(|_| LENGTH_LIMIT)?;
+        if length > 512 {
+            return Err(NON_CANONICAL);
+        }
+        destination_names.push(scalar_bytes(length, read_destination)?);
         if matches!(leg.source, TransferSource::Program(_)) {
             names.push(Vec::new());
             continue;
@@ -1655,7 +1695,8 @@ fn bind_payment_accounts(token: u64, set: &mut AtomicTransferSet) -> Result<(), 
             },
         )?);
     }
-    set.bind_account_names(&names).map_err(|_| NON_CANONICAL)
+    set.bind_account_names(&names, &destination_names)
+        .map_err(|_| NON_CANONICAL)
 }
 
 fn submit_kernel_transfer_leg(
@@ -2261,138 +2302,6 @@ impl OccupancyDebitAuthority for NativeOccupancyDebits {
             code => Err(OccupancyError::DebitAuthorityRefused(code)),
         }
     }
-}
-
-struct CallOccupancySettlement<'a> {
-    batch: u64,
-    authority: OccupancyAuthority,
-    schedule: crate::FeeSchedule,
-    initial_sizes: &'a BTreeMap<StorageNamespace, u64>,
-    program_owners: &'a BTreeMap<ProgramId, PrincipalId>,
-    storage: &'a Storage,
-    ledger: &'a mut OccupancyLedger,
-}
-
-fn occupancy_responsibilities(
-    eligible: Vec<(StorageNamespace, u64)>,
-    authority: OccupancyAuthority,
-    schedule: crate::FeeSchedule,
-) -> Result<Vec<crate::occupancy::OccupancyResponsibility>, i32> {
-    let mut responsibilities = Vec::new();
-    let price = schedule.occupancy_byte_batch_price();
-    if price == 0 {
-        return Err(NON_CANONICAL);
-    }
-    let minimum_total = eligible
-        .iter()
-        .try_fold(0u128, |total, (_, bytes)| {
-            total.checked_add(u128::from(*bytes).checked_mul(u128::from(price))?)
-        })
-        .ok_or(-500)?;
-    if minimum_total > authority.fee_ceiling() {
-        return Err(NON_CANONICAL);
-    }
-    let share_count = u128::try_from(eligible.len()).map_err(|_| LENGTH_LIMIT)?;
-    let surplus = authority
-        .fee_ceiling()
-        .checked_sub(minimum_total)
-        .ok_or(-500)?;
-    let equal_share = if share_count == 0 {
-        0
-    } else {
-        surplus / share_count
-    };
-    let mut remainder = if share_count == 0 {
-        0
-    } else {
-        surplus % share_count
-    };
-    for (namespace, bytes) in eligible {
-        let minimum = u128::from(bytes)
-            .checked_mul(u128::from(price))
-            .ok_or(-500)?;
-        let charge_ceiling = minimum
-            .checked_add(equal_share)
-            .and_then(|value| value.checked_add(u128::from(remainder != 0)))
-            .ok_or(-500)?;
-        if remainder != 0 {
-            remainder = remainder.checked_sub(1).ok_or(-500)?;
-        }
-        let maximum_bytes = u64::try_from(charge_ceiling / u128::from(price))
-            .map_err(|_| LENGTH_LIMIT)?
-            .max(bytes);
-        let responsibility = authority
-            .authorize(namespace, maximum_bytes, charge_ceiling)
-            .map_err(|_| NON_CANONICAL)?;
-        responsibilities.push(responsibility);
-    }
-    Ok(responsibilities)
-}
-
-fn settle_call_occupancy(
-    request: CallOccupancySettlement<'_>,
-) -> Result<crate::OccupancySettlement, i32> {
-    let CallOccupancySettlement {
-        batch,
-        authority,
-        schedule,
-        initial_sizes,
-        program_owners,
-        storage,
-        ledger,
-    } = request;
-    let sizes: BTreeMap<_, _> = storage
-        .namespace_sizes()
-        .map_err(|_| NON_CANONICAL)?
-        .into_iter()
-        .collect();
-    let changed: BTreeSet<_> = initial_sizes
-        .keys()
-        .chain(sizes.keys())
-        .copied()
-        .filter(|namespace| {
-            initial_sizes.get(namespace) != sizes.get(namespace)
-                || (ledger.requires_migration(*namespace) && storage.was_accessed(*namespace))
-        })
-        .collect();
-    let mut eligible = Vec::new();
-    for namespace in changed {
-        let final_bytes = sizes.get(&namespace).copied().unwrap_or(0);
-        if final_bytes == 0 {
-            continue;
-        }
-        if ledger.requires_migration(namespace) && namespace.program() != authority.root_program() {
-            continue;
-        }
-        let authorized_payer = match namespace.principal_scope() {
-            Some(principal) => principal,
-            None => *program_owners
-                .get(&namespace.program())
-                .ok_or(NON_CANONICAL)?,
-        };
-        if authorized_payer != authority.payer() {
-            continue;
-        }
-        match ledger.responsibility_limits(namespace) {
-            Some((payer, _))
-                if payer != authority.payer() && !ledger.requires_migration(namespace) => {}
-            Some((_, maximum_bytes))
-                if final_bytes <= maximum_bytes && !ledger.requires_migration(namespace) => {}
-            _ => eligible.push((namespace, final_bytes)),
-        }
-    }
-    let responsibilities = occupancy_responsibilities(eligible, authority, schedule)?;
-    let prepared = ledger
-        .prepare_batch(batch, storage, responsibilities, schedule)
-        .map_err(|_| NON_CANONICAL)?;
-    let settlement = prepared.settlement().clone();
-    let committed = ledger
-        .commit_after_debits(prepared, storage)
-        .map_err(|_| NON_CANONICAL)?;
-    if committed != settlement {
-        return Err(FATAL_INVARIANT);
-    }
-    Ok(settlement)
 }
 
 fn wrap_reserved_evidence(
@@ -3030,7 +2939,11 @@ pub extern "C" fn layerx_programs_call_begin(
                                 return terminal(TerminalPublication {
                                     token,
                                     kind: FAILURE,
-                                    result: PROGRAM_REFUSED,
+                                    result: if status == UNAUTHORIZED_DEBIT {
+                                        status
+                                    } else {
+                                        PROGRAM_REFUSED
+                                    },
                                     runtime: record.execution().runtime_version(),
                                     abi: abi_version,
                                     schedule: fee_schedule_version,
@@ -3258,7 +3171,7 @@ pub extern "C" fn layerx_programs_call_begin(
                             settlement.transfer_root,
                         )?;
                     }
-                    record_call_event_logs(token, program, &effects)?;
+                    record_call_event_logs(token, program, effects)?;
                     return terminal(TerminalPublication {
                         token,
                         kind: SUCCESS,
@@ -3973,11 +3886,8 @@ mod occupancy_cases {
     }
 
     impl MarketBillingOccupancy {
-        fn new() -> Self {
-            let program = ProgramId::new([0x71; 32]).unwrap_or_else(|error| panic!("{error}"));
-            let provider = PrincipalId::new([2; 32]).unwrap_or_else(|error| panic!("{error}"));
-            let namespace = StorageNamespace::shared(program);
-            let profile = MarketSandboxProfile {
+        fn profile(program: ProgramId, provider: PrincipalId) -> MarketSandboxProfile {
+            MarketSandboxProfile {
                 network_id: 7,
                 market_program: program.bytes(),
                 sandbox_program: [0x77; 32],
@@ -4025,15 +3935,37 @@ mod occupancy_cases {
                 response_deadline: 21,
                 maximum_boundaries: 128,
                 maximum_bytes: 1_048_576,
-            };
-            let mut profile_bytes = [0; MARKET_SANDBOX_PROFILE_CAPACITY];
-            let profile_length = profile
-                .encode(&mut profile_bytes)
-                .unwrap_or_else(|error| panic!("profile: {error:?}"));
-            let billing = MarketBillingCommitment {
+            }
+        }
+
+        fn claim(profile: &MarketSandboxProfile, billing: &MarketBillingCommitment) -> Vec<u8> {
+            let mut claim = vec![1, 1];
+            for value in [
+                profile.claim_id,
+                profile.lease_id,
+                profile.provider,
+                profile.attested_input_commitment,
+                billing.output_digest,
+                billing.final_execution_state_root,
+            ] {
+                claim.extend_from_slice(&value);
+            }
+            for value in billing.usage {
+                claim.extend_from_slice(&value.to_be_bytes());
+            }
+            claim.extend_from_slice(&billing.payable.to_be_bytes());
+            claim.extend_from_slice(&billing.challenger_stake.to_be_bytes());
+            claim.extend_from_slice(&11_u64.to_be_bytes());
+            claim.extend_from_slice(&profile.response_deadline.to_be_bytes());
+            assert_eq!(claim.len(), 290);
+            claim
+        }
+
+        fn billing(profile_bytes: &[u8]) -> MarketBillingCommitment {
+            MarketBillingCommitment {
                 profile_digest: {
                     use sha2::Digest;
-                    sha2::Sha256::digest(&profile_bytes[..profile_length]).into()
+                    sha2::Sha256::digest(profile_bytes).into()
                 },
                 provider_trace_root: [13; 32],
                 final_execution_state_root: [14; 32],
@@ -4043,7 +3975,19 @@ mod occupancy_cases {
                 challenger_stake: 1,
                 challenge_window_batches: 10,
                 boundary_count: 4,
-            };
+            }
+        }
+
+        fn new() -> Self {
+            let program = ProgramId::new([0x71; 32]).unwrap_or_else(|error| panic!("{error}"));
+            let provider = PrincipalId::new([2; 32]).unwrap_or_else(|error| panic!("{error}"));
+            let namespace = StorageNamespace::shared(program);
+            let profile = Self::profile(program, provider);
+            let mut profile_bytes = [0; MARKET_SANDBOX_PROFILE_CAPACITY];
+            let profile_length = profile
+                .encode(&mut profile_bytes)
+                .unwrap_or_else(|error| panic!("profile: {error:?}"));
+            let billing = Self::billing(&profile_bytes[..profile_length]);
             let mut billing_bytes = [0; MARKET_SANDBOX_BILLING_CAPACITY];
             let billing_length = billing
                 .encode(&mut billing_bytes)
@@ -4065,7 +4009,7 @@ mod occupancy_cases {
                     &profile_bytes[..profile_length],
                 )
                 .unwrap_or_else(|error| panic!("profile write: {error}"));
-            transaction.commit();
+            let _ = transaction.commit();
             let initial_sizes = storage
                 .namespace_sizes()
                 .unwrap_or_else(|error| panic!("initial sizes: {error}"))
@@ -4077,25 +4021,7 @@ mod occupancy_cases {
                 .import_activation_positions(&storage, &owners)
                 .unwrap_or_else(|error| panic!("activation: {error}"));
 
-            let mut claim = vec![1, 1];
-            for value in [
-                profile.claim_id,
-                profile.lease_id,
-                profile.provider,
-                profile.attested_input_commitment,
-                billing.output_digest,
-                billing.final_execution_state_root,
-            ] {
-                claim.extend_from_slice(&value);
-            }
-            for value in billing.usage {
-                claim.extend_from_slice(&value.to_be_bytes());
-            }
-            claim.extend_from_slice(&billing.payable.to_be_bytes());
-            claim.extend_from_slice(&billing.challenger_stake.to_be_bytes());
-            claim.extend_from_slice(&11_u64.to_be_bytes());
-            claim.extend_from_slice(&profile.response_deadline.to_be_bytes());
-            assert_eq!(claim.len(), 290);
+            let claim = Self::claim(&profile, &billing);
             let mut transaction = storage.transaction(namespace);
             for (key, value) in [
                 (key(b"lx.market.claim/", profile.lease_id), claim.as_slice()),
@@ -4112,7 +4038,7 @@ mod occupancy_cases {
                     .write(&key, value)
                     .unwrap_or_else(|error| panic!("billing write: {error}"));
             }
-            transaction.commit();
+            let _ = transaction.commit();
             let schedule = crate::FeeSchedule::new_complete(crate::FeeScheduleParameters {
                 version: 1,
                 fee_units_per_cpu_fuel: 1,
@@ -4403,39 +4329,51 @@ pub enum NativeReceiptAuthority {
 }
 
 impl RawNativeReceiptAuthorityV2 {
+    #[must_use]
     pub const fn version(&self) -> u16 {
         self.version
     }
+    #[must_use]
     pub const fn network_id(&self) -> u32 {
         self.network_id
     }
+    #[must_use]
     pub const fn protocol_version(&self) -> u16 {
         self.protocol_version
     }
+    #[must_use]
     pub const fn module_id(&self) -> u16 {
         self.module_id
     }
+    #[must_use]
     pub const fn operation(&self) -> u8 {
         self.operation
     }
+    #[must_use]
     pub const fn result_code(&self) -> i32 {
         self.result_code
     }
+    #[must_use]
     pub const fn block_height(&self) -> u64 {
         self.block_height
     }
+    #[must_use]
     pub const fn receipt_digest(&self) -> [u8; 32] {
         self.receipt_digest
     }
+    #[must_use]
     pub const fn activity_id(&self) -> [u8; 32] {
         self.activity_id
     }
+    #[must_use]
     pub const fn previous_state_root(&self) -> [u8; 32] {
         self.previous_state_root
     }
+    #[must_use]
     pub const fn resulting_state_root(&self) -> [u8; 32] {
         self.resulting_state_root
     }
+    #[must_use]
     pub const fn canonical_bytes(&self) -> &[u8; RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES] {
         &self.canonical_bytes
     }
@@ -4515,6 +4453,10 @@ extern "C" {
 ///
 /// # Safety
 /// The token must name a live, exclusively accessed native Programs CALL frame for the entire read.
+///
+/// # Errors
+/// Returns the native host refusal or an error for malformed or unsupported
+/// authority bytes, or a receipt digest or block height mismatch.
 pub unsafe fn read_native_receipt_authority(
     token: u64,
     digest: [u8; 32],
@@ -4533,16 +4475,17 @@ pub unsafe fn read_native_receipt_authority(
         _ => return Err(NON_CANONICAL),
     }
     let mut bytes = [0; RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES];
-    for (offset, byte) in bytes[..2].iter_mut().enumerate() {
-        let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset as u32) };
+    for (offset, byte) in (0_u32..).zip(&mut bytes[..2]) {
+        let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset) };
         *byte = u8::try_from(value).map_err(|_| if value < 0 { value } else { NON_CANONICAL })?;
     }
     let length = native_receipt_authority_length(u16::from_be_bytes([bytes[0], bytes[1]]))?;
-    for (offset, byte) in bytes[..length].iter_mut().enumerate().skip(2) {
-        let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset as u32) };
+    for (offset, byte) in (0_u32..).zip(&mut bytes[..length]).skip(2) {
+        let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset) };
         *byte = u8::try_from(value).map_err(|_| if value < 0 { value } else { NON_CANONICAL })?;
     }
-    let end = unsafe { layerx_programs_call_arbiter_authority_byte(token, length as u32) };
+    let length_u32 = u32::try_from(length).map_err(|_| NON_CANONICAL)?;
+    let end = unsafe { layerx_programs_call_arbiter_authority_byte(token, length_u32) };
     match end {
         -1 => {}
         status if status < 0 => return Err(status),

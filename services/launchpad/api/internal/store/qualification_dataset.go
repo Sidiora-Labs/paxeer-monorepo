@@ -86,9 +86,9 @@ func (s *AccountingReadModel) MeasureRESTDataset(ctx context.Context, hotPool st
 		args      []any
 	}{
 		{"trade-tail", "SELECT fill,source_fact_digest,sequence FROM " + view + " WHERE pool=$1 AND projection_version=$2 AND sequence<$3 ORDER BY sequence DESC LIMIT 51", []any{hotPool, s.config.ProjectionVersion, out.LastPageAfter}},
-		{"holders", "SELECT holder_address,balance,pct_of_supply,last_updated FROM stats.pool_holders WHERE pool_address=$1 ORDER BY balance::numeric DESC LIMIT 10", []any{hotPool}},
-		{"rankings", "SELECT topic,sequence::text,frame FROM " + pgx.Identifier{s.config.StreamSchema, "stream_projection"}.Sanitize() + " WHERE topic=$1", []any{"market.rankings.trending"}},
-		{"token-snapshot", "SELECT topic,sequence::text,frame FROM " + pgx.Identifier{s.config.StreamSchema, "stream_projection"}.Sanitize() + " WHERE topic=$1", []any{"market.stats." + hotPool}},
+		{literalHolders, "SELECT holder_address,balance,pct_of_supply,last_updated FROM stats.pool_holders WHERE pool_address=$1 ORDER BY balance::numeric DESC LIMIT 10", []any{hotPool}},
+		{"rankings", "SELECT topic,sequence::text,frame FROM " + pgx.Identifier{s.config.StreamSchema, literalStreamProjection}.Sanitize() + " WHERE topic=$1", []any{"market.rankings.trending"}},
+		{"token-snapshot", "SELECT topic,sequence::text,frame FROM " + pgx.Identifier{s.config.StreamSchema, literalStreamProjection}.Sanitize() + " WHERE topic=$1", []any{"market.stats." + hotPool}},
 	}
 	for _, query := range queries {
 		var raw []byte

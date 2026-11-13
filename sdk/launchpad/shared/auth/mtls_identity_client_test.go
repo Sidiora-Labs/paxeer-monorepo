@@ -20,6 +20,12 @@ import (
 
 func TestDecodeIdentitySigningKeyForms(t *testing.T) {
 	key := testpki.Ed25519(t)
+	for draws := 1; draws < 64 && !strings.ContainsAny(key.StdBase64, "+/"); draws++ {
+		key = testpki.Ed25519(t)
+	}
+	if !strings.ContainsAny(key.StdBase64, "+/") {
+		t.Fatal("no signing key with a plus sign or slash in standard base64 after 64 draws")
+	}
 	for _, encoded := range []string{key.StdBase64, base64.RawURLEncoding.EncodeToString(key.Private), " " + key.StdBase64 + "\n"} {
 		decoded, err := auth.DecodeIdentitySigningKey(encoded)
 		if err != nil || !bytes.Equal(decoded, key.Private) {

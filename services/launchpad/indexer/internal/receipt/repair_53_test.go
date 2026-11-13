@@ -109,10 +109,14 @@ func repair53AssertManifest(t *testing.T, options RPCOptions) {
 			t.Fatalf("recorded role %s must retain the current address and kind", name)
 		}
 		role.RuntimeHash = ""
+		role.StagedRuntimeHash = ""
+		role.StagedUpgrade = ""
 		recorded.Roles[name] = role
 	}
 	for name, role := range currentRoles {
 		role.RuntimeHash = ""
+		role.StagedRuntimeHash = ""
+		role.StagedUpgrade = ""
 		current.Roles[name] = role
 	}
 	if !reflect.DeepEqual(recorded, current) {
@@ -566,6 +570,58 @@ func repair53SwapRestart(t *testing.T, tenant bool) {
 
 func TestRepair_53_native_swap_qualification(t *testing.T)        { repair53SwapRestart(t, false) }
 func TestRepair_53_tenant_transaction_qualification(t *testing.T) { repair53SwapRestart(t, true) }
+
+func TestRepair_53_staged_pin_qualification(t *testing.T) {
+	input := repair53InputsFromProducer(t)
+	for name, role := range input.Options.Manifest.Roles {
+		if role.StagedRuntimeHash != "" || role.StagedUpgrade != "" {
+			t.Fatalf("recorded role %s must predate the staged pin", name)
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	client, closeClient, err := NewBoundedRPCClient(ctx, input.Endpoint, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer closeClient()
+	authority, err := NewRPCQualificationWithAttestation(ctx, client, input.Options, nil)
+	if err != nil || authority == nil {
+		t.Fatalf("recorded manifest without staged pins refused: %v", err)
+	}
+	if err := authority.Rehydrate(ctx, input.Markets); err != nil {
+		t.Fatal(err)
+	}
+	repair53Fill(t, ctx, authority, input.NativeSwap)
+	approved, ok := deployment.Approved(input.Options.Manifest.ActivationHeight)
+	if !ok || approved.Roles["Router"].StagedRuntimeHash == "" || approved.Roles["Router"].StagedUpgrade == "" {
+		t.Fatal("approved router must carry the staged pin")
+	}
+	for _, field := range []string{"hash", "upgrade"} {
+		t.Run(field, func(t *testing.T) {
+			options := input.Options
+			options.Manifest.Roles = make(map[string]deployment.Role, len(input.Options.Manifest.Roles))
+			for name, role := range input.Options.Manifest.Roles {
+				options.Manifest.Roles[name] = role
+			}
+			role := options.Manifest.Roles["Router"]
+			role.StagedRuntimeHash = approved.Roles["Router"].StagedRuntimeHash
+			role.StagedUpgrade = approved.Roles["Router"].StagedUpgrade
+			if field == "hash" {
+				role.StagedRuntimeHash = common.HexToHash("0x01").Hex()
+			} else {
+				role.StagedUpgrade += "-other"
+			}
+			options.Manifest.Roles["Router"] = role
+			if err := options.Manifest.Validate(); err != nil {
+				t.Fatalf("different staged pin must remain a well-formed manifest: %v", err)
+			}
+			if got, err := NewRPCQualificationWithAttestation(ctx, client, options, nil); !errors.Is(err, ErrQualification) || got != nil {
+				t.Fatalf("unapproved staged %s admitted: authority=%v err=%v", field, got, err)
+			}
+		})
+	}
+}
 
 func TestRepair_53_migrated_role_epochs(t *testing.T) {
 	input := repair53InputsFromProducer(t)

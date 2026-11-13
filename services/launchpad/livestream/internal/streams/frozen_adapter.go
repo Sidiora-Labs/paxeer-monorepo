@@ -34,28 +34,28 @@ func AdaptFrozenStream(o Operation, playback string, viewers int64) (FrozenStrea
 	}
 	var status string
 	switch o.State {
-	case "REQUESTED":
+	case stateRequested:
 		status = "created"
-	case "PROVISIONING", "READY":
+	case stateProvisioning, stateReady:
 		status = "starting"
-	case "LIVE":
-		status = "live"
-	case "ENDING":
+	case stateLive:
+		status = statusLive
+	case stateEnding:
 		status = "ending"
-	case "ENDED":
+	case stateEnded:
 		status = "ended"
-	case "FAILED":
+	case stateFailed:
 		status = "failed"
 	default:
 		return FrozenStream{}, ErrUnrepresentable
 	}
 	out := FrozenStream{o.ID, o.Pool, o.Wallet, o.Title, status, nil, viewers}
-	if o.State == "LIVE" {
+	if o.State == stateLive {
 		if !identityPattern.MatchString(o.ProviderID) || o.ProviderTime == nil || o.ProviderTime.IsZero() {
 			return FrozenStream{}, ErrUnavailable
 		}
 		u, e := url.Parse(playback)
-		if e != nil || len(playback) > 2048 || u.Scheme != "https" || u.Hostname() != "livepeercdn.studio" || u.Port() != "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path == "" {
+		if e != nil || len(playback) > 2048 || u.Scheme != httpsScheme || u.Hostname() != "livepeercdn.studio" || u.Port() != "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path == "" {
 			return FrozenStream{}, ErrInvalid
 		}
 		out.PlaybackURL = &playback
@@ -133,7 +133,7 @@ func AdaptV2Operation(o Operation) (V2Operation, error) {
 		return V2Operation{}, ErrInvalid
 	}
 	switch o.State {
-	case "REQUESTED", "PROVISIONING", "READY", "LIVE", "ENDING", "ENDED", "FAILED", "SUSPENDED":
+	case stateRequested, stateProvisioning, stateReady, stateLive, stateEnding, stateEnded, stateFailed, stateSuspended:
 	default:
 		return V2Operation{}, ErrInvalid
 	}
@@ -145,16 +145,16 @@ func AdaptV2Operation(o Operation) (V2Operation, error) {
 	return result, nil
 }
 func AdaptV2Stream(o Operation, playback string, viewers *int64, quality string) (V2Stream, error) {
-	if quality != "verified" && quality != "unavailable" && quality != "stale" {
+	if quality != qualityVerified && quality != qualityUnavailable && quality != qualityStale {
 		return V2Stream{}, ErrInvalid
 	}
-	if quality == "unavailable" && viewers != nil || quality != "unavailable" && viewers == nil {
+	if quality == qualityUnavailable && viewers != nil || quality != qualityUnavailable && viewers == nil {
 		return V2Stream{}, ErrInvalid
 	}
 	if !frozenUUID.MatchString(o.ID) || !addressPattern.MatchString(o.Pool) || !addressPattern.MatchString(o.Wallet) || !utf8.ValidString(o.Title) || len([]rune(o.Title)) < 1 || len([]rune(o.Title)) > 120 || viewers != nil && (*viewers < 0 || *viewers > 9007199254740991) {
 		return V2Stream{}, ErrInvalid
 	}
-	if o.State == "SUSPENDED" {
+	if o.State == stateSuspended {
 		return V2Stream{Revision: strconv.FormatInt(o.Revision, 10), GeneratedAt: time.Now().UTC().Format(time.RFC3339Nano), StreamID: o.ID, PoolAddress: o.Pool, CreatorWallet: o.Wallet, Title: o.Title, Status: "suspended", ViewerCount: viewers, ViewerQuality: quality}, nil
 	}
 	var count int64

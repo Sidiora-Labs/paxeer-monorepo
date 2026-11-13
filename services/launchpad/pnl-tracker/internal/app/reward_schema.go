@@ -31,15 +31,15 @@ func checkRewardRequestSchema(ctx context.Context, pool *pgxpool.Pool, schema st
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	for _, table := range []struct {
 		name    string
 		columns []string
 		types   []uint32
 		key     []string
 	}{
-		{"l18_requests", []string{"actor", "request_key", "digest", "method", "path", "response", "expires_at", "release_digest", "interface_digest"}, []uint32{pgtype.TextOID, pgtype.UUIDOID, pgtype.TextOID, pgtype.TextOID, pgtype.TextOID, pgtype.ByteaOID, pgtype.TimestamptzOID, pgtype.TextOID, pgtype.TextOID}, []string{"actor", "request_key"}},
-		{"l18_audit", []string{"identity", "actor", "action", "reason", "payload"}, []uint32{pgtype.TextOID, pgtype.TextOID, pgtype.TextOID, pgtype.TextOID, pgtype.JSONBOID}, []string{"identity"}},
+		{"l18_requests", []string{actorKind, "request_key", "digest", "method", "path", "response", "expires_at", "release_digest", "interface_digest"}, []uint32{pgtype.TextOID, pgtype.UUIDOID, pgtype.TextOID, pgtype.TextOID, pgtype.TextOID, pgtype.ByteaOID, pgtype.TimestamptzOID, pgtype.TextOID, pgtype.TextOID}, []string{actorKind, "request_key"}},
+		{"l18_audit", []string{actorIdentity, actorKind, "action", "reason", "payload"}, []uint32{pgtype.TextOID, pgtype.TextOID, pgtype.TextOID, pgtype.TextOID, pgtype.JSONBOID}, []string{actorIdentity}},
 	} {
 		qualified := pgx.Identifier{schema, table.name}.Sanitize()
 		columns := ""

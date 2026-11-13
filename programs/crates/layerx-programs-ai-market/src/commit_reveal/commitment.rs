@@ -8,10 +8,7 @@ use crate::{
         F04_COMMIT_MISMATCH, F04_NO_SCORES, KEY_MISMATCH, NON_CANONICAL, UNAUTHORIZED,
         WRONG_CONFIG, WRONG_DOMAIN, WRONG_EPOCH, WRONG_MARKET, WRONG_PROGRAM, WRONG_ROSTER,
     },
-    types::{
-        ChainDomain, CommitmentDigest, EvaluatorBinding, EvaluatorId, FrozenBinding, MarketId,
-        ProgramId, ReportDigest, RosterDigest, Salt32, Signature64, Version, WorkerId,
-    },
+    types::{CommitmentDigest, EvaluatorBinding, ReportDigest, Salt32, Signature64, WorkerId},
     MAX_WORKERS,
 };
 

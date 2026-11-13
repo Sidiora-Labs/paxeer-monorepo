@@ -111,9 +111,10 @@ fn parse_query(query: Option<&str>, form: CursorForm, allow_kind: bool) -> Resul
 }
 
 fn page(page: Page) -> Response {
+    let Page { items, next_cursor } = page;
     json(
         200,
-        &json!({ "version": 1, "items": page.items, "next_cursor": page.next_cursor }),
+        &json!({ "version": 1, "items": items, "next_cursor": next_cursor }),
     )
 }
 
@@ -282,6 +283,10 @@ fn domain_document(record: &NameRecord, detailed: bool) -> serde_json::Value {
     document
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "Keep the ordered names route dispatch together without changing route precedence."
+)]
 fn names_route(
     store: &Store,
     path: &str,
@@ -546,6 +551,10 @@ pub fn readiness_document(
 
 /// Answers one request, judging `/readyz` on `readiness`.
 #[must_use]
+#[allow(
+    clippy::too_many_lines,
+    reason = "Keep the existing ordered public route dispatch and refusal precedence together."
+)]
 pub fn route_with(store: &Store, readiness: &Readiness, method: &str, target: &str) -> Response {
     if method != "GET" {
         return refusal(405, "method_not_allowed", None);
@@ -585,9 +594,8 @@ pub fn route_with(store: &Store, readiness: &Readiness, method: &str, target: &s
         let (id, feed) = segment
             .split_once('/')
             .map_or((segment, None), |(id, feed)| (id, Some(feed)));
-        let id = match id.parse::<u32>() {
-            Ok(id) => id,
-            Err(_) => return unknown(),
+        let Ok(id) = id.parse::<u32>() else {
+            return unknown();
         };
         let chain = match store.chain(id) {
             Ok(Some(chain)) => chain,

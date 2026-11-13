@@ -21,7 +21,44 @@ pub struct ChainFixture {
     store_proof: ProofOp,
 }
 
+fn multistore_with_proof(
+    store_name: &str,
+    root: [u8; 32],
+) -> Result<(Tree, ProofOp), ChainProofError> {
+    let mut stores = ["auth", "bank", store_name, "staking"]
+        .into_iter()
+        .map(|name| {
+            let root = if name == store_name {
+                root
+            } else {
+                Tree::new(
+                    &[(b"fixture".to_vec(), name.as_bytes().to_vec())],
+                    TreeKind::Iavl,
+                )
+                .root
+            };
+            (name.as_bytes().to_vec(), root.to_vec())
+        })
+        .collect::<Vec<_>>();
+    stores.sort_by(|left, right| left.0.cmp(&right.0));
+    let multistore = Tree::new(&stores, TreeKind::Simple);
+    let store = multistore
+        .leaves
+        .iter()
+        .find(|proof| proof.key == store_name.as_bytes())
+        .ok_or(ChainProofError::Absent)?;
+    let store_proof = ProofOp {
+        op_type: "ics23:simple".to_owned(),
+        key: store_name.as_bytes().to_vec(),
+        data: message(1, &encode_existence(store)),
+    };
+    Ok((multistore, store_proof))
+}
+
 impl ChainFixture {
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn new(
         chain_id: &str,
         validator_seeds: &[[u8; 32]],
@@ -30,6 +67,9 @@ impl ChainFixture {
         Self::new_in_store(STORE_NAME, chain_id, validator_seeds, pairs)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn new_in_store(
         store_name: &str,
         chain_id: &str,
@@ -47,33 +87,7 @@ impl ChainFixture {
             return Err(ChainProofError::NonCanonical);
         }
         let tree = Tree::new(&pairs, TreeKind::Iavl);
-        let mut stores = ["auth", "bank", store_name, "staking"]
-            .into_iter()
-            .map(|name| {
-                let root = if name == store_name {
-                    tree.root
-                } else {
-                    Tree::new(
-                        &[(b"fixture".to_vec(), name.as_bytes().to_vec())],
-                        TreeKind::Iavl,
-                    )
-                    .root
-                };
-                (name.as_bytes().to_vec(), root.to_vec())
-            })
-            .collect::<Vec<_>>();
-        stores.sort_by(|left, right| left.0.cmp(&right.0));
-        let multistore = Tree::new(&stores, TreeKind::Simple);
-        let store = multistore
-            .leaves
-            .iter()
-            .find(|proof| proof.key == store_name.as_bytes())
-            .ok_or(ChainProofError::Absent)?;
-        let store_proof = ProofOp {
-            op_type: "ics23:simple".to_owned(),
-            key: store_name.as_bytes().to_vec(),
-            data: message(1, &encode_existence(store)),
-        };
+        let (multistore, store_proof) = multistore_with_proof(store_name, tree.root)?;
 
         let mut keys = validator_seeds
             .iter()
@@ -154,6 +168,9 @@ impl ChainFixture {
         })
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn prove(&self, key: &[u8]) -> Result<Vec<ProofOp>, ChainProofError> {
         let index = self
             .tree
@@ -163,14 +180,17 @@ impl ChainFixture {
         Ok(self.ops(key, 1, &encode_existence(&self.tree.leaves[index])))
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn prove_absent(&self, key: &[u8]) -> Result<Vec<ProofOp>, ChainProofError> {
-        let index = match self
+        let index = self
             .tree
             .leaves
             .binary_search_by(|proof| proof.key.as_slice().cmp(key))
-        {
-            Ok(_) => return Err(ChainProofError::Mismatch),
-            Err(index) => index,
+            .err();
+        let Some(index) = index else {
+            return Err(ChainProofError::Mismatch);
         };
         let mut proof = message(1, key);
         if index > 0 {
@@ -186,10 +206,16 @@ impl ChainFixture {
         Ok(self.ops(key, 2, &proof))
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn encode(&self) -> Result<Vec<u8>, ChainProofError> {
         self.encode_key(&self.tree.leaves[0].key)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn encode_key(&self, key: &[u8]) -> Result<Vec<u8>, ChainProofError> {
         let (value, proof_ops) = match self
             .tree

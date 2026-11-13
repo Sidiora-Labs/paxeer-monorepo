@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"reflect"
 	"strings"
 	"time"
@@ -155,7 +156,9 @@ func ApplyOnlineIndexMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 		var released bool
 		releaseErr := conn.QueryRow(cleanup, "SELECT pg_advisory_unlock($1)", CoordinatorKey).Scan(&released)
 		if resetErr != nil || releaseErr != nil || !released {
-			conn.Close(cleanup)
+			if cleanupErr := conn.Close(cleanup); cleanupErr != nil {
+				log.Printf("cleanup conn.Close: %v", cleanupErr)
+			}
 			if resultErr == nil {
 				resultErr = fmt.Errorf("migration coordinator cleanup failed")
 			}
@@ -212,7 +215,7 @@ func ApplyOnlineIndexMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 		if _, err = conn.Exec(ctx, "UPDATE migration_control.migration_attempts SET state='failed',failure_class='interrupted',finished_at=clock_timestamp() WHERE migration_id=$1 AND state='started'", m.MigrationID); err != nil {
 			return err
 		}
-		previousState = "failed"
+		previousState = valueFailed
 		previousFailure = "interrupted"
 	}
 	state, err := InspectOnlineIndex(ctx, conn, plan)
@@ -227,7 +230,7 @@ func ApplyOnlineIndexMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 		approved := false
 		if repairs != nil && validDigest(repairs.digest) {
 			for _, a := range repairs.sealed {
-				if a.MigrationID == m.MigrationID && a.Schema == plan.Schema && a.Index == plan.Name && a.FailedChecksum == m.SHA256 && previousChecksum == m.SHA256 && a.FailureClass == previousFailure && (previousState == "failed" || previousState == "started") {
+				if a.MigrationID == m.MigrationID && a.Schema == plan.Schema && a.Index == plan.Name && a.FailedChecksum == m.SHA256 && previousChecksum == m.SHA256 && a.FailureClass == previousFailure && (previousState == valueFailed || previousState == "started") {
 					approved = true
 					repairDigest = repairs.digest
 				}
@@ -260,7 +263,7 @@ func ApplyOnlineIndexMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 			} else if errors.Is(resultErr, ErrInvalidOnlineIndex) {
 				failure = "invalid_index"
 			}
-			if err := finish("failed", failure); err != nil {
+			if err := finish(valueFailed, failure); err != nil {
 				resultErr = errors.Join(resultErr, fmt.Errorf("migration failure audit unavailable: %w", err))
 			}
 		}
@@ -293,7 +296,9 @@ func ApplyOnlineIndexMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		tx.Rollback(cleanup)
+		if cleanupErr := tx.Rollback(cleanup); cleanupErr != nil && !errors.Is(cleanupErr, pgx.ErrTxClosed) {
+			log.Printf("transaction rollback: %v", cleanupErr)
+		}
 	}()
 	history, err := HistoryTable(m.Service, m.Schema)
 	if err != nil {
@@ -305,7 +310,7 @@ func ApplyOnlineIndexMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 	if _, err = tx.Exec(ctx, "INSERT INTO migration_control.applied_migrations(migration_id,service,schema_name,checksum,registry_digest) VALUES($1,$2,$3,$4,$5)", m.MigrationID, m.Service, m.Schema, m.SHA256, approvalDigest); err != nil {
 		return err
 	}
-	outcome := "applied"
+	outcome := valueApplied
 	if repairDigest != "" {
 		outcome = "reconciled"
 	}
@@ -316,7 +321,7 @@ func ApplyOnlineIndexMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 }
 
 func ApplyCoordinatedMigration(ctx context.Context, conn *pgx.Conn, m MigrationManifest, sql []byte, registry map[int64]MigrationManifest, interfaceDigest, approvalDigest string, deployedReaderMin int64) (resultErr error) {
-	if conn == nil || m.TransactionMode != "transactional" {
+	if conn == nil || m.TransactionMode != valueTransactional {
 		return fmt.Errorf("dedicated transactional coordinator required")
 	}
 	started := time.Now()
@@ -333,7 +338,9 @@ func ApplyCoordinatedMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 		defer cancel()
 		var released bool
 		if err := conn.QueryRow(cleanup, "SELECT pg_advisory_unlock($1)", CoordinatorKey).Scan(&released); err != nil || !released {
-			conn.Close(cleanup)
+			if cleanupErr := conn.Close(cleanup); cleanupErr != nil {
+				log.Printf("cleanup conn.Close: %v", cleanupErr)
+			}
 			if resultErr == nil {
 				resultErr = fmt.Errorf("migration lock release unavailable")
 			}
@@ -366,9 +373,9 @@ func ApplyCoordinatedMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 	}
 	execution := time.Now()
 	resultErr = ApplyRegisteredMigration(ctx, conn, m, sql, registry, interfaceDigest, approvalDigest, deployedReaderMin)
-	outcome, failure := "applied", ""
+	outcome, failure := valueApplied, ""
 	if resultErr != nil {
-		outcome = "failed"
+		outcome = valueFailed
 		failure = "execution_error"
 		var postgres *pgconn.PgError
 		if errors.As(resultErr, &postgres) {
@@ -383,7 +390,7 @@ func ApplyCoordinatedMigration(ctx context.Context, conn *pgx.Conn, m MigrationM
 			return errors.Join(resultErr, fmt.Errorf("migration outcome reconciliation unavailable: %w", err))
 		}
 		if committed {
-			outcome = "applied"
+			outcome = valueApplied
 			failure = "commit_response_uncertain"
 		}
 	}

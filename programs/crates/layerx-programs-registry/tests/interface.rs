@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+#[path = "support/mod.rs"]
 pub mod support;
 
 use layerx_programs::{

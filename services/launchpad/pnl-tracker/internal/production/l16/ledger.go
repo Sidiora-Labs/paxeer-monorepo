@@ -7,18 +7,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
-	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"math/big"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
+	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 var address = regexp.MustCompile(`^0x[0-9a-f]{40}$`)
@@ -80,15 +81,15 @@ func (l Leg) Validate() error {
 		}
 	}
 	switch l.Kind {
-	case "buy":
+	case sideBuy:
 		if l.ActualUSDL == nil || l.Payer == "" || l.Recipient != l.Wallet {
 			return errors.New("unattributed buy: reconciliation required")
 		}
-	case "sell":
+	case sideSell:
 		if l.ActualUSDL == nil || l.Payer != l.Wallet || l.Recipient == "" {
 			return errors.New("unattributed sell: reconciliation required")
 		}
-	case "incoming", "outgoing", "mint", "burn":
+	case movementIncoming, movementOutgoing, movementMint, movementBurn:
 		if l.ActualUSDL != nil {
 			return errors.New("movement cannot invent consideration")
 		}
@@ -102,9 +103,9 @@ func Apply(p Inventory, l Leg) (Inventory, error) {
 		return p, e
 	}
 	switch l.Kind {
-	case "buy":
+	case sideBuy:
 		return Acquire(p, l.Quantity, l.ActualUSDL)
-	case "incoming", "mint":
+	case movementIncoming, movementMint:
 		return Acquire(p, l.Quantity, nil)
 	default:
 		n, _, e := Dispose(p, l.Quantity, l.ActualUSDL)
@@ -224,7 +225,7 @@ func ApplyTransferTx(ctx context.Context, tx pgx.Tx, request TransferRequest) (I
 	if err := l.Validate(); err != nil {
 		return zero, zero, false, err
 	}
-	if l.Kind != "outgoing" || l.Recipient != request.Destination || !address.MatchString(request.Destination) || request.Destination == l.Wallet || request.Carry && (request.ProofReference == "" || len(request.ProofReference) > 256) {
+	if l.Kind != movementOutgoing || l.Recipient != request.Destination || !address.MatchString(request.Destination) || request.Destination == l.Wallet || request.Carry && (request.ProofReference == "" || len(request.ProofReference) > 256) {
 		return zero, zero, false, errors.New("invalid transfer or missing verified ownership/consent reference")
 	}
 	sourcePartition := "125:" + l.Wallet + ":" + l.Token
@@ -281,7 +282,7 @@ func ApplyTransferTx(ctx context.Context, tx pgx.Tx, request TransferRequest) (I
 		return zero, zero, false, errors.New("source transfer already applied outside atomic wrapper")
 	}
 	incoming := l
-	incoming.Kind = "incoming"
+	incoming.Kind = movementIncoming
 	incoming.Wallet = request.Destination
 	incoming.Recipient = request.Destination
 	incoming.Predecessor = request.DestinationPredecessor
@@ -352,10 +353,10 @@ func ApplyOwnedLegTx(ctx context.Context, tx pgx.Tx, g delivery.GuardedPosition,
 	}
 	p := g.Position
 	partition := "125:" + l.Wallet + ":" + l.Token
-	if accounting.ValidatePartitionPosition(p) != nil || p.PartitionKind != "inventory" || p.PartitionKey != partition || g.Lease.Key.PartitionKey != partition || g.Lease.Key.PartitionKind != "inventory" || g.Lease.Key.ProjectionGeneration != projectionGeneration || g.Lease.Epoch <= 0 {
+	if accounting.ValidatePartitionPosition(p) != nil || p.PartitionKind != sourceInventory || p.PartitionKey != partition || g.Lease.Key.PartitionKey != partition || g.Lease.Key.PartitionKind != sourceInventory || g.Lease.Key.ProjectionGeneration != projectionGeneration || g.Lease.Epoch <= 0 {
 		return Inventory{}, false, delivery.ErrIntegrity
 	}
-	if l.Kind != "buy" && l.Kind != "sell" || l.Payer != l.Wallet || l.Recipient != l.Wallet || l.ActualUSDL == nil {
+	if l.Kind != sideBuy && l.Kind != sideSell || l.Payer != l.Wallet || l.Recipient != l.Wallet || l.ActualUSDL == nil {
 		return Inventory{}, false, ErrAttributionUnavailable
 	}
 	if p.SourceOrder.ChainID != l.Identity.Chain || p.SourceOrder.TransactionHash != l.Identity.Transaction || p.SourceOrder.Height != strconv.FormatUint(l.Height, 10) || p.SourceOrder.TransactionIndex != strconv.FormatUint(uint64(l.TransactionIndex), 10) || p.SourceOrder.LogIndex != strconv.FormatUint(uint64(l.Identity.Log), 10) {
@@ -473,21 +474,21 @@ func portfolioBatch(generation, wallet, effectIdentity string, rows []portfolioR
 			return update, watermark, "", err
 		}
 		observed := time.Unix(timestamp, 0).UTC().Format("2006-01-02T15:04:05.000Z")
-		ownWatermark := interfaces.Watermark{ChainId: "125", Height: interfaces.UInt256(row.Position.SourceOrder.Height), BlockHash: row.Position.SourceOrder.BlockHash, ProjectionRevision: interfaces.PositiveUInt256(strconv.FormatInt(row.Revision, 10)), ObservedAt: observed, Integrity: "healthy"}
+		ownWatermark := interfaces.Watermark{ChainId: "125", Height: interfaces.UInt256(row.Position.SourceOrder.Height), BlockHash: row.Position.SourceOrder.BlockHash, ProjectionRevision: interfaces.PositiveUInt256(strconv.FormatInt(row.Revision, 10)), ObservedAt: observed, Integrity: statusHealthy}
 		coverageNumerator, coverageDenominator := values[0].String(), total.String()
 		if total.Sign() == 0 {
 			coverageNumerator, coverageDenominator = "1", "1"
 		}
-		basis := "complete"
+		basis := statusComplete
 		if values[1].Sign() > 0 {
-			basis = "partial"
+			basis = statusPartial
 			if values[0].Sign() == 0 {
-				basis = "unknown"
+				basis = statusUnknown
 			}
 		}
-		realizedQuality := "complete"
+		realizedQuality := statusComplete
 		if row.Inventory.IncompleteRealized {
-			realizedQuality = "partial"
+			realizedQuality = statusPartial
 		}
 		var remaining *interfaces.AggregateUInt
 		if values[1].Sign() == 0 {
@@ -499,7 +500,7 @@ func portfolioBatch(generation, wallet, effectIdentity string, rows []portfolioR
 			v := interfaces.SignedAggregateInteger(row.Inventory.Realized)
 			completeRealized = &v
 		}
-		position := interfaces.PortfolioPosition{PositionId: row.LogicalPartition, ChainId: "125", Wallet: wallet, TokenAddress: parts[2], BalanceRaw: interfaces.UInt256(total.String()), KnownQuantityRaw: interfaces.UInt256(row.Inventory.Known), UnknownQuantityRaw: interfaces.UInt256(row.Inventory.Unknown), KnownRemainingCostUsdlRaw: interfaces.AggregateUInt(row.Inventory.Cost), BasisCoverage: interfaces.Ratio{Numerator: interfaces.PriceComponent(coverageNumerator), Denominator: interfaces.PositivePriceComponent(coverageDenominator)}, RemainingCostUsdlRaw: remaining, RealizedPnlRaw: completeRealized, KnownRealizedSubtotalUsdlRaw: interfaces.SignedAggregateInteger(row.Inventory.Realized), BasisQuality: basis, RealizedBasisQuality: realizedQuality, PricingQuality: "unpriced", SourceWatermark: ownWatermark}
+		position := interfaces.PortfolioPosition{PositionId: row.LogicalPartition, ChainId: "125", Wallet: wallet, TokenAddress: parts[2], BalanceRaw: interfaces.UInt256(total.String()), KnownQuantityRaw: interfaces.UInt256(row.Inventory.Known), UnknownQuantityRaw: interfaces.UInt256(row.Inventory.Unknown), KnownRemainingCostUsdlRaw: interfaces.AggregateUInt(row.Inventory.Cost), BasisCoverage: interfaces.Ratio{Numerator: interfaces.PriceComponent(coverageNumerator), Denominator: interfaces.PositivePriceComponent(coverageDenominator)}, RemainingCostUsdlRaw: remaining, RealizedPnlRaw: completeRealized, KnownRealizedSubtotalUsdlRaw: interfaces.SignedAggregateInteger(row.Inventory.Realized), BasisQuality: basis, RealizedBasisQuality: realizedQuality, PricingQuality: statusUnpriced, SourceWatermark: ownWatermark}
 		changes = append(changes, interfaces.PositionChange{Operation: "upsert", PositionId: row.LogicalPartition, Revision: interfaces.PositiveUInt256(strconv.FormatInt(row.Revision, 10)), Position: &position})
 		if newest == nil {
 			newest = row
@@ -521,19 +522,19 @@ func portfolioBatch(generation, wallet, effectIdentity string, rows []portfolioR
 		return update, watermark, "", err
 	}
 	occurred := time.Unix(timestamp, 0).UTC().Format("2006-01-02T15:04:05.000Z")
-	watermark = interfaces.Watermark{ChainId: "125", Height: interfaces.UInt256(newest.Position.SourceOrder.Height), BlockHash: newest.Position.SourceOrder.BlockHash, ProjectionRevision: interfaces.PositiveUInt256(revision.String()), ObservedAt: occurred, Integrity: "healthy"}
+	watermark = interfaces.Watermark{ChainId: "125", Height: interfaces.UInt256(newest.Position.SourceOrder.Height), BlockHash: newest.Position.SourceOrder.BlockHash, ProjectionRevision: interfaces.PositiveUInt256(revision.String()), ObservedAt: occurred, Integrity: statusHealthy}
 	snapshot := uuid.NewSHA1(uuid.NameSpaceOID, []byte("portfolio:"+generation+":"+wallet+":"+revision.String()+":"+effectIdentity)).String()
-	basis := "complete"
+	basis := statusComplete
 	if unknown.Sign() > 0 {
-		basis = "partial"
+		basis = statusPartial
 		if known.Sign() == 0 {
-			basis = "unknown"
+			basis = statusUnknown
 		}
 	}
-	pricing := "unpriced"
+	pricing := statusUnpriced
 	var completeValue *interfaces.AggregateUInt
 	if unpriced == 0 {
-		pricing = "complete"
+		pricing = statusComplete
 		v := interfaces.AggregateUInt("0")
 		completeValue = &v
 	}
@@ -722,7 +723,7 @@ func (c *AccountingConsumer) commitFullPortfolioTx(ctx context.Context, tx pgx.T
 		return update, wireWatermark, "", err
 	}
 	observed := time.Unix(seconds, 0).UTC()
-	watermark := l17.Watermark{ChainID: "125", Height: newest.Position.SourceOrder.Height, BlockHash: newest.Position.SourceOrder.BlockHash, ProjectionRevision: revision.String(), ObservedAt: observed.Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"}
+	watermark := l17.Watermark{ChainID: "125", Height: newest.Position.SourceOrder.Height, BlockHash: newest.Position.SourceOrder.BlockHash, ProjectionRevision: revision.String(), ObservedAt: observed.Format("2006-01-02T15:04:05.000Z"), Integrity: statusHealthy}
 	positions := make([]l17.Position, 0, len(rows))
 	seen := map[string]bool{}
 	for _, row := range rows {
@@ -740,7 +741,7 @@ func (c *AccountingConsumer) commitFullPortfolioTx(ctx context.Context, tx pgx.T
 			return update, wireWatermark, "", e
 		}
 		own.ObservedAt = time.Unix(timestamp, 0).UTC().Format("2006-01-02T15:04:05.000Z")
-		p, e := ProjectPosition(leg.Wallet, parts[2], row.Inventory, own, nil, "unpriced")
+		p, e := ProjectPosition(leg.Wallet, parts[2], row.Inventory, own, nil, statusUnpriced)
 		if e != nil {
 			return update, wireWatermark, "", e
 		}
@@ -855,16 +856,16 @@ func (c *AccountingConsumer) commitPortfolioHistoryTx(ctx context.Context, tx pg
 		if at.After(lastAt) {
 			lastAt = at
 		}
-		currency, settlement := "USDL", fill.Settlement.Address
+		currency, settlement := symbolUSDL, fill.Settlement.Address
 		quoteDecimals := int(fill.Settlement.Decimals)
-		asset := l17.AssetRef{Kind: "erc20", ChainID: &chain, Address: &settlement, Decimals: &quoteDecimals, CurrencyCode: &currency}
+		asset := l17.AssetRef{Kind: tokenERC20, ChainID: &chain, Address: &settlement, Decimals: &quoteDecimals, CurrencyCode: &currency}
 		if quote == nil {
 			quote = &asset
 		} else if *quote.Address != settlement || *quote.Decimals != quoteDecimals {
 			rows.Close()
 			return delivery.ErrIntegrity
 		}
-		records = append(records, l17.HistoryRecord{EventID: identity, Kind: "trade", Asset: l17.AssetRef{Kind: "erc20", ChainID: &chain, Address: &token, Decimals: &decimals}, AmountRaw: leg.Quantity, QuoteAmountUsdlRaw: leg.ActualUSDL, BasisQuality: "complete", Position: l17.ChainPosition{ChainID: fill.Position.ChainID, Height: fill.Position.Height, TransactionIndex: fill.Position.TransactionIndex, LogIndex: fill.Position.LogIndex, TransactionHash: fill.Position.TransactionHash, BlockHash: fill.Position.BlockHash}})
+		records = append(records, l17.HistoryRecord{EventID: identity, Kind: "trade", Asset: l17.AssetRef{Kind: tokenERC20, ChainID: &chain, Address: &token, Decimals: &decimals}, AmountRaw: leg.Quantity, QuoteAmountUsdlRaw: leg.ActualUSDL, BasisQuality: statusComplete, Position: l17.ChainPosition{ChainID: fill.Position.ChainID, Height: fill.Position.Height, TransactionIndex: fill.Position.TransactionIndex, LogIndex: fill.Position.LogIndex, TransactionHash: fill.Position.TransactionHash, BlockHash: fill.Position.BlockHash}})
 		if len(records) > 1000000 {
 			rows.Close()
 			return ErrCostAllocationUnavailable

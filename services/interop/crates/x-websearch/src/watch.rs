@@ -181,6 +181,8 @@ impl EvmRpc {
     }
 }
 
+/// # Errors
+/// Returns an error when chain state or watcher persistence cannot be validated.
 pub fn kernel_network_id(rpc: &EvmRpc) -> Result<u32, EvmError> {
     let word = rpc.eth_call(
         XWEB_PRECOMPILE,
@@ -435,7 +437,7 @@ pub struct RequestWatcher {
     pending: BTreeMap<u64, Pending>,
     program_pending: BTreeMap<([u8; 32], u64), PendingProgram>,
     chain_id: Option<u64>,
-    _lock: Option<std::fs::File>,
+    lock: Option<std::fs::File>,
     ownership: WatchOwnership,
 }
 
@@ -608,11 +610,13 @@ impl RequestWatcher {
             pending,
             program_pending,
             chain_id,
-            _lock: None,
+            lock: None,
             ownership: WatchOwnership::Both,
         })
     }
 
+    /// # Errors
+    /// Returns an error when chain state or watcher persistence cannot be validated.
     pub fn with_chain_id(mut self, chain_id: u64) -> io::Result<Self> {
         if self.chain_id.is_some_and(|stored| stored != chain_id)
             || self.pending.values().any(|entry| {
@@ -639,13 +643,15 @@ impl RequestWatcher {
             .open(self.pending_path.with_extension("lock"))?;
         lock.try_lock()
             .map_err(|_| io::Error::other("watch journal already open"))?;
-        self._lock = Some(lock);
+        self.lock = Some(lock);
         self.chain_id = Some(chain_id);
         Ok(self)
     }
 
+    /// # Errors
+    /// Returns an error when chain state or watcher persistence cannot be validated.
     pub fn with_ownership(mut self, ownership: WatchOwnership) -> io::Result<Self> {
-        if self._lock.is_none() {
+        if self.lock.is_none() {
             return Err(io::Error::other(
                 "watch ownership requires a chain-bound journal lock",
             ));
@@ -665,16 +671,20 @@ impl RequestWatcher {
         Ok(self)
     }
 
+    #[must_use]
     pub const fn confirmations(&self) -> u64 {
         self.confirmations
     }
 
+    #[must_use]
     pub fn eligible(&self, request_id: u64) -> bool {
         self.pending.get(&request_id).is_some_and(|entry| {
             entry.refused.is_none() && entry.next_retry_block <= self.last_head
         })
     }
 
+    /// # Errors
+    /// Returns an error when chain state or watcher persistence cannot be validated.
     pub fn transition(&mut self, request_id: u64, stage: WorkStage) -> Result<(), EvmError> {
         let mut pending = self.pending.clone();
         let entry = pending.get_mut(&request_id).ok_or(EvmError::Journal)?;
@@ -689,6 +699,8 @@ impl RequestWatcher {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error when chain state or watcher persistence cannot be validated.
     pub fn reorged(&mut self, request_id: u64) -> Result<(), EvmError> {
         self.fail(request_id, true, "canonical source removed")?;
         let mut pending = self.pending.clone();
@@ -966,14 +978,13 @@ impl RequestWatcher {
             }
             if log.pointer("/topics/0").and_then(topic) == Some(program_requested_topic()) {
                 let request = decode_program_requested(log)?;
-                let chain_id = match program_chain_id {
-                    Some(chain_id) => chain_id,
-                    None => {
-                        let chain_id = u64::try_from(self.rpc.quantity("eth_chainId", &json!([]))?)
-                            .map_err(|_| EvmError::Malformed)?;
-                        program_chain_id = Some(chain_id);
-                        chain_id
-                    }
+                let chain_id = if let Some(chain_id) = program_chain_id {
+                    chain_id
+                } else {
+                    let chain_id = u64::try_from(self.rpc.quantity("eth_chainId", &json!([]))?)
+                        .map_err(|_| EvmError::Malformed)?;
+                    program_chain_id = Some(chain_id);
+                    chain_id
                 };
                 let key = (request.program_id, request.request_id);
                 let entry = PendingProgram {

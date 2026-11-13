@@ -9,6 +9,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"net"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
 	sharedchain "github.com/Sidiora-Technologies/KindleLaunch/shared/chain"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/profile"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -22,15 +32,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/nats-io/nats.go"
-	"io"
-	"log/slog"
-	"net"
-	"net/http"
-	"net/url"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
@@ -90,7 +91,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}()
 	tracker := sharedprocess.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvironmentProduction {
 		var e error
 		metrics, e = telemetry.New("chartsd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if e != nil {
@@ -102,7 +103,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		secretChecks["secrets"] = secretCheck
 	}
 
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != nodeEnvironmentProduction {
 		if err := migrate.Up(ctx, cfg.DatabaseURL); err != nil {
 			return nil, err
 		}
@@ -120,13 +121,13 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	rdb, err := sharedredis.NewClient(cfg.RedisURL)
 	if err != nil {
-		pool.Close()
+		shareddb.ClosePool(pool)
 		return nil, err
 	}
 
 	defer func() {
 		if !secretOwned {
-			pool.Close()
+			shareddb.ClosePool(pool)
 			_ = rdb.Close()
 		}
 	}()
@@ -135,7 +136,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 	swapConsumer, err := consumer.New(builder, cfg.RedisURL, logger)
 	if err != nil {
-		pool.Close()
+		shareddb.ClosePool(pool)
 		_ = rdb.Close()
 		return nil, err
 	}
@@ -156,7 +157,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	var nc *nats.Conn
 	var rpc *ethclient.Client
 	var devRPC *gethrpc.Client
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvironmentProduction {
 		var d chartRuntimeDocument
 		if err = config.ReadBoundDocument(cfg.DeliveryConfigFile, cfg.DeliveryConfigSHA256, &d); err != nil {
 			return nil, err
@@ -216,17 +217,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				return nil, archiveErr
 			}
 			archive = &store.ArchiveReader{Objects: objects, Bucket: features.Archive.Bucket, Exact: exact, BlockTime: func(c context.Context, height int64, expected string) (int64, error) {
-				if height < 0 {
-					return 0, errors.New("charts: invalid archive height")
-				}
-				block, e := (chainread.Reader{RPC: rpc}).Block(c, height)
-				if e != nil {
-					return 0, errors.New("charts: archive block timestamp unavailable")
-				}
-				if !strings.EqualFold(block.Hash, expected) {
-					return 0, errors.New("charts: archive block authority mismatch")
-				}
-				return block.Time, nil
+				return archiveBlockTime(c, rpc, height, expected)
 			}}
 		}
 		accountingConsumer, e = consumer.NewSourceVerifiedAccountingConsumer(consumer.SourceVerifiedAccountingConfig{Pool: pool, Deliveries: durable, Partitions: partitions, Exact: exact, ConsumerID: d.ConsumerID, Generation: d.Generation, ProjectionVersion: d.ProjectionVersion, Owner: d.Owner, SourceStream: d.SourceStream, SourcePartitionSchema: "indexer", RPC: rpc, MaxReplayBlocks: d.MaxReplayBlocks, MaxReplayFills: d.MaxReplayFills, SeriesV2: true, StreamWriter: &delivery.StreamWriter{Schema: "api_stream"}})
@@ -251,14 +242,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		secretChecks["verified_rpc"] = func(c context.Context) error {
-			pin, e := verifiedRPC.Pin(c, features.AnchorHeight)
-			if e != nil {
-				return e
-			}
-			if pin.Hash != common.HexToHash(features.AnchorHash) {
-				return errors.New("charts: verified RPC anchor changed")
-			}
-			return nil
+			return verifyArchiveAnchor(c, verifiedRPC, features.AnchorHeight, features.AnchorHash)
 		}
 		transport, e = natsdriver.NewConsumer(ctx, nc, d.Consumer)
 		if e != nil {
@@ -291,7 +275,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			"code": "LEGACY_HISTORY_RETIRED", "message": "Use /v2/udf/history with the versioned UDF contract", "retryable": false,
 		})
 	})
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvironmentProduction {
 		historyCache, e := httpapi.NewHistoryCache(rdb, httpapi.PostgresHistoryRevision{Pool: pool, Schema: "candles"}, features.MaxHistoryOrigins)
 		if e != nil {
 			return nil, e
@@ -302,7 +286,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 		registerSeriesRuntime(router, exactStore, archive, cfg.OperatorToken)
 	}
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != nodeEnvironmentProduction {
 		// Versioned UDF over the development stores: history from
 		// candles.candles, symbols from indexer.pools + the chain RPC.
 		// Without RPC_URL symbols answer 503; history needs only Postgres.
@@ -317,6 +301,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				}
 			}()
 			devRPC = chain
+			swapConsumer.SetDevelopmentSource(consumer.NewDevelopmentSource(pool, chain, builder, logger))
 		}
 		httpapi.RegisterDevelopmentUDF(router, httpapi.SymbolsHandler{Development: &httpapi.DevelopmentPoolMetadataSource{Pool: pool, Chain: devRPC}}, httpapi.DevelopmentHistoryHandler{Source: httpapi.PostgresHistorySource{Pool: pool}})
 		httpapi.RegisterWebhook(router, httpapi.WebhookDeps{
@@ -346,6 +331,31 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		pool:     pool,
 		redis:    rdb,
 	}, nil
+}
+
+func archiveBlockTime(ctx context.Context, rpc *ethclient.Client, height int64, expected string) (int64, error) {
+	if height < 0 {
+		return 0, errors.New("charts: invalid archive height")
+	}
+	block, err := (chainread.Reader{RPC: rpc}).Block(ctx, height)
+	if err != nil {
+		return 0, errors.New("charts: archive block timestamp unavailable")
+	}
+	if !strings.EqualFold(block.Hash, expected) {
+		return 0, errors.New("charts: archive block authority mismatch")
+	}
+	return block.Time, nil
+}
+
+func verifyArchiveAnchor(ctx context.Context, client *sharedchain.Client, height uint64, expected string) error {
+	pin, err := client.Pin(ctx, height)
+	if err != nil {
+		return err
+	}
+	if pin.Hash != common.HexToHash(expected) {
+		return errors.New("charts: verified RPC anchor changed")
+	}
+	return nil
 }
 
 // Close releases all resources.
@@ -378,7 +388,7 @@ func (a *App) Close() {
 		a.secretStop()
 	}
 	if a.pool != nil {
-		a.pool.Close()
+		shareddb.ClosePool(a.pool)
 	}
 	if a.redis != nil {
 		_ = a.redis.Close()
@@ -406,6 +416,15 @@ func Run(parent context.Context) error {
 		return err
 	}
 	defer app.Close()
+	internalFailure := make(chan struct{}, 1)
+	failRuntime := func() {
+		app.tracker.BeginDrain()
+		select {
+		case internalFailure <- struct{}{}:
+		default:
+		}
+		cancel()
+	}
 	if app.chartPublisher != nil {
 		if err = app.startChartOutbox(ctx, logger); err != nil {
 			return err
@@ -426,8 +445,7 @@ func Run(parent context.Context) error {
 			defer release()
 			if e := app.accounting.RunCompleteness(completenessCtx, logger); e != nil && !errors.Is(e, context.Canceled) {
 				logger.Error("chart completeness loop failed", slog.Any("err", e))
-				app.tracker.BeginDrain()
-				cancel()
+				failRuntime()
 			}
 		}()
 		go func() {
@@ -436,10 +454,9 @@ func Run(parent context.Context) error {
 				return
 			}
 			defer release()
-			if e := app.accounting.Run(ctx, app.transport); e != nil && !errors.Is(e, context.Canceled) {
+			if e := app.accounting.Run(ctx, app.transport); !errors.Is(e, context.Canceled) {
 				logger.Error("accounting consumer failed", slog.Any("err", e))
-				app.tracker.BeginDrain()
-				cancel()
+				failRuntime()
 			}
 		}()
 	} else if err := app.Consumer.Start(ctx); err != nil {
@@ -465,8 +482,7 @@ func Run(parent context.Context) error {
 					stop()
 					if e != nil && !errors.Is(e, context.Canceled) {
 						logger.Error("chart rollup failed", slog.Any("err", e))
-						app.tracker.BeginDrain()
-						cancel()
+						failRuntime()
 						return
 					}
 				}
@@ -493,10 +509,23 @@ func Run(parent context.Context) error {
 		}
 	}()
 
-	shutErr := sharedprocess.Run(ctx, sharedprocess.Options{Tracker: app.tracker,
-		Logger:     logger,
-		OnShutdown: func(sctx context.Context) error { cancel(); return srv.Shutdown(sctx) },
-	})
+	lifecycleDone := make(chan error, 1)
+	go func() {
+		lifecycleDone <- sharedprocess.Run(ctx, sharedprocess.Options{Tracker: app.tracker,
+			Logger:     logger,
+			OnShutdown: func(sctx context.Context) error { cancel(); return srv.Shutdown(sctx) },
+		})
+	}()
+	var shutErr error
+	select {
+	case shutErr = <-lifecycleDone:
+	case <-internalFailure:
+		// An internal provider failure drains current work without a signal
+		// propagation delay, so the service can release its listener promptly.
+		shutdownCtx, stop := context.WithTimeout(context.Background(), sharedprocess.DefaultTimeout)
+		shutErr = errors.Join(srv.Shutdown(shutdownCtx), app.tracker.Drain(shutdownCtx))
+		stop()
+	}
 
 	cancel()
 
@@ -634,18 +663,18 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 	addressPattern := regexp.MustCompile(`^0x[0-9a-f]{40}$`)
 	router.Get("/v2/series/{pool}/candles", func(w http.ResponseWriter, r *http.Request) {
 		if len(r.URL.RawQuery) > 16384 {
-			http.Error(w, "series query too large", 422)
+			http.Error(w, "series query too large", http.StatusUnprocessableEntity)
 			return
 		}
 		pool := strings.ToLower(chi.URLParam(r, "pool"))
 		query, err := url.ParseQuery(r.URL.RawQuery)
 		if err != nil {
-			http.Error(w, "invalid query", 422)
+			http.Error(w, "invalid query", http.StatusUnprocessableEntity)
 			return
 		}
 		for key, values := range query {
 			if len(values) != 1 || (key != "interval" && key != "from" && key != "to" && key != "dense") {
-				http.Error(w, "invalid series query", 422)
+				http.Error(w, "invalid series query", http.StatusUnprocessableEntity)
 				return
 			}
 		}
@@ -655,14 +684,14 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 		duration, e3 := engine.IntervalSeconds(interval)
 		dense := query.Get("dense") == "true"
 		if !addressPattern.MatchString(pool) || e1 != nil || e2 != nil || e3 != nil || from < 0 || to <= from || (to-from-1)/duration+1 > 10000 || (query.Has("dense") && query.Get("dense") != "true" && query.Get("dense") != "false") {
-			http.Error(w, "invalid series scope", 422)
+			http.Error(w, "invalid series scope", http.StatusUnprocessableEntity)
 			return
 		}
 		bounded, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
 		bars, e := engine.ReadSeries(bounded, exact, pool, interval, from, to, dense)
 		if e != nil && !errors.Is(e, engine.ErrNoData) {
-			http.Error(w, "canonical series unavailable", 503)
+			http.Error(w, "canonical series unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		w.Header().Set("Cache-Control", "private, no-cache")
@@ -670,12 +699,12 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 	})
 	router.Post("/internal/v2/charts/retention:apply", func(w http.ResponseWriter, r *http.Request) {
 		if archive == nil || operatorToken == "" {
-			http.Error(w, "archive authority unavailable", 503)
+			http.Error(w, "archive authority unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		authorization := r.Header.Get("Authorization")
 		if !strings.HasPrefix(authorization, "Bearer ") || subtle.ConstantTimeCompare([]byte(strings.TrimPrefix(authorization, "Bearer ")), []byte(operatorToken)) != 1 {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		var request struct {
@@ -687,14 +716,14 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
 		decoder.DisallowUnknownFields()
 		if decoder.Decode(&request) != nil || decoder.Decode(new(any)) != io.EOF || !addressPattern.MatchString(request.Pool) {
-			http.Error(w, "invalid retention range", 422)
+			http.Error(w, "invalid retention range", http.StatusUnprocessableEntity)
 			return
 		}
 		bounded, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 		defer cancel()
 		deleted, err := exact.DeleteRetainedRange(bounded, request.Pool, request.Interval, request.From, request.To)
 		if err != nil {
-			http.Error(w, "retention authority rejected range", 409)
+			http.Error(w, "retention authority rejected range", http.StatusConflict)
 			return
 		}
 		sharedhttp.WriteJSON(w, 200, map[string]any{"deletedRows": deleted})
@@ -702,24 +731,24 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 	jobs := make(chan struct{}, 1)
 	router.Post("/internal/v2/charts/archive:rebuild", func(w http.ResponseWriter, r *http.Request) {
 		if archive == nil || operatorToken == "" {
-			http.Error(w, "archive authority unavailable", 503)
+			http.Error(w, "archive authority unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		authorization := r.Header.Get("Authorization")
 		if !strings.HasPrefix(authorization, "Bearer ") {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		supplied := strings.TrimPrefix(authorization, "Bearer ")
 		if subtle.ConstantTimeCompare([]byte(supplied), []byte(operatorToken)) != 1 {
-			http.Error(w, "unauthorized", 401)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
 		select {
 		case jobs <- struct{}{}:
 			defer func() { <-jobs }()
 		default:
-			http.Error(w, "archive rebuild busy", 429)
+			http.Error(w, "archive rebuild busy", http.StatusTooManyRequests)
 			return
 		}
 		var request struct {
@@ -732,14 +761,14 @@ func registerSeriesRuntime(router chi.Router, exact *store.ExactStore, archive *
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024*1024))
 		decoder.DisallowUnknownFields()
 		if decoder.Decode(&request) != nil || decoder.Decode(new(any)) != io.EOF || !addressPattern.MatchString(request.Pool) || !regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`).MatchString(request.RunID) {
-			http.Error(w, "invalid archive rebuild", 422)
+			http.Error(w, "invalid archive rebuild", http.StatusUnprocessableEntity)
 			return
 		}
 		bounded, cancel := context.WithTimeout(r.Context(), 4*time.Minute)
 		defer cancel()
 		report, err := engine.ReconstructArchive(bounded, exact, *archive, request.RunID, request.Pool, request.From, request.To, request.Manifests)
 		if err != nil {
-			http.Error(w, "archive reconstruction failed", 503)
+			http.Error(w, "archive reconstruction failed", http.StatusServiceUnavailable)
 			return
 		}
 		sharedhttp.WriteJSON(w, 200, report)

@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use std::error::Error;
 use std::io::{Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -38,6 +42,7 @@ struct Scratch(PathBuf);
 impl Scratch {
     fn new() -> Outcome<Self> {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
+        test_network::isolate()?;
         let path = std::env::temp_dir().join(format!(
             "xweb-payment-repair-{}-{}",
             std::process::id(),
@@ -173,7 +178,7 @@ impl Replay {
     fn count(&self, method: &str) -> usize {
         self.calls
             .lock()
-            .expect("calls lock")
+            .or_panic("calls lock")
             .iter()
             .filter(|call| call["method"] == method)
             .count()
@@ -349,8 +354,8 @@ pub fn supported_offers_refusals_and_recovery() -> Outcome {
     let rpc = Replay::start()?;
     let config = config(&scratch, &rpc)?;
     let mut gate = gate(&config)?;
-    let served = Arc::new(AtomicUsize::new(0));
-    let mut server = serve(&gate, &config, &served)?;
+    let served_count = Arc::new(AtomicUsize::new(0));
+    let mut server = serve(&gate, &config, &served_count)?;
     let rpc_client = SettlementRpc::new(&rpc.endpoint(), 125)?;
     for _ in 0..2 {
         assert_eq!(read_payer_grant(&rpc_client, &[0xee; 32])?, None);
@@ -358,95 +363,15 @@ pub fn supported_offers_refusals_and_recovery() -> Outcome {
     let exact = read_json(&fixtures().join("gateway/exact.json"))?;
     let mut replays = Vec::new();
     for currency in CURRENCIES {
-        let target = format!("/search?q={currency}");
-        let challenge = get(&server, &target, Some(PAYER), None)?;
-        refused(&challenge, "payment_required")?;
-        let offers = challenge.decoded(PAYMENT_REQUIRED)?;
-        let offers = offers["accepts"].as_array().ok_or("offers")?;
-        assert_eq!(offers.len(), 4);
-        assert!(offers.iter().all(|offer| offer["scheme"] == EXACT));
-        let offer = offers
-            .iter()
-            .find(|offer| offer["extra"]["layerx"]["currency"] == currency)
-            .ok_or("currency offer")?;
-        assert!(offer["extra"]["layerx"].get("purposeHash").is_none());
-        assert!(offer["extra"]["layerx"].get("payer").is_none());
-        let mut legacy_offer = offer.clone();
-        legacy_offer["scheme"] = json!(METERED);
-        let legacy = signature(
-            &legacy_offer,
-            &json!({"grantId": hex(&[0xee; 32]), "idempotencyKey": hex(&[0x31; 32])}),
-        )?;
-        let before = served.load(Ordering::SeqCst);
-        refused(
-            &get(&server, &target, None, Some(&legacy))?,
-            "payment_invalid",
-        )?;
-        assert_eq!(served.load(Ordering::SeqCst), before);
-        let mut payload = exact["payments"][currency].clone();
-        payload
-            .as_object_mut()
-            .ok_or("payment payload")?
-            .remove("rawTransaction");
-        let signed = signature(offer, &payload)?;
-        let original = rpc.receipt(&payload["txHash"], None)?;
-        let mut bad_signature = original.clone();
-        let receipt = bad_signature["receipt"].as_str().ok_or("signed receipt")?;
-        let last = if receipt.ends_with("00") { "01" } else { "00" };
-        bad_signature["receipt"] = json!(format!("{}{last}", &receipt[..receipt.len() - 2]));
-        rpc.receipt(&payload["txHash"], Some(&bad_signature))?;
-        refused(
-            &get(&server, &target, None, Some(&signed))?,
-            "receipt_unverified",
-        )?;
-        assert_eq!(served.load(Ordering::SeqCst), before);
-        rpc.receipt(&payload["txHash"], Some(&original))?;
-        let mut mismatched = payload.clone();
-        mismatched["receiptDigest"] = json!(hex(&[0x11; 32]));
-        refused(
-            &get(
-                &server,
-                &target,
-                None,
-                Some(&signature(offer, &mismatched)?),
-            )?,
-            "receipt_digest_mismatch",
-        )?;
-        let mut unbound = payload.clone();
-        unbound["idempotencyKey"] = json!(hex(&[0x12; 32]));
-        refused(
-            &get(&server, &target, None, Some(&signature(offer, &unbound)?))?,
-            "receipt_mismatch",
-        )?;
-        assert_eq!(served.load(Ordering::SeqCst), before);
-        let reply = get(&server, &target, None, Some(&signed))?;
-        assert_eq!(reply.status, 200, "{}", reply.body);
-        let payment = reply.decoded(PAYMENT_RESPONSE)?;
-        assert_eq!(payment["success"], true);
-        assert_eq!(payment["network"], "eip155:125");
-        assert_eq!(payment["transaction"], payload["txHash"]);
-        assert_eq!(
-            payment["extensions"]["layerx"]["receiptDigest"],
-            payload["receiptDigest"]
-        );
-        assert_eq!(
-            payment["extensions"]["layerx"]["verificationLevel"],
-            "receipted"
-        );
-        let receipt = decode(&original)?;
-        let event = decode_payment_exact(&receipt.logs[0]).ok_or("exact event")?;
-        assert_eq!(payment["payer"], hex(&event.payer));
-        assert_eq!(reply.body["query"], currency);
-        assert_eq!(served.load(Ordering::SeqCst), before + 1);
-        replays.push((
-            target,
-            signed,
-            reply.raw,
-            payload["txHash"].clone(),
-            bad_signature,
-        ));
+        replays.push(assert_supported_offer_case(
+            currency,
+            &server,
+            &rpc,
+            &exact,
+            &served_count,
+        )?);
     }
-    assert_eq!(served.load(Ordering::SeqCst), 4);
+    assert_eq!(served_count.load(Ordering::SeqCst), 4);
     let lookups = rpc.count("pax_sequencerReceipt");
     server.shutdown()?;
     drop(gate);
@@ -458,8 +383,8 @@ pub fn supported_offers_refusals_and_recovery() -> Outcome {
         rpc.count("pax_sequencerReceipt"),
         lookups + CURRENCIES.len()
     );
-    assert_eq!(served.load(Ordering::SeqCst), 4);
-    server = serve(&gate, &config, &served)?;
+    assert_eq!(served_count.load(Ordering::SeqCst), 4);
+    server = serve(&gate, &config, &served_count)?;
     for (target, signed, raw, hash, bad_signature) in replays {
         let before = rpc.count("pax_sequencerReceipt");
         let original = rpc.receipt(&hash, Some(&bad_signature))?;
@@ -467,7 +392,7 @@ pub fn supported_offers_refusals_and_recovery() -> Outcome {
             &get(&server, &target, None, Some(&signed))?,
             "receipt_unverified",
         )?;
-        assert_eq!(served.load(Ordering::SeqCst), 4);
+        assert_eq!(served_count.load(Ordering::SeqCst), 4);
         assert_eq!(rpc.count("pax_sequencerReceipt"), before + 1);
         rpc.receipt(&hash, Some(&original))?;
         let replay = get(&server, &target, None, Some(&signed))?;
@@ -481,7 +406,7 @@ pub fn supported_offers_refusals_and_recovery() -> Outcome {
         )?;
         assert_eq!(rpc.count("pax_sequencerReceipt"), lookups);
     }
-    assert_eq!(served.load(Ordering::SeqCst), 4);
+    assert_eq!(served_count.load(Ordering::SeqCst), 4);
     assert_eq!(
         rpc.count("pax_sequencerReceipt"),
         lookups + 3 * CURRENCIES.len()
@@ -490,6 +415,107 @@ pub fn supported_offers_refusals_and_recovery() -> Outcome {
         std::fs::read_dir(config.data_dir.join("payments/receipts"))?.count(),
         4
     );
+    assert_persisted_deliveries(&config, &rpc)?;
+    server.shutdown()?;
+    drop(gate);
+    rpc.finish()?;
+    Ok(())
+}
+
+type ReplayCase = (String, String, Vec<u8>, Value, Value);
+
+fn assert_supported_offer_case(
+    currency: &str,
+    server: &RunningServer,
+    rpc: &Replay,
+    exact: &Value,
+    served_count: &Arc<AtomicUsize>,
+) -> Outcome<ReplayCase> {
+    let target = format!("/search?q={currency}");
+    let challenge = get(server, &target, Some(PAYER), None)?;
+    refused(&challenge, "payment_required")?;
+    let offers = challenge.decoded(PAYMENT_REQUIRED)?;
+    let offers = offers["accepts"].as_array().ok_or("offers")?;
+    assert_eq!(offers.len(), 4);
+    assert!(offers.iter().all(|offer| offer["scheme"] == EXACT));
+    let offer = offers
+        .iter()
+        .find(|offer| offer["extra"]["layerx"]["currency"] == currency)
+        .ok_or("currency offer")?;
+    assert!(offer["extra"]["layerx"].get("purposeHash").is_none());
+    assert!(offer["extra"]["layerx"].get("payer").is_none());
+    let mut legacy_offer = offer.clone();
+    legacy_offer["scheme"] = json!(METERED);
+    let legacy = signature(
+        &legacy_offer,
+        &json!({"grantId": hex(&[0xee; 32]), "idempotencyKey": hex(&[0x31; 32])}),
+    )?;
+    let before = served_count.load(Ordering::SeqCst);
+    refused(
+        &get(server, &target, None, Some(&legacy))?,
+        "payment_invalid",
+    )?;
+    assert_eq!(served_count.load(Ordering::SeqCst), before);
+    let mut payload = exact["payments"][currency].clone();
+    payload
+        .as_object_mut()
+        .ok_or("payment payload")?
+        .remove("rawTransaction");
+    let signed = signature(offer, &payload)?;
+    let original = rpc.receipt(&payload["txHash"], None)?;
+    let mut bad_signature = original.clone();
+    let receipt = bad_signature["receipt"].as_str().ok_or("signed receipt")?;
+    let last = if receipt.ends_with("00") { "01" } else { "00" };
+    bad_signature["receipt"] = json!(format!("{}{last}", &receipt[..receipt.len() - 2]));
+    rpc.receipt(&payload["txHash"], Some(&bad_signature))?;
+    refused(
+        &get(server, &target, None, Some(&signed))?,
+        "receipt_unverified",
+    )?;
+    assert_eq!(served_count.load(Ordering::SeqCst), before);
+    rpc.receipt(&payload["txHash"], Some(&original))?;
+    let mut mismatched = payload.clone();
+    mismatched["receiptDigest"] = json!(hex(&[0x11; 32]));
+    refused(
+        &get(server, &target, None, Some(&signature(offer, &mismatched)?))?,
+        "receipt_digest_mismatch",
+    )?;
+    let mut unbound = payload.clone();
+    unbound["idempotencyKey"] = json!(hex(&[0x12; 32]));
+    refused(
+        &get(server, &target, None, Some(&signature(offer, &unbound)?))?,
+        "receipt_mismatch",
+    )?;
+    assert_eq!(served_count.load(Ordering::SeqCst), before);
+    let reply = get(server, &target, None, Some(&signed))?;
+    assert_eq!(reply.status, 200, "{}", reply.body);
+    let payment = reply.decoded(PAYMENT_RESPONSE)?;
+    assert_eq!(payment["success"], true);
+    assert_eq!(payment["network"], "eip155:125");
+    assert_eq!(payment["transaction"], payload["txHash"]);
+    assert_eq!(
+        payment["extensions"]["layerx"]["receiptDigest"],
+        payload["receiptDigest"]
+    );
+    assert_eq!(
+        payment["extensions"]["layerx"]["verificationLevel"],
+        "receipted"
+    );
+    let receipt = decode(&original)?;
+    let event = decode_payment_exact(&receipt.logs[0]).ok_or("exact event")?;
+    assert_eq!(payment["payer"], hex(&event.payer));
+    assert_eq!(reply.body["query"], currency);
+    assert_eq!(served_count.load(Ordering::SeqCst), before + 1);
+    Ok((
+        target,
+        signed,
+        reply.raw,
+        payload["txHash"].clone(),
+        bad_signature,
+    ))
+}
+
+fn assert_persisted_deliveries(config: &Config, rpc: &Replay) -> Outcome {
     let entries = std::fs::read_dir(config.data_dir.join("payments/requests"))?
         .collect::<Result<Vec<_>, _>>()?;
     assert_eq!(entries.len(), 4);
@@ -539,8 +565,27 @@ pub fn supported_offers_refusals_and_recovery() -> Outcome {
     ] {
         assert_eq!(rpc.count(method), 0);
     }
-    server.shutdown()?;
-    drop(gate);
-    rpc.finish()?;
     Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

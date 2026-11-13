@@ -14,6 +14,9 @@ pub enum NativeBindingError {
 }
 
 /// Verifies the real preparation producer's call, disclosure and signing digest.
+/// # Errors
+/// Returns an error if the native preparation, signed submission or recovered sender does not
+/// match its retained binding.
 pub fn validate_native_preparation(prepared: &EvmPrepared) -> Result<(), NativeBindingError> {
     crate::prepare::verify_call_binding(prepared).map_err(|_| NativeBindingError::Preparation)?;
     if prepared.observed_head_height == 0 {
@@ -23,6 +26,9 @@ pub fn validate_native_preparation(prepared: &EvmPrepared) -> Result<(), NativeB
 }
 
 /// Requires the retained preparation to equal the transaction authorized for signing.
+/// # Errors
+/// Returns an error if the native preparation, signed submission or recovered sender does not
+/// match its retained binding.
 pub fn validate_retained_preparation(
     prepared: &EvmPrepared,
     signing: Option<&SigningPreparation>,
@@ -36,6 +42,9 @@ pub fn validate_retained_preparation(
     Ok(prepared.call.clone())
 }
 
+/// # Errors
+/// Returns an error if the native preparation, signed submission or recovered sender does not
+/// match its retained binding.
 pub fn verify_native_budget_submission(
     prepared: &EvmPrepared,
     submission: &VerifiedSubmission,
@@ -67,6 +76,9 @@ pub(super) fn verify_retained_submission(
 }
 
 /// Reopens the exact native transaction with its call-bound disclosure.
+/// # Errors
+/// Returns an error if the native preparation, signed submission or recovered sender does not
+/// match its retained binding.
 pub fn restore_native_preparation(
     canonical_bytes: &[u8],
     sender: [u8; 20],

@@ -1,0 +1,6 @@
+[repair.22_39_434]
+member = "layerx-human-security-provider"
+redundant_guards_locations = 1
+dead_code_locations = 10
+source = "src/recovery.rs"
+test_support = "tests/support/mod.rs, tests/support/chain.rs"

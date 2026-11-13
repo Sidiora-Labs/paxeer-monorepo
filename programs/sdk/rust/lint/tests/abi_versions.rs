@@ -171,7 +171,8 @@ fn v4_artifact_importing_outside_the_host_set_is_refused() {
 #[test]
 fn v5_admits_market_step_adjudicate_through_real_import_validation() {
     let market = abi_v5::program_importing(ABI_V5_MODULE, "market_step_adjudicate", 6);
-    let engine = WasmEngine::declared().expect("declared runtime engine");
+    let engine =
+        WasmEngine::declared().unwrap_or_else(|error| panic!("declared runtime engine: {error}"));
     assert!(engine.validate_v5(&market).is_ok());
     assert_eq!(lint_artifact_for_abi(&market, ABI_V5_VERSION), Vec::new());
     for version in [

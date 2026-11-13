@@ -26,7 +26,7 @@ func identityIngressDeadline(next http.Handler) http.Handler {
 			controller := http.NewResponseController(w)
 			deadline := time.Now().Add(identityIngressReadTimeout)
 			if err := controller.SetReadDeadline(deadline); err != nil {
-				sharedhttp.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"code": "DEPENDENCY_UNAVAILABLE"})
+				sharedhttp.WriteJSON(w, http.StatusServiceUnavailable, map[string]string{responseCodeField: "DEPENDENCY_UNAVAILABLE"})
 				return
 			}
 			// net/http clears the deadline after finishing the response. Keep
@@ -41,7 +41,7 @@ func identityDatabaseCheck(cfg config.Config, pool *pgxpool.Pool) sharedhttp.Che
 		if pool == nil {
 			return fmt.Errorf("identity_database_missing")
 		}
-		if cfg.NodeEnv != "production" {
+		if cfg.NodeEnv != nodeEnvironmentProduction {
 			return pool.Ping(ctx)
 		}
 		return cfg.CheckRuntimeSchema(ctx, pool)

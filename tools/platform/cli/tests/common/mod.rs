@@ -6,8 +6,11 @@
 
 mod credential_environment;
 
-pub use credential_environment::credential_environment;
-use credential_environment::CredentialEnvironment;
+pub fn credential_environment() -> bool {
+    credential_environment::credential_environment()
+}
+
+pub use credential_environment::CredentialEnvironment;
 use std::io::{Read as _, Write as _};
 use std::net::{TcpListener, TcpStream};
 #[cfg(unix)]

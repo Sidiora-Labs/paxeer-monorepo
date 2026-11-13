@@ -116,6 +116,7 @@ async function backendRewritesKeepRouteTemplates() {
       { source: '/v2/network/authority', destination: 'https://api.example.com/v2/network/authority' },
       { source: '/v2/preflight/:path*', destination: 'https://api.example.com/v2/preflight/:path*' },
       { source: '/v2/snapshots', destination: 'https://api.example.com/v2/snapshots' },
+      { source: '/v2/pools/:pool/candles', destination: 'https://api.example.com/v2/pools/:pool/candles' },
       { source: '/v2/stream', destination: 'https://sockets.example.com/v2/stream' },
       { source: '/v2/stream/sse', destination: 'https://sockets.example.com/v2/stream/sse' },
       { source: '/v2/udf/config', destination: 'https://charts.example.com/v2/udf/config' },

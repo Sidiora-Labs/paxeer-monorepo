@@ -22,7 +22,8 @@ struct Directory(PathBuf);
 
 impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove admission fixture directory");
+        fs::remove_dir_all(&self.0)
+            .unwrap_or_else(|error| panic!("remove admission fixture directory: {error:?}"));
     }
 }
 
@@ -37,15 +38,18 @@ fn signed_transaction(nonce: u64) -> Vec<u8> {
         data: Vec::new(),
     }
     .sign(&[0x52; 32])
-    .expect("production EIP-1559 transaction encoder")
+    .unwrap_or_else(|error| panic!("production EIP-1559 transaction encoder: {error:?}"))
 }
 
 fn listener() -> (TcpListener, NodeRpcConfig) {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("loopback HTTP fixture");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("loopback HTTP fixture: {error:?}"));
     let config = NodeRpcConfig {
         url: format!(
             "http://{}/",
-            listener.local_addr().expect("fixture address")
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("fixture address: {error:?}"))
         ),
         chain_id: 125,
         deadline: Duration::from_secs(2),
@@ -74,14 +78,19 @@ fn finding18_documented_http_admission_stays_submitted_after_journal_recovery() 
     let signer = SigningKey::from_bytes(&[0x84; 32]);
     let first = signed_transaction(1);
     let first_hash = transaction_hash(&first);
-    let (transaction, signature) = decode_signed(&first).expect("real signed transaction");
-    let sender = recover_sender(&transaction, &signature).expect("real recovered sender");
+    let (transaction, signature) =
+        decode_signed(&first).unwrap_or_else(|error| panic!("real signed transaction: {error:?}"));
+    let sender = recover_sender(&transaction, &signature)
+        .unwrap_or_else(|error| panic!("real recovered sender: {error:?}"));
     let mut producer = EvidenceNode::new(&directory.0, EVIDENCE_NETWORK_ID, &signer, 7);
     producer.register_sender(sender);
     let (tcp, config) = listener();
     let server = producer.serve(tcp);
-    let node = NodeRpc::connect(&config).expect("production HTTP JSON-RPC consumer");
-    let keys = node.receipt_keys().expect("fixture receipt keys");
+    let node = NodeRpc::connect(&config)
+        .unwrap_or_else(|error| panic!("production HTTP JSON-RPC consumer: {error:?}"));
+    let keys = node
+        .receipt_keys()
+        .unwrap_or_else(|error| panic!("fixture receipt keys: {error:?}"));
     assert_eq!(keys.len(), 1);
     assert_eq!(keys[0].public_key, signer.verifying_key().to_bytes());
     assert_eq!(node.sequencer_receipt(&first_hash), Ok(None));
@@ -96,7 +105,9 @@ fn finding18_documented_http_admission_stays_submitted_after_journal_recovery() 
         );
     }
     drop(node);
-    let producer = server.join().expect("stop bounded admission server");
+    let producer = server
+        .join()
+        .unwrap_or_else(|error| panic!("stop bounded admission server: {error:?}"));
     assert_eq!(
         producer.served(),
         &[
@@ -113,38 +124,62 @@ fn finding18_documented_http_admission_stays_submitted_after_journal_recovery() 
         tx_hash: first_hash,
         raw_transaction: first.clone(),
     };
-    assert_eq!(producer.journal().records(), &[expected.clone()]);
+    assert_eq!(
+        producer.journal().records(),
+        std::slice::from_ref(&expected)
+    );
     drop(producer);
+    assert_recovered_admission(&directory, &signer, sender, &first, expected);
+}
+
+fn assert_recovered_admission(
+    directory: &Directory,
+    signer: &SigningKey,
+    sender: [u8; 20],
+    first: &[u8],
+    expected: AdmissionRecord,
+) {
+    let first_hash = expected.tx_hash;
     assert_eq!(
         AdmissionJournal::recover(&directory.0, EVIDENCE_NETWORK_ID),
         vec![expected.clone()]
     );
 
     let path = directory.0.join("admission.journal");
-    let valid_length = fs::metadata(&path).expect("persisted journal").len();
+    let valid_length = fs::metadata(&path)
+        .unwrap_or_else(|error| panic!("persisted journal: {error:?}"))
+        .len();
     let mut interrupted = OpenOptions::new()
         .append(true)
         .open(&path)
-        .expect("journal tail");
+        .unwrap_or_else(|error| panic!("journal tail: {error:?}"));
     interrupted
         .write_all(b"LXAR\0\0\0")
-        .expect("torn next record");
-    interrupted.sync_data().expect("persist interrupted append");
+        .unwrap_or_else(|error| panic!("torn next record: {error:?}"));
+    interrupted
+        .sync_data()
+        .unwrap_or_else(|error| panic!("persist interrupted append: {error:?}"));
     drop(interrupted);
 
     let second = signed_transaction(2);
     let second_hash = transaction_hash(&second);
-    let mut reopened = EvidenceNode::new(&directory.0, EVIDENCE_NETWORK_ID, &signer, 5);
+    let mut reopened = EvidenceNode::new(&directory.0, EVIDENCE_NETWORK_ID, signer, 5);
     assert_eq!(
-        fs::metadata(&path).expect("recovered journal").len(),
+        fs::metadata(&path)
+            .unwrap_or_else(|error| panic!("recovered journal: {error:?}"))
+            .len(),
         valid_length
     );
     assert!(reopened.journal().contains(&first_hash));
-    assert_eq!(reopened.journal().records(), &[expected.clone()]);
+    assert_eq!(
+        reopened.journal().records(),
+        std::slice::from_ref(&expected)
+    );
     reopened.register_sender(sender);
     let (tcp, config) = listener();
     let server = reopened.serve(tcp);
-    let node = NodeRpc::connect(&config).expect("reopened real HTTP fixture");
+    let node = NodeRpc::connect(&config)
+        .unwrap_or_else(|error| panic!("reopened real HTTP fixture: {error:?}"));
     assert_eq!(
         node.sequencer_receipt(&first_hash),
         Ok(Some(SequencerReceipt::Submitted {
@@ -152,7 +187,7 @@ fn finding18_documented_http_admission_stays_submitted_after_journal_recovery() 
             nonce: 1,
         }))
     );
-    assert_eq!(node.send_raw_transaction(&first), Ok(first_hash));
+    assert_eq!(node.send_raw_transaction(first), Ok(first_hash));
     assert_eq!(node.send_raw_transaction(&second), Ok(second_hash));
     assert_eq!(
         node.sequencer_receipt(&second_hash),
@@ -162,7 +197,9 @@ fn finding18_documented_http_admission_stays_submitted_after_journal_recovery() 
         }))
     );
     drop(node);
-    let reopened = server.join().expect("stop reopened server");
+    let reopened = server
+        .join()
+        .unwrap_or_else(|error| panic!("stop reopened server: {error:?}"));
     let expected_records = vec![
         expected,
         AdmissionRecord {

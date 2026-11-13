@@ -1,0 +1,351 @@
+[repair.22.39.211]
+acceptance = "22998.1"
+workspace = "The agent workspace lints cover all workspace members and targets."
+repair_scope = "Public method signatures and test assertions remain intact."
+
+[inventory]
+types = 8
+client = 21
+agentd = 2
+sdk = 1
+client_test = 10
+agentd_host = 1
+workspace_remaining = 0
+
+[source_repairs]
+outbound_tls = "The shared TLS fixture retains its required certificate checks within the test wrapper."
+policy_approval = "Program decision publication keeps the same reference result."
+store = "Batch removal tests follow production items and retain their assertions."
+crypto_disclosure = "Decimal formatting checks every quotient and remainder conversion."
+market_value_terms = "Client term tests propagate construction and decoding errors while preserving every assertion."
+lap_transport = "Lap submission selects an admitted signer before constructing the signed operation."
+
+[lint.1]
+crate = "layerx-types"
+file = "services/agent/crates/layerx-types/src/chain.rs"
+line = 24
+lint = "clippy::missing_errors_doc"
+symbol = "ValidatorSetTrust::parse"
+repair = "Document malformed JSON, exact fields and schema, wrong chain ID, invalid Comet chain name, invalid height and zero validator-set hash as error conditions."
+
+[lint.2]
+crate = "layerx-types"
+file = "services/agent/crates/layerx-types/src/chain.rs"
+line = 86
+lint = "clippy::unused_self"
+symbol = "ValidatorSetTrust::chain_id"
+repair = "Preserve the public instance method with the daemon's narrow unused_self allowance and a reason naming the trust-pin caller."
+
+[lint.3]
+crate = "layerx-types"
+file = "services/agent/crates/layerx-types/src/chain.rs"
+line = 99
+lint = "clippy::missing_errors_doc"
+symbol = "ValidatorSetTrust::check_reference"
+repair = "Document covering-height and validator-set hash mismatches as error conditions."
+
+[lint.4]
+crate = "layerx-types"
+file = "services/agent/crates/layerx-types/src/chain.rs"
+line = 121
+lint = "clippy::missing_errors_doc"
+symbol = "BlockReference::new"
+repair = "Document zero execution height, covering-height bounds and zero block, validator-set or state-root hashes as error conditions."
+
+[lint.5]
+crate = "layerx-types"
+file = "services/agent/crates/layerx-types/src/chain.rs"
+line = 160
+lint = "clippy::missing_errors_doc"
+symbol = "BlockReference::decode"
+repair = "Document invalid framing, chain ID, truncation and field-validation errors."
+
+[lint.6]
+crate = "layerx-types"
+file = "services/agent/crates/layerx-types/src/chain.rs"
+line = 164
+lint = "clippy::items_after_statements"
+symbol = "BlockReference::decode::take"
+repair = "Move the nested take function above the first statement without changing decoding or validation."
+
+[lint.7]
+crate = "layerx-types"
+file = "services/agent/crates/layerx-types/src/historical/verify.rs"
+line = 8
+lint = "clippy::missing_errors_doc"
+symbol = "HistoricalVerificationLevel::from_wire_rank"
+repair = "Document ranks greater than five as the error condition."
+
+[lint.8]
+crate = "layerx-types"
+file = "services/agent/crates/layerx-types/src/historical/verify.rs"
+line = 23
+lint = "clippy::unused_self"
+symbol = "HistoricalVerificationLevel::rung"
+repair = "Preserve the public instance method and its refusal to promote archive evidence, using the daemon's narrow unused_self allowance with a reason naming the archive-policy caller."
+
+[lint.9]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 110
+lint = "clippy::must_use_candidate"
+symbol = "HostMeterKey::from_seed"
+repair = "Mark the constructed key as must_use."
+
+[lint.10]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 113
+lint = "clippy::must_use_candidate"
+symbol = "HostMeterKey::public_key"
+repair = "Mark the derived key as must_use."
+
+[lint.11]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 116
+lint = "clippy::must_use_candidate"
+symbol = "HostMeterKey::sign"
+repair = "Mark the generated signature as must_use."
+
+[lint.12]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 122
+lint = "clippy::must_use_candidate"
+symbol = "meter_digest"
+repair = "Mark the digest as must_use."
+
+[lint.13]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 132
+lint = "clippy::missing_errors_doc"
+symbol = "stream_meter_calldata"
+repair = "Returns a noncanonical-data error for a zero stream or authority, or a signature error when the meter attestation does not verify."
+
+[lint.14]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 160
+lint = "clippy::missing_errors_doc"
+symbol = "sign_stream_meter"
+repair = "Returns an error for invalid transaction terms or noncanonical meter calldata, an invalid attestation, an unauthorized signing key, signing failure, or invalid signed transaction bytes."
+
+[lint.15]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 212
+lint = "clippy::needless_question_mark"
+symbol = "sign_stream_meter"
+repair = "Return the existing OperationRecord Result directly."
+
+[lint.16]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 328
+lint = "clippy::missing_errors_doc"
+symbol = "seal_evidence"
+repair = "Returns an error if the payload fails the seal-evidence operation codec validation."
+
+[lint.17]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 332
+lint = "clippy::missing_errors_doc"
+symbol = "lap_envelope"
+repair = "Returns an error for a stale snapshot, invalid shared state, absent or mismatched captured roster, expired request, unauthorized actor, sequence overflow, or invalid envelope fields."
+
+[lint.18]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 595
+lint = "clippy::missing_errors_doc"
+symbol = "book_view"
+repair = "Returns an error if the shared state or model query is invalid, or the resulting book view is malformed."
+
+[lint.19]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 610
+lint = "clippy::missing_errors_doc"
+symbol = "verify_recorded_deal"
+repair = "Returns a sequencer error if the lookup fails, or `FinalityMismatch` if the recorded deal fields differ from the request."
+
+[lint.20]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 650
+lint = "clippy::missing_errors_doc"
+symbol = "deal_envelope"
+repair = "Returns an error for malformed shared state or admission data, a missing epoch or room, a mismatched roster, expired request, sequence overflow, invalid deal payload, or invalid envelope fields."
+
+[lint.21]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 714
+lint = "clippy::missing_errors_doc"
+symbol = "poll_finalized_market"
+repair = "Returns an error if committed headers or namespace artifacts are unavailable, their proofs or content digests fail verification, the state is malformed, or the captured snapshot cannot be finalized."
+
+[lint.22]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 762
+lint = "clippy::collapsible_if"
+symbol = "poll_finalized_market"
+repair = "Combine the state-key and duplicate-digest predicates, preserving short-circuit evaluation."
+
+[lint.23]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 2931
+lint = "clippy::missing_errors_doc"
+symbol = "resolve_receipt"
+repair = "Returns an error if the journal cannot be locked or read, the record is stale or in an invalid state, receipt authentication fails, its digest or transaction fields mismatch, or the updated record cannot be persisted."
+
+[lint.24]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 3209
+lint = "clippy::missing_errors_doc"
+symbol = "named_market_operation"
+repair = "Returns `MissingOperation` when no dispatch entry has the supplied name."
+
+[lint.25]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 3217
+lint = "clippy::missing_errors_doc"
+symbol = "program_refusal"
+repair = "Returns a codec error for malformed result bytes, or `CorruptRecord` when a refusal code is absent from the application error registry."
+
+[lint.26]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 3239
+lint = "clippy::missing_errors_doc"
+symbol = "market_envelope"
+repair = "Returns an error for invalid signed transaction bytes, a different chain or target, malformed program-call or envelope bytes, or mismatched program, ABI, entrypoint or expiry fields."
+
+[lint.27]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 3255
+lint = "clippy::implicit_clone"
+symbol = "market_envelope"
+repair = "Move the owned calldata vector into the result after validation."
+
+[lint.28]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 3258
+lint = "clippy::missing_errors_doc"
+symbol = "sign_market_envelope"
+repair = "Returns an error for an invalid envelope, a nonmutation operation, mismatched transaction terms, invalid actor DID, unauthorized key, disclosure or signing failure, or invalid signed transaction bytes."
+
+[lint.29]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 3312
+lint = "clippy::missing_errors_doc"
+symbol = "submit_market_operation"
+repair = "Returns an error if the signed envelope is invalid, journal persistence or reload fails, retained bytes or intent differ, submission fails, or the program reports a refusal."
+
+[lint.30]
+crate = "layerx-agentd"
+file = "services/agent/crates/layerx-agentd/src/store/mod.rs"
+line = 1293
+lint = "clippy::items_after_test_module"
+repair = "Move batch_removing_tests below the production items without changing any test or assertion."
+
+[lint.31]
+crate = "layerx-agentd"
+file = "services/platform/tests/support/tls_boundary.rs"
+line = 210
+lint = "clippy::expect_used"
+repair = "Wrap the shared TLS fixture in a test function that documents its required certificate material."
+
+[lint.32]
+crate = "layerx-sdk"
+file = "services/agent/crates/layerx-sdk/src/program_http.rs"
+line = 2278
+lint = "clippy::map_unwrap_or"
+repair = "Use Option::map_or_else to preserve the environment override and the same default fixture path."
+
+[lint.33]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/tests/market_value_call_terms.rs"
+line = 25
+lint = "clippy::unwrap_used"
+repair = "Propagate invalid program identifiers from payment construction."
+
+[lint.34]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/tests/market_value_call_terms.rs"
+line = 26
+lint = "clippy::unwrap_used"
+repair = "Propagate account derivation errors from payment construction."
+
+[lint.35]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/tests/market_value_call_terms.rs"
+line = 42
+lint = "clippy::unwrap_used"
+repair = "Propagate value-term construction errors in the assertion helper."
+
+[lint.36]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/tests/market_value_call_terms.rs"
+line = 44
+lint = "clippy::unwrap_used"
+repair = "Propagate canonical v2 capability decode errors."
+
+[lint.37]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/tests/market_value_call_terms.rs"
+line = 46
+lint = "clippy::unwrap_used"
+repair = "Propagate canonical capability decode errors."
+
+[lint.38]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/tests/market_value_call_terms.rs"
+line = 61
+lint = "clippy::unwrap_used"
+repair = "Propagate capability-set construction errors."
+
+[lint.39]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/tests/market_value_call_terms.rs"
+line = 91
+lint = "clippy::unwrap_used"
+repair = "Propagate invalid program identifiers from payment-term tests."
+
+[lint.40]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/tests/market_value_call_terms.rs"
+line = 91
+lint = "clippy::unwrap_used"
+repair = "Propagate account derivation errors from payment-term tests."
+
+[lint.41]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/tests/market_value_call_terms.rs"
+line = 105
+lint = "clippy::unwrap_used"
+repair = "Reuse the validated program identifier in the payment capability."
+
+[lint.42]
+crate = "layerx-client"
+file = "services/agent/crates/layerx-client/tests/market_value_call_terms.rs"
+line = 155
+lint = "clippy::match_wildcard_for_single_variants"
+repair = "Name the deposit variant explicitly in the payment-only match."
+
+[lint.43]
+crate = "layerx-agentd-host"
+file = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 2462
+lint = "clippy::too_many_lines"
+repair = "Select the admitted lap signer in a dedicated method before submission."

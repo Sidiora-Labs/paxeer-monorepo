@@ -1,0 +1,85 @@
+[repair]
+task = "22.39.359"
+decision = "3244"
+gotcha = "4172"
+source_revision = "ee5fac325dd65598f30f940b85c0caef0122a3e3"
+cause = "The command passed unchanged default delivery parameters whose zero lag budget the renderer refuses."
+change = "Parse an explicit bounded lag budget and optional strict dead letter JSON before any anchor request; pass those parameters into the real renderer."
+scope = "Only main.go, main_test.go and this record in cmd/indexer-runtime-docs; internal/app and DefaultDeliveryParameters remain unchanged."
+
+[flags]
+max_delivery_lag_ms = "-max-delivery-lag-ms is required, decimal whole milliseconds from 1 through 9223372036854 inclusive; no default budget."
+dead_letters = "-dead-letters is optional; its file must decode as exactly one app.DeadLetterParameters JSON object with no unknown members; absent means no policy."
+
+[cases]
+required_budget = "TestRepair_22_39_359_lag_budget_is_required rejects absent, zero, negative, oversized, fractional, nonnumeric and overflowing budgets; run rejects them before attempting its anchor URL."
+accepted_budget = "60000 preserves every other default member; 1 and the exact duration bound are accepted."
+policy = "All eight declared dead letter members survive decoding; unreadable, empty, malformed, unknown-member, wrong-type, null, array and trailing-value files are refused."
+render = "TestRepair_22_39_359_rendered_delivery_document_carries_the_budget renders via app.RenderRuntimeDocuments and reads maxDeliveryLagMs 60000 from delivery.json, asserting absent deadLetters."
+render_inputs = "Approved historical deployment 32226215, committed historical reviewed catalog, SidioraERC20 compiler artifact and the recorded anchor at height 33963715 from internal/internaltest/chainfixture/testdata/paxeer125-market.jsonl.gz."
+pool_identity = "Historical runtime hash from internal/app/render_test.go:46 and internal/runtimedocs/paxeer_test.go:37; no invented anchor or external RPC required."
+existing_case = "TestInputPathsResolveCommittedInputs remains intact and executes in the declared verification."
+
+[inventory]
+search = "Repository-wide tracked text search for indexer-runtime-docs, including spec, documentation, scripts and source; command directory excluded."
+result = "No external executable runtime caller found. External invocation signatures and build/test references are listed below and remain unchanged because they are outside scope."
+other_references = [".cgignore:7", ".cgignore:10", "GOTCHA.kvx:20686", "tools/launchpad/production/bootstrap/tests/source-catalog.json:4171", "tools/launchpad/production/bootstrap/tests/source-catalog.json:4179"]
+
+[invocation.architecture]
+file = "spec/layerx-merge/docs/architecture/markets-and-launchpad.md"
+line = 19159
+command = "go run ./cmd/indexer-runtime-docs"
+flags = "No flags in generated signature; a runtime invocation now needs -max-delivery-lag-ms along with its existing anchor flags."
+result = "Recorded, not changed; generated interface documentation."
+
+[invocation.interface]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 77669
+command = "go run ./cmd/indexer-runtime-docs"
+flags = "No flags in interface signature."
+result = "Recorded, not changed; interface inventory."
+
+[invocation.sweep]
+file = "spec/layerx-merge/programme/sweeps/interfaces.kvx"
+line = 11770
+command = "go run ./cmd/indexer-runtime-docs"
+flags = "No flags in recorded symbol."
+result = "Recorded, not changed; inventory symbol, not an operational caller."
+
+[invocation.task_build]
+file = "spec/layerx-merge/spec.kvx"
+line = 225013
+command = "cd services/launchpad/indexer && go build ./cmd/indexer-runtime-docs/ && go vet ./cmd/indexer-runtime-docs/"
+flags = "Build and vet only; no runtime flags."
+result = "Executed only through hf-build; authoritative result in private evidence ledger."
+
+[invocation.task_verify]
+file = "spec/layerx-merge/spec.kvx"
+line = 225014
+also_at = "spec/layerx-merge/spec.kvx:42249"
+command = "test -s services/launchpad/indexer/cmd/indexer-runtime-docs/repair_22_39_359.kvx && cd services/launchpad/indexer && go test -count=1 ./cmd/indexer-runtime-docs/ -run 'TestInputPathsResolveCommittedInputs|TestRepair_22_39_359'"
+flags = "-count=1 and the declared focused -run expression; no runtime invocation."
+result = "Executed only through hf-done; authoritative result in private evidence ledger."
+
+[invocation.historical_build]
+file = "spec/layerx-merge/spec.kvx"
+line = 337489
+command = "(cd services/launchpad/indexer && go build ./cmd/indexer-runtime-docs/...) && go build ./tools/launchpad/production/charts-engine/..."
+flags = "Build only; no runtime flags."
+result = "Recorded, not changed or run."
+
+[invocation.historical_verify]
+file = "spec/layerx-merge/spec.kvx"
+line = 337490
+command = "(cd services/launchpad/indexer && go test -count=1 ./cmd/indexer-runtime-docs/ -run '^(TestInputPathsResolveCommittedInputs)$') && go test -count=1 ./tools/launchpad/production/charts-engine/ -run '^(TestRebuildArgumentsTargetServiceDirectory)$'"
+flags = "Historical test filters; no runtime invocation."
+result = "Recorded, not changed or run."
+
+[qualification]
+build_gate = "hf-build"
+verify_gate = "hf-done"
+result = "Exact gate results are recorded outside the candidate to avoid changing the revision between build and verification."
+verified_revision = "revision of the last verify row in /out/run/gates.jsonl; qualification requires exit 0 and the same revision as the passing build."
+private_evidence = "/out/run/gates.jsonl"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"

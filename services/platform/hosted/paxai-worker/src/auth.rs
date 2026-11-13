@@ -1389,6 +1389,8 @@ impl EvaluationAccess {
     pub const MAX_PRINCIPALS: usize = 64;
     pub const MAX_BYTES: usize = 2 + 32 * Self::MAX_PRINCIPALS;
 
+    /// # Errors
+    /// Returns `NonCanonical` when the grant set is too large or contains duplicates.
     pub fn new(mut principals: Vec<PrincipalId>) -> Result<Self, ServiceError> {
         principals.sort_by_key(|principal| principal.bytes());
         if principals.len() > Self::MAX_PRINCIPALS
@@ -1399,6 +1401,8 @@ impl EvaluationAccess {
         Ok(Self { principals })
     }
 
+    /// # Errors
+    /// Returns `Overflow` when the number of grants cannot be encoded.
     pub fn encode(&self) -> Result<Vec<u8>, ServiceError> {
         let count = u16::try_from(self.principals.len()).map_err(|_| ServiceError::Overflow)?;
         let mut bytes = count.to_be_bytes().to_vec();
@@ -1408,6 +1412,9 @@ impl EvaluationAccess {
         Ok(bytes)
     }
 
+    /// # Errors
+    /// Returns an integrity or canonical encoding error when the bytes do not describe
+    /// the expected grant set.
     pub fn decode(bytes: &[u8], expected: Digest32) -> Result<Self, ServiceError> {
         if bytes.len() > Self::MAX_BYTES
             || codec::domain_hash("PAXAI/evaluation-access/v1", bytes)? != expected
@@ -1431,6 +1438,8 @@ impl EvaluationAccess {
         Ok(access)
     }
 
+    /// # Errors
+    /// Returns an encoding or hash error if the grant set cannot be committed.
     pub fn commitment(&self) -> Result<Digest32, ServiceError> {
         Ok(codec::domain_hash(
             "PAXAI/evaluation-access/v1",

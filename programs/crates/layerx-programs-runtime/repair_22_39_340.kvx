@@ -1,0 +1,119 @@
+[meta]
+task = "22.39.340"
+criterion = "22998.1"
+decision = "3209"
+gotcha = "4131"
+base_revision = "6ed89b16ad0669f418d8c0e830fd1a4a65b39bab"
+seed_revision = "b98f9b64f6b61b00a5eb82c8cb9bc4b94c6bc536"
+mode = "BUILD"
+
+[kernel]
+file = "src/modules/programs/call.c"
+symbol = "layerx_programs_call_destination_name_byte"
+implementation = "The scalar callback takes the call token, destination words, asset words and offset; UINT32_MAX reads the name length, ordinary offsets read one byte and out-of-range offsets return LXP_ERR_TRUNCATED. Existing account ids and the asset fee account have zero length. Identity destinations use lxp_kernel_program_payment_account at the call protocol version and propagate its exact refusal. Reads stage no accounts, transfers or balances."
+unchanged = "layerx_programs_call_transfer_leg is byte-for-byte unchanged."
+function_lists = "include/layerx/programs.h declares the new C callback; the unsafe extern C block adjacent to layerx_programs_call_payment_name_byte in programs/crates/layerx-programs-runtime/src/ffi_call.rs declares the identical scalar signature. No other manually maintained list enumerates these call callbacks; the generated graph/interface inventories are runner-owned and outside task scope."
+
+[runtime.binding]
+lines = "1639-1697"
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+symbol = "bind_payment_accounts"
+implementation = "Read destination lengths and bytes for every leg, including program-owned sources, before skipping their source-name lookup. Preserve negative kernel destination refusal codes, enforce the 512-byte bound and pass parallel source/destination lists into bind_account_names under the existing protocol version 3 condition."
+
+[runtime.canonical]
+lines = "883-995"
+file = "programs/crates/layerx-programs-runtime/src/transfer.rs"
+symbol = "bind_account_names"
+implementation = "Validate both name-list lengths and reject rebinding. Derive nonempty destination names with principal_payment_account using leg.to as the identity and leg.asset; replace kernel leg bytes 33..65 and recompute the Merkle root after both sides are bound. Keep typed legs, capabilities and grants on the original program bytes. A failed binding leaves the entire set unchanged."
+encoding = "Only a nonempty destination name selects LayerX/programs/402LXP/account-bound-set/v2 followed by NUL, u32 original length, original bytes and per-leg u16 source length/source bytes/u16 destination length/destination bytes. Otherwise the version 1 encoding is unchanged."
+decoding = "decode_account_bound accepts either domain, forbids either domain in the nested original, reads exactly the two lists for v2, refuses an all-empty v2 destination list, validates identities and asset account names through the same derivation, and compares the complete re-encoded artifact to the input. verify_authorization_root compares the decoded bound root. Trailing bytes and every strict prefix are refused."
+
+[reader.call_applied]
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+symbol = "CKernel::verify_402lxp_transfer_set_root"
+original_lines = "1792-1815"
+result = "The receipt comparison reads the bound kernel_root. Applied-leg verification and terminal attachment length/byte publication read the bound kernel_canonical, so the receipt and terminal commit to the resolved accounts."
+
+[reader.call_nested]
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+original_lines = "2972"
+result = "After bind_payment_accounts, the composite execution branch snapshots canonical authorization evidence and the bound kernel_root for the transfer-authority terminal wrapper."
+
+[reader.call_prepared]
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs"
+original_lines = "3401"
+result = "After bind_payment_accounts, the prepared execution branch snapshots canonical authorization evidence and the bound kernel_root before strict settlement."
+
+[reader.program_spend]
+file = "programs/crates/layerx-programs-runtime/src/ffi_transfer.rs"
+symbol = "issue_program_spend_for_set"
+original_lines = "114"
+result = "Permits read the bound kernel_root and now take each settlement destination from bytes 33..65 of its bound kernel_canonical leg. Owner, seed, frame, source, asset and amount remain checked against the program authorization."
+
+[reader.wind_down]
+file = "programs/crates/layerx-programs-runtime/src/ffi_transfer.rs"
+symbol = "WindDownKernel::verify_402lxp_transfer_set_root"
+original_lines = "383"
+result = "The wind-down receipt comparison reads kernel_root from the supplied set, including any binding; wind-down's existing construction uses account ids and needs no identity lookup."
+
+[reader.separate_transfer]
+file = "src/modules/programs/transfer.c"
+result = "The separate transfer activity continues account_by_id lookup for encoded source and destination account ids. No change is made to that path."
+
+[cases.kernel]
+file = "tests/programs/test_call_escrow_principal.c"
+symbol = "main"
+coverage = "The real registry/kernel context proves account-id and unopened fee-account zero lengths without staging, an identity with exactly one eligible payment account returns every name byte and rejects its terminal offset, an identity without a matching payment account propagates LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE, and two matching payment accounts propagate LXP_ERR_CONTEXT_MISMATCH. Existing transfer settlement and rollback assertions remain."
+
+[cases.native]
+file = "tests/programs/test_call_activity.c"
+symbol = "main"
+coverage = "Three additional real Wasm/kernel/runtime call cases pay an identity, pay a mixed identity/account set, and refuse a missing identity payment account. Success proves v2 terminal evidence, exact committed-vector bytes/root, bound applied-leg account ids, one-unit credits and unchanged other recipient balances/sequences. The refusal proves no transfer root, no program effects or module mutations, unchanged recipient balances, and exactly the existing validation fee with its required identity/global sequence consumption."
+dump = "--dump-identity-destination and --dump-mixed-destinations emit the actual native authorization bytes and root; the generator consumes both dumps. Existing dump modes and fixture files remain unchanged."
+
+[cases.runtime]
+file = "programs/crates/layerx-programs-runtime/src/transfer.rs"
+symbols = ["destination_bound_vectors_round_trip_and_refuse_noncanonical_forms", "account_only_destinations_preserve_committed_version_one_bytes", "destination_bound_program_spend_consumes_the_bound_account_once"]
+coverage = "Read every committed destination vector, reconstruct accepted forms through the real authorization/binding producer, prove v2 decode/re-encode and root verification, refuse every truncation and malformed vector, and prove capabilities still compare identity bytes. Read every accepted existing v1 account vector and reproduce it byte-for-byte with its unchanged root. A real program-spend permit refuses identity bytes, consumes the bound account once and refuses reuse."
+
+[vectors]
+file = "programs/fixtures/pay5/destination-authorization-vectors.json"
+sha256 = "defd4d19a9fc69d422a93862ccb6efae66e856a68db915f606ade911f20af323"
+count = 1271
+accepted = "One native identity leg and a mixed identity/account set."
+refused = "For each accepted artifact: trailing byte, nested v2, nested v1, v1 wrapping v2, every truncation, another identity's destination name, a destination asset-account name for the wrong asset, and all destination names empty."
+generator = "programs/fixtures/pay5/generate_sdk_account_fixtures.py; --destinations-only writes only the new vector file. The native tests require the committed accepted vectors to match their real producer exactly."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+revision_source = "The immutable candidate revision is recorded with command, exit code and private log by the gate runner in /out/run/gates.jsonl; its final evidence line identifies the verified revision. A self-referential candidate hash cannot be embedded in this candidate's own file."
+publication = "The external runner owns qualification bookkeeping and publication; no manual commits, pushes, spec edits or AI market guest changes."
+
+[repair.attempt_4]
+decision = "3209"
+gotcha = "4148"
+observed = "At revision 0f96041b8bef148c3529bbf77a8273cca5db41da, hf-build exited 0 (/out/logs/build-1.log), the dependent-package check exited 0 (/out/logs/dependents-1.log), and cg spec done 22.39.340 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log) at test_call_activity.c:1557: destination_terminal_evidence returned nonzero; all preceding success conditions passed."
+cause = "The identity dump proves that the stored authorization differs from the native producer only at offsets 151..183, the invocation-authority field; its bound transfer root already matches. The mixed dump also exposed noncanonical signed grants: the fixture encoded the identity destination before the lexically smaller account destination, contrary to CapabilitySet::decode_versioned_canonical."
+change = "Keep each success condition on its own failure line and preserve every assertion. Sort the two signed grants by destination while keeping the guest transfer order unchanged. Make the generator rebuild its native producer before collecting destination dumps, then regenerate all 1271 vectors from both real calls with --destinations-only; no vector is edited by hand. Both accepted roots remain unchanged and only the invocation-authority field changes in their authorizations."
+fixture_evidence = "/out/logs/destination-identity-before.json contains the actual identity authorization and root; /out/logs/destination-regeneration.log records the rebuilt producer and successful generation of both native calls. Every other committed fixture remains byte-for-byte unchanged."
+result = "Final qualification is hf-build followed by hf-done on the same candidate; the exact revision, command, exit and private log are retained by the runner in /out/run/gates.jsonl."
+
+[qualification.attempt_4_result]
+revision = "6d690906f85c6b6a803dcd08a0730cc8012e1160"
+command = "cg spec done 22.39.340 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+status = "implemented-not-qualified"
+build = "hf-build passed at the same revision; /out/logs/build-2.log."
+native = "Both programs_call_escrow_principal and programs_call_activity passed, including identity, mixed-destination and absent-payment-account calls."
+runtime = "The transfer module ran 32 tests: 31 passed and destination_bound_vectors_round_trip_and_refuse_noncanonical_forms failed at transfer.rs:2209, after decoding and checking every vector, because the nested-v2 category count was 4 instead of 2."
+cause = "The category-count predicate uses ends_with(nested-v2), which includes both nested-v2 and v1-nested-v2 labels for each accepted vector; it must distinguish exact category labels while keeping both rejection cases and the count assertion."
+stop = "The runner counts the second hf-build and second hf-done as the two allowed repair reruns; the budget is exhausted. No further source repair, gate, completion claim, manual commit or push is performed."
+
+[repair.attempt_5]
+decisions = ["3228", "3209"]
+gotcha = "4155"
+cause = "Suffix matching counted each v1-nested-v2 refusal again under nested-v2, producing four matches instead of the required two; all 1271 committed vectors are correct."
+change = "Remove the accepted case name and its separating hyphen from each refused vector name, then compare the entire remaining category label for equality. Preserve all seven labels, the expected count of two per label, the accepted count of two, the refused-count bound and every vector byte; no fixture is regenerated."
+qualification = "Run hf-build followed by hf-done on this unchanged final candidate; the gate runner records the exact revision, command, exit and private evidence location in /out/run/gates.jsonl and prints the authoritative evidence line."

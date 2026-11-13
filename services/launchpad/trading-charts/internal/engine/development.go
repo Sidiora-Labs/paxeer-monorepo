@@ -25,12 +25,15 @@ type developmentKV interface {
 	Claim(SwapEvent) (bool, error)
 }
 
-type developmentCandle struct {
-	Row     store.CandleRow
-	First   ChainOrder
-	Last    ChainOrder
-	Traders map[string]bool
+type DevelopmentCandle struct {
+	OpenSource, HighSource, LowSource, CloseSource *SwapEvent
+	Row                                            store.CandleRow
+	First                                          ChainOrder
+	Last                                           ChainOrder
+	Traders                                        map[string]bool
 }
+
+type developmentCandle = DevelopmentCandle
 
 type developmentDelivery struct {
 	ID    string            `json:"id"`
@@ -88,13 +91,13 @@ func (b *Builder) foldSwap(tx developmentKV, swap SwapEvent) error {
 			return ErrUnsupportedResolution
 		}
 		start := swap.BlockTimestamp / interval * interval
-		key := developmentKey("candle", swap.PoolAddress, tf, strconv.FormatInt(start, 10))
+		key := developmentKey(developmentCandleKind, swap.PoolAddress, tf, strconv.FormatInt(start, 10))
 		var candle developmentCandle
 		found, err := loadDevelopment(tx, key, &candle)
 		if err != nil {
 			return err
 		}
-		cursorKey := developmentKey("cursor", swap.PoolAddress, tf)
+		cursorKey := developmentKey(developmentCursorKind, swap.PoolAddress, tf)
 		var cursor store.CursorRow
 		hasCursor, err := loadDevelopment(tx, cursorKey, &cursor)
 		if err != nil {
@@ -113,23 +116,32 @@ func (b *Builder) foldSwap(tx developmentKV, swap SwapEvent) error {
 				Open: swap.Price, High: swap.Price, Low: swap.Price, Close: swap.Price,
 				VolumeUsdl: "0", VolumeToken: "0", BuyVolumeUsdl: "0", SellVolumeUsdl: "0",
 				SequenceNum: sequence, McapOpen: mcap, McapHigh: mcap, McapLow: mcap, McapClose: mcap,
-			}, First: *swap.Position, Last: *swap.Position, Traders: map[string]bool{}}
+			}, OpenSource: &swap, HighSource: &swap, LowSource: &swap, CloseSource: &swap, First: *swap.Position, Last: *swap.Position, Traders: map[string]bool{}}
 		}
 		c := &candle.Row
 		if candle.Traders == nil || c.TradeCount < 0 || c.TradeCount >= 2147483647 {
 			return errors.New("engine: invalid development candle state")
 		}
 		if swap.Position.Compare(candle.First) < 0 {
+			candle.OpenSource = &swap
 			candle.First, c.Open, c.McapOpen = *swap.Position, swap.Price, mcap
 		}
 		if swap.Position.Compare(candle.Last) >= 0 {
+			candle.CloseSource = &swap
 			candle.Last, c.Close, c.McapClose, c.LastTradeTs = *swap.Position, swap.Price, mcap, swap.BlockTimestamp
 		}
+		previousHigh, previousLow := c.High, c.Low
 		if c.High, err = shareddb.BigintMax(c.High, swap.Price); err != nil {
 			return err
 		}
 		if c.Low, err = shareddb.BigintMin(c.Low, swap.Price); err != nil {
 			return err
+		}
+		if c.High != previousHigh {
+			candle.HighSource = &swap
+		}
+		if c.Low != previousLow {
+			candle.LowSource = &swap
 		}
 		if c.McapHigh, err = shareddb.BigintMax(c.McapHigh, mcap); err != nil {
 			return err

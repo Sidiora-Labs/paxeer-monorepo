@@ -14,10 +14,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	types "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
@@ -77,6 +79,90 @@ func digest(v any) ([32]byte, error) {
 	}
 	return sha256.Sum256(raw), nil
 }
+
+// provenanceHeaderDigest preserves the header encoding used by the original
+// rpc-code-epoch-v1 producer, independently of the current RPC JSON codec.
+func provenanceHeaderDigest(header *types.Header) ([32]byte, error) {
+	return provenanceHeaderDigestForCodec(header, provenanceHeaderGeth1173)
+}
+
+type provenanceHeaderCodec uint8
+
+const (
+	provenanceHeaderGeth1173 provenanceHeaderCodec = iota
+	provenanceHeaderGeth1174
+)
+
+func provenanceHeaderDigestForCodec(header *types.Header, codec provenanceHeaderCodec) ([32]byte, error) {
+	if header == nil || (codec != provenanceHeaderGeth1173 && codec != provenanceHeaderGeth1174) {
+		return [32]byte{}, ErrQualification
+	}
+	raw, err := json.Marshal(struct {
+		ParentHash          common.Hash      `json:"parentHash"`
+		UncleHash           common.Hash      `json:"sha3Uncles"`
+		Coinbase            common.Address   `json:"miner"`
+		Root                common.Hash      `json:"stateRoot"`
+		TxHash              common.Hash      `json:"transactionsRoot"`
+		ReceiptHash         common.Hash      `json:"receiptsRoot"`
+		Bloom               types.Bloom      `json:"logsBloom"`
+		Difficulty          *hexutil.Big     `json:"difficulty"`
+		Number              *hexutil.Big     `json:"number"`
+		GasLimit            hexutil.Uint64   `json:"gasLimit"`
+		GasUsed             hexutil.Uint64   `json:"gasUsed"`
+		Time                hexutil.Uint64   `json:"timestamp"`
+		Extra               hexutil.Bytes    `json:"extraData"`
+		MixDigest           common.Hash      `json:"mixHash"`
+		Nonce               types.BlockNonce `json:"nonce"`
+		BaseFee             *hexutil.Big     `json:"baseFeePerGas"`
+		WithdrawalsHash     *common.Hash     `json:"withdrawalsRoot"`
+		BlobGasUsed         *hexutil.Uint64  `json:"blobGasUsed"`
+		ExcessBlobGas       *hexutil.Uint64  `json:"excessBlobGas"`
+		ParentBeaconRoot    *common.Hash     `json:"parentBeaconBlockRoot"`
+		RequestsHash        *common.Hash     `json:"requestsHash"`
+		BlockAccessListHash *common.Hash     `json:"balHash"`
+		SlotNumber          *hexutil.Uint64  `json:"slotNumber"`
+		Hash                common.Hash      `json:"hash"`
+	}{header.ParentHash, header.UncleHash, header.Coinbase, header.Root,
+		header.TxHash, header.ReceiptHash, header.Bloom, (*hexutil.Big)(header.Difficulty),
+		(*hexutil.Big)(header.Number), hexutil.Uint64(header.GasLimit), hexutil.Uint64(header.GasUsed),
+		hexutil.Uint64(header.Time), hexutil.Bytes(header.Extra), header.MixDigest, header.Nonce,
+		(*hexutil.Big)(header.BaseFee), header.WithdrawalsHash, (*hexutil.Uint64)(header.BlobGasUsed),
+		(*hexutil.Uint64)(header.ExcessBlobGas), header.ParentBeaconRoot, header.RequestsHash,
+		header.BlockAccessListHash, (*hexutil.Uint64)(header.SlotNumber), header.Hash()})
+	if err != nil || len(raw) > maxBundleBytes {
+		return [32]byte{}, ErrQualification
+	}
+	if codec == provenanceHeaderGeth1174 {
+		raw = bytes.Replace(raw, []byte(`"balHash":`), []byte(`"blockAccessListHash":`), 1)
+	}
+	return sha256.Sum256(raw), nil
+}
+
+// The original durable creation and the packet re-recorded by dd3266dd91
+// use these two codecs. Verify the recorded digest against the complete header
+// in its producer's encoding before comparing every other provenance field.
+func verifyHistoricalProvenance(header *types.Header, actual, recorded accounting.Provenance) error {
+	legacy, err := provenanceHeaderDigestForCodec(header, provenanceHeaderGeth1173)
+	if err != nil || actual.HeaderSHA256 != hex.EncodeToString(legacy[:]) {
+		return ErrQualification
+	}
+	current, err := provenanceHeaderDigestForCodec(header, provenanceHeaderGeth1174)
+	if err != nil {
+		return err
+	}
+	switch recorded.HeaderSHA256 {
+	case hex.EncodeToString(legacy[:]):
+	case hex.EncodeToString(current[:]):
+		actual.HeaderSHA256 = hex.EncodeToString(current[:])
+	default:
+		return fmt.Errorf("%w: unknown historical header provenance encoding", ErrQualification)
+	}
+	if actual != recorded {
+		return fmt.Errorf("%w: historical provenance differs", ErrQualification)
+	}
+	return nil
+}
+
 func clone[T any](v T) (T, error) {
 	var out T
 	raw, err := json.Marshal(v)
@@ -223,10 +309,14 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 			return nil, fmt.Errorf("%w: decode log %d: %v", ErrQualification, l.Index, err)
 		}
 		decoded[i] = env
-		if env.Status == "decoded" && env.Event != nil {
+		if env.Status == valueDecoded && env.Event != nil {
 			q.envelopes = append(q.envelopes, env)
-			q.selected[uint32(l.Index)] = true
-			if env.Family != nil && (env.Family.Authority == "primary" || env.Family.Authority == "native") {
+			lIndexUint32, conversionErr := checked.Convert[uint32](l.Index)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			q.selected[lIndexUint32] = true
+			if env.Family != nil && (env.Family.Authority == "primary" || env.Family.Authority == valueNative) {
 				q.events = append(q.events, env.Event)
 			}
 			if authority, ok := a.(provenanceQualification); ok {
@@ -246,7 +336,10 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 		}
 	}
 	receiptDigest, _ := digest(owned.Receipt)
-	headerDigest, _ := digest(owned.Header)
+	headerDigest, err := provenanceHeaderDigest(owned.Header)
+	if err != nil {
+		return nil, err
+	}
 	for i, env := range decoded {
 		if env.Family == nil || !env.Family.EconomicFill {
 			continue
@@ -259,7 +352,7 @@ func Qualify(ctx context.Context, r *decode.Registry, a Qualification, b Bundle)
 		if err != nil {
 			return nil, fmt.Errorf("%w: fill at log %d: %v", ErrQualification, l.Index, err)
 		}
-		if env.EmitterRole != "EventEmitter" {
+		if env.EmitterRole != valueEventEmitter {
 			proof, ok := q.provenance[strings.ToLower(l.Address.Hex())]
 			if !ok || proof.ABIRevision != env.ABIRevision || proof.EmitterCodeEpoch == "" {
 				return nil, ErrQualification
@@ -357,7 +450,11 @@ func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.Decode
 	if err != nil {
 		return f, err
 	}
-	execution, err := a.ExecutionPolicy(ctx, authorityBundle, uint32(l.Index))
+	lIndexUint322, conversionErr := checked.Convert[uint32](l.Index)
+	if conversionErr != nil {
+		return accounting.FillV1{}, conversionErr
+	}
+	execution, err := a.ExecutionPolicy(ctx, authorityBundle, lIndexUint322)
 	if err != nil {
 		return f, fmt.Errorf("%w: execution policy: %v", ErrQualification, err)
 	}
@@ -365,7 +462,15 @@ func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.Decode
 	if err != nil || accounting.ValidateExecutionPolicy(execution) != nil {
 		return f, ErrQualification
 	}
-	f = accounting.FillV1{Version: accounting.FillVersion, Position: accounting.SourcePosition{ChainID: "125", Height: b.Header.Number.String(), TransactionIndex: strconv.FormatUint(uint64(l.TxIndex), 10), LogIndex: strconv.FormatUint(uint64(l.Index), 10), TransactionHash: strings.ToLower(l.TxHash.Hex()), BlockHash: strings.ToLower(l.BlockHash.Hex())}, ActualEmitter: strings.ToLower(l.Address.Hex()), PoolAddress: strings.ToLower(pool.Hex()), Token: accounting.Asset{Address: strings.ToLower(meta.Token.Hex()), Decimals: meta.TokenDecimals}, Settlement: accounting.Asset{Address: strings.ToLower(meta.Settlement.Hex()), Decimals: meta.SettlementDecimals}, PaidInputRaw: input, FeeRaw: fee, InputDerivationQuality: "receipt_incomplete", Attribution: accounting.Attribution{TransactionSender: sender, Quality: "unavailable", Evidence: []accounting.EvidenceRef{}}, Execution: execution, Provenance: accounting.Provenance{DeploymentID: meta.DeploymentID, ABIRevision: meta.ABIRevision, EmitterCodeEpoch: meta.EmitterCodeEpoch, PoolCodeEpoch: meta.PoolCodeEpoch, ReceiptSHA256: hex.EncodeToString(receiptHash[:]), HeaderSHA256: hex.EncodeToString(headerHash[:])}, BlockTimestampSeconds: strconv.FormatUint(b.Header.Time, 10)}
+	lTxIndexUint64, conversionErr := checked.Convert[uint64](l.TxIndex)
+	if conversionErr != nil {
+		return accounting.FillV1{}, conversionErr
+	}
+	lIndexUint64, conversionErr := checked.Convert[uint64](l.Index)
+	if conversionErr != nil {
+		return accounting.FillV1{}, conversionErr
+	}
+	f = accounting.FillV1{Version: accounting.FillVersion, Position: accounting.SourcePosition{ChainID: "125", Height: b.Header.Number.String(), TransactionIndex: strconv.FormatUint(lTxIndexUint64, 10), LogIndex: strconv.FormatUint(lIndexUint64, 10), TransactionHash: strings.ToLower(l.TxHash.Hex()), BlockHash: strings.ToLower(l.BlockHash.Hex())}, ActualEmitter: strings.ToLower(l.Address.Hex()), PoolAddress: strings.ToLower(pool.Hex()), Token: accounting.Asset{Address: strings.ToLower(meta.Token.Hex()), Decimals: meta.TokenDecimals}, Settlement: accounting.Asset{Address: strings.ToLower(meta.Settlement.Hex()), Decimals: meta.SettlementDecimals}, PaidInputRaw: input, FeeRaw: fee, InputDerivationQuality: "receipt_incomplete", Attribution: accounting.Attribution{TransactionSender: sender, Quality: valueUnavailable, Evidence: []accounting.EvidenceRef{}}, Execution: execution, Provenance: accounting.Provenance{DeploymentID: meta.DeploymentID, ABIRevision: meta.ABIRevision, EmitterCodeEpoch: meta.EmitterCodeEpoch, PoolCodeEpoch: meta.PoolCodeEpoch, ReceiptSHA256: hex.EncodeToString(receiptHash[:]), HeaderSHA256: hex.EncodeToString(headerHash[:])}, BlockTimestampSeconds: strconv.FormatUint(b.Header.Time, 10)}
 	if isBuy {
 		f.Side = "buy"
 		f.TokenAmountRaw = output
@@ -377,7 +482,7 @@ func makeFill(ctx context.Context, a Qualification, b Bundle, env *decode.Decode
 		f.USDLAmountRaw = output
 		f.FeeDisposition = "retained_token_reserve"
 	}
-	if execution.Quality != "unavailable" && execution.OpticalImplementation != nil && *execution.OpticalImplementation == strings.ToLower((common.Address{}).Hex()) {
+	if execution.Quality != valueUnavailable && execution.OpticalImplementation != nil && *execution.OpticalImplementation == strings.ToLower((common.Address{}).Hex()) {
 		paid, pe := accounting.Uint(input)
 		feeValue, fe := accounting.Uint(fee)
 		if pe != nil || fe != nil || paid.Cmp(feeValue) < 0 {
@@ -426,7 +531,7 @@ func attribute(b Bundle, decoded []*decode.DecodedEnvelope, f accounting.FillV1,
 				matchingTrader = true
 			}
 		}
-		if e.Event != nil && e.EmitterRole == "Router" && e.EventName == name && b.Receipt.Logs[i].Address == *to && e.Event.Args["pool"] == f.PoolAddress && e.Event.Args[actor] == sender && e.Event.Args[inKey] == input && e.Event.Args[outKey] == output {
+		if e.Event != nil && e.EmitterRole == valueRouter && e.EventName == name && b.Receipt.Logs[i].Address == *to && e.Event.Args["pool"] == f.PoolAddress && e.Event.Args[actor] == sender && e.Event.Args[inKey] == input && e.Event.Args[outKey] == output {
 			routes++
 		}
 	}
@@ -499,7 +604,11 @@ func (q *QualifiedReceipt) SourceContext(ctx context.Context) (txHash, sender st
 	if err = q.validate(ctx); err != nil {
 		return
 	}
-	return strings.ToLower(q.bundle.Transaction.Hash().Hex()), q.sender, int64(q.bundle.Header.Time), nil
+	headerTimeInt64, conversionErr := checked.Convert[int64](q.bundle.Header.Time)
+	if conversionErr != nil {
+		return "", "", 0, conversionErr
+	}
+	return strings.ToLower(q.bundle.Transaction.Hash().Hex()), q.sender, headerTimeInt64, nil
 }
 func matches(raw store.RawRecord, l *types.Log) bool {
 	if raw.TransactionHash != strings.ToLower(l.TxHash.Hex()) || raw.BlockHash != strings.ToLower(l.BlockHash.Hex()) || raw.Emitter != strings.ToLower(l.Address.Hex()) || raw.Height < 0 || uint64(raw.Height) != l.BlockNumber || uint(raw.TransactionIndex) != l.TxIndex || uint(raw.LogIndex) != l.Index || !bytes.Equal(raw.Data, l.Data) || len(raw.Topics) != len(l.Topics) {
@@ -527,7 +636,11 @@ func (q *QualifiedReceipt) ValidateBinding(ctx context.Context, b store.Canonica
 		}
 		var matching *types.Log
 		for _, l := range q.bundle.Receipt.Logs {
-			if l.Index == uint(raw.LogIndex) {
+			rawLogIndexUint, conversionErr := checked.Convert[uint](raw.LogIndex)
+			if conversionErr != nil {
+				return conversionErr
+			}
+			if l.Index == rawLogIndexUint {
 				matching = l
 				break
 			}
@@ -580,7 +693,11 @@ func ValidateBindings(ctx context.Context, b store.CanonicalBatch, receipts []*Q
 	}
 	seen := map[string]bool{}
 	for _, raw := range b.Records {
-		key := raw.TransactionHash + ":" + strconv.FormatUint(uint64(raw.LogIndex), 10)
+		rawLogIndexUint64, conversionErr := checked.Convert[uint64](raw.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		key := raw.TransactionHash + ":" + strconv.FormatUint(rawLogIndexUint64, 10)
 		if byTx[raw.TransactionHash] == nil || seen[key] {
 			return ErrBinding
 		}
@@ -615,13 +732,13 @@ func (q *QualifiedReceipt) SignedChainID(ctx context.Context) (*big.Int, error) 
 }
 
 func qualifiedSwapFamily(env *decode.DecodedEnvelope, log *types.Log) bool {
-	if env == nil || log == nil || env.Status != "decoded" || env.Event == nil || env.Family == nil || !env.Family.EconomicFill || env.Family.Authority != "primary" || env.EventName != "Swap" {
+	if env == nil || log == nil || env.Status != valueDecoded || env.Event == nil || env.Family == nil || !env.Family.EconomicFill || env.Family.Authority != "primary" || env.EventName != "Swap" {
 		return false
 	}
 	switch env.EmitterRole {
-	case "EventEmitter":
+	case valueEventEmitter:
 		return true
-	case decode.LaunchpadPrecompileRole, "SidioraPool":
+	case decode.LaunchpadPrecompileRole, valueSidioraPool:
 		return log.Address == decode.LaunchpadPrecompileAddress
 	default:
 		return false

@@ -23,12 +23,12 @@ func (m *Metrics) Observe(operation, outcome string, duration time.Duration) {
 		return
 	}
 	switch operation {
-	case "profile", "preferences", "watchlist", "consent", "endpoint", "export", "deletion", "backfill", "projection", "inbox":
+	case fieldProfile, fieldPreferences, fieldWatchlist, "consent", "endpoint", kindExport, kindDeletion, "backfill", "projection", "inbox":
 	default:
 		return
 	}
 	switch outcome {
-	case "success", "conflict", "invalid", "denied", "failed", "stale", "expired", "quarantined", "overdue":
+	case outcomeSuccess, "conflict", "invalid", "denied", stateFailed, "stale", "expired", stateQuarantined, "overdue":
 	default:
 		return
 	}
@@ -82,22 +82,22 @@ func (w *measuredWriter) Write(b []byte) (int, error) {
 func operationName(path string) string {
 	switch {
 	case strings.Contains(path, "/profiles/"):
-		return "profile"
+		return fieldProfile
 	case strings.Contains(path, "/preferences"):
-		return "preferences"
+		return fieldPreferences
 	case strings.Contains(path, "/watchlist"):
-		return "watchlist"
+		return fieldWatchlist
 	case strings.Contains(path, "/devices/"):
 		return "endpoint"
 	case strings.Contains(path, "/exports"):
-		return "export"
+		return kindExport
 	case strings.Contains(path, "/deletion-requests"):
-		return "deletion"
+		return kindDeletion
 	}
 	return ""
 }
 func (m *Metrics) ObserveHTTP(path string, status int, duration time.Duration) {
-	outcome := "success"
+	outcome := outcomeSuccess
 	switch {
 	case status == http.StatusPreconditionFailed || status == http.StatusConflict:
 		outcome = "conflict"
@@ -106,7 +106,7 @@ func (m *Metrics) ObserveHTTP(path string, status int, duration time.Duration) {
 	case status == http.StatusForbidden || status == http.StatusUnauthorized:
 		outcome = "denied"
 	case status >= 400:
-		outcome = "failed"
+		outcome = stateFailed
 	}
 	m.Observe(operationName(path), outcome, duration)
 }
@@ -128,6 +128,6 @@ func (s Store) Stats(ctx context.Context) (ServiceStats, error) {
 	if e != nil {
 		return v, e
 	}
-	e = s.DB.QueryRow(ctx, `SELECT (SELECT count(*) FROM account_endpoint WHERE validated_at<$1-interval '30 days'),(SELECT count(*) FROM account_backfill WHERE state='quarantined'),coalesce((SELECT max(n) FROM(SELECT count(*) n FROM account_watch GROUP BY account_id) sizes),0)`, s.now()).Scan(&v.ExpiredEndpoints, &v.QuarantinedBackfills, &v.WatchlistMax)
+	e = s.DB.QueryRow(ctx, `SELECT (SELECT count(*) FROM account_endpoint WHERE validated_at<$1::timestamptz-interval '30 days'),(SELECT count(*) FROM account_backfill WHERE state='quarantined'),coalesce((SELECT max(n) FROM(SELECT count(*) n FROM account_watch GROUP BY account_id) sizes),0)`, s.now()).Scan(&v.ExpiredEndpoints, &v.QuarantinedBackfills, &v.WatchlistMax)
 	return v, e
 }

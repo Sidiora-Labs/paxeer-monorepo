@@ -1,9 +1,11 @@
 import { Box, Flex, Grid, Text } from '@chakra-ui/react';
+import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 
 import config from 'configs/app';
 import paxeerX from 'configs/app/features/paxeerX';
 import useApiQuery from 'lib/api/useApiQuery';
+import { publicClient } from 'lib/web3/client';
 import { Button } from 'toolkit/chakra/button';
 import { Link } from 'toolkit/chakra/link';
 import { TableBody, TableCell, TableColumnHeader, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
@@ -13,9 +15,11 @@ import PageTitle from 'ui/shared/Page/PageTitle';
 import { ScanKeyValue, ScanTableCard } from 'ui/shared/scan';
 
 import type { ActivityKind, ChainEvent, ChainTransfer } from './detail';
-import { addChainParams, parseActivityPage, parseSummary } from './detail';
+import { addChainParams, parseActivityPage, parseChainRecord, parseSummary } from './detail';
+import type { ChainLaunchView } from './launch';
+import { readChainLaunch } from './launch';
 import type { ChainRecord } from './model';
-import { parseChainsResponse, statusLabel } from './model';
+import { statusLabel } from './model';
 
 function isTransfer(item: ChainTransfer | ChainEvent): item is ChainTransfer {
   return typeof item.kind === 'string';
@@ -152,14 +156,34 @@ function ChainRecordCard({ record }: { record: ChainRecord }) {
   );
 }
 
+function LaunchSections({ launch }: { launch: ChainLaunchView }) {
+  return (
+    <>
+      <ScanTableCard title="Launch asset">
+        <Grid templateColumns={{ base: '1fr', md: '180px 1fr' }} gap={ 3 } p={ 4 }>
+          <ScanKeyValue label="Token">
+            <Link href={ `/token/${ launch.token }` } wordBreak="break-all">{ launch.tokenSymbol } · { launch.token }</Link>
+          </ScanKeyValue>
+          <ScanKeyValue label="Pool"><Link href={ `/address/${ launch.pool }` } wordBreak="break-all">{ launch.pool }</Link></ScanKeyValue>
+          <ScanKeyValue label="Fee right">#{ launch.feeRightId.toString() }</ScanKeyValue>
+          <ScanKeyValue label="Home chain">{ launch.homeChainId.toString() }</ScanKeyValue>
+        </Grid>
+      </ScanTableCard>
+      <ScanTableCard title="Revenue epochs">
+        { launch.lastEpoch ? (
+          <Grid templateColumns={{ base: '1fr', md: '180px 1fr' }} gap={ 3 } p={ 4 }>
+            <ScanKeyValue label="Last epoch">{ launch.lastEpoch.number.toString() }</ScanKeyValue>
+            <ScanKeyValue label="Epoch amount">{ launch.lastEpoch.amountPax } PAX</ScanKeyValue>
+            <ScanKeyValue label="Snapshot block">{ launch.lastEpoch.snapshotBlock.toString() }</ScanKeyValue>
+          </Grid>
+        ) : <Text p={ 4 }>No revenue epochs yet.</Text> }
+      </ScanTableCard>
+    </>
+  );
+}
+
 export function ChainDetail({ id }: { id: number }) {
-  const selectRecord = React.useCallback((json: unknown) => {
-    const [ record ] = parseChainsResponse({ chains: [ json ] });
-    if (record.id !== id) {
-      throw new Error('Record belongs to a different virtual chain');
-    }
-    return record;
-  }, [ id ]);
+  const selectRecord = React.useCallback((json: unknown) => parseChainRecord(json, id), [ id ]);
   const selectSummary = React.useCallback((json: unknown) => parseSummary(json, id), [ id ]);
   const record = useApiQuery('general:paxeer_x_chain', {
     pathParams: { id: String(id) },
@@ -168,6 +192,15 @@ export function ChainDetail({ id }: { id: number }) {
   const summary = useApiQuery('general:paxeer_x_chain_summary', {
     pathParams: { id: String(id) },
     queryOptions: { select: selectSummary, enabled: paxeerX.isEnabled && record.isSuccess },
+  });
+  const launch = useQuery({
+    queryKey: [ 'chainLaunch', id ],
+    queryFn: () => {
+      if (!publicClient || !record.data) throw new Error('Chain launch data is unavailable');
+      return readChainLaunch(record.data, publicClient);
+    },
+    enabled: paxeerX.isEnabled && record.isSuccess,
+    retry: false,
   });
 
   return (
@@ -179,6 +212,9 @@ export function ChainDetail({ id }: { id: number }) {
       { record.isSuccess && (
         <Flex direction="column" gap={ 6 }>
           <ChainRecordCard key={ id } record={ record.data }/>
+          { launch.isPending && <Text role="status">Loading launch asset…</Text> }
+          { launch.isError && <DataFetchAlert/> }
+          { launch.isSuccess && launch.data && <LaunchSections launch={ launch.data }/> }
           <ScanTableCard title="Summary">
             { summary.isPending && <Text p={ 4 } role="status">Loading summary…</Text> }
             { summary.isError && <DataFetchAlert/> }

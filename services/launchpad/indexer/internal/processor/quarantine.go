@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
@@ -25,7 +26,19 @@ func rawSourceRecord(log types.Log) (store.RawRecord, error) {
 	if log.BlockNumber > math.MaxInt64 || log.TxIndex > math.MaxUint32 || log.Index > math.MaxUint32 || log.Removed {
 		return store.RawRecord{}, store.ErrIntegrity
 	}
-	r := store.RawRecord{TransactionHash: strings.ToLower(log.TxHash.Hex()), BlockHash: strings.ToLower(log.BlockHash.Hex()), Emitter: strings.ToLower(log.Address.Hex()), Height: int64(log.BlockNumber), TransactionIndex: uint32(log.TxIndex), LogIndex: uint32(log.Index), Data: append([]byte(nil), log.Data...), Topics: make([]string, len(log.Topics))}
+	logBlockNumberInt64, conversionErr := checked.Convert[int64](log.BlockNumber)
+	if conversionErr != nil {
+		return store.RawRecord{}, conversionErr
+	}
+	logTxIndexUint32, conversionErr := checked.Convert[uint32](log.TxIndex)
+	if conversionErr != nil {
+		return store.RawRecord{}, conversionErr
+	}
+	logIndexUint32, conversionErr := checked.Convert[uint32](log.Index)
+	if conversionErr != nil {
+		return store.RawRecord{}, conversionErr
+	}
+	r := store.RawRecord{TransactionHash: strings.ToLower(log.TxHash.Hex()), BlockHash: strings.ToLower(log.BlockHash.Hex()), Emitter: strings.ToLower(log.Address.Hex()), Height: logBlockNumberInt64, TransactionIndex: logTxIndexUint32, LogIndex: logIndexUint32, Data: append([]byte(nil), log.Data...), Topics: make([]string, len(log.Topics))}
 	for i, t := range log.Topics {
 		r.Topics[i] = strings.ToLower(t.Hex())
 	}
@@ -48,13 +61,13 @@ func (p *Processor) RetainSourcePoison(ctx context.Context, result source.FetchR
 		}
 		decoded, decodeErr := policy.Registry.Decode(log)
 		code := ""
-		abi := "unavailable"
+		abi := valueUnavailable
 		required := true
 		requirement := "D02_021"
 		if decoded != nil {
 			abi = decoded.ABIRevision
 			if abi == "" {
-				abi = "unavailable"
+				abi = valueUnavailable
 			}
 			code = decoded.FailureReason
 		}
@@ -72,7 +85,7 @@ func (p *Processor) RetainSourcePoison(ctx context.Context, result source.FetchR
 			if optional, ok := policy.OptionalEmitterTopics[key]; ok && optional.ABIRevision != "" && optional.Requirement != "" {
 				required = false
 				requirement = optional.Requirement
-				if abi != "unavailable" && abi != optional.ABIRevision {
+				if abi != valueUnavailable && abi != optional.ABIRevision {
 					return errors.New("optional classification ABI policy mismatch")
 				}
 				abi = optional.ABIRevision

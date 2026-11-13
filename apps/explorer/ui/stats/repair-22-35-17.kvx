@@ -1,0 +1,20 @@
+[charts.transactions]
+resource = "general:stats_charts_txs"
+route = "/api/v2/stats/charts/transactions"
+charts = ["Daily transactions"]
+fields = ["chart_data.date", "chart_data.transactions_count"]
+source = "The home page transaction chart reads the explorer API when no statistics service address is configured."
+
+[charts.market]
+resource = "general:stats_charts_market"
+route = "/api/v2/stats/charts/market"
+charts = ["PAX price", "PAX market value"]
+fields = ["chart_data.date", "chart_data.closing_price", "chart_data.market_cap"]
+
+[charts.secondary_coin_market]
+resource = "general:stats_charts_secondary_coin_market"
+route = "/api/v2/stats/charts/secondary-coin-market"
+charts = ["SID price", "SID market value"]
+fields = ["chart_data.date", "chart_data.closing_price", "chart_data.market_cap"]
+cache = "Chart responses stay fresh for 15 seconds on the statistics and home pages."
+values = "SID price uses closing_price and SID market value uses market_cap; missing values show an em dash and zero remains zero."

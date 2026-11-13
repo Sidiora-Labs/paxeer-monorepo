@@ -71,6 +71,21 @@ func TestPostgresLinkedAppealReversalPreservesIndependentGlobalBan(t *testing.T)
 	if e = s.ReverseBanAppeal(reviewer, command); !errors.Is(e, ErrConflict) {
 		t.Fatal("stale reversal accepted", e)
 	}
+	if _, e = s.DB.Exec(ctx, `INSERT INTO safety_visibility(target_type,target_id,revision,status,case_id) VALUES('message','real-case-target',1,'removed',$1)`, caseID); e != nil {
+		t.Fatal(e)
+	}
+	visibility, e := s.RestoreAppealedVisibility(reviewer, RestoreCommand{CaseID: caseID, ExpectedRevision: 1, Reason: "appeal accepted", PolicyVersion: "v2"})
+	if e != nil || visibility.Status != "restored" || visibility.Revision != 2 || visibility.CaseID != caseID {
+		t.Fatalf("restored appealed content = %+v: %v", visibility, e)
+	}
+	poolBans, e := s.ListBans(reviewer, "", 10)
+	if e != nil || len(poolBans) != 1 || poolBans[0].ID != banID || poolBans[0].Revision != 2 {
+		t.Fatalf("scoped ban list = %+v: %v", poolBans, e)
+	}
+	allBans, e := s.ListBans(principal(s, walletA, "global_administrator"), "", 10)
+	if e != nil || len(allBans) != 2 {
+		t.Fatalf("global ban list = %+v: %v", allBans, e)
+	}
 }
 func TestRealRedisFourReplicasAcceptExactlyTenBurstMessages(t *testing.T) {
 	address := os.Getenv("L38_REDIS_ADDR")
@@ -104,6 +119,10 @@ func TestRealRedisFourReplicasAcceptExactlyTenBurstMessages(t *testing.T) {
 			}
 			var limited RateLimited
 			if errors.As(e, &limited) && limited.RetryAfterSeconds > 0 {
+				status, retry := RateLimitStatus(e)
+				if status != 429 || retry == "" || e.Error() != "social rate limit exceeded" {
+					t.Errorf("rate-limit response = %d, retry %q, error %q", status, retry, e)
+				}
 				rejected.Add(1)
 			} else {
 				t.Error(e)

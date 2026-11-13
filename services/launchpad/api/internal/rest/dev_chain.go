@@ -62,7 +62,7 @@ type headResolution struct {
 // under the 400ms ResponseMetadata deadline; an uncached head hash used to
 // consume it on the chain RPC and leave the next store transaction an
 // expired context (a 503 on every indexer head advance).
-const developmentHeadReserve = 200 * time.Millisecond
+const developmentHeadReserve = 275 * time.Millisecond
 
 func newDevelopmentChain(ctx context.Context, rawURL string) (*developmentChain, error) {
 	c := &developmentChain{positions: map[string]accounting.SourcePosition{}}
@@ -70,7 +70,7 @@ func newDevelopmentChain(ctx context.Context, rawURL string) (*developmentChain,
 		return c, nil
 	}
 	u, err := url.Parse(rawURL)
-	if err != nil || u.Host == "" || u.User != nil || u.Fragment != "" || (u.Scheme != "https" && u.Scheme != "http") {
+	if err != nil || u.Host == "" || u.User != nil || u.Fragment != "" || (u.Scheme != literalHttps && u.Scheme != literalHttp) {
 		return nil, errors.New("development chain RPC URL invalid")
 	}
 	client := &http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{ResponseHeaderTimeout: 3 * time.Second, MaxIdleConnsPerHost: 8}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -114,6 +114,9 @@ func rpcContext(ctx context.Context) (context.Context, context.CancelFunc) {
 // fetchBlockHash reads one block hash from the chain RPC, bounded at 3s and
 // detached from the caller's cancellation.
 func (c *developmentChain) fetchBlockHash(ctx context.Context, height int64) (string, error) {
+	if height < 0 {
+		return "", errChainReferenceUnavailable
+	}
 	rctx, cancel := rpcContext(ctx)
 	defer cancel()
 	var block *struct {
@@ -132,8 +135,8 @@ func (c *developmentChain) fetchBlockHash(ctx context.Context, height int64) (st
 
 // resolve runs one head resolution and caches a successful hash unless a
 // newer head was cached meanwhile.
-func (c *developmentChain) resolve(p *headResolution) {
-	p.hash, p.err = c.fetchBlockHash(context.Background(), p.height)
+func (c *developmentChain) resolve(ctx context.Context, p *headResolution) {
+	p.hash, p.err = c.fetchBlockHash(context.WithoutCancel(ctx), p.height)
 	c.mu.Lock()
 	c.failed = p.err != nil
 	if p.err == nil && p.height >= c.headHeight {
@@ -180,7 +183,7 @@ func (c *developmentChain) headWatermark(ctx context.Context, head store.Develop
 	if p == nil || p.height != head.Height {
 		p = &headResolution{height: head.Height, done: make(chan struct{})}
 		c.pending = p
-		go c.resolve(p)
+		go c.resolve(ctx, p)
 	}
 	c.mu.Unlock()
 	wait := 3 * time.Second
@@ -288,12 +291,19 @@ func (c *developmentChain) creationPositions(ctx context.Context, pools []store.
 	if c.checkChain(ctx) != nil {
 		return out
 	}
-	var pending []store.DevelopmentPool
+	type pendingPool struct {
+		row    store.DevelopmentPool
+		height uint64
+	}
+	var pending []pendingPool
 	for _, p := range pools {
+		if p.CreatedHeight < 0 {
+			continue
+		}
 		if cached, ok := c.cached("creation:" + p.Pool); ok {
 			out[p.Pool] = cached
 		} else {
-			pending = append(pending, p)
+			pending = append(pending, pendingPool{row: p, height: uint64(p.CreatedHeight)})
 		}
 	}
 	if len(pending) == 0 || c == nil || c.client == nil {
@@ -301,16 +311,18 @@ func (c *developmentChain) creationPositions(ctx context.Context, pools []store.
 	}
 	results := make([][]rpcLog, len(pending))
 	batch := make([]rpc.BatchElem, len(pending))
-	for i, p := range pending {
-		block := hexutil.EncodeUint64(uint64(p.CreatedHeight))
-		batch[i] = rpc.BatchElem{Method: "eth_getLogs", Args: []any{map[string]any{"fromBlock": block, "toBlock": block, "topics": []any{marketCreatedTopic, p.PoolID}}}, Result: &results[i]}
+	for i, item := range pending {
+		p := item.row
+		block := hexutil.EncodeUint64(item.height)
+		batch[i] = rpc.BatchElem{Method: "eth_getLogs", Args: []any{map[string]any{"fromBlock": block, "toBlock": block, literalTopics: []any{marketCreatedTopic, p.PoolID}}}, Result: &results[i]}
 	}
 	rctx, cancel := rpcContext(ctx)
 	defer cancel()
 	if c.client.BatchCallContext(rctx, batch) != nil {
 		return out
 	}
-	for i, p := range pending {
+	for i, item := range pending {
+		p := item.row
 		if batch[i].Error != nil {
 			continue
 		}
@@ -323,7 +335,7 @@ func (c *developmentChain) creationPositions(ctx context.Context, pools []store.
 			height, errHeight := hexutil.DecodeUint64(l.BlockNumber)
 			txIndex, errTx := hexutil.DecodeUint64(l.TransactionIndex)
 			logIndex, errLog := hexutil.DecodeUint64(l.LogIndex)
-			if errHeight != nil || errTx != nil || errLog != nil || height != uint64(p.CreatedHeight) || !validHash(l.BlockHash) {
+			if errHeight != nil || errTx != nil || errLog != nil || height != item.height || !validHash(l.BlockHash) {
 				continue
 			}
 			pos := position(height, txIndex, logIndex, l.TransactionHash, l.BlockHash)
@@ -377,7 +389,7 @@ func (c *developmentChain) eventPositions(ctx context.Context, refs []store.Deve
 		}
 		height, errHeight := hexutil.DecodeUint64(receipt.BlockNumber)
 		txIndex, errTx := hexutil.DecodeUint64(receipt.TransactionIndex)
-		if errHeight != nil || errTx != nil || height != uint64(ref.Height) || !validHash(receipt.BlockHash) {
+		if errHeight != nil || errTx != nil || ref.Height < 0 || ref.LogIndex < 0 || height != uint64(ref.Height) || !validHash(receipt.BlockHash) {
 			continue
 		}
 		pos := position(height, txIndex, uint64(ref.LogIndex), ref.TransactionHash, receipt.BlockHash)

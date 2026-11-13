@@ -242,7 +242,7 @@ func (s *AccountingReadModel) snapshot(ctx context.Context, tx pgx.Tx, r Account
 		}
 		watermarkObserved = r.SnapshotObservedAt
 	}
-	out.Watermark, err = json.Marshal(map[string]any{"chainId": "125", "height": v.position.SourceOrder.Height, "blockHash": v.position.SourceOrder.BlockHash, "projectionRevision": out.Revision, "observedAt": watermarkObserved, "integrity": "healthy"})
+	out.Watermark, err = json.Marshal(map[string]any{"chainId": "125", "height": v.position.SourceOrder.Height, "blockHash": v.position.SourceOrder.BlockHash, "projectionRevision": out.Revision, "observedAt": watermarkObserved, "integrity": literalHealthy})
 	if err == nil {
 		err = interfaces.ValidateJSON("Watermark", out.Watermark)
 	}
@@ -268,7 +268,7 @@ func validateAccountingRequest(r AccountingPageRequest, candles bool) error {
 	if r.SnapshotSequence != nil && (*r.SnapshotSequence < 1 || r.ExpectedSnapshot == "") {
 		return ErrDataIntegrity
 	}
-	if r.Limit < 1 || r.Limit > max || r.Side != "" && r.Side != "buy" && r.Side != "sell" {
+	if r.Limit < 1 || r.Limit > max || r.Side != "" && r.Side != literalBuy && r.Side != literalSell {
 		return ErrDataIntegrity
 	}
 	return nil
@@ -463,7 +463,7 @@ func (s *AccountingReadModel) Candles(ctx context.Context, r AccountingPageReque
 				return out, err
 			}
 		}
-		item := map[string]any{"poolAddress": c.PoolAddress, "interval": c.Interval, "start": time.Unix(c.Start, 0).UTC().Format("2006-01-02T15:04:05.000Z"), "open": prices[0], "high": prices[1], "low": prices[2], "close": prices[3], "volumeUsdlRaw": c.VolumeUSDLRaw, "volumeTokenRaw": c.VolumeTokenRaw, "buyVolumeUsdlRaw": c.BuyVolumeUSDLRaw, "sellVolumeUsdlRaw": c.SellVolumeUSDLRaw, "trades": strconv.FormatUint(c.Trades, 10), "revision": strconv.FormatUint(c.Revision, 10), "synthetic": false, "coverage": "partial", "firstPosition": c.OpenSource.Position, "lastPosition": c.CloseSource.Position, "seriesModelVersion": out.SeriesModelVersion, "snapshotId": out.SnapshotID, "uniqueTraderCount": nil, "largeTradeCount": nil, "largeTradePolicyId": nil, "largeTradeThresholdUsdlRaw": nil}
+		item := map[string]any{literalPoolAddress: c.PoolAddress, "interval": c.Interval, "start": time.Unix(c.Start, 0).UTC().Format("2006-01-02T15:04:05.000Z"), "open": prices[0], "high": prices[1], "low": prices[2], "close": prices[3], "volumeUsdlRaw": c.VolumeUSDLRaw, "volumeTokenRaw": c.VolumeTokenRaw, "buyVolumeUsdlRaw": c.BuyVolumeUSDLRaw, "sellVolumeUsdlRaw": c.SellVolumeUSDLRaw, "trades": strconv.FormatUint(c.Trades, 10), "revision": strconv.FormatUint(c.Revision, 10), "synthetic": false, "coverage": literalPartial, "firstPosition": c.OpenSource.Position, "lastPosition": c.CloseSource.Position, "seriesModelVersion": out.SeriesModelVersion, "snapshotId": out.SnapshotID, "uniqueTraderCount": nil, "largeTradeCount": nil, "largeTradePolicyId": nil, "largeTradeThresholdUsdlRaw": nil}
 		raw, err := json.Marshal(item)
 		if err != nil {
 			return out, err
@@ -561,7 +561,7 @@ func (s *AccountingReadModel) Trades(ctx context.Context, r AccountingPageReques
 			return out, ErrDataIntegrity
 		}
 		feeAsset := f.Token
-		if f.Side == "buy" {
+		if f.Side == literalBuy {
 			feeAsset = f.Settlement
 		}
 		refs := []string{}
@@ -572,7 +572,7 @@ func (s *AccountingReadModel) Trades(ctx context.Context, r AccountingPageReques
 				refs = append(refs, ref.ArtifactSHA256)
 			}
 		}
-		item := map[string]any{"eventId": f.SourceFillID, "poolAddress": f.PoolAddress, "sender": f.Attribution.TransactionSender, "recipient": f.Attribution.Recipient, "side": f.Side, "tokenAmountRaw": f.TokenAmountRaw, "usdlAmountRaw": f.USDLAmountRaw, "position": f.Position, "feeRaw": f.FeeRaw, "feeAssetAddress": feeAsset.Address, "feeAssetDecimals": feeAsset.Decimals, "feeDisposition": f.FeeDisposition, "paidInputRaw": f.PaidInputRaw, "pricedInputRaw": f.PricedInputRaw, "ammInputAfterFeeRaw": f.AMMInputAfterFeeRaw, "inputDerivationQuality": f.InputDerivationQuality, "recipientAttribution": recipientQuality, "recipientEvidenceRefs": refs, "emittingContract": f.ActualEmitter, "codeEpoch": f.Provenance.EmitterCodeEpoch}
+		item := map[string]any{"eventId": f.SourceFillID, literalPoolAddress: f.PoolAddress, "sender": f.Attribution.TransactionSender, "recipient": f.Attribution.Recipient, "side": f.Side, "tokenAmountRaw": f.TokenAmountRaw, "usdlAmountRaw": f.USDLAmountRaw, "position": f.Position, "feeRaw": f.FeeRaw, "feeAssetAddress": feeAsset.Address, "feeAssetDecimals": feeAsset.Decimals, "feeDisposition": f.FeeDisposition, "paidInputRaw": f.PaidInputRaw, "pricedInputRaw": f.PricedInputRaw, "ammInputAfterFeeRaw": f.AMMInputAfterFeeRaw, "inputDerivationQuality": f.InputDerivationQuality, "recipientAttribution": recipientQuality, "recipientEvidenceRefs": refs, "emittingContract": f.ActualEmitter, "codeEpoch": f.Provenance.EmitterCodeEpoch}
 		itemRaw, err := json.Marshal(item)
 		if err != nil {
 			return out, err
@@ -606,7 +606,7 @@ func (s *AccountingReadModel) PublicProjections(ctx context.Context, topics []st
 		return nil, ErrAccountingNotReady
 	}
 	for _, topic := range topics {
-		if len(topic) > 200 || !(regexp.MustCompile(`^market\.stats\.0x[0-9a-f]{40}$`).MatchString(topic) || regexp.MustCompile(`^market\.rankings\.(trending|breakout|volume|gainers|losers|movers|unusual|new)$`).MatchString(topic)) {
+		if len(topic) > 200 || !regexp.MustCompile(`^market\.stats\.0x[0-9a-f]{40}$`).MatchString(topic) && !regexp.MustCompile(`^market\.rankings\.(trending|breakout|volume|gainers|losers|movers|unusual|new)$`).MatchString(topic) {
 			return nil, ErrDataIntegrity
 		}
 	}
@@ -620,7 +620,7 @@ func (s *AccountingReadModel) PublicProjections(ctx context.Context, topics []st
 	if _, err = tx.Exec(ctx, "SET LOCAL statement_timeout = '150ms'"); err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, "SELECT topic,sequence::text,frame FROM "+pgx.Identifier{s.config.StreamSchema, "stream_projection"}.Sanitize()+" WHERE topic=ANY($1) ORDER BY topic", topics)
+	rows, err := tx.Query(ctx, "SELECT topic,sequence::text,frame FROM "+pgx.Identifier{s.config.StreamSchema, literalStreamProjection}.Sanitize()+" WHERE topic=ANY($1) ORDER BY topic", topics)
 	if err != nil {
 		return nil, err
 	}
@@ -635,7 +635,7 @@ func (s *AccountingReadModel) PublicProjections(ctx context.Context, topics []st
 			return nil, err
 		}
 		total += len(raw)
-		name := "StatsEvent"
+		name := literalStatsEvent
 		if regexp.MustCompile(`^market\.rankings\.`).MatchString(topic) {
 			name = "RankingEvent"
 		}
@@ -643,7 +643,7 @@ func (s *AccountingReadModel) PublicProjections(ctx context.Context, topics []st
 			rows.Close()
 			return nil, ErrDataIntegrity
 		}
-		if name == "StatsEvent" {
+		if name == literalStatsEvent {
 			var stats struct {
 				Pool      string        `json:"poolAddress"`
 				Watermark ReadWatermark `json:"watermark"`
@@ -654,7 +654,7 @@ func (s *AccountingReadModel) PublicProjections(ctx context.Context, topics []st
 				return nil, ErrDataIntegrity
 			}
 		}
-		if name == "StatsEvent" {
+		if name == literalStatsEvent {
 			if err = validatePublicStats(p); err != nil {
 				rows.Close()
 				return nil, err
@@ -688,7 +688,11 @@ func (s *AccountingReadModel) TopicSnapshotAt(ctx context.Context, topics []stri
 	if _, err = tx.Exec(ctx, "SET LOCAL statement_timeout = '150ms'"); err != nil {
 		return nil, err
 	}
-	entries := []any{}
+	type snapshotRow struct {
+		sequence string
+		raw      []byte
+	}
+	frames := make([]snapshotRow, 0, len(offsets))
 	total := 0
 	allowed := map[string]bool{}
 	for _, topic := range topics {
@@ -707,26 +711,37 @@ func (s *AccountingReadModel) TopicSnapshotAt(ctx context.Context, topics []stri
 			return nil, ErrDataIntegrity
 		}
 		var raw []byte
-		var p PublicProjection
 		if err = tx.QueryRow(ctx, "SELECT frame FROM "+pgx.Identifier{s.config.StreamSchema, "stream_delivery_outbox"}.Sanitize()+" WHERE partition_id=$1 AND sequence=$2", id, seq).Scan(&raw); err != nil {
 			return nil, err
 		}
 		total += len(raw)
-		if total > PublicJSONMaxBytes || interfaces.ValidateJSON("StreamEvent", raw) != nil || json.Unmarshal(raw, &p) != nil || p.Sequence != sequence || !allowed[p.Topic] || validateSnapshotFrame(p, raw) != nil {
+		if total > PublicJSONMaxBytes {
 			return nil, ErrDataIntegrity
 		}
-		entries = append(entries, map[string]any{"topic": p.Topic, "sequence": p.Sequence, "revision": p.Revision, "watermark": p.Watermark, "payload": p.Payload})
+		frames = append(frames, snapshotRow{sequence: sequence, raw: raw})
 	}
 	var observed time.Time
 	if err = tx.QueryRow(ctx, "SELECT transaction_timestamp()").Scan(&observed); err != nil {
 		return nil, err
 	}
+	if err = tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	entries := make([]any, 0, len(frames))
+	for _, frame := range frames {
+		var p PublicProjection
+		streamValid := make(chan error, 1)
+		go func() { streamValid <- interfaces.ValidateJSON("StreamEvent", frame.raw) }()
+		frameValid := json.Unmarshal(frame.raw, &p) == nil && p.Sequence == frame.sequence && allowed[p.Topic] && validateSnapshotFrame(p, frame.raw) == nil
+		streamErr := <-streamValid
+		if !frameValid || streamErr != nil {
+			return nil, ErrDataIntegrity
+		}
+		entries = append(entries, map[string]any{"topic": p.Topic, "sequence": p.Sequence, "revision": p.Revision, "watermark": p.Watermark, "payload": p.Payload})
+	}
 	raw, err := json.Marshal(map[string]any{"snapshotId": snapshotID, "resumeCursor": cursor, "generatedAt": observed.UTC().Format("2006-01-02T15:04:05.000Z"), "topics": entries})
 	if err != nil || len(raw) > PublicJSONMaxBytes || interfaces.ValidateJSON("TopicSnapshot", raw) != nil {
 		return nil, ErrDataIntegrity
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return nil, err
 	}
 	return raw, nil
 }
@@ -806,7 +821,7 @@ func validateSnapshotFrame(p PublicProjection, raw []byte) error {
 	if len(parts) < 3 {
 		return ErrDataIntegrity
 	}
-	families := map[string]string{"market.stats": "StatsEvent", "market.trades": "MarketTradesEvent", "market.price": "MarketPriceEvent", "market.candles": "CandleEvent", "market.rankings": "RankingEvent", "private.notifications": "NotificationsEvent", "private.orders": "OrdersEvent", "private.portfolio": "PortfolioEvent", "private.rewards": "RewardsEvent"}
+	families := map[string]string{"market.stats": literalStatsEvent, "market.trades": "MarketTradesEvent", "market.price": "MarketPriceEvent", "market.candles": "CandleEvent", "market.rankings": "RankingEvent", "private.notifications": "NotificationsEvent", "private.orders": "OrdersEvent", "private.portfolio": "PortfolioEvent", "private.rewards": "RewardsEvent"}
 	name := families[parts[0]+"."+parts[1]]
 	if name == "" {
 		if parts[0] == "streams" && parts[2] == "status" {
@@ -820,7 +835,7 @@ func validateSnapshotFrame(p PublicProjection, raw []byte) error {
 	if interfaces.ValidateJSON(name, raw) != nil {
 		return ErrDataIntegrity
 	}
-	if name == "StatsEvent" {
+	if name == literalStatsEvent {
 		return validatePublicStats(p)
 	}
 	return nil

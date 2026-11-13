@@ -10,7 +10,7 @@
     "dev": "next dev --port ${PORT:-8080}",
     "build": "next build",
     "start": "next start --port ${PORT:-8080}",
-    "scan": "layerx-scan-bundle dist/static public",
+    "scan": "layerx-scan-bundle dist/static",
     "test": "node --import ./test/source-runtime.mjs --test test/*.test.mjs",
     "test:fulfillment": "node --test test/fulfillment.test.mjs"
   },

@@ -106,10 +106,10 @@ async function nodeRootRejected(t) {
   const receipt = await rpc.receipt(exact.receiptJson.txHash);
   assert.equal((await verifyRpcPayment(receipt, exact.rawTransaction,
     exact.receiptJson.from.slice(2).padStart(64, "0"), requirements, [pin])).kind, "verified");
-  const hosted = new HostedGatewayRpc(`${gateway.endpoint}rpc`, { authorization: "Bearer hosted-transcript" });
+  const hosted = new HostedGatewayRpc(gateway.endpoint, { authorization: "Bearer hosted-transcript" });
   assert.deepEqual(await hosted.call("px_resolveAccount", ["merchant"]), { account: "agent:merchant:main" });
   assert.deepEqual(node.requests.map((request) => request.url), ["/", "/"]);
-  assert.deepEqual(gateway.requests.map((request) => request.url), ["/rpc"]);
+  assert.deepEqual(gateway.requests.map((request) => request.url), ["/"]);
   assert.equal(node.requests[0].headers.authorization, "Bearer local-transcript");
   assert.equal(gateway.requests[0].headers.authorization, "Bearer hosted-transcript");
   assert.throws(() => rpc.call("px_resolveAccount", []), /invalid-node-method/u);

@@ -1,3 +1,4 @@
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{codec, registry_ops::CallContext, SHARED_STATE_KEY};
 use layerx_programs_runtime::{
     self as rt, abi::UnavailableReceiptOracle, ActivityBudgetBinding, AuthorizationContext,
@@ -36,7 +37,7 @@ pub fn assert_native_call(ctx: &CallContext, current: Option<&[u8]>, envelope: &
         },
         PathBuf::from,
     );
-    let text = fs::read_to_string(&manifest).expect("built guest manifest");
+    let text = fs::read_to_string(&manifest).required_with("built guest manifest");
     let lines: Vec<_> = text.lines().collect();
     assert_eq!(lines.len(), 3, "{}", manifest.display());
     let artifact = PathBuf::from(lines[0]);
@@ -45,45 +46,45 @@ pub fn assert_native_call(ctx: &CallContext, current: Option<&[u8]>, envelope: &
     } else {
         manifest
             .parent()
-            .expect("manifest directory")
+            .required_with("manifest directory")
             .join(artifact)
     };
-    let wasm = fs::read(artifact).expect("built guest");
+    let wasm = fs::read(artifact).required_with("built guest");
     let module = WasmEngine::declared()
-        .unwrap()
+        .required()
         .validate_versioned_metered(ABI_V5_VERSION, &wasm, FuelSchedule::WASMI_0_31_2)
-        .unwrap();
-    let program = rt::ProgramId::new(ctx.program.bytes()).unwrap();
-    let actor = rt::PrincipalId::new(ctx.principal.bytes()).unwrap();
+        .required();
+    let program = rt::ProgramId::new(ctx.program.bytes()).required();
+    let actor = rt::PrincipalId::new(ctx.principal.bytes()).required();
     let namespace = StorageNamespace::shared(program);
     let mut storage = Storage::new();
     if let Some(bytes) = current {
         let mut seed = storage.transaction(namespace);
-        seed.write(SHARED_STATE_KEY, bytes).unwrap();
-        seed.commit();
+        seed.write(SHARED_STATE_KEY, bytes).required();
+        let _ = seed.commit();
     }
     let capabilities = CapabilitySet::new([
         Capability::SharedStorageRead,
         Capability::SharedStorageWrite,
         Capability::EmitEvent,
     ])
-    .unwrap();
+    .required();
     let executor = Executor::declared();
     let binding = ActivityBudgetBinding::new(
         codec::decode_envelope(envelope)
-            .unwrap()
+            .required()
             .request_digest()
-            .unwrap()
+            .required()
             .bytes(),
     )
-    .unwrap();
+    .required();
     let budget = DeclaredBudget::new(
         1_000_000, 16_777_216, 1_048_576, 1_048_576, 64, 1_048_576, 4096,
     )
-    .unwrap();
+    .required();
     let admitted = executor
         .admit_activity_budget_for_qualification(budget, actor, binding, u128::MAX)
-        .unwrap();
+        .required();
     let request = BudgetedAuthorizedExecutionRequest::new(
         AuthorizedExecutionRequest {
             module: &module,
@@ -107,7 +108,7 @@ pub fn assert_native_call(ctx: &CallContext, current: Option<&[u8]>, envelope: &
         "ordinary native CALL at height {}: ExecutionError {result:?}",
         ctx.height
     );
-    assert!(result.unwrap().replay_record().is_none());
+    assert!(result.required().replay_record().is_none());
 }
 
 /// Paid rent of this actor, projected from the canonical receipt attachment. Total

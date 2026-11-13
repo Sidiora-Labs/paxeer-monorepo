@@ -42,7 +42,7 @@ func (s *SettlementService) RegisterIntent(ctx context.Context, actor Actor, req
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var program, version, status, beneficiary, payable string
 	e = tx.QueryRow(ctx, `SELECT program,version,status,beneficiary,payable::text FROM l18_awards WHERE identity=$1 FOR UPDATE`, id).Scan(&program, &version, &status, &beneficiary, &payable)
 	if e != nil {
@@ -80,7 +80,7 @@ func (s *SettlementService) RegisterIntent(ctx context.Context, actor Actor, req
 		if oldHash == txHash {
 			return tx.Commit(ctx)
 		}
-		if oldState != "included_reverted" || !authorized(actor, "reward-retry") {
+		if oldState != statusIncludedReverted || !authorized(actor, "reward-retry") {
 			return ErrConflict
 		}
 	}
@@ -106,7 +106,7 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 	if e != nil {
 		return "", e
 	}
-	defer tx.Rollback(ctx)
+	defer func(owned pgx.Tx) { _ = owned.Rollback(ctx) }(tx)
 	var program, version, beneficiary, raw, txHash, state string
 	var attempt int
 	e = tx.QueryRow(ctx, `SELECT a.program,a.version,p.beneficiary,p.raw::text,p.tx_hash,p.state,p.attempt FROM l18_awards a JOIN l18_payout_attempts p ON p.award_id=a.identity WHERE a.identity=$1 ORDER BY p.attempt DESC LIMIT 1`, id).Scan(&program, &version, &beneficiary, &raw, &txHash, &state, &attempt)
@@ -116,7 +116,7 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 	if e = tx.Commit(ctx); e != nil {
 		return "", e
 	}
-	if state == "included_success" || state == "included_reverted" {
+	if state == statusIncludedSuccess || state == statusIncludedReverted {
 		return state, nil
 	}
 	p, e := s.authority.Program(program, version)
@@ -128,10 +128,10 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 		return "", e
 	}
 	if e = s.authority.verifyPayoutDeployment(ctx, p, b); e != nil {
-		if err := s.markAttempt(ctx, id, attempt, txHash, "pending_investigation"); err != nil {
+		if err := s.markAttempt(ctx, id, attempt, txHash, statusPendingInvestigation); err != nil {
 			return "", err
 		}
-		return "pending_investigation", e
+		return statusPendingInvestigation, e
 	}
 	var receipt *struct {
 		Status      hexutil.Uint64 `json:"status"`
@@ -141,16 +141,16 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 	}
 	e = s.authority.creator.rpc.CallContext(ctx, &receipt, "eth_getTransactionReceipt", txHash)
 	if e != nil || receipt == nil {
-		if err := s.markAttempt(ctx, id, attempt, txHash, "pending_investigation"); err != nil {
+		if err := s.markAttempt(ctx, id, attempt, txHash, statusPendingInvestigation); err != nil {
 			return "", err
 		}
-		return "pending_investigation", ErrUnavailable
+		return statusPendingInvestigation, ErrUnavailable
 	}
 	if receipt.Hash != txHash || !hash.MatchString(receipt.BlockHash) || uint64(receipt.BlockNumber) > b.Number {
-		if err := s.markAttempt(ctx, id, attempt, txHash, "pending_investigation"); err != nil {
+		if err := s.markAttempt(ctx, id, attempt, txHash, statusPendingInvestigation); err != nil {
 			return "", err
 		}
-		return "pending_investigation", ErrUnavailable
+		return statusPendingInvestigation, ErrUnavailable
 	}
 	var header struct {
 		Hash string `json:"hash"`
@@ -162,7 +162,7 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 		return "", ErrConflict
 	}
 	if receipt.Status == 0 {
-		return "included_reverted", s.markAttempt(ctx, id, attempt, txHash, "included_reverted")
+		return statusIncludedReverted, s.markAttempt(ctx, id, attempt, txHash, statusIncludedReverted)
 	}
 	if receipt.Status != 1 {
 		return "", ErrConflict
@@ -178,7 +178,7 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 	if e != nil {
 		return "", e
 	}
-	defer tx.Rollback(ctx)
+	defer func(owned pgx.Tx) { _ = owned.Rollback(ctx) }(tx)
 	var awardStatus string
 	if e = tx.QueryRow(ctx, `SELECT status FROM l18_awards WHERE identity=$1 FOR UPDATE`, id).Scan(&awardStatus); e != nil {
 		return "", e
@@ -189,10 +189,10 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 	if e != nil {
 		return "", e
 	}
-	if currentHash != txHash || currentAttempt != attempt || currentState == "included_reverted" {
+	if currentHash != txHash || currentAttempt != attempt || currentState == statusIncludedReverted {
 		return "", ErrConflict
 	}
-	if currentState == "included_success" && awardStatus != "paid" {
+	if currentState == statusIncludedSuccess && awardStatus != "paid" {
 		return "", ErrConflict
 	}
 	duplicate, e := inbox(ctx, tx, "payout_receipt:"+ev.Identity, struct {
@@ -203,7 +203,7 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 		return "", e
 	}
 	if duplicate {
-		return "included_success", tx.Commit(ctx)
+		return statusIncludedSuccess, tx.Commit(ctx)
 	}
 	tag, e := tx.Exec(ctx, `UPDATE l18_awards SET status='paid' WHERE identity=$1 AND payable=$2::numeric AND status IN ('funded','pending_review','pending_investigation')`, id, raw)
 	if e != nil {
@@ -223,17 +223,17 @@ func (s *SettlementService) Reconcile(ctx context.Context, id string) (string, e
 	if e = emit(ctx, tx, "payout_receipt:"+ev.Identity, "reward.paid", ev); e != nil {
 		return "", e
 	}
-	return "included_success", tx.Commit(ctx)
+	return statusIncludedSuccess, tx.Commit(ctx)
 }
 func (s *SettlementService) markAttempt(ctx context.Context, id string, attempt int, txHash, state string) error {
-	if state != "included_reverted" && state != "pending_investigation" {
+	if state != statusIncludedReverted && state != statusPendingInvestigation {
 		return ErrInvalid
 	}
 	tx, e := s.ledger.begin(ctx)
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var awardStatus string
 	if e = tx.QueryRow(ctx, `SELECT status FROM l18_awards WHERE identity=$1 FOR UPDATE`, id).Scan(&awardStatus); e != nil {
 		return e
@@ -246,11 +246,11 @@ func (s *SettlementService) markAttempt(ctx context.Context, id string, attempt 
 	if latestAttempt != attempt || latestHash != txHash {
 		return ErrConflict
 	}
-	if latestState == "included_success" {
+	if latestState == statusIncludedSuccess {
 		return tx.Commit(ctx)
 	}
-	if latestState == "included_reverted" {
-		if state != "included_reverted" {
+	if latestState == statusIncludedReverted {
+		if state != statusIncludedReverted {
 			return ErrConflict
 		}
 		return tx.Commit(ctx)
@@ -274,7 +274,7 @@ func (s *SettlementService) markAttempt(ctx context.Context, id string, attempt 
 	if tag.RowsAffected() != 1 {
 		return ErrConflict
 	}
-	if state == "pending_investigation" {
+	if state == statusPendingInvestigation {
 		_, e = tx.Exec(ctx, `UPDATE l18_awards SET status='pending_investigation' WHERE identity=$1 AND status='funded'`, id)
 	} else {
 		_, e = tx.Exec(ctx, `UPDATE l18_awards SET status='funded' WHERE identity=$1 AND status='pending_investigation'`, id)
@@ -299,7 +299,7 @@ func (l *Ledger) ReviewHold(ctx context.Context, actor Actor, request, id, reaso
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	change := struct{ Actor, ID, Reason string }{strings.ToLower(actor.Wallet), id, reason}
 	dup, e := inbox(ctx, tx, "review:"+request, change)
 	if e != nil {
@@ -346,7 +346,7 @@ func (l *Ledger) Liabilities(ctx context.Context, actor Actor, after string, lim
 	if e != nil {
 		return nil, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	rows, e := tx.Query(ctx, "SELECT "+liabilityColumns+" FROM l18_awards WHERE beneficiary=$1 AND identity>$2 ORDER BY identity LIMIT $3", who, after, limit)
 	if e != nil {
 		return nil, e
@@ -388,7 +388,7 @@ func (l *Ledger) Correction(ctx context.Context, actor Actor, request, id, reaso
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	who := strings.ToLower(actor.Wallet)
 	changeIdentity := "correction_proposed:" + request
 	if approve {
@@ -416,7 +416,7 @@ func (l *Ledger) Correction(ctx context.Context, actor Actor, request, id, reaso
 		if proposer == who {
 			return ErrUnauthorized
 		}
-		if state != "proposed" {
+		if state != statusProposed {
 			return ErrConflict
 		}
 		_, e = tx.Exec(ctx, `UPDATE l18_corrections SET approver=$2,state='approved',approval_reason=$3 WHERE identity=$1`, request, who, reason)
@@ -456,7 +456,7 @@ func (l *Ledger) RecordAnalytics(ctx context.Context, actor Actor, request, camp
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	day := at.UTC().Format("2006-01-02")
 	change := struct{ Actor, Campaign, Code, Kind string }{who, campaign, code, kind}
 	duplicate, e := inbox(ctx, tx, "analytics:"+request, change)

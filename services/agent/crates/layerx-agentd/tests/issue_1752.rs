@@ -1,5 +1,7 @@
 include!("native_send_preview_evm.rs");
 
+use layerx_crypto::evm_transaction::Eip1559Call;
+
 mod material {
     use super::*;
     use ed25519_dalek::SigningKey;
@@ -7,13 +9,13 @@ mod material {
         self, BlockCommit, BlockId, CheckpointHeader, CommitTimestamp, CommitValidator, CommitVote,
         ServedCheckpoint,
     };
-    use layerx_crypto::evm_transaction::{
-        decode_signed, recover_sender, transaction_hash, Eip1559Call,
-    };
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
     use layerx_types::rung::Rung;
-    use layerx_wire::{encode::Encoder, hash::receipt_digest};
+    use layerx_wire::encode::Encoder;
     pub const HEIGHT: u64 = 1000;
     pub const NOW: u64 = 1_750_000_400_000;
+    /// # Panics
+    /// Panics if required fixture data is absent, invalid, or an operation fails.
     pub fn must<T, E: std::fmt::Debug>(r: Result<T, E>) -> T {
         match r {
             Ok(value) => value,
@@ -29,9 +31,16 @@ mod material {
     pub fn quantity(v: u64) -> String {
         format!("{v:#x}")
     }
+    /// # Panics
+    /// Panics if required fixture data is absent, invalid, or an operation fails.
     pub fn decode_hex(v: &Value) -> Vec<u8> {
-        must(hex::decode(v.as_str().unwrap().strip_prefix("0x").unwrap()))
+        must(hex::decode(super::lint_present(
+            super::lint_present(v.as_str(), "required test operation").strip_prefix("0x"),
+            "required test operation",
+        )))
     }
+    /// # Panics
+    /// Panics if required fixture data is absent, invalid, or an operation fails.
     pub fn validators() -> (Vec<SigningKey>, Vec<CommitValidator>) {
         let keys = (1..=4)
             .map(|n| SigningKey::from_bytes(&[n; 32]))
@@ -49,6 +58,8 @@ mod material {
             .collect();
         (keys, validators)
     }
+    /// # Panics
+    /// Panics if required fixture data is absent, invalid, or an operation fails.
     pub fn committed(
         height: u64,
         seconds: i64,
@@ -110,70 +121,100 @@ mod material {
             validators,
         }
     }
+    /// # Panics
+    /// Panics if required fixture data is absent, invalid, or an operation fails.
     pub fn signed_header(c: &ServedCheckpoint) -> Value {
         let h = &c.header;
-        let time = if h.time.seconds == NOW as i64 / 1000 - 1 {
+        let time = if h.time.seconds
+            == super::lint_success(i64::try_from(NOW), "integer fits i64") / 1000 - 1
+        {
             "2025-06-15T15:13:19Z"
         } else {
             "2025-06-15T15:13:20Z"
         };
         let id = |b: BlockId| json!({"hash":hex::encode(b.hash),"parts":{"total":b.part_set_total,"hash":hex::encode(b.part_set_hash)}});
         json!({"header":{"version":{"block":"11","app":"1"},"chain_id":"125","height":h.height.to_string(),"time":time,
-        "last_block_id":id(h.last_block_id.unwrap()),"last_commit_hash":hex::encode(h.last_commit_hash.unwrap()),"data_hash":hex::encode(h.data_hash.unwrap()),"validators_hash":hex::encode(h.validators_hash),"next_validators_hash":hex::encode(h.next_validators_hash),"consensus_hash":hex::encode(h.consensus_hash),"app_hash":hex::encode(h.app_hash),"last_results_hash":hex::encode(h.last_results_hash.unwrap()),"evidence_hash":hex::encode(h.evidence_hash.unwrap()),"proposer_address":hex::encode(h.proposer_address)},
+        "last_block_id":id(super::lint_present(h.last_block_id, "required test operation")),"last_commit_hash":hex::encode(super::lint_present(h.last_commit_hash, "required test operation")),"data_hash":hex::encode(super::lint_present(h.data_hash, "required test operation")),"validators_hash":hex::encode(h.validators_hash),"next_validators_hash":hex::encode(h.next_validators_hash),"consensus_hash":hex::encode(h.consensus_hash),"app_hash":hex::encode(h.app_hash),"last_results_hash":hex::encode(super::lint_present(h.last_results_hash, "required test operation")),"evidence_hash":hex::encode(super::lint_present(h.evidence_hash, "required test operation")),"proposer_address":hex::encode(h.proposer_address)},
         "commit":{"height":c.height.to_string(),"round":c.commit.round,"block_id":id(c.commit.block_id),"signatures":c.commit.votes.iter().map(|v|json!({"block_id_flag":2,"validator_address":hex::encode(v.validator_address),"timestamp":time,"signature":openssl::base64::encode_block(&v.signature)})).collect::<Vec<_>>()}})
     }
+    /// # Panics
+    /// Panics if required fixture data is absent, invalid, or an operation fails.
     pub fn protobuf_varint(mut value: u64, bytes: &mut Vec<u8>) {
         while value >= 128 {
-            bytes.push(value as u8 | 128);
+            bytes.push(super::lint_success(u8::try_from(value & 0x7f), "integer fits u8") | 128);
             value >>= 7;
         }
-        bytes.push(value as u8);
+        bytes.push(super::lint_success(u8::try_from(value), "integer fits u8"));
     }
+    /// # Panics
+    /// Panics if required fixture data is absent, invalid, or an operation fails.
     pub fn protobuf_bytes(number: u64, value: &[u8], bytes: &mut Vec<u8>) {
         protobuf_varint(number << 3 | 2, bytes);
         protobuf_varint(value.len() as u64, bytes);
         bytes.extend_from_slice(value);
     }
+    /// # Panics
+    /// Panics if required fixture data is absent, invalid, or an operation fails.
     pub fn protobuf_integer(number: u64, value: u64, bytes: &mut Vec<u8>) {
         if value != 0 {
             protobuf_varint(number << 3, bytes);
             protobuf_varint(value, bytes);
         }
     }
+    /// # Panics
+    /// Panics if required fixture data is absent, invalid, or an operation fails.
     pub fn abci_response(receipt: &Value) -> Vec<u8> {
         let q = |name: &str| {
-            u64::from_str_radix(receipt[name].as_str().unwrap().trim_start_matches("0x"), 16)
-                .unwrap()
+            super::lint_success(
+                u64::from_str_radix(
+                    super::lint_present(receipt[name].as_str(), "required test operation")
+                        .trim_start_matches("0x"),
+                    16,
+                ),
+                "required test operation",
+            )
         };
         let mut response = Vec::new();
         protobuf_integer(1, q("gasUsed"), &mut response);
         if receipt["vmError"] != "" {
             protobuf_bytes(
                 2,
-                receipt["vmError"].as_str().unwrap().as_bytes(),
+                super::lint_present(receipt["vmError"].as_str(), "required test operation")
+                    .as_bytes(),
                 &mut response,
             );
         }
         protobuf_bytes(3, &decode_hex(&receipt["returnData"]), &mut response);
         protobuf_bytes(
             4,
-            receipt["txHash"].as_str().unwrap().as_bytes(),
+            super::lint_present(receipt["txHash"].as_str(), "required test operation").as_bytes(),
             &mut response,
         );
-        for log in receipt["logs"].as_array().unwrap() {
+        for log in super::lint_present(receipt["logs"].as_array(), "required test operation") {
             let mut bytes = Vec::new();
-            protobuf_bytes(1, log["address"].as_str().unwrap().as_bytes(), &mut bytes);
-            for topic in log["topics"].as_array().unwrap() {
-                protobuf_bytes(2, topic.as_str().unwrap().as_bytes(), &mut bytes);
+            protobuf_bytes(
+                1,
+                super::lint_present(log["address"].as_str(), "required test operation").as_bytes(),
+                &mut bytes,
+            );
+            for topic in super::lint_present(log["topics"].as_array(), "required test operation") {
+                protobuf_bytes(
+                    2,
+                    super::lint_present(topic.as_str(), "required test operation").as_bytes(),
+                    &mut bytes,
+                );
             }
             protobuf_bytes(3, &decode_hex(&log["data"]), &mut bytes);
             protobuf_integer(
                 4,
-                u64::from_str_radix(
-                    log["logIndex"].as_str().unwrap().trim_start_matches("0x"),
-                    16,
-                )
-                .unwrap(),
+                super::lint_success(
+                    u64::from_str_radix(
+                        super::lint_present(log["logIndex"].as_str(), "required test operation")
+                            .trim_start_matches("0x"),
+                        16,
+                    ),
+                    "required test operation",
+                ),
                 &mut bytes,
             );
             protobuf_bytes(5, &bytes, &mut response);
@@ -185,6 +226,8 @@ mod material {
         protobuf_bytes(1, &msg, &mut tx);
         tx
     }
+    /// # Panics
+    /// Panics if required fixture data is absent, invalid, or an operation fails.
     pub fn protocol_receipt(
         raw: &[u8],
         logs: &[layerx_proof::sequencer_logs::SequencerLog],
@@ -207,10 +250,13 @@ mod material {
         must(summary.fixed(&[0; 20]));
         must(summary.fixed(&hash(b"")));
         must(summary.u32(0));
-        must(summary.u32(logs.len() as u32));
+        must(summary.u32(super::lint_success(
+            u32::try_from(logs.len()),
+            "integer fits u32",
+        )));
         must(summary.u8(4));
         must(summary.fixed(b"upax"));
-        let mut e = Encoder::new(16384);
+        let mut e = Encoder::new(16_384);
         must(e.structure_header_version(0x5201, 2));
         must(e.u16(2));
         must(e.bytes(&tx, 32));
@@ -232,7 +278,10 @@ mod material {
         for (index, body) in std::iter::once(summary.finish())
             .chain(logs.iter().map(|log| {
                 let mut body = log.address().to_vec();
-                body.push(log.topics().len() as u8);
+                body.push(super::lint_success(
+                    u8::try_from(log.topics().len()),
+                    "integer fits u8",
+                ));
                 for topic in log.topics() {
                     body.extend_from_slice(topic);
                 }
@@ -242,7 +291,10 @@ mod material {
             .enumerate()
         {
             must(e.u16(12));
-            must(e.u16(index as u16));
+            must(e.u16(super::lint_success(
+                u16::try_from(index),
+                "integer fits u16",
+            )));
             must(e.u16(0));
             must(e.tag(if index == 0 { 1 } else { 3 }, 3));
             must(e.u8(0));
@@ -284,9 +336,7 @@ use layerx_agentd::export::{deserialize_export, serialize_export, verify, Export
 use layerx_agentd::outbox::Outbox;
 use layerx_agentd::read::NativeResultSource;
 use layerx_agentd::store::{ObjectKind, TenantKey};
-use layerx_crypto::evm_transaction::{
-    decode_signed, recover_sender, transaction_hash, Eip1559Call,
-};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_types::rung::Rung;
 use material::{HEIGHT, NOW};
 
@@ -327,7 +377,7 @@ fn issue_storage(address: [u8; 20]) -> (Value, [u8; 32], [u8; 32]) {
 
 struct IssueNode {
     url: String,
-    peer: Peer,
+    _peer: Peer,
     storage: Arc<Mutex<Value>>,
     calls: Arc<Mutex<Vec<String>>>,
     trust: ExportTrustSource,
@@ -350,78 +400,21 @@ impl IssueNode {
                 to: [0x22; 20],
                 data: vec![],
             }
-            .sign(identity.evm_secret().expect("owner EVM signing key")),
+            .sign(lint_present(identity.evm_secret(), "owner EVM signing key")),
         );
         let (call, signature) = must(decode_signed(&raw));
         let address = must(recover_sender(&call, &signature));
         assert_eq!(address, identity.evm_address());
-        let tx = transaction_hash(&raw);
-        let signer = ed25519_dalek::SigningKey::from_bytes(&[31; 32]);
-        let unsigned = material::protocol_receipt(&raw, &[], None);
-        let canonical = material::protocol_receipt(
-            &raw,
-            &[],
-            Some(
-                signer
-                    .sign(&must(layerx_wire::hash::receipt_digest(&unsigned)))
-                    .to_bytes(),
-            ),
-        );
-        let key = layerx_client::sequencer::ReceiptKeyEntry {
-            key_id: [11; 32],
-            public_key: signer.verifying_key().to_bytes(),
-            first_height: 1,
-            last_height: 2000,
-        };
-        let mut receipt = json!({"rung":"receipted", "txHash":material::rpc_hex(&tx),
-            "nonce":"0x3", "seq":format!("{HEIGHT:#x}"), "height":format!("{HEIGHT:#x}"),
-            "index":"0x0", "timestamp":format!("{NOW:#x}"), "status":"0x1", "returnData":"0x",
-            "logs":[], "gasUsed":"0x1", "cumulativeGasUsed":"0x1", "effectiveGasPrice":"0x1",
-            "contractAddress":material::rpc_hex(&[0;20]), "sponsor":material::rpc_hex(&[0;20]),
-            "feeDenom":"upax", "paymentDenom":"upax", "feeAmount":"0x1",
-            "from":material::rpc_hex(&address), "to":material::rpc_hex(&call.to),
-            "keyId":material::rpc_hex(&key.key_id), "signingKey":material::rpc_hex(&key.public_key),
-            "receipt":material::rpc_hex(&canonical), "vmError":""});
-        let results = json!([{"data":openssl::base64::encode_block(&material::abci_response(&receipt)), "gas_wanted":"1", "gas_used":"1"}]);
-        let inclusion = must(NativeResultSource::from_results(&results, 0));
-        let results_root =
-            layerx_programs::chain_proof::merkle::hash_from_byte_slices(&[&inclusion.result]);
-        let (storage, app_hash, slot) = issue_storage(address);
-        let mut current = material::committed(HEIGHT, NOW as i64 / 1000, [1; 32], results_root, 4);
-        let resign = |checkpoint: &mut layerx_agentd::read::ServedCheckpoint| {
-            checkpoint.header.app_hash = app_hash;
-            checkpoint.app_hash = app_hash;
-            checkpoint.block_hash = checkpoint.header.block_hash();
-            checkpoint.commit.block_id.hash = checkpoint.block_hash;
-            for (index, vote) in checkpoint.commit.votes.clone().iter().enumerate() {
-                checkpoint.commit.votes[index].signature =
-                    ed25519_dalek::SigningKey::from_bytes(&[index as u8 + 1; 32])
-                        .sign(&checkpoint.commit.vote_sign_bytes("125", vote.timestamp))
-                        .to_bytes();
-            }
-        };
-        resign(&mut current);
-        receipt["rung"] = json!("committed");
-        receipt["blockNumber"] = json!(material::quantity(HEIGHT));
-        receipt["blockHash"] = json!(material::rpc_hex(&current.block_hash));
-        let mut account = [0; 32];
-        account[12..].copy_from_slice(&address);
-        assert_eq!(
-            must(layerx_wire::receipt::decode(&canonical))
-                .protocol()
-                .expect("owned transaction receipt")
-                .from(),
-            account,
-            "receipt binding fact must name the credential's bound EVM account"
-        );
-        let mut next = material::committed(
-            HEIGHT + 1,
-            NOW as i64 / 1000,
-            current.block_hash,
+        let IssueReceipt {
+            canonical,
+            key,
+            mut receipt,
+            results,
             results_root,
-            4,
-        );
-        resign(&mut next);
+        } = issue_receipt(&raw, address, call.to);
+        let (storage, app_hash, slot) = issue_storage(address);
+        let (current, next) =
+            issue_checkpoints(app_hash, results_root, &mut receipt, &canonical, address);
         let trust = must(ExportTrustSource::new(
             vec![key],
             current.validators.clone(),
@@ -446,140 +439,27 @@ impl IssueNode {
             "stateRoot":material::rpc_hex(&app_hash), "transactions":[]});
         let storage = Arc::new(Mutex::new(storage));
         let calls = Arc::new(Mutex::new(Vec::new()));
-        let served_storage = storage.clone();
-        let served_calls = calls.clone();
         let listener = must(TcpListener::bind("127.0.0.1:0"));
         let url = format!("http://{}/", must(listener.local_addr()));
         must(listener.set_nonblocking(true));
-        let peer = Peer::spawn(move |stop| {
-            while !stop.load(Ordering::Acquire) {
-                let Some(mut stream) = incoming(&listener) else {
-                    continue;
-                };
-                let mut headers = String::new();
-                let mut reader = BufReader::new(&mut stream);
-                loop {
-                    let mut line = String::new();
-                    assert_ne!(must(reader.read_line(&mut line)), 0);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    headers.push_str(&line);
-                }
-                let length = headers
-                    .lines()
-                    .filter_map(|line| line.split_once(':'))
-                    .find(|(key, _)| key.eq_ignore_ascii_case("content-length"))
-                    .map(|(_, value)| must(value.trim().parse::<usize>()))
-                    .unwrap();
-                assert!(length <= 1_048_576);
-                let mut bytes = vec![0; length];
-                must(reader.read_exact(&mut bytes));
-                let request: Value = must(serde_json::from_slice(&bytes));
-                let method = request["method"].as_str().unwrap();
-                must(served_calls.lock()).push(method.to_owned());
-                let answer = match method {
-                    "eth_chainId" => json!("0x7d"),
-                    "eth_blockNumber" => json!(format!("{:#x}", HEIGHT + 1)),
-                    "eth_getBlockByNumber" => {
-                        if request["params"][0] == format!("{HEIGHT:#x}") {
-                            block.clone()
-                        } else {
-                            assert_eq!(request["params"][0], format!("{:#x}", HEIGHT + 1));
-                            next_block.clone()
-                        }
-                    }
-                    "eth_call" => {
-                        let binding_call = [
-                            layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX.as_slice(),
-                            public_key.as_slice(),
-                        ]
-                        .concat();
-                        assert_eq!(
-                            request["params"][0]["data"],
-                            material::rpc_hex(&binding_call),
-                            "resolve only the authenticated credential's account"
-                        );
-                        let mut account = [0; 32];
-                        account[12..].copy_from_slice(&address);
-                        json!(material::rpc_hex(&account))
-                    }
-                    "px_getReceiptKeys" => {
-                        json!({"keys":[{"keyId":material::rpc_hex(&key.key_id),"publicKey":material::rpc_hex(&key.public_key),"firstHeight":key.first_height,"lastHeight":key.last_height}]})
-                    }
-                    "pax_sequencerReceipt" => receipt.clone(),
-                    "eth_getTransactionReceipt" => Value::Null,
-                    "commit" => {
-                        assert_eq!(request["params"]["height"], (HEIGHT + 1).to_string());
-                        json!({"signed_header":material::signed_header(&next)})
-                    }
-                    "block_results" => {
-                        assert_eq!(request["params"]["height"], HEIGHT.to_string());
-                        json!({"height":HEIGHT.to_string(),"txs_results":results})
-                    }
-                    "eth_getProof" => {
-                        assert_eq!(
-                            request["params"],
-                            json!([
-                                material::rpc_hex(&address),
-                                [material::rpc_hex(&slot)],
-                                format!("{HEIGHT:#x}")
-                            ])
-                        );
-                        must(served_storage.lock()).clone()
-                    }
-                    other => panic!("unexpected node method {other}"),
-                };
-                http_response(
-                    &mut stream,
-                    &json!({"jsonrpc":"2.0","id":request["id"],"result":answer}),
-                );
-            }
-        });
-        let endpoint = must(SequencerEndpoint::new(&url, &[]));
-        let bundle = must(
-            layerx_agentd::read::NativeProofRequest {
-                target: layerx_agent_api::proof::ProofBundleTarget::Receipt(tx),
-                requested_rung: Rung::Committed,
-                raw_transaction: &raw,
-                served_receipt: &canonical,
-                chain_id: "125",
-                validators: trust.validator_set(),
-                account_slots: &[],
-            }
-            .acquire(&endpoint, &must(NativeResultSource::connect(&url, None))),
-        );
-        assert_eq!(bundle.value.verification_level, Rung::Committed);
-        assert_eq!(bundle.value.receipt_key, key);
-        assert!(trust.receipt_keys().contains(&bundle.value.receipt_key));
-        // NativeProofRequest emits JSON comet-abci-results-v1 inclusion at H,
-        // with the signed header and quorum commit at H+1. Its protobuf ABCI
-        // result (not an Ethereum RLP receipt) is covered by last_results_hash;
-        // H+1's app_hash authenticates storage queried at H.
-        let native_inclusion: Value = must(serde_json::from_slice(
-            bundle.value.receipt_inclusion.as_ref().unwrap().as_bytes(),
-        ));
-        assert_eq!(native_inclusion["algorithm"], "comet-abci-results-v1");
-        assert_eq!(native_inclusion["height"], HEIGHT);
-        let proof_header = must(layerx_agentd::export::decode_header(
-            bundle.value.block_header.as_ref().unwrap().as_bytes(),
-        ));
-        assert_eq!(proof_header.height, HEIGHT + 1);
-        assert_eq!(proof_header.app_hash, app_hash);
-        let receipt_export = layerx_agentd::export::OfflineExport {
-            facts: vec![must(layerx_agent_api::export::FactRef::new(format!(
-                "receipt:{}",
-                hex::encode(tx)
-            )))],
-            height: HEIGHT,
-            bundles: vec![bundle.value],
+        let replies = IssueRpcReplies {
+            block,
+            next_block,
+            next,
+            key,
+            receipt,
+            results,
+            storage: storage.clone(),
+            calls: calls.clone(),
+            address,
+            public_key,
+            slot,
         };
-        verify(&receipt_export, &trust).unwrap_or_else(|error| {
-            panic!("native reader committed receipt refusal stage: {error:?}")
-        });
+        let peer = Peer::spawn(move |stop| serve_issue_rpc(&listener, &stop, &replies));
+        assert_issue_receipt_export(&url, &raw, &canonical, &trust, key, app_hash);
         Self {
             url,
-            peer,
+            _peer: peer,
             storage,
             calls,
             trust,
@@ -594,34 +474,14 @@ struct IssueOwner {
     owner: SharedAgentOwner<RemoteHumanAuthority>,
     store: Arc<Mutex<Store>>,
     credential: session::SessionCredential,
-    peer: HumanPeer,
+    _peer: HumanPeer,
     limit_id: LimitId,
-    workers: Vec<Peer>,
+    _workers: Vec<Peer>,
 }
 
 impl IssueOwner {
     fn open(root: &Path, node: &IssueNode, configured: bool, initialize: bool) -> Self {
-        let public_key = must(derive_from_seed(&[3; 64], 0)).layerx_public_key();
-        let did = must(Did::new(
-            format!("did:layerx:{}", hex::encode(public_key)).as_bytes(),
-        ));
-        let principal = hex::encode(public_key);
-        let tenant = must(TenantId::new(must(
-            layerx_identity_binding::subject_namespace("bootstrap-service", &principal),
-        )));
-        let peer = HumanPeer {
-            uid: 7,
-            principal,
-            tenant: tenant.as_str().to_owned(),
-            subject: Some(HumanSubject {
-                transport_tenant: "bootstrap-service".to_owned(),
-                transport_principal: "bootstrap-owner".to_owned(),
-                owner: must(String::from_utf8(did.as_bytes().to_vec())),
-                account: format!("agent:{}:main", must(std::str::from_utf8(did.as_bytes()))),
-                asset: transaction_hash(b"upax"),
-                registration: None,
-            }),
-        };
+        let (peer, did, tenant, public_key) = issue_peer();
         let activity = must(ActivityType::new(ModuleId::Asset, 5));
         let (mut authority, authority_worker) = authority_peer(
             peer.clone(),
@@ -635,52 +495,14 @@ impl IssueOwner {
             },
             activity,
         );
-        let mut store = must(Store::open(root.join("store")));
-        let identity = must(identity::register(
-            &mut store,
-            tenant.clone(),
-            did.clone(),
-            &mut AuthorityIdentity {
-                authority: &mut authority,
-                peer: &peer,
-            },
-        ));
-        let credential = if initialize {
-            must(session::open(
-                &mut store,
-                &mut SessionRegistry::default(),
-                &identity,
-                OpenRequest {
-                    session_id: SessionId([8; 32]),
-                    token_id: [9; 32],
-                    tenant: tenant.clone(),
-                    agent: did,
-                    authority: ProtocolAuthority::PrimaryKey(public_key),
-                    permitted_activity_types: BTreeSet::from([5]),
-                    scopes: BTreeSet::from(["export".to_owned()]),
-                    expiry_sequence: 2000,
-                    expiry_seconds: Some(4_000_000_000),
-                    opening_client: "sdk".to_owned(),
-                    policy_version: "v1".to_owned(),
-                },
-                HEAD,
-            ))
-            .credential()
-        } else {
-            session::SessionCredential::new(tenant.clone(), SessionId([8; 32]), [9; 32], 1)
-        };
-        if initialize {
-            let tx = must(Outbox::default().enqueue(&mut store, tenant.clone(), node.raw.clone()));
-            let key = must(TenantKey::new(
-                tenant.clone(),
-                ObjectKind::Idempotency,
-                [b"human-activity-submission-v1:".as_slice(), &tx].concat(),
-            ));
-            must(store.put_local(
-                key,
-                [&[2][..], &tx, &tx, peer.principal.as_bytes()].concat(),
-            ));
-        }
+        let (store, credential) = open_issue_session(
+            root,
+            node,
+            initialize,
+            &mut authority,
+            &peer,
+            (did, tenant, public_key),
+        );
         let store = Arc::new(Mutex::new(store));
         let clock_root = root.join(format!("clock-{}", hex::encode(random::<4>())));
         must(fs::create_dir(&clock_root));
@@ -715,12 +537,7 @@ impl IssueOwner {
             )));
         }
         must(operations.authorize_subject(&peer));
-        let keys = root.join(format!("keys-{}", hex::encode(random::<4>())));
-        must(fs::create_dir(&keys));
-        must(fs::set_permissions(
-            &keys,
-            fs::Permissions::from_mode(0o700),
-        ));
+        let keys = issue_key_directory(root);
         let limit = LimitConfig {
             id: LimitId([1; 16]),
             name: "state export".to_owned(),
@@ -740,32 +557,25 @@ impl IssueOwner {
                 must(fs::metadata(root)).uid(),
             )),
         ));
+        let mut stored = must(store.lock());
         let installed = must(layerx_agentd::budget::install_enrolment_limits(
-            &mut *must(store.lock()),
+            &mut stored,
             &owner.budgets,
             credential.tenant(),
             &[limit],
         ));
+        drop(stored);
         assert_eq!(installed.len(), 1);
         let limit_id = installed[0].limit_id;
         assert_eq!(must(owner.budgets.consumed(limit_id)), 0);
-        layerx_agentd::degraded::enter(
-            &mut owner.degraded,
-            layerx_agentd::degraded::Observation::Ready {
-                reference: layerx_agentd::degraded::Reference {
-                    head_sequence: HEAD,
-                    checkpoint: [0; 32],
-                },
-                maximum_rung: Rung::Committed,
-            },
-        );
+        ready_issue_owner(&mut owner);
         Self {
             owner: SharedAgentOwner::new(owner),
             store,
             credential,
-            peer,
+            _peer: peer,
             limit_id,
-            workers: vec![authority_worker, clock_worker],
+            _workers: vec![authority_worker, clock_worker],
         }
     }
 
@@ -787,8 +597,10 @@ impl IssueOwner {
 }
 
 fn daemon_log() -> String {
-    let path = std::env::var_os("LAYERX_ISSUE_1752_DAEMON_LOG")
-        .expect("focused case runs with a private daemon log");
+    let path = lint_present(
+        std::env::var_os("LAYERX_ISSUE_1752_DAEMON_LOG"),
+        "focused case runs with a private daemon log",
+    );
     must(fs::read_to_string(path))
 }
 
@@ -832,7 +644,420 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
     account[12..].copy_from_slice(&node.address);
     let tx = transaction_hash(&node.raw);
     let fact = format!("state:{}:{}", hex::encode(tx), hex::encode(account));
-    let mut owner = IssueOwner::open(&root, &node, false, true);
+    let owner = assert_issue_admission(&root, &node, account, tx, &fact);
+    let refused_acquisitions = refuse_issue_storage(&node, &owner, &fact);
+    let response = owner.request(&fact, false);
+    assert_eq!(
+        response.status,
+        200,
+        "production export: {}; node methods: {:?}; daemon log: {}",
+        String::from_utf8_lossy(&response.body),
+        must(node.calls.lock()),
+        daemon_log()
+    );
+    let exported = decode_issue_export(&response, &fact);
+    let bytes = assert_issue_export_inclusion(&exported, &node.trust);
+    let acquisitions = must(node.calls.lock())
+        .iter()
+        .filter(|method| method.as_str() == "eth_getProof")
+        .count();
+    assert_eq!(acquisitions - refused_acquisitions, 1);
+    drop(owner);
+    let recovered = IssueOwner::open(&root, &node, true, false);
+    let response = recovered.request(&fact, false);
+    assert_eq!(
+        response.status,
+        200,
+        "recovered export: {}; daemon log: {}",
+        String::from_utf8_lossy(&response.body),
+        daemon_log()
+    );
+    let response: Value = must(serde_json::from_slice(&response.body));
+    let success = must(lint_present(
+        layerx_sdk::agent_envelope::decode_response(200, &response),
+        "required test operation",
+    ));
+    let exported = must(layerx_sdk::rpc_export::decode_offline_export(
+        &success.value["value"],
+        layerx_sdk::Operation::ExportOffline,
+    ));
+    assert_eq!(must(serialize_export(&exported)), bytes);
+    assert_eq!(
+        must(node.calls.lock())
+            .iter()
+            .filter(|method| method.as_str() == "eth_getProof")
+            .count(),
+        acquisitions
+    );
+    drop(recovered);
+    for (name, value) in [
+        ("LAYERX_AGENT_NODE_RPC_URL", previous_rpc),
+        ("LAYERX_AGENT_NODE_CHAIN_ID", previous_chain),
+        ("LAYERX_AGENT_NODE_COMET_RPC_URL", previous_comet),
+    ] {
+        match value {
+            Some(value) => std::env::set_var(name, value),
+            None => std::env::remove_var(name),
+        }
+    }
+    must(fs::remove_dir_all(root));
+}
+
+struct IssueReceipt {
+    canonical: Vec<u8>,
+    key: layerx_client::sequencer::ReceiptKeyEntry,
+    receipt: Value,
+    results: Value,
+    results_root: [u8; 32],
+}
+
+fn issue_receipt(raw: &[u8], address: [u8; 20], recipient: [u8; 20]) -> IssueReceipt {
+    let tx = transaction_hash(raw);
+    let signer = ed25519_dalek::SigningKey::from_bytes(&[31; 32]);
+    let unsigned = material::protocol_receipt(raw, &[], None);
+    let canonical = material::protocol_receipt(
+        raw,
+        &[],
+        Some(
+            signer
+                .sign(&must(layerx_wire::hash::receipt_digest(&unsigned)))
+                .to_bytes(),
+        ),
+    );
+    let key = layerx_client::sequencer::ReceiptKeyEntry {
+        key_id: [11; 32],
+        public_key: signer.verifying_key().to_bytes(),
+        first_height: 1,
+        last_height: 2000,
+    };
+    let receipt = json!({"rung":"receipted", "txHash":material::rpc_hex(&tx),
+            "nonce":"0x3", "seq":format!("{HEIGHT:#x}"), "height":format!("{HEIGHT:#x}"),
+            "index":"0x0", "timestamp":format!("{NOW:#x}"), "status":"0x1", "returnData":"0x",
+            "logs":[], "gasUsed":"0x1", "cumulativeGasUsed":"0x1", "effectiveGasPrice":"0x1",
+            "contractAddress":material::rpc_hex(&[0;20]), "sponsor":material::rpc_hex(&[0;20]),
+            "feeDenom":"upax", "paymentDenom":"upax", "feeAmount":"0x1",
+            "from":material::rpc_hex(&address), "to":material::rpc_hex(&recipient),
+            "keyId":material::rpc_hex(&key.key_id), "signingKey":material::rpc_hex(&key.public_key),
+            "receipt":material::rpc_hex(&canonical), "vmError":""});
+    let results = json!([{"data":openssl::base64::encode_block(&material::abci_response(&receipt)), "gas_wanted":"1", "gas_used":"1"}]);
+    let inclusion = must(NativeResultSource::from_results(&results, 0));
+    let results_root =
+        layerx_programs::chain_proof::merkle::hash_from_byte_slices(&[&inclusion.result]);
+    IssueReceipt {
+        canonical,
+        key,
+        receipt,
+        results,
+        results_root,
+    }
+}
+
+fn issue_checkpoints(
+    app_hash: [u8; 32],
+    results_root: [u8; 32],
+    receipt: &mut Value,
+    canonical: &[u8],
+    address: [u8; 20],
+) -> (
+    layerx_agentd::read::ServedCheckpoint,
+    layerx_agentd::read::ServedCheckpoint,
+) {
+    let mut current = material::committed(
+        HEIGHT,
+        lint_success(i64::try_from(NOW), "integer fits i64") / 1000,
+        [1; 32],
+        results_root,
+        4,
+    );
+    let resign = |checkpoint: &mut layerx_agentd::read::ServedCheckpoint| {
+        checkpoint.header.app_hash = app_hash;
+        checkpoint.app_hash = app_hash;
+        checkpoint.block_hash = checkpoint.header.block_hash();
+        checkpoint.commit.block_id.hash = checkpoint.block_hash;
+        for (index, vote) in checkpoint.commit.votes.clone().iter().enumerate() {
+            checkpoint.commit.votes[index].signature = ed25519_dalek::SigningKey::from_bytes(
+                &[lint_success(u8::try_from(index), "integer fits u8") + 1; 32],
+            )
+            .sign(&checkpoint.commit.vote_sign_bytes("125", vote.timestamp))
+            .to_bytes();
+        }
+    };
+    resign(&mut current);
+    receipt["rung"] = json!("committed");
+    receipt["blockNumber"] = json!(material::quantity(HEIGHT));
+    receipt["blockHash"] = json!(material::rpc_hex(&current.block_hash));
+    let mut account = [0; 32];
+    account[12..].copy_from_slice(&address);
+    assert_eq!(
+        lint_present(
+            must(layerx_wire::receipt::decode(canonical)).protocol(),
+            "owned transaction receipt"
+        )
+        .from(),
+        account,
+        "receipt binding fact must name the credential's bound EVM account"
+    );
+    let mut next = material::committed(
+        HEIGHT + 1,
+        lint_success(i64::try_from(NOW), "integer fits i64") / 1000,
+        current.block_hash,
+        results_root,
+        4,
+    );
+    resign(&mut next);
+    (current, next)
+}
+
+struct IssueRpcReplies {
+    block: Value,
+    next_block: Value,
+    next: layerx_agentd::read::ServedCheckpoint,
+    key: layerx_client::sequencer::ReceiptKeyEntry,
+    receipt: Value,
+    results: Value,
+    storage: Arc<Mutex<Value>>,
+    calls: Arc<Mutex<Vec<String>>>,
+    address: [u8; 20],
+    public_key: [u8; 32],
+    slot: [u8; 32],
+}
+
+fn serve_issue_rpc(listener: &TcpListener, stop: &AtomicBool, replies: &IssueRpcReplies) {
+    while !stop.load(Ordering::Acquire) {
+        let Some(mut stream) = incoming(listener) else {
+            continue;
+        };
+        let request = read_issue_request(&mut stream);
+        let method = lint_present(request["method"].as_str(), "required test operation");
+        must(replies.calls.lock()).push(method.to_owned());
+        let answer = match method {
+            "eth_chainId" => json!("0x7d"),
+            "eth_blockNumber" => json!(format!("{:#x}", HEIGHT + 1)),
+            "eth_getBlockByNumber" => {
+                if request["params"][0] == format!("{HEIGHT:#x}") {
+                    replies.block.clone()
+                } else {
+                    assert_eq!(request["params"][0], format!("{:#x}", HEIGHT + 1));
+                    replies.next_block.clone()
+                }
+            }
+            "eth_call" => {
+                let binding_call = [
+                    layerx_client::sequencer::GET_EVM_ADDR_BY_LAYERX.as_slice(),
+                    replies.public_key.as_slice(),
+                ]
+                .concat();
+                assert_eq!(
+                    request["params"][0]["data"],
+                    material::rpc_hex(&binding_call),
+                    "resolve only the authenticated credential's account"
+                );
+                let mut account = [0; 32];
+                account[12..].copy_from_slice(&replies.address);
+                json!(material::rpc_hex(&account))
+            }
+            "px_getReceiptKeys" => {
+                json!({"keys":[{"keyId":material::rpc_hex(&replies.key.key_id),"publicKey":material::rpc_hex(&replies.key.public_key),"firstHeight":replies.key.first_height,"lastHeight":replies.key.last_height}]})
+            }
+            "pax_sequencerReceipt" => replies.receipt.clone(),
+            "eth_getTransactionReceipt" => Value::Null,
+            "commit" => {
+                assert_eq!(request["params"]["height"], (HEIGHT + 1).to_string());
+                json!({"signed_header":material::signed_header(&replies.next)})
+            }
+            "block_results" => {
+                assert_eq!(request["params"]["height"], HEIGHT.to_string());
+                json!({"height":HEIGHT.to_string(),"txs_results":replies.results})
+            }
+            "eth_getProof" => {
+                assert_eq!(
+                    request["params"],
+                    json!([
+                        material::rpc_hex(&replies.address),
+                        [material::rpc_hex(&replies.slot)],
+                        format!("{HEIGHT:#x}")
+                    ])
+                );
+                must(replies.storage.lock()).clone()
+            }
+            other => panic!("unexpected node method {other}"),
+        };
+        http_response(
+            &mut stream,
+            &json!({"jsonrpc":"2.0","id":request["id"],"result":answer}),
+        );
+    }
+}
+
+fn read_issue_request(stream: &mut TcpStream) -> Value {
+    let mut headers = String::new();
+    let mut reader = BufReader::new(stream);
+    loop {
+        let mut line = String::new();
+        assert_ne!(must(reader.read_line(&mut line)), 0);
+        if line == "\r\n" {
+            break;
+        }
+        headers.push_str(&line);
+    }
+    let length = lint_present(
+        headers
+            .lines()
+            .filter_map(|line| line.split_once(':'))
+            .find(|(key, _)| key.eq_ignore_ascii_case("content-length"))
+            .map(|(_, value)| must(value.trim().parse::<usize>())),
+        "required test operation",
+    );
+    assert!(length <= 1_048_576);
+    let mut bytes = vec![0; length];
+    must(reader.read_exact(&mut bytes));
+    must(serde_json::from_slice(&bytes))
+}
+
+fn assert_issue_receipt_export(
+    url: &str,
+    raw: &[u8],
+    canonical: &[u8],
+    trust: &ExportTrustSource,
+    key: layerx_client::sequencer::ReceiptKeyEntry,
+    app_hash: [u8; 32],
+) {
+    let tx = transaction_hash(raw);
+    let endpoint = must(SequencerEndpoint::new(url, &[]));
+    let bundle = must(
+        layerx_agentd::read::NativeProofRequest {
+            target: layerx_agent_api::proof::ProofBundleTarget::Receipt(tx),
+            requested_rung: Rung::Committed,
+            raw_transaction: raw,
+            served_receipt: canonical,
+            chain_id: "125",
+            validators: trust.validator_set(),
+            account_slots: &[],
+        }
+        .acquire(&endpoint, &must(NativeResultSource::connect(url, None))),
+    );
+    assert_eq!(bundle.value.verification_level, Rung::Committed);
+    assert_eq!(bundle.value.receipt_key, key);
+    assert!(trust.receipt_keys().contains(&bundle.value.receipt_key));
+    // NativeProofRequest emits JSON comet-abci-results-v1 inclusion at H,
+    // with the signed header and quorum commit at H+1. Its protobuf ABCI
+    // result (not an Ethereum RLP receipt) is covered by last_results_hash;
+    // H+1's app_hash authenticates storage queried at H.
+    let native_inclusion: Value = must(serde_json::from_slice(
+        lint_present(
+            bundle.value.receipt_inclusion.as_ref(),
+            "required test operation",
+        )
+        .as_bytes(),
+    ));
+    assert_eq!(native_inclusion["algorithm"], "comet-abci-results-v1");
+    assert_eq!(native_inclusion["height"], HEIGHT);
+    let proof_header = must(layerx_agentd::export::decode_header(
+        lint_present(
+            bundle.value.block_header.as_ref(),
+            "required test operation",
+        )
+        .as_bytes(),
+    ));
+    assert_eq!(proof_header.height, HEIGHT + 1);
+    assert_eq!(proof_header.app_hash, app_hash);
+    let receipt_export = layerx_agentd::export::OfflineExport {
+        facts: vec![must(layerx_agent_api::export::FactRef::new(format!(
+            "receipt:{}",
+            hex::encode(tx)
+        )))],
+        height: HEIGHT,
+        bundles: vec![bundle.value],
+    };
+    verify(&receipt_export, trust)
+        .unwrap_or_else(|error| panic!("native reader committed receipt refusal stage: {error:?}"));
+}
+
+fn issue_peer() -> (HumanPeer, Did, TenantId, [u8; 32]) {
+    let public_key = must(derive_from_seed(&[3; 64], 0)).layerx_public_key();
+    let did = must(Did::new(
+        format!("did:layerx:{}", hex::encode(public_key)).as_bytes(),
+    ));
+    let principal = hex::encode(public_key);
+    let tenant = must(TenantId::new(must(
+        layerx_identity_binding::subject_namespace("bootstrap-service", &principal),
+    )));
+    let peer = HumanPeer {
+        uid: 7,
+        principal,
+        tenant: tenant.as_str().to_owned(),
+        subject: Some(HumanSubject {
+            transport_tenant: "bootstrap-service".to_owned(),
+            transport_principal: "bootstrap-owner".to_owned(),
+            owner: must(String::from_utf8(did.as_bytes().to_vec())),
+            account: format!("agent:{}:main", must(std::str::from_utf8(did.as_bytes()))),
+            asset: transaction_hash(b"upax"),
+            registration: None,
+        }),
+    };
+    (peer, did, tenant, public_key)
+}
+
+fn open_issue_session(
+    root: &Path,
+    node: &IssueNode,
+    initialize: bool,
+    authority: &mut RemoteHumanAuthority,
+    peer: &HumanPeer,
+    (did, tenant, public_key): (Did, TenantId, [u8; 32]),
+) -> (Store, session::SessionCredential) {
+    let mut store = must(Store::open(root.join("store")));
+    let identity = must(identity::register(
+        &mut store,
+        tenant.clone(),
+        did.clone(),
+        &mut AuthorityIdentity { authority, peer },
+    ));
+    let credential = if initialize {
+        must(session::open(
+            &mut store,
+            &mut SessionRegistry::default(),
+            &identity,
+            OpenRequest {
+                session_id: SessionId([8; 32]),
+                token_id: [9; 32],
+                tenant: tenant.clone(),
+                agent: did,
+                authority: ProtocolAuthority::PrimaryKey(public_key),
+                permitted_activity_types: BTreeSet::from([5]),
+                scopes: BTreeSet::from(["export".to_owned()]),
+                expiry_sequence: 2000,
+                expiry_seconds: Some(4_000_000_000),
+                opening_client: "sdk".to_owned(),
+                policy_version: "v1".to_owned(),
+            },
+            HEAD,
+        ))
+        .credential()
+    } else {
+        session::SessionCredential::new(tenant.clone(), SessionId([8; 32]), [9; 32], 1)
+    };
+    if initialize {
+        let tx = must(Outbox::default().enqueue(&mut store, tenant.clone(), node.raw.clone()));
+        let key = must(TenantKey::new(
+            tenant.clone(),
+            ObjectKind::Idempotency,
+            [b"human-activity-submission-v1:".as_slice(), &tx].concat(),
+        ));
+        must(store.put_local(
+            key,
+            [&[2][..], &tx, &tx, peer.principal.as_bytes()].concat(),
+        ));
+    }
+    (store, credential)
+}
+
+fn assert_issue_slot_selection(
+    root: &Path,
+    node: &IssueNode,
+    account: [u8; 32],
+    owner: &IssueOwner,
+) {
     let selection = json!({"version":1,"selections":[{"tenant":owner.credential.tenant().as_str(),
         "account":hex::encode(account),"slots":[hex::encode(node.slot)]}]});
     let path = root.join("slots.json");
@@ -861,18 +1086,29 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
         fs::Permissions::from_mode(0o600),
     ));
     assert!(StateExportSource::load(&path).is_ok());
+}
+
+fn assert_issue_admission(
+    root: &Path,
+    node: &IssueNode,
+    account: [u8; 32],
+    tx: [u8; 32],
+    fact: &str,
+) -> IssueOwner {
+    let mut owner = IssueOwner::open(root, node, false, true);
+    assert_issue_slot_selection(root, node, account, &owner);
     // slot_selection: "no selection for authenticated tenant and account";
     // the authenticated RPC returns owner.refused and retains no state bundle.
     assert_ne!(
-        owner.request(&fact, false).status,
+        owner.request(fact, false).status,
         200,
         "absent slot selection"
     );
     owner.no_state_bundle();
     drop(owner);
-    owner = IssueOwner::open(&root, &node, true, false);
+    owner = IssueOwner::open(root, node, true, false);
     // Credential resolution refuses the foreign tenant before owner execution.
-    assert_ne!(owner.request(&fact, true).status, 200, "foreign tenant");
+    assert_ne!(owner.request(fact, true).status, 200, "foreign tenant");
     let mut other_account = account;
     other_account[31] ^= 1;
     // account_binding: "requested account differs from authenticated account".
@@ -898,6 +1134,10 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
         "unowned transaction"
     );
     owner.no_state_bundle();
+    owner
+}
+
+fn refuse_issue_storage(node: &IssueNode, owner: &IssueOwner, fact: &str) -> usize {
     let limit_id = owner.limit_id;
     let idempotency_before = {
         let store = must(owner.store.lock());
@@ -910,7 +1150,12 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
                     ObjectKind::Idempotency,
                     id.clone(),
                 ));
-                (id, store.get(&key).unwrap().bytes().to_vec())
+                (
+                    id,
+                    lint_present(store.get(&key), "required test operation")
+                        .bytes()
+                        .to_vec(),
+                )
             })
             .collect::<Vec<_>>()
     };
@@ -924,32 +1169,14 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
     };
     assert_eq!(witness_calls(), 0);
     for mutation in 0..4 {
-        let mut altered = original.clone();
-        match mutation {
-            0 => altered["storageProof"][0]["ops"][0]["type"] = json!("ics23:altered"),
-            1 => altered["address"] = json!(material::rpc_hex(&[0x55; 20])),
-            2 => {
-                let mut key = must(openssl::base64::decode_block(
-                    altered["storageProof"][0]["ops"][0]["key"]
-                        .as_str()
-                        .unwrap(),
-                ));
-                key[52] ^= 1;
-                altered["storageProof"][0]["ops"][0]["key"] =
-                    json!(openssl::base64::encode_block(&key));
-            }
-            _ => {
-                altered["storageProof"][0]["ops"][1]["data"] =
-                    json!(openssl::base64::encode_block(&[0; 32]))
-            }
-        }
+        let altered = altered_issue_storage(&original, mutation);
         *must(node.storage.lock()) = altered;
         // Each request must reach storage_witness, not merely fail earlier at
         // account_binding or retain_committed_receipt (Binding { fact: 0 }).
         // Altered operation/account/slot replies are malformed RPC evidence;
         // the altered app-root proof fails ICS23 verification. All map to
         // owner.refused, without caching a response or consuming a limit.
-        let refused = owner.request(&fact, false);
+        let refused = owner.request(fact, false);
         assert_ne!(
             refused.status,
             200,
@@ -980,7 +1207,10 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
                 ObjectKind::Idempotency,
                 id.clone(),
             ));
-            assert_eq!(store.get(&key).unwrap().bytes(), bytes);
+            assert_eq!(
+                lint_present(store.get(&key), "required test operation").bytes(),
+                bytes
+            );
         }
         drop(store);
         assert_eq!(must(must(owner.owner.lock()).budgets.consumed(limit_id)), 0);
@@ -988,17 +1218,40 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
     *must(node.storage.lock()) = original;
     let refused_acquisitions = witness_calls();
     assert_eq!(refused_acquisitions, 4);
-    let response = owner.request(&fact, false);
-    assert_eq!(
-        response.status,
-        200,
-        "production export: {}; node methods: {:?}; daemon log: {}",
-        String::from_utf8_lossy(&response.body),
-        must(node.calls.lock()),
-        daemon_log()
-    );
+    refused_acquisitions
+}
+
+fn altered_issue_storage(original: &Value, mutation: usize) -> Value {
+    let mut altered = original.clone();
+    match mutation {
+        0 => altered["storageProof"][0]["ops"][0]["type"] = json!("ics23:altered"),
+        1 => altered["address"] = json!(material::rpc_hex(&[0x55; 20])),
+        2 => {
+            let mut key = must(openssl::base64::decode_block(lint_present(
+                altered["storageProof"][0]["ops"][0]["key"].as_str(),
+                "required test operation",
+            )));
+            key[52] ^= 1;
+            altered["storageProof"][0]["ops"][0]["key"] =
+                json!(openssl::base64::encode_block(&key));
+        }
+        _ => {
+            altered["storageProof"][0]["ops"][1]["data"] =
+                json!(openssl::base64::encode_block(&[0; 32]));
+        }
+    }
+    altered
+}
+
+fn decode_issue_export(
+    response: &AgentRpcResponse,
+    fact: &str,
+) -> layerx_agentd::export::OfflineExport {
     let response: Value = must(serde_json::from_slice(&response.body));
-    let success = must(layerx_sdk::agent_envelope::decode_response(200, &response).unwrap());
+    let success = must(lint_present(
+        layerx_sdk::agent_envelope::decode_response(200, &response),
+        "required test operation",
+    ));
     let exported = must(layerx_sdk::rpc_export::decode_offline_export(
         &success.value["value"],
         layerx_sdk::Operation::ExportOffline,
@@ -1013,11 +1266,11 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
         &success.value["freshness"].to_string(),
     ));
     let header = must(layerx_agentd::export::decode_header(
-        exported.bundles[0]
-            .block_header
-            .as_ref()
-            .unwrap()
-            .as_bytes(),
+        lint_present(
+            exported.bundles[0].block_header.as_ref(),
+            "required test operation",
+        )
+        .as_bytes(),
     ));
     assert_eq!(freshness.value_height, HEIGHT);
     assert_eq!(freshness.chain_head, HEIGHT + 1);
@@ -1058,23 +1311,32 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
                     )));
             }
         }
-        let refused = layerx_agentd::agent_rpc_adapters::offline_export_operation(
-            layerx_agent_api::error::RequestId(1752),
-            &request,
-            &altered,
-        )
-        .err()
-        .expect("RPC must reject altered checkpoint coordinates");
+        let refused = lint_present(
+            layerx_agentd::agent_rpc_adapters::offline_export_operation(
+                layerx_agent_api::error::RequestId(1752),
+                &request,
+                &altered,
+            )
+            .err(),
+            "RPC must reject altered checkpoint coordinates",
+        );
         assert_eq!(
             refused.class,
             layerx_agent_api::error::ErrorClass::VerificationFailure
         );
         assert_eq!(refused.reason, "export.invalid_proof");
     }
-    let bytes = must(serialize_export(&exported));
+    exported
+}
+
+fn assert_issue_export_inclusion(
+    exported: &layerx_agentd::export::OfflineExport,
+    trust: &ExportTrustSource,
+) -> Vec<u8> {
+    let bytes = must(serialize_export(exported));
     let independent = must(ExportTrustSource::new(
-        node.trust.receipt_keys().to_vec(),
-        node.trust.validator_set().to_vec(),
+        trust.receipt_keys().to_vec(),
+        trust.validator_set().to_vec(),
     ));
     assert_eq!(
         must(verify(&must(deserialize_export(&bytes)), &independent)).height,
@@ -1100,11 +1362,11 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
     ] {
         let mut altered = exported.clone();
         let mut inclusion: Value = must(serde_json::from_slice(
-            altered.bundles[0]
-                .receipt_inclusion
-                .as_ref()
-                .unwrap()
-                .as_bytes(),
+            lint_present(
+                altered.bundles[0].receipt_inclusion.as_ref(),
+                "required test operation",
+            )
+            .as_bytes(),
         ));
         inclusion[field] = value;
         altered.bundles[0].receipt_inclusion = Some(must(
@@ -1126,45 +1388,28 @@ fn state_export_owner_rpc_retains_and_recovers_witnesses() {
             stage: "receipt_height"
         })
     ));
-    let acquisitions = must(node.calls.lock())
-        .iter()
-        .filter(|method| method.as_str() == "eth_getProof")
-        .count();
-    assert_eq!(acquisitions - refused_acquisitions, 1);
-    drop(owner);
-    let recovered = IssueOwner::open(&root, &node, true, false);
-    let response = recovered.request(&fact, false);
-    assert_eq!(
-        response.status,
-        200,
-        "recovered export: {}; daemon log: {}",
-        String::from_utf8_lossy(&response.body),
-        daemon_log()
+    bytes
+}
+
+fn ready_issue_owner(owner: &mut UnifiedAgentOwner<RemoteHumanAuthority>) {
+    layerx_agentd::degraded::enter(
+        &mut owner.degraded,
+        layerx_agentd::degraded::Observation::Ready {
+            reference: layerx_agentd::degraded::Reference {
+                head_sequence: HEAD,
+                checkpoint: [0; 32],
+            },
+            maximum_rung: Rung::Committed,
+        },
     );
-    let response: Value = must(serde_json::from_slice(&response.body));
-    let success = must(layerx_sdk::agent_envelope::decode_response(200, &response).unwrap());
-    let exported = must(layerx_sdk::rpc_export::decode_offline_export(
-        &success.value["value"],
-        layerx_sdk::Operation::ExportOffline,
+}
+
+fn issue_key_directory(root: &Path) -> PathBuf {
+    let keys = root.join(format!("keys-{}", hex::encode(random::<4>())));
+    must(fs::create_dir(&keys));
+    must(fs::set_permissions(
+        &keys,
+        fs::Permissions::from_mode(0o700),
     ));
-    assert_eq!(must(serialize_export(&exported)), bytes);
-    assert_eq!(
-        must(node.calls.lock())
-            .iter()
-            .filter(|method| method.as_str() == "eth_getProof")
-            .count(),
-        acquisitions
-    );
-    drop(recovered);
-    for (name, value) in [
-        ("LAYERX_AGENT_NODE_RPC_URL", previous_rpc),
-        ("LAYERX_AGENT_NODE_CHAIN_ID", previous_chain),
-        ("LAYERX_AGENT_NODE_COMET_RPC_URL", previous_comet),
-    ] {
-        match value {
-            Some(value) => std::env::set_var(name, value),
-            None => std::env::remove_var(name),
-        }
-    }
-    must(fs::remove_dir_all(root));
+    keys
 }
