@@ -12,7 +12,7 @@ export default function WasmBinding() {
         <p className="page-description">Use Paxeer custom messages and queries from CosmWasm, including token creation, EVM calls, address association, and native module reads.</p>
       </div>
 
-      <div className="source-note"><strong>Source:</strong> <code>Paxeer-X-Network/node/wasmbinding/</code> and each module&apos;s <code>client/wasm/</code> package.</div>
+      <div className="source-note"><strong>Source:</strong> <code>node/wasmbinding/</code> at the repository root and each module&apos;s <code>client/wasm/</code> package.</div>
       <h2>How bindings are registered</h2>
       <p><code>RegisterCustomPlugins</code> installs a custom message encoder and query router in the CosmWasm keeper. These bindings extend standard bank, staking, distribution, and Wasm messages. The package is Go node code; it is not a Rust crate to add to <code>Cargo.toml</code>.</p>
       <p>Contract-side types must serialize to the JSON forms below and implement the appropriate CosmWasm custom message or query traits. Use the schemas in this source revision when generating types or evaluating a client library.</p>
@@ -28,13 +28,13 @@ export default function WasmBinding() {
           <tr><td><code>change_admin</code></td><td><code>denom</code> and <code>new_admin_address</code>; requires the current denomination administrator.</td></tr>
           <tr><td><code>set_metadata</code></td><td>Bank <code>metadata</code> object for the denomination.</td></tr>
           <tr><td><code>set_denom_paused</code></td><td><code>denom</code> and an explicit <code>paused</code> boolean; a missing or null boolean is refused.</td></tr>
-          <tr><td><code>call_evm</code></td><td><code>to</code>, integer <code>value</code>, and base64 <code>data</code>; dispatches an internal EVM call.</td></tr>
+          <tr><td><code>call_evm</code></td><td><code>to</code>, decimal-string integer <code>value</code>, and base64 <code>data</code>; dispatches an internal EVM call.</td></tr>
           <tr><td><code>delegate_call_evm</code></td><td><code>to</code> and base64 <code>data</code>; carries calling-contract and code-hash context into the EVM delegate-call path.</td></tr>
         </tbody>
       </table>
       <pre><code>{`// JSON payload of a custom message, emitted by a CosmWasm contract:
 { "create_denom": { "subdenom": "credits" } }`}</code></pre>
-      <p>The tokenfactory encoder supplies the contract as sender. An EVM call likewise derives its sender from the actual execution context; it does not accept an arbitrary wallet address as authority. ABI calldata bytes are base64 in the custom-message JSON, rather than an Ethereum <code>0x</code> hex string.</p>
+      <p>The tokenfactory encoder and ordinary EVM-call encoder supply the contract as sender. The delegate-call encoder uses the incoming message sender when it is a valid Paxeer address and carries the emitting contract and code hash separately. ABI calldata bytes use base64 in the custom-message JSON; Ethereum <code>0x</code> hex strings must be decoded and re-encoded before use.</p>
 
       <h2>Custom queries</h2>
       <p><code>PaxQueryWrapper</code> selects a route and embeds the route-specific JSON query in <code>query_data</code>. Unknown routes and unknown variants return errors.</p>
@@ -62,7 +62,7 @@ export default function WasmBinding() {
 
       <h2>Execution boundaries</h2>
       <p>CosmWasm-to-EVM calls are implemented. The corresponding <Link href="/wasm">wasmd precompile</Link> supports EVM-to-CosmWasm calls, with context and pointer checks. A non-query CosmWasm → EVM → CosmWasm loop is rejected; delegate-call messages should not be treated as unrestricted arbitrary execution.</p>
-      <p>The native Oracle querier remains available through this route, while the EVM Oracle precompile is retired. Check available denominations and observation freshness before using price data. See the <Link href="/modules/oracle">Oracle module guide</Link>.</p>
+      <p>The native Oracle querier exposes exchange rates and time-weighted prices through this route. Check available denominations and observation freshness before using price data. See the <Link href="/modules/oracle">Oracle module guide</Link>.</p>
 
       <h2>Implementation references</h2>
       <ul>

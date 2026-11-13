@@ -12,7 +12,7 @@ export default function WasmRuntime() {
         <p className="page-description">Understand Paxeer’s in-tree CosmWasm virtual machine, Go and Rust boundary, native library builds, and gas accounting.</p>
       </div>
 
-      <div className="source-note"><strong>Source:</strong> <code>Paxeer-X-Network/wasm-runtime/</code>, especially <code>lib.go</code>, <code>internal/api/</code>, and <code>libwasmvm/</code>.</div>
+      <div className="source-note"><strong>Source:</strong> <code>wasm-runtime/</code> at the repository root, especially <code>lib.go</code>, <code>internal/api/</code>, and <code>libwasmvm/</code>.</div>
       <h2>Runtime responsibilities</h2>
       <p>The in-tree CosmWasm runtime connects the Go node to a Rust virtual machine through a C interface. It stores and compiles WebAssembly modules, caches them, and executes contract entry points with host callbacks for storage, addresses, queries, and gas.</p>
       <p>A contract developer compiles Rust into a <code>.wasm</code> artifact separately. The runtime&apos;s <code>StoreCode</code> compiles that WebAssembly into its execution representation; it does not accept Rust source.</p>
@@ -30,7 +30,7 @@ export default function WasmRuntime() {
           <tr><td><code>testdata/</code></td><td>Compiled contracts used by runtime tests.</td></tr>
         </tbody>
       </table>
-      <p>The node imports <code>github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime</code>. Use the version in the Paxeer tree with its matching native library and generated bindings.</p>
+      <p>The node imports the local <code>wasm-runtime/</code> Go package as part of the root Go module. Use it with its matching native library and generated bindings.</p>
 
       <h2>CGO and native libraries</h2>
       <p><code>lib.go</code> is guarded by the <code>cgo</code> build tag. Without CGO, checksum and shared-type utilities remain available, but the VM execution API is not compiled. <code>LibwasmvmVersion</code> explicitly returns an unavailable error when CGO is disabled.</p>
