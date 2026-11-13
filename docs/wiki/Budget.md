@@ -26,6 +26,9 @@ Sources: `include/layerx/lx_budget.h`, `src/modules/budget/lx_budget_module.c`,
 | `LX_BUDGET_DELEGATE_REMOVE` | `0x00030005` | v1 66 bytes |
 | `LX_BUDGET_SPEND` | `0x00030006` | v1 82 bytes |
 | `LX_BUDGET_CLOSE` | `0x00030007` | v1 42 bytes |
+| `LX_BUDGET_DEFUND` | `0x00030008` | v1 50 bytes |
+| `LX_BUDGET_REVOKE` | `0x00030009` | v1 42 bytes |
+| `LX_BUDGET_DELEGATE_SPEND` | `0x0003000a` | v1 114 bytes |
 
 Every payload starts `version:u16` with `bytes[0]=0` and `bytes[1]` the
 encoding version (`src/modules/budget/lx_budget_codec.c`). Decode refusals
@@ -89,6 +92,29 @@ budget_id32 || recipient32 || amount:u128
 ```text
 budget_id32 || revocation_sequence:u64
 ```
+
+---
+
+## DEFUND
+
+```text
+budget_id32 || amount:u128
+```
+
+## REVOKE
+
+```text
+budget_id32 || revocation_sequence:u64
+```
+
+## DELEGATE_SPEND
+
+```text
+budget_id32 || recipient32 || amount:u128 || idempotency_key32
+```
+
+These three payloads use encoding version 1. Amounts must be positive;
+revocation sequences and idempotency keys must be nonzero.
 
 ---
 

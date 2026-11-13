@@ -1,0 +1,163 @@
+[manifest]
+task = "22.41.16"
+pages = 40
+
+[page.1]
+path = "docs/system/governance.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/system/kernel-modules.md"
+status = "reviewed"
+
+[page.3]
+path = "docs/system/precompiles.md"
+status = "corrected"
+
+[page.4]
+path = "docs/system/routes.md"
+status = "corrected"
+
+[page.5]
+path = "docs/system/rpc.md"
+status = "corrected"
+
+[page.6]
+path = "docs/system/sdk.md"
+status = "corrected"
+
+[page.7]
+path = "docs/wallet/app/CHANGELOG.md"
+status = "corrected"
+
+[page.8]
+path = "docs/wallet/app/README.md"
+status = "reviewed"
+
+[page.9]
+path = "docs/wallet/app/api/README.md"
+status = "corrected"
+
+[page.10]
+path = "docs/wallet/app/architecture/README.md"
+status = "corrected"
+
+[page.11]
+path = "docs/wallet/app/architecture/storage-forensics.md"
+status = "corrected"
+
+[page.12]
+path = "docs/wallet/app/deployment/README.md"
+status = "corrected"
+
+[page.13]
+path = "docs/wallet/app/development/README.md"
+status = "corrected"
+
+[page.14]
+path = "docs/wallet/app/operations/runbooks.md"
+status = "corrected"
+
+[page.15]
+path = "docs/wallet/service/cutover.md"
+status = "corrected"
+
+[page.16]
+path = "docs/wallet/service/runbooks/backup-restore.md"
+status = "corrected"
+
+[page.17]
+path = "docs/wallet/service/runbooks/gateway-rollback.md"
+status = "corrected"
+
+[page.18]
+path = "docs/wallet/service/runbooks/identity-provider-outage.md"
+status = "corrected"
+
+[page.19]
+path = "docs/wallet/service/runbooks/node-replacement.md"
+status = "corrected"
+
+[page.20]
+path = "docs/wallet/service/runbooks/refresh-cadence.md"
+status = "corrected"
+
+[page.21]
+path = "docs/wallet/service/runbooks/rpc-pool-failure.md"
+status = "corrected"
+
+[page.22]
+path = "docs/wallet/service/security-review.md"
+status = "corrected"
+
+[page.23]
+path = "docs/wiki/AgentApi.md"
+status = "corrected"
+
+[page.24]
+path = "docs/wiki/Agentd.md"
+status = "corrected"
+
+[page.25]
+path = "docs/wiki/Ap2Mandates.md"
+status = "reviewed"
+
+[page.26]
+path = "docs/wiki/Asset.md"
+status = "reviewed"
+
+[page.27]
+path = "docs/wiki/Assets.md"
+status = "reviewed"
+
+[page.28]
+path = "docs/wiki/BetaCluster.md"
+status = "corrected"
+
+[page.29]
+path = "docs/wiki/Bridge.md"
+status = "corrected"
+
+[page.30]
+path = "docs/wiki/Budget.md"
+status = "corrected"
+
+[page.31]
+path = "docs/wiki/Cli.md"
+status = "corrected"
+
+[page.32]
+path = "docs/wiki/CommitmentLevels.md"
+status = "reviewed"
+
+[page.33]
+path = "docs/wiki/Custody.md"
+status = "reviewed"
+
+[page.34]
+path = "docs/wiki/DataAvailability.md"
+status = "reviewed"
+
+[page.35]
+path = "docs/wiki/Escrow.md"
+status = "reviewed"
+
+[page.36]
+path = "docs/wiki/Fees.md"
+status = "corrected"
+
+[page.37]
+path = "docs/wiki/FiatRamps.md"
+status = "corrected"
+
+[page.38]
+path = "docs/wiki/Finality.md"
+status = "reviewed"
+
+[page.39]
+path = "docs/wiki/Getting-Started-Beta.md"
+status = "corrected"
+
+[page.40]
+path = "docs/wiki/Governance.md"
+status = "reviewed"

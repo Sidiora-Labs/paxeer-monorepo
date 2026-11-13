@@ -1,5 +1,3 @@
-<!-- Source-reviewed SDK reference. The legacy system-docs generator does not cover the wallet package or correctly parse Rust const functions and grouped re-exports. -->
-
 # SDK surfaces
 
 Paxeer is one BFT network, run by `paxd`, with the kernel participating in block proposal. Mainnet-beta uses EVM chain id **125** (`0x7d`). A transaction is final when its block is committed. Sub-chains are tenant domains in the database, launched without separate infrastructure.
@@ -141,6 +139,7 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `ProofBundleRecord` | type | `services/agent/sdk/typescript/src/agent-http.ts` |
 | `ProofBundleRequest` | interface | `services/agent/sdk/typescript/src/agent-http.ts` |
 | `ProofBundleVerificationLevel` | type | `services/agent/sdk/typescript/src/agent-http.ts` |
+| `RetiredDaemonTransportOptions` | interface | `services/agent/sdk/typescript/src/agent-http.ts` |
 | `RetiredOperationError` | class | `services/agent/sdk/typescript/src/agent-http.ts` |
 | `TenantReadinessV1` | interface | `services/agent/sdk/typescript/src/agent-http.ts` |
 | `TenantRecoveryReasonV1` | type | `services/agent/sdk/typescript/src/agent-http.ts` |
@@ -178,6 +177,13 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `decodeGetChain` | function | `services/agent/sdk/typescript/src/chains.ts` |
 | `encodeChainsCall` | function | `services/agent/sdk/typescript/src/chains.ts` |
 | `virtualChainId` | function | `services/agent/sdk/typescript/src/chains.ts` |
+| `CometProof` | interface | `services/agent/sdk/typescript/src/committed-proof.ts` |
+| `CommittedReceiptInclusion` | interface | `services/agent/sdk/typescript/src/committed-proof.ts` |
+| `cometCommitHash` | function | `services/agent/sdk/typescript/src/committed-proof.ts` |
+| `cometValidatorsHash` | function | `services/agent/sdk/typescript/src/committed-proof.ts` |
+| `unwrapCometEvmTransaction` | function | `services/agent/sdk/typescript/src/committed-proof.ts` |
+| `verifyCometProof` | function | `services/agent/sdk/typescript/src/committed-proof.ts` |
+| `verifyReceiptInclusion` | function | `services/agent/sdk/typescript/src/committed-proof.ts` |
 | `Eip1559AccessListEntry` | interface | `services/agent/sdk/typescript/src/evm-transaction.ts` |
 | `Eip1559Transaction` | interface | `services/agent/sdk/typescript/src/evm-transaction.ts` |
 | `SignedEip1559Transaction` | interface | `services/agent/sdk/typescript/src/evm-transaction.ts` |
@@ -189,6 +195,7 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `AbiArgument` | type | `services/agent/sdk/typescript/src/exchange.ts` |
 | `DecodedPrecompileEvent` | interface | `services/agent/sdk/typescript/src/exchange.ts` |
 | `EXCHANGE_EVENTS` | const | `services/agent/sdk/typescript/src/exchange.ts` |
+| `ExchangePlaceOrder` | type | `services/agent/sdk/typescript/src/exchange.ts` |
 | `LAYERX_EXCHANGE_PRECOMPILE` | const | `services/agent/sdk/typescript/src/exchange.ts` |
 | `PrecompileAbiError` | class | `services/agent/sdk/typescript/src/exchange.ts` |
 | `PrecompileAbiErrorCode` | type | `services/agent/sdk/typescript/src/exchange.ts` |
@@ -224,6 +231,7 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `sendExchangeWithdrawMargin` | const | `services/agent/sdk/typescript/src/exchange.ts` |
 | `sendPrecompileCall` | function | `services/agent/sdk/typescript/src/exchange.ts` |
 | `Eip7702Authorization` | interface | `services/agent/sdk/typescript/src/gas-station.ts` |
+| `GAS_RESPONSE_LIMITS` | const | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `GAS_STATION_QUOTE_URL` | const | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `GasQuote` | interface | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `GasQuoteRequest` | interface | `services/agent/sdk/typescript/src/gas-station.ts` |
@@ -292,6 +300,10 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `NativePrepareResultV1` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `NativePurposeV1` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `Operation` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `PROGRAM_LIFECYCLE_METADATA_JSON` | const | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `PROGRAM_LIFECYCLE_REQUEST_JSON` | const | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `PROGRAM_LIFECYCLE_TRANSPORT` | const | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `ProgramLifecycleOperation` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `Rung` | enum | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `Sequence` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `SignRequest` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
@@ -314,6 +326,7 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `parseBudgetLimit` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `parseSequence` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `parseTimestampSeconds` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `programLifecycleRequest` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `requireVerified` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `signatureBytes` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `MIRROR_ARCHIVE_MAGIC` | const | `services/agent/sdk/typescript/src/generated/mirror.ts` |
@@ -354,6 +367,66 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `historyCursor` | function | `services/agent/sdk/typescript/src/history.ts` |
 | `historyParams` | function | `services/agent/sdk/typescript/src/history.ts` |
 | `aiMarket` | namespace re-export | `services/agent/sdk/typescript/src/index.ts` |
+| `CanaryLogits` | type | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `ChallengeLapParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `FundAskParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `INFERENCE_LIMITS` | const | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `INFERENCE_OPERATIONS` | const | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceAskStream` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceAskStreamRecord` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceAttestationBinding` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceBookView` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceDealView` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceLayerSplit` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceMarketError` | class | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferencePeer` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferencePeerCapabilities` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferencePeerView` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferencePlacement` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceReceiptBatch` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceRoom` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceRoomProfile` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `InferenceRoomView` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `LockBondParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `OpenRoomParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `PostAskParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `PostBidParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `RecordDealParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `RefundBondParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `ResolveChallengeParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `SettleLapsParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `SlashBondParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `SplitPayoutParams` | interface | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `challengeLap` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `closeRoom` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodeBookView` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodeDealView` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodeInferenceDeal` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodeInferencePeer` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodeInferenceReceipt` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodeInferenceReceipts` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodeInferenceRoom` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodeInferenceRooms` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodePeerView` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodeReceiptBatchView` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `decodeRoomView` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `fundAsk` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `getInferenceDeal` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `getInferencePeer` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `getInferenceReceipts` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `getInferenceRoom` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `getInferenceRooms` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `inferenceId` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `lockBond` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `openRoom` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `postAsk` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `postBid` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `recordDeal` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `refundBond` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `resolveChallenge` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `settleLaps` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `slashBond` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
+| `splitPayout` | function | `services/agent/sdk/typescript/src/inference_market.ts` |
 | `HUMAN_ERROR_CODES` | const | `services/agent/sdk/typescript/src/intent.ts` |
 | `HUMAN_RETRIABILITIES` | const | `services/agent/sdk/typescript/src/intent.ts` |
 | `HumanErrorCode` | type | `services/agent/sdk/typescript/src/intent.ts` |
@@ -481,17 +554,21 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `SafeErrorDetails` | interface | `services/agent/sdk/typescript/src/production.ts` |
 | `SdkErrorCode` | type | `services/agent/sdk/typescript/src/production.ts` |
 | `SdkTelemetry` | type | `services/agent/sdk/typescript/src/production.ts` |
+| `SdkTelemetryDiagnostic` | type | `services/agent/sdk/typescript/src/production.ts` |
 | `SdkTelemetryEvent` | interface | `services/agent/sdk/typescript/src/production.ts` |
 | `SecretBytes` | class | `services/agent/sdk/typescript/src/production.ts` |
 | `TransportCall` | interface | `services/agent/sdk/typescript/src/production.ts` |
 | `idempotencyKey` | function | `services/agent/sdk/typescript/src/production.ts` |
 | `platform_sdk_typescript` | function | `services/agent/sdk/typescript/src/production.ts` |
 | `protocolAmount` | function | `services/agent/sdk/typescript/src/production.ts` |
+| `NATIVE_PROGRAM_REGISTRATION_MAX_BYTES` | const | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
 | `NativeProgramDeploy` | interface | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
+| `NativeProgramGuestAbi` | type | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
 | `NativeProgramLifecycleRequest` | class | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
 | `NativeProgramUpgrade` | interface | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
 | `NativeProgramWindDown` | type | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
 | `ProgramLifecycleSubmission` | type | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
+| `admitNativeProgramUpgrade` | function | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
 | `decodeNativeProgramDeploy` | function | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
 | `decodeNativeProgramUpgrade` | function | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
 | `decodeNativeProgramWindDown` | function | `services/agent/sdk/typescript/src/program-lifecycle.ts` |
@@ -574,6 +651,7 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `decodeJsonRpcResponse` | function | `services/agent/sdk/typescript/src/rpc.ts` |
 | `listAssetsParams` | function | `services/agent/sdk/typescript/src/rpc.ts` |
 | `walletAccount` | function | `services/agent/sdk/typescript/src/rpc.ts` |
+| `encodeSequencerReceipt` | function | `services/agent/sdk/typescript/src/sequencer-receipt-codec.ts` |
 | `SPOT_ACTIVITY_TYPES` | const | `services/agent/sdk/typescript/src/spot.ts` |
 | `SPOT_MODULE_ID` | const | `services/agent/sdk/typescript/src/spot.ts` |
 | `SPOT_PRECOMPILES` | re-export | `services/agent/sdk/typescript/src/spot.ts` |
@@ -588,12 +666,13 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `spotActivityType` | function | `services/agent/sdk/typescript/src/spot.ts` |
 | `spotCall` | function | `services/agent/sdk/typescript/src/spot.ts` |
 | `ResumableStream` | class | `services/agent/sdk/typescript/src/stream.ts` |
+| `STREAM_EVENT_ID_MAX_LENGTH` | const | `services/agent/sdk/typescript/src/stream.ts` |
+| `STREAM_REPLAY_WINDOW` | const | `services/agent/sdk/typescript/src/stream.ts` |
 | `StreamCursor` | type | `services/agent/sdk/typescript/src/stream.ts` |
 | `StreamEvent` | interface | `services/agent/sdk/typescript/src/stream.ts` |
 | `StreamPage` | interface | `services/agent/sdk/typescript/src/stream.ts` |
 | `StreamPageSource` | type | `services/agent/sdk/typescript/src/stream.ts` |
 | `streamCursor` | function | `services/agent/sdk/typescript/src/stream.ts` |
-| `AuthorizedReceiptBatch` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `CometBlockId` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `CometCommitSignature` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `CometHeader` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
@@ -623,6 +702,7 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `protocolVersionUsesOccupancy` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `selectedProtocolVersion` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `supportedProgramGuestAbi` | function | `services/agent/sdk/typescript/src/verifier.ts` |
+| `verifyCometCommit` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `verifyCommittedReceipt` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `verifySequencerReceipt` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `NativeTokenRegistration` | interface | `services/agent/sdk/typescript/src/wallet.ts` |
@@ -647,19 +727,25 @@ The generated Cosmos bindings in [`sdk/js`](../../sdk/js/package.json) are the s
 | `WebSearchClientOptions` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSearchCurrency` | type | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSearchError` | class | `services/agent/sdk/typescript/src/web-search.ts` |
+| `WebSearchExactLogPayment` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSearchExactPayment` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSearchMeteredPayment` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSearchOffer` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSearchPayer` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
+| `WebSearchPaymentVerification` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSearchPreference` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSearchResponse` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSearchResult` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSearchScheme` | type | `services/agent/sdk/typescript/src/web-search.ts` |
 | `WebSettlement` | interface | `services/agent/sdk/typescript/src/web-search.ts` |
+| `bindLedgerPayment` | function | `services/agent/sdk/typescript/src/web-search.ts` |
 | `contentDigest` | function | `services/agent/sdk/typescript/src/web-search.ts` |
 | `decodePayerGrant` | function | `services/agent/sdk/typescript/src/web-search.ts` |
 | `decodeWebContent` | function | `services/agent/sdk/typescript/src/web-search.ts` |
+| `resolveWebLedgerAccount` | function | `services/agent/sdk/typescript/src/web-search.ts` |
+| `verifyWebSearchPayment` | function | `services/agent/sdk/typescript/src/web-search.ts` |
 | `webContentBytes` | function | `services/agent/sdk/typescript/src/web-search.ts` |
+| `webSearchPayerOwner` | function | `services/agent/sdk/typescript/src/web-search.ts` |
 | `ExpectedDrawTransaction` | interface | `services/agent/sdk/typescript/src/x402/activity.ts` |
 | `bindDrawTransaction` | function | `services/agent/sdk/typescript/src/x402/activity.ts` |
 | `GrantDrawRpc` | interface | `services/agent/sdk/typescript/src/x402/draw.ts` |
@@ -750,7 +836,6 @@ Package `layerx_sdk`, entry point [`__init__.py`](../../services/agent/sdk/pytho
 - `ApprovalRecord`
 - `ApprovalRejectRequest`
 - `ApprovalState`
-- `AuthorizedReceiptBatch`
 - `BudgetLimit`
 - `BuyerMiddleware`
 - `CHAINS_EVENT_SIGNATURES`
@@ -795,7 +880,6 @@ Package `layerx_sdk`, entry point [`__init__.py`](../../services/agent/sdk/pytho
 - `IntentSubmission`
 - `LayerXKeyCredential`
 - `LocalSignatureVerifier`
-- `MerkleProof`
 - `MirrorCandidate`
 - `MirrorPolicy`
 - `MirrorVerification`
@@ -825,7 +909,6 @@ Package `layerx_sdk`, entry point [`__init__.py`](../../services/agent/sdk/pytho
 - `PX_METHODS`
 - `PaymentBudget`
 - `PaymentCommitment`
-- `PaymentCommitmentEvidence`
 - `PaymentEvidence`
 - `PaymentRpc`
 - `PaymentRpcError`
@@ -994,8 +1077,9 @@ Package `layerx_sdk`, entry point [`__init__.py`](../../services/agent/sdk/pytho
 - `px_quantity`
 - `receive_authorization_message`
 - `require_verified`
-- `rpc_batch_evidence`
+- `rpc_committed_evidence`
 - `rpc_hex`
+- `rpc_payment_evidence`
 - `seal_xweb_envelope`
 - `validate_grant_draw`
 - `validate_payload`

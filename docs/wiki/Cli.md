@@ -287,8 +287,10 @@ curl -sS https://api1.mainnet-beta.paxeer.network \
 ```
 
 Node root-path handling is in [rpcstack.go](../../rpc/rpcstack.go).
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`,
-and `txpool`. The `px` namespace answers from node state; `px_register` and
+The node registers `debug`, `echo`, `eth`, `net`, `pax`, `pax2`, `px`,
+`txpool` and `web3`, with an opt-in `test` namespace on non-live chains.
+Transport and legacy-method settings limit availability; see
+[EVM JSON-RPC](../system/rpc.md). The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet
 services declared in [the gateway OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json).
 The retired router and `/rpc`, `/rpc/ws`, and `/rpc/schema` paths are not public node endpoints.
@@ -433,8 +435,6 @@ rather than an optional test prerequisite. See
 
 The make targets are defined in
 [services/platform/Makefile.inc](../../services/platform/Makefile.inc), including
-runtime-clock and public-TLS prerequisites where needed. This inventory is
-not a claim that these suites ran for the documentation rewrite or that
-legacy transport assumptions have been repaired.
+runtime-clock and public-TLS prerequisites where needed. The targets require their declared dependencies and deployment inputs.
 
 [Home](Home.md)

@@ -1,9 +1,14 @@
 # Fees
 
-Fees are computed from the committed canonical schedule
-(`include/layerx/lxp_fee.h`, `src/protocol/lxp_fee.c`). Public estimation
-returns the schedule and snapshot that produced the value. It does not
-reserve the fee or prove execution.
+The kernel computes activity fees from its committed canonical schedule
+(`include/layerx/lxp_fee.h`, `src/protocol/lxp_fee.c`). This page describes
+that schedule and its encodings. For public EVM transactions, use
+`eth_estimateGas` and the node's fee inputs; estimation neither reserves a
+fee nor proves execution. See [EVM JSON-RPC](../system/rpc.md).
+
+Programs exposes `quoteCallFee(uint64[7])` through its precompile at `0x101D`.
+It returns schedule version, execution ceiling and fee asset. See
+[precompile fee semantics](../system/precompiles.md#encoding-and-result-semantics).
 
 Sources: `include/layerx/lxp_fee.h`, `src/protocol/lxp_fee.c`,
 `src/protocol/lxp_fee_policy.c`, `src/modules/governance/lxp_fee_params.c`.
@@ -106,8 +111,9 @@ The treasury account is `system:fees`. Charge is a `402LXP` leg with
 Programs occupancy rent is a separate batch settlement, also as `402LXP`
 legs. See [Programs](Programs.md).
 
-LNI `fee_estimate` and `session_fee_state` (minor 1.5) return the committed
-schedule projection. They do not reserve.
+The retained node-interface `fee_estimate` and `session_fee_state` (minor 1.5)
+return a committed schedule projection without reserving fees. They are not
+public JSON-RPC methods.
 
 ---
 

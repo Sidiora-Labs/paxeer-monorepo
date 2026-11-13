@@ -20,7 +20,7 @@ routing is [MCP](Mcp.md).
 
 ---
 
-## What it never does
+## Authority and local state
 
 Local balances, consumption and caches do not establish protocol authority.
 A daemon-only limit is explicitly labelled `daemon-enforced`; bypassing
@@ -28,11 +28,9 @@ agentd bypasses that limit. Approvals restrict the daemon's behavior and do
 not grant signing or spending authority.
 
 A protocol budget is returned only from a signed network mutation with a
-verified committed receipt and matching budget state. Creation can succeed;
-it is not permanently unavailable. Successful low-level creation is also not
-a durable local object write: the `_store` argument to `create_protocol_budget`
-is unused. The owner must retain the object, transaction and recovery state
-through its actual durable paths.
+verified committed receipt and matching budget state. The owner retains the
+budget object, transaction and recovery state through its durable paths and
+reconciles them before admitting later writes.
 
 ---
 

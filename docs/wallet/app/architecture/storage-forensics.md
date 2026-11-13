@@ -1,6 +1,6 @@
 # Application storage forensics
 
-The runtime registry in `src/platform/storage/repositories.ts` is authoritative. Every application-owned browser record is a bounded version-1 envelope with a named owner, schema, sensitivity, retention rule, quota, migration, lifecycle reset list, and corruption policy.
+The runtime registry in `apps/wallet/src/platform/storage/repositories.ts` is authoritative. Every application-owned browser record is a bounded version-1 envelope with a named owner, schema, sensitivity, retention rule, quota, migration, lifecycle reset list, and corruption policy.
 
 | Record | Area | Owner | Sensitivity | Retention and reset |
 | --- | --- | --- | --- | --- |
