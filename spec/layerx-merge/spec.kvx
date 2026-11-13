@@ -169909,7 +169909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.165]
 title = "Move the task records and name the files after what they hold in services/platform and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204310,7 +204310,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.172]
 title = "Move the task records and name the files after what they hold in services/platform/perf-db"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -204374,7 +204374,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.169]
 title = "Move the task records and name the files after what they hold in services/platform/hosted/node and 1 more directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -239006,7 +239006,7 @@ do_5 = "do_5 Decision 3445, decision 3446, gotcha 4361. The planned paths of thi
 
 [task.22.43.163]
 title = "Move the task records and name the files after what they hold in services/launchpad/trading-charts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
