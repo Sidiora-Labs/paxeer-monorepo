@@ -21645,3 +21645,8 @@ fix = "Add a variable to such a file as a new line and keep every line the file 
 title = "The guest of a program member stays under the size limit of a deployment"
 symptom = "The target paxai-host-boundary-build builds the guest of the member layerx-programs-ai-market and compares its size with the limit of a deployment, 524184 bytes. The size follows from the sources, the dependencies and the recipe of the guest."
 fix = "After a change of a member that a guest is built from, build the guest and read its size. Task 22.39.512 holds the manifest of the member, the manifest and the lock file of the workspace and the fixtures directory of the member among its paths."
+
+[gotcha.4365]
+title = "The format check of the contracts reads every contract file of the tree"
+symptom = "The target paxeer-manifest-lint runs the format check of the contracts with the configuration foundry.paxeer.toml over every contract file of the tree, with the version of the formatter that the environment holds."
+fix = "Format a contract file with that formatter before the commit, and format the files again after a change of the formatter version. Task 22.39.511 formats contracts/src/xweb/examples/ApiConsumer.sol and contracts/test/XWebConsumer.t.sol."
