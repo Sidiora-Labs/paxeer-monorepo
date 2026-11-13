@@ -373943,7 +373943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.292]
 title = "Rewrite the opening and the diagram of the front page around the kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
