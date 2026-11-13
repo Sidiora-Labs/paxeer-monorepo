@@ -42,7 +42,7 @@ must obtain their production trust anchors independently.
 Run `python3 sdk/platform/conformance/fixtures/refresh_receipt_vectors.py` from the
 repository root to copy the retained sequencer producer's V1–V3 cases byte for
 byte, then refresh V4, V5 and the Go SDK's fixed external checkpoint at
-`sdk/platform/go/testdata/repair_m1384/checkpoint.json`. The checkpoint is captured
+`sdk/platform/go/testdata/committed_receipt/checkpoint.json`. The checkpoint is captured
 from the producer's `execution_commit`, with its source digest recorded separately
 from the portable bundle. Verification reads the fixed checkpoint without deriving
 trust from the document being verified.

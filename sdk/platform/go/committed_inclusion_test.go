@@ -319,7 +319,7 @@ func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 func committedRecordedPrograms(t *testing.T, receipt, raw []byte, keys ReceiptKeys) *Programs {
 	t.Helper()
 	hash := receiptKeccak256(raw)
-	return repair141Programs(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return receiptTransportPrograms(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" || r.Method != http.MethodPost {
 			t.Error("retired or unexpected receipt ingress")
 			http.Error(w, "route", 400)
