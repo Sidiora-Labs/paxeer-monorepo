@@ -32,7 +32,7 @@ resolution = "Attempt 3 brings contracts/src/precompiles/IXWeb.sol into scope an
 request = "Domains 6 and 11: update spec/layerx-merge/interfaces.kvx with canonical programId/requestId/kind/payload/sequence, kind=1 fetch/2 search, implicit origin=2, admission/pending/fulfilled tombstone lifecycle and explicit historical decoder/journal version boundaries for the unchanged topic."
 
 [wiring.interop]
-request = "Domain 11: run services/interop/crates/x-websearch/src/watch.rs RequestWatcher and src/program.rs observation_bytes on the real Go producer logs using the shared precompiles/xweb/repair_130_test.go and testdata/repair_130_consumer.rs case, including replay/restart and fulfilProgram acceptance; its cargo subprocess is forbidden in this task's declared Go gate."
+request = "Domain 11: run services/interop/crates/x-websearch/src/watch.rs RequestWatcher and src/program.rs observation_bytes on the real Go producer logs using the shared precompiles/xweb/program_event_round_trip_test.go and testdata/program_event_consumer.rs case, including replay/restart and fulfilProgram acceptance; its cargo subprocess is forbidden in this task's declared Go gate."
 
 [gotcha.scope-parity]
 observed = "The requested local canonical label repair conflicts with an existing byte-identical assertion against an out-of-scope Solidity file."
