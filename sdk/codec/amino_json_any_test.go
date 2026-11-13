@@ -14,7 +14,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil/testdata"
 )
 
-func repairM1404UnpreparedAnimal(t *testing.T) *testdata.HasAnimal {
+func unpreparedAnimal(t *testing.T) *testdata.HasAnimal {
 	t.Helper()
 	packed, err := types.NewAnyWithValue(&testdata.Dog{Name: "rufus"})
 	require.NoError(t, err)
@@ -32,11 +32,11 @@ func repairM1404UnpreparedAnimal(t *testing.T) *testdata.HasAnimal {
 	return &testdata.HasAnimal{Animal: envelope}
 }
 
-func TestRepairM_1404_UnpreparedAnyReturnsError(t *testing.T) {
+func TestAminoJSONUnpreparedAnyReturnsError(t *testing.T) {
 	for _, adapter := range []bool{false, true} {
 		t.Run(fmt.Sprintf("amino_adapter_%t", adapter), func(t *testing.T) {
 			cdc := createTestCodec()
-			wantErr := types.UnpackInterfaces(repairM1404UnpreparedAnimal(t), types.AminoJSONPacker{Cdc: cdc.Amino})
+			wantErr := types.UnpackInterfaces(unpreparedAnimal(t), types.AminoJSONPacker{Cdc: cdc.Amino})
 			require.Error(t, wantErr)
 			marshal := cdc.MarshalJSONIndent
 			if adapter {
@@ -45,7 +45,7 @@ func TestRepairM_1404_UnpreparedAnyReturnsError(t *testing.T) {
 			var bz []byte
 			var err error
 			require.NotPanics(t, func() {
-				bz, err = marshal(repairM1404UnpreparedAnimal(t), "\t", "    ")
+				bz, err = marshal(unpreparedAnimal(t), "\t", "    ")
 			})
 			require.Nil(t, bz)
 			require.EqualError(t, err, wantErr.Error())
@@ -54,23 +54,23 @@ func TestRepairM_1404_UnpreparedAnyReturnsError(t *testing.T) {
 	}
 }
 
-func TestRepairM_1404_UnpreparedAnyHelperBoundaries(t *testing.T) {
+func TestAminoJSONUnpreparedAnyHelperBoundaries(t *testing.T) {
 	cdc := createTestCodec()
-	_, wantErr := cdc.MarshalAsJSON(repairM1404UnpreparedAnimal(t))
+	_, wantErr := cdc.MarshalAsJSON(unpreparedAnimal(t))
 	require.Error(t, wantErr)
 	var bz []byte
 	var err error
 	require.NotPanics(t, func() {
-		bz, err = codec.MarshalJSONIndent(cdc, repairM1404UnpreparedAnimal(t))
+		bz, err = codec.MarshalJSONIndent(cdc, unpreparedAnimal(t))
 	})
 	require.Nil(t, bz)
 	require.EqualError(t, err, wantErr.Error())
 	require.PanicsWithValue(t, "failed to marshal JSON: "+wantErr.Error(), func() {
-		codec.MustMarshalJSONIndent(cdc, repairM1404UnpreparedAnimal(t))
+		codec.MustMarshalJSONIndent(cdc, unpreparedAnimal(t))
 	})
 }
 
-func TestRepairM_1404_PreparedAnyRoundTrip(t *testing.T) {
+func TestAminoJSONPreparedAnyRoundTrip(t *testing.T) {
 	cdc := createTestCodec()
 	dog := &testdata.Dog{Name: "rufus \"犬\""}
 	packed, err := types.NewAnyWithValue(dog)

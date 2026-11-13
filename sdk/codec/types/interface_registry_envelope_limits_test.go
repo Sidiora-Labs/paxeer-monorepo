@@ -13,31 +13,31 @@ import (
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
 )
 
-func repairM1405Registries() map[string]func() types.InterfaceRegistry {
+func interfaceRegistryFactories() map[string]func() types.InterfaceRegistry {
 	return map[string]func() types.InterfaceRegistry{
 		"current": types.NewInterfaceRegistry,
 		"legacy":  types.NewLegacyInterfaceRegistry,
 	}
 }
 
-func repairM1405Key() cryptotypes.PubKey {
+func registryTestPublicKey() cryptotypes.PubKey {
 	return ed25519.GenPrivKeyFromSecret([]byte("repair-m1405-public-key-fixture")).PubKey()
 }
 
-func repairM1405RegisterKeys(registry types.InterfaceRegistry) {
+func registerPublicKeyImplementations(registry types.InterfaceRegistry) {
 	registry.RegisterInterface("cosmos.crypto.PubKey", (*cryptotypes.PubKey)(nil),
 		&ed25519.PubKey{}, &multisig.LegacyAminoPubKey{})
 }
 
-func TestRepairM_1405_CustomAliasEnvelope(t *testing.T) {
-	for name, newRegistry := range repairM1405Registries() {
+func TestInterfaceRegistryCustomAliasEnvelope(t *testing.T) {
+	for name, newRegistry := range interfaceRegistryFactories() {
 		t.Run(name, func(t *testing.T) {
 			registry := newRegistry()
 			const alias = "/repair.m1405/custom-ed25519"
 			registry.(interface {
 				RegisterCustomTypeURL(interface{}, string, proto.Message)
 			}).RegisterCustomTypeURL((*cryptotypes.PubKey)(nil), alias, &ed25519.PubKey{})
-			key := repairM1405Key()
+			key := registryTestPublicKey()
 			packed, err := types.NewAnyWithValue(key)
 			require.NoError(t, err)
 			packed.TypeUrl = alias
@@ -85,15 +85,15 @@ func TestRepairM_1405_CustomAliasEnvelope(t *testing.T) {
 	}
 }
 
-func repairM1405NestedKey(depth int) cryptotypes.PubKey {
-	key := repairM1405Key()
+func nestedMultisigPublicKey(depth int) cryptotypes.PubKey {
+	key := registryTestPublicKey()
 	for i := 1; i < depth; i++ {
 		key = multisig.NewLegacyAminoPubKey(1, []cryptotypes.PubKey{key})
 	}
 	return key
 }
 
-func repairM1405DecodeKey(t *testing.T, registry types.InterfaceRegistry, key cryptotypes.PubKey, wantError string) {
+func assertUnpackedPublicKey(t *testing.T, registry types.InterfaceRegistry, key cryptotypes.PubKey, wantError string) {
 	t.Helper()
 	cdc := codec.NewProtoCodec(registry)
 	wire, err := cdc.MarshalInterface(key)
@@ -117,45 +117,45 @@ func repairM1405DecodeKey(t *testing.T, registry types.InterfaceRegistry, key cr
 	require.Equal(t, wire, reencoded)
 }
 
-func TestRepairM_1405_RecursionLimit(t *testing.T) {
-	for name, newRegistry := range repairM1405Registries() {
+func TestInterfaceRegistryRecursionLimit(t *testing.T) {
+	for name, newRegistry := range interfaceRegistryFactories() {
 		t.Run(name, func(t *testing.T) {
 			registry := newRegistry()
-			repairM1405RegisterKeys(registry)
-			atLimit := repairM1405NestedKey(types.MaxUnpackAnyRecursionDepth)
-			repairM1405DecodeKey(t, registry, atLimit, "")
-			repairM1405DecodeKey(t, registry,
-				repairM1405NestedKey(types.MaxUnpackAnyRecursionDepth+1), "max depth exceeded")
+			registerPublicKeyImplementations(registry)
+			atLimit := nestedMultisigPublicKey(types.MaxUnpackAnyRecursionDepth)
+			assertUnpackedPublicKey(t, registry, atLimit, "")
+			assertUnpackedPublicKey(t, registry,
+				nestedMultisigPublicKey(types.MaxUnpackAnyRecursionDepth+1), "max depth exceeded")
 			// Each top-level operation gets a fresh budget, including after refusal.
-			repairM1405DecodeKey(t, registry, atLimit, "")
+			assertUnpackedPublicKey(t, registry, atLimit, "")
 		})
 	}
 }
 
-func repairM1405BranchedKey(calls int) cryptotypes.PubKey {
+func branchedMultisigPublicKey(calls int) cryptotypes.PubKey {
 	// One root, two branch nodes, and the remaining calls split over their leaves.
 	leafCount := calls - 3
 	branches := make([]cryptotypes.PubKey, 2)
 	for i, count := range []int{leafCount / 2, leafCount - leafCount/2} {
 		leaves := make([]cryptotypes.PubKey, count)
 		for j := range leaves {
-			leaves[j] = repairM1405Key()
+			leaves[j] = registryTestPublicKey()
 		}
 		branches[i] = multisig.NewLegacyAminoPubKey(1, leaves)
 	}
 	return multisig.NewLegacyAminoPubKey(1, branches)
 }
 
-func TestRepairM_1405_SharedCallLimit(t *testing.T) {
-	for name, newRegistry := range repairM1405Registries() {
+func TestInterfaceRegistrySharedCallLimit(t *testing.T) {
+	for name, newRegistry := range interfaceRegistryFactories() {
 		t.Run(name, func(t *testing.T) {
 			registry := newRegistry()
-			repairM1405RegisterKeys(registry)
-			atLimit := repairM1405BranchedKey(types.MaxUnpackAnySubCalls)
-			repairM1405DecodeKey(t, registry, atLimit, "")
-			repairM1405DecodeKey(t, registry,
-				repairM1405BranchedKey(types.MaxUnpackAnySubCalls+1), "call limit exceeded")
-			repairM1405DecodeKey(t, registry, atLimit, "")
+			registerPublicKeyImplementations(registry)
+			atLimit := branchedMultisigPublicKey(types.MaxUnpackAnySubCalls)
+			assertUnpackedPublicKey(t, registry, atLimit, "")
+			assertUnpackedPublicKey(t, registry,
+				branchedMultisigPublicKey(types.MaxUnpackAnySubCalls+1), "call limit exceeded")
+			assertUnpackedPublicKey(t, registry, atLimit, "")
 		})
 	}
 }
