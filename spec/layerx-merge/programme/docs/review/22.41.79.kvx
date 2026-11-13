@@ -1,0 +1,55 @@
+[manifest]
+task = "22.41.79"
+pages = 13
+
+[page.1]
+path = "sdk/js/README.md"
+status = "corrected"
+
+[page.2]
+path = "sdk/launchpad/packages/indexer-sdk/README.md"
+status = "reviewed"
+
+[page.3]
+path = "sdk/launchpad/packages/sdk/README.md"
+status = "corrected"
+
+[page.4]
+path = "sdk/launchpad/packages/stats-sdk/README.md"
+status = "corrected"
+
+[page.5]
+path = "sdk/platform/conformance/README.md"
+status = "reviewed"
+
+[page.6]
+path = "sdk/platform/jvm/README.md"
+status = "corrected"
+
+[page.7]
+path = "sdk/platform/jvm/examples/README.md"
+status = "reviewed"
+
+[page.8]
+path = "sdk/scripts/README.md"
+status = "corrected"
+
+[page.9]
+path = "sdk/server/README.md"
+status = "corrected"
+
+[page.10]
+path = "sdk/snapshots/README.md"
+status = "corrected"
+
+[page.11]
+path = "sdk/store/README.md"
+status = "corrected"
+
+[page.12]
+path = "sdk/types/address/README.md"
+status = "reviewed"
+
+[page.13]
+path = "sdk/wallet/README.md"
+status = "corrected"

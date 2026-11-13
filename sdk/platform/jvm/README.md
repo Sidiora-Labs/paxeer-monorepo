@@ -284,16 +284,20 @@ var publisher = client.humanStreamPublisher(stream);
 ```
 
 The publisher emits `ResumableStream.Event<GeneratedSchema.HumanModels.StreamEvent>`
-with backpressure on a virtual thread. Persist the last processed event's cursor
-with your application's work so it can resume after restart. Restore a
-`ResumableStream` with that cursor and pass it to `humanStreamPublisher`; Kotlin
-also provides `client.resumeHumanStream(savedCursor)`.
+with backpressure on a virtual thread. Inside the subscriber's `onNext`,
+process the event and persist `stream.checkpoint()` together with the
+application's work before returning. The checkpoint
+contains the cursor and a bounded replay window of event IDs and cursors.
+Restore a `ResumableStream` with that checkpoint and pass it to
+`humanStreamPublisher` to retain replay checks across restarts. A constructor
+accepting only a cursor and Kotlin's `client.resumeHumanStream(savedCursor)`
+resume the position with an empty replay window.
 
 For custom sources, `ResumableStream.publisher(PageSource<T>)` fetches a
 `CompletionStage<ResumableStream.Page<T>>` carrying the requested cursor, events
 and next cursor. Cursor continuity and duplicate IDs are checked before a page
-is accepted. The stream state is in memory; the application owns durable cursors
-and durable deduplication of side effects.
+is accepted. The stream state is in memory; the application owns durable
+checkpoints and durable deduplication of side effects.
 
 ## Money
 
