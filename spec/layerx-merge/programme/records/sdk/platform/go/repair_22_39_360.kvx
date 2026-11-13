@@ -17,7 +17,7 @@ cases = "ABI3 and ABI4 each cover success, failure, resource, callback and settl
 
 [qualification]
 build_cmd = "cd sdk/platform/go && go vet ."
-verify_cmd = "test -s sdk/platform/go/repair_22_39_360.kvx && cd sdk/platform/go && env -u PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS go test -count=1 -run 'TestProgramTerminalV5HistoricalCodecCorpus' ."
+verify_cmd = "test -s spec/layerx-merge/programme/records/sdk/platform/go/repair_22_39_360.kvx && cd sdk/platform/go && env -u PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS go test -count=1 -run 'TestProgramTerminalV5HistoricalCodecCorpus' ."
 result = "The terminating hf-done evidence and private /out/run/gates.jsonl record the actual result, exact verified candidate revision, command, exit code and log path. No gate success is claimed before execution, and this record is part of the candidate with no edits after passing qualification."
 
 [gotcha.scope]

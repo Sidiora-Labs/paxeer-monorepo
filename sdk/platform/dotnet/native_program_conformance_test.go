@@ -27,7 +27,7 @@ import (
 // The Go gate executes the production ABI, EIP-1559 signer and receipt codec
 // against the same peer evidence consumed by the C# tests. C# member checks
 // below establish test wiring, not execution of the .NET runtime.
-type repairM1369Vector struct {
+type nativeProgramConformanceVector struct {
 	ID             string          `json:"id"`
 	RawTransaction string          `json:"rawTransaction"`
 	ReceiptJSON    json.RawMessage `json:"receiptJson"`
@@ -41,7 +41,7 @@ type repairM1369Vector struct {
 	} `json:"pinnedKey"`
 }
 
-type repairM1369Call struct {
+type nativeProgramConformanceCall struct {
 	Source           string    `json:"source"`
 	TransactionHash  string    `json:"transaction_hash"`
 	ProgramID        string    `json:"program_id_hex"`
@@ -56,7 +56,7 @@ type repairM1369Call struct {
 	EVMCalldata      string    `json:"evm_calldata_hex"`
 }
 
-type repairM1369Discovery struct {
+type nativeProgramConformanceDiscovery struct {
 	Lifecycle         string `json:"lifecycle"`
 	Policy            uint8  `json:"policy"`
 	Authority         string `json:"authority_hex"`
@@ -74,14 +74,14 @@ type repairM1369Discovery struct {
 	WindDown          string `json:"get_wind_down_output_hex"`
 }
 
-func repairM1369Decode(t *testing.T, path string, target any) {
+func nativeProgramConformanceDecode(t *testing.T, path string, target any) {
 	t.Helper()
-	if err := json.Unmarshal([]byte(repairM1368Read(t, path)), target); err != nil {
+	if err := json.Unmarshal([]byte(sdkContractRead(t, path)), target); err != nil {
 		t.Fatalf("%s: %v", path, err)
 	}
 }
 
-func repairM1369Bytes(t *testing.T, value string) []byte {
+func nativeProgramConformanceBytes(t *testing.T, value string) []byte {
 	t.Helper()
 	raw, err := hex.DecodeString(strings.TrimPrefix(value, "0x"))
 	if err != nil {
@@ -90,37 +90,37 @@ func repairM1369Bytes(t *testing.T, value string) []byte {
 	return raw
 }
 
-func repairM1369Hash(t *testing.T, value string) [32]byte {
+func nativeProgramConformanceHash(t *testing.T, value string) [32]byte {
 	t.Helper()
-	raw := repairM1369Bytes(t, value)
+	raw := nativeProgramConformanceBytes(t, value)
 	if len(raw) != 32 {
 		t.Fatalf("expected bytes32, got %d bytes", len(raw))
 	}
 	return [32]byte(raw)
 }
 
-func repairM1369ABI(t *testing.T) abi.ABI {
+func nativeProgramConformanceABI(t *testing.T) abi.ABI {
 	t.Helper()
-	producer, err := abi.JSON(strings.NewReader(repairM1368Read(t, "../../../precompiles/layerxprograms/abi.json")))
+	producer, err := abi.JSON(strings.NewReader(sdkContractRead(t, "../../../precompiles/layerxprograms/abi.json")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return producer
 }
 
-func repairM1369Vectors(t *testing.T) []repairM1369Vector {
+func nativeProgramConformanceVectors(t *testing.T) []nativeProgramConformanceVector {
 	t.Helper()
 	var inventory struct {
-		Cases []repairM1369Vector `json:"cases"`
+		Cases []nativeProgramConformanceVector `json:"cases"`
 	}
-	repairM1369Decode(t, "../conformance/fixtures/vector-v1-receipted-positive.json", &inventory)
+	nativeProgramConformanceDecode(t, "../conformance/fixtures/vector-v1-receipted-positive.json", &inventory)
 	return inventory.Cases
 }
 
-func repairM1369ProgramVector(t *testing.T) repairM1369Vector {
+func nativeProgramConformanceProgramVector(t *testing.T) nativeProgramConformanceVector {
 	t.Helper()
-	var matches []repairM1369Vector
-	for _, vector := range repairM1369Vectors(t) {
+	var matches []nativeProgramConformanceVector
+	for _, vector := range nativeProgramConformanceVectors(t) {
 		if vector.ID == "V1-layerxprograms-call" {
 			matches = append(matches, vector)
 		}
@@ -131,44 +131,44 @@ func repairM1369ProgramVector(t *testing.T) repairM1369Vector {
 	return matches[0]
 }
 
-func repairM1369Member(t *testing.T, file, declaration string, fragments ...string) string {
+func nativeProgramConformanceMember(t *testing.T, file, declaration string, fragments ...string) string {
 	t.Helper()
 	path := "tests/LayerX.Sdk.Tests/" + file
-	source := repairM1368Read(t, path)
+	source := sdkContractRead(t, path)
 	if strings.Contains(source, "Skip =") || strings.Contains(source, "Skip=") {
 		t.Fatalf("disabled C# test in %s", file)
 	}
-	body := repairM1368Member(t, path, declaration)
-	repairM1368Contains(t, body, fragments...)
+	body := sdkContractMember(t, path, declaration)
+	sdkContractContains(t, body, fragments...)
 	return body
 }
 
-func TestRepairM_1369_programs_contract_tests_stale(t *testing.T) {
-	producer := repairM1369ABI(t)
-	vector := repairM1369ProgramVector(t)
-	var facts repairM1369Call
-	repairM1369Decode(t, "tests/LayerX.Sdk.Tests/Fixtures/repair-m1369-recorded-call.json", &facts)
+func TestNativeProgramConformanceSignedCallBindings(t *testing.T) {
+	producer := nativeProgramConformanceABI(t)
+	vector := nativeProgramConformanceProgramVector(t)
+	var facts nativeProgramConformanceCall
+	nativeProgramConformanceDecode(t, "tests/LayerX.Sdk.Tests/Fixtures/native-program-recorded-call.json", &facts)
 	if facts.Source != "daemon/committed-fixture/vectors/vector-v1-receipted-positive.json#V1-layerxprograms-call" {
 		t.Fatal("native call must retain its real producer provenance")
 	}
 	var recorded types.Transaction
-	if err := recorded.UnmarshalBinary(repairM1369Bytes(t, vector.RawTransaction)); err != nil {
+	if err := recorded.UnmarshalBinary(nativeProgramConformanceBytes(t, vector.RawTransaction)); err != nil {
 		t.Fatal(err)
 	}
-	if recorded.Hash() != common.BytesToHash(repairM1369Bytes(t, facts.TransactionHash)) || recorded.ChainId().Cmp(big.NewInt(125)) != 0 || recorded.Type() != types.DynamicFeeTxType || recorded.To() == nil || *recorded.To() != common.HexToAddress("0x101d") {
+	if recorded.Hash() != common.BytesToHash(nativeProgramConformanceBytes(t, facts.TransactionHash)) || recorded.ChainId().Cmp(big.NewInt(125)) != 0 || recorded.Type() != types.DynamicFeeTxType || recorded.To() == nil || *recorded.To() != common.HexToAddress("0x101d") {
 		t.Fatal("recorded call lost its EIP-1559 transaction, endpoint or identity binding")
 	}
 	fee, ok := new(big.Int).SetString(facts.FeeLimit, 10)
 	if !ok {
 		t.Fatal("invalid recorded fee limit")
 	}
-	calldata, err := producer.Pack("call", repairM1369Hash(t, facts.ProgramID), facts.GuestABI, facts.Entrypoint,
-		repairM1369Bytes(t, facts.Calldata), repairM1369Bytes(t, facts.Capabilities), repairM1369Bytes(t, facts.Access),
+	calldata, err := producer.Pack("call", nativeProgramConformanceHash(t, facts.ProgramID), facts.GuestABI, facts.Entrypoint,
+		nativeProgramConformanceBytes(t, facts.Calldata), nativeProgramConformanceBytes(t, facts.Capabilities), nativeProgramConformanceBytes(t, facts.Access),
 		facts.ResponseCapacity, facts.Resources, fee)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(recorded.Data(), calldata) || !bytes.Equal(calldata, repairM1369Bytes(t, facts.EVMCalldata)) {
+	if !bytes.Equal(recorded.Data(), calldata) || !bytes.Equal(calldata, nativeProgramConformanceBytes(t, facts.EVMCalldata)) {
 		t.Fatal("C# fixture fields do not reconstruct the actual producer transaction")
 	}
 	sender, err := types.Sender(types.NewLondonSigner(big.NewInt(125)), &recorded)
@@ -204,26 +204,26 @@ func TestRepairM_1369_programs_contract_tests_stale(t *testing.T) {
 	if decoded.Hash() != crypto.Keccak256Hash(raw) || !bytes.Equal(decoded.Data(), calldata) {
 		t.Fatal("real signed transaction did not retain calldata and expected activity identity")
 	}
-	changedFee, err := producer.Pack("call", repairM1369Hash(t, facts.ProgramID), facts.GuestABI, facts.Entrypoint,
-		repairM1369Bytes(t, facts.Calldata), repairM1369Bytes(t, facts.Capabilities), repairM1369Bytes(t, facts.Access),
+	changedFee, err := producer.Pack("call", nativeProgramConformanceHash(t, facts.ProgramID), facts.GuestABI, facts.Entrypoint,
+		nativeProgramConformanceBytes(t, facts.Calldata), nativeProgramConformanceBytes(t, facts.Capabilities), nativeProgramConformanceBytes(t, facts.Access),
 		facts.ResponseCapacity, facts.Resources, new(big.Int).Add(fee, big.NewInt(1)))
 	if err != nil || bytes.Equal(changedFee, decoded.Data()) {
 		t.Fatalf("fee limit not bound in signed calldata: %v", err)
 	}
 
-	pending := repairM1369Member(t, "ProgramsContractTests.cs", "public async Task PendingReceiptMayOmitRetainedBytesButMustBindExpectedActivity()",
-		"RepairM1369Native.RecordedVector()", "Programs.TransactionHash(raw)", "programs.ReceiptAsync(",
+	pending := nativeProgramConformanceMember(t, "ProgramsContractTests.cs", "public async Task PendingReceiptMayOmitRetainedBytesButMustBindExpectedActivity()",
+		"NativeProgramTestVectors.RecordedVector()", "Programs.TransactionHash(raw)", "programs.ReceiptAsync(",
 		"Assert.True(pending.IsUnknown)", "Assert.Equal(activity, pending.ActivityId)", "Assert.Null(pending.RetainedSignedActivity)",
 		"Assert.Equal(SdkErrorCode.VerificationFailure, error.Code)")
-	signedCase := repairM1369Member(t, "ProgramsContractTests.cs", "public async Task NativeSignedFixturesPreserveCanonicalCallBindings(string name)",
-		"RepairM1369Native.Sign(unsigned)", "programs.SubmitAsync(call, key)", "eth_sendRawTransaction", "pax_sequencerReceipt",
+	signedCase := nativeProgramConformanceMember(t, "ProgramsContractTests.cs", "public async Task NativeSignedFixturesPreserveCanonicalCallBindings(string name)",
+		"NativeProgramTestVectors.Sign(unsigned)", "programs.SubmitAsync(call, key)", "eth_sendRawTransaction", "pax_sequencerReceipt",
 		"Assert.Equal(call.TransactionHash, pending.ActivityId)", "Assert.Equal(signed, pending.RetainedSignedActivity)",
 		"ResponseCapacity = native.ResponseCapacity + 1", "fee.Value + 1", "signed_activity_hex", "new ushort[] { 0, 6, ushort.MaxValue }", "new ushort[] { 3, 4 }")
-	repairM1369Member(t, "ProgramsContractTests.cs", "public async Task RecordedProgramsSubmissionAuthenticatesReceiptAndRetainedTransaction()",
+	nativeProgramConformanceMember(t, "ProgramsContractTests.cs", "public async Task RecordedProgramsSubmissionAuthenticatesReceiptAndRetainedTransaction()",
 		"programs.SubmitAsync(call, key)", "programs.ReceiptAsync(key, expected,", "Assert.Equal(expected, result.ActivityId)",
 		"Assert.Equal(raw, result.RetainedSignedTransaction)", "receipt.CanonicalBytes", "receipt.ReceiptDigest", "receipt.ReturnData")
-	lifecycle := repairM1369Member(t, "ProgramsContractTests.cs", "public void NativeLifecycleFixturesPreserveSignedBindingAcrossNamedAbiPolicies(string name, int ordinal)",
-		"RepairM1369Native.Sign(unsigned)", "new NativeProgramLifecycleRequest(operation, signed)", "Programs.TransactionHash(signed)",
+	lifecycle := nativeProgramConformanceMember(t, "ProgramsContractTests.cs", "public void NativeLifecycleFixturesPreserveSignedBindingAcrossNamedAbiPolicies(string name, int ordinal)",
+		"NativeProgramTestVectors.Sign(unsigned)", "new NativeProgramLifecycleRequest(operation, signed)", "Programs.TransactionHash(signed)",
 		"new NativeProgramLifecycleRequest(updated, signed)")
 	for _, body := range []string{pending, signedCase, lifecycle} {
 		for _, legacy := range []string{"Invoke(\"Encode\"", "Invoke(\"DecodeSignedCall\"", "new ProgramsClient(client, Enumerable"} {
@@ -232,22 +232,22 @@ func TestRepairM_1369_programs_contract_tests_stale(t *testing.T) {
 			}
 		}
 	}
-	repairM1369Member(t, "RepairM1369Native.cs", "internal static byte[] Sign(UnsignedProgramTransaction transaction)",
+	nativeProgramConformanceMember(t, "NativeProgramTestVectors.cs", "internal static byte[] Sign(UnsignedProgramTransaction transaction)",
 		"new ECDsaSigner(new HMacDsaKCalculator(new Sha256Digest()))", "signer.GenerateSignature(digest)",
 		"verifier.VerifySignature(digest, r, s)", "r.ModInverse(domain.N)", "Assert.InRange(parity, 0, 1)",
 		"Assert.Equal(Keccak(signed), Programs.TransactionHash(signed))")
 }
 
-func TestRepairM_1369_programs_evm_producer_gap(t *testing.T) {
-	producer := repairM1369ABI(t)
-	vector := repairM1369ProgramVector(t)
+func TestNativeProgramConformanceEvmProducer(t *testing.T) {
+	producer := nativeProgramConformanceABI(t)
+	vector := nativeProgramConformanceProgramVector(t)
 	var view struct {
 		ReturnData string `json:"returnData"`
 	}
 	if err := json.Unmarshal(vector.ReceiptJSON, &view); err != nil {
 		t.Fatal(err)
 	}
-	output := repairM1369Bytes(t, view.ReturnData)
+	output := nativeProgramConformanceBytes(t, view.ReturnData)
 	decoded, err := producer.Methods["simulateCall"].Outputs.Unpack(output)
 	if err != nil {
 		t.Fatal(err)
@@ -259,14 +259,14 @@ func TestRepairM_1369_programs_evm_producer_gap(t *testing.T) {
 	if err != nil || !bytes.Equal(output, packed) {
 		t.Fatalf("producer ABI output changed: %v", err)
 	}
-	var facts repairM1369Call
-	repairM1369Decode(t, "tests/LayerX.Sdk.Tests/Fixtures/repair-m1369-recorded-call.json", &facts)
-	simulationInput := append(append([]byte{}, producer.Methods["simulateCall"].ID...), repairM1369Bytes(t, facts.EVMCalldata)[4:]...)
+	var facts nativeProgramConformanceCall
+	nativeProgramConformanceDecode(t, "tests/LayerX.Sdk.Tests/Fixtures/native-program-recorded-call.json", &facts)
+	simulationInput := append(append([]byte{}, producer.Methods["simulateCall"].ID...), nativeProgramConformanceBytes(t, facts.EVMCalldata)[4:]...)
 	args, err := producer.Methods["simulateCall"].Inputs.Unpack(simulationInput[4:])
-	if err != nil || args[0] != repairM1369Hash(t, facts.ProgramID) {
+	if err != nil || args[0] != nativeProgramConformanceHash(t, facts.ProgramID) {
 		t.Fatalf("native simulation input: %#v %v", args, err)
 	}
-	repairM1369Exchange(t, simulationInput, output, func(answer []byte) {
+	nativeProgramConformanceExchange(t, simulationInput, output, func(answer []byte) {
 		values, err := producer.Methods["simulateCall"].Outputs.Unpack(answer)
 		if err != nil || !reflect.DeepEqual(values, decoded) {
 			t.Fatalf("native response bytes changed across root RPC: %v", err)
@@ -275,9 +275,9 @@ func TestRepairM_1369_programs_evm_producer_gap(t *testing.T) {
 	// Execute exactly the native precompile's ABI output codec. The committed
 	// discovery vectors are codec vectors, not claims of native host execution.
 	var discovery struct {
-		Cases []repairM1369Discovery `json:"cases"`
+		Cases []nativeProgramConformanceDiscovery `json:"cases"`
 	}
-	repairM1369Decode(t, "tests/LayerX.Sdk.Tests/Fixtures/repair-m1369-discovery-abi.json", &discovery)
+	nativeProgramConformanceDecode(t, "tests/LayerX.Sdk.Tests/Fixtures/native-program-discovery-abi.json", &discovery)
 	if len(discovery.Cases) != 3 {
 		t.Fatalf("expected all three native lifecycle codec vectors, got %d", len(discovery.Cases))
 	}
@@ -287,14 +287,14 @@ func TestRepairM_1369_programs_evm_producer_gap(t *testing.T) {
 			t.Fatalf("duplicate lifecycle %s", row.Lifecycle)
 		}
 		seen[row.Lifecycle] = true
-		head, err := producer.Methods["getProgram"].Outputs.Pack(row.Policy, repairM1369Hash(t, row.Authority),
-			repairM1369Hash(t, row.CodeHash), row.ABI, row.Version, row.Active)
-		if err != nil || !bytes.Equal(head, repairM1369Bytes(t, row.Head)) {
+		head, err := producer.Methods["getProgram"].Outputs.Pack(row.Policy, nativeProgramConformanceHash(t, row.Authority),
+			nativeProgramConformanceHash(t, row.CodeHash), row.ABI, row.Version, row.Active)
+		if err != nil || !bytes.Equal(head, nativeProgramConformanceBytes(t, row.Head)) {
 			t.Fatalf("getProgram producer codec mismatch: %v", err)
 		}
-		wind, err := producer.Methods["getWindDown"].Outputs.Pack(row.Status, repairM1369Hash(t, row.ExitProgram),
+		wind, err := producer.Methods["getWindDown"].Outputs.Pack(row.Status, nativeProgramConformanceHash(t, row.ExitProgram),
 			row.Deadline, row.EffectiveSequence, row.AccountCount, row.LiveCount)
-		if err != nil || !bytes.Equal(wind, repairM1369Bytes(t, row.WindDown)) {
+		if err != nil || !bytes.Equal(wind, nativeProgramConformanceBytes(t, row.WindDown)) {
 			t.Fatalf("getWindDown producer codec mismatch: %v", err)
 		}
 		expectedLifecycle := map[uint8]string{1: "Active", 2: "Deprecated", 3: "Tombstoned"}[row.Status]
@@ -306,9 +306,9 @@ func TestRepairM_1369_programs_evm_producer_gap(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		repairM1369Exchange(t, input, head, func(answer []byte) {
+		nativeProgramConformanceExchange(t, input, head, func(answer []byte) {
 			values, err := producer.Methods["getProgram"].Outputs.Unpack(answer)
-			if err != nil || values[2] != repairM1369Hash(t, row.CodeHash) || values[3] != row.ABI || values[4] != row.Version || values[5] != row.Active {
+			if err != nil || values[2] != nativeProgramConformanceHash(t, row.CodeHash) || values[3] != row.ABI || values[4] != row.Version || values[5] != row.Active {
 				t.Fatalf("root RPC changed program head: %#v %v", values, err)
 			}
 		})
@@ -317,7 +317,7 @@ func TestRepairM_1369_programs_evm_producer_gap(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			repairM1369Exchange(t, input, wind, func(answer []byte) {
+			nativeProgramConformanceExchange(t, input, wind, func(answer []byte) {
 				values, err := producer.Methods["getWindDown"].Outputs.Unpack(answer)
 				if err != nil || values[0] != row.Status {
 					t.Fatalf("root RPC changed wind-down lifecycle: %#v %v", values, err)
@@ -328,28 +328,28 @@ func TestRepairM_1369_programs_evm_producer_gap(t *testing.T) {
 	if !seen["Active"] || !seen["Deprecated"] || !seen["Tombstoned"] {
 		t.Fatal("missing lifecycle case")
 	}
-	evmSource := repairM1368Read(t, "tests/LayerX.Sdk.Tests/ProgramsEvmTests.cs")
+	evmSource := sdkContractRead(t, "tests/LayerX.Sdk.Tests/ProgramsEvmTests.cs")
 	if strings.Contains(evmSource, "/rpc") || strings.Contains(evmSource, "var head = new byte[192]") {
 		t.Fatal("native scenarios must use root RPC and producer-codec snapshots")
 	}
-	repairM1369Member(t, "ProgramsEvmTests.cs", "public async Task ProgramSimulateUsesPendingEthCall()",
+	nativeProgramConformanceMember(t, "ProgramsEvmTests.cs", "public async Task ProgramSimulateUsesPendingEthCall()",
 		"SdkErrorCode.TransportFailure", "POST / HTTP/1.1", "Assert.Equal(\"pending\", parameters[1].GetString())")
-	repairM1369Member(t, "ProgramsEvmTests.cs", "public async Task ProgramSimulateDecodesRecordedNativeProducerOutput()",
-		"RepairM1369Native.RecordedCall()", "programs.SimulateAsync(call, Sender)", "Assert.Equal(0, result.TerminalResult)",
+	nativeProgramConformanceMember(t, "ProgramsEvmTests.cs", "public async Task ProgramSimulateDecodesRecordedNativeProducerOutput()",
+		"NativeProgramTestVectors.RecordedCall()", "programs.SimulateAsync(call, Sender)", "Assert.Equal(0, result.TerminalResult)",
 		"Assert.Equal((byte)1, result.TerminalKind)", "Assert.Equal(output.AsSpan(128, responseLength).ToArray(), result.Response)")
-	repairM1369Member(t, "ProgramsEvmTests.cs", "public async Task ProgramSimulateRefusesMalformedNativeOutput()",
+	nativeProgramConformanceMember(t, "ProgramsEvmTests.cs", "public async Task ProgramSimulateRefusesMalformedNativeOutput()",
 		"\"truncated\", \"offset\", \"padding\", \"length\", \"kind\", \"result\"", "Assert.ThrowsAsync<ArgumentException>",
 		"Assert.ThrowsAsync<OverflowException>", "SdkErrorCode.DecodeFailure")
-	repairM1369Member(t, "ProgramsEvmTests.cs", "public async Task ProgramDiscoverReadsWindDownLifecycle()",
+	nativeProgramConformanceMember(t, "ProgramsEvmTests.cs", "public async Task ProgramDiscoverReadsWindDownLifecycle()",
 		"DiscoveryFixture()", "get_program_output_hex", "get_wind_down_output_hex", "Assert.Equal(scenario.Lifecycle.Value, result.Lifecycle)",
 		"Assert.Equal(\"pending-eth-call\", result.Verification)", "Assert.Empty(result.ReceiptDigest)", "SdkErrorCode.DecodeFailure",
 		"(false, 1, 192, null)", "(false, 0, 192, null)", "(false, 4, 192, null)", "(false, 258, 192, null)",
 		"(false, 2, 0, null)", "(false, 2, 31, null)", "(false, 2, 32, null)", "(false, 3, 191, null)")
-	repairM1369Member(t, "ProgramsEvmTests.cs", "public async Task UpgradeSubmissionBindsPreparedFeeLimit()",
-		"RepairM1369Native.Sign(transaction)", "new ProtocolAmount(\"1000\")", "new ProtocolAmount(\"0\")", "SdkErrorCode.UnknownOutcome")
+	nativeProgramConformanceMember(t, "ProgramsEvmTests.cs", "public async Task UpgradeSubmissionBindsPreparedFeeLimit()",
+		"NativeProgramTestVectors.Sign(transaction)", "new ProtocolAmount(\"1000\")", "new ProtocolAmount(\"0\")", "SdkErrorCode.UnknownOutcome")
 }
 
-func repairM1369Exchange(t *testing.T, input, output []byte, consume func([]byte)) {
+func nativeProgramConformanceExchange(t *testing.T, input, output []byte, consume func([]byte)) {
 	t.Helper()
 	received := make(chan struct{}, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -415,15 +415,15 @@ func repairM1369Exchange(t *testing.T, input, output []byte, consume func([]byte
 	default:
 		t.Fatal("native request did not reach the loopback peer")
 	}
-	answer := repairM1369Bytes(t, result)
+	answer := nativeProgramConformanceBytes(t, result)
 	if !bytes.Equal(output, answer) {
 		t.Fatal("native output bytes changed in transport")
 	}
 	consume(answer)
 }
 
-func TestRepairM_1369_receipt_positive_vector_count(t *testing.T) {
-	vectors := repairM1369Vectors(t)
+func TestNativeProgramConformanceReceiptVectors(t *testing.T) {
+	vectors := nativeProgramConformanceVectors(t)
 	expected := []string{"V1-pax-transfer", "V1-erc20-approve", "V1-layerxledger-pay-exact", "V1-layerxbridge-bridge-out", "V1-layerxprograms-call"}
 	var names []string
 	for _, vector := range vectors {
@@ -437,7 +437,7 @@ func TestRepairM_1369_receipt_positive_vector_count(t *testing.T) {
 	// Compare every field of every complete case, preserving JSON numbers and
 	// exact embedded transaction, receipt, signature, log and return-data strings.
 	corpus := func(path string) []any {
-		decoder := json.NewDecoder(strings.NewReader(repairM1368Read(t, path)))
+		decoder := json.NewDecoder(strings.NewReader(sdkContractRead(t, path)))
 		decoder.UseNumber()
 		var envelope struct {
 			Cases []any `json:"cases"`
@@ -452,19 +452,19 @@ func TestRepairM_1369_receipt_positive_vector_count(t *testing.T) {
 	if !reflect.DeepEqual(sdkCopy, producerCopy) {
 		t.Fatal("SDK receipt cases differ from the real node producer corpus")
 	}
-	producerABI := repairM1369ABI(t)
+	producerABI := nativeProgramConformanceABI(t)
 	for _, vector := range vectors {
 		t.Run(vector.ID, func(t *testing.T) {
-			canonical := repairM1369Bytes(t, vector.SignedReceipt)
-			verified, err := proof.ReceiptSignature(canonical, repairM1369Hash(t, vector.PinnedKey.PublicKey))
+			canonical := nativeProgramConformanceBytes(t, vector.SignedReceipt)
+			verified, err := proof.ReceiptSignature(canonical, nativeProgramConformanceHash(t, vector.PinnedKey.PublicKey))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !bytes.Equal(verified.Receipt.CanonicalBytes(), canonical) || verified.Digest != repairM1369Hash(t, vector.ReceiptDigest) || verified.Receipt.ResultCode != 0 {
+			if !bytes.Equal(verified.Receipt.CanonicalBytes(), canonical) || verified.Digest != nativeProgramConformanceHash(t, vector.ReceiptDigest) || verified.Receipt.ResultCode != 0 {
 				t.Fatal("producer receipt authenticity, bytes, digest or result changed")
 			}
 			var transaction types.Transaction
-			if err := transaction.UnmarshalBinary(repairM1369Bytes(t, vector.RawTransaction)); err != nil {
+			if err := transaction.UnmarshalBinary(nativeProgramConformanceBytes(t, vector.RawTransaction)); err != nil {
 				t.Fatal(err)
 			}
 			if common.Hash(verified.Receipt.ActivityID) != transaction.Hash() {
@@ -476,10 +476,10 @@ func TestRepairM_1369_receipt_positive_vector_count(t *testing.T) {
 			}
 			bad := append([]byte(nil), canonical...)
 			bad[len(bad)-1] ^= 1
-			if _, err := proof.ReceiptSignature(bad, repairM1369Hash(t, vector.PinnedKey.PublicKey)); err == nil {
+			if _, err := proof.ReceiptSignature(bad, nativeProgramConformanceHash(t, vector.PinnedKey.PublicKey)); err == nil {
 				t.Fatal("real receipt verifier accepted signature tampering")
 			}
-			wrongPin := repairM1369Hash(t, vector.PinnedKey.PublicKey)
+			wrongPin := nativeProgramConformanceHash(t, vector.PinnedKey.PublicKey)
 			wrongPin[0] ^= 1
 			if _, err := proof.ReceiptSignature(canonical, wrongPin); err == nil {
 				t.Fatal("real receipt verifier accepted a substituted independent key")
@@ -506,14 +506,14 @@ func TestRepairM_1369_receipt_positive_vector_count(t *testing.T) {
 			if log.Address != "0x000000000000000000000000000000000000101d" || len(log.Topics) != 2 || common.HexToHash(log.Topics[0]) != event.ID {
 				t.Fatal("native outcome event lost its authenticated address or topics")
 			}
-			logBytes := repairM1369Bytes(t, log.Data)
+			logBytes := nativeProgramConformanceBytes(t, log.Data)
 			values, err := event.Inputs.NonIndexed().Unpack(logBytes)
 			if err != nil || len(values) != 13 || values[2] != uint64(0) || values[3] != uint8(0) || values[4] != uint16(1) || values[5] != uint16(1) || values[8] != int32(0) {
 				t.Fatalf("actual Programs outcome identity, frame, ABI or result changed: %#v %v", values, err)
 			}
-			var facts repairM1369Call
-			repairM1369Decode(t, "tests/LayerX.Sdk.Tests/Fixtures/repair-m1369-recorded-call.json", &facts)
-			if common.HexToHash(log.Topics[1]) != common.Hash(repairM1369Hash(t, facts.ProgramID)) {
+			var facts nativeProgramConformanceCall
+			nativeProgramConformanceDecode(t, "tests/LayerX.Sdk.Tests/Fixtures/native-program-recorded-call.json", &facts)
+			if common.HexToHash(log.Topics[1]) != common.Hash(nativeProgramConformanceHash(t, facts.ProgramID)) {
 				t.Fatal("outcome log belongs to another program")
 			}
 			// The production codec exposes the signed log effect; compare its
@@ -526,13 +526,13 @@ func TestRepairM_1369_receipt_positive_vector_count(t *testing.T) {
 			if effect.Kind != 3 || !bytes.Equal(effect.Body[len(effect.Body)-32:], digest[:]) {
 				t.Fatal("producer log is not authenticated by the signed receipt effect")
 			}
-			outputs, err := producerABI.Methods["call"].Outputs.Unpack(repairM1369Bytes(t, view.ReturnData))
+			outputs, err := producerABI.Methods["call"].Outputs.Unpack(nativeProgramConformanceBytes(t, view.ReturnData))
 			if err != nil || outputs[0] != int32(0) || outputs[1] != uint8(1) {
 				t.Fatalf("native return data changed: %v", err)
 			}
 		})
 	}
-	source := repairM1369Member(t, "SequencerReceiptTests.cs", "public void SequencerReceiptV1CasesVerifyReceipted()",
+	source := nativeProgramConformanceMember(t, "SequencerReceiptTests.cs", "public void SequencerReceiptV1CasesVerifyReceipted()",
 		"Assert.Equal(5, cases.Length)", "V1-layerxprograms-call", "Assert.Equal(Programs.AddressValue, log.GetProperty(\"address\").GetString())",
 		"0xcfe5297f03a2951065e463e9e0c2e3686bc0204f727eeec1a52357b5dd4a27a0", "Assert.Equal(13 * 32, Hex(log, \"data\").Length)",
 		"AssertCheck(ReceiptCheck.Logs", "result.CanonicalBytes", "result.ReceiptDigest", "result.ReturnData", "ReceiptCheck.KeyHeight")
@@ -542,9 +542,9 @@ func TestRepairM_1369_receipt_positive_vector_count(t *testing.T) {
 		}
 	}
 	for _, declaration := range []string{"public void SequencerReceiptV2RevertDecodesReason()", "public void SequencerReceiptV3RefusalsNameTheirCheck()"} {
-		repairM1369Member(t, "SequencerReceiptTests.cs", declaration)
+		nativeProgramConformanceMember(t, "SequencerReceiptTests.cs", declaration)
 	}
-	record := repairM1368Read(t, "repair_m1369.kvx")
+	record := sdkContractRead(t, "../../../spec/layerx-merge/programme/records/sdk/platform/dotnet/repair_m1369.kvx")
 	for _, name := range []string{"programs-contract-tests-stale", "programs-evm-producer-gap", "receipt-positive-vector-count"} {
 		if !strings.Contains(record, "[finding."+name+"]") || !strings.Contains(record, "TestRepairM_1369_"+strings.ReplaceAll(name, "-", "_")) {
 			t.Errorf("repair record must map finding %s to its proof", name)

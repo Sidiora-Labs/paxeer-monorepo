@@ -19,28 +19,28 @@ import (
 	"time"
 )
 
-func TestRepairM_1384_rewritten_committed_fixture(t *testing.T) {
+func TestSdkConformanceCommittedInclusion(t *testing.T) {
 	TestCommittedInclusionBindsTheWrappedTransaction(t)
 }
 
-func TestRepairM_1384_occupancy_public_contract(t *testing.T) {
+func TestSdkConformanceOccupancyContract(t *testing.T) {
 	TestNativeProgramReceiptRefusesOccupancyPayerClaims(t)
 	// Preserve the internal codec checks as distinct historical coverage.
 	t.Run("historical-codec", TestStateCommitmentOccupancyPaysFromTheProvenPayerAccount)
 }
 
-func TestRepairM_1384_portable_external_anchor(t *testing.T) {
+func TestSdkConformancePortableExternalAnchor(t *testing.T) {
 	t.Run("producer-checkpoint-provenance", TestPortableReceiptRecordedCheckpointProvenance)
 	t.Run("recorded-checkpoint-and-replacement-chain", TestPortableReceiptRequiresExternalNetworkAnchor)
 	t.Run("validator-rotation", TestPortableReceiptAuthenticatesValidatorRotation)
 }
 
-func TestRepairM_1384_wind_down_native_activity(t *testing.T) {
+func TestSdkConformanceWindDownNativeActivity(t *testing.T) {
 	TestProgramWindDownPreparesBroadcastsAndObservesNativeActivity(t)
 	t.Run("retired-ingress-refusal", TestProgramOperationsNeverCallProgramsRestIngress)
 }
 
-func TestRepairM_1384_http_deadlines(t *testing.T) {
+func TestSdkConformanceHttpDeadlines(t *testing.T) {
 	// All timeout cases use real sockets and a peer which accepts the request but
 	// never produces a response. No replacement RoundTripper or clock is used.
 	for _, entry := range []string{"human", "agent"} {
@@ -140,7 +140,7 @@ func TestRepairM_1384_http_deadlines(t *testing.T) {
 	}
 }
 
-func repairM1384Wasm(t *testing.T, size int) []byte {
+func sdkConformanceWasm(t *testing.T, size int) []byte {
 	t.Helper()
 	// A valid empty module padded with one custom section with an empty name.
 	for lengthBytes := 1; lengthBytes <= 5; lengthBytes++ {
@@ -175,7 +175,7 @@ func repairM1384Wasm(t *testing.T, size int) []byte {
 	return nil
 }
 
-func TestRepairM_1384_deployment_payload_boundary(t *testing.T) {
+func TestSdkConformanceDeploymentPayloadBoundary(t *testing.T) {
 	if MaximumNativeProgramPayloadBytes != 524288 {
 		t.Fatal("native payload ceiling drift")
 	}
@@ -199,7 +199,7 @@ func TestRepairM_1384_deployment_payload_boundary(t *testing.T) {
 				iface = make([]byte, tc.iface)
 				fixed += 4
 			}
-			wasm := repairM1384Wasm(t, MaximumNativeProgramPayloadBytes-fixed-tc.iface-tc.hook)
+			wasm := sdkConformanceWasm(t, MaximumNativeProgramPayloadBytes-fixed-tc.iface-tc.hook)
 			hash := sha256.Sum256(wasm)
 			program := [32]byte{1}
 			var payload, calldata []byte
@@ -288,7 +288,7 @@ func TestRepairM_1384_deployment_payload_boundary(t *testing.T) {
 	t.Run("native-lifecycle-codec-vectors", TestNativeLifecycleCFixtures)
 }
 
-func TestRepairM_1384_program_authenticated_facts(t *testing.T) {
+func TestSdkConformanceAuthenticatedProgramFacts(t *testing.T) {
 	execution := nativeProgramReceiptDocument(t)
 	programs := committedRecordedPrograms(t, []byte(execution.Receipt), execution.RawTransaction, execution.ReceiptKeys)
 	hash := receiptKeccak256(execution.RawTransaction)
@@ -360,8 +360,8 @@ func TestRepairM_1384_program_authenticated_facts(t *testing.T) {
 	}
 }
 
-func TestRepairM_1384_endpoint_chain_domain(t *testing.T) {
-	data, err := os.ReadFile("testdata/repair_m1384/domain-rpc.json")
+func TestSdkConformanceEndpointChainDomain(t *testing.T) {
+	data, err := os.ReadFile("testdata/committed_receipt/domain-rpc.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -472,7 +472,7 @@ func TestRepairM_1384_endpoint_chain_domain(t *testing.T) {
 	for _, chain := range []string{`null`, `125`, `""`, `"0x0"`, `"0x00"`, `"0X7d"`, `"0x7D"`, `"0x-1"`, fmt.Sprintf("%q", "0x1"+strings.Repeat("0", 64))} {
 		t.Run("refuse-"+string(chain), func(t *testing.T) {
 			count := 0
-			programs := repair141Programs(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			programs := receiptTransportPrograms(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				count++
 				var request programRPCRecord
 				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -492,7 +492,7 @@ func TestRepairM_1384_endpoint_chain_domain(t *testing.T) {
 		})
 	}
 	t.Run("chain-rpc-refusal", func(t *testing.T) {
-		programs := repair141Programs(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		programs := receiptTransportPrograms(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}`)
 		}), ReceiptKeys{})
 		call := programEVMCall(t, readProgramEVMVector(t, "native-program-call-v4"))
@@ -509,7 +509,7 @@ func TestRepairM_1384_endpoint_chain_domain(t *testing.T) {
 			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"result":"0x7735941"}`)
 		}))
 		defer other.Close()
-		programs := repair141Programs(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		programs := receiptTransportPrograms(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, other.URL+"/chain/1", http.StatusTemporaryRedirect)
 		}), ReceiptKeys{})
 		call := programEVMCall(t, readProgramEVMVector(t, "native-program-call-v4"))

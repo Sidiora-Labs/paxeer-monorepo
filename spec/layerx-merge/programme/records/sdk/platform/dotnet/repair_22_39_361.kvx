@@ -29,7 +29,7 @@ change = "Pin commit signature nanoseconds 706362949 and next-commit signature n
 
 [qualification]
 build_command = "dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
-verify_command = "test -s sdk/platform/dotnet/repair_22_39_361.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~SequencerReceiptTests|FullyQualifiedName~PortableReceiptTests'"
+verify_command = "test -s spec/layerx-merge/programme/records/sdk/platform/dotnet/repair_22_39_361.kvx && dotnet test sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --filter 'FullyQualifiedName~SequencerReceiptTests|FullyQualifiedName~PortableReceiptTests'"
 done_command = "cg spec done 22.39.361 -f layerx-merge --root /work/paxeer-monorepo"
 counts_evidence = "The bounded verification log records the actual run counts; qualification requires all 13 selected facts to pass with zero failed and zero skipped. The five sequencer facts include the wrapper, which also executes the preexecution refusal; the portable class contains eight facts. No result is claimed until hf-done passes."
 sequencer_facts = 5

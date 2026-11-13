@@ -1,7 +1,7 @@
 [package]
 license = "Apache-2.0"
 authors = ["Sidiora Labs"]
-name = "repair138-producer"
+name = "agent-transport-producer"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.91.1"
@@ -9,7 +9,7 @@ rust-version = "1.91.1"
 [workspace]
 
 [[bin]]
-name = "repair138-producer"
+name = "agent-transport-producer"
 path = "main.rs"
 
 [dependencies]
