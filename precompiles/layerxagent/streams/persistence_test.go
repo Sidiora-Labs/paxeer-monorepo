@@ -158,7 +158,7 @@ func (s *proofStreamsStore) payCall(caller common.Address, name string, args ...
 	return values
 }
 
-func TestRepairM_1426_StreamsPersistAcrossDatabaseReopen(t *testing.T) {
+func TestStreamsPersistAcrossDatabaseReopen(t *testing.T) {
 	for _, tc := range []struct {
 		name                  string
 		cap, stop             int64

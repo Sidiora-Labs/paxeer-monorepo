@@ -35,22 +35,22 @@ import (
 
 // The application test helper uses TempDir as its durable home. Reusing that
 // home lets SetupWithDB load the committed node instead of initializing genesis.
-type repairM1425Home struct {
+type persistentOracleHome struct {
 	testing.TB
 	home string
 }
 
-func (h repairM1425Home) TempDir() string { return h.home }
+func (h persistentOracleHome) TempDir() string { return h.home }
 
-type repairM1425Node struct {
-	*repair197Node
-	home  repairM1425Home
+type persistedOracleNode struct {
+	*oracleNode
+	home  persistentOracleHome
 	dbDir string
 }
 
-func newRepairM1425Node(t *testing.T) *repairM1425Node {
+func newPersistedOracleNode(t *testing.T) *persistedOracleNode {
 	t.Helper()
-	h := &repairM1425Node{repair197Node: &repair197Node{}, home: repairM1425Home{t, t.TempDir()}, dbDir: t.TempDir()}
+	h := &persistedOracleNode{oracleNode: &oracleNode{}, home: persistentOracleHome{t, t.TempDir()}, dbDir: t.TempDir()}
 	h.open(t, false)
 	t.Cleanup(func() {
 		if h.a != nil {
@@ -78,7 +78,7 @@ func newRepairM1425Node(t *testing.T) *repairM1425Node {
 	return h
 }
 
-func (h *repairM1425Node) open(t *testing.T, restart bool) {
+func (h *persistedOracleNode) open(t *testing.T, restart bool) {
 	t.Helper()
 	db, err := sdk.NewLevelDB("oracle", h.dbDir)
 	require.NoError(t, err)
@@ -92,7 +92,7 @@ func (h *repairM1425Node) open(t *testing.T, restart bool) {
 	h.ctx = h.ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(h.ctx))
 }
 
-func (h *repairM1425Node) selectPrecompile(t *testing.T) {
+func (h *persistedOracleNode) selectPrecompile(t *testing.T) {
 	t.Helper()
 	var ok bool
 	h.p, ok = h.a.EvmKeeper.CustomPrecompiles(h.ctx)[common.HexToAddress(oracle.OracleAddress)].(precompiles.IPrecompile)
@@ -107,7 +107,7 @@ func (h *repairM1425Node) selectPrecompile(t *testing.T) {
 	require.True(t, h.a.UpgradeKeeper.IsUpgradeActiveAtHeight(h.ctx, precompiles.MergeUpgrade, h.ctx.BlockHeight()))
 }
 
-func (h *repairM1425Node) execute(t *testing.T, kind uint32, payload []byte) lxphost.Receipt {
+func (h *persistedOracleNode) execute(t *testing.T, kind uint32, payload []byte) lxphost.Receipt {
 	t.Helper()
 	identitySequence, err := h.a.LayerXHost.ReadIdentitySequence(h.ctx, h.did)
 	require.NoError(t, err)
@@ -130,7 +130,7 @@ func (h *repairM1425Node) execute(t *testing.T, kind uint32, payload []byte) lxp
 	return receipt
 }
 
-func (h *repairM1425Node) createMarket(t *testing.T) {
+func (h *persistedOracleNode) createMarket(t *testing.T) {
 	t.Helper()
 	id, err := lxphost.DIDID(h.did)
 	require.NoError(t, err)
@@ -194,7 +194,7 @@ func (h *repairM1425Node) createMarket(t *testing.T) {
 	require.Equal(t, market, h.ctx.KVStore(h.a.GetKey(app.LayerXHostStoreKey)).Get(key))
 }
 
-func (h *repairM1425Node) committed(t *testing.T) oracle.OraclePrice {
+func (h *persistedOracleNode) committed(t *testing.T) oracle.OraclePrice {
 	t.Helper()
 	k, err := oracle.NewKeeper(h.a.LayerXHost, app.LayerXHostStoreKey, exchangetypes.StoreKey)
 	require.NoError(t, err)
@@ -204,7 +204,7 @@ func (h *repairM1425Node) committed(t *testing.T) oracle.OraclePrice {
 	return price
 }
 
-func (h *repairM1425Node) signedObservation(t *testing.T, sequence uint64, price *big.Int, confidence uint64) (lxphost.Activity, []byte) {
+func (h *persistedOracleNode) signedObservation(t *testing.T, sequence uint64, price *big.Int, confidence uint64) (lxphost.Activity, []byte) {
 	t.Helper()
 	identitySequence, err := h.a.LayerXHost.ReadIdentitySequence(h.ctx, h.did)
 	require.NoError(t, err)
@@ -218,7 +218,7 @@ func (h *repairM1425Node) signedObservation(t *testing.T, sequence uint64, price
 	return activity, input
 }
 
-func (h *repairM1425Node) readPrice(t *testing.T, ctx sdk.Context, caller sdk.AccAddress, price *big.Int) {
+func (h *persistedOracleNode) readPrice(t *testing.T, ctx sdk.Context, caller sdk.AccAddress, price *big.Int) {
 	t.Helper()
 	input, err := h.p.GetABI().Pack(oracle.GetValidatorPriceMethod, h.feed)
 	require.NoError(t, err)
@@ -230,8 +230,8 @@ func (h *repairM1425Node) readPrice(t *testing.T, ctx sdk.Context, caller sdk.Ac
 	require.Equal(t, []interface{}{price, big.NewInt(1), big.NewInt(ctx.BlockTime().Unix())}, values)
 }
 
-func TestRepairM_1425_ProductionNode(t *testing.T) {
-	h := newRepairM1425Node(t)
+func TestOracleProductionNode(t *testing.T) {
+	h := newPersistedOracleNode(t)
 	activity, input := h.observation(t, 1, 1000)
 	h.deliver(t, h.signer, h.p.Address(), input, true)
 	h.read(t, h.ctx, h.other.AccountAddress, 1000)
@@ -273,13 +273,13 @@ func TestRepairM_1425_ProductionNode(t *testing.T) {
 	require.Equal(t, committed, h.committed(t))
 }
 
-func TestRepairM_1425_ReopenCommittedApplication(t *testing.T) {
-	repairM1425RecoveryProof(t)
+func TestOracleReopenCommittedApplication(t *testing.T) {
+	proveOracleApplicationRecovery(t)
 }
 
-func repairM1425RecoveryProof(t *testing.T) {
+func proveOracleApplicationRecovery(t *testing.T) {
 	t.Helper()
-	h := newRepairM1425Node(t)
+	h := newPersistedOracleNode(t)
 	wire := &proofOracleHarness{node: h, p: h.p}
 	price := new(big.Int).Add(new(big.Int).Lsh(big.NewInt(1), 80), big.NewInt(57))
 	activity, input := h.signedObservation(t, 1, price, 5)
@@ -407,8 +407,8 @@ func repairM1425RecoveryProof(t *testing.T) {
 	require.Equal(t, after, h.committed(t))
 }
 
-func TestRepairM_1425_WeightedMedianReference(t *testing.T) {
-	h := newRepairM1425Node(t)
+func TestOracleWeightedMedianReference(t *testing.T) {
+	h := newPersistedOracleNode(t)
 	for _, row := range []struct {
 		name            string
 		prices, weights []int64
@@ -457,5 +457,5 @@ func TestRepairM_1425_WeightedMedianReference(t *testing.T) {
 		})
 	}
 	t.Run("existing refusal contract", TestOracleAggregateRefusals)
-	t.Run("arbitrary precision and immutability", TestRepair_197_WeightedMedian)
+	t.Run("arbitrary precision and immutability", TestOracleWeightedMedian)
 }

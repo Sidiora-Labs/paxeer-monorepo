@@ -1,0 +1,92 @@
+[manifest]
+task = "22.43.79"
+records_moved = 3
+files_renamed = 3
+
+[file.1]
+from = "precompiles/layerxagent/oracle/repair_197.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxagent/oracle/repair_197.kvx"
+
+[file.2]
+from = "precompiles/layerxagent/oracle/repair_m1425.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxagent/oracle/repair_m1425.kvx"
+
+[file.3]
+from = "precompiles/layerxagent/streams/repair_m1426.kvx"
+to = "spec/layerx-merge/programme/records/precompiles/layerxagent/streams/repair_m1426.kvx"
+
+[file.4]
+from = "precompiles/layerxagent/oracle/repair_197_test.go"
+to = "precompiles/layerxagent/oracle/signed_observation_test.go"
+
+[file.5]
+from = "precompiles/layerxagent/oracle/repair_m1425_test.go"
+to = "precompiles/layerxagent/oracle/application_recovery_test.go"
+
+[file.6]
+from = "precompiles/layerxagent/streams/repair_m1426_test.go"
+to = "precompiles/layerxagent/streams/persistence_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-24.kvx"
+name = "precompiles/layerxagent/oracle/repair_m1425_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/programme/issues/1600.kvx"
+name = "precompiles/layerxagent/oracle/repair_m1425_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/layerxagent/oracle/repair_m1425_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/qualification.kvx"
+name = "precompiles/layerxagent/streams/repair_m1426_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1425_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1426_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1425_"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1425_ReopenCommittedApplication"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1426_"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_197_"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxagent/oracle/repair_197_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxagent/oracle/repair_m1425_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "precompiles/layerxagent/streams/repair_m1426_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_197_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1425_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1426_test.go"
