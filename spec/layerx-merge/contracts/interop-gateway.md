@@ -108,7 +108,7 @@ The [gateway core](../../../services/interop/crates/layerx-interop-gateway/src/l
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.fmt-gw-external-state-labels</code> | <code>file_format</code> | [services/interop/crates/layerx-interop-gateway/src/server.rs](../../../services/interop/crates/layerx-interop-gateway/src/server.rs) | <code>ExternalState::label() -&gt; "pending" &#124; "reversal-pending" &#124; "refused" &#124; "receipt-verified" &#124; "reversed"</code> |
+| <code>interface.11.fmt-gw-external-state-labels</code> | <code>file_format</code> | [services/interop/crates/layerx-interop-gateway/src/server.rs](../../../services/interop/crates/layerx-interop-gateway/src/server.rs) | <code>ExternalState::label() -&gt; "pending" &#124; "submitted" &#124; "reversal-pending" &#124; "refused" &#124; "receipt-verified" &#124; "reversed"</code> |
 
 ## fmt-gw-ingress-transport-labels
 
@@ -164,9 +164,9 @@ The [gateway core](../../../services/interop/crates/layerx-interop-gateway/src/l
 | Field | Rule |
 |---|---|
 | interface | GatewayCore settles a translation on SequencerEvidence and records the canonical receipt digest. |
-| storage | Translation records and audit chain kept by GatewayCore; no new storage. |
+| storage | Translation records and audit chain kept by GatewayCore. |
 | errors | receipt-pending (retriable), receipt-rejected, receipt-required. |
-| events | Audit entry on ReceiptVerified only. |
+| events | Settlement appends TranslationCompleted after receipt verification; adapter registration, translation start and refusal also append audit entries. |
 | gas | None; the gateway reads receipts and logs. |
 | pause | Not pausable; refusal is per translation. |
 
@@ -179,9 +179,9 @@ The [gateway core](../../../services/interop/crates/layerx-interop-gateway/src/l
 | Field | Rule |
 |---|---|
 | interface | GatewayCore settles a translation on SequencerEvidence and records the canonical receipt digest. |
-| storage | Translation records and audit chain kept by GatewayCore; no new storage. |
+| storage | Translation records and audit chain kept by GatewayCore. |
 | errors | receipt-pending (retriable), receipt-rejected, receipt-required. |
-| events | Audit entry on ReceiptVerified only. |
+| events | Settlement appends TranslationCompleted after receipt verification; adapter registration, translation start and refusal also append audit entries. |
 | gas | None; the gateway reads receipts and logs. |
 | pause | Not pausable; refusal is per translation. |
 

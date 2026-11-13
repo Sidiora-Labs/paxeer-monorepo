@@ -2,6 +2,10 @@
 
 The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs) crawls and indexes content, serves paid search and fetch requests and answers xweb program requests. Payments and program fulfilments use EVM transactions and authenticated node receipts.
 
+## Gateway receipt keys
+
+The [configuration reader](../../../services/interop/crates/x-websearch/src/config.rs) requires a nonempty `gateway.receipt_keys` array. Each entry contains `key_id` and `public_key` as 32-byte hexadecimal strings, plus numeric `first_height` and `last_height` bounds. The public key must be a non-weak Ed25519 key; reversed windows and overlapping windows for the same key identifier are refused.
+
 ## cfg-xws-assets-asset-id
 
 | Interface | Kind | Source | Signature |
@@ -106,44 +110,20 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
-
-## cfg-xws-gateway-sequencer-id
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-xws-gateway-sequencer-id</code> | <code>config_key</code> | [services/interop/crates/x-websearch/src/config.rs](../../../services/interop/crates/x-websearch/src/config.rs) | <code>x-websearch config gateway.sequencer_id: 32-byte hex; unknown fields refused by object.finish</code> |
-
-## cfg-xws-gateway-sequencer-public-key
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-xws-gateway-sequencer-public-key</code> | <code>config_key</code> | [services/interop/crates/x-websearch/src/config.rs](../../../services/interop/crates/x-websearch/src/config.rs) | <code>x-websearch config gateway.sequencer_public_key: 32-byte hex ed25519 key, weak keys refused; unknown fields refused by object.finish</code> |
-
-## cfg-xws-kernel
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-xws-kernel</code> | <code>config_key</code> | [services/interop/crates/x-websearch/src/config.rs](../../../services/interop/crates/x-websearch/src/config.rs) | <code>x-websearch config kernel: optional object {endpoint, poll_interval_ms, topics, submitter_did, fee_limit}; unknown fields refused by object.finish</code> |
-
-## cfg-xws-kernel-fee-limit
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-xws-kernel-fee-limit</code> | <code>config_key</code> | [services/interop/crates/x-websearch/src/config.rs](../../../services/interop/crates/x-websearch/src/config.rs) | <code>x-websearch config kernel.fee_limit: decimal u128; unknown fields refused by object.finish</code> |
 
 ## cfg-xws-kernel-network-id
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-xws-kernel-network-id</code> | <code>config_key</code> | [services/interop/crates/x-websearch/src/config.rs](../../../services/interop/crates/x-websearch/src/config.rs) | <code>x-websearch config kernel_network_id: positive u32; unknown fields refused by object.finish</code> |
+| <code>interface.11.cfg-xws-kernel-network-id</code> | <code>config_key</code> | [services/interop/crates/x-websearch/src/config.rs](../../../services/interop/crates/x-websearch/src/config.rs) | <code>x-websearch config kernel_network_id: optional positive u32; unknown fields refused by object.finish</code> |
 
 | Field | Rule |
 |---|---|
@@ -155,12 +135,6 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 | activation | Read at start with --config. |
 | invariants | Key material never appears in the configuration. |
 | pause | none |
-
-## cfg-xws-kernel-topics
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-xws-kernel-topics</code> | <code>config_key</code> | [services/interop/crates/x-websearch/src/config.rs](../../../services/interop/crates/x-websearch/src/config.rs) | <code>x-websearch config kernel.topics: array of strings; unknown fields refused by object.finish</code> |
 
 ## cfg-xws-listen
 
@@ -190,7 +164,7 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-xws-receipt-keys</code> | <code>config_key</code> | [services/interop/crates/x-websearch/src/config.rs](../../../services/interop/crates/x-websearch/src/config.rs) | <code>x-websearch config receipt_keys: array of {keyId, publicKey (ed25519), firstHeight, lastHeight}; firstHeight &gt; lastHeight or weak key refused</code> |
+| <code>interface.11.cfg-xws-receipt-keys</code> | <code>config_key</code> | [services/interop/crates/x-websearch/src/config.rs](../../../services/interop/crates/x-websearch/src/config.rs) | <code>x-websearch config gateway.receipt_keys: nonempty array of {key_id, public_key (Ed25519), first_height, last_height}; reversed windows, weak keys and overlapping windows for one key identifier refused</code> |
 
 | Field | Rule |
 |---|---|
@@ -235,11 +209,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -810,11 +784,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -898,11 +872,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -944,11 +918,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -961,11 +935,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -1491,11 +1465,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -1508,11 +1482,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -1729,11 +1703,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2117,11 +2091,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2134,11 +2108,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2151,11 +2125,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2180,11 +2154,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2809,11 +2783,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2838,11 +2812,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2867,11 +2841,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2884,11 +2858,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2907,11 +2881,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2948,11 +2922,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2965,11 +2939,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -2982,11 +2956,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |
@@ -3489,11 +3463,11 @@ The [web-search service](../../../services/interop/crates/x-websearch/src/lib.rs
 
 | Field | Rule |
 |---|---|
-| interface | Paid routes settle on the 0x101A ledger precompile: metered draws and payExact transactions concluded from pax_sequencerReceipt. |
+| interface | Paid routes offer exact payments on the 0x101A ledger precompile and verify payExact evidence from pax_sequencerReceipt. |
 | storage | Payment journal under `<data_dir>/payments`. |
 | errors | 402 challenges with invalid_grant, payment_failed, receipt_mismatch, receipt_unverified, receipt_consumed and payer_mismatch. |
 | events | PaymentDrawn and PaymentExact logs of 0x101A. |
-| gas | Draw transactions are paid by the receiver account. |
+| gas | Exact payment transactions are signed and funded by the payer. |
 | activation | When payment is configured. |
 | invariants | A response is released at most once per verified receipt. |
 | pause | none |

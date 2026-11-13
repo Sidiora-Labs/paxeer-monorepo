@@ -183,7 +183,7 @@ The [Ethereum archive contract](../../../services/interop/contracts/ethereum-mir
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.sevt-mirror-archive-manifest-opened</code> | <code>sol_event</code> | [services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol](../../../services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol) | <code>event ManifestOpened(bytes32 indexed commitment, uint32 networkId, uint64 batchNumber, uint64 totalBytes, uint32 totalChunks, bytes32 archiveDigest)</code> |
+| <code>interface.11.sevt-mirror-archive-manifest-opened</code> | <code>sol_event</code> | [services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol](../../../services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol) | <code>event ManifestOpened(bytes32 indexed commitment, uint32 networkId, uint64 height, bytes32 blockHash, uint64 totalBytes, uint32 totalChunks, bytes32 archiveDigest)</code> |
 
 | Field | Rule |
 |---|---|
@@ -217,7 +217,7 @@ The [Ethereum archive contract](../../../services/interop/contracts/ethereum-mir
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.sol-mirror-archive-begin</code> | <code>sol_function</code> | [services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol](../../../services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol) | <code>function begin(bytes32 commitment, uint32 networkId, uint64 batchNumber, bytes32 checkpointId, uint64 totalBytes, uint32 totalChunks, bytes32 archiveDigest, bytes32 expectedChunkChain) external onlyPublisher</code> |
+| <code>interface.11.sol-mirror-archive-begin</code> | <code>sol_function</code> | [services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol](../../../services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol) | <code>function begin(bytes32 commitment, uint32 networkId, uint64 height, bytes32 blockHash, uint64 totalBytes, uint32 totalChunks, bytes32 archiveDigest, bytes32 expectedChunkChain) external onlyPublisher</code> |
 
 | Field | Rule |
 |---|---|
@@ -234,7 +234,7 @@ The [Ethereum archive contract](../../../services/interop/contracts/ethereum-mir
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.sol-mirror-archive-chunk</code> | <code>sol_function</code> | [services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol](../../../services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol) | <code>function chunk(bytes32 commitment, uint32 index) external view returns (bytes)</code> |
+| <code>interface.11.sol-mirror-archive-chunk</code> | <code>sol_function</code> | [services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol](../../../services/interop/contracts/ethereum-mirror/LayerXMirrorArchive.sol) | <code>function chunk(bytes32 commitment, uint32 index) external view returns (bytes memory)</code> |
 
 ## sol-mirror-archive-constructor
 

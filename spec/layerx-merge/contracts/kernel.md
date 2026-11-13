@@ -75,25 +75,25 @@ The [kernel](../../../src) executes native activities inside the Paxeer node thr
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.1.fmt-account-record</code> | <code>file_format</code> | [src/state/lxp_snapshot.c](../../../src/state/lxp_snapshot.c) | <code>account record: id (u32 length + 32 bytes), name bytes, u8 kind, u128be balance, asset_id (32), u8 has_asset, u64be next_sequence, u64be created_at_sequence, u8 frozen, u8 has_open_reference, authority_key bytes, u8 has_authority_key (src/state/lxp_snapshot.c:440-473); lx_account_record_encode and lx_account_record_decode expose it alone (:761, :777)</code> |
+| <code>interface.1.fmt-account-record</code> | <code>file_format</code> | [src/state/lxp_snapshot.c](../../../src/state/lxp_snapshot.c) | <code>account record: id (u32 length + 32 bytes), name bytes, u8 kind, u128be balance, asset_id (32), u8 has_asset, u64be next_sequence, u64be created_at_sequence, u8 frozen, u8 has_open_reference, authority_key bytes, u8 has_authority_key; lx_account_record_encode and lx_account_record_decode expose it alone</code> |
 
 ## format-activity-envelope
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.1.fmt-activity-envelope</code> | <code>file_format</code> | [src/protocol/lxp_activity.c](../../../src/protocol/lxp_activity.c) | <code>canonical codec struct tag 0x1001 with 12 fields (11 without signature) each preceded by a field tag (src/protocol/lxp_activity.c:8, :22, :43-47): 1 u16 protocol_version, 2 u32 network_id, 3 u32 activity_type, 4 actor_did bytes, 5 authority bytes, 6 u64 account_sequence, 7 u64 not_before and u64 not_after, 8 idempotency_key (32), 9 u128 fee_limit, 10 payload_hash (32), 11 payload bytes, 12 signature (:49-72)</code> |
+| <code>interface.1.fmt-activity-envelope</code> | <code>file_format</code> | [src/protocol/lxp_activity.c](../../../src/protocol/lxp_activity.c) | <code>canonical codec struct tag 0x1001 with 12 fields (11 without signature) each preceded by a field tag: 1 u16 protocol_version, 2 u32 network_id, 3 u32 activity_type, 4 actor_did bytes, 5 authority bytes, 6 u64 account_sequence, 7 u64 not_before and u64 not_after, 8 idempotency_key (32), 9 u128 fee_limit, 10 payload_hash (32), 11 payload bytes, 12 signature</code> |
 
 ## format-batch-header
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.1.fmt-batch-header</code> | <code>file_format</code> | [src/sequencer/lxp_batch_header.c](../../../src/sequencer/lxp_batch_header.c) | <code>canonical codec struct tag 0x1701 with 15 tagged fields, 354 bytes (src/sequencer/lxp_batch_header.c:6-7, include/layerx/lxp_batch.h:12): 1 u16 protocol_version, 2 u32 network_id, 3 u64 epoch, 4 u64 batch_number, 5 u64 first_sequence, 6 u64 last_sequence, 7 previous_state_root, 8 resulting_state_root, 9 activity_merkle_root, 10 receipt_merkle_root, 11 event_merkle_root, 12 data_availability_root, 13 oracle_root, 14 u64 timestamp_ms, 15 sequencer_id (:35-54)</code> |
+| <code>interface.1.fmt-batch-header</code> | <code>file_format</code> | [src/sequencer/lxp_batch_header.c](../../../src/sequencer/lxp_batch_header.c) | <code>canonical codec struct tag 0x1701 with 15 tagged fields, 354 bytes: 1 u16 protocol_version, 2 u32 network_id, 3 u64 epoch, 4 u64 batch_number, 5 u64 first_sequence, 6 u64 last_sequence, 7 previous_state_root, 8 resulting_state_root, 9 activity_merkle_root, 10 receipt_merkle_root, 11 event_merkle_root, 12 data_availability_root, 13 oracle_root, 14 u64 timestamp_ms, 15 sequencer_id</code> |
 
 ## format-kernel-log-segment
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.1.fmt-kernel-log-segment</code> | <code>file_format</code> | [src/storage/lxp_log.c](../../../src/storage/lxp_log.c) | <code>segment file &lt;dir&gt;/%020u64.lxp preallocated (src/storage/lxp_log.c:252); record = 32-byte header then body: u32be magic 0x4c58504c, u8 record_kind 1..9, 3 reserved bytes, u64be global_sequence, u32be body_length, u32be body_crc32c (CRC-32C of the body), u64be previous_record_offset (:62-74), then body_length bytes; the last 128 bytes hold two 64-byte durable-marker slots: u32be magic 0x4c585044, u32be version 1, u64be generation, u64be write_offset, u64be previous_record_offset, u64be next_sequence, u32be CRC-32C of bytes 0..39 (:134-145), higher valid generation wins (:195-238)</code> |
+| <code>interface.1.fmt-kernel-log-segment</code> | <code>file_format</code> | [src/storage/lxp_log.c](../../../src/storage/lxp_log.c) | <code>segment file &lt;dir&gt;/&lt;20-digit-segment&gt;.lxp preallocated; record = 32-byte header then body: u32be magic 0x4c58504c, u8 record_kind 1..9, 3 reserved bytes, u64be global_sequence, u32be body_length, u32be body_crc32c (CRC-32C of the body), u64be previous_record_offset, then body_length bytes; the last 128 bytes hold two 64-byte durable-marker slots: u32be magic 0x4c585044, u32be version 1, u64be generation, u64be write_offset, u64be previous_record_offset, u64be next_sequence, u32be CRC-32C of bytes 0..39, higher valid generation wins</code> |
 
 | Field | Rule |
 |---|---|
@@ -122,25 +122,19 @@ The [kernel](../../../src) executes native activities inside the Paxeer node thr
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.1.fmt-protocol-receipt</code> | <code>file_format</code> | [src/protocol/lxp_receipt.c](../../../src/protocol/lxp_receipt.c) | <code>canonical codec struct tag 0x5201 (supply variant 0x5202) (src/protocol/lxp_receipt.c:12-13): u16 protocol_version, activity_id (32), u64 global_sequence, previous_state_root, resulting_state_root, activity_root, i32 result_code, u32 effect count and effects, u128 fee_charged, batch_id (32), u16 module_id, u32 module_version, u32 parameter_version, u8 operation, asset (32), u128 amount, from (32), u128 from balance before and after, u64 from_sequence, to (32), u128 to balance before and after, then further fields (:646-720); decoder :748</code> |
-
-## format-queue-disposition-journal
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.1.fmt-queue-disposition-journal</code> | <code>file_format</code> | [src/state/lxp_journal.c](../../../src/state/lxp_journal.c) | <code>fixed 112-byte record (LXP_QUEUE_DISPOSITION_BYTES, include/layerx/lxp_fee.h:113-118): header 64 bytes = u32be magic 0x4c584144, u16be version 1, u16be header_bytes 64, u64be admission_order, u32be body_bytes 48, u32be CRC-32C of the body, 32-byte activity_id, u32be CRC-32C of bytes 0..55, u32 zero; body 48 bytes = u32be result_code, u32be parameter_version, u64be ordering_sequence, 32-byte idempotency_key (src/state/lxp_journal.c:1154-1179, decoder :1181-1208)</code> |
+| <code>interface.1.fmt-protocol-receipt</code> | <code>file_format</code> | [src/protocol/lxp_receipt.c](../../../src/protocol/lxp_receipt.c) | <code>canonical codec struct tag 0x5201 (supply variant 0x5202): u16 protocol_version, activity_id (32), u64 global_sequence, previous_state_root, resulting_state_root, activity_root, i32 result_code, u32 effect count and effects, u128 fee_charged, batch_id (32), u16 module_id, u32 module_version, u32 parameter_version, u8 operation, asset (32), u128 amount, from (32), u128 from balance before and after, u64 from_sequence, to (32), u128 to balance before and after, then further fields</code> |
 
 ## format-snapshot-store-file
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.1.fmt-snapshot-store-file</code> | <code>file_format</code> | [src/storage/lxp_snapshot_store.c](../../../src/storage/lxp_snapshot_store.c) | <code>file &lt;dir&gt;/%020u64.lxs written through &lt;file&gt;.tmp, fdatasync and rename (src/storage/lxp_snapshot_store.c:101-138); header 116 bytes: magic "LXS2" (or "LXS3" with a 315-byte migration authorization appended, header 431 bytes; :14-19, :95-99), u64be global_sequence at 4, canonical_state_root at 12, receipt_state_root at 44, snapshot_digest at 76, u64be snapshot_length at 108 (:108-112), then the state snapshot bytes; reader accepts only a regular file with one link (:159-185)</code> |
+| <code>interface.1.fmt-snapshot-store-file</code> | <code>file_format</code> | [src/storage/lxp_snapshot_store.c](../../../src/storage/lxp_snapshot_store.c) | <code>file &lt;dir&gt;/&lt;20-digit-sequence&gt;.lxs written through &lt;file&gt;.tmp.XXXXXX, fdatasync and renameat2 with RENAME_NOREPLACE; header 116 bytes: magic "LXS2" (or "LXS3" with a 315-byte migration authorization appended, header 431 bytes), u64be global_sequence at 4, canonical_state_root at 12, receipt_state_root at 44, snapshot_digest at 76, u64be snapshot_length at 108, then the state snapshot bytes; reader accepts only a regular file with one link</code> |
 
 ## format-state-snapshot
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.1.fmt-state-snapshot</code> | <code>file_format</code> | [src/state/lxp_snapshot.c](../../../src/state/lxp_snapshot.c) | <code>canonical codec struct: u16be protocol_version (1 legacy, 2 when accounts are included; src/state/lxp_snapshot.c:497-500) and u16be tag 0x1805 (LXP_SNAPSHOT_FORMAT_BLOBS, include/layerx/lxp_snapshot.h:13); u64be global_sequence; u32 cell count then per cell key (u32 length 32 + 32 bytes) and u128be value; u32 idempotency count then key_hash and encoded entry; u32 module count then u16 module_id, u32 abi_version, u64 enabled_epoch, u64 disabled_epoch, flags, u32 activity_type_count and types; u32 module_kv count then u16 module_id, key bytes, value bytes; u32 blob count, u64 blob total, per blob u16 module_id, 32-byte key, bytes; when accounts are included u32 account count, account records and 32-byte account root; u16 module root count and 32-byte roots (src/state/lxp_snapshot.c:546-640)</code> |
+| <code>interface.1.fmt-state-snapshot</code> | <code>file_format</code> | [src/state/lxp_snapshot.c](../../../src/state/lxp_snapshot.c) | <code>canonical codec struct: u16be protocol_version and u16be tag 0x1805; u64be global_sequence; u32 cell count then per cell key (u32 length 32 + 32 bytes) and u128be value; reserved u32 zero; u32 module count then u16 module_id, u32 abi_version, u64 enabled_epoch, u64 disabled_epoch, flags, u32 activity_type_count and types; u32 module_kv count then u16 module_id, key bytes, value bytes; u32 blob count, u64 blob total, per blob u16 module_id, 32-byte key, bytes; when accounts are included u32 account count, account records and length-prefixed 32-byte account root; u16 module root count and length-prefixed 32-byte roots</code> |
 
 ## kernel-writer
 
@@ -435,9 +429,9 @@ The [kernel](../../../src) executes native activities inside the Paxeer node thr
 |---|---|
 | interface | lx_asset_runtime.binding_authority (include/layerx/lx_asset.h) |
 | storage | runtime field only; not committed |
-| errors | unchanged refusals of the issuance and account stages except the skipped signature check |
+| errors | Issuance and account validation refuse invalid authority keys, actor DID lengths and payload hashes. |
 | events | none |
-| gas | unchanged |
+| gas | Activity fee metering. |
 | invariants | a bound runtime still refuses a wrong verified key, an over-long actor DID and a bad payload hash |
 | pause | none |
 
@@ -445,7 +439,7 @@ The [kernel](../../../src) executes native activities inside the Paxeer node thr
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.1.c-lx-checkpoint-registry</code> | <code>c_symbol</code> | [include/layerx/lx_asset.h](../../../include/layerx/lx_asset.h) | <code>struct lx_checkpoint_registry { lx_finalized_checkpoint checkpoints[LX_CHECKPOINT_CAPACITY]; size_t count; uint8_t paxeer_checkpoint_authority[32]; uint32_t network_id; uint16_t protocol_version; }</code> |
+| <code>interface.1.c-lx-checkpoint-registry</code> | <code>c_symbol</code> | [include/layerx/lx_asset.h](../../../include/layerx/lx_asset.h) | <code>typedef struct lx_checkpoint_registry lx_checkpoint_registry;</code> |
 
 ## lx-budget-h
 
@@ -1721,7 +1715,6 @@ The [kernel](../../../src) executes native activities inside the Paxeer node thr
 | <code>interface.1.c-lxp-ctx-account-stage-perps-market</code> | <code>c_symbol</code> | [include/layerx/lxp_module.h](../../../include/layerx/lxp_module.h) | <code>lxp_result lxp_ctx_account_stage_perps_market(lxp_module_ctx *ctx, const lxp_activity *activity, const uint8_t market_id[32], const uint8_t administrator[32], const uint8_t asset_id[32], const uint8_t presented_id[32], lx_account_kind kind, bool stage)</code> |
 | <code>interface.1.c-lxp-ctx-arena-alloc</code> | <code>c_symbol</code> | [include/layerx/lxp_module.h](../../../include/layerx/lxp_module.h) | <code>lxp_result lxp_ctx_arena_alloc(lxp_module_ctx *ctx, size_t size, size_t alignment, void **allocation)</code> |
 | <code>interface.1.c-lxp-ctx-asset-account-stage</code> | <code>c_symbol</code> | [include/layerx/lxp_module.h](../../../include/layerx/lxp_module.h) | <code>lxp_result lxp_ctx_asset_account_stage( lxp_module_ctx *ctx, const lxp_activity *activity, const lxp_authority_resolved *authority, lx_account **account)</code> |
-| <code>interface.1.c-lxp-ctx-asset-grant-state-stage</code> | <code>c_symbol</code> | [include/layerx/lxp_module.h](../../../include/layerx/lxp_module.h) | <code>lxp_result lxp_ctx_asset_grant_state_stage(lxp_module_ctx *ctx, const uint8_t grant_id[32], ...)</code> |
 | <code>interface.1.c-lxp-ctx-asset-issuance-stage</code> | <code>c_symbol</code> | [include/layerx/lxp_module.h](../../../include/layerx/lxp_module.h) | <code>lxp_result lxp_ctx_asset_issuance_stage( lxp_module_ctx *ctx, const lxp_activity *activity, const lxp_authority_resolved *authority, lx_account **account)</code> |
 | <code>interface.1.c-lxp-ctx-batch-number</code> | <code>c_symbol</code> | [include/layerx/lxp_module.h](../../../include/layerx/lxp_module.h) | <code>uint64_t lxp_ctx_batch_number(const lxp_module_ctx *ctx)</code> |
 | <code>interface.1.c-lxp-ctx-batch-timestamp-ms</code> | <code>c_symbol</code> | [include/layerx/lxp_module.h](../../../include/layerx/lxp_module.h) | <code>uint64_t lxp_ctx_batch_timestamp_ms(const lxp_module_ctx *ctx)</code> |
@@ -1795,7 +1788,7 @@ The [kernel](../../../src) executes native activities inside the Paxeer node thr
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.1.c-enum-lxp-qual-activity-type-count</code> | <code>c_symbol</code> | [include/layerx/lxp_qualification.h](../../../include/layerx/lxp_qualification.h) | <code>enum { LXP_QUAL_ACTIVITY_TYPE_COUNT = 53, LXP_QUAL_BATCH_HEADER_BYTES = 72, LXP_QUAL_RECEIPT_BYTES = 106, LXP_QUAL_EVENT_BYTES = 36 }</code> |
+| <code>interface.1.c-enum-lxp-qual-activity-type-count</code> | <code>c_symbol</code> | [include/layerx/lxp_qualification.h](../../../include/layerx/lxp_qualification.h) | <code>enum LXP_QUAL_ACTIVITY_TYPE_COUNT { LXP_QUAL_ACTIVITY_TYPE_COUNT = 50, LXP_QUAL_BATCH_HEADER_BYTES = 72, LXP_QUAL_RECEIPT_BYTES = 106, LXP_QUAL_EVENT_BYTES = 36 }</code> |
 | <code>interface.1.c-lxp-qual-corpus-generate</code> | <code>c_symbol</code> | [include/layerx/lxp_qualification.h](../../../include/layerx/lxp_qualification.h) | <code>lxp_result lxp_qual_corpus_generate(const char *corpus_path, const char *root_ledger_path, uint64_t activity_count, uint32_t batch_size)</code> |
 | <code>interface.1.c-lxp-qual-fault-boundaries</code> | <code>c_symbol</code> | [include/layerx/lxp_qualification.h](../../../include/layerx/lxp_qualification.h) | <code>lxp_result lxp_qual_fault_boundaries(void)</code> |
 | <code>interface.1.c-lxp-qual-replay-matrix</code> | <code>c_symbol</code> | [include/layerx/lxp_qualification.h](../../../include/layerx/lxp_qualification.h) | <code>lxp_result lxp_qual_replay_matrix(const char *corpus_path, const char *root_ledger_path, lxp_qual_replay_result *result)</code> |
@@ -1853,8 +1846,8 @@ The [kernel](../../../src) executes native activities inside the Paxeer node thr
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.1.c-lxp-replay-activity-output</code> | <code>c_symbol</code> | [include/layerx/programs.h](../../../include/layerx/programs.h) | <code>typedef struct lxp_replay_activity_output { int32_t result_code; lxp_u128 fee_charged; lxp_byte_span effects; lxp_byte_span resulting_balance; lxp_byte_span canonical_receipt; lxp_byte_span canonical_events; uint8_t resulting_state_root[32]; } lxp_replay_activity_output</code> |
-| <code>interface.1.c-lxp-replay-engine</code> | <code>c_symbol</code> | [include/layerx/programs.h](../../../include/layerx/programs.h) | <code>typedef struct lxp_replay_engine { lxp_replay_transition_registration transitions[LXP_MAX_REPLAY_TRANSITIONS]; size_t transition_count; lxp_replay_parameter_version_fn parameter_version; lxp_replay_batch_finalize_fn batch_finalize; void *batch_finalize_context; void *context; const struct lxp_kernel *kernel; lxp_replay_transaction_begin_fn transaction_begin; lxp_replay_transaction_finish_fn transaction_finish; } lxp_replay_engine</code> |
+| <code>interface.1.c-lxp-replay-activity-output</code> | <code>c_symbol</code> | [include/layerx/programs.h](../../../include/layerx/programs.h) | <code>typedef struct lxp_replay_activity_output lxp_replay_activity_output;</code> |
+| <code>interface.1.c-lxp-replay-engine</code> | <code>c_symbol</code> | [include/layerx/programs.h](../../../include/layerx/programs.h) | <code>typedef struct lxp_replay_engine lxp_replay_engine;</code> |
 
 ## lxp-reserve-h
 

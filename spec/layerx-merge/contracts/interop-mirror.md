@@ -2,17 +2,21 @@
 
 The [mirror library](../../../services/interop/crates/layerx-mirror/src/lib.rs) acquires committed Paxeer blocks, publishes retrievable archives and verifies mirrored evidence. Committed coordinates identify an execution block by height and block hash. `MirrorVerifier::from_committed_source(observed: ObservedArchive)` admits a committed archive and returns `Result<Self, MirrorVerifyError>`; receipt verification takes independently supplied receipt-key pins.
 
+## Publisher configuration
+
+The [runtime configuration](../../../services/interop/crates/layerx-mirror/src/runtime.rs) requires `state_directory`, `first_height`, `poll_interval_ms`, `freshness_budget_blocks`, `status_listen`, `paxeer` and `ethereum`. The `solana` section is optional. `first_height` and `freshness_budget_blocks` are `u64` values measured in committed blocks.
+
+The [Paxeer source configuration](../../../services/interop/crates/layerx-mirror/src/committed.rs) contains `rpc: RpcQuorumConfig`, `chain_id: u64`, `genesis_hash_hex: String` and `receipt_keys: Vec<ReceiptKeyConfig>`. Each key entry contains `sequencer_id_hex`, `public_key_hex`, `first_height` and `last_height`.
+
+## Verifier configuration
+
+The [verifier configuration](../../../services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs) requires `layerx_network_id`, `receipt_keys` and `sources`. It reads a verification request from standard input; receipt-key pins use `ReceiptKeyConfig`.
+
 ## cfg-mirror-config-layerx-network-id
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
 | <code>interface.11.cfg-mirror-config-layerx-network-id</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs](../../../services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs) | <code>mirror-verify config layerx_network_id: u32 (required)</code> |
-
-## cfg-mirror-config-sequencer-id-hex
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-config-sequencer-id-hex</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs](../../../services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs) | <code>mirror-verify config sequencer_id_hex: String (required)</code> |
 
 ## cfg-mirror-config-sources
 
@@ -92,72 +96,6 @@ The [mirror library](../../../services/interop/crates/layerx-mirror/src/lib.rs) 
 |---|---|---|---|
 | <code>interface.11.cfg-mirror-ethereum-file-config-transaction-gas-limit</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime ethereum transaction_gas_limit: u64 (required)</code> |
 
-## cfg-mirror-node-file-config-checkpoint-policy
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-checkpoint-policy</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node checkpoint_policy: crate::node::NativeCheckpointPolicy (required)</code> |
-
-## cfg-mirror-node-file-config-deadline-ms
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-deadline-ms</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node deadline_ms: u64 (required)</code> |
-
-## cfg-mirror-node-file-config-expected-network-id
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-expected-network-id</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node expected_network_id: u32 (required)</code> |
-
-## cfg-mirror-node-file-config-expected-protocol-version
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-expected-protocol-version</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node expected_protocol_version: u16 (required)</code> |
-
-## cfg-mirror-node-file-config-maximum-archive-bytes
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-maximum-archive-bytes</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node maximum_archive_bytes: usize (required)</code> |
-
-## cfg-mirror-node-file-config-maximum-archive-chunks
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-maximum-archive-chunks</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node maximum_archive_chunks: usize (required)</code> |
-
-## cfg-mirror-node-file-config-maximum-connections
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-maximum-connections</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node maximum_connections: usize (required)</code> |
-
-## cfg-mirror-node-file-config-maximum-frame-bytes
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-maximum-frame-bytes</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node maximum_frame_bytes: usize (required)</code> |
-
-## cfg-mirror-node-file-config-maximum-queued-bytes
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-maximum-queued-bytes</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node maximum_queued_bytes: usize (required)</code> |
-
-## cfg-mirror-node-file-config-maximum-streams
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-maximum-streams</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node maximum_streams: usize (required)</code> |
-
-## cfg-mirror-node-file-config-socket
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-node-file-config-socket</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime node socket: PathBuf (required)</code> |
-
 ## cfg-mirror-rpc-endpoint-config-bearer-token-file
 
 | Interface | Kind | Source | Signature |
@@ -212,29 +150,11 @@ The [mirror library](../../../services/interop/crates/layerx-mirror/src/lib.rs) 
 |---|---|---|---|
 | <code>interface.11.cfg-mirror-rpc-quorum-config-request-timeout-ms</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/rpc.rs](../../../services/interop/crates/layerx-mirror/src/rpc.rs) | <code>mirror rpc quorum request_timeout_ms: u64 (required)</code> |
 
-## cfg-mirror-runtime-config-checkpoint-freshness-budget-batches
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-runtime-config-checkpoint-freshness-budget-batches</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime config checkpoint_freshness_budget_batches: u64 (required)</code> |
-
 ## cfg-mirror-runtime-config-ethereum
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
 | <code>interface.11.cfg-mirror-runtime-config-ethereum</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime config ethereum: EthereumFileConfig (required)</code> |
-
-## cfg-mirror-runtime-config-first-batch-number
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-runtime-config-first-batch-number</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime config first_batch_number: u64 (required)</code> |
-
-## cfg-mirror-runtime-config-node
-
-| Interface | Kind | Source | Signature |
-|---|---|---|---|
-| <code>interface.11.cfg-mirror-runtime-config-node</code> | <code>config_key</code> | [services/interop/crates/layerx-mirror/src/runtime.rs](../../../services/interop/crates/layerx-mirror/src/runtime.rs) | <code>mirror runtime config node: NodeFileConfig (required)</code> |
 
 ## cfg-mirror-runtime-config-poll-interval-ms
 
@@ -360,13 +280,13 @@ The [mirror library](../../../services/interop/crates/layerx-mirror/src/lib.rs) 
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cli-mirror-publisher</code> | <code>cli_command</code> | [services/interop/crates/layerx-mirror/src/bin/layerx-mirror-publisher.rs](../../../services/interop/crates/layerx-mirror/src/bin/layerx-mirror-publisher.rs) | <code>layerx-mirror-publisher &lt;config.json&gt; &#124; --probe</code> |
+| <code>interface.11.cli-mirror-publisher</code> | <code>cli_command</code> | [services/interop/crates/layerx-mirror/src/bin/layerx-mirror-publisher.rs](../../../services/interop/crates/layerx-mirror/src/bin/layerx-mirror-publisher.rs) | <code>layerx-mirror-publisher &lt;config.json&gt;; layerx-mirror-publisher --probe &lt;socket-address&gt;</code> |
 
 ## cli-mirror-verify
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cli-mirror-verify</code> | <code>cli_command</code> | [services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs](../../../services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs) | <code>layerx-mirror-verify &lt;request.json&gt;</code> |
+| <code>interface.11.cli-mirror-verify</code> | <code>cli_command</code> | [services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs](../../../services/interop/crates/layerx-mirror/src/bin/layerx-mirror-verify.rs) | <code>layerx-mirror-verify CONFIG_PATH &lt; REQUEST_PATH</code> |
 
 ## err-mirror-checkpoint-mirror-archive-unavailable
 

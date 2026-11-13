@@ -102,7 +102,7 @@ The [gas station](../../../services/interop/crates/layerx-gas-station/src/lib.rs
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-gas-station-margin-bps</code> | <code>config_key</code> | [services/interop/crates/layerx-gas-station/src/config.rs](../../../services/interop/crates/layerx-gas-station/src/config.rs) | <code>gas station config margin_bps: u32 basis points (required; unknown fields refused)</code> |
+| <code>interface.11.cfg-gas-station-margin-bps</code> | <code>config_key</code> | [services/interop/crates/layerx-gas-station/src/config.rs](../../../services/interop/crates/layerx-gas-station/src/config.rs) | <code>gas station config margin_bps: u16 basis points (required; unknown fields refused)</code> |
 
 ## cfg-gas-station-max-rate-age
 
@@ -144,7 +144,7 @@ The [gas station](../../../services/interop/crates/layerx-gas-station/src/lib.rs
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cfg-gas-station-spread-bps</code> | <code>config_key</code> | [services/interop/crates/layerx-gas-station/src/config.rs](../../../services/interop/crates/layerx-gas-station/src/config.rs) | <code>gas station config spread_bps: u32 basis points (required; unknown fields refused)</code> |
+| <code>interface.11.cfg-gas-station-spread-bps</code> | <code>config_key</code> | [services/interop/crates/layerx-gas-station/src/config.rs](../../../services/interop/crates/layerx-gas-station/src/config.rs) | <code>gas station config spread_bps: u16 basis points (required; unknown fields refused)</code> |
 
 ## cfg-gas-station-token
 
@@ -156,7 +156,7 @@ The [gas station](../../../services/interop/crates/layerx-gas-station/src/lib.rs
 
 | Interface | Kind | Source | Signature |
 |---|---|---|---|
-| <code>interface.11.cli-gas</code> | <code>cli_command</code> | [services/interop/crates/layerx-gas-station/src/main.rs](../../../services/interop/crates/layerx-gas-station/src/main.rs) | <code>paxeer-gas-station --config PATH --journal PATH &#124; check --config PATH --rate-config PATH &#124; rate --config PATH --journal PATH --rate-file PATH</code> |
+| <code>interface.11.cli-gas</code> | <code>cli_command</code> | [services/interop/crates/layerx-gas-station/src/main.rs](../../../services/interop/crates/layerx-gas-station/src/main.rs) | <code>paxeer-gas-station --config PATH --journal PATH; paxeer-gas-station check --config PATH --rate-config PATH; paxeer-gas-station rate --config PATH --journal PATH --rate-file PATH</code> |
 
 ## env-gas-gas-station-browser-origins
 
