@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-func TestRepairM_661_AuthCLINetworkSignature(t *testing.T) {
+func TestAuthCLINetworkSignature(t *testing.T) {
 	// The normal gate does not select norace files, so inspect the entry point
 	// as well as exercising its complete network-backed suite below.
 	source, err := os.ReadFile("cli_test.go")

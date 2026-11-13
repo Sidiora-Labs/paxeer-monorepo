@@ -8,15 +8,15 @@ wiring_cli = "sdk/x/auth/client/cli/validate_sigs.go — fm-cosmos-fork domain 1
 
 [finding.wrapper-signature-cardinality]
 test = "TestRepairM_654_WrapperSignatureCardinality"
-path = "sdk/x/auth/tx/repair_m654_test.go"
+path = "sdk/x/auth/tx/signature_decoding_block_query_test.go"
 proof = "Real signing handler and keys produce a two-signer TxRaw; shortened, missing, extra and orphan signature arrays pass through the real decoder and builder and return typed errors without panic; unsigned simulation shapes and signed cryptographic verification remain covered."
 
 [finding.empty-block-query-rejected]
 test = "TestRepairM_654_EmptyBlockQuery"
-path = "sdk/x/auth/tx/repair_m654_test.go"
+path = "sdk/x/auth/tx/signature_decoding_block_query_test.go"
 proof = "Real consensus block producer, committed local block store, local client, registered query service and protobuf query client return the empty block identity and zero transaction total; invalid offsets and limits still fail."
 
 [finding.multisig-mode-shape-panic]
 test = "TestRepairM_654_MultisigModeShape"
-path = "sdk/x/auth/tx/repair_m654_test.go"
+path = "sdk/x/auth/tx/signature_decoding_block_query_test.go"
 proof = "Malformed multisig wire bytes traverse TxRaw encoding, the real transaction decoder and wrapper conversion; invalid modes, pointers, bitarrays and counts return typed errors without panic, while the real nested signature producer round-trips intact."

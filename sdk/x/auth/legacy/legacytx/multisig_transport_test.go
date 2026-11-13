@@ -15,7 +15,7 @@ import (
 	authsigning "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
 )
 
-func TestRepairM_656_MalformedMultisigTransport(t *testing.T) {
+func TestMalformedMultisigTransport(t *testing.T) {
 	key, cases := malformedAminoMultisigs(t)
 	cdc := testCodec()
 	config := legacytx.StdTxConfig{Cdc: cdc}
@@ -67,7 +67,7 @@ func TestRepairM_656_MalformedMultisigTransport(t *testing.T) {
 	}
 }
 
-func TestRepairM_656_ValidMultisigTransport(t *testing.T) {
+func TestValidMultisigTransport(t *testing.T) {
 	cdc := testCodec()
 	config := legacytx.StdTxConfig{Cdc: cdc}
 	priv0, pk0, _ := testdata.KeyTestPubAddr()

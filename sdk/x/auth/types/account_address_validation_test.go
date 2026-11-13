@@ -19,14 +19,14 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM659Codec() *codec.ProtoCodec {
+func accountValidationCodec() *codec.ProtoCodec {
 	registry := codectypes.NewInterfaceRegistry()
 	types.RegisterInterfaces(registry)
 	cryptocodec.RegisterInterfaces(registry)
 	return codec.NewProtoCodec(registry)
 }
 
-func repairM659GenesisRoundTrip(t *testing.T, cdc *codec.ProtoCodec, acc types.GenesisAccount) types.GenesisState {
+func accountGenesisRoundTrip(t *testing.T, cdc *codec.ProtoCodec, acc types.GenesisAccount) types.GenesisState {
 	t.Helper()
 	genesis := types.NewGenesisState(types.DefaultParams(), types.GenesisAccounts{acc})
 	bz, err := cdc.MarshalAsJSON(genesis)
@@ -43,7 +43,7 @@ func repairM659GenesisRoundTrip(t *testing.T, cdc *codec.ProtoCodec, acc types.G
 	return decoded
 }
 
-func TestRepairM_659_InvalidNilKeyAddresses(t *testing.T) {
+func TestInvalidNilKeyAddresses(t *testing.T) {
 	pubkey := secp256k1.GenPrivKey().PubKey()
 	addr := sdk.AccAddress(pubkey.Address())
 	valid := addr.String()
@@ -71,14 +71,14 @@ func TestRepairM_659_InvalidNilKeyAddresses(t *testing.T) {
 			require.Error(t, parseErr)
 			require.EqualError(t, acc.Validate(), parseErr.Error())
 
-			genesis := repairM659GenesisRoundTrip(t, repairM659Codec(), acc)
+			genesis := accountGenesisRoundTrip(t, accountValidationCodec(), acc)
 			require.ErrorContains(t, types.ValidateGenesis(genesis), "invalid account found in genesis state")
 			require.ErrorContains(t, types.ValidateGenesis(genesis), parseErr.Error())
 		})
 	}
 }
 
-func TestRepairM_659_KeyAddressAgreement(t *testing.T) {
+func TestKeyAddressAgreement(t *testing.T) {
 	pubkey := secp256k1.GenPrivKey().PubKey()
 	addr := sdk.AccAddress(pubkey.Address())
 	otherKey := secp256k1.GenPrivKey().PubKey()
@@ -93,7 +93,7 @@ func TestRepairM_659_KeyAddressAgreement(t *testing.T) {
 		{"empty_address_with_key", types.NewBaseAccount(nil, pubkey, 7, 3), "empty address string is not allowed"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			genesis := repairM659GenesisRoundTrip(t, repairM659Codec(), tc.acc)
+			genesis := accountGenesisRoundTrip(t, accountValidationCodec(), tc.acc)
 			if tc.err == "" {
 				require.NoError(t, tc.acc.Validate())
 				require.NoError(t, types.ValidateGenesis(genesis))
@@ -105,8 +105,8 @@ func TestRepairM_659_KeyAddressAgreement(t *testing.T) {
 	}
 }
 
-func TestRepairM_659_FundedAccountWithoutKey(t *testing.T) {
-	cdc := repairM659Codec()
+func TestFundedAccountWithoutKey(t *testing.T) {
+	cdc := accountValidationCodec()
 	cms := store.NewCommitMultiStore(dbm.NewMemDB())
 	t.Cleanup(func() { require.NoError(t, cms.Close()) })
 	authKey := sdk.NewKVStoreKey(types.StoreKey)
@@ -144,7 +144,7 @@ func TestRepairM_659_FundedAccountWithoutKey(t *testing.T) {
 	genesisAccount, ok := stored.(types.GenesisAccount)
 	require.True(t, ok)
 	require.NoError(t, genesisAccount.Validate())
-	genesis := repairM659GenesisRoundTrip(t, cdc, genesisAccount)
+	genesis := accountGenesisRoundTrip(t, cdc, genesisAccount)
 	require.NoError(t, types.ValidateGenesis(genesis))
 	decoded, err := types.UnpackAccounts(genesis.Accounts)
 	require.NoError(t, err)

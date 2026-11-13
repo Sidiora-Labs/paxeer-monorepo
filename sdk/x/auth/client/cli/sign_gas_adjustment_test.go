@@ -11,18 +11,18 @@ import (
 	authsigning "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
 )
 
-func TestRepair463_SignRejectsInvalidGasAdjustment(t *testing.T) {
+func TestSignRejectsInvalidGasAdjustment(t *testing.T) {
 	for name, command := range map[string]func() *cobra.Command{
 		"sign":       cli.GetSignCommand,
 		"sign-batch": cli.GetSignBatchCommand,
 	} {
 		t.Run(name, func(t *testing.T) {
-			r := repair660Setup(t)
-			file := repair660File(t, r.unsigned(t, false, "factory validation"))
+			r := newBatchSigningFixture(t)
+			file := writeBatchSigningFile(t, r.unsigned(t, false, "factory validation"))
 			for _, adjustment := range []string{"-1", "NaN", "+Inf", "-Inf"} {
 				t.Run(adjustment, func(t *testing.T) {
-					out, _, err := repair660Execute(command(), r.ctx, nil,
-						repair660OfflineArgs(file, "--from=alice", "--gas-adjustment="+adjustment)...)
+					out, _, err := executeSigningCommand(command(), r.ctx, nil,
+						offlineSigningArgs(file, "--from=alice", "--gas-adjustment="+adjustment)...)
 					require.EqualError(t, err, fmt.Sprintf("invalid --gas-adjustment: gas adjustment must be finite and non-negative: %s", adjustment))
 					require.Empty(t, out)
 				})
@@ -31,16 +31,16 @@ func TestRepair463_SignRejectsInvalidGasAdjustment(t *testing.T) {
 	}
 }
 
-func TestRepair463_SignAcceptsValidGasAdjustment(t *testing.T) {
+func TestSignAcceptsValidGasAdjustment(t *testing.T) {
 	for name, command := range map[string]func() *cobra.Command{
 		"sign":       cli.GetSignCommand,
 		"sign-batch": cli.GetSignBatchCommand,
 	} {
 		t.Run(name, func(t *testing.T) {
-			r := repair660Setup(t)
-			file := repair660File(t, r.unsigned(t, false, "valid factory"))
-			out, _, err := repair660Execute(command(), r.ctx, nil,
-				repair660OfflineArgs(file, "--from=alice", "--gas-adjustment=1.25", "--sign-mode=amino-json", "--signature-only=false")...)
+			r := newBatchSigningFixture(t)
+			file := writeBatchSigningFile(t, r.unsigned(t, false, "valid factory"))
+			out, _, err := executeSigningCommand(command(), r.ctx, nil,
+				offlineSigningArgs(file, "--from=alice", "--gas-adjustment=1.25", "--sign-mode=amino-json", "--signature-only=false")...)
 			require.NoError(t, err)
 			parsed, err := r.ctx.TxConfig.TxJSONDecoder()(out)
 			require.NoError(t, err)

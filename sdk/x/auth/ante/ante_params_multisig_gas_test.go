@@ -30,7 +30,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repairM655Keepers(t *testing.T) (sdk.Context, authkeeper.AccountKeeper, bankkeeper.BaseKeeper, paramskeeper.Keeper, client.TxConfig) {
+func anteParamsKeepers(t *testing.T) (sdk.Context, authkeeper.AccountKeeper, bankkeeper.BaseKeeper, paramskeeper.Keeper, client.TxConfig) {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	sdk.RegisterInterfaces(registry)
@@ -67,8 +67,8 @@ func repairM655Keepers(t *testing.T) (sdk.Context, authkeeper.AccountKeeper, ban
 	return ctx, ak, bk, pk, authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
 }
 
-func TestRepairM_655_AnteParamsConstruction(t *testing.T) {
-	ctx, ak, bk, pk, config := repairM655Keepers(t)
+func TestAnteParamsConstruction(t *testing.T) {
+	ctx, ak, bk, pk, config := anteParamsKeepers(t)
 	options := ante.HandlerOptions{AccountKeeper: ak, BankKeeper: bk, ParamsKeeper: pk, SignModeHandler: config.SignModeHandler()}
 	var keeperPointer *paramskeeper.Keeper
 	for _, tc := range []struct {
@@ -133,7 +133,7 @@ func TestRepairM_655_AnteParamsConstruction(t *testing.T) {
 	require.Equal(t, int64(2000), bk.GetBalance(newCtx, ak.GetModuleAddress(authtypes.FeeCollectorName), sdk.DefaultBondDenom).Amount.Int64())
 }
 
-func repairM655Multisig(t *testing.T, nested bool, count int) (*kmultisig.LegacyAminoPubKey, *signing.MultiSignatureData) {
+func multisigGasFixture(t *testing.T, nested bool, count int) (*kmultisig.LegacyAminoPubKey, *signing.MultiSignatureData) {
 	t.Helper()
 	keys := make([]cryptotypes.PubKey, count)
 	sigs := make([]signing.SignatureData, count)
@@ -145,7 +145,7 @@ func repairM655Multisig(t *testing.T, nested bool, count int) (*kmultisig.Legacy
 		sigs[i] = &signing.SingleSignatureData{SignMode: signing.SignMode_SIGN_MODE_DIRECT, Signature: bz}
 	}
 	if nested {
-		keys[0], sigs[0] = repairM655Multisig(t, false, 3)
+		keys[0], sigs[0] = multisigGasFixture(t, false, 3)
 	}
 	key := kmultisig.NewLegacyAminoPubKey(1, keys)
 	sig := multisig.NewMultisig(len(keys))
@@ -155,7 +155,7 @@ func repairM655Multisig(t *testing.T, nested bool, count int) (*kmultisig.Legacy
 	return key, sig
 }
 
-func TestRepairM_655_MultisigGasShapes(t *testing.T) {
+func TestMultisigGasShapes(t *testing.T) {
 	params := authtypes.DefaultParams()
 	cases := []struct {
 		name   string
@@ -225,7 +225,7 @@ func TestRepairM_655_MultisigGasShapes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			key, data := repairM655Multisig(t, tc.nested, 3)
+			key, data := multisigGasFixture(t, tc.nested, 3)
 			data = tc.mutate(data)
 			var firstError string
 			for attempt := 0; attempt < 2; attempt++ {
@@ -251,10 +251,10 @@ func TestRepairM_655_MultisigGasShapes(t *testing.T) {
 	}
 }
 
-func TestRepairM_655_MultisigGasDecorator(t *testing.T) {
-	ctx, ak, _, _, config := repairM655Keepers(t)
+func TestMultisigGasDecorator(t *testing.T) {
+	ctx, ak, _, _, config := anteParamsKeepers(t)
 	for _, nested := range []bool{false, true} {
-		key, data := repairM655Multisig(t, nested, 3)
+		key, data := multisigGasFixture(t, nested, 3)
 		addr := sdk.AccAddress(key.Address())
 		account := ak.NewAccountWithAddress(ctx, addr)
 		require.NoError(t, account.SetPubKey(key))
@@ -298,11 +298,11 @@ func TestRepairM_655_MultisigGasDecorator(t *testing.T) {
 	}
 }
 
-func TestRepairM_655_ValidMultisigGas(t *testing.T) {
+func TestValidMultisigGas(t *testing.T) {
 	params := authtypes.DefaultParams()
 	for _, count := range []int{3, 8, 9} {
 		for _, nested := range []bool{false, true} {
-			key, data := repairM655Multisig(t, nested, count)
+			key, data := multisigGasFixture(t, nested, count)
 			meter := sdk.NewInfiniteGasMeter(1, 1)
 			require.NoError(t, ante.DefaultSigVerificationGasConsumer(meter, signing.SignatureV2{PubKey: key, Data: data}, params))
 			leaves := uint64(2)

@@ -28,20 +28,20 @@ import (
 	authsigning "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
 )
 
-func testdataPubKeyM654(t *testing.T) cryptotypes.PubKey {
+func signatureFixturePubKey(t *testing.T) cryptotypes.PubKey {
 	t.Helper()
 	_, pub, _ := testdata.KeyTestPubAddr()
 	return pub
 }
 
-func repairM654Config() client.TxConfig {
+func signatureDecodingConfig() client.TxConfig {
 	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
 	testdata.RegisterInterfaces(registry)
 	return NewTxConfig(codec.NewProtoCodec(registry), DefaultSignModes)
 }
 
-func repairM654Decode(t *testing.T, cfg client.TxConfig, infos []*txtypes.SignerInfo, sigs [][]byte) authsigning.Tx {
+func decodeSignatureFixture(t *testing.T, cfg client.TxConfig, infos []*txtypes.SignerInfo, sigs [][]byte) authsigning.Tx {
 	t.Helper()
 	body, err := (&txtypes.TxBody{Memo: "repair m654 wire regression"}).Marshal()
 	require.NoError(t, err)
@@ -56,7 +56,7 @@ func repairM654Decode(t *testing.T, cfg client.TxConfig, infos []*txtypes.Signer
 	return wrapped.GetTx()
 }
 
-func repairM654DecodeError(t *testing.T, tx authsigning.Tx) {
+func requireSignatureDecodeError(t *testing.T, tx authsigning.Tx) {
 	t.Helper()
 	require.NotPanics(t, func() {
 		sigs, err := tx.GetSignaturesV2()
@@ -66,8 +66,8 @@ func repairM654DecodeError(t *testing.T, tx authsigning.Tx) {
 	})
 }
 
-func TestRepairM_654_WrapperSignatureCardinality(t *testing.T) {
-	cfg := repairM654Config()
+func TestWrapperSignatureCardinality(t *testing.T) {
+	cfg := signatureDecodingConfig()
 	builder := cfg.NewTxBuilder()
 	builder.SetMemo("repair m654 wire regression")
 	builder.SetGasLimit(200000)
@@ -104,18 +104,18 @@ func TestRepairM_654_WrapperSignatureCardinality(t *testing.T) {
 		{"mixed_unsigned_short", []*txtypes.SignerInfo{{}, auth.SignerInfos[1]}, nil},
 		{"signature_without_mode", []*txtypes.SignerInfo{{}}, raw.Signatures[:1]},
 	} {
-		t.Run(tc.name, func(t *testing.T) { repairM654DecodeError(t, repairM654Decode(t, cfg, tc.infos, tc.sigs)) })
+		t.Run(tc.name, func(t *testing.T) { requireSignatureDecodeError(t, decodeSignatureFixture(t, cfg, tc.infos, tc.sigs)) })
 	}
 	t.Run("nil_signer_info", func(t *testing.T) {
 		malformed := WrapTx(&txtypes.Tx{AuthInfo: &txtypes.AuthInfo{SignerInfos: []*txtypes.SignerInfo{nil}}, Signatures: raw.Signatures[:1]}).GetTx()
-		repairM654DecodeError(t, malformed)
+		requireSignatureDecodeError(t, malformed)
 	})
 	for name, malformed := range map[string]*txtypes.Tx{"nil_tx": nil, "nil_auth": {}} {
-		t.Run(name, func(t *testing.T) { repairM654DecodeError(t, WrapTx(malformed).GetTx()) })
+		t.Run(name, func(t *testing.T) { requireSignatureDecodeError(t, WrapTx(malformed).GetTx()) })
 	}
 
 	t.Run("signed_roundtrip", func(t *testing.T) {
-		decoded := repairM654Decode(t, cfg, auth.SignerInfos, raw.Signatures)
+		decoded := decodeSignatureFixture(t, cfg, auth.SignerInfos, raw.Signatures)
 		got, err := decoded.GetSignaturesV2()
 		require.NoError(t, err)
 		require.Equal(t, sigs, got)
@@ -134,7 +134,7 @@ func TestRepairM_654_WrapperSignatureCardinality(t *testing.T) {
 		{"mode_with_empty_signature", auth.SignerInfos[:1], [][]byte{nil}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := repairM654Decode(t, cfg, tc.infos, tc.sigs).GetSignaturesV2()
+			got, err := decodeSignatureFixture(t, cfg, tc.infos, tc.sigs).GetSignaturesV2()
 			require.NoError(t, err)
 			require.Len(t, got, len(tc.infos))
 			for i := range got {
@@ -148,8 +148,8 @@ func TestRepairM_654_WrapperSignatureCardinality(t *testing.T) {
 	}
 }
 
-func TestRepairM_654_MultisigModeShape(t *testing.T) {
-	cfg := repairM654Config()
+func TestMultisigModeShape(t *testing.T) {
+	cfg := signatureDecodingConfig()
 	one := func() *txtypes.ModeInfo {
 		return &txtypes.ModeInfo{Sum: &txtypes.ModeInfo_Single_{Single: &txtypes.ModeInfo_Single{Mode: signing.SignMode_SIGN_MODE_DIRECT}}}
 	}
@@ -192,8 +192,8 @@ func TestRepairM_654_MultisigModeShape(t *testing.T) {
 		{"unspecified_sign_mode", &txtypes.ModeInfo{Sum: &txtypes.ModeInfo_Single_{Single: &txtypes.ModeInfo_Single{}}}, []byte("one")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			decoded := repairM654Decode(t, cfg, []*txtypes.SignerInfo{{ModeInfo: tc.mode}}, [][]byte{tc.sig})
-			repairM654DecodeError(t, decoded)
+			decoded := decodeSignatureFixture(t, cfg, []*txtypes.SignerInfo{{ModeInfo: tc.mode}}, [][]byte{tc.sig})
+			requireSignatureDecodeError(t, decoded)
 		})
 	}
 	for name, mode := range map[string]*txtypes.ModeInfo{
@@ -222,7 +222,7 @@ func TestRepairM_654_MultisigModeShape(t *testing.T) {
 			&signing.MultiSignatureData{BitArray: bits(1), Signatures: []signing.SignatureData{&signing.SingleSignatureData{SignMode: signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON, Signature: []byte("nested")}}},
 		}}
 		builder := cfg.NewTxBuilder()
-		require.NoError(t, builder.SetSignatures(signing.SignatureV2{PubKey: testdataPubKeyM654(t), Data: original, Sequence: 11}))
+		require.NoError(t, builder.SetSignatures(signing.SignatureV2{PubKey: signatureFixturePubKey(t), Data: original, Sequence: 11}))
 		encoded, err := cfg.TxEncoder()(builder.GetTx())
 		require.NoError(t, err)
 		decoded, err := cfg.TxDecoder()(encoded)
@@ -245,7 +245,7 @@ func TestRepairM_654_MultisigModeShape(t *testing.T) {
 	}
 }
 
-func TestRepairM_654_EmptyBlockQuery(t *testing.T) {
+func TestEmptyBlockQuery(t *testing.T) {
 	registry := codectypes.NewInterfaceRegistry()
 	cfg := NewTxConfig(codec.NewProtoCodec(registry), DefaultSignModes)
 	conf, err := tmconfig.ResetTestRoot(t.TempDir(), "repair-m654")

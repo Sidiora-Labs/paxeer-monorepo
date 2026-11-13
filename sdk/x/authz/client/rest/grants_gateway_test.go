@@ -27,21 +27,21 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repair694Grant struct {
+type gatewayGrant struct {
 	granter       sdk.AccAddress
 	grantee       sdk.AccAddress
 	authorization authz.Authorization
 }
 
-type repair694Fixture struct {
+type grantsGatewayFixture struct {
 	cdc        codec.Codec
 	server     *httptest.Server
 	addresses  []sdk.AccAddress
-	grants     []repair694Grant
+	grants     []gatewayGrant
 	expiration time.Time
 }
 
-func repair694NewFixture(t *testing.T) *repair694Fixture {
+func newGrantsGatewayFixture(t *testing.T) *grantsGatewayFixture {
 	t.Helper()
 	s := new(IntegrationTestSuite)
 	s.SetT(t)
@@ -61,7 +61,7 @@ func repair694NewFixture(t *testing.T) *repair694Fixture {
 	now := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
 	ctx := sdk.NewContext(cms, tmproto.Header{Height: 1, Time: now}, false)
 	k := keeper.NewKeeper(key, cfg.Codec, baseapp.NewMsgServiceRouter())
-	f := &repair694Fixture{cdc: cfg.Codec, expiration: now.Add(time.Hour)}
+	f := &grantsGatewayFixture{cdc: cfg.Codec, expiration: now.Add(time.Hour)}
 	keys := keyring.NewInMemory()
 	for i := 0; i < 4; i++ {
 		info, _, err := keys.NewMnemonic(fmt.Sprintf("repair694-%d", i), keyring.English, sdk.FullFundraiserPath, keyring.DefaultBIP39Passphrase, hd.Secp256k1)
@@ -76,7 +76,7 @@ func repair694NewFixture(t *testing.T) *repair694Fixture {
 	send := func(amount int64) authz.Authorization {
 		return banktypes.NewSendAuthorization(sdk.NewCoins(sdk.NewInt64Coin(cfg.BondDenom, amount)))
 	}
-	f.grants = []repair694Grant{
+	f.grants = []gatewayGrant{
 		{a, b, send(111)},
 		{a, c, authz.NewGenericAuthorization(typeMsgVote)},
 		{c, b, send(222)},
@@ -104,7 +104,7 @@ func repair694NewFixture(t *testing.T) *repair694Fixture {
 	return f
 }
 
-func (f *repair694Fixture) get(t *testing.T, path string, status int) []byte {
+func (f *grantsGatewayFixture) get(t *testing.T, path string, status int) []byte {
 	t.Helper()
 	resp, err := f.server.Client().Get(f.server.URL + path)
 	require.NoError(t, err)
@@ -115,7 +115,7 @@ func (f *repair694Fixture) get(t *testing.T, path string, status int) []byte {
 	return body
 }
 
-func (f *repair694Fixture) assertGrants(t *testing.T, actual []*authz.GrantAuthorization, indices ...int) {
+func (f *grantsGatewayFixture) assertGrants(t *testing.T, actual []*authz.GrantAuthorization, indices ...int) {
 	t.Helper()
 	require.Len(t, actual, len(indices))
 	want := make([]string, 0, len(indices))
@@ -137,8 +137,8 @@ func (f *repair694Fixture) assertGrants(t *testing.T, actual []*authz.GrantAutho
 	require.ElementsMatch(t, want, got)
 }
 
-func TestRepairM_694_Config(t *testing.T) {
-	f := repair694NewFixture(t)
+func TestGrantsGatewayConfig(t *testing.T) {
+	f := newGrantsGatewayFixture(t)
 	grant := f.grants[0]
 	query := url.Values{"granter": {grant.granter.String()}, "grantee": {grant.grantee.String()}, "msg_type_url": {grant.authorization.MsgTypeURL()}}
 	body := f.get(t, "/cosmos/authz/v1beta1/grants?"+query.Encode(), http.StatusOK)
@@ -150,8 +150,8 @@ func TestRepairM_694_Config(t *testing.T) {
 	require.Equal(t, f.expiration, response.Grants[0].Expiration)
 }
 
-func TestRepairM_694_AddressFixture(t *testing.T) {
-	f := repair694NewFixture(t)
+func TestGrantsGatewayAddressQueries(t *testing.T) {
+	f := newGrantsGatewayFixture(t)
 	for _, tc := range []struct {
 		name    string
 		route   string
