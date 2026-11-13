@@ -221,7 +221,7 @@ jobs:
             --timeout 1800 -- make agent-test-sanitize 2>&1 | tee -a "$RUNNER_TEMP/agent-sanitizers.log"
       - name: Retain the sanitizer gate log
         if: ${{ always() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-gate-agent-sanitizers
           path: ${{ runner.temp }}/agent-sanitizers.log
@@ -258,7 +258,7 @@ jobs:
             --timeout 1800 -- make agent-fuzz-long 2>&1 | tee "$RUNNER_TEMP/agent-fuzz-corpus.log"
       - name: Retain the fuzz gate log
         if: ${{ always() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-gate-agent-fuzz-corpus
           path: ${{ runner.temp }}/agent-fuzz-corpus.log

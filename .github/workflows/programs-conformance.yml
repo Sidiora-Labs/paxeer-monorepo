@@ -102,7 +102,7 @@ jobs:
             --timeout 1800 -- make programs-test 2>&1 | tee "$RUNNER_TEMP/programs-acceptance.log"
       - name: Retain the acceptance gate log
         if: ${{ always() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-gate-programs-acceptance
           path: ${{ runner.temp }}/programs-acceptance.log
@@ -184,7 +184,7 @@ jobs:
           --phase run --manifest "$RUNNER_TEMP/determinism-build/manifest.json"
           --output "$RUNNER_TEMP/determinism-execution"
       - name: Upload deterministic execution evidence
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: determinism-${{ matrix.key }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/determinism-execution/report.json
@@ -216,7 +216,7 @@ jobs:
           --phase collect --repository "$PAXEER_X_REPOSITORY"
           --run-id "$PAXEER_X_RUN_ID" --output "$RUNNER_TEMP/determinism-matrix"
       - name: Upload complete matrix binding
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: determinism-matrix-${{ github.run_attempt }}
           path: ${{ runner.temp }}/determinism-matrix/matrix.json
