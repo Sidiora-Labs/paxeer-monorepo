@@ -21570,3 +21570,8 @@ fix = "The host submits the seal of a ready batch inside the commit window, and 
 title = "The identity provider serves the operations 0 to 4 and the client of the service reads each answer by its operation"
 symptom = "The wire file of services/human/crates/layerx-human-identity-provider serves the operations 0 to 4. The client in the identity entry file of src/server of the member layerx-human-service checks the number of answer fields by operation, and the client cases of the provider send the operations 2 and 3 through that client."
 fix = "The client admits for each operation that the provider serves the number of answer fields that the provider writes for it."
+
+[gotcha.4350]
+title = "A documentation page names paths, commands, keys and endpoints of the tree"
+symptom = "The pages under docs, under the area directories and under the spec directories name paths, commands, configuration keys and endpoints of the tree, and the tree changes with every landed task."
+fix = "Tasks 22.41.1 to 22.41.40 read every page against the tree, correct it and list the pages of each task in a manifest."
