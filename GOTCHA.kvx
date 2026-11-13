@@ -21525,3 +21525,8 @@ fix = "The two cases run their assertions when the variable is set and print one
 title = "The interop service member links the platform gateway member, which keeps a SQLite store"
 symptom = "The dependency policy of the interop workspace reads the whole package list of the metadata, so the two SQLite crates that the platform gateway member uses appear in it through services/interop/crates/layerx-interop-service."
 fix = "The policy refuses the two crates on every dependency path that does not pass through the platform gateway member."
+
+[gotcha.4341]
+title = "The test target of the agent workspace starts a local chain for its native cases"
+symptom = "The command make agent-test prepares its native cases through services/agent/tools/run-real-node-tests.sh, which looks for forge, cast, anvil and go on the path before it builds the node."
+fix = "The verification of the agent test task names the local chain tool first, so that the gate shell provides the contract tools before the target runs."

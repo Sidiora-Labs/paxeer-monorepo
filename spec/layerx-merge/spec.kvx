@@ -13648,6 +13648,12 @@ value = "scripts/interop/dependency-policy.sh refuses the two SQLite crates on e
 basis = "The store of the platform gateway member is part of that member, and the interop members themselves keep no SQLite dependency."
 affects = ["22.39.501"]
 
+[decision.3423]
+title = "The verification of the agent test task names the local chain tool"
+value = "The verification of task 22.39.498 begins with a version call of anvil and then runs the record check and make agent-test as before."
+basis = "A command that names the tool tells the gate shell to provide the contract tools, and the target then finds them on the path."
+affects = ["22.39.498"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -197902,7 +197908,7 @@ touches = ["services/agent/crates/layerx-agentd/src", "services/agent/crates/lay
 tests = []
 planned_paths = ["services/agent/crates/layerx-sdk/repair_22_39_498.kvx"]
 build_cmd = "make -s agent-build"
-verify_cmd = "test -s services/agent/crates/layerx-sdk/repair_22_39_498.kvx && make -s agent-test"
+verify_cmd = "anvil --version > /dev/null && test -s services/agent/crates/layerx-sdk/repair_22_39_498.kvx && make -s agent-test"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
