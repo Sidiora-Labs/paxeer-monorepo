@@ -21750,3 +21750,8 @@ fix = "Task 22.43.258 brings these readers to the present paths. A search for st
 title = "The notice page of a fixture directory with key material is one line"
 symptom = "The test tests/ci/test_key_material_only_in_fixtures.py reads the page README.md of every fixture directory that the section package.metadata.test-fixtures of four manifests names. It accepts a page of one line that holds the words generated test data and no production use. Five such pages hold a heading and a paragraph."
 fix = "Task 22.43.259 brings the five pages to the one-line form. A task that rewrites pages leaves the notice page of a fixture directory with key material in that form."
+
+[gotcha.4386]
+title = "Tests under tools/qualification read sections and sentences of the front page of the repository"
+symptom = "Test files under tools/qualification/audit_repairs read README.md of the repository root and look for sections and sentences of the text it held before task 22.42.29 wrote the short front page: the overview of the network, the quick start for chain 125, the build and test sections and others."
+fix = "The earlier text lives on as the page docs/readme/NETWORK.md, brought to the present paths, and the front page links to it. A task that shortens a page first searches the tests for readers of its sections and sentences and names the page where each fact lives afterwards."

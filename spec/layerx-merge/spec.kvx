@@ -13948,6 +13948,12 @@ value = "Task 22.43.259 changes the page README.md of the five fixture directori
 basis = "Gotcha 4385."
 affects = []
 
+[decision.3473]
+title = "The front page stays short and its earlier reference text lives under docs/readme"
+value = "README.md of the repository root keeps the short form of task 22.42.29. The page docs/readme/NETWORK.md holds the reference text the front page held before that task, with paths and names brought to the present tree, and the documentation section of the front page links to it. Task 22.43.260 writes the page. Tests that pin a fact of the reference text read that page; later tasks bring them there."
+basis = "Gotcha 4386."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43608,6 +43614,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.260]
+title = "Keep the reference text of the earlier front page as a page under docs/readme"
+reqs = ["22998.1"]
+touches = ["README.md"]
+tests = []
+verification_contract = "test -s docs/readme/NETWORK.md && grep -q -F -e docs/readme/NETWORK.md README.md && grep -q -x -F -e '## What is Paxeer X Network?' docs/readme/NETWORK.md && grep -q -x -F -e '### Build' docs/readme/NETWORK.md && grep -q -F -e 'kernel is embedded in the node' docs/readme/NETWORK.md && test $(wc -l < docs/readme/NETWORK.md) -ge 250"
+do_1 = "do_1 Decision 3473, gotcha 4386. Find the commit of task 22.42.29 that changed README.md with git log -n 1 --grep 22.42.29 -- README.md. The parent of that commit holds the earlier text of the front page; read it with git show, giving the hash followed by a caret, a colon and README.md."
+symbols = []
 
 [capability.22.43.259]
 title = "Bring the notice pages of the key fixture directories to one line"
@@ -373376,6 +373391,38 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.43.260]
+title = "Keep the reference text of the earlier front page as a page under docs/readme"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.260"]
+interfaces = []
+do_1 = "do_1 Decision 3473, gotcha 4386. Find the commit of task 22.42.29 that changed README.md with git log -n 1 --grep 22.42.29 -- README.md. The parent of that commit holds the earlier text of the front page; read it with git show, giving the hash followed by a caret, a colon and README.md."
+do_2 = "do_2 Write docs/readme/NETWORK.md from that text. Give the page the first-level title Paxeer X Network reference and leave out the banner, the badges and the language links that stood above the first second-level heading. Keep every section with the text and the level of its heading, and keep the sentences, the tables and the command blocks. Change only what the move makes necessary: a relative link gets the path that resolves from docs/readme; a path or a file name that a later task renamed gets its present form, and the manifests under spec/layerx-merge/programme/records/renames give the from path and the to path; a statement that the tree no longer bears out is brought to what the tree holds and named in the final message. Do not shorten the text."
+do_3 = "do_3 In README.md add one entry to the list of the section Documentation that links docs/readme/NETWORK.md as the network reference. Change nothing else in README.md. Check that every relative link of the new page resolves to a file or a directory of the tree."
+do_4 = "do_4 Make an inventory for the tasks that follow and change no test in this task. Install the packages of tools/qualification/requirements.txt by hand; where the install does not complete, say so and go on with what is installed. Run each Python test file under tools/qualification and under tests/ci on its own with python3 -m pytest -q and the marker expression not native, as the target test-qualification-python of the Makefile does, with a limit of 120 seconds for each file. For each file that does not pass write one line: the file, the first test that stops, and the cause in a few words. Sort the lines into four classes: the test reads a section or a sentence of the earlier front page; the test reads another page whose text changed; the test reads a path from before a rename; another cause. For five files of the first class try on a copy outside the tree whether the test passes when it reads docs/readme/NETWORK.md, and say what else it would need. Put the whole list with its classes into the final message."
+do_5 = "do_5 Before each commit read the output of git status. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["README.md"]
+tests = []
+planned_paths = ["docs/readme/NETWORK.md"]
+build_cmd = "python3 -m pip install -q pytest PyYAML"
+verify_cmd = "test -s docs/readme/NETWORK.md && grep -q -F -e docs/readme/NETWORK.md README.md && grep -q -x -F -e '## What is Paxeer X Network?' docs/readme/NETWORK.md && grep -q -x -F -e '### Build' docs/readme/NETWORK.md && grep -q -F -e 'kernel is embedded in the node' docs/readme/NETWORK.md && test $(wc -l < docs/readme/NETWORK.md) -ge 250"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.43.259]
 title = "Bring the notice pages of the key fixture directories to one line"
