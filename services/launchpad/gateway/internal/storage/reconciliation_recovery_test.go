@@ -29,7 +29,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func repairM993Store(t *testing.T, path string) *reconciliation.Store {
+func reconciliationRecoveryStore(t *testing.T, path string) *reconciliation.Store {
 	t.Helper()
 	store, err := reconciliation.Open(path)
 	if err != nil {
@@ -38,19 +38,19 @@ func repairM993Store(t *testing.T, path string) *reconciliation.Store {
 	return store
 }
 
-func repairM993Update(t *testing.T, store *reconciliation.Store, update func(*reconciliation.State)) {
+func reconciliationRecoveryUpdate(t *testing.T, store *reconciliation.Store, update func(*reconciliation.State)) {
 	t.Helper()
 	if err := store.Update(context.Background(), update); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestRepairM_993_tombstone_replay_batch(t *testing.T) {
+func TestTombstoneReplayBatch(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "committed.json")
-	keeper := repairM993Store(t, path)
+	keeper := reconciliationRecoveryStore(t, path)
 	const total = 769
-	repairM993Update(t, keeper, func(state *reconciliation.State) {
+	reconciliationRecoveryUpdate(t, keeper, func(state *reconciliation.State) {
 		for i := 0; i < total; i++ {
 			hash := fmt.Sprintf("%064x", i+1)
 			state.Tombstones[hash] = storage.Tombstone{Hash: hash, Revision: 2}
@@ -64,7 +64,7 @@ func TestRepairM_993_tombstone_replay_batch(t *testing.T) {
 	if len(before.Operations) != 2*total {
 		t.Fatalf("initial operations=%d", len(before.Operations))
 	}
-	repairM993Update(t, keeper, func(state *reconciliation.State) {
+	reconciliationRecoveryUpdate(t, keeper, func(state *reconciliation.State) {
 		for key, op := range state.Operations {
 			if op.Kind == "purge" || strings.HasSuffix(op.Hash, "1") {
 				delete(state.Operations, key)
@@ -88,7 +88,7 @@ func TestRepairM_993_tombstone_replay_batch(t *testing.T) {
 	if err := storage.ReplayTombstones(ctx, keeper); !errors.Is(err, storage.ErrUnavailable) {
 		t.Fatalf("closed keeper accepted work: %v", err)
 	}
-	keeper = repairM993Store(t, path)
+	keeper = reconciliationRecoveryStore(t, path)
 	defer func() { _ = keeper.Close() }()
 	if err := storage.ReplayTombstones(ctx, keeper); err != nil {
 		t.Fatal(err)
@@ -128,13 +128,13 @@ func TestRepairM_993_tombstone_replay_batch(t *testing.T) {
 	if err := keeper.Close(); err != nil {
 		t.Fatal(err)
 	}
-	keeper = repairM993Store(t, path)
+	keeper = reconciliationRecoveryStore(t, path)
 	if !reflect.DeepEqual(recovered, keeper.Snapshot()) {
 		t.Fatal("committed recovery lost on second restart")
 	}
 }
 
-func repairM993Objects(t *testing.T) (*reconciliation.Objects, *s3.Client, *sharedstorage.Client) {
+func reconciliationRecoveryObjects(t *testing.T) (*reconciliation.Objects, *s3.Client, *sharedstorage.Client) {
 	t.Helper()
 	objects := reconciliation.NewObjects()
 	server := httptest.NewServer(objects)
@@ -149,27 +149,27 @@ func repairM993Objects(t *testing.T) (*reconciliation.Objects, *s3.Client, *shar
 	return objects, client, sharedstorage.NewFromS3(client, "media-fixture")
 }
 
-func repairM993Put(t *testing.T, client *sharedstorage.Client, key string, body []byte) {
+func reconciliationRecoveryPut(t *testing.T, client *sharedstorage.Client, key string, body []byte) {
 	t.Helper()
 	if err := client.Put(context.Background(), key, bytes.NewReader(body), int64(len(body)), "image/png"); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestRepairM_993_inventory_cursor(t *testing.T) {
+func TestInventoryCursor(t *testing.T) {
 	ctx := context.Background()
-	objects, client, publisher := repairM993Objects(t)
+	objects, client, publisher := reconciliationRecoveryObjects(t)
 	path := filepath.Join(t.TempDir(), "inventory.json")
-	keeper := repairM993Store(t, path)
+	keeper := reconciliationRecoveryStore(t, path)
 	const total = 7
 	keys := make([]string, total)
 	bodies := make([][]byte, total)
 	for i := 0; i < total; i++ {
 		keys[i] = fmt.Sprintf("private/owned-object-%03d", i)
 		bodies[i] = []byte(fmt.Sprintf("owned immutable content %d", i))
-		repairM993Put(t, publisher, keys[i], bodies[i])
+		reconciliationRecoveryPut(t, publisher, keys[i], bodies[i])
 	}
-	repairM993Update(t, keeper, func(state *reconciliation.State) {
+	reconciliationRecoveryUpdate(t, keeper, func(state *reconciliation.State) {
 		for i, key := range keys {
 			state.Objects[key] = reconciliation.Lineage{Hash: fmt.Sprintf("%x", sha256.Sum256(bodies[i])), Kind: "original"}
 		}
@@ -191,8 +191,8 @@ func TestRepairM_993_inventory_cursor(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Mutate an object beyond the first provider page while the consumer is stopped.
-	repairM993Put(t, publisher, keys[6], []byte("provider object was mutated"))
-	keeper = repairM993Store(t, path)
+	reconciliationRecoveryPut(t, publisher, keys[6], []byte("provider object was mutated"))
+	keeper = reconciliationRecoveryStore(t, path)
 	report, err = storage.ReconcileInventory(ctx, keeper, client, "media-fixture", "private/", 3)
 	if err != nil || report.Checked != 3 || !report.Truncated {
 		t.Fatalf("resumed pass: %+v err=%v", report, err)
@@ -204,7 +204,7 @@ func TestRepairM_993_inventory_cursor(t *testing.T) {
 	if err = keeper.Close(); err != nil {
 		t.Fatal(err)
 	}
-	keeper = repairM993Store(t, path)
+	keeper = reconciliationRecoveryStore(t, path)
 	report, err = storage.ReconcileInventory(ctx, keeper, client, "media-fixture", "private/", 3)
 	if !errors.Is(err, storage.ErrConflict) || report.Checked != 1 {
 		t.Fatalf("tail mutation escaped detection: %+v err=%v", report, err)
@@ -212,7 +212,7 @@ func TestRepairM_993_inventory_cursor(t *testing.T) {
 	if !reflect.DeepEqual(secondCursor, keeper.Snapshot().Cursors) {
 		t.Fatal("failed page advanced durable continuation")
 	}
-	repairM993Put(t, publisher, keys[6], bodies[6])
+	reconciliationRecoveryPut(t, publisher, keys[6], bodies[6])
 	report, err = storage.ReconcileInventory(ctx, keeper, client, "media-fixture", "private/", 3)
 	if err != nil || report.Checked != 1 || report.Truncated {
 		t.Fatalf("complete traversal: %+v err=%v", report, err)
@@ -225,7 +225,7 @@ func TestRepairM_993_inventory_cursor(t *testing.T) {
 	if err = keeper.Close(); err != nil {
 		t.Fatal(err)
 	}
-	keeper = repairM993Store(t, path)
+	keeper = reconciliationRecoveryStore(t, path)
 	defer keeper.Close()
 	report, err = storage.ReconcileInventory(ctx, keeper, client, "media-fixture", "private/", 3)
 	if err != nil || report.Checked != 3 || !report.Truncated {
@@ -246,12 +246,12 @@ func TestRepairM_993_inventory_cursor(t *testing.T) {
 	}
 }
 
-func TestRepairM_993_inventory_multi_page_limit(t *testing.T) {
-	objects, client, publisher := repairM993Objects(t)
-	keeper := repairM993Store(t, filepath.Join(t.TempDir(), "inventory.json"))
+func TestInventoryMultiPageLimit(t *testing.T) {
+	objects, client, publisher := reconciliationRecoveryObjects(t)
+	keeper := reconciliationRecoveryStore(t, filepath.Join(t.TempDir(), "inventory.json"))
 	defer keeper.Close()
 	for i := 0; i < 1003; i++ {
-		repairM993Put(t, publisher, fmt.Sprintf("temporary/%04d", i), []byte("owned orphan"))
+		reconciliationRecoveryPut(t, publisher, fmt.Sprintf("temporary/%04d", i), []byte("owned orphan"))
 	}
 	report, err := storage.ReconcileInventory(context.Background(), keeper, client, "media-fixture", "temporary/", 1001)
 	if err != nil || report.Checked != 1001 || len(report.Orphans) != 1001 || !report.Truncated {
@@ -267,13 +267,13 @@ func TestRepairM_993_inventory_multi_page_limit(t *testing.T) {
 	}
 }
 
-func TestRepairM_993_inventory_cursor_scope_and_page_budget(t *testing.T) {
-	objects, client, publisher := repairM993Objects(t)
-	keeper := repairM993Store(t, filepath.Join(t.TempDir(), "inventory.json"))
+func TestInventoryCursorScopeAndPageBudget(t *testing.T) {
+	objects, client, publisher := reconciliationRecoveryObjects(t)
+	keeper := reconciliationRecoveryStore(t, filepath.Join(t.TempDir(), "inventory.json"))
 	defer keeper.Close()
 	// Unknown keys are actual listed orphans, never implicitly approved.
 	for i := 0; i < 4; i++ {
-		repairM993Put(t, publisher, fmt.Sprintf("temporary/%d", i), []byte("owned orphan"))
+		reconciliationRecoveryPut(t, publisher, fmt.Sprintf("temporary/%d", i), []byte("owned orphan"))
 	}
 	report, err := storage.ReconcileInventory(context.Background(), keeper, client, "media-fixture", "temporary/", 2)
 	if err != nil || report.Checked != 2 || len(report.Orphans) != 2 || !report.Truncated {
@@ -297,7 +297,7 @@ func TestRepairM_993_inventory_cursor_scope_and_page_budget(t *testing.T) {
 	}
 }
 
-func repairM993Scanner(t *testing.T, address string) (net.Listener, <-chan error) {
+func reconciliationRecoveryScanner(t *testing.T, address string) (net.Listener, <-chan error) {
 	t.Helper()
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -329,7 +329,7 @@ func repairM993Scanner(t *testing.T, address string) (net.Listener, <-chan error
 	return listener, done
 }
 
-func repairM993Await(t *testing.T, check func() bool) {
+func reconciliationRecoveryAwait(t *testing.T, check func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
@@ -341,17 +341,17 @@ func repairM993Await(t *testing.T, check func() bool) {
 	t.Fatal("timed out waiting for scanner observation")
 }
 
-func TestRepairM_993_media_observer_unwired(t *testing.T) {
+func TestScannerReadinessPreservesApprovedReads(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	keeper := repairM993Store(t, filepath.Join(t.TempDir(), "health.json"))
+	keeper := reconciliationRecoveryStore(t, filepath.Join(t.TempDir(), "health.json"))
 	defer keeper.Close()
-	_, _, publisher := repairM993Objects(t)
+	_, _, publisher := reconciliationRecoveryObjects(t)
 	body := []byte("owned approved image bytes")
 	hash := fmt.Sprintf("%x", sha256.Sum256(body))
 	key := "approved/" + hash + "/256"
-	repairM993Put(t, publisher, key, body)
-	repairM993Update(t, keeper, func(state *reconciliation.State) {
+	reconciliationRecoveryPut(t, publisher, key, body)
+	reconciliationRecoveryUpdate(t, keeper, func(state *reconciliation.State) {
 		state.Objects[key] = reconciliation.Lineage{Hash: hash, Kind: "variant"}
 		state.Restrictions[hash] = reconciliation.Restriction{Revision: 1, State: "approved"}
 		state.QuarantinedAt = time.Now().Add(-2 * time.Minute)
@@ -369,7 +369,7 @@ func TestRepairM_993_media_observer_unwired(t *testing.T) {
 			t.Fatalf("permitted read: status=%d body=%q", response.Code, response.Body.Bytes())
 		}
 	}
-	listener, scannerDone := repairM993Scanner(t, "127.0.0.1:0")
+	listener, scannerDone := reconciliationRecoveryScanner(t, "127.0.0.1:0")
 	defer listener.Close()
 	options := sharedhttp.ScanOptions{Host: "127.0.0.1", Port: listener.Addr().(*net.TCPAddr).Port, Timeout: time.Second}
 	probeDone := make(chan error, 1)
@@ -385,7 +385,7 @@ func TestRepairM_993_media_observer_unwired(t *testing.T) {
 			t.Error("probe loop did not stop")
 		}
 	}()
-	repairM993Await(t, func() bool {
+	reconciliationRecoveryAwait(t, func() bool {
 		h, err := observer.HealthFrom(ctx, keeper, time.Now(), true)
 		return err == nil && h.WriteReady && h.ReadReady && h.ScannerUnavailableSince.IsZero()
 	})
@@ -396,7 +396,7 @@ func TestRepairM_993_media_observer_unwired(t *testing.T) {
 	if err := <-scannerDone; err != nil {
 		t.Fatal(err)
 	}
-	repairM993Await(t, func() bool {
+	reconciliationRecoveryAwait(t, func() bool {
 		h, err := observer.HealthFrom(ctx, keeper, time.Now(), true)
 		return err == nil && !h.WriteReady && h.ReadReady && !h.ScannerUnavailableSince.IsZero()
 	})
@@ -410,7 +410,7 @@ func TestRepairM_993_media_observer_unwired(t *testing.T) {
 		t.Fatalf("runtime measurements: %+v", snapshot)
 	}
 	failure := health.ScannerUnavailableSince
-	repairM993Await(t, func() bool { return observer.Snapshot()["scanCount"].(uint64) >= snapshot["scanCount"].(uint64)+2 })
+	reconciliationRecoveryAwait(t, func() bool { return observer.Snapshot()["scanCount"].(uint64) >= snapshot["scanCount"].(uint64)+2 })
 	health, err = observer.HealthFrom(ctx, keeper, time.Now().Add(62*time.Second), true)
 	if err != nil || !health.ScannerUnavailableSince.Equal(failure) || !health.ScanAlert {
 		t.Fatalf("outage timeline reset: %+v %v", health, err)
@@ -419,20 +419,20 @@ func TestRepairM_993_media_observer_unwired(t *testing.T) {
 	if err != nil || !health.WriteReady || !health.ReadReady || health.ScanAlert {
 		t.Fatalf("disabled upload readiness: %+v %v", health, err)
 	}
-	recoveredScanner, recoveredDone := repairM993Scanner(t, listener.Addr().String())
+	recoveredScanner, recoveredDone := reconciliationRecoveryScanner(t, listener.Addr().String())
 	defer func() {
 		_ = recoveredScanner.Close()
 		if err := <-recoveredDone; err != nil {
 			t.Error(err)
 		}
 	}()
-	repairM993Await(t, func() bool {
+	reconciliationRecoveryAwait(t, func() bool {
 		h, err := observer.HealthFrom(ctx, keeper, time.Now(), true)
 		return err == nil && h.WriteReady && h.ReadReady && !h.ScanAlert && h.ScannerUnavailableSince.IsZero()
 	})
 	read()
 	// Storage authority failure still denies a read regardless of scanner status.
-	repairM993Update(t, keeper, func(state *reconciliation.State) {
+	reconciliationRecoveryUpdate(t, keeper, func(state *reconciliation.State) {
 		state.Restrictions[hash] = reconciliation.Restriction{Revision: 2, State: "blocked"}
 	})
 	response := httptest.NewRecorder()

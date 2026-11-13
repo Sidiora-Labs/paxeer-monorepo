@@ -1,5 +1,5 @@
 {
-  "name": "repair-51-sql-runtime",
+  "name": "storage-visibility-sql-runtime",
   "version": "1.0.0",
   "private": true,
   "type": "module",

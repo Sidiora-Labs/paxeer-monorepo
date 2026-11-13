@@ -16,7 +16,7 @@ import (
 
 	raster "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image"
 	metadata "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/metadata"
-	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/repair51/objects"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/metadata/visibilityfixture/objects"
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"

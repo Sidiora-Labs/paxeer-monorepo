@@ -23,34 +23,34 @@ import (
 	"github.com/google/uuid"
 )
 
-const repairM989Session = "Bearer repair-m989-session"
+const recordingRecoverySession = "Bearer repair-m989-session"
 
-type repairM989Request struct {
+type recordingRecoveryRequest struct {
 	method, path string
 	header       http.Header
 	body         []byte
 	principal    sharedauth.Principal
 }
 
-type repairM989Gateway struct {
+type recordingRecoveryGateway struct {
 	public        *httptest.Server
 	principal     sharedauth.IdentityPrincipal
-	received      chan repairM989Request
+	received      chan recordingRecoveryRequest
 	identityCalls atomic.Int64
 }
 
 // The loopback peers supply identity and media fixtures; Connected and both
 // shared mTLS assertion verifiers are production implementations. This fixture
-// does not stand in for the user authority's durable lifecycle (see repair_m989.kvx).
-func repairM989Mount(t *testing.T, name string, peer http.Handler) *repairM989Gateway {
+// does not stand in for the user authority's durable lifecycle (see spec/layerx-merge/programme/records/services/launchpad/gateway/internal/proxy/repair_m989.kvx).
+func recordingRecoveryMount(t *testing.T, name string, peer http.Handler) *recordingRecoveryGateway {
 	t.Helper()
-	f := &repairM989Gateway{
+	f := &recordingRecoveryGateway{
 		principal: sharedauth.IdentityPrincipal{
 			AccountID: uuid.NewString(), SessionID: uuid.NewString(),
 			Wallet:    "0x1111111111111111111111111111111111111111",
 			AuthEpoch: 1, ProofAt: time.Now(), AccessExpiresAt: time.Now().Add(time.Hour),
 		},
-		received: make(chan repairM989Request, 64),
+		received: make(chan recordingRecoveryRequest, 64),
 	}
 	pki := testpki.New(t)
 	gateway := pki.Leaf("gateway", "gateway.internal")
@@ -84,7 +84,7 @@ func repairM989Mount(t *testing.T, name string, peer http.Handler) *repairM989Ga
 				return
 			}
 			var request sharedauth.IdentityAuthenticationRequest
-			if json.Unmarshal(body, &request) != nil || request.Authorization != repairM989Session {
+			if json.Unmarshal(body, &request) != nil || request.Authorization != recordingRecoverySession {
 				http.Error(w, "session denied", http.StatusUnauthorized)
 				return
 			}
@@ -100,7 +100,7 @@ func repairM989Mount(t *testing.T, name string, peer http.Handler) *repairM989Ga
 			http.Error(w, "denied", 401)
 			return
 		}
-		f.received <- repairM989Request{r.Method, r.URL.RequestURI(), r.Header.Clone(), body, principal}
+		f.received <- recordingRecoveryRequest{r.Method, r.URL.RequestURI(), r.Header.Clone(), body, principal}
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		peer.ServeHTTP(w, r)
 	}))
@@ -132,7 +132,7 @@ func repairM989Mount(t *testing.T, name string, peer http.Handler) *repairM989Ga
 	return f
 }
 
-func (f *repairM989Gateway) request(t *testing.T, method, path string, body []byte, header http.Header) (*http.Response, error) {
+func (f *recordingRecoveryGateway) request(t *testing.T, method, path string, body []byte, header http.Header) (*http.Response, error) {
 	t.Helper()
 	r, err := http.NewRequest(method, f.public.URL+path, bytes.NewReader(body))
 	if err != nil {
@@ -142,13 +142,13 @@ func (f *repairM989Gateway) request(t *testing.T, method, path string, body []by
 	if r.Header == nil {
 		r.Header = make(http.Header)
 	}
-	r.Header.Set("Authorization", repairM989Session)
+	r.Header.Set("Authorization", recordingRecoverySession)
 	return f.public.Client().Do(r)
 }
 
-func repairM989Recording(t *testing.T) (string, int64, []byte) {
+func recordingRecoveryRecording(t *testing.T) (string, int64, []byte) {
 	t.Helper()
-	ogg, err := os.ReadFile("testdata/repair_m989_silence.ogg")
+	ogg, err := os.ReadFile("testdata/recording_silence.ogg")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,11 +178,11 @@ func repairM989Recording(t *testing.T) (string, int64, []byte) {
 	return path, size, digest.Sum(nil)
 }
 
-func TestRepairM_989_recording_complete(t *testing.T) {
-	path, size, wantHash := repairM989Recording(t)
+func TestRecordingComplete(t *testing.T) {
+	path, size, wantHash := recordingRecoveryRecording(t)
 	for _, knownLength := range []bool{true, false} {
 		t.Run("known_length="+strconv.FormatBool(knownLength), func(t *testing.T) {
-			f := repairM989Mount(t, "social", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			f := recordingRecoveryMount(t, "social", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				file, err := os.Open(path)
 				if err != nil {
 					t.Error(err)
@@ -223,11 +223,11 @@ func TestRepairM_989_recording_complete(t *testing.T) {
 	}
 }
 
-func TestRepairM_989_recording_transfer_failure(t *testing.T) {
-	path, size, _ := repairM989Recording(t)
+func TestRecordingTransferFailure(t *testing.T) {
+	path, size, _ := recordingRecoveryRecording(t)
 	for _, knownLength := range []bool{true, false} {
 		t.Run("known_length="+strconv.FormatBool(knownLength), func(t *testing.T) {
-			f := repairM989Mount(t, "social", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			f := recordingRecoveryMount(t, "social", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				file, err := os.Open(path)
 				if err != nil {
 					t.Error(err)
@@ -265,8 +265,8 @@ func TestRepairM_989_recording_transfer_failure(t *testing.T) {
 	}
 }
 
-func TestRepairM_989_recording_invalid_content(t *testing.T) {
-	f := repairM989Mount(t, "social", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestRecordingInvalidContent(t *testing.T) {
+	f := recordingRecoveryMount(t, "social", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		_, _ = io.WriteString(w, "<html>restricted</html>")
 	}))
@@ -281,8 +281,8 @@ func TestRepairM_989_recording_invalid_content(t *testing.T) {
 	}
 }
 
-func TestRepairM_989_owner_mounted_transport(t *testing.T) {
-	f := repairM989Mount(t, "user", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestOwnerMountedTransport(t *testing.T) {
+	f := recordingRecoveryMount(t, "user", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	job := uuid.NewString()
@@ -305,7 +305,7 @@ func TestRepairM_989_owner_mounted_transport(t *testing.T) {
 				t.Fatalf("owner transport: %s", resp.Status)
 			}
 			got := <-f.received
-			if got.path != tc.path || got.method != http.MethodGet || got.header.Get("X-Export-Authorization") != tc.want || got.header.Get("Authorization") != repairM989Session || got.header.Get("Cookie") != "__Host-kindle_access=repair-cookie" || got.header.Get("X-Actor-Wallet") != "" {
+			if got.path != tc.path || got.method != http.MethodGet || got.header.Get("X-Export-Authorization") != tc.want || got.header.Get("Authorization") != recordingRecoverySession || got.header.Get("Cookie") != "__Host-kindle_access=repair-cookie" || got.header.Get("X-Actor-Wallet") != "" {
 				t.Fatalf("owner request changed: %+v", got)
 			}
 			if got.principal.Wallet != f.principal.Wallet || got.principal.SessionID != f.principal.SessionID || got.principal.TraceID != requestID || len(got.principal.Roles) != 1 || got.principal.Roles[0] != "owner" {
@@ -330,8 +330,8 @@ func TestRepairM_989_owner_mounted_transport(t *testing.T) {
 	}
 }
 
-func TestRepairM_989_owner_recovery_refusals(t *testing.T) {
-	f := repairM989Mount(t, "user", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestOwnerRecoveryRefusals(t *testing.T) {
+	f := recordingRecoveryMount(t, "user", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("invalid recovery request reached private authority")
 		w.WriteHeader(http.StatusNoContent)
 	}))
@@ -352,7 +352,7 @@ func TestRepairM_989_owner_recovery_refusals(t *testing.T) {
 	}
 }
 
-func TestRepairM_989_owner_existing_assertions(t *testing.T) {
+func TestOwnerRouteAuthentication(t *testing.T) {
 	t.Run("frozen_owner_routes", TestUserConnectedRoutesForwardFrozenV2Owner)
 	t.Run("public_profile_reads", TestUserConnectedRoutesKeepV2ProfileReadPublic)
 	t.Run("account_audience", TestUserConnectedOwnerRoutesSignAccountAudience)

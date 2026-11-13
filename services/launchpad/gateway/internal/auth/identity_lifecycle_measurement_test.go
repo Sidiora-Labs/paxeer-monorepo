@@ -33,7 +33,7 @@ import (
 
 // Protocol peers are committed fixtures. Auth, pgx, Redis transport, signatures,
 // pagination, collection and measurement consumers remain the production code.
-func repairM990Redis(t *testing.T) *goredis.Client {
+func identityLifecycleRedis(t *testing.T) *goredis.Client {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -150,8 +150,8 @@ func repairM990Redis(t *testing.T) *goredis.Client {
 	return client
 }
 
-func TestRepairM_990_LegacyMessageBinding(t *testing.T) {
-	a := New(Deps{Redis: repairM990Redis(t), JWTSecret: "repair-m990-signing-secret", JWTTTL: time.Hour, NonceTTL: time.Minute, AppDomain: "kindle.test"})
+func TestLegacyMessageBinding(t *testing.T) {
+	a := New(Deps{Redis: identityLifecycleRedis(t), JWTSecret: "repair-m990-signing-secret", JWTTTL: time.Hour, NonceTTL: time.Minute, AppDomain: "kindle.test"})
 	router := chi.NewRouter()
 	a.RegisterRoutes(router)
 	server := httptest.NewServer(router)
@@ -270,25 +270,25 @@ func TestRepairM_990_LegacyMessageBinding(t *testing.T) {
 	}
 }
 
-type repairM990Field struct {
+type identityLifecycleField struct {
 	name string
 	oid  uint32
 }
-type repairM990Reply struct {
-	fields []repairM990Field
+type identityLifecycleReply struct {
+	fields []identityLifecycleField
 	rows   [][][]byte
 	tag    string
 	err    error
 }
 
-func repairM990TextRows(names []string, rows ...[]string) repairM990Reply {
-	reply := repairM990Reply{tag: "SELECT " + strconv.Itoa(len(rows))}
+func identityLifecycleTextRows(names []string, rows ...[]string) identityLifecycleReply {
+	reply := identityLifecycleReply{tag: "SELECT " + strconv.Itoa(len(rows))}
 	for _, name := range names {
 		oid := uint32(25)
 		if name == "count" || name == "requests" || name == "auth_epoch" {
 			oid = 20
 		}
-		reply.fields = append(reply.fields, repairM990Field{name, oid})
+		reply.fields = append(reply.fields, identityLifecycleField{name, oid})
 	}
 	for _, row := range rows {
 		values := [][]byte{}
@@ -302,7 +302,7 @@ func repairM990TextRows(names []string, rows ...[]string) repairM990Reply {
 
 // A loopback PostgreSQL wire transcript peer avoids a database executable in this
 // bounded gate. It does not claim to qualify PostgreSQL SQL execution or restart.
-func repairM990Postgres(t *testing.T, respond func(string) repairM990Reply) *pgxpool.Pool {
+func identityLifecyclePostgres(t *testing.T, respond func(string) identityLifecycleReply) *pgxpool.Pool {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -410,7 +410,7 @@ func repairM990Postgres(t *testing.T, respond func(string) repairM990Reply) *pgx
 	return pool
 }
 
-func repairM990Identity(t *testing.T, pool *pgxpool.Pool) *Identity {
+func identityLifecycleIdentity(t *testing.T, pool *pgxpool.Pool) *Identity {
 	t.Helper()
 	identity, err := NewIdentity(IdentityConfig{Pool: pool, Domain: "kindle.test", URI: "https://kindle.test/auth", AllowedOrigins: []string{"https://kindle.test"}, Verifier: Chain125ProofVerifier{}, LimiterKey: []byte(strings.Repeat("k", 32))})
 	if err != nil {
@@ -419,7 +419,7 @@ func repairM990Identity(t *testing.T, pool *pgxpool.Pool) *Identity {
 	return identity
 }
 
-func TestRepairM_990_WalletLinkHistory(t *testing.T) {
+func TestWalletLinkHistory(t *testing.T) {
 	owner := Principal{accountID: uuid.NewString(), sessionID: uuid.NewString(), wallet: newWallet(t).addr}
 	at := time.Now().UTC().Truncate(time.Millisecond)
 	ids := []string{}
@@ -428,15 +428,15 @@ func TestRepairM_990_WalletLinkHistory(t *testing.T) {
 	}
 	page := 0
 	currentRead := false
-	pool := repairM990Postgres(t, func(sql string) repairM990Reply {
+	pool := identityLifecyclePostgres(t, func(sql string) identityLifecycleReply {
 		if strings.HasPrefix(sql, "SELECT a.account_id::text,s.session_id::text,s.wallet,s.auth_epoch,s.reauthenticated_at") {
-			return repairM990Reply{fields: []repairM990Field{{"account_id", 25}, {"session_id", 25}, {"wallet", 25}, {"auth_epoch", 20}, {"reauthenticated_at", 1184}}, rows: [][][]byte{{[]byte(owner.accountID), []byte(owner.sessionID), []byte(owner.wallet), []byte("0"), []byte(at.Format("2006-01-02 15:04:05.999999999-07:00"))}}, tag: "SELECT 1"}
+			return identityLifecycleReply{fields: []identityLifecycleField{{"account_id", 25}, {"session_id", 25}, {"wallet", 25}, {"auth_epoch", 20}, {"reauthenticated_at", 1184}}, rows: [][][]byte{{[]byte(owner.accountID), []byte(owner.sessionID), []byte(owner.wallet), []byte("0"), []byte(at.Format("2006-01-02 15:04:05.999999999-07:00"))}}, tag: "SELECT 1"}
 		}
 		if strings.HasPrefix(sql, "SELECT EXISTS(SELECT 1 FROM identity_sessions") {
-			return repairM990Reply{fields: []repairM990Field{{"exists", 16}}, rows: [][][]byte{{[]byte("t")}}, tag: "SELECT 1"}
+			return identityLifecycleReply{fields: []identityLifecycleField{{"exists", 16}}, rows: [][][]byte{{[]byte("t")}}, tag: "SELECT 1"}
 		}
 		if !strings.HasPrefix(sql, "SELECT w.link_id::text") {
-			return repairM990Reply{err: fmt.Errorf("unexpected history transcript: %s", sql)}
+			return identityLifecycleReply{err: fmt.Errorf("unexpected history transcript: %s", sql)}
 		}
 		for _, fragment := range []string{"w.account_id=", owner.accountID, "w.state<>'revoked'", "w.state<>'pending'", "c.consumed_at IS NULL", "c.expires_at>", "ORDER BY w.link_id LIMIT"} {
 			if !strings.Contains(sql, fragment) {
@@ -460,7 +460,7 @@ func TestRepairM_990_WalletLinkHistory(t *testing.T) {
 		if !currentRead {
 			page++
 		}
-		reply := repairM990Reply{fields: []repairM990Field{{"link_id", 25}, {"account_id", 25}, {"wallet", 25}, {"visibility", 25}, {"state", 25}, {"linked_at", 1184}}, tag: fmt.Sprintf("SELECT %d", end-start)}
+		reply := identityLifecycleReply{fields: []identityLifecycleField{{"link_id", 25}, {"account_id", 25}, {"wallet", 25}, {"visibility", 25}, {"state", 25}, {"linked_at", 1184}}, tag: fmt.Sprintf("SELECT %d", end-start)}
 		for i := start; i < end; i++ {
 			state := "revoked"
 			if i == 150 {
@@ -470,7 +470,7 @@ func TestRepairM_990_WalletLinkHistory(t *testing.T) {
 		}
 		return reply
 	})
-	identity := repairM990Identity(t, pool)
+	identity := identityLifecycleIdentity(t, pool)
 	router := chi.NewRouter()
 	identity.registerDevelopmentOwnerRoutes(router)
 	server := httptest.NewServer(router)
@@ -551,23 +551,23 @@ func TestRepairM_990_WalletLinkHistory(t *testing.T) {
 	}
 }
 
-func TestRepairM_990_IdentityCollection(t *testing.T) {
+func TestIdentityCollection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var mu sync.Mutex
 	statements := []string{}
 	committed := make(chan struct{})
 	var committedOnce sync.Once
-	pool := repairM990Postgres(t, func(sql string) repairM990Reply {
+	pool := identityLifecyclePostgres(t, func(sql string) identityLifecycleReply {
 		mu.Lock()
 		statements = append(statements, sql)
 		mu.Unlock()
 		if sql == "commit" {
 			committedOnce.Do(func() { close(committed) })
-			return repairM990Reply{tag: "COMMIT"}
+			return identityLifecycleReply{tag: "COMMIT"}
 		}
 		if sql == "begin" {
-			return repairM990Reply{tag: "BEGIN"}
+			return identityLifecycleReply{tag: "BEGIN"}
 		}
 		if strings.HasPrefix(sql, "DELETE FROM ") {
 			if !regexp.MustCompile(`LIMIT\s+'7'\s+FOR`).MatchString(sql) || !strings.Contains(sql, "SKIP LOCKED") {
@@ -579,11 +579,11 @@ func TestRepairM_990_IdentityCollection(t *testing.T) {
 			if strings.Contains(sql, "identity_outbox") || strings.Contains(sql, "identity_revisions") || strings.Contains(sql, "delivery_outbox") {
 				t.Error("collector touched durable evidence")
 			}
-			return repairM990Reply{tag: "DELETE 1"}
+			return identityLifecycleReply{tag: "DELETE 1"}
 		}
-		return repairM990Reply{err: fmt.Errorf("unexpected collection transcript: %s", sql)}
+		return identityLifecycleReply{err: fmt.Errorf("unexpected collection transcript: %s", sql)}
 	})
-	identity := repairM990Identity(t, pool)
+	identity := identityLifecycleIdentity(t, pool)
 	for _, limit := range []int{0, 1001} {
 		if identity.CollectExpired(context.Background(), limit) == nil {
 			t.Fatal("collector limit accepted")
@@ -628,14 +628,14 @@ func TestRepairM_990_IdentityCollection(t *testing.T) {
 		t.Fatal("unbounded collector cadence accepted")
 	}
 	failedStatements := []string{}
-	failed := repairM990Postgres(t, func(sql string) repairM990Reply {
+	failed := identityLifecyclePostgres(t, func(sql string) identityLifecycleReply {
 		failedStatements = append(failedStatements, sql)
 		if strings.HasPrefix(sql, "DELETE FROM identity_challenges ") {
-			return repairM990Reply{err: errors.New("recorded storage interruption")}
+			return identityLifecycleReply{err: errors.New("recorded storage interruption")}
 		}
-		return repairM990Reply{tag: "ROLLBACK"}
+		return identityLifecycleReply{tag: "ROLLBACK"}
 	})
-	if err := repairM990Identity(t, failed).CollectExpired(context.Background(), 1); err == nil {
+	if err := identityLifecycleIdentity(t, failed).CollectExpired(context.Background(), 1); err == nil {
 		t.Fatal("collection failure silently accepted")
 	}
 	if len(failedStatements) != 4 || failedStatements[len(failedStatements)-1] != "rollback" {
@@ -645,7 +645,7 @@ func TestRepairM_990_IdentityCollection(t *testing.T) {
 
 // pgx's pinned simple-protocol encoder transports []byte JSON as a quoted
 // bytea literal. Decode those exact producer bytes before retaining the response.
-func repairM990JSONLiteral(sql string) ([]byte, error) {
+func identityLifecycleJSONLiteral(sql string) ([]byte, error) {
 	match := regexp.MustCompile(`'\\x([0-9a-f]+)'\s*::jsonb`).FindStringSubmatch(sql)
 	if len(match) != 2 {
 		return nil, errors.New("producer JSON bytea literal absent")
@@ -657,7 +657,7 @@ func repairM990JSONLiteral(sql string) ([]byte, error) {
 	return raw, nil
 }
 
-func TestRepairM_990_RequestReplayRetention(t *testing.T) {
+func TestRequestReplayRetention(t *testing.T) {
 	request := ChallengeRequest{Wallet: newWallet(t).addr, Origin: "https://kindle.test"}
 	body, err := json.Marshal(request)
 	if err != nil {
@@ -667,16 +667,16 @@ func TestRepairM_990_RequestReplayRetention(t *testing.T) {
 	var stored []byte
 	expired := false
 	retired := 0
-	respond := func(sql string) repairM990Reply {
+	respond := func(sql string) identityLifecycleReply {
 		switch {
 		case sql == "begin":
-			return repairM990Reply{tag: "BEGIN"}
+			return identityLifecycleReply{tag: "BEGIN"}
 		case sql == "commit":
-			return repairM990Reply{tag: "COMMIT"}
+			return identityLifecycleReply{tag: "COMMIT"}
 		case sql == "rollback":
-			return repairM990Reply{tag: "ROLLBACK"}
+			return identityLifecycleReply{tag: "ROLLBACK"}
 		case strings.HasPrefix(sql, "SELECT pg_advisory_xact_lock"):
-			return repairM990Reply{tag: "SELECT 1"}
+			return identityLifecycleReply{tag: "SELECT 1"}
 		case strings.HasPrefix(sql, "DELETE FROM identity_challenge_requests "):
 			if !strings.Contains(sql, "retain_until<=clock_timestamp()") {
 				t.Error("request replay expiry lost")
@@ -686,36 +686,36 @@ func TestRepairM_990_RequestReplayRetention(t *testing.T) {
 				retired++
 				expired = false
 			}
-			return repairM990Reply{tag: "DELETE 0"}
+			return identityLifecycleReply{tag: "DELETE 0"}
 		case strings.HasPrefix(sql, "SELECT body_hash,response FROM identity_challenge_requests "):
-			result := repairM990Reply{fields: []repairM990Field{{"body_hash", 17}, {"response", 3802}}, tag: "SELECT 0"}
+			result := identityLifecycleReply{fields: []identityLifecycleField{{"body_hash", 17}, {"response", 3802}}, tag: "SELECT 0"}
 			if stored != nil {
 				result.rows = [][][]byte{{[]byte("\\x" + hex.EncodeToString(hash[:])), stored}}
 				result.tag = "SELECT 1"
 			}
 			return result
 		case strings.HasPrefix(sql, "INSERT INTO identity_limits"):
-			return repairM990TextRows([]string{"requests"}, []string{"1"})
+			return identityLifecycleTextRows([]string{"requests"}, []string{"1"})
 		case strings.HasPrefix(sql, "SELECT count(*) FROM identity_challenges"):
-			return repairM990TextRows([]string{"count"}, []string{"0"})
+			return identityLifecycleTextRows([]string{"count"}, []string{"0"})
 		case strings.HasPrefix(sql, "INSERT INTO identity_challenges"):
-			return repairM990Reply{tag: "INSERT 0 1"}
+			return identityLifecycleReply{tag: "INSERT 0 1"}
 		case strings.HasPrefix(sql, "INSERT INTO identity_challenge_requests"):
 			var err error
-			stored, err = repairM990JSONLiteral(sql)
+			stored, err = identityLifecycleJSONLiteral(sql)
 			if err != nil {
 				t.Error(err)
 			}
 			if !strings.Contains(sql, hex.EncodeToString(hash[:])) || !strings.Contains(sql, "interval '24 hours'") {
 				t.Error("producer replay digest/retention changed")
 			}
-			return repairM990Reply{tag: "INSERT 0 1"}
+			return identityLifecycleReply{tag: "INSERT 0 1"}
 		default:
-			return repairM990Reply{err: fmt.Errorf("unexpected replay transcript: %s", sql)}
+			return identityLifecycleReply{err: fmt.Errorf("unexpected replay transcript: %s", sql)}
 		}
 	}
-	pool := repairM990Postgres(t, respond)
-	identity := repairM990Identity(t, pool)
+	pool := identityLifecyclePostgres(t, respond)
+	identity := identityLifecycleIdentity(t, pool)
 	key := uuid.NewString()
 	first, err := identity.IssueLoginIdempotent(context.Background(), request, "127.0.0.1", key, body)
 	if err != nil {
@@ -731,7 +731,7 @@ func TestRepairM_990_RequestReplayRetention(t *testing.T) {
 	// Reopen the real client/component against the retained transcript state.
 	// A real PostgreSQL stop/start remains an explicitly recorded integration request.
 	pool.Close()
-	reopened := repairM990Identity(t, repairM990Postgres(t, respond))
+	reopened := identityLifecycleIdentity(t, identityLifecyclePostgres(t, respond))
 	recovered, err := reopened.IssueLoginIdempotent(context.Background(), request, "127.0.0.1", key, body)
 	if err != nil || recovered.ChallengeID != first.ChallengeID {
 		t.Fatalf("component reopen lost retained replay: %v", err)
@@ -743,7 +743,7 @@ func TestRepairM_990_RequestReplayRetention(t *testing.T) {
 	}
 }
 
-type repairM990WorkloadPeer struct {
+type identityLifecycleWorkloadPeer struct {
 	mu               sync.Mutex
 	challenges       map[string]Challenge
 	sessions         map[string]LoginData
@@ -752,9 +752,9 @@ type repairM990WorkloadPeer struct {
 	delay            time.Duration
 }
 
-func repairM990Workload(t *testing.T, delay time.Duration) (*repairM990WorkloadPeer, *httptest.Server) {
+func identityLifecycleWorkload(t *testing.T, delay time.Duration) (*identityLifecycleWorkloadPeer, *httptest.Server) {
 	t.Helper()
-	peer := &repairM990WorkloadPeer{challenges: map[string]Challenge{}, sessions: map[string]LoginData{}, account: uuid.NewString(), delay: delay}
+	peer := &identityLifecycleWorkloadPeer{challenges: map[string]Challenge{}, sessions: map[string]LoginData{}, account: uuid.NewString(), delay: delay}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Request-Id", r.Header.Get("X-Request-Id"))
 		w.Header().Set("Content-Type", "application/json")
@@ -860,48 +860,48 @@ func repairM990Workload(t *testing.T, delay time.Duration) (*repairM990WorkloadP
 	t.Cleanup(server.Close)
 	return peer, server
 }
-func (p *repairM990WorkloadPeer) checkpointReply(sql string) repairM990Reply {
+func (p *identityLifecycleWorkloadPeer) checkpointReply(sql string) identityLifecycleReply {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	switch {
 	case strings.HasPrefix(sql, "begin"):
-		return repairM990Reply{tag: "BEGIN"}
+		return identityLifecycleReply{tag: "BEGIN"}
 	case sql == "commit":
-		return repairM990Reply{tag: "COMMIT"}
+		return identityLifecycleReply{tag: "COMMIT"}
 	case sql == "rollback":
-		return repairM990Reply{tag: "ROLLBACK"}
+		return identityLifecycleReply{tag: "ROLLBACK"}
 	case strings.HasPrefix(sql, "SET LOCAL"):
-		return repairM990Reply{tag: "SET"}
+		return identityLifecycleReply{tag: "SET"}
 	case sql == "SELECT current_database()":
-		return repairM990TextRows([]string{"database"}, []string{"recorded_identity"})
+		return identityLifecycleTextRows([]string{"database"}, []string{"recorded_identity"})
 	case strings.HasPrefix(sql, "SELECT session_id::text,account_id::text FROM "):
 		rows := [][]string{}
 		for _, ack := range p.acknowledgements {
 			rows = append(rows, []string{ack.SessionID, p.account})
 		}
-		return repairM990TextRows([]string{"session_id", "account_id"}, rows...)
+		return identityLifecycleTextRows([]string{"session_id", "account_id"}, rows...)
 	case strings.HasPrefix(sql, "SELECT count(*) FROM "):
-		return repairM990TextRows([]string{"count"}, []string{strconv.Itoa(len(p.acknowledgements))})
+		return identityLifecycleTextRows([]string{"count"}, []string{strconv.Itoa(len(p.acknowledgements))})
 	case strings.Contains(sql, "row_to_json(t)::text"):
 		rows := [][]string{}
 		for _, ack := range p.acknowledgements {
 			rows = append(rows, []string{ack.SessionID, `{"recorded":"committed-ledger"}`})
 		}
-		return repairM990TextRows([]string{"id", "record"}, rows...)
+		return identityLifecycleTextRows([]string{"id", "record"}, rows...)
 	case strings.HasPrefix(sql, "SELECT event_id,envelope FROM "):
-		reply := repairM990Reply{fields: []repairM990Field{{"event_id", 25}, {"envelope", 17}}, tag: "SELECT 1"}
+		reply := identityLifecycleReply{fields: []identityLifecycleField{{"event_id", 25}, {"envelope", 17}}, tag: "SELECT 1"}
 		for _, ack := range p.acknowledgements {
 			reply.rows = append(reply.rows, [][]byte{[]byte(ack.SessionID), []byte("\\x" + hex.EncodeToString([]byte(`{"recorded":"delivery"}`)))})
 		}
 		return reply
 	default:
-		return repairM990Reply{err: fmt.Errorf("unexpected checkpoint transcript: %s", sql)}
+		return identityLifecycleReply{err: fmt.Errorf("unexpected checkpoint transcript: %s", sql)}
 	}
 }
-func repairM990MeasurementConfig(t *testing.T, delay time.Duration) IdentityMeasurementConfig {
+func identityLifecycleMeasurementConfig(t *testing.T, delay time.Duration) IdentityMeasurementConfig {
 	t.Helper()
-	peer, server := repairM990Workload(t, delay)
-	pool := repairM990Postgres(t, peer.checkpointReply)
+	peer, server := identityLifecycleWorkload(t, delay)
+	pool := identityLifecyclePostgres(t, peer.checkpointReply)
 	root, err := filepath.Abs("../../../../..")
 	if err != nil {
 		t.Fatal(err)
@@ -914,14 +914,14 @@ func repairM990MeasurementConfig(t *testing.T, delay time.Duration) IdentityMeas
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return IdentityMeasurementConfig{Binding: IdentityMeasurementBinding{CandidateSHA256: candidate, InterfaceSHA256: measurementHash([]byte("recorded-v2-contract")), TopologySHA256: measurementHash([]byte("recorded-loopback-peers")), Region: "loopback", RunID: uuid.NewString()}, Clients: []IdentityMeasurementClient{{BaseURL: server.URL, Origin: "https://kindle.test", Client: client}}, Phases: []IdentityMeasurementPhase{{Name: "bounded", SignInRefreshRPS: 2, DynamicBudgetRPS: 4, WriteBudgetRPS: 4, Duration: time.Second}}, Workers: 1, QueueCapacity: 2, MaxAcknowledgements: 2, RefreshesPerLogin: 1, SourceRoot: root, RequestTimeout: 2 * time.Second, EvidenceDirectory: t.TempDir(), Pool: pool, Schema: "users"}
 }
-func TestRepairM_990_MeasurementLoadWindow(t *testing.T) {
+func TestMeasurementLoadWindow(t *testing.T) {
 	for _, scenario := range []struct {
 		name    string
 		delay   time.Duration
 		healthy bool
 	}{{"healthy", 0, true}, {"drain", 1100 * time.Millisecond, false}} {
 		t.Run(scenario.name, func(t *testing.T) {
-			cfg := repairM990MeasurementConfig(t, scenario.delay)
+			cfg := identityLifecycleMeasurementConfig(t, scenario.delay)
 			ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
 			defer cancel()
 			summary, err := RunIdentityMeasurement(ctx, cfg)
@@ -963,16 +963,16 @@ func TestRepairM_990_MeasurementLoadWindow(t *testing.T) {
 			}
 		})
 	}
-	cfg := repairM990MeasurementConfig(t, 0)
+	cfg := identityLifecycleMeasurementConfig(t, 0)
 	cfg.Phases[0].Duration = time.Second + time.Nanosecond
 	if validateIdentityMeasurement(cfg) == nil {
 		t.Fatal("fractional offered journey silently truncated")
 	}
 }
 
-func TestRepairM_990_MeasurementFinalEvidence(t *testing.T) {
-	cfg := repairM990MeasurementConfig(t, 0)
-	owner := repairM990Identity(t, cfg.Pool)
+func TestMeasurementFinalEvidence(t *testing.T) {
+	cfg := identityLifecycleMeasurementConfig(t, 0)
+	owner := identityLifecycleIdentity(t, cfg.Pool)
 	directory := t.TempDir()
 	if err := owner.WriteRuntimeMeasurementEvidence(directory, cfg.SourceRoot, cfg.Binding); err != nil {
 		t.Fatal(err)
@@ -1000,7 +1000,7 @@ func TestRepairM_990_MeasurementFinalEvidence(t *testing.T) {
 	cfg.Runtime = owner
 	cfg.FinalEvidence = func(ctx context.Context, checkpoint IdentityDurabilityCheckpoint) (IdentityFinalEvidence, error) {
 		handed = checkpoint
-		evidence := IdentityFinalEvidence{Binding: cfg.Binding, Recovery: IdentityRecoveryEvidence{DurabilityPassed: true, AZLossAcceptance: true}, Revocation: repairM990Revocation(t, cfg.Binding), Shared: IdentitySharedAcceptance{Binding: cfg.Binding, Gate: "9.1", CompletedAt: time.Now().UTC(), Assertions: map[string]bool{"declared_pass": true}}}
+		evidence := IdentityFinalEvidence{Binding: cfg.Binding, Recovery: IdentityRecoveryEvidence{DurabilityPassed: true, AZLossAcceptance: true}, Revocation: identityLifecycleRevocation(t, cfg.Binding), Shared: IdentitySharedAcceptance{Binding: cfg.Binding, Gate: "9.1", CompletedAt: time.Now().UTC(), Assertions: map[string]bool{"declared_pass": true}}}
 		if err := writeIdentityImmutableJSON(finalPath, evidence); err != nil {
 			return IdentityFinalEvidence{}, err
 		}
@@ -1059,9 +1059,9 @@ func TestRepairM_990_MeasurementFinalEvidence(t *testing.T) {
 	}
 }
 
-type repairM990KeyStore map[string][]byte
+type identityLifecycleKeyStore map[string][]byte
 
-func (keys repairM990KeyStore) ResolveIdentityKey(ctx context.Context, reference string) ([]byte, error) {
+func (keys identityLifecycleKeyStore) ResolveIdentityKey(ctx context.Context, reference string) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -1071,10 +1071,10 @@ func (keys repairM990KeyStore) ResolveIdentityKey(ctx context.Context, reference
 	}
 	return append([]byte(nil), key...), nil
 }
-func repairM990Revocation(t *testing.T, binding IdentityMeasurementBinding) IdentityRevocationMeasurement {
+func identityLifecycleRevocation(t *testing.T, binding IdentityMeasurementBinding) IdentityRevocationMeasurement {
 	t.Helper()
 	now := time.Now().UTC()
-	keys := repairM990KeyStore{"measurement-key": []byte(strings.Repeat("k", 48))}
+	keys := identityLifecycleKeyStore{"measurement-key": []byte(strings.Repeat("k", 48))}
 	tokens, err := NewIdentityTokens("https://kindle.test", "gateway", "A", []SigningKey{{ID: "A", SecretReference: "measurement-key", ActiveAt: now.Add(-time.Hour), RetireAt: now.Add(time.Hour)}}, keys, time.Now)
 	if err != nil {
 		t.Fatal(err)
@@ -1085,22 +1085,22 @@ func repairM990Revocation(t *testing.T, binding IdentityMeasurementBinding) Iden
 	second.accessID = strings.Repeat("b", 64)
 	var mu sync.Mutex
 	revoked, pending := false, false
-	pool := repairM990Postgres(t, func(sql string) repairM990Reply {
+	pool := identityLifecyclePostgres(t, func(sql string) identityLifecycleReply {
 		mu.Lock()
 		defer mu.Unlock()
 		switch {
 		case sql == "begin":
-			return repairM990Reply{tag: "BEGIN"}
+			return identityLifecycleReply{tag: "BEGIN"}
 		case sql == "commit":
 			if pending {
 				revoked = true
 			}
-			return repairM990Reply{tag: "COMMIT"}
+			return identityLifecycleReply{tag: "COMMIT"}
 		case sql == "rollback":
 			pending = false
-			return repairM990Reply{tag: "ROLLBACK"}
+			return identityLifecycleReply{tag: "ROLLBACK"}
 		case strings.HasPrefix(sql, "SELECT a.account_id::text,s.session_id::text,s.wallet,s.auth_epoch,s.reauthenticated_at"):
-			reply := repairM990Reply{fields: []repairM990Field{{"account_id", 25}, {"session_id", 25}, {"wallet", 25}, {"auth_epoch", 20}, {"reauthenticated_at", 1184}}, tag: "SELECT 0"}
+			reply := identityLifecycleReply{fields: []identityLifecycleField{{"account_id", 25}, {"session_id", 25}, {"wallet", 25}, {"auth_epoch", 20}, {"reauthenticated_at", 1184}}, tag: "SELECT 0"}
 			if !revoked {
 				principal := owner
 				if strings.Contains(sql, second.sessionID) {
@@ -1115,21 +1115,21 @@ func repairM990Revocation(t *testing.T, binding IdentityMeasurementBinding) Iden
 			if revoked {
 				value = "f"
 			}
-			return repairM990Reply{fields: []repairM990Field{{"exists", 16}}, rows: [][][]byte{{[]byte(value)}}, tag: "SELECT 1"}
+			return identityLifecycleReply{fields: []identityLifecycleField{{"exists", 16}}, rows: [][][]byte{{[]byte(value)}}, tag: "SELECT 1"}
 		case strings.HasPrefix(sql, "SELECT auth_epoch FROM identity_accounts"):
-			return repairM990TextRows([]string{"auth_epoch"}, []string{"0"})
+			return identityLifecycleTextRows([]string{"auth_epoch"}, []string{"0"})
 		case strings.HasPrefix(sql, "UPDATE identity_accounts SET auth_epoch"):
 			pending = true
-			return repairM990Reply{tag: "UPDATE 1"}
+			return identityLifecycleReply{tag: "UPDATE 1"}
 		case strings.HasPrefix(sql, "UPDATE identity_sessions SET revoked_at"):
-			return repairM990Reply{tag: "UPDATE 2"}
+			return identityLifecycleReply{tag: "UPDATE 2"}
 		case strings.HasPrefix(sql, "INSERT INTO identity_outbox"):
-			return repairM990Reply{tag: "INSERT 0 1"}
+			return identityLifecycleReply{tag: "INSERT 0 1"}
 		default:
-			return repairM990Reply{err: fmt.Errorf("unexpected revocation transcript: %s", sql)}
+			return identityLifecycleReply{err: fmt.Errorf("unexpected revocation transcript: %s", sql)}
 		}
 	})
-	identity := repairM990Identity(t, pool)
+	identity := identityLifecycleIdentity(t, pool)
 	identity.tokens = tokens
 	router := chi.NewRouter()
 	identity.registerOwnerV2Routes(router)
