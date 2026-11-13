@@ -31,7 +31,7 @@ verification = "No pre-change verify was run and no pre-change test failures are
 
 [qualification]
 build_cmd = "python3 --version"
-verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1555.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_root_readme_contract.py"
 done_cmd = "cg spec done 22.33.1555 -f layerx-merge --root /work/paxeer-monorepo"
 evidence_ledger = "/out/run/gates.jsonl"
 verified_revision = "The last hf-done evidence row in the private ledger names the exact content-derived verified candidate revision, command, exit code and log path; the final response copies that row verbatim. This record is finalized before qualification because embedding its own candidate hash would change that hash. Build and verification must refer to the same candidate revision."
