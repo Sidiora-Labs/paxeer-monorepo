@@ -339,6 +339,7 @@ class BetaDriverTests(unittest.TestCase):
                 self.assertEqual(record["artifacts"], [], case_id)
         return cases
 
+    @pytest.mark.native
     def test_adoption_inventory_executes_against_the_local_paxd_stack(self) -> None:
         gate = "platform-qualify-adoption"
         output = self.work / gate
