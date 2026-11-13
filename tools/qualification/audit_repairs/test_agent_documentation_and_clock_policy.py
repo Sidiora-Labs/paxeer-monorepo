@@ -5,6 +5,7 @@ Out-of-scope clock violations remain violations and require named owner wiring.
 """
 
 import ast
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -287,38 +288,32 @@ def test_sdk_wallet_deadlines_use_explicit_clock_without_silent_fallback():
     assert "timeout > Duration::from_secs(300)" in wait
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "repair_22_33_1565.kvx and python_sdk_and_clock_source_pins.json record "
-        "clock paths that differ from the current Rust sources"
-    ),
-)
 def test_clock_scanner_violations_have_exact_out_of_scope_owner_requests():
     record = tomllib.loads(RECORD.read_text())
     pins = json.loads(
         (Path(__file__).with_name("fixtures") / "python_sdk_and_clock_source_pins.json").read_text()
     )
-    assert pins["source_revision"] == "2910889b640274b1b6f2bd14a2fba25019093bb2"
-    requests = record["wiring"]["clock_requests"] + pins["clock_requests"]
-    renames = {}
-    for number in (127, 129, 130, 131, 132, 133):
-        manifest = tomllib.loads(read(
-            f"spec/layerx-merge/programme/records/renames/22.43.{number}.kvx"
-        ))
-        for entry in manifest["file"].values():
-            assert entry["from"] not in renames
-            renames[entry["from"]] = entry["to"]
+    assert pins["clock_source_revision"] == "4bf40d96827730373898dfe869065e56fb9ebf54"
+    record_requests = record["wiring"]["clock_requests"]
+    assert record_requests
+    for request in record_requests:
+        path, owner, action = request.split(" | ")
+        assert path
+        assert owner == "owning domain 9"
+        assert action
+
+    requests = pins["clock_requests"]
+    digests = pins["clock_sha256"]
     requested = set()
     for request in requests:
         path, owner, action = request.split(" | ")
-        if path in renames:
-            path = renames[path]
         assert owner == "owning domain 9"
         assert action
         assert path not in requested
         assert (ROOT / path).is_file()
+        assert digests[path] == hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
         requested.add(path)
+    assert set(digests) == requested
     violations = set()
     allowed = AGENT / "crates/layerx-agentd/src/main.rs"
     for path in (AGENT / "crates").rglob("*.rs"):
