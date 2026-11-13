@@ -1,0 +1,192 @@
+[manifest]
+task = "22.43.218"
+records_moved = 13
+files_renamed = 16
+
+[file.1]
+from = "tools/paxctl/repair_22_39_160.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/repair_22_39_160.kvx"
+
+[file.2]
+from = "tools/paxctl/repair_m839.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/repair_m839.kvx"
+
+[file.3]
+from = "tools/paxctl/repair_m839_test.go"
+to = "tools/paxctl/cli_contract_test.go"
+
+[file.4]
+from = "tools/paxctl/sidecar/api/repair_m841.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/sidecar/api/repair_m841.kvx"
+
+[file.5]
+from = "tools/paxctl/sidecar/api/repair_m841_test.go"
+to = "tools/paxctl/sidecar/api/runtime_contract_test.go"
+
+[file.6]
+from = "tools/paxctl/sidecar/engine/repair_327.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/sidecar/engine/repair_327.kvx"
+
+[file.7]
+from = "tools/paxctl/sidecar/engine/repair_327_test.go"
+to = "tools/paxctl/sidecar/engine/task_generation_test.go"
+
+[file.8]
+from = "tools/paxctl/sidecar/engine/repair_m835.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/sidecar/engine/repair_m835.kvx"
+
+[file.9]
+from = "tools/paxctl/sidecar/engine/repair_m835_test.go"
+to = "tools/paxctl/sidecar/engine/readiness_recovery_test.go"
+
+[file.10]
+from = "tools/paxctl/sidecar/server/repair_325.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/sidecar/server/repair_325.kvx"
+
+[file.11]
+from = "tools/paxctl/sidecar/server/repair_325_test.go"
+to = "tools/paxctl/sidecar/server/authentication_precision_test.go"
+
+[file.12]
+from = "tools/paxctl/sidecar/server/repair_m842.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/sidecar/server/repair_m842.kvx"
+
+[file.13]
+from = "tools/paxctl/sidecar/server/repair_m842_test.go"
+to = "tools/paxctl/sidecar/server/durable_admission_test.go"
+
+[file.14]
+from = "tools/paxctl/sidecar/shadow/repair_328.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/sidecar/shadow/repair_328.kvx"
+
+[file.15]
+from = "tools/paxctl/sidecar/shadow/repair_328_test.go"
+to = "tools/paxctl/sidecar/shadow/trace_coverage_test.go"
+
+[file.16]
+from = "tools/paxctl/sidecar/shadow/repair_m837.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/sidecar/shadow/repair_m837.kvx"
+
+[file.17]
+from = "tools/paxctl/sidecar/shadow/repair_m837_test.go"
+to = "tools/paxctl/sidecar/shadow/trace_producer_test.go"
+
+[file.18]
+from = "tools/paxctl/sidecar/shadow/testdata/repair_328_recorded.json"
+to = "tools/paxctl/sidecar/shadow/testdata/prestate_recorded.json"
+
+[file.19]
+from = "tools/paxctl/sidecar/shadow/testdata/repair_328_rpc.json"
+to = "tools/paxctl/sidecar/shadow/testdata/prestate_rpc.json"
+
+[file.20]
+from = "tools/paxctl/sidecar/shadow/testdata/repair_m837_paxd.json"
+to = "tools/paxctl/sidecar/shadow/testdata/paxd_trace_capture.json"
+
+[file.21]
+from = "tools/paxctl/sidecar/tasks/repair_326.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/sidecar/tasks/repair_326.kvx"
+
+[file.22]
+from = "tools/paxctl/sidecar/tasks/repair_326_test.go"
+to = "tools/paxctl/sidecar/tasks/node_operations_contract_test.go"
+
+[file.23]
+from = "tools/paxctl/sidecar/tasks/repair_m836.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/sidecar/tasks/repair_m836.kvx"
+
+[file.24]
+from = "tools/paxctl/sidecar/tasks/repair_m836_test.go"
+to = "tools/paxctl/sidecar/tasks/task_recovery_test.go"
+
+[file.25]
+from = "tools/paxctl/task/repair_329.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/task/repair_329.kvx"
+
+[file.26]
+from = "tools/paxctl/task/repair_329_test.go"
+to = "tools/paxctl/task/proxy_trust_test.go"
+
+[file.27]
+from = "tools/paxctl/workflow/repair_m840.kvx"
+to = "spec/layerx-merge/programme/records/tools/paxctl/workflow/repair_m840.kvx"
+
+[file.28]
+from = "tools/paxctl/workflow/repair_m840_test.go"
+to = "tools/paxctl/workflow/state_sync_recovery_test.go"
+
+[file.29]
+from = "tools/paxctl/workflow/testdata/repair_m840_witness.json"
+to = "tools/paxctl/workflow/testdata/state_sync_witness.json"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-18.kvx"
+name = "tools/paxctl/sidecar/tasks/repair_326_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "tools/paxctl/sidecar/shadow/repair_m837_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/paxctl/repair_m839_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/paxctl/sidecar/shadow/repair_m837_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/paxctl/sidecar/tasks/repair_326_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/repair_22_39_160.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/repair_m839_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/sidecar/api/repair_m841_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/sidecar/engine/repair_327_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/sidecar/engine/repair_m835_test.go"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/sidecar/server/repair_325_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/sidecar/server/repair_m842_test.go"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/sidecar/shadow/repair_328_test.go"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/sidecar/shadow/repair_m837_test.go"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/sidecar/tasks/repair_326_test.go"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/sidecar/tasks/repair_m836_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/task/repair_329_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/paxctl/workflow/repair_m840_test.go"

@@ -1,0 +1,92 @@
+[manifest]
+task = "22.43.223"
+records_moved = 3
+files_renamed = 5
+
+[file.1]
+from = "tools/release/repair_22_31_331.kvx"
+to = "spec/layerx-merge/programme/records/tools/release/repair_22_31_331.kvx"
+
+[file.2]
+from = "tools/release/repair_22_39_157.kvx"
+to = "spec/layerx-merge/programme/records/tools/release/repair_22_39_157.kvx"
+
+[file.3]
+from = "tools/release/repair_22_39_494.kvx"
+to = "spec/layerx-merge/programme/records/tools/release/repair_22_39_494.kvx"
+
+[file.4]
+from = "tools/release/repair_m890_test.go"
+to = "tools/release/release_integrity_test.go"
+
+[file.5]
+from = "tools/release/tests/repair_m889_test.go"
+to = "tools/release/tests/release_boundaries_test.go"
+
+[file.6]
+from = "tools/release/tests/test_repair_22_31_331.py"
+to = "tools/release/tests/test_rollback_handoff.py"
+
+[file.7]
+from = "tools/release/tests/test_repair_22_33_889.py"
+to = "tools/release/tests/test_release_boundaries.py"
+
+[file.8]
+from = "tools/release/rehearsal/test_repair_22_33_893.py"
+to = "tools/release/rehearsal/test_programme_lifecycle.py"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "tools/release/tests/test_repair_22_31_331.py"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_889.py"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_893.py"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "tools/release/tests/test_repair_22_33_889.py"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "tools/release/tests/test_repair_22_33_889.py"
+
+[reference.6]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/release/repair_22_39_157.kvx"
+
+[reference.7]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/release/repair_22_39_494.kvx"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/release/repair_m890_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/release/tests/repair_m889_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/release/tests/test_repair_22_31_331.py"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/release/tests/test_repair_22_33_889.py"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "tools/release/rehearsal/test_repair_22_33_893.py"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_890_"
+
+[reference.14]
+file = "tests/ci/repair_22_39_84.kvx"
+name = "tools/release/tests/test_repair_22_31_331.py"

@@ -1,0 +1,409 @@
+[manifest]
+task = "22.43.216"
+records_moved = 16
+files_renamed = 31
+directories_renamed = 4
+
+[file.1]
+from = "tools/launchpad/delivery/fixtures/repair_22_33_954.json"
+to = "tools/launchpad/delivery/fixtures/delivery_observation_clock.json"
+
+[file.2]
+from = "tools/launchpad/delivery/repair_22_33_954.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/delivery/repair_22_33_954.kvx"
+
+[file.3]
+from = "tools/launchpad/delivery/test_repair_22_33_954.py"
+to = "tools/launchpad/delivery/test_delivery_observation_clock.py"
+
+[file.4]
+from = "tools/launchpad/production/bootstrap/repair-22.33.939.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/bootstrap/repair-22.33.939.kvx"
+
+[file.5]
+from = "tools/launchpad/production/bootstrap/security/repair_22_33_942.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/bootstrap/security/repair_22_33_942.kvx"
+
+[file.6]
+from = "tools/launchpad/production/bootstrap/security/test_repair_22_33_942.py"
+to = "tools/launchpad/production/bootstrap/security/test_security_inventory.py"
+
+[file.7]
+from = "tools/launchpad/production/bootstrap/snapshot/repair-22-33-941.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/bootstrap/snapshot/repair-22-33-941.kvx"
+
+[file.8]
+from = "tools/launchpad/production/bootstrap/snapshot/test_repair_22_33_941.py"
+to = "tools/launchpad/production/bootstrap/snapshot/test_source_provenance.py"
+
+[file.9]
+from = "tools/launchpad/production/bootstrap/tests/repair_22_33_940.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/bootstrap/tests/repair_22_33_940.kvx"
+
+[file.10]
+from = "tools/launchpad/production/bootstrap/tests/test_repair_22_33_939.py"
+to = "tools/launchpad/production/bootstrap/tests/test_source_inventory.py"
+
+[file.11]
+from = "tools/launchpad/production/bootstrap/tests/test_repair_22_33_940.py"
+to = "tools/launchpad/production/bootstrap/tests/test_catalog_workspace.py"
+
+[file.12]
+from = "tools/launchpad/production/charts-engine/repair_22_33_972.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/charts-engine/repair_22_33_972.kvx"
+
+[file.13]
+from = "tools/launchpad/production/charts-engine/test_repair_22_33_972.py"
+to = "tools/launchpad/production/charts-engine/test_controller_limits.py"
+
+[file.14]
+from = "tools/launchpad/production/dispatcher/repair_22_33_914.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/dispatcher/repair_22_33_914.kvx"
+
+[file.15]
+from = "tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/execution-plan.json"
+to = "tools/launchpad/production/dispatcher/tests/fixtures/fifty_lane_graph/execution-plan.json"
+
+[file.16]
+from = "tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915/spec.kvx"
+to = "tools/launchpad/production/dispatcher/tests/fixtures/fifty_lane_graph/spec.kvx"
+
+[file.17]
+from = "tools/launchpad/production/dispatcher/tests/repair_22_33_915.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/dispatcher/tests/repair_22_33_915.kvx"
+
+[file.18]
+from = "tools/launchpad/production/dispatcher/tests/test_repair_22_33_914.py"
+to = "tools/launchpad/production/dispatcher/tests/test_owned_path_routing.py"
+
+[file.19]
+from = "tools/launchpad/production/dispatcher/tests/test_repair_22_33_915.py"
+to = "tools/launchpad/production/dispatcher/tests/test_graph_transport.py"
+
+[file.20]
+from = "tools/launchpad/production/feature-acceptance/repair_m1066.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/feature-acceptance/repair_m1066.kvx"
+
+[file.21]
+from = "tools/launchpad/production/feature-acceptance/repair_m1066_test.go"
+to = "tools/launchpad/production/feature-acceptance/reference_declarations_test.go"
+
+[file.22]
+from = "tools/launchpad/production/feature-acceptance/testdata/repair-m1066/spec/layerx-merge/spec.kvx"
+to = "tools/launchpad/production/feature-acceptance/testdata/reference_graph/spec/layerx-merge/spec.kvx"
+
+[file.23]
+from = "tools/launchpad/production/feature-acceptance/tests/repair_22_33_1067.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/feature-acceptance/tests/repair_22_33_1067.kvx"
+
+[file.24]
+from = "tools/launchpad/production/feature-acceptance/tests/test_repair_22_33_1067.py"
+to = "tools/launchpad/production/feature-acceptance/tests/test_authoritative_inputs.py"
+
+[file.25]
+from = "tools/launchpad/production/interfaces/repair_22_33_963.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/interfaces/repair_22_33_963.kvx"
+
+[file.26]
+from = "tools/launchpad/production/interfaces/repair_22_33_964.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/interfaces/repair_22_33_964.kvx"
+
+[file.27]
+from = "tools/launchpad/production/interfaces/repair_22_39_329.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/interfaces/repair_22_39_329.kvx"
+
+[file.28]
+from = "tools/launchpad/production/interfaces/repair_22_39_331.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/interfaces/repair_22_39_331.kvx"
+
+[file.29]
+from = "tools/launchpad/production/interfaces/test_repair_22_33_963.py"
+to = "tools/launchpad/production/interfaces/test_contract_authority.py"
+
+[file.30]
+from = "tools/launchpad/production/interfaces/test_repair_22_33_964.py"
+to = "tools/launchpad/production/interfaces/test_suite_authority.py"
+
+[file.31]
+from = "tools/launchpad/production/interfaces/testdata/repair_22_33_963/capabilities.json"
+to = "tools/launchpad/production/interfaces/testdata/contract_authority/capabilities.json"
+
+[file.32]
+from = "tools/launchpad/production/interfaces/testdata/repair_22_33_963/compatibility.json"
+to = "tools/launchpad/production/interfaces/testdata/contract_authority/compatibility.json"
+
+[file.33]
+from = "tools/launchpad/production/interfaces/testdata/repair_22_33_963/migration-register.json"
+to = "tools/launchpad/production/interfaces/testdata/contract_authority/migration-register.json"
+
+[file.34]
+from = "tools/launchpad/production/interfaces/testdata/repair_22_33_963/sdk-placement.json"
+to = "tools/launchpad/production/interfaces/testdata/contract_authority/sdk-placement.json"
+
+[file.35]
+from = "tools/launchpad/production/interfaces/testdata/repair_22_33_963/selected-catalog.kvx"
+to = "tools/launchpad/production/interfaces/testdata/contract_authority/selected-catalog.kvx"
+
+[file.36]
+from = "tools/launchpad/production/interfaces/testdata/repair_22_33_963/supplementary.json"
+to = "tools/launchpad/production/interfaces/testdata/contract_authority/supplementary.json"
+
+[file.37]
+from = "tools/launchpad/production/load/repair_m965.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/load/repair_m965.kvx"
+
+[file.38]
+from = "tools/launchpad/production/load/repair_m965_cases.py"
+to = "tools/launchpad/production/load/contract_admission_cases.py"
+
+[file.39]
+from = "tools/launchpad/production/load/repair_m965_test.go"
+to = "tools/launchpad/production/load/contract_admission_test.go"
+
+[file.40]
+from = "tools/launchpad/production/load/testdata/repair_m965_openapi.json"
+to = "tools/launchpad/production/load/testdata/contract_authority_openapi.json"
+
+[file.41]
+from = "tools/launchpad/production/load/testdata/repair_m965_programme.kvx"
+to = "tools/launchpad/production/load/testdata/coordinator_programme.kvx"
+
+[file.42]
+from = "tools/launchpad/production/repair_22_33_973.kvx"
+to = "spec/layerx-merge/programme/records/tools/launchpad/production/repair_22_33_973.kvx"
+
+[file.43]
+from = "tools/launchpad/production/tests/fixtures/repair_22_33_973/approved-prelude-ownership.json"
+to = "tools/launchpad/production/tests/fixtures/reviewed_control_plane/approved-prelude-ownership.json"
+
+[file.44]
+from = "tools/launchpad/production/tests/fixtures/repair_22_33_973/peer.kvx"
+to = "tools/launchpad/production/tests/fixtures/reviewed_control_plane/peer.kvx"
+
+[file.45]
+from = "tools/launchpad/production/tests/fixtures/repair_22_33_973/reviewed-prelude-ownership.json"
+to = "tools/launchpad/production/tests/fixtures/reviewed_control_plane/reviewed-prelude-ownership.json"
+
+[file.46]
+from = "tools/launchpad/production/tests/test_repair_22_33_916.py"
+to = "tools/launchpad/production/tests/test_serial_control_source.py"
+
+[file.47]
+from = "tools/launchpad/production/tests/test_repair_22_33_973.py"
+to = "tools/launchpad/production/tests/test_control_plane_transport.py"
+
+[file.48]
+from = "tools/launchpad/production/dispatcher/tests/fixtures/repair_22_33_915"
+to = "tools/launchpad/production/dispatcher/tests/fixtures/fifty_lane_graph"
+
+[file.49]
+from = "tools/launchpad/production/feature-acceptance/testdata/repair-m1066"
+to = "tools/launchpad/production/feature-acceptance/testdata/reference_graph"
+
+[file.50]
+from = "tools/launchpad/production/interfaces/testdata/repair_22_33_963"
+to = "tools/launchpad/production/interfaces/testdata/contract_authority"
+
+[file.51]
+from = "tools/launchpad/production/tests/fixtures/repair_22_33_973"
+to = "tools/launchpad/production/tests/fixtures/reviewed_control_plane"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair_22_33_963"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_963.py"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "test_repair_22_33_964.py"
+
+[reference.4]
+file = "apps/launchpad/web/src/core/network/repair_22_39_313.kvx"
+name = "repair_22_33_963"
+
+[reference.5]
+file = "sdk/launchpad/shared/db/production/repair_m957.kvx"
+name = "repair_22_33_963"
+
+[reference.6]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair_m1066_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "test_repair_22_33_1067.py"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair_22_33_973"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair_m965_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "test_repair_22_33_914.py"
+
+[reference.11]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "test_repair_22_33_939.py"
+
+[reference.12]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "test_repair_22_33_941.py"
+
+[reference.13]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "test_repair_22_33_954.py"
+
+[reference.14]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "test_repair_22_33_964.py"
+
+[reference.15]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "test_repair_22_33_973.py"
+
+[reference.16]
+file = "spec/layerx-merge/programme/issues/1692.kvx"
+name = "test_repair_22_33_941.py"
+
+[reference.17]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_963"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_33_973"
+
+[reference.19]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1066_test.go"
+
+[reference.20]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m965_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_1067.py"
+
+[reference.22]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_914.py"
+
+[reference.23]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_939.py"
+
+[reference.24]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_941.py"
+
+[reference.25]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_954.py"
+
+[reference.26]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_963.py"
+
+[reference.27]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_964.py"
+
+[reference.28]
+file = "spec/layerx-merge/qualification.kvx"
+name = "test_repair_22_33_973.py"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-m1066"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_915"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_963"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_963.kvx"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_973"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_329.kvx"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_331.kvx"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1066_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m965_test.go"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_1067.py"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_914.py"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_915.py"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_916.py"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_939.py"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_940.py"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_941.py"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_942.py"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_954.py"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_963.py"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_964.py"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_972.py"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "test_repair_22_33_973.py"

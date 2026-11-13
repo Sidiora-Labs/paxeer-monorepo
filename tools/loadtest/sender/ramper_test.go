@@ -189,6 +189,6 @@ func TestRampCurveStep_Properties(t *testing.T) {
 }
 
 func TestRamper_RealHeaderTransport(t *testing.T) {
-	TestRepairM_821_RamperLiveProgressSLOAndRestart(t)
-	TestRepairM_821_RamperStalledEvidence(t)
+	TestSenderRamperLiveProgressSLOAndRestart(t)
+	TestSenderRamperStalledEvidence(t)
 }

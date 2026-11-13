@@ -1,0 +1,184 @@
+[manifest]
+task = "22.43.231"
+records_moved = 8
+files_renamed = 10
+
+[file.1]
+from = "wasm/benchmarks/repair_m1271.kvx"
+to = "spec/layerx-merge/programme/records/wasm/benchmarks/repair_m1271.kvx"
+
+[file.2]
+from = "wasm/benchmarks/repair_m1271_test.go"
+to = "wasm/benchmarks/transaction_delivery_test.go"
+
+[file.3]
+from = "wasm/x/wasm/client/cli/repair_m1286.kvx"
+to = "spec/layerx-merge/programme/records/wasm/x/wasm/client/cli/repair_m1286.kvx"
+
+[file.4]
+from = "wasm/x/wasm/client/cli/repair_m1286_test.go"
+to = "wasm/x/wasm/client/cli/command_integration_test.go"
+
+[file.5]
+from = "wasm/x/wasm/client/rest/repair_m1287.kvx"
+to = "spec/layerx-merge/programme/records/wasm/x/wasm/client/rest/repair_m1287.kvx"
+
+[file.6]
+from = "wasm/x/wasm/client/rest/repair_m1287_test.go"
+to = "wasm/x/wasm/client/rest/instantiate_contract_test.go"
+
+[file.7]
+from = "wasm/x/wasm/keeper/repair_184_export_test.go"
+to = "wasm/x/wasm/keeper/keeper_test_access_test.go"
+
+[file.8]
+from = "wasm/x/wasm/keeper/repair_184_record.kvx"
+to = "spec/layerx-merge/programme/records/wasm/x/wasm/keeper/repair_184_record.kvx"
+
+[file.9]
+from = "wasm/x/wasm/keeper/repair_184_test.go"
+to = "wasm/x/wasm/keeper/contract_lifecycle_test.go"
+
+[file.10]
+from = "wasm/x/wasm/keeper/repair_22_39_150.kvx"
+to = "spec/layerx-merge/programme/records/wasm/x/wasm/keeper/repair_22_39_150.kvx"
+
+[file.11]
+from = "wasm/x/wasm/keeper/repair_m1288_record.kvx"
+to = "spec/layerx-merge/programme/records/wasm/x/wasm/keeper/repair_m1288_record.kvx"
+
+[file.12]
+from = "wasm/x/wasm/keeper/repair_m1288_test.go"
+to = "wasm/x/wasm/keeper/native_contract_integration_test.go"
+
+[file.13]
+from = "wasm/x/wasm/keeper/testdata/repair_m1288_ibc.wasm"
+to = "wasm/x/wasm/keeper/testdata/ibc_prebinding_query.wasm"
+
+[file.14]
+from = "wasm/x/wasm/keeper/testdata/repair_m1288_ibc.wat"
+to = "wasm/x/wasm/keeper/testdata/ibc_prebinding_query.wat"
+
+[file.15]
+from = "wasm/x/wasm/repair_m1289.kvx"
+to = "spec/layerx-merge/programme/records/wasm/x/wasm/repair_m1289.kvx"
+
+[file.16]
+from = "wasm/x/wasm/repair_m1289_test.go"
+to = "wasm/x/wasm/module_lifecycle_test.go"
+
+[file.17]
+from = "wasm/x/wasm/types/repair_m1290.kvx"
+to = "spec/layerx-merge/programme/records/wasm/x/wasm/types/repair_m1290.kvx"
+
+[file.18]
+from = "wasm/x/wasm/types/repair_m1290_test.go"
+to = "wasm/x/wasm/types/genesis_stream_validation_test.go"
+
+[reference.1]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair_m1271_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/dispositions/d22-23.kvx"
+name = "repair_m1288_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/programme/audit/records/22.30.63.kvx"
+name = "repair_m1271_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/programme/issues/1603.kvx"
+name = "repair_m1271_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/programme/issues/1837.kvx"
+name = "repair_184_test.go"
+
+[reference.6]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1271_test.go"
+
+[reference.7]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1288_test.go"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1271_"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1286_"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1287_"
+
+[reference.11]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1288_"
+
+[reference.12]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1289_"
+
+[reference.13]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1290_"
+
+[reference.14]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_184_"
+
+[reference.15]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_184_CW1155BurnSkipsCW721Lookup"
+
+[reference.16]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_184_CW721JSONStrings"
+
+[reference.17]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_184_CW721OwnerFailures"
+
+[reference.18]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_184_IBCGasUnits"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair184CW721"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_184_test.go"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_150.kvx"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1271_test.go"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1286_test.go"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1287_test.go"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1288_test.go"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1289_test.go"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1290_test.go"

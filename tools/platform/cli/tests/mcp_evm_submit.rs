@@ -400,7 +400,7 @@ fn rpc_request_admits_major_two_names() -> Result<(), Box<dyn std::error::Error>
 }
 
 // Share the enrollment, authenticated transport and durable-owner proof with the focused gate.
-#[path = "repair_22_33_1495.rs"]
+#[path = "mcp_submission_and_credentials.rs"]
 mod audit_repair;
 
 #[test]
