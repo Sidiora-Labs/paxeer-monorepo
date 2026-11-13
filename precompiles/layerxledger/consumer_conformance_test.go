@@ -20,38 +20,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1501_InterfaceUnits(t *testing.T) {
-	TestRepair_144_PayExactExpiresAtMs(t)
+func TestLedgerInterfaceUnits(t *testing.T) {
+	TestPayExactExpiryMilliseconds(t)
 }
 
-func TestRepairM_1501_ClientReceipt(t *testing.T) {
+func TestLedgerClientReceiptConformance(t *testing.T) {
 	TestLedgerEVMTransactionReceipt(t)
 }
 
-func TestRepairM_1501_GasConformance(t *testing.T) {
+func TestLedgerGasAccountingConformance(t *testing.T) {
 	TestLedgerGasConformance(t)
 }
 
-func TestRepairM_1501_BankMirror(t *testing.T) {
+func TestLedgerBankMirrorConformance(t *testing.T) {
 	TestBankMirrorMatchesKernelBalances(t)
 }
 
-func TestRepairM_1501_KernelParity(t *testing.T) {
+func TestLedgerKernelReceiptParity(t *testing.T) {
 	TestLedgerPrecompileKernelParity(t)
 }
 
-func TestRepairM_1501_TransfersRecovery(t *testing.T) {
+func TestLedgerTransfersRecovery(t *testing.T) {
 	t.Run("openAccount", TestPrecompileOpenAccount)
 	t.Run("send", TestPrecompileSend)
 	t.Run("reopen", TestPrecompileSendReopen)
 }
 
-func TestRepairM_1501_ViewsRecovery(t *testing.T) {
+func TestLedgerViewsRecovery(t *testing.T) {
 	t.Run("views", TestPrecompileLedgerViews)
 	t.Run("reopen", TestPrecompileNextSequenceReopen)
 }
 
-func repairM1501WebCall(t *testing.T, f *repair144Fixture, contract abi.ABI, name string, value *big.Int, args ...interface{}) ([]byte, []*ethtypes.Log, error) {
+func webPaymentCall(t *testing.T, f *ledgerAccountFixture, contract abi.ABI, name string, value *big.Int, args ...interface{}) ([]byte, []*ethtypes.Log, error) {
 	t.Helper()
 	input, err := contract.Pack(name, args...)
 	require.NoError(t, err)
@@ -76,14 +76,14 @@ func repairM1501WebCall(t *testing.T, f *repair144Fixture, contract abi.ABI, nam
 	return data, db.GetAllLogs(), err
 }
 
-func TestRepairM_1501_RetiredGrantsAndWebPayments(t *testing.T) {
-	f := newRepair144Fixture(t)
+func TestRetiredGrantsAndWebPayments(t *testing.T) {
+	f := newLedgerAccountFixture(t)
 	web, err := xweb.NewPrecompile(f.p.app.GetPrecompileKeepers())
 	require.NoError(t, err)
 	contract := web.GetABI()
 	read := func(paused bool) *big.Int {
 		t.Helper()
-		data, logs, err := repairM1501WebCall(t, f, contract, "getParams", nil)
+		data, logs, err := webPaymentCall(t, f, contract, "getParams", nil)
 		require.NoError(t, err)
 		require.Empty(t, logs)
 		require.Len(t, data, 5*32, "the wallet consumes five canonical ABI words")
@@ -93,7 +93,7 @@ func TestRepairM_1501_RetiredGrantsAndWebPayments(t *testing.T) {
 		require.Equal(t, paused, params.Paused)
 		want := f.p.app.XWebKeeper.Fee(f.p.ctx).MulRaw(1_000_000_000_000).BigInt()
 		require.Zero(t, params.Fee.Cmp(want))
-		feeData, _, err := repairM1501WebCall(t, f, contract, "fee", nil)
+		feeData, _, err := webPaymentCall(t, f, contract, "fee", nil)
 		require.NoError(t, err)
 		fees, err := contract.Methods["fee"].Outputs.Unpack(feeData)
 		require.NoError(t, err)
@@ -117,7 +117,7 @@ func TestRepairM_1501_RetiredGrantsAndWebPayments(t *testing.T) {
 	require.NoError(t, f.p.app.BankKeeper.SendCoinsFromModuleToAccount(f.p.ctx, "mint", payer, funds))
 	before := f.p.app.BankKeeper.GetBalance(f.p.ctx, payer, sdk.MustGetBaseDenom()).Amount
 	payload := []byte("https://paxeer.app/")
-	data, logs, err := repairM1501WebCall(t, f, contract, "request", fee, uint8(xwebtypes.KindFetch), payload, uint64(200_000))
+	data, logs, err := webPaymentCall(t, f, contract, "request", fee, uint8(xwebtypes.KindFetch), payload, uint64(200_000))
 	require.NoError(t, err)
 	values, err := contract.Methods["request"].Outputs.Unpack(data)
 	require.NoError(t, err)
