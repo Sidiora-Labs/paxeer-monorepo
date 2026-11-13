@@ -5,11 +5,11 @@ scope = "modules/xweb"
 baseline = "No earlier gate ledger or xweb edits were present. No starting-revision test run is claimed: the explicit implementation-first order and prohibition on running verify_cmd by hand take precedence over do_1. The failures below are the supplied inventory evidence, not a new baseline run."
 qualification = "The verified candidate revision, exact command, exit code and private log are named by the final verify row in /out/run/gates.jsonl and the JSON line emitted by hf-done; the build and verify rows must name the same candidate. A source record cannot embed the hash of the commit containing itself."
 build_command = "go build ./modules/xweb/... && go test -count=1 -run '^$' ./modules/xweb/ ./modules/xweb/keeper/... ./modules/xweb/types/..."
-verify_command = "test -s modules/xweb/repair_22_39_322.kvx && go test -count=1 -timeout 30m ./modules/xweb/ ./modules/xweb/keeper/... ./modules/xweb/types/..."
+verify_command = "test -s spec/layerx-merge/programme/records/modules/xweb/repair_22_39_322.kvx && go test -count=1 -timeout 30m ./modules/xweb/ ./modules/xweb/keeper/... ./modules/xweb/types/..."
 
 [case.frozen-documentation]
 test = "TestRepairM_1251_FrozenVectorsAndDocumentation"
-first_error = "Inventory at 7de3a9051436: repair_m1251_test.go:268, ATTESTATION.md lacks the frozen compatibility vectors and historical origin-1 test chain id claims."
+first_error = "Inventory at 7de3a9051436: attestation_enforcement_test.go:268, ATTESTATION.md lacks the frozen compatibility vectors and historical origin-1 test chain id claims."
 producer_commit = "3b394dcea74a63372de77f5ce29353a998fe09a4"
 cause = "M-1251 deliberately retained the historical 713714 corpus. Chain-125 documentation examples from 846408dc54a16551c329b1d10e6f60989ad62ad8 displaced its explicit frozen-corpus description even though the JSON and cross-language consumers remained historical."
 repair = "Describe the shared JSON explicitly as frozen compatibility vectors on historical test chain 713714, separate from the existing chain-125 examples. Keep every vector byte, preimage, digest, signature and generated example unchanged, and retain all M-1251 assertions."

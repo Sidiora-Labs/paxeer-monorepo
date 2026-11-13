@@ -25,9 +25,9 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
-// repair128Producer applies the paid program call through the real bank and
+// programRetentionProducer applies the paid program call through the real bank and
 // keeper in the caller's transaction. Admission failure discards its fee leg.
-func repair128Producer(t *testing.T, a *app.App, ctx sdk.Context, id uint64) (error, []byte) {
+func programRetentionProducer(t *testing.T, a *app.App, ctx sdk.Context, id uint64) (error, []byte) {
 	t.Helper()
 	principal := sdk.AccAddress(bytes.Repeat([]byte{0x42}, 20))
 	program, asset := types.Hash32{0x81}, types.Hash32{0x71}
@@ -49,7 +49,7 @@ func repair128Producer(t *testing.T, a *app.App, ctx sdk.Context, id uint64) (er
 	return err, event
 }
 
-func repair128Initialize(t *testing.T, a *app.App, ctx sdk.Context) []xwebtestutil.Attestor {
+func initializeProgramRetention(t *testing.T, a *app.App, ctx sdk.Context) []xwebtestutil.Attestor {
 	t.Helper()
 	keys := xwebtestutil.Attestors(3)
 	genesis := types.DefaultGenesis()
@@ -65,17 +65,17 @@ func repair128Initialize(t *testing.T, a *app.App, ctx sdk.Context) []xwebtestut
 	return keys
 }
 
-func repair128Observation(t *testing.T, id uint64, keys []xwebtestutil.Attestor) (types.Observation, []byte) {
+func programRetentionObservation(t *testing.T, id uint64, keys []xwebtestutil.Attestor) (types.Observation, []byte) {
 	t.Helper()
 	response := bytes.Repeat([]byte{byte(id), 0, 0xfe}, 800)
 	observation := types.Observation{Origin: types.OriginProgram, NetworkID: 7,
 		ProgramID: types.Hash32{0x81}, RequestID: id, Kind: types.KindFetch,
 		PayloadHash:   types.Keccak([]byte("https://example.test/repair128")),
 		ContentDigest: types.Keccak(response), FullLength: 4000, Response: response}
-	return observation, repair128Signed(t, observation, keys)
+	return observation, signProgramRetentionObservation(t, observation, keys)
 }
 
-func repair128Signed(t *testing.T, observation types.Observation, keys []xwebtestutil.Attestor) []byte {
+func signProgramRetentionObservation(t *testing.T, observation types.Observation, keys []xwebtestutil.Attestor) []byte {
 	t.Helper()
 	digest := types.Digest(types.Attestation{Origin: types.OriginProgram, NetworkID: big.NewInt(7),
 		Requester: observation.ProgramID, RequestID: observation.RequestID, Kind: observation.Kind, PayloadHash: observation.PayloadHash,
@@ -86,7 +86,7 @@ func repair128Signed(t *testing.T, observation types.Observation, keys []xwebtes
 	return raw
 }
 
-func repair128AssertAnswer(t *testing.T, observation types.Observation, answer *types.QueryProgramResultResponse) {
+func assertProgramRetentionAnswer(t *testing.T, observation types.Observation, answer *types.QueryProgramResultResponse) {
 	t.Helper()
 	require.Equal(t, observation.ContentDigest, answer.ContentDigest)
 	require.Equal(t, observation.FullLength, answer.FullLength)
@@ -94,11 +94,11 @@ func repair128AssertAnswer(t *testing.T, observation types.Observation, answer *
 	require.Equal(t, observation.Response, answer.Response)
 }
 
-func TestRepair_128_ProgramResultProof(t *testing.T) {
+func TestProgramResultRetentionProof(t *testing.T) {
 	TestProofGoApiProducerTransportConsumer(t)
 }
 
-func TestRepair_128_ProgramResultGRPC(t *testing.T) {
+func TestProgramResultRetentionGRPC(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "node")
 	a, ctx := proofGoAPIApp(t, home, true)
 	defer func() {
@@ -106,18 +106,18 @@ func TestRepair_128_ProgramResultGRPC(t *testing.T) {
 			require.NoError(t, a.Close())
 		}
 	}()
-	keys := repair128Initialize(t, a, ctx)
-	err, _ := repair128Producer(t, a, ctx, 1)
+	keys := initializeProgramRetention(t, a, ctx)
+	err, _ := programRetentionProducer(t, a, ctx, 1)
 	require.NoError(t, err)
-	observation, raw := repair128Observation(t, 1, keys)
+	observation, raw := programRetentionObservation(t, 1, keys)
 	require.NoError(t, a.XWebKeeper.FulfilProgram(ctx, raw))
-	err, _ = repair128Producer(t, a, ctx, 2)
+	err, _ = programRetentionProducer(t, a, ctx, 2)
 	require.NoError(t, err)
 	empty := observation
 	empty.RequestID = 2
 	empty.ContentDigest = types.Keccak(nil)
 	empty.FullLength, empty.Response = 0, nil
-	require.NoError(t, a.XWebKeeper.FulfilProgram(ctx, repair128Signed(t, empty, keys)))
+	require.NoError(t, a.XWebKeeper.FulfilProgram(ctx, signProgramRetentionObservation(t, empty, keys)))
 	a.SetDeliverStateToCommit()
 	_, err = a.Commit(context.Background())
 	require.NoError(t, err)
@@ -131,14 +131,14 @@ func TestRepair_128_ProgramResultGRPC(t *testing.T) {
 	xweb.NewAppModule(a.XWebKeeper).RegisterServices(module.NewConfigurator(a.AppCodec(), router, router))
 	answer, err := types.NewQueryClient(router).ProgramResult(context.Background(), request)
 	require.NoError(t, err)
-	repair128AssertAnswer(t, observation, answer)
+	assertProgramRetentionAnswer(t, observation, answer)
 	client, stop := proofGoAPIQueries(t, a, ctx)
 	defer stop()
 	queryCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	answer, err = client.ProgramResult(queryCtx, request)
 	require.NoError(t, err)
-	repair128AssertAnswer(t, observation, answer)
+	assertProgramRetentionAnswer(t, observation, answer)
 
 	// Inspect bytes from the registered ABCI route with an independent wire
 	// parser: digest is field 1, length-delimited bytes of exactly 32 bytes.
@@ -179,7 +179,7 @@ func TestRepair_128_ProgramResultGRPC(t *testing.T) {
 	require.Equal(t, modern.Value, decoded.Value)
 }
 
-func TestRepair_128_CommittedCapacityLifetime(t *testing.T) {
+func TestProgramResultRetentionAcrossRestarts(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "node")
 	a, ctx := proofGoAPIApp(t, home, true)
 	defer func() {
@@ -187,15 +187,15 @@ func TestRepair_128_CommittedCapacityLifetime(t *testing.T) {
 			require.NoError(t, a.Close())
 		}
 	}()
-	keys := repair128Initialize(t, a, ctx)
+	keys := initializeProgramRetention(t, a, ctx)
 	var firstRaw []byte
 	for id := uint64(1); id <= 2*keeper.ProgramCommittedCapacity+1; id++ {
-		err, _ := repair128Producer(t, a, ctx, id)
+		err, _ := programRetentionProducer(t, a, ctx, id)
 		require.NoError(t, err)
 		if id > keeper.ProgramCommittedCapacity {
 			require.Equal(t, uint64(63), a.XWebKeeper.ProgramCommittedCount(ctx), "admission must reserve hot capacity before settlement")
 		}
-		observation, raw := repair128Observation(t, id, keys)
+		observation, raw := programRetentionObservation(t, id, keys)
 		require.NoError(t, a.XWebKeeper.FulfilProgram(ctx, raw))
 		if id == 1 {
 			firstRaw = raw
@@ -240,10 +240,10 @@ func TestRepair_128_CommittedCapacityLifetime(t *testing.T) {
 	queryCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	for id := uint64(1); id <= 2*keeper.ProgramCommittedCapacity+1; id++ {
-		observation, _ := repair128Observation(t, id, keys)
+		observation, _ := programRetentionObservation(t, id, keys)
 		answer, err := client.ProgramResult(queryCtx, &types.QueryProgramResultRequest{ProgramId: observation.ProgramID[:], RequestId: id})
 		require.NoError(t, err)
-		repair128AssertAnswer(t, observation, answer)
+		assertProgramRetentionAnswer(t, observation, answer)
 	}
 	principal := sdk.AccAddress(bytes.Repeat([]byte{0x42}, 20))
 	asset, program := types.Hash32{0x71}, types.Hash32{0x81}
@@ -257,7 +257,7 @@ func TestRepair_128_CommittedCapacityLifetime(t *testing.T) {
 	}
 	before := a.BankKeeper.GetBalance(ctx, principal, types.ProgramFeeDenomUSDL)
 	require.ErrorContains(t, a.XWebKeeper.FulfilProgram(ctx, firstRaw), "LXP_SEQUENCE_REUSED")
-	err, _ = repair128Producer(t, a, ctx, 1)
+	err, _ = programRetentionProducer(t, a, ctx, 1)
 	require.ErrorContains(t, err, "LXP_SEQUENCE_REUSED")
 	require.Equal(t, before, a.BankKeeper.GetBalance(ctx, principal, types.ProgramFeeDenomUSDL))
 	record, found, err := a.XWebKeeper.GetProgramPendingRecord(ctx, program, 1)
@@ -277,7 +277,7 @@ func TestRepair_128_CommittedCapacityLifetime(t *testing.T) {
 	require.False(t, broken, message)
 }
 
-func TestRepair_128_AdmissionReservesCapacity(t *testing.T) {
+func TestProgramAdmissionReservesCapacity(t *testing.T) {
 	s := newProgramSuite(t)
 	for id := uint64(1); id <= keeper.ProgramPendingCapacity; id++ {
 		require.NoError(t, s.run(newCall(feeLeg(programPrincipal, paxAsset, sdk.NewInt(7))), webRequest(id)))
@@ -296,15 +296,15 @@ func TestRepair_128_AdmissionReservesCapacity(t *testing.T) {
 	require.Equal(t, uint64(64), counters.CommittedCapacity)
 }
 
-func TestRepair_128_AdmissionReclamationAtomic(t *testing.T) {
+func TestProgramAdmissionReclamationAtomic(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "node")
 	a, ctx := proofGoAPIApp(t, home, true)
 	defer func() { require.NoError(t, a.Close()) }()
-	keys := repair128Initialize(t, a, ctx)
+	keys := initializeProgramRetention(t, a, ctx)
 	for id := uint64(1); id <= keeper.ProgramCommittedCapacity; id++ {
-		err, _ := repair128Producer(t, a, ctx, id)
+		err, _ := programRetentionProducer(t, a, ctx, id)
 		require.NoError(t, err)
-		_, raw := repair128Observation(t, id, keys)
+		_, raw := programRetentionObservation(t, id, keys)
 		require.NoError(t, a.XWebKeeper.FulfilProgram(ctx, raw))
 	}
 	program, asset := types.Hash32{0x81}, types.Hash32{0x71}
@@ -317,7 +317,7 @@ func TestRepair_128_AdmissionReclamationAtomic(t *testing.T) {
 	header := bytes.Clone(store.Get(keeper.ProgramAnswerKey(program, 1, 0)))
 	balance := a.BankKeeper.GetBalance(ctx, principal, types.ProgramFeeDenomUSDL)
 	feeBalance := a.BankKeeper.GetBalance(ctx, keeper.ProgramFeeAccount(asset), types.ProgramFeeDenomUSDL)
-	err, _ := repair128Producer(t, a, ctx, 65)
+	err, _ := programRetentionProducer(t, a, ctx, 65)
 	require.EqualError(t, err, "LXP_NON_CANONICAL")
 	require.Equal(t, balance, a.BankKeeper.GetBalance(ctx, principal, types.ProgramFeeDenomUSDL))
 	require.Equal(t, feeBalance, a.BankKeeper.GetBalance(ctx, keeper.ProgramFeeAccount(asset), types.ProgramFeeDenomUSDL))
@@ -328,21 +328,21 @@ func TestRepair_128_AdmissionReclamationAtomic(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, found)
 	store.Set(chunkKey, chunk)
-	err, _ = repair128Producer(t, a, ctx, 65)
+	err, _ = programRetentionProducer(t, a, ctx, 65)
 	require.NoError(t, err)
 	require.Equal(t, uint64(63), a.XWebKeeper.ProgramCommittedCount(ctx))
 	require.Equal(t, uint64(1), a.XWebKeeper.ProgramPendingCount(ctx))
 	first, err := a.XWebKeeper.GetProgramResult(ctx, program, 1)
 	require.NoError(t, err)
-	observation, _ := repair128Observation(t, 1, keys)
+	observation, _ := programRetentionObservation(t, 1, keys)
 	require.Equal(t, observation.Response, first.Response)
-	_, raw := repair128Observation(t, 65, keys)
+	_, raw := programRetentionObservation(t, 65, keys)
 	require.NoError(t, a.XWebKeeper.FulfilProgram(ctx, raw))
 	message, broken := keeper.ProgramCountersInvariant(a.XWebKeeper)(ctx)
 	require.False(t, broken, message)
 }
 
-func TestRepair_128_LegacyAcceptedRecovery(t *testing.T) {
+func TestProgramLegacyAcceptedRecovery(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "node")
 	a, ctx := proofGoAPIApp(t, home, true)
 	defer func() {
@@ -350,11 +350,11 @@ func TestRepair_128_LegacyAcceptedRecovery(t *testing.T) {
 			require.NoError(t, a.Close())
 		}
 	}()
-	keys := repair128Initialize(t, a, ctx)
+	keys := initializeProgramRetention(t, a, ctx)
 	for id := uint64(1); id <= keeper.ProgramCommittedCapacity; id++ {
-		err, _ := repair128Producer(t, a, ctx, id)
+		err, _ := programRetentionProducer(t, a, ctx, id)
 		require.NoError(t, err)
-		_, raw := repair128Observation(t, id, keys)
+		_, raw := programRetentionObservation(t, id, keys)
 		require.NoError(t, a.XWebKeeper.FulfilProgram(ctx, raw))
 	}
 	// Recover the pre-upgrade layout: 64 hot answers and a paid pending
@@ -362,7 +362,7 @@ func TestRepair_128_LegacyAcceptedRecovery(t *testing.T) {
 	// only the old absence of a hot-slot reservation is reconstructed.
 	legacy := a.XWebKeeper.ExportGenesis(ctx)
 	branch, _ := ctx.CacheContext()
-	err, _ := repair128Producer(t, a, branch, 65)
+	err, _ := programRetentionProducer(t, a, branch, 65)
 	require.NoError(t, err)
 	program, asset := types.Hash32{0x81}, types.Hash32{0x71}
 	record, found, err := a.XWebKeeper.GetProgramPendingRecord(branch, program, 65)
@@ -386,7 +386,7 @@ func TestRepair_128_LegacyAcceptedRecovery(t *testing.T) {
 	ctx, _ = ctx.CacheContext()
 	require.Equal(t, uint64(64), a.XWebKeeper.ProgramCommittedCount(ctx))
 	require.Equal(t, uint64(1), a.XWebKeeper.ProgramPendingCount(ctx))
-	_, raw := repair128Observation(t, 65, keys)
+	_, raw := programRetentionObservation(t, 65, keys)
 	// A genuine settlement failure must also roll back archive reclamation.
 	require.Equal(t, sdk.NewInt(7), a.BankKeeper.GetBalance(ctx, keeper.ProgramFeeAccount(asset), types.ProgramFeeDenomUSDL).Amount)
 	require.NoError(t, a.BankKeeper.SendCoins(ctx, keeper.ProgramFeeAccount(asset), principal, coins))
@@ -403,7 +403,7 @@ func TestRepair_128_LegacyAcceptedRecovery(t *testing.T) {
 	require.Equal(t, uint64(64), a.XWebKeeper.ProgramCommittedCount(ctx))
 	require.True(t, a.BankKeeper.GetBalance(ctx, keeper.ProgramFeeAccount(asset), types.ProgramFeeDenomUSDL).IsZero())
 	for _, id := range []uint64{1, 65} {
-		observation, _ := repair128Observation(t, id, keys)
+		observation, _ := programRetentionObservation(t, id, keys)
 		result, err := a.XWebKeeper.GetProgramResult(ctx, program, id)
 		require.NoError(t, err)
 		require.Equal(t, observation.Response, result.Response)

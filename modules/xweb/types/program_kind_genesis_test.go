@@ -21,7 +21,7 @@ import (
 // Exercise every wire kind in both pending and fulfilled records. Corrupting
 // the kind of an otherwise canonical producer record reproduces the audited
 // genesis input without relying on the repaired encoder to admit bad data.
-func TestRepair_129_ProgramKindPolicy(t *testing.T) {
+func TestProgramKindGenesisPolicy(t *testing.T) {
 	for kind := 0; kind <= 255; kind++ {
 		for _, fulfilled := range []bool{false, true} {
 			t.Run(fmt.Sprintf("kind_%d/fulfilled_%t", kind, fulfilled), func(t *testing.T) {
@@ -68,7 +68,7 @@ func TestRepair_129_ProgramKindPolicy(t *testing.T) {
 
 // Real request admission, bank transfers and signed fulfilments produce the
 // state that the module exports to JSON and imports into a fresh store.
-func TestRepair_129_ModuleJSONRoundTrip(t *testing.T) {
+func TestProgramKindModuleJSONRoundTrip(t *testing.T) {
 	testApp := app.Setup(t, false, false, false)
 	ctx := testApp.GetContextForDeliverTx(nil).WithBlockHeight(8)
 	k, ctx := xwebtestutil.NewKeeper(testApp, ctx)

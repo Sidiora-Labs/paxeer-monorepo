@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepairM_1248_ProgramResultProof(t *testing.T) {
+func TestRequestTimeoutProgramResultProof(t *testing.T) {
 	TestProofGoApiProducerTransportConsumer(t)
 }
 
-func TestRepairM_1248_TimeoutParameters(t *testing.T) {
+func TestRequestTimeoutParameters(t *testing.T) {
 	s := newSuite(t, true)
 	s.request()
 	server := keeper.NewMsgServerImpl(s.k)
@@ -49,7 +49,7 @@ func TestRepairM_1248_TimeoutParameters(t *testing.T) {
 	}
 }
 
-func TestRepairM_1248_TimeoutHeightBoundaries(t *testing.T) {
+func TestRequestTimeoutHeightBoundaries(t *testing.T) {
 	s := newSuite(t, true)
 	s.request()
 	for _, tc := range []struct {
@@ -113,7 +113,7 @@ func TestRepairM_1248_TimeoutHeightBoundaries(t *testing.T) {
 	}
 }
 
-func TestRepairM_1248_PersistedInvalidTimeout(t *testing.T) {
+func TestRequestPersistedInvalidTimeout(t *testing.T) {
 	a, ctx := proofGoAPIApp(t, filepath.Join(t.TempDir(), "node"), true)
 	defer func() { require.NoError(t, a.Close()) }()
 	genesis := types.DefaultGenesis()

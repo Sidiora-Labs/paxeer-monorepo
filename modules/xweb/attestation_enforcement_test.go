@@ -31,7 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repairM1251Suite struct {
+type attestationEnforcementSuite struct {
 	t    *testing.T
 	a    *app.App
 	k    keeper.Keeper
@@ -41,7 +41,7 @@ type repairM1251Suite struct {
 	keys []xwebtestutil.Attestor
 }
 
-func repairM1251NewSuite(t *testing.T) *repairM1251Suite {
+func newAttestationEnforcementSuite(t *testing.T) *attestationEnforcementSuite {
 	t.Helper()
 	a := app.Setup(t, false, true, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
@@ -64,11 +64,11 @@ func repairM1251NewSuite(t *testing.T) *repairM1251Suite {
 	contracts := maps.Clone(a.EvmKeeper.CustomPrecompiles(ctx))
 	contracts[common.HexToAddress(xwebprecompile.XWebAddress)] = p
 	cfg := evmtypes.DefaultChainConfig().EthereumConfig(a.EvmKeeper.ChainID(ctx))
-	return &repairM1251Suite{t: t, a: a, k: k, db: db, p: p, keys: keys,
+	return &attestationEnforcementSuite{t: t, a: a, k: k, db: db, p: p, keys: keys,
 		evm: vm.NewEVM(*block, db, cfg, vm.Config{}, contracts)}
 }
 
-func (s *repairM1251Suite) call(name string, args ...interface{}) ([]interface{}, string) {
+func (s *attestationEnforcementSuite) call(name string, args ...interface{}) ([]interface{}, string) {
 	s.t.Helper()
 	input, err := s.p.GetABI().Pack(name, args...)
 	require.NoError(s.t, err)
@@ -85,14 +85,14 @@ func (s *repairM1251Suite) call(name string, args ...interface{}) ([]interface{}
 	return out, ""
 }
 
-func (s *repairM1251Suite) fund(account sdk.AccAddress, denom string, amount int64) {
+func (s *attestationEnforcementSuite) fund(account sdk.AccAddress, denom string, amount int64) {
 	s.t.Helper()
 	coins := sdk.NewCoins(sdk.NewInt64Coin(denom, amount))
 	require.NoError(s.t, s.a.BankKeeper.MintCoins(s.db.Ctx(), "evm", coins))
 	require.NoError(s.t, s.a.BankKeeper.SendCoinsFromModuleToAccount(s.db.Ctx(), "evm", account, coins))
 }
 
-func repairM1251Signed(t *testing.T, observation types.Observation, keys ...xwebtestutil.Attestor) []byte {
+func signEnforcementObservation(t *testing.T, observation types.Observation, keys ...xwebtestutil.Attestor) []byte {
 	t.Helper()
 	digest := types.Digest(types.Attestation{Origin: observation.Origin,
 		NetworkID: new(big.Int).SetUint64(uint64(observation.NetworkID)), Requester: observation.ProgramID,
@@ -104,8 +104,8 @@ func repairM1251Signed(t *testing.T, observation types.Observation, keys ...xweb
 	return raw
 }
 
-func TestRepairM_1251_ProgramEnforcement(t *testing.T) {
-	s := repairM1251NewSuite(t)
+func TestAttestationProgramEnforcement(t *testing.T) {
+	s := newAttestationEnforcementSuite(t)
 	program, asset := types.Hash32{0x81}, types.Hash32{9}
 	principal := sdk.AccAddress(bytes.Repeat([]byte{0x42}, 20))
 	denom := types.ProgramFeeDenomPAX
@@ -149,13 +149,13 @@ func TestRepairM_1251_ProgramEnforcement(t *testing.T) {
 			"payload":   {func() types.Observation { o := observation; o.PayloadHash[0] ^= 1; return o }(), s.keys[:2], "LXP_CONTEXT_MISMATCH"},
 		} {
 			t.Run(name+"/"+big.NewInt(int64(kind)).String(), func(t *testing.T) {
-				_, reason := s.call(xwebprecompile.FulfilProgramMethod, repairM1251Signed(t, invalid.observation, invalid.keys...))
+				_, reason := s.call(xwebprecompile.FulfilProgramMethod, signEnforcementObservation(t, invalid.observation, invalid.keys...))
 				require.Contains(t, reason, invalid.reason)
 				require.Equal(t, before, s.k.ExportGenesis(s.db.Ctx()))
 				require.Equal(t, sdk.NewInt(75), s.a.BankKeeper.GetBalance(s.db.Ctx(), keeper.ProgramFeeAccount(asset), denom).Amount)
 			})
 		}
-		raw := repairM1251Signed(t, observation, s.keys[:2]...)
+		raw := signEnforcementObservation(t, observation, s.keys[:2]...)
 		_, reason := s.call(xwebprecompile.FulfilProgramMethod, raw)
 		require.Empty(t, reason)
 		out, reason := s.call(xwebprecompile.GetProgramResultMethod, [32]byte(program), id)
@@ -181,8 +181,8 @@ func TestRepairM_1251_ProgramEnforcement(t *testing.T) {
 	require.Equal(t, xwebtestutil.Set(s.keys, 2), s.k.GetAttestorSet(s.db.Ctx()))
 }
 
-func TestRepairM_1251_StorageReceiptPolicy(t *testing.T) {
-	s := repairM1251NewSuite(t)
+func TestAttestationStorageReceiptPolicy(t *testing.T) {
+	s := newAttestationEnforcementSuite(t)
 	requester := common.Address{0x41}
 	ctx := s.db.Ctx()
 	payer := s.a.EvmKeeper.GetPaxAddressOrDefault(ctx, requester)
@@ -256,7 +256,7 @@ func TestRepairM_1251_StorageReceiptPolicy(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrAlreadyFulfilled)
 }
 
-func TestRepairM_1251_FrozenVectorsAndDocumentation(t *testing.T) {
+func TestAttestationFrozenVectorsAndDocumentation(t *testing.T) {
 	doc, err := os.ReadFile("ATTESTATION.md")
 	require.NoError(t, err)
 	for _, claim := range []string{"keeper.Keeper.FulfilProgram", xwebprecompile.XWebAddress,
