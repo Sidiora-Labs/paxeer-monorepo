@@ -1,16 +1,4 @@
-/**
- * Task 22.31.375, audit 22.30.129 finding 003.
- * Proving tests: repair003StatusTaxonomy, repair003Ed25519HostEvidence,
- * repair003Secp256k1HostEvidence, repair003MalformedHostArguments.
- * Baseline was not run: the ordered gate rules prohibit a pre-change verify.
- * Before the repair, the -6 classification, ABI and diagnostic assertions fail
- * by inspection; no pre-change execution or runtime qualification is claimed.
- * Wiring request (domain 13): programs/crates/layerx-programs-runtime/tests
- * must execute this guest's layerx_main selectors 0..3 with the real ABI-v2
- * signature host and compare terminal statuses -6, -6, -2, 0 with equivalent
- * programs/sdk/rust and programs/sdk/c guests and their execution evidence.
- * The declared asc gate compiles these assertions without executing the guest.
- */
+/** Checks signature host evidence, malformed arguments, and ABI status mapping. */
 
 import {
   OK,
@@ -57,7 +45,7 @@ function assertVerificationEvidence(status: i32): i32 {
   return terminal;
 }
 
-export function repair003StatusTaxonomy(): i32 {
+export function hostStatusTaxonomy(): i32 {
   assert(STATUS_VERIFY_FAILED == -6);
   for (let status = ERR_EVIDENCE; status < 0; status++) {
     assert(isHostRefusal(status));
@@ -83,7 +71,7 @@ export function repair003StatusTaxonomy(): i32 {
   return OK;
 }
 
-export function repair003Ed25519HostEvidence(): i32 {
+export function ed25519HostEvidence(): i32 {
   // RFC 8032 section 7.1, TEST 1; also used by runtime signature_vectors.rs.
   const key = hexBytes("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a");
   const signature = hexBytes("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b");
@@ -95,7 +83,7 @@ export function repair003Ed25519HostEvidence(): i32 {
   return assertVerificationEvidence(invalid);
 }
 
-export function repair003Secp256k1HostEvidence(): i32 {
+export function secp256k1HostEvidence(): i32 {
   // Wycheproof tcId 3, shared with runtime signature_vectors.rs.
   const digest = hexBytes("bb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023");
   const key = hexBytes("02782c8ed17e3b2a783b5464f33b09652a71c678e05ec51e84e2bcfc663a3de963");
@@ -105,7 +93,7 @@ export function repair003Secp256k1HostEvidence(): i32 {
   return assertVerificationEvidence(verifySecp256k1V2(digest, key, signature));
 }
 
-export function repair003MalformedHostArguments(): i32 {
+export function malformedHostArguments(): i32 {
   const digest = new StaticArray<u8>(32);
   const key = new StaticArray<u8>(33);
   const signature = hexBytes("d035ee1f17fdb0b2681b163e33c359932659990af77dca632012b30b27a057b31939d9f3b2858bc13e3474cb50e6a82be44faa71940f876c1cba4c3e989202b6");
@@ -123,10 +111,10 @@ export function repair003MalformedHostArguments(): i32 {
 }
 
 export function layerx_main(selector: i64): i64 {
-  if (selector == 0) return <i64>repair003Ed25519HostEvidence();
-  if (selector == 1) return <i64>repair003Secp256k1HostEvidence();
-  if (selector == 2) return <i64>repair003MalformedHostArguments();
-  if (selector == 3) return <i64>repair003StatusTaxonomy();
+  if (selector == 0) return <i64>ed25519HostEvidence();
+  if (selector == 1) return <i64>secp256k1HostEvidence();
+  if (selector == 2) return <i64>malformedHostArguments();
+  if (selector == 3) return <i64>hostStatusTaxonomy();
   return <i64>ERR_INVALID;
 }
 

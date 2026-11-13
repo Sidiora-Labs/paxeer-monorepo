@@ -6,7 +6,7 @@ baseline = "NOT_RUN: the explicit ordered BUILD instructions prohibit pre-implem
 qualification = "hf-build then hf-done; the runner records the exact immutable candidate revision, command, exit and private log in /out/run/gates.jsonl and the final evidence JSON."
 
 [finding.015]
-test = "repair_22_33_247::finding_015_v5_sdk_import_reaches_the_real_validator_and_linker"
+test = "v5_import_validation::finding_015_v5_sdk_import_reaches_the_real_validator_and_linker"
 path = "SDK frozen v5 declaration -> committed runtime binary-codec fixture -> lint_artifact_for_abi -> shared admission -> runtime versioned validation at V5 -> real host linker instantiation; direct validate_v5 checks the same emitted bytes."
 imports = "finding_015_import_admission_matches_every_runtime_namespace covers every runtime host function across all five admitted revisions; finding_015_v5_checks_signatures_kinds_duplicates_and_unknown_imports preserves exact signature, kind, duplicate and namespace refusals."
 determinism = "finding_015_v5_preserves_named_determinism_and_export_refusals covers clocks, randomness, float types/instructions, vectors, missing exports and malformed modules."

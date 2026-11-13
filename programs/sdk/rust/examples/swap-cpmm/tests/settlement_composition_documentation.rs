@@ -178,7 +178,7 @@ fn finding_036_guide_preserves_token_blockers_and_proof_boundary() {
     ] {
         assert!(guide.contains(claim), "missing qualification: {claim}");
     }
-    let record = include_str!("../src/repair_22_33_250.kvx");
+    let record = include_str!("../../../../../../spec/layerx-merge/programme/records/programs/sdk/rust/examples/swap-cpmm/src/repair_22_33_250.kvx");
     assert!(record.contains("finding = \"22.30.129/036\""));
     for test in [
         "finding_036_documented_wire_and_authority_match_production",

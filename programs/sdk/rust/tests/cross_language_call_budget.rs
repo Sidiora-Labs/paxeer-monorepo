@@ -1,6 +1,4 @@
-//! Repair record 22.31.265: findings 004 through 009 are mapped to the tests below.
-//! Baseline verification was not run: the task's ordered gate contract forbids it.
-//! No out-of-scope wiring changes are needed; the runtime host is exercised unchanged.
+//! Checks complete call budgets across generated language bindings.
 
 use layerx_program_sdk::{call::CallInput, BindingGenerator};
 use std::fs;
@@ -61,7 +59,7 @@ struct Fixture {
 fn fixture() -> &'static Fixture {
     static FIXTURE: OnceLock<Fixture> = OnceLock::new();
     FIXTURE.get_or_init(|| {
-        let root = std::env::temp_dir().join(format!("layerx-repair-22-31-265-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("layerx-cross-language-call-budget-{}", std::process::id()));
         fs::create_dir_all(root.join("host/src")).unwrap_or_else(|error| panic!("test value: {error:?}"));
         let programs = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
@@ -69,7 +67,7 @@ fn fixture() -> &'static Fixture {
             .unwrap_or_else(|error| panic!("test value: {error:?}"));
         // A separate harness avoids adding a runtime dependency to the guest SDK.
         write(root.join("host/Cargo.toml"), format!(
-            "[package]\nname = \"repair-265-host\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[workspace]\n[dependencies]\nlayerx-programs-runtime = {{ path = \"{}\" }}\n[profile.dev]\ndebug = 0\n",
+            "[package]\nname = \"call-budget-host\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[workspace]\n[dependencies]\nlayerx-programs-runtime = {{ path = \"{}\" }}\n[profile.dev]\ndebug = 0\n",
             programs.join("crates/layerx-programs-runtime").display()
         ));
         write(root.join("host/src/main.rs"), HOST);
@@ -83,7 +81,7 @@ fn fixture() -> &'static Fixture {
         write(root.join("client.py"), generator.generate_python());
         run(Command::new("python3").current_dir(&root).args(["-c", "import client as c; from pathlib import Path; Path('output.bin').write_bytes(c._frame(c._Entry_01020304_OUTPUT, bytes([0x5a])*1048570))"]));
         Fixture {
-            host: root.join("host/target/debug/repair-265-host"),
+            host: root.join("host/target/debug/call-budget-host"),
             root,
             generator,
         }
@@ -169,7 +167,7 @@ fn finding_004_rust_and_typescript_complete_call_budget() {
 #[test]
 fn finding_005_go_complete_call_budget() {
     let (fixture, directory) = directory("go");
-    write(directory.join("go.mod"), "module repair265\n\ngo 1.23\n");
+    write(directory.join("go.mod"), "module callbudget\n\ngo 1.23\n");
     write(directory.join("client.go"), fixture.generator.generate_go());
     write(directory.join("client_test.go"), GO);
     run(Command::new("go").current_dir(&directory).args([
