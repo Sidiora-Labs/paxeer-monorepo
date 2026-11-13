@@ -37,6 +37,7 @@ contract SidioraProxyTimelockTest {
             address(originalImplementation), abi.encodeCall(Treasury.initialize, (address(0), address(this)))
         );
         treasury = Treasury(address(proxy));
+        require(treasury.hasRole(treasury.DEFAULT_ADMIN_ROLE(), address(this)), "treasury initialized");
         timelock = new SidioraProxyTimelock(address(proxy), PROPOSER, EXECUTOR, PROPOSER, DELAY, 1 days, 7 days);
         treasury.grantRole(treasury.DEFAULT_ADMIN_ROLE(), address(timelock));
         upgradeData = abi.encodeCall(

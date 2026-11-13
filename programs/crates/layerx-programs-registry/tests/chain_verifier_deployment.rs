@@ -1,7 +1,9 @@
-#[path = "support/chain.rs"]
-mod chain;
+use support::chain;
+#[allow(dead_code)]
+#[path = "support/mod.rs"]
 mod support;
 
+#[allow(dead_code)]
 #[path = "../src/chain_evidence/verify_deployment.rs"]
 mod verify_deployment;
 
@@ -40,30 +42,39 @@ fn deployment_fixture(
     if published {
         rows.push((
             interface_key.clone(),
-            layerx_programs::interface_state_value(program, 1, &interface).unwrap(),
+            layerx_programs::interface_state_value(program, 1, &interface)
+                .unwrap_or_else(|error| panic!("{error:?}")),
         ));
     }
-    let fixture = chain::ChainFixture::new(CHAIN_ID, &SEEDS, rows).unwrap();
+    let fixture = chain::ChainFixture::new(CHAIN_ID, &SEEDS, rows)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let witness = layerx_programs::chain_proof::decode::decode_commitment_proof(
-        &fixture.encode_key(&interface_key).unwrap(),
+        &fixture
+            .encode_key(&interface_key)
+            .unwrap_or_else(|error| panic!("{error:?}")),
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let proof = ChainDeploymentProof::from_state_proofs(
         ChainProgramStateProof {
             program,
-            ops: fixture.prove(&key).unwrap(),
+            ops: fixture
+                .prove(&key)
+                .unwrap_or_else(|error| panic!("{error:?}")),
         },
         record.module,
         &witness,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     (fixture, proof, interface)
 }
 
 fn sign_header(header: &ChainHeader, template: &Commit, seeds: &[[u8; 32]]) -> Commit {
     let mut commit = template.clone();
     commit.height = header.height;
-    commit.block_id.hash = header.hash().unwrap().to_vec();
+    commit.block_id.hash = header
+        .hash()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .to_vec();
     let timestamp = Timestamp {
         seconds: header.time.seconds,
         nanos: header.time.nanos,
@@ -75,7 +86,7 @@ fn sign_header(header: &ChainHeader, template: &Commit, seeds: &[[u8; 32]]) -> C
         Some(&commit.block_id),
         timestamp,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     commit.signatures = seeds
         .iter()
         .map(|seed| {
@@ -93,26 +104,23 @@ fn sign_header(header: &ChainHeader, template: &Commit, seeds: &[[u8; 32]]) -> C
     commit
 }
 
-#[test]
-fn chain_deployment_current_and_historical_verify() {
-    let (mut fixture, proof, interface) = deployment_fixture(true);
-    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
-        CHAIN_ID,
-        fixture.verifier.validators.validators().to_vec(),
-        MAX_AGE_MS,
-    )
-    .unwrap();
-    let trust = verifier.chain_trust().unwrap();
-    let old = trust.verify_head(&fixture.header, &fixture.commit).unwrap();
-    let old_time = u64::try_from(old.time_ms()).unwrap();
+fn verify_deployment_variants(
+    verifier: &ProtocolDeploymentVerifier,
+    trust: &chain_proof::ChainProofVerifier,
+    proof: &ChainDeploymentProof,
+    old: &chain_proof::VerifiedChainHead,
+    old_time: u64,
+    interface: &ProgramInterface,
+) {
     let expected_hash: [u8; 32] = Sha256::digest(support::WASM_V1).into();
     for published in [false, true] {
         let (case_fixture, proof, _) = deployment_fixture(published);
         let old = trust
             .verify_head(&case_fixture.header, &case_fixture.commit)
-            .unwrap();
-        let old_time = old.time_ms() as u64;
-        let evidence = deployment_at(&verifier, &proof, &old, old_time).unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        let old_time = u64::from_le_bytes((old.time_ms()).to_le_bytes());
+        let evidence = deployment_at(verifier, &proof, &old, old_time)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(evidence.program(), proof.program_state.program);
         assert_eq!(evidence.version(), 1);
         assert_eq!(evidence.code_hash(), expected_hash);
@@ -127,28 +135,41 @@ fn chain_deployment_current_and_historical_verify() {
         assert_eq!(evidence.interface_present(), published);
         assert_eq!(
             evidence.interface(),
-            if published { Some(&interface) } else { None }
+            if published { Some(interface) } else { None }
         );
         assert_eq!(
             evidence.freshness(),
             ReadFreshness {
-                observed_sequence: u64::try_from(old.height()).unwrap(),
+                observed_sequence: u64::try_from(old.height())
+                    .unwrap_or_else(|error| panic!("{error:?}")),
                 observed_at: old_time,
             }
         );
     }
-    assert!(deployment_at(&verifier, &proof, &old, old_time + MAX_AGE_MS).is_ok());
+    assert!(deployment_at(verifier, proof, old, old_time + MAX_AGE_MS).is_ok());
     assert_eq!(
-        deployment_at(&verifier, &proof, &old, old_time + MAX_AGE_MS + 1),
+        deployment_at(verifier, proof, old, old_time + MAX_AGE_MS + 1),
         Err(ProtocolEvidenceError::Stale)
     );
-    assert!(deployment_at(&verifier, &proof, &old, old_time - 1_000).is_ok());
+    assert!(deployment_at(verifier, proof, old, old_time - 1_000).is_ok());
     assert_eq!(
-        deployment_at(&verifier, &proof, &old, old_time - 1_001),
+        deployment_at(verifier, proof, old, old_time - 1_001),
         Err(ProtocolEvidenceError::Stale)
     );
+}
 
-    let new_seeds = [[11; 32], [12; 32], [13; 32], [14; 32]];
+type TrustHistoryStep = (ChainHeader, Commit, ValidatorSet);
+const ROTATED_SEEDS: [[u8; 32]; 4] = [[11; 32], [12; 32], [13; 32], [14; 32]];
+
+fn rotated_deployment_chain(
+    fixture: &chain::ChainFixture,
+    trust: &chain_proof::ChainProofVerifier,
+) -> (
+    chain_proof::ChainProofVerifier,
+    chain_proof::VerifiedChainHead,
+    Vec<TrustHistoryStep>,
+) {
+    let new_seeds = ROTATED_SEEDS;
     let mut new_validators = new_seeds
         .iter()
         .map(|seed| {
@@ -157,7 +178,8 @@ fn chain_deployment_current_and_historical_verify() {
         })
         .collect::<Vec<_>>();
     new_validators.sort_by_key(|validator| validator.address);
-    let new_validators = ValidatorSet::new(new_validators).unwrap();
+    let new_validators =
+        ValidatorSet::new(new_validators).unwrap_or_else(|error| panic!("{error:?}"));
     let mut intermediate = fixture.header.clone();
     intermediate.height += 1;
     intermediate.time.seconds += 10;
@@ -174,8 +196,7 @@ fn chain_deployment_current_and_historical_verify() {
     };
     let current = current_verifier
         .verify_head(&current_header, &current_commit)
-        .unwrap();
-    let now = u64::try_from(current.time_ms()).unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let trust_chain = vec![
         (
             fixture.header.clone(),
@@ -185,15 +206,108 @@ fn chain_deployment_current_and_historical_verify() {
         (intermediate, intermediate_commit, trust.validators.clone()),
         (current_header, current_commit, new_validators),
     ];
+    (current_verifier, current, trust_chain)
+}
+
+fn verify_historical_deployment_rejections(
+    verifier: &ProtocolDeploymentVerifier,
+    proof: &ChainDeploymentProof,
+    old: &chain_proof::VerifiedChainHead,
+    current: &chain_proof::VerifiedChainHead,
+    trust_chain: &[TrustHistoryStep],
+    current_verifier: &chain_proof::ChainProofVerifier,
+    times: (u64, u64),
+) {
+    for incomplete in [&trust_chain[..0], &trust_chain[..1], &trust_chain[..2]] {
+        assert_eq!(
+            historical_deployment_at(verifier, proof, old, current, incomplete, times.0),
+            Err(ProtocolEvidenceError::HistoricalTrustAnchor)
+        );
+    }
+    let mut tampered = trust_chain.to_vec();
+    tampered[1].1.signatures[0].signature[0] ^= 1;
+    assert_eq!(
+        historical_deployment_at(verifier, proof, old, current, &tampered, times.0),
+        Err(ProtocolEvidenceError::HistoricalTrustAnchor)
+    );
+    let skipped_rotation = vec![trust_chain[0].clone(), trust_chain[2].clone()];
+    assert_eq!(
+        historical_deployment_at(verifier, proof, old, current, &skipped_rotation, times.0),
+        Err(ProtocolEvidenceError::HistoricalTrustAnchor)
+    );
+    let mut wrong_anchor = trust_chain.to_vec();
+    wrong_anchor[0].2.clone_from(&current_verifier.validators);
+    assert_eq!(
+        historical_deployment_at(verifier, proof, old, current, &wrong_anchor, times.0),
+        Err(ProtocolEvidenceError::InvalidTrustAnchor)
+    );
+    let mut fork_header = trust_chain[2].0.clone();
+    fork_header.app_hash = vec![99; 32];
+    let fork_commit = sign_header(&fork_header, &trust_chain[2].1, &ROTATED_SEEDS);
+    let fork = current_verifier
+        .verify_head(&fork_header, &fork_commit)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        historical_deployment_at(verifier, proof, old, &fork, trust_chain, times.0),
+        Err(ProtocolEvidenceError::HistoricalTrustAnchor)
+    );
+    assert_eq!(
+        historical_deployment_at(
+            verifier,
+            proof,
+            old,
+            current,
+            trust_chain,
+            times.0 + MAX_AGE_MS + 1
+        ),
+        Err(ProtocolEvidenceError::Stale)
+    );
+    let other_verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        "other-chain",
+        trust_chain[0].2.validators().to_vec(),
+        MAX_AGE_MS,
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        deployment_at(&other_verifier, proof, old, times.1),
+        Err(ProtocolEvidenceError::ProtocolDomain)
+    );
+    assert_eq!(
+        historical_deployment_at(&other_verifier, proof, old, current, trust_chain, times.0),
+        Err(ProtocolEvidenceError::ProtocolDomain)
+    );
+}
+
+#[test]
+fn chain_deployment_current_and_historical_verify() {
+    let (mut fixture, proof, interface) = deployment_fixture(true);
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        CHAIN_ID,
+        fixture.verifier.validators.validators().to_vec(),
+        MAX_AGE_MS,
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let trust = verifier
+        .chain_trust()
+        .unwrap_or_else(|| panic!("expected value"));
+    let old = trust
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let old_time = u64::try_from(old.time_ms()).unwrap_or_else(|error| panic!("{error:?}"));
+    verify_deployment_variants(&verifier, trust, &proof, &old, old_time, &interface);
+
+    let (current_verifier, current, trust_chain) = rotated_deployment_chain(&fixture, trust);
+    let now = u64::try_from(current.time_ms()).unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(
         deployment_at(&verifier, &proof, &old, now),
         Err(ProtocolEvidenceError::Stale)
     );
-    let historical =
-        historical_deployment_at(&verifier, &proof, &old, &current, &trust_chain, now).unwrap();
+    let historical = historical_deployment_at(&verifier, &proof, &old, &current, &trust_chain, now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(
         historical,
-        deployment_at(&verifier, &proof, &old, old_time).unwrap()
+        deployment_at(&verifier, &proof, &old, old_time)
+            .unwrap_or_else(|error| panic!("{error:?}"))
     );
     // Refresh the witness framing for the actual current head. The unchanged
     // state root alone cannot authorize borrowing an old interface witness.
@@ -208,70 +322,26 @@ fn chain_deployment_current_and_historical_verify() {
     let key = chain_evidence::programs_state_key(&layerx_programs::interface_state_key(
         repair_22_33_221::program(),
     ));
-    current_proof.interface = Some(fixture.encode_key(&key).unwrap());
-    let current_evidence = deployment_at(&verifier, &current_proof, &current, now).unwrap();
+    current_proof.interface = Some(
+        fixture
+            .encode_key(&key)
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    );
+    let current_evidence = deployment_at(&verifier, &current_proof, &current, now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(current_evidence.state_height(), current.height() - 1);
     assert_eq!(current_evidence.state_root(), current.app_hash());
     assert_eq!(current_evidence.module(), historical.module());
     assert_eq!(current_evidence.freshness().observed_at, now);
 
-    for incomplete in [&trust_chain[..0], &trust_chain[..1], &trust_chain[..2]] {
-        assert_eq!(
-            historical_deployment_at(&verifier, &proof, &old, &current, incomplete, now),
-            Err(ProtocolEvidenceError::HistoricalTrustAnchor)
-        );
-    }
-    let mut tampered = trust_chain.clone();
-    tampered[1].1.signatures[0].signature[0] ^= 1;
-    assert_eq!(
-        historical_deployment_at(&verifier, &proof, &old, &current, &tampered, now),
-        Err(ProtocolEvidenceError::HistoricalTrustAnchor)
-    );
-    let skipped_rotation = vec![trust_chain[0].clone(), trust_chain[2].clone()];
-    assert_eq!(
-        historical_deployment_at(&verifier, &proof, &old, &current, &skipped_rotation, now),
-        Err(ProtocolEvidenceError::HistoricalTrustAnchor)
-    );
-    let mut wrong_anchor = trust_chain.clone();
-    wrong_anchor[0].2 = current_verifier.validators.clone();
-    assert_eq!(
-        historical_deployment_at(&verifier, &proof, &old, &current, &wrong_anchor, now),
-        Err(ProtocolEvidenceError::InvalidTrustAnchor)
-    );
-    let mut fork_header = trust_chain[2].0.clone();
-    fork_header.app_hash = vec![99; 32];
-    let fork_commit = sign_header(&fork_header, &fixture.commit, &new_seeds);
-    let fork = current_verifier
-        .verify_head(&fork_header, &fork_commit)
-        .unwrap();
-    assert_eq!(
-        historical_deployment_at(&verifier, &proof, &old, &fork, &trust_chain, now),
-        Err(ProtocolEvidenceError::HistoricalTrustAnchor)
-    );
-    assert_eq!(
-        historical_deployment_at(
-            &verifier,
-            &proof,
-            &old,
-            &current,
-            &trust_chain,
-            now + MAX_AGE_MS + 1
-        ),
-        Err(ProtocolEvidenceError::Stale)
-    );
-    let other_verifier = ProtocolDeploymentVerifier::from_chain_trust(
-        "other-chain",
-        trust.validators.validators().to_vec(),
-        MAX_AGE_MS,
-    )
-    .unwrap();
-    assert_eq!(
-        deployment_at(&other_verifier, &proof, &old, old_time),
-        Err(ProtocolEvidenceError::ProtocolDomain)
-    );
-    assert_eq!(
-        historical_deployment_at(&other_verifier, &proof, &old, &current, &trust_chain, now),
-        Err(ProtocolEvidenceError::ProtocolDomain)
+    verify_historical_deployment_rejections(
+        &verifier,
+        &proof,
+        &old,
+        &current,
+        &trust_chain,
+        &current_verifier,
+        (now, old_time),
     );
 }
 
@@ -283,13 +353,13 @@ fn chain_deployment_refuses_code_hash_mismatch() {
         fixture.verifier.validators.validators().to_vec(),
         MAX_AGE_MS,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let head = verifier
         .chain_trust()
-        .unwrap()
+        .unwrap_or_else(|| panic!("expected value"))
         .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
-    let now = u64::try_from(head.time_ms()).unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let now = u64::try_from(head.time_ms()).unwrap_or_else(|error| panic!("{error:?}"));
     assert!(deployment_at(&verifier, &proof, &head, now).is_ok());
     let trust_chain = [(
         fixture.header.clone(),
@@ -310,6 +380,7 @@ fn chain_deployment_refuses_code_hash_mismatch() {
     }
 }
 
+#[allow(dead_code)]
 #[path = "support/repair_22_33_221.rs"]
 mod repair_22_33_221;
 

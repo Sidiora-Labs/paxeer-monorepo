@@ -83,19 +83,19 @@ func admissionCaptured(o AdmissionOptions, next http.Handler, capture *Middlewar
 		return nil, ErrDenied
 	}
 	budget, exists := frozenBudget(o.Class)
-	if !exists || o.Cost > budget.Burst || o.Class != "public-read" && o.Verifier == nil || o.CachedPublicRead && o.Class != "public-read" {
+	if !exists || o.Cost > budget.Burst || o.Class != classPublicRead && o.Verifier == nil || o.CachedPublicRead && o.Class != classPublicRead {
 		return nil, ErrDenied
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		principal := ""
-		if o.Class == "public-read" {
+		if o.Class == classPublicRead {
 			host, _, err := net.SplitHostPort(r.RemoteAddr)
 			if err != nil {
 				host = r.RemoteAddr
 			}
 			ip := net.ParseIP(host)
 			if ip == nil {
-				http.Error(w, "invalid principal", 400)
+				http.Error(w, "invalid principal", http.StatusBadRequest)
 				return
 			}
 			principal = ip.String()
@@ -104,20 +104,20 @@ func admissionCaptured(o AdmissionOptions, next http.Handler, capture *Middlewar
 			id, err := o.Verifier.Verify(r.Context(), r)
 			identityAllowed := err == nil && id.Actor != "" && id.Expires.After(time.Now()) && !id.Issued.After(time.Now())
 			if capture != nil && capture.Record(r, "authorization", started, identityAllowed, err != nil && !errors.Is(err, ErrDenied)) != nil {
-				http.Error(w, "capture_unavailable", 503)
+				http.Error(w, "capture_unavailable", http.StatusServiceUnavailable)
 				return
 			}
 			if err != nil || id.Actor == "" || !id.Expires.After(time.Now()) || id.Issued.After(time.Now()) {
-				http.Error(w, "unauthorized", 401)
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
 			principal = id.Actor
 		}
 		started := time.Now()
 		allowed, retry, err := Take(r.Context(), o.Redis, o.Namespace, o.Class, principal, o.Cost)
-		fallbackAllowed := err != nil && o.Class == "public-read" && o.CachedPublicRead && o.Edge.Take(time.Now())
+		fallbackAllowed := err != nil && o.Class == classPublicRead && o.CachedPublicRead && o.Edge.Take(time.Now())
 		if capture != nil && capture.Record(r, "limiter", started, allowed || fallbackAllowed, err != nil) != nil {
-			http.Error(w, "capture_unavailable", 503)
+			http.Error(w, "capture_unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		if err != nil {
@@ -126,7 +126,7 @@ func admissionCaptured(o AdmissionOptions, next http.Handler, capture *Middlewar
 				return
 			}
 			w.Header().Set("Retry-After", "1")
-			http.Error(w, "request_budget_unavailable", 503)
+			http.Error(w, "request_budget_unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		if !allowed {
@@ -135,7 +135,7 @@ func admissionCaptured(o AdmissionOptions, next http.Handler, capture *Middlewar
 				seconds = 1
 			}
 			w.Header().Set("Retry-After", strconv.Itoa(seconds))
-			http.Error(w, "request_budget_exhausted", 429)
+			http.Error(w, "request_budget_exhausted", http.StatusTooManyRequests)
 			return
 		}
 		next.ServeHTTP(w, r)

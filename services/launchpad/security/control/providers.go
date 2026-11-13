@@ -103,7 +103,7 @@ type PayoutProvider struct {
 
 func NewPayoutProvider(endpoint, credential, controller, authorityReference string, transport *http.Transport) (*PayoutProvider, error) {
 	u, err := url.Parse(endpoint)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (len(credential) < 32 || len(credential) > 4096) || !text(controller, 256) || !destination(authorityReference) || transport == nil || transport.TLSClientConfig == nil || transport.TLSClientConfig.InsecureSkipVerify || transport.TLSClientConfig.MinVersion < tls.VersionTLS12 {
+	if err != nil || u.Scheme != controlHttps || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (len(credential) < 32 || len(credential) > 4096) || !text(controller, 256) || !destination(authorityReference) || transport == nil || transport.TLSClientConfig == nil || transport.TLSClientConfig.InsecureSkipVerify || transport.TLSClientConfig.MinVersion < tls.VersionTLS12 {
 		return nil, Invalid
 	}
 	hardened := transport.Clone()
@@ -115,7 +115,7 @@ func NewPayoutProvider(endpoint, credential, controller, authorityReference stri
 	c := &http.Client{Transport: hardened, Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	return &PayoutProvider{u, c, credential, controller, authorityReference}, nil
 }
-func (p *PayoutProvider) call(ctx context.Context, method, key string, body any) (PayoutResult, error) {
+func (p *PayoutProvider) call(ctx context.Context, method, key string, body any) (_ PayoutResult, resultErr error) {
 	if !keyPattern.MatchString(key) {
 		return PayoutResult{}, Invalid
 	}
@@ -140,9 +140,9 @@ func (p *PayoutProvider) call(ctx context.Context, method, key string, body any)
 	if err != nil {
 		return PayoutResult{}, Unavailable
 	}
-	defer res.Body.Close()
+	defer func() { resultErr = errors.Join(resultErr, res.Body.Close()) }()
 	if method == http.MethodGet && res.StatusCode == 404 {
-		return PayoutResult{State: "absent"}, nil
+		return PayoutResult{State: controlAbsent}, nil
 	}
 	if res.StatusCode != 200 && res.StatusCode != 202 {
 		return PayoutResult{}, Unavailable
@@ -158,7 +158,7 @@ func (p *PayoutProvider) call(ctx context.Context, method, key string, body any)
 		return PayoutResult{}, Unavailable
 	}
 	switch out.State {
-	case "pending", "unknown", "confirmed":
+	case controlPending, controlUnknown, controlConfirmed:
 	default:
 		return PayoutResult{}, Unavailable
 	}
@@ -168,7 +168,7 @@ func (p *PayoutProvider) call(ctx context.Context, method, key string, body any)
 			return PayoutResult{}, Unavailable
 		}
 	}
-	if out.State == "confirmed" && out.Reference == "" {
+	if out.State == controlConfirmed && out.Reference == "" {
 		return PayoutResult{}, Unavailable
 	}
 	return out, nil
@@ -208,7 +208,7 @@ type RevocationProvider struct {
 
 func NewRevocationProvider(endpoint, credential string, transport *http.Transport) (*RevocationProvider, error) {
 	u, err := url.Parse(endpoint)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (len(credential) < 32 || len(credential) > 4096) || transport == nil || transport.TLSClientConfig == nil || transport.TLSClientConfig.InsecureSkipVerify || transport.TLSClientConfig.MinVersion < tls.VersionTLS12 {
+	if err != nil || u.Scheme != controlHttps || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (len(credential) < 32 || len(credential) > 4096) || transport == nil || transport.TLSClientConfig == nil || transport.TLSClientConfig.InsecureSkipVerify || transport.TLSClientConfig.MinVersion < tls.VersionTLS12 {
 		return nil, Invalid
 	}
 	hardened := transport.Clone()
@@ -219,7 +219,7 @@ func NewRevocationProvider(endpoint, credential string, transport *http.Transpor
 	hardened.TLSHandshakeTimeout = 2 * time.Second
 	return &RevocationProvider{u, &http.Client{Transport: hardened, Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, credential}, nil
 }
-func (p *RevocationProvider) Revoke(ctx context.Context, i Incident) (RevocationAcknowledgement, error) {
+func (p *RevocationProvider) Revoke(ctx context.Context, i Incident) (_ RevocationAcknowledgement, resultErr error) {
 	var out RevocationAcknowledgement
 	if !key(i.ID) || !key(i.ServiceIdentity) {
 		return out, Invalid
@@ -244,7 +244,7 @@ func (p *RevocationProvider) Revoke(ctx context.Context, i Incident) (Revocation
 	if err != nil {
 		return out, Unavailable
 	}
-	defer res.Body.Close()
+	defer func() { resultErr = errors.Join(resultErr, res.Body.Close()) }()
 	if res.StatusCode != 200 {
 		return out, Unavailable
 	}

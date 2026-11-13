@@ -45,6 +45,11 @@ func TestDirectABIFile(t *testing.T) {
 			}
 		}
 	}
+	for _, m := range parseABIFile(t, "abi/ChainLaunch.json").Methods {
+		declaredBy[m.Sig]++
+		owner[m.Sig] = "ChainLaunch"
+		ownerMethod[m.Sig] = m
+	}
 
 	shared := map[string]string{}
 	for sig, n := range declaredBy {
@@ -76,8 +81,8 @@ func TestDirectABIFile(t *testing.T) {
 		"initialize(address,address,address)":       "Quoter",
 	}, shared)
 
-	require.Len(t, direct.Methods, 113)
-	require.Len(t, owner, 113)
+	require.Len(t, direct.Methods, 126)
+	require.Len(t, owner, 126)
 	selectors := map[[4]byte]string{}
 	for _, m := range direct.Methods {
 		var id [4]byte
@@ -105,6 +110,10 @@ func TestDirectABIFile(t *testing.T) {
 		events[e.Sig] = e.ID
 	}
 	require.Equal(t, map[string]common.Hash{
+		"ChainLaunched(uint32,address,address,uint64,uint256,address,uint256,uint256)":               common.HexToHash("0xcc3fdcbf1588c99f8d97297b1e742174af195b321237d1f9517f600bdb62817d"),
+		"ChainRevenueEpochOpened(uint32,uint64,uint256,uint64,uint256,uint256,uint256)":              common.HexToHash("0x052cccce5cfb5c079d591a2ac716ddd1759e66d62f036bd44be608ac47615703"),
+		"ChainRevenueClaimed(uint32,uint64,address,uint256,uint256,uint256)":                         common.HexToHash("0x1e561bbeb84dbf638f5444931d883ff8a4ff458bea55b7c85f2f198bcd17630e"),
+		"LaunchedChainRetired(uint32,address,uint256,uint256,uint256)":                               common.HexToHash("0x562436e1654eaa173e7e0825a3f072b8d0f9056f0ae31ef5c72a894137a0392a"),
 		"Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)":                 common.HexToHash("0xa234ab85728295548823d8a26077ecc77aa5815f9ed8f4c5e6fd390ac851d4cc"),
 		"PoolStateUpdated(bytes32,uint256,uint256,uint256,uint256,uint256,uint256)":                  common.HexToHash("0x8155a4b38a877d212b271811786986f8f7d78074c82fce4526c58defcc6d7ebd"),
 		"TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)": common.HexToHash("0xad187874b793634c55d977f35d4828526eb48170a9531c71d88f8fd10cf9c237"),
@@ -118,14 +127,14 @@ func TestDirectABIFile(t *testing.T) {
 		"FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)":             common.HexToHash("0x626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4"),
 		"FeeDistributed(bytes32,uint256,uint8,uint256,address,uint256,uint256)":                      common.HexToHash("0xf7ab826cedf9d005102eddf95e65f43597aef36a55ff09ee4f452204c83f4afc"),
 	}, events)
-	require.Len(t, (directABIConsumer{direct}).errors(), 64)
+	require.Len(t, (directABIConsumer{direct}).errors(), 69)
 }
 
 func TestDirectABIDeclaresRoleErrors(t *testing.T) {
 	direct := parseABIFile(t, "abi.json")
-	require.Len(t, direct.Methods, 113)
-	require.Len(t, direct.Events, 12)
-	require.Len(t, (directABIConsumer{direct}).errors(), 64)
+	require.Len(t, direct.Methods, 126)
+	require.Len(t, direct.Events, 16)
+	require.Len(t, (directABIConsumer{direct}).errors(), 69)
 
 	solidity, err := os.ReadFile("Launchpad.sol")
 	require.NoError(t, err)
@@ -223,7 +232,16 @@ func TestDirectABIDeclaresRoleErrors(t *testing.T) {
 		}
 		require.Equal(t, contractError.Signature(), solidityErrors[contractError.Name])
 	}
-	require.Len(t, declared, 64)
+	for _, name := range []string{"WrongChain", "NotLaunchedChain", "NotFeeRightHolder", "EpochTooEarly", "NothingToDistribute"} {
+		signature := name + "()"
+		declared[name] = true
+		require.Equal(t, signature, solidityErrors[name])
+		abiError, ok := direct.Errors[name]
+		require.True(t, ok, signature)
+		require.Equal(t, signature, abiError.Sig)
+		require.Empty(t, abiError.Inputs)
+	}
+	require.Len(t, declared, 69)
 	require.Len(t, solidityErrors, len(declared))
 
 	for _, role := range directRoles {

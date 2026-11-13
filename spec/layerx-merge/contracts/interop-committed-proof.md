@@ -2,9 +2,7 @@
 
 Paxeer mainnet-beta is one BFT network. Its kernel participates in the network and proposes blocks; a receipt is final when its block is committed. The proof library authenticates receipt bytes and consensus evidence for that network. It does not introduce a separate execution network or a later settlement service. Explorer WebSocket messages are indexer notifications; see the [explorer ws contract](explorer-ws.md) for their delivery and address-encoding rules.
 
-This page describes the implemented Rust API in [layerx-committed-proof](../../../services/interop/crates/layerx-committed-proof/src/lib.rs), replacing the old pinned snapshot that marked these APIs planned. The Cargo package is `layerx-committed-proof`; its Rust import path is `layerx_committed_proof`. Public modules are `proto`, `merkle`, `header`, `commit` and `committed`. Receipt decoding and Ed25519 verification are implemented in `lib.rs`; there are no public `validators`, `ed25519`, `results` or `batch` modules.
-
-## rs-committed-proof-crate
+This page describes the implemented Rust API in [layerx-committed-proof](../../../services/interop/crates/layerx-committed-proof/src/lib.rs). The Cargo package is `layerx-committed-proof`; its Rust import path is `layerx_committed_proof`. Public modules are `proto`, `merkle`, `header`, `commit` and `committed`. Receipt decoding and Ed25519 verification are implemented in `lib.rs`; there are no public `validators`, `ed25519`, `results` or `batch` modules.
 
 ### Public signatures
 
@@ -121,16 +119,16 @@ The public Rust error is `ProofError`, with these variants:
 
 These are library errors, not JSON-RPC error codes. In particular, the current voting-power variant is `InsufficientVotingPower`.
 
-### Existing acceptance coverage
+### Reference vectors
 
-The following implemented tests retain the useful acceptance mapping from the former snapshot. Their existence is not a claim that their gates ran in this documentation task.
+The following tests exercise the receipt, header, commit and inclusion formats.
 
-| Requirement | Test source and assertions |
+| Boundary | Test source and assertions |
 |---|---|
-| `11010.1`, `11010.2` | [tests/merkle.rs](../../../services/interop/crates/layerx-committed-proof/tests/merkle.rs): `roots_match_the_reference_tree` compares the recorded 0-, 1-, 2- and 5-item roots; `a_flipped_aunt_is_refused` checks proof tampering |
-| `11016.1`, `11016.2` | [tests/header.rs](../../../services/interop/crates/layerx-committed-proof/tests/header.rs): `header_hash_matches_the_reference_header` and `validators_hash_matches_the_reference_set` compare reference commitments, including validator order |
-| `11029.1`, `11029.2` | [tests/commit.rs](../../../services/interop/crates/layerx-committed-proof/tests/commit.rs): `a_three_of_four_commit_verifies` accepts sufficient signed power; `a_two_of_four_commit_is_refused` rejects insufficient power |
-| `11040.1` | [tests/committed.rs](../../../services/interop/crates/layerx-committed-proof/tests/committed.rs): `committed_vectors_verify_end_to_end` checks accepting execution block identities and the recorded refusal variants against [vector-v4-committed.json](../../../services/interop/specs/conformance/committed/vector-v4-committed.json) |
-| `11049.1` | [tests/receipted.rs](../../../services/interop/crates/layerx-committed-proof/tests/receipted.rs): `receipted_fixture_cases_verify_or_refuse` checks V1 acceptance and V3 refusal cases from [sequencer-receipt-v1.json](../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json); the filename identifies the receipt fixture, not a separate service |
+| Merkle tree | [tests/merkle.rs](../../../services/interop/crates/layerx-committed-proof/tests/merkle.rs): `roots_match_the_reference_tree` compares the recorded 0-, 1-, 2- and 5-item roots; `a_flipped_aunt_is_refused` checks proof tampering |
+| Header and validator hashes | [tests/header.rs](../../../services/interop/crates/layerx-committed-proof/tests/header.rs): `header_hash_matches_the_reference_header` and `validators_hash_matches_the_reference_set` compare reference commitments, including validator order |
+| Commit voting power | [tests/commit.rs](../../../services/interop/crates/layerx-committed-proof/tests/commit.rs): `a_three_of_four_commit_verifies` accepts sufficient signed power; `a_two_of_four_commit_is_refused` rejects insufficient power |
+| Consensus inclusion | [tests/committed.rs](../../../services/interop/crates/layerx-committed-proof/tests/committed.rs): `committed_vectors_verify_end_to_end` checks accepting execution block identities and the recorded refusal variants against [vector-v4-committed.json](../../../services/interop/specs/conformance/committed/vector-v4-committed.json) |
+| Receipt authentication | [tests/receipted.rs](../../../services/interop/crates/layerx-committed-proof/tests/receipted.rs): `receipted_fixture_cases_verify_or_refuse` checks V1 acceptance and V3 refusal cases from [sequencer-receipt-v1.json](../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json); the filename identifies the receipt fixture, not a separate service |
 
-`committed_fixture_view_verifies_and_binds_block_fields_and_rung` in `tests/receipted.rs` covers the root committed-view verifier. [tests/proof_rs_committed_proof_crate.rs](../../../services/interop/crates/layerx-committed-proof/tests/proof_rs_committed_proof_crate.rs) exercises the public producer-to-verifier boundary, including repeated decoding, refusal cases and invalid timestamps. This task's declared qualification checks documentation only; it does not execute the Rust test suite.
+`committed_fixture_view_verifies_and_binds_block_fields_and_rung` in `tests/receipted.rs` covers the root committed-view verifier. [tests/proof_rs_committed_proof_crate.rs](../../../services/interop/crates/layerx-committed-proof/tests/proof_rs_committed_proof_crate.rs) exercises the public producer-to-verifier boundary, including repeated decoding, refusal cases and invalid timestamps.

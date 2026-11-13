@@ -150,23 +150,35 @@ async function proxyRequest(url: string, method: 'GET' | 'PUT' | 'DELETE', signa
   const headers: Record<string, string> = { Accept: 'application/json', Authorization: `Bearer ${token}` };
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
   const controller = new AbortController();
-  let deadlineExpired = false;
-  const cancel = () => controller.abort(signal?.reason);
+  let rejectAbort!: (reason: unknown) => void;
+  const aborted = new Promise<never>((_, reject) => { rejectAbort = reject; });
+  const cancel = () => {
+    controller.abort(signal?.reason);
+    rejectAbort(signal?.reason);
+  };
   if (signal?.aborted) cancel();
   else signal?.addEventListener('abort', cancel, { once: true });
-  const timer = setTimeout(() => { deadlineExpired = true; controller.abort(); }, socialRequestTimeoutMs);
+  const timer = setTimeout(() => {
+    const error = new SocialRequestDeadlineError(idempotencyKey);
+    rejectAbort(error);
+    controller.abort(error);
+  }, socialRequestTimeoutMs);
   try {
-    const response = await fetch(url, { method, headers, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
-    if (!response.ok) {
-      const body: unknown = await response.json().catch(error => { if (controller.signal.aborted) throw error; return null; });
-      const code = body && typeof body === 'object' && typeof (body as { code?: unknown }).code === 'string' ? (body as { code: string }).code : `HTTP_${response.status}`;
-      throw new SocialTransportError(response.status, code, 'social-proxy');
-    }
-    if (response.status === 204) return null;
-    return await response.json();
+    return await Promise.race([
+      aborted,
+      (async () => {
+        const response = await fetch(url, { method, headers, credentials: 'omit', cache: 'no-store', redirect: 'error', signal: controller.signal });
+        if (!response.ok) {
+          const body: unknown = await response.json().catch(error => { if (controller.signal.aborted) throw error; return null; });
+          const code = body && typeof body === 'object' && typeof (body as { code?: unknown }).code === 'string' ? (body as { code: string }).code : `HTTP_${response.status}`;
+          throw new SocialTransportError(response.status, code, 'social-proxy');
+        }
+        if (response.status === 204) return null;
+        return await response.json();
+      })(),
+    ]);
   } catch (error) {
     if (signal?.aborted) throw signal.reason;
-    if (deadlineExpired) throw new SocialRequestDeadlineError(idempotencyKey);
     if (error instanceof SocialTransportError) throw error;
     throw new SocialTransportError(0, 'NETWORK_INTERRUPTED', 'social-proxy', "Can't reach the server, check your connection");
   } finally {

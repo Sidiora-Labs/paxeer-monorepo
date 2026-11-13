@@ -26,8 +26,8 @@ export function ProgramUnavailable() {
 export function reportedObservationAge(observedAt: string, now: number): string {
   const elapsed = BigInt(Math.trunc(now)) - BigInt(observedAt);
   return elapsed < 0n
-    ? `Unknown: reported timestamp is ${-elapsed} ms ahead of this server's clock.`
-    : `${elapsed} ms at page render.`;
+    ? `Unknown: reported timestamp is ${(-elapsed).toString()} ms ahead of this server's clock.`
+    : `${elapsed.toString()} ms at page render.`;
 }
 
 export function ProgramDetails({
@@ -44,7 +44,7 @@ export function ProgramDetails({
       description={program.program}
     >
       <ExplorerFreshness
-        title="Reported program observation"
+        title={copyEntry("explorer.copy.reported_program_observation").message}
         description={`Reported sequence ${program.observedSequence} at ${program.observedAt} (Unix milliseconds). Reported age: ${reportedObservationAge(program.observedAt, now)} Currentness unknown.`}
         current={false}
       />

@@ -1,0 +1,892 @@
+[manifest]
+task = "22.43.18"
+records_moved = 2
+files_renamed = 49
+
+[file.1]
+from = "apps/perps/tests/repair-22-31-13.test.ts"
+to = "apps/perps/tests/market-config-leverage-boundaries.test.ts"
+
+[file.2]
+from = "apps/perps/tests/repair-22-31-2.test.ts"
+to = "apps/perps/tests/collateral-account-binding.test.ts"
+
+[file.3]
+from = "apps/perps/tests/repair-22-31-20.test.ts"
+to = "apps/perps/tests/indexer-subscription-wire-types.test.ts"
+
+[file.4]
+from = "apps/perps/tests/repair-22-31-4.test.ts"
+to = "apps/perps/tests/embedded-wallet-signing-sessions.test.ts"
+
+[file.5]
+from = "apps/perps/tests/repair-22-31-444.test.ts"
+to = "apps/perps/tests/wallet-package-browser-bundle.test.ts"
+
+[file.6]
+from = "apps/perps/tests/repair-22-31-480.test.mjs"
+to = "apps/perps/tests/dependency-artifact-tracking.test.mjs"
+
+[file.7]
+from = "apps/perps/tests/repair-22-31-5.test.ts"
+to = "apps/perps/tests/iframe-account-events.test.ts"
+
+[file.8]
+from = "apps/perps/tests/repair-22-31-603.test.ts"
+to = "apps/perps/tests/embedded-wallet-endpoint-config.test.ts"
+
+[file.9]
+from = "apps/perps/tests/repair-22-31-7.test.ts"
+to = "apps/perps/tests/candle-head-metadata.test.ts"
+
+[file.10]
+from = "apps/perps/tests/repair-22-31-8.test.ts"
+to = "apps/perps/tests/settlement-funding-collateral.test.ts"
+
+[file.11]
+from = "apps/perps/tests/repair-22-31-9.test.ts"
+to = "apps/perps/tests/spot-trade-history-native-units.test.ts"
+
+[file.12]
+from = "apps/perps/tests/repair-22-33-10.test.ts"
+to = "apps/perps/tests/wallet-collateral-session-lifecycle.test.ts"
+
+[file.13]
+from = "apps/perps/tests/repair-22-33-11.test.ts"
+to = "apps/perps/tests/dialog-access-and-settings.test.ts"
+
+[file.14]
+from = "apps/perps/tests/repair-22-33-12.test.ts"
+to = "apps/perps/tests/mobile-navigation-session-recovery.test.ts"
+
+[file.15]
+from = "apps/perps/tests/repair-22-33-188.test.ts"
+to = "apps/perps/tests/sentry-sanitization-stats-contract.test.ts"
+
+[file.16]
+from = "apps/perps/tests/repair-22-33-189.test.ts"
+to = "apps/perps/tests/candle-identity-admission.test.ts"
+
+[file.17]
+from = "apps/perps/tests/repair-22-33-190.test.ts"
+to = "apps/perps/tests/presence-http-state.test.ts"
+
+[file.18]
+from = "apps/perps/tests/repair-22-33-191.test.ts"
+to = "apps/perps/tests/oauth-callback-recovery.test.ts"
+
+[file.19]
+from = "apps/perps/tests/repair-22-33-192.test.ts"
+to = "apps/perps/tests/protocol-metrics-chart-tooltips.test.ts"
+
+[file.20]
+from = "apps/perps/tests/repair-22-33-193.test.ts"
+to = "apps/perps/tests/explorer-transaction-history.test.ts"
+
+[file.21]
+from = "apps/perps/tests/repair-22-33-194.test.ts"
+to = "apps/perps/tests/spot-trading-consumer-state.test.ts"
+
+[file.22]
+from = "apps/perps/tests/repair-22-33-196.test.ts"
+to = "apps/perps/tests/trading-prices-quotes-fee-previews.test.ts"
+
+[file.23]
+from = "apps/perps/tests/repair-22-33-197.test.ts"
+to = "apps/perps/tests/mobile-position-history-recovery.test.ts"
+
+[file.24]
+from = "apps/perps/tests/repair-22-33-198.test.ts"
+to = "apps/perps/tests/portfolio-valuation-privacy.test.ts"
+
+[file.25]
+from = "apps/perps/tests/repair-22-33-199.test.ts"
+to = "apps/perps/tests/feedback-acknowledgement.test.ts"
+
+[file.26]
+from = "apps/perps/tests/repair-22-33-200.test.ts"
+to = "apps/perps/tests/latest-block-freshness.test.ts"
+
+[file.27]
+from = "apps/perps/tests/repair-22-33-201.test.ts"
+to = "apps/perps/tests/mobile-spot-account-state.test.ts"
+
+[file.28]
+from = "apps/perps/tests/repair-22-33-253.test.ts"
+to = "apps/perps/tests/rpc-config-order-funding-paths.test.ts"
+
+[file.29]
+from = "apps/perps/tests/repair-22-33-575.test.ts"
+to = "apps/perps/tests/explorer-block-deep-links.test.ts"
+
+[file.30]
+from = "apps/perps/tests/repair-22-33-576.test.ts"
+to = "apps/perps/tests/explorer-transaction-deep-links.test.ts"
+
+[file.31]
+from = "apps/perps/tests/repair-22-33-577.test.ts"
+to = "apps/perps/tests/explorer-query-selection.test.ts"
+
+[file.32]
+from = "apps/perps/tests/repair-22-33-578.test.ts"
+to = "apps/perps/tests/portfolio-balance-availability.test.ts"
+
+[file.33]
+from = "apps/perps/tests/repair-22-33-579.test.ts"
+to = "apps/perps/tests/market-selection-catalog-defaults.test.ts"
+
+[file.34]
+from = "apps/perps/tests/repair-22-33-580.test.ts"
+to = "apps/perps/tests/consent-privacy-native-venue-terms.test.ts"
+
+[file.35]
+from = "apps/perps/tests/repair-22-33-709.test.ts"
+to = "apps/perps/tests/perps-hook-selection-governance.test.ts"
+
+[file.36]
+from = "apps/perps/tests/repair-22-33-710.test.ts"
+to = "apps/perps/tests/auth-referral-competition-state.test.ts"
+
+[file.37]
+from = "apps/perps/tests/repair-22-33-711.test.ts"
+to = "apps/perps/tests/profile-portfolio-price-freshness.test.ts"
+
+[file.38]
+from = "apps/perps/tests/repair-22-33-712.test.ts"
+to = "apps/perps/tests/spot-portfolio-stream-state.test.ts"
+
+[file.39]
+from = "apps/perps/tests/repair-22-33-715.test.ts"
+to = "apps/perps/tests/public-rpc-client-transport.test.ts"
+
+[file.40]
+from = "apps/perps/tests/repair-22-33-75.test.ts"
+to = "apps/perps/tests/embedded-rpc-transaction-validation.test.ts"
+
+[file.41]
+from = "apps/perps/tests/repair-22-33-76.test.ts"
+to = "apps/perps/tests/iframe-request-lifecycle.test.ts"
+
+[file.42]
+from = "apps/perps/tests/repair-22-33-77.test.ts"
+to = "apps/perps/tests/graphql-auth-session-isolation.test.ts"
+
+[file.43]
+from = "apps/perps/tests/repair-22-33-78.test.ts"
+to = "apps/perps/tests/catalog-chart-history-routing.test.ts"
+
+[file.44]
+from = "apps/perps/tests/repair-22-33-79.test.ts"
+to = "apps/perps/tests/chart-resolution-watermarks.test.ts"
+
+[file.45]
+from = "apps/perps/tests/repair-22-33-80.test.ts"
+to = "apps/perps/tests/transport-error-reporting.test.ts"
+
+[file.46]
+from = "apps/perps/tests/repair-22-33-81.test.ts"
+to = "apps/perps/tests/scaled-order-cross-margin-risk.test.ts"
+
+[file.47]
+from = "apps/perps/tests/repair-22-33-82.test.ts"
+to = "apps/perps/tests/shared-channel-consumer-lifecycle.test.ts"
+
+[file.48]
+from = "apps/perps/tests/repair-22-33-83.test.ts"
+to = "apps/perps/tests/resize-unmount-interaction.test.ts"
+
+[file.49]
+from = "apps/perps/tests/repair-22-33-195.test.ts"
+to = "apps/perps/tests/collateral-removal-margin-risk.test.ts"
+
+[file.50]
+from = "apps/perps/tests/repair-22-31-13.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/tests/repair-22-31-13.kvx"
+
+[file.51]
+from = "apps/perps/tests/repair-22-33-253.kvx"
+to = "spec/layerx-merge/programme/records/apps/perps/tests/repair-22-33-253.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "repair-22-33-578.test.ts"
+
+[reference.2]
+file = "apps/perps/repair-22-31-480.kvx"
+name = "repair-22-31-480.test.mjs"
+
+[reference.3]
+file = "apps/perps/repair-22-31-480.kvx"
+name = "repair_22_31_480_generated_dependency_files_are_untracked_and_ignored"
+
+[reference.4]
+file = "apps/perps/repair-22-31-480.kvx"
+name = "repair_22_31_480_installed_binaries_are_untracked"
+
+[reference.5]
+file = "apps/perps/repair-22-31-480.kvx"
+name = "repair_22_31_480_installed_webpack_is_ignored"
+
+[reference.6]
+file = "apps/perps/repair-22-33-188.kvx"
+name = "repair-22-33-188.test.ts"
+
+[reference.7]
+file = "apps/perps/src/app/modals/SettingsModal.md"
+name = "repair-22-33-11.test.ts"
+
+[reference.8]
+file = "apps/perps/src/app/modals/repair-22-31-2.kvx"
+name = "repair-22-31-2.test.ts"
+
+[reference.9]
+file = "apps/perps/src/app/modals/repair-22-33-10.kvx"
+name = "repair-22-33-10.test.ts"
+
+[reference.10]
+file = "apps/perps/src/app/modals/repair-22-33-11.kvx"
+name = "repair-22-33-11.test.ts"
+
+[reference.11]
+file = "apps/perps/src/core/errors/repair-22-33-80.kvx"
+name = "repair-22-33-80.test.ts"
+
+[reference.12]
+file = "apps/perps/src/core/graphql/repair-22-33-77.kvx"
+name = "repair-22-33-77.test.ts"
+
+[reference.13]
+file = "apps/perps/src/core/wallet/repair-22-31-5.kvx"
+name = "repair-22-31-5.test.ts"
+
+[reference.14]
+file = "apps/perps/src/core/wallet/repair-22-33-76.kvx"
+name = "repair-22-33-76.test.ts"
+
+[reference.15]
+file = "apps/perps/src/hooks/chain/repair-22-33-715.kvx"
+name = "repair-22-33-715.test.ts"
+
+[reference.16]
+file = "apps/perps/src/hooks/perps/repair-22-31-20.kvx"
+name = "repair-22-31-20.test.ts"
+
+[reference.17]
+file = "apps/perps/src/hooks/perps/repair-22-33-709.kvx"
+name = "repair-22-33-709.test.ts"
+
+[reference.18]
+file = "apps/perps/src/hooks/perps/repair-22-33-710.kvx"
+name = "repair-22-33-710.test.ts"
+
+[reference.19]
+file = "apps/perps/src/hooks/perps/repair-22-33-711.kvx"
+name = "repair-22-33-711.test.ts"
+
+[reference.20]
+file = "apps/perps/src/lib/repair-22-33-199.kvx"
+name = "repair_f042_missing_sentry_client_is_not_receipt"
+
+[reference.21]
+file = "apps/perps/src/lib/repair-22-33-199.kvx"
+name = "repair_f042_real_capture_and_retry_require_feedback_acknowledgement"
+
+[reference.22]
+file = "apps/perps/src/lib/repair-22-33-199.kvx"
+name = "repair_f042_unreportable_feedback_keeps_editable_draft"
+
+[reference.23]
+file = "apps/perps/src/page-modules/explorer/repair-22-33-577.kvx"
+name = "repair-22-33-577.test.ts"
+
+[reference.24]
+file = "apps/perps/src/page-modules/legal/repair-22-33-580.kvx"
+name = "repair-22-33-580.test.ts"
+
+[reference.25]
+file = "apps/perps/src/page-modules/portfolio/repair-22-33-578.kvx"
+name = "repair-22-33-578.test.ts"
+
+[reference.26]
+file = "apps/perps/src/pages/auth/repair-22-33-191.kvx"
+name = "repair-22-33-191.test.ts"
+
+[reference.27]
+file = "apps/perps/src/repair-22-33-194.kvx"
+name = "repair-22-33-194.test.ts"
+
+[reference.28]
+file = "apps/perps/src/widgets/analytics/repair-22-33-192.kvx"
+name = "repair-22-33-192.test.ts"
+
+[reference.29]
+file = "apps/perps/src/widgets/errors/repair-22-33-199.kvx"
+name = "repair_f042_missing_sentry_client_is_not_receipt"
+
+[reference.30]
+file = "apps/perps/src/widgets/errors/repair-22-33-199.kvx"
+name = "repair_f042_real_capture_and_retry_require_feedback_acknowledgement"
+
+[reference.31]
+file = "apps/perps/src/widgets/errors/repair-22-33-199.kvx"
+name = "repair_f042_unreportable_feedback_keeps_editable_draft"
+
+[reference.32]
+file = "apps/perps/src/widgets/explorer/repair-22-33-193.kvx"
+name = "repair-22-33-193.test.ts"
+
+[reference.33]
+file = "apps/perps/src/widgets/network-pill/repair-22-33-200.kvx"
+name = "repair-22-33-200.test.ts"
+
+[reference.34]
+file = "apps/perps/src/widgets/portfolio/repair-22-31-8.kvx"
+name = "repair-22-31-8.test.ts"
+
+[reference.35]
+file = "apps/perps/src/widgets/portfolio/repair-22-33-198.kvx"
+name = "repair-22-33-198.test.ts"
+
+[reference.36]
+file = "apps/perps/src/widgets/spot/repair-22-31-9.kvx"
+name = "repair-22-31-9.test.ts"
+
+[reference.37]
+file = "apps/perps/src/widgets/trading/repair-22-33-196.kvx"
+name = "repair-22-33-196.test.ts"
+
+[reference.38]
+file = "precompiles/perps/positions_test.go"
+name = "repair-22-33-195.test.ts"
+
+[reference.39]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "repair-22-31-13.test.ts"
+
+[reference.40]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "repair-22-31-2.test.ts"
+
+[reference.41]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair-22-33-11.test.ts"
+
+[reference.42]
+file = "spec/layerx-merge/dispositions/d22-22.kvx"
+name = "repair-22-33-12.test.ts"
+
+[reference.43]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "repair-22-33-188.test.ts"
+
+[reference.44]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "repair-22-33-190.test.ts"
+
+[reference.45]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "repair-22-33-192.test.ts"
+
+[reference.46]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "repair-22-33-193.test.ts"
+
+[reference.47]
+file = "spec/layerx-merge/dispositions/d22-25.kvx"
+name = "repair-22-33-194.test.ts"
+
+[reference.48]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair-22-33-194.test.ts"
+
+[reference.49]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair-22-33-195.test.ts"
+
+[reference.50]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair-22-33-196.test.ts"
+
+[reference.51]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair-22-33-198.test.ts"
+
+[reference.52]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair-22-33-199.test.ts"
+
+[reference.53]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair-22-33-200.test.ts"
+
+[reference.54]
+file = "spec/layerx-merge/dispositions/d22-26.kvx"
+name = "repair-22-33-253.test.ts"
+
+[reference.55]
+file = "spec/layerx-merge/dispositions/d22-27.kvx"
+name = "repair-22-33-253.test.ts"
+
+[reference.56]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "repair-22-33-575.test.ts"
+
+[reference.57]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "repair-22-33-576.test.ts"
+
+[reference.58]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "repair-22-33-577.test.ts"
+
+[reference.59]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "repair-22-33-578.test.ts"
+
+[reference.60]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "repair-22-33-579.test.ts"
+
+[reference.61]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "repair-22-33-580.test.ts"
+
+[reference.62]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "repair-22-33-709.test.ts"
+
+[reference.63]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "repair-22-33-710.test.ts"
+
+[reference.64]
+file = "spec/layerx-merge/dispositions/d22-29.kvx"
+name = "repair-22-33-711.test.ts"
+
+[reference.65]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-77.test.ts"
+
+[reference.66]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-78.test.ts"
+
+[reference.67]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-80.test.ts"
+
+[reference.68]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-81.test.ts"
+
+[reference.69]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-82.test.ts"
+
+[reference.70]
+file = "spec/layerx-merge/dispositions/d22-30.kvx"
+name = "repair-22-33-83.test.ts"
+
+[reference.71]
+file = "spec/layerx-merge/programme/issues/1655.kvx"
+name = "repair-22-33-195.test.ts"
+
+[reference.72]
+file = "spec/layerx-merge/programme/issues/1656.kvx"
+name = "repair-22-33-192.test.ts"
+
+[reference.73]
+file = "spec/layerx-merge/programme/issues/1657.kvx"
+name = "repair-22-33-198.test.ts"
+
+[reference.74]
+file = "spec/layerx-merge/programme/issues/1658.kvx"
+name = "repair-22-33-710.test.ts"
+
+[reference.75]
+file = "spec/layerx-merge/programme/issues/1663.kvx"
+name = "repair-22-33-196.test.ts"
+
+[reference.76]
+file = "spec/layerx-merge/programme/issues/1668.kvx"
+name = "repair-22-33-83.test.ts"
+
+[reference.77]
+file = "spec/layerx-merge/programme/issues/1675.kvx"
+name = "repair-22-33-578.test.ts"
+
+[reference.78]
+file = "spec/layerx-merge/programme/issues/1676.kvx"
+name = "repair-22-33-198.test.ts"
+
+[reference.79]
+file = "spec/layerx-merge/programme/issues/1676.kvx"
+name = "repair-22-33-578.test.ts"
+
+[reference.80]
+file = "spec/layerx-merge/programme/issues/1802.kvx"
+name = "repair-22-31-603.test.ts"
+
+[reference.81]
+file = "spec/layerx-merge/programme/issues/1803.kvx"
+name = "repair-22-31-603.test.ts"
+
+[reference.82]
+file = "spec/layerx-merge/programme/issues/1805.kvx"
+name = "repair-22-33-711.test.ts"
+
+[reference.83]
+file = "spec/layerx-merge/programme/issues/1805.kvx"
+name = "repair-22-33-712.test.ts"
+
+[reference.84]
+file = "spec/layerx-merge/programme/issues/1929.kvx"
+name = "repair-22-31-603.test.ts"
+
+[reference.85]
+file = "spec/layerx-merge/programme/issues/input/1663.md"
+name = "repair-22-33-196.test.ts"
+
+[reference.86]
+file = "spec/layerx-merge/programme/issues/input/1929.md"
+name = "repair-22-31-603.test.ts"
+
+[reference.87]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-13.test.ts"
+
+[reference.88]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-2.test.ts"
+
+[reference.89]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-20.test.ts"
+
+[reference.90]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-31-603.test.ts"
+
+[reference.91]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-11.test.ts"
+
+[reference.92]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-12.test.ts"
+
+[reference.93]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-188.test.ts"
+
+[reference.94]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-190.test.ts"
+
+[reference.95]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-192.test.ts"
+
+[reference.96]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-193.test.ts"
+
+[reference.97]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-194.test.ts"
+
+[reference.98]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-195.test.ts"
+
+[reference.99]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-196.test.ts"
+
+[reference.100]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-198.test.ts"
+
+[reference.101]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-199.test.ts"
+
+[reference.102]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-200.test.ts"
+
+[reference.103]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-201.test.ts"
+
+[reference.104]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-253.test.ts"
+
+[reference.105]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-575.test.ts"
+
+[reference.106]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-576.test.ts"
+
+[reference.107]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-577.test.ts"
+
+[reference.108]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-578.test.ts"
+
+[reference.109]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-579.test.ts"
+
+[reference.110]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-580.test.ts"
+
+[reference.111]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-709.test.ts"
+
+[reference.112]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-710.test.ts"
+
+[reference.113]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-711.test.ts"
+
+[reference.114]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-77.test.ts"
+
+[reference.115]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-78.test.ts"
+
+[reference.116]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-79.test.ts"
+
+[reference.117]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-80.test.ts"
+
+[reference.118]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-81.test.ts"
+
+[reference.119]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-82.test.ts"
+
+[reference.120]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair-22-33-83.test.ts"
+
+[reference.121]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-13.test.ts"
+
+[reference.122]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-2.test.ts"
+
+[reference.123]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-20.test.ts"
+
+[reference.124]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-4.test.ts"
+
+[reference.125]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-444.test.ts"
+
+[reference.126]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-480.test.mjs"
+
+[reference.127]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-5.test.ts"
+
+[reference.128]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-603.test.ts"
+
+[reference.129]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-7.test.ts"
+
+[reference.130]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-8.test.ts"
+
+[reference.131]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-31-9.test.ts"
+
+[reference.132]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-10.test.ts"
+
+[reference.133]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-11.test.ts"
+
+[reference.134]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-12.test.ts"
+
+[reference.135]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-188.test.ts"
+
+[reference.136]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-189.test.ts"
+
+[reference.137]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-190.test.ts"
+
+[reference.138]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-191.test.ts"
+
+[reference.139]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-192.test.ts"
+
+[reference.140]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-193.test.ts"
+
+[reference.141]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-194.test.ts"
+
+[reference.142]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-195.test.ts"
+
+[reference.143]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-196.test.ts"
+
+[reference.144]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-197.test.ts"
+
+[reference.145]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-198.test.ts"
+
+[reference.146]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-199.test.ts"
+
+[reference.147]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-200.test.ts"
+
+[reference.148]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-201.test.ts"
+
+[reference.149]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-253.kvx"
+
+[reference.150]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-253.test.ts"
+
+[reference.151]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-575.test.ts"
+
+[reference.152]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-576.test.ts"
+
+[reference.153]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-577.test.ts"
+
+[reference.154]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-578.test.ts"
+
+[reference.155]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-579.test.ts"
+
+[reference.156]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-580.test.ts"
+
+[reference.157]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-709.test.ts"
+
+[reference.158]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-710.test.ts"
+
+[reference.159]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-711.test.ts"
+
+[reference.160]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-712.test.ts"
+
+[reference.161]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-715.test.ts"
+
+[reference.162]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-75.test.ts"
+
+[reference.163]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-76.test.ts"
+
+[reference.164]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-77.test.ts"
+
+[reference.165]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-78.test.ts"
+
+[reference.166]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-79.test.ts"
+
+[reference.167]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-80.test.ts"
+
+[reference.168]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-81.test.ts"
+
+[reference.169]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-82.test.ts"
+
+[reference.170]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair-22-33-83.test.ts"
+
+[reference.171]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_480_generated_dependency_files_are_untracked_and_ignored"

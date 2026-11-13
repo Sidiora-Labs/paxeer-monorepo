@@ -48,6 +48,10 @@ impl VerifiedProtocolHead {
 }
 
 impl ChainProtocolHeadProof<'_> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn verify(
         &self,
         next: &VerifiedChainHead,

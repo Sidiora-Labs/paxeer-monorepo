@@ -1075,7 +1075,7 @@ const proofRegion = "fixture-loopback"
 // proofEpoch is the recovery epoch the private bootstrap seeds.
 const proofEpoch = 1
 
-const proofMigrationsDir = "launchpad/spec/production-system/integration/migrations"
+const proofMigrationsDir = "migrations"
 
 // proofRuntime is one bootstrapped least-privilege runtime role.
 type proofRuntime struct {

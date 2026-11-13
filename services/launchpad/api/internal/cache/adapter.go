@@ -232,7 +232,7 @@ func (a *Adapter) Stats() AdapterStats {
 }
 func (a *Adapter) key(p RoutePolicy, scope VerifiedScope, q url.Values) (string, error) {
 	s := sharedredis.KeyScope{RouteVersion: p.ID + ":" + p.Version, Generation: p.Generation, Visibility: p.visibility()}
-	if s.Visibility == "private" {
+	if s.Visibility == literalPrivate {
 		s.Principal = scope.Principal
 		s.AuthorizationRevision = scope.AuthorizationRevision
 	}
@@ -305,7 +305,7 @@ func (a *Adapter) localGet(key string) (sharedredis.PolicySnapshot, bool) {
 	return s, true
 }
 func (a *Adapter) localPut(key string, s sharedredis.PolicySnapshot) bool {
-	if string(s.Body) != "null" {
+	if string(s.Body) != literalNull {
 		s.ContentDigest = sharedredis.PolicySnapshotDigest(s)
 		s.ProjectionDigest = sharedredis.PolicyProjectionDigest(s)
 	}
@@ -321,7 +321,7 @@ func (a *Adapter) localPut(key string, s sharedredis.PolicySnapshot) bool {
 			return false
 		}
 		cmp, e := sharedredis.CompareRevision(old.Revision, s.Revision)
-		if e != nil || old.Generation != s.Generation || cmp > 0 || (cmp == 0 && (string(old.Body) == "null" || old.ProjectionDigest != s.ProjectionDigest)) {
+		if e != nil || old.Generation != s.Generation || cmp > 0 || (cmp == 0 && (string(old.Body) == literalNull || old.ProjectionDigest != s.ProjectionDigest)) {
 			return false
 		}
 	}
@@ -351,7 +351,7 @@ func (a *Adapter) cached(ctx context.Context, p RoutePolicy, key string) (shared
 	}
 	current, ok := a.localGet(key)
 	if ok {
-		return current, string(current.Body) != "null", nil
+		return current, string(current.Body) != literalNull, nil
 	}
 	return remote, true, nil
 }
@@ -370,7 +370,7 @@ func (a *Adapter) Read(ctx context.Context, id string, q url.Values, scope Verif
 	if fetch == nil {
 		return sharedredis.PolicySnapshot{}, false, errors.New("cache: missing projection provider")
 	}
-	if scope.NetworkID == "" || len(scope.NetworkID) > 256 || (p.visibility() == "private" && (scope.Principal == "" || scope.AuthorizationRevision == "")) {
+	if scope.NetworkID == "" || len(scope.NetworkID) > 256 || (p.visibility() == literalPrivate && (scope.Principal == "" || scope.AuthorizationRevision == "")) {
 		return sharedredis.PolicySnapshot{}, false, ErrAdmissionUnavailable
 	}
 	if e = a.requestAdmission(ctx, p, scope); e != nil {
@@ -385,7 +385,7 @@ func (a *Adapter) Read(ctx context.Context, id string, q url.Values, scope Verif
 		if cacheErr != nil && !errors.Is(cacheErr, context.DeadlineExceeded) && !errors.Is(cacheErr, context.Canceled) {
 			a.observe(p, "redis_unavailable", 0)
 		}
-		if ok && string(s.Body) != "null" {
+		if ok && string(s.Body) != literalNull {
 			if cacheErr != nil && p.Class == PublicSnapshot && time.Now().Before(s.RetainUntil) {
 				a.observe(p, "stale", 0)
 				a.refresh(ctx, p, key, q, scope, fetch)
@@ -445,7 +445,7 @@ func (a *Adapter) fetch(ctx context.Context, p RoutePolicy, key string, q url.Va
 	}
 	if floor, ok := a.localGet(key); ok {
 		cmp, e := sharedredis.CompareRevision(floor.Revision, snapshot.Revision)
-		if e != nil || cmp > 0 || (cmp == 0 && string(floor.Body) == "null") {
+		if e != nil || cmp > 0 || (cmp == 0 && string(floor.Body) == literalNull) {
 			return snapshot, ErrProjectionChanged
 		}
 	}
@@ -534,10 +534,18 @@ func (a *Adapter) origin(ctx context.Context, p RoutePolicy, key string, q url.V
 	if e != nil {
 		return empty, e
 	}
-	if projection.Generation != p.Generation || projection.Visibility != p.visibility() || len(projection.Body) > 32<<20 || len(projection.SourceWatermark) > 65536 || !json.Valid(projection.Body) || string(projection.Body) == "null" || !json.Valid(projection.SourceWatermark) {
+	if projection.Generation != p.Generation || projection.Visibility != p.visibility() || len(projection.Body) > 32<<20 || len(projection.SourceWatermark) > 65536 || !json.Valid(projection.Body) || string(projection.Body) == literalNull || !json.Valid(projection.SourceWatermark) {
 		return empty, ErrProjectionChanged
 	}
 	if _, e = sharedredis.CompareRevision(projection.Revision, projection.Revision); e != nil {
+		return empty, e
+	}
+	body, e := json.Marshal(projection.Body)
+	if e != nil {
+		return empty, e
+	}
+	watermark, e := json.Marshal(projection.SourceWatermark)
+	if e != nil {
 		return empty, e
 	}
 	now := time.Now()
@@ -550,7 +558,7 @@ func (a *Adapter) origin(ctx context.Context, p RoutePolicy, key string, q url.V
 			return empty, e
 		}
 	}
-	snapshot := sharedredis.PolicySnapshot{Generation: p.Generation, Revision: projection.Revision, Visibility: p.visibility(), Class: string(p.Class), SourceWatermark: append(json.RawMessage(nil), projection.SourceWatermark...), FetchedAt: now, FreshUntil: now.Add(ttl), RetainUntil: now.Add(ttl + p.StaleTTL), Body: append(json.RawMessage(nil), projection.Body...)}
+	snapshot := sharedredis.PolicySnapshot{Generation: p.Generation, Revision: projection.Revision, Visibility: p.visibility(), Class: string(p.Class), SourceWatermark: watermark, FetchedAt: now, FreshUntil: now.Add(ttl), RetainUntil: now.Add(ttl + p.StaleTTL), Body: body}
 	snapshot.ContentDigest = sharedredis.PolicySnapshotDigest(snapshot)
 	snapshot.ProjectionDigest = sharedredis.PolicyProjectionDigest(snapshot)
 	current, e := a.policy(p.ID)
@@ -648,26 +656,26 @@ func (a *Adapter) Handler(id string, resolve ScopeResolver, fetch ProjectionFetc
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		if resolve == nil || len(r.URL.RawQuery) > 4096 {
-			http.Error(w, "cache scope unavailable", 503)
+			http.Error(w, "cache scope unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		scope, e := resolve(r)
 		if e != nil {
-			http.Error(w, "authorization unavailable", 403)
+			http.Error(w, "authorization unavailable", http.StatusForbidden)
 			return
 		}
 		q, e := url.ParseQuery(r.URL.RawQuery)
 		if e != nil {
-			http.Error(w, "invalid query", 422)
+			http.Error(w, "invalid query", http.StatusUnprocessableEntity)
 			return
 		}
 		p, e := a.policy(id)
 		if e != nil {
-			http.Error(w, "unregistered route", 503)
+			http.Error(w, "unregistered route", http.StatusServiceUnavailable)
 			return
 		}
 		if _, e = p.normalize(q); e != nil {
-			http.Error(w, "invalid query", 422)
+			http.Error(w, "invalid query", http.StatusUnprocessableEntity)
 			return
 		}
 		s, stale, e := a.Read(r.Context(), id, q, scope, fetch)
@@ -676,10 +684,10 @@ func (a *Adapter) Handler(id string, resolve ScopeResolver, fetch ProjectionFetc
 			if errors.As(e, &limit) {
 				ad := sharedredis.Admission{RetryAfter: limit.RetryAfter}
 				w.Header().Set("Retry-After", ad.RetryAfterSeconds())
-				http.Error(w, "admission exhausted", 429)
+				http.Error(w, "admission exhausted", http.StatusTooManyRequests)
 			} else {
 				w.Header().Set("Retry-After", "1")
-				http.Error(w, "projection unavailable", 503)
+				http.Error(w, "projection unavailable", http.StatusServiceUnavailable)
 			}
 			return
 		}
@@ -694,12 +702,12 @@ func (a *Adapter) Handler(id string, resolve ScopeResolver, fetch ProjectionFetc
 		w.Header().Set("Content-Type", "application/json")
 		scopeKey, keyErr := a.key(p, scope, q)
 		if keyErr != nil {
-			http.Error(w, "projection scope unavailable", 503)
+			http.Error(w, "projection scope unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		etag := ETag([]byte(strings.Join([]string{scopeKey, s.Generation, s.Revision, s.Visibility, s.Class, s.ContentDigest}, "\x00")))
 		w.Header().Set("ETag", etag)
-		if s.Visibility == "public" {
+		if s.Visibility == literalPublic {
 			w.Header().Set("Cache-Control", "public, no-cache")
 		} else {
 			w.Header().Set("Cache-Control", "private, no-store")
@@ -717,22 +725,22 @@ func (a *Adapter) AdmissionMiddleware(id string, resolve ScopeResolver, next htt
 		w.Header().Set("Cache-Control", "private, no-store")
 		p, e := a.policy(id)
 		if e != nil || resolve == nil || next == nil || (p.Class != AccountWrite && p.Class != Administrative) {
-			http.Error(w, "admission unavailable", 503)
+			http.Error(w, "admission unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		scope, e := resolve(r)
 		if e != nil || scope.Principal == "" || scope.AuthorizationRevision == "" {
-			http.Error(w, "authorization unavailable", 403)
+			http.Error(w, "authorization unavailable", http.StatusForbidden)
 			return
 		}
 		if e = a.requestAdmission(r.Context(), p, scope); e != nil {
 			var limit *LimitError
 			if errors.As(e, &limit) {
 				w.Header().Set("Retry-After", (sharedredis.Admission{RetryAfter: limit.RetryAfter}).RetryAfterSeconds())
-				http.Error(w, "admission exhausted", 429)
+				http.Error(w, "admission exhausted", http.StatusTooManyRequests)
 			} else {
 				w.Header().Set("Retry-After", "1")
-				http.Error(w, "admission unavailable", 503)
+				http.Error(w, "admission unavailable", http.StatusServiceUnavailable)
 			}
 			return
 		}
@@ -800,7 +808,7 @@ func (s AccountingProjectionSource) Fetch(ctx context.Context, request Projectio
 			return result, ErrProjectionChanged
 		}
 	}
-	result = Projection{Generation: s.Generation, Revision: page.Revision, Visibility: "public", SourceWatermark: append(json.RawMessage(nil), page.Watermark...), Body: append(json.RawMessage(nil), body...)}
+	result = Projection{Generation: s.Generation, Revision: page.Revision, Visibility: literalPublic, SourceWatermark: append(json.RawMessage(nil), page.Watermark...), Body: append(json.RawMessage(nil), body...)}
 	return result, nil
 }
 
@@ -860,7 +868,7 @@ func CanonicalPolicies(generation, origin string, c CanonicalAllocation) ([]Rout
 	rule.MaxInteger = store.MaxCanonicalTrades
 	trades["limit"] = rule
 	trades["side"] = ParameterRule{MaxBytes: 4, Pattern: "buy|sell"}
-	out := []RoutePolicy{{ID: "accounting_candles", Version: "v2", Origin: origin, Generation: generation, Class: PublicSnapshot, Parameters: candles, FreshTTL: c.FreshTTL, StaleTTL: c.StaleTTL, Jitter: c.Jitter, RequestLimit: c.RequestLimit, RequestWindow: c.RequestWindow}, {ID: "accounting_trades", Version: "v2", Origin: origin, Generation: generation, Class: PublicSnapshot, Parameters: trades, FreshTTL: c.FreshTTL, StaleTTL: c.StaleTTL, Jitter: c.Jitter, RequestLimit: c.RequestLimit, RequestWindow: c.RequestWindow}}
+	out := []RoutePolicy{{ID: literalAccountingCandles, Version: "v2", Origin: origin, Generation: generation, Class: PublicSnapshot, Parameters: candles, FreshTTL: c.FreshTTL, StaleTTL: c.StaleTTL, Jitter: c.Jitter, RequestLimit: c.RequestLimit, RequestWindow: c.RequestWindow}, {ID: literalAccountingTrades, Version: "v2", Origin: origin, Generation: generation, Class: PublicSnapshot, Parameters: trades, FreshTTL: c.FreshTTL, StaleTTL: c.StaleTTL, Jitter: c.Jitter, RequestLimit: c.RequestLimit, RequestWindow: c.RequestWindow}}
 	for _, p := range out {
 		if e := p.validate(); e != nil {
 			return nil, e
@@ -918,7 +926,7 @@ func NewAccountingBindings(c AccountingBindingConfig) (*AccountingBindings, erro
 	if c.Adapter == nil || c.Model == nil || c.Codec == nil || c.Resolve == nil || c.Error == nil || !policyName.MatchString(c.Generation) || !policyName.MatchString(c.MarketStream) || c.ProjectionVersion == "" || len(c.ProjectionVersion) > 64 {
 		return nil, store.ErrAccountingNotReady
 	}
-	for _, id := range []string{"accounting_candles", "accounting_trades"} {
+	for _, id := range []string{literalAccountingCandles, literalAccountingTrades} {
 		p, e := c.Adapter.policy(id)
 		if e != nil || p.Generation != c.Generation || p.Class != PublicSnapshot {
 			return nil, ErrProjectionChanged
@@ -960,7 +968,7 @@ func (b *AccountingBindings) marketRevision(ctx context.Context, c AccountingBin
 		return "", nil
 	}
 	if remote.Revision != "" {
-		if remote.Generation != c.Generation || remote.Visibility != "public" || remote.Class != "public_snapshot" {
+		if remote.Generation != c.Generation || remote.Visibility != literalPublic || remote.Class != "public_snapshot" {
 			return "", ErrProjectionChanged
 		}
 		c.Adapter.localPut(key, remote)
@@ -1005,9 +1013,9 @@ func (b *AccountingBindings) serve(w http.ResponseWriter, r *http.Request, candl
 	if _, e := uuid.Parse(id); e != nil {
 		id = uuid.NewString()
 	}
-	route := "accounting_trades"
+	route := literalAccountingTrades
 	if candles {
-		route = "accounting_candles"
+		route = literalAccountingCandles
 	}
 	source := AccountingProjectionSource{Store: c.Model, Generation: c.Generation, Candles: candles, Request: func(p ProjectionRequest) (store.AccountingPageRequest, error) {
 		if p.Generation != c.Generation || p.Parameters.Get("poolAddress") != request.Pool {
@@ -1108,7 +1116,7 @@ func (b *AccountingBindings) ConsumeMarket(ctx context.Context, message *natsdri
 	if e != nil {
 		return e
 	}
-	floor := sharedredis.PolicySnapshot{Generation: c.Generation, Revision: position.Sequence, Visibility: "public", Class: "public_snapshot", SourceWatermark: watermark, FetchedAt: now, FreshUntil: now.Add(sharedredis.InvalidationFloorTTL), RetainUntil: now.Add(sharedredis.InvalidationFloorTTL), Body: json.RawMessage(`null`)}
+	floor := sharedredis.PolicySnapshot{Generation: c.Generation, Revision: position.Sequence, Visibility: literalPublic, Class: "public_snapshot", SourceWatermark: watermark, FetchedAt: now, FreshUntil: now.Add(sharedredis.InvalidationFloorTTL), RetainUntil: now.Add(sharedredis.InvalidationFloorTTL), Body: json.RawMessage(`null`)}
 	key := b.fenceKey(c, publication.Fill.PoolAddress)
 	c.Adapter.localPut(key, floor)
 	rc, cancel := c.Adapter.redisContext(ctx)
@@ -1131,13 +1139,13 @@ func (b *AccountingBindings) Cutover(expectedGeneration, nextGeneration, nextPro
 	a := b.config.Adapter
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	for _, id := range []string{"accounting_candles", "accounting_trades"} {
+	for _, id := range []string{literalAccountingCandles, literalAccountingTrades} {
 		p, ok := a.policies[id]
 		if !ok || p.Generation != expectedGeneration {
 			return ErrProjectionChanged
 		}
 	}
-	for _, id := range []string{"accounting_candles", "accounting_trades"} {
+	for _, id := range []string{literalAccountingCandles, literalAccountingTrades} {
 		p := a.policies[id]
 		p.Generation = nextGeneration
 		a.policies[id] = p
@@ -1180,16 +1188,16 @@ func (a *Adapter) MeasurementHandler(replicaID, candidateDigest string, authoriz
 		w.Header().Set("Cache-Control", "private, no-store")
 		digest, e := hex.DecodeString(candidateDigest)
 		if authorize == nil || !policyName.MatchString(replicaID) || e != nil || len(digest) != 32 || strings.ToLower(candidateDigest) != candidateDigest {
-			http.Error(w, "measurement authority unavailable", 503)
+			http.Error(w, "measurement authority unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		if r.Method != http.MethodGet {
 			w.Header().Set("Allow", "GET")
-			http.Error(w, "method not allowed", 405)
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		if authorize(r) != nil {
-			http.Error(w, "measurement forbidden", 403)
+			http.Error(w, "measurement forbidden", http.StatusForbidden)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

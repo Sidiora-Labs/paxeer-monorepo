@@ -66,21 +66,28 @@ lxp_result lxp_account_id_derive(const uint8_t *account_name,
     return lxp_hash_account_id(account_name, account_name_length, account_id);
 }
 
+static lxp_identity *identity_find(lxp_identity_store *store,
+                                   const uint8_t identifier[32])
+{
+    for (size_t i = 0U; i < store->count; ++i)
+        if (memcmp(store->identities[i].did_id, identifier, 32U) == 0)
+            return &store->identities[i];
+    return NULL;
+}
+
 lxp_result lxp_identity_register(lxp_identity_store *store,
                                  const uint8_t *did, size_t did_length,
                                  const uint8_t primary_key[32],
                                  lxp_identity **identity)
 {
     uint8_t identifier[32];
-    size_t i;
     lxp_result status;
     if (store == NULL || primary_key == NULL || identity == NULL)
         return LXP_ERR_NON_CANONICAL;
     status = lxp_did_id_derive(did, did_length, identifier);
     if (status != LXP_OK) return status;
-    for (i = 0U; i < store->count; ++i)
-        if (memcmp(store->identities[i].did_id, identifier, 32U) == 0)
-            return LXP_ERR_SEQUENCE_REUSED;
+    if (identity_find(store, identifier) != NULL)
+        return LXP_ERR_SEQUENCE_REUSED;
     if (store->count == LXP_IDENTITY_STORE_CAPACITY)
         return LXP_ERR_ARENA_EXHAUSTED;
     *identity = &store->identities[store->count++];
@@ -96,23 +103,20 @@ lxp_result lxp_identity_resolve(lxp_identity_store *store,
                                 lxp_identity **identity)
 {
     uint8_t identifier[32];
-    size_t i;
+    lxp_identity *found;
     lxp_result status;
     if (store == NULL || identity == NULL) return LXP_ERR_NON_CANONICAL;
     status = lxp_did_id_derive(did, did_length, identifier);
     if (status != LXP_OK) return status;
-    for (i = 0U; i < store->count; ++i) {
-        if (memcmp(store->identities[i].did_id, identifier, 32U) == 0) {
-            if (store->identities[i].status == LXP_IDENTITY_FROZEN)
-                return LXP_ERR_IDENTITY_FROZEN;
-            if (store->identities[i].status != LXP_IDENTITY_ACTIVE &&
-                store->identities[i].status != LXP_IDENTITY_RECOVERING)
-                return LXP_ERR_UNKNOWN_DID;
-            *identity = &store->identities[i];
-            return LXP_OK;
-        }
-    }
-    return LXP_ERR_UNKNOWN_DID;
+    found = identity_find(store, identifier);
+    if (found == NULL) return LXP_ERR_UNKNOWN_DID;
+    if (found->status == LXP_IDENTITY_FROZEN)
+        return LXP_ERR_IDENTITY_FROZEN;
+    if (found->status != LXP_IDENTITY_ACTIVE &&
+        found->status != LXP_IDENTITY_RECOVERING)
+        return LXP_ERR_UNKNOWN_DID;
+    *identity = found;
+    return LXP_OK;
 }
 
 lxp_result lxp_identity_consume_sequence(lxp_identity *identity,

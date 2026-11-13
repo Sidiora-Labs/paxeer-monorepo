@@ -11,6 +11,8 @@ mod gas_meter;
 mod gas_report;
 mod iterator;
 mod memory;
+#[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+mod probestack;
 mod querier;
 mod storage;
 mod test_utils;

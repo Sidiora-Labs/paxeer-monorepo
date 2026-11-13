@@ -222,7 +222,10 @@ fn receipt_contract_lists_sequencer_checks() {
                 }
             })
             .map(|line| {
-                if relative.ends_with(".pyi") {
+                if Path::new(relative)
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("pyi"))
+                {
                     line.trim()
                         .strip_suffix(": str")
                         .unwrap_or_else(|| panic!("missing check declaration: {line}"))
@@ -322,7 +325,10 @@ fn receipt_contract_check_detects_drift() {
     assert_success(&generator(&root.0, "--check-program-contracts"));
     for relative in RECEIPT_OUTPUTS {
         let original = read(&root.0, relative);
-        let changed = if relative.ends_with(".pyi") {
+        let changed = if Path::new(relative)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("pyi"))
+        {
             original.replacen("DECODE: str", "EDITED_DECODE: str", 1)
         } else {
             original.replacen("\"decode\"", "\"edited-decode\"", 1)

@@ -18,20 +18,22 @@ import (
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 )
 
+const categoryTopVolume = "top_volume"
+
 // validCategories is the allowlist of ranking categories (parity with the TS
 // VALID_CATEGORIES). Order is irrelevant; membership gates the routes.
 var validCategories = map[string]struct{}{
-	"trending":   {},
-	"breakout":   {},
-	"new":        {},
-	"top_volume": {},
-	"unusual":    {},
-	"movers":     {},
+	"trending":        {},
+	"breakout":        {},
+	"new":             {},
+	categoryTopVolume: {},
+	"unusual":         {},
+	"movers":          {},
 }
 
 // allCategories lists the categories scanned by the per-pool endpoint, in the
 // TS declaration order so the JSON object key order matches for parity.
-var allCategories = []string{"trending", "breakout", "new", "top_volume", "unusual", "movers"}
+var allCategories = []string{"trending", "breakout", "new", categoryTopVolume, "unusual", "movers"}
 
 // statsSubsetKeys are the cached-stats fields echoed into each enriched item
 // (parity with the TS enrichment projection).

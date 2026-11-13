@@ -2,7 +2,7 @@ use layerx_programs::chain_evidence::programs_state_key;
 
 #[test]
 fn chain_evidence_program_key_uses_module_kv_layout() {
-    let _advance = layerx_programs::ChainProofVerifier::advance;
+    std::hint::black_box(layerx_programs::ChainProofVerifier::advance);
 
     let program_id: Vec<u8> = (0..32).collect();
     for prefix in [b"program\0".as_slice(), b"wind-down\0s".as_slice()] {

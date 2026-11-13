@@ -1,0 +1,24 @@
+[repair.22.39.388]
+criterion = "22998.1"
+base_revision = "730e92f124673aff9fe357c3db535e66f226e647"
+verified_revision = "The result holds at the revision that carries this record."
+fixture = "Production packaged AI market guest and the real host fixture of TestRepair478_FundWithinProductionAllowance; each case starts with independent state."
+result = "FUND is admitted with mutation capabilities and one Transfer402 grant after a block-end occupancy transition, without a BalanceView grant, receipt authority or anchor."
+
+[candidate.first_activity]
+order = "FUND is the first activity of H+1 after the occupancy transition at the end of H."
+result_code = 0
+program_status = 0
+transfers = 1
+transfer_amount = 100
+transfer_asset = "The fixture asset"
+transfer_recipient = "The derived rewards account"
+
+[candidate.after_activity]
+order = "An idempotent account registration occupies the first activity of H+1; FUND follows it without using its receipt."
+result_code = 0
+program_status = 0
+transfers = 1
+transfer_amount = 100
+transfer_asset = "The fixture asset"
+transfer_recipient = "The derived rewards account"

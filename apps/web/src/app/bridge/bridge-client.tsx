@@ -1,5 +1,7 @@
 "use client";
 
+import { copyEntry } from "../../../copy/runtime";
+
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
@@ -29,7 +31,7 @@ export function BridgeStatusPolling({ active }: Readonly<{ active: boolean }>) {
       window.clearInterval(timer);
     };
   }, [active, router]);
-  return active ? <p className="text-sm text-muted-foreground">Checking again every 15 seconds.</p> : null;
+  return active ? <p className="text-sm text-muted-foreground">{copyEntry("bridge.copy.checking_again_every_15_seconds").message}</p> : null;
 }
 
 export function BridgeTrackForm({

@@ -23,21 +23,24 @@ impl RepositoryWorkflows {
             std::process::id(),
             WORKFLOW_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir_all(root.join(".github/workflows")).expect("create workflow repository");
+        fs::create_dir_all(root.join(".github/workflows"))
+            .unwrap_or_else(|error| panic!("create workflow repository: {error:?}"));
         for file in ["agent.yml", "programs-conformance.yml"] {
             fs::write(
                 root.join(".github/workflows").join(file),
                 read(&format!("../../../.github/workflows/{file}")),
             )
-            .expect("copy committed called workflow");
+            .unwrap_or_else(|error| panic!("copy committed called workflow: {error:?}"));
         }
         Self(root)
     }
 
     fn replace(&self, file: &str, from: &str, to: &str) {
         let path = self.0.join(".github/workflows").join(file);
-        let source = fs::read_to_string(&path).expect("read called workflow");
-        fs::write(path, replaced(&source, from, to)).expect("change called workflow");
+        let source = fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("read called workflow: {error:?}"));
+        fs::write(path, replaced(&source, from, to))
+            .unwrap_or_else(|error| panic!("change called workflow: {error:?}"));
     }
 
     fn pipeline(&self) -> Result<release::ReleasePipeline, String> {
@@ -47,7 +50,8 @@ impl RepositoryWorkflows {
 
 impl Drop for RepositoryWorkflows {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove workflow repository");
+        fs::remove_dir_all(&self.0)
+            .unwrap_or_else(|error| panic!("remove workflow repository: {error:?}"));
     }
 }
 
@@ -76,15 +80,16 @@ fn release_pipeline_has_no_replay_gate() {
         let end = start
             + source[start..]
                 .find("  release-pipeline:\n")
-                .expect("release-pipeline must follow replay-matrix");
+                .unwrap_or_else(|| panic!("release-pipeline must follow replay-matrix"));
         source.replace_range(start..end, "");
     }
     source = source.replace(", replay-matrix]", "]");
-    let document = workflow::parse(&source).expect("parse release workflow without replay");
+    let document = workflow::parse(&source)
+        .unwrap_or_else(|error| panic!("parse release workflow without replay: {error:?}"));
     assert!(document.path(&["jobs", "replay-matrix"]).is_none());
     let dependencies = document
         .path(&["jobs", "release-pipeline", "needs"])
-        .expect("release-pipeline needs")
+        .unwrap_or_else(|| panic!("release-pipeline needs"))
         .strings();
     assert_eq!(
         dependencies,
@@ -94,8 +99,9 @@ fn release_pipeline_has_no_replay_gate() {
             "agent-fuzz-corpus"
         ]
     );
-    let pipeline = release_pipeline(&committed_manifest(), &source)
-        .expect("release pipeline must accept a workflow without replay");
+    let pipeline = release_pipeline(&committed_manifest(), &source).unwrap_or_else(|error| {
+        panic!("release pipeline must accept a workflow without replay: {error:?}")
+    });
     assert_eq!(
         pipeline
             .gates
@@ -109,7 +115,8 @@ fn release_pipeline_has_no_replay_gate() {
         .iter()
         .all(|gate| { gate.job != "replay-matrix" && gate.command != "make test-replay-golden" }));
     assert_eq!(committed_pipeline().gates, pipeline.gates);
-    let rendered = plan(&pipeline).expect("release plan without replay");
+    let rendered =
+        plan(&pipeline).unwrap_or_else(|error| panic!("release plan without replay: {error:?}"));
     assert!(!rendered.contains("replay-matrix"));
     assert!(!rendered.contains("make test-replay-golden"));
 }
@@ -188,18 +195,18 @@ fn every_registry_is_active_with_real_sorted_package_identities() {
 #[test]
 fn go_module_release_tags_the_module_directory() {
     let declarations = registries_declarations(&committed_manifest())
-        .expect("committed registry manifest must parse");
+        .unwrap_or_else(|error| panic!("committed registry manifest must parse: {error:?}"));
     let registry = declarations
         .registries
         .iter()
         .find(|registry| registry.name == "go-modules")
-        .expect("Go module registry missing");
+        .unwrap_or_else(|| panic!("Go module registry missing"));
     let manifest = read("../../../sdk/platform/go/go.mod");
     let module = manifest
         .lines()
         .next()
         .and_then(|line| line.strip_prefix("module "))
-        .expect("Go SDK manifest must start with its module declaration");
+        .unwrap_or_else(|| panic!("Go SDK manifest must start with its module declaration"));
     assert_eq!(
         module,
         "github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"
@@ -208,10 +215,11 @@ fn go_module_release_tags_the_module_directory() {
     assert!(module.ends_with("/sdk/platform/go"));
 
     let source = committed_workflow();
-    let document = workflow::parse(&source).expect("committed workflow must parse");
+    let document = workflow::parse(&source)
+        .unwrap_or_else(|error| panic!("committed workflow must parse: {error:?}"));
     let job = document
         .path(&["jobs", "publish-go-modules"])
-        .expect("Go module publication job missing");
+        .unwrap_or_else(|| panic!("Go module publication job missing"));
     assert_eq!(
         job.path(&["env", "LAYERX_RELEASE_PACKAGES"])
             .and_then(workflow::Node::as_str),
@@ -219,13 +227,13 @@ fn go_module_release_tags_the_module_directory() {
     );
     let steps = job
         .get("steps")
-        .expect("Go module publication steps missing")
+        .unwrap_or_else(|| panic!("Go module publication steps missing"))
         .items();
     let signing = steps
         .iter()
         .filter_map(|step| step.get("run").and_then(workflow::Node::as_str))
         .find(|script| script.contains("git tag -s"))
-        .expect("Go module signed tag publication missing");
+        .unwrap_or_else(|| panic!("Go module signed tag publication missing"));
     assert!(signing.contains("tag=sdk/platform/go/v$LAYERX_RELEASE_VERSION"));
     assert!(signing.contains("git tag -s \"$tag\""));
     assert!(signing.contains("repository=${LAYERX_RELEASE_PACKAGES%/sdk/platform/go}"));
@@ -285,7 +293,8 @@ fn committed_workflow_requires_every_release_gate() {
 #[test]
 fn committed_reusable_workflows_emit_release_gate_records() {
     let source = committed_workflow();
-    let document = workflow::parse(&source).expect("parse committed release workflow");
+    let document = workflow::parse(&source)
+        .unwrap_or_else(|error| panic!("parse committed release workflow: {error:?}"));
     for (gate, file, called_job, command) in [
         (
             "programs-acceptance",
@@ -313,15 +322,15 @@ fn committed_reusable_workflows_emit_release_gate_records() {
             Some(format!("./.github/workflows/{file}").as_str())
         );
         let called = workflow::parse(&read(&format!("../../../.github/workflows/{file}")))
-            .expect("parse called workflow");
+            .unwrap_or_else(|error| panic!("parse called workflow: {error:?}"));
         let run = called
             .path(&["jobs", called_job, "steps"])
-            .expect("called job steps")
+            .unwrap_or_else(|| panic!("called job steps"))
             .items()
             .iter()
             .filter_map(|step| step.get("run").and_then(workflow::Node::as_str))
             .find(|run| run.contains(command))
-            .expect("gate command step");
+            .unwrap_or_else(|| panic!("gate command step"));
         assert!(
             run.contains(&format!("scripts/ci/release-gate.sh --job {gate}")),
             "{file}: {run}"
@@ -334,8 +343,9 @@ fn committed_reusable_workflows_emit_release_gate_records() {
             "{file}: gate command must go through runner"
         );
     }
-    let pipeline = release_pipeline(&committed_manifest(), &source)
-        .expect("committed workflow must follow the reusable release gates");
+    let pipeline = release_pipeline(&committed_manifest(), &source).unwrap_or_else(|error| {
+        panic!("committed workflow must follow the reusable release gates: {error:?}")
+    });
     assert_eq!(pipeline.gates.len(), 3);
 }
 
@@ -349,7 +359,8 @@ fn reusable_workflow_without_the_gate_runner_is_refused_at_its_step() {
     );
     let error = repository
         .pipeline()
-        .expect_err("called gate without runner must be refused");
+        .err()
+        .unwrap_or_else(|| panic!("called gate without runner must be refused"));
     assert!(
         error.contains(
             "release gate programs-acceptance must run through scripts/ci/release-gate.sh"
@@ -376,7 +387,8 @@ fn reusable_workflow_without_the_gate_command_is_refused() {
     );
     let error = repository
         .pipeline()
-        .expect_err("called workflow missing gate command must be refused");
+        .err()
+        .unwrap_or_else(|| panic!("called workflow missing gate command must be refused"));
     assert!(
         error.contains("release gate agent-fuzz-corpus must run `make agent-fuzz-long`"),
         "{error}"
@@ -398,7 +410,8 @@ fn a_runner_in_another_called_job_cannot_cover_an_unwrapped_gate() {
     );
     let error = repository
         .pipeline()
-        .expect_err("sanitizer runner cannot cover the fuzz gate");
+        .err()
+        .unwrap_or_else(|| panic!("sanitizer runner cannot cover the fuzz gate"));
     assert!(
         error
             .contains("release gate agent-fuzz-corpus must run through scripts/ci/release-gate.sh"),
@@ -921,8 +934,9 @@ fn publication_job_accepts_the_release_condition_alone() {
         ),
         &format!("  publish-crates-io:\n    if: {RELEASE_CONDITION}\n"),
     );
-    let pipeline = release_pipeline(&committed_manifest(), &source)
-        .expect("publication may run under the release condition alone");
+    let pipeline = release_pipeline(&committed_manifest(), &source).unwrap_or_else(|error| {
+        panic!("publication may run under the release condition alone: {error:?}")
+    });
     assert!(pipeline
         .publications
         .iter()
@@ -933,15 +947,17 @@ fn publication_job_accepts_the_release_condition_alone() {
 fn publication_job_accepts_configuration_presence_guards() {
     let source = committed_workflow();
     let guarded = format!("vars.LAYERX_RELEASE_CRATES_IO_INDEX != '' && ({RELEASE_CONDITION})");
-    let document = workflow::parse(&source).expect("parse committed workflow");
+    let document = workflow::parse(&source)
+        .unwrap_or_else(|error| panic!("parse committed workflow: {error:?}"));
     assert_eq!(
         document
             .path(&["jobs", "publish-crates-io", "if"])
             .and_then(workflow::Node::as_str),
         Some(guarded.as_str())
     );
-    let pipeline = release_pipeline(&committed_manifest(), &source)
-        .expect("committed publication configuration guard must be accepted");
+    let pipeline = release_pipeline(&committed_manifest(), &source).unwrap_or_else(|error| {
+        panic!("committed publication configuration guard must be accepted: {error:?}")
+    });
     for expression in [
         format!("({RELEASE_CONDITION}) && vars.LAYERX_RELEASE_CRATES_IO_INDEX != ''"),
         format!(
@@ -1000,15 +1016,17 @@ fn verification_job_accepts_configuration_presence_disjunctions() {
     let guards =
         "(vars.LAYERX_TEN_LINE_REGISTRY_SNAPSHOT != '' || vars.LAYERX_TEN_LINE_REGISTRY_URL != '')";
     let guarded = format!("{guards} && ({RELEASE_CONDITION})");
-    let document = workflow::parse(&source).expect("parse committed workflow");
+    let document = workflow::parse(&source)
+        .unwrap_or_else(|error| panic!("parse committed workflow: {error:?}"));
     assert_eq!(
         document
             .path(&["jobs", "release-verification", "if"])
             .and_then(workflow::Node::as_str),
         Some(guarded.as_str())
     );
-    let pipeline = release_pipeline(&committed_manifest(), &source)
-        .expect("committed verification configuration guards must be accepted");
+    let pipeline = release_pipeline(&committed_manifest(), &source).unwrap_or_else(|error| {
+        panic!("committed verification configuration guards must be accepted: {error:?}")
+    });
     assert_eq!(pipeline.verification.job, "release-verification");
     for expression in [
         RELEASE_CONDITION.to_owned(),
@@ -1030,8 +1048,10 @@ fn verification_job_accepts_configuration_presence_disjunctions() {
         &format!("      vars.LAYERX_RELEASE_CRATES_IO_INDEX != ''\n      && ({RELEASE_CONDITION})"),
         &format!("      {guarded}"),
     );
-    let changed_pipeline = release_pipeline(&committed_manifest(), &publication)
-        .expect("publication must share the verification presence disjunction rule");
+    let changed_pipeline =
+        release_pipeline(&committed_manifest(), &publication).unwrap_or_else(|error| {
+            panic!("publication must share the verification presence disjunction rule: {error:?}")
+        });
     assert_eq!(changed_pipeline.publications, pipeline.publications);
 }
 

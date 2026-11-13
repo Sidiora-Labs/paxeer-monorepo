@@ -158,8 +158,7 @@ impl Drop for Database {
     }
 }
 
-#[test]
-fn chains_ingest_records_create_status_fund_and_operator_changes() -> Checked<()> {
+fn assert_chain_configuration() -> Checked<()> {
     check_topics()?;
     assert_eq!(
         ChainsConfig::from_lookup(&|_| None)?,
@@ -181,6 +180,12 @@ fn chains_ingest_records_create_status_fund_and_operator_changes() -> Checked<()
     for invalid in ["", "0x1234", "0xzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"] {
         assert!(ChainsConfig::from_lookup(&|_| Some(invalid.to_owned())).is_err());
     }
+    Ok(())
+}
+
+#[test]
+fn chains_ingest_records_create_status_fund_and_operator_changes() -> Checked<()> {
+    assert_chain_configuration()?;
     let database = Database::new();
     let store = Store::open(&database.0)?;
     let head = Arc::new(AtomicU64::new(42));
@@ -197,8 +202,8 @@ fn chains_ingest_records_create_status_fund_and_operator_changes() -> Checked<()
         serde_json::to_value(&initial)?,
         json!({
             "id":1,"name":"demo","operator":fixture()["alice"],"status":"active",
-            "chain_id":125000001,"created_height":42,"bond":"100000000000000000000",
-            "gas_allowance":500000,"byte_allowance":65536,"fee_share_bps":100
+            "chain_id":125_000_001,"created_height":42,"bond":"100000000000000000000",
+            "gas_allowance":500_000,"byte_allowance":65536,"fee_share_bps":100
         })
     );
     assert_eq!(store.chain_by_name("demo")?, Some(initial.clone()));
@@ -309,7 +314,11 @@ fn chains_status_codes_follow_the_registry() -> Checked<()> {
         for (index, status) in statuses.into_iter().enumerate() {
             assert_eq!(
                 store
-                    .chain(index as u32 + 1)?
+                    .chain(
+                        u32::try_from(index)
+                            .unwrap_or_else(|_| panic!("u32 fixture value out of range"))
+                            + 1
+                    )?
                     .ok_or("chain missing")?
                     .status,
                 status,
@@ -363,7 +372,13 @@ fn chains_status_codes_refuse_zero_and_out_of_range() -> Checked<()> {
         .as_array()
         .ok_or("topics missing")?
         .iter()
-        .map(|topic| unhex_fixed(topic.as_str().expect("topic is a string")))
+        .map(|topic| {
+            unhex_fixed(
+                topic
+                    .as_str()
+                    .unwrap_or_else(|| panic!("topic is a string")),
+            )
+        })
         .collect::<Result<Vec<_>, _>>()?;
     let registry = registry()?;
     for code in (0_u16..=255).filter(|code| !(1..=4).contains(code)) {

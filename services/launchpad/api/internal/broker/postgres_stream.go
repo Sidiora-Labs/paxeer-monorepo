@@ -54,7 +54,7 @@ func parseStreamV2(raw []byte) (Frame, error) {
 	if !number(f.Sequence, 63, true) || !number(f.Revision, 256, true) {
 		return f, ErrFrame
 	}
-	if len(f.Watermark) > 0 && string(f.Watermark) != "null" {
+	if len(f.Watermark) > 0 && string(f.Watermark) != literalNull {
 		var w struct {
 			Integrity string `json:"integrity"`
 		}
@@ -83,38 +83,38 @@ func parseStreamV2(raw []byte) (Frame, error) {
 			if len(parts) != 4 {
 				return f, ErrFrame
 			}
-			family = "CandleEvent"
+			family = literalCandleEvent
 		case "market.trades":
-			family = "MarketTradesEvent"
+			family = literalMarketTradesEvent
 		case "market.price":
 			family = "MarketPriceEvent"
 		case "market.stats":
-			family = "StatsEvent"
+			family = literalStatsEvent
 		case "market.rankings":
-			family = "RankingEvent"
+			family = literalRankingEvent
 		case "private.notifications":
-			family = "NotificationsEvent"
+			family = literalNotificationsEvent
 		case "private.orders":
-			family = "OrdersEvent"
+			family = literalOrdersEvent
 		case "private.rewards":
-			family = "RewardsEvent"
+			family = literalRewardsEvent
 		case "private.portfolio":
-			family = "PortfolioEvent"
+			family = literalPortfolioEvent
 		}
 		if parts[0] == "rooms" {
-			family = "MessagesEvent"
+			family = literalMessagesEvent
 		}
 		if parts[0] == "streams" {
-			family = "StreamsEvent"
+			family = literalStreamsEvent
 		}
 		if parts[0] == "bounties" {
-			family = "BountiesEvent"
+			family = literalBountiesEvent
 		}
 	}
 	if family == "" {
 		return f, ErrFrame
 	}
-	if family == "PortfolioEvent" {
+	if family == literalPortfolioEvent {
 		if _, ok := p["summary"].(map[string]any); !ok {
 			return f, ErrFrame
 		}
@@ -246,7 +246,7 @@ func (s *PostgresStream) Snapshot(ctx context.Context, p sharedauth.StreamPrinci
 	scope := CursorScopeV2{Chain: "125", Subject: p.AccountID, SessionID: p.SessionID, PermissionEpoch: strconv.FormatInt(p.AuthEpoch, 10), ProjectionEpoch: generation, SchemaMajor: 2, FilterHash: b.FilterDigest, SnapshotID: uuid.NewString()}
 	anonymous := p.AccountID == "" && p.SessionID == ""
 	if anonymous {
-		scope.Subject = "anonymous"
+		scope.Subject = literalAnonymous
 		scope.SessionID = "public"
 		scope.PermissionEpoch = "0"
 	}
@@ -254,7 +254,7 @@ func (s *PostgresStream) Snapshot(ctx context.Context, p sharedauth.StreamPrinci
 	entries := make([]any, 0, len(projections))
 	for _, v := range projections {
 		offsets[v.partition] = v.sequence
-		entries = append(entries, map[string]any{"topic": v.topic, "sequence": v.sequence, "revision": v.frame.Revision, "watermark": v.frame.Watermark, "payload": v.frame.Payload})
+		entries = append(entries, map[string]any{"topic": v.topic, "sequence": v.sequence, "revision": v.frame.Revision, literalWatermark: v.frame.Watermark, "payload": v.frame.Payload})
 	}
 	cursor := CursorV2{FormatVersion: 1, Scope: scope, Offsets: offsets, IssuedAt: now.Unix(), ExpiresAt: now.Add(72 * time.Hour).Unix()}
 	token, err := SignCursorV2(cursor, s.key, now)
@@ -323,7 +323,7 @@ func (s *PostgresStream) Resume(ctx context.Context, p sharedauth.StreamPrincipa
 	if _, err = VerifyCursorV2(token, s.key, hint.Scope, time.Now()); err != nil {
 		return nil, err
 	}
-	if hint.Scope.Subject == "anonymous" && PublicTopics(b.Topics) {
+	if hint.Scope.Subject == literalAnonymous && PublicTopics(b.Topics) {
 		p = sharedauth.StreamPrincipal{}
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -343,7 +343,7 @@ func (s *PostgresStream) Resume(ctx context.Context, p sharedauth.StreamPrincipa
 			return nil, err
 		}
 		scope = hint.Scope
-		if scope.Subject != "anonymous" || scope.SessionID != "public" || scope.PermissionEpoch != "0" || scope.FilterHash != b.FilterDigest || scope.ProjectionEpoch != generation {
+		if scope.Subject != literalAnonymous || scope.SessionID != "public" || scope.PermissionEpoch != "0" || scope.FilterHash != b.FilterDigest || scope.ProjectionEpoch != generation {
 			return nil, ErrCursor
 		}
 		initial = hint.Offsets

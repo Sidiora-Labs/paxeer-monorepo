@@ -117,7 +117,7 @@ impl ProgramsChain {
         let receipt = self
             .rpc(
                 "eth_getTransactionReceipt",
-                json!([format!("0x{}", hex::encode(&transaction))]),
+                &json!([format!("0x{}", hex::encode(&transaction))]),
                 deadline,
             )
             .map_err(Unavailable)?;
@@ -171,7 +171,7 @@ impl ProgramsChain {
         let record = self.view_at(
             "getProgram(bytes32)",
             program,
-            json!({"blockHash": format!("0x{}", hex::encode(&block_hash)), "requireCanonical": true}),
+            &json!({"blockHash": format!("0x{}", hex::encode(&block_hash)), "requireCanonical": true}),
             deadline,
         ).map_err(Unavailable)?;
         if record.len() != 192 {
@@ -236,12 +236,12 @@ impl ProgramsChain {
 
     pub fn head(&self, program: [u8; 32], deadline: Instant) -> Result<ProgramHead, String> {
         let deadline = deadline.min(Instant::now() + READ_TIMEOUT);
-        let sequence = quantity(&self.rpc("eth_blockNumber", json!([]), deadline)?)?;
+        let sequence = quantity(&self.rpc("eth_blockNumber", &json!([]), deadline)?)?;
         if sequence == 0 {
             return Err("programs chain has no committed head".to_owned());
         }
         let tag = format!("0x{sequence:x}");
-        let block = self.rpc("eth_getBlockByNumber", json!([tag, false]), deadline)?;
+        let block = self.rpc("eth_getBlockByNumber", &json!([tag, false]), deadline)?;
         if quantity(&block["number"])? != sequence {
             return Err("programs chain returned a different block height".to_owned());
         }
@@ -287,21 +287,21 @@ impl ProgramsChain {
         tag: &str,
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
-        self.view_at(signature, program, json!(tag), deadline)
+        self.view_at(signature, program, &json!(tag), deadline)
     }
 
     fn view_at(
         &self,
         signature: &str,
         program: [u8; 32],
-        tag: Value,
+        tag: &Value,
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
         let selector = keccak256(signature.as_bytes());
         let data = format!("0x{}{}", hex::encode(&selector[..4]), hex::encode(&program));
         let result = self.rpc(
             "eth_call",
-            json!([{"to": PROGRAMS, "data": data}, tag]),
+            &json!([{"to": PROGRAMS, "data": data}, tag]),
             deadline,
         )?;
         let text = result
@@ -311,7 +311,7 @@ impl ProgramsChain {
         hex::decode(text).map_err(|error| format!("programs chain call: {error}"))
     }
 
-    fn rpc(&self, method: &str, params: Value, deadline: Instant) -> Result<Value, String> {
+    fn rpc(&self, method: &str, params: &Value, deadline: Instant) -> Result<Value, String> {
         let remaining = deadline
             .checked_duration_since(Instant::now())
             .filter(|remaining| !remaining.is_zero())

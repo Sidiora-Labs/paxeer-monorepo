@@ -3,6 +3,7 @@ package projectionstats
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -30,10 +31,12 @@ func statsResponse(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		slog.Error("write statistics response", "error", err)
+	}
 }
 func statsFailure(w http.ResponseWriter, err error) {
-	status, code := 503, "unavailable"
+	status, code := 503, valueUnavailable
 	if errors.Is(err, ErrInvalid) {
 		status, code = 400, "invalid_request"
 	}

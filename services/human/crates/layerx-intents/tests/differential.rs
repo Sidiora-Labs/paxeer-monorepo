@@ -288,21 +288,28 @@ pub(crate) fn assert_golden_vectors(source: &str, version: u16) {
     let mut sections = source.split("\n[vector.");
     let metadata: BTreeMap<_, _> = sections
         .next()
-        .expect("vector metadata")
+        .unwrap_or_else(|| panic!("vector metadata"))
         .lines()
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
-        .map(|line| line.split_once(" = ").expect("metadata assignment"))
+        .map(|line| {
+            line.split_once(" = ")
+                .unwrap_or_else(|| panic!("metadata assignment"))
+        })
         .collect();
     assert_eq!(metadata.len(), 2);
     assert_eq!(metadata["intent_version"], version.to_string());
-    let expected_count: usize = metadata["vector_count"].parse().expect("vector count");
+    let expected_count: usize = metadata["vector_count"]
+        .parse()
+        .unwrap_or_else(|error| panic!("vector count: {error:?}"));
     let fixtures = fixtures();
     assert_eq!(expected_count, 11);
     assert_eq!(expected_count, fixtures.len());
     let registry = registry();
     let mut names = BTreeSet::new();
     for section in sections {
-        let (name, body) = section.split_once("]\n").expect("vector section header");
+        let (name, body) = section
+            .split_once("]\n")
+            .unwrap_or_else(|| panic!("vector section header"));
         assert!(names.insert(name), "duplicate vector {name}");
         assert!(!matches!(
             name,
@@ -310,14 +317,16 @@ pub(crate) fn assert_golden_vectors(source: &str, version: u16) {
         ));
         let mut fields = BTreeMap::new();
         for line in body.lines().filter(|line| !line.is_empty()) {
-            let (key, value) = line.split_once(" = ").expect("vector assignment");
+            let (key, value) = line
+                .split_once(" = ")
+                .unwrap_or_else(|| panic!("vector assignment"));
             assert!(fields.insert(key, value).is_none(), "duplicate field {key}");
         }
         assert_eq!(fields.len(), 4, "{name} fields");
         let intent_source = fields["intent"]
             .strip_prefix('"')
             .and_then(|value| value.strip_suffix('"'))
-            .expect("quoted intent");
+            .unwrap_or_else(|| panic!("quoted intent"));
         let fixture = fixtures
             .iter()
             .find(|fixture| fixture.name == name && fixture.source == intent_source)
@@ -394,7 +403,7 @@ fn budget_vectors_hold_the_kernel_canonical_payloads() {
             let vector = remainder
                 .split("\n[")
                 .next()
-                .expect("vector section must exist");
+                .unwrap_or_else(|| panic!("vector section must exist"));
             assert_eq!(
                 vector
                     .lines()
@@ -413,7 +422,7 @@ fn budget_vectors_hold_the_kernel_canonical_payloads() {
         if name == "budget_defund" {
             assert_eq!(compiled.payload().as_bytes().len(), 50);
             assert_eq!(&compiled.payload().as_bytes()[..2], &[0, 1]);
-            assert_eq!(compiled.activity_type().value(), 196616);
+            assert_eq!(compiled.activity_type().value(), 196_616);
         }
     }
 }
@@ -431,6 +440,7 @@ fn v2_golden_vectors_are_byte_locked_to_the_intent_version() {
 
 #[test]
 fn every_vector_decodes_matches_and_reencodes_byte_identically() {
+    assert_golden_vectors(golden::V2_SOURCE, golden::V2_VERSION);
     let registry = registry();
     for fixture in fixtures() {
         let compiled = compile(&fixture.intent, &registry)

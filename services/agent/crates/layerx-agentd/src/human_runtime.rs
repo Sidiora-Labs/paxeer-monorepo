@@ -7,15 +7,11 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
-#[cfg(test)]
-use layerx_client::rpc::submit::Submission;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
 use layerx_types::ids::Did;
-#[cfg(test)]
-use layerx_types::ids::IdempotencyKey;
 use layerx_types::payload::{ActivityType, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
 type FeeProjection = layerx_agent_api::read::FeeProjection;
@@ -59,6 +55,31 @@ use crate::protocol_evidence::{EvidenceAuthority, RawStateEvidence};
 use crate::receipt::{CurrentReceiptEvidenceRecord, ReceiptEvidenceRecord, ReceiptMetadata};
 use crate::session::{self, OpenRequest, SessionId, SessionRegistry};
 use crate::session_control::SessionControl;
+
+#[cfg(test)]
+trait AssertFixture<T> {
+    fn assert_fixture(self, context: &str) -> T;
+}
+
+#[cfg(test)]
+impl<T, E: std::fmt::Debug> AssertFixture<T> for Result<T, E> {
+    fn assert_fixture(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T> AssertFixture<T> for Option<T> {
+    fn assert_fixture(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+}
 
 enum ResolvedOwner {
     Owned(crate::tenant::ObjectOwner),
@@ -2218,39 +2239,6 @@ pub(crate) struct OwnedSubmission {
     pub(crate) principal: String,
     pub(crate) idempotency_key: [u8; 32],
     pub(crate) transaction_hash: [u8; 32],
-}
-
-impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
-    #[cfg(test)]
-    pub(crate) fn owned_submission_for_activity(
-        &self,
-        tenant: &TenantId,
-        activity_id: [u8; 32],
-    ) -> Result<OwnedSubmission, HumanOperationError> {
-        let indexed = indexed_activity_owner(
-            &*self
-                .store
-                .lock()
-                .map_err(|_| HumanOperationError::Unavailable)?,
-            tenant,
-            activity_id,
-        )?;
-        let peer = self
-            .peers
-            .iter()
-            .find(|peer| peer.tenant == tenant.as_str() && peer.principal == indexed.principal)
-            .ok_or(HumanOperationError::Refused)?;
-        let registry = self
-            .lock_operations()?
-            .authority
-            .registry(peer)
-            .map_err(map_core)?;
-        let store = self
-            .store
-            .lock()
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        retained_activity_owner(&store, &registry, tenant, activity_id, indexed)
-    }
 }
 
 fn indexed_activity_owner(
@@ -5307,16 +5295,6 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .boundary(&self.session_control)
             .map_err(|_| HumanOperationError::Refused)?;
         Ok(value)
-    }
-}
-
-#[cfg(test)]
-fn rpc_owner_read_error(error: layerx_client::sequencer::SequencerError) -> HumanOperationError {
-    match error {
-        layerx_client::sequencer::SequencerError::Endpoint
-        | layerx_client::sequencer::SequencerError::Tls
-        | layerx_client::sequencer::SequencerError::Unavailable => HumanOperationError::Unavailable,
-        _ => HumanOperationError::Refused,
     }
 }
 
@@ -10472,16 +10450,6 @@ impl OwnerInput<'_> {
         &self.bytes[self.at..]
     }
 }
-#[cfg(test)]
-fn committed_budget_rank(rank: u8) -> Result<(), HumanOperationError> {
-    let level =
-        VerificationLevel::from_wire_rank(rank).map_err(|_| HumanOperationError::Refused)?;
-    if level != VerificationLevel::COMMITTED {
-        return Err(HumanOperationError::Refused);
-    }
-    Ok(())
-}
-
 fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
     match value {
         1 => Ok(VerificationLevel::SEQUENCER_SIGNED),
@@ -18317,8 +18285,6 @@ fn sweep_capability_cleanups(
     tenant: &TenantId,
 ) -> Result<(), HumanOperationError> {
     use crate::capability::binding;
-    #[cfg(test)]
-    use crate::prepare::LifecycleError;
     use crate::prepare::{
         DurablePreparation, LifecycleState, PreparationExtension, EXTENSION_CAPABILITY,
         EXTENSION_OUTCOME,
@@ -19055,7 +19021,7 @@ fn validate_capability<A: HumanAuthorityBoundary>(
 }
 
 #[cfg(test)]
-#[path = "outbound_tls/tests.rs"]
+#[path = "human_runtime/subject/outbound_tls_cases.rs"]
 mod outbound_tls_tests;
 
 #[cfg(test)]
@@ -19066,6 +19032,10 @@ pub(crate) mod activity_submission_index_tests {
         value.unwrap_or_else(|error| panic!("activity submission index: {error:?}"))
     }
 
+    #[allow(
+        deprecated,
+        reason = "the legacy sponsored activity fixture proves retained compatibility"
+    )]
     fn signed_submission() -> (ModuleRegistry, crate::sign::VerifiedSubmission) {
         use crate::prepare::{
             prepare_bound, AbiArgument, EvmPreparationDefaults, EvmPreparationState,
@@ -19104,52 +19074,7 @@ pub(crate) mod activity_submission_index_tests {
                 "/../../../../tests/fixtures/authority/provider-subject/consent.activity"
             )),
         );
-        let payload = must(layerx_types::payload::Payload::new(
-            &registry,
-            kind,
-            activity.payload(),
-        ));
-        let mut builder = layerx_types::activity::EnvelopeBuilder::new();
-        must(builder.protocol_version(activity.protocol_version()));
-        must(builder.network_id(activity.network_id()));
-        must(builder.activity_type(kind));
-        must(builder.actor_did(must(Did::new(activity.actor_did()))));
-        must(
-            builder.authority(must(layerx_types::activity::Authority::owner(
-                activity.authority(),
-            ))),
-        );
-        must(builder.account_sequence(activity.account_sequence()));
-        must(
-            builder.timestamp_bound(must(layerx_types::activity::TimestampBound::new(
-                activity.timestamp_bound().not_before,
-                activity.timestamp_bound().not_after,
-            ))),
-        );
-        must(
-            builder.idempotency_key(layerx_types::ids::IdempotencyKey::new(
-                activity.idempotency_key(),
-            )),
-        );
-        must(builder.fee_limit(layerx_types::amount::Amount::from_u128(
-            activity.fee_limit(),
-        )));
-        must(builder.payload_hash(activity.payload_hash()));
-        must(builder.payload(payload));
-        let envelope = must(builder.build());
-        let canonical = must(layerx_wire::historical::activity::encode_unsigned_envelope(
-            &envelope,
-        ));
-        let key: [u8; 32] = must(activity.authority().try_into());
-        let signature: &[u8; 64] =
-            must(activity.signature().expect("fixture signature").try_into());
-        let message = must(layerx_crypto::SignatureMessage::new(
-            layerx_wire::hash::Domain::SignaturePreimage,
-            activity.protocol_version(),
-            activity.network_id(),
-            &canonical,
-        ));
-        must(layerx_crypto::ed25519::verify(&key, signature, message));
+        verify_signed_fixture_activity(&activity, &registry, kind);
         let mut secret = [0xa5; 32];
         let from = must(layerx_crypto::secp256k1::evm_address(
             must(k256::ecdsa::SigningKey::from_slice(&secret))
@@ -19191,6 +19116,63 @@ pub(crate) mod activity_submission_index_tests {
         let verified = transaction_submission(prepared, &registry);
         secret.fill(0);
         (registry, verified)
+    }
+
+    fn verify_signed_fixture_activity(
+        activity: &layerx_wire::historical::activity::Activity,
+        registry: &ModuleRegistry,
+        kind: ActivityType,
+    ) {
+        let payload = must(layerx_types::payload::Payload::new(
+            registry,
+            kind,
+            activity.payload(),
+        ));
+        let mut builder = layerx_types::activity::EnvelopeBuilder::new();
+        must(builder.protocol_version(activity.protocol_version()));
+        must(builder.network_id(activity.network_id()));
+        must(builder.activity_type(kind));
+        must(builder.actor_did(must(Did::new(activity.actor_did()))));
+        must(
+            builder.authority(must(layerx_types::activity::Authority::owner(
+                activity.authority(),
+            ))),
+        );
+        must(builder.account_sequence(activity.account_sequence()));
+        must(
+            builder.timestamp_bound(must(layerx_types::activity::TimestampBound::new(
+                activity.timestamp_bound().not_before,
+                activity.timestamp_bound().not_after,
+            ))),
+        );
+        must(
+            builder.idempotency_key(layerx_types::ids::IdempotencyKey::new(
+                activity.idempotency_key(),
+            )),
+        );
+        must(builder.fee_limit(layerx_types::amount::Amount::from_u128(
+            activity.fee_limit(),
+        )));
+        must(builder.payload_hash(activity.payload_hash()));
+        must(builder.payload(payload));
+        let envelope = must(builder.build());
+        let canonical = must(layerx_wire::historical::activity::encode_unsigned_envelope(
+            &envelope,
+        ));
+        let key: [u8; 32] = must(activity.authority().try_into());
+        let signature: &[u8; 64] = must(
+            activity
+                .signature()
+                .assert_fixture("fixture signature")
+                .try_into(),
+        );
+        let message = must(layerx_crypto::SignatureMessage::new(
+            layerx_wire::hash::Domain::SignaturePreimage,
+            activity.protocol_version(),
+            activity.network_id(),
+            &canonical,
+        ));
+        must(layerx_crypto::ed25519::verify(&key, signature, message));
     }
 
     pub(crate) fn transaction_submission(
@@ -19368,6 +19350,33 @@ pub(crate) mod activity_submission_index_tests {
         let (proof, receipt_root) =
             build_proof(&leaves, 0).unwrap_or_else(|error| panic!("receipt proof: {error:?}"));
         let sequencer_id = key.verifying_key().to_bytes();
+        let header = settlement_header(
+            global_sequence,
+            execution_batch_number,
+            previous_state_root,
+            resulting_state_root,
+            receipt_root,
+            sequencer_id,
+        );
+        let header_digest =
+            batch_header_digest(&header).unwrap_or_else(|error| panic!("header digest: {error:?}"));
+        crate::protocol_evidence::RawReceiptEvidence::new(
+            canonical_receipt,
+            proof,
+            header,
+            key.sign(&header_digest).to_bytes(),
+        )
+    }
+
+    fn settlement_header(
+        global_sequence: u64,
+        execution_batch_number: u64,
+        previous_state_root: [u8; 32],
+        resulting_state_root: [u8; 32],
+        receipt_root: [u8; 32],
+        sequencer_id: [u8; 32],
+    ) -> Vec<u8> {
+        use layerx_wire::encode::Encoder;
         let mut encoder = Encoder::new(354);
         assert_eq!(
             encoder.structure_header_version(
@@ -19427,15 +19436,7 @@ pub(crate) mod activity_submission_index_tests {
                 _ => assert_eq!(encoder.bytes(&value, 32), Ok(())),
             }
         }
-        let header = encoder.finish();
-        let header_digest =
-            batch_header_digest(&header).unwrap_or_else(|error| panic!("header digest: {error:?}"));
-        crate::protocol_evidence::RawReceiptEvidence::new(
-            canonical_receipt,
-            proof,
-            header,
-            key.sign(&header_digest).to_bytes(),
-        )
+        encoder.finish()
     }
 
     #[test]
@@ -19459,48 +19460,8 @@ pub(crate) mod activity_submission_index_tests {
                 .verifying_key()
                 .to_bytes(),
         ));
-        let success =
-            must(authority.verify_receipt(&settlement_receipt(submission_id, 0, 1, 9, 8)));
-        let success_ref = success.receipt_ref();
-        must(settle_terminal_submission(
-            &mut outbox,
-            &mut store,
-            submission_id,
-            SubmissionState::Executed,
-            success.clone(),
-            (8, 1),
-        ));
-        let executed = outbox
-            .status(submission_id)
-            .expect("executed submission")
-            .clone();
-        assert_eq!(executed.state, SubmissionState::Executed);
-        let evidence = executed.evidence.expect("execution evidence");
-        assert_eq!(evidence.receipt_ref(), success_ref);
-        assert_eq!(evidence.block_height(), 8);
-        assert_eq!(evidence.transaction_index(), 1);
-        must(settle_terminal_submission(
-            &mut outbox,
-            &mut store,
-            submission_id,
-            SubmissionState::Executed,
-            success.clone(),
-            (8, 1),
-        ));
-        for location in [(8, 2), (9, 1)] {
-            assert!(matches!(
-                settle_terminal_submission(
-                    &mut outbox,
-                    &mut store,
-                    submission_id,
-                    SubmissionState::Executed,
-                    success.clone(),
-                    location,
-                ),
-                Err(HumanOperationError::Refused)
-            ));
-        }
-        assert_eq!(outbox.status(submission_id), Some(&executed));
+        let executed =
+            assert_executed_settlement(&mut outbox, &mut store, submission_id, &authority);
 
         let failed_id = must(
             outbox.enqueue(
@@ -19538,9 +19499,12 @@ pub(crate) mod activity_submission_index_tests {
             failure,
             (9, 2),
         ));
-        let failed = outbox.status(failed_id).expect("failed submission").clone();
+        let failed = outbox
+            .status(failed_id)
+            .assert_fixture("failed submission")
+            .clone();
         assert_eq!(failed.state, SubmissionState::Failed);
-        let evidence = failed.evidence.expect("failure evidence");
+        let evidence = failed.evidence.assert_fixture("failure evidence");
         assert_eq!(evidence.receipt_ref(), failure_ref);
         assert_eq!(evidence.block_height(), 9);
         assert_eq!(evidence.transaction_index(), 2);
@@ -19554,6 +19518,58 @@ pub(crate) mod activity_submission_index_tests {
         assert_eq!(restored.status(failed_id), Some(&failed));
         drop(reopened);
         must(std::fs::remove_dir_all(root));
+    }
+
+    fn assert_executed_settlement(
+        outbox: &mut Outbox,
+        store: &mut Store,
+        submission_id: [u8; 32],
+        authority: &EvidenceAuthority,
+    ) -> SubmissionStatus {
+        let success =
+            must(authority.verify_receipt(&settlement_receipt(submission_id, 0, 1, 9, 8)));
+        let success_ref = success.receipt_ref();
+        must(settle_terminal_submission(
+            outbox,
+            store,
+            submission_id,
+            SubmissionState::Executed,
+            success.clone(),
+            (8, 1),
+        ));
+        let executed = outbox
+            .status(submission_id)
+            .assert_fixture("executed submission")
+            .clone();
+        assert_eq!(executed.state, SubmissionState::Executed);
+        let evidence = executed.evidence.assert_fixture("execution evidence");
+        assert_eq!(evidence.receipt_ref(), success_ref);
+        assert_eq!(evidence.block_height(), 8);
+        assert_eq!(evidence.transaction_index(), 1);
+        must(settle_terminal_submission(
+            outbox,
+            store,
+            submission_id,
+            SubmissionState::Executed,
+            success.clone(),
+            (8, 1),
+        ));
+        for location in [(8, 2), (9, 1)] {
+            assert!(matches!(
+                settle_terminal_submission(
+                    outbox,
+                    store,
+                    submission_id,
+                    SubmissionState::Executed,
+                    success.clone(),
+                    location,
+                ),
+                Err(HumanOperationError::Refused)
+            ));
+        }
+        assert_eq!(outbox.status(submission_id), Some(&executed));
+
+        executed
     }
 
     #[test]
@@ -19579,7 +19595,9 @@ pub(crate) mod activity_submission_index_tests {
             stored_key,
             layerx_crypto::evm_transaction::transaction_hash(submission.exact_bytes())
         );
-        let status = outbox.status(stored_key).expect("stored submission");
+        let status = outbox
+            .status(stored_key)
+            .assert_fixture("stored submission");
         assert_eq!(status.submission_id, stored_key);
         assert_eq!(status.state, SubmissionState::Queued);
         assert!(outbox.status(submission.idempotency_key()).is_none());
@@ -20158,10 +20176,10 @@ pub(crate) fn committed_budget_reads_restore_the_human_balance_and_refuse_change
     balance[31] = 75;
     stable_call(&mut answers, &checkpoint, &balance);
     let (rpc, worker) = endpoint(answers);
-    let state = committed_budget_state_at(&rpc, 8, [9; 32]).expect("human budget read");
+    let state = committed_budget_state_at(&rpc, 8, [9; 32]).assert_fixture("human budget read");
     assert_eq!(state.balance, 75);
     assert_eq!(state.proven_head, 8);
-    worker.join().expect("RPC fixture");
+    worker.join().assert_fixture("RPC fixture");
 
     let mut answers = open_answers(&checkpoint);
     answers.extend([
@@ -20176,7 +20194,7 @@ pub(crate) fn committed_budget_reads_restore_the_human_balance_and_refuse_change
         committed_budget_state_at(&rpc, 8, [9; 32]),
         Err(HumanOperationError::Refused)
     ));
-    worker.join().expect("RPC fixture");
+    worker.join().assert_fixture("RPC fixture");
 }
 
 fn write_node() -> Result<crate::node_rpc::NodeRpc, HumanOperationError> {
@@ -21457,16 +21475,20 @@ mod tests {
                 remaining: 100,
                 asset: [6; 32],
             };
-            let encoded = state.encode_snapshot([7; 32]).expect("budget encoding");
+            let encoded = state
+                .encode_snapshot([7; 32])
+                .assert_fixture("budget encoding");
             assert_eq!(encoded.len(), 209);
             assert_eq!(encoded[48], rung.wire_rank());
             let (budget, decoded) =
-                CoreBudgetState::decode_snapshot(&encoded).expect("budget decoding");
+                CoreBudgetState::decode_snapshot(&encoded).assert_fixture("budget decoding");
             state.verification = floor.wire_rank();
             assert_eq!(budget, [7; 32]);
             assert_eq!(decoded, state);
             assert_eq!(
-                decoded.encode_snapshot(budget).expect("re-encoding"),
+                decoded
+                    .encode_snapshot(budget)
+                    .assert_fixture("re-encoding"),
                 encoded
             );
             for invalid in 3..=u8::MAX {
@@ -21488,20 +21510,20 @@ mod tests {
             tx_hash: [0xab; 32],
             nonce: 0x0102_0304_0506_0708,
         })
-        .expect("submitted lookup has a not-ready encoding");
+        .assert_fixture("submitted lookup has a not-ready encoding");
         let mut expected = vec![2];
         expected.extend_from_slice(&[0xab; 32]);
         expected.extend_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
         assert_eq!(submitted, expected);
         let absent = receipt_lookup_not_ready_bytes(&Lookup::Absent)
-            .expect("absent lookup has a not-ready encoding");
+            .assert_fixture("absent lookup has a not-ready encoding");
         assert_eq!(absent, vec![0]);
         assert_ne!(submitted, absent);
     }
 
     const KEY_ID: [u8; 32] = [1; 32];
     fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
-        result.expect("policy history evidence")
+        result.assert_fixture("policy history evidence")
     }
     fn sha256(bytes: &[u8]) -> [u8; 32] {
         Sha256::digest(bytes).into()
@@ -21578,7 +21600,9 @@ mod tests {
         let mut sequence = b"PAXEER/v1/sequence\0".to_vec();
         sequence.extend_from_slice(&previous);
         sequence.extend_from_slice(&7_u64.to_be_bytes());
-        sequence.extend_from_slice(&[height_number as u8; 32]);
+        sequence.extend_from_slice(
+            &[u8::try_from(height_number).assert_fixture("fixture height fits a byte"); 32],
+        );
         let mut height = [0; 32];
         height[24..].copy_from_slice(&height_number.to_be_bytes());
         let mut from = [0; 32];
@@ -21605,7 +21629,10 @@ mod tests {
         let mut encoder = Encoder::new(MAX_MESSAGE_BYTES);
         must(encoder.structure_header_version(0x5201, PROTOCOL_VERSION));
         must(encoder.u16(PROTOCOL_VERSION));
-        must(encoder.bytes(&[height_number as u8; 32], 32));
+        must(encoder.bytes(
+            &[u8::try_from(height_number).assert_fixture("fixture height fits a byte"); 32],
+            32,
+        ));
         must(encoder.u64(7));
         must(encoder.bytes(&previous, 32));
         must(encoder.bytes(&sha256(&sequence), 32));
@@ -21673,7 +21700,8 @@ mod tests {
     fn rpc_commit(signed: &ServedCheckpoint) -> Value {
         assert_eq!(
             signed.header.time.seconds,
-            1_700_000_000 + (signed.height as i64 - 8) * 5
+            1_700_000_000
+                + (i64::try_from(signed.height).assert_fixture("fixture height fits i64") - 8) * 5
         );
         let timestamp = format!(
             "2023-11-14T22:13:{:02}.{:09}Z",
@@ -21703,11 +21731,11 @@ mod tests {
         );
         json!({"header": {
             "version": {"block": "11", "app": "1"}, "chain_id": "125", "height": signed.height.to_string(),
-            "time": timestamp, "last_block_id": id(h.last_block_id.expect("parent")),
+            "time": timestamp, "last_block_id": id(h.last_block_id.assert_fixture("parent")),
             "last_commit_hash": hex(&[3;32]), "data_hash": hex(&[4;32]),
             "validators_hash": hex(&h.validators_hash), "next_validators_hash": hex(&h.next_validators_hash),
             "consensus_hash": hex(&[5;32]), "app_hash": hex(&[6;32]),
-            "last_results_hash": hex(&h.last_results_hash.expect("result root")), "evidence_hash": hex(&[8;32]),
+            "last_results_hash": hex(&h.last_results_hash.assert_fixture("result root")), "evidence_hash": hex(&[8;32]),
             "proposer_address": hex(&h.proposer_address),
         }, "commit": {"height": signed.height.to_string(), "round": 1,
             "block_id": id(signed.commit.block_id), "signatures": signatures}})
@@ -21728,7 +21756,7 @@ mod tests {
         let signature = signer.sign(&must(receipt_digest(&unsigned))).to_bytes();
         let bytes = encoded_receipt(height, timestamp, amount, Some(signature));
         let rung = json!({
-            "rung":"committed", "txHash":rpc_hex(&[height as u8;32]), "nonce":"0x29",
+            "rung":"committed", "txHash":rpc_hex(&[u8::try_from(height).assert_fixture("fixture height fits a byte");32]), "nonce":"0x29",
             "seq":"0x7", "height":format!("{height:#x}"), "index":"0x1", "timestamp":format!("{timestamp:#x}"),
             "status":"0x1", "returnData":"0xabcd",
             "logs":[{"address":rpc_hex(&[8;20]), "topics":[rpc_hex(&[9;32])], "data":"0x0a0b", "logIndex":"0x0"}],
@@ -21745,10 +21773,10 @@ mod tests {
     fn history_result(height: u64) -> Value {
         fn varint(mut value: u64, out: &mut Vec<u8>) {
             while value >= 128 {
-                out.push(value as u8 | 128);
+                out.push(u8::try_from(value & 0x7f).assert_fixture("varint digit") | 128);
                 value >>= 7;
             }
-            out.push(value as u8);
+            out.push(u8::try_from(value).assert_fixture("final varint digit"));
         }
         fn bytes(field: u64, value: &[u8], out: &mut Vec<u8>) {
             varint(field << 3 | 2, out);
@@ -21762,7 +21790,12 @@ mod tests {
         let mut response = vec![8];
         varint(21_000, &mut response);
         bytes(3, &[0xab, 0xcd], &mut response);
-        bytes(4, rpc_hex(&[height as u8; 32]).as_bytes(), &mut response);
+        bytes(
+            4,
+            rpc_hex(&[u8::try_from(height).assert_fixture("fixture height fits a byte"); 32])
+                .as_bytes(),
+            &mut response,
+        );
         bytes(5, &log, &mut response);
         let mut message = Vec::new();
         bytes(
@@ -21782,11 +21815,20 @@ mod tests {
         let mut blocks = BTreeMap::new();
         let mut parent = [1; 32];
         for height in 6..=9 {
-            let mut block =
-                ServedCheckpoint::test_fixture(height, 1_700_000_000 + (height as i64 - 8) * 5, 0);
-            block.header.last_block_id.as_mut().expect("parent").hash = parent;
+            let mut block = ServedCheckpoint::test_fixture(
+                height,
+                1_700_000_000
+                    + (i64::try_from(height).assert_fixture("fixture height fits i64") - 8) * 5,
+                0,
+            );
+            block
+                .header
+                .last_block_id
+                .as_mut()
+                .assert_fixture("parent")
+                .hash = parent;
             let leaves = results.get(&(height - 1)).map_or_else(Vec::new, |rows| {
-                (0..rows.as_array().expect("results").len())
+                (0..rows.as_array().assert_fixture("results").len())
                     .map(|index| {
                         must(crate::read::NativeResultSource::from_results(
                             rows,
@@ -21861,11 +21903,222 @@ mod tests {
             self.stop.store(true, Ordering::Release);
             self.worker
                 .take()
-                .expect("server thread")
+                .assert_fixture("server thread")
                 .join()
-                .expect("RPC double");
+                .assert_fixture("RPC double");
         }
     }
+    struct HistoryRpcData {
+        blocks: BTreeMap<u64, ServedCheckpoint>,
+        checkpoint: ServedCheckpoint,
+        results: BTreeMap<u64, Value>,
+        key: ReceiptKeyEntry,
+        rows: BTreeMap<u64, Value>,
+        rungs: BTreeMap<u64, Value>,
+        freshness: Value,
+        unproven: bool,
+    }
+
+    impl HistoryRpcData {
+        fn new(
+            blocks: BTreeMap<u64, ServedCheckpoint>,
+            checkpoint: ServedCheckpoint,
+            results: BTreeMap<u64, Value>,
+            key: ReceiptKeyEntry,
+            unproven: bool,
+        ) -> Self {
+            let recordings: Value = must(serde_json::from_str(include_str!(
+                "../../../../../rpc/testdata/px-history/responses.json"
+            )));
+            let mut data = Self {
+                blocks,
+                checkpoint,
+                results,
+                key,
+                rows: BTreeMap::new(),
+                rungs: BTreeMap::new(),
+                freshness: recordings[0]["body"]["freshness"].clone(),
+                unproven,
+            };
+            for (height, amount) in [(8, 7), (7, 11), (6, 13)] {
+                let (_, mut rung) =
+                    signed_item(height, (1_700_000_000 - (8 - height) * 5) * 1000, amount);
+                rung["blockHash"] = data.block(height)["hash"].clone();
+                data.rows.insert(
+                    height,
+                    json!({"blockHeight":height,"txIndex":1,"logIndex":0,"tx_hash":rung["txHash"]}),
+                );
+                data.rungs.insert(height, rung);
+            }
+            data
+        }
+
+        fn block(&self, height: u64) -> Value {
+            let checkpoint = &self.blocks[&height];
+            json!({"number":format!("{height:#x}"),"hash":rpc_hex(&checkpoint.block_hash),
+                "parentHash":rpc_hex(&checkpoint.header.last_block_id.assert_fixture("parent").hash),
+                "timestamp":format!("{:#x}",checkpoint.header.time.seconds), "transactionsRoot":rpc_hex(&[4;32]),
+                "receiptsRoot":rpc_hex(&[7;32]),"stateRoot":rpc_hex(&checkpoint.app_hash),"transactions":[]})
+        }
+
+        fn history_page(&self, params: &Value) -> Value {
+            let rows = &self.rows;
+            let freshness = &self.freshness;
+            let unproven = self.unproven;
+            assert_eq!(params[0], rpc_hex(&[6; 20]));
+            assert_eq!(params[2], 100);
+            let first = if unproven { 7 } else { 6 };
+            if params[1].is_null() {
+                json!({"account":params[0],"items":[rows[&first]],"next_cursor":crate::read::Cursor { block_height:first,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8,"freshness":freshness})
+            } else {
+                assert_eq!(
+                    params[1],
+                    crate::read::Cursor {
+                        block_height: first,
+                        tx_index: 1,
+                        log_index: 0
+                    }
+                    .to_hex()
+                );
+                let items = ((first + 1)..=8)
+                    .map(|height| rows[&height].clone())
+                    .collect::<Vec<_>>();
+                json!({"account":params[0],"items":items,"next_cursor":null,"indexedHeight":8,"chainHeight":8,"freshness":freshness})
+            }
+        }
+
+        fn result(&self, request: &Value) -> Value {
+            let params = &request["params"];
+            let block = |height| self.block(height);
+            let checkpoint = &self.checkpoint;
+            let blocks = &self.blocks;
+            let results = &self.results;
+            let key = &self.key;
+            let rungs = &self.rungs;
+            let unproven = self.unproven;
+            match request["method"].as_str().assert_fixture("RPC method") {
+                "eth_chainId" => json!("0x7d"),
+                "eth_blockNumber" => {
+                    assert_eq!(params, &json!([]));
+                    json!("0x8")
+                }
+                "eth_call" => json!(rpc_hex(&{
+                    let mut word = [0; 32];
+                    word[12..].fill(6);
+                    word
+                })),
+                "eth_getBlockByNumber" => block(
+                    u64::from_str_radix(
+                        params[0]
+                            .as_str()
+                            .assert_fixture("height")
+                            .trim_start_matches("0x"),
+                        16,
+                    )
+                    .assert_fixture("height quantity"),
+                ),
+                "px_getCommit" => {
+                    assert_eq!(params, &json!(["8"]));
+                    json!({"height":"8","signedHeader":rpc_commit(checkpoint)})
+                }
+                "px_getValidators" => {
+                    assert_eq!(params, &json!(["8"]));
+                    rpc_validators(checkpoint)
+                }
+                "commit" => {
+                    let height: u64 =
+                        must(params["height"].as_str().assert_fixture("height").parse());
+                    json!({"signed_header":rpc_commit(&blocks[&height])})
+                }
+                "validators" => {
+                    let height: u64 =
+                        must(params["height"].as_str().assert_fixture("height").parse());
+                    assert_eq!(params["page"], "1");
+                    assert_eq!(params["per_page"], "100");
+                    let validators = &blocks[&height].validators;
+                    json!({"block_height":height.to_string(), "count":validators.len().to_string(),
+                                            "total":validators.len().to_string(), "validators":validators.iter().map(|validator| json!({
+                                                "address":layerx_programs::hex::encode(&validator.address),
+                                                "pub_key":{"type":"tendermint/PubKeyEd25519", "value":base64(&validator.public_key)},
+                                                "voting_power":validator.voting_power.to_string()
+                                            })).collect::<Vec<_>>()})
+                }
+                "block_results" => {
+                    let height: u64 =
+                        must(params["height"].as_str().assert_fixture("height").parse());
+                    let rows = if unproven && height == 7 {
+                        Value::Null
+                    } else {
+                        results[&height].clone()
+                    };
+                    json!({"height":height.to_string(), "txs_results":rows})
+                }
+                "px_getReceiptKeys" => {
+                    assert_eq!(params, &json!([]));
+                    json!({"keys":[{"keyId":rpc_hex(&key.key_id), "publicKey":rpc_hex(&key.public_key),
+                                            "firstHeight":key.first_height,"lastHeight":key.last_height}]})
+                }
+                "px_getHistory" => self.history_page(params),
+                "pax_sequencerReceipt" | "eth_getTransactionReceipt" => {
+                    let hash = params[0].as_str().assert_fixture("transaction hash");
+                    let height = u64::from_str_radix(&hash[2..4], 16).assert_fixture("hash height");
+                    if request["method"] == "pax_sequencerReceipt" {
+                        rungs[&height].clone()
+                    } else {
+                        json!({"transactionHash":hash,"blockHash":block(height)["hash"],"blockNumber":format!("{height:#x}"),"transactionIndex":"0x1","status":"0x1","gasUsed":"0x5208","logs":rungs[&height]["logs"]})
+                    }
+                }
+                method => panic!("unexpected RPC {method}"),
+            }
+        }
+    }
+
+    fn read_history_request(stream: &mut std::net::TcpStream) -> Value {
+        must(stream.set_read_timeout(Some(Duration::from_secs(3))));
+        let mut headers = Vec::new();
+        while !headers.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            must(stream.read_exact(&mut byte));
+            headers.push(byte[0]);
+            assert!(headers.len() < 16384);
+        }
+        let text = std::str::from_utf8(&headers).assert_fixture("HTTP headers");
+        let length: usize = text
+            .lines()
+            .find_map(|line| {
+                line.split_once(':')
+                    .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+                    .map(|(_, v)| v.trim().parse().assert_fixture("body length"))
+            })
+            .assert_fixture("content length");
+        let mut body = vec![0; length];
+        must(stream.read_exact(&mut body));
+        must(serde_json::from_slice(&body))
+    }
+
+    fn serve_history_requests(
+        listener: &std::net::TcpListener,
+        data: &HistoryRpcData,
+        recorded: &Arc<Mutex<Vec<Value>>>,
+        signal: &Arc<AtomicBool>,
+    ) {
+        while !signal.load(Ordering::Acquire) {
+            let (mut stream, _) = match listener.accept() {
+                Ok(stream) => stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(Duration::from_millis(2));
+                    continue;
+                }
+                Err(error) => panic!("accept RPC: {error}"),
+            };
+            let request = read_history_request(&mut stream);
+            must(recorded.lock()).push(request.clone());
+            let result = data.result(&request);
+            let response = json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
+            must(write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",response.len(),response));
+        }
+    }
+
     impl HistoryRpc {
         fn start(unproven: bool) -> Self {
             let results = (6..=8)
@@ -21895,154 +22148,9 @@ mod tests {
             let recorded = calls.clone();
             let stop = Arc::new(AtomicBool::new(false));
             let signal = stop.clone();
+            let data = HistoryRpcData::new(blocks, checkpoint, results, key, unproven);
             let worker = std::thread::spawn(move || {
-                let block = |height: u64| {
-                    let checkpoint = &blocks[&height];
-                    json!({"number":format!("{height:#x}"),"hash":rpc_hex(&checkpoint.block_hash),
-                        "parentHash":rpc_hex(&checkpoint.header.last_block_id.expect("parent").hash),
-                        "timestamp":format!("{:#x}",checkpoint.header.time.seconds), "transactionsRoot":rpc_hex(&[4;32]),
-                        "receiptsRoot":rpc_hex(&[7;32]),"stateRoot":rpc_hex(&checkpoint.app_hash),"transactions":[]})
-                };
-                let mut rows = BTreeMap::new();
-                let mut rungs = BTreeMap::new();
-                let recordings: Value = must(serde_json::from_str(include_str!(
-                    "../../../../../rpc/testdata/px-history/responses.json"
-                )));
-                let freshness = &recordings[0]["body"]["freshness"];
-                for (height, amount) in [(8, 7), (7, 11), (6, 13)] {
-                    let (_, mut rung) =
-                        signed_item(height, (1_700_000_000 - (8 - height) * 5) * 1000, amount);
-                    rung["blockHash"] = block(height)["hash"].clone();
-                    rows.insert(height,json!({"blockHeight":height,"txIndex":1,"logIndex":0,"tx_hash":rung["txHash"]}));
-                    rungs.insert(height, rung);
-                }
-                while !signal.load(Ordering::Acquire) {
-                    let (mut stream, _) = match listener.accept() {
-                        Ok(s) => s,
-                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                            std::thread::sleep(Duration::from_millis(2));
-                            continue;
-                        }
-                        Err(e) => panic!("accept RPC: {e}"),
-                    };
-                    must(stream.set_read_timeout(Some(Duration::from_secs(3))));
-                    let mut headers = Vec::new();
-                    while !headers.ends_with(b"\r\n\r\n") {
-                        let mut byte = [0];
-                        must(stream.read_exact(&mut byte));
-                        headers.push(byte[0]);
-                        assert!(headers.len() < 16384);
-                    }
-                    let text = std::str::from_utf8(&headers).expect("HTTP headers");
-                    let length: usize = text
-                        .lines()
-                        .find_map(|line| {
-                            line.split_once(':')
-                                .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
-                                .map(|(_, v)| v.trim().parse().expect("body length"))
-                        })
-                        .expect("content length");
-                    let mut body = vec![0; length];
-                    must(stream.read_exact(&mut body));
-                    let request: Value = must(serde_json::from_slice(&body));
-                    must(recorded.lock()).push(request.clone());
-                    let params = &request["params"];
-                    let result = match request["method"].as_str().expect("RPC method") {
-                        "eth_chainId" => json!("0x7d"),
-                        "eth_blockNumber" => {
-                            assert_eq!(params, &json!([]));
-                            json!("0x8")
-                        }
-                        "eth_call" => json!(rpc_hex(&{
-                            let mut word = [0; 32];
-                            word[12..].fill(6);
-                            word
-                        })),
-                        "eth_getBlockByNumber" => block(
-                            u64::from_str_radix(
-                                params[0].as_str().expect("height").trim_start_matches("0x"),
-                                16,
-                            )
-                            .expect("height quantity"),
-                        ),
-                        "px_getCommit" => {
-                            assert_eq!(params, &json!(["8"]));
-                            json!({"height":"8","signedHeader":rpc_commit(&checkpoint)})
-                        }
-                        "px_getValidators" => {
-                            assert_eq!(params, &json!(["8"]));
-                            rpc_validators(&checkpoint)
-                        }
-                        "commit" => {
-                            let height: u64 =
-                                must(params["height"].as_str().expect("height").parse());
-                            json!({"signed_header":rpc_commit(&blocks[&height])})
-                        }
-                        "validators" => {
-                            let height: u64 =
-                                must(params["height"].as_str().expect("height").parse());
-                            assert_eq!(params["page"], "1");
-                            assert_eq!(params["per_page"], "100");
-                            let validators = &blocks[&height].validators;
-                            json!({"block_height":height.to_string(), "count":validators.len().to_string(),
-                                "total":validators.len().to_string(), "validators":validators.iter().map(|validator| json!({
-                                    "address":layerx_programs::hex::encode(&validator.address),
-                                    "pub_key":{"type":"tendermint/PubKeyEd25519", "value":base64(&validator.public_key)},
-                                    "voting_power":validator.voting_power.to_string()
-                                })).collect::<Vec<_>>()})
-                        }
-                        "block_results" => {
-                            let height: u64 =
-                                must(params["height"].as_str().expect("height").parse());
-                            let rows = if unproven && height == 7 {
-                                Value::Null
-                            } else {
-                                results[&height].clone()
-                            };
-                            json!({"height":height.to_string(), "txs_results":rows})
-                        }
-                        "px_getReceiptKeys" => {
-                            assert_eq!(params, &json!([]));
-                            json!({"keys":[{"keyId":rpc_hex(&key.key_id), "publicKey":rpc_hex(&key.public_key),
-                                "firstHeight":key.first_height,"lastHeight":key.last_height}]})
-                        }
-                        "px_getHistory" => {
-                            assert_eq!(params[0], rpc_hex(&[6; 20]));
-                            assert_eq!(params[2], 100);
-                            let first = if unproven { 7 } else { 6 };
-                            if params[1].is_null() {
-                                json!({"account":params[0],"items":[rows[&first]],"next_cursor":crate::read::Cursor { block_height:first,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8,"freshness":freshness})
-                            } else {
-                                assert_eq!(
-                                    params[1],
-                                    crate::read::Cursor {
-                                        block_height: first,
-                                        tx_index: 1,
-                                        log_index: 0
-                                    }
-                                    .to_hex()
-                                );
-                                let items = ((first + 1)..=8)
-                                    .map(|height| rows[&height].clone())
-                                    .collect::<Vec<_>>();
-                                json!({"account":params[0],"items":items,"next_cursor":null,"indexedHeight":8,"chainHeight":8,"freshness":freshness})
-                            }
-                        }
-                        "pax_sequencerReceipt" | "eth_getTransactionReceipt" => {
-                            let hash = params[0].as_str().expect("transaction hash");
-                            let height = u64::from_str_radix(&hash[2..4], 16).expect("hash height");
-                            if request["method"] == "pax_sequencerReceipt" {
-                                rungs[&height].clone()
-                            } else {
-                                json!({"transactionHash":hash,"blockHash":block(height)["hash"],"blockNumber":format!("{height:#x}"),"transactionIndex":"0x1","status":"0x1","gasUsed":"0x5208","logs":rungs[&height]["logs"]})
-                            }
-                        }
-                        method => panic!("unexpected RPC {method}"),
-                    };
-                    let response =
-                        json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
-                    must(write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",response.len(),response));
-                }
+                serve_history_requests(&listener, &data, &recorded, &signal);
             });
             Self {
                 config,
@@ -22086,7 +22194,7 @@ mod tests {
         assert_eq!(
             time.receipt_amounts()
                 .iter()
-                .map(|a| a.amount())
+                .map(crate::protocol_evidence::AuthenticatedReceiptAmount::amount)
                 .sum::<u128>(),
             18
         );
@@ -22164,7 +22272,7 @@ mod tests {
             },
         )
         .err()
-        .expect("receipted item must refuse whole window");
+        .assert_fixture("receipted item must refuse whole window");
         assert!(matches!(error, crate::read::HistoryReadError::ItemUnproven));
         assert_eq!(error.code(), "read.history_item_unproven");
         assert!(matches!(
@@ -22287,8 +22395,7 @@ mod retained_settlement_tests {
     use crate::prepare::{DurablePreparation, LifecycleState};
     use crate::read::ServedCheckpoint;
     use ed25519_dalek::{Signer as _, SigningKey};
-    use layerx_types::activity::EnvelopeBuilder;
-    use layerx_types::payload::{ModuleId, ModuleRegistration, Payload};
+    use layerx_types::payload::{ModuleId, ModuleRegistration};
     use serde_json::json;
     use std::io::{BufRead as _, Read as _, Write as _};
     use std::path::PathBuf;
@@ -22310,7 +22417,7 @@ mod retained_settlement_tests {
         value.unwrap_or_else(|error| {
             panic!(
                 "retained settlement: {error:?}; refused at {:?}",
-                REFUSED_AT.with(|last| last.get())
+                REFUSED_AT.with(std::cell::Cell::get)
             )
         })
     }
@@ -22321,7 +22428,7 @@ mod retained_settlement_tests {
         bytes
     }
 
-    fn dynamic(words: Vec<Vec<u8>>, index: usize, value: &[u8]) -> Vec<u8> {
+    fn dynamic(words: &[Vec<u8>], index: usize, value: &[u8]) -> Vec<u8> {
         let mut bytes = words.concat();
         let offset = bytes.len();
         bytes[index * 32..(index + 1) * 32].copy_from_slice(&word(offset as u64));
@@ -22329,6 +22436,92 @@ mod retained_settlement_tests {
         bytes.extend(value);
         bytes.resize(bytes.len().div_ceil(32) * 32, 0);
         bytes
+    }
+
+    struct RpcAnswerData {
+        public: [u8; 32],
+        actor: Did,
+        address: Vec<u8>,
+        asset: Vec<u8>,
+        account: [u8; 32],
+        owner: [u8; 32],
+    }
+
+    impl RpcAnswerData {
+        fn new(public: [u8; 32], actor: Did, sender: [u8; 20]) -> Self {
+            let account = must(layerx_types::account::AccountId::for_asset(
+                std::str::from_utf8(actor.as_bytes()).assert_fixture("DID"),
+                ASSET,
+                ASSET,
+            ));
+            let account = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
+            let owner = must(layerx_wire::hash::did_id_for_protocol(&actor, 3));
+            let mut address = vec![0; 32];
+            address[12..].copy_from_slice(&sender);
+            let asset = crate::budget::fee_policy::tests::asset_result(ASSET, b"PAX", 18, false);
+            Self {
+                public,
+                actor,
+                address,
+                asset,
+                account,
+                owner,
+            }
+        }
+
+        fn eth_call(&self, params: &Value, error: &mut Option<Value>) -> Value {
+            let Self {
+                public,
+                actor,
+                address,
+                asset,
+                account,
+                owner,
+            } = self;
+            let data = must(hex::decode(
+                params[0]["data"]
+                    .as_str()
+                    .assert_fixture("calldata")
+                    .trim_start_matches("0x"),
+            ));
+            let selected = |signature: &[u8]| {
+                data[..4] == layerx_crypto::evm_transaction::transaction_hash(signature)[..4]
+            };
+            let answer = if selected(b"getFeeDenom(address)") {
+                dynamic(
+                    &[word(0)],
+                    0,
+                    format!("layerx/{}", hex::encode(ASSET)).as_bytes(),
+                )
+            } else if selected(b"getAsset(bytes32)") {
+                asset.clone()
+            } else if selected(b"getEvmAddrByLayerX(bytes32)") {
+                address.clone()
+            } else if selected(b"getUnifiedAccount(address)") {
+                [address.clone(), word(0), public.to_vec(), account.to_vec()].concat()
+            } else if selected(b"getLayerXDid(address)") {
+                dynamic(&[public.to_vec(), word(0)], 1, actor.as_bytes())
+            } else if selected(b"accountId(bytes32,bytes32)") {
+                account.to_vec()
+            } else if selected(b"accountOwner(bytes32)") {
+                owner.to_vec()
+            } else if selected(b"balanceOf(bytes32,bytes32)") {
+                word(1000)
+            } else if selected(b"nextSequence(bytes32,bytes32)") {
+                word(1)
+            } else if selected(b"getProgram(bytes32)") {
+                *error =
+                    Some(json!({"code": -32000, "message": "LXP_NOT_FOUND: getProgram: absent"}));
+                Vec::new()
+            } else if selected(b"getCurrentFeeSchedule()") {
+                let mut schedule = vec![word(1); 8].concat();
+                schedule.extend(ASSET);
+                schedule
+            } else {
+                panic!("unexpected call {}", hex::encode(data));
+            };
+            json!(rpc_hex(&answer))
+        }
     }
 
     struct Rpc {
@@ -22363,17 +22556,7 @@ mod retained_settlement_tests {
                         )
                     })
                     .collect();
-                let account = must(layerx_types::account::AccountId::for_asset(
-                    std::str::from_utf8(actor.as_bytes()).expect("DID"),
-                    ASSET,
-                    ASSET,
-                ));
-                let account = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
-                let owner = must(layerx_wire::hash::did_id_for_protocol(&actor, 3));
-                let mut address = vec![0; 32];
-                address[12..].copy_from_slice(&sender);
-                let asset =
-                    crate::budget::fee_policy::tests::asset_result(ASSET, b"PAX", 18, false);
+                let answers = RpcAnswerData::new(public, actor, sender);
                 while !stopping.load(Ordering::SeqCst) {
                     let (mut stream, _) = match listener.accept() {
                         Ok(value) => value,
@@ -22398,10 +22581,10 @@ mod retained_settlement_tests {
                             length = Some(must(value.trim().parse::<usize>()));
                         }
                     }
-                    let mut body = vec![0; length.expect("request length")];
+                    let mut body = vec![0; length.assert_fixture("request length")];
                     must(reader.read_exact(&mut body));
                     let request: Value = must(serde_json::from_slice(&body));
-                    let method = request["method"].as_str().expect("RPC method");
+                    let method = request["method"].as_str().assert_fixture("RPC method");
                     let params = &request["params"];
                     must(served_calls.lock()).push((method.to_owned(), params.clone()));
                     let mut error = None;
@@ -22411,70 +22594,24 @@ mod retained_settlement_tests {
                         }
                         "eth_chainId" => json!("0x7d"),
                         "eth_getBlockByNumber" | "px_getCommit" | "px_getValidators" => {
-                            let number = params[0].as_str().expect("height");
+                            let number = params[0].as_str().assert_fixture("height");
                             let height = if let Some(hex) = number.strip_prefix("0x") {
                                 must(u64::from_str_radix(hex, 16))
                             } else {
                                 must(number.parse())
                             };
-                            let answers = checkpoints.get(&height).expect("requested checkpoint");
+                            let answers = checkpoints
+                                .get(&height)
+                                .assert_fixture("requested checkpoint");
                             answers
                                 .iter()
                                 .find(|(name, _)| *name == method)
-                                .expect("checkpoint answer")
+                                .assert_fixture("checkpoint answer")
                                 .1
                                 .clone()
                         }
                         "pax_sequencerReceipt" => must(served_receipt.lock()).clone(),
-                        "eth_call" => {
-                            let data = must(hex::decode(
-                                params[0]["data"]
-                                    .as_str()
-                                    .expect("calldata")
-                                    .trim_start_matches("0x"),
-                            ));
-                            let selected = |signature: &[u8]| {
-                                data[..4]
-                                    == layerx_crypto::evm_transaction::transaction_hash(signature)
-                                        [..4]
-                            };
-                            let answer = if selected(b"getFeeDenom(address)") {
-                                dynamic(
-                                    vec![word(0)],
-                                    0,
-                                    format!("layerx/{}", hex::encode(ASSET)).as_bytes(),
-                                )
-                            } else if selected(b"getAsset(bytes32)") {
-                                asset.clone()
-                            } else if selected(b"getEvmAddrByLayerX(bytes32)") {
-                                address.clone()
-                            } else if selected(b"getUnifiedAccount(address)") {
-                                [address.clone(), word(0), public.to_vec(), account.to_vec()]
-                                    .concat()
-                            } else if selected(b"getLayerXDid(address)") {
-                                dynamic(vec![public.to_vec(), word(0)], 1, actor.as_bytes())
-                            } else if selected(b"accountId(bytes32,bytes32)") {
-                                account.to_vec()
-                            } else if selected(b"accountOwner(bytes32)") {
-                                owner.to_vec()
-                            } else if selected(b"balanceOf(bytes32,bytes32)") {
-                                word(1000)
-                            } else if selected(b"nextSequence(bytes32,bytes32)") {
-                                word(1)
-                            } else if selected(b"getProgram(bytes32)") {
-                                error = Some(
-                                    json!({"code": -32000, "message": "LXP_NOT_FOUND: getProgram: absent"}),
-                                );
-                                Vec::new()
-                            } else if selected(b"getCurrentFeeSchedule()") {
-                                let mut schedule = vec![word(1); 8].concat();
-                                schedule.extend(ASSET);
-                                schedule
-                            } else {
-                                panic!("unexpected call {}", hex::encode(data));
-                            };
-                            json!(rpc_hex(&answer))
-                        }
+                        "eth_call" => answers.eth_call(params, &mut error),
                         _ => panic!("unexpected RPC {method}"),
                     };
                     let reply = match error {
@@ -22509,7 +22646,7 @@ mod retained_settlement_tests {
         fn drop(&mut self) {
             self.stop.store(true, Ordering::SeqCst);
             if let Some(worker) = self.worker.take() {
-                worker.join().expect("RPC server");
+                worker.join().assert_fixture("RPC server");
             }
         }
     }
@@ -22592,7 +22729,7 @@ mod retained_settlement_tests {
             must(out.bytes(&resulting, 32));
             must(out.bytes(&[0; 32], 32));
             must(out.i32(if failed { -1 } else { 0 }));
-            must(out.sequence_length(if failed { 0 } else { 1 }, 512));
+            must(out.sequence_length(usize::from(!failed), 512));
             if !failed {
                 must(out.u16(9));
                 must(out.u16(0));
@@ -22633,25 +22770,7 @@ mod retained_settlement_tests {
             .to_bytes();
         let receipt = encode(Some(signature));
         let (proof, root) = must(layerx_proof::merkle::build_proof(&[receipt.as_slice()], 0));
-        let mut header = Encoder::new(4096);
-        must(header.structure_header_version(0x1701, 3));
-        must(header.u8(15));
-        for tag in 1..=15 {
-            must(header.tag(tag, 15));
-            match tag {
-                1 => must(header.u16(3)),
-                2 => must(header.u32(125)),
-                3 => must(header.u64(1)),
-                4..=6 => must(header.u64(9)),
-                7 => must(header.bytes(&previous, 32)),
-                8 => must(header.bytes(&resulting, 32)),
-                10 => must(header.bytes(&root, 32)),
-                14 => must(header.u64(1_700_000_000_000)),
-                15 => must(header.bytes(&public, 32)),
-                _ => must(header.bytes(&[4; 32], 32)),
-            }
-        }
-        let header = header.finish();
+        let header = terminal_header(previous, resulting, root, public);
         let header_signature = signer
             .sign(&must(layerx_wire::hash::batch_header_digest(&header)))
             .to_bytes();
@@ -22677,23 +22796,162 @@ mod retained_settlement_tests {
         (verified, authority, public)
     }
 
-    struct Fixture {
-        root: PathBuf,
-        rpc: Rpc,
-        store: Store,
-        budgets: BudgetLimiter,
-        programs: crate::ops::program::ProgramOperations,
-        registry: ModuleRegistry,
-        tenant: TenantId,
-        id: [u8; 32],
-        limit: LimitId,
-        terminal: crate::protocol_evidence::VerifiedReceiptEvidence,
-        authority: AuthorizedBatch,
+    fn terminal_header(
+        previous: [u8; 32],
+        resulting: [u8; 32],
+        root: [u8; 32],
         public: [u8; 32],
+    ) -> Vec<u8> {
+        use layerx_wire::encode::Encoder;
+        let mut header = Encoder::new(4096);
+        must(header.structure_header_version(0x1701, 3));
+        must(header.u8(15));
+        for tag in 1..=15 {
+            must(header.tag(tag, 15));
+            match tag {
+                1 => must(header.u16(3)),
+                2 => must(header.u32(125)),
+                3 => must(header.u64(1)),
+                4..=6 => must(header.u64(9)),
+                7 => must(header.bytes(&previous, 32)),
+                8 => must(header.bytes(&resulting, 32)),
+                10 => must(header.bytes(&root, 32)),
+                14 => must(header.u64(1_700_000_000_000)),
+                15 => must(header.bytes(&public, 32)),
+                _ => must(header.bytes(&[4; 32], 32)),
+            }
+        }
+        header.finish()
     }
 
-    impl Fixture {
-        fn new(failed: bool) -> Self {
+    struct BudgetFixture {
+        root: PathBuf,
+        store: Store,
+        tenant: TenantId,
+        budgets: BudgetLimiter,
+        limit: LimitId,
+        id: [u8; 32],
+        reservation: crate::budget::ProgramBudgetReservation,
+    }
+
+    impl BudgetFixture {
+        fn new(
+            actor: &Did,
+            sources: &crate::budget::VerifiedResolvedProgramCharges,
+            transaction: &crate::sign::SigningPreparation,
+        ) -> Self {
+            let root = std::env::temp_dir().join(format!(
+                "retained-settlement-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::SeqCst)
+            ));
+            let mut store = must(Store::open(&root));
+            let tenant = must(TenantId::new("settlement-tenant"));
+            let budgets = must(BudgetLimiter::new(Vec::new()));
+            let limit = crate::budget::daemon_limit_id([0x61; 32]);
+            must(crate::budget::create_daemon_limit(
+                &mut store,
+                &budgets,
+                DaemonLimitRecord {
+                    tenant: tenant.clone(),
+                    budget_id: [0x61; 32],
+                    limit_id: limit,
+                    agent_digest: must(layerx_wire::hash::did_id_for_protocol(actor, 3)),
+                    asset: ASSET,
+                    ceiling: 100,
+                    consumed: 0,
+                    expiry_ms: 1_800_000_000_000,
+                    revoked: false,
+                    mutation_key: [0x62; 32],
+                    body_digest: [0x63; 32],
+                    revoke_key: [0; 32],
+                },
+                CoreTimestampMs(1),
+            ));
+            let allocations = must(sources.budget_allocations(|_| Ok(vec![limit])));
+            let canonical = transaction.transaction.call.encode_unsigned();
+            let id = Sha256::digest(&canonical).into();
+            let reservation = must(budgets.stage_program_allocation(
+                &ProgramReservationRequest {
+                    id,
+                    charges: allocations.charges().to_vec(),
+                    expiry_sequence: 100,
+                    current_sequence: 8,
+                    core_deadline: Some(CoreTimestampMs(1_800_000_000_000)),
+                },
+                &allocations,
+                CoreTimestampMs(1),
+            ))
+            .publish();
+            Self {
+                root,
+                store,
+                tenant,
+                budgets,
+                limit,
+                id,
+                reservation,
+            }
+        }
+
+        fn retain(
+            &mut self,
+            actor: &Did,
+            transaction: &crate::sign::SigningPreparation,
+            signed_transaction: Vec<u8>,
+            submission: &crate::sign::VerifiedSubmission,
+            sender: [u8; 20],
+        ) {
+            let canonical = transaction.transaction.call.encode_unsigned();
+            must(transaction.retain(&mut self.store, self.tenant.clone(), self.id));
+            let policy = json!({"schema":"layerx.native-program-policy.v1","version":"1","network_id":125,"step_limit":1000,"rules":[{
+                "id":"deploy","effect":"Permit","activity":{"module":9,"ordinal":1},"scope":{"kind":"Operation"},"required_approval":false,"purpose_commitment":null
+            }]}).to_string().into_bytes();
+            let carrier: NativeProgramApprovalCarrier = must(serde_json::from_value(json!({
+                "version":2,"tenant":self.tenant.as_str(),"principal":"settlement-owner","actor":actor.as_bytes(),"session":vec![1;32],"generation":1,
+                "preparation":self.id,"activity_module":9,"activity_ordinal":1,"canonical_bytes":canonical,
+                "sender":sender,"created_at_sequence":8,"budget_expiry_sequence":100,
+                "envelope_not_after":transaction.transaction.disclosure.expiry.not_after,"program_budget":must(self.reservation.encode()),
+                "native_policy_source":policy,"local_policy_outcome":"Permitted","matched_rules":["deploy"],"state":"NotRequired","terminal":null
+            })));
+            let durable = DurablePreparation {
+                tenant: self.tenant.clone(),
+                preparation_id: self.id,
+                session_id: [1; 32],
+                generation: 1,
+                not_after: transaction.transaction.disclosure.expiry.not_after,
+                payload_hash: layerx_crypto::evm_transaction::transaction_hash(
+                    &transaction.transaction.call.data,
+                ),
+                state: LifecycleState::Submitted,
+                activity_id: Some(submission.activity_id()),
+                holds: Vec::new(),
+                extensions: BTreeMap::from([
+                    (4, signed_transaction),
+                    (6, must(self.reservation.encode())),
+                    (7, must(carrier.held_digest()).to_vec()),
+                ]),
+            };
+            must(self.store.put_local(
+                must(DurablePreparation::store_key(&self.tenant, self.id)),
+                must(durable.encode()),
+            ));
+            let (key, bytes) = must(carrier.companion());
+            must(self.store.put_local(key, bytes));
+        }
+    }
+
+    struct PreparedSettlementSetup {
+        public: [u8; 32],
+        actor: Did,
+        registry: ModuleRegistry,
+        transaction: crate::sign::SigningPreparation,
+        signed_transaction: Vec<u8>,
+        sender: [u8; 20],
+    }
+
+    impl PreparedSettlementSetup {
+        fn new() -> Self {
             let signer = SigningKey::from_bytes(&[0x52; 32]);
             let public = signer.verifying_key().to_bytes();
             let actor = must(Did::new(
@@ -22721,8 +22979,10 @@ mod retained_settlement_tests {
                 to: crate::prepare::PrecompileTarget::Programs.address(),
                 data: layerx_crypto::disclosure::call::encode_program_deploy(&deploy),
             };
-            let signed = must(call.sign(&[0xa5; 32]));
-            let (_, signature) = must(layerx_crypto::evm_transaction::decode_signed(&signed));
+            let signed_transaction = must(call.sign(&[0xa5; 32]));
+            let (_, signature) = must(layerx_crypto::evm_transaction::decode_signed(
+                &signed_transaction,
+            ));
             let sender = must(layerx_crypto::evm_transaction::recover_sender(
                 &call, &signature,
             ));
@@ -22738,6 +22998,42 @@ mod retained_settlement_tests {
                     observed_head_height: 8,
                 },
             };
+            Self {
+                public,
+                actor,
+                registry,
+                transaction,
+                signed_transaction,
+                sender,
+            }
+        }
+    }
+
+    struct Fixture {
+        root: PathBuf,
+        rpc: Rpc,
+        store: Store,
+        budgets: BudgetLimiter,
+        programs: crate::ops::program::ProgramOperations,
+        registry: ModuleRegistry,
+        tenant: TenantId,
+        id: [u8; 32],
+        limit: LimitId,
+        terminal: crate::protocol_evidence::VerifiedReceiptEvidence,
+        authority: AuthorizedBatch,
+        public: [u8; 32],
+    }
+
+    impl Fixture {
+        fn new(failed: bool) -> Self {
+            let PreparedSettlementSetup {
+                public,
+                actor,
+                registry,
+                transaction,
+                signed_transaction,
+                sender,
+            } = PreparedSettlementSetup::new();
             let prepared = transaction.transaction.clone();
             let rpc = Rpc::serve(public, actor.clone(), sender);
             let mut node = rpc.endpoint();
@@ -22766,96 +23062,27 @@ mod retained_settlement_tests {
                 1_700_000_000_000,
                 1,
             ));
-            let root = std::env::temp_dir().join(format!(
-                "retained-settlement-{}-{}",
-                std::process::id(),
-                NEXT.fetch_add(1, Ordering::SeqCst)
-            ));
-            let mut store = must(Store::open(&root));
-            let tenant = must(TenantId::new("settlement-tenant"));
-            let budgets = must(BudgetLimiter::new(Vec::new()));
-            let limit = crate::budget::daemon_limit_id([0x61; 32]);
-            must(crate::budget::create_daemon_limit(
-                &mut store,
-                &budgets,
-                DaemonLimitRecord {
-                    tenant: tenant.clone(),
-                    budget_id: [0x61; 32],
-                    limit_id: limit,
-                    agent_digest: must(layerx_wire::hash::did_id_for_protocol(&actor, 3)),
-                    asset: ASSET,
-                    ceiling: 100,
-                    consumed: 0,
-                    expiry_ms: 1_800_000_000_000,
-                    revoked: false,
-                    mutation_key: [0x62; 32],
-                    body_digest: [0x63; 32],
-                    revoke_key: [0; 32],
-                },
-                CoreTimestampMs(1),
-            ));
-            let allocations = must(sources.budget_allocations(|_| Ok(vec![limit])));
+            let mut budget = BudgetFixture::new(&actor, &sources, &transaction);
             let canonical = transaction.transaction.call.encode_unsigned();
-            let id = Sha256::digest(&canonical).into();
-            let reservation = must(budgets.stage_program_allocation(
-                &ProgramReservationRequest {
-                    id,
-                    charges: allocations.charges().to_vec(),
-                    expiry_sequence: 100,
-                    current_sequence: 8,
-                    core_deadline: Some(CoreTimestampMs(1_800_000_000_000)),
-                },
-                &allocations,
-                CoreTimestampMs(1),
-            ))
-            .publish();
-            let message = must(layerx_crypto::SignatureMessage::new(
+            must(layerx_crypto::SignatureMessage::new(
                 layerx_wire::hash::Domain::SignaturePreimage,
                 3,
                 125,
                 &canonical,
             ));
             let submission = must(crate::sign::verify_before_submit(
-                &signed,
+                &signed_transaction,
                 &transaction,
                 &sender,
                 &registry,
             ));
-            must(transaction.retain(&mut store, tenant.clone(), id));
-            let policy = json!({"schema":"layerx.native-program-policy.v1","version":"1","network_id":125,"step_limit":1000,"rules":[{
-                "id":"deploy","effect":"Permit","activity":{"module":9,"ordinal":1},"scope":{"kind":"Operation"},"required_approval":false,"purpose_commitment":null
-            }]}).to_string().into_bytes();
-            let carrier: NativeProgramApprovalCarrier = must(serde_json::from_value(json!({
-                "version":2,"tenant":tenant.as_str(),"principal":"settlement-owner","actor":actor.as_bytes(),"session":vec![1;32],"generation":1,
-                "preparation":id,"activity_module":9,"activity_ordinal":1,"canonical_bytes":canonical,
-                "sender":sender,"created_at_sequence":8,"budget_expiry_sequence":100,
-                "envelope_not_after":transaction.transaction.disclosure.expiry.not_after,"program_budget":must(reservation.encode()),
-                "native_policy_source":policy,"local_policy_outcome":"Permitted","matched_rules":["deploy"],"state":"NotRequired","terminal":null
-            })));
-            let durable = DurablePreparation {
-                tenant: tenant.clone(),
-                preparation_id: id,
-                session_id: [1; 32],
-                generation: 1,
-                not_after: transaction.transaction.disclosure.expiry.not_after,
-                payload_hash: layerx_crypto::evm_transaction::transaction_hash(
-                    &transaction.transaction.call.data,
-                ),
-                state: LifecycleState::Submitted,
-                activity_id: Some(submission.activity_id()),
-                holds: Vec::new(),
-                extensions: BTreeMap::from([
-                    (4, signed),
-                    (6, must(reservation.encode())),
-                    (7, must(carrier.held_digest()).to_vec()),
-                ]),
-            };
-            must(store.put_local(
-                must(DurablePreparation::store_key(&tenant, id)),
-                must(durable.encode()),
-            ));
-            let (key, bytes) = must(carrier.companion());
-            must(store.put_local(key, bytes));
+            budget.retain(
+                &actor,
+                &transaction,
+                signed_transaction,
+                &submission,
+                sender,
+            );
             let (terminal, authority, public) =
                 terminal(&prepared, submission.activity_id(), failed);
             let checkpoint = ServedCheckpoint::test_fixture(9, 1_700_000_000, 123_000_000);
@@ -22869,15 +23096,15 @@ mod retained_settlement_tests {
             });
             rpc.head.store(9, Ordering::SeqCst);
             Self {
-                root,
+                root: budget.root,
                 rpc,
-                store,
-                budgets,
+                store: budget.store,
+                budgets: budget.budgets,
                 programs,
                 registry,
-                tenant,
-                id,
-                limit,
+                tenant: budget.tenant,
+                id: budget.id,
+                limit: budget.limit,
                 terminal,
                 authority,
                 public,
@@ -22913,7 +23140,10 @@ mod retained_settlement_tests {
             let key = must(DurablePreparation::store_key(&self.tenant, self.id));
             must(DurablePreparation::decode(
                 self.tenant.clone(),
-                self.store.get(&key).expect("durable preparation").bytes(),
+                self.store
+                    .get(&key)
+                    .assert_fixture("durable preparation")
+                    .bytes(),
             ))
         }
 
@@ -22931,7 +23161,7 @@ mod retained_settlement_tests {
                 &self.tenant,
             ))
             .pop()
-            .expect("retained carrier");
+            .assert_fixture("retained carrier");
             let prepared = must(carrier.restore_prepared(&self.registry));
             assert_eq!(prepared.observed_head_height, 8);
             assert_eq!(prepared.signing_hash, prepared.call.signing_hash());
@@ -25082,12 +25312,6 @@ fn retained_lifecycle_execution(
     preparation_id: [u8; 32],
     read_config: &crate::node_rpc::NodeRpcConfig,
 ) -> Result<crate::budget::CommittedExecutionState, HumanOperationError> {
-    #[cfg(test)]
-    use layerx_types::program_lifecycle::NativeProgramDeploy;
-    #[cfg(test)]
-    use layerx_types::program_lifecycle::NativeProgramUpgrade;
-    #[cfg(test)]
-    use layerx_types::program_lifecycle::NativeProgramWindDown;
     use layerx_types::program_lifecycle::ProgramWindDownOperation;
 
     let NativeProgramSettlement {
@@ -25195,9 +25419,11 @@ fn retained_native_program_witness(
             tenant,
             committed_state.ok_or_else(|| refused_at("lifecycle_committed_state_missing"))?,
         )
-        .map_err(|_error| {
+        .map_err(|error| {
             #[cfg(test)]
-            eprintln!("retained lifecycle settlement refusal: {_error:?}");
+            eprintln!("retained lifecycle settlement refusal: {error:?}");
+            #[cfg(not(test))]
+            let _ = error;
             refused_at("lifecycle_settlement")
         })?
     } else {

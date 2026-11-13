@@ -37,7 +37,7 @@ const platformValidationEntries = 100000
 // platformIdentity is the production platform runtime's identity adapter: it
 // verifies the forwarded browser credential (bearer or __Host-kindle_access
 // cookie) at the gateway identity authority and redeems chat stream tickets
-// there, over the gateway's private mTLS identity listener as issuer "social"
+// there, over the gateway's private mTLS identity listener as issuer socialService
 // (client certificate, pinned gateway server certificate, ed25519 request
 // assertion).
 type platformIdentity struct {
@@ -142,7 +142,7 @@ func (p *platformIdentity) ingress(next http.Handler) http.Handler {
 			}
 		}
 		path := r.URL.Path
-		if path == "/health" || strings.HasPrefix(path, "/health/") || path == "/metrics" || isStreamPath(path) || !hasCredential(r) {
+		if path == healthPath || strings.HasPrefix(path, "/health/") || path == metricsPath || isStreamPath(path) || !hasCredential(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -189,15 +189,15 @@ func writePlatformIdentityError(w http.ResponseWriter, r *http.Request, err erro
 	if errors.As(err, &authorityErr) {
 		switch authorityErr.Status {
 		case http.StatusForbidden:
-			status, code = http.StatusForbidden, "SCOPE_DENIED"
+			status, code = http.StatusForbidden, scopeDeniedCode
 		case http.StatusTooManyRequests:
 			status, code = http.StatusTooManyRequests, "RATE_LIMITED"
 		case http.StatusServiceUnavailable:
-			status, code = http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"
+			status, code = http.StatusServiceUnavailable, dependencyUnavailableCode
 		}
 	} else if !errors.Is(err, sharedauth.ErrScopeDenied) {
 		// Transport failure reaching the authority.
-		status, code = http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE"
+		status, code = http.StatusServiceUnavailable, dependencyUnavailableCode
 	}
 	retryable := status == http.StatusServiceUnavailable || status == http.StatusTooManyRequests
 	w.Header().Set("Cache-Control", "private, no-store")
@@ -207,7 +207,7 @@ func writePlatformIdentityError(w http.ResponseWriter, r *http.Request, err erro
 	}
 	w.WriteHeader(status)
 	if strings.HasPrefix(r.URL.Path, "/v2/social/") {
-		_ = json.NewEncoder(w).Encode(map[string]any{"code": code, "retryable": retryable})
+		_ = json.NewEncoder(w).Encode(map[string]any{codeField: code, "retryable": retryable})
 		return
 	}
 	requestID := uuid.NewString()

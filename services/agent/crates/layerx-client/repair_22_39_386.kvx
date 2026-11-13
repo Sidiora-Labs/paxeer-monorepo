@@ -1,0 +1,9 @@
+[repair.22.39.386]
+function = "layerx_client::ai_market::market_call_terms"
+mutation_capabilities = "00 03 03 07 08"
+read_capabilities = "00 01 07"
+access_declaration = "LayerX/programs/access-declaration/v1 followed by 00 00"
+lap_builder = "services/agent/crates/layerx-agentd/src/main.rs:lap_market_call_terms; SettleLaps"
+deal_builder = "services/agent/crates/layerx-agentd/src/main.rs:deal_market_call_terms; RecordDeal"
+refused_value_operations = "FUND (programs/crates/layerx-programs-ai-market/src/rewards.rs:3431); CLAIM (programs/crates/layerx-programs-ai-market/src/rewards.rs:3028); REFUND_FREE (programs/crates/layerx-programs-ai-market/src/rewards.rs:3028); ADVANCE_CLOSE (programs/crates/layerx-programs-ai-market/src/dispatch.rs:2154); LockBond (programs/crates/layerx-programs-ai-market/src/bonds.rs:392,684); RefundBond (programs/crates/layerx-programs-ai-market/src/bonds.rs:602,684); ChallengeLap (programs/crates/layerx-programs-ai-market/src/lib.rs:351, programs/crates/layerx-programs-ai-market/src/canary.rs:983); ResolveChallenge (programs/crates/layerx-programs-ai-market/src/lib.rs:351, programs/crates/layerx-programs-ai-market/src/canary.rs:983)"
+search = "Searched production Rust builders in services, sdk, apps and tools. No further AI market builder passes empty or handwritten capability or access fields. Generic native call encoders forward caller supplied fields; the prior inference_room_writes example is absent from this revision."

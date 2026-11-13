@@ -75,7 +75,7 @@ pub fn process_bulk_order_placements(
     response = response.set_data(binary);
 
     // send dummy order to mars every 10 blocks
-    if env.block.height % 10 == 0 {
+    if env.block.height.is_multiple_of(10) {
         let order_placement = Order {
             price: Decimal::from_atomics(120u128, 0).unwrap(),
             quantity: Decimal::one(),

@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/auth"
 	"github.com/go-chi/chi/v5"
 
@@ -112,7 +114,7 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request) {
 	controller := http.NewResponseController(w)
 	now := time.Now()
 	_ = controller.SetReadDeadline(now.Add(5 * time.Second))
-	defer controller.SetReadDeadline(time.Time{})
+	defer func() { cleanup.Report("reset read deadline", controller.SetReadDeadline(time.Time{})) }()
 	r.Body = &ingressReader{ReadCloser: r.Body, controller: controller, window: now, deadline: now.Add(30 * time.Second)}
 	addr := common.NormalizeAddr(chi.URLParam(r, "tokenAddress"))
 	if !common.IsAddr(addr) {
@@ -123,7 +125,7 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request) {
 	// Hard body-size cap (load-shed oversize uploads at the edge, i12). A read
 	// past the limit surfaces as an error from ParseMultipartForm below.
 	r.Body = http.MaxBytesReader(w, r.Body, h.maxBytes)
-	if err := r.ParseMultipartForm(multipartMaxMemory); err != nil {
+	if err := r.ParseMultipartForm(multipartMaxMemory); err != nil { //nolint:gosec // MaxBytesReader caps the body before multipart parsing.
 		rule := sharedhttp.RuleMultipart
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
@@ -269,20 +271,24 @@ func rebuildMultipart(values map[string][]string, files []fileBuf) (*bytes.Buffe
 // response (status + body) back to the client verbatim.
 func (h *Handler) forward(w http.ResponseWriter, r *http.Request, addr string, body *bytes.Buffer, contentType string) {
 	target := h.metadataURL + "/metadata/" + addr
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, target, body)
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, target, body) //nolint:gosec // The service URL is configured and the path address is validated.
 	if err != nil {
 		h.fail(w, "build forward request", err)
 		return
 	}
 	req.Header.Set("Content-Type", contentType)
 
-	resp, err := h.client.Do(req)
+	resp, err := h.client.Do(req) //nolint:gosec // The request targets the configured metadata service and redirects are disabled.
 	if err != nil {
 		h.logErr("forward to metadata", err)
 		sharedhttp.WriteError(w, http.StatusBadGateway, "Bad Gateway", "metadata upstream unavailable")
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			cleanup.Report("close response body", closeErr)
+		}
+	}()
 
 	if ct := resp.Header.Get("Content-Type"); ct != "" {
 		w.Header().Set("Content-Type", ct)

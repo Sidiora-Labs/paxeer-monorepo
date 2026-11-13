@@ -135,7 +135,7 @@ func zero(v string) string {
 	return v
 }
 func (s *Store) CreatePolicy(ctx context.Context, cred, owner, reason string, p Policy) error {
-	if !uuidPattern.MatchString(p.ID) || !uuidPattern.MatchString(owner) || p.Owner != owner || !p.Asset.Valid() || p.Mode != "disclosed_assistant" || !text(p.Disclosure, 256) || len(p.Instruments) < 1 || len(p.Instruments) > 20 || p.Requests < 1 || p.Requests > 1000000 || p.QuoteAge <= 0 || p.QuoteAge > time.Minute {
+	if !uuidPattern.MatchString(p.ID) || !uuidPattern.MatchString(owner) || p.Owner != owner || !p.Asset.Valid() || p.Mode != controlDisclosedAssistant || !text(p.Disclosure, 256) || len(p.Instruments) < 1 || len(p.Instruments) > 20 || p.Requests < 1 || p.Requests > 1000000 || p.QuoteAge <= 0 || p.QuoteAge > time.Minute {
 		return Invalid
 	}
 	if _, e := amount(p.Spend); e != nil {
@@ -161,7 +161,7 @@ func (s *Store) CreatePolicy(ctx context.Context, cred, owner, reason string, p 
 		} else if e != Missing {
 			return e
 		}
-		p.State = "draft"
+		p.State = controlDraft
 		p.Used = 0
 		p.Reserved = "0"
 		p.Revision = 1
@@ -189,15 +189,15 @@ func (s *Store) PolicyState(ctx context.Context, cred, owner, k, reason, next st
 		if p.Revision != expected || expected == ^uint64(0) {
 			return Conflict
 		}
-		if p.State == "revoked" || p.State == "stopped" {
+		if p.State == controlRevoked || p.State == controlStopped {
 			return Denied
 		}
 		switch next {
-		case "enabled":
+		case controlEnabled:
 			if !p.Expires.After(t.now) {
 				return Denied
 			}
-		case "paused", "stopped", "revoked":
+		case "paused", controlStopped, controlRevoked:
 		default:
 			return Invalid
 		}
@@ -232,7 +232,7 @@ func (s *Store) ReserveRecommendation(ctx context.Context, cred, owner, policyID
 		} else if e != Missing {
 			return e
 		}
-		if p.State != "enabled" || !p.Expires.After(t.now) || p.Mode != "disclosed_assistant" {
+		if p.State != controlEnabled || !p.Expires.After(t.now) || p.Mode != controlDisclosedAssistant {
 			return Denied
 		}
 		if quoteAt.After(t.now) || t.now.Sub(quoteAt) > p.QuoteAge {

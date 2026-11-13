@@ -1,6 +1,8 @@
+#[allow(dead_code)]
+mod programs {
+    include!("../src/programs.rs");
+}
 use layerx_platform_cli::{encoding, http};
-#[path = "../src/programs.rs"]
-mod programs;
 
 use std::io::{BufRead as _, Read as _};
 use std::net::{Shutdown, TcpListener};
@@ -330,5 +332,5 @@ fn receipt_get_accepts_transaction_hash() -> Result<(), String> {
 }
 
 // Audit proofs use committed node output and production CLI consumers.
-#[path = "repair_22_33_1496.rs"]
-mod audit_22_33_1496;
+#[path = "program_and_wallet_receipts.rs"]
+mod program_and_wallet_receipts;

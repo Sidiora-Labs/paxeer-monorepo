@@ -203,7 +203,7 @@ impl ApprovalBoundary for AgentdBoundary<'_> {
 }
 
 fn hex(bytes: [u8; 32]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_human_service::hex::lower((bytes).as_ref())
 }
 
 fn assert_notification_path(
@@ -276,19 +276,14 @@ fn channel_is_json(channel: Channel) -> bool {
     matches!(channel, Channel::Push | Channel::InApp)
 }
 
-fn round_trip(asset: &str, amount: u128) {
-    let root = support::directory("repair-22-31-159");
-    let stream_root = root.join("stream");
-    checked(
-        fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(&stream_root),
-    );
-    let registry = ApprovalRegistry::default();
-    let limiter = checked(BudgetLimiter::new(Vec::new()));
-    let expiry = checked(ApprovalExpiry::open(root.join("approval")));
-    let queue = ApprovalSubmissionQueue::default();
+fn emit_created_event(
+    asset: &str,
+    amount: u128,
+    registry: &ApprovalRegistry,
+    boundary: &AgentdBoundary<'_>,
+    ingestor: &mut EventIngestor,
+    agent_audit: &mut Log,
+) -> (ApprovalEvent, Vec<u8>, [u8; 32]) {
     let held = prepared(1, asset, amount);
     let context = ApprovalContext {
         tenant: tenant(),
@@ -299,15 +294,10 @@ fn round_trip(asset: &str, amount: u128) {
         policy_version: "asset-policy-v1".to_owned(),
         request_id: [1; 32],
     };
-    let mut boundary = AgentdBoundary {
-        clock: support::StepClock::new(10_000),
-        service: ApprovalService::new(&registry, &limiter, &expiry),
-        queue: &queue,
-    };
     let ticket = checked(hold_at(
-        &registry,
+        registry,
         context.clone(),
-        held.clone(),
+        held,
         ApprovalSequence(10),
         ApprovalSequence(50),
         checked(boundary.decision_time()),
@@ -321,16 +311,9 @@ fn round_trip(asset: &str, amount: u128) {
     assert_eq!(record.held_activity.asset.as_str(), asset);
     assert_eq!(record.held_activity.amounts.values()[0].amount.0, amount);
 
-    let mut ingestor = checked(EventIngestor::open(
-        checked(AgentStore::open(&stream_root)),
-        tenant(),
-        16,
-        10,
-    ));
-    let mut agent_audit = checked(Log::open(&stream_root, &tenant()));
     let emission = checked(ApprovalEvents::emit(
-        &mut ingestor,
-        &mut agent_audit,
+        ingestor,
+        agent_audit,
         &mut Coverage::default(),
         &ApprovalLifecycle {
             tenant: context.tenant,
@@ -351,6 +334,64 @@ fn round_trip(asset: &str, amount: u128) {
         &emission.canonical_event_bytes,
         10,
     ));
+    (
+        event,
+        emission.canonical_event_bytes,
+        record.canonical_bytes_digest,
+    )
+}
+
+fn assert_replayed_deliveries(
+    scope: &PrincipalScope<'_>,
+    before: &[layerx_human_service::notify::Delivery],
+    amount: u128,
+    asset: &str,
+) {
+    for delivery in before {
+        let value = checked(ApprovalNotification::for_delivery(scope, delivery));
+        assert_eq!(value.amount(), amount);
+        assert_eq!(value.asset(), asset);
+    }
+}
+
+fn stream_directories() -> (std::path::PathBuf, std::path::PathBuf) {
+    let root = support::directory("repair-22-31-159");
+    let stream_root = root.join("stream");
+    checked(
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&stream_root),
+    );
+    (root, stream_root)
+}
+
+fn round_trip(asset: &str, amount: u128) {
+    let (root, stream_root) = stream_directories();
+    let registry = ApprovalRegistry::default();
+    let limiter = checked(BudgetLimiter::new(Vec::new()));
+    let expiry = checked(ApprovalExpiry::open(root.join("approval")));
+    let queue = ApprovalSubmissionQueue::default();
+    let mut boundary = AgentdBoundary {
+        clock: support::StepClock::new(10_000),
+        service: ApprovalService::new(&registry, &limiter, &expiry),
+        queue: &queue,
+    };
+    let mut ingestor = checked(EventIngestor::open(
+        checked(AgentStore::open(&stream_root)),
+        tenant(),
+        16,
+        10,
+    ));
+    let mut agent_audit = checked(Log::open(&stream_root, &tenant()));
+    let (event, canonical_event_bytes, disclosure_digest) = emit_created_event(
+        asset,
+        amount,
+        &registry,
+        &boundary,
+        &mut ingestor,
+        &mut agent_audit,
+    );
     let human_root = root.join("human");
     let map = support::tenancy(&[("alice", "tenant-asset-domain"), ("bob", "tenant-other")]);
     let retention = support::retention_uniform(1_000);
@@ -363,14 +404,14 @@ fn round_trip(asset: &str, amount: u128) {
     checked(Dispatcher::update_preferences(&mut scope, 9, &preferences));
     let mut inbox = checked(Inbox::new(10, 3));
     checked(inbox.consume(&[event], &mut boundary, &mut scope, &mut audit, &trace));
-    assert_notification_path(&scope, &inbox, amount, asset, record.canonical_bytes_digest);
+    assert_notification_path(&scope, &inbox, amount, asset, disclosure_digest);
     let before = checked(Dispatcher::deliveries(&scope));
     let audit_before = checked(audit.entries(&scope)).len();
     let notification_rows_before = scope.keys(Table::Notifications).len();
     drop(scope);
     drop(store);
     drop(inbox);
-    drop(audit);
+    let _ = audit;
     drop(ingestor);
     drop(agent_audit);
 
@@ -381,7 +422,7 @@ fn round_trip(asset: &str, amount: u128) {
         10,
     ));
     let retained = checked(ingestor.retained_event(10));
-    assert_eq!(retained.canonical_bytes, emission.canonical_event_bytes);
+    assert_eq!(retained.canonical_bytes, canonical_event_bytes);
     assert_eq!(retained.attributes.asset, asset);
     let replay = checked(ApprovalEvent::decode_agent_stream(
         &retained.canonical_bytes,
@@ -390,15 +431,11 @@ fn round_trip(asset: &str, amount: u128) {
     let mut store = checked(PrincipalStore::open(&human_root, retention, tenancy_digest));
     let mut scope = checked(store.principal(&support::principal("alice")));
     assert_eq!(checked(Dispatcher::deliveries(&scope)), before);
-    for delivery in &before {
-        let value = checked(ApprovalNotification::for_delivery(&scope, delivery));
-        assert_eq!(value.amount(), amount);
-        assert_eq!(value.asset(), asset);
-    }
+    assert_replayed_deliveries(&scope, &before, amount, asset);
     let mut audit = checked(AuditChain::open(&scope));
     let mut inbox = checked(Inbox::new(10, 3));
     checked(inbox.consume(&[replay], &mut boundary, &mut scope, &mut audit, &trace));
-    assert_notification_path(&scope, &inbox, amount, asset, record.canonical_bytes_digest);
+    assert_notification_path(&scope, &inbox, amount, asset, disclosure_digest);
     assert_eq!(checked(Dispatcher::deliveries(&scope)), before);
     assert_eq!(checked(audit.entries(&scope)).len(), audit_before);
     assert_eq!(
@@ -423,7 +460,7 @@ fn round_trip(asset: &str, amount: u128) {
     drop(bob);
     drop(store);
     drop(ingestor);
-    drop(boundary);
+    let _ = boundary;
     drop(expiry);
     checked(fs::remove_dir_all(root));
 }

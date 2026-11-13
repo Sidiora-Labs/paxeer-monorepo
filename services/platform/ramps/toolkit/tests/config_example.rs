@@ -1,3 +1,5 @@
+include!("support/required.rs");
+
 use serde_json::Value;
 
 type LayerxConfig = layerx_ramp_toolkit::clients::LayerxConfig;
@@ -5,14 +7,14 @@ type LayerxConfig = layerx_ramp_toolkit::clients::LayerxConfig;
 #[test]
 fn config_example_layerx_section_parses() {
     let example: Value = serde_json::from_str(include_str!("../../config.example.json"))
-        .expect("ramp example must be valid JSON");
+        .required("ramp example must be valid JSON");
     let config = serde_json::from_value::<LayerxConfig>(
         example
             .get("layerx")
-            .expect("LayerX section must exist")
+            .required("LayerX section must exist")
             .clone(),
     )
-    .expect("LayerX example must deserialize into the production LayerxConfig");
+    .required("LayerX example must deserialize into the production LayerxConfig");
 
     assert_eq!(config.chain_id, 125);
     assert!(config.rpc_endpoint.starts_with("https://"));
@@ -34,11 +36,11 @@ fn config_example_layerx_section_parses() {
 #[test]
 fn config_example_has_no_paxeer_rpc_agreement() {
     let example: Value = serde_json::from_str(include_str!("../../config.example.json"))
-        .expect("ramp example must be valid JSON");
+        .required("ramp example must be valid JSON");
     let paxeer = example
         .get("paxeer")
         .and_then(Value::as_object)
-        .expect("Paxeer section must be an object");
+        .required("Paxeer section must be an object");
 
     for retired in [
         "rpc_endpoints",

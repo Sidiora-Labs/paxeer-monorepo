@@ -580,7 +580,7 @@ mod tests {
             state = state
                 .wrapping_mul(6_364_136_223_846_793_005)
                 .wrapping_add(1_442_695_040_888_963_407);
-            (state >> 33) as u8
+            (state >> 33).to_le_bytes()[0]
         };
         (0..length)
             .map(|_| Activity {

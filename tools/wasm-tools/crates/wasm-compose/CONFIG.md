@@ -11,6 +11,10 @@ The configuration file has the following top-level fields:
   dependencies.
 - `skip-validation` : `bool` (optional) - a boolean indicating whether to skip
   validation of the resulting composed component.
+- `import-components` : `bool` (optional, default `false`) - import component
+  dependencies instead of defining them in the composed component.
+- `disallow-imports` : `bool` (optional, default `false`) - reject composition
+  when an instance dependency cannot be located.
 - `dependencies` : `map<string, dependency>` (optional) - a map specifying the
   explicit locations of transitive dependencies.
 - `instantiations` : `map<string, instantiation>` (optional) - a map specifying
@@ -28,9 +32,10 @@ A dependency has the following fields:
 - `path` : `string` - the path to the WebAssembly component file; the path is
   relative to the configuration file.
 
-- `import` : `string` (optional) - the name to use for importing the component.
-  If not present, the component at the given path will be defined directly in
-  the composed component.
+Components are defined directly by default. The top-level `import-components`
+setting selects component imports for the composition; dependencies have no
+per-component `import` field. The fields are declared in
+[`src/config.rs`](src/config.rs).
 
 Dependencies may be specified as a `string` rather than a `map`, in which case
 it is treated as having a `path` field with the value of the string.
@@ -44,16 +49,17 @@ dependencies:
   a: a.wasm
   b:
     path: b.wasm
-    import: b
 ```
 
 In the above example, two dependencies are defined in the configuration:
 
 - `a` - the contents of `a.wasm` will be defined directly in the composed
   component.
-- `b` - a component of the same type as `b.wasm` will be imported in the
-  composed component with name `b`; the original file will not be embedded in the
-  composed component.
+- `b` - the contents of `b.wasm` will also be defined directly in the composed
+  component.
+
+Set `import-components: true` at the top level to import these components
+instead of embedding their definitions.
 
 _Note: importing components from a composed component is not currently
 supported in [Wasmtime](https://github.com/bytecodealliance/wasmtime)._

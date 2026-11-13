@@ -1,7 +1,7 @@
 //! Task record 22.33.74, audit 22.30.109: migration-context-docs is proven by
-//! migration_context_docs_key_id_and_native_payment_exact,
-//! migration_context_docs_mapping_v2_checks_both_directions, and
-//! migration_context_docs_funded_observation_is_not_network_credit.
+//! `migration_context_docs_key_id_and_native_payment_exact`,
+//! `migration_context_docs_mapping_v2_checks_both_directions`, and
+//! `migration_context_docs_funded_observation_is_not_network_credit`.
 //! Baseline: this target was absent at revision
 //! 84b6cf09552744359c78f419900ba8fcd9bbeaf5; no pre-change failures were measured.
 //! The explicit implementation/build/hf-done order prohibits the conflicting
@@ -66,33 +66,43 @@ fn recorded_payment() -> Value {
         env!("CARGO_MANIFEST_DIR"),
         "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     )))
-    .unwrap();
+    .or_panic("expected Ok value");
     assert_eq!(
         fixture["provenance"]["generator"],
         "rpc/sequencer_receipt_vectors_test.go"
     );
     fixture["cases"]
         .as_array()
-        .unwrap()
+        .or_panic("expected Some value")
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .unwrap()
+        .or_panic("expected Some value")
         .clone()
 }
 
 fn bytes(value: &Value) -> Vec<u8> {
-    let text = value.as_str().unwrap().strip_prefix("0x").unwrap();
+    let text = value
+        .as_str()
+        .or_panic("expected Some value")
+        .strip_prefix("0x")
+        .or_panic("expected Some value");
     assert_eq!(text.len() % 2, 0);
     (0..text.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).unwrap())
+        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).or_panic("expected Ok value"))
         .collect()
 }
 fn fixed<const N: usize>(value: &Value) -> [u8; N] {
-    bytes(value).try_into().unwrap()
+    bytes(value).try_into().or_panic("expected Ok value")
 }
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        encoded.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    encoded
 }
 fn trace() -> TraceId {
     TraceId::mint([0xaa; 16])
@@ -108,16 +118,15 @@ fn migration_context_docs_key_id_and_native_payment_exact() {
     let pin = &case["pinnedKey"];
     let key_id = fixed(&pin["keyId"]);
     let public_key = fixed(&pin["publicKey"]);
-    let first = pin["firstHeight"].as_u64().unwrap();
-    let last = pin["lastHeight"].as_u64().unwrap();
+    let first = pin["firstHeight"].as_u64().or_panic("expected Some value");
+    let last = pin["lastHeight"].as_u64().or_panic("expected Some value");
     let keys = [SequencerAuthorization::new(key_id, public_key, first, last)];
     let signed = bytes(&case["signedReceipt"]);
-    let receipt = verify_sequencer_signature(&signed, ReceiptKeys::HeightRanges(&keys)).unwrap();
-    assert_eq!(receipt.protocol().unwrap().context_hash(), key_id);
+    assert_context_hash(&signed, &keys, key_id);
     let log = &case["receiptJson"]["logs"][0];
     let topics: Vec<[u8; 32]> = log["topics"]
         .as_array()
-        .unwrap()
+        .or_panic("expected Some value")
         .iter()
         .map(fixed)
         .collect();
@@ -142,15 +151,7 @@ fn migration_context_docs_key_id_and_native_payment_exact() {
         );
     }
     assert_ne!(topics[1], key_id);
-    for bad_pin in [
-        SequencerAuthorization::new(topics[1], public_key, first, last),
-        SequencerAuthorization::new(key_id, [0x42; 32], first, last),
-        SequencerAuthorization::new(key_id, public_key, last + 1, last + 2),
-    ] {
-        assert!(
-            verify_sequencer_signature(&signed, ReceiptKeys::HeightRanges(&[bad_pin])).is_err()
-        );
-    }
+    assert_bad_pins_rejected(&signed, key_id, public_key, first, last, &topics);
     let evidence = SequencerEvidence {
         transaction_hash: fixed(&case["receiptJson"]["txHash"]),
         signed_receipt: signed,
@@ -162,21 +163,7 @@ fn migration_context_docs_key_id_and_native_payment_exact() {
         )],
         rung: SettlementRung::Receipted,
     };
-    let mut gateway = GatewayCore::new();
-    let descriptor = migration_adapter_descriptor(
-        PinnedSpec::new(
-            AdapterId::new("migration-spec").unwrap(),
-            SpecVersion::parse("1.0.0").unwrap(),
-            [1; 32],
-        )
-        .unwrap(),
-        ConformanceSuite::new(AdapterId::new("migration-conformance").unwrap(), 1, [2; 32])
-            .unwrap(),
-    )
-    .unwrap();
-    let adapter = descriptor.id().clone();
-    gateway.register_adapter(descriptor, &trace(), 1).unwrap();
-    let principal = PrincipalId::new("migration-operator".to_owned()).unwrap();
+    let (mut gateway, adapter, principal) = migration_gateway();
     // Same signing context and unchanged signed evidence: only the reference
     // identifies this payment. The account topics must leave their rows pending.
     for index in [2, 3, 1] {
@@ -187,25 +174,25 @@ fn migration_context_docs_key_id_and_native_payment_exact() {
             key,
             [3; 32],
         )
-        .unwrap();
+        .or_panic("expected Ok value");
         assert_eq!(
             gateway
                 .begin_translation(&principal, &request, &trace(), 2)
-                .unwrap(),
+                .or_panic("expected Ok value"),
             TranslationStatus::Pending
         );
         let result =
             gateway.settle_with_sequencer_evidence(&principal, key, &evidence, &keys, &trace(), 3);
         if index == 1 {
             assert_eq!(
-                result.unwrap(),
+                result.or_panic("expected Ok value"),
                 TranslationStatus::ReceiptVerified {
                     receipt_digest: fixed(&case["receiptDigest"])
                 }
             );
         } else {
             assert_eq!(
-                result.unwrap_err().into_error(),
+                result.err().or_panic("expected Err value").into_error(),
                 SequencerSettlementError::PaymentUnmatched
             );
             assert_eq!(
@@ -216,6 +203,60 @@ fn migration_context_docs_key_id_and_native_payment_exact() {
     }
 }
 
+fn assert_bad_pins_rejected(
+    signed: &[u8],
+    key_id: [u8; 32],
+    public_key: [u8; 32],
+    first: u64,
+    last: u64,
+    topics: &[[u8; 32]],
+) {
+    for bad_pin in [
+        SequencerAuthorization::new(topics[1], public_key, first, last),
+        SequencerAuthorization::new(key_id, [0x42; 32], first, last),
+        SequencerAuthorization::new(key_id, public_key, last + 1, last + 2),
+    ] {
+        assert!(verify_sequencer_signature(signed, ReceiptKeys::HeightRanges(&[bad_pin])).is_err());
+    }
+}
+
+fn assert_context_hash(signed: &[u8], keys: &[SequencerAuthorization], key_id: [u8; 32]) {
+    let receipt = verify_sequencer_signature(signed, ReceiptKeys::HeightRanges(keys))
+        .or_panic("expected Ok value");
+    assert_eq!(
+        receipt
+            .protocol()
+            .or_panic("expected Some value")
+            .context_hash(),
+        key_id
+    );
+}
+
+fn migration_gateway() -> (GatewayCore, AdapterId, PrincipalId) {
+    let mut gateway = GatewayCore::new();
+    let descriptor = migration_adapter_descriptor(
+        PinnedSpec::new(
+            AdapterId::new("migration-spec").or_panic("expected Ok value"),
+            SpecVersion::parse("1.0.0").or_panic("expected Ok value"),
+            [1; 32],
+        )
+        .or_panic("expected Ok value"),
+        ConformanceSuite::new(
+            AdapterId::new("migration-conformance").or_panic("expected Ok value"),
+            1,
+            [2; 32],
+        )
+        .or_panic("expected Ok value"),
+    )
+    .or_panic("expected Ok value");
+    let adapter = descriptor.id().clone();
+    gateway
+        .register_adapter(descriptor, &trace(), 1)
+        .or_panic("expected Ok value");
+    let principal = PrincipalId::new("migration-operator".to_owned()).or_panic("expected Ok value");
+    (gateway, adapter, principal)
+}
+
 struct Directory(PathBuf);
 impl Directory {
     fn new() -> Self {
@@ -224,8 +265,11 @@ impl Directory {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::DirBuilder::new().mode(0o700).create(&path).unwrap();
-        Self(fs::canonicalize(path).unwrap())
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&path)
+            .or_panic("expected Ok value");
+        Self(fs::canonicalize(path).or_panic("expected Ok value"))
     }
     fn write(&self, name: &str, data: &[u8]) -> PathBuf {
         let path = self.0.join(name);
@@ -234,15 +278,15 @@ impl Directory {
             .write(true)
             .mode(0o600)
             .open(&path)
-            .unwrap()
+            .or_panic("expected Ok value")
             .write_all(data)
-            .unwrap();
+            .or_panic("expected Ok value");
         path
     }
 }
 impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).unwrap();
+        fs::remove_dir_all(&self.0).or_panic("expected Ok value");
     }
 }
 
@@ -260,34 +304,36 @@ impl Peer {
                     vec![CertificateDer::from(CERT.to_vec())],
                     PrivatePkcs8KeyDer::from(KEY.to_vec()).into(),
                 )
-                .unwrap(),
+                .or_panic("expected Ok value"),
         );
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").or_panic("expected Ok value");
+        let address = listener.local_addr().or_panic("expected Ok value");
         let stopping = Arc::new(AtomicBool::new(false));
         let stop = stopping.clone();
         let worker = thread::spawn(move || {
             for socket in listener.incoming() {
-                let socket = socket.unwrap();
+                let socket = socket.or_panic("expected Ok value");
                 if stop.load(Ordering::Acquire) {
                     break;
                 }
                 socket
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                    .or_panic("expected Ok value");
                 socket
                     .set_write_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
-                let mut stream =
-                    StreamOwned::new(ServerConnection::new(tls.clone()).unwrap(), socket);
+                    .or_panic("expected Ok value");
+                let mut stream = StreamOwned::new(
+                    ServerConnection::new(tls.clone()).or_panic("expected Ok value"),
+                    socket,
+                );
                 let mut header = Vec::new();
                 while !header.ends_with(b"\r\n\r\n") {
                     assert!(header.len() < 32768);
                     let mut byte = [0];
-                    stream.read_exact(&mut byte).unwrap();
+                    stream.read_exact(&mut byte).or_panic("expected Ok value");
                     header.push(byte[0]);
                 }
-                let header = String::from_utf8(header).unwrap();
+                let header = String::from_utf8(header).or_panic("expected Ok value");
                 assert!(header
                     .lines()
                     .any(|line| line
@@ -297,18 +343,20 @@ impl Peer {
                     .find_map(|line| {
                         let (name, value) = line.split_once(':')?;
                         name.eq_ignore_ascii_case("Content-Length")
-                            .then(|| value.trim().parse().unwrap())
+                            .then(|| value.trim().parse().or_panic("expected Ok value"))
                     })
-                    .unwrap();
+                    .or_panic("expected Some value");
                 assert!(length <= 32768);
                 let mut body = vec![0; length];
-                stream.read_exact(&mut body).unwrap();
-                let response =
-                    serde_json::to_vec(&handler(&header, serde_json::from_slice(&body).unwrap()))
-                        .unwrap();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", response.len()).unwrap();
-                stream.write_all(&response).unwrap();
-                stream.flush().unwrap();
+                stream.read_exact(&mut body).or_panic("expected Ok value");
+                let response = serde_json::to_vec(&handler(
+                    &header,
+                    serde_json::from_slice(&body).or_panic("expected Ok value"),
+                ))
+                .or_panic("expected Ok value");
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", response.len()).or_panic("expected Ok value");
+                stream.write_all(&response).or_panic("expected Ok value");
+                stream.flush().or_panic("expected Ok value");
             }
         });
         Self {
@@ -325,9 +373,9 @@ impl Drop for Peer {
     fn drop(&mut self) {
         self.stopping.store(true, Ordering::Release);
         let _ = TcpStream::connect(self.address);
-        let result = self.worker.take().unwrap().join();
+        let result = self.worker.take().or_panic("expected Some value").join();
         if !thread::panicking() {
-            result.unwrap();
+            result.or_panic("expected Ok value");
         }
     }
 }
@@ -345,12 +393,12 @@ fn migration_context_docs_mapping_v2_checks_both_directions() {
     let peers: Vec<_> = (0..2).map(|_| {
         let mismatch = reverse_mismatch.clone();
         Peer::start(move |_, request| {
-            let result = match request["method"].as_str().unwrap() {
+            let result = match request["method"].as_str().or_panic("expected Some value") {
                 "eth_chainId" => json!("0x7d"),
                 "eth_getBlockByNumber" => if request["params"][0] == "earliest" {
                     json!({"number":"0x0", "hash":format!("0x{}", hex(&[0x41;32])), "parentHash":format!("0x{}", hex(&[0;32]))})
                 } else {
-                    assert!(matches!(request["params"][0].as_str().unwrap(), "finalized" | "0x10"));
+                    assert!(matches!(request["params"][0].as_str().or_panic("expected Some value"), "finalized" | "0x10"));
                     json!({"number":"0x10", "hash":format!("0x{}", hex(&[0x51;32])), "parentHash":format!("0x{}", hex(&[0x61;32]))})
                 },
                 "eth_call" => {
@@ -367,7 +415,7 @@ fn migration_context_docs_mapping_v2_checks_both_directions() {
                         let did = format!("did:layerx:{}", hex(&returned));
                         let mut output = returned.to_vec();
                         output.extend_from_slice(&[0;31]); output.push(64);
-                        output.extend_from_slice(&[0;31]); output.push(u8::try_from(did.len()).unwrap());
+                        output.extend_from_slice(&[0;31]); output.push(u8::try_from(did.len()).or_panic("expected Ok value"));
                         output.extend_from_slice(did.as_bytes()); output.resize(96 + did.len().div_ceil(32) * 32, 0); output
                     };
                     json!(format!("0x{}", hex(&result)))
@@ -397,8 +445,10 @@ fn migration_context_docs_mapping_v2_checks_both_directions() {
             maximum_response_bytes: 32768,
         },
     };
-    let verifier = PaxeerBindingVerifierV2::new(config.clone()).unwrap();
-    let binding = verifier.verify_identity(identity).unwrap();
+    let verifier = PaxeerBindingVerifierV2::new(config.clone()).or_panic("expected Ok value");
+    let binding = verifier
+        .verify_identity(identity)
+        .or_panic("expected Ok value");
     assert_eq!(binding.identity(), identity);
     assert_eq!(binding.evm_address(), address);
     assert_eq!(binding.block_number(), 16);
@@ -436,7 +486,7 @@ fn migration_context_docs_funded_observation_is_not_network_credit() {
         destination: [6; 32],
     }
     .evidence()
-    .unwrap();
+    .or_panic("expected Ok value");
     let encoded = STANDARD.encode(evidence.canonical());
     let digest = evidence.digest();
     let order = [7; 32];
@@ -449,7 +499,7 @@ fn migration_context_docs_funded_observation_is_not_network_credit() {
         let mode = header
             .lines()
             .find_map(|line| line.strip_prefix("Idempotency-Key: "))
-            .unwrap();
+            .or_panic("expected Some value");
         let state = match mode {
             "bad-order" | "bad-evidence" | "claims-credit" => "done",
             state => state,
@@ -469,7 +519,7 @@ fn migration_context_docs_funded_observation_is_not_network_credit() {
         request_timeout_ms: 3000,
         maximum_response_bytes: 32768,
     })
-    .unwrap();
+    .or_panic("expected Ok value");
     for state in [
         "source_pending",
         "source_settled",
@@ -479,8 +529,8 @@ fn migration_context_docs_funded_observation_is_not_network_credit() {
     ] {
         let result = client
             .migrate_asset(order, "ethereum", &evidence, state, &trace())
-            .unwrap();
-        let observed = serde_json::to_value(result).unwrap();
+            .or_panic("expected Ok value");
+        let observed = serde_json::to_value(result).or_panic("expected Ok value");
         assert_eq!(observed["state"], "producer-observed");
         assert_eq!(observed["producer_state"], state);
         assert_eq!(observed["provenance"], "external-custody");
@@ -498,4 +548,26 @@ fn migration_context_docs_funded_observation_is_not_network_credit() {
         client.migrate_asset(order, "ethereum", &evidence, "claims-credit", &trace()),
         Err(MigrationError::RpcResponseMismatch)
     ));
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

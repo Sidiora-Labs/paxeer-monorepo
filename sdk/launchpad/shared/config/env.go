@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/netip"
 	"net/url"
 	"os"
@@ -61,7 +62,7 @@ type BaseEnv struct {
 var (
 	addressRe   = regexp.MustCompile(`^0x[a-fA-F0-9]{40}$`)
 	validLevels = map[string]struct{}{"debug": {}, "info": {}, "warn": {}, "error": {}}
-	validNodes  = map[string]struct{}{"development": {}, "production": {}, "test": {}}
+	validNodes  = map[string]struct{}{valueDevelopment: {}, "production": {}, "test": {}}
 )
 
 // Load parses the process environment into a validated BaseEnv.
@@ -101,7 +102,7 @@ func (c *BaseEnv) Validate() error {
 	if c == nil {
 		return errors.New("configuration_missing")
 	}
-	if c.DeploymentRealm == "private_fixture" {
+	if c.DeploymentRealm == valuePrivateFixture {
 		proof, err := c.PrivateFixtureEvidence()
 		if err != nil {
 			return err
@@ -176,7 +177,7 @@ func (c *BaseEnv) validateEnvironmentAgainst(manifest deployment.Manifest) error
 			errs = append(errs, err)
 		}
 	}
-	roles := map[string]string{"EventEmitter": c.EventEmitterAddress, "PoolRegistry": c.PoolRegistryAddress, "Router": c.RouterAddress, "SidioraFactory": c.FactoryAddress, "Quoter": c.QuoterAddress, "ProtocolConfig": c.ProtocolConfigAddr, "FeeAccumulator": c.FeeAccumulatorAddr, "SidioraNFT": c.SidioraNFTAddress, "FeesRouter": c.FeesRouterAddress, "PoolBeacon": c.PoolBeaconAddress}
+	roles := map[string]string{"EventEmitter": c.EventEmitterAddress, "PoolRegistry": c.PoolRegistryAddress, "Router": c.RouterAddress, "SidioraFactory": c.FactoryAddress, "Quoter": c.QuoterAddress, "ProtocolConfig": c.ProtocolConfigAddr, "FeeAccumulator": c.FeeAccumulatorAddr, "SidioraNFT": c.SidioraNFTAddress, "FeesRouter": c.FeesRouterAddress, valuePoolBeacon: c.PoolBeaconAddress}
 	for role, actual := range roles {
 		expected, ok := manifest.Roles[role]
 		if !ok {
@@ -286,7 +287,7 @@ func (c BaseEnv) ValidateAPIRole(role string) error {
 	if role == "rest" || role == "sockets" {
 		return nil
 	}
-	if (c.NodeEnv == "development" || c.NodeEnv == "test") && role == "development" {
+	if (c.NodeEnv == valueDevelopment || c.NodeEnv == "test") && role == valueDevelopment {
 		return nil
 	}
 	return errors.New("API_ROLE: rest_or_sockets_required")
@@ -306,7 +307,7 @@ type PrivateFixtureManifest struct {
 var fixtureDigest = regexp.MustCompile(`^[0-9a-f]{64}$`)
 var fixtureHash = regexp.MustCompile(`^0x[0-9a-fA-F]{64}$`)
 var fixtureName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,95}$`)
-var fixtureRoles = []string{"EventEmitter", "ProtocolConfig", "Router", "Quoter", "SidioraFactory", "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "OpticalRegistry", "PoolBeacon", "USDL"}
+var fixtureRoles = []string{"EventEmitter", "ProtocolConfig", "Router", "Quoter", "SidioraFactory", "PoolRegistry", "FeeAccumulator", "SidioraNFT", "FeesRouter", "OpticalRegistry", valuePoolBeacon, valueUSDL}
 
 func fixtureAddress(value string) bool {
 	return addressRe.MatchString(value) && !strings.EqualFold(value, "0x0000000000000000000000000000000000000000")
@@ -328,7 +329,7 @@ func fixtureLoopbackRPC(raw string) bool {
 }
 
 func (c BaseEnv) PrivateFixtureEvidence() (PrivateFixtureManifest, error) {
-	if c.DeploymentRealm != "private_fixture" || c.PrivateFixtureManifestFile == "" || !fixtureDigest.MatchString(c.PrivateFixtureManifestSHA256) || !filepath.IsAbs(c.PrivateFixtureManifestFile) || filepath.Clean(c.PrivateFixtureManifestFile) != c.PrivateFixtureManifestFile {
+	if c.DeploymentRealm != valuePrivateFixture || c.PrivateFixtureManifestFile == "" || !fixtureDigest.MatchString(c.PrivateFixtureManifestSHA256) || !filepath.IsAbs(c.PrivateFixtureManifestFile) || filepath.Clean(c.PrivateFixtureManifestFile) != c.PrivateFixtureManifestFile {
 		return PrivateFixtureManifest{}, errors.New("private_fixture_manifest_binding_missing")
 	}
 	if !fixtureLoopbackRPC(c.RPCURL) || (c.RPCURLFallback != "" && c.RPCURLFallback != c.RPCURL) {
@@ -338,7 +339,11 @@ func (c BaseEnv) PrivateFixtureEvidence() (PrivateFixtureManifest, error) {
 	if err != nil {
 		return PrivateFixtureManifest{}, errors.New("private_fixture_manifest_unavailable")
 	}
-	defer file.Close()
+	defer func() {
+		if cleanupErr := file.Close(); cleanupErr != nil {
+			log.Printf("cleanup file.Close: %v", cleanupErr)
+		}
+	}()
 	stat, err := file.Stat()
 	if err != nil || !stat.Mode().IsRegular() || stat.Size() <= 0 || stat.Size() > MaxPrivateFixtureManifestBytes {
 		return PrivateFixtureManifest{}, errors.New("private_fixture_manifest_size_invalid")
@@ -366,7 +371,7 @@ func (c BaseEnv) PrivateFixtureEvidence() (PrivateFixtureManifest, error) {
 	if decoder.Decode(new(any)) != io.EOF {
 		return PrivateFixtureManifest{}, errors.New("private_fixture_manifest_trailing_data")
 	}
-	if proof.SchemaVersion != 1 || proof.Realm != "private_fixture" || proof.RPCURL != c.RPCURL || !fixtureCodeHash(proof.GenesisHash) {
+	if proof.SchemaVersion != 1 || proof.Realm != valuePrivateFixture || proof.RPCURL != c.RPCURL || !fixtureCodeHash(proof.GenesisHash) {
 		return PrivateFixtureManifest{}, errors.New("private_fixture_realm_identity_mismatch")
 	}
 	if err := proof.validateIdentity(); err != nil {
@@ -388,7 +393,7 @@ func (p PrivateFixtureManifest) validateIdentity() error {
 	if m.SchemaVersion != 1 || !fixtureName.MatchString(m.DeploymentVersion) || !strings.HasPrefix(m.DeploymentVersion, "private-fixture-") || !fixtureDigest.MatchString(m.SourceManifestSHA256) || m.ChainID != deployment.ChainID || m.ActivationHeight == 0 || m.Status != "active" {
 		return errors.New("private_fixture_deployment_incomplete")
 	}
-	if m.Native != (deployment.Asset{Symbol: "PAX", Decimals: 18}) || m.Settlement != (deployment.Asset{Symbol: "USDL", Decimals: 6}) || m.CreationFeeRaw != deployment.CreationFeeRaw || m.MarketModel != "AMM" || m.Graduation || m.CoreOracleRequired {
+	if m.Native != (deployment.Asset{Symbol: "PAX", Decimals: 18}) || m.Settlement != (deployment.Asset{Symbol: valueUSDL, Decimals: 6}) || m.CreationFeeRaw != deployment.CreationFeeRaw || m.MarketModel != "AMM" || m.Graduation || m.CoreOracleRequired {
 		return errors.New("private_fixture_asset_policy_invalid")
 	}
 	if m.Governance.Mode != "timelock-handoff" || m.Governance.TimelockDelaySeconds != 172800 || !fixtureAddress(m.Governance.ExpectedBeaconOwner) {
@@ -411,10 +416,10 @@ func (p PrivateFixtureManifest) validateIdentity() error {
 			return errors.New("private_fixture_role_missing")
 		}
 		kind := "erc1967"
-		if name == "USDL" {
+		if name == valueUSDL {
 			kind = "direct"
 		}
-		if name == "PoolBeacon" {
+		if name == valuePoolBeacon {
 			kind = "beacon"
 		}
 		if role.Kind != kind {

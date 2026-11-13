@@ -240,6 +240,22 @@ func TestDevelopmentTransactionStatusFromChainRPC(t *testing.T) {
 	// Contract creation whose init code reverts: PUSH1 0 PUSH1 0 REVERT.
 	reverted := send(nil, common.FromHex("0x60006000fd"), big.NewInt(0))
 	backend.Commit()
+	awaitReceipt := func(hash common.Hash) *types.Receipt {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			receipt, err := client.TransactionReceipt(ctx, hash)
+			if err == nil && receipt != nil {
+				return receipt
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("committed transaction %s has no receipt: %v", hash, err)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	chainReceipt := awaitReceipt(transfer)
+	revertedReceipt := awaitReceipt(reverted)
 	pending := send(&recipient, nil, big.NewInt(2))
 
 	srv := networkReadsServer(t, rpcURL)
@@ -267,16 +283,11 @@ func TestDevelopmentTransactionStatusFromChainRPC(t *testing.T) {
 	}
 
 	status, receipt := read(transfer)
-	chainReceipt, err := client.TransactionReceipt(ctx, transfer)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if status != "included_success" || receipt["success"] != true || !strings.EqualFold(receipt["from"].(string), from.Hex()) || !strings.EqualFold(receipt["to"].(string), recipient.Hex()) || receipt["height"] != chainReceipt.BlockNumber.String() || receipt["blockHash"] != chainReceipt.BlockHash.Hex() || receipt["gasUsedRaw"] != fmt.Sprint(chainReceipt.GasUsed) || receipt["effectiveGasPriceRaw"] != chainReceipt.EffectiveGasPrice.String() {
 		t.Fatalf("transfer: %s %v (chain %+v)", status, receipt, chainReceipt)
 	}
-	revertedReceipt, err := client.TransactionReceipt(ctx, reverted)
-	if err != nil || revertedReceipt == nil || revertedReceipt.Status != 0 || len(revertedReceipt.Logs) != 0 {
-		t.Fatalf("real log-free reversion: %+v %v", revertedReceipt, err)
+	if revertedReceipt.Status != 0 || len(revertedReceipt.Logs) != 0 {
+		t.Fatalf("real log-free reversion: %+v", revertedReceipt)
 	}
 	position := receipt["position"].(map[string]any)
 	if position["transactionIndex"] != "0" || position["logIndex"] != "0" || position["chainId"] != "125" {

@@ -1,0 +1,5 @@
+[repair]
+task = "22.39.377"
+install = "workspace-install fetches locked Rust dependencies, installs the JavaScript and platform dependencies, and downloads the root Go modules."
+paxeer_check = "The chain manifest scan includes tools/hpx, names a missing root, and checks 64 declared manifests and their covers."
+platform_check = "The platform dependency scan checks 55 declared roots and their covers."

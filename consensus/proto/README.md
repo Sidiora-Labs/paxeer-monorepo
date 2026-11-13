@@ -1,6 +1,6 @@
 # Protocol Buffers
 
-This sections defines the protocol buffers used by the consensus engine. This is split into two directories: [`tendermint`](./tendermint/), the types of the Tendermint protocol and its Go implementation, and [`wireguard`](./wireguard/), a protobuf extension used by the engine's own code generator plugin. The generated Go code is stored next to each `.proto` file.
+This section defines the protocol buffers used by the consensus engine. It is split into two directories: [`tendermint`](./tendermint/), the types of the Tendermint protocol and its Go implementation, and [`wireguard`](./wireguard/), a protobuf extension used by the engine's own code generator plugin. Generated Go code generally sits beside its `.proto` file; the ABCI schema's `go_package` places its generated types in [`../abci/types/types.pb.go`](../abci/types/types.pb.go).
 More descriptions of the data structures are located in the spec directory as follows:
 
 - [Block](../spec/core/data_structures.md)

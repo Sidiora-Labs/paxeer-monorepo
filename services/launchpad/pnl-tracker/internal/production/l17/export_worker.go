@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 var workerName = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
@@ -55,7 +56,7 @@ func (w ExportWorker) RunOnce(ctx context.Context) error {
 	}
 	for oldFence := int64(1); oldFence < job.Fence; oldFence++ {
 		base := job.ID + "-" + strconv.FormatInt(oldFence, 10)
-		for _, extension := range []string{"partial", job.Format} {
+		for _, extension := range []string{statusPartial, job.Format} {
 			if e = os.Remove(filepath.Join(w.Directory, base+"."+extension)); e != nil && !errors.Is(e, os.ErrNotExist) {
 				return e
 			}
@@ -92,7 +93,7 @@ func (w ExportWorker) RunOnce(ctx context.Context) error {
 	cleanup := true
 	defer func() {
 		if cleanup {
-			os.Remove(target)
+			_ = os.Remove(target)
 		}
 	}()
 	manifest.ExpiresAt = time.Now().UTC().Add(15 * time.Minute)
@@ -154,7 +155,7 @@ func (w ExportWorker) CleanupOnce(ctx context.Context) error {
 		return e
 	}
 	for _, o := range objects {
-		if !validUUID(o.ID) || (o.Format != "csv" && o.Format != "jsonl") {
+		if !validUUID(o.ID) || (o.Format != formatCSV && o.Format != formatJSONL) {
 			return ErrInvalid
 		}
 		matches, e := filepath.Glob(filepath.Join(w.Directory, o.ID+"-*"))

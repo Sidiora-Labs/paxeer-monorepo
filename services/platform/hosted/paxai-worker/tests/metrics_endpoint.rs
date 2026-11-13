@@ -24,8 +24,8 @@ fn metrics_render_counts_requests_by_status() {
     let uptime = rendered
         .lines()
         .find_map(|line| line.strip_prefix("paxai_worker_uptime_seconds "))
-        .expect("uptime metric")
+        .unwrap_or_else(|| panic!("uptime metric"))
         .parse::<f64>()
-        .expect("numeric uptime");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "numeric uptime"));
     assert!(uptime.is_finite() && uptime >= 0.0);
 }

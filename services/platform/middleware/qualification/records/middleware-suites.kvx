@@ -1,0 +1,28 @@
+[platform-test-middleware]
+requires = ["platform-sample-dependencies-ready"]
+behavior = "The middleware suites build and exercise seller, buyer, merchant, agent, and conformance paths, then check the platform examples and integration samples."
+changes = ["The ledger draw cases use the precompile's recipient, purpose hash, and sequence fields.", "Receipt fixtures and service responses preserve verified digests and producer metadata.", "Agent tracking decodes the daemon observation and binds its receipt reference to the signed receipt digest.", "Agent receipt resolution verifies the signed digest and retains authenticated bindings across reopen.", "The agent integration cases use the current producer transcript and authenticated gateway route.", "Express and Next entries are built before buyer middleware cases import them."]
+runs = ["npm test --workspace @sidiora/layerx-seller-middleware", "npm run build --workspace @sidiora/layerx-express", "npm run build --workspace @sidiora/layerx-next", "npm test --workspace @sidiora/layerx-buyer-middleware", "npm test --workspace @sidiora/layerx-merchant-middleware", "npm test --workspace @sidiora/layerx-agent-middleware", "npm test --workspace @sidiora/layerx-middleware-conformance", "npm run conformance --workspace @sidiora/layerx-middleware-conformance", "python3 -m pytest -q tests/ci/test_platform_middleware_suites_wired.py", "platform Python pytest services/platform/middleware/conformance/pay6 services/platform/middleware/examples", "node --check services/platform/examples/merchant-shop/index.mjs", "node --check services/platform/examples/merchant-checkout/index.mjs", "node --check services/platform/examples/buyer-agent/index.mjs", "node --check services/platform/examples/paid-api/index.mjs", "npm test --workspace @sidiora/layerx-example-marketplace", "node --check services/platform/examples/support/runtime.mjs", "node --check services/platform/examples/support/merchant-app.mjs", "node --check services/platform/examples/agent-spend/index.mjs", "npm test --workspace @sidiora/layerx-express", "npm test --workspace @sidiora/layerx-next", "npm run build --workspace @sidiora/layerx-example-next", "npm run scan --workspace @sidiora/layerx-example-next", "python3 -m compileall sdk/integrations/fastapi/layerx_fastapi sdk/integrations/fastapi/examples", "npm test --workspace @sidiora/layerx-agent-integrations", "platform Python pytest sdk/integrations/fastapi", "mvn offline verify sdk/integrations/android/pom.xml", "swift build sdk/integrations/ios", "swift test sdk/integrations/ios"]
+
+[platform-test-reference-apps]
+requires = ["platform-build-reference-app-middleware"]
+behavior = "The buyer middleware entry is built before the reference application check loads it."
+runs = ["npm run build --workspace @sidiora/layerx-buyer-middleware", "node services/platform/examples/run-reference-apps.mjs --check"]
+
+[platform-test-docs]
+requires = ["platform-test-reference-apps", "platform-sample-dependencies-ready"]
+behavior = "The documentation gate checks sample source and builds the Python, Go, Rust, JVM, Android, Swift, and C# examples."
+changes = ["Swift samples name the SDK library products from their local package dependencies.", "Swift sample dependency versions are resolved in their package lockfiles."]
+runs = ["sh services/platform/tools/docs-gate", "command -v node", "platform Python compileall first-payment-python paid-endpoint-fastapi", "Go build first-payment-go", "Cargo build verify-receipt-rust", "Maven package first-payment-jvm", "Maven package paid-endpoint-spring", "Maven package mobile-payment-android", "Swift build first-payment-swift", "Swift build mobile-payment-ios", "dotnet build first-payment-csharp"]
+
+[receipt-integrations]
+express = "The fulfillment record contains the portable receipt fields carried by the buyer payload and the verified transaction hash."
+fastapi_keys = "Receipt key configuration uses a keys object with hexadecimal key identifiers and public keys, matching the node receipt key response."
+fastapi_rpc = "The receipt transport uses the node endpoint at its root path."
+fastapi_digest = "The seller authority, settlement evidence, and HTTP receipt guard use the SDK's verified receipt digest."
+fastapi_receipts = "Payment evidence, HTTP receipt headers, replay, concurrent fulfillment, and crash recovery preserve the producer's receipt digest; Keccak hashes of signed receipt bytes are refused."
+buyer_exports = "The buyer export proof loads the Express and Next public entry sources explicitly, including the grant draw walkthrough."
+
+[next-example]
+scan_roots = ["dist/static"]
+behavior = "The bundle scan checks the browser artifacts produced by the example's configured dist build directory."

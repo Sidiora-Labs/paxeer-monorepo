@@ -1,0 +1,97 @@
+[indexer]
+package = "layerx-indexer"
+targets = "library, binaries, and integration tests"
+behavior = "The indexer projects chain, name, history, asset, and AI state through typed stores and read APIs."
+
+[lint.bool_to_int_with_if]
+files = ["tests/support/consumer_fixture.rs"]
+
+[lint.cast_possible_truncation]
+files = ["tests/chains_api.rs", "tests/chains_ingest.rs", "tests/repair_22_31_350.rs", "tests/repair_22_33_1444.rs", "tests/support/repair_22_33_1446.rs"]
+
+[lint.cast_possible_wrap]
+files = ["tests/ai_reputation_finality.rs", "tests/ai_snapshot_minimal.rs", "tests/repair_22_31_350.rs", "tests/repair_22_33_1444.rs", "tests/support/repair_22_33_1446.rs"]
+
+[lint.cast_sign_loss]
+files = ["tests/ai_reputation_finality.rs", "tests/ai_snapshot_minimal.rs", "tests/repair_22_31_350.rs", "tests/repair_22_33_1444.rs", "tests/support/repair_22_33_1446.rs"]
+
+[lint.dead_code]
+files = ["tests/ai_reputation_finality.rs", "tests/ai_snapshot_minimal.rs", "tests/backfill.rs", "tests/finality_evidence_v2.rs", "tests/repair_22_33_1446.rs", "tests/support/repair_22_33_1446.rs"]
+
+[lint.doc_markdown]
+files = ["tests/repair_22_31_350.rs", "tests/repair_22_33_1444.rs", "tests/repair_22_33_1445.rs", "tests/repair_22_33_1446.rs", "tests/support/consumer_fixture.rs"]
+
+[lint.double_parens]
+files = ["tests/ai_snapshot_minimal.rs"]
+
+[lint.elidable_lifetime_names]
+files = ["tests/repair_22_31_350.rs", "tests/support/repair_22_33_1446.rs"]
+
+[lint.expect_used]
+files = ["src/config.rs", "tests/chains_ingest.rs", "tests/chains_scope.rs", "tests/env_example.rs", "tests/finality_evidence_v2.rs", "tests/history_position.rs", "tests/repair_22_31_350.rs", "tests/repair_22_33_1444.rs", "tests/retired_client_modules.rs", "tests/support/repair_22_33_1446.rs"]
+
+[lint.format_collect]
+files = ["tests/repair_22_31_350.rs"]
+
+[lint.format_in_format_args]
+files = ["tests/history_position.rs"]
+
+[lint.implicit_clone]
+files = ["tests/support/repair_22_33_1446.rs"]
+
+[lint.large_types_passed_by_value]
+files = ["tests/finality_evidence_v2.rs"]
+
+[lint.map_unwrap_or]
+files = ["tests/repair_22_33_1444.rs"]
+
+[lint.match_wildcard_for_single_variants]
+files = ["tests/support/consumer_fixture.rs"]
+
+[lint.missing_errors_doc]
+files = ["tests/support/repair_22_33_1446.rs"]
+
+[lint.missing_panics_doc]
+files = ["tests/support/repair_22_33_1446.rs"]
+
+[lint.must_use_candidate]
+files = ["tests/support/repair_22_33_1446.rs"]
+
+[lint.needless_borrow]
+files = ["src/explorer.rs", "tests/chains_api.rs", "tests/chains_scope.rs", "tests/history_position.rs", "tests/ingest.rs", "tests/names_api.rs", "tests/names_ingest.rs", "tests/repair_22_31_350.rs", "tests/repair_22_33_1444.rs", "tests/rollback_projection.rs", "tests/support/repair_22_33_1446.rs"]
+
+[lint.needless_pass_by_value]
+files = ["tests/history_position.rs"]
+
+[lint.ptr_arg]
+files = ["tests/support/repair_22_33_1446.rs"]
+
+[lint.semicolon_if_nothing_returned]
+files = ["tests/repair_22_31_350.rs", "tests/support/consumer_fixture.rs"]
+
+[lint.similar_names]
+files = ["tests/names_api.rs"]
+
+[lint.single_match_else]
+files = ["tests/history_position.rs"]
+
+[lint.too_many_lines]
+files = ["src/explorer.rs", "tests/chains_api.rs", "tests/chains_ingest.rs", "tests/chains_scope.rs", "tests/finality_evidence_v2.rs", "tests/history_position.rs", "tests/ingest.rs", "tests/names_api.rs", "tests/names_ingest.rs", "tests/repair_22_31_350.rs", "tests/repair_22_33_1444.rs", "tests/rollback_projection.rs", "tests/support/repair_22_33_1446.rs"]
+
+[lint.type_complexity]
+files = ["tests/ai_snapshot_minimal.rs"]
+
+[lint.unnecessary_wraps]
+files = ["tests/support/repair_22_33_1446.rs"]
+
+[lint.unused_imports]
+files = ["tests/history_position.rs", "tests/support/repair_22_33_1446.rs"]
+
+[lint.unused_parens]
+files = ["tests/ai_snapshot_minimal.rs"]
+
+[lint.unused_variables]
+files = ["tests/repair_22_31_350.rs"]
+
+[lint.unwrap_used]
+files = ["tests/history_position.rs"]

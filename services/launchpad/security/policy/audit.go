@@ -3,17 +3,19 @@ package policy
 import (
 	"context"
 	"encoding/json"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"errors"
 	"regexp"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Audit struct{ Actor, Action, Target, BeforeDigest, AfterDigest, PolicyVersion string }
 
 // MutateAudited puts the business operation and immutable audit outbox insert
 // in the same transaction. Table is an integrator-owned trusted identifier.
-func MutateAudited(ctx context.Context, pool *pgxpool.Pool, table pgx.Identifier, record Audit, mutate func(pgx.Tx) error) error {
+func MutateAudited(ctx context.Context, pool *pgxpool.Pool, table pgx.Identifier, record Audit, mutate func(pgx.Tx) error) (resultErr error) {
 	if pool == nil || len(table) != 2 || mutate == nil || record.Actor == "" || record.Action == "" || record.PolicyVersion == "" {
 		return ErrDenied
 	}
@@ -28,7 +30,9 @@ func MutateAudited(ctx context.Context, pool *pgxpool.Pool, table pgx.Identifier
 	defer func() {
 		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		tx.Rollback(c)
+		if rollbackErr := tx.Rollback(c); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			resultErr = errors.Join(resultErr, rollbackErr)
+		}
 	}()
 	if e = mutate(tx); e != nil {
 		return e

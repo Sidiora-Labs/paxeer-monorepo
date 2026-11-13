@@ -1,0 +1,27 @@
+package httpapi
+
+const (
+	fieldValuationBasis       = "valuationBasis"
+	fieldMessage              = "message"
+	schemeHTTPS               = "https"
+	currencyUSDL              = "USDL"
+	fieldAvailable            = "available"
+	fieldChainID              = "chainId"
+	fieldCode                 = "code"
+	fieldDescription          = "description"
+	cacheHit                  = "hit"
+	schemeHTTP                = "http"
+	cacheMiss                 = "miss"
+	fieldName                 = "name"
+	statusNoData              = "no_data"
+	modePrice                 = "price"
+	fieldReason               = "reason"
+	fieldRetryable            = "retryable"
+	exchangeSidiora           = "sidiora"
+	fieldSupportedResolutions = "supported_resolutions"
+	symbolTypeToken           = "token"
+	modeTotalSupplyValuation  = "total_supply_valuation"
+	fieldType                 = "type"
+	statusUnavailable         = "unavailable"
+	qualityVerified           = "verified"
+)

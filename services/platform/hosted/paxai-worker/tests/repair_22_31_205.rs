@@ -5,6 +5,7 @@
 mod worker;
 
 include!("support/native_workload.rs");
+include!("support/native_workload_extra.rs");
 
 fn worker_service(directory: &Scratch) -> Checked<worker::Service> {
     let binding = admitting()?.authority.worker_binding();
@@ -23,7 +24,7 @@ fn worker_service(directory: &Scratch) -> Checked<worker::Service> {
     Ok(worker::Service {
         binding,
         key: delegate(),
-        metrics: Default::default(),
+        metrics: layerx_paxai_worker::metrics::Metrics::default(),
         jobs: service(
             &directory.store(),
             PathBuf::from(env!("CARGO_BIN_EXE_layerx-paxai-runner")),
@@ -70,23 +71,16 @@ fn feed(service: &worker::Service, market: &Market, height: u64) -> Checked {
         roster: Some(&market.roster),
         observed_ms: NOW,
     };
-    service.runtime.lock().expect("runtime lock").observe(
-        &evidence,
-        &market.signed,
-        vec![customer_at(height)?],
-    )?;
+    service
+        .runtime
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "runtime lock"))
+        .observe(&evidence, &market.signed, vec![customer_at(height)?])?;
     Ok(())
 }
 
 fn stage_input(service: &worker::Service, order: &Order) -> Checked {
-    let name = order
-        .submit
-        .request
-        .input_commitment
-        .bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let name = hex_bytes(&order.submit.request.input_commitment.bytes());
     fs::write(
         service.input_dir.join(format!("{name}.manifest")),
         &order.manifest,
@@ -112,10 +106,10 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 fn millis() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .expect("wall clock")
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "wall clock"))
         .as_millis()
         .try_into()
-        .expect("milliseconds")
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "milliseconds"))
 }
 
 struct TlsWorker {
@@ -135,23 +129,29 @@ impl Drop for TlsWorker {
 impl TlsWorker {
     fn new(name: &str) -> Checked<(Self, Admitting)> {
         let directory = Scratch::new(name)?;
-        let ca_key = rcgen::KeyPair::generate().expect("CA key");
-        let mut ca_params =
-            rcgen::CertificateParams::new(Vec::<String>::new()).expect("CA parameters");
+        let ca_key =
+            rcgen::KeyPair::generate().unwrap_or_else(|error| panic!("{error:?}: {}", "CA key"));
+        let mut ca_params = rcgen::CertificateParams::new(Vec::<String>::new())
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "CA parameters"));
         ca_params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
-        let ca = ca_params.self_signed(&ca_key).expect("CA certificate");
+        let ca = ca_params
+            .self_signed(&ca_key)
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "CA certificate"));
         let issuer = rcgen::Issuer::from_params(&ca_params, &ca_key);
-        let leaf_key = rcgen::KeyPair::generate().expect("TLS key");
+        let leaf_key =
+            rcgen::KeyPair::generate().unwrap_or_else(|error| panic!("{error:?}: {}", "TLS key"));
         let leaf = rcgen::CertificateParams::new(vec!["localhost".into()])
-            .expect("leaf parameters")
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "leaf parameters"))
             .signed_by(&leaf_key, &issuer)
-            .expect("TLS certificate");
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "TLS certificate"));
         let mut roots = rustls::RootCertStore::empty();
-        roots.add(ca.der().clone()).expect("trusted root");
+        roots
+            .add(ca.der().clone())
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "trusted root"));
         let port = TcpListener::bind("127.0.0.1:0")?.local_addr()?.port();
         let endpoint = endpoint(
             &format!("https://localhost:{port}/paxai/v1"),
-            spki_sha256(leaf.der()).expect("SPKI"),
+            spki_sha256(leaf.der()).unwrap_or_else(|error| panic!("{error:?}: {}", "SPKI")),
         );
         let market = opened(vec![endpoint.clone()])?;
         let authority = authority_at(&market, HEIGHT)?;
@@ -166,13 +166,7 @@ impl TlsWorker {
         let file = |name: &str| directory.0.join(name);
         fs::write(file("chain.pem"), format!("{}{}", leaf.pem(), ca.pem()))?;
         fs::write(file("key.pem"), leaf_key.serialize_pem())?;
-        fs::write(
-            file("delegate.hex"),
-            DELEGATE_SEED
-                .iter()
-                .map(|n| format!("{n:02x}"))
-                .collect::<String>(),
-        )?;
+        fs::write(file("delegate.hex"), hex_bytes(&DELEGATE_SEED))?;
         fs::write(file("metadata.bin"), &fixture.market.signed)?;
         fs::create_dir_all(file("inputs"))?;
         // The external authority adapter reads a captured native snapshot. It performs no
@@ -186,7 +180,7 @@ impl TlsWorker {
             ),
         )?;
         fs::set_permissions(&reader, fs::Permissions::from_mode(0o700))?;
-        let text = |bytes: &[u8]| bytes.iter().map(|n| format!("{n:02x}")).collect::<String>();
+        let text = hex_bytes;
         let (market, owner, worker) = identities()?;
         let config = file("worker.json");
         let value = serde_json::json!({
@@ -203,7 +197,8 @@ impl TlsWorker {
         });
         fs::write(
             &config,
-            serde_json::to_vec(&value).expect("configuration JSON"),
+            serde_json::to_vec(&value)
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "configuration JSON")),
         )?;
         let harness = Self {
             directory,
@@ -242,7 +237,7 @@ impl TlsWorker {
         }
         let identity = |n: u8, key: PublicKey32| {
             serde_json::json!({
-                "principal": principal(n).expect("principal").bytes(), "primary_key": key.0,
+                "principal": principal(n).unwrap_or_else(|error| panic!("{error:?}: {}", "principal")).bytes(), "primary_key": key.0,
                 "frozen": false, "execution_height": height,
             })
         };
@@ -259,7 +254,8 @@ impl TlsWorker {
         let pending = path.with_extension("pending");
         fs::write(
             &pending,
-            serde_json::to_vec(&observation).expect("snapshot JSON"),
+            serde_json::to_vec(&observation)
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "snapshot JSON")),
         )?;
         fs::rename(pending, path)?;
         Ok(())
@@ -275,7 +271,13 @@ impl TlsWorker {
             .stderr(log)
             .spawn()?;
         let mut first = String::new();
-        BufReader::new(process.stdout.take().expect("worker stdout")).read_line(&mut first)?;
+        BufReader::new(
+            process
+                .stdout
+                .take()
+                .unwrap_or_else(|| panic!("worker stdout")),
+        )
+        .read_line(&mut first)?;
         self.process = Some(process);
         assert!(
             first.starts_with("listening "),
@@ -288,18 +290,23 @@ impl TlsWorker {
 
     fn stop(&mut self) {
         if let Some(mut process) = self.process.take() {
-            process.kill().expect("stop worker process");
-            process.wait().expect("reap worker process");
+            process
+                .kill()
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "stop worker process"));
+            process
+                .wait()
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "reap worker process"));
         }
     }
 
     fn challenge(authority: &FinalizedAuthority) -> StatusChallenge {
         StatusChallenge {
-            epoch: authority.current_epoch().expect("epoch"),
+            epoch: authority.current_epoch().unwrap_or_else(|| panic!("epoch")),
             config: authority.config(),
             roster: authority.roster(),
             expiry: TASK_EXPIRY,
-            challenge: RequestId::new([0x5C; 32]).expect("challenge"),
+            challenge: RequestId::new([0x5C; 32])
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "challenge")),
         }
     }
 
@@ -323,9 +330,9 @@ impl TlsWorker {
                 Instant::now() < until,
                 "current signed status unavailable: {response:?}; {}",
                 fs::read_to_string(self.directory.0.join("worker.stderr"))
-                    .expect("worker diagnostics")
+                    .unwrap_or_else(|error| panic!("{error:?}: {}", "worker diagnostics"))
             );
-            thread::sleep(Duration::from_millis(50));
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
 
@@ -336,14 +343,7 @@ impl TlsWorker {
     }
 
     fn stage(&self, order: &Order) -> Checked {
-        let name = order
-            .submit
-            .request
-            .input_commitment
-            .bytes()
-            .iter()
-            .map(|n| format!("{n:02x}"))
-            .collect::<String>();
+        let name = hex_bytes(&order.submit.request.input_commitment.bytes());
         fs::write(
             self.directory.0.join(format!("inputs/{name}.manifest")),
             &order.manifest,
@@ -356,12 +356,7 @@ impl TlsWorker {
     }
 
     fn stage_access(&self, access: &EvaluationAccess) -> Checked {
-        let name = access
-            .commitment()?
-            .bytes()
-            .iter()
-            .map(|n| format!("{n:02x}"))
-            .collect::<String>();
+        let name = hex_bytes(&access.commitment()?.bytes());
         fs::write(
             self.directory.0.join(format!("inputs/{name}.access")),
             access.encode()?,
@@ -393,10 +388,10 @@ fn apply_chain(market: &mut Market, signed: &[u8], actor: PrincipalId, at: u64) 
         },
     )?;
     let dispatch::Routed::Applied { state_len, .. } = routed else {
-        let result_len = match routed {
-            dispatch::Routed::Refused { result_len }
-            | dispatch::Routed::Unchanged { result_len } => result_len,
-            _ => unreachable!(),
+        let (dispatch::Routed::Refused { result_len } | dispatch::Routed::Unchanged { result_len }) =
+            routed
+        else {
+            unreachable!();
         };
         panic!(
             "native transition refused: {:?}",
@@ -425,7 +420,8 @@ fn accept_chain(
         config: authority.config(),
         roster: authority.roster(),
         sequence,
-        request: 0xE0 + u8::try_from(sequence).expect("sequence"),
+        request: 0xE0
+            + u8::try_from(sequence).unwrap_or_else(|error| panic!("{error:?}: {}", "sequence")),
         payload: &payload,
     };
     apply_chain(market, &call.encode()?, principal(1)?, HEIGHT + 2)?;
@@ -455,7 +451,10 @@ fn publish(market: &mut Market, manifest: &Manifest, key: &SigningKey, sequence:
     let bytes = manifest.encode()?;
     let mut publication = publication(&bytes, manifest.revision - 1)?;
     publication.sequence = sequence;
-    publication.request = RequestId::new([0x70 + u8::try_from(sequence).expect("sequence"); 32])?;
+    publication.request = RequestId::new(
+        [0x70 + u8::try_from(sequence).unwrap_or_else(|error| panic!("{error:?}: {}", "sequence"));
+            32],
+    )?;
     let signed = sign_metadata(&context, &publication, key)?;
     apply_chain(market, &signed, principal(1)?, HEIGHT + 1)?;
     market.signed = signed;
@@ -525,10 +524,10 @@ fn worker_drain_preserves_tls_redelivery_query_cancel_and_admitted_execution_aft
     transport.start(&fixture.authority)?;
     let ack = transport
         .post(SUBMIT_PATH, &first.signed)
-        .expect("first admission through TLS");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "first admission through TLS"));
     let other_ack = transport
         .post(SUBMIT_PATH, &other.signed)
-        .expect("second admission through TLS");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "second admission through TLS"));
     transport.stop();
     drain(&mut fixture.market)?;
     let drained = authority_at(&fixture.market, HEIGHT + 1)?;
@@ -542,14 +541,14 @@ fn worker_drain_preserves_tls_redelivery_query_cancel_and_admitted_execution_aft
     assert_eq!(
         transport
             .post(SUBMIT_PATH, &first.signed)
-            .expect("saved acknowledgment during drain"),
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "saved acknowledgment during drain")),
         ack
     );
     let query = first.reference(Route::Query, principal(9)?, 10, &customer())?;
     assert_eq!(
         transport
             .post(QUERY_PATH, &query)
-            .expect("customer query during drain"),
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "customer query during drain")),
         ack
     );
     assert_eq!(
@@ -560,7 +559,7 @@ fn worker_drain_preserves_tls_redelivery_query_cancel_and_admitted_execution_aft
     assert_eq!(
         transport
             .post(CANCEL_PATH, &cancel)
-            .expect("cancel during drain"),
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "cancel during drain")),
         ack
     );
     let result = transport
@@ -568,7 +567,7 @@ fn worker_drain_preserves_tls_redelivery_query_cancel_and_admitted_execution_aft
             QUERY_PATH,
             &first.reference(Route::Query, principal(9)?, 12, &customer())?,
         )
-        .expect("cancel result");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "cancel result"));
     assert_eq!(
         decode_result(&result, public(&delegate()))?.0.outcome,
         Outcome::CancelledBeforeStart
@@ -582,7 +581,10 @@ fn worker_drain_preserves_tls_redelivery_query_cancel_and_admitted_execution_aft
         ..service
     };
     feed(&service, &fixture.market, HEIGHT + 2)?;
-    let runtime = service.runtime.lock().expect("runtime");
+    let runtime = service
+        .runtime
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "runtime"));
     assert_eq!(
         runtime.membership.new_work(),
         Err(ServiceError::AdmissionNotEffective)
@@ -627,7 +629,7 @@ fn worker_current_metadata_refresh_accepts_tls_submit_and_signs_current_status()
     transport.start(&fixture.authority)?;
     let old_ack = transport
         .post(SUBMIT_PATH, &old.signed)
-        .expect("revision one admission");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "revision one admission"));
     let replacement = manifest(2, vec![capability(0x41)], vec![transport.endpoint.clone()])?;
     publish(&mut fixture.market, &replacement, &delegate(), 1)?;
     fixture.authority = authority_at(&fixture.market, HEIGHT + 1)?;
@@ -644,20 +646,21 @@ fn worker_current_metadata_refresh_accepts_tls_submit_and_signs_current_status()
     transport.wait_current(&fixture.authority);
     let ack = transport
         .post(SUBMIT_PATH, &new.signed)
-        .expect("current revision admission");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "current revision admission"));
     let (current, _) = decode_acknowledgment(&ack, public(&delegate()))?;
     assert_eq!(current.metadata, fixture.metadata.digest());
     assert_eq!(current.model, Digest32::new([0x41; 32])?);
     assert_eq!(
         transport
             .post(SUBMIT_PATH, &old.signed)
-            .expect("old revision replay"),
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "old revision replay")),
         old_ack
     );
     let (saved, _) = decode_acknowledgment(&old_ack, public(&delegate()))?;
     assert_ne!(saved.metadata, current.metadata);
     let stale = new.submit.with(|s| {
-        s.context.request = RequestId::new([0x86; 32]).expect("request");
+        s.context.request =
+            RequestId::new([0x86; 32]).unwrap_or_else(|error| panic!("{error:?}: {}", "request"));
         s.request.metadata_revision = 1;
     });
     assert_eq!(
@@ -681,7 +684,7 @@ fn worker_verified_evaluator_access_reaches_tls_result_consumer_after_restart() 
     transport.start(&fixture.authority)?;
     let ack = transport
         .post(SUBMIT_PATH, &order.signed)
-        .expect("grant-bound admission");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "grant-bound admission"));
     let evaluator = SigningKey::from_bytes(&[2; 32]);
     let outsider = SigningKey::from_bytes(&[10; 32]);
     assert_eq!(
@@ -690,7 +693,7 @@ fn worker_verified_evaluator_access_reaches_tls_result_consumer_after_restart() 
                 QUERY_PATH,
                 &order.reference(Route::Query, principal(2)?, 1, &evaluator)?
             )
-            .expect("granted query"),
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "granted query")),
         ack
     );
     assert_eq!(
@@ -712,13 +715,13 @@ fn worker_verified_evaluator_access_reaches_tls_result_consumer_after_restart() 
             CANCEL_PATH,
             &order.reference(Route::Cancel, principal(9)?, 2, &customer())?,
         )
-        .expect("customer cancellation");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "customer cancellation"));
     let customer_result = transport
         .post(
             QUERY_PATH,
             &order.reference(Route::Query, principal(9)?, 3, &customer())?,
         )
-        .expect("customer result");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "customer result"));
     assert_eq!(
         decode_result(&customer_result, public(&delegate()))?
             .0
@@ -734,7 +737,7 @@ fn worker_verified_evaluator_access_reaches_tls_result_consumer_after_restart() 
                 QUERY_PATH,
                 &order.reference(Route::Query, principal(2)?, 3, &evaluator)?
             )
-            .expect("recovered evaluator grant"),
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "recovered evaluator grant")),
         customer_result
     );
     assert_eq!(
@@ -745,12 +748,7 @@ fn worker_verified_evaluator_access_reaches_tls_result_consumer_after_restart() 
         Err(TransportError::Service(ServiceError::AccessDenied))
     );
     // The grant commitment is checked on every release, including after storage damage.
-    let name = access
-        .commitment()?
-        .bytes()
-        .iter()
-        .map(|n| format!("{n:02x}"))
-        .collect::<String>();
+    let name = hex_bytes(&access.commitment()?.bytes());
     let forged = EvaluationAccess::new(vec![principal(10)?])?;
     fs::write(
         transport.jobs().join(format!("evaluation-access/{name}")),
@@ -784,16 +782,16 @@ fn worker_cancel_returns_exact_customer_acknowledgment_for_shared_request_id() -
     transport.start(&fixture.authority)?;
     let first_ack = transport
         .post(SUBMIT_PATH, &first.signed)
-        .expect("customer one admission");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "customer one admission"));
     let second_ack = transport
         .post(SUBMIT_PATH, &second.signed)
-        .expect("customer two admission");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "customer two admission"));
     assert_ne!(first_ack, second_ack);
     let cancel = second.reference(Route::Cancel, principal(8)?, 2, &second_key)?;
     assert_eq!(
         transport
             .post(CANCEL_PATH, &cancel)
-            .expect("customer two cancellation"),
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "customer two cancellation")),
         second_ack
     );
     let store = JobStore::open(&transport.jobs())?;
@@ -808,29 +806,13 @@ fn worker_cancel_returns_exact_customer_acknowledgment_for_shared_request_id() -
                 CANCEL_PATH,
                 &first.reference(Route::Cancel, principal(9)?, 2, &customer())?
             )
-            .expect("customer one cancellation"),
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "customer one cancellation")),
         first_ack
     );
     Ok(())
 }
 
-#[test]
-fn worker_delegate_value_rotation_recovers_old_job_completion_under_original_identity() -> Checked {
-    let (mut transport, mut fixture) = TlsWorker::new("rotation")?;
-    let old = order(&fixture, 0x8A, 1, 512)?;
-    let expiring = order(&fixture, 0x8B, 2, 512)?;
-    admit_order(&mut fixture, &old, 0x8A)?;
-    admit_order(&mut fixture, &expiring, 0x8B)?;
-    transport.stage(&old)?;
-    transport.stage(&expiring)?;
-    transport.observe(&fixture.market, HEIGHT)?;
-    transport.start(&fixture.authority)?;
-    let ack = transport
-        .post(SUBMIT_PATH, &old.signed)
-        .expect("old admission");
-    transport
-        .post(SUBMIT_PATH, &expiring.signed)
-        .expect("second old admission");
+fn rotate_delegate(transport: &mut TlsWorker, fixture: &mut Admitting) -> Checked<SigningKey> {
     let rotated = SigningKey::from_bytes(&[0xD2; 32]);
     let mut replacement = manifest(1, vec![capability(0x31)], vec![transport.endpoint.clone()])?;
     replacement.generation = 2;
@@ -882,10 +864,7 @@ fn worker_delegate_value_rotation_recovers_old_job_completion_under_original_ide
     );
     fs::write(
         transport.directory.0.join("delegate.hex"),
-        [0xD2u8; 32]
-            .iter()
-            .map(|n| format!("{n:02x}"))
-            .collect::<String>(),
+        hex_bytes(&[0xD2u8; 32]),
     )?;
     fs::write(
         transport.directory.0.join("metadata.bin"),
@@ -893,6 +872,27 @@ fn worker_delegate_value_rotation_recovers_old_job_completion_under_original_ide
     )?;
     transport.observe(&fixture.market, HEIGHT + 1)?;
     transport.wait_current(&fixture.authority);
+    Ok(rotated)
+}
+
+#[test]
+fn worker_delegate_value_rotation_recovers_old_job_completion_under_original_identity() -> Checked {
+    let (mut transport, mut fixture) = TlsWorker::new("rotation")?;
+    let old = order(&fixture, 0x8A, 1, 512)?;
+    let expiring = order(&fixture, 0x8B, 2, 512)?;
+    admit_order(&mut fixture, &old, 0x8A)?;
+    admit_order(&mut fixture, &expiring, 0x8B)?;
+    transport.stage(&old)?;
+    transport.stage(&expiring)?;
+    transport.observe(&fixture.market, HEIGHT)?;
+    transport.start(&fixture.authority)?;
+    let ack = transport
+        .post(SUBMIT_PATH, &old.signed)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "old admission"));
+    transport
+        .post(SUBMIT_PATH, &expiring.signed)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "second old admission"));
+    let rotated = rotate_delegate(&mut transport, &mut fixture)?;
     // Restart the actual worker with a different configured secret, not just new versions.
     transport.stop();
     fs::remove_dir_all(transport.directory.0.join("inputs"))?;
@@ -900,7 +900,7 @@ fn worker_delegate_value_rotation_recovers_old_job_completion_under_original_ide
     assert_eq!(
         transport
             .post(SUBMIT_PATH, &old.signed)
-            .expect("old-generation replay"),
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "old-generation replay")),
         ack
     );
     assert_eq!(
@@ -909,7 +909,10 @@ fn worker_delegate_value_rotation_recovers_old_job_completion_under_original_ide
                 CANCEL_PATH,
                 &old.reference(Route::Cancel, principal(9)?, 10, &customer())?
             )
-            .expect("old-generation completion after restart"),
+            .unwrap_or_else(|error| panic!(
+                "{error:?}: {}",
+                "old-generation completion after restart"
+            )),
         ack
     );
     let saved = transport
@@ -917,7 +920,7 @@ fn worker_delegate_value_rotation_recovers_old_job_completion_under_original_ide
             QUERY_PATH,
             &old.reference(Route::Query, principal(9)?, 11, &customer())?,
         )
-        .expect("old result retrieval");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "old result retrieval"));
     let (result, _) = decode_result(&saved, public(&delegate()))?;
     assert_eq!(
         (result.generation, result.key_version, result.outcome),
@@ -941,7 +944,7 @@ fn worker_delegate_value_rotation_recovers_old_job_completion_under_original_ide
         .store()
         .job(expiring.key()?)?
         .result
-        .expect("old admission settled");
+        .unwrap_or_else(|| panic!("old admission settled"));
     assert_eq!(
         decode_result(&result, public(&delegate()))?.0.outcome,
         Outcome::ExpiredBeforeStart

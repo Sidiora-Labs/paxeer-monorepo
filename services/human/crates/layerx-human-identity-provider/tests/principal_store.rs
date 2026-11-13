@@ -1,3 +1,5 @@
+#[path = "support/mod.rs"]
+#[allow(dead_code)]
 mod support;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -141,13 +143,13 @@ impl Signer {
     }
 
     fn sec1_hex(&self) -> String {
-        self.0
-            .verifying_key()
-            .to_encoded_point(false)
-            .as_bytes()
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect()
+        use std::fmt::Write as _;
+        let point = self.0.verifying_key().to_encoded_point(false);
+        let mut text = String::with_capacity(point.as_bytes().len() * 2);
+        for byte in point.as_bytes() {
+            let _ = write!(text, "{byte:02x}");
+        }
+        text
     }
 
     fn mint(&self, header: &Value, claims: &Value) -> String {
@@ -447,35 +449,46 @@ fn actual_provider_refuses_static_conflicts_and_durable_binding_replacement() ->
     Ok(())
 }
 
-fn refused(result: std::result::Result<impl std::fmt::Debug, IdentityDispatchError>) -> bool {
+fn refused(result: &std::result::Result<impl std::fmt::Debug, IdentityDispatchError>) -> bool {
     matches!(result, Err(IdentityDispatchError::ProviderRefused))
 }
 
-#[test]
-fn assertion_subject_resolves_one_durable_wallet_principal_and_tenant_across_restart() -> Result {
-    let directory = tempfile::Builder::new()
-        .permissions(fs::Permissions::from_mode(0o700))
-        .tempdir()?;
-    let root = directory.path();
-    let supabase = Signer::generate()?;
-    let producer = Signer::generate()?;
-    let forger = Signer::generate()?;
-    let keys = KeySetServer::serve(&[supabase.jwk("supabase-1")?])?;
-    let running = Running::start_with(root, Some(verifier(&keys, &producer)?))?;
-    let now = authority_now()?;
-    let egid = rustix::process::getegid().as_raw();
-    let identity = identity(root, egid)?;
-    let client = client(root)?;
-    let store_root = root.join("store");
-    let digest = TenancyMap::new([])?.install(&store_root)?;
-    let mut store = open(&store_root, digest, client.clone())?;
-    let alice_token = supabase.assertion("supabase-user-a", now);
+struct AccountView {
+    principal: PrincipalId,
+    did: Option<String>,
+}
 
-    let pending = identity.resolve_assertion(&alice_token)?;
-    assert!(pending.binding_pending());
-    assert!(client.lookup(pending.principal.as_str()).is_err());
-    assert!(store.principal(&pending.principal).is_err());
+struct AssertionScenario {
+    root: std::path::PathBuf,
+    _directory: tempfile::TempDir,
+    supabase: Signer,
+    producer: Signer,
+    keys: KeySetServer,
+    running: Option<Running>,
+    now: u64,
+    egid: u32,
+    identity: RemoteIdentityProvider,
+    client: Client,
+    store_root: std::path::PathBuf,
+    digest: TenancyDigest,
+    store: Option<PrincipalStore>,
+    alice_token: String,
+    bob_token: String,
+    alice: AccountView,
+    bob: AccountView,
+    carol: PrincipalId,
+    key: RowKey,
+    binding_tenant: String,
+}
 
+fn check_offered_bindings(
+    identity: &RemoteIdentityProvider,
+    alice_token: &str,
+    pending_principal: &PrincipalId,
+    producer: &Signer,
+    forger: &Signer,
+    now: u64,
+) -> Result<String> {
     let alice_binding = producer.binding("supabase-user-a", WALLET_DID, TENANT);
     for offered in [
         forger.binding("supabase-user-a", WALLET_DID, TENANT),
@@ -484,244 +497,430 @@ fn assertion_subject_resolves_one_durable_wallet_principal_and_tenant_across_res
         WALLET_DID.to_owned(),
     ] {
         assert!(refused(
-            identity.resolve_assertion_with_binding(&alice_token, Some(&offered))
+            &identity.resolve_assertion_with_binding(alice_token, Some(&offered))
         ));
     }
     let unverified = forger.assertion("supabase-user-a", now);
-    assert!(refused(identity.resolve_assertion_with_binding(
+    assert!(refused(&identity.resolve_assertion_with_binding(
         &unverified,
         Some(&alice_binding)
     )));
-    assert_eq!(identity.resolve_assertion(&alice_token)?, pending);
+    let observed = identity.resolve_assertion(alice_token)?;
+    assert_eq!(observed.principal, *pending_principal);
+    assert!(observed.binding_pending());
+    Ok(alice_binding)
+}
 
-    let alice = identity.resolve_assertion_with_binding(&alice_token, Some(&alice_binding))?;
-    assert_eq!(alice.principal, pending.principal);
-    assert_eq!(alice.did.as_deref(), Some(WALLET_DID));
-    assert_eq!(identity.resolve_assertion(&alice_token)?, alice);
-    assert_eq!(
-        identity.resolve_assertion_with_binding(&alice_token, Some(&alice_binding))?,
-        alice
-    );
-    assert!(refused(identity.resolve_assertion_with_binding(
-        &alice_token,
-        Some(&producer.binding("supabase-user-a", OTHER_DID, TENANT))
-    )));
+impl AssertionScenario {
+    fn new() -> Result<Self> {
+        let directory = tempfile::Builder::new()
+            .permissions(fs::Permissions::from_mode(0o700))
+            .tempdir()?;
+        let root = directory.path();
+        let supabase = Signer::generate()?;
+        let producer = Signer::generate()?;
+        let forger = Signer::generate()?;
+        let keys = KeySetServer::serve(&[supabase.jwk("supabase-1")?])?;
+        let running = Running::start_with(root, Some(verifier(&keys, &producer)?))?;
+        let now = authority_now()?;
+        let egid = rustix::process::getegid().as_raw();
+        let identity = identity(root, egid)?;
+        let client = client(root)?;
+        let store_root = root.join("store");
+        let digest = TenancyMap::new([])?.install(&store_root)?;
+        let mut store = open(&store_root, digest, client.clone())?;
+        let alice_token = supabase.assertion("supabase-user-a", now);
 
-    let bob_token = supabase.assertion("supabase-user-b", now);
-    assert!(refused(identity.resolve_assertion_with_binding(
-        &bob_token,
-        Some(&producer.binding("supabase-user-b", WALLET_DID, TENANT))
-    )));
-    let bob = identity.resolve_assertion_with_binding(
-        &bob_token,
-        Some(&producer.binding("supabase-user-b", OTHER_DID, TENANT)),
-    )?;
-    assert_ne!(bob.principal, alice.principal);
-    assert_eq!(bob.did.as_deref(), Some(OTHER_DID));
-    let carol = provision(root, "carol@example.com", "carol")?;
-    assert!(carol != alice.principal && carol != bob.principal);
+        let pending = identity.resolve_assertion(&alice_token)?;
+        assert!(pending.binding_pending());
+        assert!(client.lookup(pending.principal.as_str()).is_err());
+        assert!(store.principal(&pending.principal).is_err());
 
-    let binding = client.lookup(alice.principal.as_str())?;
-    assert_eq!(binding.did().as_bytes(), WALLET_DID.as_bytes());
-    assert_eq!(binding.tenant(), TENANT);
-    let key = RowKey::new("record")?;
-    {
-        let mut scope = store.principal(&alice.principal)?;
-        assert_eq!(scope.tenant().as_str(), binding.agent_tenant());
-        scope.put(Table::Journeys, key.clone(), 1, b"alice".to_vec())?;
+        let alice_binding = check_offered_bindings(
+            &identity,
+            &alice_token,
+            &pending.principal,
+            &producer,
+            &forger,
+            now,
+        )?;
+
+        let alice = identity.resolve_assertion_with_binding(&alice_token, Some(&alice_binding))?;
+        assert_eq!(alice.principal, pending.principal);
+        assert_eq!(alice.did.as_deref(), Some(WALLET_DID));
+        assert_eq!(identity.resolve_assertion(&alice_token)?, alice);
+        assert_eq!(
+            identity.resolve_assertion_with_binding(&alice_token, Some(&alice_binding))?,
+            alice
+        );
+        assert!(refused(&identity.resolve_assertion_with_binding(
+            &alice_token,
+            Some(&producer.binding("supabase-user-a", OTHER_DID, TENANT))
+        )));
+
+        let bob_token = supabase.assertion("supabase-user-b", now);
+        assert!(refused(&identity.resolve_assertion_with_binding(
+            &bob_token,
+            Some(&producer.binding("supabase-user-b", WALLET_DID, TENANT))
+        )));
+        let bob = identity.resolve_assertion_with_binding(
+            &bob_token,
+            Some(&producer.binding("supabase-user-b", OTHER_DID, TENANT)),
+        )?;
+        assert_ne!(bob.principal, alice.principal);
+        assert_eq!(bob.did.as_deref(), Some(OTHER_DID));
+        let carol = provision(root, "carol@example.com", "carol")?;
+        assert!(carol != alice.principal && carol != bob.principal);
+
+        let binding = client.lookup(alice.principal.as_str())?;
+        assert_eq!(binding.did().as_bytes(), WALLET_DID.as_bytes());
+        assert_eq!(binding.tenant(), TENANT);
+        let key = RowKey::new("record")?;
+        {
+            let mut scope = store.principal(&alice.principal)?;
+            assert_eq!(scope.tenant().as_str(), binding.agent_tenant());
+            scope.put(Table::Journeys, key.clone(), 1, b"alice".to_vec())?;
+        }
+        {
+            let scope = store.principal(&bob.principal)?;
+            assert!(scope.get(Table::Journeys, &key).is_none());
+            assert_ne!(scope.tenant().as_str(), binding.agent_tenant());
+        }
+        assert_ne!(
+            store.principal(&carol)?.tenant().as_str(),
+            binding.agent_tenant()
+        );
+
+        Ok(Self {
+            root: root.to_path_buf(),
+            _directory: directory,
+            supabase,
+            producer,
+            keys,
+            running: Some(running),
+            now,
+            egid,
+            identity,
+            client,
+            store_root,
+            digest,
+            store: Some(store),
+            alice_token,
+            bob_token,
+            alice: AccountView {
+                principal: alice.principal,
+                did: alice.did,
+            },
+            bob: AccountView {
+                principal: bob.principal,
+                did: bob.did,
+            },
+            carol,
+            key,
+            binding_tenant: binding.agent_tenant().to_owned(),
+        })
     }
-    {
-        let scope = store.principal(&bob.principal)?;
-        assert!(scope.get(Table::Journeys, &key).is_none());
-        assert_ne!(scope.tenant().as_str(), binding.agent_tenant());
-    }
-    assert_ne!(
-        store.principal(&carol)?.tenant().as_str(),
-        binding.agent_tenant()
-    );
 
-    let index = AuthDiscoveryIndex::open(
-        root.join("auth-index"),
-        IndexAuthenticationKey::new([0x5a; 32]).map_err(|_| "index key refused")?,
-    )
-    .map_err(|_| "index refused")?;
-    let schema = ApiSchema::v1().map_err(|_| "schema refused")?;
-    let operation = schema
-        .operation("intent.plan")
-        .ok_or("intent.plan missing")?;
-    let body = json!({"amount": "1"});
-    let path_parameters = BTreeMap::new();
-    let disclosure = || AuthorizationDisclosure {
-        operation,
-        destination: "/v1/intents/plan",
-        path_parameters: &path_parameters,
-        body: &body,
-        idempotency_key: None,
-        trace: "trace-identity-binding",
-    };
-    let capability = authorize_bearer_execution(
-        &mut store,
-        &index,
-        &alice.principal,
-        &alice_token,
-        disclosure(),
-        now,
-        30,
-    )
-    .map_err(|_| "bearer capability refused")?;
-    assert_eq!(capability.principal(), &alice.principal);
-    assert_eq!(capability.tenant().as_str(), binding.agent_tenant());
-    assert_eq!(capability.operation(), "intent.plan");
-    let mut context = capability
-        .into_bearer_context(&alice_token, WALLET_DID)
+    fn begin_capability(
+        &mut self,
+    ) -> Result<(
+        AuthDiscoveryIndex,
+        layerx_human_service::server::backend::PrincipalContext,
+    )> {
+        let root = self.root.as_path();
+        let store = self.store.as_mut().ok_or("store missing")?;
+        let alice = &self.alice;
+        let alice_token = &self.alice_token;
+        let now = self.now;
+        let binding_tenant = &self.binding_tenant;
+        let index = AuthDiscoveryIndex::open(
+            root.join("auth-index"),
+            IndexAuthenticationKey::new([0x5a; 32]).map_err(|_| "index key refused")?,
+        )
+        .map_err(|_| "index refused")?;
+        let schema = ApiSchema::v1().map_err(|_| "schema refused")?;
+        let operation = schema
+            .operation("intent.plan")
+            .ok_or("intent.plan missing")?;
+        let body = json!({"amount": "1"});
+        let path_parameters = BTreeMap::new();
+        let disclosure = || AuthorizationDisclosure {
+            operation,
+            destination: "/v1/intents/plan",
+            path_parameters: &path_parameters,
+            body: &body,
+            idempotency_key: None,
+            trace: "trace-identity-binding",
+        };
+        let capability = authorize_bearer_execution(
+            store,
+            &index,
+            &alice.principal,
+            alice_token,
+            disclosure(),
+            now,
+            30,
+        )
+        .map_err(|_| "bearer capability refused")?;
+        assert_eq!(capability.principal(), &alice.principal);
+        assert_eq!(capability.tenant().as_str(), binding_tenant.as_str());
+        assert_eq!(capability.operation(), "intent.plan");
+        let context = capability
+            .into_bearer_context(alice_token, WALLET_DID)
+            .map_err(|_| "capability context refused")?;
+        assert_eq!(context.principal, alice.principal);
+        assert_eq!(context.tenant.as_str(), binding_tenant.as_str());
+        assert_eq!(context.assertion(), Some(alice_token.as_str()));
+        Ok((index, context))
+    }
+
+    fn check_changed_disclosures(
+        &self,
+        index: &AuthDiscoveryIndex,
+        context: &mut layerx_human_service::server::backend::PrincipalContext,
+    ) -> Result {
+        let alice = &self.alice;
+        let bob = &self.bob;
+        let bob_token = &self.bob_token;
+        let now = self.now;
+        let binding_tenant = &self.binding_tenant;
+        let schema = ApiSchema::v1().map_err(|_| "schema refused")?;
+        let operation = schema
+            .operation("intent.plan")
+            .ok_or("intent.plan missing")?;
+        let body = json!({"amount": "1"});
+        let path_parameters = BTreeMap::new();
+        let disclosure = || AuthorizationDisclosure {
+            operation,
+            destination: "/v1/intents/plan",
+            path_parameters: &path_parameters,
+            body: &body,
+            idempotency_key: None,
+            trace: "trace-identity-binding",
+        };
+        let changed_body = json!({"amount": "2"});
+        assert!(consume_context(
+            index,
+            context,
+            AuthorizationDisclosure {
+                body: &changed_body,
+                ..disclosure()
+            },
+            now
+        )
+        .is_err());
+        assert!(consume_context(
+            index,
+            context,
+            AuthorizationDisclosure {
+                destination: "/v1/intents/other",
+                ..disclosure()
+            },
+            now
+        )
+        .is_err());
+        let changed_operation = schema
+            .operation("intent.submit")
+            .ok_or("intent.submit missing")?;
+        assert!(consume_context(
+            index,
+            context,
+            AuthorizationDisclosure {
+                operation: changed_operation,
+                ..disclosure()
+            },
+            now
+        )
+        .is_err());
+        context.principal = bob.principal.clone();
+        assert!(consume_context(index, context, disclosure(), now).is_err());
+        context.principal = alice.principal.clone();
+        context.tenant = AgentTenantId::new("other-tenant")?;
+        assert!(consume_context(index, context, disclosure(), now).is_err());
+        context.tenant = AgentTenantId::new(binding_tenant.as_str())?;
+        let session = context.session_id.clone();
+        context.session_id =
+            layerx_human_service::server::production_auth::bearer_session_id(bob_token);
+        assert!(consume_context(index, context, disclosure(), now).is_err());
+        context.session_id = session;
+        assert!(consume_context(index, context, disclosure(), now + 31).is_err());
+        Ok(())
+    }
+
+    fn check_capability(
+        &mut self,
+        index: AuthDiscoveryIndex,
+        mut context: layerx_human_service::server::backend::PrincipalContext,
+    ) -> Result<AuthDiscoveryIndex> {
+        let root = self.root.as_path();
+        let alice = &self.alice;
+        let alice_token = &self.alice_token;
+        let bob_token = &self.bob_token;
+        let now = self.now;
+        let schema = ApiSchema::v1().map_err(|_| "schema refused")?;
+        let operation = schema
+            .operation("intent.plan")
+            .ok_or("intent.plan missing")?;
+        let body = json!({"amount": "1"});
+        let path_parameters = BTreeMap::new();
+        let disclosure = || AuthorizationDisclosure {
+            operation,
+            destination: "/v1/intents/plan",
+            path_parameters: &path_parameters,
+            body: &body,
+            idempotency_key: None,
+            trace: "trace-identity-binding",
+        };
+        self.check_changed_disclosures(&index, &mut context)?;
+        let store = self.store.as_mut().ok_or("store missing")?;
+        drop(index);
+        let index = AuthDiscoveryIndex::open(
+            root.join("auth-index"),
+            IndexAuthenticationKey::new([0x5a; 32]).map_err(|_| "index key refused")?,
+        )
+        .map_err(|_| "index reopen refused")?;
+        consume_context(&index, &context, disclosure(), now)
+            .map_err(|_| "persisted capability refused")?;
+        assert!(consume_context(&index, &context, disclosure(), now).is_err());
+        let unsigned_context = authorize_bearer_execution(
+            store,
+            &index,
+            &alice.principal,
+            alice_token,
+            disclosure(),
+            now,
+            30,
+        )
+        .map_err(|_| "bearer capability refused")?
+        .into_context()
         .map_err(|_| "capability context refused")?;
-    assert_eq!(context.principal, alice.principal);
-    assert_eq!(context.tenant.as_str(), binding.agent_tenant());
-    assert_eq!(context.assertion(), Some(alice_token.as_str()));
-    let changed_body = json!({"amount": "2"});
-    assert!(consume_context(
-        &index,
-        &context,
-        AuthorizationDisclosure {
-            body: &changed_body,
-            ..disclosure()
-        },
-        now
-    )
-    .is_err());
-    assert!(consume_context(
-        &index,
-        &context,
-        AuthorizationDisclosure {
-            destination: "/v1/intents/other",
-            ..disclosure()
-        },
-        now
-    )
-    .is_err());
-    let changed_operation = schema
-        .operation("intent.submit")
-        .ok_or("intent.submit missing")?;
-    assert!(consume_context(
-        &index,
-        &context,
-        AuthorizationDisclosure {
-            operation: changed_operation,
-            ..disclosure()
-        },
-        now
-    )
-    .is_err());
-    context.principal = bob.principal.clone();
-    assert!(consume_context(&index, &context, disclosure(), now).is_err());
-    context.principal = alice.principal.clone();
-    context.tenant = AgentTenantId::new("other-tenant")?;
-    assert!(consume_context(&index, &context, disclosure(), now).is_err());
-    context.tenant = AgentTenantId::new(binding.agent_tenant())?;
-    let session = context.session_id.clone();
-    context.session_id =
-        layerx_human_service::server::production_auth::bearer_session_id(&bob_token);
-    assert!(consume_context(&index, &context, disclosure(), now).is_err());
-    context.session_id = session;
-    assert!(consume_context(&index, &context, disclosure(), now + 31).is_err());
-    drop(index);
-    let index = AuthDiscoveryIndex::open(
-        root.join("auth-index"),
-        IndexAuthenticationKey::new([0x5a; 32]).map_err(|_| "index key refused")?,
-    )
-    .map_err(|_| "index reopen refused")?;
-    consume_context(&index, &context, disclosure(), now)
-        .map_err(|_| "persisted capability refused")?;
-    assert!(consume_context(&index, &context, disclosure(), now).is_err());
-    let unsigned_context = authorize_bearer_execution(
-        &mut store,
-        &index,
-        &alice.principal,
-        &alice_token,
-        disclosure(),
-        now,
-        30,
-    )
-    .map_err(|_| "bearer capability refused")?
-    .into_context()
-    .map_err(|_| "capability context refused")?;
-    assert!(consume_context(&index, &unsigned_context, disclosure(), now).is_err());
-    let replaced_assertion = authorize_bearer_execution(
-        &mut store,
-        &index,
-        &alice.principal,
-        &alice_token,
-        disclosure(),
-        now,
-        30,
-    )
-    .map_err(|_| "bearer capability refused")?;
-    assert!(replaced_assertion
-        .into_bearer_context(&bob_token, OTHER_DID)
-        .is_err());
-    let carol_did = String::from_utf8(client.lookup(carol.as_str())?.did().as_bytes().to_vec())?;
-    assert!(refused(identity.resolve_assertion_with_binding(
-        &supabase.assertion("supabase-user-e", now),
-        Some(&producer.binding("supabase-user-e", &carol_did, TENANT)),
-    )));
-    let mut wrong_gid = Config {
-        socket: root.join("binding.sock"),
-        tenant: TENANT.into(),
-        peer_uid: rustix::process::geteuid().as_raw(),
-        peer_gid: egid.wrapping_add(1),
-        deadline: Duration::from_secs(1),
-    };
-    assert!(Client::new(wrong_gid.clone(), support::clock()?)?
-        .lookup(alice.principal.as_str())
-        .is_err());
-    wrong_gid.peer_uid = wrong_gid.peer_uid.wrapping_add(1);
-    assert!(Client::new(wrong_gid, support::clock()?).is_err());
-    let dave = identity.resolve_assertion(&supabase.assertion("supabase-user-d", now))?;
-    assert!(dave.binding_pending());
-    assert!(authorize_bearer_execution(
-        &mut store,
-        &index,
-        &dave.principal,
-        &alice_token,
-        disclosure(),
-        now,
-        30,
-    )
-    .is_err());
+        assert!(consume_context(&index, &unsigned_context, disclosure(), now).is_err());
+        let replaced_assertion = authorize_bearer_execution(
+            store,
+            &index,
+            &alice.principal,
+            alice_token,
+            disclosure(),
+            now,
+            30,
+        )
+        .map_err(|_| "bearer capability refused")?;
+        assert!(replaced_assertion
+            .into_bearer_context(bob_token, OTHER_DID)
+            .is_err());
+        Ok(index)
+    }
 
-    assert!(tenant_client(root, "other-tenant")?
-        .lookup(alice.principal.as_str())
+    fn check_boundary_and_restart(&mut self, index: &AuthDiscoveryIndex) -> Result {
+        let root = self.root.as_path();
+        let supabase = &self.supabase;
+        let producer = &self.producer;
+        let keys = &self.keys;
+        let identity = &self.identity;
+        let client = self.client.clone();
+        let store_root = &self.store_root;
+        let digest = self.digest;
+        let alice_token = &self.alice_token;
+        let bob_token = &self.bob_token;
+        let alice = &self.alice;
+        let bob = &self.bob;
+        let carol = &self.carol;
+        let egid = self.egid;
+        let now = self.now;
+        let key = &self.key;
+        let binding_tenant = &self.binding_tenant;
+        let mut store = self.store.take().ok_or("store missing")?;
+        let schema = ApiSchema::v1().map_err(|_| "schema refused")?;
+        let operation = schema
+            .operation("intent.plan")
+            .ok_or("intent.plan missing")?;
+        let body = json!({"amount": "1"});
+        let path_parameters = BTreeMap::new();
+        let disclosure = || AuthorizationDisclosure {
+            operation,
+            destination: "/v1/intents/plan",
+            path_parameters: &path_parameters,
+            body: &body,
+            idempotency_key: None,
+            trace: "trace-identity-binding",
+        };
+        let carol_did =
+            String::from_utf8(client.lookup(carol.as_str())?.did().as_bytes().to_vec())?;
+        assert!(refused(&identity.resolve_assertion_with_binding(
+            &supabase.assertion("supabase-user-e", now),
+            Some(&producer.binding("supabase-user-e", &carol_did, TENANT)),
+        )));
+        let mut wrong_gid = Config {
+            socket: root.join("binding.sock"),
+            tenant: TENANT.into(),
+            peer_uid: rustix::process::geteuid().as_raw(),
+            peer_gid: egid.wrapping_add(1),
+            deadline: Duration::from_secs(1),
+        };
+        assert!(Client::new(wrong_gid.clone(), support::clock()?)?
+            .lookup(alice.principal.as_str())
+            .is_err());
+        wrong_gid.peer_uid = wrong_gid.peer_uid.wrapping_add(1);
+        assert!(Client::new(wrong_gid, support::clock()?).is_err());
+        let dave = identity.resolve_assertion(&supabase.assertion("supabase-user-d", now))?;
+        assert!(dave.binding_pending());
+        assert!(authorize_bearer_execution(
+            &mut store,
+            index,
+            &dave.principal,
+            alice_token,
+            disclosure(),
+            now,
+            30,
+        )
         .is_err());
-    assert!(matches!(
-        self::identity(root, egid.wrapping_add(1))?.resolve_assertion(&alice_token),
-        Err(IdentityDispatchError::ProviderAuthentication)
-    ));
 
-    drop(store);
-    running.stop()?;
-    assert!(identity.resolve_assertion(&alice_token).is_err());
-    let running = Running::start_with(root, Some(verifier(&keys, &producer)?))?;
-    assert_eq!(identity.resolve_assertion(&alice_token)?, alice);
-    assert_eq!(identity.resolve_assertion(&bob_token)?, bob);
-    assert!(identity
-        .resolve_assertion(&supabase.assertion("supabase-user-d", now))?
-        .binding_pending());
-    let mut store = open(&store_root, digest, client.clone())?;
-    assert_eq!(
-        store
-            .principal(&alice.principal)?
-            .get(Table::Journeys, &key)
-            .ok_or("alice row")?
-            .bytes(),
-        b"alice"
-    );
-    assert_eq!(
-        client.lookup(alice.principal.as_str())?.agent_tenant(),
-        binding.agent_tenant()
-    );
-    assert!(store.principal(&dave.principal).is_err());
-    running.stop()?;
-    Ok(())
+        assert!(tenant_client(root, "other-tenant")?
+            .lookup(alice.principal.as_str())
+            .is_err());
+        assert!(matches!(
+            self::identity(root, egid.wrapping_add(1))?.resolve_assertion(alice_token),
+            Err(IdentityDispatchError::ProviderAuthentication)
+        ));
+
+        drop(store);
+        self.running.take().ok_or("running missing")?.stop()?;
+        assert!(identity.resolve_assertion(alice_token).is_err());
+        let running = Running::start_with(root, Some(verifier(keys, producer)?))?;
+        let observed_alice = identity.resolve_assertion(alice_token)?;
+        assert_eq!(observed_alice.principal, alice.principal);
+        assert_eq!(observed_alice.did, alice.did);
+        let observed_bob = identity.resolve_assertion(bob_token)?;
+        assert_eq!(observed_bob.principal, bob.principal);
+        assert_eq!(observed_bob.did, bob.did);
+        assert!(identity
+            .resolve_assertion(&supabase.assertion("supabase-user-d", now))?
+            .binding_pending());
+        let mut store = open(store_root, digest, client.clone())?;
+        assert_eq!(
+            store
+                .principal(&alice.principal)?
+                .get(Table::Journeys, key)
+                .ok_or("alice row")?
+                .bytes(),
+            b"alice"
+        );
+        assert_eq!(
+            client.lookup(alice.principal.as_str())?.agent_tenant(),
+            binding_tenant.as_str()
+        );
+        assert!(store.principal(&dave.principal).is_err());
+        running.stop()?;
+        Ok(())
+    }
+}
+
+#[test]
+fn assertion_subject_resolves_one_durable_wallet_principal_and_tenant_across_restart() -> Result {
+    let mut scenario = AssertionScenario::new()?;
+    let (index, context) = scenario.begin_capability()?;
+    let index = scenario.check_capability(index, context)?;
+    scenario.check_boundary_and_restart(&index)
 }
 
 #[derive(serde::Deserialize)]
@@ -836,6 +1035,7 @@ fn assertion_capability_reaches_existing_attestor_admission() -> Result {
 }
 
 #[path = "support/producer_path.rs"]
+#[allow(dead_code)]
 mod producer_path;
 
 #[test]

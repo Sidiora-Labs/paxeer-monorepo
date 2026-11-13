@@ -108,8 +108,8 @@ type MeasurementReport struct {
 	ReleaseReady                          bool                `json:"releaseReady"`
 }
 
-var measurementKinds = []string{"exports", "pending-governance", "unknown-implementation", "no-oracle", "quotes", "creation-fees", "zero-real-sell", "private-export", "quoter-revoked"}
-var measurementRequirements = map[string]string{"010": "exports", "011": "pending-governance", "012": "unknown-implementation", "023": "no-oracle", "024": "quotes", "025": "creation-fees", "026": "zero-real-sell", "029": "private-export", "030": "quoter-revoked"}
+var measurementKinds = []string{valueExports, valuePendingGovernance, valueUnknownImplementation, valueNoOracle, valueQuotes, valueCreationFees, valueZeroRealSell, valuePrivateExport, valueQuoterRevoked}
+var measurementRequirements = map[string]string{"010": valueExports, "011": valuePendingGovernance, "012": valueUnknownImplementation, "023": valueNoOracle, "024": valueQuotes, "025": valueCreationFees, "026": valueZeroRealSell, "029": valuePrivateExport, "030": valueQuoterRevoked}
 
 func validMeasurementDigest(value string) bool {
 	if len(value) != 64 || strings.ToLower(value) != value {
@@ -146,15 +146,15 @@ func (p MeasurementPlan) Validate(e *PreflightEngine) error {
 			return deployment.Issue{Code: "measurement_case_invalid"}
 		}
 		seen[probe.Kind] = true
-		if probe.Kind == "quotes" || probe.Kind == "zero-real-sell" || probe.Kind == "no-oracle" {
+		if probe.Kind == valueQuotes || probe.Kind == valueZeroRealSell || probe.Kind == valueNoOracle {
 			if probe.Request.BlockHash != probe.BlockHash || probe.Request.ExpectedRevision != e.revision.RevisionSHA256 || probe.Request.Family != PlainQuote || probe.Request.Pool == (common.Address{}) || probe.Request.Trader == (common.Address{}) || probe.Request.Recipient == (common.Address{}) {
 				return deployment.Issue{Code: "measurement_quote_context_invalid"}
 			}
 		}
-		if probe.Kind == "quotes" && (probe.OpticalRequest.BlockHash != probe.BlockHash || probe.OpticalRequest.ExpectedRevision != e.revision.RevisionSHA256 || probe.OpticalRequest.Family != PlainQuote || probe.OpticalRequest.Pool == (common.Address{}) || probe.OpticalRequest.Pool == probe.Request.Pool || probe.OpticalRequest.Trader != probe.Request.Trader || probe.OpticalRequest.Recipient != probe.Request.Recipient) {
+		if probe.Kind == valueQuotes && (probe.OpticalRequest.BlockHash != probe.BlockHash || probe.OpticalRequest.ExpectedRevision != e.revision.RevisionSHA256 || probe.OpticalRequest.Family != PlainQuote || probe.OpticalRequest.Pool == (common.Address{}) || probe.OpticalRequest.Pool == probe.Request.Pool || probe.OpticalRequest.Trader != probe.Request.Trader || probe.OpticalRequest.Recipient != probe.Request.Recipient) {
 			return deployment.Issue{Code: "measurement_optical_context_missing"}
 		}
-		if probe.Kind == "creation-fees" && (len(probe.ReceiptHashes) != 2 || probe.ReceiptHashes[0] == (common.Hash{}) || probe.ReceiptHashes[1] == (common.Hash{}) || probe.ReceiptHashes[0] == probe.ReceiptHashes[1]) {
+		if probe.Kind == valueCreationFees && (len(probe.ReceiptHashes) != 2 || probe.ReceiptHashes[0] == (common.Hash{}) || probe.ReceiptHashes[1] == (common.Hash{}) || probe.ReceiptHashes[0] == probe.ReceiptHashes[1]) {
 			return deployment.Issue{Code: "creation_receipt_inputs_missing"}
 		}
 	}
@@ -545,7 +545,7 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 	}
 	policy := deployment.Policy{Now: time.Now().UTC(), MaxAge: e.maxAge, Timeout: e.timeout}
 	manifest := e.manifest
-	if probe.Kind == "pending-governance" {
+	if probe.Kind == valuePendingGovernance {
 		manifest.Status = "pending-beacon-acceptance"
 	}
 	attestation, err := deployment.Attest(ctx, reader, manifest, probe.BlockHash, policy)
@@ -555,15 +555,15 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 		sample.Issue = &issue
 		return
 	}
-	if probe.Kind == "pending-governance" {
+	if probe.Kind == valuePendingGovernance {
 		actionable := false
 		for _, issue := range attestation.Issues {
-			if issue.Role == "PoolBeacon" && (issue.Code == "governance_handoff_pending" || issue.Code == "manifest_governance_pending") {
+			if issue.Role == valuePoolBeacon && (issue.Code == "governance_handoff_pending" || issue.Code == "manifest_governance_pending") {
 				actionable = true
 			}
 		}
-		if attestation.Eligible || !actionable || !attestation.Identities["PoolBeacon"].Verified || len(attestation.ActualOwner) != 42 || !common.IsHexAddress(attestation.ActualOwner) || len(attestation.PendingOwner) != 42 || !common.IsHexAddress(attestation.PendingOwner) || (common.HexToAddress(attestation.ActualOwner) == common.HexToAddress(manifest.Governance.ExpectedBeaconOwner) && common.HexToAddress(attestation.PendingOwner) == (common.Address{})) {
-			fail("pending_governance_fixture_not_observed", "PoolBeacon")
+		if attestation.Eligible || !actionable || !attestation.Identities[valuePoolBeacon].Verified || len(attestation.ActualOwner) != 42 || !common.IsHexAddress(attestation.ActualOwner) || len(attestation.PendingOwner) != 42 || !common.IsHexAddress(attestation.PendingOwner) || (common.HexToAddress(attestation.ActualOwner) == common.HexToAddress(manifest.Governance.ExpectedBeaconOwner) && common.HexToAddress(attestation.PendingOwner) == (common.Address{})) {
+			fail("pending_governance_fixture_not_observed", valuePoolBeacon)
 			return
 		}
 		sample.Passed = true
@@ -633,7 +633,7 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 		return
 	}
 	switch probe.Kind {
-	case "exports":
+	case valueExports:
 		exported, err := deployment.ExportRevision(manifest, attestation, policy, plan.PublicEndpoints, e.revision, plan.GoBuild.Addresses, plan.FrontendBuild.Addresses)
 		if err != nil {
 			issue := measurementIssue(err)
@@ -648,13 +648,13 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 		for name, address := range plan.FrontendBuild.Addresses {
 			changed[name] = address
 		}
-		changed["Router"] = manifest.Roles["Quoter"].Address
+		changed[valueRouter] = manifest.Roles[valueQuoter].Address
 		rejected, err := deployment.ExportRevision(manifest, attestation, policy, plan.PublicEndpoints, e.revision, plan.GoBuild.Addresses, changed)
-		if err == nil || rejected.SchemaVersion != 0 || !strings.Contains(err.Error(), "Router") {
-			fail("router_conflict_not_rejected", "Router")
+		if err == nil || rejected.SchemaVersion != 0 || !strings.Contains(err.Error(), valueRouter) {
+			fail("router_conflict_not_rejected", valueRouter)
 			return
 		}
-	case "unknown-implementation":
+	case valueUnknownImplementation:
 		distinguished := false
 		for name, identity := range attestation.Identities {
 			if identity.Verified || identity.ImplementationAddress == "" {
@@ -678,7 +678,7 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 			fail("different_implementation_fixture_missing", "")
 			return
 		}
-	case "no-oracle":
+	case valueNoOracle:
 		if !families[Creation].Supported || !families[PlainQuote].Supported || families[Creation].OracleRequired || families[PlainQuote].OracleRequired || families[DisplayConversion].Supported || families[DisplayConversion].ReasonCode != DisplayUnavailable {
 			fail("core_oracle_independence_failed", "")
 			return
@@ -686,10 +686,10 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 		result, err := e.Preflight(ctx, probe.Request)
 		sample.Preflight = &result
 		if err != nil || !result.Supported || result.OracleRequired || result.Quote == nil || result.CreationCost != nil {
-			fail("core_quote_without_oracle_unavailable", "Quoter")
+			fail("core_quote_without_oracle_unavailable", valueQuoter)
 			return
 		}
-	case "quotes", "zero-real-sell":
+	case valueQuotes, valueZeroRealSell:
 		result, err := e.Preflight(ctx, probe.Request)
 		sample.Preflight = &result
 		if err != nil {
@@ -701,16 +701,16 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 			fail("actual_pool_snapshot_missing", "Pool")
 			return
 		}
-		if probe.Kind == "zero-real-sell" {
+		if probe.Kind == valueZeroRealSell {
 			if probe.Request.IsBuy || result.Pool.RealUSDLBalance != "0" || result.Pool.VirtualUSDLReserve == "0" || result.Pool.RedeemableLiquidityRaw != "0" || result.Supported || result.ExecutionPermitted || result.ReasonCode != UnexecutableQuote {
 				fail("virtual_liquidity_sell_not_blocked", "Pool")
 				return
 			}
 			break
 		}
-		actual, quoteErr := ReadPinnedQuote(ctx, reader, common.HexToAddress(manifest.Roles["Quoter"].Address), probe.Request.Pool, probe.Request.Trader, probe.Request.AmountIn, probe.Request.IsBuy, probe.BlockHash)
+		actual, quoteErr := ReadPinnedQuote(ctx, reader, common.HexToAddress(manifest.Roles[valueQuoter].Address), probe.Request.Pool, probe.Request.Trader, probe.Request.AmountIn, probe.Request.IsBuy, probe.BlockHash)
 		if common.HexToAddress(result.Pool.Optical) != (common.Address{}) || quoteErr != nil || !result.Supported || result.Quote == nil || *result.Quote != actual {
-			fail("contract_quote_tuple_mismatch", "Quoter")
+			fail("contract_quote_tuple_mismatch", valueQuoter)
 			return
 		}
 		optical, err := e.Preflight(ctx, probe.OpticalRequest)
@@ -719,14 +719,14 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 			sample.Issue = &issue
 			return
 		}
-		_, opticalErr := ReadPinnedQuote(ctx, reader, common.HexToAddress(manifest.Roles["Quoter"].Address), probe.OpticalRequest.Pool, probe.OpticalRequest.Trader, probe.OpticalRequest.AmountIn, probe.OpticalRequest.IsBuy, probe.BlockHash)
+		_, opticalErr := ReadPinnedQuote(ctx, reader, common.HexToAddress(manifest.Roles[valueQuoter].Address), probe.OpticalRequest.Pool, probe.OpticalRequest.Trader, probe.OpticalRequest.AmountIn, probe.OpticalRequest.IsBuy, probe.BlockHash)
 		var unavailable Unavailable
 		if optical.Pool == nil || common.HexToAddress(optical.Pool.Optical) == (common.Address{}) || optical.Supported || optical.ExecutionPermitted || optical.ReasonCode != OpticalQuoteUnsupported || !errors.As(opticalErr, &unavailable) || unavailable.ReasonCode != OpticalQuoteUnsupported {
-			fail("optical_quote_not_typed", "Quoter")
+			fail("optical_quote_not_typed", valueQuoter)
 			return
 		}
 		sample.OpticalPreflight = &optical
-	case "creation-fees":
+	case valueCreationFees:
 		paths := map[string]bool{}
 		for _, hash := range probe.ReceiptHashes {
 			fee, err := e.ReconcileCreationFee(ctx, hash, probe.TreasuryIdentity)
@@ -752,11 +752,11 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 			}
 			paths[fee.Path] = true
 		}
-		if !paths["Router"] || !paths["SidioraFactory"] {
+		if !paths[valueRouter] || !paths[valueSidioraFactory] {
 			fail("creation_paths_incomplete", "")
 			return
 		}
-	case "private-export":
+	case valuePrivateExport:
 		if err := attestation.ValidateFor(manifest, policy); err != nil {
 			fail("private_export_fixture_not_eligible", "")
 			return
@@ -765,12 +765,12 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 		for name, address := range plan.GoBuild.Addresses {
 			changed[name] = address
 		}
-		changed["Router"] = manifest.Roles["Quoter"].Address
+		changed[valueRouter] = manifest.Roles[valueQuoter].Address
 		endpoints := plan.PublicEndpoints
 		endpoints.RPC = "https://redaction-check:PRIVATE_EXPORT_SENTINEL@invalid.example/rpc"
 		exported, err := deployment.ExportRevision(manifest, attestation, policy, endpoints, e.revision, changed, plan.FrontendBuild.Addresses)
-		if err == nil || exported.SchemaVersion != 0 || !strings.Contains(err.Error(), "Router") || strings.Contains(err.Error(), "PRIVATE_EXPORT_SENTINEL") {
-			fail("private_export_redaction_failed", "Router")
+		if err == nil || exported.SchemaVersion != 0 || !strings.Contains(err.Error(), valueRouter) || strings.Contains(err.Error(), "PRIVATE_EXPORT_SENTINEL") {
+			fail("private_export_redaction_failed", valueRouter)
 			return
 		}
 		exported, err = deployment.ExportRevision(manifest, attestation, policy, endpoints, e.revision, plan.GoBuild.Addresses, plan.FrontendBuild.Addresses)
@@ -778,9 +778,9 @@ func (e *PreflightEngine) measureCase(ctx context.Context, plan MeasurementPlan,
 			fail("private_endpoint_export_not_rejected", "")
 			return
 		}
-	case "quoter-revoked":
-		if attestation.Identities["Quoter"].Verified || families[PlainQuote].Supported || !families[Creation].Supported || !families[NFTFees].Supported || families[Opticals].Supported || families[Opticals].ReasonCode != OpticalQuoteUnsupported {
-			fail("dependency_revocation_not_isolated", "Quoter")
+	case valueQuoterRevoked:
+		if attestation.Identities[valueQuoter].Verified || families[PlainQuote].Supported || !families[Creation].Supported || !families[NFTFees].Supported || families[Opticals].Supported || families[Opticals].ReasonCode != OpticalQuoteUnsupported {
+			fail("dependency_revocation_not_isolated", valueQuoter)
 			return
 		}
 	default:
@@ -861,13 +861,13 @@ func measurementUniqueJSON(data []byte) error {
 
 func (e *PreflightEngine) measureWiring(ctx context.Context, block common.Hash, families map[Family]FamilyCapability) *deployment.Issue {
 	wiring := map[string]map[string]string{
-		"Router":         {"factory()": "SidioraFactory", "poolRegistry()": "PoolRegistry", "protocolConfig()": "ProtocolConfig", "usdlAddress()": "USDL"},
-		"Quoter":         {"poolRegistry()": "PoolRegistry", "protocolConfig()": "ProtocolConfig"},
-		"SidioraFactory": {"poolBeacon()": "PoolBeacon", "nftContract()": "SidioraNFT", "poolRegistry()": "PoolRegistry", "eventEmitter()": "EventEmitter", "protocolConfig()": "ProtocolConfig", "feeAccumulator()": "FeeAccumulator", "usdlAddress()": "USDL"},
-		"PoolRegistry":   {"eventEmitter()": "EventEmitter"},
-		"FeeAccumulator": {"protocolConfig()": "ProtocolConfig", "poolRegistry()": "PoolRegistry", "eventEmitter()": "EventEmitter", "usdlAddress()": "USDL"},
-		"SidioraNFT":     {"eventEmitter()": "EventEmitter"},
-		"FeesRouter":     {"nftContract()": "SidioraNFT", "feeAccumulator()": "FeeAccumulator", "poolRegistry()": "PoolRegistry"},
+		valueRouter:         {"factory()": valueSidioraFactory, valuePoolRegistryCall: valuePoolRegistry, valueProtocolConfigCall: valueProtocolConfig, valueUsdlAddress: valueUSDL},
+		valueQuoter:         {valuePoolRegistryCall: valuePoolRegistry, valueProtocolConfigCall: valueProtocolConfig},
+		valueSidioraFactory: {"poolBeacon()": valuePoolBeacon, "nftContract()": valueSidioraNFT, valuePoolRegistryCall: valuePoolRegistry, valueEventEmitterCall: valueEventEmitter, valueProtocolConfigCall: valueProtocolConfig, "feeAccumulator()": valueFeeAccumulator, valueUsdlAddress: valueUSDL},
+		valuePoolRegistry:   {valueEventEmitterCall: valueEventEmitter},
+		valueFeeAccumulator: {valueProtocolConfigCall: valueProtocolConfig, valuePoolRegistryCall: valuePoolRegistry, valueEventEmitterCall: valueEventEmitter, valueUsdlAddress: valueUSDL},
+		valueSidioraNFT:     {valueEventEmitterCall: valueEventEmitter},
+		"FeesRouter":        {"nftContract()": valueSidioraNFT, "feeAccumulator()": valueFeeAccumulator, valuePoolRegistryCall: valuePoolRegistry},
 	}
 	required := map[string]bool{}
 	for family, capability := range families {

@@ -57,6 +57,9 @@ def test_launchpad_abis_match_golden():
     golden = {}
     for role, signature, ident in P.launchpad_golden():
         golden.setdefault(role, {})[signature] = ident
+    assert "ChainLaunch" in P.LAUNCHPAD_ABI_ROLES
+    assert len(golden["ChainLaunch"]) == 13
+    assert P.LAUNCHPAD == "0x0000000000000000000000000000000000001017"
     for role in P.LAUNCHPAD_ABI_ROLES:
         entries = abi_entries(P.abi(role))
         assert {sig: ident for (_, sig), ident in entries.items()} == golden[role], role

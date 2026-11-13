@@ -175,7 +175,7 @@ impl KeyFiles {
         Ok(Keys {
             attestor,
             submitter,
-            receiver_key: receiver,
+            receiver,
         })
     }
 }
@@ -234,7 +234,7 @@ const fn nibble(byte: u8) -> Option<u8> {
 pub struct Keys {
     attestor: Option<SecpKey>,
     submitter: Option<SecpKey>,
-    receiver_key: SecpKey,
+    receiver: SecpKey,
 }
 
 impl Keys {
@@ -250,7 +250,7 @@ impl Keys {
 
     #[must_use]
     pub const fn receiver(&self) -> &SecpKey {
-        &self.receiver_key
+        &self.receiver
     }
 }
 

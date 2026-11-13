@@ -1,7 +1,4 @@
-use super::{
-    decode_hex, hex, json_response, parse_hex32, response, unauthorized_or, upstream_json, Config,
-    OutgoingResponse,
-};
+use super::{decode_hex, hex, json_response, parse_hex32, response, unauthorized_or, upstream_json, Config, OutgoingResponse};
 use layerx_proof::inclusion::{verify_receipt, SequencerAuthorization};
 use layerx_proof::merkle::Proof;
 use layerx_wire::batch_maintenance::decode_maintenance;
@@ -48,48 +45,24 @@ fn head_claims(receipt: &[u8], header: &BatchHeader) -> Result<(u64, u64, [u8; 3
     if let Ok(record) = decode_maintenance(receipt) {
         record.verify_header(header).map_err(|_| ())?;
         let occupancy = record.occupancy();
-        return Ok((
-            occupancy.global_sequence,
-            header.timestamp_ms(),
-            occupancy.resulting_state_root,
-        ));
+        return Ok((occupancy.global_sequence, header.timestamp_ms(), occupancy.resulting_state_root));
     }
     let decoded = decode(receipt).map_err(|_| ())?;
     let protocol = decoded.protocol().ok_or(())?;
-    if protocol.global_sequence() < header.first_sequence()
-        || protocol.global_sequence() > header.last_sequence()
-    {
+    if protocol.global_sequence() < header.first_sequence() || protocol.global_sequence() > header.last_sequence() {
         return Err(());
     }
-    Ok((
-        protocol.global_sequence(),
-        protocol.timestamp(),
-        protocol.resulting_state_root(),
-    ))
+    Ok((protocol.global_sequence(), protocol.timestamp(), protocol.resulting_state_root()))
 }
 
-fn verified_state(
-    head: &HeadDocument,
-    authorization: &SequencerAuthorization,
-) -> Result<VerifiedState, ()> {
+fn verified_state(head: &HeadDocument, authorization: &SequencerAuthorization) -> Result<VerifiedState, ()> {
     let receipt = decode_hex(&head.receipt_hex, MAX_RECEIPT_BYTES).map_err(|_| ())?;
-    let header_bytes =
-        decode_hex(&head.batch_evidence.header_hex, MAX_HEADER_BYTES).map_err(|_| ())?;
-    let signature: [u8; 64] = decode_hex(&head.batch_evidence.header_signature, 64)
-        .map_err(|_| ())?
-        .try_into()
-        .map_err(|_| ())?;
-    let encoded_proof =
-        decode_hex(&head.batch_evidence.receipt_proof_hex, MAX_PROOF_BYTES).map_err(|_| ())?;
+    let header_bytes = decode_hex(&head.batch_evidence.header_hex, MAX_HEADER_BYTES).map_err(|_| ())?;
+    let signature: [u8; 64] = decode_hex(&head.batch_evidence.header_signature, 64).map_err(|_| ())?.try_into().map_err(|_| ())?;
+    let encoded_proof = decode_hex(&head.batch_evidence.receipt_proof_hex, MAX_PROOF_BYTES).map_err(|_| ())?;
     let path = decode_merkle_proof(&encoded_proof).map_err(|_| ())?;
-    let proof = Proof::new(
-        path.leaf_index(),
-        path.leaf_count(),
-        path.siblings().to_vec(),
-    )
-    .map_err(|_| ())?;
-    let evidence = verify_receipt(&receipt, &proof, &header_bytes, &signature, authorization)
-        .map_err(|_| ())?;
+    let proof = Proof::new(path.leaf_index(), path.leaf_count(), path.siblings().to_vec()).map_err(|_| ())?;
+    let evidence = verify_receipt(&receipt, &proof, &header_bytes, &signature, authorization).map_err(|_| ())?;
     let header = evidence.header().header();
     let digest = if let Ok(maintenance) = decode_maintenance(&receipt) {
         maintenance.verify_header(header).map_err(|_| ())?;
@@ -143,11 +116,7 @@ fn read_archival(config: &Config, trace_id: &str) -> OutgoingResponse {
         Err(error) => return error,
     };
     if upstream.status == 503 {
-        return response(
-            503,
-            "principal_state_proof_unavailable",
-            Some(RETRY_AFTER_SECONDS),
-        );
+        return response(503, "principal_state_proof_unavailable", Some(RETRY_AFTER_SECONDS));
     }
     if upstream.status != 200 || upstream.content_type != "application/json" {
         return response(503, "component_invalid", Some(5));
@@ -162,56 +131,37 @@ fn read_archival(config: &Config, trace_id: &str) -> OutgoingResponse {
         Err(_) => return response(502, "state_document_invalid", None),
     };
     if !head.current {
-        return response(
-            503,
-            "principal_state_proof_unavailable",
-            Some(RETRY_AFTER_SECONDS),
-        );
+        return response(503, "principal_state_proof_unavailable", Some(RETRY_AFTER_SECONDS));
     }
     let receipt_keys = match config.receipt_keys() {
         Ok(keys) => keys,
         Err(unavailable) => return unavailable.into(),
     };
-    let Ok(header) = decode_hex(&head.batch_evidence.header_hex, MAX_HEADER_BYTES)
-        .map_err(|_| ())
-        .and_then(|bytes| decode_batch_header(&bytes).map_err(|_| ()))
-    else {
+    let Ok(header) = decode_hex(&head.batch_evidence.header_hex, MAX_HEADER_BYTES).map_err(|_| ()).and_then(|bytes| decode_batch_header(&bytes).map_err(|_| ())) else {
         return response(502, "state_proof_unverified", None);
     };
-    let sequencer_authorization = match receipt_keys
-        .authorization_for_header(header.sequencer_id(), header.batch_number())
-    {
+    let sequencer_authorization = match receipt_keys.authorization_for_header(header.sequencer_id(), header.batch_number()) {
         Ok(authorization) => authorization,
         Err(error) => return unauthorized_or(error, response(502, "state_proof_unverified", None)),
     };
     let Ok(state) = verified_state(&head, sequencer_authorization) else {
         return response(502, "state_proof_unverified", None);
     };
-    json_response(
-        200,
-        &serde_json::json!({ "ok": true, "result": document(&state), "trace": trace_id }),
-    )
+    json_response(200, &serde_json::json!({ "ok": true, "result": document(&state), "trace": trace_id }))
 }
 
 pub(super) fn read(config: &Config, trace_id: &str) -> OutgoingResponse {
     let Some(authority) = &config.committed_state else {
-        return response(
-            503,
-            "state_authority_not_configured",
-            Some(RETRY_AFTER_SECONDS),
-        );
+        return response(503, "state_authority_not_configured", Some(RETRY_AFTER_SECONDS));
     };
     let id = serde_json::json!("committed-state");
-    let Some(status) = super::chain_reads::consensus(config, "status", &id, serde_json::json!({}))
-    else {
+    let Some(status) = super::chain_reads::consensus(config, "status", &id, &serde_json::json!({})) else {
         return response(503, "state_node_unavailable", Some(5));
     };
     let Some(height) = status["sync_info"]["latest_block_height"].as_str() else {
         return response(502, "state_document_invalid", None);
     };
-    let Some(proof) =
-        super::chain_reads::consensus(config, "commit", &id, serde_json::json!({"height": height}))
-    else {
+    let Some(proof) = super::chain_reads::consensus(config, "commit", &id, &serde_json::json!({"height": height})) else {
         return response(503, "state_proof_unavailable", Some(5));
     };
     let Ok(now) = (config.state_clock)() else {
@@ -221,11 +171,7 @@ pub(super) fn read(config: &Config, trace_id: &str) -> OutgoingResponse {
         Ok(state) => state,
         Err(code) => return response(502, code, None),
     };
-    match config.store.observe_committed_state(
-        &authority.chain_id,
-        verified.height,
-        &hex(&verified.block_hash),
-    ) {
+    match config.store.observe_committed_state(&authority.chain_id, verified.height, &hex(&verified.block_hash)) {
         Ok(true) => {}
         Ok(false) => return response(502, "state_proof_stale", None),
         Err(_) => return response(503, "persistence_unavailable", Some(5)),
@@ -256,10 +202,7 @@ mod tests {
     }
 
     fn text(value: &serde_json::Value, name: &str) -> String {
-        value[name]
-            .as_str()
-            .unwrap_or_else(|| panic!("fixture field {name}"))
-            .to_owned()
+        value[name].as_str().unwrap_or_else(|| panic!("fixture field {name}")).to_owned()
     }
 
     fn fixture(relative: &str) -> serde_json::Value {
@@ -272,14 +215,10 @@ mod tests {
     fn head_envelope() -> (serde_json::Value, SequencerAuthorization) {
         let capture = fixture("tests/fixtures/maintained-authority.json");
         let evidence = &capture["authority"]["batch_evidence"];
-        let receipt = required(decode_hex(
-            &text(&capture, "receipt_hex"),
-            MAX_RECEIPT_BYTES,
-        ));
+        let receipt = required(decode_hex(&text(&capture, "receipt_hex"), MAX_RECEIPT_BYTES));
         let header_bytes = required(decode_hex(&text(evidence, "header_hex"), MAX_HEADER_BYTES));
         let header = required(layerx_wire::receipt::decode_batch_header(&header_bytes));
-        let (observed_sequence, observed_at, resulting_state_root) =
-            required(head_claims(&receipt, &header));
+        let (observed_sequence, observed_at, resulting_state_root) = required(head_claims(&receipt, &header));
         let authorization = SequencerAuthorization::new(
             required(parse_hex32(&text(&capture, "sequencer_id"))),
             required(parse_hex32(&text(&capture, "sequencer_public_key"))),
@@ -308,15 +247,9 @@ mod tests {
         let (envelope, authorization) = head_envelope();
         let head: HeadDocument = required(serde_json::from_value(envelope.clone()));
         let state = required(verified_state(&head, &authorization).map_err(|()| "unverified"));
-        let header_bytes = required(decode_hex(
-            &text(&envelope["batch_evidence"], "header_hex"),
-            MAX_HEADER_BYTES,
-        ));
+        let header_bytes = required(decode_hex(&text(&envelope["batch_evidence"], "header_hex"), MAX_HEADER_BYTES));
         let header = required(layerx_wire::receipt::decode_batch_header(&header_bytes));
-        let receipt = required(decode_hex(
-            &text(&envelope, "receipt_hex"),
-            MAX_RECEIPT_BYTES,
-        ));
+        let receipt = required(decode_hex(&text(&envelope, "receipt_hex"), MAX_RECEIPT_BYTES));
         let (sequence, timestamp, resulting_state_root) = required(head_claims(&receipt, &header));
         assert_eq!(state.canonical_state_root, resulting_state_root);
         assert_eq!(state.receipt_state_root, header.receipt_merkle_root());
@@ -324,20 +257,11 @@ mod tests {
         assert_eq!(state.timestamp_ms, timestamp);
         assert_eq!(state.observed_sequence, sequence);
         let published = document(&state);
-        assert_eq!(
-            published["canonical_state_root"],
-            serde_json::json!(hex(&resulting_state_root))
-        );
+        assert_eq!(published["canonical_state_root"], serde_json::json!(hex(&resulting_state_root)));
         assert_eq!(published["state_root"], published["canonical_state_root"]);
         assert_eq!(published["timestamp_ms"], serde_json::json!(timestamp));
-        assert_eq!(
-            published["observed_sequence"],
-            serde_json::json!(state.observed_sequence)
-        );
-        assert_eq!(
-            published["receipt_digest"],
-            serde_json::json!(hex(&state.receipt_digest))
-        );
+        assert_eq!(published["observed_sequence"], serde_json::json!(state.observed_sequence));
+        assert_eq!(published["receipt_digest"], serde_json::json!(hex(&state.receipt_digest)));
         for omitted in ["accounts", "cells", "next_sequence"] {
             assert!(published.get(omitted).is_none(), "{omitted}");
         }
@@ -346,23 +270,14 @@ mod tests {
     #[test]
     fn tampered_or_unpinned_head_documents_are_refused() {
         let (envelope, authorization) = head_envelope();
-        for field in [
-            "receipt_hex",
-            "receipt_digest",
-            "state_root",
-            "observed_sequence",
-            "observed_at",
-        ] {
+        for field in ["receipt_hex", "receipt_digest", "state_root", "observed_sequence", "observed_at"] {
             let mut changed = envelope.clone();
             changed[field] = match field {
                 "observed_sequence" | "observed_at" => {
                     serde_json::json!(envelope[field].as_u64().unwrap_or_default().wrapping_add(1))
                 }
                 "receipt_hex" => {
-                    let mut bytes = required(decode_hex(
-                        &text(&envelope, "receipt_hex"),
-                        MAX_RECEIPT_BYTES,
-                    ));
+                    let mut bytes = required(decode_hex(&text(&envelope, "receipt_hex"), MAX_RECEIPT_BYTES));
                     let last = bytes.len() - 1;
                     bytes[last] ^= 0x01;
                     serde_json::json!(hex(&bytes))
@@ -384,12 +299,7 @@ mod tests {
         }
         let head: HeadDocument = required(serde_json::from_value(envelope.clone()));
         let foreign = fixture("../authority/tests/fixtures/real-program-deploy-receipt.json");
-        let unpinned = SequencerAuthorization::new(
-            required(parse_hex32(&text(&foreign, "sequencer_id_hex"))),
-            required(parse_hex32(&text(&foreign, "sequencer_public_key_hex"))),
-            1,
-            u64::MAX,
-        );
+        let unpinned = SequencerAuthorization::new(required(parse_hex32(&text(&foreign, "sequencer_id_hex"))), required(parse_hex32(&text(&foreign, "sequencer_public_key_hex"))), 1, u64::MAX);
         assert!(verified_state(&head, &unpinned).is_err());
     }
 
@@ -404,5 +314,6 @@ mod tests {
 }
 
 #[cfg(test)]
+#[allow(unused, clippy::all, clippy::pedantic, clippy::unwrap_used, clippy::expect_used, clippy::float_arithmetic, clippy::lossy_float_literal)]
 #[path = "../../../../../tests/platform/gateway_maintenance_head.rs"]
 mod native_maintenance_tests;

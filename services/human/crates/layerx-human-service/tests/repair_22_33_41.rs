@@ -31,23 +31,28 @@ const JOURNEY_SCHEMA: &str = include_str!("../../../schema/human-api/journeys.kv
 fn prose(schema: &str, section: &str, key: &str) -> String {
     let section = schema
         .split_once(&format!("[{section}]\n"))
-        .expect("declared contract section")
+        .or_fail("declared contract section")
         .1
         .split("\n[")
         .next()
-        .expect("section contents");
+        .or_fail("section contents");
     let value = section
         .lines()
         .find_map(|line| line.strip_prefix(&format!("{key} = ")))
-        .expect("declared semantic property");
-    serde_json::from_str(value).expect("quoted contract prose")
+        .or_fail("declared semantic property");
+    serde_json::from_str(value).or_fail("quoted contract prose")
 }
 
 fn transcript() -> Value {
     serde_json::from_str(include_str!(
         "../src/journeys/repair_22_31_153_transcript.json"
     ))
-    .expect("committed node and consensus producer transcript")
+    .unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "committed node and consensus producer transcript"
+        )
+    })
 }
 
 fn unhex(text: &str) -> Vec<u8> {
@@ -56,15 +61,16 @@ fn unhex(text: &str) -> Vec<u8> {
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex text"), 16).expect("hex byte")
+            u8::from_str_radix(std::str::from_utf8(pair).or_fail("hex text"), 16)
+                .or_fail("hex byte")
         })
         .collect()
 }
 
 fn sender() -> [u8; 20] {
-    unhex(transcript()["sender"].as_str().expect("producer sender"))
+    unhex(transcript()["sender"].as_str().or_fail("producer sender"))
         .try_into()
-        .expect("address width")
+        .or_fail("address width")
 }
 
 fn asset() -> AssetId {
@@ -80,15 +86,15 @@ struct RpcPeer {
 
 impl RpcPeer {
     fn start() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback transport");
+        let listener = TcpListener::bind("127.0.0.1:0").or_fail("loopback transport");
         listener
             .set_nonblocking(true)
-            .expect("nonblocking listener");
+            .or_fail("nonblocking listener");
         let endpoint = SequencerEndpoint::new(
-            &format!("http://{}/", listener.local_addr().expect("address")),
+            &format!("http://{}/", listener.local_addr().or_fail("address")),
             &[],
         )
-        .expect("production client endpoint");
+        .or_fail("production client endpoint");
         let stop = Arc::new(AtomicBool::new(false));
         let stopping = stop.clone();
         let calls = Arc::new(Mutex::new(Vec::new()));
@@ -106,34 +112,34 @@ impl RpcPeer {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(3)))
-                    .expect("read deadline");
+                    .or_fail("read deadline");
                 stream
                     .set_write_timeout(Some(Duration::from_secs(3)))
-                    .expect("write deadline");
+                    .or_fail("write deadline");
                 let mut reader = BufReader::new(stream);
                 let mut length = None;
                 loop {
                     let mut line = String::new();
-                    assert_ne!(reader.read_line(&mut line).expect("HTTP header"), 0);
+                    assert_ne!(reader.read_line(&mut line).or_fail("HTTP header"), 0);
                     if line == "\r\n" {
                         break;
                     }
                     if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                        length = Some(value.trim().parse::<usize>().expect("body length"));
+                        length = Some(value.trim().parse::<usize>().or_fail("body length"));
                     }
                 }
-                let length = length.expect("content length");
+                let length = length.or_fail("content length");
                 assert!(length <= 65_536);
                 let mut body = vec![0; length];
-                reader.read_exact(&mut body).expect("RPC body");
-                let request: Value = serde_json::from_slice(&body).expect("RPC request");
+                reader.read_exact(&mut body).or_fail("RPC body");
+                let request: Value = serde_json::from_slice(&body).or_fail("RPC request");
                 let record = &document["records"][0];
-                let result = match request["method"].as_str().expect("RPC method") {
+                let result = match request["method"].as_str().or_fail("RPC method") {
                     "eth_getTransactionCount" => {
                         assert_eq!(request["params"][1], "pending");
                         json!(format!(
                             "0x{:x}",
-                            document["nonce"].as_u64().expect("recorded nonce")
+                            document["nonce"].as_u64().or_fail("recorded nonce")
                         ))
                     }
                     "pax_sequencerReceipt" => {
@@ -152,12 +158,12 @@ impl RpcPeer {
                     "eth_getBlockByNumber" => record["block"].clone(),
                     other => panic!("unrecorded producer method {other}"),
                 };
-                observed.lock().expect("calls").push(request.clone());
+                observed.lock().or_fail("calls").push(request.clone());
                 let body =
                     json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
                 let mut stream = reader.into_inner();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).expect("RPC response");
-                stream.flush().expect("response flush");
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).or_fail("RPC response");
+                stream.flush().or_fail("response flush");
             }
         });
         Self {
@@ -174,9 +180,9 @@ impl Drop for RpcPeer {
         self.stop.store(true, Ordering::Release);
         self.worker
             .take()
-            .expect("worker")
+            .or_fail("worker")
             .join()
-            .expect("RPC peer");
+            .or_fail("RPC peer");
     }
 }
 
@@ -186,7 +192,7 @@ fn intent_schema_dual_domain_bank_call_and_pending_nonce() {
     let nonce = peer
         .endpoint
         .pending_nonce(&sender())
-        .expect("pending node nonce");
+        .or_fail("pending node nonce");
     let request = RouteRequest {
         source: Endpoint::PaxeerWallet,
         destination: Endpoint::PaxeerWallet,
@@ -203,8 +209,8 @@ fn intent_schema_dual_domain_bank_call_and_pending_nonce() {
                     PublicKey::new([0x11; 32]),
                     AuthorizationSignature::new([0x22; 64]),
                 ),
-                network_id: NetworkId::new(125).expect("network"),
-                protocol_version: ProtocolVersion::new(3).expect("protocol"),
+                network_id: NetworkId::new(125).or_fail("network"),
+                protocol_version: ProtocolVersion::new(3).or_fail("protocol"),
             },
             pointer: EvmAddress::new(BANK_ADDRESS),
             denom: "uhpx".to_owned(),
@@ -217,9 +223,9 @@ fn intent_schema_dual_domain_bank_call_and_pending_nonce() {
         amount: Amount::from_u128(90),
     };
     let decoded =
-        RouteRequest::canonical_decode(&request.canonical_encode()).expect("real route codec");
+        RouteRequest::canonical_decode(&request.canonical_encode()).or_fail("real route codec");
     assert_eq!(decoded, request);
-    let route = RouteResolver::resolve(&decoded).expect("production bank resolver");
+    let route = RouteResolver::resolve(&decoded).or_fail("production bank resolver");
     let [call] = route.bank_transfers() else {
         panic!("one bank call")
     };
@@ -232,9 +238,9 @@ fn intent_schema_dual_domain_bank_call_and_pending_nonce() {
     amount[31] = 90;
     assert_eq!(
         bind_call(call, sender())
-            .expect("production disclosure consumer")
+            .or_fail("production disclosure consumer")
             .construct_method()
-            .expect("bank ABI"),
+            .or_fail("bank ABI"),
         Some(ConstructMethod::BankSend {
             from: sender(),
             to: [0x22; 20],
@@ -242,17 +248,17 @@ fn intent_schema_dual_domain_bank_call_and_pending_nonce() {
             amount,
         })
     );
-    let secret: [u8; 32] = unhex(transcript()["secret"].as_str().expect("synthetic signer"))
+    let secret: [u8; 32] = unhex(transcript()["secret"].as_str().or_fail("synthetic signer"))
         .try_into()
-        .expect("secret width");
-    let raw = call.sign(&secret).expect("production transaction encoder");
-    let (transaction, signature) = decode_signed(&raw).expect("production transaction consumer");
+        .or_fail("secret width");
+    let raw = call.sign(&secret).or_fail("production transaction encoder");
+    let (transaction, signature) = decode_signed(&raw).or_fail("production transaction consumer");
     assert_eq!(transaction, *call);
     assert_eq!(
-        recover_sender(&transaction, &signature).expect("sender binding"),
+        recover_sender(&transaction, &signature).or_fail("sender binding"),
         sender()
     );
-    assert_eq!(peer.calls.lock().expect("calls").len(), 1);
+    assert_eq!(peer.calls.lock().or_fail("calls").len(), 1);
     assert!(prose(INTENT_SCHEMA, "module", "spine").contains("single merged Paxeer network"));
     assert!(
         prose(INTENT_SCHEMA, "type.IntentDomain", "meaning").contains("compatibility vocabulary")
@@ -269,11 +275,11 @@ fn intent_schema_dual_domain_bank_call_and_pending_nonce() {
 
 #[test]
 fn intent_schema_dual_domain_strict_replan_and_unknown_refusal() {
-    let owner = AccountId::parse("agent:did:layerx:alice:main").expect("owner");
-    let home = Endpoint::human(owner.clone()).expect("home");
+    let owner = AccountId::parse("agent:did:layerx:alice:main").or_fail("owner");
+    let home = Endpoint::human(owner.clone()).or_fail("home");
     let destination =
-        Endpoint::agent(AccountId::parse("agent:did:layerx:bob:main").expect("agent"))
-            .expect("destination");
+        Endpoint::agent(AccountId::parse("agent:did:layerx:bob:main").or_fail("agent"))
+            .or_fail("destination");
     let snapshot = |known: bool| {
         ObservedState::new(
             TimestampSeconds::from_u64(100),
@@ -290,9 +296,9 @@ fn intent_schema_dual_domain_strict_replan_and_unknown_refusal() {
             },
             vec![],
             vec![],
-            FeeSchedule::new(vec![(LegMechanism::Protocol(Mechanism::Send), 2)]).expect("fees"),
+            FeeSchedule::new(vec![(LegMechanism::Protocol(Mechanism::Send), 2)]).or_fail("fees"),
         )
-        .expect("real observations")
+        .or_fail("real observations")
     };
     let intent = |amount| {
         UnifiedIntent::new(
@@ -302,13 +308,13 @@ fn intent_schema_dual_domain_strict_replan_and_unknown_refusal() {
             Amount::from_u128(amount),
             Constraints::new(TimestampSeconds::from_u64(200), 100, false),
         )
-        .expect("intent")
+        .or_fail("intent")
     };
-    let planned = plan(&intent(25), &snapshot(true)).expect("production planner");
+    let planned = plan(&intent(25), &snapshot(true)).or_fail("production planner");
     assert_eq!(planned.legs()[0].domain().as_str(), "layerx");
     assert_eq!(
         planned,
-        plan(&intent(25), &snapshot(true)).expect("deterministic replan")
+        plan(&intent(25), &snapshot(true)).or_fail("deterministic replan")
     );
     assert_eq!(
         plan(&intent(25), &snapshot(false)),
@@ -317,36 +323,32 @@ fn intent_schema_dual_domain_strict_replan_and_unknown_refusal() {
             asset: asset()
         })
     );
-    let replanned = plan(&intent(26), &snapshot(true)).expect("changed intent");
+    let replanned = plan(&intent(26), &snapshot(true)).or_fail("changed intent");
     assert_ne!(planned.digest(), replanned.digest());
     assert_ne!(
-        planned.action_key(0).expect("action"),
-        replanned.action_key(0).expect("action")
+        planned.action_key(0).or_fail("action"),
+        replanned.action_key(0).or_fail("action")
     );
     assert_ne!(
-        planned.signing_context(0).expect("context"),
-        replanned.signing_context(0).expect("context")
+        planned.signing_context(0).or_fail("context"),
+        replanned.signing_context(0).or_fail("context")
     );
     let expectation = BindingExpectation {
-        actor: AgentDid::new("did:layerx:alice").expect("actor"),
-        authority: AuthorityRef::new("custody-human-primary").expect("authority"),
+        actor: AgentDid::new("did:layerx:alice").or_fail("actor"),
+        authority: AuthorityRef::new("custody-human-primary").or_fail("authority"),
         account_sequence: 7,
         currency: "HPX".to_owned(),
         now: 100,
     };
-    let action: String = planned
-        .action_key(0)
-        .expect("action")
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    let action: String =
+        layerx_human_service::hex::lower((planned.action_key(0).or_fail("action")).as_ref());
     let binding = IntentLegBinding::from_json(&json!({
         "leg_index":0, "action_key":action, "actor":expectation.actor.as_str(),
         "authority":authority_label(planned.legs()[0].authority()), "relationship":"self",
         "account_sequence":7, "not_before":90, "not_after":150,
         "fee_limit":{"amount":"2", "currency":"HPX"}
     }))
-    .expect("production binding decoder");
+    .or_fail("production binding decoder");
     let mut request = SubmitPlanRequest {
         plan_digest: planned.digest(),
         signed_digest: planned.digest(),
@@ -368,22 +370,72 @@ fn intent_schema_dual_domain_strict_replan_and_unknown_refusal() {
     );
 }
 
+fn assert_journey_schema_copy(peer: &RpcPeer, receipt_rung: Rung, committed_rung: Rung) {
+    for rung in [Rung::Submitted, receipt_rung, committed_rung] {
+        let mapping = format!(
+            "{}:{}",
+            rung.name(),
+            HumanComponentServer::verification_level_name(rung)
+        );
+        assert!(JOURNEY_SCHEMA.contains(&format!("\"{mapping}\"")));
+    }
+    assert_eq!(
+        HumanComponentServer::verification_level_name(committed_rung),
+        "committed"
+    );
+    assert!(prose(JOURNEY_SCHEMA, "module", "network").contains("committed is final"));
+    assert!(prose(
+        JOURNEY_SCHEMA,
+        "type.JourneyState",
+        "done-finalised.semantics"
+    )
+    .contains("rather than an additional proof"));
+    assert!(prose(JOURNEY_SCHEMA, "type.EvidenceClass", "meaning")
+        .contains("Legacy evidence classes remain decodable"));
+    assert!(
+        prose(JOURNEY_SCHEMA, "type.JourneyState", "closed.semantics").contains("after reopening")
+    );
+    let schema = ApiSchema::v1().unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "production schema consumer accepts the revised contract"
+        )
+    });
+    assert!(schema.operation("journey.get").is_some());
+    assert!(schema.operation("evidence.get").is_some());
+    let methods: Vec<_> = peer
+        .calls
+        .lock()
+        .or_fail("calls")
+        .iter()
+        .map(|request| request["method"].as_str().or_fail("method").to_owned())
+        .collect();
+    for required in [
+        "pax_sequencerReceipt",
+        "px_getCommit",
+        "px_getValidators",
+        "eth_getBlockByNumber",
+    ] {
+        assert!(methods.iter().any(|method| method == required));
+    }
+}
+
 #[test]
 fn journey_schema_finality_copy_authenticates_committed_receipt() {
     let document = transcript();
     let record = &document["records"][0];
     let key = &document["key"];
     let keys = vec![ReceiptKeyEntry {
-        key_id: unhex(key["keyId"].as_str().expect("key id"))
+        key_id: unhex(key["keyId"].as_str().or_fail("key id"))
             .try_into()
-            .expect("id width"),
-        public_key: unhex(key["publicKey"].as_str().expect("public key"))
+            .or_fail("id width"),
+        public_key: unhex(key["publicKey"].as_str().or_fail("public key"))
             .try_into()
-            .expect("key width"),
-        first_height: key["firstHeight"].as_u64().expect("first height"),
-        last_height: key["lastHeight"].as_u64().expect("last height"),
+            .or_fail("key width"),
+        first_height: key["firstHeight"].as_u64().or_fail("first height"),
+        last_height: key["lastHeight"].as_u64().or_fail("last height"),
     }];
-    let raw = unhex(record["raw"].as_str().expect("producer transaction"));
+    let raw = unhex(record["raw"].as_str().or_fail("producer transaction"));
     let hash = transaction_hash(&raw);
     let peer = RpcPeer::start();
     let Lookup::Verified(receipt) = lookup_authenticated(
@@ -393,21 +445,26 @@ fn journey_schema_finality_copy_authenticates_committed_receipt() {
             receipt_keys: &keys,
         },
     )
-    .expect("authenticated real producer receipt over HTTP") else {
+    .unwrap_or_else(|error| {
+        panic!(
+            "{}: {error:?}",
+            "authenticated real producer receipt over HTTP"
+        )
+    }) else {
         panic!("verified receipt")
     };
     assert_eq!(receipt.activity_id(), hash);
     assert_eq!(receipt.rung(), Rung::Receipted);
-    let batch = unhex(record["batch"].as_str().expect("signed sequence batch"));
+    let batch = unhex(record["batch"].as_str().or_fail("signed sequence batch"));
     let proof = &record["proof"];
     let mut leaf = b"LXAR\x01".to_vec();
     for name in ["total", "index"] {
         leaf.extend(
             proof[name]
                 .as_str()
-                .expect("proof number")
+                .or_fail("proof number")
                 .parse::<i64>()
-                .expect("integer")
+                .or_fail("integer")
                 .to_be_bytes(),
         );
     }
@@ -416,29 +473,31 @@ fn journey_schema_finality_copy_authenticates_committed_receipt() {
     fields.extend(
         proof["aunts"]
             .as_array()
-            .expect("proof aunts")
+            .or_fail("proof aunts")
             .iter()
             .map(|aunt| {
                 base64::engine::general_purpose::STANDARD
-                    .decode(aunt.as_str().expect("aunt"))
-                    .expect("base64 proof")
+                    .decode(aunt.as_str().or_fail("aunt"))
+                    .or_fail("base64 proof")
             }),
     );
     let evidence = BankCommitEvidence {
         chain_id: record["material"]["signedHeader"]["header"]["chain_id"]
             .as_str()
-            .expect("chain")
+            .or_fail("chain")
             .to_owned(),
         trusted_validators: record["validators"].clone(),
         committed_header: record["material"]["signedHeader"].clone(),
-        covering_height: record["height"].as_u64().expect("height"),
+        covering_height: record["height"].as_u64().or_fail("height"),
         batch_transaction: batch,
         transaction_proof: fields,
         activity_ids: vec![hash],
     };
     let committed = evidence
         .authenticate(&peer.endpoint, hash, &keys)
-        .expect("production quorum and inclusion verifier");
+        .unwrap_or_else(|error| {
+            panic!("{}: {error:?}", "production quorum and inclusion verifier")
+        });
     assert_eq!(committed.rung(), Rung::Committed);
     assert_eq!(
         committed.receipt().canonical_bytes(),
@@ -457,46 +516,11 @@ fn journey_schema_finality_copy_authenticates_committed_receipt() {
         }
     )
     .is_err());
-    for rung in [Rung::Submitted, receipt.rung(), committed.rung()] {
-        let mapping = format!(
-            "{}:{}",
-            rung.name(),
-            HumanComponentServer::verification_level_name(rung)
-        );
-        assert!(JOURNEY_SCHEMA.contains(&format!("\"{mapping}\"")));
-    }
-    assert_eq!(
-        HumanComponentServer::verification_level_name(committed.rung()),
-        "committed"
-    );
-    assert!(prose(JOURNEY_SCHEMA, "module", "network").contains("committed is final"));
-    assert!(prose(
-        JOURNEY_SCHEMA,
-        "type.JourneyState",
-        "done-finalised.semantics"
-    )
-    .contains("rather than an additional proof"));
-    assert!(prose(JOURNEY_SCHEMA, "type.EvidenceClass", "meaning")
-        .contains("Legacy evidence classes remain decodable"));
-    assert!(
-        prose(JOURNEY_SCHEMA, "type.JourneyState", "closed.semantics").contains("after reopening")
-    );
-    let schema = ApiSchema::v1().expect("production schema consumer accepts the revised contract");
-    assert!(schema.operation("journey.get").is_some());
-    assert!(schema.operation("evidence.get").is_some());
-    let methods: Vec<_> = peer
-        .calls
-        .lock()
-        .expect("calls")
-        .iter()
-        .map(|request| request["method"].as_str().expect("method").to_owned())
-        .collect();
-    for required in [
-        "pax_sequencerReceipt",
-        "px_getCommit",
-        "px_getValidators",
-        "eth_getBlockByNumber",
-    ] {
-        assert!(methods.iter().any(|method| method == required));
-    }
+    assert_journey_schema_copy(&peer, receipt.rung(), committed.rung());
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

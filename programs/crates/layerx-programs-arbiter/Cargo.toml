@@ -13,7 +13,7 @@ layerx-programs-registry = { path = "../layerx-programs-registry" }
 layerx-proof = { path = "../../../services/agent/crates/layerx-proof" }
 layerx-wire = { path = "../../../services/agent/crates/layerx-wire" }
 layerx-types = { path = "../../../services/agent/crates/layerx-types" }
-layerx-crypto = { path = "../../../services/agent/crates/layerx-crypto" }
+layerx-crypto = { path = "../../../services/agent/crates/layerx-crypto", default-features = false }
 sha2.workspace = true
 
 [dev-dependencies]

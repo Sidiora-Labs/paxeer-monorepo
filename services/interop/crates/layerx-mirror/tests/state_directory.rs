@@ -34,7 +34,7 @@ impl Drop for StateDirectory {
 }
 
 fn succeed<T, E: Debug>(result: Result<T, E>) -> T {
-    result.unwrap_or_else(|error| panic!("state directory operation: {error:?}"))
+    result.or_panic("state directory operation")
 }
 
 fn snapshot(directory: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
@@ -102,11 +102,15 @@ fn a_v3_journal_round_trips_a_committed_cursor() {
         }
     }
 
+    assert_journal_lanes(&directory.0, &archives, committed);
+}
+
+fn assert_journal_lanes(directory: &Path, archives: &[&[u8]], committed: CommittedCoordinate) {
     for (chain, lane) in [
         (MirrorChain::Ethereum, "ethereum"),
         (MirrorChain::Solana, "solana"),
     ] {
-        let lane_path = directory.0.join(lane);
+        let lane_path = directory.join(lane);
         let mut expected_records = Vec::new();
         {
             let mut journal = succeed(PublicationJournal::open(&lane_path, chain, 7));
@@ -195,9 +199,9 @@ fn a_v3_journal_round_trips_a_committed_cursor() {
     }
 }
 
-fn framed_record(magic: &[u8; 8], version: u16) -> (Vec<u8>, Vec<u8>) {
+fn framed_record(magic: [u8; 8], version: u16) -> (Vec<u8>, Vec<u8>) {
     let mut body = Vec::new();
-    body.extend_from_slice(magic);
+    body.extend_from_slice(&magic);
     body.extend_from_slice(&version.to_be_bytes());
     body.push(1);
     body.extend_from_slice(&7_u64.to_be_bytes());
@@ -235,7 +239,7 @@ fn a_v2_state_directory_is_refused_at_open() {
     for (magic, version) in [(b"LXMJNL02", 2), (b"LXMJNL02", 3), (b"LXMJNL03", 2)] {
         for sealed in [false, true] {
             let directory = StateDirectory::new();
-            let (journal, head) = framed_record(magic, version);
+            let (journal, head) = framed_record(*magic, version);
             succeed(fs::write(directory.0.join("ethereum.journal"), journal));
             succeed(fs::write(directory.0.join("ethereum.lock"), []));
             if sealed {
@@ -250,7 +254,7 @@ fn a_v2_state_directory_is_refused_at_open() {
         }
     }
     let directory = StateDirectory::new();
-    let (journal, mut head) = framed_record(b"LXMJNL03", 3);
+    let (journal, mut head) = framed_record(*b"LXMJNL03", 3);
     head[..8].copy_from_slice(b"LXMHED02");
     succeed(fs::write(directory.0.join("ethereum.journal"), journal));
     succeed(fs::write(directory.0.join("ethereum.head"), head));
@@ -265,11 +269,7 @@ fn a_v2_state_directory_is_refused_at_open() {
     let directory = StateDirectory::new();
     let archive = b"version two spooled archive";
     let commitment = archive_commitment(archive);
-    let name: String = commitment
-        .as_bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
+    let name: String = hex_bytes_lower(commitment.as_bytes());
     let mut bytes = Vec::new();
     bytes.extend_from_slice(b"LXMSPL02");
     bytes.extend_from_slice(&43_u64.to_be_bytes());
@@ -291,4 +291,34 @@ fn a_v2_state_directory_is_refused_at_open() {
         Err(StoreError::Corrupt)
     ));
     assert_eq!(snapshot(&directory.0), before);
+}
+
+fn hex_bytes_lower(data: &[u8]) -> String {
+    let mut encoded = String::with_capacity(data.len() * 2);
+    for byte in data {
+        assert!(std::fmt::Write::write_fmt(&mut encoded, format_args!("{byte:02x}")).is_ok());
+    }
+    encoded
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

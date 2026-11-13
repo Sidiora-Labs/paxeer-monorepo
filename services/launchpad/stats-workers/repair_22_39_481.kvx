@@ -1,0 +1,78 @@
+[meta]
+module = "statistics workers"
+coverage_floor_percent = 85.0
+
+[behavior]
+database_migrations = "The migration command applies the embedded statistics schema to PostgreSQL."
+fixture_connections = "The integration fixtures provide a migrated database, metadata table, cache, and broker connection."
+bound_documents = "Runtime documents accept matching file and inline bytes and reject changed digests or trailing data."
+runtime_pool = "The development database pool reads the migrated statistics schema."
+legacy_holders = "Legacy holder rows retain their authority classification and update their observed balance."
+canonical_holders = "The public holder route pages committed transfer balances with the canonical watermark and supply."
+source_integrity = "Canonical rebuilds, accounting delivery, and public statistics reject changed source bindings and unavailable storage."
+read_availability = "Holder and search routes expose stale snapshots, expired cursors, quarantined coverage, and request admission limits."
+commit_acknowledgement = "The HTTP integration peer counts lost commit acknowledgements under its transaction mutex."
+
+[coverage.cmd_stats_migrate]
+before_percent = 0.0
+after_percent = 66.7
+
+[coverage.cmd_statsd]
+before_percent = 0.0
+after_percent = 0.0
+
+[coverage.internal_analytics]
+before_percent = 68.0
+after_percent = 82.6
+
+[coverage.internal_app]
+before_percent = 40.8
+after_percent = 86.1
+
+[coverage.internal_config]
+before_percent = 16.3
+after_percent = 88.2
+
+[coverage.internal_consumer]
+before_percent = 43.1
+after_percent = 80.8
+
+[coverage.internal_holdings]
+before_percent = 37.6
+after_percent = 86.9
+
+[coverage.internal_httpapi]
+before_percent = 64.2
+after_percent = 87.5
+
+[coverage.internal_internaltest]
+before_percent = 0.0
+after_percent = 71.8
+
+[coverage.internal_migrate]
+before_percent = 0.0
+after_percent = 78.6
+
+[coverage.internal_projectionstats]
+before_percent = 62.5
+after_percent = 86.5
+
+[coverage.internal_risk]
+before_percent = 91.7
+after_percent = 91.7
+
+[coverage.internal_search]
+before_percent = 70.7
+after_percent = 87.7
+
+[coverage.internal_store]
+before_percent = 76.8
+after_percent = 89.9
+
+[coverage.migrations]
+before_percent = "n/a"
+after_percent = "n/a"
+
+[coverage.module]
+before_percent = 54.7
+after_percent = 86.2

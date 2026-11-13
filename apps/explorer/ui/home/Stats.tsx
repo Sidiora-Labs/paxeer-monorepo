@@ -2,6 +2,8 @@ import { Box, Grid } from '@chakra-ui/react';
 import BigNumber from 'bignumber.js';
 import React from 'react';
 
+import type { ChainIndicatorId } from 'types/homepage';
+
 import config from 'configs/app';
 import useApiQuery from 'lib/api/useApiQuery';
 import { HOMEPAGE_STATS, HOMEPAGE_STATS_MICROSERVICE } from 'stubs/stats';
@@ -19,12 +21,12 @@ function formatCount(value: string | number | null | undefined) {
   return number.isFinite() ? number.toFormat(0) : undefined;
 }
 
-const StatsHistory = React.memo(function StatsHistory() {
-  const chartQuery = useChartDataQuery('daily_txs', HISTORY_DAYS);
+const StatsHistory = React.memo(function StatsHistory({ indicatorId, title }: { indicatorId: ChainIndicatorId; title: string }) {
+  const chartQuery = useChartDataQuery(indicatorId, HISTORY_DAYS);
   return (
     <ChainIndicatorsChart
       isLoading={ false }
-      title={ `${ config.chain.name } transaction history in ${ HISTORY_DAYS } days` }
+      title={ title }
       chartQuery={ chartQuery }
     />
   );
@@ -91,9 +93,29 @@ const Stats = () => {
           )) }
         </Grid>
       ) }
-      <Box data-label="home-stats-history" mt={ 8 } p={ 4 } bg="bg.surface" borderWidth="1px" borderColor="border.divider" borderRadius="8px">
-        <StatsHistory/>
-      </Box>
+      <Grid mt={ 8 } autoRows="1fr" templateColumns={{ base: 'minmax(0, 1fr)', lg: 'repeat(2, minmax(0, 1fr))' }} gap={ 4 }>
+        { [
+          { id: 'daily_txs' as const, title: `${ config.chain.name } transaction history in ${ HISTORY_DAYS } days` },
+          { id: 'coin_price' as const, title: `${ config.chain.currency.symbol } price` },
+          { id: 'market_cap' as const, title: `${ config.chain.currency.symbol } market value` },
+          { id: 'secondary_coin_price' as const, title: `${ config.chain.secondaryCoin.symbol } price` },
+          { id: 'secondary_coin_market_cap' as const, title: `${ config.chain.secondaryCoin.symbol } market value` },
+        ].filter(({ id }) => id === 'daily_txs' || config.UI.homepage.charts.includes(id)).map(({ id, title }) => (
+          <Box
+            key={ id }
+            data-label={ id === 'daily_txs' ? 'home-stats-history' : 'home-market-history' }
+            data-indicator={ id }
+            minW={ 0 }
+            p={ 4 }
+            bg="bg.surface"
+            borderWidth="1px"
+            borderColor="border.divider"
+            borderRadius="8px"
+          >
+            <StatsHistory indicatorId={ id } title={ title }/>
+          </Box>
+        )) }
+      </Grid>
     </Box>
   );
 };

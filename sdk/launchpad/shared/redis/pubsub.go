@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -85,7 +86,11 @@ func (s *Subscriber) Subscribe(ctx context.Context, channel string, handler func
 	out := make(chan error, 1)
 	ch := ps.Channel()
 	go func() {
-		defer ps.Close()
+		defer func() {
+			if cleanupErr := ps.Close(); cleanupErr != nil {
+				log.Printf("cleanup ps.Close: %v", cleanupErr)
+			}
+		}()
 		for {
 			select {
 			case <-ctx.Done():

@@ -266,16 +266,16 @@ func (rt *Runtime) RelayOnce(ctx context.Context) error {
 	return errors.Join(a, b)
 }
 
-// RuntimeDSN returns dsn with the "chat" schema first on the search_path (the
+// RuntimeDSN returns dsn with the chatScope schema first on the search_path (the
 // development tables of migrations/00002 are unqualified in the shared fanout
-// and interactions code, as in production where the pool's path is "chat").
+// and interactions code, as in production where the pool's path is chatScope).
 // Any search_path already on the DSN is kept after it.
 func RuntimeDSN(dsn string) (string, error) {
 	parsed, err := pgconn.ParseConfig(dsn)
 	if err != nil {
 		return "", err
 	}
-	path := "chat"
+	path := chatScope
 	if existing := strings.TrimSpace(parsed.RuntimeParams["search_path"]); existing != "" {
 		path += "," + existing
 	} else {

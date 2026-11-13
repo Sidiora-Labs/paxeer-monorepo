@@ -1,0 +1,49 @@
+[repair.22.39.436]
+member = "layerx-human-identity-provider"
+acceptance = "22998.1"
+behavior = "Assertion verification and account-head validation retain their public interfaces and validation order."
+
+[lint.similar_names]
+locations = 4
+source = "src/assertion.rs and tests/assertion.rs"
+
+[lint.missing_errors_doc]
+locations = 1
+source = "src/assertion.rs"
+
+[lint.too_many_lines]
+locations = 5
+source = "src/provision_head.rs, src/main.rs, tests/repair_22_33_34.rs, tests/principal_store.rs and tests/assertion.rs"
+
+[lint.unreadable_literal]
+locations = 1
+source = "tests/repair_22_33_34.rs"
+
+[lint.duplicate_mod]
+locations = 2
+source = "tests/principal_store.rs and tests/support/mod.rs"
+
+[lint.expect_used]
+locations = 4
+source = "tests/support/mod.rs, tests/provider.rs and tests/assertion.rs"
+
+[lint.dead_code]
+locations = 11
+unit = "module declarations"
+source = "tests/account_head.rs, tests/client.rs, tests/principal_store.rs, tests/repair_22_33_35.rs, tests/repair_22_33_36.rs and tests/support/mod.rs"
+
+[lint.format_collect]
+locations = 4
+source = "tests/support/producer_path.rs, tests/principal_store.rs and tests/assertion.rs"
+
+[lint.needless_pass_by_value]
+locations = 2
+source = "tests/support/producer_path.rs and tests/principal_store.rs"
+
+[lint.unnecessary_raw_string_hashes]
+locations = 1
+source = "tests/catalog.rs"
+
+[lint.needless_borrow]
+locations = 31
+source = "tests/principal_store.rs"

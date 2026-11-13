@@ -24,13 +24,13 @@ func (v DeviceBody) Validate() error {
 	if len(v.Token) < 1 || len(v.Token) > 4096 || len(v.DeviceProof) < 1 || len(v.DeviceProof) > 256 {
 		return ErrInvalid
 	}
-	if v.Platform != "web" && v.Platform != "ios" && v.Platform != "android" {
+	if v.Platform != platformWeb && v.Platform != platformIOS && v.Platform != platformAndroid {
 		return ValidationError{"/platform", ErrInvalid}
 	}
-	if v.Provider != "webpush" && v.Provider != "fcm" && v.Provider != "apns" {
+	if v.Provider != providerWebpush && v.Provider != "fcm" && v.Provider != providerAPNS {
 		return ValidationError{"/provider", ErrInvalid}
 	}
-	if v.Provider == "apns" && v.Platform != "ios" || v.Provider == "webpush" && v.Platform != "web" {
+	if v.Provider == providerAPNS && v.Platform != platformIOS || v.Provider == providerWebpush && v.Platform != platformWeb {
 		return ValidationError{"/provider", ErrInvalid}
 	}
 	return nil
@@ -138,7 +138,7 @@ func (h HTTP) devicePut(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, e, id)
 		return
 	}
-	h.respond(w, id, map[string]any{"deviceId": device, "state": "active", "revision": q.Revision}, q.Revision, nil)
+	h.respond(w, id, map[string]any{"deviceId": device, "state": "active", fieldRevision: q.Revision}, q.Revision, nil)
 }
 func (h HTTP) deviceDelete(w http.ResponseWriter, r *http.Request) {
 	id := requestID(r)

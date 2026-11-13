@@ -437,6 +437,35 @@ type AssetMint = ([u8; 32], [u8; 32]);
 
 /// Refuses Solana releases without the custody program or with a missing,
 /// repeated or zero mint.
+fn validate_chain_link(link: &ChainLink, paxeer: &PaxeerLink) -> Result<(), RelayerError> {
+    let settings = link.settings;
+    let name = format!("chain {}", settings.chain_id);
+    validate_range(settings.start_block, settings.max_block_range, &name)?;
+    validate_gas(&settings.gas, &name)?;
+    if settings.vault == [0; 20] {
+        return Err(RelayerError::Configuration(format!("{name} has no vault")));
+    }
+    if chain_id(link.rpc.as_ref())? != settings.chain_id {
+        return Err(RelayerError::Configuration(format!(
+            "{name} answers with a different chain id"
+        )));
+    }
+    let registration = decode_get_chain(&eth_call(
+        paxeer.rpc.as_ref(),
+        &LAYERX_BRIDGE_PRECOMPILE,
+        &encode_get_chain(settings.chain_id),
+    )?)?;
+    if !registration.registered
+        || registration.vault != settings.vault
+        || registration.finality_depth > settings.finality_depth
+    {
+        return Err(RelayerError::Configuration(format!(
+            "{name} is not registered on paxeer with this vault and finality depth"
+        )));
+    }
+    Ok(())
+}
+
 fn validate_release(
     release: Option<&SolanaRelease>,
     solana: Option<&SolanaLink>,
@@ -501,31 +530,7 @@ impl Relayer {
             ));
         }
         for link in &chains {
-            let settings = link.settings;
-            let name = format!("chain {}", settings.chain_id);
-            validate_range(settings.start_block, settings.max_block_range, &name)?;
-            validate_gas(&settings.gas, &name)?;
-            if settings.vault == [0; 20] {
-                return Err(RelayerError::Configuration(format!("{name} has no vault")));
-            }
-            if chain_id(link.rpc.as_ref())? != settings.chain_id {
-                return Err(RelayerError::Configuration(format!(
-                    "{name} answers with a different chain id"
-                )));
-            }
-            let registration = decode_get_chain(&eth_call(
-                paxeer.rpc.as_ref(),
-                &LAYERX_BRIDGE_PRECOMPILE,
-                &encode_get_chain(settings.chain_id),
-            )?)?;
-            if !registration.registered
-                || registration.vault != settings.vault
-                || registration.finality_depth > settings.finality_depth
-            {
-                return Err(RelayerError::Configuration(format!(
-                    "{name} is not registered on paxeer with this vault and finality depth"
-                )));
-            }
+            validate_chain_link(link, &paxeer)?;
         }
         if let Some(link) = &solana {
             let settings = link.settings;
@@ -588,6 +593,7 @@ impl Relayer {
         AttestationView::from_journal(&self.journal, self.cosign.as_ref(), &self.policies)
     }
 
+    #[must_use]
     pub fn attestation_snapshot(&self) -> AttestationSnapshot {
         AttestationSnapshot::from_journal(&self.journal, self.cosign.as_ref(), &self.policies)
     }
@@ -1434,31 +1440,7 @@ impl Relayer {
             Side::Chain(_) => rpc.call("eth_getTransactionReceipt", json!([hash]))?,
         };
         if receipt.is_null() {
-            let known = rpc.call("eth_getTransactionByHash", json!([hash]))?;
-            if !known.is_null() {
-                return Ok(Progress::Waiting);
-            }
-            return match rpc.send_raw_transaction(&pending.raw, &pending.tx_hash) {
-                Ok(_) => Ok(Progress::Waiting),
-                Err(error @ RpcFault::Rejected { .. }) => {
-                    if self.consumed(side, observation)? {
-                        self.journal.append(&Entry::Completed {
-                            item: key.to_owned(),
-                            completion: Completion::AlreadyBridged,
-                        })?;
-                        return Ok(Progress::Completed);
-                    }
-                    self.journal.append(&Entry::Dropped {
-                        item: key.to_owned(),
-                        tx_hash: pending.tx_hash,
-                    })?;
-                    if matches!(observation, Observation::Outbound { .. }) {
-                        return Err(error.into());
-                    }
-                    Ok(Progress::Waiting)
-                }
-                Err(error) => Err(RelayerError::Rpc(error)),
-            };
+            return self.resolve_missing_receipt(key, side, observation, pending, &hash);
         }
         let (included, status) = match side {
             Side::Paxeer => {
@@ -1546,6 +1528,46 @@ impl Relayer {
                 Ok(Progress::Waiting)
             }
             _ => Err(RelayerError::Rpc(RpcFault::Malformed)),
+        }
+    }
+
+    fn resolve_missing_receipt(
+        &mut self,
+        key: &str,
+        side: Side,
+        observation: &Observation,
+        pending: &Submission,
+        hash: &str,
+    ) -> Result<Progress, RelayerError> {
+        let known = self
+            .rpc(side)
+            .call("eth_getTransactionByHash", json!([hash]))?;
+        if !known.is_null() {
+            return Ok(Progress::Waiting);
+        }
+        match self
+            .rpc(side)
+            .send_raw_transaction(&pending.raw, &pending.tx_hash)
+        {
+            Ok(_) => Ok(Progress::Waiting),
+            Err(error @ RpcFault::Rejected { .. }) => {
+                if self.consumed(side, observation)? {
+                    self.journal.append(&Entry::Completed {
+                        item: key.to_owned(),
+                        completion: Completion::AlreadyBridged,
+                    })?;
+                    return Ok(Progress::Completed);
+                }
+                self.journal.append(&Entry::Dropped {
+                    item: key.to_owned(),
+                    tx_hash: pending.tx_hash,
+                })?;
+                if matches!(observation, Observation::Outbound { .. }) {
+                    return Err(error.into());
+                }
+                Ok(Progress::Waiting)
+            }
+            Err(error) => Err(RelayerError::Rpc(error)),
         }
     }
 

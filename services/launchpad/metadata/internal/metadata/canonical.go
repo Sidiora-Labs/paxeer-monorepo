@@ -160,7 +160,7 @@ func (s PostgresCanonicalSource) ResolveTokenInTx(ctx context.Context, tx pgx.Tx
 	if err != nil {
 		return zero, err
 	}
-	if !canonicalAddress(creation["token"], c.Token) || !canonicalAddress(creation["pool"], c.Pool) || !canonicalAddress(creation["creator"], c.Creator) || !canonicalAddress(creation["optical"], c.Optical) || !canonicalUint(creation["nftId"], c.NFTID) {
+	if !canonicalAddress(creation[metadataTokenTarget], c.Token) || !canonicalAddress(creation["pool"], c.Pool) || !canonicalAddress(creation["creator"], c.Creator) || !canonicalAddress(creation["optical"], c.Optical) || !canonicalUint(creation["nftId"], c.NFTID) {
 		return zero, ErrUnrepresentable
 	}
 	m := c.Metadata
@@ -172,10 +172,10 @@ func (s PostgresCanonicalSource) ResolveTokenInTx(ctx context.Context, tx pgx.Tx
 		return zero, err
 	}
 	decimals, ok := mirror["decimals"].(uint8)
-	if !ok || decimals != m.Decimals || m.Decimals != 6 || mirror["name"] != m.Name || mirror["symbol"] != m.Symbol || !canonicalAddress(mirror["token"], c.Token) || !canonicalAddress(mirror["pool"], c.Pool) || !canonicalAddress(mirror["creator"], c.Creator) || !canonicalUint(mirror["totalSupply"], m.TotalSupply) || !canonicalUint(mirror["timestamp"], timestamp) || !canonicalUint(mirror["blockNumber"], height) {
+	if !ok || decimals != m.Decimals || m.Decimals != 6 || mirror[metadataNameKey] != m.Name || mirror[metadataSymbolKey] != m.Symbol || !canonicalAddress(mirror[metadataTokenTarget], c.Token) || !canonicalAddress(mirror["pool"], c.Pool) || !canonicalAddress(mirror["creator"], c.Creator) || !canonicalUint(mirror["totalSupply"], m.TotalSupply) || !canonicalUint(mirror["timestamp"], timestamp) || !canonicalUint(mirror["blockNumber"], height) {
 		return zero, ErrUnrepresentable
 	}
-	raw, err := json.Marshal(map[string]any{"address": c.Token, "name": m.Name, "symbol": m.Symbol, "decimals": m.Decimals, "decimalsQuality": "verified", "totalSupplyRaw": m.TotalSupply, "supplyQuality": "verified", "metadataRevision": "0", "logoAssetId": nil, "sourcePosition": m.Position})
+	raw, err := json.Marshal(map[string]any{"address": c.Token, metadataNameKey: m.Name, metadataSymbolKey: m.Symbol, "decimals": m.Decimals, "decimalsQuality": metadataVerifiedQuality, "totalSupplyRaw": m.TotalSupply, "supplyQuality": metadataVerifiedQuality, "metadataRevision": "0", metadataLogoAssetIDKey: nil, "sourcePosition": m.Position})
 	if err != nil {
 		return zero, err
 	}

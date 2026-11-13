@@ -26,7 +26,7 @@ use layerx_human_service::server::production_components::{
 use layerx_human_service::server::schema::ApiSchema;
 use layerx_human_service::server::{ProductionComponents, ProductionComponentsConfig};
 use layerx_human_service::store::TenancyMap;
-use layerx_types::clock::{Clock as _, Deadline};
+use layerx_types::clock::Deadline;
 use layerx_types::payload::{ActivityType, ModuleId};
 use native_tls::{Identity, TlsAcceptor};
 use serde_json::{json, Value};
@@ -165,6 +165,62 @@ impl Environment {
         env::set_var(name, value.into());
     }
 
+    fn wait_for_agent(
+        process: &mut Process,
+        socket: &Path,
+        stderr: &Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let clock = RuntimeClock::from_environment()?;
+        let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(15))?;
+        loop {
+            if let Some(status) = process.0.try_wait()? {
+                return Err(format!(
+                    "real agent daemon exited {status}: {}",
+                    fs::read_to_string(stderr)?
+                )
+                .into());
+            }
+            if let Ok(connection) = UnixStream::connect(socket) {
+                assert!(process.0.try_wait()?.is_none());
+                drop(connection);
+                return Ok(());
+            }
+            if deadline.remaining(clock.as_ref())?.is_zero() {
+                return Err(format!(
+                    "real agent daemon did not bind: {}",
+                    fs::read_to_string(stderr)?
+                )
+                .into());
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    fn write_agent_policy(&self, network: u32) -> Result<PathBuf, Box<dyn std::error::Error>> {
+        let policy = self.root.join("agent-native-policy.json");
+        let native_policy = serde_json::to_string(&json!({
+            "schema": "layerx.native-program-policy.v1",
+            "version": "production-unhooked-v1",
+            "network_id": network,
+            "step_limit": 1,
+            "rules": [{
+                "id": "no-program-writes", "effect": "Deny",
+                "activity": {"module": ModuleId::Programs as u16, "ordinal": 1},
+                "scope": {"kind": "Operation"}, "required_approval": false,
+                "purpose_commitment": null
+            }]
+        }))?;
+        write_private(
+            &policy,
+            &serde_json::to_vec(&json!({
+                "version": "layerx.native-program-policy-source.v1",
+                "tenant": "tenant-a",
+                "policy": native_policy
+            }))?,
+        )?;
+        Ok(policy)
+    }
+
     fn start_agent(&mut self) -> Result<Process, Box<dyn std::error::Error>> {
         let binary = env::var_os("LAYERX_TEST_AGENTD_BIN")
             .ok_or("LAYERX_TEST_AGENTD_BIN must name the built, real layerx-agentd")?;
@@ -190,27 +246,7 @@ impl Environment {
         let operator_secret = self.root.join("agent-operator-secret");
         write_private(&operator_secret, &secret)?;
         let health_bearer = URL_SAFE_NO_PAD.encode(secret);
-        let policy = self.root.join("agent-native-policy.json");
-        let native_policy = serde_json::to_string(&json!({
-            "schema": "layerx.native-program-policy.v1",
-            "version": "production-unhooked-v1",
-            "network_id": network,
-            "step_limit": 1,
-            "rules": [{
-                "id": "no-program-writes", "effect": "Deny",
-                "activity": {"module": ModuleId::Programs as u16, "ordinal": 1},
-                "scope": {"kind": "Operation"}, "required_approval": false,
-                "purpose_commitment": null
-            }]
-        }))?;
-        write_private(
-            &policy,
-            &serde_json::to_vec(&json!({
-                "version": "layerx.native-program-policy-source.v1",
-                "tenant": "tenant-a",
-                "policy": native_policy
-            }))?,
-        )?;
+        let policy = self.write_agent_policy(network)?;
         let stderr = self.root.join("agent.stderr");
         let socket_directory = self.root.join("agent-socket");
         DirBuilder::new().mode(0o700).create(&socket_directory)?;
@@ -276,30 +312,8 @@ impl Environment {
         );
         process.1 = Some(authority);
         process.2 = Some(node_rpc);
-        let clock = RuntimeClock::from_environment()?;
-        let mut deadline = Deadline::start(clock.as_ref(), Duration::from_secs(15))?;
-        loop {
-            if let Some(status) = process.0.try_wait()? {
-                return Err(format!(
-                    "real agent daemon exited {status}: {}",
-                    fs::read_to_string(&stderr)?
-                )
-                .into());
-            }
-            if let Ok(connection) = UnixStream::connect(&socket) {
-                assert!(process.0.try_wait()?.is_none());
-                drop(connection);
-                return Ok(process);
-            }
-            if deadline.remaining(clock.as_ref())?.is_zero() {
-                return Err(format!(
-                    "real agent daemon did not bind: {}",
-                    fs::read_to_string(&stderr)?
-                )
-                .into());
-            }
-            std::thread::sleep(Duration::from_millis(20));
-        }
+        Self::wait_for_agent(&mut process, &socket, &stderr)?;
+        Ok(process)
     }
 }
 
@@ -310,6 +324,148 @@ struct NodeRpcAdapter {
 }
 
 impl NodeRpcAdapter {
+    fn answer(
+        agent: &ureq::Agent,
+        comet: &str,
+        upstream: &str,
+        network: u32,
+        request: &Value,
+        body: &[u8],
+    ) -> Vec<u8> {
+        if request["method"] == "px_getNetwork" {
+            let mut response = agent
+                .get(format!("{}/status", comet.trim_end_matches('/')))
+                .call()
+                .or_fail("real CometBFT status");
+            assert!(response.status().is_success(), "CometBFT status HTTP");
+            let status: Value = serde_json::from_slice(
+                &response
+                    .body_mut()
+                    .read_to_vec()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "CometBFT status body")),
+            )
+            .or_fail("CometBFT status JSON");
+            let sync = &status["sync_info"];
+            let height = sync["latest_block_height"]
+                .as_str()
+                .or_fail("CometBFT latest height");
+            height.parse::<u64>().or_fail("CometBFT decimal height");
+            let block_hash = sync["latest_block_hash"]
+                .as_str()
+                .or_fail("CometBFT latest block hash");
+            let app_hash = sync["latest_app_hash"]
+                .as_str()
+                .or_fail("CometBFT latest app hash");
+            let catching_up = sync["catching_up"]
+                .as_bool()
+                .or_fail("CometBFT catching up");
+            let quantity = |method: &str| {
+                let body =
+                    json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": []}).to_string();
+                let mut response = agent
+                    .post(upstream)
+                    .header("Content-Type", "application/json")
+                    .send(body.as_bytes())
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "real node network quantity"));
+                assert!(response.status().is_success(), "node quantity HTTP");
+                let answer: Value = serde_json::from_slice(
+                    &response
+                        .body_mut()
+                        .read_to_vec()
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "node quantity body")),
+                )
+                .or_fail("node quantity JSON");
+                assert!(answer.get("error").is_none(), "node quantity RPC: {answer}");
+                answer["result"]
+                    .as_str()
+                    .or_fail("node quantity text")
+                    .to_owned()
+            };
+            let chain_id = quantity("eth_chainId");
+            let latest_block = quantity("eth_blockNumber");
+            serde_json::to_vec(&json!({
+                "jsonrpc": "2.0",
+                "id": request["id"],
+                "result": {
+                    "network_id": network.to_string(),
+                    "paxeer": {"chain_id": chain_id, "latest_block": latest_block},
+                    "consensus": {
+                        "latest_height": height,
+                        "latest_block_hash": block_hash,
+                        "latest_app_hash": app_hash,
+                        "catching_up": catching_up
+                    }
+                }
+            }))
+            .or_fail("network response JSON")
+        } else {
+            agent
+                .post(upstream)
+                .header("Content-Type", "application/json")
+                .send(body)
+                .or_fail("forward node RPC")
+                .body_mut()
+                .read_to_vec()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "forward node RPC response"))
+        }
+    }
+
+    fn serve(
+        listener: &TcpListener,
+        stopped: &AtomicBool,
+        upstream: &str,
+        comet: &str,
+        network: u32,
+    ) {
+        let agent = ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(5)))
+            .http_status_as_error(false)
+            .build()
+            .new_agent();
+        while !stopped.load(Ordering::Acquire) {
+            let mut stream = match listener.accept() {
+                Ok((stream, _)) => stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(10));
+                    continue;
+                }
+                Err(error) => panic!("node RPC adapter accept: {error}"),
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "node RPC adapter read timeout"));
+            stream
+                .set_write_timeout(Some(Duration::from_secs(5)))
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "node RPC adapter write timeout"));
+            let mut headers = Vec::new();
+            while !headers.ends_with(b"\r\n\r\n") {
+                assert!(headers.len() < 16_384, "node RPC request header bound");
+                let mut byte = [0];
+                stream.read_exact(&mut byte).or_fail("node RPC headers");
+                headers.push(byte[0]);
+            }
+            let headers = String::from_utf8(headers).or_fail("node RPC HTTP UTF-8");
+            let length: usize = headers
+                .lines()
+                .filter_map(|line| line.split_once(':'))
+                .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+                .or_fail("node RPC content length")
+                .1
+                .trim()
+                .parse()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "node RPC content length integer"));
+            assert!(length <= 1_048_576, "node RPC request body bound");
+            let mut body = vec![0; length];
+            stream.read_exact(&mut body).or_fail("node RPC body");
+            let request: Value = serde_json::from_slice(&body).or_fail("node RPC JSON");
+            let answer = Self::answer(&agent, comet, upstream, network, &request, &body);
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", answer.len())
+                .or_fail("node RPC response headers");
+            stream.write_all(&answer).or_fail("node RPC response body");
+            stream.flush().or_fail("node RPC response flush");
+        }
+    }
+
     fn start(upstream: String, network: u32) -> Result<Self, Box<dyn std::error::Error>> {
         let comet = env::var("PERPS_DATA_TEST_COMET")
             .map_err(|error| format!("PERPS_DATA_TEST_COMET: {error}"))?;
@@ -318,129 +474,8 @@ impl NodeRpcAdapter {
         listener.set_nonblocking(true)?;
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = Arc::clone(&stop);
-        let worker = thread::spawn(move || {
-            let agent = ureq::Agent::config_builder()
-                .timeout_global(Some(Duration::from_secs(5)))
-                .http_status_as_error(false)
-                .build()
-                .new_agent();
-            while !stopped.load(Ordering::Acquire) {
-                let mut stream = match listener.accept() {
-                    Ok((stream, _)) => stream,
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(10));
-                        continue;
-                    }
-                    Err(error) => panic!("node RPC adapter accept: {error}"),
-                };
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("node RPC adapter read timeout");
-                stream
-                    .set_write_timeout(Some(Duration::from_secs(5)))
-                    .expect("node RPC adapter write timeout");
-                let mut headers = Vec::new();
-                while !headers.ends_with(b"\r\n\r\n") {
-                    assert!(headers.len() < 16_384, "node RPC request header bound");
-                    let mut byte = [0];
-                    stream.read_exact(&mut byte).expect("node RPC headers");
-                    headers.push(byte[0]);
-                }
-                let headers = String::from_utf8(headers).expect("node RPC HTTP UTF-8");
-                let length: usize = headers
-                    .lines()
-                    .filter_map(|line| line.split_once(':'))
-                    .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
-                    .expect("node RPC content length")
-                    .1
-                    .trim()
-                    .parse()
-                    .expect("node RPC content length integer");
-                assert!(length <= 1_048_576, "node RPC request body bound");
-                let mut body = vec![0; length];
-                stream.read_exact(&mut body).expect("node RPC body");
-                let request: Value = serde_json::from_slice(&body).expect("node RPC JSON");
-                let answer = if request["method"] == "px_getNetwork" {
-                    let mut response = agent
-                        .get(format!("{}/status", comet.trim_end_matches('/')))
-                        .call()
-                        .expect("real CometBFT status");
-                    assert!(response.status().is_success(), "CometBFT status HTTP");
-                    let status: Value = serde_json::from_slice(
-                        &response
-                            .body_mut()
-                            .read_to_vec()
-                            .expect("CometBFT status body"),
-                    )
-                    .expect("CometBFT status JSON");
-                    let sync = &status["sync_info"];
-                    let height = sync["latest_block_height"]
-                        .as_str()
-                        .expect("CometBFT latest height");
-                    height.parse::<u64>().expect("CometBFT decimal height");
-                    let block_hash = sync["latest_block_hash"]
-                        .as_str()
-                        .expect("CometBFT latest block hash");
-                    let app_hash = sync["latest_app_hash"]
-                        .as_str()
-                        .expect("CometBFT latest app hash");
-                    let catching_up = sync["catching_up"].as_bool().expect("CometBFT catching up");
-                    let quantity = |method: &str| {
-                        let body =
-                            json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": []})
-                                .to_string();
-                        let mut response = agent
-                            .post(&upstream)
-                            .header("Content-Type", "application/json")
-                            .send(body.as_bytes())
-                            .expect("real node network quantity");
-                        assert!(response.status().is_success(), "node quantity HTTP");
-                        let answer: Value = serde_json::from_slice(
-                            &response
-                                .body_mut()
-                                .read_to_vec()
-                                .expect("node quantity body"),
-                        )
-                        .expect("node quantity JSON");
-                        assert!(answer.get("error").is_none(), "node quantity RPC: {answer}");
-                        answer["result"]
-                            .as_str()
-                            .expect("node quantity text")
-                            .to_owned()
-                    };
-                    let chain_id = quantity("eth_chainId");
-                    let latest_block = quantity("eth_blockNumber");
-                    serde_json::to_vec(&json!({
-                        "jsonrpc": "2.0",
-                        "id": request["id"],
-                        "result": {
-                            "network_id": network.to_string(),
-                            "paxeer": {"chain_id": chain_id, "latest_block": latest_block},
-                            "consensus": {
-                                "latest_height": height,
-                                "latest_block_hash": block_hash,
-                                "latest_app_hash": app_hash,
-                                "catching_up": catching_up
-                            }
-                        }
-                    }))
-                    .expect("network response JSON")
-                } else {
-                    agent
-                        .post(&upstream)
-                        .header("Content-Type", "application/json")
-                        .send(&body)
-                        .expect("forward node RPC")
-                        .body_mut()
-                        .read_to_vec()
-                        .expect("forward node RPC response")
-                };
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", answer.len())
-                    .expect("node RPC response headers");
-                stream.write_all(&answer).expect("node RPC response body");
-                stream.flush().expect("node RPC response flush");
-            }
-        });
+        let worker =
+            thread::spawn(move || Self::serve(&listener, &stopped, &upstream, &comet, network));
         Ok(Self {
             endpoint,
             stop,
@@ -452,9 +487,11 @@ impl NodeRpcAdapter {
 impl Drop for NodeRpcAdapter {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        let result = self.worker.take().expect("node RPC adapter worker").join();
+        let result = self.worker.take().or_fail("node RPC adapter worker").join();
         if !thread::panicking() {
-            result.expect("node RPC adapter worker panicked");
+            result.unwrap_or_else(|error| {
+                panic!("{}: {error:?}", "node RPC adapter worker panicked")
+            });
         }
     }
 }
@@ -467,7 +504,7 @@ struct Authority {
 }
 
 impl Authority {
-    fn start(root: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+    fn create_certificates(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
         cluster::openssl(
             root,
             &[
@@ -539,6 +576,11 @@ impl Authority {
                 "authority-ca.der",
             ],
         )?;
+        Ok(())
+    }
+
+    fn start(root: &Path) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::create_certificates(root)?;
         let acceptor = TlsAcceptor::new(Identity::from_pkcs8(
             &fs::read(root.join("authority.pem"))?,
             &fs::read(root.join("authority.key"))?,
@@ -565,34 +607,34 @@ impl Authority {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("authority read timeout");
+                    .or_fail("authority read timeout");
                 stream
                     .set_write_timeout(Some(Duration::from_secs(5)))
-                    .expect("authority write timeout");
-                let mut stream = acceptor.accept(stream).expect("authority TLS");
+                    .or_fail("authority write timeout");
+                let mut stream = acceptor.accept(stream).or_fail("authority TLS");
                 let mut request = Vec::new();
                 while !request.ends_with(b"\r\n\r\n") {
                     assert!(request.len() < 16_384, "authority request bound");
                     let mut byte = [0];
                     stream
                         .read_exact(&mut byte)
-                        .expect("authority HTTP request");
+                        .or_fail("authority HTTP request");
                     request.push(byte[0]);
                 }
-                let request = String::from_utf8(request).expect("authority HTTP UTF-8");
+                let request = String::from_utf8(request).or_fail("authority HTTP UTF-8");
                 assert!(request.lines().any(|line| line
                     .eq_ignore_ascii_case(&format!("authorization: Bearer {expected_bearer}"))));
-                let route = request.lines().next().expect("request line");
+                let route = request.lines().next().or_fail("request line");
                 let expected = format!("/v1/agent/registry?tenant=tenant-a&principal={principal}");
                 assert_eq!(
                     route,
                     format!("GET {expected} HTTP/1.1"),
                     "unexpected authority route"
                 );
-                let activity = ActivityType::new(ModuleId::Asset, 5).expect("asset send");
+                let activity = ActivityType::new(ModuleId::Asset, 5).or_fail("asset send");
                 let body = json!({"modules": [{"module_id": ModuleId::Asset as u16, "activity_types": [activity.value()]}]}).to_string();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).expect("authority response");
-                stream.flush().expect("authority response flush");
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).or_fail("authority response");
+                stream.flush().or_fail("authority response flush");
             }
         });
         Ok(Self {
@@ -607,9 +649,9 @@ impl Authority {
 impl Drop for Authority {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        let result = self.worker.take().expect("authority worker").join();
+        let result = self.worker.take().or_fail("authority worker").join();
         if !thread::panicking() {
-            result.expect("authority worker panicked");
+            result.or_fail("authority worker panicked");
         }
     }
 }
@@ -634,32 +676,14 @@ fn purpose_catalog() -> Value {
     }]})
 }
 
-fn loader_environment(
+fn loader_primary_environment(
     root: &Path,
-    cluster: &cluster::Cluster,
     tenancy_digest: [u8; 32],
-) -> Result<Vec<(&'static str, String)>, Box<dyn std::error::Error>> {
-    write_private(
-        &root.join("attestor-ca.der"),
-        &cluster.pki.certificate_der("node-ca")?,
-    )?;
-    write_private(
-        &root.join("attestor-client.der"),
-        &cluster.pki.certificate_der("gateway")?,
-    )?;
-    write_private(
-        &root.join("attestor-client-key.der"),
-        &cluster.pki.key_der("gateway")?,
-    )?;
+    nodes: String,
+) -> Vec<(&'static str, String)> {
     let path = |name: &str| root.join(name).display().to_string();
     let secret = |byte: u8| URL_SAFE_NO_PAD.encode([byte; 32]);
-    let nodes = cluster
-        .nodes
-        .iter()
-        .map(|(id, address)| format!("{id}={address}"))
-        .collect::<Vec<_>>()
-        .join(",");
-    Ok(vec![
+    vec![
         ("LAYERX_HUMAN_STORE_ROOT", path("store")),
         ("LAYERX_HUMAN_CUSTODY_ROOT", path("custody")),
         ("LAYERX_HUMAN_AUTH_INDEX_ROOT", path("auth-index")),
@@ -744,6 +768,13 @@ fn loader_environment(
             rustix::process::getgid().as_raw().to_string(),
         ),
         ("LAYERX_HUMAN_ATTESTOR_NODES", nodes),
+    ]
+}
+
+fn loader_secondary_environment(root: &Path) -> Vec<(&'static str, String)> {
+    let path = |name: &str| root.join(name).display().to_string();
+    let secret = |byte: u8| URL_SAFE_NO_PAD.encode([byte; 32]);
+    vec![
         ("LAYERX_HUMAN_ATTESTOR_SIGNERS", cluster::SIGNERS.join(",")),
         (
             "LAYERX_HUMAN_ATTESTOR_ROOT_CERTIFICATE_DER",
@@ -807,7 +838,35 @@ fn loader_environment(
             "LAYERX_HUMAN_CONTINUATION_UNKNOWN_DEADLINE_SECONDS",
             "300".to_owned(),
         ),
-    ])
+    ]
+}
+
+fn loader_environment(
+    root: &Path,
+    cluster: &cluster::Cluster,
+    tenancy_digest: [u8; 32],
+) -> Result<Vec<(&'static str, String)>, Box<dyn std::error::Error>> {
+    write_private(
+        &root.join("attestor-ca.der"),
+        &cluster.pki.certificate_der("node-ca")?,
+    )?;
+    write_private(
+        &root.join("attestor-client.der"),
+        &cluster.pki.certificate_der("gateway")?,
+    )?;
+    write_private(
+        &root.join("attestor-client-key.der"),
+        &cluster.pki.key_der("gateway")?,
+    )?;
+    let nodes = cluster
+        .nodes
+        .iter()
+        .map(|(id, address)| format!("{id}={address}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let mut entries = loader_primary_environment(root, tenancy_digest, nodes);
+    entries.extend(loader_secondary_environment(root));
+    Ok(entries)
 }
 
 impl Drop for Environment {
@@ -941,4 +1000,10 @@ fn components_binary_starts_without_recipient_environment() -> TestResult {
         std::thread::sleep(Duration::from_millis(20));
     }
     Ok(())
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

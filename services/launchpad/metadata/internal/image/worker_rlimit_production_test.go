@@ -11,6 +11,7 @@ import (
 	"image/png"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -25,6 +26,22 @@ func rlimitWorker(t *testing.T) ProcessWorker {
 	worker := ProcessWorker{Executable: executable, Isolation: RlimitIsolation}
 	if e = worker.Ready(); e != nil {
 		t.Fatal("rlimit isolation must be available on linux:", e)
+	}
+	return worker
+}
+
+func productionRlimitWorker(t *testing.T) ProcessWorker {
+	t.Helper()
+	executable := filepath.Join(t.TempDir(), "metadatad")
+	command := exec.Command("go", "build", "-o", executable, "./cmd/metadatad")
+	command.Dir = "../.."
+	command.Env = append(os.Environ(), "GOFLAGS=")
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("build raster worker: %v %s", err, output)
+	}
+	worker := ProcessWorker{Executable: executable, Isolation: RlimitIsolation}
+	if err := worker.Ready(); err != nil {
+		t.Fatalf("production raster worker: %v", err)
 	}
 	return worker
 }
@@ -44,7 +61,24 @@ func TestProductionRlimitWorkerReadiness(t *testing.T) {
 	if (ProcessWorker{Executable: executable}).Ready() != ErrUnavailable {
 		t.Fatal("cgroup isolation without a parent must be unavailable")
 	}
+	if (ProcessWorker{Executable: executable, CgroupParent: "/sys/fs/cgroup", Isolation: "cgroup"}).Ready() != ErrUnavailable {
+		t.Fatal("cgroup worker requires delegated memory, cpu, and pids controllers")
+	}
 	rlimitWorker(t)
+}
+
+func TestProductionRlimitWorkerRejectsInvalidExecutable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "invalid-worker")
+	if err := os.WriteFile(path, []byte("not an executable image"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	worker := ProcessWorker{Executable: path, Isolation: RlimitIsolation}
+	if err := worker.Ready(); err != nil {
+		t.Fatalf("executable path readiness = %v", err)
+	}
+	if _, err := worker.Decode(context.Background(), []byte("invalid image")); err != ErrUnavailable {
+		t.Fatalf("invalid worker executable = %v", err)
+	}
 }
 
 func TestProductionRlimitWorkerDecodesInSeparateProcess(t *testing.T) {
@@ -70,7 +104,7 @@ func TestProductionRlimitWorkerDecodesInSeparateProcess(t *testing.T) {
 // The largest raster the policy admits (20 MP) must decode within the
 // ceilings; the limits bound abuse, not legitimate uploads.
 func TestProductionRlimitWorkerAdmitsLargestPolicyRaster(t *testing.T) {
-	worker := rlimitWorker(t)
+	worker := productionRlimitWorker(t)
 	var b bytes.Buffer
 	if e := png.Encode(&b, image.NewNRGBA(image.Rect(0, 0, 5000, 4000))); e != nil {
 		t.Fatal(e)

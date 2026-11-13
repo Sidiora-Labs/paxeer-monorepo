@@ -14,7 +14,7 @@ wiring_request = "Owner domain 4: services/launchpad/stats-workers/internal/conf
 repair = "Checkpoint the verified latest reserve reset and each price-window predecessor in public_stats_sync_baselines; select at most one canonical-position-bounded raw reset per cutoff. Keep the 256-event and ABI/uint256 safety bounds. Per-pool savepoints commit healthy pools while failed pool identities and the returned error leave public-market-stats readiness unhealthy."
 proving_tests = ["TestRepairM_1043_SyncLifetimeCapRestart", "TestRepairM_1043_FailedPoolReadinessAndLaterPage", "TestRepairM_1043_SyncSafetyBounds"]
 restart = "Close the projector's pgx pool and SQL peer, reopen the peer from its committed snapshot and construct a fresh repository/read service/projector; assert persisted baselines recover without rescanning 400 resets or duplicating frames."
-wiring_request = "Owner domain 4 database migration coordinator: launchpad/spec/production-system/integration/migrations must register PublicStatsDDL from services/launchpad/stats-workers/internal/projectionstats/public_stats.go and grant the stats runtime SELECT/INSERT/UPDATE on stats.public_stats_sync_baselines before rollout."
+wiring_request = "Owner domain 4 database migration coordinator: migrations must register PublicStatsDDL from services/launchpad/stats-workers/internal/projectionstats/public_stats.go and grant the stats runtime SELECT/INSERT/UPDATE on stats.public_stats_sync_baselines before rollout."
 
 [qualification]
 build = "hf-build"

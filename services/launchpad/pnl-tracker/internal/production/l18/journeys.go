@@ -91,14 +91,14 @@ func verifyRuntime(ctx context.Context, r RPC, b Checkpoint, runtimeHashes map[s
 			return ErrUnavailable
 		}
 		var code hexutil.Bytes
-		if e = r.CallContext(ctx, &code, "eth_getCode", target, map[string]any{"blockHash": b.Hash, "requireCanonical": true}); e != nil {
+		if e = r.CallContext(ctx, &code, "eth_getCode", target, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}); e != nil {
 			return e
 		}
 		if len(code) == 0 || strings.ToLower(crypto.Keccak256Hash(code).Hex()) != expected {
 			return ErrUnavailable
 		}
 		var slot hexutil.Bytes
-		if e = r.CallContext(ctx, &slot, "eth_getStorageAt", target, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", map[string]any{"blockHash": b.Hash, "requireCanonical": true}); e != nil {
+		if e = r.CallContext(ctx, &slot, "eth_getStorageAt", target, "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc", map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}); e != nil {
 			return e
 		}
 		if len(slot) != 32 {
@@ -111,7 +111,7 @@ func verifyRuntime(ctx context.Context, r RPC, b Checkpoint, runtimeHashes map[s
 				return ErrUnavailable
 			}
 			var implementationCode hexutil.Bytes
-			if e = r.CallContext(ctx, &implementationCode, "eth_getCode", implementation.Hex(), map[string]any{"blockHash": b.Hash, "requireCanonical": true}); e != nil {
+			if e = r.CallContext(ctx, &implementationCode, "eth_getCode", implementation.Hex(), map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}); e != nil {
 				return e
 			}
 			if len(implementationCode) == 0 || strings.ToLower(crypto.Keccak256Hash(implementationCode).Hex()) != expectedImplementation {
@@ -132,7 +132,7 @@ func hexDigest(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return false
 		}
 	}
@@ -147,7 +147,7 @@ func (s *JourneyService) market(ctx context.Context, id string) (marketSource, e
 	if e != nil {
 		return m, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	e = tx.QueryRow(ctx, `SELECT nft_id::text,pool,creator,height,block_hash,transaction_hash,transaction_index::text,log_index::text FROM indexer.indexer_canonical_creations_v1 WHERE nft_id=$1::numeric`, id).Scan(&m.NFTID, &m.Pool, &m.Creator, &m.Height, &m.BlockHash, &m.TxHash, &m.TxIndex, &m.LogIndex)
 	if e != nil {
 		return m, e
@@ -190,7 +190,7 @@ func (s *JourneyService) claimedHistory(ctx context.Context, m marketSource, who
 	if e != nil {
 		return "", e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	total := new(big.Int)
 	var height, transactionIndex, logIndex int64 = -1, -1, -1
 	for {
@@ -253,7 +253,7 @@ func (s *JourneyService) indexedOwner(ctx context.Context, m marketSource, b Che
 	if e != nil {
 		return "", e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var topic string
 	e = tx.QueryRow(ctx, `SELECT l.topics->>2 FROM indexer.indexer_raw_logs_v1 l
   JOIN indexer.indexer_block_completeness_v1 b ON b.chain_id=l.chain_id AND b.stream_id=$1
@@ -352,7 +352,7 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 		rows, err := tx.Query(ctx, `SELECT nft_id::text,pool,creator,height,block_hash,transaction_hash,transaction_index::text,log_index::text
    FROM indexer.indexer_canonical_creations_v1 WHERE nft_id>$1::numeric AND height<=$2 ORDER BY nft_id LIMIT 100`, scanAfter, b.Number)
 		if err != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 			return out, err
 		}
 		batch := []marketSource{}
@@ -360,7 +360,7 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 			var m marketSource
 			if e = rows.Scan(&m.NFTID, &m.Pool, &m.Creator, &m.Height, &m.BlockHash, &m.TxHash, &m.TxIndex, &m.LogIndex); e != nil {
 				rows.Close()
-				tx.Rollback(ctx)
+				_ = tx.Rollback(ctx)
 				return out, e
 			}
 			batch = append(batch, m)
@@ -368,7 +368,7 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 		e = rows.Err()
 		rows.Close()
 		if e != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 			return out, e
 		}
 		if e = tx.Commit(ctx); e != nil {
@@ -414,7 +414,7 @@ func (s *JourneyService) Rewards(ctx context.Context, actor Actor, program, curs
 		claimableRaw := "0"
 		if p.Owner == who {
 			switch p.Capability.Strategy {
-			case "CLAIM":
+			case eventClaim:
 				if !p.Capability.Available {
 					return out, ErrUnavailable
 				}
@@ -472,7 +472,7 @@ func (s *JourneyService) Prepare(ctx context.Context, actor Actor, key string, r
 	if e != nil {
 		return nil, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, who+":"+key); e != nil {
 		return nil, e
 	}
@@ -517,7 +517,7 @@ func (s *JourneyService) Prepare(ctx context.Context, actor Actor, key string, r
 		return nil, ErrConflict
 	}
 	var units hexutil.Uint64
-	if e = s.creator.rpc.CallContext(ctx, &units, "eth_estimateGas", map[string]any{"from": who, "to": call.To, "data": call.Data, "value": "0x0"}, map[string]any{"blockHash": call.Preview.Block.Hash, "requireCanonical": true}); e != nil {
+	if e = s.creator.rpc.CallContext(ctx, &units, "eth_estimateGas", map[string]any{"from": who, "to": call.To, "data": call.Data, "value": "0x0"}, map[string]any{fieldBlockHash: call.Preview.Block.Hash, fieldRequireCanonical: true}); e != nil {
 		return nil, e
 	}
 	if units == 0 {
@@ -580,7 +580,7 @@ func (s *JourneyService) CommunityAuthority(ctx context.Context, nftID string, a
 	if p.Pool != m.Pool {
 		return CommunityAuthority{}, ErrConflict
 	}
-	out := CommunityAuthority{State: "proposed", Owner: p.Owner, HistoricalCreator: m.Creator, Sharing: SharingCapability(), Block: p.Block}
+	out := CommunityAuthority{State: statusProposed, Owner: p.Owner, HistoricalCreator: m.Creator, Sharing: SharingCapability(), Block: p.Block}
 	for _, configured := range approvedMultisigs {
 		w, e := wallet(configured)
 		if e != nil {
@@ -646,7 +646,7 @@ func (s *JourneyService) sourceCheckpoint(ctx context.Context) (Checkpoint, erro
 	if e != nil {
 		return Checkpoint{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var raw, typed int64
 	e = tx.QueryRow(ctx, `SELECT raw_complete_height,typed_complete_height FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id=$1`, s.sourceStream).Scan(&raw, &typed)
 	if e != nil {
@@ -737,7 +737,7 @@ func (w *CommunityWatcher) Observe(ctx context.Context, request, nftID string) (
 	if e != nil {
 		return CommunityAuthority{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	payload := struct{ NFT, Policy string }{nftID, w.policyDigest}
 	duplicate, e := inbox(ctx, tx, "community:"+request, payload)
 	if e != nil {
@@ -770,7 +770,7 @@ func (w *CommunityWatcher) Observe(ctx context.Context, request, nftID string) (
 	if preview.Pool != pool {
 		return CommunityAuthority{}, ErrConflict
 	}
-	state := "proposed"
+	state := statusProposed
 	if preview.Owner != historical {
 		state = "proof_pending"
 	}
@@ -805,7 +805,7 @@ func (w *CommunityWatcher) RunOnce(ctx context.Context) error {
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	rows, e := tx.Query(ctx, `SELECT c.nft_id::text,c.creator,c.pool FROM indexer.indexer_canonical_creations_v1 c LEFT JOIN l18_community_scan s ON s.nft_id=c.nft_id ORDER BY s.checked_at NULLS FIRST,c.nft_id LIMIT 32`)
 	if e != nil {
 		return e
@@ -843,7 +843,7 @@ func (w *CommunityWatcher) RunOnce(ctx context.Context) error {
 		var owner, policyDigest string
 		e = checked.QueryRow(ctx, `SELECT owner,policy_digest FROM l18_community_history WHERE nft_id=$1::numeric ORDER BY revision DESC LIMIT 1`, item.ID).Scan(&owner, &policyDigest)
 		if e != nil && e != pgx.ErrNoRows {
-			checked.Rollback(ctx)
+			_ = checked.Rollback(ctx)
 			return e
 		}
 		changed := e == pgx.ErrNoRows || owner != preview.Owner || policyDigest != w.policyDigest
@@ -860,7 +860,7 @@ func (w *CommunityWatcher) RunOnce(ctx context.Context) error {
 			return e
 		}
 		if _, e = checkpoint.Exec(ctx, `INSERT INTO l18_community_scan(nft_id) VALUES($1::numeric) ON CONFLICT(nft_id) DO UPDATE SET checked_at=clock_timestamp()`, item.ID); e != nil {
-			checkpoint.Rollback(ctx)
+			_ = checkpoint.Rollback(ctx)
 			return e
 		}
 		if e = checkpoint.Commit(ctx); e != nil {

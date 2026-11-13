@@ -11,10 +11,11 @@ function chain_submissions_survive_editable_draft_expiry() {
   const otherCreator = '0x2222222222222222222222222222222222222222';
   const txHash = `0x${'ab'.repeat(32)}` as const;
   const otherHash = `0x${'cd'.repeat(32)}` as const;
-  const submissionKey = 'chain-submission-v1';
-  const draftKey = `chain-draft-v1:125:${creator}`;
+  const submissionKey = 'chain-submission-v2';
+  const draftKey = `chain-draft-v2:125:${creator}`;
   const draft: ChainDraft = {
-    draftId: 'reviewed-chain', version: 1, creator, chainId: 125, name: 'my-chain',
+    draftId: 'reviewed-chain', version: 2, creator, chainId: 125, name: 'my-chain',
+    tokenName: 'My Token', tokenSymbol: 'MYT', feeStrategy: 2,
     tier: 'growth', feeShareBps: 1234, updatedAt: time,
   };
   const submission: ChainSubmission = {
@@ -26,6 +27,12 @@ function chain_submissions_survive_editable_draft_expiry() {
   try {
     vi.setSystemTime(time);
     const owner = new ChainDraftStorage(creator);
+    localStorage.setItem(`chain-draft-v1:125:${creator}`, JSON.stringify({ ...draft, version: 1 }));
+    localStorage.setItem('chain-submission-v1', JSON.stringify({ draft: { ...draft, version: 1 }, submission }));
+    expect(owner.restoreDraft()).toBeNull();
+    expect(ChainDraftStorage.restoreSubmission()).toBeNull();
+    expect(localStorage.getItem(`chain-draft-v1:125:${creator}`)).toBeNull();
+    expect(localStorage.getItem('chain-submission-v1')).toBeNull();
     owner.saveDraft(draft);
     const draftBytes = localStorage.getItem(draftKey);
     expect(draftBytes).toBe(JSON.stringify(draft));
@@ -82,7 +89,7 @@ function chain_submissions_survive_editable_draft_expiry() {
 
     const malformedDraftFields = [
       ['draftId', ''], ['draftId', 'invalid identity'], ['draftId', 'a'.repeat(129)],
-      ['version', 0], ['version', 2], ['version', 1.5], ['version', '1'],
+      ['version', 0], ['version', 1], ['version', 1.5], ['version', '1'],
       ['creator', 'invalid'], ['creator', `0x${'0'.repeat(40)}`], ['creator', otherCreator],
       ['chainId', 1], ['chainId', '125'],
       ['updatedAt', Date.now() + 1], ['updatedAt', null], ['updatedAt', '1700000000000'],
@@ -90,6 +97,7 @@ function chain_submissions_survive_editable_draft_expiry() {
       ['tier', 'enterprise'], ['tier', 'toString'],
       ['feeShareBps', -1], ['feeShareBps', 5001], ['feeShareBps', 1.5], ['feeShareBps', '1234'],
       ['name', 'a'.repeat(33)], ['name', null],
+      ['tokenName', ''], ['tokenSymbol', ''], ['feeStrategy', 4],
     ] as const;
     const malformedSubmissionFields = [
       ['creator', 'invalid'], ['creator', `0x${'0'.repeat(40)}`], ['creator', otherCreator],
@@ -128,4 +136,4 @@ function chain_submissions_survive_editable_draft_expiry() {
   }
 }
 
-test(chain_submissions_survive_editable_draft_expiry);
+test(chain_submissions_survive_editable_draft_expiry.name, chain_submissions_survive_editable_draft_expiry);

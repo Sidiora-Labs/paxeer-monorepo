@@ -22,10 +22,19 @@ function renderedHelperCarriesSurfaceRoleIdentity() {
     const identity = current.roles[role.replace(/_proxy$/, '')];
     assert.equal(data[key].toLowerCase(), identity.address.toLowerCase());
     expected[key] = { kind: identity.kind, runtimeHash: identity.runtimeHash };
+    if (identity.kind === 'surface') {
+      expected[key].stagedRuntimeHash = identity.stagedRuntimeHash;
+      expected[key].stagedUpgrade = identity.stagedUpgrade;
+    }
     if (identity.kind === 'erc1967' || identity.kind === 'beacon') {
       expected[key].implementationAddress = identity.implementationAddress;
       expected[key].implementationHash = identity.implementationHash;
     }
+  }
+  for (const [key, role] of [['treasury', 'Treasury'], ['usdl', 'USDL'], ['launchpadPrecompile', 'LaunchpadPrecompile']]) {
+    const { address, ...identity } = current.roles[role];
+    assert.equal(data[key].toLowerCase(), address.toLowerCase());
+    expected[key] = identity;
   }
   assert.deepEqual(data.roleIdentity, expected);
   assert.deepEqual(helper.CORE_DEPLOYMENT.roleIdentity, expected);
@@ -33,6 +42,8 @@ function renderedHelperCarriesSurfaceRoleIdentity() {
     assert.deepEqual(helper.CORE_DEPLOYMENT.roleIdentity[key], {
       kind: 'surface',
       runtimeHash: '0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825f9ecadd43a392f',
+      stagedRuntimeHash: current.roles.Router.stagedRuntimeHash,
+      stagedUpgrade: current.roles.Router.stagedUpgrade,
     });
   }
   assert.equal(helper.CORE_DEPLOYMENT.roleIdentity.opticalRegistry.kind, 'erc1967');
@@ -43,6 +54,15 @@ function renderedHelperCarriesSurfaceRoleIdentity() {
   assert.equal(checkClient(clientRoot, data, rendered).checked, true);
 }
 test(renderedHelperCarriesSurfaceRoleIdentity);
+
+function surfaceIdentityCarriesStagedRuntimeAndUpgrade() {
+  const current = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../../../sdk/launchpad/shared/config/deployment/current.json'), 'utf8'));
+  const identity = data.roleIdentity.router;
+  assert.equal(identity.stagedRuntimeHash, current.roles.Router.stagedRuntimeHash);
+  assert.equal(identity.stagedUpgrade, current.roles.Router.stagedUpgrade);
+  assert.deepEqual(helper.CORE_DEPLOYMENT.roleIdentity.router, identity);
+}
+test(surfaceIdentityCarriesStagedRuntimeAndUpgrade);
 
 function deriveDeploymentRejectsRoleAddressDrift() {
   const contractRoot = process.env.CONTRACT_SOURCE_ROOT || defaultRoot;
@@ -70,7 +90,7 @@ function deriveDeploymentRejectsRoleAddressDrift() {
       caseVariant._deployment.records[role].address = caseVariant[role];
     }
     fs.writeFileSync(manifestFile, JSON.stringify(caseVariant));
-    assert.deepEqual(deriveDeployment(temporaryRoot).roleIdentity, data.roleIdentity);
+    assert.throws(() => deriveDeployment(temporaryRoot), /Reviewed manifest digest mismatch/);
   } finally {
     fs.rmSync(temporaryRoot, { recursive: true, force: true });
   }

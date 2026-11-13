@@ -12,19 +12,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/queue"
 	sharedsecrets "github.com/Sidiora-Technologies/KindleLaunch/shared/secrets"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/telemetry"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
-	"io"
-	"log/slog"
-	"net/http"
-	"net/url"
-	"os"
-	"sync"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,6 +48,8 @@ const (
 	// rateLimitMax/Window mirror the TS registerRateLimit(max:100, windowSeconds:60).
 	rateLimitMax    = 100
 	rateLimitWindow = 60 * time.Second
+	productionEnv   = "production"
+	metricsPath     = "/metrics"
 )
 
 // App is a fully-wired, ready-to-run ranking-algo service.
@@ -76,7 +80,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	}()
 	tracker := sharedprocess.NewTracker()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == productionEnv {
 		var e error
 		metrics, e = telemetry.New("rankingd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if e != nil {
@@ -104,12 +108,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		return nil, err
 	}
 
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == productionEnv {
 		nativeApp, nativeErr := newNativeApp(ctx, cfg, logger, pool, rdb, tracker, metrics, secretChecks, secretStop)
 		secretOwned = nativeErr == nil
 		if nativeErr != nil {
 			shareddb.ClosePool(pool)
-			rdb.Close()
+			nativeErr = errors.Join(nativeErr, rdb.Close())
 		}
 		return nativeApp, nativeErr
 	}
@@ -137,7 +141,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	})
 
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle(metricsPath, metrics)
 	}
 	if err := tracker.SetReady(); err != nil {
 		return nil, err
@@ -260,7 +264,7 @@ func (a *App) scheduleLoop(ctx context.Context, interval time.Duration, run func
 
 func runtimeHandler(tracker *sharedprocess.Tracker, next http.Handler, metrics *telemetry.Metrics) http.Handler {
 	observed := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if metrics == nil || r.Method != http.MethodGet || r.URL.Path == "/metrics" {
+		if metrics == nil || r.Method != http.MethodGet || r.URL.Path == metricsPath {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -282,7 +286,7 @@ func runtimeHandler(tracker *sharedprocess.Tracker, next http.Handler, metrics *
 	})
 	tracked := tracker.Middleware(observed)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" || r.URL.Path == "/health/live" || r.URL.Path == "/health/ready" || r.URL.Path == "/metrics" {
+		if r.URL.Path == "/health" || r.URL.Path == "/health/live" || r.URL.Path == "/health/ready" || r.URL.Path == metricsPath {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -326,7 +330,11 @@ func (c *rankingVisibilityClient) ReadRankingVisibility(ctx context.Context) (st
 	if err != nil {
 		return out, err
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			slog.Warn("ranking visibility response close failed", "error", closeErr)
+		}
+	}()
 	if response.StatusCode != 200 {
 		return out, ranker.ErrUnavailable
 	}
@@ -348,8 +356,17 @@ func rankingBoundBytes(path, digest string) ([]byte, error) {
 	if err != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > 1<<20 || len(digest) != 64 {
 		return nil, ranker.ErrUnavailable
 	}
-	raw, err := os.ReadFile(path)
-	if err != nil || fmt.Sprintf("%x", sha256.Sum256(raw)) != digest {
+	f, err := os.OpenInRoot(filepath.Dir(path), filepath.Base(path))
+	if err != nil {
+		return nil, ranker.ErrUnavailable
+	}
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			slog.Warn("ranking bound file close failed", "error", closeErr)
+		}
+	}()
+	raw, err := io.ReadAll(io.LimitReader(f, 1<<20+1))
+	if err != nil || len(raw) > 1<<20 || fmt.Sprintf("%x", sha256.Sum256(raw)) != digest {
 		return nil, ranker.ErrUnavailable
 	}
 	return raw, nil
@@ -494,13 +511,13 @@ func newNativeApp(ctx context.Context, cfg config.Config, logger *slog.Logger, p
 		sharedhttp.WriteJSON(w, 200, raw)
 	})
 	if metrics != nil {
-		router.Handle("/metrics", metrics)
+		router.Handle(metricsPath, metrics)
 	}
 	if err = tracker.SetReady(); err != nil {
 		return nil, err
 	}
 	ingress := http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/health" || request.URL.Path == "/health/live" || request.URL.Path == "/health/ready" || request.URL.Path == "/metrics" {
+		if request.URL.Path == "/health" || request.URL.Path == "/health/live" || request.URL.Path == "/health/ready" || request.URL.Path == metricsPath {
 			router.ServeHTTP(w, request)
 			return
 		}
@@ -525,7 +542,7 @@ func (r *nativeRankingRuntime) ready(ctx context.Context) error {
 		return err
 	}
 	err = r.guard.Assert(ctx, tx)
-	tx.Rollback(ctx)
+	err = errors.Join(err, tx.Rollback(ctx))
 	if err != nil {
 		return err
 	}

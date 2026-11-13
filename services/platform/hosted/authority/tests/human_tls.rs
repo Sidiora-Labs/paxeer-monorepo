@@ -170,9 +170,9 @@ fn sign_fixture(mut fixture: Value) -> Value {
     let public_key = signer.verifying_key().to_bytes();
     let key_id: [u8; 32] = Sha256::digest(public_key).into();
     assert_ne!(key_id, [0; 32]);
-    let mut receipt = must(hex::decode(fixture["receipt_hex"].as_str().unwrap()));
+    let mut receipt = must(hex::decode(fixture["receipt_hex"].as_str().must()));
     let decoded = must(layerx_wire::receipt::decode(&receipt));
-    let protocol = decoded.protocol().unwrap();
+    let protocol = decoded.protocol().must();
     let mut context = layerx_wire::encode::Encoder::new(44);
     must(context.bytes(&protocol.context_hash(), 32));
     must(context.u64(protocol.timestamp()));
@@ -180,17 +180,17 @@ fn sign_fixture(mut fixture: Value) -> Value {
     let offset = receipt
         .windows(context.len())
         .position(|bytes| bytes == context)
-        .unwrap()
+        .must()
         + 4;
     receipt[offset..offset + 32].copy_from_slice(&key_id);
     let decoded = must(layerx_wire::receipt::decode(&receipt));
-    assert_eq!(decoded.protocol().unwrap().context_hash(), key_id);
+    assert_eq!(decoded.protocol().must().context_hash(), key_id);
     let unsigned = must(layerx_wire::receipt::encode_unsigned(&decoded));
     let signature = signer.sign(&must(layerx_wire::hash::receipt_digest(&unsigned)));
     let offset = receipt.len() - 64;
     receipt[offset..].copy_from_slice(&signature.to_bytes());
 
-    let mut header = must(hex::decode(fixture["header_hex"].as_str().unwrap()));
+    let mut header = must(hex::decode(fixture["header_hex"].as_str().must()));
     let decoded = must(layerx_wire::receipt::decode_batch_header(&header));
     for (old, new) in [
         (decoded.sequencer_id(), key_id),
@@ -199,7 +199,7 @@ fn sign_fixture(mut fixture: Value) -> Value {
             must(layerx_wire::hash::merkle_leaf(&receipt)),
         ),
     ] {
-        let offset = header.windows(32).position(|word| word == old).unwrap();
+        let offset = header.windows(32).position(|word| word == old).must();
         header[offset..offset + 32].copy_from_slice(&new);
     }
     let signature = signer.sign(&must(layerx_wire::hash::batch_header_digest(&header)));
@@ -462,11 +462,12 @@ fn server_tail(root: &Path) -> String {
 }
 
 fn assert_wire_status(root: &Path, response: (u16, String), expected: u16) {
+    let (status, body) = response;
     assert_eq!(
-        response.0,
+        status,
         expected,
         "body: {}\nserver.log (last twenty lines):\n{}",
-        response.1,
+        body,
         server_tail(root)
     );
 }
@@ -574,30 +575,65 @@ fn real_server_wire_statuses_remain_distinct() {
         ),
         401,
     );
+    assert_wire_policy_file_transitions(&server.root, &address);
+}
+
+fn assert_wire_policy_file_transitions(root: &Path, address: &str) {
+    let status = |path: &str| {
+        wire_status_at(
+            root,
+            address,
+            path,
+            "human-test-token-0000000000000000000000",
+        )
+    };
+    let base = "tenant=tenant%20space&principal=principal";
     must(fs::rename(
-        server.root.join("policy.json"),
-        server.root.join("policy.hidden"),
+        root.join("policy.json"),
+        root.join("policy.hidden"),
     ));
+    assert_wire_status(root, status(&format!("/v1/agent/registry?{base}")), 503);
+    must(fs::rename(
+        root.join("policy.hidden"),
+        root.join("policy.json"),
+    ));
+    assert_wire_status(root, status(&format!("/v1/agent/registry?{base}")), 200);
+    write(&root.join("policy.json"), br#"{"principals":[]}"#);
+    assert_wire_status(root, status(&format!("/v1/agent/registry?{base}")), 503);
+}
+
+fn assert_client_policy_refresh(client: &mut RemoteHumanAuthority, peer: &HumanPeer, root: &Path) {
+    let other = HumanPeer {
+        subject: None,
+        tenant: "other".to_owned(),
+        ..peer.clone()
+    };
+    assert!(client.registry(&other).is_err());
+    must(fs::rename(
+        root.join("policy.json"),
+        root.join("policy.hidden"),
+    ));
+    assert!(client.registry(peer).is_err());
     assert_wire_status(
-        &server.root,
-        status(&format!("/v1/agent/registry?{base}")),
+        root,
+        wire_status(
+            root,
+            "/v1/agent/registry?tenant=tenant%20space&principal=principal",
+        ),
         503,
     );
     must(fs::rename(
-        server.root.join("policy.hidden"),
-        server.root.join("policy.json"),
+        root.join("policy.hidden"),
+        root.join("policy.json"),
     ));
-    assert_wire_status(
-        &server.root,
-        status(&format!("/v1/agent/registry?{base}")),
-        200,
+    client_result(
+        root,
+        &must(std::env::var("LAYERX_HUMAN_TLS_CHILD")),
+        "/v1/agent/registry?tenant=tenant%20space&principal=principal",
+        client.registry(peer),
     );
-    write(&server.root.join("policy.json"), br#"{"principals":[]}"#);
-    assert_wire_status(
-        &server.root,
-        status(&format!("/v1/agent/registry?{base}")),
-        503,
-    );
+    write(&root.join("policy.json"), br#"{"principals":[]}"#);
+    assert!(client.registry(peer).is_err());
 }
 
 fn drive_client() {
@@ -672,37 +708,7 @@ fn drive_client() {
         client.key_rotation_policy(&peer, &did, false),
         Err(HumanOperationError::Refused)
     ));
-    let other = HumanPeer {
-        subject: None,
-        tenant: "other".to_owned(),
-        ..peer.clone()
-    };
-    assert!(client.registry(&other).is_err());
-    must(fs::rename(
-        root.join("policy.json"),
-        root.join("policy.hidden"),
-    ));
-    assert!(client.registry(&peer).is_err());
-    assert_wire_status(
-        &root,
-        wire_status(
-            &root,
-            "/v1/agent/registry?tenant=tenant%20space&principal=principal",
-        ),
-        503,
-    );
-    must(fs::rename(
-        root.join("policy.hidden"),
-        root.join("policy.json"),
-    ));
-    client_result(
-        &root,
-        &must(std::env::var("LAYERX_HUMAN_TLS_CHILD")),
-        "/v1/agent/registry?tenant=tenant%20space&principal=principal",
-        client.registry(&peer),
-    );
-    write(&root.join("policy.json"), br#"{"principals":[]}"#);
-    assert!(client.registry(&peer).is_err());
+    assert_client_policy_refresh(&mut client, &peer, &root);
 }
 
 #[test]

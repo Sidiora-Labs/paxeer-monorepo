@@ -3,9 +3,7 @@
 
 This maintained service contract describes the current [HTTP handler](../http.go),
 [SQL store](../store.go), [squad operations](../squads.go), and
-[public source authority](../wire.go). Domain 4 owns publication of these pages
-into the canonical registry; the outstanding changes are in the
-[repair record](../repair_m983.kvx). The accompanying
+[public source authority](../wire.go). The accompanying
 [client contract](clients.md#launchpad-sdk-sdk) describes the consuming SDK.
 
 ## Squads and revisions
@@ -37,7 +35,7 @@ For `request` policy, RequestJoin produces a requested membership; an authorized
 owner or moderator calls ApproveRequest, which returns the committed active
 membership with `JoinedAt = now`. `open` joins become active immediately.
 Invite-only policy rejects request actions; banned members cannot rejoin.
-`PUT /v2/squads/{id}/members/{account}` calls ChangeMembership, which returns
+`PUT /v2/squads/{squadId}/members/{accountId}` calls ChangeMembership, which returns
 both the squad and member under the mutation lock. AdaptV2SquadMembership takes
 both objects. Envelope `revision` and membership `revision` identify the member;
 `data.squadRevision` identifies the independent persisted squad. All frozen
@@ -49,7 +47,7 @@ The [alert adapter](../alerts_v2.go) exposes the actual typed producer signature
 
 ```go
 func AdaptV2AlertCreate(rule AlertRule, wallet string, threshold v2.InputPrice, requestID string, generatedAt time.Time) (v2.AlertCreateResponse, error)
-func RuleFromV2AlertCreate(body []byte, actor string) (AlertRule, error)
+func RuleFromV2AlertCreate(raw []byte, ownerAccountID string) (AlertRule, error)
 ```
 
 `POST /v2/me/alerts` resolves authenticated account and wallet, validates the
@@ -79,12 +77,11 @@ deduplication. The source resolver refuses tombstoned callouts.
 
 The downstream social authority must accept anonymous removals without resolving
 Actor as an account UUID, and persist a monotonic removal fence before allowing
-any older creation. That consumer, its policy store, the registry, and production
-PostgreSQL privilege/lock qualification belong to their owners outside this task.
-See the explicit wiring requests in the [repair record](../repair_m983.kvx).
+any older creation.
 
 <a id="launchpad-api"></a>
-# Launchpad API
+
+## Launchpad API
 
 The API mounts discovery's [frozen routes](../http.go). Authenticated operations
 derive the account from the injected authority and alert routes also require the
@@ -94,5 +91,4 @@ answer 400, missing resources 404, authorization failures 403, stale revisions
 409, and unavailable dependencies 503; missing authentication answers 401.
 Client consumers must preserve decimal revisions and handle errors through the
 frozen envelope. The [web contract](clients.md#launchpad-web-app) documents retry
-and identity boundaries. Discovery owns durable state and event recovery; API
-mounts and regenerated schema/client artifacts require Domain 4 owner wiring.
+and identity boundaries. Discovery owns durable state and event recovery.

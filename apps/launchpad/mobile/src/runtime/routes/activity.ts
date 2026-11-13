@@ -1,28 +1,43 @@
 import {
-  Operations,
+  Operations as BuiltOperations,
+  SdkClient as BuiltSdkClient,
+} from '@kindle/sdk';
+import {
+  Operations as SourceOperations,
+  SdkClient as SourceSdkClient,
   decodeContract,
-  type SdkClient,
 } from '../../../../../../sdk/launchpad/packages/sdk/src/index.ts';
-import type { QuoteBody } from '../../../../../../sdk/launchpad/packages/sdk/src/types.gen.ts';
+import type { QuoteBody } from '../../../../../../sdk/launchpad/packages/sdk/src/index.ts';
 import { createPublicClient, defineChain, getAddress, http } from 'viem';
 import type { PublicConfiguration } from '../service-client.ts';
 import { onchainQuote } from '../onchain-quote.ts';
 import { validatePublicSnapshot } from '../offline-cache.ts';
 
-export async function streams(sdk: SdkClient, signal: AbortSignal) {
+export async function streams(
+  sdk: SourceSdkClient | BuiltSdkClient,
+  signal: AbortSignal,
+) {
   signal.throwIfAborted();
-  const response = await new Operations(sdk).call(
-    'IF_STREAM_LIST',
-    { query: { status: 'live', limit: 50 } },
-    { signal },
-  );
+  const response =
+    sdk instanceof SourceSdkClient
+      ? await new SourceOperations(sdk).call(
+          'IF_STREAM_LIST',
+          { query: { status: 'live', limit: 50 } },
+          { signal },
+        )
+      : await new BuiltOperations(sdk).call(
+          'IF_STREAM_LIST',
+          { query: { status: 'live', limit: 50 } },
+          { signal },
+        );
   validatePublicSnapshot('live', response);
   return response;
 }
 
 export async function quote(
   services: {
-    config: SdkClient['config'] & Pick<PublicConfiguration, 'walletConnect'>;
+    config: SourceSdkClient['config'] &
+      Pick<PublicConfiguration, 'walletConnect'>;
   },
   body: QuoteBody,
   signal: AbortSignal,
@@ -56,14 +71,24 @@ export async function quote(
 
 export const IF_TX_STATUS = 'IF_TX_STATUS';
 
-export function receipt(sdk: SdkClient, hash: string, signal: AbortSignal) {
+export function receipt(
+  sdk: SourceSdkClient | BuiltSdkClient,
+  hash: string,
+  signal: AbortSignal,
+) {
   if (!/^0x[0-9a-fA-F]{64}$/.test(hash))
     throw new Error('Invalid transaction hash');
-  return new Operations(sdk).call(
-    IF_TX_STATUS,
-    { path: { transactionHash: hash } },
-    { signal },
-  );
+  return sdk instanceof SourceSdkClient
+    ? new SourceOperations(sdk).call(
+        IF_TX_STATUS,
+        { path: { transactionHash: hash } },
+        { signal },
+      )
+    : new BuiltOperations(sdk).call(
+        IF_TX_STATUS,
+        { path: { transactionHash: hash } },
+        { signal },
+      );
 }
 
 export const activityRoutes = { streams, quote, receipt };

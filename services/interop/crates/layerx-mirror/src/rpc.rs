@@ -65,6 +65,10 @@ pub enum BroadcastResult {
 /// Address lookup provider. The transport bounds even a blocking resolver by
 /// the same request deadline, with at most one outstanding lookup per endpoint.
 pub trait RpcResolver: Send + Sync + 'static {
+    /// Looks up bounded addresses for an endpoint.
+    ///
+    /// # Errors
+    /// Returns a resolver error when the endpoint cannot be resolved.
     fn resolve(&self, host: &str, port: u16) -> std::io::Result<Vec<SocketAddr>>;
 }
 
@@ -142,6 +146,9 @@ impl RpcCluster {
     }
 
     /// Uses an operator-provided resolver under the normal request deadline.
+    ///
+    /// # Errors
+    /// Refuses invalid bounds, duplicate endpoints or invalid TLS configuration.
     pub fn with_resolver(
         config: &RpcQuorumConfig,
         resolver: Arc<dyn RpcResolver>,
@@ -157,10 +164,13 @@ impl RpcCluster {
         {
             return Err(RpcError::Configuration);
         }
+        let mut resolvers = vec![Arc::clone(&resolver); config.endpoints.len() - 1];
+        resolvers.push(resolver);
         let endpoints = config
             .endpoints
             .iter()
-            .map(|config| Endpoint::new(config, Arc::clone(&resolver)))
+            .zip(resolvers)
+            .map(|(config, resolver)| Endpoint::new(config, resolver))
             .collect::<Result<Vec<_>, _>>()?;
         let network_identities: BTreeSet<_> = endpoints
             .iter()

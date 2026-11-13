@@ -1,3 +1,5 @@
+include!("support/required.rs");
+
 use std::fs::{self, OpenOptions};
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -191,13 +193,6 @@ fn settled_identity(digest: [u8; 32]) -> CallbackIdentity {
     }
 }
 
-fn reference_journal(name: &str) -> (PathBuf, Journal) {
-    let path = journal_path(name);
-    let (mut journal, digest) = seeded_journal(&path);
-    assert_eq!(settle_callback(&mut journal, digest), Ok(true));
-    (path, journal)
-}
-
 fn assert_same_state(journal: &Journal, reference: &Journal, step: WriteStep) {
     assert_eq!(journal.projection(), reference.projection(), "{step:?}");
     assert_eq!(journal.head(), reference.head(), "{step:?}");
@@ -220,8 +215,8 @@ fn payment_direction_selects_direct_send_or_customer_grant() {
     let off_ramp = order(RampDirection::OffRamp, "customer-a");
     assert_eq!(on_ramp.payer_grant, None);
     assert_eq!(off_ramp.payer_grant, Some([7; 32]));
-    let send = compile_operator_send(&on_ramp).expect("on-ramp ledger call");
-    let draw = compile_payer_grant_draw(&off_ramp, 9).expect("off-ramp ledger call");
+    let send = compile_operator_send(&on_ramp).required("on-ramp ledger call");
+    let draw = compile_payer_grant_draw(&off_ramp, 9).required("off-ramp ledger call");
     assert_eq!(send.to, layerx_ramp_toolkit::evm::LEDGER_ADDRESS);
     assert_eq!(draw.to, layerx_ramp_toolkit::evm::PAY_ADDRESS);
     assert_eq!(&send.data[..4], &[0x78, 0xea, 0x11, 0xdb]);
@@ -437,6 +432,16 @@ struct RecoveryAuthority {
     custody: layerx_ramp_toolkit::clients::PaxeerCustodyClient,
 }
 
+fn protected_recovery_input<T: serde::de::DeserializeOwned>(name: &str) -> T {
+    let path = std::env::var_os(name)
+        .unwrap_or_else(|| panic!("required protected real recovery input: {name}"));
+    let bytes = layerx_ramp_toolkit::clients::SecretFile::new(PathBuf::from(path))
+        .and_then(|file| file.read())
+        .unwrap_or_else(|_| panic!("protected recovery input unavailable: {name}"));
+    serde_json::from_slice(&bytes)
+        .unwrap_or_else(|_| panic!("protected recovery input invalid: {name}"))
+}
+
 impl RecoveryAuthority {
     fn protected() -> Self {
         use layerx_ramp_toolkit::clients::{
@@ -510,22 +515,14 @@ impl RecoveryAuthority {
             vault_id: field(custody_config, "vault_id"),
             signer_key_handle: field(custody_config, "signer_key_handle"),
         };
-        fn protected_input<T: serde::de::DeserializeOwned>(name: &str) -> T {
-            let path = std::env::var_os(name)
-                .unwrap_or_else(|| panic!("required protected real recovery input: {name}"));
-            let bytes = SecretFile::new(PathBuf::from(path))
-                .and_then(|file| file.read())
-                .unwrap_or_else(|_| panic!("protected recovery input unavailable: {name}"));
-            serde_json::from_slice(&bytes)
-                .unwrap_or_else(|_| panic!("protected recovery input invalid: {name}"))
-        }
-        let bound_order: RampOrder = protected_input("LAYERX_RAMP_RECOVERY_CONTRACT_ORDER");
+        let bound_order: RampOrder =
+            protected_recovery_input("LAYERX_RAMP_RECOVERY_CONTRACT_ORDER");
         bound_order
             .validate_bound()
             .unwrap_or_else(|_| panic!("recovery order identity refused"));
         assert_eq!(bound_order.direction(), RampDirection::OnRamp);
         let callback: layerx_ramp_toolkit::clients::ProviderCallback =
-            protected_input("LAYERX_RAMP_RECOVERY_CONTRACT_CALLBACK");
+            protected_recovery_input("LAYERX_RAMP_RECOVERY_CONTRACT_CALLBACK");
         let callback_key = parse_hex32(&field::<String>(&config, "provider_callback_public_key"))
             .unwrap_or_else(|_| panic!("recovery callback key refused"));
         callback
@@ -578,7 +575,9 @@ impl RecoveryAuthority {
         let mut evidence = TransitionEvidence::empty();
         evidence.provider_operation_id = Some(self.callback.result.operation_id.clone());
         evidence.provider_evidence_digest = self.callback.result.evidence_digest;
-        evidence.refusal_code = self.callback.result.refusal_code.clone();
+        evidence
+            .refusal_code
+            .clone_from(&self.callback.result.refusal_code);
         evidence.retry_at = self.callback.result.retry_at;
         journal.apply_provider_callback(
             callback_write(
@@ -645,6 +644,236 @@ fn assert_unready(journal: &Journal) {
     }
 }
 
+struct FaultRecovery<'a> {
+    authority: &'a RecoveryAuthority,
+    reference: &'a Journal,
+    reference_bytes: &'a [u8],
+    provider_before: &'a layerx_ramp_toolkit::clients::ProviderResult,
+    step: WriteStep,
+    path: PathBuf,
+    digest: [u8; 32],
+    retained: Vec<u8>,
+    intent_path: PathBuf,
+    pending_intent: Vec<u8>,
+    count_before: u64,
+    recovered: Journal,
+}
+
+fn assert_retained_callback_bytes(
+    step: WriteStep,
+    retained: &[u8],
+    bytes_before: &[u8],
+    reference_bytes: &[u8],
+) {
+    match step {
+        WriteStep::BeforeRecord => assert_eq!(retained, bytes_before, "{step:?}"),
+        WriteStep::DuringRecord | WriteStep::BeforeTerminator => {
+            assert!(retained.len() > bytes_before.len(), "{step:?}");
+            assert!(retained.starts_with(bytes_before), "{step:?}");
+            assert!(reference_bytes.starts_with(retained), "{step:?}");
+            assert_ne!(retained.last(), Some(&b'\n'), "{step:?}");
+        }
+        WriteStep::AfterRecord | WriteStep::AfterSync => {
+            assert_eq!(retained, reference_bytes, "{step:?}");
+        }
+    }
+}
+
+fn assert_callback_recovery_step(
+    authority: &RecoveryAuthority,
+    reference: &Journal,
+    reference_bytes: &[u8],
+    provider_before: &layerx_ramp_toolkit::clients::ProviderResult,
+    fault: WriteFault,
+    label: &str,
+    step: WriteStep,
+) {
+    let path = journal_path(&format!("{label}-{step:?}"));
+    let (mut journal, digest) = authority.seed(&path);
+    let before = journal.projection().clone();
+    let bytes_before = journal_bytes(&path);
+    let head_before = journal.head();
+    let count_before = journal.record_count();
+    journal.arm_write_fault(step, fault);
+    assert_eq!(
+        authority.settle(&mut journal, digest),
+        Err(RampError::Journal),
+        "{step:?}"
+    );
+    assert_eq!(journal.armed_write_fault(), None, "{step:?}");
+    assert_unready(&journal);
+    assert!(journal.health().uncertain_write);
+    assert_eq!(journal.projection(), &before, "{step:?}");
+    assert_eq!(
+        journal.callback(&authority.callback.callback_id),
+        None,
+        "{step:?}"
+    );
+    assert_eq!(journal.provider_sequence(&digest), None, "{step:?}");
+    assert_eq!(journal.head(), head_before, "{step:?}");
+    assert_eq!(journal.record_count(), count_before, "{step:?}");
+    assert_eq!(
+        journal.acquire_lease(digest, WORKER, CALLBACK_AT, 30),
+        Err(RampError::Journal)
+    );
+    assert_eq!(
+        authority.settle(&mut journal, digest),
+        Err(RampError::Journal)
+    );
+    let retained = journal_bytes(&path);
+    assert_retained_callback_bytes(step, &retained, &bytes_before, reference_bytes);
+    let mut intent_path = path.as_os_str().to_owned();
+    intent_path.push(".append-intent");
+    let intent_path = PathBuf::from(intent_path);
+    let pending_intent = journal_bytes(&intent_path);
+    assert!(!pending_intent.is_empty());
+    drop(journal);
+    let mut recovered = open_journal(&path);
+    assert_unready(&recovered);
+    assert_eq!(journal_bytes(&path), retained, "{step:?}");
+    assert_eq!(journal_bytes(&intent_path), pending_intent, "{step:?}");
+    assert_eq!(
+        authority.settle(&mut recovered, digest),
+        Err(RampError::Journal)
+    );
+    assert_eq!(
+        recovered.create_order(
+            before
+                .order(&digest)
+                .unwrap_or_else(|| panic!("bound order absent"))
+                .order
+                .clone(),
+            CALLBACK_AT
+        ),
+        Err(RampError::Journal)
+    );
+    match step {
+        WriteStep::BeforeRecord => {
+            assert_eq!(recovered.recovery(), None, "{step:?}");
+            assert_eq!(recovered.projection(), &before, "{step:?}");
+            assert_eq!(recovered.head(), head_before, "{step:?}");
+            assert_eq!(recovered.record_count(), count_before, "{step:?}");
+        }
+        WriteStep::DuringRecord | WriteStep::BeforeTerminator => {
+            assert_eq!(
+                recovered.recovery(),
+                Some(TornTail {
+                    offset: bytes_before.len() as u64,
+                    bytes: (retained.len() - bytes_before.len()) as u64,
+                }),
+                "{step:?}"
+            );
+            assert_eq!(recovered.projection(), &before, "{step:?}");
+            assert_eq!(recovered.head(), head_before, "{step:?}");
+            assert_eq!(recovered.record_count(), count_before, "{step:?}");
+            assert!(recovered.health().torn_tail);
+        }
+        WriteStep::AfterRecord | WriteStep::AfterSync => {
+            assert_eq!(recovered.recovery(), None, "{step:?}");
+            assert_same_state(&recovered, reference, step);
+        }
+    }
+    assert_verified_callback_recovery(FaultRecovery {
+        authority,
+        reference,
+        reference_bytes,
+        provider_before,
+        step,
+        path,
+        digest,
+        retained,
+        intent_path,
+        pending_intent,
+        count_before,
+        recovered,
+    });
+}
+
+fn assert_verified_callback_recovery(case: FaultRecovery<'_>) {
+    let FaultRecovery {
+        authority,
+        reference,
+        reference_bytes,
+        provider_before,
+        step,
+        path,
+        digest,
+        retained,
+        intent_path,
+        pending_intent,
+        count_before,
+        mut recovered,
+    } = case;
+    let mut wrong_operator = authority.operator.clone();
+    wrong_operator.principal_id.push_str("-different-owner");
+    let unchanged = recovered.projection().clone();
+    let denied = recovered.recover_verified(|projection| {
+        layerx_ramp_toolkit::clients::verify_recovery_settlement(
+            projection,
+            &wrong_operator,
+            &authority.provider,
+            &authority.layerx,
+            &authority.custody,
+        )
+    });
+    assert_eq!(denied, Err(RampError::OrderBinding));
+    assert_unready(&recovered);
+    assert_eq!(recovered.projection(), &unchanged);
+    assert_eq!(journal_bytes(&path), retained);
+    assert_eq!(journal_bytes(&intent_path), pending_intent);
+    assert_eq!(
+        authority.settle(&mut recovered, digest),
+        Err(RampError::Journal)
+    );
+    let invoked = std::cell::Cell::new(false);
+    assert_eq!(authority.recover(&mut recovered, &invoked), Ok(()));
+    assert!(invoked.get());
+    assert!(recovered.health().ready);
+    assert!(!recovered.health().halted);
+    assert!(!recovered.health().uncertain_write);
+    assert!(!recovered.health().recovery_required);
+    assert!(!recovered.health().torn_tail);
+    assert_eq!(recovered.recovery(), None);
+    assert!(!intent_path.exists());
+    assert!(journal_bytes(&path).starts_with(&retained));
+    assert_eq!(
+        recovered.callback(&authority.callback.callback_id),
+        Some(authority.identity())
+    );
+    assert_eq!(
+        recovered.provider_sequence(&digest),
+        Some(authority.callback.provider_sequence)
+    );
+    assert_eq!(recovered.projection().callbacks().len(), 1);
+    assert_eq!(recovered.projection().provider_sequences().len(), 1);
+    assert_eq!(recovered.record_count(), count_before + 1);
+    assert_same_state(&recovered, reference, step);
+    assert_eq!(journal_bytes(&path), reference_bytes, "{step:?}");
+    assert_eq!(authority.settle(&mut recovered, digest), Ok(false));
+    assert_same_state(&recovered, reference, step);
+    assert_eq!(journal_bytes(&path), reference_bytes, "{step:?}");
+    assert_eq!(&authority.provider_state(), provider_before);
+    drop(recovered);
+    let mut replayed = open_journal(&path);
+    assert_unready(&replayed);
+    assert_eq!(replayed.recovery(), None, "{step:?}");
+    assert_same_state(&replayed, reference, step);
+    assert_eq!(journal_bytes(&path), reference_bytes, "{step:?}");
+    assert_eq!(
+        authority.settle(&mut replayed, digest),
+        Err(RampError::Journal)
+    );
+    let invoked = std::cell::Cell::new(false);
+    assert_eq!(authority.recover(&mut replayed, &invoked), Ok(()));
+    assert!(invoked.get());
+    assert_eq!(authority.settle(&mut replayed, digest), Ok(false));
+    assert_same_state(&replayed, reference, step);
+    assert_eq!(journal_bytes(&path), reference_bytes, "{step:?}");
+    assert_eq!(&authority.provider_state(), provider_before);
+    drop(replayed);
+    remove_journal(&path);
+}
+
 fn assert_callback_recovery(fault: WriteFault, label: &str) {
     let authority = RecoveryAuthority::protected();
     let provider_before = authority.provider_state();
@@ -653,170 +882,15 @@ fn assert_callback_recovery(fault: WriteFault, label: &str) {
     assert_eq!(authority.settle(&mut reference, reference_digest), Ok(true));
     let reference_bytes = journal_bytes(&reference_path);
     for step in WriteStep::ALL {
-        let path = journal_path(&format!("{label}-{step:?}"));
-        let (mut journal, digest) = authority.seed(&path);
-        let before = journal.projection().clone();
-        let bytes_before = journal_bytes(&path);
-        let head_before = journal.head();
-        let count_before = journal.record_count();
-        journal.arm_write_fault(step, fault);
-        assert_eq!(
-            authority.settle(&mut journal, digest),
-            Err(RampError::Journal),
-            "{step:?}"
+        assert_callback_recovery_step(
+            &authority,
+            &reference,
+            &reference_bytes,
+            &provider_before,
+            fault,
+            label,
+            step,
         );
-        assert_eq!(journal.armed_write_fault(), None, "{step:?}");
-        assert_unready(&journal);
-        assert!(journal.health().uncertain_write);
-        assert_eq!(journal.projection(), &before, "{step:?}");
-        assert_eq!(
-            journal.callback(&authority.callback.callback_id),
-            None,
-            "{step:?}"
-        );
-        assert_eq!(journal.provider_sequence(&digest), None, "{step:?}");
-        assert_eq!(journal.head(), head_before, "{step:?}");
-        assert_eq!(journal.record_count(), count_before, "{step:?}");
-        assert_eq!(
-            journal.acquire_lease(digest, WORKER, CALLBACK_AT, 30),
-            Err(RampError::Journal)
-        );
-        assert_eq!(
-            authority.settle(&mut journal, digest),
-            Err(RampError::Journal)
-        );
-        let retained = journal_bytes(&path);
-        match step {
-            WriteStep::BeforeRecord => assert_eq!(retained, bytes_before, "{step:?}"),
-            WriteStep::DuringRecord | WriteStep::BeforeTerminator => {
-                assert!(retained.len() > bytes_before.len(), "{step:?}");
-                assert!(retained.starts_with(&bytes_before), "{step:?}");
-                assert!(reference_bytes.starts_with(&retained), "{step:?}");
-                assert_ne!(retained.last(), Some(&b'\n'), "{step:?}");
-            }
-            WriteStep::AfterRecord | WriteStep::AfterSync => {
-                assert_eq!(retained, reference_bytes, "{step:?}")
-            }
-        }
-        let mut intent_path = path.as_os_str().to_owned();
-        intent_path.push(".append-intent");
-        let intent_path = PathBuf::from(intent_path);
-        let pending_intent = journal_bytes(&intent_path);
-        assert!(!pending_intent.is_empty());
-        drop(journal);
-        let mut recovered = open_journal(&path);
-        assert_unready(&recovered);
-        assert_eq!(journal_bytes(&path), retained, "{step:?}");
-        assert_eq!(journal_bytes(&intent_path), pending_intent, "{step:?}");
-        assert_eq!(
-            authority.settle(&mut recovered, digest),
-            Err(RampError::Journal)
-        );
-        assert_eq!(
-            recovered.create_order(
-                before
-                    .order(&digest)
-                    .unwrap_or_else(|| panic!("bound order absent"))
-                    .order
-                    .clone(),
-                CALLBACK_AT
-            ),
-            Err(RampError::Journal)
-        );
-        match step {
-            WriteStep::BeforeRecord => {
-                assert_eq!(recovered.recovery(), None, "{step:?}");
-                assert_eq!(recovered.projection(), &before, "{step:?}");
-                assert_eq!(recovered.head(), head_before, "{step:?}");
-                assert_eq!(recovered.record_count(), count_before, "{step:?}");
-            }
-            WriteStep::DuringRecord | WriteStep::BeforeTerminator => {
-                assert_eq!(
-                    recovered.recovery(),
-                    Some(TornTail {
-                        offset: bytes_before.len() as u64,
-                        bytes: (retained.len() - bytes_before.len()) as u64,
-                    }),
-                    "{step:?}"
-                );
-                assert_eq!(recovered.projection(), &before, "{step:?}");
-                assert_eq!(recovered.head(), head_before, "{step:?}");
-                assert_eq!(recovered.record_count(), count_before, "{step:?}");
-                assert!(recovered.health().torn_tail);
-            }
-            WriteStep::AfterRecord | WriteStep::AfterSync => {
-                assert_eq!(recovered.recovery(), None, "{step:?}");
-                assert_same_state(&recovered, &reference, step);
-            }
-        }
-        let mut wrong_operator = authority.operator.clone();
-        wrong_operator.principal_id.push_str("-different-owner");
-        let unchanged = recovered.projection().clone();
-        let denied = recovered.recover_verified(|projection| {
-            layerx_ramp_toolkit::clients::verify_recovery_settlement(
-                projection,
-                &wrong_operator,
-                &authority.provider,
-                &authority.layerx,
-                &authority.custody,
-            )
-        });
-        assert_eq!(denied, Err(RampError::OrderBinding));
-        assert_unready(&recovered);
-        assert_eq!(recovered.projection(), &unchanged);
-        assert_eq!(journal_bytes(&path), retained);
-        assert_eq!(journal_bytes(&intent_path), pending_intent);
-        assert_eq!(
-            authority.settle(&mut recovered, digest),
-            Err(RampError::Journal)
-        );
-        let invoked = std::cell::Cell::new(false);
-        assert_eq!(authority.recover(&mut recovered, &invoked), Ok(()));
-        assert!(invoked.get());
-        assert!(recovered.health().ready);
-        assert!(!recovered.health().halted);
-        assert!(!recovered.health().uncertain_write);
-        assert!(!recovered.health().recovery_required);
-        assert!(!recovered.health().torn_tail);
-        assert_eq!(recovered.recovery(), None);
-        assert!(!intent_path.exists());
-        assert!(journal_bytes(&path).starts_with(&retained));
-        assert_eq!(
-            recovered.callback(&authority.callback.callback_id),
-            Some(authority.identity())
-        );
-        assert_eq!(
-            recovered.provider_sequence(&digest),
-            Some(authority.callback.provider_sequence)
-        );
-        assert_eq!(recovered.projection().callbacks().len(), 1);
-        assert_eq!(recovered.projection().provider_sequences().len(), 1);
-        assert_eq!(recovered.record_count(), count_before + 1);
-        assert_same_state(&recovered, &reference, step);
-        assert_eq!(journal_bytes(&path), reference_bytes, "{step:?}");
-        assert_eq!(authority.settle(&mut recovered, digest), Ok(false));
-        assert_same_state(&recovered, &reference, step);
-        assert_eq!(journal_bytes(&path), reference_bytes, "{step:?}");
-        assert_eq!(authority.provider_state(), provider_before);
-        drop(recovered);
-        let mut replayed = open_journal(&path);
-        assert_unready(&replayed);
-        assert_eq!(replayed.recovery(), None, "{step:?}");
-        assert_same_state(&replayed, &reference, step);
-        assert_eq!(journal_bytes(&path), reference_bytes, "{step:?}");
-        assert_eq!(
-            authority.settle(&mut replayed, digest),
-            Err(RampError::Journal)
-        );
-        let invoked = std::cell::Cell::new(false);
-        assert_eq!(authority.recover(&mut replayed, &invoked), Ok(()));
-        assert!(invoked.get());
-        assert_eq!(authority.settle(&mut replayed, digest), Ok(false));
-        assert_same_state(&replayed, &reference, step);
-        assert_eq!(journal_bytes(&path), reference_bytes, "{step:?}");
-        assert_eq!(authority.provider_state(), provider_before);
-        drop(replayed);
-        remove_journal(&path);
     }
     drop(reference);
     remove_journal(&reference_path);

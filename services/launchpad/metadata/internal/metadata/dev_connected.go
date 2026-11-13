@@ -189,16 +189,16 @@ func withTokenParam(r *http.Request, token string) *http.Request {
 type DevelopmentVisibility struct{}
 
 func (DevelopmentVisibility) Read(ctx context.Context, pool string) (D12Visibility, error) {
-	return DevelopmentVisibility{}.ReadTarget(ctx, "token", pool)
+	return DevelopmentVisibility{}.ReadTarget(ctx, metadataTokenTarget, pool)
 }
 func (DevelopmentVisibility) ReadTarget(ctx context.Context, targetType, targetID string) (D12Visibility, error) {
 	if e := ctx.Err(); e != nil {
 		return D12Visibility{}, e
 	}
-	if (targetType != "token" && targetType != "asset") || (targetType == "token" && !addressRE.MatchString(targetID)) || (targetType == "asset" && !uuidRE.MatchString(targetID)) {
+	if (targetType != metadataTokenTarget && targetType != metadataAssetTarget) || (targetType == metadataTokenTarget && !addressRE.MatchString(targetID)) || (targetType == metadataAssetTarget && !uuidRE.MatchString(targetID)) {
 		return D12Visibility{}, raster.ErrUnavailable
 	}
-	return D12Visibility{TargetType: targetType, TargetID: targetID, Status: "allowed"}, nil
+	return D12Visibility{TargetType: targetType, TargetID: targetID, Status: metadataVisibilityAllowed}, nil
 }
 
 // DevelopmentSessionChannel stands in for the production private channel
@@ -317,7 +317,7 @@ func (c ConnectedMedia) ProjectDevelopmentLegacy(ctx context.Context, q sqlcdb.Q
 		}
 		params.CustomTags = pgtype.Text{String: string(encoded), Valid: true}
 		for _, link := range display.Socials {
-			column := map[string]*pgtype.Text{"website": &params.Website, "twitter": &params.Twitter, "telegram": &params.Telegram, "discord": &params.Discord}[legacySocialColumn(link.URL)]
+			column := map[string]*pgtype.Text{metadataSocialWebsite: &params.Website, metadataSocialTwitter: &params.Twitter, metadataSocialTelegram: &params.Telegram, metadataSocialDiscord: &params.Discord}[legacySocialColumn(link.URL)]
 			if !column.Valid {
 				*column = pgtype.Text{String: link.URL, Valid: true}
 			}
@@ -337,11 +337,15 @@ func (c ConnectedMedia) ProjectDevelopmentLegacy(ctx context.Context, q sqlcdb.Q
 			if e != nil {
 				return e
 			}
+			sizeBytes, sizeErr := checkedImageSize(len(body))
+			if sizeErr != nil {
+				return sizeErr
+			}
 			key := "logos/logo-" + item.token + ".png"
-			if e = legacy.Put(ctx, key, bytes.NewReader(body), int64(len(body)), "image/png"); e != nil {
+			if e = legacy.Put(ctx, key, bytes.NewReader(body), int64(len(body)), metadataMimePNG); e != nil {
 				return e
 			}
-			if e = q.UpsertTokenImage(ctx, sqlcdb.UpsertTokenImageParams{ID: item.token + "-logo", TokenAddress: item.token, ImageType: "logo", StorageKey: key, MimeType: "image/png", SizeBytes: int32(len(body)), UploadedAt: stamp}); e != nil {
+			if e = q.UpsertTokenImage(ctx, sqlcdb.UpsertTokenImageParams{ID: item.token + "-logo", TokenAddress: item.token, ImageType: "logo", StorageKey: key, MimeType: metadataMimePNG, SizeBytes: sizeBytes, UploadedAt: stamp}); e != nil {
 				return e
 			}
 		}

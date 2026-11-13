@@ -1,0 +1,33 @@
+[repair.22.39.389]
+criterion = "22998.1"
+verified_revision = "The verified revision is the revision that carries this record and the matching hf-build and hf-done evidence."
+result = "The AI market stages a deposit or payment under its spending grant without reading the balance sight."
+kernel_deposit = "src/modules/programs/call.c:2559 emits the FUND transfer set; src/ledger/lxp_apply.c:309-310 refuses a leg when the principal source account balance is below the amount."
+kernel_payment = "src/modules/programs/call.c:2559 emits the ProgramSpend payment transfer set; src/ledger/lxp_apply.c:309-310 refuses a leg when the program source account balance is below the amount."
+
+[reader.inventory]
+inside = "programs/crates/layerx-programs-ai-market/tests/value_boundary.rs:503,513 and tests/rewards_native.rs:2438 asserted the removed refusal mapping; tests/fuel_budget.rs:2174-2178 counted the removed balance read; tests/support/guest.rs:445-453 supplied the sight grant; tests/support/repair_478_fixture.rs:245-299 reconstructed it for the diagnostic executor. These readers are corrected."
+outside = "tests/programs/test_monetary_law.c:264,278 and :296,306 prove the kernel insufficient-balance refusal; tools/qualification/paxeer-x/program_transfer_authority.py:68 names that case; docs/wiki/Programs.md:435 and docs/platform/content/guide/programs.md:79 describe the generic BalanceView capability; rpc/repair_478.kvx:11,161 records the historical sight fixture. These files are unchanged."
+examples = "No example of this crate reads the settlement balance sight."
+
+[guest.measurement]
+deployment_bound_bytes = 524184
+deployment_wasm_bytes_before = 520519
+deployment_wasm_bytes_after = 519337
+aggregation_probe_wasm_bytes_before = 130679
+aggregation_probe_wasm_bytes_after = 130679
+note = "The deployment guest shrank by 1182 bytes and remains below 524184. The aggregation probe byte count is unchanged; its metadata source hash moved with the source edit."
+
+[fuel.measurement]
+case = "rpc/repair_478_test.go: TestRepair478_FundWithinProductionAllowance"
+cpu_fuel_before_pinned_bound = 802503
+cpu_fuel_after_measured = 746855
+cpu_fuel_after_pinned_bound = 746855
+result_code = 0
+source = "programs/target/repair-478/measurement.kvx from the preflight Go proof"
+
+[preflight.unrelated]
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market"
+exit = 101
+log = "/out/logs/task-389-preflight-crate-tests-rerun.log"
+observation = "The whole crate run reached F03 cases that returned F07_EPOCH_NOT_SEALED (0x0705), an unrelated epoch seal refusal; the missing native host boundary manifest was subsequently built and the declared focused Rust suite passed."

@@ -91,6 +91,11 @@ var (
 	ErrInvalidPoolBinding               = sdkerrors.Register(ModuleName, 74, LaunchpadCode("INVALID_POOL_BINDING"))
 	ErrPermitExpired                    = sdkerrors.Register(ModuleName, 75, LaunchpadCode("PERMIT_EXPIRED"))
 	ErrOpticalNotApproved               = sdkerrors.Register(ModuleName, 76, LaunchpadCode("OPTICAL_NOT_APPROVED"))
+	ErrWrongChain                       = sdkerrors.Register(ModuleName, 77, LaunchpadCode("WRONG_CHAIN"))
+	ErrNotLaunchedChain                 = sdkerrors.Register(ModuleName, 78, LaunchpadCode("NOT_LAUNCHED_CHAIN"))
+	ErrNotFeeRightHolder                = sdkerrors.Register(ModuleName, 79, LaunchpadCode("NOT_FEE_RIGHT_HOLDER"))
+	ErrEpochTooEarly                    = sdkerrors.Register(ModuleName, 80, LaunchpadCode("EPOCH_TOO_EARLY"))
+	ErrNothingToDistribute              = sdkerrors.Register(ModuleName, 81, LaunchpadCode("NOTHING_TO_DISTRIBUTE"))
 )
 
 // KeeperOnlyErrors are the launchpad keeper errors for conditions no Launch-x

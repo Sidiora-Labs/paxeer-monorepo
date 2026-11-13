@@ -1,7 +1,7 @@
 import { describe, expect, it, test } from 'vitest';
 import { decodeFunctionData, encodeFunctionData } from 'viem';
 import { erc20Abi } from 'sidiora-launchpad-v3';
-import { BountyRpcTranscript, transcriptProvider, preparedTokenRequest, bounty, selection, attacker } from './repair-22-33-985.fixtures';
+import { BountyRpcTranscript, transcriptProvider, preparedTokenRequest, bounty, selection, attacker } from './bounty-transaction.fixtures';
 import { prepareBountyReview, sendReviewedBountyTransaction } from './bounty-transaction-attempt';
 import { getPublicClient } from '@/core/wallet-sdk/client';
 import { CORE_DEPLOYMENT } from '@/core/network/deployment';

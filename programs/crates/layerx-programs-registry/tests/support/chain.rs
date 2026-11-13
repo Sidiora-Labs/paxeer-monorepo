@@ -56,6 +56,9 @@ fn multistore_with_proof(
 }
 
 impl ChainFixture {
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn new(
         chain_id: &str,
         validator_seeds: &[[u8; 32]],
@@ -64,6 +67,9 @@ impl ChainFixture {
         Self::new_in_store(STORE_NAME, chain_id, validator_seeds, pairs)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn new_in_store(
         store_name: &str,
         chain_id: &str,
@@ -162,6 +168,9 @@ impl ChainFixture {
         })
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn prove(&self, key: &[u8]) -> Result<Vec<ProofOp>, ChainProofError> {
         let index = self
             .tree
@@ -171,6 +180,9 @@ impl ChainFixture {
         Ok(self.ops(key, 1, &encode_existence(&self.tree.leaves[index])))
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn prove_absent(&self, key: &[u8]) -> Result<Vec<ProofOp>, ChainProofError> {
         let index = self
             .tree
@@ -194,10 +206,16 @@ impl ChainFixture {
         Ok(self.ops(key, 2, &proof))
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn encode(&self) -> Result<Vec<u8>, ChainProofError> {
         self.encode_key(&self.tree.leaves[0].key)
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the chain fixture cannot be encoded or proved.
     pub fn encode_key(&self, key: &[u8]) -> Result<Vec<u8>, ChainProofError> {
         let (value, proof_ops) = match self
             .tree

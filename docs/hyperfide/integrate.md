@@ -1,11 +1,14 @@
 # hyperfide integrate
 
+Implementation and test paths on this page are relative to `tools/hyperfide`.
+
+
 One command configures every agent host Hyperfide knows, and one command tells
 you what is wrong with them. Examples use `hyperfide`; `cg` is the deprecated
 compatibility alias of the same executable, with identical arguments, JSON
 and exit codes, so `cg integrate apply` still works.
 
-Implemented in `src/integrate.c` and `src/plugin.c`; covered by
+Implemented in `core/native/src/integrate.c` and `core/native/src/plugin.c`; covered by
 `tests/integration/22_control.sh` (hosts and portable assets) and
 `tests/integration/48_plugin.sh` (the Claude Code plugin and the Codex
 hooks).
@@ -71,9 +74,7 @@ and exit 78 — the hooks included, so the exit-0 rule under
 descriptor, `hyperfide mcp` with no options becomes the distributed MCP
 client instead of the local server, and refuses with
 `TRANSPORT_CONFIG_REQUIRED` until `HYPERFIDE_TRANSPORT_CONFIG` names a
-transport configuration. Routing these commands through the
-authority modes is task 25.3, still pending in `spec/hyperfide/spec.kvx`, so
-the distributed path is not qualified in this revision; see
+transport configuration. See
 [docs/hyperfide/operations.md](hyperfide/operations.md) for the operating
 model.
 
@@ -83,7 +84,7 @@ The plugin is a one-plugin marketplace that `apply` renders from templates
 and the absolute path of the running executable (`HYPERFIDE_BINARY` overrides it).
 The plugin keeps its 1.x identity, `codify`:
 
-```
+```text
 $HOME/.codify/plugins/claude-code/
   .claude-plugin/marketplace.json      name codify, owner Codify
   plugins/codify/
@@ -129,7 +130,7 @@ follows `[hooks] shell_advice` (see [config.md](config.md)).
 When `claude` is on `PATH` (`HYPERFIDE_CLAUDE` or `CG_CLAUDE` names it
 outright), apply runs
 
-```
+```sh
 claude plugin marketplace add $HOME/.codify/plugins/claude-code
 claude plugin install codify@codify --scope user
 ```
@@ -160,9 +161,9 @@ when the installed version is this build's (`hyperfide version`). These are the 
 The JSON form, in `detect --json` and `doctor --json`:
 
 ```json
-"plugin": {"root": "...", "rendered": true, "rendered_version": "2.0.0-dev",
-           "registered": true, "installed": true, "version": "2.0.0-dev",
-           "cg_version": "2.0.0-dev", "current": true}
+"plugin": {"root": "...", "rendered": true, "rendered_version": "2.2.0",
+           "registered": true, "installed": true, "version": "2.2.0",
+           "cg_version": "2.2.0", "current": true}
 ```
 
 Doctor reports an installed plugin at another version than this build, and a

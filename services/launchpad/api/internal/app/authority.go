@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/broker"
 	"io"
 	"log/slog"
 	"math/big"
@@ -19,6 +18,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/broker"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
@@ -156,7 +157,7 @@ func newNetworkAuthority(ctx context.Context, pool *pgxpool.Pool, c *config.Conf
 		return nil, err
 	}
 	u, err := url.Parse(c.NetworkRPCURL)
-	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
+	if err != nil || u.Scheme != literalHttps || u.Host == "" || u.User != nil || u.Fragment != "" {
 		return nil, errors.New("network authority RPC must be HTTPS")
 	}
 	client := &http.Client{Transport: boundedRPCTransport{base: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13}, ResponseHeaderTimeout: 3 * time.Second, MaxIdleConnsPerHost: 20}}, Timeout: 10 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -353,8 +354,8 @@ func (t boundedRPCTransport) RoundTrip(r *http.Request) (*http.Response, error) 
 		return nil, err
 	}
 	if response.ContentLength > 2<<20 {
-		response.Body.Close()
-		return nil, errors.New("RPC response exceeds bound")
+		closeErr := response.Body.Close()
+		return nil, errors.Join(errors.New("RPC response exceeds bound"), closeErr)
 	}
 	response.Body = &boundedRPCBody{ReadCloser: response.Body, remaining: 2 << 20}
 	return response, nil

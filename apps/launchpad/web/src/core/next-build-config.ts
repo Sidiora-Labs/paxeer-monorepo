@@ -91,6 +91,7 @@ export async function backendRewrites(env: Readonly<Record<string, string | unde
       { source: '/v2/network/authority', destination: `${api}/v2/network/authority` },
       { source: '/v2/preflight/:path*', destination: `${api}/v2/preflight/:path*` },
       { source: '/v2/snapshots', destination: `${api}/v2/snapshots` },
+      { source: '/v2/pools/:pool/candles', destination: `${api}/v2/pools/:pool/candles` },
       // core/api sockets (API_ROLE=sockets): the only role that registers GET /v2/stream and /v2/stream/sse.
       { source: '/v2/stream', destination: `${sockets}/v2/stream` },
       { source: '/v2/stream/sse', destination: `${sockets}/v2/stream/sse` },

@@ -8,16 +8,16 @@
 
 | Condition | Code |
 |---|---|
-| Empty cart, more than 256 lines, duplicate SKU, non-positive or non-integer quantity | `invalid-cart` |
+| Empty cart, more than 256 lines, duplicate SKU, quantity outside 1–1,000,000 or not a safe integer | `invalid-cart` |
 | A SKU the catalog does not have | `catalog-item-missing` |
-| Two lines whose asset, `payTo`, scheme or network differ | `mixed-payment-facts` |
+| Two lines whose asset, `payTo`, scheme, network or serialized `extra` facts differ | `mixed-payment-facts` |
 | A total that would exceed the 128-bit amount range | `amount-overflow` |
 
 Amounts are integer strings and are multiplied and summed as `bigint`. No line total is ever computed in floating point, and no rounding step exists to argue about.
 
-`mixed-payment-facts` is the rule people are surprised by. A cart is one payment; a payment has one asset and one recipient. If your catalog mixes them, split the cart into separate checkouts.
+A cart produces one payment offer with one asset, recipient, scheme, network and set of extension facts. Use separate checkouts for items with different payment facts. The offer uses the first item's `maxTimeoutSeconds`.
 
-An offer on a `layerx:*` network also carries `extra.layerx` with its `commitment`, the `agent:<did>:main` `account` the payer quotes against and the `currency` code that quote is priced in. `payTo` must be the account id derived from that reference - `SHA256("LXP/v1/account-id\0" || name)` on protocol 2 or `SHA256("LX:ACCOUNT:v1" || u32be(len) || name)` on protocol 3 - so the advertised account cannot send the money anywhere else. A buyer, and the interop x402 gateway, refuse an offer that omits the block or advertises an account that does not derive its `payTo`.
+Offers use `eip155:<chain-id>` networks and carry `extra.layerx` payment facts, including commitment, account and currency. The seller validates that the advertised account derives the offered `payTo`; buyers verify the same binding before paying.
 
 ## Checking out
 
@@ -26,34 +26,34 @@ An offer on a `layerx:*` network also carries `extra.layerx` with its `commitmen
 | Result | What happened |
 |---|---|
 | `payment-required` | The order is open and unpaid. Send `decision.headers` and `402` |
-| `pending` | The payment is real and still settling |
+| `pending` | Settlement is pending, or an already paid order was opened without a payment header |
 | `refused` | The payment was refused; the order is marked `refused` |
 | `paid` | The receipt verified, the order is `paid-verified`, and it carries the receipt digest and transaction |
 
-The order store is asked to `open` the order before the seller decision, and every store response is re-checked: if `open`, `markPaid` or `markRefused` returns an order whose `checkoutKey` or `requestDigest` does not match, the middleware raises `order-conflict` rather than continuing on a mismatched row. Your store cannot quietly swap the order under it.
+The order store is asked to `open` the order before the seller decision. The returned order must match the checkout key, request digest and quote. The middleware also checks `markPaid` and `markRefused` responses and raises `order-conflict` on a mismatch. Resource release is delegated to the supplied store's `releaseResource` method.
 
-The request digest is computed over the quote itself - lines, total, asset, recipient, scheme, network, timeout. Re-quoting the same cart against an unchanged catalog gives the same digest and therefore the same order. A catalog price change gives a different digest, so it is a different order, which is what you want.
+The request digest covers the lines, total, asset, recipient, scheme, network, timeout and complete payment offer, including its resource URL and extension facts. Identical quotes produce the same digest. A price or resource-URL change changes the digest; the supplied order store decides how checkout keys and digests map to orders.
 
 ## Late settlement
 
 `MerchantSettlementWebhooks.consume(rawBody, headers)` handles the case where the payment lands after the HTTP exchange ended. It runs inside the verified webhook consumer, so signature, freshness and replay are already handled, and then:
 
 1. Looks the order up by `order_id` and requires the event's `request_digest` to match the stored one.
-2. Resolves the receipt reference to canonical receipt bytes and a batch authorisation.
-3. Verifies the receipt against the offer's requirements, at the `protocolVersion` the merchant declares.
-4. Recomputes the receipt's Merkle leaf digest and compares it to the event's `receipt_digest` in constant time.
-5. Only then marks the order paid.
+2. Resolves the receipt reference to `PortableReceiptV2` evidence and checks the raw transaction hash against the event's transaction.
+3. Verifies the signed receipt and payment requirements against independently pinned `receiptKeys`, using a commitment resolver when required.
+4. Compares the verified receipt digest and transaction to `receipt_digest` and `transaction`, and refuses a claimed verification level above the offer's requirement.
+5. Marks the order paid and checks the resulting order's identity, digest, state, receipt digest and transaction.
 
-`MerchantMiddleware` and `MerchantSettlementWebhooks` both take that `protocolVersion`, the checkout path hands it to every seller it creates, and a configuration that does not name a selectable version is refused at construction with `missing-protocol-version`. A seller that declares a different version than the merchant is `protocol-version-mismatch`, so the HTTP path and the webhook path cannot verify against different receipt versions.
+`MerchantMiddleware` takes `catalog`, `orders`, `sellers` and `resourceUrl`. `MerchantSettlementWebhooks` takes `verifier`, `orders`, `receipts`, `receiptKeys` and an optional `commitments` resolver. Neither constructor selects a receipt protocol through a `protocolVersion` option.
 
-A webhook body that says "paid" proves nothing here. The receipt does. An event carrying an unknown field, a non-hex digest or a verification level outside the five real ones is `invalid-webhook`.
+Webhook verification levels are `receipted` and `committed`. Unknown fields, malformed digests and invalid verification levels are refused as `invalid-webhook`. A webhook success claim alone cannot mark an order paid.
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Offline receipt verification | `protocol` | Both the HTTP path and the webhook path verify receipt bytes against a batch authorisation. |
+| Offline receipt verification | `protocol` | Both the HTTP path and the webhook path verify signed receipt bytes against pinned receipt keys. |
 | Conserved supply | `protocol` | The amount in the receipt is the amount that moved. |
 | Quote then commit | `service` | The order is bound to the digest of the quote the buyer accepted. |
-| Exactly-once fulfilment | `service` | Order state transitions are digest-checked on every store response. |
+| Exactly-once fulfilment | `service` | Order state transitions are digest-checked on every store response; application fulfilment must use the verified order identity. |
 | Verified, replay-protected webhooks | `service` | Signature, freshness, replay and receipt digest, in that order. |

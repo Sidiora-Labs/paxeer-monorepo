@@ -1,0 +1,43 @@
+[terminal]
+source = "tests/fixtures/programs/emulator-response-code/execution.json"
+receipt = "tests/fixtures/programs/emulator-response-code/receipt.hex"
+vector = "programs/tests/vectors/terminal-v4-outcome.hex"
+reason = "The retained response-code execution contains the signed V4 receipt; its terminal outcome determines the vector."
+
+[writer.response_code]
+script = "sdk/platform/conformance/fixtures/sync_emulator_response_fixture.py"
+writes = ["tests/fixtures/programs/emulator-response-code/receipt.hex", "tests/fixtures/programs/emulator-response-code/terminal.hex", "tests/fixtures/programs/emulator-response-code/call-graph.hex", "tests/fixtures/programs/emulator-response-code/signed-activity.hex", "tests/fixtures/programs/emulator-response-code/sequencer-public.hex"]
+recipe = "python3 sdk/platform/conformance/fixtures/sync_emulator_response_fixture.py"
+check_recipe = "programs-abi-drift"
+
+[writer.abi]
+script = "scripts/programs/generate-abi-vectors.py"
+writes = ["programs/tests/vectors/terminal-v4-outcome.hex", "programs/tests/vectors/terminal-v4-schema.json"]
+recipe = "python3 scripts/programs/generate-abi-vectors.py"
+check_recipe = "programs-abi-drift"
+frozen = "programs/abi-frozen.sha256"
+
+[writer.receipt_keys]
+test = "modules/sequencer/keeper/ics23_vector_test.go:TestReceiptKeysAppHashVector"
+writes = "programs/tests/vectors/ics23-receipt-keys-app-hash.json"
+recipe = "LXP_WRITE_VECTORS=1 go test ./modules/sequencer/keeper -run TestReceiptKeysAppHashVector"
+
+[writer.evm_storage]
+test = "modules/sequencer/keeper/ics23_evm_storage_vector_test.go:TestEvmStorageAppHashVector"
+writes = "programs/tests/vectors/ics23-evm-storage-app-hash.json"
+recipe = "LXP_WRITE_VECTORS=1 go test ./modules/sequencer/keeper -run TestEvmStorageAppHashVector"
+
+[writer.admission_evidence]
+test = "modules/sequencer/keeper/ics23_admission_evidence_vector_test.go:TestAdmissionEvidenceAppHashVector"
+writes = "programs/tests/vectors/ics23-admission-evidence-app-hash.json"
+recipe = "LXP_WRITE_VECTORS=1 go test ./modules/sequencer/keeper -run TestAdmissionEvidenceAppHashVector"
+
+[writer.market_namespaces]
+test = "modules/sequencer/keeper/ics23_market_namespaces_vector_test.go:TestMarketNamespacesAppHashVector"
+writes = "programs/tests/vectors/ics23-market-namespaces-app-hash.json"
+recipe = "LXP_WRITE_VECTORS=1 go test ./modules/sequencer/keeper -run TestMarketNamespacesAppHashVector"
+
+[writer.module_catalogue]
+test = "modules/sequencer/keeper/ics23_module_catalogue_vector_test.go:TestModuleCatalogueAppHashVector"
+writes = "programs/tests/vectors/ics23-module-catalogue-app-hash.json"
+recipe = "LXP_WRITE_VECTORS=1 go test ./modules/sequencer/keeper -run TestModuleCatalogueAppHashVector"

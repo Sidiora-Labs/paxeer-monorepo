@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.69"
+pages = 20
+
+[page.1]
+path = "docs/system/governance.md"
+status = "reviewed"
+
+[page.2]
+path = "docs/system/kernel-modules.md"
+status = "reviewed"
+
+[page.3]
+path = "docs/system/precompiles.md"
+status = "corrected"
+
+[page.4]
+path = "docs/system/routes.md"
+status = "corrected"
+
+[page.5]
+path = "docs/system/rpc.md"
+status = "corrected"
+
+[page.6]
+path = "docs/system/sdk.md"
+status = "corrected"
+
+[page.7]
+path = "docs/wallet/app/CHANGELOG.md"
+status = "reviewed"
+
+[page.8]
+path = "docs/wallet/app/README.md"
+status = "reviewed"
+
+[page.9]
+path = "docs/wallet/app/api/README.md"
+status = "corrected"
+
+[page.10]
+path = "docs/wallet/app/architecture/README.md"
+status = "corrected"
+
+[page.11]
+path = "docs/wallet/app/architecture/storage-forensics.md"
+status = "corrected"
+
+[page.12]
+path = "docs/wallet/app/deployment/README.md"
+status = "reviewed"
+
+[page.13]
+path = "docs/wallet/app/development/README.md"
+status = "corrected"
+
+[page.14]
+path = "docs/wallet/app/operations/runbooks.md"
+status = "corrected"
+
+[page.15]
+path = "docs/wallet/service/cutover.md"
+status = "reviewed"
+
+[page.16]
+path = "docs/wallet/service/runbooks/backup-restore.md"
+status = "reviewed"
+
+[page.17]
+path = "docs/wallet/service/runbooks/gateway-rollback.md"
+status = "corrected"
+
+[page.18]
+path = "docs/wallet/service/runbooks/identity-provider-outage.md"
+status = "reviewed"
+
+[page.19]
+path = "docs/wallet/service/runbooks/node-replacement.md"
+status = "reviewed"
+
+[page.20]
+path = "docs/wallet/service/runbooks/refresh-cadence.md"
+status = "reviewed"

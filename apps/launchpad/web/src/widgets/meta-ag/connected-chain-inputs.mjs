@@ -18,6 +18,7 @@ const sourceNames = [
   'order-form.tsx',
   'run-connected-chain.py',
   'connected-chain-inputs.mjs',
+  'prepare-owned-deployment.mjs',
   'token-universe.ts',
   'vitest.l28.config.ts',
   'write-gates.test.tsx',
@@ -53,7 +54,7 @@ export function prepareConnectedChainInputs({
       fixture.measurement.durationMs > 120000)
   )
     throw new Error(
-      'Measurement requires explicit funded accounts and1..120000ms workload within the preserved240second lifecycle gate',
+      'Measurement requires explicit funded accounts and1..120000ms workload within the preserved240second lifecycle gate'
     );
   const source = dirname(fileURLToPath(import.meta.url));
   const web = resolve(source, '../../..');
@@ -72,7 +73,9 @@ export function prepareConnectedChainInputs({
     ].map((name) => resolve(web, name)),
     resolve(root, 'apps/launchpad/pnpm-lock.yaml'),
   ];
-  const sources = Object.fromEntries(files.map((path) => [relative(root, path), digest(path)]));
+  const sources = Object.fromEntries(
+    files.map((path) => [relative(root, path), digest(path)])
+  );
   const manifestFile = resolve(fixture.manifestFile);
   const manifestSha = digest(manifestFile);
   if (manifestSha !== fixture.manifestSha256)
@@ -93,9 +96,9 @@ export function prepareConnectedChainInputs({
         files: sources,
       },
       null,
-      2,
+      2
     ) + '\n',
-    { mode: 0o600, flag: 'wx' },
+    { mode: 0o600, flag: 'wx' }
   );
   const sourceManifestSha = digest(sourceManifest);
   const command = [

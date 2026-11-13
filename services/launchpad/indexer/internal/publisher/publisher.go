@@ -17,6 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/constants"
@@ -208,7 +210,7 @@ func (p *Publisher) isDuplicate(ctx context.Context, events []WebhookEvent) bool
 		if i > 0 {
 			h.Write([]byte(","))
 		}
-		fmt.Fprintf(h, "%s:%d", e.TxHash, e.LogIndex)
+		checked.Write(fmt.Fprintf(h, "%s:%d", e.TxHash, e.LogIndex))
 	}
 	fp := hex.EncodeToString(h.Sum(nil))[:16]
 	key := "webhook:dedup:" + fp

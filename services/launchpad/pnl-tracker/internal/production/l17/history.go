@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/fileaccess"
+
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/jackc/pgx/v5"
 )
@@ -59,11 +61,11 @@ func validateHistory(h HistoryRecord) error {
 		}
 	}
 	switch h.BasisQuality {
-	case "complete", "partial", "unknown":
+	case statusComplete, statusPartial, statusUnknown:
 	default:
 		return ErrInvalid
 	}
-	if h.Asset.Kind != "erc20" || h.Asset.ChainID == nil || *h.Asset.ChainID != "125" || h.Asset.Address == nil || h.Asset.Decimals == nil || *h.Asset.Decimals < 0 || *h.Asset.Decimals > 255 {
+	if h.Asset.Kind != tokenERC20 || h.Asset.ChainID == nil || *h.Asset.ChainID != "125" || h.Asset.Address == nil || h.Asset.Decimals == nil || *h.Asset.Decimals < 0 || *h.Asset.Decimals > 255 {
 		return ErrInvalid
 	}
 	if _, e := Wallet(*h.Asset.Address); e != nil {
@@ -276,7 +278,7 @@ func (r Repository) ExportHistory(ctx context.Context, dir, wallet, verifiedWall
 	if e := RequireOwner(wallet, verifiedWallet); e != nil {
 		return manifest, e
 	}
-	if format != "csv" && format != "jsonl" {
+	if format != formatCSV && format != formatJSONL {
 		return manifest, ErrInvalid
 	}
 	id, e := opaqueID()
@@ -290,31 +292,31 @@ func (r Repository) exportHistoryObject(ctx context.Context, dir, wallet, verifi
 	if e := RequireOwner(wallet, verifiedWallet); e != nil {
 		return manifest, e
 	}
-	if (format != "csv" && format != "jsonl") || !validUUID(snapshot) || !validExportObjectID(id) {
+	if (format != formatCSV && format != formatJSONL) || !validUUID(snapshot) || !validExportObjectID(id) {
 		return manifest, ErrInvalid
 	}
 	if e := privateExportDirectory(dir); e != nil {
 		return manifest, e
 	}
-	f, e := os.OpenFile(filepath.Join(dir, id+".partial"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	f, e := fileaccess.CreateExclusive(filepath.Join(dir, id+".partial"))
 	if e != nil {
 		return manifest, e
 	}
-	partial := f.Name()
+	partial := filepath.Join(dir, id+".partial")
 	complete := filepath.Join(dir, id+"."+format)
 	success := false
 	defer func() {
-		f.Close()
-		os.Remove(partial)
+		_ = f.Close()
+		_ = os.Remove(partial)
 		if !success {
-			os.Remove(complete)
+			_ = os.Remove(complete)
 		}
 	}()
 	hash := sha256.New()
 	writer := io.MultiWriter(f, hash)
 	enc := json.NewEncoder(writer)
 	csvWriter := csv.NewWriter(writer)
-	if format == "csv" {
+	if format == formatCSV {
 		if e = csvWriter.Write([]string{"event_id", "kind", "chain_id", "height", "block_hash", "transaction_hash", "transaction_index", "log_index", "asset_address", "decimals", "amount_raw", "quote_amount_usdl_raw", "basis_quality"}); e != nil {
 			return manifest, e
 		}
@@ -330,7 +332,7 @@ func (r Repository) exportHistoryObject(ctx context.Context, dir, wallet, verifi
 			return manifest, e
 		}
 		for _, h := range page.Records {
-			if format == "jsonl" {
+			if format == formatJSONL {
 				e = enc.Encode(h)
 			} else {
 				quote := ""
@@ -353,7 +355,7 @@ func (r Repository) exportHistoryObject(ctx context.Context, dir, wallet, verifi
 			return manifest, errors.New("history row count mismatch")
 		}
 	}
-	if format == "csv" {
+	if format == formatCSV {
 		csvWriter.Flush()
 		if e = csvWriter.Error(); e != nil {
 			return manifest, e

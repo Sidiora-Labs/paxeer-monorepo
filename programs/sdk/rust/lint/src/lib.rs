@@ -11,7 +11,7 @@
 
 pub mod cli;
 
-use std::fmt::{self, Display};
+use std::fmt::{self, Display, Write};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -389,21 +389,27 @@ pub fn abi_surface_violations() -> Vec<DeterminismViolation> {
             .collect();
         compare_function_tables(&format!("v{version}"), &guest, &host, &mut violations);
     }
-    let mut shared = String::new();
-    for (module, version, functions) in VERSIONED_HOST_NAMESPACES {
-        for function in functions {
-            shared.push_str(&format!(
-                "{version}\t{module}\t{}\t{}\n",
-                function.name, function.signature
-            ));
-        }
-    }
+    let shared = shared_abi_manifest();
     if shared != layerx_program_sdk::abi::SHARED_ABI_MANIFEST_TSV {
         violations.push(DeterminismViolation::AbiDrift {
             detail: "shared language manifest differs from runtime".to_string(),
         });
     }
     violations
+}
+
+fn shared_abi_manifest() -> String {
+    let mut shared = String::new();
+    for (module, version, functions) in VERSIONED_HOST_NAMESPACES {
+        for function in functions {
+            let _ = writeln!(
+                shared,
+                "{version}\t{module}\t{}\t{}",
+                function.name, function.signature
+            );
+        }
+    }
+    shared
 }
 
 #[allow(clippy::too_many_arguments)]

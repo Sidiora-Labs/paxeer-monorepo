@@ -1,8 +1,11 @@
 "use client";
 
+import { copyEntry } from "../../../copy/runtime";
+
 import { exchange as perpsVenue } from "@paxeer/wallet";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import { formatCopy } from "../../../copy/format";
 
 import {
   perpsCall,
@@ -151,7 +154,7 @@ export function ExchangeOrderControls({
       label={label}
       inputMode="decimal"
       value={inputs[key]}
-      onChange={(event) => onChange(key, event.target.value)}
+      onChange={(event) => { onChange(key, event.target.value); }}
     />
   );
   const write = (
@@ -188,26 +191,26 @@ export function ExchangeOrderControls({
         <ChoiceField
           label="Order market"
           value={inputs.market}
-          onChange={(value) => onChange("market", value)}
+          onChange={(value) => { onChange("market", value); }}
           options={markets.map((market) => ({ value: market.id, label: market.label }))}
         />
         <ChoiceField
           label="Order type"
           value={inputs.orderType}
-          onChange={(value) => onChange("orderType", value)}
+          onChange={(value) => { onChange("orderType", value); }}
           options={[{ value: "limit", label: "Limit" }, { value: "stop-limit", label: "Stop-limit" }]}
         />
         <SegmentedControl
-          aria-label="Order side"
+          aria-label={copyEntry("exchange.copy.order_side").message}
           value={inputs.side}
-          onValueChange={(value) => onChange("side", value)}
+          onValueChange={(value) => { onChange("side", value); }}
           options={[{ value: "long", label: "Long" }, { value: "short", label: "Short" }]}
         />
         {field("Trigger price", "triggerPrice")}
         {inputs.orderType === "stop-limit" ? field("Limit price", "limitPrice") : null}
         {field("Order size (USD)", "size")}
-        <p>Size is USD notional, not a base-asset quantity or {collateral.symbol} collateral.</p>
-        {size !== undefined ? <p role="note">Review: order notional {formatUnits(size, WEI_DECIMALS)} USD.</p> : null}
+        <p>{formatCopy("exchange.order.size_explanation", { symbol: collateral.symbol })}</p>
+        {size !== undefined ? <p role="note">{formatCopy("exchange.order.notional_review", { amount: formatUnits(size, WEI_DECIMALS) })}</p> : null}
         {field("Order leverage (x)", "leverage")}
         {field(`Order collateral (${collateral.symbol})`, "collateral")}
         {inputs.orderType === "limit"
@@ -237,8 +240,8 @@ export function ExchangeOrderControls({
   return (
     <>
       {field("Close size (USD)", "closeSize")}
-      <p>Close size is USD notional, separate from {collateral.symbol} collateral.</p>
-      {closeSize !== undefined ? <p role="note">Review: close notional {formatUnits(closeSize, WEI_DECIMALS)} USD.</p> : null}
+      <p>{formatCopy("exchange.close.size_explanation", { symbol: collateral.symbol })}</p>
+      {closeSize !== undefined ? <p role="note">{formatCopy("exchange.close.notional_review", { amount: formatUnits(closeSize, WEI_DECIMALS) })}</p> : null}
       {write("Partially close position", "partialClose(uint256,uint256)",
         position !== undefined && closeSize !== undefined ? [position, closeSize] : undefined)}
       {field("Take-profit price", "takeProfit")}
@@ -323,28 +326,30 @@ function AccountExchangeActions({
 
   useEffect(() => {
     let stopped = false;
+    const isStopped = () => stopped;
     let polling = false;
     async function reconcile() {
-      if (polling || sending.current || stopped) return;
+      if (polling || sending.current || isStopped()) return;
       polling = true;
       try {
         if (account === undefined) return;
         const existing = retainedWalletNativeSubmission(account);
         if (existing === undefined) return;
         const outcome = await resumeWalletNativeSubmission(account);
-        if (stopped) return;
+        if (isStopped()) return;
         if (existing.stage === "approval") setApprovalOutcome(outcome);
         else {
           const records: Record<string, typeof setOpenOutcome> = { open: setOpenOutcome, close: setCloseOutcome, cancel: setCancelOutcome,
             margin: setMarginOutcome, order: setOrderOutcome };
           records[existing.operation]?.(outcome);
         }
-        if (outcome !== undefined && "receipt" in outcome && outcome.receipt !== undefined)
+        const receipt = outcome !== undefined && "receipt" in outcome ? outcome.receipt : undefined;
+        if (receipt !== undefined)
           router.refresh();
       } catch (error) {
-        if (!stopped) setRecoveryError(error instanceof Error ? error.message : "Native recovery failed.");
+        if (!isStopped()) setRecoveryError(error instanceof Error ? error.message : "Native recovery failed.");
       } finally {
-        if (!stopped) {
+        if (!isStopped()) {
           try { setRetained(account === undefined ? undefined : retainedWalletNativeSubmission(account)); }
           catch (error) { setRecoveryError(error instanceof Error ? error.message : "Native recovery failed."); }
           setRecovering(false);
@@ -407,17 +412,17 @@ function AccountExchangeActions({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      {approvalOutcome !== undefined ? <section aria-label="Collateral approval">
-        <h2>Collateral approval</h2>
+      {approvalOutcome !== undefined ? <section aria-label={copyEntry("exchange.copy.collateral_approval").message}>
+        <h2>{copyEntry("exchange.copy.collateral_approval").message}</h2>
         <SendOutcome outcome={approvalOutcome} />
       </section> : null}
-      {retained !== undefined ? <p role="status">Pending {retained.stage} for {retained.operation}.
-        {retained.transactionHash ?? " Awaiting the wallet transaction identity."}</p> : null}
+      {retained !== undefined ? <p role="status">{formatCopy("exchange.retained.pending", { stage: retained.stage, operation: retained.operation })}
+        {retained.transactionHash ?? ` ${copyEntry("exchange.retained.awaiting_identity").message}`}</p> : null}
       {recoveryError !== undefined ? <p role="alert">{recoveryError}</p> : null}
-      <ExplorerPanel title="Open a position">
+      <ExplorerPanel title={copyEntry("exchange.copy.open_a_position").message}>
         <div className="flex flex-col gap-3">
           {markets.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No market is listed.</p>
+            <p className="text-sm text-muted-foreground">{copyEntry("exchange.copy.no_market_is_listed").message}</p>
           ) : (
             <ChoiceField
               label="Market"
@@ -427,7 +432,7 @@ function AccountExchangeActions({
             />
           )}
           <SegmentedControl
-            aria-label="Side"
+            aria-label={copyEntry("exchange.copy.side").message}
             value={side}
             onValueChange={setSide}
             options={[
@@ -474,7 +479,7 @@ function AccountExchangeActions({
           <SendOutcome outcome={openOutcome} />
         </div>
       </ExplorerPanel>
-      <ExplorerPanel title="Place an order">
+      <ExplorerPanel title={copyEntry("exchange.copy.place_an_order").message}>
         <ExchangeOrderControls
           mode="entry"
           inputs={orderInputs}
@@ -484,14 +489,14 @@ function AccountExchangeActions({
           positionId={positionId}
           pending={pending}
           walletReason={walletReason}
-          send={(build, pull) => send(build, pull, setOrderOutcome)}
+          send={(build, pull) => { send(build, pull, setOrderOutcome); }}
         />
         <SendOutcome outcome={orderOutcome} />
       </ExplorerPanel>
-      <ExplorerPanel title="Close a position">
+      <ExplorerPanel title={copyEntry("exchange.copy.close_a_position").message}>
         <div className="flex flex-col gap-3">
           {positions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No open position.</p>
+            <p className="text-sm text-muted-foreground">{copyEntry("exchange.copy.no_open_position").message}</p>
           ) : (
             <ChoiceField
               label="Position"
@@ -523,15 +528,15 @@ function AccountExchangeActions({
             positionId={positionId}
             pending={pending}
             walletReason={walletReason}
-            send={(build, pull) => send(build, pull, setCloseOutcome)}
+            send={(build, pull) => { send(build, pull, setCloseOutcome); }}
           />
           <SendOutcome outcome={closeOutcome} />
         </div>
       </ExplorerPanel>
-      <ExplorerPanel title="Cancel an order">
+      <ExplorerPanel title={copyEntry("exchange.copy.cancel_an_order").message}>
         <div className="flex flex-col gap-3">
           {orders.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No active order.</p>
+            <p className="text-sm text-muted-foreground">{copyEntry("exchange.copy.no_active_order").message}</p>
           ) : (
             <ChoiceField
               label="Order"
@@ -554,7 +559,7 @@ function AccountExchangeActions({
           <SendOutcome outcome={cancelOutcome} />
         </div>
       </ExplorerPanel>
-      <ExplorerPanel title="Margin">
+      <ExplorerPanel title={copyEntry("exchange.copy.margin").message}>
         <div className="flex flex-col gap-3">
           <TextField
             label={`Amount (${collateral.symbol})`}

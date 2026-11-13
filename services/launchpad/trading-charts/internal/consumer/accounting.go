@@ -3,8 +3,9 @@ package consumer
 import (
 	"context"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"regexp"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 )
 
 type ReprocessRequest struct{ PublicationID, PreviousDigest, CorrectedDigest, DecoderVersion, OperatorID string }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -38,7 +39,7 @@ func (s *FrozenInputs) Freeze(ctx context.Context, runID string, cutoff time.Tim
 	if err != nil {
 		return ranker.InputSnapshot{}, err
 	}
-	defer tx.Rollback(bounded)
+	defer rollbackTransaction(bounded, tx)
 	in, err := s.reader.ReadRankingUniverseTx(bounded, tx, runID, cutoff)
 	if err != nil {
 		return ranker.InputSnapshot{}, err
@@ -78,7 +79,7 @@ func schemaNameValid(value string) bool {
 		return false
 	}
 	for i, c := range value {
-		if !(c >= 'a' && c <= 'z' || i > 0 && (c >= '0' && c <= '9' || c == '_')) {
+		if (c < 'a' || c > 'z') && (i == 0 || (c < '0' || c > '9') && c != '_') {
 			return false
 		}
 	}
@@ -206,7 +207,7 @@ func (r *CanonicalInputReader) MarshalUniverse(ctx context.Context, pool *pgxpoo
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	in, err := r.ReadRankingUniverseTx(ctx, tx, runID, cutoff)
 	if err != nil {
 		return nil, err
@@ -248,7 +249,11 @@ func (c *HTTPRankingVisibility) ReadRankingVisibility(ctx context.Context) (Rank
 	if err != nil {
 		return out, err
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			slog.Warn("ranking visibility response close failed", "error", closeErr)
+		}
+	}()
 	if response.StatusCode != http.StatusOK {
 		return out, ranker.ErrUnavailable
 	}
@@ -281,7 +286,7 @@ func (r *CanonicalInputReader) ExplainUniverse(ctx context.Context, pool *pgxpoo
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(bounded)
+	defer rollbackTransaction(bounded, tx)
 	var plan []byte
 	if err = tx.QueryRow(bounded, "EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) "+r.universeQuery(), r.ProjectionVersion, cutoffHeight, cutoff.Unix()).Scan(&plan); err != nil {
 		return nil, err

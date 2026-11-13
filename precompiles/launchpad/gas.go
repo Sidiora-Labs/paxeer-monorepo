@@ -10,6 +10,14 @@ const (
 
 func Writes(method string) uint64 {
 	switch method {
+	case "launchChain", "launchChainWithPermit":
+		return 24
+	case "claimChainRevenueBatch":
+		return 12
+	case "openChainRevenueEpoch", "claimChainRevenue":
+		return 6
+	case "pauseLaunchedChain", "resumeLaunchedChain", "retireLaunchedChain":
+		return 4
 	case "createMarket", "createMarketFor", "createMarketWithPermit",
 		"initialize", "initialize0", "initialize1", "initialize2", "initialize3", "initialize4":
 		return 12

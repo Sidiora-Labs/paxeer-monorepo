@@ -1,5 +1,7 @@
 # Solidity API
 
+Source: [ERC721Enumerable.sol](../../contracts/base/ERC721Enumerable.sol).
+
 ## ERC721Enumerable
 
 Enumeration extension for ERC721: totalSupply, tokenByIndex, tokenOfOwnerByIndex
@@ -13,7 +15,7 @@ error IndexOutOfBounds()
 ### supportsInterface
 
 ```solidity
-function supportsInterface(bytes4 interfaceId) public view virtual returns (bool)
+function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool)
 ```
 
 ERC165: add ERC721Enumerable interface support
@@ -42,21 +44,20 @@ function tokenOfOwnerByIndex(address owner_, uint256 index) external view return
 
 Returns the token ID at a given index for an owner
 
-### _mint
+### \_mint
 
 ```solidity
-function _mint(address to, uint256 tokenId) internal virtual
+function _mint(address to, uint256 tokenId) internal virtual override
 ```
 
-### _burn
+### \_burn
 
 ```solidity
-function _burn(uint256 tokenId) internal virtual
+function _burn(uint256 tokenId) internal virtual override
 ```
 
-### _transfer
+### \_transfer
 
 ```solidity
-function _transfer(address from, address to, uint256 tokenId) internal virtual
+function _transfer(address from, address to, uint256 tokenId) internal virtual override
 ```
-

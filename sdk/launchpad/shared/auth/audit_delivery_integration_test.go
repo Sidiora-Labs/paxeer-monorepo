@@ -3,6 +3,7 @@ package auth
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -142,6 +143,67 @@ func TestPhase2AuditDurableBridgeAndRealBroker(t *testing.T) {
 		t.Fatal("unavailable audit sink acknowledged")
 	}
 	if _, err = pool.Exec(ctx, `ALTER TABLE security_audit_sink_offline RENAME TO security_audit_sink`); err != nil {
+		t.Fatal(err)
+	}
+
+	original, err := delivery.Decode(messages[0].Wire, policy, subject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var originalPayload AuditPayload
+	if err := json.Unmarshal(original.Payload, &originalPayload); err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{"schema", "event", "trace", "payload", "hash query", "hash conflict"} {
+		t.Run("sink/"+mode, func(t *testing.T) {
+			candidate := sink
+			envelope := original
+			switch mode {
+			case "schema":
+				candidate.SinkSchema = "invalid schema"
+			case "event":
+				candidate.EventType = "other_audit"
+			case "trace":
+				envelope.TraceID = uuid.NewString()
+			case "payload":
+				envelope.Payload = []byte(`{}`)
+				envelope.PayloadHash = delivery.Hash(envelope.Payload)
+			case "hash query", "hash conflict":
+				var recorded any = strings.Repeat("a", 64)
+				if mode == "hash query" {
+					if _, err := pool.Exec(ctx, "ALTER TABLE security_audit_sink ALTER COLUMN payload_hash DROP NOT NULL"); err != nil {
+						t.Fatal(err)
+					}
+					recorded = nil
+				}
+				if _, err := pool.Exec(ctx, "INSERT INTO security_audit_sink(request_id,action,payload_hash,payload,revision) VALUES($1,$2,$3,$4,1)", originalPayload.RequestID, originalPayload.Action, recorded, []byte(original.Payload)); err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					if _, err := pool.Exec(ctx, "DELETE FROM security_audit_sink WHERE request_id=$1 AND action=$2", originalPayload.RequestID, originalPayload.Action); err != nil {
+						t.Error(err)
+					}
+					if mode == "hash query" {
+						if _, err := pool.Exec(ctx, "ALTER TABLE security_audit_sink ALTER COLUMN payload_hash SET NOT NULL"); err != nil {
+							t.Error(err)
+						}
+					}
+				}()
+			}
+			wire, err := envelope.Encode(policy, subject)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := candidate.Consume(ctx, wire, messages[0]); err == nil {
+				t.Fatal("inconsistent audit sink admitted")
+			}
+			var inbox int
+			if err := pool.QueryRow(ctx, "SELECT count(*) FROM delivery_inbox").Scan(&inbox); err != nil || inbox != 0 {
+				t.Fatalf("refused audit inbox: %d %v", inbox, err)
+			}
+		})
+	}
+	if _, err := pool.Exec(ctx, "INSERT INTO security_audit_sink(request_id,action,payload_hash,payload,revision) VALUES($1,$2,$3,$4,1)", originalPayload.RequestID, originalPayload.Action, original.PayloadHash, []byte(original.Payload)); err != nil {
 		t.Fatal(err)
 	}
 	for _, message := range messages {

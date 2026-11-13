@@ -1,8 +1,10 @@
 import { BaseError, ContractFunctionRevertedError, parseAbi, toEventSelector, type Address, type Hex, type PublicClient, type WalletClient } from 'viem';
 import { address, hash } from '../create/creation-domain';
 import type { AccountScope } from '../create/creation-adapters';
+import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS } from '@/core/network/contracts';
+import { poolPath } from '@/core/app-foundation/navigation';
 import {
-  CHAINS_PRECOMPILE, SIZE_TIERS, chainCost, decodeChainCreated,
+  CHAINS_PRECOMPILE, SIZE_TIERS, chainCost, decodeChainLaunched,
   validateChainDraft, validateChainName, walletNetwork,
   type ChainDraft, type ChainsParams,
 } from './chain-domain';
@@ -22,12 +24,18 @@ export const chainsAbi = parseAbi([
   'function params() view returns (address authority,uint256 minBond,uint256 creationFee,uint64 minGasAllowance,uint64 maxGasAllowance,uint64 totalGasAllowanceLeft,uint32 maxChains)',
 ]);
 
-const chainCreatedTopic = toEventSelector('ChainCreated(uint32,string,address,uint64)');
+const chainLaunchedTopic = toEventSelector('ChainLaunched(uint32,address,address,uint64,uint256,address,uint256,uint256)');
+const tokenAbi = parseAbi(['function name() view returns (string)', 'function symbol() view returns (string)']);
 export type ChainLaunchStep = 'create' | 'confirm' | 'ready';
 export interface ChainLaunchResult {
   id: number;
   chainId: number;
   name: string;
+  tokenName: string;
+  tokenSymbol: string;
+  token: Address;
+  pool: Address;
+  tradingPath: string;
   rpcUrl: string;
   explorerUrl: string;
   walletNetwork: ReturnType<typeof walletNetwork>;
@@ -50,6 +58,17 @@ export interface ChainConfirmationOutcome {
 
 export type ChainLaunchOutcome = ChainLaunchResult | ChainConfirmationOutcome;
 export type ChainStepReporter = (step: ChainLaunchStep, submission?: ChainSubmission) => void;
+
+export function chainLaunchRequest(draft: ChainDraft, creator: string, value: bigint) {
+  const tier = SIZE_TIERS[draft.tier];
+  return {
+    address: LAUNCHPAD_ADDRESS, abi: CHAIN_LAUNCH_ABI, functionName: 'launchChain' as const,
+    args: [draft.tokenName, draft.tokenSymbol, draft.feeStrategy,
+      '0x0000000000000000000000000000000000000000', draft.name,
+      BigInt(tier.gas), BigInt(tier.bytes), draft.feeShareBps] as const,
+    account: address(creator) as Address, value,
+  } as const;
+}
 
 export class ChainLaunchAdapter {
   private pending: ChainSubmission | null = null;
@@ -110,13 +129,7 @@ export class ChainLaunchAdapter {
     const rpcBase = this.client.chain?.rpcUrls.default.http[0];
     const explorerBase = this.client.chain?.blockExplorers?.default.url;
     if (!rpcBase || !explorerBase) throw new Error('Chain network URLs are unavailable.');
-    const tier = SIZE_TIERS[reviewed.tier];
-    const request = {
-      address: CHAINS_PRECOMPILE, abi: chainsAbi, functionName: 'createChain' as const,
-      args: [reviewed.name, BigInt(tier.gas), BigInt(tier.bytes), reviewed.feeShareBps] as const,
-      account: expected.creator as Address,
-      value: params[1] + params[2],
-    } as const;
+    const request = chainLaunchRequest(reviewed, expected.creator, params[1] + params[2]);
     const [gas, gasPrice] = await Promise.all([
       this.client.estimateContractGas(request), this.client.getGasPrice(),
     ]);
@@ -154,25 +167,29 @@ export class ChainLaunchAdapter {
       this.scope(expected);
       const receipt = await this.client.waitForTransactionReceipt({ hash: txHash, timeout: 30000 });
       this.scope(expected);
-      if (hash(receipt.transactionHash) !== hash(txHash)) throw new Error('Chain creation receipt failed.');
+      if (hash(receipt.transactionHash) !== hash(txHash)) throw new Error('Chain launch receipt failed.');
       if (receipt.status === 'reverted') {
         this.pending = null;
-        return { txHash, submission: { ...pending, phase: 'reverted' }, error: 'Chain creation receipt failed: transaction reverted. Review again before launching.' };
+        return { txHash, submission: { ...pending, phase: 'reverted' }, error: 'Chain launch receipt failed: transaction reverted. Review again before launching.' };
       }
-      if (receipt.status !== 'success') throw new Error('Chain creation receipt failed.');
+      if (receipt.status !== 'success') throw new Error('Chain launch receipt failed.');
       const tier = SIZE_TIERS[reviewed.tier];
       const rpcBase = this.client.chain?.rpcUrls.default.http[0];
       const explorerBase = this.client.chain?.blockExplorers?.default.url;
       if (!rpcBase || !explorerBase) throw new Error('Chain network URLs are unavailable.');
-      const logs = receipt.logs.filter(log => address(log.address) === CHAINS_PRECOMPILE
-        && log.topics[0] === chainCreatedTopic);
-      if (logs.length !== 1) throw new Error('Expected one ChainCreated receipt event.');
-      const created = decodeChainCreated(logs[0]);
-      if (created.name !== reviewed.name || created.operator !== expected.creator) {
-        throw new Error('ChainCreated event does not match the reviewed draft.');
+      const logs = receipt.logs.filter(log => address(log.address) === address(LAUNCHPAD_ADDRESS)
+        && log.topics[0] === chainLaunchedTopic);
+      if (logs.length !== 1) throw new Error('Expected one ChainLaunched receipt event.');
+      const created = decodeChainLaunched(logs[0]);
+      if (created.creator !== expected.creator || created.blockNumber !== receipt.blockNumber) {
+        throw new Error('ChainLaunched event does not match the reviewed launch.');
       }
       for (let attempt = 0; attempt < 30; attempt++) {
         this.scope(expected);
+        const launched = await this.client.readContract({
+          address: LAUNCHPAD_ADDRESS, abi: CHAIN_LAUNCH_ABI, functionName: 'launchedChain',
+          args: [created.id], blockNumber: receipt.blockNumber,
+        });
         const record = await this.client.readContract({
           address: CHAINS_PRECOMPILE, abi: chainsAbi, functionName: 'getChain', args: [created.id],
           blockNumber: receipt.blockNumber,
@@ -186,17 +203,29 @@ export class ChainLaunchAdapter {
         });
         this.scope(expected);
         if (record !== null) {
-          if (record[0] !== created.id || record[1] !== created.name || address(record[2]) !== created.operator
+          const [tokenName, tokenSymbol] = await Promise.all([
+            this.client.readContract({ address: created.token as Address, abi: tokenAbi, functionName: 'name', blockNumber: receipt.blockNumber }),
+            this.client.readContract({ address: created.token as Address, abi: tokenAbi, functionName: 'symbol', blockNumber: receipt.blockNumber }),
+          ]);
+          this.scope(expected);
+          if (launched[0] !== created.id || launched[1] !== BigInt(created.chainId)
+            || address(launched[2]) !== created.pool || address(launched[3]) !== created.token
+            || launched[4] !== created.nftId || address(launched[5]) !== created.creator
+            || launched[6] !== created.blockNumber
+            || record[0] !== created.id || record[1] !== reviewed.name || address(record[2]) !== created.creator
             || record[4] !== BigInt(created.chainId) || record[5] !== BigInt(tier.gas)
             || record[6] !== BigInt(tier.bytes) || record[7] !== reviewed.feeShareBps
-            || record[8] !== BigInt(submission.bondRaw)) {
-            throw new Error('Chain registry record does not match the creation receipt.');
+            || record[8] !== BigInt(submission.bondRaw)
+            || tokenName !== reviewed.tokenName || tokenSymbol !== reviewed.tokenSymbol) {
+            throw new Error('Chain launch readback does not match the reviewed launch.');
           }
-          const network = walletNetwork(created, rpcBase, explorerBase);
+          const network = walletNetwork({ id: created.id, name: reviewed.name, chainId: created.chainId }, rpcBase, explorerBase);
           this.pending = null;
           onStep('ready');
           return {
             id: record[0], chainId: Number(record[4]), name: record[1],
+            tokenName: reviewed.tokenName, tokenSymbol: reviewed.tokenSymbol,
+            token: created.token, pool: created.pool, tradingPath: poolPath(125, created.pool),
             rpcUrl: network.rpcUrls[0], explorerUrl: network.blockExplorerUrls[0],
             walletNetwork: network, txHash,
           };

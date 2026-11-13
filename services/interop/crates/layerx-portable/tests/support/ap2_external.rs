@@ -73,7 +73,7 @@ fn sign(payload: &Value, kid: &str, token_type: &str, scalar: u8) -> String {
     format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature.to_bytes()))
 }
 
-fn root(mandate: Value) -> String {
+fn root(mandate: &Value) -> String {
     format!(
         "{}~",
         sign(
@@ -119,11 +119,11 @@ impl MandateFixture {
             merchant = corrupt_signature(&merchant);
         }
         let transaction_id = URL_SAFE_NO_PAD.encode(Sha256::digest(merchant.as_bytes()));
-        let checkout = root(json!({
+        let checkout = root(&json!({
             "vct":"mandate.checkout.1", "checkout_jwt":merchant,
             "checkout_hash":transaction_id, "iat":NOW-30, "exp":NOW+1800
         }));
-        let payment = root(json!({
+        let payment = root(&json!({
             "vct":"mandate.payment.1", "transaction_id":transaction_id,
             "payee":{"id":expected["payee_id"], "name":expected["payee_name"]},
             "payment_amount":{"amount":amount, "currency":expected["currency"]},

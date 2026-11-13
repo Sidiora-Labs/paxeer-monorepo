@@ -41,20 +41,21 @@ function stationConfiguration(): GasStationConfig | undefined {
 
 export async function sidioraStationMetadata(): Promise<Readonly<{ chainId: string; sponsor: string; paymaster: string }> | undefined> {
   const config = stationConfiguration();
-  if (config === undefined || config.chainId >= 1n << 256n) return undefined;
-  return { chainId: config.chainId.toString(), sponsor: config.sponsor.toLowerCase(), paymaster: config.paymaster.toLowerCase() };
+  if (config === undefined || config.chainId >= 1n << 256n) return Promise.resolve(undefined);
+  return Promise.resolve({ chainId: config.chainId.toString(), sponsor: config.sponsor.toLowerCase(), paymaster: config.paymaster.toLowerCase() });
 }
 
 export async function sidioraStationSubmitUrl(): Promise<string | undefined> {
   const configured = process.env.PAXEER_GAS_STATION_SUBMIT_URL;
-  if (configured === undefined) return undefined;
+  if (configured === undefined) return Promise.resolve(undefined);
+  let endpoint: URL;
   try {
-    const endpoint = new URL(configured);
-    if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.href.includes("#")) return undefined;
-    return endpoint.href;
+    endpoint = new URL(configured);
   } catch {
-    return undefined;
+    return Promise.resolve(undefined);
   }
+  if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.href.includes("#")) return Promise.resolve(undefined);
+  return Promise.resolve(endpoint.href);
 }
 
 export type AccountDidOutcome =
@@ -102,7 +103,7 @@ export async function sendSponsoredBatch(
   const config = stationConfiguration();
   const submitUrl = await sidioraStationSubmitUrl();
   if (config === undefined || submitUrl === undefined) return { outcome: "unavailable" };
-  if (typeof quoted?.paymaster !== "string" || quoted.paymaster.toLowerCase() !== config.paymaster.toLowerCase()) return { outcome: "rejected" };
+  if (Object.is(quoted, null) || Object.is(quoted, undefined) || typeof quoted.paymaster !== "string" || quoted.paymaster.toLowerCase() !== config.paymaster.toLowerCase()) return { outcome: "rejected" };
   const call = sponsoredBatchCall(config, quoted.batch, accountSignature, quoted.relayerSignature);
   if (!call.ok) return { outcome: "rejected" };
   const authorization = assembleEip7702Authorization(config, quoted.batch.account, authorizationNonce, authorizationSignature);

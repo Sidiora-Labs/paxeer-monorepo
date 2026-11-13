@@ -1,11 +1,10 @@
-//! Task 22.33.1467 closes audit 22.30.85 receipt-staging-recovery.
-//! Proof: restart_after_partial_write, restart_before_file_sync,
-//! restart_before_rename, restart_before_directory_sync, restart_after_directory_sync,
-//! legacy_pending_is_quarantined_before_replay_and_retention.
-//! No out-of-path wiring is required. The bounded build/verify order forbids a
-//! baseline verify; no unchanged-tree failures are claimed.
+//! Receipt staging preserves canonical evidence through partial writes and restarts.
+//! The recovery cases cover `restart_after_partial_write`, `restart_before_file_sync`,
+//! `restart_before_rename`, `restart_before_directory_sync`, `restart_after_directory_sync`,
+//! and `legacy_pending_is_quarantined_before_replay_and_retention`.
 
 include!("../src/main.rs");
+use layerx_platform_authority::assertion::Must;
 
 use chain_readiness_tests::{base64, must};
 use ed25519_dalek::Signer as _;
@@ -20,7 +19,7 @@ fn wire_proof(proof: &layerx_proof::merkle::Proof) -> String {
     must(writer.structure_header(0x4d50));
     must(writer.u32(proof.leaf_index()));
     must(writer.u32(proof.leaf_count()));
-    must(writer.u8(u8::try_from(proof.siblings().len()).unwrap()));
+    must(writer.u8(u8::try_from(proof.siblings().len()).must()));
     must(writer.bytes(&proof.siblings().concat(), 1024));
     hex::encode(&writer.finish())
 }
@@ -32,25 +31,25 @@ fn receipt_records() -> Vec<Value> {
     let signer = ed25519_dalek::SigningKey::from_bytes(&[0x22; 32]);
     let public = signer.verifying_key().to_bytes();
     let key_id: [u8; 32] = Sha256::digest(public).into();
-    corpus["receipts"].as_array().unwrap()[..4]
+    corpus["receipts"].as_array().must()[..4]
         .iter()
         .map(|row| {
             assert_eq!(row["sequencer_public_key"], hex::encode(&public));
-            let receipt = must(hex::decode(row["receipt"].as_str().unwrap()));
+            let receipt = must(hex::decode(row["receipt"].as_str().must()));
             must(layerx_proof::receipt::verify_sequencer_signature(
                 &receipt, public,
             ));
-            let maintenance = must(hex::decode(row["maintenance"].as_str().unwrap()));
+            let maintenance = must(hex::decode(row["maintenance"].as_str().must()));
             let leaves = [&receipt[..], &maintenance[..]];
             let (proof, root) = must(layerx_proof::merkle::build_proof(&leaves, 0));
             let (maintenance_proof, _) = must(layerx_proof::merkle::build_proof(&leaves, 1));
-            let mut header = must(hex::decode(row["header"].as_str().unwrap()));
+            let mut header = must(hex::decode(row["header"].as_str().must()));
             let original = must(layerx_wire::receipt::decode_batch_header(&header));
             for (old, new) in [
                 (original.sequencer_id(), key_id),
                 (original.receipt_merkle_root(), root),
             ] {
-                let offset = header.windows(32).position(|value| value == old).unwrap();
+                let offset = header.windows(32).position(|value| value == old).must();
                 header[offset..offset + 32].copy_from_slice(&new);
             }
             let signature = signer.sign(&must(layerx_wire::hash::batch_header_digest(&header)));
@@ -96,7 +95,7 @@ impl Store {
         let public = must(hex::decode32(
             records[0]["replica_document"]["sequencer_public_key"]
                 .as_str()
-                .unwrap(),
+                .must(),
         ));
         let key_id: [u8; 32] = Sha256::digest(public).into();
         protected_write(
@@ -130,9 +129,9 @@ impl Store {
         let public = must(hex::decode32(
             self.records[0]["replica_document"]["sequencer_public_key"]
                 .as_str()
-                .unwrap(),
+                .must(),
         ));
-        let address = "127.0.0.1:1".parse().unwrap();
+        let address = "127.0.0.1:1".parse().must();
         let mut config = Config {
             listen: address,
             tls: Arc::new(tls),
@@ -194,15 +193,15 @@ fn protected_write(path: &Path, bytes: &[u8]) {
 fn activity(record: &Value) -> String {
     hex::encode(
         &must(receipt_locator(&must(hex::decode(
-            record["receipt_hex"].as_str().unwrap(),
+            record["receipt_hex"].as_str().must(),
         ))))
         .activity_id,
     )
 }
 
 fn retain(config: &Config, record: &Value) -> Result<(), ()> {
-    config.human.as_ref().unwrap().retain(
-        &must(hex::decode(record["receipt_hex"].as_str().unwrap())),
+    config.human.as_ref().must().retain(
+        &must(hex::decode(record["receipt_hex"].as_str().must())),
         &must(serde_json::to_vec(&record["replica_document"])),
         config,
     )
@@ -224,9 +223,9 @@ fn assert_evidence(config: &Config, records: &[&Value]) {
     let facts = evidence(config);
     assert_eq!(facts.len(), records.len());
     for (item, record) in facts.iter().zip(records) {
-        let receipt = must(hex::decode(record["receipt_hex"].as_str().unwrap()));
+        let receipt = must(hex::decode(record["receipt_hex"].as_str().must()));
         let decoded = must(layerx_wire::receipt::decode(&receipt));
-        let protocol = decoded.protocol().unwrap();
+        let protocol = decoded.protocol().must();
         assert_eq!(item.activity_id, protocol.activity_id());
         assert_eq!(item.global_sequence, protocol.global_sequence());
         assert_eq!(item.batch_id, protocol.batch_id());
@@ -265,7 +264,7 @@ fn exercise_boundary(boundary: Boundary) {
             None
         } else {
             assert!(!store.committed(1).exists());
-            assert_ne!(pending[0].file_name().unwrap(), ".receipt.pending");
+            assert_ne!(pending[0].file_name().must(), ".receipt.pending");
             assert_eq!(must(fs::metadata(&pending[0])).mode() & 0o777, 0o600);
             let bytes = must(fs::read(&pending[0]));
             let expected = must(serde_json::to_vec(&store.records[1]));
@@ -382,13 +381,13 @@ fn repeated_interruptions_keep_unique_staging_and_quarantined_bytes() {
     let first = {
         let _reset = arm(Boundary::Write);
         assert!(retain(&config, &store.records[1]).is_err());
-        pending_paths(&store).pop().unwrap()
+        pending_paths(&store).pop().must()
     };
     let first_bytes = must(fs::read(&first));
     let second = {
         let _reset = arm(Boundary::Rename);
         assert!(retain(&config, &store.records[2]).is_err());
-        pending_paths(&store).pop().unwrap()
+        pending_paths(&store).pop().must()
     };
     assert_ne!(first, second);
     let second_bytes = must(fs::read(&second));

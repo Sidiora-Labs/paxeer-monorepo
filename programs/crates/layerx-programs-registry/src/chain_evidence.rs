@@ -14,8 +14,12 @@ pub mod protocol_head;
 pub mod trust_root;
 pub mod wind_down;
 
-pub(crate) mod verify_bundle;
+pub(crate) use crate::protocol_evidence::bundle_helpers as verify_bundle;
 
+///
+/// # Errors
+///
+/// Returns an error when input is invalid.
 pub fn commitment_trust_step(
     commitment: &CommitmentProof,
 ) -> Result<(ChainHeader, Commit, ValidatorSet), ChainProofError> {
@@ -26,6 +30,7 @@ pub fn commitment_trust_step(
     ))
 }
 
+#[must_use]
 pub fn programs_state_key(kernel_key: &[u8]) -> Vec<u8> {
     let mut key = Vec::with_capacity(3 + kernel_key.len());
     key.push(0x01);

@@ -197,7 +197,7 @@ fn client_data(kind: &str, challenge: &str) -> Vec<u8> {
 }
 
 fn bytes(target: &mut Vec<u8>, value: &[u8]) {
-    target.extend_from_slice(&u32::try_from(value.len()).expect("length").to_be_bytes());
+    target.extend_from_slice(&u32::try_from(value.len()).or_fail("length").to_be_bytes());
     target.extend_from_slice(value);
 }
 fn frame(op: u8, body: &[u8]) -> Vec<u8> {
@@ -207,13 +207,13 @@ fn frame(op: u8, body: &[u8]) -> Vec<u8> {
     value
 }
 fn account() -> AccountId {
-    AccountId::parse(&format!("agent:{OWNER}:main")).expect("account")
+    AccountId::parse(&format!("agent:{OWNER}:main")).or_fail("account")
 }
 fn account_hash() -> [u8; 32] {
-    layerx_intents::canonical::account_id_for_protocol(&account(), 3).expect("account hash")
+    layerx_intents::canonical::account_id_for_protocol(&account(), 3).or_fail("account hash")
 }
 fn hex(value: &[u8]) -> String {
-    value.iter().map(|b| format!("{b:02x}")).collect()
+    layerx_human_service::hex::lower(value)
 }
 fn answer(rung: Option<Rung>) -> Value {
     json!({"value": {"account": hex(&account_hash()), "asset": hex(&ASSET), "amount": "123", "canonical_state": "0000000000000000000000000000007b", "height": "7"},
@@ -239,91 +239,94 @@ struct Peer {
 impl Peer {
     fn start(root: &std::path::Path, rung: Option<Rung>) -> Self {
         let socket = root.join("agent.sock");
-        let listener = UnixListener::bind(&socket).expect("bind agent peer");
+        let listener = UnixListener::bind(&socket).or_fail("bind agent peer");
         listener
             .set_nonblocking(true)
-            .expect("nonblocking agent peer");
+            .or_fail("nonblocking agent peer");
         let stop = Arc::new(AtomicBool::new(false));
         let stopping = stop.clone();
         let answer = Arc::new(Mutex::new(answer(rung)));
         let response = answer.clone();
         let reads = Arc::new(AtomicUsize::new(0));
         let observed = reads.clone();
-        let worker = thread::spawn(move || {
-            let mut prefix = Vec::new();
-            bytes(&mut prefix, ACCOUNT_ID.as_bytes());
-            bytes(&mut prefix, OWNER.as_bytes());
-            bytes(&mut prefix, account().canonical().as_bytes());
-            prefix.extend_from_slice(&ASSET);
-            while !stopping.load(Ordering::Acquire) {
-                let (mut stream, _) = match listener.accept() {
-                    Ok(value) => value,
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(1));
-                        continue;
+        let worker =
+            thread::spawn(move || {
+                let mut prefix = Vec::new();
+                bytes(&mut prefix, ACCOUNT_ID.as_bytes());
+                bytes(&mut prefix, OWNER.as_bytes());
+                bytes(&mut prefix, account().canonical().as_bytes());
+                prefix.extend_from_slice(&ASSET);
+                while !stopping.load(Ordering::Acquire) {
+                    let (mut stream, _) = match listener.accept() {
+                        Ok(value) => value,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(1));
+                            continue;
+                        }
+                        Err(error) => panic!("accept agent: {error}"),
+                    };
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(5)))
+                        .or_fail("agent deadline");
+                    stream
+                        .set_write_timeout(Some(Duration::from_secs(5)))
+                        .or_fail("agent write deadline");
+                    let request = read_frame(&mut stream, MAX_FRAME).or_fail("agent request");
+                    assert_eq!(&request[..9], frame(44, &[]));
+                    assert_eq!(&request[9..9 + prefix.len()], &prefix);
+                    let nested = &request[9 + prefix.len()..];
+                    let length = u32::from_be_bytes(nested[..4].try_into().or_fail("nested length"))
+                        as usize;
+                    assert_eq!(length, nested.len() - 4);
+                    let request = &nested[4..];
+                    assert_eq!(&request[..8], b"LXHAGT01");
+                    let mut body = Vec::new();
+                    match request[8] {
+                        6 => {
+                            assert_eq!(request.len(), 9);
+                            observed.fetch_add(1, Ordering::AcqRel);
+                            bytes(
+                                &mut body,
+                                &serde_json::to_vec(&*response.lock().unwrap_or_else(|error| {
+                                    panic!("{}: {error:?}", "balance answer")
+                                }))
+                                .or_fail("JSON"),
+                            );
+                        }
+                        39 => {
+                            assert_eq!(request.len(), 9);
+                            body.push(1);
+                            body.extend_from_slice(&ASSET);
+                            bytes(&mut body, b"LXP");
+                            body.push(18);
+                            body.extend_from_slice(&9u64.to_be_bytes());
+                            body.extend_from_slice(&[0x33; 32]);
+                        }
+                        24 | 52 => {
+                            assert_eq!(&request[9..], &[0, 100]);
+                            body.extend_from_slice(&[0, 0]);
+                        }
+                        7 => {
+                            assert_eq!(request.len(), 9);
+                            body.extend_from_slice(&9u64.to_be_bytes());
+                            body.extend_from_slice(&1u64.to_be_bytes());
+                            body.extend_from_slice(&[0x33; 32]);
+                        }
+                        46 => {
+                            let mut expected = 9u64.to_be_bytes().to_vec();
+                            expected.extend_from_slice(&[0, 100]);
+                            assert_eq!(&request[9..], &expected);
+                            body.extend_from_slice(&[0, 0]);
+                        }
+                        58 => {
+                            assert_eq!(&request[9..], &[0, 5, 0, 100]);
+                            body.extend_from_slice(&[0, 5, 0, 0]);
+                        }
+                        opcode => panic!("unexpected agent opcode {opcode}"),
                     }
-                    Err(error) => panic!("accept agent: {error}"),
-                };
-                stream
-                    .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("agent deadline");
-                stream
-                    .set_write_timeout(Some(Duration::from_secs(5)))
-                    .expect("agent write deadline");
-                let request = read_frame(&mut stream, MAX_FRAME).expect("agent request");
-                assert_eq!(&request[..9], frame(44, &[]));
-                assert_eq!(&request[9..9 + prefix.len()], &prefix);
-                let nested = &request[9 + prefix.len()..];
-                let length =
-                    u32::from_be_bytes(nested[..4].try_into().expect("nested length")) as usize;
-                assert_eq!(length, nested.len() - 4);
-                let request = &nested[4..];
-                assert_eq!(&request[..8], b"LXHAGT01");
-                let mut body = Vec::new();
-                match request[8] {
-                    6 => {
-                        assert_eq!(request.len(), 9);
-                        observed.fetch_add(1, Ordering::AcqRel);
-                        bytes(
-                            &mut body,
-                            &serde_json::to_vec(&*response.lock().expect("balance answer"))
-                                .expect("JSON"),
-                        );
-                    }
-                    39 => {
-                        assert_eq!(request.len(), 9);
-                        body.push(1);
-                        body.extend_from_slice(&ASSET);
-                        bytes(&mut body, b"LXP");
-                        body.push(18);
-                        body.extend_from_slice(&9u64.to_be_bytes());
-                        body.extend_from_slice(&[0x33; 32]);
-                    }
-                    24 | 52 => {
-                        assert_eq!(&request[9..], &[0, 100]);
-                        body.extend_from_slice(&[0, 0]);
-                    }
-                    7 => {
-                        assert_eq!(request.len(), 9);
-                        body.extend_from_slice(&9u64.to_be_bytes());
-                        body.extend_from_slice(&1u64.to_be_bytes());
-                        body.extend_from_slice(&[0x33; 32]);
-                    }
-                    46 => {
-                        let mut expected = 9u64.to_be_bytes().to_vec();
-                        expected.extend_from_slice(&[0, 100]);
-                        assert_eq!(&request[9..], &expected);
-                        body.extend_from_slice(&[0, 0]);
-                    }
-                    58 => {
-                        assert_eq!(&request[9..], &[0, 5, 0, 100]);
-                        body.extend_from_slice(&[0, 5, 0, 0]);
-                    }
-                    opcode => panic!("unexpected agent opcode {opcode}"),
+                    write_frame(&mut stream, &frame(0, &body), MAX_FRAME).or_fail("agent answer");
                 }
-                write_frame(&mut stream, &frame(0, &body), MAX_FRAME).expect("agent answer");
-            }
-        });
+            });
         Self {
             socket,
             stop,
@@ -336,23 +339,23 @@ impl Peer {
         AgentRuntime::new(
             &self.socket,
             limits(),
-            ModuleRegistry::new(&[]).expect("registry"),
+            ModuleRegistry::new(&[]).or_fail("registry"),
         )
-        .expect("agent runtime")
+        .or_fail("agent runtime")
         .for_subject(
             &support::principal(ACCOUNT_ID),
-            &Did::new(OWNER.as_bytes()).expect("owner"),
+            &Did::new(OWNER.as_bytes()).or_fail("owner"),
             &account(),
             ASSET,
         )
-        .expect("scoped runtime")
+        .or_fail("scoped runtime")
     }
 }
 impl Drop for Peer {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
         if let Some(worker) = self.worker.take() {
-            worker.join().expect("agent peer");
+            worker.join().or_fail("agent peer");
         }
     }
 }
@@ -396,16 +399,19 @@ impl PrivilegedHumanServices for BalanceServices {
         };
         let id = balance["evidence"][0]["evidence_id"]
             .as_str()
-            .expect("evidence id")
+            .or_fail("evidence id")
             .strip_prefix("evd_")
-            .expect("evidence prefix");
+            .or_fail("evidence prefix");
         let key = support::row_key(&format!("state-proof-{id}"));
         let bytes = scope
             .get(Table::Cache, &key)
-            .expect("stored balance material")
+            .or_fail("stored balance material")
             .bytes()
             .to_vec();
-        self.material.lock().expect("observed material").push(bytes);
+        self.material
+            .lock()
+            .or_fail("observed material")
+            .push(bytes);
         Ok(BackendResponse {
             result,
             session: None,
@@ -425,10 +431,44 @@ struct LiveRouter {
     root: PathBuf,
 }
 impl LiveRouter {
+    fn open_session(
+        store: &mut PrincipalStore,
+        passkeys: &Passkeys,
+        now: u64,
+    ) -> layerx_human_service::auth::SessionGrant {
+        let mut scope = store
+            .principal(&support::principal(ACCOUNT_ID))
+            .or_fail("principal");
+        let mut authenticator = SoftwareAuthenticator::new();
+        let identity = AccountIdentity::new("balance@example.test", "Balance").or_fail("identity");
+        let registration = passkeys
+            .begin_registration(&mut scope, &identity, "Passkey", now)
+            .or_fail("registration");
+        let credential = authenticator.register(&registration.ceremony);
+        passkeys
+            .finish_registration(&mut scope, &registration.registration_id, &credential, now)
+            .or_fail("register passkey");
+        let assertion = passkeys
+            .begin_assertion(&mut scope, now)
+            .or_fail("assertion");
+        let credential = authenticator.assert(&assertion.ceremony);
+        passkeys
+            .finish_assertion(&mut scope, &assertion.assertion_id, &credential, now)
+            .or_fail("verify passkey");
+        passkeys
+            .open_session(
+                &mut scope,
+                &assertion.assertion_id,
+                Device::mint("Balance test", "web").or_fail("device"),
+                now,
+            )
+            .or_fail("session")
+    }
+
     fn connect(rung: Option<Rung>) -> Self {
         let root = support::directory("balance-rungs");
-        fs::create_dir_all(&root).expect("test root");
-        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).expect("private root");
+        fs::create_dir_all(&root).or_fail("test root");
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).or_fail("private root");
         let tenancy = support::tenancy(&[(ACCOUNT_ID, "balance-tenant")]);
         let (mut store, _) = support::install_and_open(
             &root.join("store"),
@@ -438,7 +478,7 @@ impl LiveRouter {
         let clock = Arc::new(support::StepClock::new(1_700_000_000_000));
         let now = clock
             .sample(Duration::from_secs(1))
-            .expect("clock")
+            .or_fail("clock")
             .unix_seconds();
         let passkeys = Passkeys::new(AuthConfig {
             rp_id: RP_ID.to_owned(),
@@ -454,37 +494,8 @@ impl LiveRouter {
                 window_secs: 60,
             },
         })
-        .expect("passkeys");
-        let session = {
-            let mut scope = store
-                .principal(&support::principal(ACCOUNT_ID))
-                .expect("principal");
-            let mut authenticator = SoftwareAuthenticator::new();
-            let identity =
-                AccountIdentity::new("balance@example.test", "Balance").expect("identity");
-            let registration = passkeys
-                .begin_registration(&mut scope, &identity, "Passkey", now)
-                .expect("registration");
-            let credential = authenticator.register(&registration.ceremony);
-            passkeys
-                .finish_registration(&mut scope, &registration.registration_id, &credential, now)
-                .expect("register passkey");
-            let assertion = passkeys
-                .begin_assertion(&mut scope, now)
-                .expect("assertion");
-            let credential = authenticator.assert(&assertion.ceremony);
-            passkeys
-                .finish_assertion(&mut scope, &assertion.assertion_id, &credential, now)
-                .expect("verify passkey");
-            passkeys
-                .open_session(
-                    &mut scope,
-                    &assertion.assertion_id,
-                    Device::mint("Balance test", "web").expect("device"),
-                    now,
-                )
-                .expect("session")
-        };
+        .or_fail("passkeys");
+        let session = Self::open_session(&mut store, &passkeys, now);
         let access_token = session.access_token().expose().to_owned();
         let accounts = ProvisionedAccounts::new([ProvisionedAccount::new(
             ACCOUNT_ID,
@@ -492,8 +503,8 @@ impl LiveRouter {
             "Balance",
             "Passkey",
         )
-        .expect("account")])
-        .expect("accounts");
+        .or_fail("account")])
+        .or_fail("accounts");
         let peer = Peer::start(&root, rung);
         let material = Arc::new(Mutex::new(Vec::new()));
         let services = BalanceServices {
@@ -511,7 +522,7 @@ impl LiveRouter {
             },
             clock.clone(),
         )
-        .expect("privileged components");
+        .or_fail("privileged components");
         let socket = root.join("human.sock");
         let bound = HumanComponentServer::new(Arc::new(components))
             .bind(ComponentServerConfig {
@@ -521,12 +532,16 @@ impl LiveRouter {
                 queue_capacity: 1,
                 limits: default_component_limits(),
             })
-            .expect("component socket");
+            .or_fail("component socket");
         let shutdown = bound.shutdown();
-        let worker = thread::spawn(move || bound.run().expect("component server"));
+        let worker = thread::spawn(move || {
+            bound.run().or_fail("component server");
+        });
         let router = Router::new(
-            Arc::new(UnixComponents::new(&socket, default_component_limits()).expect("components")),
-            PrincipalLimits::new(100, 60, 100).expect("limits"),
+            Arc::new(
+                UnixComponents::new(&socket, default_component_limits()).or_fail("components"),
+            ),
+            PrincipalLimits::new(100, 60, 100).or_fail("limits"),
             HttpConfig {
                 maximum_header_bytes: 32_768,
                 maximum_body_bytes: 1_048_576,
@@ -535,7 +550,7 @@ impl LiveRouter {
             },
             clock,
         )
-        .expect("router");
+        .or_fail("router");
         Self {
             router: Arc::new(router),
             access_token,
@@ -547,27 +562,29 @@ impl LiveRouter {
         }
     }
     fn get(&self, path: &str) -> Value {
-        let (mut client, mut server) = UnixStream::pair().expect("HTTP socket pair");
+        let (mut client, mut server) = UnixStream::pair().or_fail("HTTP socket pair");
         client
             .set_read_timeout(Some(Duration::from_secs(10)))
-            .expect("HTTP read deadline");
+            .or_fail("HTTP read deadline");
         server
             .set_read_timeout(Some(Duration::from_secs(10)))
-            .expect("HTTP serve deadline");
+            .or_fail("HTTP serve deadline");
         let router = self.router.clone();
         let worker = thread::spawn(move || {
             router
                 .serve_one(&mut server, "balance-rungs")
-                .expect("serve balance request");
+                .or_fail("serve balance request");
         });
-        write!(client, "GET {path} HTTP/1.1\r\nHost: wallet.example\r\nOrigin: https://wallet.example\r\nCookie: __Host-layerx_access={}\r\n\r\n", self.access_token).expect("write balance request");
+        write!(client, "GET {path} HTTP/1.1\r\nHost: wallet.example\r\nOrigin: https://wallet.example\r\nCookie: __Host-layerx_access={}\r\n\r\n", self.access_token).or_fail("write balance request");
         let mut response = String::new();
         client
             .read_to_string(&mut response)
-            .expect("read balance response");
-        worker.join().expect("HTTP worker");
-        let (head, body) = response.split_once("\r\n\r\n").expect("HTTP response body");
-        let body: Value = serde_json::from_str(body).expect("balance JSON");
+            .or_fail("read balance response");
+        worker.join().or_fail("HTTP worker");
+        let (head, body) = response
+            .split_once("\r\n\r\n")
+            .or_fail("HTTP response body");
+        let body: Value = serde_json::from_str(body).or_fail("balance JSON");
         assert!(head.starts_with("HTTP/1.1 200 "), "{head}: {body}");
         assert_eq!(body["ok"], true, "{body}");
         body["result"].clone()
@@ -578,10 +595,10 @@ impl Drop for LiveRouter {
     fn drop(&mut self) {
         self.shutdown.request();
         if let Some(worker) = self.worker.take() {
-            worker.join().expect("component worker");
+            worker.join().or_fail("component worker");
         }
         drop(self.peer.take());
-        fs::remove_dir_all(&self.root).expect("remove test root");
+        fs::remove_dir_all(&self.root).or_fail("remove test root");
     }
 }
 fn assert_balance(result: &Value, rung: Option<Rung>) {
@@ -590,13 +607,11 @@ fn assert_balance(result: &Value, rung: Option<Rung>) {
         result["account_id"],
         format!("act_{}", hex(&account_hash()))
     );
-    let verification = rung
-        .map(|r| match r {
-            Rung::Submitted => "unverified",
-            Rung::Receipted => "receipt-verified",
-            Rung::Committed => "committed",
-        })
-        .unwrap_or("unverified");
+    let verification = rung.map_or("unverified", |r| match r {
+        Rung::Submitted => "unverified",
+        Rung::Receipted => "receipt-verified",
+        Rung::Committed => "committed",
+    });
     assert_eq!(result["verification"], verification);
     assert_eq!(result["evidence"][0]["verification"], verification);
     assert_eq!(result["freshness"]["source_head"], "9");
@@ -618,21 +633,21 @@ fn assert_material(material: &[u8], rung: Option<Rung>) {
     let len = u32::from_be_bytes(
         material[start..start + 4]
             .try_into()
-            .expect("timestamp length"),
+            .or_fail("timestamp length"),
     ) as usize;
     assert_eq!(len, 20);
     let offset = start + 4 + len + 8;
     let len = u32::from_be_bytes(
         material[offset..offset + 4]
             .try_into()
-            .expect("canonical length"),
+            .or_fail("canonical length"),
     ) as usize;
     assert_eq!(
         &material[offset + 4..offset + 4 + len],
         &123u128.to_be_bytes()
     );
     let response: Value =
-        serde_json::from_slice(&material[offset + 4 + len..]).expect("original daemon answer");
+        serde_json::from_slice(&material[offset + 4 + len..]).or_fail("original daemon answer");
     assert_eq!(response, answer(rung));
 }
 #[test]
@@ -650,12 +665,12 @@ fn account_balance_answers_the_balance_rung() {
             router
                 .peer
                 .as_ref()
-                .expect("peer")
+                .or_fail("peer")
                 .reads
                 .load(Ordering::Acquire),
             1
         );
-        let material = router.material.lock().expect("balance material");
+        let material = router.material.lock().or_fail("balance material");
         assert_eq!(material.len(), 1);
         assert_material(&material[0], rung);
         assert_eq!(
@@ -664,7 +679,7 @@ fn account_balance_answers_the_balance_rung() {
         );
     }
     let router = LiveRouter::connect(None);
-    let peer = router.peer.as_ref().expect("peer");
+    let peer = router.peer.as_ref().or_fail("peer");
     let mut runtime = peer.runtime();
     let original = answer(None);
     let mut cases = Vec::new();
@@ -675,7 +690,7 @@ fn account_balance_answers_the_balance_rung() {
     }
     let mut bad = original.clone();
     bad.as_object_mut()
-        .expect("object")
+        .or_fail("object")
         .remove("achieved_verification_level");
     cases.push(bad);
     for pointer in [
@@ -689,7 +704,7 @@ fn account_balance_answers_the_balance_rung() {
         "/freshness/relative_to",
     ] {
         let mut bad = original.clone();
-        *bad.pointer_mut(pointer).expect("field") = Value::Null;
+        *bad.pointer_mut(pointer).or_fail("field") = Value::Null;
         cases.push(bad);
     }
     let mut bad = original.clone();
@@ -702,7 +717,7 @@ fn account_balance_answers_the_balance_rung() {
     bad["value"]["height"] = json!("8");
     cases.push(bad);
     for bad in cases {
-        *peer.answer.lock().expect("answer") = bad;
+        *peer.answer.lock().or_fail("answer") = bad;
         assert!(matches!(
             runtime.balance(),
             Err(AgentBoundaryError::CorruptResponse)
@@ -732,18 +747,18 @@ fn home_summary_balance_matches_account_balance() {
             router
                 .peer
                 .as_ref()
-                .expect("peer")
+                .or_fail("peer")
                 .reads
                 .load(Ordering::Acquire),
             2
         );
-        let material = router.material.lock().expect("material");
+        let material = router.material.lock().or_fail("material");
         assert_eq!(material.len(), 2);
         for bytes in material.iter() {
             assert_material(bytes, rung);
         }
-        let schema = ApiSchema::v1().expect("schema");
-        let operation = schema.operation("home.summary").expect("operation");
+        let schema = ApiSchema::v1().or_fail("schema");
+        let operation = schema.operation("home.summary").or_fail("operation");
         let mut inconsistent = home.clone();
         inconsistent["rung"] = json!("committed");
         assert!(schema.encode_response(operation, &inconsistent).is_err());
@@ -753,4 +768,10 @@ fn home_summary_balance_matches_account_balance() {
             assert!(schema.encode_response(operation, &inconsistent).is_err());
         }
     }
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

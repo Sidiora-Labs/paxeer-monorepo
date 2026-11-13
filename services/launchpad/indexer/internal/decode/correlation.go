@@ -43,7 +43,7 @@ func (r *Registry) CorrelateOptionalReceipt(receipt *ethtypes.Receipt, bindings 
 	}
 	seenBindings := map[string]bool{}
 	for _, b := range bindings {
-		if b.NativeEmitter == (common.Address{}) || b.CompanionEmitter == (common.Address{}) || b.NativeEmitter == b.CompanionEmitter || optionalFamily(b.NativeRole, "") == "" || (b.CompanionRole != "EventEmitter" && b.CompanionRole != "TransactionTracker") {
+		if b.NativeEmitter == (common.Address{}) || b.CompanionEmitter == (common.Address{}) || b.NativeEmitter == b.CompanionEmitter || optionalFamily(b.NativeRole, "") == "" || (b.CompanionRole != valueEventEmitter && b.CompanionRole != valueTransactionTracker) {
 			return nil, fmt.Errorf("invalid source-attested correlation binding")
 		}
 		key := b.NativeEmitter.Hex() + "/" + b.CompanionEmitter.Hex()
@@ -68,10 +68,10 @@ func (r *Registry) CorrelateOptionalReceipt(receipt *ethtypes.Receipt, bindings 
 	native := []*DecodedEnvelope{}
 	companions := []*DecodedEnvelope{}
 	for _, e := range decoded.Optional {
-		if e.Status != "decoded" || e.Event == nil {
+		if e.Status != valueDecoded || e.Event == nil {
 			continue
 		}
-		if e.EmitterRole == "EventEmitter" || e.EmitterRole == "TransactionTracker" {
+		if e.EmitterRole == valueEventEmitter || e.EmitterRole == valueTransactionTracker {
 			companions = append(companions, e)
 		} else {
 			native = append(native, e)
@@ -141,11 +141,11 @@ func equalFields(a, b map[string]any, names ...string) bool {
 
 func companionMatches(n, c *DecodedEnvelope, wrapped common.Address) bool {
 	a, b := n.Event.Args, c.Event.Args
-	if n.EmitterRole == "PECOROrders" {
+	if n.EmitterRole == valuePECOROrders {
 		if !equalFields(a, b, "orderId") {
 			return false
 		}
-		if c.EmitterRole == "TransactionTracker" {
+		if c.EmitterRole == valueTransactionTracker {
 			switch n.EventName + ":" + c.EventName {
 			case "LimitOrderCreated:LimitOrderPlaced":
 				return (fmt.Sprint(a["orderType"]) == "0" || fmt.Sprint(a["orderType"]) == "1") && equalFields(a, b, "user", "amount", "targetPrice") && (fmt.Sprint(a["orderType"]) == "0") == (fmt.Sprint(b["isBuy"]) == "true")
@@ -161,30 +161,30 @@ func companionMatches(n, c *DecodedEnvelope, wrapped common.Address) bool {
 				return true
 			}
 		}
-		if c.EmitterRole == "EventEmitter" {
+		if c.EmitterRole == valueEventEmitter {
 			switch n.EventName {
 			case "LimitOrderCreated":
-				return c.EventName == "PecorOrderCreated" && fmt.Sprint(b["orderKind"]) == "0" && equalFields(a, b, "user", "amount", "orderType", "targetPrice")
+				return c.EventName == valuePecorOrderCreated && fmt.Sprint(b["orderKind"]) == "0" && equalFields(a, b, "user", "amount", "orderType", "targetPrice")
 			case "StopLimitOrderCreated":
-				return c.EventName == "PecorOrderCreated" && fmt.Sprint(b["orderKind"]) == "1" && equalFields(a, b, "user", "amount", "orderType", "stopPrice", "limitPrice")
+				return c.EventName == valuePecorOrderCreated && fmt.Sprint(b["orderKind"]) == "1" && equalFields(a, b, "user", "amount", "orderType", "stopPrice", "limitPrice")
 			case "LimitOrderCancelled", "StopLimitCancelled":
-				return c.EventName == "PecorOrderLifecycle" && fmt.Sprint(b["phase"]) == "2" && ((n.EventName == "LimitOrderCancelled" && fmt.Sprint(b["orderKind"]) == "0") || (n.EventName == "StopLimitCancelled" && fmt.Sprint(b["orderKind"]) == "1"))
+				return c.EventName == valuePecorOrderLifecycle && fmt.Sprint(b["phase"]) == "2" && ((n.EventName == "LimitOrderCancelled" && fmt.Sprint(b["orderKind"]) == "0") || (n.EventName == "StopLimitCancelled" && fmt.Sprint(b["orderKind"]) == "1"))
 			case "LimitOrderExecuted", "StopLimitExecuted":
-				return c.EventName == "PecorOrderLifecycle" && fmt.Sprint(b["phase"]) == "1" && fmt.Sprint(a["executionPrice"]) == fmt.Sprint(b["price"]) && ((n.EventName == "LimitOrderExecuted" && fmt.Sprint(b["orderKind"]) == "0") || (n.EventName == "StopLimitExecuted" && fmt.Sprint(b["orderKind"]) == "1"))
+				return c.EventName == valuePecorOrderLifecycle && fmt.Sprint(b["phase"]) == "1" && fmt.Sprint(a["executionPrice"]) == fmt.Sprint(b["price"]) && ((n.EventName == "LimitOrderExecuted" && fmt.Sprint(b["orderKind"]) == "0") || (n.EventName == "StopLimitExecuted" && fmt.Sprint(b["orderKind"]) == "1"))
 			case "StopLimitActivated":
-				return c.EventName == "PecorOrderLifecycle" && fmt.Sprint(b["phase"]) == "0" && fmt.Sprint(b["orderKind"]) == "1" && fmt.Sprint(a["activationPrice"]) == fmt.Sprint(b["price"])
+				return c.EventName == valuePecorOrderLifecycle && fmt.Sprint(b["phase"]) == "0" && fmt.Sprint(b["orderKind"]) == "1" && fmt.Sprint(a["activationPrice"]) == fmt.Sprint(b["price"])
 			}
 		}
 	}
-	if n.EmitterRole == "PECOR" {
+	if n.EmitterRole == valuePECOR {
 		switch n.EventName {
 		case "SimpleSwap":
-			return ((c.EmitterRole == "TransactionTracker" && c.EventName == "TradeExecuted") || (c.EmitterRole == "EventEmitter" && c.EventName == "PecorSwap" && (fmt.Sprint(b["swapKind"]) == "0" || fmt.Sprint(b["swapKind"]) == "1"))) && equalFields(a, b, "user", "tokenIn", "tokenOut", "amountIn", "amountOut")
+			return ((c.EmitterRole == valueTransactionTracker && c.EventName == valueTradeExecuted) || (c.EmitterRole == valueEventEmitter && c.EventName == valuePecorSwap && (fmt.Sprint(b["swapKind"]) == "0" || fmt.Sprint(b["swapKind"]) == "1"))) && equalFields(a, b, "user", "tokenIn", "tokenOut", "amountIn", "amountOut")
 		case "MarketOrderExecuted":
-			if c.EmitterRole == "TransactionTracker" && c.EventName == "MarketTrade" {
+			if c.EmitterRole == valueTransactionTracker && c.EventName == "MarketTrade" {
 				return equalFields(a, b, "user", "stablecoin", "token", "stablecoinAmount", "tokenAmount", "isBuy")
 			}
-			if (c.EmitterRole == "TransactionTracker" && c.EventName == "TradeExecuted") || (c.EmitterRole == "EventEmitter" && c.EventName == "PecorSwap" && fmt.Sprint(b["swapKind"]) == "2") {
+			if (c.EmitterRole == valueTransactionTracker && c.EventName == valueTradeExecuted) || (c.EmitterRole == valueEventEmitter && c.EventName == valuePecorSwap && fmt.Sprint(b["swapKind"]) == "2") {
 				ti, to, ai, ao := a["stablecoin"], a["token"], a["stablecoinAmount"], a["tokenAmount"]
 				if fmt.Sprint(a["isBuy"]) == "false" {
 					ti, to, ai, ao = to, ti, ao, ai
@@ -195,7 +195,7 @@ func companionMatches(n, c *DecodedEnvelope, wrapped common.Address) bool {
 			if wrapped == (common.Address{}) {
 				return false
 			}
-			if (c.EmitterRole == "TransactionTracker" && c.EventName == "TradeExecuted") || (c.EmitterRole == "EventEmitter" && c.EventName == "PecorSwap" && fmt.Sprint(b["swapKind"]) == "3") {
+			if (c.EmitterRole == valueTransactionTracker && c.EventName == valueTradeExecuted) || (c.EmitterRole == valueEventEmitter && c.EventName == valuePecorSwap && fmt.Sprint(b["swapKind"]) == "3") {
 				ti, to, ai, ao := any(strings.ToLower(wrapped.Hex())), a["tokenOther"], a["nativeAmount"], a["tokenAmount"]
 				if fmt.Sprint(a["nativeIsInput"]) == "false" {
 					ti, to, ai, ao = to, ti, ao, ai
@@ -204,31 +204,31 @@ func companionMatches(n, c *DecodedEnvelope, wrapped common.Address) bool {
 			}
 		}
 	}
-	if n.EmitterRole == "MetaAGRouter" && n.EventName == "BestRouteSwap" && c.EmitterRole == "EventEmitter" && c.EventName == "BestRouteSwap" {
+	if n.EmitterRole == valueMetaAGRouter && n.EventName == valueBestRouteSwap && c.EmitterRole == valueEventEmitter && c.EventName == valueBestRouteSwap {
 		return equalFields(a, b, "user", "tokenIn", "tokenOut", "amountIn", "amountOut") && fmt.Sprint(a["adapterId"]) == fmt.Sprint(b["routeId"])
 	}
-	if n.EmitterRole == "PECORVault" {
-		if c.EmitterRole == "TransactionTracker" {
+	if n.EmitterRole == valuePECORVault {
+		if c.EmitterRole == valueTransactionTracker {
 			if n.EventName == "Deposit" && c.EventName == "LiquidityAdded" {
 				return equalFields(a, b, "token", "amount", "newReserve") && fmt.Sprint(a["depositor"]) == fmt.Sprint(b["provider"])
 			}
 			if n.EventName == "Withdrawal" && c.EventName == "LiquidityRemoved" {
-				return equalFields(a, b, "token", "amount", "newReserve") && fmt.Sprint(a["recipient"]) == fmt.Sprint(b["remover"])
+				return equalFields(a, b, "token", "amount", "newReserve") && fmt.Sprint(a[valueRecipient]) == fmt.Sprint(b["remover"])
 			}
 		}
-		if c.EmitterRole == "EventEmitter" && c.EventName == "VaultFlow" {
+		if c.EmitterRole == valueEventEmitter && c.EventName == valueVaultFlow {
 			flow, party := "", ""
 			switch n.EventName {
 			case "Deposit":
 				flow, party = "0", "depositor"
 			case "Withdrawal":
-				flow, party = "1", "recipient"
+				flow, party = "1", valueRecipient
 			case "NativeDeposit":
 				flow, party = "2", "depositor"
 			case "NativeWithdrawal":
-				flow, party = "3", "recipient"
+				flow, party = "3", valueRecipient
 			case "EmergencyWithdraw":
-				flow, party = "4", "recipient"
+				flow, party = "4", valueRecipient
 			case "ReservesSync":
 				return fmt.Sprint(b["flowType"]) == "5" && equalFields(a, b, "token") && fmt.Sprint(a["newReserves"]) == fmt.Sprint(b["newReserve"]) && fmt.Sprint(a["recovered"]) == fmt.Sprint(b["amount"])
 			}
@@ -250,7 +250,7 @@ func eventActors(e *DecodedEnvelope) *ActorContext {
 		return out
 	}
 	field := "sender"
-	if e.EmitterRole == "PECOR" {
+	if e.EmitterRole == valuePECOR {
 		field = "user"
 	}
 	if value, ok := e.Event.Args[field].(string); ok && common.IsHexAddress(value) && common.HexToAddress(value) != (common.Address{}) {
@@ -326,7 +326,7 @@ func (r *Registry) DecodeTransactionReceipt(tx *ethtypes.Transaction, receipt *e
 		return out, nil
 	}
 	for _, e := range out {
-		if e.Actors == nil || e.Status != "decoded" || e.Event == nil || e.Family == nil || !e.Family.EconomicFill || e.Family.Authority != "primary" || e.EventName != "Swap" {
+		if e.Actors == nil || e.Status != valueDecoded || e.Event == nil || e.Family == nil || !e.Family.EconomicFill || e.Family.Authority != "primary" || e.EventName != valueSwap {
 			continue
 		}
 		poolID, ok := e.Event.Args["poolId"].(string)
@@ -353,7 +353,7 @@ func (r *Registry) DecodeTransactionReceipt(tx *ethtypes.Transaction, receipt *e
 		pool := strings.ToLower(poolAddress.Hex())
 		matches := []*DecodedEnvelope{}
 		for _, transfer := range out {
-			if transfer.Event == nil || transfer.Status != "decoded" || transfer.EmitterRole != "SidioraERC20" || common.HexToAddress(transfer.Raw.Emitter) != outputToken || transfer.EventName != "Transfer" || transfer.Raw.Order.Log >= e.Raw.Order.Log {
+			if transfer.Event == nil || transfer.Status != valueDecoded || transfer.EmitterRole != "SidioraERC20" || common.HexToAddress(transfer.Raw.Emitter) != outputToken || transfer.EventName != "Transfer" || transfer.Raw.Order.Log >= e.Raw.Order.Log {
 				continue
 			}
 			args := transfer.Event.Args

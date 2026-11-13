@@ -60,7 +60,8 @@ func (p PrecompileExecutor) emitAt(evm *vm.EVM, role string, calledAt common.Add
 func (p PrecompileExecutor) emitFamily(evm *vm.EVM, name string, values ...interface{}) error {
 	switch name {
 	case "Swap", "PoolStateUpdated", "TokenDeployed", "MarketCreated", "NftMint", "FeeStrategyChanged",
-		"NftTransfer", "PoolRegistered", "RouterTrade", "ConfigUpdated", "FeeFlow", "FeeDistributed":
+		"NftTransfer", "PoolRegistered", "RouterTrade", "ConfigUpdated", "FeeFlow", "FeeDistributed",
+		"ChainLaunched", "ChainRevenueEpochOpened", "ChainRevenueClaimed", "LaunchedChainRetired":
 	default:
 		return fmt.Errorf("launchpad: unknown family event %s", name)
 	}

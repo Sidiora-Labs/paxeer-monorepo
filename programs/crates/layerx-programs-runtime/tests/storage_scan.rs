@@ -455,6 +455,20 @@ fn candidate_scan_paginates_across_activities_and_is_insertion_order_independent
         &mut left,
         13,
     );
+    let right_second = execute(
+        &scan_guest(b"", &cursor, 1, 93, 128, 13, 128, 13),
+        owner,
+        actor,
+        principal_read(),
+        &mut right,
+        13,
+    );
+    assert_eq!(second.response(), right_second.response());
+    assert_eq!(second.execution().usage(), right_second.execution().usage());
+    assert_eq!(
+        second.canonical_evidence(),
+        right_second.canonical_evidence()
+    );
     assert_eq!(second.execution().usage().storage_read_bytes, 13);
     assert_eq!(
         second

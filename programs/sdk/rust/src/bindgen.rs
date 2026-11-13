@@ -21,6 +21,8 @@ const MAX_INTERFACE_BYTES: usize = 952;
 const MAX_FIELDS: usize = 256;
 const MAX_DEPTH: usize = 16;
 
+/// # Errors
+/// Returns an unsupported-version refusal when the ABI is not admitted.
 pub fn admit_interface_abi_version(abi: u16) -> Result<(), AbiVersionRefusal> {
     admit_abi_version(abi)?;
     match abi {
@@ -160,9 +162,8 @@ impl BindingGenerator {
             entries.push(parse_entry(bytes, &mut cursor, abi, &mut dynamic_spend)?);
         }
         let canonical_domain = match abi {
-            1 => DOMAIN,
             2 if dynamic_spend => DOMAIN_V2,
-            2 => DOMAIN,
+            1 | 2 => DOMAIN,
             3 => DOMAIN_V3,
             4 => DOMAIN_V4,
             _ => return Err(BindgenError::UnsupportedAbi),
@@ -1174,6 +1175,7 @@ pub(crate) fn hex_array(out: &mut String, bytes: &[u8]) {
 
 #[cfg(test)]
 mod vectors {
+    extern crate std;
     use alloc::vec;
 
     use super::*;
@@ -1342,7 +1344,6 @@ mod vectors {
                 Err(BindgenError::UnsupportedAbi)
             );
         }
-        extern crate std;
         match (
             std::env::var_os("PAXEER_X_TYPED_INTERFACE_INPUTS"),
             std::env::var_os("PAXEER_X_TYPED_CONSUMER_OUTPUT"),
@@ -1382,7 +1383,6 @@ mod vectors {
     }
 
     fn emit_typed_interfaces_consumers() {
-        extern crate std;
         use std::{fs, path::PathBuf};
         let inputs = PathBuf::from(
             std::env::var_os("PAXEER_X_TYPED_INTERFACE_INPUTS")
@@ -1419,11 +1419,11 @@ fn main(){let input=call::Input::new(vec![7]).unwrap();let c=call::call(&input,C
                 );
                 write("typescript/client.ts", &all.typescript);
                 let tail = format!(
-                    r#"
+                    r"
 const input=boundedBytes({bound},Uint8Array.of(7));const c=encodeCall(input,CODE_HASH,INTERFACE_DIGEST);if(Array.from(c.bytes).join(',')!=='1,2,3,4,1,32,0,0,0,1,7')throw new Error('calldata');if(decodeCallOutput(c.bytes.slice(4))[0]!==7)throw new Error('output');if(decodeCallFailure(7,Uint8Array.of(1,16,9)).code!==7)throw new Error('failure');
 function expect(code:BindingRefusalCode,f:()=>unknown):void{{try{{f();}}catch(e){{if(e instanceof BindingRefusal&&e.code===code)return;throw e;}}throw new Error('missing refusal');}}
 expect('CODE_HASH_MISMATCH',()=>encodeCall(input,'00'.repeat(32),INTERFACE_DIGEST));expect('STALE_INTERFACE',()=>encodeCall(input,CODE_HASH,'00'.repeat(32)));expect('NON_CANONICAL',()=>decodeCallOutput(Uint8Array.of(255)));for(const c of ['roundtrip_call','typed_failure','stale_digest','wrong_code_hash','malformed_call'])console.log('BINDING_CASE '+c);
-"#
+"
                 );
                 write("typescript/main.ts", &format!("{}\n{tail}", all.typescript));
                 write("go/go.mod", "module conformance\n\ngo 1.18\n");

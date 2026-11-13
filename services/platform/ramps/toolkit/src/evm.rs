@@ -24,7 +24,7 @@ pub fn encode_get_budget(budget: [u8; 32]) -> Vec<u8> {
     encode_call("getBudget(bytes32)", &[budget])
 }
 
-/// Exact native BudgetSpent event; the budget state supplies owner and asset.
+/// Exact native `BudgetSpent` event; the budget state supplies owner and asset.
 #[must_use]
 pub fn decode_budget_spent(log: &SequencerLog) -> Option<([u8; 32], [u8; 32], u128)> {
     let [topic, budget] = log.topics.as_slice() else {
@@ -185,6 +185,8 @@ pub fn decode_ledger_payment(log: &SequencerLog) -> Option<LedgerPayment> {
 
 /// Validates the maintained getBudget ABI against the bound customer order.
 /// Native execution requires the customer's own ordinary-principal authority.
+/// # Errors
+/// Returns an error when the budget ABI or its bound order values are invalid.
 pub fn verify_customer_budget(
     order: &crate::RampOrder,
     bytes: &[u8],
@@ -223,18 +225,17 @@ pub fn verify_customer_budget(
     {
         return Err(RampError::ReceiptMismatch);
     }
-    if live {
-        if uint(15)? != 0
+    if live
+        && (uint(15)? != 0
             || uint(16)? != 0
             || uint(12)?
                 != order
                     .quote
                     .expires_at
                     .checked_mul(1_000)
-                    .ok_or(RampError::InvalidOrder)?
-        {
-            return Err(RampError::ReceiptMismatch);
-        }
+                    .ok_or(RampError::InvalidOrder)?)
+    {
+        return Err(RampError::ReceiptMismatch);
     }
     Ok(())
 }

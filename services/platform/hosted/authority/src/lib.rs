@@ -18,6 +18,9 @@ use std::net::{Ipv6Addr, SocketAddr};
 
 mod native_state;
 
+/// Assertion helpers used by authority fixtures.
+pub mod assertion;
+
 /// Lower-case hexadecimal helpers shared by the service and its tests.
 /// Refusal of hexadecimal text that is not well formed.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -815,6 +818,31 @@ pub struct Response {
     pub readiness_headers: Option<[&'static str; 2]>,
 }
 
+/// A public authority operation could not establish its required state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AuthorityError;
+
+impl std::fmt::Display for AuthorityError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("authority state is unavailable or invalid")
+    }
+}
+
+impl std::error::Error for AuthorityError {}
+
+impl From<()> for AuthorityError {
+    fn from((): ()) -> Self {
+        Self
+    }
+}
+
+impl From<AuthorityError> for () {
+    fn from(_: AuthorityError) -> Self {}
+}
+
+pub type AuthorityResult<T> = Result<T, AuthorityError>;
+
+#[must_use]
 pub fn json(status: u16, value: &serde_json::Value) -> Response {
     Response {
         status,
@@ -824,6 +852,7 @@ pub fn json(status: u16, value: &serde_json::Value) -> Response {
     }
 }
 
+#[must_use]
 pub fn refusal(status: u16, code: &str, retry_after: Option<u64>) -> Response {
     let body = retry_after.map_or_else(
         || serde_json::json!({ "error": { "code": code, "retry": "never" } }),
@@ -839,10 +868,12 @@ pub fn refusal(status: u16, code: &str, retry_after: Option<u64>) -> Response {
     }
 }
 
+#[must_use]
 pub fn digest(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
 
+#[must_use]
 pub fn loopback_http(endpoint: &str) -> Option<(String, SocketAddr)> {
     let authority = endpoint.strip_prefix("http://")?;
     let authority = authority.strip_suffix('/').unwrap_or(authority);

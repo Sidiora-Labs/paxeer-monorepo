@@ -200,7 +200,7 @@ def test_root_readme_build_operator_links_and_status_use_paxd():
     assert "server.AddCommands(" in source("daemon/paxd/cmd/root.go")
     documentation = section("Documentation", 2)
     for target in (
-        "docs/site/docs/reference/public-rpc.md",
+        "docs/site/paxeer-docs/src/app/public-rpc/page.tsx",
         "docs/wiki/Getting-Started-Beta.md",
         "docs/wiki/PaymentsQuickstart.md",
     ):

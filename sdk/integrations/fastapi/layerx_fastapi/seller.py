@@ -6,7 +6,6 @@ from typing import Awaitable, Callable, Generic, Literal, Mapping, Protocol, Typ
 
 from fastapi import HTTPException
 from layerx_sdk import LocalSignatureVerifier
-from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.px import PxReceiptKeyEntry
 from layerx_sdk.verifier import SequencerReceiptVerification
 
@@ -161,7 +160,7 @@ class ReceiptPayloadAuthority:
         verified = verify_payment_receipt(
             signed_receipt, raw_transaction, (pinned,), request.requirements
         )
-        if not constant_time_equal(parse_hex32(evidence.receipt_digest), keccak256(verified.canonical_bytes)):
+        if not constant_time_equal(parse_hex32(evidence.receipt_digest), verified.receipt_digest):
             raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
         return SettlementSettled(
             raw_transaction=raw_transaction,
@@ -254,7 +253,7 @@ class SellerMiddleware(Generic[T]):
             raise MiddlewareError(MiddlewareErrorCode.FULFILLMENT_CONFLICT)
         if stored.request_digest != request_digest:
             raise HTTPException(status_code=409, detail="settled_receipt_reuse")
-        receipt_digest = "0x" + keccak256(stored_verification.canonical_bytes).hex()
+        receipt_digest = "0x" + stored_verification.receipt_digest.hex()
         evidence = LayerXReceiptEvidence(
             raw_transaction="0x" + stored.raw_transaction.hex(),
             signed_receipt="0x" + stored.signed_receipt.hex(),

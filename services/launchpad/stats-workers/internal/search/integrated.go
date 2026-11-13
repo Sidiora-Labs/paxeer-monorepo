@@ -7,13 +7,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/unicode/norm"
+	"math"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -70,7 +72,7 @@ func (d IndexedDocument) Validate() error {
 		return ErrInvalid
 	}
 	for window, value := range d.Volumes {
-		if window != "1h" && window != "24h" && window != "7d" {
+		if window != "1h" && window != value24h && window != "7d" {
 			return ErrInvalid
 		}
 		if _, ok := rawUInt(value); !ok {
@@ -84,7 +86,7 @@ func (d IndexedDocument) Validate() error {
 }
 func exactIdentity(s string) bool {
 	q, e := Normalize(s)
-	return e == nil && q.Kind == "exact_address" && q.Key == s && s != "0x"+strings.Repeat("0", 40)
+	return e == nil && q.Kind == valueExactAddress && q.Key == s && s != "0x"+strings.Repeat("0", 40)
 }
 
 type IntegratedRequest struct {
@@ -113,10 +115,10 @@ func (r IntegratedRequest) Validate() (Query, error) {
 	if e != nil {
 		return q, e
 	}
-	if r.Limit < 1 || r.Limit > PublicMaxLimit || r.Kind != "pool" && r.Kind != "token" && r.Kind != "profile" || r.Sort != "address" || r.Cursor != nil || r.Filter.Validate() != nil {
+	if r.Limit < 1 || r.Limit > PublicMaxLimit || r.Kind != valuePool && r.Kind != valueToken && r.Kind != valueProfile || r.Sort != "address" || r.Cursor != nil || r.Filter.Validate() != nil {
 		return q, ErrInvalid
 	}
-	if r.Kind == "profile" && (r.Filter.PoolStatus != "" || r.Filter.requiresProjection()) {
+	if r.Kind == valueProfile && (r.Filter.PoolStatus != "" || r.Filter.requiresProjection()) {
 		return q, ErrInvalid
 	}
 	if r.Filter.CreationAge != nil {
@@ -202,7 +204,7 @@ func (s Store) SearchIntegrated(ctx context.Context, r IntegratedRequest) (Integ
 	if s.Pool == nil {
 		return IntegratedPage{}, ErrUnavailable
 	}
-	if r.Kind == "profile" {
+	if r.Kind == valueProfile {
 		return s.searchProfiles(ctx, q, r)
 	}
 	ctx, cancel := context.WithTimeout(ctx, 400*time.Millisecond)
@@ -230,7 +232,10 @@ func (s Store) SearchIntegrated(ctx context.Context, r IntegratedRequest) (Integ
 		after = c.After
 		p.ObservedAt = c.ObservedAt
 	}
-	query, args := integratedSQL(q, r, p, after)
+	query, args, err := integratedSQL(q, r, p, after)
+	if err != nil {
+		return IntegratedPage{}, err
+	}
 	rows, e := tx.Query(ctx, query, args...)
 	if e != nil {
 		return IntegratedPage{}, fmt.Errorf("%w: query", ErrUnavailable)
@@ -258,8 +263,8 @@ func (s Store) SearchIntegrated(ctx context.Context, r IntegratedRequest) (Integ
 		p.Items = p.Items[:r.Limit]
 		p.Next = &IntegratedCursor{Version: 2, NormalizationVersion: Version, Binding: integratedBinding(q, r), Generation: p.Generation, Snapshot: p.Revision, PrivacyRevision: p.PrivacyRevision, ObservedAt: p.ObservedAt, After: *p.Items[len(p.Items)-1].PoolAddress}
 	}
-	if len(p.Items) == 0 && q.Kind == "exact_address" {
-		p.Status = "not-indexed"
+	if len(p.Items) == 0 && q.Kind == valueExactAddress {
+		p.Status = valueNotIndexed
 	}
 	if e = tx.Commit(ctx); e != nil {
 		return IntegratedPage{}, ErrUnavailable
@@ -329,10 +334,10 @@ func (s Store) searchProfiles(ctx context.Context, q Query, r IntegratedRequest)
 	}
 	predicate := `d.name_key LIKE $1 ESCAPE '\'`
 	pattern := like(q.Key)
-	if q.Kind == "exact_address" {
+	if q.Kind == valueExactAddress {
 		predicate = `d.wallet=$2`
 	}
-	if q.Kind == "partial_address" {
+	if q.Kind == valuePartialAddress {
 		predicate = `d.wallet LIKE $1 ESCAPE '\'`
 		pattern = q.Key + "%"
 	}
@@ -351,7 +356,7 @@ func (s Store) searchProfiles(ctx context.Context, q Query, r IntegratedRequest)
 			return IntegratedPage{}, ErrUnavailable
 		}
 		address := wallet
-		page.Items = append(page.Items, IntegratedHit{Hit: Hit{Kind: "profile", ID: "125:" + wallet, Label: label, Wallet: &address, Score: "1"}, Creator: wallet, RiskFlags: []string{}, ConfusableWarnings: []string{}})
+		page.Items = append(page.Items, IntegratedHit{Hit: Hit{Kind: valueProfile, ID: "125:" + wallet, Label: label, Wallet: &address, Score: "1"}, Creator: wallet, RiskFlags: []string{}, ConfusableWarnings: []string{}})
 	}
 	err = rows.Err()
 	rows.Close()
@@ -362,8 +367,8 @@ func (s Store) searchProfiles(ctx context.Context, q Query, r IntegratedRequest)
 		page.Items = page.Items[:r.Limit]
 		page.Next = &IntegratedCursor{Version: 2, NormalizationVersion: Version, Binding: integratedBinding(q, r), Generation: page.Generation, Snapshot: page.Revision, PrivacyRevision: page.PrivacyRevision, ObservedAt: page.ObservedAt, After: *page.Items[len(page.Items)-1].Wallet}
 	}
-	if len(page.Items) == 0 && q.Kind == "exact_address" {
-		page.Status = "not-indexed"
+	if len(page.Items) == 0 && q.Kind == valueExactAddress {
+		page.Status = valueNotIndexed
 	}
 	if err = tx.Commit(bounded); err != nil {
 		return IntegratedPage{}, ErrUnavailable
@@ -381,13 +386,13 @@ func profileNameKey(label string) string {
 	return strings.TrimSpace(cases.Fold().String(norm.NFKC.String(label)))
 }
 
-func integratedSQL(q Query, r IntegratedRequest, p IntegratedPage, after string) (string, []any) {
+func integratedSQL(q Query, r IntegratedRequest, p IntegratedPage, after string) (string, []any, error) {
 	args := []any{p.Generation, like(q.Key), q.Key, p.Revision, after, r.Limit + 1}
 	predicate := `(d.name_key LIKE $2 ESCAPE '\' OR d.ticker_key LIKE $2 ESCAPE '\')`
-	if q.Kind == "exact_address" {
+	if q.Kind == valueExactAddress {
 		predicate = `(d.pool_address=$3 OR d.token_address=$3)`
 	}
-	if q.Kind == "partial_address" {
+	if q.Kind == valuePartialAddress {
 		predicate = `(d.pool_address LIKE $2 ESCAPE '\' OR d.token_address LIKE $2 ESCAPE '\')`
 		args[1] = q.Key + "%"
 	}
@@ -411,10 +416,18 @@ func integratedSQL(q Query, r IntegratedRequest, p IntegratedPage, after string)
 	}
 	if a := r.Filter.CreationAge; a != nil {
 		if a.MinInclusiveSeconds != nil {
-			add("d.created_at <= $%d", p.ObservedAt.Add(-time.Duration(*a.MinInclusiveSeconds)*time.Second))
+			delta, err := ageDuration(*a.MinInclusiveSeconds)
+			if err != nil {
+				return "", nil, err
+			}
+			add("d.created_at <= $%d", p.ObservedAt.Add(-delta))
 		}
 		if a.MaxExclusiveSeconds != nil {
-			add("d.created_at > $%d", p.ObservedAt.Add(-time.Duration(*a.MaxExclusiveSeconds)*time.Second))
+			delta, err := ageDuration(*a.MaxExclusiveSeconds)
+			if err != nil {
+				return "", nil, err
+			}
+			add("d.created_at > $%d", p.ObservedAt.Add(-delta))
 		}
 	}
 	rangePredicate := func(column string, bounds RawRange) {
@@ -429,13 +442,13 @@ func integratedSQL(q Query, r IntegratedRequest, p IntegratedPage, after string)
 		rangePredicate("d.liquidity_raw", l.Range)
 	}
 	if v := r.Filter.VolumeWindow; v != nil {
-		column := map[string]string{"1h": "d.volume_1h", "24h": "d.volume_24h", "7d": "d.volume_7d"}[v.Window]
+		column := map[string]string{"1h": "d.volume_1h", value24h: "d.volume_24h", "7d": "d.volume_7d"}[v.Window]
 		rangePredicate(column, v.Range)
 	}
 	if len(r.Filter.RiskDisclosureFlags) > 0 {
 		add("d.risk_flags @> $%d::text[]", r.Filter.RiskDisclosureFlags)
 	}
-	return `SELECT d.payload FROM stats_search.documents_v2 d JOIN stats_search.authority_v2 a USING(pool_address) WHERE d.generation=$1 AND $2::text IS NOT NULL AND (` + predicate + `) AND a.public AND NOT a.tombstone AND a.visibility_revision>=d.visibility_revision AND d.revision<=$4 AND ($5='' OR (CASE WHEN d.pool_address=$3 THEN 0 ELSE 1 END,d.pool_address)>(CASE WHEN $5=$3 THEN 0 ELSE 1 END,$5)) ORDER BY (d.pool_address=$3) DESC,d.pool_address ASC LIMIT $6`, args
+	return `SELECT d.payload FROM stats_search.documents_v2 d JOIN stats_search.authority_v2 a USING(pool_address) WHERE d.generation=$1 AND $2::text IS NOT NULL AND (` + predicate + `) AND a.public AND NOT a.tombstone AND a.visibility_revision>=d.visibility_revision AND d.revision<=$4 AND ($5='' OR (CASE WHEN d.pool_address=$3 THEN 0 ELSE 1 END,d.pool_address)>(CASE WHEN $5=$3 THEN 0 ELSE 1 END,$5)) ORDER BY (d.pool_address=$3) DESC,d.pool_address ASC LIMIT $6`, args, nil
 }
 
 type PlanMeasurement struct {
@@ -448,7 +461,7 @@ type PlanMeasurement struct {
 
 func (s Store) MeasurePlan(ctx context.Context, r IntegratedRequest) (PlanMeasurement, error) {
 	q, err := r.Validate()
-	if err != nil || r.Kind == "profile" || r.Position != nil {
+	if err != nil || r.Kind == valueProfile || r.Position != nil {
 		return PlanMeasurement{}, ErrInvalid
 	}
 	if s.Pool == nil {
@@ -468,7 +481,10 @@ func (s Store) MeasurePlan(ctx context.Context, r IntegratedRequest) (PlanMeasur
 	if err = tx.QueryRow(bounded, "SELECT generation,revision,privacy_revision FROM stats_search.active_v2 WHERE singleton").Scan(&page.Generation, &page.Revision, &page.PrivacyRevision); err != nil {
 		return PlanMeasurement{}, unavailable(err)
 	}
-	query, args := integratedSQL(q, r, page, "")
+	query, args, err := integratedSQL(q, r, page, "")
+	if err != nil {
+		return PlanMeasurement{}, err
+	}
 	var raw []byte
 	if err = tx.QueryRow(bounded, "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) "+query, args...).Scan(&raw); err != nil {
 		return PlanMeasurement{}, unavailable(err)
@@ -478,4 +494,11 @@ func (s Store) MeasurePlan(ctx context.Context, r IntegratedRequest) (PlanMeasur
 	}
 	digest := sha256.Sum256([]byte(query))
 	return PlanMeasurement{Plan: raw, Generation: page.Generation, Revision: page.Revision, ObservedAt: page.ObservedAt, SQLDigest: hex.EncodeToString(digest[:])}, nil
+}
+
+func ageDuration(seconds uint64) (time.Duration, error) {
+	if seconds > uint64(math.MaxInt64/int64(time.Second)) {
+		return 0, ErrInvalid
+	}
+	return time.Duration(seconds) * time.Second, nil
 }

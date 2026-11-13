@@ -474,24 +474,29 @@ encoding, and terminal execution encoding are separate version spaces.
 
 ### AI market guest packaging
 
-The AI market is `programs/crates/layerx-programs-ai-market/`. Build its WASM
-in release mode with size optimization and an explicit chain domain:
+The AI market is `programs/crates/layerx-programs-ai-market/`. Package its WASM
+from the repository root with the shared guest recipe and an explicit chain domain:
 
 ```sh
-cd programs
 PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 \
-CARGO_PROFILE_RELEASE_OPT_LEVEL=z \
-cargo build --locked --release --target wasm32-unknown-unknown \
-  -p layerx-programs-ai-market
+bash programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh \
+  build programs /tmp/ai-market.wasm
 ```
+
+The recipe compiles a release `cdylib` with optimization level `z`, LTO,
+one codegen unit, aborting panics and stripped symbols, then packages it with
+Binaryen `wasm-opt` version 133. The WASM target must be installed. The workspace
+also sets `z` for the AI-market package in its release profile.
+`make paxai-host-boundary-build` uses the same recipe, checks the packaged WASM
+size and executes the native host-boundary check against that artifact.
 
 That 32-byte lowercase hex domain is `MERGED_CHAIN_DOMAIN` for chain 125 in
 `src/lib.rs` of the crate; malformed or foreign overrides are refused. Keep
 the configured build domain consistent with the deployed network. Package
 the resulting artifact within the **524288-byte** deployment payload ceiling,
 including the **104-byte** fixed header and any framed interface; without an
-interface the WASM ceiling is 524184 bytes. `programs/Cargo.toml` defaults to
-release optimization level 3, so the size override above is intentional.
+interface the WASM ceiling is 524184 bytes. The packaged output above is
+`/tmp/ai-market.wasm`.
 The guest's recorded ABI must also be admitted by the actual host registration.
 
 ---

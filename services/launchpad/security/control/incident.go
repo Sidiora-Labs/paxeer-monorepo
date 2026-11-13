@@ -15,21 +15,21 @@ func (s *Store) DetectIncident(ctx context.Context, cred, scope, k, reason, iden
 	if !key(k) || !key(identity) || !text(evidence, 256) {
 		return Invalid
 	}
-	return s.run(ctx, cred, "incident", scope, reason, func(t *transaction) error {
+	return s.run(ctx, cred, controlIncident, scope, reason, func(t *transaction) error {
 		var old Incident
-		if e := t.get("incident", k, &old); e == nil {
+		if e := t.get(controlIncident, k, &old); e == nil {
 			return Conflict
 		} else if e != Missing {
 			return e
 		}
-		i := Incident{ID: k, Scope: scope, ServiceIdentity: identity, State: "contained", DetectionReference: evidence, PublicStatus: "privileged service unavailable during integrity investigation", Revision: 1, Detected: t.now, Contained: t.now}
-		if e := t.put("quarantine", identity, map[string]string{"incident": k, "state": "contained"}); e != nil {
+		i := Incident{ID: k, Scope: scope, ServiceIdentity: identity, State: controlContained, DetectionReference: evidence, PublicStatus: "privileged service unavailable during integrity investigation", Revision: 1, Detected: t.now, Contained: t.now}
+		if e := t.put("quarantine", identity, map[string]string{controlIncident: k, controlState: controlContained}); e != nil {
 			return e
 		}
-		if e := t.put("incident_outbox", k, map[string]string{"state": "pending", "operation": "revoke_secrets_invalidate_caches", "identity": identity}); e != nil {
+		if e := t.put("incident_outbox", k, map[string]string{controlState: controlPending, "operation": "revoke_secrets_invalidate_caches", "identity": identity}); e != nil {
 			return e
 		}
-		return t.put("incident", k, i)
+		return t.put(controlIncident, k, i)
 	})
 }
 
@@ -43,26 +43,26 @@ func (s *Store) RecoverIncident(ctx context.Context, cred, scope, k, reason, app
 	if !key(k) || !key(approvalKey) || !text(rotation, 256) || !text(integrity, 256) || verifier == nil {
 		return Unavailable
 	}
-	return s.run(ctx, cred, "incident", scope, reason, func(t *transaction) error {
+	return s.run(ctx, cred, controlIncident, scope, reason, func(t *transaction) error {
 		var i Incident
-		if e := t.get("incident", k, &i); e != nil {
+		if e := t.get(controlIncident, k, &i); e != nil {
 			return e
 		}
 		if i.Scope != scope || i.Revision != expected || i.Revision == ^uint64(0) {
 			return Conflict
 		}
-		if i.State != "contained" {
+		if i.State != controlContained {
 			return Denied
 		}
 		var a Action
 		if e := t.get("action", approvalKey, &a); e != nil {
 			return e
 		}
-		payload := map[string]string{"incident": k, "rotation": rotation, "integrity": integrity}
+		payload := map[string]string{controlIncident: k, "rotation": rotation, "integrity": integrity}
 		if a.Revision == ^uint64(0) {
 			return Conflict
 		}
-		if a.Kind != "incident_recovery" || a.Scope != scope || a.State != "approved" || !a.Expires.After(t.now) || a.PayloadHash != digest(payload) || a.ApprovedBy == a.RequestedBy || !t.approvalActive(a) {
+		if a.Kind != controlIncidentRecovery || a.Scope != scope || a.State != controlApproved || !a.Expires.After(t.now) || a.PayloadHash != digest(payload) || a.ApprovedBy == a.RequestedBy || !t.approvalActive(a) {
 			return Denied
 		}
 		if e := verifier.Check(contextFor(t), i, rotation, integrity); e != nil {
@@ -77,16 +77,16 @@ func (s *Store) RecoverIncident(ctx context.Context, cred, scope, k, reason, app
 		if e := t.get("quarantine", i.ServiceIdentity, &q); e != nil {
 			return e
 		}
-		if q["incident"] != k || q["state"] != "contained" {
+		if q[controlIncident] != k || q[controlState] != controlContained {
 			return Conflict
 		}
-		q["state"] = "recovered"
+		q[controlState] = controlRecovered
 		if e := t.put("quarantine", i.ServiceIdentity, q); e != nil {
 			return e
 		}
-		a.State = "succeeded"
+		a.State = controlSucceeded
 		a.Revision++
-		i.State = "recovered"
+		i.State = controlRecovered
 		i.Revision++
 		i.RotationReference = rotation
 		i.IntegrityReference = integrity
@@ -94,14 +94,14 @@ func (s *Store) RecoverIncident(ctx context.Context, cred, scope, k, reason, app
 		if e := t.put("action", approvalKey, a); e != nil {
 			return e
 		}
-		return t.put("incident", k, i)
+		return t.put(controlIncident, k, i)
 	})
 }
 
 // Access permits only explicit role-specific datasets; there is no superuser
 // inheritance and no support export of DMs or custody material.
 func (s *Store) Access(ctx context.Context, cred, scope, reason, dataset, approvalKey string, bulk bool) error {
-	op := map[string]string{"support_public": "support_read", "moderation_queue": "moderation_read", "finance_liabilities": "finance_read", "infra_health": "infrastructure_read"}[dataset]
+	op := map[string]string{"support_public": "support_read", "moderation_queue": "moderation_read", "finance_liabilities": controlFinanceRead, "infra_health": controlInfrastructureRead}[dataset]
 	if op == "" {
 		op = "prohibited_data"
 	}
@@ -119,10 +119,10 @@ func (s *Store) Access(ctx context.Context, cred, scope, reason, dataset, approv
 		if a.Revision == ^uint64(0) {
 			return Conflict
 		}
-		if a.Kind != "bulk_export" || a.Scope != scope || a.State != "approved" || !a.Expires.After(t.now) || a.Expires.After(t.now.Add(24*time.Hour)) || a.PayloadHash != digest(map[string]string{"dataset": dataset, "scope": scope}) || a.ApprovedBy == a.RequestedBy || !t.approvalActive(a) {
+		if a.Kind != "bulk_export" || a.Scope != scope || a.State != controlApproved || !a.Expires.After(t.now) || a.Expires.After(t.now.Add(24*time.Hour)) || a.PayloadHash != digest(map[string]string{"dataset": dataset, "scope": scope}) || a.ApprovedBy == a.RequestedBy || !t.approvalActive(a) {
 			return Denied
 		}
-		a.State = "succeeded"
+		a.State = controlSucceeded
 		a.Revision++
 		return t.put("action", approvalKey, a)
 	})

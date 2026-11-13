@@ -17,28 +17,16 @@ use tempfile::TempDir;
 const RPC_URL: &str = "LAYERX_GATEWAY_CONSENSUS_RPC_URL";
 
 fn command(program: &str, arguments: &[&str]) {
-    let output = Command::new(program)
-        .args(arguments)
-        .output()
-        .unwrap_or_else(|error| panic!("{program} must run: {error}"));
-    assert!(
-        output.status.success(),
-        "{program} failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
+    let output = Command::new(program).args(arguments).output().unwrap_or_else(|error| panic!("{program} must run: {error}"));
+    assert!(output.status.success(), "{program} failed: {}", String::from_utf8_lossy(&output.stderr));
 }
 
 fn path(value: &Path) -> &str {
-    value
-        .to_str()
-        .unwrap_or_else(|| panic!("test path must be UTF-8"))
+    value.to_str().unwrap_or_else(|| panic!("test path must be UTF-8"))
 }
 
 fn free_port() -> u16 {
-    TcpListener::bind("127.0.0.1:0")
-        .and_then(|listener| listener.local_addr())
-        .unwrap_or_else(|error| panic!("test port must be allocated: {error}"))
-        .port()
+    TcpListener::bind("127.0.0.1:0").and_then(|listener| listener.local_addr()).unwrap_or_else(|error| panic!("test port must be allocated: {error}")).port()
 }
 
 /// A real TLS Redis for the gateway's durable store, and the localhost
@@ -53,64 +41,19 @@ struct Fixture {
 impl Fixture {
     fn start() -> Self {
         let _ = rustls::crypto::ring::default_provider().install_default();
-        let directory = tempfile::tempdir()
-            .unwrap_or_else(|error| panic!("test directory must be created: {error}"));
+        let directory = tempfile::tempdir().unwrap_or_else(|error| panic!("test directory must be created: {error}"));
         let pem = directory.path().join("server.pem");
         let der = directory.path().join("server.der");
         let key = directory.path().join("server.key");
         let key_der = directory.path().join("server-key.der");
         command(
             "openssl",
-            &[
-                "req",
-                "-x509",
-                "-newkey",
-                "rsa:2048",
-                "-nodes",
-                "-keyout",
-                path(&key),
-                "-out",
-                path(&pem),
-                "-days",
-                "1",
-                "-subj",
-                "/CN=localhost",
-                "-addext",
-                "subjectAltName=DNS:localhost",
-            ],
+            &["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", path(&key), "-out", path(&pem), "-days", "1", "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost"],
         );
-        command(
-            "openssl",
-            &[
-                "x509",
-                "-in",
-                path(&pem),
-                "-outform",
-                "DER",
-                "-out",
-                path(&der),
-            ],
-        );
-        command(
-            "openssl",
-            &[
-                "pkcs8",
-                "-topk8",
-                "-nocrypt",
-                "-in",
-                path(&key),
-                "-outform",
-                "DER",
-                "-out",
-                path(&key_der),
-            ],
-        );
+        command("openssl", &["x509", "-in", path(&pem), "-outform", "DER", "-out", path(&der)]);
+        command("openssl", &["pkcs8", "-topk8", "-nocrypt", "-in", path(&key), "-outform", "DER", "-out", path(&key_der)]);
         let redis_port = free_port();
-        fs::write(
-            directory.path().join("users.acl"),
-            "user default off\nuser gateway on >gateway-secret ~* &* +@all\n",
-        )
-        .unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
+        fs::write(directory.path().join("users.acl"), "user default off\nuser gateway on >gateway-secret ~* &* +@all\n").unwrap_or_else(|error| panic!("test Redis ACL must be written: {error}"));
         let config = directory.path().join("redis.conf");
         fs::write(
             &config,
@@ -124,30 +67,11 @@ impl Fixture {
             ),
         )
         .unwrap_or_else(|error| panic!("test Redis config must be written: {error}"));
-        let redis = Command::new("redis-server")
-            .arg(&config)
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .unwrap_or_else(|error| panic!("real Redis server must start: {error}"));
-        let certificate = CertificateDer::from(
-            fs::read(&der).unwrap_or_else(|error| panic!("certificate must be read: {error}")),
-        );
-        let private_key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(
-            fs::read(&key_der).unwrap_or_else(|error| panic!("key must be read: {error}")),
-        ));
-        let tls = Arc::new(
-            ServerConfig::builder()
-                .with_no_client_auth()
-                .with_single_cert(vec![certificate], private_key)
-                .unwrap_or_else(|error| panic!("listener TLS must build: {error}")),
-        );
-        let fixture = Self {
-            redis,
-            directory,
-            redis_port,
-            tls,
-        };
+        let redis = Command::new("redis-server").arg(&config).stdout(Stdio::null()).stderr(Stdio::null()).spawn().unwrap_or_else(|error| panic!("real Redis server must start: {error}"));
+        let certificate = CertificateDer::from(fs::read(&der).unwrap_or_else(|error| panic!("certificate must be read: {error}")));
+        let private_key = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(fs::read(&key_der).unwrap_or_else(|error| panic!("key must be read: {error}"))));
+        let tls = Arc::new(ServerConfig::builder().with_no_client_auth().with_single_cert(vec![certificate], private_key).unwrap_or_else(|error| panic!("listener TLS must build: {error}")));
+        let fixture = Self { redis, directory, redis_port, tls };
         for _ in 0..100 {
             if TcpStream::connect(("127.0.0.1", redis_port)).is_ok() {
                 return fixture;
@@ -166,36 +90,15 @@ impl Fixture {
     fn environment(&self, listen: u16) -> Vec<(String, String)> {
         let ca = path(&self.directory.path().join("server.der")).to_owned();
         vec![
-            (
-                "LAYERX_GATEWAY_LISTEN".to_owned(),
-                format!("127.0.0.1:{listen}"),
-            ),
+            ("LAYERX_GATEWAY_LISTEN".to_owned(), format!("127.0.0.1:{listen}")),
             ("LAYERX_GATEWAY_LISTENER".to_owned(), "plain".to_owned()),
             ("LAYERX_GATEWAY_OUTBOUND_CA_DER".to_owned(), ca),
-            (
-                "LAYERX_GATEWAY_NETWORK_ID".to_owned(),
-                "chain-reads".to_owned(),
-            ),
-            (
-                "LAYERX_GATEWAY_LXP_WIRE_VERSION".to_owned(),
-                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string(),
-            ),
-            (
-                "LAYERX_GATEWAY_PROTOCOL_NETWORK_ID".to_owned(),
-                "7".to_owned(),
-            ),
-            (
-                "LAYERX_GATEWAY_REDIS_URL".to_owned(),
-                format!("rediss://localhost:{}", self.redis_port),
-            ),
-            (
-                "LAYERX_GATEWAY_REDIS_USERNAME_FILE".to_owned(),
-                self.secret("redis-username", "gateway"),
-            ),
-            (
-                "LAYERX_GATEWAY_REDIS_PASSWORD_FILE".to_owned(),
-                self.secret("redis-password", "gateway-secret"),
-            ),
+            ("LAYERX_GATEWAY_NETWORK_ID".to_owned(), "chain-reads".to_owned()),
+            ("LAYERX_GATEWAY_LXP_WIRE_VERSION".to_owned(), layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string()),
+            ("LAYERX_GATEWAY_PROTOCOL_NETWORK_ID".to_owned(), "7".to_owned()),
+            ("LAYERX_GATEWAY_REDIS_URL".to_owned(), format!("rediss://localhost:{}", self.redis_port)),
+            ("LAYERX_GATEWAY_REDIS_USERNAME_FILE".to_owned(), self.secret("redis-username", "gateway")),
+            ("LAYERX_GATEWAY_REDIS_PASSWORD_FILE".to_owned(), self.secret("redis-password", "gateway-secret")),
         ]
     }
 }
@@ -209,10 +112,7 @@ impl Drop for Fixture {
 
 fn gateway_command(environment: &[(String, String)]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-gateway"));
-    command
-        .env_clear()
-        .env("PATH", std::env::var_os("PATH").unwrap_or_default())
-        .envs(environment.iter().map(|(name, value)| (name, value)));
+    command.env_clear().env("PATH", std::env::var_os("PATH").unwrap_or_default()).envs(environment.iter().map(|(name, value)| (name, value)));
     command
 }
 
@@ -225,15 +125,9 @@ struct Consensus {
 
 impl Consensus {
     fn start(tls: &Arc<ServerConfig>, method: &'static str, pages: Vec<Value>) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .unwrap_or_else(|error| panic!("consensus listener: {error}"));
-        let port = listener
-            .local_addr()
-            .unwrap_or_else(|error| panic!("{error}"))
-            .port();
-        listener
-            .set_nonblocking(true)
-            .unwrap_or_else(|error| panic!("{error}"));
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("consensus listener: {error}"));
+        let port = listener.local_addr().unwrap_or_else(|error| panic!("{error}")).port();
+        listener.set_nonblocking(true).unwrap_or_else(|error| panic!("{error}"));
         let hits = Arc::new(AtomicUsize::new(0));
         let stop = Arc::new(AtomicBool::new(false));
         let (tls, count, stopped) = (Arc::clone(tls), Arc::clone(&hits), Arc::clone(&stop));
@@ -241,19 +135,14 @@ impl Consensus {
             while !stopped.load(Ordering::Acquire) {
                 match listener.accept() {
                     Ok((tcp, _)) => {
-                        tcp.set_read_timeout(Some(Duration::from_secs(3)))
-                            .unwrap_or_else(|error| panic!("{error}"));
-                        tcp.set_write_timeout(Some(Duration::from_secs(3)))
-                            .unwrap_or_else(|error| panic!("{error}"));
-                        let connection = ServerConnection::new(Arc::clone(&tls))
-                            .unwrap_or_else(|error| panic!("{error}"));
+                        tcp.set_read_timeout(Some(Duration::from_secs(3))).unwrap_or_else(|error| panic!("{error}"));
+                        tcp.set_write_timeout(Some(Duration::from_secs(3))).unwrap_or_else(|error| panic!("{error}"));
+                        let connection = ServerConnection::new(Arc::clone(&tls)).unwrap_or_else(|error| panic!("{error}"));
                         let mut stream = StreamOwned::new(connection, tcp);
-                        let request = http::parse_client_request(&mut stream)
-                            .unwrap_or_else(|error| panic!("consensus request: {error}"));
+                        let request = http::parse_client_request(&mut stream).unwrap_or_else(|error| panic!("consensus request: {error}"));
                         assert_eq!(request.method, "POST");
                         assert_eq!(request.path, "/consensus");
-                        let call: Value = serde_json::from_slice(&request.body)
-                            .unwrap_or_else(|error| panic!("{error}"));
+                        let call: Value = serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error}"));
                         assert_eq!(call["jsonrpc"], "2.0");
                         assert_eq!(call["method"], method);
                         match method {
@@ -264,11 +153,7 @@ impl Consensus {
                         let hit = count.fetch_add(1, Ordering::AcqRel);
                         let page = if method == "validators" {
                             assert_eq!(call["params"]["per_page"], "100");
-                            call["params"]["page"]
-                                .as_str()
-                                .and_then(|page| page.parse::<usize>().ok())
-                                .unwrap_or_else(|| panic!("page required"))
-                                - 1
+                            call["params"]["page"].as_str().and_then(|page| page.parse::<usize>().ok()).unwrap_or_else(|| panic!("page required")) - 1
                         } else if method == "status" {
                             hit
                         } else {
@@ -280,8 +165,7 @@ impl Consensus {
                                 "jsonrpc": "2.0", "id": call["id"], "result": pages[page]
                             }),
                         );
-                        http::write_response(&mut stream, &response)
-                            .unwrap_or_else(|error| panic!("consensus response: {error}"));
+                        http::write_response(&mut stream, &response).unwrap_or_else(|error| panic!("consensus response: {error}"));
                         stream.conn.send_close_notify();
                         stream.flush().unwrap_or_else(|error| panic!("{error}"));
                     }
@@ -292,12 +176,7 @@ impl Consensus {
                 }
             }
         });
-        Self {
-            port,
-            hits,
-            stop,
-            join: Some(join),
-        }
+        Self { port, hits, stop, join: Some(join) }
     }
 
     fn url(&self) -> String {
@@ -338,25 +217,15 @@ impl Gateway {
             environment.push((RPC_URL.to_owned(), endpoint.to_owned()));
         }
         if let Some(chain) = chain {
-            environment.push((
-                "LAYERX_GATEWAY_PAXEER_RPC_URLS".to_owned(),
-                chain.to_owned(),
-            ));
+            environment.push(("LAYERX_GATEWAY_PAXEER_RPC_URLS".to_owned(), chain.to_owned()));
         }
-        let child = gateway_command(&environment)
-            .stdout(Stdio::null())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .unwrap_or_else(|error| panic!("gateway must start: {error}"));
+        let child = gateway_command(&environment).stdout(Stdio::null()).stderr(Stdio::inherit()).spawn().unwrap_or_else(|error| panic!("gateway must start: {error}"));
         let mut gateway = Self { child, port };
         for _ in 0..200 {
             if let Ok(Some(status)) = gateway.child.try_wait() {
                 panic!("gateway refused start-up: {status}");
             }
-            if gateway
-                .exchange("GET", "/livez", b"")
-                .is_ok_and(|(status, _)| status == 200)
-            {
+            if gateway.exchange("GET", "/livez", b"").is_ok_and(|(status, _)| status == 200) {
                 return gateway;
             }
             thread::sleep(Duration::from_millis(50));
@@ -365,52 +234,25 @@ impl Gateway {
     }
 
     fn exchange(&self, method: &str, path: &str, body: &[u8]) -> Result<(u16, Vec<u8>), String> {
-        let mut stream =
-            TcpStream::connect(("127.0.0.1", self.port)).map_err(|error| error.to_string())?;
-        stream
-            .set_read_timeout(Some(Duration::from_secs(30)))
-            .map_err(|error| error.to_string())?;
-        let mut request = format!(
-            "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-            body.len()
-        )
-        .into_bytes();
+        let mut stream = TcpStream::connect(("127.0.0.1", self.port)).map_err(|error| error.to_string())?;
+        stream.set_read_timeout(Some(Duration::from_secs(30))).map_err(|error| error.to_string())?;
+        let mut request = format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).into_bytes();
         request.extend_from_slice(body);
-        stream
-            .write_all(&request)
-            .map_err(|error| error.to_string())?;
+        stream.write_all(&request).map_err(|error| error.to_string())?;
         let mut answer = Vec::new();
-        stream
-            .read_to_end(&mut answer)
-            .map_err(|error| error.to_string())?;
-        let header_end = answer
-            .windows(4)
-            .position(|window| window == b"\r\n\r\n")
-            .ok_or_else(|| "answer has no header terminator".to_owned())?;
+        stream.read_to_end(&mut answer).map_err(|error| error.to_string())?;
+        let header_end = answer.windows(4).position(|window| window == b"\r\n\r\n").ok_or_else(|| "answer has no header terminator".to_owned())?;
         let head = String::from_utf8_lossy(&answer[..header_end]).into_owned();
-        let status = head
-            .split_whitespace()
-            .nth(1)
-            .and_then(|value| value.parse::<u16>().ok())
-            .ok_or_else(|| format!("answer status is invalid: {head}"))?;
+        let status = head.split_whitespace().nth(1).and_then(|value| value.parse::<u16>().ok()).ok_or_else(|| format!("answer status is invalid: {head}"))?;
         Ok((status, answer[header_end + 4..].to_vec()))
     }
 
-    fn rpc(&self, method: &str, params: Value) -> Value {
-        let call =
-            json!({"jsonrpc": "2.0", "id": "chain-read", "method": method, "params": params});
-        assert_eq!(
-            self.exchange("POST", "/rpc", call.to_string().as_bytes())
-                .expect("retired RPC refusal")
-                .0,
-            404
-        );
-        let (status, body) = self
-            .exchange("POST", "/", call.to_string().as_bytes())
-            .unwrap_or_else(|error| panic!("RPC exchange: {error}"));
+    fn rpc(&self, method: &str, params: &Value) -> Value {
+        let call = json!({"jsonrpc": "2.0", "id": "chain-read", "method": method, "params": params});
+        assert_eq!(self.exchange("POST", "/rpc", call.to_string().as_bytes()).unwrap_or_else(|error| panic!("{}: {error:?}", "retired RPC refusal")).0, 404);
+        let (status, body) = self.exchange("POST", "/", call.to_string().as_bytes()).unwrap_or_else(|error| panic!("RPC exchange: {error}"));
         assert_eq!(status, 200, "{}", String::from_utf8_lossy(&body));
-        let answer: Value =
-            serde_json::from_slice(&body).unwrap_or_else(|error| panic!("RPC response: {error}"));
+        let answer: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("RPC response: {error}"));
         assert_eq!(answer["jsonrpc"], "2.0");
         assert_eq!(answer["id"], "chain-read");
         answer
@@ -419,10 +261,7 @@ impl Gateway {
 
 fn assert_unavailable(answer: &Value) {
     assert_eq!(answer["error"]["code"], -32003, "{answer}");
-    assert_eq!(
-        answer["error"]["data"]["code"], "consensus_unavailable",
-        "{answer}"
-    );
+    assert_eq!(answer["error"]["data"]["code"], "consensus_unavailable", "{answer}");
     assert!(answer.get("result").is_none(), "{answer}");
 }
 
@@ -443,11 +282,8 @@ fn assert_invalid_heights(gateway: &Gateway, method: &str) {
         json!({"height": "5"}),
         json!(null),
     ] {
-        let answer = gateway.rpc(method, params.clone());
-        assert_eq!(
-            answer["error"]["code"], -32602,
-            "{method} {params}: {answer}"
-        );
+        let answer = gateway.rpc(method, &params.clone());
+        assert_eq!(answer["error"]["code"], -32602, "{method} {params}: {answer}");
         assert!(answer.get("result").is_none());
     }
 }
@@ -470,18 +306,9 @@ fn readyz_reports_the_consensus_endpoint() {
         ],
     );
     let gateway = Gateway::start_with_chain(&fixture, Some(&consensus.url()), Some(&chain_urls));
-    for (expected_status, expected_state, expected_reason) in [
-        (200, "ready", "ready"),
-        (503, "unavailable", "unreachable"),
-        (200, "ready", "ready"),
-        (503, "unavailable", "unreachable"),
-        (503, "unavailable", "unreachable"),
-    ] {
-        let (status, body) = gateway
-            .exchange("GET", "/readyz", b"")
-            .unwrap_or_else(|error| panic!("readiness exchange: {error}"));
-        let document: Value = serde_json::from_slice(&body)
-            .unwrap_or_else(|error| panic!("readiness response: {error}"));
+    for (expected_status, expected_state, expected_reason) in [(200, "ready", "ready"), (503, "unavailable", "unreachable"), (200, "ready", "ready"), (503, "unavailable", "unreachable"), (503, "unavailable", "unreachable")] {
+        let (status, body) = gateway.exchange("GET", "/readyz", b"").unwrap_or_else(|error| panic!("readiness exchange: {error}"));
+        let document: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("readiness response: {error}"));
         assert_eq!(status, expected_status, "{document}");
         assert_eq!(
             document["backends"]["consensus"],
@@ -490,24 +317,15 @@ fn readyz_reports_the_consensus_endpoint() {
             }),
             "{document}"
         );
-        assert_eq!(
-            document["backends"]["paxeer_chain"]["state"], "ready",
-            "{document}"
-        );
-        assert_eq!(
-            document["capabilities"]["chain_serving"]["state"], "ready",
-            "{document}"
-        );
+        assert_eq!(document["backends"]["paxeer_chain"]["state"], "ready", "{document}");
+        assert_eq!(document["capabilities"]["chain_serving"]["state"], "ready", "{document}");
     }
     assert_eq!(consensus.hits.load(Ordering::Acquire), 5);
     drop(gateway);
 
     let unconfigured = Gateway::start_with_chain(&fixture, None, Some(&chain_urls));
-    let (status, body) = unconfigured
-        .exchange("GET", "/readyz", b"")
-        .unwrap_or_else(|error| panic!("unconfigured readiness exchange: {error}"));
-    let document: Value = serde_json::from_slice(&body)
-        .unwrap_or_else(|error| panic!("unconfigured readiness response: {error}"));
+    let (status, body) = unconfigured.exchange("GET", "/readyz", b"").unwrap_or_else(|error| panic!("unconfigured readiness exchange: {error}"));
+    let document: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("unconfigured readiness response: {error}"));
     assert_eq!(status, 200, "{document}");
     assert_eq!(
         document["backends"]["consensus"],
@@ -516,18 +334,12 @@ fn readyz_reports_the_consensus_endpoint() {
         }),
         "{document}"
     );
-    assert_eq!(
-        document["backends"]["paxeer_chain"]["state"], "ready",
-        "{document}"
-    );
+    assert_eq!(document["backends"]["paxeer_chain"]["state"], "ready", "{document}");
     drop(unconfigured);
 
     let invalid = Gateway::start_with_chain(&fixture, Some(""), Some(&chain_urls));
-    let (status, body) = invalid
-        .exchange("GET", "/readyz", b"")
-        .unwrap_or_else(|error| panic!("invalid readiness exchange: {error}"));
-    let document: Value = serde_json::from_slice(&body)
-        .unwrap_or_else(|error| panic!("invalid readiness response: {error}"));
+    let (status, body) = invalid.exchange("GET", "/readyz", b"").unwrap_or_else(|error| panic!("invalid readiness exchange: {error}"));
+    let document: Value = serde_json::from_slice(&body).unwrap_or_else(|error| panic!("invalid readiness response: {error}"));
     assert_eq!(status, 503, "{document}");
     assert_eq!(
         document["backends"]["consensus"],
@@ -558,40 +370,33 @@ fn px_get_commit_answers_the_signed_header_of_a_height() {
                 "timestamp": "2026-01-01T00:00:00Z", "signature": "c2lnbmF0dXJl"}]
         }
     });
-    let consensus = Consensus::start(
-        &fixture.tls,
-        "commit",
-        vec![json!({"signed_header": signed_header, "canonical": true})],
-    );
+    let consensus = Consensus::start(&fixture.tls, "commit", vec![json!({"signed_header": signed_header, "canonical": true})]);
     let gateway = Gateway::start(&fixture, Some(&consensus.url()));
-    let answer = gateway.rpc("px_getCommit", json!(["5"]));
-    assert_eq!(
-        answer["result"],
-        json!({"height": "5", "signedHeader": signed_header}),
-        "{answer}"
-    );
+    let answer = gateway.rpc("px_getCommit", &json!(["5"]));
+    assert_eq!(answer["result"], json!({"height": "5", "signedHeader": signed_header}), "{answer}");
     assert!(answer.get("error").is_none());
     assert_invalid_heights(&gateway, "px_getCommit");
     assert_eq!(consensus.hits.load(Ordering::Acquire), 1);
     drop(gateway);
     let unconfigured = Gateway::start(&fixture, None);
-    assert_unavailable(&unconfigured.rpc("px_getCommit", json!(["5"])));
+    assert_unavailable(&unconfigured.rpc("px_getCommit", &json!(["5"])));
     assert_invalid_heights(&unconfigured, "px_getCommit");
 }
 
 #[test]
 fn px_get_validators_answers_the_set_at_a_height() {
     let fixture = Fixture::start();
-    let validators: Vec<Value> = (0_u64..101).map(|index| {
-        let public_key = ed25519_dalek::SigningKey::from_bytes(&[(index + 1) as u8; 32])
-            .verifying_key().to_bytes();
-        let address = layerx_platform_internal::secret::sha256_hex(&public_key)[..40].to_ascii_uppercase();
-        json!({
-            "address": address,
-            "pub_key": {"type": "tendermint/PubKeyEd25519", "value": layerx_platform_internal::base64::encode(&public_key)},
-            "voting_power": (1000 - index).to_string(), "proposer_priority": "0"
+    let validators: Vec<Value> = (0_u64..101)
+        .map(|index| {
+            let public_key = ed25519_dalek::SigningKey::from_bytes(&[u8::try_from(index + 1).unwrap_or_else(|_| panic!("signer index range")); 32]).verifying_key().to_bytes();
+            let address = layerx_platform_internal::secret::sha256_hex(&public_key)[..40].to_ascii_uppercase();
+            json!({
+                "address": address,
+                "pub_key": {"type": "tendermint/PubKeyEd25519", "value": layerx_platform_internal::base64::encode(&public_key)},
+                "voting_power": (1000 - index).to_string(), "proposer_priority": "0"
+            })
         })
-    }).collect();
+        .collect();
     let consensus = Consensus::start(
         &fixture.tls,
         "validators",
@@ -601,15 +406,16 @@ fn px_get_validators_answers_the_set_at_a_height() {
         ],
     );
     let gateway = Gateway::start(&fixture, Some(&consensus.url()));
-    let expected: Vec<Value> = validators.iter().map(|validator| json!({
-        "address": validator["address"], "pubKey": validator["pub_key"], "votingPower": validator["voting_power"]
-    })).collect();
-    let answer = gateway.rpc("px_getValidators", json!(["5"]));
-    assert_eq!(
-        answer["result"],
-        json!({"height": "5", "validators": expected, "total": "101"}),
-        "{answer}"
-    );
+    let expected: Vec<Value> = validators
+        .iter()
+        .map(|validator| {
+            json!({
+                "address": validator["address"], "pubKey": validator["pub_key"], "votingPower": validator["voting_power"]
+            })
+        })
+        .collect();
+    let answer = gateway.rpc("px_getValidators", &json!(["5"]));
+    assert_eq!(answer["result"], json!({"height": "5", "validators": expected, "total": "101"}), "{answer}");
     assert!(answer.get("error").is_none());
     assert_invalid_heights(&gateway, "px_getValidators");
     assert_eq!(consensus.hits.load(Ordering::Acquire), 2);
@@ -617,29 +423,23 @@ fn px_get_validators_answers_the_set_at_a_height() {
     drop(consensus);
     // Keep the port bound without accepting so no other process can take the unavailable endpoint.
     let unreachable = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
-    let port = unreachable
-        .local_addr()
-        .unwrap_or_else(|error| panic!("{error}"))
-        .port();
-    let gateway = Gateway::start(
-        &fixture,
-        Some(&format!("https://localhost:{port}/consensus")),
-    );
-    assert_unavailable(&gateway.rpc("px_getValidators", json!(["5"])));
-    assert_unavailable(&gateway.rpc("px_getCommit", json!(["5"])));
+    let port = unreachable.local_addr().unwrap_or_else(|error| panic!("{error}")).port();
+    let gateway = Gateway::start(&fixture, Some(&format!("https://localhost:{port}/consensus")));
+    assert_unavailable(&gateway.rpc("px_getValidators", &json!(["5"])));
+    assert_unavailable(&gateway.rpc("px_getCommit", &json!(["5"])));
     drop(gateway);
     let unconfigured = Gateway::start(&fixture, None);
-    assert_unavailable(&unconfigured.rpc("px_getValidators", json!(["5"])));
+    assert_unavailable(&unconfigured.rpc("px_getValidators", &json!(["5"])));
 }
 
 fn protobuf_field(number: u8, bytes: &[u8]) -> Vec<u8> {
     let mut field = vec![(number << 3) | 2];
     let mut length = bytes.len();
     while length >= 128 {
-        field.push((length as u8 & 0x7f) | 0x80);
+        field.push(u8::try_from(length & 0x7f).unwrap_or_else(|_| panic!("varint byte range")) | 0x80);
         length >>= 7;
     }
-    field.push(length as u8);
+    field.push(u8::try_from(length).unwrap_or_else(|_| panic!("varint final byte range")));
     field.extend_from_slice(bytes);
     field
 }
@@ -694,26 +494,16 @@ fn sequence_batch(from_seq: u64, transactions: &[Vec<u8>]) -> Vec<u8> {
 }
 
 fn hex_bytes(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_platform_gateway::encoding::hex_encode(bytes)
 }
 
 fn proof_hash(value: &Value) -> Vec<u8> {
-    let text = value
-        .as_str()
-        .unwrap_or_else(|| panic!("hex required: {value}"));
-    let text = text
-        .strip_prefix("0x")
-        .unwrap_or_else(|| panic!("0x required: {value}"));
+    let text = value.as_str().unwrap_or_else(|| panic!("hex required: {value}"));
+    let text = text.strip_prefix("0x").unwrap_or_else(|| panic!("0x required: {value}"));
     assert_eq!(text.len(), 64);
     text.as_bytes()
         .chunks_exact(2)
-        .map(|pair| {
-            u8::from_str_radix(
-                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("{error}")),
-                16,
-            )
-            .unwrap_or_else(|error| panic!("{error}"))
-        })
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap_or_else(|error| panic!("{error}")), 16).unwrap_or_else(|error| panic!("{error}")))
         .collect()
 }
 
@@ -727,21 +517,9 @@ fn block_response(transactions: &[Vec<u8>]) -> Value {
         level.push(Sha256::digest([]).to_vec());
     }
     while level.len() > 1 {
-        level = level
-            .chunks(2)
-            .map(|pair| {
-                if pair.len() == 1 {
-                    pair[0].clone()
-                } else {
-                    Sha256::digest([&[1][..], &pair[0], &pair[1]].concat()).to_vec()
-                }
-            })
-            .collect();
+        level = level.chunks(2).map(|pair| if pair.len() == 1 { pair[0].clone() } else { Sha256::digest([&[1][..], &pair[0], &pair[1]].concat()).to_vec() }).collect();
     }
-    let txs: Vec<_> = transactions
-        .iter()
-        .map(|tx| layerx_platform_internal::base64::encode(tx))
-        .collect();
+    let txs: Vec<_> = transactions.iter().map(|tx| layerx_platform_internal::base64::encode(tx)).collect();
     json!({"block_id": {"hash": "AA".repeat(32)}, "block": {
         "header": {"height": "5", "data_hash": hex_bytes(&level[0]).to_ascii_uppercase()},
         "data": {"txs": txs}
@@ -752,9 +530,7 @@ fn block_response(transactions: &[Vec<u8>]) -> Value {
 fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
     let fixture = Fixture::start();
     for total in [1_usize, 2, 3, 5, 8, 9] {
-        let mut transactions: Vec<_> = (1..total)
-            .map(|index| cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", &index.to_string()))
-            .collect();
+        let mut transactions: Vec<_> = (1..total).map(|index| cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", &index.to_string())).collect();
         let from_seq = match total {
             1 => 1,
             2 => u64::MAX,
@@ -765,7 +541,7 @@ fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
         let block = block_response(&transactions);
         let consensus = Consensus::start(&fixture.tls, "block", vec![block.clone()]);
         let gateway = Gateway::start(&fixture, Some(&consensus.url()));
-        let answer = gateway.rpc("px_getSequenceBatch", json!(["5"]));
+        let answer = gateway.rpc("px_getSequenceBatch", &json!(["5"]));
         assert!(answer.get("error").is_none(), "{answer}");
         let result = &answer["result"];
         assert_eq!(result["height"], "5");
@@ -775,22 +551,13 @@ fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
         assert_eq!(proof["index"], 0);
         let mut root = proof_hash(&proof["leafHash"]);
         assert_eq!(root, transaction_leaf(&batch));
-        let aunts = proof["aunts"]
-            .as_array()
-            .unwrap_or_else(|| panic!("{answer}"));
-        let depth = if total == 1 {
-            0
-        } else {
-            (total - 1).ilog2() as usize + 1
-        };
+        let aunts = proof["aunts"].as_array().unwrap_or_else(|| panic!("{answer}"));
+        let depth = if total == 1 { 0 } else { (total - 1).ilog2() as usize + 1 };
         assert_eq!(aunts.len(), depth);
         for aunt in aunts {
             root = Sha256::digest([&[1][..], &root, &proof_hash(aunt)].concat()).to_vec();
         }
-        assert_eq!(
-            hex_bytes(&root).to_ascii_uppercase(),
-            block["block"]["header"]["data_hash"]
-        );
+        assert_eq!(hex_bytes(&root).to_ascii_uppercase(), block["block"]["header"]["data_hash"]);
         assert_invalid_heights(&gateway, "px_getSequenceBatch");
         assert_eq!(consensus.hits.load(Ordering::Acquire), 1);
     }
@@ -815,8 +582,7 @@ fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
         let mut changed_tx = valid.clone();
         let mut changed_batch = batch.clone();
         changed_batch[49] ^= 1;
-        changed_tx["block"]["data"]["txs"][index] =
-            json!(layerx_platform_internal::base64::encode(&changed_batch));
+        changed_tx["block"]["data"]["txs"][index] = json!(layerx_platform_internal::base64::encode(&changed_batch));
         corruptions.push(changed_tx);
     }
     for length in 25..batch.len() {
@@ -825,9 +591,7 @@ fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
     let mut trailing = batch.clone();
     trailing.push(0);
     corruptions.push(block_response(&[trailing]));
-    corruptions.push(block_response(&[
-        [batch.as_slice(), batch.as_slice()].concat()
-    ]));
+    corruptions.push(block_response(&[[batch.as_slice(), batch.as_slice()].concat()]));
     for (offset, value) in [(25, 0_u64), (25, 6), (33, 0), (41, 29)] {
         let mut malformed = batch.clone();
         malformed[offset..offset + 8].copy_from_slice(&value.to_be_bytes());
@@ -842,17 +606,14 @@ fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
     for block in corruptions {
         let consensus = Consensus::start(&fixture.tls, "block", vec![block]);
         let gateway = Gateway::start(&fixture, Some(&consensus.url()));
-        let answer = gateway.rpc("px_getSequenceBatch", json!(["5"]));
+        let answer = gateway.rpc("px_getSequenceBatch", &json!(["5"]));
         assert_eq!(answer["error"]["code"], -32003, "{answer}");
-        assert_eq!(
-            answer["error"]["data"]["code"], "invalid_consensus_response",
-            "{answer}"
-        );
+        assert_eq!(answer["error"]["data"]["code"], "invalid_consensus_response", "{answer}");
         assert!(answer.get("result").is_none(), "{answer}");
         assert_eq!(consensus.hits.load(Ordering::Acquire), 1);
     }
     let gateway = Gateway::start(&fixture, None);
-    assert_unavailable(&gateway.rpc("px_getSequenceBatch", json!(["5"])));
+    assert_unavailable(&gateway.rpc("px_getSequenceBatch", &json!(["5"])));
 }
 
 #[test]
@@ -861,30 +622,12 @@ fn px_get_sequence_batch_refuses_a_block_without_a_batch() {
     let batch_url = "/paxeer.sequencer.v1.MsgSequenceBatch";
     let batch = sequence_batch(1, &[]);
     let mut non_batches = vec![
-        vec![
-            cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", "send"),
-            batch.clone(),
-        ],
-        vec![cosmos_transaction(
-            "/cosmos.bank.v1beta1.MsgSend",
-            batch_url,
-        )],
-        vec![cosmos_transaction(
-            "/other.sequencer.v1.MsgSequenceBatch",
-            "",
-        )],
-        vec![cosmos_transaction(
-            "/paxeer.sequencer.v1.MsgSequenceBatchResponse",
-            "",
-        )],
-        vec![cosmos_transaction(
-            "/paxeer.sequencer.v1.MsgSequenceBatchExtra",
-            "",
-        )],
-        vec![cosmos_transaction(
-            batch_url,
-            "protobuf is not the node encoding",
-        )],
+        vec![cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", "send"), batch.clone()],
+        vec![cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", batch_url)],
+        vec![cosmos_transaction("/other.sequencer.v1.MsgSequenceBatch", "")],
+        vec![cosmos_transaction("/paxeer.sequencer.v1.MsgSequenceBatchResponse", "")],
+        vec![cosmos_transaction("/paxeer.sequencer.v1.MsgSequenceBatchExtra", "")],
+        vec![cosmos_transaction(batch_url, "protobuf is not the node encoding")],
         vec![b"PAXEER/v1/sequence-batch".to_vec()],
         vec![Vec::new()],
         Vec::new(),
@@ -898,12 +641,9 @@ fn px_get_sequence_batch_refuses_a_block_without_a_batch() {
         let block = block_response(&transactions);
         let consensus = Consensus::start(&fixture.tls, "block", vec![block]);
         let gateway = Gateway::start(&fixture, Some(&consensus.url()));
-        let answer = gateway.rpc("px_getSequenceBatch", json!(["5"]));
+        let answer = gateway.rpc("px_getSequenceBatch", &json!(["5"]));
         assert_eq!(answer["error"]["code"], -32602, "{answer}");
-        assert_eq!(
-            answer["error"]["data"]["code"], "no_sequence_batch",
-            "{answer}"
-        );
+        assert_eq!(answer["error"]["data"]["code"], "no_sequence_batch", "{answer}");
         assert!(answer.get("result").is_none(), "{answer}");
         assert_eq!(consensus.hits.load(Ordering::Acquire), 1);
     }

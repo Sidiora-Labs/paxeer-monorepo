@@ -159,6 +159,31 @@ func pastBalance(ctx sdk.Context, caller NestedCaller, accumulator, token, accou
 		erc20Call(checkpointPastBalance, addressWord(account), amountWord(new(big.Int).SetUint64(block))))
 }
 
+// snapshotEligibleSupply is the checkpoint supply available to holders after
+// the pool and burn balances have been excluded.
+func (k *Keeper) snapshotEligibleSupply(ctx sdk.Context, caller NestedCaller, accumulator, token, pool common.Address,
+	snapshot uint64) (*big.Int, error) {
+	if len(k.evmKeeper.GetCode(ctx, token)) == 0 {
+		return nil, fmt.Errorf("%w: %s", types.ErrUnsupportedSnapshotToken, token.Hex())
+	}
+	eligible, err := readCheckpoint(ctx, caller, accumulator, token,
+		erc20Call(checkpointPastTotalSupply, amountWord(new(big.Int).SetUint64(snapshot))))
+	if err != nil {
+		return nil, err
+	}
+	for _, excluded := range []common.Address{pool, common.HexToAddress(types.DeadAddress)} {
+		balance, err := pastBalance(ctx, caller, accumulator, token, excluded, snapshot)
+		if err != nil {
+			return nil, err
+		}
+		if eligible.Cmp(balance) < 0 {
+			return nil, fmt.Errorf("%w: eligible supply below the balance of %s", types.ErrOverflow, excluded.Hex())
+		}
+		eligible.Sub(eligible, balance)
+	}
+	return eligible, nil
+}
+
 // TriggerAirdrop is FeeAccumulator.triggerAirdrop sent by sender: the pool's
 // accumulated fees open epoch e+1 with snapshot block block.number-1 and the
 // eligible supply getPastTotalSupply less the pool and dead-address balances
@@ -177,25 +202,14 @@ func (k *Keeper) TriggerAirdrop(ctx sdk.Context, caller NestedCaller, sender, po
 	}
 	amount := market.AccumulatedFees
 	token := common.HexToAddress(market.TokenAddress)
-	if ctx.BlockHeight() <= 0 || len(k.evmKeeper.GetCode(ctx, token)) == 0 {
+	if ctx.BlockHeight() <= 0 {
 		return sdk.Int{}, fmt.Errorf("%w: %s", types.ErrUnsupportedSnapshotToken, token.Hex())
 	}
 	snapshot := uint64(ctx.BlockHeight() - 1)
 	accumulator := common.HexToAddress(market.FeeAccumulator)
-	eligible, err := readCheckpoint(ctx, caller, accumulator, token,
-		erc20Call(checkpointPastTotalSupply, amountWord(new(big.Int).SetUint64(snapshot))))
+	eligible, err := k.snapshotEligibleSupply(ctx, caller, accumulator, token, pool, snapshot)
 	if err != nil {
 		return sdk.Int{}, err
-	}
-	for _, excluded := range []common.Address{pool, common.HexToAddress(types.DeadAddress)} {
-		balance, err := pastBalance(ctx, caller, accumulator, token, excluded, snapshot)
-		if err != nil {
-			return sdk.Int{}, err
-		}
-		if eligible.Cmp(balance) < 0 {
-			return sdk.Int{}, fmt.Errorf("%w: eligible supply below the balance of %s", types.ErrOverflow, excluded.Hex())
-		}
-		eligible.Sub(eligible, balance)
 	}
 	if eligible.Sign() == 0 {
 		return sdk.Int{}, types.ErrZeroAmount

@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/db/sqlcdb"
@@ -58,6 +59,10 @@ type ProcessorStore interface {
 	GetPoolByPoolID(ctx context.Context, poolID string) (*sqlcdb.IndexerPool, error)
 	IngestReady(ctx context.Context, chain int32, stream, owner string, fence int64) error
 	InsertAirdropClaim(ctx context.Context, p sqlcdb.InsertAirdropClaimParams) error
+	InsertLaunchedChain(ctx context.Context, row store.LaunchedChain) error
+	InsertChainRevenueEpoch(ctx context.Context, row store.ChainRevenueEpoch) error
+	InsertChainRevenueClaim(ctx context.Context, row store.ChainRevenueClaim) error
+	RetireLaunchedChain(ctx context.Context, chain, block int64) error
 	InsertConfigUpdate(ctx context.Context, p sqlcdb.InsertConfigUpdateParams) error
 	InsertFeeDistribution(ctx context.Context, p sqlcdb.InsertFeeDistributionParams) error
 	InsertFeeEvent(ctx context.Context, p sqlcdb.InsertFeeEventParams) error
@@ -232,7 +237,11 @@ func (p *Processor) Run(ctx context.Context) (result error) {
 			}
 			continue
 		}
-		to := from + int64(size) - 1
+		sizeInt64, conversionErr := checked.Convert[int64](size)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		to := from + sizeInt64 - 1
 		if to > head {
 			to = head
 		}
@@ -297,8 +306,16 @@ func (p *Processor) ProcessBatch(ctx context.Context, from, to int64) error {
 		if checkpoint != from-1 && checkpoint < to {
 			return store.ErrWatermark
 		}
+		fromUint64, conversionErr := checked.Convert[uint64](from)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		toUint64, conversionErr := checked.Convert[uint64](to)
+		if conversionErr != nil {
+			return conversionErr
+		}
 		readCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		batch, receipts, err := p.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, uint64(from), uint64(to))
+		batch, receipts, err := p.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, fromUint64, toUint64)
 		cancel()
 		if err != nil {
 			if p.deps.Quarantine != nil && p.deps.Source != nil {
@@ -421,8 +438,14 @@ func (p *Processor) collect(ctx context.Context, from, to int64) ([]publisher.We
 // processEvent persists one decoded event to its typed table and returns the
 // webhook envelope to fan out (nil for events with no downstream contract).
 func (p *Processor) processEvent(ctx context.Context, ev *decode.Event, blockTs int64, txFrom map[string]string) (*publisher.WebhookEvent, error) {
-	blockNumber := int64(ev.BlockNumber)
-	logIndex := int32(ev.LogIndex)
+	blockNumber, conversionErr := checked.Convert[int64](ev.BlockNumber)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
+	logIndex, conversionErr := checked.Convert[int32](ev.LogIndex)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
 	id := fmt.Sprintf("%s-%d", ev.TxHash, ev.LogIndex)
 	traceID := fmt.Sprintf("%s:%d", ev.TxHash, ev.LogIndex)
 
@@ -430,26 +453,69 @@ func (p *Processor) processEvent(ctx context.Context, ev *decode.Event, blockTs 
 	// to strings). Enrichments below mutate this copy, not the decoder output.
 	args := cloneArgs(ev.Args)
 
+	webhookLogIndex, conversionErr := checked.Convert[int](ev.LogIndex)
+	if conversionErr != nil {
+		return nil, conversionErr
+	}
 	wev := func() *publisher.WebhookEvent {
 		return &publisher.WebhookEvent{
 			EventName:      ev.EventName,
 			BlockNumber:    blockNumber,
 			BlockTimestamp: blockTs,
 			TxHash:         ev.TxHash,
-			LogIndex:       int(ev.LogIndex),
+			LogIndex:       webhookLogIndex,
 			Args:           args,
 			TraceID:        traceID,
 		}
 	}
 
 	switch ev.EventName {
-	case "MarketCreated":
+	case "ChainLaunched":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		err = p.deps.Store.InsertLaunchedChain(ctx, store.LaunchedChain{Chain: chain, ChainID: asString(args["chainId"]), Pool: asString(args["pool"]), Token: asString(args["token"]), FeeRight: asString(args["nftId"]), Creator: asString(args["creator"]), BlockNumber: blockNumber, TxHash: ev.TxHash})
+		if err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case "ChainRevenueEpochOpened":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		err = p.deps.Store.InsertChainRevenueEpoch(ctx, store.ChainRevenueEpoch{Chain: chain, Epoch: asString(args["epoch"]), Amount: asString(args["epochAmount"]), SnapshotBlock: asString(args["snapshotBlock"]), EligibleSupply: asString(args["eligibleSupply"]), OpenedBlock: blockNumber})
+		if err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case "ChainRevenueClaimed":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		err = p.deps.Store.InsertChainRevenueClaim(ctx, store.ChainRevenueClaim{Chain: chain, Epoch: asString(args["epoch"]), Holder: asString(args["holder"]), Amount: asString(args["amount"]), BlockNumber: blockNumber, TxHash: ev.TxHash})
+		if err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case "LaunchedChainRetired":
+		chain, err := chainLaunchNumber(args)
+		if err != nil {
+			return nil, err
+		}
+		if err := p.deps.Store.RetireLaunchedChain(ctx, chain, blockNumber); err != nil {
+			return nil, err
+		}
+		return wev(), nil
+	case valueMarketCreated:
 		if err := p.handleMarketCreated(ctx, args, ev.TxHash, blockNumber, blockTs); err != nil {
 			return nil, err
 		}
 		return wev(), nil
 
-	case "Swap":
+	case valueSwap:
 		eventSender := asString(args["sender"])
 		actualUser := eventSender
 		poolAddr, err := p.handleSwap(ctx, args, id, eventSender, actualUser, blockNumber, blockTs, logIndex)
@@ -615,11 +681,15 @@ func (p *Processor) handleFeeDistributed(ctx context.Context, args map[string]an
 	if err != nil {
 		return fmt.Errorf("strategy: %w", err)
 	}
+	strategyInt32, conversionErr := checked.Convert[int32](strategy)
+	if conversionErr != nil {
+		return conversionErr
+	}
 	return p.deps.Store.InsertFeeDistribution(ctx, sqlcdb.InsertFeeDistributionParams{
 		ID:             id,
 		PoolID:         asString(args["poolId"]),
 		NftID:          nftID,
-		Strategy:       int32(strategy),
+		Strategy:       strategyInt32,
 		Amount:         asString(args["amount"]),
 		Recipient:      asString(args["recipient"]),
 		BlockNumber:    blockNumber,
@@ -642,12 +712,20 @@ func (p *Processor) handleFeeStrategyChanged(ctx context.Context, args map[strin
 	if err != nil {
 		return fmt.Errorf("newStrategy: %w", err)
 	}
+	oldStratInt32, conversionErr := checked.Convert[int32](oldStrat)
+	if conversionErr != nil {
+		return conversionErr
+	}
+	newStratInt32, conversionErr := checked.Convert[int32](newStrat)
+	if conversionErr != nil {
+		return conversionErr
+	}
 	return p.deps.Store.InsertFeeStrategyChange(ctx, sqlcdb.InsertFeeStrategyChangeParams{
 		ID:             id,
 		PoolID:         asString(args["poolId"]),
 		NftID:          nftID,
-		OldStrategy:    int32(oldStrat),
-		NewStrategy:    int32(newStrat),
+		OldStrategy:    oldStratInt32,
+		NewStrategy:    newStratInt32,
 		BlockNumber:    blockNumber,
 		BlockTimestamp: blockTs,
 		TxHash:         txHashFromID(id),
@@ -844,15 +922,15 @@ func asInt64(v any) (int64, error) {
 	case int64:
 		return x, nil
 	case int:
-		return int64(x), nil
+		return checked.Convert[int64](x)
 	case uint8:
-		return int64(x), nil
+		return checked.Convert[int64](x)
 	case uint16:
-		return int64(x), nil
+		return checked.Convert[int64](x)
 	case uint32:
-		return int64(x), nil
+		return checked.Convert[int64](x)
 	case uint64:
-		return int64(x), nil
+		return checked.Convert[int64](x)
 	case *big.Int:
 		return x.Int64(), nil
 	default:
@@ -880,7 +958,7 @@ func (p *Processor) Ready(ctx context.Context) error {
 }
 
 func unknownLegacyActors(caller string) *decode.ActorContext {
-	actors := &decode.ActorContext{AttributionConfidence: "unknown", AttributionMethod: "unavailable", EvidenceIdentity: []decode.RawIdentity{}, Revision: "actor-v1"}
+	actors := &decode.ActorContext{AttributionConfidence: "unknown", AttributionMethod: valueUnavailable, EvidenceIdentity: []decode.RawIdentity{}, Revision: "actor-v1"}
 	if common.IsHexAddress(caller) && common.HexToAddress(caller) != (common.Address{}) {
 		normalized := strings.ToLower(common.HexToAddress(caller).Hex())
 		actors.EventCaller = &normalized

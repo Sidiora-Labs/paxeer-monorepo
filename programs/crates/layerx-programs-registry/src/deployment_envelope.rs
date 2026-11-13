@@ -7,6 +7,8 @@ use sha2::{Digest as _, Sha256};
 const ENVELOPE_DOMAIN: &[u8] = b"LayerX/deployment-envelope/v1\0";
 const SEAL_BYTES: usize = 32;
 
+pub type DeploymentEnvelopeFrames = (Vec<u8>, Vec<u8>, [u8; SEAL_BYTES]);
+
 /// One accepted deployment record together with the protocol admission proof
 /// it was derived from. The two are published to the journal as a single
 /// commit unit: one canonical envelope staged in a temporary file, fsynced and
@@ -79,19 +81,26 @@ impl DeploymentEnvelope {
         &self.proof
     }
 
-    #[must_use]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the deployment input cannot be validated or encoded.
     pub fn journal_entry(&self) -> Result<crate::DeploymentJournalEntry, String> {
         crate::DeploymentJournalEntry::from_proof(self.record.clone(), &self.proof)
             .map_err(|error| error.to_string())
     }
 
+    #[must_use]
     pub fn into_proof(self) -> DeploymentProof {
         self.proof
     }
 
     /// Encodes the unit: the envelope domain, the framed canonical record, the
     /// framed canonical proof and a seal over everything before it.
-    #[must_use]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the deployment input cannot be validated or encoded.
     pub fn canonical_encoding(&self) -> Result<Vec<u8>, String> {
         let (mut bytes, proof_frame, seal) = self.frames()?;
         bytes.extend_from_slice(&proof_frame);
@@ -115,7 +124,11 @@ impl DeploymentEnvelope {
         Self::pair(record, proof)
     }
 
-    pub fn frames(&self) -> Result<(Vec<u8>, Vec<u8>, [u8; SEAL_BYTES]), String> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the deployment input cannot be validated or encoded.
+    pub fn frames(&self) -> Result<DeploymentEnvelopeFrames, String> {
         let record = self.record.canonical_encoding();
         let proof = self
             .proof
@@ -148,6 +161,10 @@ fn take_frame<'a>(bytes: &'a [u8], cursor: &mut usize) -> Option<&'a [u8]> {
     Some(frame)
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the deployment input cannot be validated or encoded.
 pub fn sealed_frames(bytes: &[u8]) -> Result<(&[u8], &[u8]), UnitDefect> {
     let domain = bytes.get(..ENVELOPE_DOMAIN.len()).unwrap_or(bytes);
     if !ENVELOPE_DOMAIN.starts_with(domain) {
@@ -183,6 +200,10 @@ pub fn sealed_frames(bytes: &[u8]) -> Result<(&[u8], &[u8]), UnitDefect> {
     Ok((record, proof))
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the deployment input cannot be validated or encoded.
 pub fn decode_record(bytes: &[u8]) -> Result<DeploymentRecord, UnitDefect> {
     let record = DeploymentRecord::decode(bytes).map_err(|error| UnitDefect::Corrupt {
         part: UnitPart::Record,

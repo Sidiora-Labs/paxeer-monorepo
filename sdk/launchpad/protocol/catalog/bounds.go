@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"encoding/binary"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 

@@ -10,6 +10,7 @@ package chainread
 import (
 	"context"
 	"errors"
+	"math"
 	"math/big"
 	"regexp"
 	"strings"
@@ -61,7 +62,7 @@ func (r Reader) Block(ctx context.Context, height int64) (Block, error) {
 		return Block{}, ErrConflict
 	}
 	timestamp, err := hexutil.DecodeUint64(raw.Timestamp)
-	if err != nil || timestamp > uint64(^uint64(0)>>1) {
+	if err != nil || timestamp > math.MaxInt64 {
 		return Block{}, ErrConflict
 	}
 	return Block{Height: height, Hash: strings.ToLower(raw.Hash), Time: int64(timestamp)}, nil

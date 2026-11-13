@@ -32,7 +32,7 @@ fn lifecycle_call(compiled: &layerx_intents::CompiledIntent) -> Eip1559Call {
     word.fill(0);
     word[24..].copy_from_slice(
         &u64::try_from(payload.len())
-            .expect("payload length")
+            .unwrap_or_else(|error| panic!("payload length: {error:?}"))
             .to_be_bytes(),
     );
     data.extend_from_slice(&word);
@@ -116,7 +116,10 @@ fn native_identity_compiles_to_auth_lifecycle_call() -> Result<(), String> {
         Err(DisclosureError::MalformedPayload)
     );
     let mut invalid_padding = call.clone();
-    *invalid_padding.data.last_mut().expect("ABI padding") = 1;
+    *invalid_padding
+        .data
+        .last_mut()
+        .unwrap_or_else(|| panic!("ABI padding")) = 1;
     assert_eq!(
         bind_call(&invalid_padding, from),
         Err(DisclosureError::MalformedPayload)

@@ -1,15 +1,15 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroize;
 
 use crate::trace::TraceId;
 
 use super::backend::{
-    ApiFailure, BackendResponse, COMPONENT_PROTOCOL_VERSION, PrincipalContext, Readiness,
-    SessionSecrets, valid_bearer_assertion,
+    valid_bearer_assertion, ApiFailure, BackendResponse, PrincipalContext, Readiness,
+    SessionSecrets, COMPONENT_PROTOCOL_VERSION,
 };
 use super::schema::Operation;
 
@@ -60,7 +60,7 @@ pub(super) enum ComponentRequest {
         stream_profile: Option<u64>,
         component: String,
         operation: String,
-        principal: Option<WirePrincipal>,
+        principal: Option<Box<WirePrincipal>>,
         path_parameters: BTreeMap<String, String>,
         body: Value,
         idempotency_key: Option<String>,
@@ -91,6 +91,30 @@ pub(super) struct WirePrincipal {
 }
 
 impl WirePrincipal {
+    fn zeroize(&mut self) {
+        self.principal_id.zeroize();
+        self.tenant_id.zeroize();
+        self.session_id.zeroize();
+        self.capability.zeroize();
+        self.request_digest.zeroize();
+        self.disclosure_digest.zeroize();
+        self.operation.zeroize();
+        self.destination.zeroize();
+        self.trace.zeroize();
+        if let Some(value) = &mut self.refresh_token {
+            value.zeroize();
+        }
+        if let Some(value) = &mut self.refresh_csrf {
+            value.zeroize();
+        }
+        if let Some(value) = &mut self.assertion {
+            value.zeroize();
+        }
+        if let Some(value) = &mut self.did {
+            value.zeroize();
+        }
+    }
+
     pub(super) fn validate_disclosure(
         &self,
         operation: &Operation,
@@ -121,99 +145,7 @@ impl WirePrincipal {
 impl ComponentRequest {
     pub(super) fn validate(&self) -> Result<(), ApiFailure> {
         match self {
-            Self::Authorize {
-                version,
-                operation,
-                access_token,
-                csrf_token,
-                intended_destination,
-                request_digest,
-                disclosure_digest,
-                path_parameters,
-                body,
-                idempotency_key,
-                trace,
-                ..
-            } => {
-                valid_version(*version)?;
-                valid_operation(operation)?;
-                valid_secret(access_token)?;
-                if let Some(csrf) = csrf_token {
-                    valid_secret(csrf)?;
-                }
-                if intended_destination.is_empty()
-                    || intended_destination.len() > DESTINATION_LIMIT
-                    || !intended_destination.starts_with('/')
-                    || intended_destination.starts_with("//")
-                    || intended_destination.contains('\\')
-                    || intended_destination
-                        .bytes()
-                        .any(|byte| byte.is_ascii_control())
-                {
-                    return Err(ApiFailure::invalid_request(Some("intended_destination")));
-                }
-                parse_digest(request_digest, "request_digest")?;
-                parse_digest(disclosure_digest, "disclosure_digest")?;
-                validate_parameters(path_parameters)?;
-                if idempotency_key
-                    .as_ref()
-                    .is_some_and(|value| !valid_idempotency(value))
-                {
-                    return Err(ApiFailure::invalid_request(Some("idempotency_key")));
-                }
-                if json_digest(body)? != parse_digest(disclosure_digest, "disclosure_digest")? {
-                    return Err(ApiFailure::unauthenticated());
-                }
-                valid_trace(trace)
-            }
-            Self::Bearer {
-                version,
-                operation,
-                assertion,
-                wallet_binding,
-                intended_destination,
-                request_digest,
-                disclosure_digest,
-                path_parameters,
-                body,
-                idempotency_key,
-                trace,
-            } => {
-                valid_version(*version)?;
-                valid_operation(operation)?;
-                if wallet_binding
-                    .as_deref()
-                    .is_some_and(|value| !valid_bearer_assertion(value))
-                {
-                    return Err(ApiFailure::unauthenticated());
-                }
-                if !valid_bearer_assertion(assertion) {
-                    return Err(ApiFailure::unauthenticated());
-                }
-                if intended_destination.is_empty()
-                    || intended_destination.len() > DESTINATION_LIMIT
-                    || !intended_destination.starts_with('/')
-                    || intended_destination.starts_with("//")
-                    || intended_destination.contains('\\')
-                    || intended_destination
-                        .bytes()
-                        .any(|byte| byte.is_ascii_control())
-                {
-                    return Err(ApiFailure::invalid_request(Some("intended_destination")));
-                }
-                parse_digest(request_digest, "request_digest")?;
-                validate_parameters(path_parameters)?;
-                if idempotency_key
-                    .as_ref()
-                    .is_some_and(|value| !valid_idempotency(value))
-                {
-                    return Err(ApiFailure::invalid_request(Some("idempotency_key")));
-                }
-                if json_digest(body)? != parse_digest(disclosure_digest, "disclosure_digest")? {
-                    return Err(ApiFailure::unauthenticated());
-                }
-                valid_trace(trace)
-            }
+            Self::Authorize { .. } | Self::Bearer { .. } => self.validate_authorization_envelope(),
             Self::Execute {
                 version,
                 stream_profile,
@@ -265,6 +197,80 @@ impl ComponentRequest {
                 valid_trace(trace)
             }
         }
+    }
+
+    fn validate_authorization_envelope(&self) -> Result<(), ApiFailure> {
+        let (Self::Authorize {
+            version,
+            operation,
+            intended_destination,
+            request_digest,
+            disclosure_digest,
+            path_parameters,
+            body,
+            idempotency_key,
+            trace,
+            ..
+        }
+        | Self::Bearer {
+            version,
+            operation,
+            intended_destination,
+            request_digest,
+            disclosure_digest,
+            path_parameters,
+            body,
+            idempotency_key,
+            trace,
+            ..
+        }) = self
+        else {
+            return Err(ApiFailure::invalid_request(None));
+        };
+        valid_version(*version)?;
+        valid_operation(operation)?;
+        match self {
+            Self::Authorize {
+                access_token,
+                csrf_token,
+                ..
+            } => {
+                valid_secret(access_token)?;
+                if let Some(csrf) = csrf_token {
+                    valid_secret(csrf)?;
+                }
+            }
+            Self::Bearer {
+                assertion,
+                wallet_binding,
+                ..
+            } => {
+                if wallet_binding
+                    .as_deref()
+                    .is_some_and(|value| !valid_bearer_assertion(value))
+                    || !valid_bearer_assertion(assertion)
+                {
+                    return Err(ApiFailure::unauthenticated());
+                }
+            }
+            _ => return Err(ApiFailure::invalid_request(None)),
+        }
+        validate_destination(intended_destination)?;
+        parse_digest(request_digest, "request_digest")?;
+        if matches!(self, Self::Authorize { .. }) {
+            parse_digest(disclosure_digest, "disclosure_digest")?;
+        }
+        validate_parameters(path_parameters)?;
+        if idempotency_key
+            .as_ref()
+            .is_some_and(|value| !valid_idempotency(value))
+        {
+            return Err(ApiFailure::invalid_request(Some("idempotency_key")));
+        }
+        if json_digest(body)? != parse_digest(disclosure_digest, "disclosure_digest")? {
+            return Err(ApiFailure::unauthenticated());
+        }
+        valid_trace(trace)
     }
 
     pub(super) fn zeroize(&mut self) {
@@ -344,27 +350,7 @@ impl ComponentRequest {
                 component.zeroize();
                 operation.zeroize();
                 if let Some(principal) = principal {
-                    principal.principal_id.zeroize();
-                    principal.tenant_id.zeroize();
-                    principal.session_id.zeroize();
-                    principal.capability.zeroize();
-                    principal.request_digest.zeroize();
-                    principal.disclosure_digest.zeroize();
-                    principal.operation.zeroize();
-                    principal.destination.zeroize();
-                    principal.trace.zeroize();
-                    if let Some(value) = &mut principal.refresh_token {
-                        value.zeroize();
-                    }
-                    if let Some(value) = &mut principal.refresh_csrf {
-                        value.zeroize();
-                    }
-                    if let Some(value) = &mut principal.assertion {
-                        value.zeroize();
-                    }
-                    if let Some(value) = &mut principal.did {
-                        value.zeroize();
-                    }
+                    principal.zeroize();
                 }
                 for (mut name, mut value) in std::mem::take(path_parameters) {
                     name.zeroize();
@@ -488,6 +474,21 @@ fn session_value(session: &SessionSecrets) -> Value {
         "access_max_age_seconds": session.access_max_age_seconds,
         "refresh_max_age_seconds": session.refresh_max_age_seconds
     })
+}
+
+fn validate_destination(intended_destination: &str) -> Result<(), ApiFailure> {
+    if intended_destination.is_empty()
+        || intended_destination.len() > DESTINATION_LIMIT
+        || !intended_destination.starts_with('/')
+        || intended_destination.starts_with("//")
+        || intended_destination.contains('\\')
+        || intended_destination
+            .bytes()
+            .any(|byte| byte.is_ascii_control())
+    {
+        return Err(ApiFailure::invalid_request(Some("intended_destination")));
+    }
+    Ok(())
 }
 
 fn valid_version(version: u64) -> Result<(), ApiFailure> {
@@ -694,15 +695,15 @@ fn validate_principal(principal: &WirePrincipal) -> Result<(), ApiFailure> {
 #[cfg(test)]
 mod tests {
     use super::super::schema::ApiSchema;
-    use super::{ComponentRequest, hex, json_digest, validate_execute};
+    use super::{hex, json_digest, validate_execute, ComponentRequest};
     use serde_json::json;
     use std::collections::BTreeMap;
 
     const TRACE: &str = "trc_00112233445566778899aabbccddeeff";
 
     #[test]
-    fn component_protocol_refuses_unknown_duplicate_and_future_frames()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn component_protocol_refuses_unknown_duplicate_and_future_frames(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         for bytes in [
             br#"{"kind":"unknown","version":1,"trace":"trc_00112233445566778899aabbccddeeff"}"#.as_slice(),
             br#"{"kind":"readiness","version":1,"version":1,"trace":"trc_00112233445566778899aabbccddeeff"}"#.as_slice(),
@@ -720,8 +721,8 @@ mod tests {
     }
 
     #[test]
-    fn component_protocol_authorization_refuses_ambiguous_destinations()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn component_protocol_authorization_refuses_ambiguous_destinations(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let body = json!({});
         for destination in [
             "//untrusted.invalid/v1",
@@ -744,8 +745,8 @@ mod tests {
     }
 
     #[test]
-    fn component_protocol_execution_refuses_changed_authorization_disclosure()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn component_protocol_execution_refuses_changed_authorization_disclosure(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let body = json!({});
         let request = json!({
             "kind":"human-api.execute", "version":1, "component":"activity", "operation":"account.balance",
@@ -774,8 +775,8 @@ mod tests {
     }
 
     #[test]
-    fn component_protocol_route_contract_refuses_undeclared_parameters_and_idempotency()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn component_protocol_route_contract_refuses_undeclared_parameters_and_idempotency(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let schema = ApiSchema::v1()?;
         let operation = schema
             .operation("version")

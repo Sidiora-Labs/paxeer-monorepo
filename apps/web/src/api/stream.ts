@@ -35,6 +35,7 @@ export async function observeHumanStream(
   client: HumanApiClient,
   observer: HumanStreamObserver,
 ): Promise<void> {
+  const aborted = () => observer.signal.aborted;
   let scope: string | undefined;
   let cursor: string | undefined;
   let reconcile = true;
@@ -45,7 +46,7 @@ export async function observeHumanStream(
         client.accountBalance(),
         client.sessionList(),
       ]);
-      if (observer.signal.aborted) return;
+      if (aborted()) return;
       const sessionId = singleCurrentSessionId(sessions.sessions);
       if (balance.account_id.length === 0 || sessionId === undefined) {
         throw new HumanApiDecodeError("stream requires one current authenticated account session");
@@ -60,22 +61,22 @@ export async function observeHumanStream(
       if (cursor === undefined) {
         cursor = (await client.streamOpen()).cursor;
       }
-      if (observer.signal.aborted) return;
+      if (aborted()) return;
       if (reconcile) {
         await observer.reconcile();
-        if (observer.signal.aborted) return;
+        if (aborted()) return;
         reconcile = false;
       }
       for await (const event of client.streamSubscribe(cursor, { signal: observer.signal })) {
-        if (observer.signal.aborted) return;
+        if (aborted()) return;
         if (event.cursor === cursor) continue;
         await observer.process(event);
-        if (observer.signal.aborted) return;
+        if (aborted()) return;
         cursor = event.cursor;
         retryDelay = 1_000;
       }
     } catch (error) {
-      if (observer.signal.aborted) return;
+      if (aborted()) return;
       observer.failed(error);
       if (error instanceof HumanApiError) {
         if (error.detail.code === "unauthenticated" || error.detail.code === "session-expired" || error.detail.code === "forbidden") {

@@ -2,7 +2,7 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_interop_service::config::{self, Config};
-use layerx_interop_service::relay::{ChainRelay, RelayError, RelayOutcome};
+use layerx_interop_service::relay::RelayOutcome;
 use layerx_interop_service::server;
 use layerx_platform_gateway::http::{self, OutgoingResponse};
 use layerx_platform_gateway::store::KeyRecord;
@@ -18,7 +18,6 @@ use openssl::x509::extension::{BasicConstraints, SubjectAlternativeName};
 use openssl::x509::{X509NameBuilder, X509};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sha2::{Digest as _, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
 use std::fs;
@@ -37,7 +36,13 @@ const PAYMENT_PATH: &str = "/v1/http/visa-tap/intents/execute";
 const TIMEOUT: Duration = Duration::from_secs(5);
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    use std::fmt::Write as _;
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        write!(&mut encoded, "{byte:02x}")
+            .unwrap_or_else(|error| panic!("hex encoding: {error:?}"));
+    }
+    encoded
 }
 
 fn bytes(text: &str) -> TestResult<Vec<u8>> {
@@ -88,8 +93,12 @@ impl Listener {
             while !stopped.load(Ordering::SeqCst) {
                 match listener.accept() {
                     Ok((stream, _)) => {
-                        stream.set_read_timeout(Some(TIMEOUT)).unwrap();
-                        stream.set_write_timeout(Some(TIMEOUT)).unwrap();
+                        stream
+                            .set_read_timeout(Some(TIMEOUT))
+                            .or_panic("test value");
+                        stream
+                            .set_write_timeout(Some(TIMEOUT))
+                            .or_panic("test value");
                         let handler = Arc::clone(&handler);
                         thread::spawn(move || handler(stream));
                     }
@@ -110,7 +119,11 @@ impl Listener {
 impl Drop for Listener {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::SeqCst);
-        self.worker.take().unwrap().join().unwrap();
+        self.worker
+            .take()
+            .or_panic("test value")
+            .join()
+            .or_panic("test value");
     }
 }
 
@@ -167,11 +180,11 @@ fn tag(value: &str) -> Vec<u8> {
     array(&[value.as_bytes().to_vec()])
 }
 fn text(value: &[u8]) -> &str {
-    std::str::from_utf8(value).unwrap()
+    std::str::from_utf8(value).or_panic("test value")
 }
 
 #[derive(Default, Serialize, Deserialize)]
-struct StoreState {
+pub struct StoreState {
     strings: BTreeMap<String, Vec<u8>>,
     hashes: BTreeMap<String, BTreeMap<String, Vec<u8>>>,
     sets: BTreeMap<String, BTreeSet<Vec<u8>>>,
@@ -193,141 +206,157 @@ impl StoreState {
             hash.insert((*field).into(), value.to_vec());
         }
     }
+    fn eval_relay(&mut self, script: &str, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
+        let k = |i: usize| keys[i - 1].as_str();
+        let a = |i: usize| args[i - 1].as_slice();
+        if script.contains("string.char(1) .. ARGV[1]") {
+            assert_eq!(keys.len(), 1);
+            let old = self.strings.get(k(1)).cloned();
+            let (status, record) = if let Some(old) = old {
+                (0, old)
+            } else {
+                self.strings.insert(k(1).into(), a(1).to_vec());
+                (1, a(1).to_vec())
+            };
+            return bulk(Some(&[vec![status], record].concat()));
+        }
+        if script.contains("local progress") {
+            assert_eq!(keys.len(), 2);
+            return match self.strings.get(k(1)) {
+                None => bulk(None),
+                Some(record) => {
+                    let progress = self.strings.get(k(2));
+                    if let Some(progress) = progress {
+                        assert_eq!(progress, &record[..32]);
+                    }
+                    bulk(Some(
+                        &[vec![u8::from(progress.is_some())], record.clone()].concat(),
+                    ))
+                }
+            };
+        }
+        assert!(script.contains("relay") || script.contains("ARGV[2]"));
+        assert_eq!(keys.len(), 2);
+        if self.strings.get(k(1)).map(Vec::as_slice) != Some(a(1)) {
+            return bulk(None);
+        }
+        self.strings.insert(k(2).into(), a(2).to_vec());
+        bulk(Some(a(2)))
+    }
+    fn eval_reserved(&mut self, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
+        let k = |i: usize| keys[i - 1].as_str();
+        let a = |i: usize| args[i - 1].as_slice();
+        assert_eq!(keys.len(), 8);
+        if self.field(k(1), "disabled") != b"0" || self.field(k(1), "epoch") != a(1) {
+            return tag("revoked");
+        }
+        let digest = self.field(k(3), "digest");
+        if !digest.is_empty() {
+            return array(&[
+                b"existing".to_vec(),
+                digest,
+                self.field(k(3), "state"),
+                self.field(k(3), "response"),
+                self.field(k(3), "receipt"),
+                self.field(k(3), "principal"),
+            ]);
+        }
+        if self.value(k(5)) != a(8) {
+            return tag("audit_retry");
+        }
+        if self.strings.get(k(7)).is_some_and(|owner| owner != a(10))
+            || self
+                .strings
+                .get(k(8))
+                .is_some_and(|operation| operation != k(3).as_bytes())
+        {
+            return tag("conflict");
+        }
+        let used: u64 = if self.value(k(2)).is_empty() {
+            0
+        } else {
+            text(self.value(k(2))).parse().or_panic("test value")
+        };
+        if used >= text(a(2)).parse().or_panic("test value") {
+            return array(&[b"rate_limited".to_vec(), a(3).to_vec()]);
+        }
+        self.strings
+            .insert(k(2).into(), (used + 1).to_string().into_bytes());
+        self.set_fields(
+            k(3),
+            &[
+                ("scope", &k(3).as_bytes()[13..]),
+                ("digest", a(5)),
+                ("state", b"pending"),
+                ("started_at", a(7)),
+                ("principal", a(10)),
+                ("activity_id", &k(7).as_bytes()[17..]),
+                ("idempotency_key", a(11)),
+                (
+                    "continuation_count",
+                    (args.len() - 11).to_string().as_bytes(),
+                ),
+            ],
+        );
+        for (i, value) in args[11..].iter().enumerate() {
+            self.set_fields(k(3), &[(&format!("continuation_{i}"), value)]);
+        }
+        self.sets
+            .entry(k(6).into())
+            .or_default()
+            .insert(k(3).as_bytes().to_vec());
+        self.strings.insert(k(7).into(), a(10).to_vec());
+        self.strings.insert(k(8).into(), k(3).as_bytes().to_vec());
+        self.strings.insert(k(5).into(), a(9).to_vec());
+        tag("reserved")
+    }
+    fn eval_issued(&mut self, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
+        let k = |i: usize| keys[i - 1].as_str();
+        let a = |i: usize| args[i - 1].as_slice();
+        assert_eq!(keys.len(), 4);
+        if self.value(k(4)) != a(12) {
+            return tag("audit_retry");
+        }
+        if self.hashes.contains_key(k(1)) {
+            return tag("conflict");
+        }
+        if self.sets.get(k(2)).map_or(0, BTreeSet::len)
+            >= text(a(10)).parse().or_panic("test value")
+        {
+            return tag("limit");
+        }
+        self.set_fields(
+            k(1),
+            &[
+                ("principal", a(2)),
+                ("salt", a(3)),
+                ("secret_digest", a(4)),
+                ("signer_public_key", a(5)),
+                ("scopes", a(6)),
+                ("quota_requests", a(7)),
+                ("quota_window_seconds", a(8)),
+                ("epoch", a(9)),
+                ("disabled", b"0"),
+            ],
+        );
+        self.sets
+            .entry(k(2).into())
+            .or_default()
+            .insert(a(1).to_vec());
+        self.strings.insert(k(4).into(), a(13).to_vec());
+        tag("issued")
+    }
     fn eval(&mut self, script: &str, keys: &[String], args: &[Vec<u8>]) -> Vec<u8> {
         let k = |i: usize| keys[i - 1].as_str();
         let a = |i: usize| args[i - 1].as_slice();
         if k(1).starts_with("interop:relay:v1:") {
-            if script.contains("string.char(1) .. ARGV[1]") {
-                assert_eq!(keys.len(), 1);
-                let old = self.strings.get(k(1)).cloned();
-                let (status, record) = match old {
-                    Some(old) => (0, old),
-                    None => {
-                        self.strings.insert(k(1).into(), a(1).to_vec());
-                        (1, a(1).to_vec())
-                    }
-                };
-                return bulk(Some(&[vec![status], record].concat()));
-            }
-            if script.contains("local progress") {
-                assert_eq!(keys.len(), 2);
-                return match self.strings.get(k(1)) {
-                    None => bulk(None),
-                    Some(record) => {
-                        let progress = self.strings.get(k(2));
-                        if let Some(progress) = progress {
-                            assert_eq!(progress, &record[..32]);
-                        }
-                        bulk(Some(
-                            &[vec![u8::from(progress.is_some())], record.clone()].concat(),
-                        ))
-                    }
-                };
-            }
-            assert!(script.contains("relay") || script.contains("ARGV[2]"));
-            assert_eq!(keys.len(), 2);
-            if self.strings.get(k(1)).map(Vec::as_slice) != Some(a(1)) {
-                return bulk(None);
-            }
-            self.strings.insert(k(2).into(), a(2).to_vec());
-            return bulk(Some(a(2)));
+            return self.eval_relay(script, keys, args);
         }
         if script.contains("return {'issued'}") {
-            assert_eq!(keys.len(), 4);
-            if self.value(k(4)) != a(12) {
-                return tag("audit_retry");
-            }
-            if self.hashes.contains_key(k(1)) {
-                return tag("conflict");
-            }
-            if self.sets.get(k(2)).map_or(0, BTreeSet::len) >= text(a(10)).parse().unwrap() {
-                return tag("limit");
-            }
-            self.set_fields(
-                k(1),
-                &[
-                    ("principal", a(2)),
-                    ("salt", a(3)),
-                    ("secret_digest", a(4)),
-                    ("signer_public_key", a(5)),
-                    ("scopes", a(6)),
-                    ("quota_requests", a(7)),
-                    ("quota_window_seconds", a(8)),
-                    ("epoch", a(9)),
-                    ("disabled", b"0"),
-                ],
-            );
-            self.sets
-                .entry(k(2).into())
-                .or_default()
-                .insert(a(1).to_vec());
-            self.strings.insert(k(4).into(), a(13).to_vec());
-            return tag("issued");
+            return self.eval_issued(keys, args);
         }
         if script.contains("return {'reserved'}") {
-            assert_eq!(keys.len(), 8);
-            if self.field(k(1), "disabled") != b"0" || self.field(k(1), "epoch") != a(1) {
-                return tag("revoked");
-            }
-            let digest = self.field(k(3), "digest");
-            if !digest.is_empty() {
-                return array(&[
-                    b"existing".to_vec(),
-                    digest,
-                    self.field(k(3), "state"),
-                    self.field(k(3), "response"),
-                    self.field(k(3), "receipt"),
-                    self.field(k(3), "principal"),
-                ]);
-            }
-            if self.value(k(5)) != a(8) {
-                return tag("audit_retry");
-            }
-            if self.strings.get(k(7)).is_some_and(|owner| owner != a(10))
-                || self
-                    .strings
-                    .get(k(8))
-                    .is_some_and(|operation| operation != k(3).as_bytes())
-            {
-                return tag("conflict");
-            }
-            let used: u64 = if self.value(k(2)).is_empty() {
-                0
-            } else {
-                text(self.value(k(2))).parse().unwrap()
-            };
-            if used >= text(a(2)).parse().unwrap() {
-                return array(&[b"rate_limited".to_vec(), a(3).to_vec()]);
-            }
-            self.strings
-                .insert(k(2).into(), (used + 1).to_string().into_bytes());
-            self.set_fields(
-                k(3),
-                &[
-                    ("scope", &k(3).as_bytes()[13..]),
-                    ("digest", a(5)),
-                    ("state", b"pending"),
-                    ("started_at", a(7)),
-                    ("principal", a(10)),
-                    ("activity_id", &k(7).as_bytes()[17..]),
-                    ("idempotency_key", a(11)),
-                    (
-                        "continuation_count",
-                        (args.len() - 11).to_string().as_bytes(),
-                    ),
-                ],
-            );
-            for (i, value) in args[11..].iter().enumerate() {
-                self.set_fields(k(3), &[(&format!("continuation_{i}"), value)]);
-            }
-            self.sets
-                .entry(k(6).into())
-                .or_default()
-                .insert(k(3).as_bytes().to_vec());
-            self.strings.insert(k(7).into(), a(10).to_vec());
-            self.strings.insert(k(8).into(), k(3).as_bytes().to_vec());
-            self.strings.insert(k(5).into(), a(9).to_vec());
-            return tag("reserved");
+            return self.eval_reserved(keys, args);
         }
         if script.contains("local binding") || script.contains("return {'consumed'}") {
             assert_eq!(keys.len(), 4);
@@ -429,7 +458,7 @@ impl StoreState {
                 array(&values)
             }
             "EVAL" => {
-                let count: usize = text(&arguments[2]).parse().unwrap();
+                let count: usize = text(&arguments[2]).parse().or_panic("test value");
                 let keys = arguments[3..3 + count]
                     .iter()
                     .map(|key| text(key).to_owned())
@@ -441,10 +470,10 @@ impl StoreState {
     }
 }
 
-struct Redis {
+pub struct Redis {
     listener: Listener,
-    state: Arc<Mutex<StoreState>>,
-    lose_claim_reply: Arc<AtomicBool>,
+    pub state: Arc<Mutex<StoreState>>,
+    pub lose_claim_reply: Arc<AtomicBool>,
 }
 impl Redis {
     fn start(dir: &Path, identity: &Identity, address: SocketAddr) -> TestResult<Self> {
@@ -463,7 +492,7 @@ impl Redis {
             let Ok(mut stream) = acceptor.accept(stream) else {
                 return;
             };
-            let auth = command(&mut stream).unwrap();
+            let auth = command(&mut stream).or_panic("test value");
             assert_eq!(
                 auth,
                 [
@@ -472,16 +501,17 @@ impl Redis {
                     b"repair-secret".to_vec()
                 ]
             );
-            stream.write_all(b"+OK\r\n").unwrap();
+            stream.write_all(b"+OK\r\n").or_panic("test value");
             while let Ok(arguments) = command(&mut stream) {
                 let reply = {
-                    let mut state = shared.lock().unwrap();
+                    let mut state = shared.lock().or_panic("test value");
                     let reply = state.exchange(&arguments);
-                    let mut file = fs::File::create(snapshot.with_extension("tmp")).unwrap();
-                    file.write_all(&serde_json::to_vec(&*state).unwrap())
-                        .unwrap();
-                    file.sync_all().unwrap();
-                    fs::rename(snapshot.with_extension("tmp"), &snapshot).unwrap();
+                    let mut file =
+                        fs::File::create(snapshot.with_extension("tmp")).or_panic("test value");
+                    file.write_all(&serde_json::to_vec(&*state).or_panic("test value"))
+                        .or_panic("test value");
+                    file.sync_all().or_panic("test value");
+                    fs::rename(snapshot.with_extension("tmp"), &snapshot).or_panic("test value");
                     reply
                 };
                 if arguments[0] == b"EVAL"
@@ -505,23 +535,33 @@ impl Redis {
             lose_claim_reply,
         })
     }
-    fn record(&self, key: &str) -> Option<Vec<u8>> {
-        self.state.lock().unwrap().strings.get(key).cloned()
+    /// Returns the stored relay record for the supplied key.
+    ///
+    /// # Panics
+    /// Panics if the fixture state lock is poisoned.
+    #[must_use]
+    pub fn record(&self, key: &str) -> Option<Vec<u8>> {
+        self.state
+            .lock()
+            .or_panic("test value")
+            .strings
+            .get(key)
+            .cloned()
     }
 }
 
 #[derive(Default)]
-struct NodeState {
+pub struct NodeState {
     attempts: Vec<Vec<u8>>,
     accepted: BTreeSet<Vec<u8>>,
     methods: Vec<String>,
     connects: Vec<String>,
 }
-struct Node {
+pub struct Node {
     listener: Listener,
-    state: Arc<Mutex<NodeState>>,
-    fault: Arc<AtomicU8>,
-    hide_receipt: Arc<AtomicBool>,
+    pub state: Arc<Mutex<NodeState>>,
+    pub fault: Arc<AtomicU8>,
+    pub hide_receipt: Arc<AtomicBool>,
 }
 impl Node {
     fn start(case: &Value) -> TestResult<Self> {
@@ -534,24 +574,24 @@ impl Node {
         let case = case.clone();
         let raw = bytes(case["rawTransaction"].as_str().ok_or("raw transaction")?)?;
         let listener = Listener::start("127.0.0.1:0".parse()?, move |mut stream| {
-            let connect = line(&mut stream).unwrap();
+            let connect = line(&mut stream).or_panic("test value");
             let connect = text(&connect).to_owned();
             assert_eq!(connect, "CONNECT router.railway.internal:9443 HTTP/1.1");
-            shared.lock().unwrap().connects.push(connect);
-            while !line(&mut stream).unwrap().is_empty() {}
+            shared.lock().or_panic("test value").connects.push(connect);
+            while !line(&mut stream).or_panic("test value").is_empty() {}
             stream
                 .write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
-                .unwrap();
-            let request = http::read_request(&mut stream, 2 * 1024 * 1024).unwrap();
+                .or_panic("test value");
+            let request = http::read_request(&mut stream, 2 * 1024 * 1024).or_panic("test value");
             assert_eq!(request.method, "POST");
             assert_eq!(
                 request.headers.get("host").map(String::as_str),
                 Some("router.railway.internal:9443")
             );
-            let rpc: Value = serde_json::from_slice(&request.body).unwrap();
-            let method = rpc["method"].as_str().unwrap();
+            let rpc: Value = serde_json::from_slice(&request.body).or_panic("test value");
+            let method = rpc["method"].as_str().or_panic("test value");
             let result = {
-                let mut state = shared.lock().unwrap();
+                let mut state = shared.lock().or_panic("test value");
                 state.methods.push(method.into());
                 match method {
                     "px_getReceiptKeys" => {
@@ -559,7 +599,8 @@ impl Node {
                         json!({"keys": [case["pinnedKey"]]})
                     }
                     "eth_sendRawTransaction" => {
-                        let sent = bytes(rpc["params"][0].as_str().unwrap()).unwrap();
+                        let sent = bytes(rpc["params"][0].as_str().or_panic("test value"))
+                            .or_panic("test value");
                         assert_eq!(
                             sent, raw,
                             "only the payer's exact recorded signed bytes may be sent"
@@ -600,10 +641,10 @@ impl Node {
                     body: serde_json::to_vec(
                         &json!({"jsonrpc":"2.0", "id":rpc["id"], "result":result}),
                     )
-                    .unwrap(),
+                    .or_panic("test value"),
                 },
             )
-            .unwrap();
+            .or_panic("test value");
         })?;
         Ok(Self {
             listener,
@@ -612,8 +653,8 @@ impl Node {
             hide_receipt,
         })
     }
-    fn reset(&self) {
-        *self.state.lock().unwrap() = NodeState::default();
+    pub fn reset(&self) {
+        *self.state.lock().or_panic("test value") = NodeState::default();
     }
 }
 
@@ -845,7 +886,14 @@ fn visa_payment(case: &Value) -> TestResult<Vec<u8>> {
     )?)
 }
 
-fn assert_executed(outcome: RelayOutcome, case: &Value) -> TestResult {
+/// Checks that a relay outcome carries the signed receipt and transaction hash.
+///
+/// # Errors
+/// Returns an error when the outcome is not executed or receipt fields cannot be decoded.
+///
+/// # Panics
+/// Panics when the signed receipt or transaction hash differs from the recorded case.
+pub fn assert_executed(outcome: RelayOutcome, case: &Value) -> TestResult {
     let RelayOutcome::Executed(evidence) = outcome else {
         return Err("executed receipt required".into());
     };
@@ -861,7 +909,7 @@ fn assert_executed(outcome: RelayOutcome, case: &Value) -> TestResult {
     Ok(())
 }
 
-mod active_inputs {
+pub mod active_inputs {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/support/active_inputs.rs"
@@ -870,7 +918,7 @@ mod active_inputs {
 
 static CONFIGURATION: Mutex<()> = Mutex::new(());
 
-mod payment_fixture {
+pub mod payment_fixture {
     include!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/support/payment_fixture.rs"
@@ -890,8 +938,8 @@ fn receipt_node(case: &Value) -> TestResult<(Listener, Arc<AtomicU8>)> {
     let calls = Arc::new(AtomicU8::new(0));
     let observed = Arc::clone(&calls);
     let listener = Listener::start("127.0.0.1:0".parse()?, move |mut stream| {
-        let request = http::read_request(&mut stream, 64 * 1024).unwrap();
-        let rpc: Value = serde_json::from_slice(&request.body).unwrap();
+        let request = http::read_request(&mut stream, 64 * 1024).or_panic("test value");
+        let rpc: Value = serde_json::from_slice(&request.body).or_panic("test value");
         assert_eq!(request.method, "POST");
         assert_eq!(rpc["jsonrpc"], "2.0");
         assert_eq!(rpc["method"], "px_getReceiptKeys");
@@ -905,10 +953,10 @@ fn receipt_node(case: &Value) -> TestResult<(Listener, Arc<AtomicU8>)> {
                 headers: Vec::new(),
                 retry_after: None,
                 body: serde_json::to_vec(&json!({"jsonrpc":"2.0", "id":rpc["id"], "result":keys}))
-                    .unwrap(),
+                    .or_panic("test value"),
             },
         )
-        .unwrap();
+        .or_panic("test value");
     })?;
     Ok((listener, calls))
 }
@@ -942,8 +990,15 @@ fn mounted_get(config: Config, path: &str) -> TestResult<(Config, u16, Value)> {
     ))
 }
 
+/// Checks receipt-key pinning and liveness at gateway startup.
+///
+/// # Errors
+/// Returns an error when fixture setup, configuration, or transport fails.
+///
+/// # Panics
+/// Panics when the observed gateway state differs from the recorded case.
 pub fn minimal_node_receipt_pin_startup() -> TestResult {
-    let _serial = CONFIGURATION.lock().unwrap();
+    let _serial = CONFIGURATION.lock().or_panic("test value");
     let dir = Directory::new()?;
     let case = payment_case()?;
     let identity = configure(&dir.0, &case)?;
@@ -978,8 +1033,15 @@ pub fn minimal_node_receipt_pin_startup() -> TestResult {
     Ok(())
 }
 
+/// Checks that startup requires a reachable receipt-key source.
+///
+/// # Errors
+/// Returns an error when fixture setup or transport fails.
+///
+/// # Panics
+/// Panics when the gateway accepts an unavailable receipt-key source.
 pub fn unavailable_node_refuses_minimal_startup() -> TestResult {
-    let _serial = CONFIGURATION.lock().unwrap();
+    let _serial = CONFIGURATION.lock().or_panic("test value");
     let dir = Directory::new()?;
     let case = payment_case()?;
     let identity = configure(&dir.0, &case)?;
@@ -990,16 +1052,22 @@ pub fn unavailable_node_refuses_minimal_startup() -> TestResult {
     environment.set("LAYERX_INTEROP_SEQUENCER_URL", format!("http://{endpoint}"));
     assert_active_environment(&dir.0);
     drop(reserved);
-    let error = match config::load() {
-        Ok(_) => return Err("unavailable node accepted at startup".into()),
-        Err(error) => error,
+    let Err(error) = config::load() else {
+        return Err("unavailable node accepted at startup".into());
     };
     assert_eq!(error, "sequencer px_getReceiptKeys failed: Unavailable");
     Ok(())
 }
 
+/// Checks payment recovery through the mounted private-network route.
+///
+/// # Errors
+/// Returns an error when fixture setup or transport fails.
+///
+/// # Panics
+/// Panics when the recovered payment differs from the recorded case.
 pub fn private_network_payment_recovers_through_mounted_route() -> TestResult {
-    let _serial = CONFIGURATION.lock().unwrap();
+    let _serial = CONFIGURATION.lock().or_panic("test value");
     let case = payment_case()?;
     let raw = bytes(case["rawTransaction"].as_str().ok_or("raw transaction")?)?;
     let (transaction, signature) = decode_signed(&raw)?;
@@ -1035,7 +1103,7 @@ pub fn private_network_payment_recovers_through_mounted_route() -> TestResult {
     let body = visa_payment(&case)?;
     let (config, status, unauthorized) = mounted(config, &body, None)?;
     assert_eq!(status, 401, "{unauthorized}");
-    assert!(node.state.lock().unwrap().attempts.is_empty());
+    assert!(node.state.lock().or_panic("test value").attempts.is_empty());
     let (config, status, response) = mounted(config, &body, Some(&authorization))?;
     assert_eq!(status, 200, "{response}");
     assert_eq!(response["result"]["state"], "receipt-verified");
@@ -1071,7 +1139,7 @@ pub fn private_network_payment_recovers_through_mounted_route() -> TestResult {
     assert_eq!(status, 200, "{replay}");
     assert_eq!(replay["operation"], response["operation"]);
     assert_eq!(replay["result"], response["result"]);
-    let state = node.state.lock().unwrap();
+    let state = node.state.lock().or_panic("test value");
     assert_eq!(state.attempts, vec![raw.clone()]);
     assert_eq!(state.accepted, BTreeSet::from([raw]));
     assert!(state
@@ -1095,4 +1163,26 @@ pub fn private_network_payment_recovers_through_mounted_route() -> TestResult {
         .iter()
         .all(|target| target == "CONNECT router.railway.internal:9443 HTTP/1.1"));
     Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

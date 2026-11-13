@@ -282,12 +282,15 @@ impl SignalAuthority {
     }
 
     fn check_head(&self, reference: Reference) -> Result<(), SignalError> {
-        let head = self
-            .chain
-            .read("eth_getBlockByNumber", json!(["latest", false]))?;
+        let head = self.chain.read(
+            "eth_getBlockByNumber",
+            json!([format!("0x{:x}", reference.head_sequence), false]),
+        )?;
         if head["number"].as_str() != Some(format!("0x{:x}", reference.head_sequence).as_str())
             || head["hash"].as_str() != Some(format!("0x{}", hex(&reference.checkpoint)).as_str())
         {
+            eprintln!("inference signalling head differs from verified reference: height={} hash={} reference_height={} reference_hash={}",
+                head["number"], head["hash"], reference.head_sequence, hex(&reference.checkpoint));
             return Err(SignalError::ChainUnavailable);
         }
         Ok(())
@@ -298,6 +301,10 @@ impl SignalAuthority {
         let reference = self.reference()?;
         let chain = self.chain.read("eth_chainId", json!([]))?;
         if chain.as_str() != Some(format!("0x{:x}", self.chain_id).as_str()) {
+            eprintln!(
+                "inference signalling chain differs: received={chain} expected={}",
+                self.chain_id
+            );
             return Err(SignalError::ChainUnavailable);
         }
         self.check_head(reference)?;
@@ -347,6 +354,7 @@ impl SignalAuthority {
         }
         self.check_head(reference)?;
         if self.reference()? != reference {
+            eprintln!("inference signalling publication changed during admission");
             return Err(SignalError::ChainUnavailable);
         }
         Ok(())
@@ -367,12 +375,35 @@ impl SignalChain for RpcSignalChain {
     }
 
     fn read(&self, method: &str, params: Value) -> Result<Value, SignalError> {
+        let (method, params) = match method {
+            "px_getInferenceRoom" | "px_getInferencePeer" => {
+                let reference = self.reference()?;
+                let mut params = params
+                    .as_array()
+                    .cloned()
+                    .ok_or(SignalError::InvalidFrame)?;
+                if params.len() != 1 {
+                    return Err(SignalError::InvalidFrame);
+                }
+                params.push(json!(reference.head_sequence.to_string()));
+                let method = if method == "px_getInferenceRoom" {
+                    "px_getInferenceRoomAt"
+                } else {
+                    "px_getInferencePeerAt"
+                };
+                (method, Value::Array(params))
+            }
+            _ => (method, params),
+        };
         let mut response = self
             .agent
             .post(&self.endpoint)
             .header("Authorization", &format!("Bearer {}", self.bearer))
             .send_json(json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}))
-            .map_err(|_| SignalError::ChainUnavailable)?;
+            .map_err(|error| {
+                eprintln!("inference signalling RPC {method} failed: {error}");
+                SignalError::ChainUnavailable
+            })?;
         if response.status().as_u16() != 200 {
             return Err(SignalError::ChainUnavailable);
         }
@@ -381,7 +412,10 @@ impl SignalChain for RpcSignalChain {
             .with_config()
             .limit(MAX_FRAME_BYTES as u64)
             .read_to_vec()
-            .map_err(|_| SignalError::ChainUnavailable)?;
+            .map_err(|error| {
+                eprintln!("inference signalling RPC {method} body refused: {error}");
+                SignalError::ChainUnavailable
+            })?;
         let document: Value =
             serde_json::from_slice(&bytes).map_err(|_| SignalError::ChainUnavailable)?;
         if document["jsonrpc"] != "2.0"
@@ -389,6 +423,10 @@ impl SignalChain for RpcSignalChain {
             || document.get("error").is_some()
             || document.get("result").is_none()
         {
+            eprintln!(
+                "inference signalling RPC {method} envelope refused: {}",
+                document["error"]
+            );
             return Err(SignalError::ChainUnavailable);
         }
         Ok(document["result"].clone())

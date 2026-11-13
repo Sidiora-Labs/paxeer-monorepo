@@ -5,7 +5,7 @@ pub mod canonical;
 mod compiler;
 mod disclosure;
 pub mod golden;
-mod keccak;
+pub mod keccak;
 mod native_budget;
 mod native_receive;
 mod reject;

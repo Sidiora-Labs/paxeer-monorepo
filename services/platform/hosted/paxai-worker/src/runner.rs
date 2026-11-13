@@ -560,7 +560,7 @@ impl ProcessRunner {
     pub fn describe(&self) -> Result<Description, RunnerError> {
         let mut request = Vec::new();
         header(&mut request);
-        let bytes = self.invoke("describe", request, self.control_timeout)?;
+        let bytes = self.invoke("describe", &request, self.control_timeout)?;
         Description::decode(&bytes).map_err(|_| RunnerError::Ambiguous)
     }
 
@@ -573,7 +573,7 @@ impl ProcessRunner {
         let timeout = self
             .control_timeout
             .saturating_add(Duration::from_millis(u64::from(request.deadline_ms)));
-        self.invoke("dispatch", bytes, timeout)
+        self.invoke("dispatch", &bytes, timeout)
     }
 
     /// Looks a job up under its original admission identity.
@@ -584,7 +584,7 @@ impl ProcessRunner {
         let mut request = Vec::new();
         header(&mut request);
         request.extend_from_slice(job.digest().as_bytes());
-        self.invoke("lookup", request, self.control_timeout)
+        self.invoke("lookup", &request, self.control_timeout)
     }
 
     /// Requests cooperative cancellation of the attempt holding `fence`.
@@ -596,19 +596,14 @@ impl ProcessRunner {
         header(&mut request);
         request.extend_from_slice(job.digest().as_bytes());
         request.extend_from_slice(&fence.to_be_bytes());
-        self.invoke("cancel", request, self.control_timeout)
+        self.invoke("cancel", &request, self.control_timeout)
     }
 
-    fn invoke(
-        &self,
-        verb: &str,
-        input: Vec<u8>,
-        timeout: Duration,
-    ) -> Result<Vec<u8>, RunnerError> {
+    fn invoke(&self, verb: &str, input: &[u8], timeout: Duration) -> Result<Vec<u8>, RunnerError> {
         self.invocations.fetch_add(1, Ordering::SeqCst);
         let answer = crate::process::invoke(
             Command::new(&self.program).args(&self.args).arg(verb),
-            &input,
+            input,
             MAX_REPORT_BYTES,
             timeout,
         );

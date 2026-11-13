@@ -1,0 +1,31 @@
+[coverage.before]
+cmd_userd = "0.0%"
+internal_account = "67.2%"
+internal_app = "36.7%"
+internal_config = "50.5%"
+internal_db_sqlcdb = "0.0%"
+internal_image = "100.0%"
+internal_internaltest = "0.0%"
+internal_migrate = "0.0%"
+internal_user = "79.3%"
+migrations = "no statements"
+pkg_types = "no statements"
+module_handwritten = "61.2%"
+
+[coverage.measurement]
+scope = "Hand-written Go statements in the user module, with generated database code excluded."
+minimum = "85.0%"
+
+[coverage.after]
+cmd_userd = "0.0%"
+internal_account = "85.1%"
+internal_app = "87.6%"
+internal_config = "92.3%"
+internal_db_sqlcdb = "0.0%"
+internal_image = "100.0%"
+internal_internaltest = "75.4%"
+internal_migrate = "73.3%"
+internal_user = "89.5%"
+migrations = "no statements"
+pkg_types = "no statements"
+module_handwritten = "86.0%"

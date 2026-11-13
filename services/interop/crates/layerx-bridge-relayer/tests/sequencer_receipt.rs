@@ -30,14 +30,12 @@ fn fixture() -> Value {
         "fixtures/sequencer_receipts.json"
     )));
     let shared = shared_fixture();
-    let cases = shared["cases"]
-        .as_array()
-        .unwrap_or_else(|| panic!("cases"));
+    let cases = shared["cases"].as_array().or_panic("cases");
     for (rung, provenance) in [("receipted", "receiptedCase"), ("reverted", "revertedCase")] {
         let case = cases
             .iter()
             .find(|case| case["id"] == document["provenance"][provenance])
-            .unwrap_or_else(|| panic!("missing shared {rung} case"));
+            .or_panic(&format!("missing shared {rung} case"));
         document[rung] = case["receiptJson"].clone();
         if rung == "receipted" {
             document["key"] = case["pinnedKey"].clone();
@@ -87,7 +85,7 @@ fn inbound_receipt_views_carry_the_producer_payment_denom() {
             answer
                 .view
                 .as_ref()
-                .expect("inbound receipt view")
+                .or_panic("inbound receipt view")
                 .payment_denom,
             "uhpx",
             "payment denomination in {phase} view"
@@ -126,7 +124,7 @@ fn a_committed_answer_decodes_every_field() {
     let receipt_bytes = must(hex::decode(
         document["committed"]["receipt"]
             .as_str()
-            .unwrap_or_else(|| panic!("receipt bytes")),
+            .or_panic("receipt bytes"),
     ));
     assert!(!receipt_bytes.is_empty());
     assert_eq!(
@@ -156,6 +154,11 @@ fn a_committed_answer_decodes_every_field() {
     );
     must(answer.verify(&[key(&document)]));
 
+    assert_served_log_order(&document, &log);
+    assert_malformed_receipts_rejected(&document);
+}
+
+fn assert_served_log_order(document: &Value, log: &ReceiptLog) {
     // Decoding preserves the served order, even when log indices are out of order.
     let mut ordered = document["committed"].clone();
     let first = ordered["logs"][0].clone();
@@ -164,12 +167,14 @@ fn a_committed_answer_decodes_every_field() {
     second["data"] = json!("0xaabb");
     ordered["logs"] = json!([second, first]);
     let ordered = must(SequencerReceipt::decode(&ordered));
-    let logs = ordered.view.unwrap_or_else(|| panic!("receipt view")).logs;
+    let logs = ordered.view.or_panic("receipt view").logs;
     let mut expected_first = log.clone();
     expected_first.log_index = 1;
     expected_first.data = vec![0xaa, 0xbb];
-    assert_eq!(logs, vec![expected_first, log]);
+    assert_eq!(logs, vec![expected_first, log.clone()]);
+}
 
+fn assert_malformed_receipts_rejected(document: &Value) {
     for rung in ["unknown", "Submitted", "finalized"] {
         let mut invalid = document["committed"].clone();
         invalid["rung"] = json!(rung);
@@ -180,10 +185,7 @@ fn a_committed_answer_decodes_every_field() {
     }
     for field in ["blockNumber", "blockHash"] {
         let mut invalid = document["committed"].clone();
-        invalid
-            .as_object_mut()
-            .unwrap_or_else(|| panic!("object"))
-            .remove(field);
+        invalid.as_object_mut().or_panic("object").remove(field);
         assert_eq!(
             SequencerReceipt::decode(&invalid),
             Err(ReceiptError::Malformed)
@@ -218,10 +220,7 @@ fn a_committed_answer_decodes_every_field() {
         "receipt",
     ] {
         let mut invalid = document["receipted"].clone();
-        invalid
-            .as_object_mut()
-            .unwrap_or_else(|| panic!("object"))
-            .remove(field);
+        invalid.as_object_mut().or_panic("object").remove(field);
         assert_eq!(
             SequencerReceipt::decode(&invalid),
             Err(ReceiptError::Malformed),
@@ -286,10 +285,7 @@ fn a_submitted_answer_carries_no_receipt() {
         answer.verify(&[key(&document)]),
         Err(ReceiptError::Malformed)
     );
-    for (field, value) in document["receipted"]
-        .as_object()
-        .unwrap_or_else(|| panic!("object"))
-    {
+    for (field, value) in document["receipted"].as_object().or_panic("object") {
         if ["rung", "txHash", "nonce"].contains(&field.as_str()) {
             continue;
         }
@@ -354,7 +350,7 @@ fn a_view_without_payment_denom_is_malformed() {
         let mut changed = document[rung].clone();
         assert!(changed
             .as_object_mut()
-            .unwrap_or_else(|| panic!("object"))
+            .or_panic("object")
             .remove("paymentDenom")
             .is_some());
         assert_eq!(
@@ -403,14 +399,7 @@ fn receipt_bytes_must_verify_under_the_key_window_for_their_height() {
         );
     }
     let reverted = must(SequencerReceipt::decode(&document["reverted"]));
-    assert_eq!(
-        reverted
-            .view
-            .as_ref()
-            .unwrap_or_else(|| panic!("view"))
-            .status,
-        0
-    );
+    assert_eq!(reverted.view.as_ref().or_panic("view").status, 0);
     must(reverted.verify(&[pin]));
     let mut changed = document["reverted"].clone();
     changed["status"] = json!("0x1");
@@ -420,24 +409,15 @@ fn receipt_bytes_must_verify_under_the_key_window_for_their_height() {
     );
 
     let mut tampered = answer.clone();
-    let view = tampered.view.as_mut().unwrap_or_else(|| panic!("view"));
-    let last = view
-        .receipt
-        .last_mut()
-        .unwrap_or_else(|| panic!("signature"));
+    let view = tampered.view.as_mut().or_panic("view");
+    let last = view.receipt.last_mut().or_panic("signature");
     *last ^= 1;
     assert!(matches!(
         tampered.verify(&[pin]),
         Err(ReceiptError::Verification(_))
     ));
     let mut tampered = answer.clone();
-    tampered
-        .view
-        .as_mut()
-        .unwrap_or_else(|| panic!("view"))
-        .logs[0]
-        .data
-        .push(0);
+    tampered.view.as_mut().or_panic("view").logs[0].data.push(0);
     assert!(matches!(
         tampered.verify(&[pin]),
         Err(ReceiptError::Logs(_))
@@ -449,11 +429,7 @@ fn receipt_bytes_must_verify_under_the_key_window_for_their_height() {
         Err(ReceiptError::Mismatch("txHash"))
     );
     let mut tampered = answer;
-    tampered
-        .view
-        .as_mut()
-        .unwrap_or_else(|| panic!("view"))
-        .key_id[0] ^= 1;
+    tampered.view.as_mut().or_panic("view").key_id[0] ^= 1;
     assert_eq!(
         tampered.verify(&[pin]),
         Err(ReceiptError::Mismatch("keyId"))
@@ -462,173 +438,207 @@ fn receipt_bytes_must_verify_under_the_key_window_for_their_height() {
 
 #[test]
 fn the_shared_sequencer_receipt_vector_decodes_and_verifies() {
-    #[derive(Deserialize)]
-    struct Vector {
-        cases: Vec<Case>,
-    }
-
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Case {
-        id: String,
-        raw_transaction: String,
-        prev_seq_hash: String,
-        receipt_json: Value,
-        pinned_key: Pin,
-        expected: Expected,
-    }
-
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Pin {
-        key_id: String,
-        public_key: String,
-        first_height: u64,
-        last_height: u64,
-    }
-
-    #[derive(Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Expected {
-        rung: Option<String>,
-        refused_at: Option<String>,
-        verifier: String,
-    }
-
     let vector: Vector = must(serde_json::from_value(shared_fixture()));
     assert!(
         !vector.cases.is_empty(),
         "shared receipt vector has no cases"
     );
 
-    for case in vector.cases {
-        let classification = match case.id.as_str() {
-            "V1-pax-transfer"
-            | "V1-erc20-approve"
-            | "V1-layerxledger-pay-exact"
-            | "V1-layerxbridge-bridge-out"
-            | "V1-layerxprograms-call"
-            | "V2-layerxledger-revert"
-            | "V2-pax-transfer-insufficient-funds" => ("accepts", None),
-            "V3-key-not-pinned" | "V3-height-outside-key-range" => {
-                ("SequencerSignature", Some("R3"))
-            }
-            "V3-activity-id-not-raw-hash" => ("accepts", Some("R4")),
-            "V3-tampered-log" => ("accepts", Some("R5")),
-            "V3-seq-hash-mismatch" => ("accepts", Some("R6")),
-            "V3-non-canonical-bytes" => ("Decode", Some("R2")),
-            other => panic!("unclassified shared receipt case {other}"),
-        };
+    for case in &vector.cases {
+        assert_shared_case(case);
+    }
+}
+
+#[derive(Deserialize)]
+struct Vector {
+    cases: Vec<Case>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Case {
+    id: String,
+    raw_transaction: String,
+    prev_seq_hash: String,
+    receipt_json: Value,
+    pinned_key: Pin,
+    expected: Expected,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Pin {
+    key_id: String,
+    public_key: String,
+    first_height: u64,
+    last_height: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Expected {
+    rung: Option<String>,
+    refused_at: Option<String>,
+    verifier: String,
+}
+
+fn assert_shared_case(case: &Case) {
+    let classification = match case.id.as_str() {
+        "V1-pax-transfer"
+        | "V1-erc20-approve"
+        | "V1-layerxledger-pay-exact"
+        | "V1-layerxbridge-bridge-out"
+        | "V1-layerxprograms-call"
+        | "V2-layerxledger-revert"
+        | "V2-pax-transfer-insufficient-funds" => ("accepts", None),
+        "V3-key-not-pinned" | "V3-height-outside-key-range" => ("SequencerSignature", Some("R3")),
+        "V3-activity-id-not-raw-hash" => ("accepts", Some("R4")),
+        "V3-tampered-log" => ("accepts", Some("R5")),
+        "V3-seq-hash-mismatch" => ("accepts", Some("R6")),
+        "V3-non-canonical-bytes" => ("Decode", Some("R2")),
+        other => panic!("unclassified shared receipt case {other}"),
+    };
+    assert_eq!(
+        (
+            case.expected.verifier.as_str(),
+            case.expected.refused_at.as_deref()
+        ),
+        classification,
+        "{}: unexpected verifier or refusal rule",
+        case.id
+    );
+    let pin = SequencerAuthorization::new(
+        array(&case.pinned_key.key_id),
+        array(&case.pinned_key.public_key),
+        case.pinned_key.first_height,
+        case.pinned_key.last_height,
+    );
+    let receipt = SequencerReceipt::decode(&case.receipt_json)
+        .unwrap_or_else(|error| panic!("{}: decode: {error}", case.id));
+    let view = receipt
+        .view
+        .as_ref()
+        .unwrap_or_else(|| panic!("{}: receipt has no view", case.id));
+    for (field, actual) in [("seq", view.seq), ("height", view.height)] {
+        let expected = case.receipt_json[field]
+            .as_str()
+            .unwrap_or_else(|| panic!("{}: missing {field}", case.id));
         assert_eq!(
-            (
-                case.expected.verifier.as_str(),
-                case.expected.refused_at.as_deref()
-            ),
-            classification,
-            "{}: unexpected verifier or refusal rule",
+            actual,
+            must(hex::parse_quantity(expected)),
+            "{}: {field}",
             case.id
         );
-        let pin = SequencerAuthorization::new(
-            array(&case.pinned_key.key_id),
-            array(&case.pinned_key.public_key),
-            case.pinned_key.first_height,
-            case.pinned_key.last_height,
+    }
+    if case.id == "V2-pax-transfer-insufficient-funds" {
+        assert_eq!(
+            view.status, 0,
+            "insufficient funds must remain an execution refusal"
         );
-        let receipt = SequencerReceipt::decode(&case.receipt_json)
-            .unwrap_or_else(|error| panic!("{}: decode: {error}", case.id));
-        let view = receipt
-            .view
-            .as_ref()
-            .unwrap_or_else(|| panic!("{}: receipt has no view", case.id));
-        for (field, actual) in [("seq", view.seq), ("height", view.height)] {
-            let expected = case.receipt_json[field]
-                .as_str()
-                .unwrap_or_else(|| panic!("{}: missing {field}", case.id));
-            assert_eq!(
-                actual,
-                must(hex::parse_quantity(expected)),
-                "{}: {field}",
-                case.id
-            );
-        }
-        if case.id == "V2-pax-transfer-insufficient-funds" {
-            assert_eq!(
-                view.status, 0,
-                "insufficient funds must remain an execution refusal"
-            );
-        }
-        let verification = receipt.verify(&[pin]);
-        match case.expected.refused_at.as_deref() {
-            Some("R2") => assert_eq!(
-                verification,
-                Err(ReceiptError::Verification(VerificationFailure {
-                    check: ReceiptCheck::Decode,
-                })),
-                "{}: R2 must fail decoding the signed receipt bytes",
-                case.id
-            ),
-            Some("R3") => assert_eq!(
-                verification,
-                Err(ReceiptError::Verification(VerificationFailure {
-                    check: ReceiptCheck::SequencerSignature,
-                })),
-                "{}: R3 must fail signature authorization",
-                case.id
-            ),
-            Some("R5") => assert_eq!(
-                verification,
-                Err(ReceiptError::Logs(SequencerLogRefusal::Log {
-                    index: 0,
-                    field: LogField::Data,
-                })),
-                "{}: R5 must detect the tampered log view",
-                case.id
-            ),
-            None | Some("R4" | "R6") => {
-                verification.unwrap_or_else(|error| panic!("{}: verify: {error}", case.id));
-                if case.expected.refused_at.is_none() {
-                    let rung = match case.expected.rung.as_deref() {
-                        Some("receipted") => Rung::Receipted,
-                        Some("committed") => Rung::Committed,
-                        other => panic!("{}: unexpected accepted rung {other:?}", case.id),
-                    };
-                    assert_eq!(receipt.rung, rung, "{}", case.id);
-                }
+    }
+    let verification = receipt.verify(&[pin]);
+    match case.expected.refused_at.as_deref() {
+        Some("R2") => assert_eq!(
+            verification,
+            Err(ReceiptError::Verification(VerificationFailure {
+                check: ReceiptCheck::Decode,
+            })),
+            "{}: R2 must fail decoding the signed receipt bytes",
+            case.id
+        ),
+        Some("R3") => assert_eq!(
+            verification,
+            Err(ReceiptError::Verification(VerificationFailure {
+                check: ReceiptCheck::SequencerSignature,
+            })),
+            "{}: R3 must fail signature authorization",
+            case.id
+        ),
+        Some("R5") => assert_eq!(
+            verification,
+            Err(ReceiptError::Logs(SequencerLogRefusal::Log {
+                index: 0,
+                field: LogField::Data,
+            })),
+            "{}: R5 must detect the tampered log view",
+            case.id
+        ),
+        None | Some("R4" | "R6") => {
+            verification.unwrap_or_else(|error| panic!("{}: verify: {error}", case.id));
+            if case.expected.refused_at.is_none() {
+                let rung = match case.expected.rung.as_deref() {
+                    Some("receipted") => Rung::Receipted,
+                    Some("committed") => Rung::Committed,
+                    other => panic!("{}: unexpected accepted rung {other:?}", case.id),
+                };
+                assert_eq!(receipt.rung, rung, "{}", case.id);
             }
-            other => panic!("{}: unclassified refusal {other:?}", case.id),
         }
+        other => panic!("{}: unclassified refusal {other:?}", case.id),
+    }
 
-        if case.expected.verifier == "accepts" {
-            let raw_transaction = must(hex::decode(&case.raw_transaction));
-            let raw_hash: [u8; 32] = Keccak256::digest(&raw_transaction).into();
-            assert_eq!(
-                raw_hash == receipt.tx_hash,
-                case.expected.refused_at.as_deref() != Some("R4"),
-                "{}: R4 raw transaction hash binding",
-                case.id
-            );
+    assert_accepted_shared_case(case, &receipt, view);
+}
 
-            let verified = must(verify_sequencer_signature(
-                &view.receipt,
-                ReceiptKeys::HeightRanges(&[pin]),
-            ));
-            let protocol = verified
-                .protocol()
-                .unwrap_or_else(|| panic!("{}: missing protocol receipt", case.id));
-            let previous_hash: [u8; 32] = array(&case.prev_seq_hash);
-            let mut sequence_hash = Sha256::new();
-            sequence_hash.update(b"PAXEER/v1/sequence\0");
-            sequence_hash.update(previous_hash);
-            sequence_hash.update(protocol.global_sequence().to_be_bytes());
-            sequence_hash.update(protocol.activity_id());
-            let resulting_hash: [u8; 32] = sequence_hash.finalize().into();
-            assert_eq!(
-                protocol.previous_state_root() == previous_hash
-                    && protocol.resulting_state_root() == resulting_hash,
-                case.expected.refused_at.as_deref() != Some("R6"),
-                "{}: R6 sequence hash chain",
-                case.id
-            );
-        }
+fn assert_accepted_shared_case(case: &Case, receipt: &SequencerReceipt, view: &ReceiptView) {
+    let pin = SequencerAuthorization::new(
+        array(&case.pinned_key.key_id),
+        array(&case.pinned_key.public_key),
+        case.pinned_key.first_height,
+        case.pinned_key.last_height,
+    );
+    if case.expected.verifier == "accepts" {
+        let raw_transaction = must(hex::decode(&case.raw_transaction));
+        let raw_hash: [u8; 32] = Keccak256::digest(&raw_transaction).into();
+        assert_eq!(
+            raw_hash == receipt.tx_hash,
+            case.expected.refused_at.as_deref() != Some("R4"),
+            "{}: R4 raw transaction hash binding",
+            case.id
+        );
+
+        let verified = must(verify_sequencer_signature(
+            &view.receipt,
+            ReceiptKeys::HeightRanges(&[pin]),
+        ));
+        let protocol = verified
+            .protocol()
+            .unwrap_or_else(|| panic!("{}: missing protocol receipt", case.id));
+        let previous_hash: [u8; 32] = array(&case.prev_seq_hash);
+        let mut sequence_hash = Sha256::new();
+        sequence_hash.update(b"PAXEER/v1/sequence\0");
+        sequence_hash.update(previous_hash);
+        sequence_hash.update(protocol.global_sequence().to_be_bytes());
+        sequence_hash.update(protocol.activity_id());
+        let resulting_hash: [u8; 32] = sequence_hash.finalize().into();
+        assert_eq!(
+            protocol.previous_state_root() == previous_hash
+                && protocol.resulting_state_root() == resulting_hash,
+            case.expected.refused_at.as_deref() != Some("R6"),
+            "{}: R6 sequence hash chain",
+            case.id
+        );
+    }
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
     }
 }

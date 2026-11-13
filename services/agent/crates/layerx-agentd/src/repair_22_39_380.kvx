@@ -1,0 +1,1138 @@
+[repair]
+task = "22.39.380"
+baseline_revision = "6e50fba5bf0fb03d74f7cccee16b2ace9ea1c253"
+baseline_lint_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings"
+baseline_lint_exit = 101
+baseline_lint_log = "/tmp/lint-22-39-380-baseline.log"
+baseline_scoped_messages = 139
+baseline_unit_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+baseline_unit_exit = 101
+baseline_unit_log = "/tmp/test-22-39-380-baseline.log"
+baseline_passed = 334
+baseline_failed = 3
+baseline_ignored = 0
+baseline_failed_cases = ["agent_rpc_dispatch::middleware_submission_contract_tests::receipt_reference_reaches_recovery_consumer", "outbound_tls::private_ca_checks_the_actual_server_identity", "ops::program::simulation_tls_checks_the_actual_server_identity"]
+
+after_unit_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+after_unit_exit = 101
+after_unit_log = "/tmp/test-22-39-380-after.log"
+after_passed = 334
+after_failed = 3
+after_ignored = 0
+after_failed_cases = ["agent_rpc_dispatch::middleware_submission_contract_tests::receipt_reference_reaches_recovery_consumer", "outbound_tls::private_ca_checks_the_actual_server_identity", "ops::program::simulation_tls_checks_the_actual_server_identity"]
+final_lint_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings"
+final_lint_log = "/tmp/lint-22-39-380-work5.log"
+final_scoped_messages = 0
+qualified_revision_evidence = "The hf-build and hf-done receipts in /out/run/gates.jsonl identify the exact candidate revision, command, exit and private log; qualification requires both receipts on the same revision."
+
+[message.1]
+file = "enrolment.rs"
+line = 1656
+column = 13
+lint = "clippy::similar_names"
+observed = "binding's name is too similar to existing binding"
+repair = "Renamed the publisher binding to binding_publisher."
+
+[message.2]
+file = "ops/program.rs"
+line = 766
+column = 9
+lint = "unused_imports"
+observed = "unused import: `super::ProgramSimulationTransport`"
+repair = "Removed the unused trait import from the test module."
+
+[message.3]
+file = "ops/program.rs"
+line = 792
+column = 16
+lint = "dead_code"
+observed = "fields `program_id` and `guest_abi_version` are never read"
+repair = "Removed the test-only item after checking the daemon and host source for callers."
+
+[message.4]
+file = "protocol_evidence.rs"
+line = 1749
+column = 5
+lint = "dead_code"
+observed = "field `operation` is never read"
+repair = "Removed the test-only item after checking the daemon and host source for callers."
+
+[message.5]
+file = "protocol_evidence.rs"
+line = 1812
+column = 14
+lint = "dead_code"
+observed = "method `operation` is never used"
+repair = "Removed the test-only item after checking the daemon and host source for callers."
+
+[message.6]
+file = "session_control.rs"
+line = 3109
+column = 8
+lint = "dead_code"
+observed = "function `activity_type` is never used"
+repair = "Removed the test-only item after checking the daemon and host source for callers."
+
+[message.7]
+file = "tenant.rs"
+line = 713
+column = 21
+lint = "dead_code"
+observed = "function `target_owner` is never used"
+repair = "Removed the test-only item after checking the daemon and host source for callers."
+
+[message.8]
+file = "config.rs"
+line = 841
+column = 1
+lint = "clippy::items_after_test_module"
+observed = "items after a test module"
+repair = "Moved the test module to the end of the file without changing its cases."
+
+[message.9]
+file = "config.rs"
+line = 907
+column = 66
+lint = "clippy::single_char_pattern"
+observed = "single-character string constant used as pattern: help: consider using a `char`: `'{'`"
+repair = "Used a character pattern for the replacement."
+
+[message.10]
+file = "enrolment.rs"
+line = 1897
+column = 27
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.11]
+file = "enrolment.rs"
+line = 1909
+column = 25
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.12]
+file = "ops/program.rs"
+line = 434
+column = 29
+lint = "clippy::used_underscore_binding"
+observed = "used underscore-prefixed binding"
+repair = "Renamed the binding to correlation_id and consumed it in the non-test build."
+
+[message.13]
+file = "ops/program.rs"
+line = 771
+column = 13
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.14]
+file = "ops/program.rs"
+line = 774
+column = 13
+lint = "clippy::expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.15]
+file = "ops/program.rs"
+line = 775
+column = 28
+lint = "clippy::borrow_as_ptr"
+observed = "borrow as raw pointer: help: try: `&raw const endpoint`"
+repair = "Used an explicit raw const borrow."
+
+[message.16]
+file = "ops/program.rs"
+line = 2158
+column = 24
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.17]
+file = "ops/program.rs"
+line = 2159
+column = 9
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.18]
+file = "ops/program.rs"
+line = 2161
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.19]
+file = "ops/program.rs"
+line = 2161
+column = 58
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.20]
+file = "ops/program.rs"
+line = 2174
+column = 29
+lint = "clippy::semicolon_if_nothing_returned"
+observed = "consider adding a `;` to the last statement for consistent formatting: help: add a `;` here: `std::thread::sleep(Duration::from_millis(2));`"
+repair = "Terminated the sleep statement with a semicolon."
+
+[message.21]
+file = "ops/program.rs"
+line = 2179
+column = 17
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.22]
+file = "ops/program.rs"
+line = 2182
+column = 17
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.23]
+file = "ops/program.rs"
+line = 2189
+column = 32
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.24]
+file = "ops/program.rs"
+line = 2194
+column = 39
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.25]
+file = "ops/program.rs"
+line = 2197
+column = 40
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.26]
+file = "ops/program.rs"
+line = 2198
+column = 17
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.27]
+file = "ops/program.rs"
+line = 2199
+column = 38
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.28]
+file = "ops/program.rs"
+line = 2202
+column = 34
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.29]
+file = "ops/program.rs"
+line = 2205
+column = 30
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.30]
+file = "ops/program.rs"
+line = 2207
+column = 17
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.31]
+file = "ops/program.rs"
+line = 2222
+column = 9
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.32]
+file = "ops/program.rs"
+line = 2222
+column = 31
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.33]
+file = "ops/program.rs"
+line = 2224
+column = 15
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.34]
+file = "ops/program.rs"
+line = 2230
+column = 28
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.35]
+file = "ops/program.rs"
+line = 2235
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.36]
+file = "ops/program.rs"
+line = 2236
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.37]
+file = "ops/program.rs"
+line = 2246
+column = 20
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.38]
+file = "ops/program.rs"
+line = 2248
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.39]
+file = "ops/program.rs"
+line = 2256
+column = 19
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.40]
+file = "ops/program.rs"
+line = 2258
+column = 19
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.41]
+file = "ops/program.rs"
+line = 2259
+column = 30
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.42]
+file = "ops/program.rs"
+line = 2261
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.43]
+file = "ops/program.rs"
+line = 2286
+column = 9
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.44]
+file = "ops/program.rs"
+line = 2349
+column = 26
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.45]
+file = "ops/program.rs"
+line = 2350
+column = 36
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.46]
+file = "ops/program.rs"
+line = 2382
+column = 13
+lint = "clippy::wildcard_enum_match_arm"
+observed = "wildcard matches only a single variant and will also match any future added variants: help: try: `other @ ProgramSimulationEvidence::SequencerSigned { .. }`"
+repair = "Matched SequencerSigned explicitly while retaining the failure assertion."
+
+[message.47]
+file = "ops/program.rs"
+line = 2384
+column = 24
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.48]
+file = "ops/program.rs"
+line = 2399
+column = 20
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.49]
+file = "ops/program.rs"
+line = 2409
+column = 23
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.50]
+file = "ops/program.rs"
+line = 2410
+column = 25
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.51]
+file = "ops/program.rs"
+line = 2416
+column = 24
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.52]
+file = "ops/program.rs"
+line = 2443
+column = 23
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.53]
+file = "ops/program.rs"
+line = 2444
+column = 25
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.54]
+file = "ops/program.rs"
+line = 2457
+column = 20
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.55]
+file = "ops/program.rs"
+line = 2512
+column = 28
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.56]
+file = "ops/program.rs"
+line = 2526
+column = 20
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.57]
+file = "ops/program.rs"
+line = 2529
+column = 5
+lint = "clippy::too_many_lines"
+observed = "this function has too many lines (102/100)"
+repair = "Split the case into same-file helpers while retaining the test entry point and every assertion in its original order."
+
+[message.58]
+file = "ops/program.rs"
+line = 2539
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.59]
+file = "ops/program.rs"
+line = 2540
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.60]
+file = "ops/program.rs"
+line = 2541
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.61]
+file = "ops/program.rs"
+line = 2542
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.62]
+file = "ops/program.rs"
+line = 2543
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.63]
+file = "ops/program.rs"
+line = 2544
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.64]
+file = "ops/program.rs"
+line = 2545
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.65]
+file = "ops/program.rs"
+line = 2546
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.66]
+file = "ops/program.rs"
+line = 2547
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.67]
+file = "ops/program.rs"
+line = 2548
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.68]
+file = "ops/program.rs"
+line = 2549
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.69]
+file = "ops/program.rs"
+line = 2567
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.70]
+file = "ops/program.rs"
+line = 2568
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.71]
+file = "ops/program.rs"
+line = 2569
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.72]
+file = "ops/program.rs"
+line = 2570
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.73]
+file = "ops/program.rs"
+line = 2571
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.74]
+file = "ops/program.rs"
+line = 2572
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.75]
+file = "ops/program.rs"
+line = 2573
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.76]
+file = "ops/program.rs"
+line = 2574
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.77]
+file = "ops/program.rs"
+line = 2575
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.78]
+file = "ops/program.rs"
+line = 2576
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.79]
+file = "ops/program.rs"
+line = 2577
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.80]
+file = "ops/program.rs"
+line = 2578
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.81]
+file = "ops/program.rs"
+line = 2579
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.82]
+file = "ops/program.rs"
+line = 2580
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.83]
+file = "ops/program.rs"
+line = 2581
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.84]
+file = "ops/program.rs"
+line = 2582
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.85]
+file = "ops/program.rs"
+line = 2583
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.86]
+file = "ops/program.rs"
+line = 2584
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.87]
+file = "ops/program.rs"
+line = 2585
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.88]
+file = "ops/program.rs"
+line = 2586
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.89]
+file = "ops/program.rs"
+line = 2587
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.90]
+file = "ops/program.rs"
+line = 2588
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.91]
+file = "ops/program.rs"
+line = 2589
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.92]
+file = "ops/program.rs"
+line = 2590
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.93]
+file = "ops/program.rs"
+line = 2591
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.94]
+file = "ops/program.rs"
+line = 2592
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.95]
+file = "ops/program.rs"
+line = 2593
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.96]
+file = "ops/program.rs"
+line = 2594
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.97]
+file = "ops/program.rs"
+line = 2595
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.98]
+file = "ops/program.rs"
+line = 2596
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.99]
+file = "ops/program.rs"
+line = 2597
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.100]
+file = "ops/program.rs"
+line = 2598
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.101]
+file = "ops/program.rs"
+line = 2599
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.102]
+file = "ops/program.rs"
+line = 2600
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.103]
+file = "ops/program.rs"
+line = 2601
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.104]
+file = "ops/program.rs"
+line = 2602
+column = 13
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.105]
+file = "ops/program.rs"
+line = 2604
+column = 17
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.106]
+file = "ops/program.rs"
+line = 2610
+column = 20
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.107]
+file = "ops/program.rs"
+line = 2619
+column = 9
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.108]
+file = "ops/program.rs"
+line = 2640
+column = 26
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.109]
+file = "ops/program.rs"
+line = 2646
+column = 36
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.110]
+file = "ops/program.rs"
+line = 2660
+column = 29
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.111]
+file = "ops/program.rs"
+line = 2662
+column = 21
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.112]
+file = "ops/program.rs"
+line = 2676
+column = 29
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.113]
+file = "ops/program.rs"
+line = 2686
+column = 27
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.114]
+file = "ops/program.rs"
+line = 2687
+column = 28
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.115]
+file = "ops/program.rs"
+line = 2691
+column = 28
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.116]
+file = "ops/program.rs"
+line = 2712
+column = 23
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.117]
+file = "ops/program.rs"
+line = 2713
+column = 25
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.118]
+file = "ops/program.rs"
+line = 2714
+column = 20
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.119]
+file = "ops/program.rs"
+line = 2721
+column = 24
+lint = "clippy::unwrap_used"
+observed = "used `unwrap()` on a `Result` value"
+repair = "Converted the fallible test operation to Result propagation with ? or asserted the required Option through ok_or; retained the original assertions."
+
+[message.120]
+file = "outbox/mod.rs"
+line = 876
+column = 1
+lint = "clippy::items_after_test_module"
+observed = "items after a test module"
+repair = "Moved the test module to the end of the file without changing its cases."
+
+[message.121]
+file = "protocol_evidence_native_tests.rs"
+line = 59
+column = 1
+lint = "clippy::too_many_lines"
+observed = "this function has too many lines (101/100)"
+repair = "Split the case into same-file helpers while retaining the test entry point and every assertion in its original order."
+
+[message.122]
+file = "protocol_evidence_native_tests.rs"
+line = 185
+column = 16
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.123]
+file = "protocol_evidence_native_tests.rs"
+line = 191
+column = 26
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.124]
+file = "protocol_evidence_native_tests.rs"
+line = 249
+column = 36
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.125]
+file = "protocol_evidence_native_tests.rs"
+line = 250
+column = 40
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.126]
+file = "protocol_evidence_native_tests.rs"
+line = 251
+column = 23
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.127]
+file = "protocol_evidence_native_tests.rs"
+line = 252
+column = 22
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.128]
+file = "protocol_evidence_native_tests.rs"
+line = 277
+column = 1
+lint = "clippy::too_many_lines"
+observed = "this function has too many lines (198/100)"
+repair = "Split the case into same-file helpers while retaining the test entry point and every assertion in its original order."
+
+[message.129]
+file = "protocol_evidence_native_tests.rs"
+line = 295
+column = 40
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.130]
+file = "protocol_evidence_native_tests.rs"
+line = 351
+column = 36
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.131]
+file = "protocol_evidence_native_tests.rs"
+line = 430
+column = 9
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.132]
+file = "protocol_evidence_native_tests.rs"
+line = 446
+column = 18
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.133]
+file = "protocol_evidence_native_tests.rs"
+line = 448
+column = 20
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.134]
+file = "protocol_evidence_native_tests.rs"
+line = 458
+column = 9
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.135]
+file = "protocol_evidence_native_tests.rs"
+line = 461
+column = 20
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."
+
+[message.136]
+file = "protocol_evidence.rs"
+line = 2399
+column = 9
+lint = "clippy::items_after_statements"
+observed = "adding items after statements is confusing, since items exist from the start of the scope"
+repair = "Moved the trait import to the start of the function."
+
+[message.137]
+file = "protocol_evidence.rs"
+line = 2393
+column = 13
+lint = "clippy::cast_possible_wrap"
+observed = "casting `u64` to `i64` may wrap around the value"
+repair = "Used checked i64 conversion for the fixture timestamp."
+
+[message.138]
+file = "protocol_evidence.rs"
+line = 2402
+column = 63
+lint = "clippy::cast_possible_truncation"
+observed = "casting `usize` to `u8` may truncate the value"
+repair = "Used checked u8 conversion for the bounded vote index."
+
+[message.139]
+file = "protocol_evidence.rs"
+line = 2552
+column = 17
+lint = "clippy::expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Converted the fallible test operation to Result propagation with ? or required the Option through an explicit match or ok_or; retained the original assertions."

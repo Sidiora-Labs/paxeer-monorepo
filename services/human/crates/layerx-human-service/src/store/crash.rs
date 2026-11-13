@@ -26,7 +26,10 @@ thread_local! {
 
 /// Records real operations and optionally interrupts after a numbered boundary.
 /// Dropping the harness disarms it; no filesystem operations run on drop.
-pub struct StorageCrashHarness(std::marker::PhantomData<std::rc::Rc<()>>);
+pub struct StorageCrashHarness {
+    thread: std::thread::ThreadId,
+    _not_send: std::marker::PhantomData<std::rc::Rc<()>>,
+}
 
 impl StorageCrashHarness {
     /// Arms this thread. `stop_after` is one-based; `None` only records.
@@ -44,12 +47,19 @@ impl StorageCrashHarness {
                 steps: Vec::new(),
             });
         });
-        Self(std::marker::PhantomData)
+        Self {
+            thread: std::thread::current().id(),
+            _not_send: std::marker::PhantomData,
+        }
     }
 
     /// Returns completed operations on this thread.
+    ///
+    /// # Panics
+    /// Panics if the harness is read on another thread.
     #[must_use]
     pub fn steps(&self) -> Vec<DurabilityStep> {
+        assert_eq!(std::thread::current().id(), self.thread);
         RECORDING.with(|recording| {
             recording
                 .borrow()

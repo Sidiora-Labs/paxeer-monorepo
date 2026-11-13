@@ -302,10 +302,13 @@ impl OrderSnapshot {
     }
 
     /// Maintained GET order envelope. Journal keys stay unchanged for replay compatibility.
+    ///
+    /// # Panics
+    /// Panics if the fixed presentation cannot be serialized.
     #[must_use]
     pub fn response(&self) -> serde_json::Value {
-        let presentation =
-            serde_json::to_value(self.presentation()).expect("serializable presentation");
+        let presentation = serde_json::to_value(self.presentation())
+            .unwrap_or_else(|error| panic!("presentation serialization: {error}"));
         serde_json::json!({
             "version": 2,
             "order_id": self.order.order_id,
@@ -454,8 +457,8 @@ impl Projection {
                 confirmations,
                 rung,
                 block_height,
-            } => match rung {
-                Some(rung) => {
+            } => {
+                if let Some(rung) = rung {
                     if stage != rung.name() || *confirmations != 0 {
                         return Err(RampError::Paxeer);
                     }
@@ -469,8 +472,7 @@ impl Projection {
                             block_height: *block_height,
                         },
                     )
-                }
-                None => {
+                } else {
                     if block_height.is_some() {
                         return Err(RampError::Paxeer);
                     }
@@ -483,7 +485,7 @@ impl Projection {
                         *confirmations,
                     )
                 }
-            },
+            }
         }
     }
 
@@ -600,7 +602,10 @@ impl Projection {
             return Err(RampError::IllegalTransition);
         }
         snapshot.stage = WorkflowStage::SourceSettledV2;
-        Ok(StagedMutation::Source(settlement.clone(), snapshot))
+        Ok(StagedMutation::Source(
+            settlement.clone(),
+            Box::new(snapshot),
+        ))
     }
 
     fn stage_paxeer_planned(
@@ -669,7 +674,7 @@ impl Projection {
         }
         snapshot.operation_id = Some(observation.operation_id.to_owned());
         snapshot.transaction_hash = Some(observation.transaction_hash);
-        snapshot.stage = observation.rung.name().to_owned();
+        observation.rung.name().clone_into(&mut snapshot.stage);
         snapshot.rung = Some(observation.rung);
         snapshot.block_hash = observation.block_hash;
         snapshot.block_height = observation.block_height;
@@ -773,7 +778,7 @@ impl Projection {
                     .insert(settlement.order_digest, settlement.source_claim_id);
                 self.source_claims
                     .insert(settlement.source_claim_id, settlement);
-                self.orders.insert(snapshot.order.order_digest, snapshot);
+                self.orders.insert(snapshot.order.order_digest, *snapshot);
             }
             StagedMutation::Paxeer(snapshot) => {
                 self.paxeer.insert(snapshot.idempotency_key, snapshot);
@@ -864,7 +869,7 @@ enum StagedMutation {
     CreateOrder(OrderSnapshot),
     UpdateOrder(OrderSnapshot),
     Callback(StagedCallback),
-    Source(SourceSettlementRecordV2, OrderSnapshot),
+    Source(SourceSettlementRecordV2, Box<OrderSnapshot>),
     Paxeer(PaxeerSnapshot),
 }
 
@@ -916,17 +921,31 @@ pub struct JournalHealth {
     pub ready: bool,
     pub writer_held: bool,
     pub halted: bool,
+    #[serde(flatten)]
+    pub flags: JournalHealthFlags,
+    pub record_count: u64,
+    pub durable_bytes: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct JournalHealthFlags {
     pub uncertain_write: bool,
     pub recovery_required: bool,
     pub torn_tail: bool,
-    pub record_count: u64,
-    pub durable_bytes: u64,
+}
+
+impl std::ops::Deref for JournalHealth {
+    type Target = JournalHealthFlags;
+
+    fn deref(&self) -> &Self::Target {
+        &self.flags
+    }
 }
 
 pub struct Journal {
     path: std::path::PathBuf,
     intent_path: std::path::PathBuf,
-    _lock: LockClaim,
+    lock: LockClaim,
     file: File,
     durable_len: u64,
     durable_modified: Option<std::time::SystemTime>,
@@ -955,7 +974,7 @@ impl Journal {
                 value.push(".append-intent");
                 value.into()
             },
-            _lock: lock,
+            lock,
             file: reader.try_clone().map_err(|_| RampError::Journal)?,
             durable_len: 0,
             durable_modified: None,
@@ -1063,6 +1082,7 @@ impl Journal {
         Ok(())
     }
 
+    #[must_use]
     pub fn health(&self) -> JournalHealth {
         let uncertain = self.has_intent().unwrap_or(true);
         let durable = same_file(&self.file, &self.path)
@@ -1070,7 +1090,7 @@ impl Journal {
                 metadata.len() == self.durable_len
                     && metadata.modified().ok() == self.durable_modified
             });
-        let writer_held = self._lock.held();
+        let writer_held = self.lock.held();
         let ready = !self.legacy
             && !self.halted
             && !uncertain
@@ -1081,20 +1101,24 @@ impl Journal {
             ready,
             writer_held,
             halted: self.legacy || self.halted || !durable || uncertain,
-            uncertain_write: uncertain || !durable,
-            recovery_required: !ready,
-            torn_tail: self.recovery.is_some(),
+            flags: JournalHealthFlags {
+                uncertain_write: uncertain || !durable,
+                recovery_required: !ready,
+                torn_tail: self.recovery.is_some(),
+            },
             record_count: self.next_sequence,
             durable_bytes: self.durable_len,
         }
     }
 
+    /// # Errors
+    /// Returns an error if journal ownership, durable records, or the supplied verification fails.
     pub fn recover_verified<F>(&mut self, verify: F) -> Result<(), RampError>
     where
         F: FnOnce(&Projection) -> Result<(), RampError>,
     {
         self.halted = true;
-        if !self._lock.held() || !same_file(&self.file, &self.path) {
+        if !self.lock.held() || !same_file(&self.file, &self.path) {
             return Err(RampError::Journal);
         }
         self.reload()?;
@@ -1162,7 +1186,7 @@ impl Journal {
         }
         verify(&verified_projection)?;
         let current = self.file.metadata().map_err(|_| RampError::Journal)?;
-        if !self._lock.held()
+        if !self.lock.held()
             || !same_file(&self.file, &self.path)
             || current.len() != observed.len()
             || current.modified().map_err(|_| RampError::Journal)? != observed_modified
@@ -1381,6 +1405,8 @@ impl Journal {
         self.projection.source_settlement(order_digest)
     }
 
+    /// # Errors
+    /// Returns an error if the settlement conflicts with retained order state or its append fails.
     pub fn apply_source_settlement(
         &mut self,
         verified: crate::migration::VerifiedSourceSettlement,
@@ -1698,25 +1724,18 @@ impl Journal {
         }
         match self.write_record(&bytes) {
             Ok(()) => {}
-            Err(WriteFailure::Failed) => {
-                self.halted = true;
-                return Err(RampError::Journal);
-            }
-            Err(WriteFailure::Interrupted) => {
+            Err(WriteFailure::Failed | WriteFailure::Interrupted) => {
                 self.halted = true;
                 return Err(RampError::Journal);
             }
         }
-        let modified = match self
+        let Ok(modified) = self
             .file
             .metadata()
             .and_then(|metadata| metadata.modified())
-        {
-            Ok(modified) => modified,
-            Err(_) => {
-                self.halted = true;
-                return Err(RampError::Journal);
-            }
+        else {
+            self.halted = true;
+            return Err(RampError::Journal);
         };
         if self.clear_intent().is_err() {
             self.halted = true;
@@ -1805,12 +1824,12 @@ fn same_file(file: &File, path: &Path) -> bool {
 struct LockClaim {
     identity_path: std::path::PathBuf,
     path: Option<std::path::PathBuf>,
-    _file: File,
+    file: File,
 }
 
 impl LockClaim {
     fn held(&self) -> bool {
-        same_file(&self._file, &self.identity_path)
+        same_file(&self.file, &self.identity_path)
     }
 
     fn acquire(journal: &Path) -> Result<Self, RampError> {
@@ -1822,7 +1841,7 @@ impl LockClaim {
         Ok(Self {
             identity_path: path.clone(),
             path: if cfg!(unix) { None } else { Some(path) },
-            _file: file,
+            file,
         })
     }
 }
@@ -1885,11 +1904,11 @@ fn open_journal(path: &Path) -> Result<File, RampError> {
         .map_err(|_| RampError::Journal)
 }
 
-fn serialize_rung<S: serde::Serializer>(
-    rung: &Option<Rung>,
+fn serialize_rung<S: serde::Serializer, T: std::borrow::Borrow<Option<Rung>>>(
+    rung: T,
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
-    rung.map(Rung::name).serialize(serializer)
+    rung.borrow().map(Rung::name).serialize(serializer)
 }
 
 fn deserialize_rung<'de, D: serde::Deserializer<'de>>(

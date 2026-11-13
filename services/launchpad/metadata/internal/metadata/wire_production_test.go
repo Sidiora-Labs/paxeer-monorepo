@@ -161,3 +161,34 @@ func TestProductionFrozenForeignContentURL(t *testing.T) {
 		t.Fatal("foreign content hash")
 	}
 }
+
+func TestProductionFrozenMetadataFieldValidation(t *testing.T) {
+	now := time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC)
+	id := "11111111-1111-1111-1111-111111111111"
+	address := "0x" + strings.Repeat("1", 40)
+	for _, tc := range []struct {
+		name, address, nameValue, symbol, revision, description string
+		tags                                                    []string
+		supply, logo                                            *string
+	}{
+		{name: "invalid address", address: "invalid", revision: "1", description: "description"},
+		{name: "invalid revision", address: address, revision: "invalid", description: "description"},
+		{name: "invalid name", address: address, nameValue: strings.Repeat("n", 101), revision: "1", description: "description"},
+		{name: "invalid symbol", address: address, symbol: strings.Repeat("s", 17), revision: "1", description: "description"},
+		{name: "empty tag", address: address, revision: "1", description: "description", tags: []string{""}},
+		{name: "invalid supply", address: address, revision: "1", description: "description", supply: ptrString("invalid")},
+		{name: "invalid logo", address: address, revision: "1", description: "description", logo: ptrString("invalid")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := MetadataResponse(id, tc.address, tc.nameValue, tc.symbol, tc.description, tc.revision, tc.tags, nil, tc.supply, tc.logo, now); err != ErrUnrepresentable {
+				t.Fatalf("metadata field validation = %v", err)
+			}
+		})
+	}
+	result, err := MetadataResponse(id, address, "Token", "TKN", "Description", "2", []string{"art", "media"}, nil, nil, nil, now)
+	if err != nil || result.Data.Token.Name != "Token" || result.Data.Token.Symbol != "TKN" || strings.Join(result.Data.Tags, ",") != "art,media" {
+		t.Fatalf("metadata fields = %+v, %v", result.Data, err)
+	}
+}
+
+func ptrString(value string) *string { return &value }

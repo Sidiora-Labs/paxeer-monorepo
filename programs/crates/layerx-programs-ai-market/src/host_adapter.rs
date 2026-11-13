@@ -32,14 +32,14 @@ mod wasm {
     use super::*;
     use crate::types::GuestIndex as _;
     use crate::{
-        codec, dispatch::Operation, errors::*, state, types::*, MAX_EVENTS, MAX_STATE_BYTES,
-        SHARED_STATE_KEY,
+        MAX_EVENTS, MAX_STATE_BYTES, SHARED_STATE_KEY, codec, dispatch::Operation, errors::*,
+        state, types::*,
     };
+    use layerx_program_sdk::{Context, EventData, EventTopic, StorageValue};
     use layerx_program_sdk::{
         crypto,
         storage::shared::{self, SharedStorageKey},
     };
-    use layerx_program_sdk::{Context, EventData, EventTopic, StorageValue};
 
     pub struct DirectCall {
         program: ProgramId,

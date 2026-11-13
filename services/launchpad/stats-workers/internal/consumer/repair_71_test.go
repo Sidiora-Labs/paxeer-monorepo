@@ -139,7 +139,7 @@ func newRepair71Fixture(t *testing.T) *repair71Fixture {
 	f.dsn, f.pg = internaltest.NewPostgresWithDSN(t)
 	f.exec(t, "CREATE SCHEMA indexer")
 	for _, id := range []string{"60000", "80000", "190001"} {
-		ddl, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "launchpad", "spec", "production-system", "integration", "migrations", id+".sql"))
+		ddl, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "migrations", id+".sql"))
 		if err != nil {
 			t.Fatal(err)
 		}

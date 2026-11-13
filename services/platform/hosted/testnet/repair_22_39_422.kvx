@@ -1,0 +1,19 @@
+[meta]
+name = "Testnet platform lint"
+member = "layerx-platform-testnet"
+
+[lint.too_many_lines]
+file = "services/platform/hosted/testnet/tests/repair_22_31_351.rs"
+product = "The signed transaction journey runs the testnet control binary and checks its chain parameters and transaction signature."
+
+[lint.dead_code]
+file = "services/platform/hosted/testnet/tests/repair_22_33_1449.rs"
+product = "The control contract test includes the control binary entrypoint and exercises its readiness producer."
+
+[lint.no_effect_underscore_binding]
+file = "services/platform/hosted/testnet/tests/repair_22_33_1449.rs"
+product = "The control contract test references the included control binary entrypoint."
+
+[lint.unwrap_used]
+file = "services/platform/hosted/testnet/tests/repair_22_33_1449.rs"
+product = "The README contract tests report missing smoke script inputs as test errors."

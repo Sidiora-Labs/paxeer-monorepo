@@ -1,8 +1,9 @@
 #[path = "support/repair_22_33_44_kms.rs"]
 mod in_process_gateway;
 
-#[path = "support/repair_22_33_44_clock.rs"]
-mod runtime_clock;
+pub mod runtime_clock {
+    include!("support/repair_22_33_44_clock.rs");
+}
 
 use std::error::Error;
 use std::fs;
@@ -47,6 +48,19 @@ impl Drop for Process {
         let _ = self.0.kill();
         let _ = self.0.wait();
     }
+}
+
+fn bind_clock_command(authority: &runtime_clock::ClockAuthority, command: &mut Command) {
+    command
+        .env("LAYERX_RUNTIME_CLOCK_SOCKET", &authority.binding.socket)
+        .env(
+            "LAYERX_RUNTIME_CLOCK_PID",
+            authority.binding.process.to_string(),
+        )
+        .env(
+            "LAYERX_RUNTIME_CLOCK_UID",
+            authority.binding.user.to_string(),
+        );
 }
 
 struct Fixture(PathBuf, Arc<StepClock>, runtime_clock::ClockAuthority);
@@ -181,7 +195,7 @@ impl Fixture {
     fn gateway(&self, address: SocketAddr, backend: SocketAddr) -> TestResult<Process> {
         let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-human-kms-gateway"));
         command.env_clear();
-        self.2.bind_command(&mut command);
+        bind_clock_command(&self.2, &mut command);
         for (suffix, value) in [
             ("PROVIDER_KIND", "remote-lxkp".to_owned()),
             ("LISTEN", address.to_string()),
@@ -253,7 +267,7 @@ impl Fixture {
         ] {
             command.env(format!("LAYERX_HUMAN_KMS_{suffix}"), self.0.join(file));
         }
-        self.2.bind_command(&mut command);
+        bind_clock_command(&self.2, &mut command);
         self.spawn(command, "backend.log")
     }
 
@@ -372,4 +386,8 @@ fn kms_gateway_starts_with_a_chain_snapshot_document() -> TestResult {
     fixture.probe(address, "service")?;
     assert!(gateway.0.try_wait()?.is_none());
     Ok(())
+}
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

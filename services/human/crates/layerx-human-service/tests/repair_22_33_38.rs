@@ -1,24 +1,24 @@
 //! Task record 22.33.38, audit 22.30.103, acceptance 22998.1.
-//! gateway-operation-deadline: gateway_operation_deadline_bounds_real_delayed_transport.
-//! custody-read-bound: custody_read_bound_and_protected_descriptor.
-//! custody-temp-recovery: custody_temp_recovery_before_link_rename_and_unlink.
-//! sessions-state-restart: sessions_state_restart_recovers_install_suspend_and_revoke.
-//! session-renewal-orphan: session_renewal_orphan_resumes_exact_replacement.
-//! session-second-rotation: session_second_rotation_and_retry_after_lapse.
-//! session-production-driver: session_production_driver_renews_and_recovers_through_maintenance.
+//! gateway-operation-deadline: `gateway_operation_deadline_bounds_real_delayed_transport`.
+//! custody-read-bound: `custody_read_bound_and_protected_descriptor`.
+//! custody-temp-recovery: `custody_temp_recovery_before_link_rename_and_unlink`.
+//! sessions-state-restart: `sessions_state_restart_recovers_install_suspend_and_revoke`.
+//! session-renewal-orphan: `session_renewal_orphan_resumes_exact_replacement`.
+//! session-second-rotation: `session_second_rotation_and_retry_after_lapse`.
+//! session-production-driver: `session_production_driver_renews_and_recovers_through_maintenance`.
 //! Baseline not run: the explicit gate order forbids verification before implementation.
-//! Wiring request (Human domain 10): src/server/production_components.rs must compose the durable SessionLifecycleDriver with its ComponentMaintenance owner, replacing the dormant non-durable helper; src/server/agent_runtime.rs and the agent daemon owner must implement AgentSessionContract with authoritative recover_provision/recover_rotation and idempotent exact-target suspend/revoke; production daemon scheduling remains outside this scope.
-//! Wiring request (Human domain 10): src/bin/layerx-human-kms-gateway.rs must supply the authenticated ClientConfig through RemoteKmsProvider::with_deadline_transport; providers without that transport now refuse bounded dispatch.
+//! Wiring request (Human domain 10): `src/server/production_components.rs` must compose the durable `SessionLifecycleDriver` with its `ComponentMaintenance` owner, replacing the dormant non-durable helper; `src/server/agent_runtime.rs` and the agent daemon owner must implement `AgentSessionContract` with authoritative `recover_provision/recover_rotation` and idempotent exact-target suspend/revoke; production daemon scheduling remains outside this scope.
+//! Wiring request (Human domain 10): src/bin/layerx-human-kms-gateway.rs must supply the authenticated `ClientConfig` through `RemoteKmsProvider::with_deadline_transport`; providers without that transport now refuse bounded dispatch.
 //! The user forbids spec edits; this integration module is the finding-to-test task record.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::net::{SocketAddr, TcpListener};
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
@@ -29,8 +29,6 @@ use layerx_agentd::session::{
 };
 use layerx_agentd::sign::ProvisionedSessionKey;
 use layerx_agentd::store::{Store, TenantId};
-use layerx_crypto::local::LocalSigner;
-use layerx_crypto::signer::Signer as _;
 use layerx_human_service::custody::*;
 use layerx_human_service::frame::{
     read_frame, write_frame, ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls,
@@ -188,16 +186,40 @@ fn custody_temp_recovery_before_link_rename_and_unlink() -> Result {
     Ok(())
 }
 
-struct ElapsedClock(Instant, u64);
+struct ElapsedClock {
+    clock: std::sync::Mutex<Arc<layerx_client::runtime_clock::RuntimeClock>>,
+    start: ClockReading,
+    unix_milliseconds: u64,
+}
+impl ElapsedClock {
+    fn new(unix_milliseconds: u64) -> std::result::Result<Self, ClockError> {
+        let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()?;
+        let start = clock.sample(Duration::from_secs(1))?;
+        Ok(Self {
+            clock: std::sync::Mutex::new(clock),
+            start,
+            unix_milliseconds,
+        })
+    }
+}
 impl Clock for ElapsedClock {
     fn sample(&self, budget: Duration) -> std::result::Result<ClockReading, ClockError> {
         if budget.is_zero() {
             return Err(ClockError::Unavailable);
         }
-        let nanos = u64::try_from(self.0.elapsed().as_nanos()).map_err(|_| ClockError::Overflow)?;
+        let now = self
+            .clock
+            .lock()
+            .map_err(|_| ClockError::Unavailable)?
+            .sample(budget)?;
+        let nanos = u64::try_from(now.elapsed_since(self.start)?.as_nanos())
+            .map_err(|_| ClockError::Overflow)?;
         Ok(ClockReading {
-            generation: [1; 16],
-            unix_milliseconds: self.1 + nanos / 1_000_000,
+            generation: self.start.generation,
+            unix_milliseconds: self
+                .unix_milliseconds
+                .checked_add(nanos / 1_000_000)
+                .ok_or(ClockError::Overflow)?,
             monotonic_nanoseconds: nanos,
         })
     }
@@ -266,20 +288,19 @@ fn remote(address: SocketAddr, clock: Arc<dyn Clock>) -> RemoteKmsProvider {
     .with_deadline_transport(client_config())
 }
 
-#[test]
-fn gateway_operation_deadline_bounds_real_delayed_transport() -> Result {
-    let _ = rustls::crypto::ring::default_provider().install_default();
-    let clock: Arc<dyn Clock> = Arc::new(ElapsedClock(Instant::now(), 1_793_779_200_000));
-    let listener = TcpListener::bind("127.0.0.1:0")?;
-    let address = listener.local_addr()?;
-    let (arrival, arrivals) = std::sync::mpsc::channel();
-    let backend = std::thread::spawn(move || {
+fn start_delayed_backend(
+    listener: TcpListener,
+    arrival: std::sync::mpsc::Sender<ClockReading>,
+    clock: Arc<dyn Clock>,
+) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || {
         let mut workers = Vec::new();
         // The constructor probe succeeds; every relayed operation reaches a delayed TLS peer.
         for index in 0..8 {
             let (tcp, _) = checked(listener.accept());
             let config = server_config();
             let arrival = arrival.clone();
+            let clock = clock.clone();
             workers.push(std::thread::spawn(move || {
                 checked(tcp.set_read_timeout(Some(Duration::from_secs(2))));
                 checked(tcp.set_write_timeout(Some(Duration::from_secs(2))));
@@ -294,7 +315,7 @@ fn gateway_operation_deadline_bounds_real_delayed_transport() -> Result {
                     ));
                     checked(stream.flush());
                 } else {
-                    checked(arrival.send(Instant::now()));
+                    checked(arrival.send(checked(clock.sample(Duration::from_secs(1)))));
                     // Dribble a real codec response slowly: per-read relative timeouts
                     // would keep this worker alive beyond the operation budget.
                     let response = kms_wire::response(
@@ -303,7 +324,10 @@ fn gateway_operation_deadline_bounds_real_delayed_transport() -> Result {
                         Err(kms_wire::Error::Unavailable),
                     );
                     let bytes = [
-                        (response.len() as u32).to_be_bytes().as_slice(),
+                        u32::try_from(response.len())
+                            .unwrap_or_else(|_| panic!("response length fits u32"))
+                            .to_be_bytes()
+                            .as_slice(),
                         response.as_slice(),
                     ]
                     .concat();
@@ -323,7 +347,77 @@ fn gateway_operation_deadline_bounds_real_delayed_transport() -> Result {
         for worker in workers {
             checked(worker.join());
         }
-    });
+    })
+}
+
+fn request_operation(
+    operation: u8,
+    client: &RemoteKmsProvider,
+    binding: &PrincipalKeyBinding,
+    reference: &ProviderKeyReference,
+    front_address: SocketAddr,
+) -> std::result::Result<(), KmsError> {
+    match operation {
+        0 => client.probe(),
+        1 => client.create_key(binding).map(|_| ()),
+        2 => client.describe_key(binding, reference).map(|_| ()),
+        3 => client.rotate_key(binding, reference).map(|_| ()),
+        4 => client
+            .rotate_key_if_current(binding, reference, [0x22; 32])
+            .map(|_| ()),
+        5 => client.destroy_key(binding, reference),
+        _ => {
+            let key = checked(k256::ecdsa::SigningKey::from_slice(&[7; 32]));
+            let from = checked(layerx_crypto::secp256k1::evm_address(
+                key.verifying_key().to_encoded_point(false).as_bytes(),
+            ));
+            let mut to = [0; 20];
+            to[18..].copy_from_slice(&[0x10, 0x1a]);
+            let mut data =
+                layerx_crypto::disclosure::call::ledger_selector("openAccount(bytes32)").to_vec();
+            data.extend([3; 32]);
+            let call = layerx_crypto::evm_transaction::Eip1559Call {
+                chain_id: 77,
+                nonce: 0,
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 2,
+                gas_limit: 100_000,
+                to,
+                data,
+            };
+            let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call, from));
+            let frame = checked(client.encode_signing_request(
+                binding,
+                reference,
+                ProviderSignRequest::new(&call, &disclosure, from, [0x22; 32]),
+            ));
+            let gate = ConnectionGate::new(1);
+            let mut tls = checked(Tls::connect(
+                front_address,
+                checked("localhost".to_owned().try_into()),
+                &mutual_tls(),
+                &gate,
+                limits(),
+            ));
+            checked(tls.send(&frame));
+            let answer = checked(tls.receive());
+            assert_eq!(
+                answer,
+                kms_wire::response(7, 5, Err(kms_wire::Error::Unavailable))
+            );
+            Err(KmsError::Unavailable)
+        }
+    }
+}
+
+#[test]
+fn gateway_operation_deadline_bounds_real_delayed_transport() -> Result {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let clock: Arc<dyn Clock> = Arc::new(ElapsedClock::new(1_793_779_200_000)?);
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    let address = listener.local_addr()?;
+    let (arrival, arrivals) = std::sync::mpsc::channel();
+    let backend = start_delayed_backend(listener, arrival, clock.clone());
     let gateway = Arc::new(LxkpGateway::new(
         Arc::new(remote(address, clock.clone())),
         GatewayTls::new(CA, SERVER, &Zeroizing::new(SERVER_KEY.to_vec()), CLIENT)?,
@@ -352,73 +446,28 @@ fn gateway_operation_deadline_bounds_real_delayed_transport() -> Result {
             checked(serving.serve_connection(tcp));
         });
         let client = remote(front_address, clock.clone());
-        let start = Instant::now();
-        let result = match operation {
-            0 => client.probe().map(|_| ()),
-            1 => client.create_key(&binding).map(|_| ()),
-            2 => client.describe_key(&binding, &reference).map(|_| ()),
-            3 => client.rotate_key(&binding, &reference).map(|_| ()),
-            4 => client
-                .rotate_key_if_current(&binding, &reference, [0x22; 32])
-                .map(|_| ()),
-            5 => client.destroy_key(&binding, &reference),
-            _ => {
-                let key = checked(k256::ecdsa::SigningKey::from_slice(&[7; 32]));
-                let from = checked(layerx_crypto::secp256k1::evm_address(
-                    key.verifying_key().to_encoded_point(false).as_bytes(),
-                ));
-                let mut to = [0; 20];
-                to[18..].copy_from_slice(&[0x10, 0x1a]);
-                let mut data =
-                    layerx_crypto::disclosure::call::ledger_selector("openAccount(bytes32)")
-                        .to_vec();
-                data.extend([3; 32]);
-                let call = layerx_crypto::evm_transaction::Eip1559Call {
-                    chain_id: 77,
-                    nonce: 0,
-                    max_priority_fee_per_gas: 1,
-                    max_fee_per_gas: 2,
-                    gas_limit: 100000,
-                    to,
-                    data,
-                };
-                let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call, from));
-                let frame = checked(client.encode_signing_request(
-                    &binding,
-                    &reference,
-                    ProviderSignRequest::new(&call, &disclosure, from, [0x22; 32]),
-                ));
-                let gate = ConnectionGate::new(1);
-                let mut tls = checked(Tls::connect(
-                    front_address,
-                    checked("localhost".to_owned().try_into()),
-                    &mutual_tls(),
-                    &gate,
-                    limits(),
-                ));
-                checked(tls.send(&frame));
-                let answer = checked(tls.receive());
-                assert_eq!(
-                    answer,
-                    kms_wire::response(7, 5, Err(kms_wire::Error::Unavailable))
-                );
-                Err(KmsError::Unavailable)
-            }
-        };
+        let start = clock.sample(Duration::from_secs(1))?;
+        let result = request_operation(operation, &client, &binding, &reference, front_address);
         assert!(
             matches!(result, Err(KmsError::Unavailable)),
             "operation {operation}: {result:?}"
         );
         assert!(
-            start.elapsed() < Duration::from_millis(270),
+            clock.sample(Duration::from_secs(1))?.elapsed_since(start)?
+                < Duration::from_millis(270),
             "operation {operation} exceeded total gateway budget: {:?}",
-            start.elapsed()
+            clock.sample(Duration::from_secs(1))?.elapsed_since(start)?
         );
         let provider_started = checked(arrivals.recv_timeout(Duration::from_secs(1)));
         assert!(
-            provider_started.elapsed() < Duration::from_millis(155),
+            clock
+                .sample(Duration::from_secs(1))?
+                .elapsed_since(provider_started)?
+                < Duration::from_millis(155),
             "provider exceeded the 110ms absolute budget: {:?}",
-            provider_started.elapsed()
+            clock
+                .sample(Duration::from_secs(1))?
+                .elapsed_since(provider_started)?
         );
         checked(worker.join()); // A refusal also releases the sole gateway participant slot.
     }
@@ -492,7 +541,7 @@ impl AgentPeer {
         checked(self.sessions.restore_tenant(&self.store, &self.tenant));
         self
     }
-    fn scope(&self, p: &PrincipalId, d: &Did) -> std::result::Result<(), AgentContractError> {
+    fn scope(p: &PrincipalId, d: &Did) -> std::result::Result<(), AgentContractError> {
         if *p == principal() && *d == did() {
             Ok(())
         } else {
@@ -513,7 +562,7 @@ impl AgentPeer {
             .is_some_and(|record| record.open)
     }
     fn commit_rotation(&mut self) {
-        let (evidence, _, committed) = self.rotation.as_mut().expect("rotation");
+        let (evidence, _, committed) = self.rotation.as_mut().or_fail("rotation");
         assert!(self.now >= evidence.effective_at && self.now <= evidence.lapse_at);
         *committed = true;
         self.primary = evidence.pending_public_key;
@@ -525,7 +574,7 @@ impl AgentSessionContract for AgentPeer {
         &mut self,
         target: &SessionTarget,
     ) -> std::result::Result<SessionAuthorityObservation, AgentContractError> {
-        self.scope(&target.principal, &target.agent_did)?;
+        Self::scope(&target.principal, &target.agent_did)?;
         Ok(SessionAuthorityObservation {
             provision: self
                 .installs
@@ -542,7 +591,7 @@ impl AgentSessionContract for AgentPeer {
         p: &PrincipalId,
         d: &Did,
     ) -> std::result::Result<ProtocolIdentitySnapshot, AgentContractError> {
-        self.scope(p, d)?;
+        Self::scope(p, d)?;
         Ok(ProtocolIdentitySnapshot {
             protocol_identity: [0x42; 32],
             primary_public_key: self.primary,
@@ -558,7 +607,7 @@ impl AgentSessionContract for AgentPeer {
         d: &Did,
         id: [u8; 32],
     ) -> std::result::Result<Option<ProvisionEvidence>, AgentContractError> {
-        self.scope(p, d)?;
+        Self::scope(p, d)?;
         Ok(self.installs.get(&id).cloned())
     }
     fn provision_session(
@@ -566,7 +615,7 @@ impl AgentSessionContract for AgentPeer {
         request: AgentSessionProvision,
     ) -> std::result::Result<ProvisionEvidence, AgentContractError> {
         let (p, d, issued, scopes, policy_version, secret) = request.into_parts();
-        self.scope(&p, &d)?;
+        Self::scope(&p, &d)?;
         self.interrupt("before-install")?;
         assert!(
             !self.installs.contains_key(&issued.grant_id),
@@ -639,7 +688,7 @@ impl AgentSessionContract for AgentPeer {
         reason: RevocationReason,
         at: u64,
     ) -> std::result::Result<SuspensionEvidence, AgentContractError> {
-        self.scope(&target.principal, &target.agent_did)?;
+        Self::scope(&target.principal, &target.agent_did)?;
         if let Some(evidence) = self.suspensions.get(&target.grant_id) {
             return Ok(evidence.clone());
         }
@@ -671,7 +720,7 @@ impl AgentSessionContract for AgentPeer {
         reason: RevocationReason,
         at: u64,
     ) -> std::result::Result<RevocationEvidence, AgentContractError> {
-        self.scope(&target.principal, &target.agent_did)?;
+        Self::scope(&target.principal, &target.agent_did)?;
         if let Some(evidence) = self.revocations.get(&target.grant_id) {
             return Ok(evidence.clone());
         }
@@ -706,7 +755,7 @@ impl AgentSessionContract for AgentPeer {
         &mut self,
         submission: RotationSubmission,
     ) -> std::result::Result<RotationEvidence, AgentContractError> {
-        self.scope(&submission.principal, &submission.did)?;
+        Self::scope(&submission.principal, &submission.did)?;
         if self
             .rotation
             .as_ref()
@@ -746,7 +795,7 @@ impl AgentSessionContract for AgentPeer {
         d: &Did,
         payload: [u8; 32],
     ) -> std::result::Result<Option<RotationEvidence>, AgentContractError> {
-        self.scope(p, d)?;
+        Self::scope(p, d)?;
         Ok(self
             .rotation
             .as_ref()
@@ -758,7 +807,7 @@ impl AgentSessionContract for AgentPeer {
         p: &PrincipalId,
         d: &Did,
     ) -> std::result::Result<RotationObservation, AgentContractError> {
-        self.scope(p, d)?;
+        Self::scope(p, d)?;
         let (evidence, old, committed) = self
             .rotation
             .as_ref()
@@ -811,7 +860,7 @@ fn sessions_state_restart_recovers_install_suspend_and_revoke() -> Result {
             let service = owner(&root, peer);
             let lease = service
                 .session(&principal(), &did())
-                .expect("installation recovered");
+                .or_fail("installation recovered");
             assert!(service.contract().active(lease.grant_id));
             assert_eq!(service.contract().installs.len(), 1);
         } else {
@@ -824,7 +873,7 @@ fn sessions_state_restart_recovers_install_suspend_and_revoke() -> Result {
             assert!(matches!(
                 service
                     .session(&principal(), &did())
-                    .expect("recovered")
+                    .or_fail("recovered")
                     .state,
                 SessionLeaseState::Revoked {
                     reason: RevocationReason::Paused,
@@ -875,7 +924,7 @@ fn session_renewal_orphan_resumes_exact_replacement() -> Result {
                 .installs
                 .keys()
                 .find(|grant| **grant != first.grant_id)
-                .expect("replacement retained");
+                .or_fail("replacement retained");
             let service = if restart {
                 let peer = service.into_contract().reopen();
                 owner(&root, peer)
@@ -886,7 +935,7 @@ fn session_renewal_orphan_resumes_exact_replacement() -> Result {
             assert_eq!(
                 service
                     .session(&principal(), &did())
-                    .expect("recovered")
+                    .or_fail("recovered")
                     .grant_id,
                 replacement
             );
@@ -962,7 +1011,7 @@ fn session_second_rotation_and_retry_after_lapse() -> Result {
             service
                 .rotation_history()
                 .last()
-                .expect("terminal history")
+                .or_fail("terminal history")
                 .state,
             RotationJourneyState::Effective { .. }
         ));
@@ -982,7 +1031,7 @@ fn session_second_rotation_and_retry_after_lapse() -> Result {
     let peer = service.into_contract().reopen();
     service = owner(&root, peer);
     assert!(matches!(
-        service.rotation_history().last().expect("lapsed").state,
+        service.rotation_history().last().or_fail("lapsed").state,
         RotationJourneyState::Lapsed
     ));
     let next = service.announce_rotation(
@@ -1018,7 +1067,7 @@ fn session_production_driver_renews_and_recovers_through_maintenance() -> Result
     assert!(!service.contract().active(first.grant_id));
     let replacement = service
         .session(&principal(), &did())
-        .expect("recovered replacement")
+        .or_fail("recovered replacement")
         .clone();
     let driver = SessionLifecycleDriver::new(service)?;
     assert_eq!(checked(driver.maintain(1, 1082)), 0);
@@ -1026,10 +1075,7 @@ fn session_production_driver_renews_and_recovers_through_maintenance() -> Result
     let mut service = driver.into_provisioner()?;
     service.contract_mut().now = replacement.expires_at - 19;
     let driver = SessionLifecycleDriver::new(service)?;
-    let clock: Arc<dyn Clock> = Arc::new(ElapsedClock(
-        Instant::now(),
-        (replacement.expires_at - 19) * 1000,
-    ));
+    let clock: Arc<dyn Clock> = Arc::new(ElapsedClock::new((replacement.expires_at - 19) * 1000)?);
     let backend = Arc::new(checked(
         layerx_human_service::server::backend::UnixComponents::new_with_clock(
             fixture.0.join("product.sock"),
@@ -1060,17 +1106,17 @@ fn session_production_driver_renews_and_recovers_through_maintenance() -> Result
     );
     let shutdown = bound.shutdown();
     let server = std::thread::spawn(move || checked(bound.run()));
-    let until = Instant::now() + Duration::from_secs(2);
+    let mut renewal_steps = 0..400;
     loop {
         let current = components
             .sessions()
             .session(&principal(), &did())?
-            .expect("scheduled session");
+            .or_fail("scheduled session");
         if current.grant_id != replacement.grant_id {
             break;
         }
         assert!(
-            Instant::now() < until,
+            renewal_steps.next().is_some(),
             "production component scheduler did not renew authority"
         );
         std::thread::sleep(Duration::from_millis(5));
@@ -1090,4 +1136,10 @@ fn session_production_driver_renews_and_recovers_through_maintenance() -> Result
     ))
     .is_err());
     Ok(())
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

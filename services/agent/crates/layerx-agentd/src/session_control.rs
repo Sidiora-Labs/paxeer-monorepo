@@ -3106,13 +3106,6 @@ mod tests {
         let _ = std::fs::remove_dir_all(root);
     }
 
-    fn activity_type() -> layerx_types::payload::ActivityType {
-        must(layerx_types::payload::ActivityType::new(
-            layerx_types::payload::ModuleId::Asset,
-            5,
-        ))
-    }
-
     fn signed_payload() -> Vec<u8> {
         use ed25519_dalek::Signer as _;
         use sha2::Digest as _;

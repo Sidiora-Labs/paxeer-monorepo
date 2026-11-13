@@ -790,7 +790,10 @@ export class Agents {
       }
       return { kind: "journey", value: journey };
     }
-    const [operation, first = "", second = "", third = ""] = agentOperationParts(pending.scope);
+    const parts = agentOperationParts(pending.scope);
+    const [operation, first] = parts;
+    const second = parts.at(2) ?? "";
+    const third = parts.at(3) ?? "";
     switch (operation) {
       case "create": {
         const request = decodeAgentCreateRequest(pending.request, "pending agent creation");
@@ -819,7 +822,7 @@ export class Agents {
     scope: string,
     run: (idempotencyKey: string, pending: PendingAgentOperation, save: () => void) => Promise<T>,
     request?: JsonValue,
-    target = agentOperationParts(scope)[0] === "create" ? "create" : agentOperationParts(scope)[1]!,
+    target = agentOperationParts(scope)[0] === "create" ? "create" : agentOperationParts(scope)[1],
   ): Promise<T> {
     if (this.#active.has(target)) throw new Error("Agent operation reconciliation is already running");
     this.#active.add(target);

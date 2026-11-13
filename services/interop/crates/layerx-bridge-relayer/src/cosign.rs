@@ -356,6 +356,42 @@ pub mod transport {
         ConfigError(message.into())
     }
 
+    fn validate_destinations(
+        inventory: &OperatorInventory,
+        relayer: &crate::config::RelayerConfig,
+    ) -> Result<(), ConfigError> {
+        if !inventory.destinations.iter().any(|policy| {
+            policy.chain_id == relayer.paxeer.chain_id
+                && hex::fixed::<20>(&policy.vault).ok()
+                    == Some(crate::abi::LAYERX_BRIDGE_PRECOMPILE)
+        }) {
+            return Err(bad(
+                "registered Paxeer bridge inventory differs from relayer configuration",
+            ));
+        }
+        for chain in &relayer.chains {
+            if !inventory.destinations.iter().any(|policy| {
+                policy.chain_id == chain.chain_id
+                    && hex::fixed::<20>(&policy.vault).ok() == Some(chain.vault)
+            }) {
+                return Err(bad(
+                    "registered EVM vault inventory differs from relayer configuration",
+                ));
+            }
+        }
+        if let Some(solana) = &relayer.solana {
+            if !inventory.destinations.iter().any(|policy| {
+                policy.chain_id == solana.chain_id
+                    && hex::fixed::<20>(&policy.vault).ok() == Some(solana.vault)
+            }) {
+                return Err(bad(
+                    "registered Solana vault inventory differs from relayer configuration",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// SHA-256 over the DER `SubjectPublicKeyInfo` of a certificate.
     ///
     /// # Errors
@@ -469,13 +505,104 @@ pub mod transport {
         serde_json::from_slice(&bytes).map_err(|error| bad(format!("operator metadata: {error}")))
     }
 
+    fn validate_operators(
+        records: &[OperatorRecord],
+        members: &BTreeSet<[u8; 20]>,
+    ) -> Result<(), ConfigError> {
+        let mut operators = BTreeSet::new();
+        let mut instances = BTreeSet::new();
+        let mut storage = BTreeSet::new();
+        let mut pins = BTreeSet::new();
+        let mut attestor_keys = BTreeSet::new();
+        let mut payer_keys = BTreeSet::new();
+        for operator in records {
+            let address =
+                hex::fixed::<20>(&operator.attestor).map_err(|_| bad("operator attestor"))?;
+            let public = public_key(&operator.signer_public_key)?;
+            let key = k256::ecdsa::VerifyingKey::from_sec1_bytes(&public)
+                .map_err(|_| bad("bridge attestor must be secp256k1"))?;
+            let pin = hex::fixed::<32>(&operator.spki_sha256)
+                .map_err(|_| bad("operator transport pin"))?;
+            if !members.contains(&address)
+                || crate::attestation::ethereum_address(&key) != address
+                || !operators.insert(address)
+                || !attestor_keys.insert(public)
+                || operator.signer_handle.is_empty()
+                || operator.instance.trim().is_empty()
+                || !instances.insert(&operator.instance)
+                || operator.storage.trim().is_empty()
+                || !storage.insert(&operator.storage)
+                || pin == [0; 32]
+                || !pins.insert(pin)
+            {
+                return Err(bad("operator identities, signer bindings, storage and pins must be distinct and approved"));
+            }
+            let paths = [
+                &operator.journal_path,
+                &operator.cosign_directory,
+                &operator.delivery_directory,
+            ];
+            if paths.iter().any(|path| {
+                !path.is_absolute()
+                    || path
+                        .components()
+                        .any(|part| matches!(part, std::path::Component::ParentDir))
+            }) || operator
+                .journal_path
+                .starts_with(&operator.cosign_directory)
+                || operator
+                    .journal_path
+                    .starts_with(&operator.delivery_directory)
+                || operator
+                    .cosign_directory
+                    .starts_with(&operator.delivery_directory)
+                || operator
+                    .delivery_directory
+                    .starts_with(&operator.cosign_directory)
+            {
+                return Err(bad(
+                    "operator journal and share storage must be separate absolute paths",
+                ));
+            }
+            if operator.fee_payers.is_empty() {
+                return Err(bad("operator independent fee payer handles are required"));
+            }
+            let mut chains = BTreeSet::new();
+            let mut handles = BTreeSet::new();
+            for payer in &operator.fee_payers {
+                let public = public_key(&payer.public_key)?;
+                if payer.chain_id == 0
+                    || payer.handle.is_empty()
+                    || payer.handle == operator.signer_handle
+                    || !chains.insert(payer.chain_id)
+                    || !handles.insert(&payer.handle)
+                    || !payer_keys.insert(public)
+                {
+                    return Err(bad(
+                        "fee payer chain handles and public keys must be independent",
+                    ));
+                }
+            }
+        }
+        if !attestor_keys.is_disjoint(&payer_keys) {
+            return Err(bad("bridge attestor keys must not pay fees"));
+        }
+        Ok(())
+    }
+
     impl OperatorInventory {
+        ///
+        /// # Errors
+        /// Returns an error if the requested operation cannot be completed.
         pub fn load(path: &Path) -> Result<Self, ConfigError> {
             let inventory: Self = read_metadata(path)?;
             inventory.validate()?;
             Ok(inventory)
         }
 
+        ///
+        /// # Errors
+        /// Returns an error if the requested operation cannot be completed.
         pub fn validate(&self) -> Result<(), ConfigError> {
             if self.version != 1 || self.authority != "bridge" || self.approval.trim().is_empty() {
                 return Err(bad(
@@ -492,84 +619,7 @@ pub mod transport {
                     "approved membership and operator cardinality or threshold disagree",
                 ));
             }
-            let mut operators = BTreeSet::new();
-            let mut instances = BTreeSet::new();
-            let mut storage = BTreeSet::new();
-            let mut pins = BTreeSet::new();
-            let mut attestor_keys = BTreeSet::new();
-            let mut payer_keys = BTreeSet::new();
-            for operator in &self.operators {
-                let address =
-                    hex::fixed::<20>(&operator.attestor).map_err(|_| bad("operator attestor"))?;
-                let public = public_key(&operator.signer_public_key)?;
-                let key = k256::ecdsa::VerifyingKey::from_sec1_bytes(&public)
-                    .map_err(|_| bad("bridge attestor must be secp256k1"))?;
-                let pin = hex::fixed::<32>(&operator.spki_sha256)
-                    .map_err(|_| bad("operator transport pin"))?;
-                if !members.contains(&address)
-                    || crate::attestation::ethereum_address(&key) != address
-                    || !operators.insert(address)
-                    || !attestor_keys.insert(public)
-                    || operator.signer_handle.is_empty()
-                    || operator.instance.trim().is_empty()
-                    || !instances.insert(&operator.instance)
-                    || operator.storage.trim().is_empty()
-                    || !storage.insert(&operator.storage)
-                    || pin == [0; 32]
-                    || !pins.insert(pin)
-                {
-                    return Err(bad("operator identities, signer bindings, storage and pins must be distinct and approved"));
-                }
-                let paths = [
-                    &operator.journal_path,
-                    &operator.cosign_directory,
-                    &operator.delivery_directory,
-                ];
-                if paths.iter().any(|path| {
-                    !path.is_absolute()
-                        || path
-                            .components()
-                            .any(|part| matches!(part, std::path::Component::ParentDir))
-                }) || operator
-                    .journal_path
-                    .starts_with(&operator.cosign_directory)
-                    || operator
-                        .journal_path
-                        .starts_with(&operator.delivery_directory)
-                    || operator
-                        .cosign_directory
-                        .starts_with(&operator.delivery_directory)
-                    || operator
-                        .delivery_directory
-                        .starts_with(&operator.cosign_directory)
-                {
-                    return Err(bad(
-                        "operator journal and share storage must be separate absolute paths",
-                    ));
-                }
-                if operator.fee_payers.is_empty() {
-                    return Err(bad("operator independent fee payer handles are required"));
-                }
-                let mut chains = BTreeSet::new();
-                let mut handles = BTreeSet::new();
-                for payer in &operator.fee_payers {
-                    let public = public_key(&payer.public_key)?;
-                    if payer.chain_id == 0
-                        || payer.handle.is_empty()
-                        || payer.handle == operator.signer_handle
-                        || !chains.insert(payer.chain_id)
-                        || !handles.insert(&payer.handle)
-                        || !payer_keys.insert(public)
-                    {
-                        return Err(bad(
-                            "fee payer chain handles and public keys must be independent",
-                        ));
-                    }
-                }
-            }
-            if !attestor_keys.is_disjoint(&payer_keys) {
-                return Err(bad("bridge attestor keys must not pay fees"));
-            }
+            validate_operators(&self.operators, &members)?;
             if self.destinations.is_empty() || self.destinations.len() > 64 {
                 return Err(bad("registered destination inventory required"));
             }
@@ -660,7 +710,8 @@ pub mod transport {
                 .map_err(|error| bad(format!("cosign_directory: {error}")))?;
             let delivery = fs::canonicalize(&config.delivery_directory)
                 .map_err(|error| bad(format!("delivery_directory: {error}")))?;
-            for secret in [&config.private_key] {
+            {
+                let secret = &config.private_key;
                 let resolved = fs::canonicalize(secret)
                     .map_err(|error| bad(format!("private_key: {error}")))?;
                 let metadata = fs::metadata(&resolved)
@@ -711,6 +762,9 @@ pub mod transport {
             Ok(transport)
         }
 
+        ///
+        /// # Errors
+        /// Returns an error if the requested operation cannot be completed.
         pub fn validate_operator(
             &self,
             inventory: &OperatorInventory,
@@ -788,36 +842,7 @@ pub mod transport {
                     return Err(bad("relayer fee payer differs from approved inventory"));
                 }
             }
-            if !inventory.destinations.iter().any(|policy| {
-                policy.chain_id == relayer.paxeer.chain_id
-                    && hex::fixed::<20>(&policy.vault).ok()
-                        == Some(crate::abi::LAYERX_BRIDGE_PRECOMPILE)
-            }) {
-                return Err(bad(
-                    "registered Paxeer bridge inventory differs from relayer configuration",
-                ));
-            }
-            for chain in &relayer.chains {
-                if !inventory.destinations.iter().any(|policy| {
-                    policy.chain_id == chain.chain_id
-                        && hex::fixed::<20>(&policy.vault).ok() == Some(chain.vault)
-                }) {
-                    return Err(bad(
-                        "registered EVM vault inventory differs from relayer configuration",
-                    ));
-                }
-            }
-            if let Some(solana) = &relayer.solana {
-                if !inventory.destinations.iter().any(|policy| {
-                    policy.chain_id == solana.chain_id
-                        && hex::fixed::<20>(&policy.vault).ok() == Some(solana.vault)
-                }) {
-                    return Err(bad(
-                        "registered Solana vault inventory differs from relayer configuration",
-                    ));
-                }
-            }
-            Ok(())
+            validate_destinations(inventory, relayer)
         }
 
         fn acceptor(&self) -> Result<SslAcceptor, openssl::error::ErrorStack> {

@@ -326,7 +326,7 @@ fn the_kernel_network_id_is_read_from_the_xweb_precompile() -> Checked {
     assert_eq!(node.params("eth_call"), vec![params.clone()]);
 
     let mut cases = Vec::new();
-    for network in [0_u32, 1, 7, 0x01020304, u32::MAX] {
+    for network in [0_u32, 1, 7, 0x0102_0304, u32::MAX] {
         let mut word = vec![0; 32];
         word[28..].copy_from_slice(&network.to_be_bytes());
         cases.push((word, Ok(network)));
@@ -616,10 +616,12 @@ fn program_key(record: &Value) -> Checked<x_websearch::program::ProgramKey> {
 }
 
 fn rule(method: &str, params: Value, result: Value, once: bool) -> Rule {
+    let mut answer = json!({ "result": null });
+    answer["result"] = result;
     Rule {
         method: method.to_owned(),
         params,
-        answer: json!({ "result": result }),
+        answer,
         once,
         used: false,
     }
@@ -710,89 +712,12 @@ fn a_program_fulfil_is_journalled_by_program_and_request() -> Checked {
     };
     journal.store(&web)?;
     let web_on_disk = std::fs::read(journal.path(7))?;
-    let mut rules = load_rules(&["chain.json"])?;
-    let block_hash = format!("0x{}", "ab".repeat(32));
-    for (index, record) in records.iter().enumerate() {
-        rules.insert(
-            index,
-            rule(
-                "eth_getTransactionCount",
-                json!(["0xa3e570d1d3ad527d6c518c53be6c6293cddeee01", "pending"]),
-                json!(format!(
-                    "0x{:x}",
-                    record["nonce"].as_u64().ok_or_else(|| fail("nonce"))?
-                )),
-                true,
-            ),
-        );
-        rules.push(rule(
-            "eth_sendRawTransaction",
-            json!([record["raw"]]),
-            record["hash"].clone(),
-            false,
-        ));
-    }
-    let receipt_params = json!([records[0]["hash"]]);
-    let receipt = json!({"transactionHash": records[0]["hash"], "status": "0x1",
-        "blockNumber": "0x21", "blockHash": block_hash});
-    rules.push(rule(
-        "eth_getTransactionReceipt",
-        receipt_params.clone(),
-        Value::Null,
-        true,
-    ));
-    rules.push(rule(
-        "eth_getTransactionReceipt",
-        receipt_params,
-        receipt,
-        false,
-    ));
-    rules.push(rule("eth_blockNumber", json!([]), json!("0x22"), true));
-    rules.push(rule("eth_blockNumber", json!([]), json!("0x23"), false));
-    rules.push(rule(
-        "eth_getBlockByNumber",
-        json!(["0x21", false]),
-        json!({"hash": format!("0x{}", "cd".repeat(32))}),
-        true,
-    ));
-    rules.push(rule(
-        "eth_getBlockByNumber",
-        json!(["0x21", false]),
-        json!({"hash": block_hash}),
-        false,
-    ));
-    rules.push(rule("eth_getTransactionReceipt", json!([records[1]["hash"]]),
-        json!({"transactionHash": records[1]["hash"], "status": "0x0", "blockNumber": "0x21", "blockHash": block_hash}), false));
-    let node = Node::start_rules_at(rules, &path)?;
+    let node = program_node(&records, &path)?;
     let hash: [u8; 32] = bytes(text(&records[0], "/hash")?)?
         .try_into()
         .map_err(|_| fail("hash"))?;
     let observation = bytes(text(&records[0], "/observation")?)?;
-    {
-        let mut submitter =
-            Submitter::open(node.rpc()?, submitter_key()?, CHAIN_ID, &scratch.journal())?
-                .with_confirmations(2);
-        assert_eq!(submitter.resume_program(key)?, None);
-        let mut mismatched = observation.clone();
-        mismatched[33] ^= 1;
-        assert_eq!(
-            submitter.submit_program(key, &mismatched, 2),
-            Err(SubmitError::Encode)
-        );
-        assert_eq!(
-            submitter.submit_program(key, &observation, 1),
-            Err(SubmitError::Encode)
-        );
-        assert_eq!(
-            submitter.submit_program(key, &observation[..145], 2),
-            Err(SubmitError::Encode)
-        );
-        assert_eq!(node.calls("eth_getTransactionCount"), 0);
-        assert_eq!(
-            submitter.submit_program(key, &observation, 2)?,
-            Outcome::Sent { hash }
-        );
-    }
+    assert_first_submission(&scratch, &node, key, &observation, hash)?;
     let on_disk: Value = serde_json::from_str(
         node.journalled()[0]
             .as_deref()
@@ -854,6 +779,111 @@ fn a_program_fulfil_is_journalled_by_program_and_request() -> Checked {
     assert_eq!(journal.load(7)?, Some(web));
     assert_eq!(journal.requests()?, vec![7]);
     assert!(restarted.resume()?.is_empty());
+    assert_other_programs(&scratch, &node, &journal, &records, key, &web_on_disk)?;
+    Ok(())
+}
+
+fn program_node(records: &[Value], path: &Path) -> Checked<Node> {
+    let mut rules = load_rules(&["chain.json"])?;
+    let block_hash = format!("0x{}", "ab".repeat(32));
+    for (index, record) in records.iter().enumerate() {
+        rules.insert(
+            index,
+            rule(
+                "eth_getTransactionCount",
+                json!(["0xa3e570d1d3ad527d6c518c53be6c6293cddeee01", "pending"]),
+                json!(format!(
+                    "0x{:x}",
+                    record["nonce"].as_u64().ok_or_else(|| fail("nonce"))?
+                )),
+                true,
+            ),
+        );
+        rules.push(rule(
+            "eth_sendRawTransaction",
+            json!([record["raw"]]),
+            record["hash"].clone(),
+            false,
+        ));
+    }
+    let receipt_params = json!([records[0]["hash"]]);
+    let receipt = json!({"transactionHash": records[0]["hash"], "status": "0x1",
+        "blockNumber": "0x21", "blockHash": block_hash});
+    rules.push(rule(
+        "eth_getTransactionReceipt",
+        receipt_params.clone(),
+        Value::Null,
+        true,
+    ));
+    rules.push(rule(
+        "eth_getTransactionReceipt",
+        receipt_params,
+        receipt,
+        false,
+    ));
+    rules.push(rule("eth_blockNumber", json!([]), json!("0x22"), true));
+    rules.push(rule("eth_blockNumber", json!([]), json!("0x23"), false));
+    rules.push(rule(
+        "eth_getBlockByNumber",
+        json!(["0x21", false]),
+        json!({"hash": format!("0x{}", "cd".repeat(32))}),
+        true,
+    ));
+    rules.push(rule(
+        "eth_getBlockByNumber",
+        json!(["0x21", false]),
+        json!({"hash": block_hash}),
+        false,
+    ));
+    rules.push(rule("eth_getTransactionReceipt", json!([records[1]["hash"]]),
+        json!({"transactionHash": records[1]["hash"], "status": "0x0", "blockNumber": "0x21", "blockHash": block_hash}), false));
+    let node = Node::start_rules_at(rules, path)?;
+    Ok(node)
+}
+
+fn assert_first_submission(
+    scratch: &Scratch,
+    node: &Node,
+    key: x_websearch::program::ProgramKey,
+    observation: &[u8],
+    hash: [u8; 32],
+) -> Checked {
+    {
+        let mut submitter =
+            Submitter::open(node.rpc()?, submitter_key()?, CHAIN_ID, &scratch.journal())?
+                .with_confirmations(2);
+        assert_eq!(submitter.resume_program(key)?, None);
+        let mut mismatched = observation.to_vec();
+        mismatched[33] ^= 1;
+        assert_eq!(
+            submitter.submit_program(key, &mismatched, 2),
+            Err(SubmitError::Encode)
+        );
+        assert_eq!(
+            submitter.submit_program(key, observation, 1),
+            Err(SubmitError::Encode)
+        );
+        assert_eq!(
+            submitter.submit_program(key, &observation[..145], 2),
+            Err(SubmitError::Encode)
+        );
+        assert_eq!(node.calls("eth_getTransactionCount"), 0);
+        assert_eq!(
+            submitter.submit_program(key, observation, 2)?,
+            Outcome::Sent { hash }
+        );
+    }
+    Ok(())
+}
+
+fn assert_other_programs(
+    scratch: &Scratch,
+    node: &Node,
+    journal: &x_websearch::submit::Journal,
+    records: &[Value],
+    key: x_websearch::program::ProgramKey,
+    web_on_disk: &Vec<u8>,
+) -> Checked {
     // Program and request components each select a separate entry.
     let mut submitter =
         Submitter::open(node.rpc()?, submitter_key()?, CHAIN_ID, &scratch.journal())?
@@ -898,6 +928,9 @@ fn a_program_fulfil_is_journalled_by_program_and_request() -> Checked {
             .state,
         JournalState::Fulfilled
     );
-    assert_eq!(std::fs::read(journal.path(7))?, web_on_disk);
+    assert_eq!(
+        std::fs::read(journal.path(7))?.as_slice(),
+        web_on_disk.as_slice()
+    );
     Ok(())
 }

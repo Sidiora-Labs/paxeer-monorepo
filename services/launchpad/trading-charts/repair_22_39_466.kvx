@@ -1,0 +1,42 @@
+[repair]
+module = "trading-charts"
+behavior = "Chart source, archive, and HTTP paths preserve their public values while validating bounded inputs and reporting cleanup errors."
+
+[findings.errcheck]
+repaired = 29
+behavior = "Resource and transaction cleanup errors are reported."
+
+[findings.goconst]
+repaired = 68
+behavior = "Repeated protocol values and field names share package constants."
+
+[findings.goimports]
+repaired = 13
+behavior = "Go imports use the module's standard grouping."
+
+[findings.gosec]
+repaired = 15
+behavior = "File reads remain within their containing directory and integer conversions have bounds."
+
+[findings.ineffassign]
+repaired = 1
+behavior = "Supply valuation uses its current lookup result."
+
+[findings.staticcheck]
+repaired = 18
+behavior = "HTTP responses retain their status values and source checks use direct conditions."
+
+[findings.unconvert]
+repaired = 5
+behavior = "Integer limits compare directly with their representable maximum."
+
+[findings.bodyclose]
+repaired = 1
+behavior = "Upstream response bodies close with errors returned to the caller."
+
+[findings.govet]
+repaired = 5
+behavior = "Runtime and JSON field tags retain their literal names."
+
+[comments]
+nolint = []

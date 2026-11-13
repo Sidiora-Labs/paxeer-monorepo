@@ -20,13 +20,13 @@ verifying a minimal set of data from a network of full nodes (at least one of wh
 
 The light client is decomposed into two main components:
 
-- [Commit Verification](#Commit-Verification) - verify signed headers and associated validator
+- [Commit Verification](#commit-verification) - verify signed headers and associated validator
   set changes from a single full node, called primary
-- [Attack Detection](#Attack-Detection) -  verify commits across multiple full nodes (called secondaries) and detect conflicts (ie. the existence of a lightclient attack)
+- [Attack Detection](#attack-detection) -  verify commits across multiple full nodes (called secondaries) and detect conflicts (ie. the existence of a lightclient attack)
 
 In case a lightclient attack is detected, the lightclient submits evidence to a full node which is responsible for "accountability", that is, punishing attackers:
 
-- [Accountability](#Accountability) - given evidence for an attack, compute a set of validators that are responsible for it.
+- [Accountability](#accountability) - given evidence for an attack, compute a set of validators that are responsible for it.
 
 ## Commit Verification
 
@@ -71,7 +71,7 @@ IS_PRIMARY_CORRECT == FALSE
 FAULTY_RATIO == <<1, 3>>    \* < 1 / 3 faulty validators
 ```
 
-To run a complete set of experiments, clone [apalache](https://github.com/informalsystems/apalache) and [apalache-tests](https://github.com/informalsystems/apalache-tests) into a directory `$DIR` and run the following commands:
+To run a complete set of experiments, clone [apalache](https://github.com/informalsystems/apalache) and [apalache-tests](https://github.com/informalsystems/apalache-tests) into a directory `$DIR`. Run each experiment command block from `consensus/spec/light-client/verification/`:
 
 ```sh
 $DIR/apalache-tests/scripts/mk-run.py --memlimit 28 002bmc-apalache-ok.csv $DIR/apalache . out
@@ -154,7 +154,7 @@ IS_SECONDARY_CORRECT == FALSE
 FAULTY_RATIO == <<1, 3>>    \* < 1 / 3 faulty validators
 ```
 
-To run a complete set of experiments, clone [apalache](https://github.com/informalsystems/apalache) and [apalache-tests](https://github.com/informalsystems/apalache-tests) into a directory `$DIR` and run the following commands:
+To run a complete set of experiments, clone [apalache](https://github.com/informalsystems/apalache) and [apalache-tests](https://github.com/informalsystems/apalache-tests) into a directory `$DIR`. Run each experiment command block from `consensus/spec/light-client/verification/`:
 
 ```sh
 $DIR/apalache-tests/scripts/mk-run.py --memlimit 28 004bmc-apalache-ok.csv $DIR/apalache . out
@@ -193,7 +193,7 @@ defines the protocol that is executed on a full node upon receiving attack [evid
 - equivocation
 - amnesia
 
-We discussed in the [last part](attacks/isolate-attackers_002_reviewed.md#Part-III---Completeness) of the English specification
+We discussed in the [last part](attacks/isolate-attackers_002_reviewed.md#part-iii---completeness) of the English specification
 that the non-lunatic cases are defined by having the same validator set in the conflicting blocks. For these cases,
 computer-aided analysis of  [Tendermint Consensus in TLA+](./accountability/README.md) shows that equivocation and amnesia capture all non-lunatic attacks.
 

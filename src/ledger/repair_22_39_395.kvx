@@ -1,0 +1,17 @@
+[occupancy_responsibility]
+paying_account = "Programs occupancy accepts the payer's agent main account or its agent asset account for the charged asset."
+authority = "The Programs origin, storage occupancy reason, system capability and matching source authorization remain required."
+sequence = "An occupancy responsibility debit leaves the paying account sequence unchanged."
+
+[coverage]
+ledger = "The transfer cases cover a matching asset account, a different asset, a third account kind and an origin outside Programs."
+blocks = "Committed block cases cover a payer funded in the asset account and a payer funded in the main account across three subsequent occupancy charges."
+
+[payment_lookup]
+account_kinds = "src/protocol/lxp_kernel.c:253-256 selects agent main and agent asset accounts for the charge asset at the state commitment protocol version."
+caller = "src/modules/programs/occupancy.c:622-624 selects the paying account for the occupancy transfer."
+
+[verification]
+ledger_transfer = "The transfer cases pass with matching asset, different asset, third account kind and non-Programs origin."
+ledger_set = "The ledger transfer set cases pass."
+block_flow = "Both occupancy payer cases and the consecutive, idle and once-per-block flow cases pass."

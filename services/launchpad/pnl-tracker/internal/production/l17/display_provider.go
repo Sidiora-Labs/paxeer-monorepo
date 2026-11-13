@@ -22,7 +22,7 @@ func (p DisplayProvider) Convert(ctx context.Context, raw string, now time.Time)
 		return out
 	}
 	endpoint, e := url.Parse(p.Endpoint)
-	if e != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.Fragment != "" {
+	if e != nil || endpoint.Scheme != schemeHTTPS || endpoint.Host == "" || endpoint.User != nil || endpoint.Fragment != "" {
 		return out
 	}
 	ctx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
@@ -39,7 +39,7 @@ func (p DisplayProvider) Convert(ctx context.Context, raw string, now time.Time)
 	if e != nil {
 		return out
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
 		return out
 	}

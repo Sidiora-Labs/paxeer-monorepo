@@ -1,5 +1,34 @@
-#[path = "../../layerx-programs-registry/tests/support/chain.rs"]
-mod chain;
+trait Checked<T> {
+    fn checked(self) -> T;
+}
+
+impl<T, E: core::fmt::Debug> Checked<T> for Result<T, E> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{error:?}"),
+        }
+    }
+}
+
+impl<T> Checked<T> for Option<T> {
+    #[track_caller]
+    fn checked(self) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("expected a value"),
+        }
+    }
+}
+
+#[allow(dead_code)]
+mod chain {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../layerx-programs-registry/tests/support/chain.rs"
+    ));
+}
 
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs::chain_proof::{
@@ -33,7 +62,7 @@ fn candidate(id: u8, tenant: u8, opened: u64, expiry: u64) -> Lease {
         layerx_programs_runtime::HashAlgorithm::Sha256,
         &continuation_module(),
     )
-    .unwrap();
+    .checked();
     candidate_with_image(id, tenant, opened, expiry, image)
 }
 
@@ -410,10 +439,10 @@ fn running_instance(
     module: &layerx_programs_runtime::ValidatedModule,
     storage: Storage,
 ) -> layerx_programs_runtime::ProgramInstance {
-    let capabilities = LeaseCapabilities::derive(lease).unwrap();
+    let capabilities = LeaseCapabilities::derive(lease).checked();
     assert_eq!(
         capabilities.namespace(),
-        lease.namespace().storage_namespace().unwrap()
+        lease.namespace().storage_namespace().checked()
     );
     assert_ne!(capabilities.principal(), lease.tenant());
     let authorization =
@@ -1000,19 +1029,10 @@ fn verify_foreign_target_refusal(source: &Lease, module: &ValidatedModule, snaps
 
 fn storage_continuation_module() -> Vec<u8> {
     use layerx_programs_runtime::test_support::{import_section, TYPE_I64};
-    let imports = [
-        ("layerx_v1", "storage_read", 0),
-        ("layerx_v1", "storage_write", 0),
-        ("layerx_v1", "transfer_402", 1),
-        ("layerx_v1", "event_emit", 0),
-        ("layerx_v2", "storage_read_scoped", 2),
-        ("layerx_v2", "storage_write_scoped", 2),
-        ("layerx_v1", "program_call", 3),
-    ];
     fn constant(mut value: i64, body: &mut Vec<u8>) {
         body.push(OP_I32_CONST);
         loop {
-            let mut byte = (value as u8) & 127;
+            let mut byte = u8::try_from(value & 127).checked();
             value >>= 7;
             let done = (value == 0 && byte & 64 == 0) || (value == -1 && byte & 64 != 0);
             if !done {
@@ -1032,6 +1052,15 @@ fn storage_continuation_module() -> Vec<u8> {
         constant(expected, body);
         body.extend([0x46, OP_I32_ADD]);
     }
+    let imports = [
+        ("layerx_v1", "storage_read", 0),
+        ("layerx_v1", "storage_write", 0),
+        ("layerx_v1", "transfer_402", 1),
+        ("layerx_v1", "event_emit", 0),
+        ("layerx_v2", "storage_read_scoped", 2),
+        ("layerx_v2", "storage_write_scoped", 2),
+        ("layerx_v1", "program_call", 3),
+    ];
     let mut body = Vec::new();
     constant(0, &mut body);
     check(0, &[0, 1, 128, 1], 2, &mut body);
@@ -1090,13 +1119,154 @@ fn storage_continuation_module() -> Vec<u8> {
     ])
 }
 
+struct RestoreScenario<'a> {
+    source: &'a Lease,
+    target: &'a Lease,
+    module: &'a ValidatedModule,
+    persisted_storage: &'a [u8],
+    supplied: &'a SandboxState,
+    digest: [u8; 32],
+    namespaces: [layerx_programs_runtime::StorageNamespace; 5],
+}
+
+fn hostile_restore_grants() -> CapabilitySet {
+    use layerx_programs_runtime::Capability;
+    CapabilitySet::new([
+        Capability::StorageRead,
+        Capability::StorageWrite,
+        Capability::SharedStorageRead,
+        Capability::SharedStorageWrite,
+        Capability::EmitEvent,
+        Capability::Transfer402 {
+            asset: [8; 32],
+            to: [8; 32],
+            maximum_amount: 100,
+        },
+        Capability::Call {
+            program: ProgramId::new([8; 32]).checked(),
+        },
+    ])
+    .checked()
+}
+
+fn run_reopened_restore_case(scenario: &RestoreScenario<'_>, grants: CapabilitySet) {
+    let source = scenario.source;
+    let module = scenario.module;
+    let supplied = scenario.supplied;
+    let digest = scenario.digest;
+    let [source_namespace, target_namespace, tenant_namespace, shared_namespace, neighbour_namespace] =
+        scenario.namespaces;
+    let mut target =
+        Lease::decode_state(&scenario.target.canonical_state_bytes().checked()).checked();
+    let mut storage =
+        Storage::decode_untrusted_replay_state(scenario.persisted_storage, 1 << 24).checked();
+    let (activation, evidence) = activation(&target, 22);
+    let mut restore_meter = meter();
+    let before_meter = restore_meter.clone();
+    let before_storage = storage.clone();
+    let before_target = target.clone();
+    assert!(matches!(
+        restore(
+            source,
+            &mut target,
+            &mut storage,
+            &mut restore_meter,
+            RestoreRequest {
+                snapshot_digest: digest,
+                supplied: (*supplied).clone(),
+                authorization: AuthorizationContext::new(
+                    PrincipalId::new([10; 32]).checked(),
+                    grants.clone()
+                ),
+                module,
+                activation,
+                evidence
+            }
+        ),
+        Err(SnapshotRefusal::NotSnapshotOwner)
+    ));
+    assert_eq!(target, before_target);
+    assert_eq!(storage, before_storage);
+    assert_eq!(restore_meter.finish(), before_meter.finish());
+    let owner = target.tenant();
+    let restored = restore(
+        source,
+        &mut target,
+        &mut storage,
+        &mut restore_meter,
+        RestoreRequest {
+            snapshot_digest: digest,
+            supplied: (*supplied).clone(),
+            authorization: AuthorizationContext::new(owner, grants),
+            module,
+            activation,
+            evidence,
+        },
+    )
+    .checked();
+    // Seven ABI authorization checks and the old cell byte are independent.
+    assert_eq!(restored.outputs(), &[WasmValue::I32(41 * 16 + 7)]);
+    assert_eq!(target.state(), LeaseState::Active);
+    assert_eq!(restored.state().source_namespace(), target.namespace());
+    assert_eq!(
+        storage.transaction(target_namespace).read(b"k").checked(),
+        Some(vec![42])
+    );
+    for (namespace, value) in [
+        (source_namespace, 41),
+        (tenant_namespace, 125),
+        (shared_namespace, 126),
+        (neighbour_namespace, 127),
+    ] {
+        assert_eq!(
+            storage.transaction(namespace).read(b"k").checked(),
+            Some(vec![value])
+        );
+    }
+    drop(restored);
+    verify_reopened_storage(scenario, target, storage);
+}
+
+fn verify_reopened_storage(scenario: &RestoreScenario<'_>, target: Lease, storage: Storage) {
+    let module = scenario.module;
+    let [source_namespace, target_namespace, tenant_namespace, shared_namespace, neighbour_namespace] =
+        scenario.namespaces;
+    let persisted = storage.replay_state_bytes(1 << 24).checked();
+    let lease_bytes = target.canonical_state_bytes().checked();
+    drop(storage);
+    drop(target);
+    let target = Lease::decode_state(&lease_bytes).checked();
+    let reopened = Storage::decode_untrusted_replay_state(&persisted, 1 << 24).checked();
+    let mut resumed = running_instance(&target, module, reopened);
+    assert_eq!(
+        resumed.call("continue", &[]),
+        Ok(vec![WasmValue::I32(42 * 16 + 7)])
+    );
+    let mut committed = resumed.storage_snapshot().checked();
+    assert_eq!(
+        committed.transaction(target_namespace).read(b"k").checked(),
+        Some(vec![43])
+    );
+    for (namespace, value) in [
+        (source_namespace, 41),
+        (tenant_namespace, 125),
+        (shared_namespace, 126),
+        (neighbour_namespace, 127),
+    ] {
+        assert_eq!(
+            committed.transaction(namespace).read(b"k").checked(),
+            Some(vec![value])
+        );
+    }
+}
+
 #[test]
 fn restore_lease_storage_continues_after_reopen_without_injected_authority() {
-    use layerx_programs_runtime::{Capability, StorageNamespace};
+    use layerx_programs_runtime::StorageNamespace;
     let module = WasmEngine::new(ValidationLimits::declared())
-        .unwrap()
+        .checked()
         .validate_v2(&storage_continuation_module())
-        .unwrap();
+        .checked();
     let mut source = advance(
         candidate_with_image(81, 9, 10, 30, module.code_hash()),
         &[
@@ -1123,12 +1293,12 @@ fn restore_lease_storage_continues_after_reopen_without_injected_authority() {
             21,
         )],
     );
-    let source_namespace = LeaseCapabilities::derive(&source).unwrap().namespace();
-    let target_namespace = LeaseCapabilities::derive(&target).unwrap().namespace();
+    let source_namespace = LeaseCapabilities::derive(&source).checked().namespace();
+    let target_namespace = LeaseCapabilities::derive(&target).checked().namespace();
     let tenant_namespace = StorageNamespace::principal(source.host_program(), source.tenant());
     let shared_namespace = StorageNamespace::shared(source.host_program());
     let neighbour_namespace =
-        StorageNamespace::principal(source.host_program(), PrincipalId::new([10; 32]).unwrap());
+        StorageNamespace::principal(source.host_program(), PrincipalId::new([10; 32]).checked());
     let mut storage = Storage::new();
     for (namespace, value) in [
         (source_namespace, 41),
@@ -1137,136 +1307,42 @@ fn restore_lease_storage_continues_after_reopen_without_injected_authority() {
         (neighbour_namespace, 127),
     ] {
         let mut tx = storage.transaction(namespace);
-        tx.write(b"k", &[value]).unwrap();
+        tx.write(b"k", &[value]).checked();
         assert_eq!(tx.commit(), 1);
     }
     let mut instance = running_instance(&source, &module, storage);
-    let capture = Snapshot::capture(&source, &mut instance, "continue", &[]).unwrap();
-    let (edge, proof) = snapshot_transition(&source, capture.digest().unwrap(), 13);
-    let snapshot = Snapshot::commit(&mut source, &mut instance, capture, edge, proof).unwrap();
+    let capture = Snapshot::capture(&source, &mut instance, "continue", &[]).checked();
+    let (edge, proof) = snapshot_transition(&source, capture.digest().checked(), 13);
+    let snapshot = Snapshot::commit(&mut source, &mut instance, capture, edge, proof).checked();
     let persisted_storage = instance
         .storage_snapshot()
-        .unwrap()
+        .checked()
         .replay_state_bytes(1 << 24)
-        .unwrap();
-    let persisted_source = source.canonical_state_bytes().unwrap();
-    let persisted_snapshot = snapshot.state().canonical_bytes().unwrap();
+        .checked();
+    let persisted_source = source.canonical_state_bytes().checked();
+    let persisted_snapshot = snapshot.state().canonical_bytes().checked();
     let digest = snapshot.digest();
     drop(instance);
     drop(snapshot);
     drop(source);
-    let source = Lease::decode_state(&persisted_source).unwrap();
-    let supplied = SandboxState::from_canonical(&source, &persisted_snapshot).unwrap();
-    let hostile_grants = CapabilitySet::new([
-        Capability::StorageRead,
-        Capability::StorageWrite,
-        Capability::SharedStorageRead,
-        Capability::SharedStorageWrite,
-        Capability::EmitEvent,
-        Capability::Transfer402 {
-            asset: [8; 32],
-            to: [8; 32],
-            maximum_amount: 100,
-        },
-        Capability::Call {
-            program: ProgramId::new([8; 32]).unwrap(),
-        },
-    ])
-    .unwrap();
-    for grants in [CapabilitySet::empty(), hostile_grants] {
-        let mut target = Lease::decode_state(&target.canonical_state_bytes().unwrap()).unwrap();
-        let mut storage =
-            Storage::decode_untrusted_replay_state(&persisted_storage, 1 << 24).unwrap();
-        let (activation, evidence) = activation(&target, 22);
-        let mut restore_meter = meter();
-        let before_meter = restore_meter.clone();
-        let before_storage = storage.clone();
-        let before_target = target.clone();
-        assert!(matches!(
-            restore(
-                &source,
-                &mut target,
-                &mut storage,
-                &mut restore_meter,
-                RestoreRequest {
-                    snapshot_digest: digest,
-                    supplied: supplied.clone(),
-                    authorization: AuthorizationContext::new(
-                        PrincipalId::new([10; 32]).unwrap(),
-                        grants.clone()
-                    ),
-                    module: &module,
-                    activation,
-                    evidence
-                }
-            ),
-            Err(SnapshotRefusal::NotSnapshotOwner)
-        ));
-        assert_eq!(target, before_target);
-        assert_eq!(storage, before_storage);
-        assert_eq!(restore_meter.finish(), before_meter.finish());
-        let owner = target.tenant();
-        let restored = restore(
-            &source,
-            &mut target,
-            &mut storage,
-            &mut restore_meter,
-            RestoreRequest {
-                snapshot_digest: digest,
-                supplied: supplied.clone(),
-                authorization: AuthorizationContext::new(owner, grants),
-                module: &module,
-                activation,
-                evidence,
-            },
-        )
-        .unwrap();
-        // Seven ABI authorization checks and the old cell byte are independent.
-        assert_eq!(restored.outputs(), &[WasmValue::I32(41 * 16 + 7)]);
-        assert_eq!(target.state(), LeaseState::Active);
-        assert_eq!(restored.state().source_namespace(), target.namespace());
-        assert_eq!(
-            storage.transaction(target_namespace).read(b"k").unwrap(),
-            Some(vec![42])
-        );
-        for (namespace, value) in [
-            (source_namespace, 41),
-            (tenant_namespace, 125),
-            (shared_namespace, 126),
-            (neighbour_namespace, 127),
-        ] {
-            assert_eq!(
-                storage.transaction(namespace).read(b"k").unwrap(),
-                Some(vec![value])
-            );
-        }
-        let persisted = storage.replay_state_bytes(1 << 24).unwrap();
-        let lease_bytes = target.canonical_state_bytes().unwrap();
-        drop(restored);
-        drop(storage);
-        drop(target);
-        let target = Lease::decode_state(&lease_bytes).unwrap();
-        let reopened = Storage::decode_untrusted_replay_state(&persisted, 1 << 24).unwrap();
-        let mut resumed = running_instance(&target, &module, reopened);
-        assert_eq!(
-            resumed.call("continue", &[]),
-            Ok(vec![WasmValue::I32(42 * 16 + 7)])
-        );
-        let mut committed = resumed.storage_snapshot().unwrap();
-        assert_eq!(
-            committed.transaction(target_namespace).read(b"k").unwrap(),
-            Some(vec![43])
-        );
-        for (namespace, value) in [
-            (source_namespace, 41),
-            (tenant_namespace, 125),
-            (shared_namespace, 126),
-            (neighbour_namespace, 127),
-        ] {
-            assert_eq!(
-                committed.transaction(namespace).read(b"k").unwrap(),
-                Some(vec![value])
-            );
-        }
+    let source = Lease::decode_state(&persisted_source).checked();
+    let supplied = SandboxState::from_canonical(&source, &persisted_snapshot).checked();
+    let scenario = RestoreScenario {
+        source: &source,
+        target: &target,
+        module: &module,
+        persisted_storage: &persisted_storage,
+        supplied: &supplied,
+        digest,
+        namespaces: [
+            source_namespace,
+            target_namespace,
+            tenant_namespace,
+            shared_namespace,
+            neighbour_namespace,
+        ],
+    };
+    for grants in [CapabilitySet::empty(), hostile_restore_grants()] {
+        run_reopened_restore_case(&scenario, grants);
     }
 }

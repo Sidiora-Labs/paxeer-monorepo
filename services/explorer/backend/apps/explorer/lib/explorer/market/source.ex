@@ -37,6 +37,7 @@ defmodule Explorer.Market.Source do
   alias Explorer.{Helper, HttpClient}
 
   alias Explorer.Market.Source.{
+    Chainflow,
     CoinGecko,
     CoinMarketCap,
     CryptoCompare,
@@ -235,7 +236,7 @@ defmodule Explorer.Market.Source do
     Decimal.new(value)
   end
 
-  @sources [CoinGecko, CoinMarketCap, CryptoCompare, CryptoRank, DefiLlama, Mobula, DIA]
+  @sources [CoinGecko, CoinMarketCap, CryptoCompare, CryptoRank, DefiLlama, Mobula, DIA, Chainflow]
 
   @doc """
   Returns a module for fetching native coin market data.

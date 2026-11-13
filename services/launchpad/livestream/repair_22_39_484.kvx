@@ -1,0 +1,40 @@
+[coverage]
+minimum = "85.0%"
+measured = "hand-written Go statements"
+after = "3434/4032 (85.2%)"
+
+[coverage.cmd_livestreamd]
+before = "0/3 (0.0%)"
+after = "0/3 (0.0%)"
+
+[coverage.internal_app]
+before = "135/265 (50.9%)"
+after = "218/265 (82.3%)"
+
+[coverage.internal_config]
+before = "89/319 (27.9%)"
+after = "284/319 (89.0%)"
+
+[coverage.internal_db_sqlcdb]
+before = "no hand-written statements"
+after = "no hand-written statements"
+
+[coverage.internal_livepeer]
+before = "122/249 (49.0%)"
+after = "229/249 (92.0%)"
+
+[coverage.internal_migrate]
+before = "11/15 (73.3%)"
+after = "11/15 (73.3%)"
+
+[coverage.internal_streams]
+before = "1532/3179 (48.2%)"
+after = "2692/3181 (84.6%)"
+
+[coverage.migrations]
+before = "no measurable statements"
+after = "no measurable statements"
+
+[coverage.pkg_types]
+before = "no measurable statements"
+after = "no measurable statements"

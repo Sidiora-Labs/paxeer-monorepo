@@ -46,6 +46,7 @@ func phase2AdmittedPool(t *testing.T, dsn, role, password, poolID string, max in
 	return AdmittedReadPool{pool, options}
 }
 func TestPhase2PausedReplicaOwnershipAndAdmission(t *testing.T) {
+	requireProductionEnv(t, "L07_POSTGRES_DSN", "L07_REPLICA_DSN", "L07_READER_PASSWORD")
 	primary := fixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

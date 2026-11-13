@@ -330,72 +330,12 @@ fn roster_refuses_manifest_identity_version_and_digest_mismatches() -> CodecResu
 fn signed_v2_publication_persists_digest_for_the_capability_roster() -> CodecResult<()> {
     let manifest = manifest_v2(capabilities())?;
     let summary = decode_manifest(&manifest)?;
-    let chain = ChainDomain::new([50; 32])?;
-    let program = ProgramId::new([51; 32])?;
-    let asset = AssetId::new([52; 32])?;
-    let market = MarketHeader {
-        format_version: 1,
-        market_id: summary.market,
-        deployment_chain_domain: chain,
-        program_id: program,
-        owner_principal: PrincipalId::new([53; 32])?,
-        funding_asset: asset,
-        rewards_account: derive_rewards_account(program, asset)?,
-        refund_recipient_account: AccountId::new([54; 32])?,
-        treasury_principal: Presence::Absent,
-        origin_height: 0,
-        lifecycle: 2,
-        state_revision: 1,
-        highest_config_version: 1,
-        active_config_version: 1,
-        activation_epoch: 0,
-        activation_scheduled: false,
-        closure_requested_at: 0,
-        close_phase: 0,
-        close_cursor: 0,
-        suspension_reason_digest: [0; 32],
-        metadata_digest: MetadataDigest::new([55; 32])?,
-        closing_request_digest: [0; 32],
-        reserved: [0; 8],
-    };
-    let signing_key = SigningKey::from_bytes(&[56; 32]);
+    let (market, signing_key, current) = publication_state(&summary)?;
+    let chain = market.deployment_chain_domain;
+    let program = market.program_id;
     let delegate = PublicKey32(signing_key.verifying_key().to_bytes());
-    let mut table = WorkerTable::new();
-    table.insert(&WorkerCurrent {
-        worker: summary.worker,
-        owner: summary.owner,
-        delegate,
-        metadata: MetadataDigest::new([57; 32])?,
-        generation: summary.generation,
-        key_version: summary.key_version,
-        metadata_revision: summary.revision - 1,
-        valid_from: 200,
-        expiry: 400,
-        revocation_sequence: 0,
-        effective_epoch: 1,
-        last_sequence: 0,
-        last_request_id: [0; 32],
-        last_request_digest: [0; 32],
-        last_result_digest: [0; 32],
-        state: WorkerState::Available,
-        slot: 0,
-        last_metadata_height: 200,
-    })?;
-    let mut identity = vec![0; workers::WORKER_TABLE_MAX_BYTES];
-    let identity_len = table.encode(&mut identity)?;
-    let mut replay = ReplayTable::new();
-    replay.bind(ActorSlot::worker(0)?, summary.owner, Version::new(1)?)?;
-    let shared = SharedState {
-        revision: 1,
-        feature_sections: [&[], &identity[..identity_len], &[], &[], &[]],
-        control: Control {
-            replay,
-            feature_bytes: &[],
-        },
-    };
-    let mut current = vec![0; MAX_STATE_BYTES];
+    let current_len = current.len();
     let mut scratch = vec![0; workers::CONTROL_SCRATCH_BYTES];
-    let current_len = state::encode_shared_state(&shared, &mut current, &mut scratch)?;
     let mut payload = vec![0; MAX_MANIFEST_BYTES + 100];
     let mut w = Writer::new(&mut payload);
     w.put(summary.worker.as_bytes())?;
@@ -468,4 +408,76 @@ fn signed_v2_publication_persists_digest_for_the_capability_roster() -> CodecRes
         entry
     );
     Ok(())
+}
+fn publication_state(
+    summary: &workers::ManifestSummary,
+) -> CodecResult<(MarketHeader, SigningKey, Vec<u8>)> {
+    let chain = ChainDomain::new([50; 32])?;
+    let program = ProgramId::new([51; 32])?;
+    let asset = AssetId::new([52; 32])?;
+    let market = MarketHeader {
+        format_version: 1,
+        market_id: summary.market,
+        deployment_chain_domain: chain,
+        program_id: program,
+        owner_principal: PrincipalId::new([53; 32])?,
+        funding_asset: asset,
+        rewards_account: derive_rewards_account(program, asset)?,
+        refund_recipient_account: AccountId::new([54; 32])?,
+        treasury_principal: Presence::Absent,
+        origin_height: 0,
+        lifecycle: 2,
+        state_revision: 1,
+        highest_config_version: 1,
+        active_config_version: 1,
+        activation_epoch: 0,
+        activation_scheduled: false,
+        closure_requested_at: 0,
+        close_phase: 0,
+        close_cursor: 0,
+        suspension_reason_digest: [0; 32],
+        metadata_digest: MetadataDigest::new([55; 32])?,
+        closing_request_digest: [0; 32],
+        reserved: [0; 8],
+    };
+    let signing_key = SigningKey::from_bytes(&[56; 32]);
+    let delegate = PublicKey32(signing_key.verifying_key().to_bytes());
+    let mut table = WorkerTable::new();
+    table.insert(&WorkerCurrent {
+        worker: summary.worker,
+        owner: summary.owner,
+        delegate,
+        metadata: MetadataDigest::new([57; 32])?,
+        generation: summary.generation,
+        key_version: summary.key_version,
+        metadata_revision: summary.revision - 1,
+        valid_from: 200,
+        expiry: 400,
+        revocation_sequence: 0,
+        effective_epoch: 1,
+        last_sequence: 0,
+        last_request_id: [0; 32],
+        last_request_digest: [0; 32],
+        last_result_digest: [0; 32],
+        state: WorkerState::Available,
+        slot: 0,
+        last_metadata_height: 200,
+    })?;
+    let mut identity = vec![0; workers::WORKER_TABLE_MAX_BYTES];
+    let identity_len = table.encode(&mut identity)?;
+    let mut replay = ReplayTable::new();
+    replay.bind(ActorSlot::worker(0)?, summary.owner, Version::new(1)?)?;
+    let shared = SharedState {
+        revision: 1,
+        feature_sections: [&[], &identity[..identity_len], &[], &[], &[]],
+        control: Control {
+            replay,
+            feature_bytes: &[],
+        },
+    };
+    let mut current = vec![0; MAX_STATE_BYTES];
+    let mut scratch = vec![0; workers::CONTROL_SCRATCH_BYTES];
+    let current_len = state::encode_shared_state(&shared, &mut current, &mut scratch)?;
+    current.truncate(current_len);
+    Ok((market, signing_key, current))
 }

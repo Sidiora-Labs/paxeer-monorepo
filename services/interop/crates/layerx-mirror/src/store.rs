@@ -538,6 +538,9 @@ impl ArchiveSpool {
     /// Initializes and reconciles the durable height index once per spool open.
     /// Missing entries are recovered from immutable objects after an interrupted
     /// put. Conflicts, missing objects and damaged entries are never discarded.
+    ///
+    /// # Errors
+    /// Returns an index or storage error when reconciliation cannot complete.
     pub fn ordered_bounds(&self) -> Result<Option<(u64, u64, usize)>, StoreError> {
         self.ensure_index()?;
         let index = self.index.lock().map_err(|_| StoreError::Conflict)?;
@@ -548,6 +551,9 @@ impl ArchiveSpool {
     }
 
     /// Selects a bounded ordered range without loading historical archive bytes.
+    ///
+    /// # Errors
+    /// Refuses invalid limits and damaged or unavailable index state.
     pub fn ordered_range(
         &self,
         first: u64,
@@ -681,6 +687,9 @@ impl ArchiveSpool {
     }
 
     /// Reads a sealed lane cursor; the corresponding immutable archive must exist.
+    ///
+    /// # Errors
+    /// Refuses damaged cursor bytes or a cursor without its archived block.
     pub fn lane_cursor(
         &self,
         lane: MirrorChain,
@@ -691,7 +700,7 @@ impl ArchiveSpool {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(error) => return Err(StoreError::Io(error)),
         };
-        if bytes.len() != 72 || &Sha256::digest(&bytes[..40])[..] != &bytes[40..] {
+        if bytes.len() != 72 || Sha256::digest(&bytes[..40])[..] != bytes[40..] {
             return Err(StoreError::Corrupt);
         }
         let height = u64::from_be_bytes(bytes[..8].try_into().map_err(|_| StoreError::Corrupt)?);
@@ -718,6 +727,9 @@ impl ArchiveSpool {
 
     /// Saves only canonical readback-acknowledged progress, independently per lane.
     /// This is a scheduling cursor, never authority for chain finality on reopen.
+    ///
+    /// # Errors
+    /// Refuses missing archives or failures to persist the cursor.
     pub fn save_lane_cursor(
         &self,
         lane: MirrorChain,

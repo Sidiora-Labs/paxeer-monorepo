@@ -4,7 +4,7 @@
 //! The registry parser, clients, verifier, journal and Registrar are production code.
 
 #[allow(dead_code)]
-#[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/chain.rs"]
+#[path = "support/repair_22_33_1470_chain.rs"]
 mod chain;
 
 use chain::ChainFixture;
@@ -40,7 +40,7 @@ fn hash(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
 pub(crate) fn program() -> ProgramId {
-    ProgramId::new([0x31; 32]).unwrap()
+    ProgramId::new([0x31; 32]).unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn policy() -> UpgradePolicy {
     UpgradePolicy::Authority([0x51; 32])
@@ -55,13 +55,19 @@ fn transcript() -> BTreeMap<String, Vec<u8>> {
     );
     text.lines()
         .map(|line| {
-            let (key, value) = line.split_once('=').unwrap();
-            (key.into(), layerx_programs::hex::decode(value).unwrap())
+            let (key, value) = line
+                .split_once('=')
+                .unwrap_or_else(|| panic!("expected a value"));
+            (
+                key.into(),
+                layerx_programs::hex::decode(value).unwrap_or_else(|error| panic!("{error:?}")),
+            )
         })
         .collect()
 }
 fn descriptor(version: usize) -> ProgramInterface {
-    ProgramInterface::decode(&transcript()[&format!("interface.{version}")]).unwrap()
+    ProgramInterface::decode(&transcript()[&format!("interface.{version}")])
+        .unwrap_or_else(|error| panic!("{error:?}"))
 }
 pub(crate) fn code(version: usize) -> Vec<u8> {
     transcript()[&format!("wasm.{version}")].clone()
@@ -75,7 +81,7 @@ fn interface_key() -> Vec<u8> {
     programs_state_key(&interface_state_key(program()))
 }
 fn records(abi: u16) -> [DeploymentRecord; 2] {
-    let mut runtime = Lifecycle::declared().unwrap();
+    let mut runtime = Lifecycle::declared().unwrap_or_else(|error| panic!("{error:?}"));
     let first = runtime
         .deploy(Deploy {
             program: program(),
@@ -84,7 +90,7 @@ fn records(abi: u16) -> [DeploymentRecord; 2] {
             abi_version: abi,
             upgrade_policy: policy(),
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let second = runtime
         .upgrade(Upgrade {
             program: program(),
@@ -94,7 +100,7 @@ fn records(abi: u16) -> [DeploymentRecord; 2] {
             abi_version: abi,
             migration: None,
         })
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     [first, second]
         .iter()
         .enumerate()
@@ -111,11 +117,11 @@ fn records(abi: u16) -> [DeploymentRecord; 2] {
                 39 + i as u64,
                 1_700_000_001_123 + i as u64 * 1000,
             )
-            .unwrap()
+            .unwrap_or_else(|error| panic!("{error:?}"))
         })
         .collect::<Vec<_>>()
         .try_into()
-        .unwrap()
+        .unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn program_value(version: usize, abi: u16) -> Vec<u8> {
     record_value(&records(abi)[version - 1])
@@ -137,25 +143,41 @@ fn state_fixture(
     if let Some(value) = interface {
         rows.push((interface_key(), value));
     }
-    let chain = ChainFixture::new(CHAIN, &SEEDS, rows).unwrap();
-    let witness = decode_commitment_proof(&chain.encode_key(&interface_key()).unwrap()).unwrap();
+    let chain = ChainFixture::new(CHAIN, &SEEDS, rows).unwrap_or_else(|error| panic!("{error:?}"));
+    let witness = decode_commitment_proof(
+        &chain
+            .encode_key(&interface_key())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let deployment = ChainDeploymentProof::from_state_proofs(
         ChainProgramStateProof {
             program: program(),
-            ops: chain.prove(&program_key()).unwrap(),
+            ops: chain
+                .prove(&program_key())
+                .unwrap_or_else(|error| panic!("{error:?}")),
         },
         code(version),
         &witness,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     (chain, deployment)
 }
 fn value(version: usize) -> Vec<u8> {
-    interface_state_value(program(), version as u32, &descriptor(version)).unwrap()
+    interface_state_value(
+        program(),
+        u32::try_from(version).unwrap_or_else(|error| panic!("{error:?}")),
+        &descriptor(version),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn sign(fixture: &mut ChainFixture) {
     fixture.commit.height = fixture.header.height;
-    fixture.commit.block_id.hash = fixture.header.hash().unwrap().to_vec();
+    fixture.commit.block_id.hash = fixture
+        .header
+        .hash()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .to_vec();
     let timestamp = Timestamp {
         seconds: fixture.header.time.seconds,
         nanos: fixture.header.time.nanos,
@@ -167,7 +189,7 @@ fn sign(fixture: &mut ChainFixture) {
         Some(&fixture.commit.block_id),
         timestamp,
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let mut keys = SEEDS.iter().map(SigningKey::from_bytes).collect::<Vec<_>>();
     keys.sort_by_key(|key| TrustedValidator::new(key.verifying_key().to_bytes(), 1).address);
     fixture.commit.signatures = keys
@@ -192,19 +214,10 @@ pub(crate) struct Admission {
 pub(crate) fn admission(version: usize) -> Admission {
     admission_abi(version, 1)
 }
-fn admission_abi(version: usize, abi: u16) -> Admission {
-    let producer = transcript();
-    let abi_five: Value =
-        serde_json::from_str(include_str!("../src/repair_22_31_206_abi5.json")).unwrap();
-    let five_tx = hex::decode(abi_five["transaction_hex"].as_str().unwrap()).unwrap();
-    let transaction = if abi == 5 {
-        &five_tx
-    } else {
-        &producer[if version == 1 { "deploy" } else { "upgrade" }]
-    };
+fn prior_chain(version: usize, transaction: &[u8]) -> (ChainFixture, [u8; 32]) {
     let mut prior = if version == 1 {
-        let mut prior =
-            ChainFixture::new(CHAIN, &SEEDS, vec![(b"unrelated".to_vec(), vec![1])]).unwrap();
+        let mut prior = ChainFixture::new(CHAIN, &SEEDS, vec![(b"unrelated".to_vec(), vec![1])])
+            .unwrap_or_else(|error| panic!("{error:?}"));
         prior.header.height = 38;
         prior
     } else {
@@ -213,12 +226,48 @@ fn admission_abi(version: usize, abi: u16) -> Admission {
     let tx_root = hash_from_byte_slices(&[&hash(transaction)]);
     prior.header.data_hash = tx_root.to_vec();
     sign(&mut prior);
+    (prior, tx_root)
+}
+
+fn assemble_admission(chain: ChainFixture, proof: DeploymentProof) -> Admission {
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        CHAIN,
+        chain.verifier.validators.validators().to_vec(),
+        5000,
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let now = u64::try_from(chain.header.time.seconds).unwrap_or_else(|error| panic!("{error:?}"))
+        * 1000
+        + u64::try_from(chain.header.time.nanos).unwrap_or_else(|error| panic!("{error:?}"))
+            / 1_000_000;
+    Admission {
+        chain,
+        proof,
+        verifier,
+        now,
+    }
+}
+
+fn current_chain(
+    version: usize,
+    abi: u16,
+    producer: &BTreeMap<String, Vec<u8>>,
+    prior: &ChainFixture,
+) -> (ChainFixture, [u8; 32]) {
     let (mut chain, _) = state_fixture(version, abi, (abi == 1).then(|| value(version)));
     chain.header.height = prior.header.height + 1;
     chain.header.time.seconds = prior.header.time.seconds + 1;
-    chain.header.last_block_id.hash = prior.commit.block_id.hash.clone();
+    chain
+        .header
+        .last_block_id
+        .hash
+        .clone_from(&prior.commit.block_id.hash);
     chain.header.last_block_id.part_set_total = prior.commit.block_id.part_set_header.total;
-    chain.header.last_block_id.part_set_hash = prior.commit.block_id.part_set_header.hash.clone();
+    chain
+        .header
+        .last_block_id
+        .part_set_hash
+        .clone_from(&prior.commit.block_id.part_set_header.hash);
     let result_root = hash_from_byte_slices(&[&producer["success.leaf"]]);
     assert_eq!(result_root.as_slice(), producer["success.root"]);
     chain.header.last_results_hash = result_root.to_vec();
@@ -231,21 +280,57 @@ fn admission_abi(version: usize, abi: u16) -> Admission {
     )])
     .to_vec();
     sign(&mut chain);
-    let commitment = decode_commitment_proof(&chain.encode_key(&program_key()).unwrap()).unwrap();
-    let interface_state =
-        decode_commitment_proof(&chain.encode_key(&interface_key()).unwrap()).unwrap();
-    let state = ChainProgramStateProof {
-        program: program(),
-        ops: chain.prove(&program_key()).unwrap(),
-    };
+    (chain, result_root)
+}
+
+fn wind_down_ops(chain: &ChainFixture) -> Vec<layerx_programs::chain_proof::decode::ProofOp> {
     let mut status_key = b"wind-down\0s".to_vec();
     status_key.extend_from_slice(&program().bytes());
     let status_ops = chain
         .prove_absent(&programs_state_key(&status_key))
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    status_ops
+}
+
+fn admission_abi(version: usize, abi: u16) -> Admission {
+    let producer = transcript();
+    let abi_five: Value = serde_json::from_str(include_str!("../src/repair_22_31_206_abi5.json"))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let five_tx = hex::decode(
+        abi_five["transaction_hex"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected a value")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let transaction = if abi == 5 {
+        &five_tx
+    } else {
+        &producer[if version == 1 { "deploy" } else { "upgrade" }]
+    };
+    let (prior, tx_root) = prior_chain(version, transaction);
+    let (chain, result_root) = current_chain(version, abi, &producer, &prior);
+    let commitment = decode_commitment_proof(
+        &chain
+            .encode_key(&program_key())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let interface_state = decode_commitment_proof(
+        &chain
+            .encode_key(&interface_key())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    let state = ChainProgramStateProof {
+        program: program(),
+        ops: chain
+            .prove(&program_key())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    };
+    let status_ops = wind_down_ops(&chain);
     let deployment =
         ChainDeploymentProof::from_state_proofs(state.clone(), code(version), &interface_state)
-            .unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
     let mut proof = DeploymentProof {
         state: ProgramStateProof {
             commitment,
@@ -275,7 +360,12 @@ fn admission_abi(version: usize, abi: u16) -> Admission {
     proof
         .bind_execution(&DeploymentExecutionProof {
             transaction: transaction.clone(),
-            previous: decode_commitment_proof(&prior.encode_key(&program_key()).unwrap()).unwrap(),
+            previous: decode_commitment_proof(
+                &prior
+                    .encode_key(&program_key())
+                    .unwrap_or_else(|error| panic!("{error:?}")),
+            )
+            .unwrap_or_else(|error| panic!("{error:?}")),
             result: TxResult {
                 code: 0,
                 data: producer["success"].clone(),
@@ -289,33 +379,25 @@ fn admission_abi(version: usize, abi: u16) -> Admission {
                 aunts: vec![],
             },
             interface_ops: if abi == 1 {
-                chain.prove(&interface_key()).unwrap()
+                chain
+                    .prove(&interface_key())
+                    .unwrap_or_else(|error| panic!("{error:?}"))
             } else {
-                chain.prove_absent(&interface_key()).unwrap()
+                chain
+                    .prove_absent(&interface_key())
+                    .unwrap_or_else(|error| panic!("{error:?}"))
             },
             migration: None,
             migration_ops: vec![],
             migration_previous_ops: vec![],
         })
-        .unwrap();
-    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
-        CHAIN,
-        chain.verifier.validators.validators().to_vec(),
-        5000,
-    )
-    .unwrap();
-    let now = chain.header.time.seconds as u64 * 1000 + chain.header.time.nanos as u64 / 1_000_000;
-    Admission {
-        chain,
-        proof,
-        verifier,
-        now,
-    }
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assemble_admission(chain, proof)
 }
 
 use layerx_platform_registry::{
     committed_head_route, parse_request, write_response, Config, FileDeploymentJournal,
-    HermeticBuilder, NodeProgramStateSource, Registrar, RegistryAuthority, Request, Response,
+    HermeticBuilder, Registrar, RegistryAuthority, Request, Response,
 };
 use layerx_programs::{hex, DeploymentJournal as _};
 use serde_json::{json, Value};
@@ -340,7 +422,7 @@ impl Directory {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).unwrap();
+        fs::create_dir(&path).unwrap_or_else(|error| panic!("{error:?}"));
         Self(path)
     }
 }
@@ -348,6 +430,70 @@ impl Drop for Directory {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
     }
+}
+
+fn fixture_ca() -> (
+    openssl::pkey::PKey<openssl::pkey::Private>,
+    openssl::x509::X509,
+) {
+    use openssl::{
+        asn1::Asn1Time,
+        bn::BigNum,
+        hash::MessageDigest,
+        pkey::PKey,
+        rsa::Rsa,
+        x509::{
+            extension::{BasicConstraints, KeyUsage},
+            X509NameBuilder, X509,
+        },
+    };
+    let ca_key = PKey::from_rsa(Rsa::generate(2048).unwrap_or_else(|error| panic!("{error:?}")))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let mut ca_name = X509NameBuilder::new().unwrap_or_else(|error| panic!("{error:?}"));
+    ca_name
+        .append_entry_by_text("CN", "Registry repair test CA")
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let ca_name = ca_name.build();
+    let mut ca = X509::builder().unwrap_or_else(|error| panic!("{error:?}"));
+    ca.set_version(2)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    ca.set_serial_number(
+        &BigNum::from_u32(1)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .to_asn1_integer()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    ca.set_subject_name(&ca_name)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    ca.set_issuer_name(&ca_name)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    ca.set_pubkey(&ca_key)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    ca.set_not_before(&Asn1Time::days_from_now(0).unwrap_or_else(|error| panic!("{error:?}")))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    ca.set_not_after(&Asn1Time::days_from_now(1).unwrap_or_else(|error| panic!("{error:?}")))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    ca.append_extension(
+        BasicConstraints::new()
+            .critical()
+            .ca()
+            .build()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    ca.append_extension(
+        KeyUsage::new()
+            .critical()
+            .key_cert_sign()
+            .build()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    ca.sign(&ca_key, MessageDigest::sha256())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let ca = ca.build();
+    (ca_key, ca)
 }
 
 fn tls() -> (Vec<u8>, Arc<rustls::ServerConfig>) {
@@ -362,74 +508,84 @@ fn tls() -> (Vec<u8>, Arc<rustls::ServerConfig>) {
             X509NameBuilder, X509,
         },
     };
-    let ca_key = PKey::from_rsa(Rsa::generate(2048).unwrap()).unwrap();
-    let mut ca_name = X509NameBuilder::new().unwrap();
-    ca_name
-        .append_entry_by_text("CN", "Registry repair test CA")
-        .unwrap();
-    let ca_name = ca_name.build();
-    let mut ca = X509::builder().unwrap();
-    ca.set_version(2).unwrap();
-    ca.set_serial_number(&BigNum::from_u32(1).unwrap().to_asn1_integer().unwrap())
-        .unwrap();
-    ca.set_subject_name(&ca_name).unwrap();
-    ca.set_issuer_name(&ca_name).unwrap();
-    ca.set_pubkey(&ca_key).unwrap();
-    ca.set_not_before(&Asn1Time::days_from_now(0).unwrap())
-        .unwrap();
-    ca.set_not_after(&Asn1Time::days_from_now(1).unwrap())
-        .unwrap();
-    ca.append_extension(BasicConstraints::new().critical().ca().build().unwrap())
-        .unwrap();
-    ca.append_extension(KeyUsage::new().critical().key_cert_sign().build().unwrap())
-        .unwrap();
-    ca.sign(&ca_key, MessageDigest::sha256()).unwrap();
-    let ca = ca.build();
-    let key = PKey::from_rsa(Rsa::generate(2048).unwrap()).unwrap();
-    let mut name = X509NameBuilder::new().unwrap();
-    name.append_entry_by_text("CN", "localhost").unwrap();
+    let (ca_key, ca) = fixture_ca();
+    let key = PKey::from_rsa(Rsa::generate(2048).unwrap_or_else(|error| panic!("{error:?}")))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let mut name = X509NameBuilder::new().unwrap_or_else(|error| panic!("{error:?}"));
+    name.append_entry_by_text("CN", "localhost")
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let name = name.build();
-    let mut cert = X509::builder().unwrap();
-    cert.set_version(2).unwrap();
-    cert.set_serial_number(&BigNum::from_u32(2).unwrap().to_asn1_integer().unwrap())
-        .unwrap();
-    cert.set_subject_name(&name).unwrap();
-    cert.set_issuer_name(&ca_name).unwrap();
-    cert.set_pubkey(&key).unwrap();
-    cert.set_not_before(&Asn1Time::days_from_now(0).unwrap())
-        .unwrap();
-    cert.set_not_after(&Asn1Time::days_from_now(1).unwrap())
-        .unwrap();
-    cert.append_extension(BasicConstraints::new().critical().build().unwrap())
-        .unwrap();
+    let mut cert = X509::builder().unwrap_or_else(|error| panic!("{error:?}"));
+    cert.set_version(2)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    cert.set_serial_number(
+        &BigNum::from_u32(2)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .to_asn1_integer()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    cert.set_subject_name(&name)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    cert.set_issuer_name(ca.subject_name())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    cert.set_pubkey(&key)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    cert.set_not_before(&Asn1Time::days_from_now(0).unwrap_or_else(|error| panic!("{error:?}")))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    cert.set_not_after(&Asn1Time::days_from_now(1).unwrap_or_else(|error| panic!("{error:?}")))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    cert.append_extension(
+        BasicConstraints::new()
+            .critical()
+            .build()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
     cert.append_extension(
         KeyUsage::new()
             .digital_signature()
             .key_encipherment()
             .build()
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("{error:?}")),
     )
-    .unwrap();
-    cert.append_extension(ExtendedKeyUsage::new().server_auth().build().unwrap())
-        .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    cert.append_extension(
+        ExtendedKeyUsage::new()
+            .server_auth()
+            .build()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
     cert.append_extension(
         SubjectAlternativeName::new()
             .dns("localhost")
             .ip("127.0.0.1")
             .build(&cert.x509v3_context(Some(&ca), None))
-            .unwrap(),
+            .unwrap_or_else(|error| panic!("{error:?}")),
     )
-    .unwrap();
-    cert.sign(&ca_key, MessageDigest::sha256()).unwrap();
-    let der = cert.build().to_der().unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    cert.sign(&ca_key, MessageDigest::sha256())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let der = cert
+        .build()
+        .to_der()
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let config = rustls::ServerConfig::builder()
         .with_no_client_auth()
         .with_single_cert(
             vec![rustls::pki_types::CertificateDer::from(der.clone())],
-            rustls::pki_types::PrivateKeyDer::Pkcs8(key.private_key_to_pkcs8().unwrap().into()),
+            rustls::pki_types::PrivateKeyDer::Pkcs8(
+                key.private_key_to_pkcs8()
+                    .unwrap_or_else(|error| panic!("{error:?}"))
+                    .into(),
+            ),
         )
-        .unwrap();
-    (ca.to_der().unwrap(), Arc::new(config))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    (
+        ca.to_der().unwrap_or_else(|error| panic!("{error:?}")),
+        Arc::new(config),
+    )
 }
 
 pub(crate) struct Server {
@@ -461,12 +617,16 @@ impl Server {
         tls: Option<Arc<rustls::ServerConfig>>,
         handler: impl Fn(Request) -> Response + Send + Sync + 'static,
     ) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error:?}"));
+        listener
+            .set_nonblocking(true)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         let endpoint = format!(
             "{}://{}",
             if tls.is_some() { "https" } else { "http" },
-            listener.local_addr().unwrap()
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("{error:?}"))
         );
         let stop = Arc::new(AtomicBool::new(false));
         let stopped = stop.clone();
@@ -482,20 +642,24 @@ impl Server {
                 };
                 socket
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                    .unwrap_or_else(|error| panic!("{error:?}"));
                 socket
                     .set_write_timeout(Some(Duration::from_secs(5)))
-                    .unwrap();
+                    .unwrap_or_else(|error| panic!("{error:?}"));
                 if let Some(tls) = &tls {
-                    let connection = rustls::ServerConnection::new(tls.clone()).unwrap();
+                    let connection = rustls::ServerConnection::new(tls.clone())
+                        .unwrap_or_else(|error| panic!("{error:?}"));
                     let mut stream = rustls::StreamOwned::new(connection, socket);
                     if let Ok(request) = peer_request(&mut stream) {
-                        write_response(&mut stream, &handler(request)).unwrap();
+                        write_response(&mut stream, &handler(request))
+                            .unwrap_or_else(|error| panic!("{error:?}"));
                     }
                 } else {
                     let mut stream = socket;
-                    let request = peer_request(&mut stream).unwrap();
-                    write_response(&mut stream, &handler(request)).unwrap();
+                    let request =
+                        peer_request(&mut stream).unwrap_or_else(|error| panic!("{error:?}"));
+                    write_response(&mut stream, &handler(request))
+                        .unwrap_or_else(|error| panic!("{error:?}"));
                 }
             }
         });
@@ -509,10 +673,14 @@ impl Server {
 impl Drop for Server {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        self.thread.take().unwrap().join().unwrap();
+        self.thread
+            .take()
+            .unwrap_or_else(|| panic!("expected a value"))
+            .join()
+            .unwrap_or_else(|error| panic!("{error:?}"));
     }
 }
-fn response(status: u16, body: Value) -> Response {
+fn response(status: u16, body: &Value) -> Response {
     Response {
         status,
         body: body.to_string(),
@@ -520,8 +688,18 @@ fn response(status: u16, body: Value) -> Response {
 }
 
 fn head_document(admission: &Admission) -> Value {
-    let raw = transcript()[if admission.proof.claimed_record().unwrap().version == 1
-        && admission.proof.claimed_record().unwrap().abi_version == 1
+    let raw = transcript()[if admission
+        .proof
+        .claimed_record()
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .version
+        == 1
+        && admission
+            .proof
+            .claimed_record()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .abi_version
+            == 1
     {
         "upgrade"
     } else {
@@ -533,7 +711,7 @@ fn head_document(admission: &Admission) -> Value {
     json!({"current": true, "authority_replica_id": hex::encode(&REPLICA),
         "receipt_digest": hex::encode(&hash(&raw)), "state_root": hex::encode(&header.app_hash),
         "observed_sequence": header.height, "observed_at": admission.now,
-        "chain_evidence": {"commitment_hex": hex::encode(&admission.proof.state.commitment.encode().unwrap()),
+        "chain_evidence": {"commitment_hex": hex::encode(&admission.proof.state.commitment.encode().unwrap_or_else(|error| panic!("{error:?}"))),
             "transaction_hex": hex::encode(&raw), "transaction_proof": {"total":1,"index":0,"leaf_hash":hex::encode(&root),"aunts":[]}}})
 }
 
@@ -552,86 +730,20 @@ impl Peers {
     fn with_history(admission: &Admission, historical: Option<&Admission>) -> Self {
         let (ca, tls) = tls();
         let document = head_document(admission);
-        let mut heads = BTreeMap::from([(admission.chain.header.height as u64, document.clone())]);
+        let mut heads = BTreeMap::from([(
+            u64::try_from(admission.chain.header.height)
+                .unwrap_or_else(|error| panic!("{error:?}")),
+            document.clone(),
+        )]);
         if let Some(historical) = historical {
             heads.insert(
-                historical.chain.header.height as u64,
+                u64::try_from(historical.chain.header.height)
+                    .unwrap_or_else(|error| panic!("{error:?}")),
                 head_document(historical),
             );
         }
-        let replica_heads = heads.clone();
-        let replica_document = document.clone();
-        let replica = Server::start(None, move |request| {
-            assert_eq!(
-                request.headers.get("authorization").map(String::as_str),
-                Some("Bearer replica-repair-credential")
-            );
-            assert!(request.path.starts_with(committed_head_route::HEAD_PATH));
-            let height = request
-                .path
-                .split_once("?height=")
-                .and_then(|(_, height)| height.parse::<u64>().ok());
-            response(
-                200,
-                height
-                    .and_then(|height| replica_heads.get(&height))
-                    .unwrap_or(&replica_document)
-                    .clone(),
-            )
-        });
-        let replica_endpoint = replica.endpoint.clone();
-        let authority = Server::start(Some(tls.clone()), move |request| {
-            let (path, query) = request
-                .path
-                .split_once('?')
-                .map_or((request.path.as_str(), None), |(path, query)| {
-                    (path, Some(query))
-                });
-            let routed = committed_head_route::route(
-                &request.method,
-                path,
-                query,
-                || {
-                    request
-                        .headers
-                        .get("authorization")
-                        .is_some_and(|value| value == "Bearer authority-repair-credential")
-                },
-                REPLICA,
-                |path| {
-                    let mut answer = ureq::get(format!("{replica_endpoint}{path}"))
-                        .header("authorization", "Bearer replica-repair-credential")
-                        .call()
-                        .map_err(|error| error.to_string())?;
-                    answer
-                        .body_mut()
-                        .read_json::<Value>()
-                        .map_err(|error| error.to_string())
-                },
-            );
-            let (status, body) = routed.unwrap_or((404, json!({"error":"not_found"})));
-            response(status, body)
-        });
-        let bundle = layerx_programs::ProgramStateBundle {
-            commitment: admission.proof.state.commitment.clone(),
-            program: program(),
-            program_record_ops: admission.proof.state.state.ops.clone(),
-            interface_ops: decode_commitment_proof(
-                admission.proof.deployment.interface.as_deref().unwrap(),
-            )
-            .unwrap()
-            .proof_ops,
-            wind_down: Some(admission.proof.state.wind_down.clone()),
-        };
-        let encoded = bundle.canonical_encoding().unwrap();
-        let rpc = Server::start(None, move |request| {
-            assert_eq!(request.path, "/");
-            assert_eq!(request.method, "POST");
-            let rpc: Value = serde_json::from_slice(&request.body).unwrap();
-            assert_eq!(rpc["method"], "eth_call");
-            assert_eq!(rpc["params"][0]["to"], PROGRAMS);
-            response(200, rpc_result(storage_head_abi()))
-        });
+        let (replica, authority) = start_head_servers(&heads, &document, &tls);
+        let (encoded, rpc) = program_rpc(admission);
         let head = document.clone();
         let node = Server::start(Some(tls.clone()), move |request| {
             assert_eq!(
@@ -639,7 +751,7 @@ impl Peers {
                 Some("Bearer node-repair-credential")
             );
             if request.path == committed_head_route::HEAD_PATH {
-                return response(200, head.clone());
+                return response(200, &head);
             }
             if let Some(digest) = request
                 .path
@@ -649,8 +761,8 @@ impl Peers {
                 let historical = heads
                     .values()
                     .find(|head| head["receipt_digest"].as_str() == Some(digest))
-                    .unwrap();
-                return response(200, historical.clone());
+                    .unwrap_or_else(|| panic!("expected a value"));
+                return response(200, historical);
             }
             if request
                 .path
@@ -658,13 +770,13 @@ impl Peers {
             {
                 return response(
                     200,
-                    json!({"complete_through":{"sequence":head["observed_sequence"],"ordinal":0},"scanned_through_sequence":head["observed_sequence"],"caught_up":true,"records":[]}),
+                    &json!({"complete_through":{"sequence":head["observed_sequence"],"ordinal":0},"scanned_through_sequence":head["observed_sequence"],"caught_up":true,"records":[]}),
                 );
             }
             if request.path.contains("/state-proof?at=") {
                 return response(
                     200,
-                    json!({"program_id":hex::encode(&program().bytes()),"record_hex":hex::encode(&encoded),"record_digest":hex::encode(&hash(&encoded)),"receipt_digest":head["receipt_digest"]}),
+                    &json!({"program_id":hex::encode(&program().bytes()),"record_hex":hex::encode(&encoded),"record_digest":hex::encode(&hash(&encoded)),"receipt_digest":head["receipt_digest"]}),
                 );
             }
             panic!("unexpected node request {}", request.path)
@@ -678,18 +790,99 @@ impl Peers {
             tls,
         }
     }
-    fn source(&self, admission: &Admission) -> NodeProgramStateSource {
-        NodeProgramStateSource::connect(
-            &self.node.endpoint,
-            "node-repair-credential".into(),
-            &self.ca,
-            &self.authority.endpoint,
-            "authority-repair-credential".into(),
-            REPLICA,
-            admission.verifier.clone(),
+}
+
+fn start_head_servers(
+    heads: &BTreeMap<u64, Value>,
+    document: &Value,
+    tls: &Arc<rustls::ServerConfig>,
+) -> (Server, Server) {
+    let replica_heads = heads.clone();
+    let replica_document = document.clone();
+    let replica = Server::start(None, move |request| {
+        assert_eq!(
+            request.headers.get("authorization").map(String::as_str),
+            Some("Bearer replica-repair-credential")
+        );
+        assert!(request.path.starts_with(committed_head_route::HEAD_PATH));
+        let height = request
+            .path
+            .split_once("?height=")
+            .and_then(|(_, height)| height.parse::<u64>().ok());
+        response(
+            200,
+            &height
+                .and_then(|height| replica_heads.get(&height))
+                .unwrap_or(&replica_document)
+                .clone(),
         )
-        .unwrap()
-    }
+    });
+    let replica_endpoint = replica.endpoint.clone();
+    let authority = Server::start(Some(tls.clone()), move |request| {
+        let (path, query) = request
+            .path
+            .split_once('?')
+            .map_or((request.path.as_str(), None), |(path, query)| {
+                (path, Some(query))
+            });
+        let routed = committed_head_route::route(
+            &request.method,
+            path,
+            query,
+            || {
+                request
+                    .headers
+                    .get("authorization")
+                    .is_some_and(|value| value == "Bearer authority-repair-credential")
+            },
+            REPLICA,
+            |path| {
+                let mut answer = ureq::get(format!("{replica_endpoint}{path}"))
+                    .header("authorization", "Bearer replica-repair-credential")
+                    .call()
+                    .map_err(|error| error.to_string())?;
+                answer
+                    .body_mut()
+                    .read_json::<Value>()
+                    .map_err(|error| error.to_string())
+            },
+        );
+        let (status, body) = routed.unwrap_or((404, json!({"error":"not_found"})));
+        response(status, &body)
+    });
+    (replica, authority)
+}
+
+fn program_rpc(admission: &Admission) -> (Vec<u8>, Server) {
+    let bundle = layerx_programs::ProgramStateBundle {
+        commitment: admission.proof.state.commitment.clone(),
+        program: program(),
+        program_record_ops: admission.proof.state.state.ops.clone(),
+        interface_ops: decode_commitment_proof(
+            admission
+                .proof
+                .deployment
+                .interface
+                .as_deref()
+                .unwrap_or_else(|| panic!("expected a value")),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .proof_ops,
+        wind_down: Some(admission.proof.state.wind_down.clone()),
+    };
+    let encoded = bundle
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let rpc = Server::start(None, move |request| {
+        assert_eq!(request.path, "/");
+        assert_eq!(request.method, "POST");
+        let rpc: Value =
+            serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error:?}"));
+        assert_eq!(rpc["method"], "eth_call");
+        assert_eq!(rpc["params"][0]["to"], PROGRAMS);
+        response(200, &rpc_result(&storage_head_abi()))
+    });
+    (encoded, rpc)
 }
 
 fn configuration(root: &Directory, peers: &Peers, admission: &Admission) -> Config {
@@ -697,15 +890,22 @@ fn configuration(root: &Directory, peers: &Peers, admission: &Admission) -> Conf
         .chain
         .verifier
         .verify_head(&admission.chain.header, &admission.chain.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let trust = layerx_programs::chain_proof::trust_store::TrustRoot::from_head(
         &header,
         admission.chain.verifier.validators.clone(),
     )
-    .unwrap();
+    .unwrap_or_else(|error| panic!("{error:?}"));
     let trust_path = root.0.join("trust");
-    fs::write(&trust_path, trust.canonical_bytes().unwrap()).unwrap();
-    fs::set_permissions(&trust_path, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::write(
+        &trust_path,
+        trust
+            .canonical_bytes()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("{error:?}"));
+    fs::set_permissions(&trust_path, fs::Permissions::from_mode(0o600))
+        .unwrap_or_else(|error| panic!("{error:?}"));
     Config {
         listen: "127.0.0.1:0".into(),
         journal: root.0.join("journal"),
@@ -735,11 +935,12 @@ fn configuration(root: &Directory, peers: &Peers, admission: &Admission) -> Conf
         receipt_authority_authorization: "authority-repair-credential".into(),
         receipt_authority_replica_id: REPLICA,
         sequencer_trust_history: trust_path,
-        request_authority: RegistryAuthority::new(TOKEN.to_owned().into()).unwrap(),
+        request_authority: RegistryAuthority::new(TOKEN.to_owned().into())
+            .unwrap_or_else(|error| panic!("{error:?}")),
         publication_authority: RegistryAuthority::new(
             "operator-repair-credential".to_owned().into(),
         )
-        .unwrap(),
+        .unwrap_or_else(|error| panic!("{error:?}")),
         request_timeout_seconds: 10,
         max_connections: 8,
         max_builds: 1,
@@ -758,7 +959,7 @@ fn worker_builder(config: &Config) -> HermeticBuilder {
         "cgroup_root":config.builder_cgroup_root,"timeout_seconds":config.build_timeout_seconds,
         "memory_bytes":config.build_memory_bytes,"process_limit":config.build_process_limit,
         "file_size_bytes":config.build_file_size_bytes,"environment_metadata":vec![0;32],
-    })).unwrap()
+    })).unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn open(config: &Config, now: u64, peers: &Peers) -> Registrar {
     Registrar::open_with_builder_and_chain(
@@ -768,7 +969,7 @@ fn open(config: &Config, now: u64, peers: &Peers) -> Registrar {
         true,
         &peers.rpc.endpoint,
     )
-    .unwrap()
+    .unwrap_or_else(|error| panic!("{error:?}"))
 }
 fn request(method: &str, path: &str, body: Vec<u8>) -> Request {
     Request {
@@ -783,7 +984,7 @@ fn serve(registrar: Registrar, now: u64) -> Server {
     Server::start(None, move |request| {
         registrar
             .lock()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("{error:?}"))
             .route(&request, now, Instant::now() + Duration::from_secs(10))
     })
 }
@@ -799,17 +1000,20 @@ fn exchange(service: &Server, method: &str, path: &str, body: &[u8]) -> (u16, Va
             .post(&url)
             .header("authorization", format!("Bearer {TOKEN}"))
             .send(body)
-            .unwrap()
+            .unwrap_or_else(|error| panic!("{error:?}"))
     } else {
         agent
             .get(&url)
             .header("authorization", format!("Bearer {TOKEN}"))
             .call()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("{error:?}"))
     };
     (
         answer.status().as_u16(),
-        answer.body_mut().read_json().unwrap(),
+        answer
+            .body_mut()
+            .read_json()
+            .unwrap_or_else(|error| panic!("{error:?}")),
     )
 }
 
@@ -852,11 +1056,11 @@ pub(crate) fn storage_head_abi() -> Vec<u8> {
         "00010000000001cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086",
         "0000000000000000000000000000000000000000000000000000",
     ))
-    .unwrap()
+    .unwrap_or_else(|error| panic!("{error:?}"))
 }
 
-fn rpc_result(encoded: Vec<u8>) -> Value {
-    json!({"jsonrpc":"2.0","id":1,"result":format!("0x{}",hex::encode(&encoded))})
+fn rpc_result(encoded: &[u8]) -> Value {
+    json!({"jsonrpc":"2.0","id":1,"result":format!("0x{}",hex::encode(encoded))})
 }
 
 fn selector(signature: &str) -> String {
@@ -891,7 +1095,8 @@ pub(crate) fn program_abi(record: &DeploymentRecord) -> Vec<u8> {
 fn rpc_request(request: &Request) -> Value {
     assert_eq!(request.method, "POST");
     assert_eq!(request.path, "/");
-    let rpc: Value = serde_json::from_slice(&request.body).unwrap();
+    let rpc: Value =
+        serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(rpc["jsonrpc"], "2.0");
     assert_eq!(rpc["id"], 1);
     rpc
@@ -908,60 +1113,23 @@ pub(crate) fn state_rpc(height: u64) -> Server {
                 format!("0x{height:x}")
             ])
         );
-        response(200, rpc_result(storage_head_abi()))
+        response(200, &rpc_result(&storage_head_abi()))
     })
 }
 
-#[test]
-pub(crate) fn upgrade_deploy_reopen_preserves_authenticated_history() {
-    use layerx_platform_registry::{DeploymentEnvelope, UnitDefect, UnitPart};
-    let first = admission(1);
-    let second = admission(2);
-    let deployed = first
-        .verifier
-        .verify_deployment(&first.proof, first.now)
-        .unwrap();
-    let upgraded = second
-        .verifier
-        .verify_deployment(&second.proof, second.now)
-        .unwrap();
-    assert_eq!(deployed.record(), &records(1)[0]);
-    assert_eq!(upgraded.record(), &records(1)[1]);
-    assert_eq!(upgraded.record().old_code_hash, Some(deployed.code_hash()));
-    upgraded.record().validate().unwrap();
-    let mut registry = Registry::new();
-    assert_eq!(
-        registry.record_verified_upgrade(&deployed, &upgraded),
-        Err(layerx_programs::RegistryError::VersionHistoryMismatch)
-    );
-    registry.record_verified_deployment(&deployed).unwrap();
-    registry
-        .record_verified_upgrade(&deployed, &upgraded)
-        .unwrap();
-    assert_eq!(registry.latest_version(program()).unwrap(), 2);
-
-    let root = Directory::new();
-    let journal_path = root.0.join("journal");
-    let journal = FileDeploymentJournal::open(journal_path.clone()).unwrap();
-    journal.append(&deployed).unwrap();
-    journal.append(&upgraded).unwrap();
-    let before = journal.load().unwrap();
-    assert_eq!(before.units.len(), 2);
-    assert!(before.quarantined.is_empty());
-    assert!(before.leftovers.is_empty());
-    let proofs = journal.proofs().unwrap();
-    drop(journal);
-    let reopened = FileDeploymentJournal::open(journal_path.clone()).unwrap();
-    let after = reopened.load().unwrap();
-    assert_eq!(before.units, after.units);
-    assert!(after.quarantined.is_empty());
-    assert!(after.leftovers.is_empty());
-    assert_eq!(reopened.proofs().unwrap(), proofs);
+fn assert_recovered_history(
+    first: &Admission,
+    second: &Admission,
+    proofs: &[DeploymentProof],
+    reopened: &FileDeploymentJournal,
+    deployed: &layerx_programs::VerifiedDeploymentEvidence,
+    upgraded: &layerx_programs::VerifiedDeploymentEvidence,
+) {
     let current = second
         .chain
         .verifier
         .verify_head(&second.chain.header, &second.chain.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let history = [
         (
             first.chain.header.clone(),
@@ -978,69 +1146,173 @@ pub(crate) fn upgrade_deploy_reopen_preserves_authenticated_history() {
     let mut verified = proofs
         .iter()
         .map(|proof| {
-            let height = proof.claimed_record().unwrap().sequence;
+            let height = proof
+                .claimed_record()
+                .unwrap_or_else(|error| panic!("{error:?}"))
+                .sequence;
             let start = history
                 .iter()
-                .position(|(header, _, _)| u64::try_from(header.height).unwrap() == height)
-                .unwrap();
+                .position(|(header, _, _)| {
+                    u64::try_from(header.height).unwrap_or_else(|error| panic!("{error:?}"))
+                        == height
+                })
+                .unwrap_or_else(|| panic!("expected a value"));
             second
                 .verifier
                 .verify_historical_deployment(proof, &current, &history[start..], second.now)
-                .unwrap()
+                .unwrap_or_else(|error| panic!("{error:?}"))
         })
         .collect::<Vec<_>>();
-    verified.sort_by_key(|evidence| evidence.version());
+    verified.sort_by_key(layerx_programs::VerifiedDeploymentEvidence::version);
     assert_eq!(verified, vec![deployed.clone(), upgraded.clone()]);
     for evidence in &verified {
-        reopened.audit_projection(evidence).unwrap();
+        reopened
+            .audit_projection(evidence)
+            .unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(
             reopened
                 .canonical_record(evidence.receipt_digest())
-                .unwrap(),
+                .unwrap_or_else(|error| panic!("{error:?}")),
             evidence.record().canonical_encoding()
         );
     }
-    recovered.record_verified_deployment(&verified[0]).unwrap();
+    recovered
+        .record_verified_deployment(&verified[0])
+        .unwrap_or_else(|error| panic!("{error:?}"));
     recovered
         .record_verified_upgrade(&verified[0], &verified[1])
-        .unwrap();
-    assert_eq!(recovered.latest_version(program()).unwrap(), 2);
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        recovered
+            .latest_version(program())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        2
+    );
     assert_eq!(
         recovered
             .resolve_deployment(upgraded.clone())
-            .unwrap()
+            .unwrap_or_else(|error| panic!("{error:?}"))
             .record(),
         upgraded.record()
     );
+}
 
+#[test]
+pub(crate) fn upgrade_deploy_reopen_preserves_authenticated_history() {
+    let first = admission(1);
+    let second = admission(2);
+    let deployed = first
+        .verifier
+        .verify_deployment(&first.proof, first.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let upgraded = second
+        .verifier
+        .verify_deployment(&second.proof, second.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(deployed.record(), &records(1)[0]);
+    assert_eq!(upgraded.record(), &records(1)[1]);
+    assert_eq!(upgraded.record().old_code_hash, Some(deployed.code_hash()));
+    upgraded
+        .record()
+        .validate()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let mut registry = Registry::new();
+    assert_eq!(
+        registry.record_verified_upgrade(&deployed, &upgraded),
+        Err(layerx_programs::RegistryError::VersionHistoryMismatch)
+    );
+    registry
+        .record_verified_deployment(&deployed)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    registry
+        .record_verified_upgrade(&deployed, &upgraded)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        registry
+            .latest_version(program())
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        2
+    );
+
+    let root = Directory::new();
+    let journal_path = root.0.join("journal");
+    let journal = FileDeploymentJournal::open(journal_path.clone())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    journal
+        .append(&deployed)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    journal
+        .append(&upgraded)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let before = journal.load().unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(before.units.len(), 2);
+    assert!(before.quarantined.is_empty());
+    assert!(before.leftovers.is_empty());
+    let proofs = journal.proofs().unwrap_or_else(|error| panic!("{error:?}"));
+    drop(journal);
+    let reopened = FileDeploymentJournal::open(journal_path.clone())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let after = reopened.load().unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(before.units, after.units);
+    assert!(after.quarantined.is_empty());
+    assert!(after.leftovers.is_empty());
+    assert_eq!(
+        reopened
+            .proofs()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        proofs
+    );
+    assert_recovered_history(&first, &second, &proofs, &reopened, &deployed, &upgraded);
+    assert_invalid_previous_proofs(&second);
+    assert_corrupt_upgrade_envelopes(&journal_path, &upgraded);
+}
+
+fn assert_invalid_previous_proofs(second: &Admission) {
     let mut absent = second.proof.clone();
-    let mut execution = DeploymentExecutionProof::decode(&absent.state.transaction).unwrap();
+    let mut execution = DeploymentExecutionProof::decode(&absent.state.transaction)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     execution.previous.proof_ops.clear();
-    absent.bind_execution(&execution).unwrap();
+    absent
+        .bind_execution(&execution)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert!(second
         .verifier
         .verify_deployment(&absent, second.now)
         .is_err());
     let mut corrupt = second.proof.clone();
-    let mut execution = DeploymentExecutionProof::decode(&corrupt.state.transaction).unwrap();
+    let mut execution = DeploymentExecutionProof::decode(&corrupt.state.transaction)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     execution.previous.proof_ops[0].data[0] ^= 1;
-    corrupt.bind_execution(&execution).unwrap();
+    corrupt
+        .bind_execution(&execution)
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert!(second
         .verifier
         .verify_deployment(&corrupt, second.now)
         .is_err());
+}
 
-    let envelope = DeploymentEnvelope::from_evidence(&upgraded);
-    let encoded = envelope.canonical_encoding().unwrap();
+fn assert_corrupt_upgrade_envelopes(
+    journal_path: &std::path::Path,
+    upgraded: &layerx_programs::VerifiedDeploymentEvidence,
+) {
+    use layerx_platform_registry::{DeploymentEnvelope, UnitDefect, UnitPart};
+    let envelope = DeploymentEnvelope::from_evidence(upgraded);
+    let encoded = envelope
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let path = journal_path.join(format!(
         "{}.envelope",
         hex::encode(&upgraded.receipt_digest())
     ));
     let mut corrupt = encoded.clone();
-    *corrupt.last_mut().unwrap() ^= 1;
-    fs::write(&path, &corrupt).unwrap();
-    let damaged = FileDeploymentJournal::open(journal_path.clone()).unwrap();
-    let loaded = damaged.load().unwrap();
+    *corrupt
+        .last_mut()
+        .unwrap_or_else(|| panic!("expected a value")) ^= 1;
+    fs::write(&path, &corrupt).unwrap_or_else(|error| panic!("{error:?}"));
+    let damaged = FileDeploymentJournal::open(journal_path.to_path_buf())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let loaded = damaged.load().unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(loaded.units.len(), 1);
     assert_eq!(loaded.quarantined.len(), 1);
     assert!(matches!(
@@ -1051,10 +1323,13 @@ pub(crate) fn upgrade_deploy_reopen_preserves_authenticated_history() {
         }
     ));
     assert!(damaged.proofs().is_err());
-    let (record_frame, _, _) = envelope.frames().unwrap();
-    fs::write(&path, &record_frame).unwrap();
-    let missing = FileDeploymentJournal::open(journal_path).unwrap();
-    let loaded = missing.load().unwrap();
+    let (record_frame, _, _) = envelope
+        .frames()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    fs::write(&path, &record_frame).unwrap_or_else(|error| panic!("{error:?}"));
+    let missing = FileDeploymentJournal::open(journal_path.to_path_buf())
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let loaded = missing.load().unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(loaded.units.len(), 1);
     assert_eq!(loaded.quarantined.len(), 1);
     assert_eq!(
@@ -1064,13 +1339,46 @@ pub(crate) fn upgrade_deploy_reopen_preserves_authenticated_history() {
     assert!(missing.proofs().is_err());
 }
 
+fn assert_state_head(
+    fixture: &Admission,
+    deployment_journal: &FileDeploymentJournal,
+    stored: &[u8],
+    cursor: layerx_platform_registry::ProgramStateCursor,
+) -> Server {
+    let head_peer = head_rpc(fixture);
+    let authority =
+        RegistryAuthority::new(TOKEN.to_owned().into()).unwrap_or_else(|error| panic!("{error:?}"));
+    let response = Registrar::route_chain_head(
+        &request(
+            "POST",
+            "/__registry/head",
+            serde_json::to_vec(&json!({"program_id":hex::encode(&program().bytes())}))
+                .unwrap_or_else(|error| panic!("{error:?}")),
+        ),
+        &authority,
+        deployment_journal,
+        &format!("{}/", head_peer.endpoint),
+        Instant::now() + Duration::from_secs(5),
+    );
+    assert_eq!(response.status, 200, "{}", response.body);
+    let body: Value =
+        serde_json::from_str(&response.body).unwrap_or_else(|error| panic!("{error:?}"));
+    let keccak = layerx_crypto::evm_transaction::transaction_hash(stored);
+    assert_eq!(body["state_root"], hex::encode(&keccak));
+    assert_eq!(body["sequence"], cursor.sequence);
+    head_peer
+}
+
 #[test]
 pub(crate) fn program_state_root_transport_persists_committed_head() {
     use layerx_platform_registry::{FileProgramStateJournal, ProgramStateCursor};
     let fixture = admission(1);
     let root = Directory::new();
-    let peer = state_rpc(fixture.chain.header.height as u64);
-    let journal = FileProgramStateJournal::open(root.0.join("state")).unwrap();
+    let peer = state_rpc(
+        u64::try_from(fixture.chain.header.height).unwrap_or_else(|error| panic!("{error:?}")),
+    );
+    let journal = FileProgramStateJournal::open(root.0.join("state"))
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let encoded = storage_head_abi();
     assert_eq!(encoded.len(), 128);
     let expected = encoded[64..102].to_vec();
@@ -1080,10 +1388,10 @@ pub(crate) fn program_state_root_transport_persists_committed_head() {
         .store(
             &format!("{}/", peer.endpoint),
             program(),
-            fixture.chain.header.height as u64,
+            u64::try_from(fixture.chain.header.height).unwrap_or_else(|error| panic!("{error:?}")),
             deadline(),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(stored, expected);
     let digest = hash(&stored);
     let path = root.0.join("state").join(format!(
@@ -1091,53 +1399,133 @@ pub(crate) fn program_state_root_transport_persists_committed_head() {
         hex::encode(&program().bytes()),
         hex::encode(&digest)
     ));
-    assert_eq!(fs::read(&path).unwrap(), expected);
-    assert_eq!(journal.cursor().unwrap(), ProgramStateCursor::default());
+    assert_eq!(
+        fs::read(&path).unwrap_or_else(|error| panic!("{error:?}")),
+        expected
+    );
+    assert_eq!(
+        journal.cursor().unwrap_or_else(|error| panic!("{error:?}")),
+        ProgramStateCursor::default()
+    );
     let cursor = ProgramStateCursor {
-        sequence: fixture.chain.header.height as u64,
+        sequence: u64::try_from(fixture.chain.header.height)
+            .unwrap_or_else(|error| panic!("{error:?}")),
         ordinal: 0,
     };
-    journal.advance(cursor).unwrap();
-    journal.audit().unwrap();
+    journal
+        .advance(cursor)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    journal.audit().unwrap_or_else(|error| panic!("{error:?}"));
     drop(journal);
-    let reopened = FileProgramStateJournal::open(root.0.join("state")).unwrap();
-    assert_eq!(reopened.cursor().unwrap(), cursor);
-    reopened.audit().unwrap();
-    assert_eq!(fs::read(&path).unwrap(), stored);
-    let deployment_journal = FileDeploymentJournal::open(root.0.join("deployments")).unwrap();
-    let head_peer = head_rpc(&fixture);
-    let authority = RegistryAuthority::new(TOKEN.to_owned().into()).unwrap();
-    let response = Registrar::route_chain_head(
-        &request(
-            "POST",
-            "/__registry/head",
-            serde_json::to_vec(&json!({"program_id":hex::encode(&program().bytes())})).unwrap(),
-        ),
-        &authority,
-        &deployment_journal,
-        &format!("{}/", head_peer.endpoint),
-        deadline(),
+    let reopened = FileProgramStateJournal::open(root.0.join("state"))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        reopened
+            .cursor()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        cursor
     );
-    assert_eq!(response.status, 200, "{}", response.body);
-    let body: Value = serde_json::from_str(&response.body).unwrap();
-    let keccak = layerx_crypto::evm_transaction::transaction_hash(&stored);
-    assert_eq!(body["state_root"], hex::encode(&keccak));
-    assert_eq!(body["sequence"], cursor.sequence);
+    reopened.audit().unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        fs::read(&path).unwrap_or_else(|error| panic!("{error:?}")),
+        stored
+    );
+    let deployment_journal = FileDeploymentJournal::open(root.0.join("deployments"))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let head_peer = assert_state_head(&fixture, &deployment_journal, &stored, cursor);
     drop(deployment_journal);
-    let recovered = FileDeploymentJournal::open(root.0.join("deployments")).unwrap();
-    assert_eq!(recovered.observed_head().unwrap().sequence, cursor.sequence);
+    let recovered = FileDeploymentJournal::open(root.0.join("deployments"))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        recovered
+            .observed_head()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .sequence,
+        cursor.sequence
+    );
     drop(peer);
+    assert_program_state_refusals(
+        &reopened,
+        &encoded,
+        cursor,
+        &head_peer.endpoint,
+        &path,
+        &stored,
+        &root,
+    );
+}
+
+fn assert_invalid_state_responses(
+    reopened: &layerx_platform_registry::FileProgramStateJournal,
+    encoded: &[u8],
+) {
+    for (index, value) in [
+        (0, 1),
+        (31, 64),
+        (32, 1),
+        (63, 37),
+        (64, 1),
+        (102, 1),
+        (101, 0),
+    ] {
+        let mut invalid = encoded.to_vec();
+        invalid[index] = value;
+        assert!(
+            reopened
+                .store_response(
+                    program(),
+                    &serde_json::to_vec(&rpc_result(&invalid))
+                        .unwrap_or_else(|error| panic!("{error:?}"))
+                )
+                .is_err(),
+            "mutation at {index}"
+        );
+    }
+    for invalid in [
+        encoded[..127].to_vec(),
+        [encoded.to_vec(), vec![0; 32]].concat(),
+    ] {
+        assert!(reopened
+            .store_response(
+                program(),
+                &serde_json::to_vec(&rpc_result(&invalid))
+                    .unwrap_or_else(|error| panic!("{error:?}"))
+            )
+            .is_err());
+    }
+    for invalid in [
+        json!({"jsonrpc":"2.0","id":1,"error":{"code":3,"message":"execution reverted"}}),
+        json!({"jsonrpc":"2.0","id":2,"result":rpc_result(encoded)["result"]}),
+        json!({"jsonrpc":"1.0","id":1,"result":"0x"}),
+        json!({"jsonrpc":"2.0","id":1,"result":"0xzz"}),
+        json!({"jsonrpc":"2.0","id":1,"result":null}),
+    ] {
+        assert!(reopened
+            .store_response(
+                program(),
+                &serde_json::to_vec(&invalid).unwrap_or_else(|error| panic!("{error:?}"))
+            )
+            .is_err());
+    }
+    assert!(reopened.store_response(program(), b"{").is_err());
+}
+
+fn assert_program_state_refusals(
+    reopened: &layerx_platform_registry::FileProgramStateJournal,
+    encoded: &[u8],
+    cursor: layerx_platform_registry::ProgramStateCursor,
+    head_endpoint: &str,
+    path: &std::path::Path,
+    stored: &[u8],
+    root: &Directory,
+) {
+    let deadline = || Instant::now() + Duration::from_secs(5);
     assert!(reopened
-        .store(
-            &format!("{}/", head_peer.endpoint),
-            program(),
-            0,
-            deadline()
-        )
+        .store(&format!("{head_endpoint}/"), program(), 0, deadline())
         .is_err());
     assert!(reopened
         .store(
-            &format!("{}/", head_peer.endpoint),
+            &format!("{head_endpoint}/"),
             program(),
             cursor.sequence,
             Instant::now()
@@ -1151,79 +1539,66 @@ pub(crate) fn program_state_root_transport_persists_committed_head() {
             deadline()
         )
         .is_err());
-    for (index, value) in [
-        (0, 1),
-        (31, 64),
-        (32, 1),
-        (63, 37),
-        (64, 1),
-        (102, 1),
-        (101, 0),
-    ] {
-        let mut invalid = encoded.clone();
-        invalid[index] = value;
-        assert!(
-            reopened
-                .store_response(
-                    program(),
-                    &serde_json::to_vec(&rpc_result(invalid)).unwrap()
-                )
-                .is_err(),
-            "mutation at {index}"
-        );
-    }
-    for invalid in [
-        encoded[..127].to_vec(),
-        [encoded.clone(), vec![0; 32]].concat(),
-    ] {
-        assert!(reopened
-            .store_response(
-                program(),
-                &serde_json::to_vec(&rpc_result(invalid)).unwrap()
-            )
-            .is_err());
-    }
-    for invalid in [
-        json!({"jsonrpc":"2.0","id":1,"error":{"code":3,"message":"execution reverted"}}),
-        json!({"jsonrpc":"2.0","id":2,"result":rpc_result(encoded.clone())["result"]}),
-        json!({"jsonrpc":"1.0","id":1,"result":"0x"}),
-        json!({"jsonrpc":"2.0","id":1,"result":"0xzz"}),
-        json!({"jsonrpc":"2.0","id":1,"result":null}),
-    ] {
-        assert!(reopened
-            .store_response(program(), &serde_json::to_vec(&invalid).unwrap())
-            .is_err());
-    }
-    assert!(reopened.store_response(program(), b"{").is_err());
-    let unavailable = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let endpoint = format!("http://{}/", unavailable.local_addr().unwrap());
+    assert_invalid_state_responses(reopened, encoded);
+    let unavailable =
+        std::net::TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error:?}"));
+    let endpoint = format!(
+        "http://{}/",
+        unavailable
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+    );
     let observer = thread::spawn(move || {
-        let (mut socket, _) = unavailable.accept().unwrap();
+        let (mut socket, _) = unavailable
+            .accept()
+            .unwrap_or_else(|error| panic!("{error:?}"));
         socket
             .set_read_timeout(Some(Duration::from_secs(5)))
-            .unwrap();
-        let message = peer_request(&mut socket).unwrap();
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        let message = peer_request(&mut socket).unwrap_or_else(|error| panic!("{error:?}"));
         let rpc = rpc_request(&message);
         assert_eq!(rpc["params"][1], format!("0x{:x}", cursor.sequence));
     });
     assert!(reopened
         .store(&endpoint, program(), cursor.sequence, deadline())
         .is_err());
-    observer.join().unwrap();
-    assert_eq!(reopened.cursor().unwrap(), cursor);
-    assert_eq!(fs::read(&path).unwrap(), stored);
-    assert_eq!(fs::read_dir(root.0.join("state")).unwrap().count(), 2);
-    fs::write(&path, b"corrupt").unwrap();
+    observer.join().unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        reopened
+            .cursor()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+        cursor
+    );
+    assert_eq!(
+        fs::read(path).unwrap_or_else(|error| panic!("{error:?}")),
+        stored
+    );
+    assert_eq!(
+        fs::read_dir(root.0.join("state"))
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .count(),
+        2
+    );
+    fs::write(path, b"corrupt").unwrap_or_else(|error| panic!("{error:?}"));
     assert!(reopened.audit().is_err());
 }
 
 fn head_rpc(fixture: &Admission) -> Server {
-    let record = program_abi(&fixture.proof.claimed_record().unwrap());
-    let height = fixture.chain.header.height as u64;
+    let record = program_abi(
+        &fixture
+            .proof
+            .claimed_record()
+            .unwrap_or_else(|error| panic!("{error:?}")),
+    );
+    let height =
+        u64::try_from(fixture.chain.header.height).unwrap_or_else(|error| panic!("{error:?}"));
     let timestamp = fixture.chain.header.time.seconds;
     Server::start(None, move |request| {
         let rpc = rpc_request(&request);
-        let result = match rpc["method"].as_str().unwrap() {
+        let result = match rpc["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected a value"))
+        {
             "eth_blockNumber" => {
                 assert_eq!(rpc["params"], json!([]));
                 json!(format!("0x{height:x}"))
@@ -1235,51 +1610,40 @@ fn head_rpc(fixture: &Admission) -> Server {
             "eth_call" => {
                 assert_eq!(rpc["params"][0]["to"], PROGRAMS);
                 assert_eq!(rpc["params"][1], format!("0x{height:x}"));
-                let data = rpc["params"][0]["data"].as_str().unwrap();
+                let data = rpc["params"][0]["data"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("expected a value"));
                 if data == selector("getProgram(bytes32)") {
-                    rpc_result(record.clone())["result"].clone()
+                    rpc_result(&record)["result"].clone()
                 } else {
                     assert_eq!(data, selector("getStateHead(bytes32)"));
-                    rpc_result(storage_head_abi())["result"].clone()
+                    rpc_result(&storage_head_abi())["result"].clone()
                 }
             }
             method => panic!("unexpected node method {method}"),
         };
-        response(200, json!({"jsonrpc":"2.0","id":1,"result":result}))
+        response(200, &json!({"jsonrpc":"2.0","id":1,"result":result}))
     })
 }
 
-#[test]
-pub(crate) fn programs_root_transport_admits_and_refuses_transactions() {
-    let fixture = admission(1);
-    let evidence = fixture
-        .verifier
-        .verify_deployment(&fixture.proof, fixture.now)
-        .unwrap();
-    let root = Directory::new();
-    let journal = FileDeploymentJournal::open(root.0.join("journal")).unwrap();
-    journal.append(&evidence).unwrap();
-    let transaction = evidence.activity_id();
-    let failed_transaction = hash(&transcript()["unrelated"]);
-    let block_hash = fixture.chain.header.hash().unwrap();
-    let block_number = fixture.chain.header.height as u64;
-    let topic =
-        layerx_crypto::evm_transaction::transaction_hash(b"ProgramDeployed(bytes32,bytes32)");
-    let receipt = json!({
-        "transactionHash":format!("0x{}",hex::encode(&transaction)),
-        "blockHash":format!("0x{}",hex::encode(&block_hash)),"blockNumber":format!("0x{block_number:x}"),"status":"0x1",
-        "logs":[{"address":PROGRAMS,"topics":[format!("0x{}",hex::encode(&topic)),format!("0x{}",hex::encode(&program().bytes()))],
-        "data":format!("0x{}",hex::encode(&evidence.code_hash())),"transactionHash":format!("0x{}",hex::encode(&transaction)),
-        "blockHash":format!("0x{}",hex::encode(&block_hash)),"blockNumber":format!("0x{block_number:x}"),"removed":false}]
-    });
+fn deployment_rpc_peer(
+    receipt: &Value,
+    evidence: &layerx_programs::VerifiedDeploymentEvidence,
+    transaction: [u8; 32],
+    failed_transaction: [u8; 32],
+    block_hash: [u8; 32],
+) -> (Arc<std::sync::Mutex<usize>>, Server) {
     let valid = receipt.clone();
     let encoded = program_abi(evidence.record());
     let counter = Arc::new(std::sync::Mutex::new(0_usize));
     let seen = counter.clone();
     let peer = Server::start(None, move |request| {
         let rpc = rpc_request(&request);
-        *seen.lock().unwrap() += 1;
-        let result = match rpc["method"].as_str().unwrap() {
+        *seen.lock().unwrap_or_else(|error| panic!("{error:?}")) += 1;
+        let result = match rpc["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("expected a value"))
+        {
             "eth_getTransactionReceipt" => {
                 if rpc["params"] == json!([format!("0x{}", hex::encode(&failed_transaction))]) {
                     let mut refused = valid.clone();
@@ -1300,87 +1664,29 @@ pub(crate) fn programs_root_transport_admits_and_refuses_transactions() {
                     rpc["params"],
                     json!([{"to":PROGRAMS,"data":selector("getProgram(bytes32)")},{"blockHash":format!("0x{}",hex::encode(&block_hash)),"requireCanonical":true}])
                 );
-                rpc_result(encoded.clone())["result"].clone()
+                rpc_result(&encoded)["result"].clone()
             }
             method => panic!("unexpected method {method}"),
         };
-        response(200, json!({"jsonrpc":"2.0","id":1,"result":result}))
+        response(200, &json!({"jsonrpc":"2.0","id":1,"result":result}))
     });
-    let authority = RegistryAuthority::new(TOKEN.to_owned().into()).unwrap();
-    let deadline = || Instant::now() + Duration::from_secs(5);
+    (counter, peer)
+}
+
+fn assert_mutated_deployments(
+    receipt: &Value,
+    evidence: &layerx_programs::VerifiedDeploymentEvidence,
+    root: &Directory,
+    path: &std::path::Path,
+    stored: &[u8],
+    transaction: [u8; 32],
+    failed_transaction: [u8; 32],
+) {
+    let authority =
+        RegistryAuthority::new(TOKEN.to_owned().into()).unwrap_or_else(|error| panic!("{error:?}"));
     let mut req = request("POST", "/__registry/deployments", transaction.to_vec());
-    let endpoint = format!("{}/", peer.endpoint);
-    let route = |req: &Request| {
-        Registrar::route_chain_deployment(
-            req,
-            &authority,
-            &root.0.join("journal"),
-            &endpoint,
-            deadline(),
-        )
-    };
-    req.headers.clear();
-    assert_eq!(route(&req).status, 401);
     req.headers
         .insert("authorization".into(), format!("Bearer {TOKEN}"));
-    for malformed in [
-        Vec::new(),
-        b"{\"transaction_hash\":\"0x01\"}".to_vec(),
-        b"{\"transaction_hash\":null}".to_vec(),
-        b"{\"transaction_hash\":\"bad\",\"extra\":1}".to_vec(),
-    ] {
-        req.body = malformed;
-        assert_eq!(route(&req).status, 400);
-    }
-    assert_eq!(*counter.lock().unwrap(), 0);
-    req.body = transaction.to_vec();
-    let answer = route(&req);
-    assert_eq!(answer.status, 200, "{}", answer.body);
-    let body: Value = serde_json::from_str(&answer.body).unwrap();
-    assert_eq!(body["program_id"], hex::encode(&program().bytes()));
-    assert_eq!(body["code_hash"], hex::encode(&evidence.code_hash()));
-    assert_eq!(body["abi_version"], evidence.abi_version());
-    assert_eq!(body["version"], evidence.version());
-    assert_eq!(body["policy"], 1);
-    assert_eq!(body["authority"], hex::encode(&[0x51; 32]));
-    assert_eq!(body["block_number"], block_number);
-    let path = root
-        .0
-        .join("journal/chain-deployments")
-        .join(format!("{}.json", hex::encode(&transaction)));
-    let stored = fs::read(&path).unwrap();
-    let metadata: Value = serde_json::from_slice(&stored).unwrap();
-    for field in [
-        "transaction_hash",
-        "program_id",
-        "code_hash",
-        "abi_version",
-        "version",
-        "policy",
-        "authority",
-        "block_hash",
-        "block_number",
-    ] {
-        assert_eq!(metadata[field], body[field], "{field}");
-    }
-    assert_eq!(metadata["active"], true);
-    req.body =
-        serde_json::to_vec(&json!({"transaction_hash":format!("0x{}",hex::encode(&transaction))}))
-            .unwrap();
-    assert_eq!(route(&req).status, 200);
-    assert_eq!(fs::read(&path).unwrap(), stored);
-    req.body = failed_transaction.to_vec();
-    let refused = route(&req);
-    assert_eq!(refused.status, 422, "{}", refused.body);
-    assert_eq!(
-        serde_json::from_str::<Value>(&refused.body).unwrap()["error"]["code"],
-        "deployment_proof_refused"
-    );
-    assert!(!path
-        .with_file_name(format!("{}.json", hex::encode(&failed_transaction)))
-        .exists());
-    assert_eq!(fs::read(&path).unwrap(), stored);
-    drop(peer);
     for mutation in 0..5 {
         let mut bad = receipt.clone();
         match mutation {
@@ -1401,9 +1707,9 @@ pub(crate) fn programs_root_transport_admits_and_refuses_transactions() {
                 bad.clone()
             } else {
                 assert_eq!(rpc["method"], "eth_call");
-                rpc_result(record.clone())["result"].clone()
+                rpc_result(&record)["result"].clone()
             };
-            response(200, json!({"jsonrpc":"2.0","id":1,"result":result}))
+            response(200, &json!({"jsonrpc":"2.0","id":1,"result":result}))
         });
         req.body = transaction.to_vec();
         let refused = Registrar::route_chain_deployment(
@@ -1411,26 +1717,222 @@ pub(crate) fn programs_root_transport_admits_and_refuses_transactions() {
             &authority,
             &root.0.join("journal"),
             &format!("{}/", peer.endpoint),
-            deadline(),
+            Instant::now() + Duration::from_secs(5),
         );
         assert_eq!(refused.status, 422, "mutation {mutation}: {}", refused.body);
-        assert_eq!(fs::read(&path).unwrap(), stored);
+        assert_eq!(
+            fs::read(path).unwrap_or_else(|error| panic!("{error:?}")),
+            stored
+        );
     }
-    let head_peer = head_rpc(&fixture);
+}
+
+fn deployment_receipt(
+    evidence: &layerx_programs::VerifiedDeploymentEvidence,
+    transaction: [u8; 32],
+    block_hash: [u8; 32],
+    block_number: u64,
+) -> Value {
+    let topic =
+        layerx_crypto::evm_transaction::transaction_hash(b"ProgramDeployed(bytes32,bytes32)");
+    let receipt = json!({
+        "transactionHash":format!("0x{}",hex::encode(&transaction)),
+        "blockHash":format!("0x{}",hex::encode(&block_hash)),"blockNumber":format!("0x{block_number:x}"),"status":"0x1",
+        "logs":[{"address":PROGRAMS,"topics":[format!("0x{}",hex::encode(&topic)),format!("0x{}",hex::encode(&program().bytes()))],
+        "data":format!("0x{}",hex::encode(&evidence.code_hash())),"transactionHash":format!("0x{}",hex::encode(&transaction)),
+        "blockHash":format!("0x{}",hex::encode(&block_hash)),"blockNumber":format!("0x{block_number:x}"),"removed":false}]
+    });
+    receipt
+}
+
+fn assert_stored_deployment(
+    root: &Directory,
+    transaction: [u8; 32],
+    body: &Value,
+) -> (std::path::PathBuf, Vec<u8>) {
+    let path = root
+        .0
+        .join("journal/chain-deployments")
+        .join(format!("{}.json", hex::encode(&transaction)));
+    let stored = fs::read(&path).unwrap_or_else(|error| panic!("{error:?}"));
+    let metadata: Value =
+        serde_json::from_slice(&stored).unwrap_or_else(|error| panic!("{error:?}"));
+    for field in [
+        "transaction_hash",
+        "program_id",
+        "code_hash",
+        "abi_version",
+        "version",
+        "policy",
+        "authority",
+        "block_hash",
+        "block_number",
+    ] {
+        assert_eq!(metadata[field], body[field], "{field}");
+    }
+    assert_eq!(metadata["active"], true);
+    (path, stored)
+}
+
+fn assert_deployment_answer(
+    answer: &Response,
+    evidence: &layerx_programs::VerifiedDeploymentEvidence,
+    block_number: u64,
+) -> Value {
+    assert_eq!(answer.status, 200, "{}", answer.body);
+    let body: Value =
+        serde_json::from_str(&answer.body).unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(body["program_id"], hex::encode(&program().bytes()));
+    assert_eq!(body["code_hash"], hex::encode(&evidence.code_hash()));
+    assert_eq!(body["abi_version"], evidence.abi_version());
+    assert_eq!(body["version"], evidence.version());
+    assert_eq!(body["policy"], 1);
+    assert_eq!(body["authority"], hex::encode(&[0x51; 32]));
+    assert_eq!(body["block_number"], block_number);
+    body
+}
+
+fn assert_malformed_deployment_requests(
+    route: &impl Fn(&Request) -> Response,
+    req: &mut Request,
+    counter: &Arc<std::sync::Mutex<usize>>,
+) {
+    req.headers.clear();
+    assert_eq!(route(req).status, 401);
+    req.headers
+        .insert("authorization".into(), format!("Bearer {TOKEN}"));
+    for malformed in [
+        Vec::new(),
+        b"{\"transaction_hash\":\"0x01\"}".to_vec(),
+        b"{\"transaction_hash\":null}".to_vec(),
+        b"{\"transaction_hash\":\"bad\",\"extra\":1}".to_vec(),
+    ] {
+        req.body = malformed;
+        assert_eq!(route(req).status, 400);
+    }
+    assert_eq!(
+        *counter.lock().unwrap_or_else(|error| panic!("{error:?}")),
+        0
+    );
+}
+
+#[test]
+pub(crate) fn programs_root_transport_admits_and_refuses_transactions() {
+    let fixture = admission(1);
+    let evidence = fixture
+        .verifier
+        .verify_deployment(&fixture.proof, fixture.now)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let root = Directory::new();
+    let journal = FileDeploymentJournal::open(root.0.join("journal"))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    journal
+        .append(&evidence)
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let transaction = evidence.activity_id();
+    let failed_transaction = hash(&transcript()["unrelated"]);
+    let block_hash = fixture
+        .chain
+        .header
+        .hash()
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    let block_number =
+        u64::try_from(fixture.chain.header.height).unwrap_or_else(|error| panic!("{error:?}"));
+    let receipt = deployment_receipt(&evidence, transaction, block_hash, block_number);
+    let (counter, peer) = deployment_rpc_peer(
+        &receipt,
+        &evidence,
+        transaction,
+        failed_transaction,
+        block_hash,
+    );
+    let authority =
+        RegistryAuthority::new(TOKEN.to_owned().into()).unwrap_or_else(|error| panic!("{error:?}"));
+    let deadline = || Instant::now() + Duration::from_secs(5);
+    let mut req = request("POST", "/__registry/deployments", transaction.to_vec());
+    let endpoint = format!("{}/", peer.endpoint);
+    let route = |req: &Request| {
+        Registrar::route_chain_deployment(
+            req,
+            &authority,
+            &root.0.join("journal"),
+            &endpoint,
+            deadline(),
+        )
+    };
+    assert_malformed_deployment_requests(&route, &mut req, &counter);
+    req.body = transaction.to_vec();
+    let body = assert_deployment_answer(&route(&req), &evidence, block_number);
+    let (path, stored) = assert_stored_deployment(&root, transaction, &body);
+    req.body =
+        serde_json::to_vec(&json!({"transaction_hash":format!("0x{}",hex::encode(&transaction))}))
+            .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(route(&req).status, 200);
+    assert_eq!(
+        fs::read(&path).unwrap_or_else(|error| panic!("{error:?}")),
+        stored
+    );
+    req.body = failed_transaction.to_vec();
+    let refused = route(&req);
+    assert_eq!(refused.status, 422, "{}", refused.body);
+    assert_eq!(
+        serde_json::from_str::<Value>(&refused.body).unwrap_or_else(|error| panic!("{error:?}"))
+            ["error"]["code"],
+        "deployment_proof_refused"
+    );
+    assert!(!path
+        .with_file_name(format!("{}.json", hex::encode(&failed_transaction)))
+        .exists());
+    assert_eq!(
+        fs::read(&path).unwrap_or_else(|error| panic!("{error:?}")),
+        stored
+    );
+    drop(peer);
+    assert_mutated_deployments(
+        &receipt,
+        &evidence,
+        &root,
+        &path,
+        &stored,
+        transaction,
+        failed_transaction,
+    );
+    assert_committed_program_head(
+        &fixture,
+        journal,
+        &authority,
+        &root,
+        block_number,
+        &path,
+        &stored,
+    );
+}
+
+fn assert_committed_program_head(
+    fixture: &Admission,
+    journal: FileDeploymentJournal,
+    authority: &RegistryAuthority,
+    root: &Directory,
+    block_number: u64,
+    path: &std::path::Path,
+    stored: &[u8],
+) {
+    let head_peer = head_rpc(fixture);
     let head_request = request(
         "POST",
         "/__registry/head",
-        serde_json::to_vec(&json!({"program_id":hex::encode(&program().bytes())})).unwrap(),
+        serde_json::to_vec(&json!({"program_id":hex::encode(&program().bytes())}))
+            .unwrap_or_else(|error| panic!("{error:?}")),
     );
     let head = Registrar::route_chain_head(
         &head_request,
-        &authority,
+        authority,
         &journal,
         &format!("{}/", head_peer.endpoint),
-        deadline(),
+        Instant::now() + Duration::from_secs(5),
     );
     assert_eq!(head.status, 200, "{}", head.body);
-    let head: Value = serde_json::from_str(&head.body).unwrap();
+    let head: Value = serde_json::from_str(&head.body).unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(head["sequence"], block_number);
     assert_eq!(
         head["state_root"],
@@ -1440,10 +1942,27 @@ pub(crate) fn programs_root_transport_admits_and_refuses_transactions() {
     );
     assert!(head.get("receipt_digest").is_none());
     drop(journal);
-    let reopened = FileDeploymentJournal::open(root.0.join("journal")).unwrap();
-    assert_eq!(reopened.observed_head().unwrap().sequence, block_number);
-    assert_eq!(reopened.load().unwrap().units.len(), 1);
-    assert_eq!(fs::read(&path).unwrap(), stored);
+    let reopened = FileDeploymentJournal::open(root.0.join("journal"))
+        .unwrap_or_else(|error| panic!("{error:?}"));
+    assert_eq!(
+        reopened
+            .observed_head()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .sequence,
+        block_number
+    );
+    assert_eq!(
+        reopened
+            .load()
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .units
+            .len(),
+        1
+    );
+    assert_eq!(
+        fs::read(path).unwrap_or_else(|error| panic!("{error:?}")),
+        stored
+    );
 }
 
 #[test]
@@ -1457,7 +1976,10 @@ pub(crate) fn registry_http_without_socket_recovers_the_same_view() {
     let path = format!("/v1/programs/registry/{}", hex::encode(&program().bytes()));
     let service = serve(open(&config, admission.now, &peers), admission.now);
     assert_eq!(exchange(&service, "GET", &path, &[]).0, 404);
-    let proof = admission.proof.canonical_encoding().unwrap();
+    let proof = admission
+        .proof
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("{error:?}"));
     let (status, deployed) = exchange(&service, "POST", "/__registry/deployments", &proof);
     assert_eq!(status, 200, "{deployed}");
     assert_eq!(deployed["version"], 1);
@@ -1496,9 +2018,9 @@ pub(crate) fn registry_http_without_socket_recovers_the_same_view() {
     assert_eq!(status, 200, "{after}");
     assert_eq!(after, before);
     let loaded = FileDeploymentJournal::open(config.journal.clone())
-        .unwrap()
+        .unwrap_or_else(|error| panic!("{error:?}"))
         .load()
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(loaded.units.len(), 1);
     assert!(loaded.quarantined.is_empty());
     assert_eq!(loaded.units[0].proof(), &admission.proof);

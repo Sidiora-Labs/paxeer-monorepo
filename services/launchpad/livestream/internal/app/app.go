@@ -10,6 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math/big"
+	"net"
+	"net/http"
+	"sync"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/db/sqlcdb"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer"
@@ -27,12 +34,6 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
-	"log/slog"
-	"math/big"
-	"net"
-	"net/http"
-	"sync"
-	"time"
 )
 
 // rateLimitMax / rateLimitWindow mirror the TS registerRateLimit(app, {max:60,
@@ -112,7 +113,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 	}()
 	var metrics *telemetry.Metrics
-	if cfg.NodeEnv == "production" {
+	if cfg.NodeEnv == nodeEnvProduction {
 		metrics, err = telemetry.New("livestreamd", cfg.RuntimeMetricsEnvironment, cfg.RuntimeZone)
 		if err != nil {
 			return nil, err
@@ -123,7 +124,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		checks["secrets"] = secretCheck
 	}
 	platform := cfg.Platform()
-	if cfg.NodeEnv != "production" {
+	if cfg.NodeEnv != nodeEnvProduction {
 		// Outside production the embedded migrations are applied at boot. In
 		// production the migration coordinator owns the schema
 		// (spec/production-system/integration/migrations): the runtime never
@@ -194,7 +195,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		deps.Queries = sqlcdb.New(a.pool)
 		deps.Logger = logger
 		checks["stream_read_schema"] = func(c context.Context) error { return streams.ReadSchemaReady(c, a.pool, "livestream") }
-	} else if cfg.NodeEnv == "production" {
+	} else if cfg.NodeEnv == nodeEnvProduction {
 		checks["stream_provider_authority"] = func(context.Context) error { return streams.ErrUnavailable }
 	} else {
 		// Outside production there is no provider/identity authority: serve the
@@ -223,7 +224,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		handlers.RegisterRoutes(gr)
 	})
 	if metrics != nil || connected != nil {
-		mux.Handle("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mux.Handle(metricsPath, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if metrics != nil {
 				metrics.ServeHTTP(w, r)
 			} else {
@@ -403,7 +404,7 @@ func Run(parent context.Context) error {
 
 func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *telemetry.Metrics) http.Handler {
 	observed := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if metrics == nil || r.Method != http.MethodGet || r.URL.Path == "/metrics" {
+		if metrics == nil || r.Method != http.MethodGet || r.URL.Path == metricsPath {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -425,7 +426,7 @@ func runtimeHandler(tracker *process.Tracker, next http.Handler, metrics *teleme
 	})
 	tracked := tracker.Middleware(observed)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" || r.URL.Path == "/health/live" || r.URL.Path == "/health/ready" || r.URL.Path == "/metrics" {
+		if r.URL.Path == "/health" || r.URL.Path == "/health/live" || r.URL.Path == "/health/ready" || r.URL.Path == metricsPath {
 			next.ServeHTTP(w, r)
 			return
 		}

@@ -1,10 +1,12 @@
-# Installation
+# LittDB CLI
+
+## Installation
 
 The LittDB CLI is built from the Paxeer monorepo. It operates on storage files; it does not connect
 to the network JSON-RPC. See the [LittDB API](../README.md#api) and [architecture](architecture.md)
 for the embedded library and its durability guarantees.
 
-## Building from source
+### Building from source
 
 Use the Go toolchain required by the repository's [go.mod](../../../../go.mod) (currently Go 1.25.8).
 From the monorepo root:
@@ -18,7 +20,7 @@ make build
 The [Makefile](../Makefile) runs `go build -o ./bin/litt ./cli`. The resulting binary is
 `storage/db_engine/litt/bin/litt`, relative to the repository root.
 
-### Optional: Shortcuts
+### Optional shortcuts
 
 Use the absolute location of your checkout when defining an alias or extending `PATH`:
 
@@ -39,7 +41,7 @@ assume `litt` resolves to this binary. Remote transfers also require SSH access,
 entry, and `rsync` on the participating machines. The receiver must support `rsync --fsync` and
 GNU `sync -f`, which the transfer uses before acknowledging durable remote files.
 
-# Sources and Destinations
+## Sources and destinations
 
 `--src` (alias `-s`) names a local database or snapshot root. `--dst` (alias `-d`) names a destination
 root: local for `rebase`, remote for `push` and `sync`. Repeat the flag for each root. These are roots
@@ -77,16 +79,16 @@ removing locks to bypass a running writer can corrupt data. A published snapshot
 source for backups while the application remains running. Transfers do not lock remote destination
 roots, so keep the receiving database stopped and serialize destination maintenance.
 
-# Subcommands
+## Subcommands
 
 The registered commands and flags are defined in [litt_cli.go](../cli/litt_cli.go).
 
-## `litt --help`
+### `litt --help`
 
 Print command help. Use `litt <command> --help` for that command's flags. Global diagnostic flags
 precede the command; subcommand source/destination flags follow it.
 
-## `litt ls`
+### `litt ls`
 
 List table names alphabetically from the provided roots:
 
@@ -96,7 +98,7 @@ litt ls --src /data0 --src /data1 --src /data2
 
 The command logs the discovered names. It does not query the running node.
 
-## `litt table-info`
+### `litt table-info`
 
 Inspect one named table, including key count, byte size, snapshot status, seal times, segment indices
 and keymap type:
@@ -108,7 +110,7 @@ litt table-info --src /data0 --src /data1 --src /data2 tableA
 Supply exactly one table-name argument. Table names use ASCII letters, digits, underscores and dashes.
 This is file-based inspection, not a retention-policy configuration command.
 
-## `litt rebase`
+### `litt rebase`
 
 Move a stopped database's files from the source roots to a new set of local roots. Roots can overlap:
 
@@ -126,7 +128,7 @@ it. There is no live root-membership setter. Changing the table's sharding facto
 operation. After a rebase, restart with every destination root in `Config.Paths` and supply the
 per-table settings again.
 
-## `litt benchmark`
+### `litt benchmark`
 
 Run the benchmark with exactly one JSON configuration filename:
 
@@ -154,7 +156,7 @@ paths. Omitted fields retain defaults; `TimeLimitSeconds` defaults to zero, so t
 until interrupted. A nonempty `SnapshotDirectory` retains snapshot files that must be consumed or
 pruned. Keep the seed and random-pool size unchanged when resuming the same benchmark data.
 
-## `litt prune`
+### `litt prune`
 
 Remove segments older than `--max-age`, in seconds, from a stopped database or snapshot:
 
@@ -170,7 +172,7 @@ and remote archives are not automatically pruned by the originating database's T
 Serialize pruning with transfers that use the same roots. In particular, do not run archive pruning
 while another machine is pushing to that archive: remote destination locks are not acquired by push.
 
-## `litt push`
+### `litt push`
 
 Transfer segment files over SSH with `rsync`. For a running database, enable
 `Config.SnapshotDirectory` and use that single snapshot root as the source:
@@ -195,7 +197,7 @@ SSH flags include `--key` (`-i`, default `~/.ssh/id_rsa`), `--port` (`-p`, defau
 `--throttle` limits aggregate transfer bandwidth and defaults to zero (unlimited). `--quiet` reduces
 output. Verify host trust before transferring.
 
-### Restoring from a Backup
+#### Restoring from a backup
 
 Run this on the backup machine, with every archive root as a source and every target root as a
 destination. Stop the target application and use dedicated restore roots so unrelated old segments
@@ -218,7 +220,7 @@ TTL, cache sizes and other per-table runtime settings are not recovered from the
 rebuilds a missing keymap from the transferred segment key files. A snapshot backup contains only
 published sealed segments; it does not include writes still in the mutable segment.
 
-### Backup Garbage Collection
+#### Backup garbage collection
 
 Archives grow until explicitly pruned. On the backup machine, while no transfer is writing the roots:
 
@@ -228,7 +230,7 @@ litt prune --src /backup1 --src /backup2 --src /backup3 --max-age 86400
 
 Choose retention for the restore history you need. This command deletes old archive segments.
 
-## `litt sync`
+### `litt sync`
 
 Periodically push to one remote host, optionally pruning the remote archive:
 
@@ -242,7 +244,7 @@ A nonzero `--max-age` enables remote pruning in seconds; `--litt-binary` selects
 `--no-gc` and a stopped source application. Avoid other processes transferring to or pruning the
 same destination roots concurrently.
 
-## `litt unlock`
+### `litt unlock`
 
 Remove stale local lock files only after confirming no process is using any of the roots:
 

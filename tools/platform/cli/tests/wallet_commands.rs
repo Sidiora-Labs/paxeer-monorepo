@@ -164,12 +164,12 @@ fn malformed_balance_asset_is_refused_before_rpc() {
     assert!(!output.status.success());
     let detail = error_envelope(&output)["error"]["detail"]
         .as_str()
-        .unwrap()
+        .unwrap_or_else(|| panic!("expected value"))
         .to_owned();
     assert!(detail.contains("asset"), "{detail}");
     assert!(!detail.contains("connect"), "{detail}");
 }
 
 use layerx_platform_cli::{encoding, http};
-#[path = "repair_22_33_1496.rs"]
-mod audit_22_33_1496;
+#[path = "program_and_wallet_receipts.rs"]
+mod program_and_wallet_receipts;

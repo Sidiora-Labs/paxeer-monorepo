@@ -81,6 +81,16 @@ use std::sync::Barrier;
 use std::thread;
 use std::time::Duration;
 
+fn hex_bytes(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut text = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        text.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        text.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    text
+}
+
 const CHAIN: [u8; 32] = [10; 32];
 const PROGRAM: [u8; 32] = [11; 32];
 const OWNER: [u8; 32] = [12; 32];
@@ -308,7 +318,7 @@ impl World {
         let state = decode_shared_state(&self.bytes)?;
         Ok(PolicySection::decode(state.section(Section::PolicyLifecycle)?)?.header)
     }
-    fn apply(&mut self, call: Call<'_>, at: u64) -> CodecResult<()> {
+    fn apply(&mut self, call: &Call<'_>, at: u64) -> CodecResult<()> {
         let mut next = vec![0; MAX_STATE_BYTES];
         let mut scratch = vec![0; dispatch::SCRATCH_BYTES];
         let mut event = vec![0; MAX_EVENT_BYTES];
@@ -325,10 +335,10 @@ impl World {
             },
         )?;
         let dispatch::Routed::Applied { state_len, .. } = routed else {
-            let result_len = match routed {
-                dispatch::Routed::Refused { result_len }
-                | dispatch::Routed::Unchanged { result_len } => result_len,
-                _ => unreachable!(),
+            let (dispatch::Routed::Refused { result_len }
+            | dispatch::Routed::Unchanged { result_len }) = routed
+            else {
+                unreachable!();
             };
             panic!(
                 "native {:?} at {at} refused: {:?}",
@@ -342,7 +352,7 @@ impl World {
     }
     fn owner_op(&mut self, operation: Operation, payload: &[u8], at: u64) -> CodecResult<()> {
         self.apply(
-            Call {
+            &Call {
                 operation,
                 actor: PrincipalId::new(OWNER)?,
                 epoch: 0,
@@ -367,7 +377,7 @@ impl World {
         at: u64,
     ) -> CodecResult<()> {
         self.apply(
-            Call {
+            &Call {
                 operation,
                 actor,
                 epoch: 0,
@@ -713,7 +723,7 @@ struct Market {
 /// three accepted evaluators, `FUND`, `ADVANCE_ACTIVATION` and `OPEN_EPOCH` 1, whose Work window
 /// is 1128..1192.
 fn opened(endpoints: Vec<Endpoint>) -> Checked<Market> {
-    let (market, owner, worker) = identities()?;
+    let (market, _, _) = identities()?;
     let manifest = manifest(1, vec![capability(0x31)], endpoints)?;
     let signed = sign(&manifest, 0)?;
     let (_, digest) = Manifest::decode(&manifest.encode()?)?;
@@ -1263,7 +1273,7 @@ fn worker_service(directory: &Scratch) -> Checked<worker::Service> {
     Ok(worker::Service {
         binding,
         key: delegate(),
-        metrics: Default::default(),
+        metrics: layerx_paxai_worker::metrics::Metrics::default(),
         jobs: service(
             &directory.store(),
             PathBuf::from(env!("CARGO_BIN_EXE_layerx-paxai-runner")),
@@ -1310,23 +1320,16 @@ fn feed(service: &worker::Service, market: &Market, height: u64) -> Checked {
         roster: Some(&market.roster),
         observed_ms: NOW,
     };
-    service.runtime.lock().expect("runtime lock").observe(
-        &evidence,
-        &market.signed,
-        vec![customer_at(height)?],
-    )?;
+    service
+        .runtime
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "runtime lock"))
+        .observe(&evidence, &market.signed, vec![customer_at(height)?])?;
     Ok(())
 }
 
 fn stage_input(service: &worker::Service, order: &Order) -> Checked {
-    let name = order
-        .submit
-        .request
-        .input_commitment
-        .bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let name = hex_bytes(&order.submit.request.input_commitment.bytes());
     fs::write(
         service.input_dir.join(format!("{name}.manifest")),
         &order.manifest,
@@ -1357,32 +1360,39 @@ struct Tls {
 }
 impl Tls {
     fn new() -> Self {
-        let key = rcgen::KeyPair::generate().expect("CA key");
-        let mut params = rcgen::CertificateParams::new(Vec::<String>::new()).expect("CA params");
+        let key =
+            rcgen::KeyPair::generate().unwrap_or_else(|error| panic!("{error:?}: {}", "CA key"));
+        let mut params = rcgen::CertificateParams::new(Vec::<String>::new())
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "CA params"));
         params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
-        let ca = params.self_signed(&key).expect("CA certificate");
+        let ca = params
+            .self_signed(&key)
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "CA certificate"));
         let issuer = rcgen::Issuer::from_params(&params, &key);
-        let key = rcgen::KeyPair::generate().expect("leaf key");
+        let key =
+            rcgen::KeyPair::generate().unwrap_or_else(|error| panic!("{error:?}: {}", "leaf key"));
         let leaf = rcgen::CertificateParams::new(vec!["localhost".into()])
-            .expect("leaf params")
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "leaf params"))
             .signed_by(&key, &issuer)
-            .expect("leaf certificate");
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "leaf certificate"));
         let mut roots = RootCertStore::empty();
-        roots.add(ca.der().clone()).expect("trust CA");
+        roots
+            .add(ca.der().clone())
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "trust CA"));
         let server =
             ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
                 .with_protocol_versions(&[&rustls::version::TLS13])
-                .expect("TLS 1.3")
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "TLS 1.3"))
                 .with_no_client_auth()
                 .with_single_cert(
                     vec![leaf.der().clone()],
                     PrivateKeyDer::from(PrivatePkcs8KeyDer::from(key.serialize_der())),
                 )
-                .expect("server config");
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "server config"));
         Self {
             roots: Arc::new(roots),
             server: Arc::new(server),
-            pin: spki_sha256(leaf.der()).expect("SPKI"),
+            pin: spki_sha256(leaf.der()).unwrap_or_else(|error| panic!("{error:?}: {}", "SPKI")),
         }
     }
     fn client(&self, timeout: Duration) -> EndpointClient {
@@ -1398,7 +1408,10 @@ impl Tls {
         endpoint(
             &format!(
                 "https://localhost:{}/paxai/v1",
-                listener.local_addr().expect("address").port()
+                listener
+                    .local_addr()
+                    .unwrap_or_else(|error| panic!("{error:?}: {}", "address"))
+                    .port()
             ),
             self.pin,
         )
@@ -1407,26 +1420,35 @@ impl Tls {
         let config =
             ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
                 .with_protocol_versions(&[&rustls::version::TLS13])
-                .expect("TLS 1.3")
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "TLS 1.3"))
                 .with_root_certificates((*self.roots).clone())
                 .with_no_client_auth();
         let conn = ClientConnection::new(
             Arc::new(config),
-            ServerName::try_from("localhost").expect("server name"),
+            ServerName::try_from("localhost")
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "server name")),
         )
-        .expect("client connection");
-        let socket = TcpStream::connect(listener.local_addr().expect("address")).expect("connect");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "client connection"));
+        let socket = TcpStream::connect(
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "address")),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "connect"));
         socket
             .set_read_timeout(Some(Duration::from_secs(3)))
-            .expect("read timeout");
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "read timeout"));
         socket
             .set_write_timeout(Some(Duration::from_secs(3)))
-            .expect("write timeout");
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "write timeout"));
         StreamOwned::new(conn, socket)
     }
 }
 
-fn loopback(_: &str, _: u16) -> io::Result<Vec<IpAddr>> {
+fn loopback(host: &str, _: u16) -> io::Result<Vec<IpAddr>> {
+    if host != "localhost" {
+        return Err(io::Error::from(io::ErrorKind::InvalidInput));
+    }
     Ok(vec![IpAddr::V4(Ipv4Addr::LOCALHOST)])
 }
 
@@ -1434,31 +1456,35 @@ fn receive_request(stream: &mut impl Read) -> Vec<u8> {
     let mut received = Vec::new();
     let mut byte = [0];
     while !received.ends_with(b"\r\n\r\n") {
-        stream.read_exact(&mut byte).expect("request head");
+        stream
+            .read_exact(&mut byte)
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "request head"));
         received.push(byte[0]);
     }
-    let text = std::str::from_utf8(&received).expect("HTTP head");
+    let text =
+        std::str::from_utf8(&received).unwrap_or_else(|error| panic!("{error:?}: {}", "HTTP head"));
     let length = text
         .split("\r\n")
         .find_map(|line| line.strip_prefix("Content-Length: "))
-        .expect("request length")
+        .unwrap_or_else(|| panic!("request length"))
         .parse::<usize>()
-        .expect("decimal length");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "decimal length"));
     let start = received.len();
     received.resize(start + length, 0);
     stream
         .read_exact(&mut received[start..])
-        .expect("request body");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "request body"));
     received
 }
 
 #[test]
 fn worker_request_target_injection_sends_no_bytes() {
     let tls = Tls::new();
-    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "listener"));
     listener
         .set_nonblocking(true)
-        .expect("nonblocking listener");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "nonblocking listener"));
     let endpoint = tls.endpoint(&listener);
     for path in [
         "/paxai/v1/status\r\nInjected: yes",
@@ -1478,7 +1504,8 @@ fn worker_request_target_injection_sends_no_bytes() {
         assert_eq!(
             listener
                 .accept()
-                .expect_err("invalid target connected")
+                .err()
+                .unwrap_or_else(|| panic!("invalid target connected"))
                 .kind(),
             io::ErrorKind::WouldBlock
         );
@@ -1490,19 +1517,23 @@ fn transcript_response(
     delay: Option<Duration>,
 ) -> Result<Vec<u8>, TransportError> {
     let tls = Tls::new();
-    let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "listener"));
     let endpoint = tls.endpoint(&listener);
     let config = tls.server.clone();
     let peer = thread::spawn(move || {
-        let (socket, _) = listener.accept().expect("accept TLS peer");
+        let (socket, _) = listener
+            .accept()
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "accept TLS peer"));
         socket
             .set_read_timeout(Some(Duration::from_secs(2)))
-            .expect("read timeout");
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "read timeout"));
         socket
             .set_write_timeout(Some(Duration::from_secs(2)))
-            .expect("write timeout");
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "write timeout"));
         let mut stream = StreamOwned::new(
-            ServerConnection::new(config).expect("server connection"),
+            ServerConnection::new(config)
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "server connection")),
             socket,
         );
         let received = receive_request(&mut stream);
@@ -1526,7 +1557,8 @@ fn transcript_response(
     let result =
         tls.client(Duration::from_millis(350))
             .post(&endpoint, STATUS_PATH, b"signed", loopback);
-    peer.join().expect("peer thread");
+    peer.join()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "peer thread"));
     result
 }
 
@@ -1574,24 +1606,13 @@ fn worker_client_total_deadline_bounds_a_peer_making_read_progress() {
     );
 }
 
-#[test]
-fn worker_server_framing_rejects_conflicts_and_accepts_a_signed_tls_probe() -> Checked {
-    let tls = Tls::new();
-    let directory = Scratch::new("server-framing")?;
-    let service = Arc::new(worker_service(&directory)?);
-    let mut fixture = admitting()?;
-    let order = order(&fixture, 0xA1, 1, 512)?;
-    admit_chain_task(&mut fixture, &order, 0xA1)?;
-    stage_input(&service, &order)?;
-    feed(&service, &fixture.market, HEIGHT)?;
-    let challenge = StatusChallenge {
-        epoch: fixture.authority.current_epoch().expect("epoch"),
-        config: fixture.authority.config(),
-        roster: fixture.authority.roster(),
-        expiry: TASK_EXPIRY,
-        challenge: RequestId::new([0x66; 32])?,
-    };
-    let signed_probe = challenge.encode();
+fn assert_probe_framing(
+    tls: &Tls,
+    service: &Arc<worker::Service>,
+    signed_probe: &[u8],
+    authority: &FinalizedAuthority,
+    challenge: &StatusChallenge,
+) -> Checked {
     for head in [
         "POST /paxai/v1/status HTTP/1.1 extra\r\nContent-Length: 32\r\n\r\n",
         "POST /paxai/v1/status HTTP/1.1\r\nContent-Length: 32\r\nContent-Length: 1\r\n\r\n",
@@ -1602,21 +1623,23 @@ fn worker_server_framing_rejects_conflicts_and_accepts_a_signed_tls_probe() -> C
         let mut stream = tls.connect(&listener);
         let config = tls.server.clone(); let service = service.clone();
         let server = thread::spawn(move || {
-            let (socket, _) = listener.accept().expect("accept");
+            let (socket, _) = listener.accept().unwrap_or_else(|error| panic!("{error:?}: {}", "accept"));
             worker::serve(&service, config, socket, Instant::now() + Duration::from_secs(2))
         });
-        stream.write_all(head.as_bytes())?; stream.write_all(&signed_probe)?; stream.flush()?;
+        stream.write_all(head.as_bytes())?; stream.write_all(signed_probe)?; stream.flush()?;
         let mut bytes = Vec::new(); stream.read_to_end(&mut bytes)?;
         assert!(bytes.starts_with(b"HTTP/1.1 400 Bad Request\r\n"));
         assert!(bytes.ends_with(&ServiceError::NonCanonical.body(Presence::Absent)));
-        drop(stream); server.join().expect("server thread")?;
+        drop(stream); server.join().unwrap_or_else(|error| panic!("{error:?}: {}", "server thread"))?;
     }
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let endpoint = tls.endpoint(&listener);
     let config = tls.server.clone();
     let service2 = service.clone();
     let server = thread::spawn(move || {
-        let (socket, _) = listener.accept().expect("accept");
+        let (socket, _) = listener
+            .accept()
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "accept"));
         worker::serve(
             &service2,
             config,
@@ -1626,45 +1649,25 @@ fn worker_server_framing_rejects_conflicts_and_accepts_a_signed_tls_probe() -> C
     });
     let signed = tls
         .client(Duration::from_secs(2))
-        .post(&endpoint, STATUS_PATH, &signed_probe, loopback)
-        .expect("valid probe through strict TLS listener");
-    layerx_paxai_worker::auth::verify_status(
-        &signed,
-        &fixture.authority.worker_binding(),
-        &challenge,
-    )?;
-    server.join().expect("server thread")?;
-    let listener = TcpListener::bind("127.0.0.1:0")?;
-    let endpoint = tls.endpoint(&listener);
-    let config = tls.server.clone();
-    let service2 = service.clone();
-    let server = thread::spawn(move || {
-        let (socket, _) = listener.accept().expect("accept");
-        worker::serve(
-            &service2,
-            config,
-            socket,
-            Instant::now() + Duration::from_secs(2),
-        )
-    });
-    let acknowledgment = tls
-        .client(Duration::from_secs(2))
-        .post(&endpoint, SUBMIT_PATH, &order.signed, loopback)
-        .expect("valid signed submit through strict TLS listener");
-    let (admitted, _) = decode_acknowledgment(&acknowledgment, public(&delegate()))?;
-    assert_eq!(admitted.task, order.submit.request.task);
-    assert_eq!(
-        service
-            .jobs
-            .store()
-            .job(order.key()?)?
-            .record
-            .acknowledgment,
-        acknowledgment
-    );
-    server.join().expect("server thread")?;
+        .post(&endpoint, STATUS_PATH, signed_probe, loopback)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "valid probe through strict TLS listener"));
+    layerx_paxai_worker::auth::verify_status(&signed, &authority.worker_binding(), challenge)?;
+    server
+        .join()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "server thread"))?;
+    Ok(())
+}
+
+fn assert_reopened_admission(
+    service: Arc<worker::Service>,
+    directory: &Scratch,
+    fixture: &Admitting,
+    tls: &Tls,
+    order: &Order,
+    acknowledgment: &[u8],
+) -> Checked {
     drop(service);
-    let reopened = Arc::new(worker_service(&directory)?);
+    let reopened = Arc::new(worker_service(directory)?);
     feed(&reopened, &fixture.market, HEIGHT)?;
     assert_eq!(
         reopened
@@ -1673,14 +1676,16 @@ fn worker_server_framing_rejects_conflicts_and_accepts_a_signed_tls_probe() -> C
             .job(order.key()?)?
             .record
             .acknowledgment,
-        acknowledgment
+        acknowledgment.to_vec()
     );
     let query = order.reference(Route::Query, principal(9)?, 2, &customer())?;
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let endpoint = tls.endpoint(&listener);
     let config = tls.server.clone();
     let server = thread::spawn(move || {
-        let (socket, _) = listener.accept().expect("accept reopened service");
+        let (socket, _) = listener
+            .accept()
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "accept reopened service"));
         worker::serve(
             &reopened,
             config,
@@ -1696,9 +1701,86 @@ fn worker_server_framing_rejects_conflicts_and_accepts_a_signed_tls_probe() -> C
             &query,
             loopback,
         )
-        .expect("query writer-produced admission through reopened TLS listener");
-    assert_eq!(recovered, acknowledgment);
-    server.join().expect("reopened server thread")?;
+        .unwrap_or_else(|error| {
+            panic!(
+                "{error:?}: {}",
+                "query writer-produced admission through reopened TLS listener"
+            )
+        });
+    assert_eq!(recovered.as_slice(), acknowledgment);
+    server
+        .join()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "reopened server thread"))?;
+    Ok(())
+}
+
+#[test]
+fn worker_server_framing_rejects_conflicts_and_accepts_a_signed_tls_probe() -> Checked {
+    let tls = Tls::new();
+    let directory = Scratch::new("server-framing")?;
+    let service = Arc::new(worker_service(&directory)?);
+    let mut fixture = admitting()?;
+    let order = order(&fixture, 0xA1, 1, 512)?;
+    admit_chain_task(&mut fixture, &order, 0xA1)?;
+    stage_input(&service, &order)?;
+    feed(&service, &fixture.market, HEIGHT)?;
+    let challenge = StatusChallenge {
+        epoch: fixture
+            .authority
+            .current_epoch()
+            .unwrap_or_else(|| panic!("epoch")),
+        config: fixture.authority.config(),
+        roster: fixture.authority.roster(),
+        expiry: TASK_EXPIRY,
+        challenge: RequestId::new([0x66; 32])?,
+    };
+    let signed_probe = challenge.encode();
+    assert_probe_framing(
+        &tls,
+        &service,
+        &signed_probe,
+        &fixture.authority,
+        &challenge,
+    )?;
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    let endpoint = tls.endpoint(&listener);
+    let config = tls.server.clone();
+    let service2 = service.clone();
+    let server = thread::spawn(move || {
+        let (socket, _) = listener
+            .accept()
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "accept"));
+        worker::serve(
+            &service2,
+            config,
+            socket,
+            Instant::now() + Duration::from_secs(2),
+        )
+    });
+    let acknowledgment = tls
+        .client(Duration::from_secs(2))
+        .post(&endpoint, SUBMIT_PATH, &order.signed, loopback)
+        .unwrap_or_else(|error| {
+            panic!(
+                "{error:?}: {}",
+                "valid signed submit through strict TLS listener"
+            )
+        });
+    let (admitted, _) = decode_acknowledgment(&acknowledgment, public(&delegate()))?;
+    assert_eq!(admitted.task, order.submit.request.task);
+    assert_eq!(
+        service
+            .jobs
+            .store()
+            .job(order.key()?)?
+            .record
+            .acknowledgment,
+        acknowledgment
+    );
+    server
+        .join()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "server thread"))?;
+    assert_reopened_admission(service, &directory, &fixture, &tls, &order, &acknowledgment)?;
     Ok(())
 }
 
@@ -1720,7 +1802,9 @@ fn peer_args(mode: &str) -> Vec<std::ffi::OsString> {
 fn worker_process_peer() {
     let mode = std::env::args().find_map(|arg| arg.strip_prefix("--skip=mode=").map(str::to_owned));
     let Some(mode) = mode else {
-        assert!(std::env::current_exe().expect("test executable").is_file());
+        assert!(std::env::current_exe()
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "test executable"))
+            .is_file());
         return;
     };
     if mode == "descendant" {
@@ -1733,15 +1817,19 @@ fn worker_process_peer() {
         std::process::exit(1);
     }
     let mut input = Vec::new();
-    io::stdin().read_to_end(&mut input).expect("peer request");
-    let descendant = Command::new(std::env::current_exe().expect("test executable"))
-        .args(peer_args("descendant"))
-        .arg("unused")
-        .stdin(Stdio::null())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::null())
-        .spawn()
-        .expect("descendant retaining stdout");
+    io::stdin()
+        .read_to_end(&mut input)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "peer request"));
+    let descendant = Command::new(
+        std::env::current_exe().unwrap_or_else(|error| panic!("{error:?}: {}", "test executable")),
+    )
+    .args(peer_args("descendant"))
+    .arg("unused")
+    .stdin(Stdio::null())
+    .stdout(Stdio::inherit())
+    .stderr(Stdio::null())
+    .spawn()
+    .unwrap_or_else(|error| panic!("{error:?}: {}", "descendant retaining stdout"));
     if mode == "retain-exit" {
         std::process::exit(0);
     }
@@ -1754,13 +1842,16 @@ fn worker_process_peer() {
 #[test]
 fn worker_adapter_deadline_includes_descendant_pipe_completion() {
     for mode in ["retain-exit", "retain-timeout"] {
-        let mut command = Command::new(std::env::current_exe().expect("test executable"));
+        let mut command = Command::new(
+            std::env::current_exe()
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "test executable")),
+        );
         command.args(peer_args(mode)).arg("adapter");
         let started = Instant::now();
         assert_eq!(
             worker::adapter_call(
                 &mut command,
-                serde_json::json!({"request": 1}),
+                &serde_json::json!({"request": 1}),
                 Duration::from_millis(200)
             ),
             Err(ServiceError::ExecutionUnavailable)
@@ -1791,6 +1882,86 @@ fn worker_runner_deadline_bounds_retained_pipes_and_preserves_ambiguity() -> Che
     Ok(())
 }
 
+fn assert_legacy_reopen(
+    directory: &Scratch,
+    fixture: &Admitting,
+    service: worker::Service,
+    orders: &[Order],
+    lease1: &Lease,
+    future: u64,
+) -> Checked {
+    // Legacy tracking can contain unvalidated keys and expired fences from an earlier worker.
+    fs::write(
+        directory.0.join("chain-jobs.json"),
+        serde_json::to_vec(&vec![[0xFFu8; 32]])
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "legacy tracking JSON")),
+    )?;
+    fs::write(
+        directory.0.join("expired-attempts.json"),
+        serde_json::to_vec(&vec![(lease1.key.digest().bytes(), lease1.fence)])
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "legacy fence JSON")),
+    )?;
+    drop(service);
+    let mut reopened = worker_service(directory)?;
+    reopened.jobs = JobService::new(
+        JobStore::open(&directory.store())?,
+        ProcessRunner::new(directory.absent(), Vec::new(), Duration::from_millis(100)),
+        delegate(),
+    );
+    assert_eq!(
+        reopened.maintain_fences(future),
+        Err(ServiceError::ExecutionUnavailable),
+        "unavailable cancellation remains an explicit error after durable migration"
+    );
+    assert_eq!(reopened.jobs.store().tracked()?.len(), 3);
+    assert_eq!(
+        reopened.jobs.store().job(orders[3].key()?)?.state.state,
+        JobState::Accepted
+    );
+    assert_eq!(
+        reopened.jobs.store().job(orders[2].key()?)?.state.state,
+        JobState::Ended(Outcome::UnknownExecution)
+    );
+    let recovered = reopened.jobs.store().job(lease1.key)?.state;
+    assert_eq!(recovered.state, JobState::Running);
+    assert_eq!(recovered.fence, lease1.fence);
+    assert!(recovered.late, "expired fence must survive reopen");
+    let marker = Digest32::new([0xE1; 32])?;
+    reopened
+        .jobs
+        .store()
+        .mark(marker, Digest32::new([0xE2; 32])?, HEIGHT, NOW)?;
+    reopened.cleanup_retention(&fixture.market.world.bytes, future, TASK_EXPIRY + 1)?;
+    // An expired replay marker was removed: a different digest can be recorded only now.
+    reopened
+        .jobs
+        .store()
+        .mark(marker, Digest32::new([0xE3; 32])?, TASK_EXPIRY + 2, future)?;
+    assert!(!directory.0.join("chain-jobs.json").exists());
+    assert!(!directory.0.join("expired-attempts.json").exists());
+    Ok(())
+}
+
+fn assert_ambiguous_execution(service: &worker::Service, lease2: Lease) -> Checked {
+    assert_eq!(
+        service.jobs.run(lease2, NOW + 1)?,
+        JobState::Ended(Outcome::UnknownExecution)
+    );
+    let calls = service.jobs.runner().invocations();
+    assert!(
+        service.jobs.run(lease2, NOW + 2).is_err(),
+        "ambiguous execution cannot redispatch"
+    );
+    assert_eq!(service.jobs.runner().invocations(), calls);
+    service.jobs.reconcile(NOW + 3)?;
+    assert_eq!(
+        service.jobs.store().job(lease2.key)?.state.state,
+        JobState::Ended(Outcome::UnknownExecution),
+        "a peer with no retry guarantee cannot authorize another dispatch"
+    );
+    Ok(())
+}
+
 #[test]
 fn worker_retention_preserves_unresolved_admissions_and_expired_fences_after_reopen() -> Checked {
     let directory = Scratch::new("retention")?;
@@ -1806,7 +1977,11 @@ fn worker_retention_preserves_unresolved_admissions_and_expired_fences_after_reo
         })
         .collect::<Checked<Vec<_>>>()?;
     for (i, order) in orders.iter().enumerate() {
-        admit_chain_task(&mut fixture, order, 0xB0 + u8::try_from(i).expect("nonce"))?;
+        admit_chain_task(
+            &mut fixture,
+            order,
+            0xB0 + u8::try_from(i).unwrap_or_else(|error| panic!("{error:?}: {}", "nonce")),
+        )?;
     }
     let mut service = worker_service(&directory)?;
     // A real process peer with no retry guarantee produces an ambiguous dispatch.
@@ -1855,22 +2030,7 @@ fn worker_retention_preserves_unresolved_admissions_and_expired_fences_after_reo
         &fixture.authority,
         NOW,
     )?;
-    assert_eq!(
-        service.jobs.run(lease2, NOW + 1)?,
-        JobState::Ended(Outcome::UnknownExecution)
-    );
-    let calls = service.jobs.runner().invocations();
-    assert!(
-        service.jobs.run(lease2, NOW + 2).is_err(),
-        "ambiguous execution cannot redispatch"
-    );
-    assert_eq!(service.jobs.runner().invocations(), calls);
-    service.jobs.reconcile(NOW + 3)?;
-    assert_eq!(
-        service.jobs.store().job(lease2.key)?.state.state,
-        JobState::Ended(Outcome::UnknownExecution),
-        "a peer with no retry guarantee cannot authorize another dispatch"
-    );
+    assert_ambiguous_execution(&service, lease2)?;
     let running = service.jobs.store().job(lease1.key)?.state;
     service
         .jobs
@@ -1879,10 +2039,10 @@ fn worker_retention_preserves_unresolved_admissions_and_expired_fences_after_reo
     let current_ms = u64::try_from(
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .expect("wall clock")
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "wall clock"))
             .as_millis(),
     )
-    .expect("milliseconds");
+    .unwrap_or_else(|error| panic!("{error:?}: {}", "milliseconds"));
     let future = current_ms + RETENTION_MS * 2;
     assert_eq!(
         service.cleanup_retention(&fixture.market.world.bytes, future, HEIGHT)?,
@@ -1895,53 +2055,6 @@ fn worker_retention_preserves_unresolved_admissions_and_expired_fences_after_reo
     );
     assert!(service.jobs.store().tombstone(orders[0].key()?)?.is_some());
     assert_eq!(service.jobs.store().tracked()?.len(), 3);
-    // Legacy tracking can contain unvalidated keys and expired fences from an earlier worker.
-    fs::write(
-        directory.0.join("chain-jobs.json"),
-        serde_json::to_vec(&vec![[0xFFu8; 32]]).expect("legacy tracking JSON"),
-    )?;
-    fs::write(
-        directory.0.join("expired-attempts.json"),
-        serde_json::to_vec(&vec![(lease1.key.digest().bytes(), lease1.fence)])
-            .expect("legacy fence JSON"),
-    )?;
-    drop(service);
-    let mut reopened = worker_service(&directory)?;
-    reopened.jobs = JobService::new(
-        JobStore::open(&directory.store())?,
-        ProcessRunner::new(directory.absent(), Vec::new(), Duration::from_millis(100)),
-        delegate(),
-    );
-    assert_eq!(
-        reopened.maintain_fences(future),
-        Err(ServiceError::ExecutionUnavailable),
-        "unavailable cancellation remains an explicit error after durable migration"
-    );
-    assert_eq!(reopened.jobs.store().tracked()?.len(), 3);
-    assert_eq!(
-        reopened.jobs.store().job(orders[3].key()?)?.state.state,
-        JobState::Accepted
-    );
-    assert_eq!(
-        reopened.jobs.store().job(orders[2].key()?)?.state.state,
-        JobState::Ended(Outcome::UnknownExecution)
-    );
-    let recovered = reopened.jobs.store().job(lease1.key)?.state;
-    assert_eq!(recovered.state, JobState::Running);
-    assert_eq!(recovered.fence, lease1.fence);
-    assert!(recovered.late, "expired fence must survive reopen");
-    let marker = Digest32::new([0xE1; 32])?;
-    reopened
-        .jobs
-        .store()
-        .mark(marker, Digest32::new([0xE2; 32])?, HEIGHT, NOW)?;
-    reopened.cleanup_retention(&fixture.market.world.bytes, future, TASK_EXPIRY + 1)?;
-    // An expired replay marker was removed: a different digest can be recorded only now.
-    reopened
-        .jobs
-        .store()
-        .mark(marker, Digest32::new([0xE3; 32])?, TASK_EXPIRY + 2, future)?;
-    assert!(!directory.0.join("chain-jobs.json").exists());
-    assert!(!directory.0.join("expired-attempts.json").exists());
+    assert_legacy_reopen(&directory, &fixture, service, &orders, &lease1, future)?;
     Ok(())
 }

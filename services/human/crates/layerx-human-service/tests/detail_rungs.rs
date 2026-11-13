@@ -215,7 +215,8 @@ fn receipted_entry_detail_is_not_final() {
 
 #[test]
 fn committed_entry_detail_is_final() {
-    for rung in [Rung::Committed] {
+    {
+        let rung = Rung::Committed;
         let (entry, actual) =
             recorded_entry(rung).unwrap_or_else(|error| panic!("feed entry: {error}"));
         assert_eq!(entry.rung(), Rung::Committed);

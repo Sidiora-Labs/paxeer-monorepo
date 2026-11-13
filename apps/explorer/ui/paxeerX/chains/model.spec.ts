@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { parseChainsResponse, rpcUrl, sortChains, statusLabel } from './model';
+import { chainListRow, parseChainsResponse, rpcUrl, sortChains, statusLabel } from './model';
 
 function chains_model_parses_sorts_and_labels() {
   const json = JSON.parse(`{"chains":[{"id":1,"name":"demo","operator":"0x1111111111111111111111111111111111111111","status":"active","chain_id":125000001,"created_height":42,"bond":"100000000000000000000","gas_allowance":500000,"byte_allowance":65536,"fee_share_bps":100}]}`);
@@ -12,6 +12,8 @@ function chains_model_parses_sorts_and_labels() {
   expect(parsed[0].created_height).toBe(42);
 
   const first = parsed[0];
+  expect(chainListRow(first, 'LAUNCH')).toEqual({ ...first, launchSymbol: 'LAUNCH' });
+  expect(chainListRow(first, null)).toEqual({ ...first, launchSymbol: null });
   const input = [
     { ...first, id: 4, chain_id: 125000004, name: 'four', status: 'active' },
     { ...first, id: 3, chain_id: 125000003, name: 'three', status: 'retired' },

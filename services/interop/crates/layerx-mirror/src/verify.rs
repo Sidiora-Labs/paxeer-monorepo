@@ -130,6 +130,10 @@ impl MirrorVerifier {
         Self::admit_committed(&archive_bytes, observation)
     }
 
+    /// Admits archive bytes under an independently observed source commitment.
+    ///
+    /// # Errors
+    /// Refuses mismatched commitments, batches or source freshness.
     pub fn admit_committed(
         archive_bytes: &[u8],
         observation: MirrorObservation,
@@ -165,11 +169,9 @@ impl MirrorVerifier {
     /// # Errors
     /// Refuses batch-era archives without a committed coordinate.
     pub fn committed(&self) -> Result<CommittedCoordinate, MirrorVerifyError> {
-        let committed = &self.archive.committed;
-        Ok(CommittedCoordinate {
-            height: self.archive.batch_number,
-            block_hash: committed.block_hash,
-        })
+        self.archive
+            .committed_coordinate()
+            .ok_or(MirrorVerifyError::CommittedUnavailable)
     }
 
     /// Verifies an archived receipt under independently configured receipt key windows.
@@ -423,10 +425,10 @@ mod tests {
         let (archive, keys) = committed_archive();
         let observed = observation(&archive);
         let verifier = MirrorVerifier::admit_committed(archive.bytes(), observed.clone())?;
-        let verified = verifier.committed_receipt(0, &keys)?;
-        assert_eq!(verified.level(), MirrorEvidenceLevel::Committed);
-        assert_eq!(verified.batch_number(), archive.data().batch_number);
-        let unsigned = layerx_wire::receipt::encode_unsigned(verified.value())
+        let receipt_proof = verifier.committed_receipt(0, &keys)?;
+        assert_eq!(receipt_proof.level(), MirrorEvidenceLevel::Committed);
+        assert_eq!(receipt_proof.batch_number(), archive.data().batch_number);
+        let unsigned = layerx_wire::receipt::encode_unsigned(receipt_proof.value())
             .map_err(|_| MirrorVerifyError::ReceiptDecode)?;
         let fixture: serde_json::Value =
             serde_json::from_str(include_str!("../tests/fixtures/committed_blocks.json"))

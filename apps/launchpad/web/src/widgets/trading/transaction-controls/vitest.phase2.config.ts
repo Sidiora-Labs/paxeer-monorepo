@@ -1,8 +1,8 @@
-import { defineConfig, mergeConfig } from 'vitest/config';
+import { configDefaults, defineConfig, mergeConfig } from 'vitest/config';
 import { resolve } from 'node:path';
 import baseline from '../../../../vitest.config';
 export default mergeConfig(
-  { ...baseline },
+  { ...baseline, test: { ...baseline.test, exclude: configDefaults.exclude } },
   defineConfig({
     cacheDir:
       process.env.L26_CACHE_DIR ??

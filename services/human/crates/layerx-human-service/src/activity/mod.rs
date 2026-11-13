@@ -242,6 +242,8 @@ impl ReceiptEvidence {
     pub fn canonical(&self) -> Option<&[u8]> {
         self.canonical.as_deref()
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn export_fact(&self, entry_id: &ActivityEntryId) -> Result<ReceiptFact, VerifyError> {
         let canonical = self.canonical().ok_or_else(|| {
             VerifyError::Unavailable(ExportError::EvidenceUnavailable {
@@ -571,6 +573,8 @@ impl Feed {
     /// Returns the full producer position to resume after. Legacy height-only
     /// state replays its last block from the preceding block's end; event
     /// identities make that replay idempotent without guessing lost indices.
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn projected_agent_cursor(
         scope: &PrincipalScope<'_>,
     ) -> Result<Option<AgentCursor>, FeedError> {

@@ -1,12 +1,12 @@
 # Agents and budgets
 
-An agent is software you allow to spend money. The interesting question is not how to let it spend - that is one call - but what stops it when it goes wrong.
+An agent is software authorized to prepare and submit payments within granted authority. Protocol budgets and daemon policy impose distinct limits.
 
-## The ceiling that survives a compromise
+## Budget ceilings
 
-A budget is a protocol object in the budget module. You create it, you fund it, and spending past what is funded is refused by the transition function. That refusal does not depend on your agent behaving, on the agent runtime being intact, or on `layerx-agentd` still being in the request path. It is the same kind of guarantee as conservation of supply.
+A budget is a protocol object in the budget module. You create it, you fund it, and spending past what is funded is refused by the transition function. For spending through that budget, the limit is enforced by the protocol independently of `layerx-agentd`. It does not limit separate authority the agent may hold over other funds.
 
-Anything narrower than the funded budget - a per-call limit, a counterparty allow-list, a rate - is enforced by the agent layer or by your own code. It is real, and it is worth having, and it is not a protocol guarantee. This documentation labels it accordingly, and so should your product copy.
+The protocol also checks the budget's remaining period allowance, expiry and revocation. A delegated spend must match its granted holder, asset, recipient and purpose, and stay within its per-spend and cumulative ceilings. Daemon policy can impose additional counterparty, amount and rate restrictions on requests through the agent service.
 
 ## Capabilities
 
@@ -15,11 +15,11 @@ A capability is what `layerx-agentd` will let a holder do. You create one, atten
 | Operation | Effect |
 |---|---|
 | `capability.create` | Mints a capability for an agent |
-| `capability.attenuate` | Produces a strictly narrower capability |
-| `capability.revoke` | Ends it |
+| `capability.attenuate` | Produces a capability with no wider authority |
+| `capability.revoke` | Revokes it and its descendants |
 | `capability.list` | Shows what is outstanding |
 
-Attenuation only ever narrows. There is no widening operation, so a capability handed down a chain cannot regain authority on the way.
+Attenuation preserves or narrows each dimension of authority. A child capability cannot exceed its parent.
 
 ## Approval holds
 
@@ -36,13 +36,13 @@ The digest matters: approving a hold approves the exact bytes that were disclose
 
 ## The write path
 
-Agent writes are always prepare, sign, submit, then track or wait. Preparing gives you the canonical bytes and a disclosure describing them; signing binds the disclosure; submitting hands it to the network; tracking resolves the outcome. If a submission cannot be classified, the answer is `Unknown` - see [Retries and unknown outcomes](idempotency.md).
+Agent payment submissions use prepare, sign, submit, then track or wait. Preparing supplies the transaction facts, signing hash and disclosure. The signer produces a signed EIP-1559 transaction; submission checks those bytes against the preparation and hands them to the network. Tracking resolves the outcome. If a submission cannot be classified, the answer is `Unknown` - see [Retries and unknown outcomes](idempotency.md).
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Protocol budget ceilings | `protocol` | The funded budget holds even against a fully compromised agent runtime. |
+| Protocol budget ceilings | `protocol` | A spend through the budget cannot exceed its funded authority. |
 | Programs never write balances | `protocol` | An agent calling a program cannot use it to exceed its own authority. |
 | Capability attenuation | `agent-layer` | Binds callers that go through `layerx-agentd`. A principal reaching the protocol another way is bound by protocol budgets, not by this. |
 | Approval holds | `agent-layer` | The hold exists while the daemon is in the request path. |

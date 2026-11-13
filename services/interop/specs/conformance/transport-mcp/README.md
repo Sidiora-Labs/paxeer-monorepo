@@ -20,10 +20,10 @@ Each file holds a JSON array of records:
 - `representation`: `http-header` or `json`
 - `header`: the exact header name a header representation travels in
 - `document`: the wire document, exactly as it travels
-- `validationScope`: `envelope-only` for retained representation cases or
+- `validationScope`: `envelope-only` for representation cases or
   `current-offer` for chain-125 offers bound to recorded payer bytes
-- `semanticExpectation`: the separate requirements, binding and settlement
-  expectations; `accepted` retains the envelope expectation
+- `semanticExpectation`: declarative requirements, binding and settlement
+  metadata; `accepted` classifies the role representation
 - `producerFixture`: the committed producer case, transaction hash and recorded
   observation time used by the current offers
 - `ingress`: the mounted route and expected response, when applicable
@@ -35,15 +35,13 @@ This binding carries JSON on every message.
 `services/interop/crates/layerx-x402/tests/transports.rs` reads these files with
 `include_str!` and runs every record through the production x402 model types
 and the production encoder and decoder for this transport. The current codecs
-also invoke semantic validation. The retained envelope-only profile cases are
-therefore expected to fail with `ProfileMismatch`, despite their historical
-`accepted: true` envelope classification. The consumer must assert the explicit
-semantic expectation separately; its existing single-boolean harness needs the
-owning-domain wiring recorded in `repair_22_33_97.kvx`.
+also invoke semantic validation. `profile_refusal` assigns `ProfileMissing`
+to the three `eip155_125_*` payment cases, and the harness checks that both
+encoding and decoding refuse them even when their envelope representation is
+classified as accepted. `semanticExpectation` is separate metadata.
 
-The fault-injected settlement cases in that file are not vectors and are not
-counted: they drive a live sequencer signer and a canonical receipt encoder
-rather than a transport representation.
+Additional settlement cases in that file use a local receipt signer and
+canonical receipt encoder. They are outside the JSON vector count.
 
 `services/interop/deploy/gateway/render.py` derives the vector count and the SHA-256
 the gateway configuration declares from these files.
@@ -59,22 +57,13 @@ contain those same bytes; `layerxIdempotencyKey` is the recorded payment referen
 The recorded observation time is historical and must be used for deterministic
 expiry checks. These bytes must not be submitted to a live endpoint.
 
-The original profile-bearing records remain intentional envelope-only cases.
-`PaymentRequirements::validate` rejects `extra.layerx` on `eip155:125` with
-`ProfileMismatch`. The original pending settlement responses and opaque
-authorization are representations, with no proof of a successful settlement.
+`PaymentRequirements::validate` requires `extra.layerx.account` and
+`extra.layerx.currency` on `eip155:125`, and binds `payTo` to that account's
+identifier. Offers on another network must omit the LayerX profile. The
+profile-free `eip155_125_*` records therefore produce `ProfileMissing`.
 
-The current offer passes the requirements rules. The seller and facilitator
-currently call `layerx_terms()` unconditionally, so even the corrected offer
-reaches `ProfileMissing`: mounted `POST /v1/mcp/x402/seller/offer` returns
-`400 invalid_x402_offer`, and mounted verify/settle returns
-`400 invalid_x402_request`. These pre-existing consumer mismatches require
-out-of-scope repairs. No current fixture claims successful settlement through
-those blockers.
-
-The focused Python qualification parses the fixtures and recorded transaction,
-checks their byte-for-byte provenance and payment facts, and asserts production
-source connections through the codec, route, service and relay. It does not
-execute the Rust validator or mounted ingress. Runtime semantic validation,
-ingress coverage and deployment digest regeneration are owning-domain wiring
-requests in `tools/qualification/audit_repairs/repair_22_33_97.kvx`.
+Pending settlement responses and opaque authorization fields describe role
+representations. Successful settlement requires authenticated payment evidence.
+Mounted payment ingress additionally requires authentication, typed signed payer
+bytes, a payment idempotency key and verified receipt evidence from its
+configured relay.

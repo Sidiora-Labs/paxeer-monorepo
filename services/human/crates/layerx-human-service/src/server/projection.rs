@@ -1,5 +1,6 @@
 use layerx_types::rung::Rung;
 use serde_json::{json, Value};
+use std::fmt::Write as _;
 
 use super::agent_runtime::{
     AgentApprovalFacts, ManagedAgentEvidence, ManagedAgentView, ManagedReceiptExport,
@@ -57,7 +58,7 @@ pub(super) fn unix_milliseconds(milliseconds: u64) -> Result<String, ApiFailure>
     let remainder = milliseconds % 1000;
     if remainder != 0 {
         result.pop();
-        result.push_str(&format!(".{remainder:03}Z"));
+        write!(result, ".{remainder:03}Z").map_err(|_| ApiFailure::upstream_degraded())?;
     }
     Ok(result)
 }
@@ -115,11 +116,9 @@ pub(super) fn managed_agent(value: &ManagedAgentView) -> Result<Value, ApiFailur
     )
 }
 
-pub(super) fn managed_export(value: &ManagedReceiptExport) -> Result<Value, ApiFailure> {
+pub(super) fn managed_export(value: &ManagedReceiptExport) -> Value {
     use base64::Engine as _;
-    Ok(
-        json!({"evidence_id":format!("evd_{}",hex(&value.digest)),"class":"layerx-receipt","verification":verification(value.verification),"content_type":"application/vnd.layerx.receipt","bytes_base64":base64::engine::general_purpose::STANDARD.encode(&value.canonical_bytes)}),
-    )
+    json!({"evidence_id":format!("evd_{}",hex(&value.digest)),"class":"layerx-receipt","verification":verification(value.verification),"content_type":"application/vnd.layerx.receipt","bytes_base64":base64::engine::general_purpose::STANDARD.encode(&value.canonical_bytes)})
 }
 
 pub(super) fn approval_state(state: &AgentApprovalState) -> &'static str {
@@ -161,8 +160,8 @@ pub(super) fn native_state(
     }
 }
 
-pub(super) fn level(rung: Rung) -> Result<&'static str, ApiFailure> {
-    Ok(super::HumanComponentServer::verification_level_name(rung))
+pub(super) fn level(rung: Rung) -> &'static str {
+    super::HumanComponentServer::verification_level_name(rung)
 }
 
 pub(super) fn native_approval(
@@ -171,7 +170,7 @@ pub(super) fn native_approval(
     budget: &super::agent_runtime::NativeEffectApprovalBudget,
     row: &super::agent_runtime::NativeEffectBudgetRow,
     fee_currency: &str,
-    evidence: Vec<Value>,
+    evidence: &[Value],
 ) -> Result<ApprovalProjection, ApiFailure> {
     use layerx_crypto::disclosure::{AmountRole, CounterpartyRole};
     if !facts.requires_approval
@@ -226,7 +225,7 @@ pub(super) fn native_approval(
     let counterparty = format!("act_{}", hex(&counterparty.account));
     let money = json!({"amount":amount.value.to_string(),"currency":managed.currency});
     let expires_at = unix_milliseconds(facts.activity_expires_at_unix_milliseconds)?;
-    let remaining = json!({"money":{"amount":row.remaining.to_string(),"currency":managed.currency},"verification":level(row.verification)?});
+    let remaining = json!({"money":{"amount":row.remaining.to_string(),"currency":managed.currency},"verification":level(row.verification)});
     let summary = json!({"approval_id":approval_id,"agent_id":managed.agent_id,"agent_name":managed.name,"counterparty":counterparty,"amount":money,
         "reason_copy_key":"approval.reason.policy-required","expires_at":expires_at,"state":state,"budget_remaining_after":remaining});
     let detail = json!({"approval_id":approval_id,"agent_id":managed.agent_id,"agent_name":managed.name,"state":state,"state_copy_key":format!("approval.state.{state}"),
@@ -248,7 +247,7 @@ pub(super) fn approval(
     facts: &AgentApprovalFacts,
     managed: &ManagedAgentView,
     budget: VerifiedBudgetAfter,
-    evidence: Vec<Value>,
+    evidence: &[Value],
 ) -> Result<ApprovalProjection, ApiFailure> {
     let hold = &facts.approval;
     if hold.held_activity.canonical_digest != hold.canonical_bytes_digest
@@ -285,18 +284,16 @@ pub(super) fn approval(
     Ok(ApprovalProjection { summary, detail })
 }
 
-pub(super) fn program_state(
-    state: super::agent_runtime::NativeApprovalFactState,
-) -> Result<&'static str, ApiFailure> {
+pub(super) fn program_state(state: super::agent_runtime::NativeApprovalFactState) -> &'static str {
     use super::agent_runtime::NativeApprovalFactState;
-    Ok(match state {
+    match state {
         NativeApprovalFactState::Awaiting => "pending",
         NativeApprovalFactState::Granted => "approved",
         NativeApprovalFactState::Rejected => "rejected",
         NativeApprovalFactState::Expired => "expired",
         NativeApprovalFactState::Defective => "defective",
         NativeApprovalFactState::NotRequired => "not-required",
-    })
+    }
 }
 
 fn program_bytes(bytes: &[u8]) -> Value {
@@ -470,7 +467,7 @@ pub(super) fn program_summary(
     };
     Ok(
         json!({"approval_id":format!("apr_{}",hex(&facts.approval_id)),"agent_id":managed.agent_id,"agent_name":managed.name,
-        "state":program_state(facts.state)?,"reason_copy_key":reason,
+        "state":program_state(facts.state),"reason_copy_key":reason,
         "created_at":unix_time(facts.created_at_unix_seconds)?,"expires_at":unix_milliseconds(facts.activity_expires_at_unix_milliseconds)?,
         "held_digest":hex(&facts.held_digest),"operation":program_operation(facts)?,"semantics":semantics,"authorized_limits":limits,"evidence":evidence}),
     )
@@ -483,7 +480,7 @@ pub(super) fn program_detail(
     budget: Option<&Value>,
 ) -> Result<Value, ApiFailure> {
     let mut detail = program_summary(facts, managed, evidence)?;
-    detail["state_copy_key"] = json!(format!("approval.state.{}", program_state(facts.state)?));
+    detail["state_copy_key"] = json!(format!("approval.state.{}", program_state(facts.state)));
     detail["created_at_sequence"] = json!(facts.created_at_sequence.to_string());
     detail["budget_expiry_sequence"] = json!(facts.budget_expiry_sequence.to_string());
     if let Some(reference) = facts.release_ref {
@@ -502,7 +499,7 @@ pub(super) fn program_detail(
 
 pub(super) fn program_budget(
     budget: &super::agent_runtime::NativeProgramApprovalBudget,
-    proof_reference: Value,
+    proof_reference: &Value,
 ) -> Result<Value, ApiFailure> {
     use sha2::{Digest as _, Sha256};
     if budget.approval_id == [0; 32]
@@ -521,7 +518,7 @@ pub(super) fn program_budget(
         || <[u8; 32]>::from(Sha256::digest(&budget.verified_proof_bytes)) != budget.proof_digest
         || proof_reference["evidence_id"] != json!(format!("evd_{}", hex(&budget.proof_digest)))
         || proof_reference["class"] != json!("checkpoint-proof")
-        || proof_reference["verification"] != json!(level(budget.verification)?)
+        || proof_reference["verification"] != json!(level(budget.verification))
     {
         return Err(ApiFailure::upstream_degraded());
     }
@@ -530,7 +527,7 @@ pub(super) fn program_budget(
         "budget_id":hex(&budget.budget_id),"asset_id":hex(&budget.asset),"source_account":format!("act_{}",hex(&budget.source_account)),
         "remaining":budget.remaining.to_string(),"observed_head_sequence":budget.observed_at_sequence.to_string(),
         "age_sequences":budget.age_sequences.to_string(),"maximum_age_sequences":budget.maximum_age_sequences.to_string(),
-        "within_bound":budget.age_sequences <= budget.maximum_age_sequences,"terminal":budget.terminal,"verification":level(budget.verification)?,
+        "within_bound":budget.age_sequences <= budget.maximum_age_sequences,"terminal":budget.terminal,"verification":level(budget.verification),
         "proof_digest":hex(&budget.proof_digest),"receipt_digest":hex(&budget.receipt_digest),"checkpoint_digest":hex(&budget.checkpoint_digest),
         "evidence":[proof_reference]}),
     )
@@ -580,7 +577,7 @@ pub(super) fn program_decision(
     ) {
         return Err(hold_defective());
     }
-    let state = program_state(facts.state)?;
+    let state = program_state(facts.state);
     let mut decision = json!({"approval_id":format!("apr_{}",hex(&facts.approval_id)),"held_digest":hex(&facts.held_digest),"state":state,
         "state_copy_key":format!("approval.state.{state}"),"money_moved":false,"moved_copy_key":"approval.program.decision.money-not-moved","evidence":evidence});
     if let Some(reference) = facts.release_ref {

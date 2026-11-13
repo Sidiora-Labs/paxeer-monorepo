@@ -33,22 +33,22 @@ func EncodeEvent(data []byte, cursor string) ([]byte, error) {
 
 func (h *Hub) authenticatedHandle(w http.ResponseWriter, r *http.Request) {
 	if h.privateStream == nil || !h.lifecycle.Ready() {
-		http.Error(w, "DEPENDENCY_UNAVAILABLE", 503)
+		http.Error(w, "DEPENDENCY_UNAVAILABLE", http.StatusServiceUnavailable)
 		return
 	}
 	origin, originErr := broker.TrustedHTTPOrigin(r, h.allowedOrigins, h.trustedProxies)
 	if originErr != nil || len(r.URL.RawQuery) > 8192 {
-		http.Error(w, "FORBIDDEN", 403)
+		http.Error(w, "FORBIDDEN", http.StatusForbidden)
 		return
 	}
 	q, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil || len(q) != 1 || len(q["topics"]) != 1 {
-		http.Error(w, "FIELD_INVALID", 422)
+		http.Error(w, "FIELD_INVALID", http.StatusUnprocessableEntity)
 		return
 	}
 	topics, err := broker.CanonicalTopics(strings.Split(q.Get("topics"), ","))
 	if err != nil {
-		http.Error(w, "FIELD_INVALID", 422)
+		http.Error(w, "FIELD_INVALID", http.StatusUnprocessableEntity)
 		return
 	}
 	binding := sharedauth.StreamTicketBinding{SchemaMajor: 2, Topics: topics, FilterDigest: sharedauth.StreamFilterDigest(topics), Origin: origin, Endpoint: "/v2/stream"}
@@ -61,12 +61,12 @@ func (h *Hub) authenticatedHandle(w http.ResponseWriter, r *http.Request) {
 		authRequest.Header.Set("Origin", origin)
 		principal, err = h.privateStream.AuthenticateRequest(r.Context(), authRequest)
 		if err != nil {
-			http.Error(w, "AUTH_REQUIRED", 401)
+			http.Error(w, "AUTH_REQUIRED", http.StatusUnauthorized)
 			return
 		}
 	}
 	if sharedauth.ValidateStreamBinding(principal, binding) != nil {
-		http.Error(w, "FORBIDDEN", 403)
+		http.Error(w, "FORBIDDEN", http.StatusForbidden)
 		return
 	}
 	var commits <-chan struct{}
@@ -74,20 +74,20 @@ func (h *Hub) authenticatedHandle(w http.ResponseWriter, r *http.Request) {
 		var unwatch func()
 		commits, unwatch, err = h.fanout.Watch(topics)
 		if err != nil {
-			http.Error(w, "FIELD_INVALID", 422)
+			http.Error(w, "FIELD_INVALID", http.StatusUnprocessableEntity)
 			return
 		}
 		defer unwatch()
 	}
 	drain, leave, err := h.lifecycle.Join()
 	if err != nil {
-		http.Error(w, "DEPENDENCY_UNAVAILABLE", 503)
+		http.Error(w, "DEPENDENCY_UNAVAILABLE", http.StatusServiceUnavailable)
 		return
 	}
 	defer leave()
 	ip := clientIP(r)
 	if !h.acquire(ip) {
-		http.Error(w, "DEPENDENCY_UNAVAILABLE", 503)
+		http.Error(w, "DEPENDENCY_UNAVAILABLE", http.StatusServiceUnavailable)
 		return
 	}
 	defer h.release(ip)
@@ -104,6 +104,7 @@ func (h *Hub) authenticatedHandle(w http.ResponseWriter, r *http.Request) {
 		if e = rc.SetWriteDeadline(time.Now().Add(time.Second)); e != nil {
 			return e
 		}
+		//nolint:gosec // EncodeEvent validates JSON and excludes line breaks from event data.
 		if _, e = w.Write(frame); e != nil {
 			return e
 		}

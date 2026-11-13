@@ -9,14 +9,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const IdentityOwnerDDL = `CREATE TABLE identity_owner_requests(account_id uuid NOT NULL REFERENCES identity_accounts,request_id uuid NOT NULL,operation text NOT NULL,body_hash bytea NOT NULL,response jsonb NOT NULL,retain_until timestamptz NOT NULL,PRIMARY KEY(account_id,request_id,operation));
@@ -43,7 +45,7 @@ func (s *Identity) ownerMutation(ctx context.Context, p Principal, key, operatio
 	if err != nil {
 		return nil, unavailable()
 	}
-	defer tx.Rollback(ctx)
+	defer cleanup.Rollback(ctx, tx)
 	if err = s.AuthorizeTx(ctx, tx, p); err != nil {
 		return nil, err
 	}
@@ -84,7 +86,7 @@ func (s *Identity) ownerMutation(ctx context.Context, p Principal, key, operatio
 
 func (s *Identity) IssueLinkIdempotent(ctx context.Context, p Principal, r WalletLinkChallengeRequest, ip, key string, body []byte) (json.RawMessage, error) {
 	wallet, err := normalizeWallet(r.Wallet)
-	if err != nil || net.ParseIP(ip) == nil || r.ChainID != "125" || (r.Visibility != "private" && r.Visibility != "public_optin") {
+	if err != nil || net.ParseIP(ip) == nil || r.ChainID != "125" || (r.Visibility != privateVisibility && r.Visibility != publicOptInVisibility) {
 		return nil, invalid()
 	}
 	result, mutationErr := s.ownerMutation(ctx, p, key, "link.challenge", body, func(tx pgx.Tx) (any, error) {
@@ -191,7 +193,7 @@ func (s *Identity) UnlinkIdempotent(ctx context.Context, p Principal, r WalletLi
 		if _, err = tx.Exec(ctx, `UPDATE identity_sessions SET revoked_at=clock_timestamp() WHERE account_id=$1 AND wallet=$2 AND revoked_at IS NULL`, p.accountID, wallet); err != nil {
 			return nil, unavailable()
 		}
-		if err = s.audit(ctx, tx, p, "wallet_unlink"); err != nil {
+		if err = s.audit(ctx, tx, p, walletUnlinkEvent); err != nil {
 			return nil, err
 		}
 		return nil, nil

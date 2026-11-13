@@ -1,4 +1,5 @@
 include!("../src/main.rs");
+use layerx_platform_authority::assertion::Must;
 include!("support/committed_human_fixture.rs");
 
 #[path = "../../../../agent/crates/layerx-agentd/tests/support/committed_authority_documents.rs"]
@@ -12,8 +13,12 @@ fn committed_document(config: Arc<Config>, path: &str, export: bool) -> Value {
     } else {
         &document
     };
-    let rank = u8::try_from(state["verification"].as_u64().expect("verification rank"))
-        .expect("byte rank");
+    let rank = u8::try_from(
+        state["verification"]
+            .as_u64()
+            .must_with("verification rank"),
+    )
+    .must_with("byte rank");
     assert_eq!(
         rank,
         layerx_types::verify::VerificationLevel::COMMITTED.wire_rank()
@@ -59,9 +64,9 @@ fn repair_22_31_535_producers_emit_committed_documents() {
                 "{}&did={}&authority={}&action_key={}&capability_id={}",
                 human_path("capability-scope"),
                 fixture.did,
-                scope["authority"].as_str().unwrap(),
-                scope["action_key"].as_str().unwrap(),
-                scope["capability_id"].as_str().unwrap()
+                scope["authority"].as_str().must(),
+                scope["action_key"].as_str().must(),
+                scope["capability_id"].as_str().must()
             );
             corpus["scope"] = committed_document(config, &path, false);
             corpus["scope_did"] = document!(fixture.did);
@@ -77,8 +82,8 @@ fn repair_22_31_535_producers_emit_committed_documents() {
     }
     let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
     let output = committed_documents::corpus_path(&repository);
-    let parent = output.parent().unwrap();
-    fixture_must(fs::create_dir_all(parent));
+    let parent = output.parent().must();
+    fs::create_dir_all(parent).must_with(committed_documents::CORPUS_READ_EXPECTATION);
     fixture_must(fs::set_permissions(
         parent,
         fs::Permissions::from_mode(0o700),

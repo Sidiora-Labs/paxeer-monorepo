@@ -138,7 +138,7 @@ struct Committed<'a> {
 fn committed(current: &[u8]) -> CodecResult<Committed<'_>> {
     let state = decode_shared_state(current)?;
     let section = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?;
@@ -150,15 +150,15 @@ fn committed(current: &[u8]) -> CodecResult<Committed<'_>> {
 
 /// The F06 reward state and the F05 bytes after it; `None` before the first funding.
 fn rewards<'a>(state: &SharedState<'a>) -> CodecResult<Option<(RewardState<'a>, &'a [u8])>> {
-    let section = *state
-        .feature_sections
-        .guest_index(Section::SettlementClaims.index());
-    if section.is_empty() {
+    let reward_bytes = state.room_market()?.0;
+    if reward_bytes.is_empty() {
         return Ok(None);
     }
-    let (head, tail) = section
+    let section = state.section(Section::SettlementClaims)?;
+    let (head, _) = reward_bytes
         .split_at_checked(REWARD_STATE_BYTES)
         .ok_or(NON_CANONICAL)?;
+    let tail = section.get(REWARD_STATE_BYTES..).ok_or(NON_CANONICAL)?;
     Ok(Some((decode_reward_state(head)?, tail)))
 }
 
@@ -439,7 +439,7 @@ fn epoch_terminal(state: &SharedState<'_>, rewards: Option<&RewardState<'_>>) ->
         return Ok(true);
     };
     let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
-        *state
+        state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
     )?)?;
@@ -460,7 +460,7 @@ fn task_set_identity(
     section: &PolicySection<'_>,
 ) -> CodecResult<Option<[u8; 32]>> {
     let admission = AdmissionTable::decode(crate::reputation_transition::joint_table(
-        *state
+        state
             .feature_sections
             .guest_index(Section::ReputationAdmission.index()),
     )?)?;

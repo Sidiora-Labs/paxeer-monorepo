@@ -20,7 +20,7 @@ import (
 var gooseMu sync.Mutex
 
 // Up brings the database at dsn to the latest migration version.
-func Up(ctx context.Context, dsn string) error {
+func Up(ctx context.Context, dsn string) (resultErr error) {
 	gooseMu.Lock()
 	defer gooseMu.Unlock()
 
@@ -28,7 +28,11 @@ func Up(ctx context.Context, dsn string) error {
 	if err != nil {
 		return fmt.Errorf("migrate: open db: %w", err)
 	}
-	defer sqlDB.Close()
+	defer func() {
+		if err := sqlDB.Close(); err != nil && resultErr == nil {
+			resultErr = fmt.Errorf("migrate: close db: %w", err)
+		}
+	}()
 
 	goose.SetBaseFS(migrations.FS)
 	goose.SetLogger(goose.NopLogger())

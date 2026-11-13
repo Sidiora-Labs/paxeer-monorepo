@@ -105,7 +105,7 @@ struct Instance<'a> {
 fn start(recording: &Recording, signer: &SignerServer, instance: &Instance<'_>) -> Relayer {
     let parts = RelayerParts {
         attestor: Attestor::new(signer.remote(instance.attestor.0, &key(instance.attestor.1)))
-            .unwrap_or_else(|error| panic!("attestor: {error:?}")),
+            .or_panic("attestor"),
         paxeer: PaxeerLink {
             receipt_keys: support::receipt_keys(),
             settings: PAXEER,
@@ -113,13 +113,13 @@ fn start(recording: &Recording, signer: &SignerServer, instance: &Instance<'_>) 
             submitter: Submitter::paxeer(
                 signer.remote(instance.paxeer_fees.0, &key(instance.paxeer_fees.1)),
             )
-            .unwrap_or_else(|error| panic!("paxeer submitter: {error:?}")),
+            .or_panic("paxeer submitter"),
         },
         chains: vec![ChainLink {
             settings: CHAIN,
             rpc: recording.endpoint("ethereum-1"),
             submitter: Submitter::ethereum(signer.remote("ethereum-fees", &key(FEES_2)))
-                .unwrap_or_else(|error| panic!("ethereum submitter: {error:?}")),
+                .or_panic("ethereum submitter"),
         }],
         journal: Journal::open(&instance.journal)
             .unwrap_or_else(|error| panic!("journal: {error}")),
@@ -282,11 +282,7 @@ fn replace_receipt_field(bytes: &mut [u8], original: &[u8], replacement: &[u8]) 
 }
 
 fn recording_with_sequencer_receipts(name: &str, directory: &Path) -> Recording {
-    use layerx_bridge_relayer::receipt::SequencerReceipt;
-    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
-    use layerx_proof::receipt::{canonical_protocol_facts, verify_sequencer_signature};
     use serde_json::{json, Value};
-    use sha2::Sha256;
 
     let first = deposit(0xaa, 3, padded(0x77), 1_000_000_000_000_000_000);
     let (source, transactions) = match name {
@@ -315,16 +311,16 @@ fn recording_with_sequencer_receipts(name: &str, directory: &Path) -> Recording 
         ),
         _ => panic!("unknown receipt recording: {name}"),
     };
-    let mut document: Value = serde_json::from_str(source).expect("recorded exchanges");
+    let mut document: Value = serde_json::from_str(source).or_panic("recorded exchanges");
     let sequencer: Value =
         serde_json::from_str(include_str!("fixtures/inbound_sequencer_receipt.json"))
-            .expect("sequencer exchanges");
+            .or_panic("sequencer exchanges");
     for rules in document["endpoints"]["paxeer"]
         .as_object_mut()
-        .expect("phases")
+        .or_panic("phases")
         .values_mut()
     {
-        for rule in rules.as_array_mut().expect("phase rules") {
+        for rule in rules.as_array_mut().or_panic("phase rules") {
             if rule["method"] != "eth_getTransactionReceipt" {
                 continue;
             }
@@ -332,93 +328,106 @@ fn recording_with_sequencer_receipts(name: &str, directory: &Path) -> Recording 
             if rule["result"].is_null() {
                 continue;
             }
-            let index: usize = rule["params"][0]
-                .as_str()
-                .expect("submission reference")
-                .strip_prefix("$submitted:")
-                .expect("submission prefix")
-                .parse()
-                .expect("submission index");
-            let raw = &transactions[index];
-            let (call, signature) = decode_signed(raw).expect("recorded signed transaction");
-            let sender = recover_sender(&call, &signature).expect("recorded sender");
-            let phase = if rule["result"]["status"] == "0x1" {
-                "committed"
-            } else {
-                "reverted"
-            };
-            let mut answer = sequencer["endpoints"]["paxeer"][phase][0]["result"].clone();
-            let mut bytes = hex::decode(answer["receipt"].as_str().expect("signed receipt"))
-                .expect("receipt hex");
-            let decoded = verify_sequencer_signature(&bytes, support::receipt_keys().as_slice())
-                .expect("recorded signature");
-            let protocol = decoded.protocol().expect("protocol receipt");
-            let tx_hash = hash(raw);
-            replace_receipt_field(&mut bytes, &protocol.activity_id(), &tx_hash);
-            let mut sequence_hash = Sha256::new();
-            sequence_hash.update(b"PAXEER/v1/sequence\0");
-            sequence_hash.update(protocol.previous_state_root());
-            sequence_hash.update(protocol.global_sequence().to_be_bytes());
-            sequence_hash.update(tx_hash);
-            replace_receipt_field(
-                &mut bytes,
-                &protocol.resulting_state_root(),
-                &sequence_hash.finalize(),
-            );
-            let mut from = [0; 32];
-            from[12..].copy_from_slice(&sender);
-            let from_position = replace_receipt_field(&mut bytes, &protocol.from(), &from);
-            let nonce_position = from_position + 32 + 16 + 16;
-            assert_eq!(
-                &bytes[nonce_position..nonce_position + 8],
-                &protocol.debit_sequence().to_be_bytes()
-            );
-            bytes[nonce_position..nonce_position + 8].copy_from_slice(&call.nonce.to_be_bytes());
-            canonical_protocol_facts(&bytes).expect("canonical rebound receipt");
-            let unsigned_end = bytes.len() - 69;
-            assert_eq!(&bytes[unsigned_end..unsigned_end + 5], &[1, 0, 0, 0, 64]);
-            let mut digest = Sha256::new();
-            digest.update(b"LXP/v1/receipt\0");
-            digest.update(&bytes[..unsigned_end]);
-            digest.update([0]);
-            let digest: [u8; 32] = digest.finalize().into();
-            bytes[unsigned_end + 5..]
-                .copy_from_slice(&SigningKey::from_bytes(&[0x5e; 32]).sign(&digest).to_bytes());
-            answer["txHash"] = json!(hex::prefixed(&tx_hash));
-            answer["nonce"] = json!(format!("{:#x}", call.nonce));
-            answer["from"] = json!(hex::prefixed(&sender));
-            answer["receipt"] = json!(hex::prefixed(&bytes));
-            if phase == "committed" {
-                let block = hex::parse_quantity(
-                    rule["result"]["blockNumber"]
-                        .as_str()
-                        .expect("included block"),
-                )
-                .expect("block quantity");
-                answer["blockNumber"] = json!(format!("{:#x}", 1003 + block - 0x10));
-            }
-            let decoded = SequencerReceipt::decode(&answer).expect("bound receipt answer");
-            assert_eq!(
-                decoded
-                    .view
-                    .as_ref()
-                    .expect("bound receipt view")
-                    .payment_denom,
-                "uhpx"
-            );
-            decoded
-                .verify(&support::receipt_keys())
-                .expect("bound receipt verifies");
-            rule["result"] = answer;
+            rewrite_sequencer_rule(rule, &sequencer, &transactions);
         }
     }
     let path = directory.join("sequencer-recording.json");
     std::fs::write(
         &path,
-        serde_json::to_vec(&document).expect("recording JSON"),
+        serde_json::to_vec(&document).or_panic("recording JSON"),
     )
-    .expect("write recording");
-    Recording::load(path.to_str().expect("recording path"))
+    .or_panic("write recording");
+    Recording::load(path.to_str().or_panic("recording path"))
+}
+
+fn rewrite_sequencer_rule(
+    rule: &mut serde_json::Value,
+    sequencer: &serde_json::Value,
+    transactions: &[Vec<u8>],
+) {
+    use layerx_bridge_relayer::receipt::SequencerReceipt;
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    use layerx_proof::receipt::{canonical_protocol_facts, verify_sequencer_signature};
+    use serde_json::json;
+    use sha2::Sha256;
+    let index: usize = rule["params"][0]
+        .as_str()
+        .or_panic("submission reference")
+        .strip_prefix("$submitted:")
+        .or_panic("submission prefix")
+        .parse()
+        .or_panic("submission index");
+    let raw = &transactions[index];
+    let (call, signature) = decode_signed(raw).or_panic("recorded signed transaction");
+    let sender = recover_sender(&call, &signature).or_panic("recorded sender");
+    let phase = if rule["result"]["status"] == "0x1" {
+        "committed"
+    } else {
+        "reverted"
+    };
+    let mut answer = sequencer["endpoints"]["paxeer"][phase][0]["result"].clone();
+    let mut bytes =
+        hex::decode(answer["receipt"].as_str().or_panic("signed receipt")).or_panic("receipt hex");
+    let decoded = verify_sequencer_signature(&bytes, support::receipt_keys().as_slice())
+        .or_panic("recorded signature");
+    let protocol = decoded.protocol().or_panic("protocol receipt");
+    let tx_hash = hash(raw);
+    replace_receipt_field(&mut bytes, &protocol.activity_id(), &tx_hash);
+    let mut sequence_hash = Sha256::new();
+    sequence_hash.update(b"PAXEER/v1/sequence\0");
+    sequence_hash.update(protocol.previous_state_root());
+    sequence_hash.update(protocol.global_sequence().to_be_bytes());
+    sequence_hash.update(tx_hash);
+    replace_receipt_field(
+        &mut bytes,
+        &protocol.resulting_state_root(),
+        &sequence_hash.finalize(),
+    );
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&sender);
+    let from_position = replace_receipt_field(&mut bytes, &protocol.from(), &from);
+    let nonce_position = from_position + 32 + 16 + 16;
+    assert_eq!(
+        &bytes[nonce_position..nonce_position + 8],
+        &protocol.debit_sequence().to_be_bytes()
+    );
+    bytes[nonce_position..nonce_position + 8].copy_from_slice(&call.nonce.to_be_bytes());
+    canonical_protocol_facts(&bytes).or_panic("canonical rebound receipt");
+    let unsigned_end = bytes.len() - 69;
+    assert_eq!(&bytes[unsigned_end..unsigned_end + 5], &[1, 0, 0, 0, 64]);
+    let mut digest = Sha256::new();
+    digest.update(b"LXP/v1/receipt\0");
+    digest.update(&bytes[..unsigned_end]);
+    digest.update([0]);
+    let digest: [u8; 32] = digest.finalize().into();
+    bytes[unsigned_end + 5..]
+        .copy_from_slice(&SigningKey::from_bytes(&[0x5e; 32]).sign(&digest).to_bytes());
+    answer["txHash"] = json!(hex::prefixed(&tx_hash));
+    answer["nonce"] = json!(format!("{:#x}", call.nonce));
+    answer["from"] = json!(hex::prefixed(&sender));
+    answer["receipt"] = json!(hex::prefixed(&bytes));
+    if phase == "committed" {
+        let block = hex::parse_quantity(
+            rule["result"]["blockNumber"]
+                .as_str()
+                .or_panic("included block"),
+        )
+        .or_panic("block quantity");
+        answer["blockNumber"] = json!(format!("{:#x}", 1003 + block - 0x10));
+    }
+    let decoded = SequencerReceipt::decode(&answer).or_panic("bound receipt answer");
+    assert_eq!(
+        decoded
+            .view
+            .as_ref()
+            .or_panic("bound receipt view")
+            .payment_denom,
+        "uhpx"
+    );
+    decoded
+        .verify(&support::receipt_keys())
+        .or_panic("bound receipt verifies");
+    rule["result"] = answer;
 }
 
 #[test]
@@ -442,11 +451,7 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
         serde_json::to_vec(&document).unwrap_or_else(|error| panic!("combined recording: {error}")),
     )
     .unwrap_or_else(|error| panic!("write recording: {error}"));
-    let recording = Recording::load(
-        fixture
-            .to_str()
-            .unwrap_or_else(|| panic!("recording path is not UTF-8")),
-    );
+    let recording = Recording::load(fixture.to_str().or_panic("recording path is not UTF-8"));
     let instance = Instance {
         attestor: ("attestor-1", ATTESTOR_1),
         paxeer_fees: ("paxeer-fees-1", PAXEER_FEES_1),
@@ -491,7 +496,7 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
             &attestation.tx_hash,
             attestation.log_index,
         )
-        .unwrap_or_else(|| panic!("missing deposit"));
+        .or_panic("missing deposit");
         assert_eq!(answer["status"], "ready");
         assert_eq!(
             answer["signatures"],
@@ -504,14 +509,22 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
     let refused_digest = refused
         .observation
         .inbound_attestation()
-        .unwrap_or_else(|| panic!("missing refused deposit"))
+        .or_panic("missing refused deposit")
         .digest();
     assert!(view.signatures[&refused_digest].is_empty());
     assert_all_matched(&recording);
 
+    assert_outbound_attestation_view(&directory, &signer, instance);
+}
+
+fn assert_outbound_attestation_view(
+    directory: &Path,
+    signer: &SignerServer,
+    instance: Instance<'_>,
+) {
     let recording = Recording::load("outbound_release.json");
     let instance = Instance {
-        journal: journal_path(&directory, "outbound"),
+        journal: journal_path(directory, "outbound"),
         ..instance
     };
     let mut journal =
@@ -524,7 +537,7 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
         .unwrap_or_else(|error| panic!("inbound cursor: {error}"));
     drop(journal);
     recording.set_phase("release");
-    let mut relayer = start(&recording, &signer, &instance);
+    let mut relayer = start(&recording, signer, &instance);
     assert_eq!(
         relayer
             .outbound_step()
@@ -560,17 +573,16 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
     let digest = item
         .observation
         .outbound_attestation()
-        .unwrap_or_else(|| panic!("missing release"))
+        .or_panic("missing release")
         .digest();
     assert!(view.signatures[&digest].is_empty());
     assert_eq!(
-        release_answer(&view, 1, &[0x22; 32], 7).expect("release answer")["signatures"],
+        release_answer(&view, 1, &[0x22; 32], 7).or_panic("release answer")["signatures"],
         serde_json::json!([hex::prefixed(&attest(ATTESTOR_1, &digest))])
     );
     assert_eq!(view.thresholds.get(&CHAIN.chain_id), Some(&1));
     assert_eq!(
-        release_answer(&view, 1, &[0x22; 32], 7)
-            .unwrap_or_else(|| panic!("missing release answer"))["status"],
+        release_answer(&view, 1, &[0x22; 32], 7).or_panic("missing release answer")["status"],
         "ready"
     );
     assert_all_matched(&recording);
@@ -623,8 +635,7 @@ fn the_attestation_view_is_a_snapshot() {
     assert_eq!(before.thresholds.get(&CHAIN.chain_id), Some(&2));
     assert_eq!(before.items[&item].completion, None);
     assert_eq!(
-        deposit_answer(&before, 1, &[0xaa; 32], 3).unwrap_or_else(|| panic!("missing deposit"))
-            ["status"],
+        deposit_answer(&before, 1, &[0xaa; 32], 3).or_panic("missing deposit")["status"],
         "attesting"
     );
     let saved_items = before.items.clone();
@@ -666,8 +677,7 @@ fn the_attestation_view_is_a_snapshot() {
     );
     assert_eq!(after.thresholds.get(&CHAIN.chain_id), Some(&2));
     assert_eq!(
-        deposit_answer(&after, 1, &[0xaa; 32], 3).unwrap_or_else(|| panic!("missing deposit"))
-            ["status"],
+        deposit_answer(&after, 1, &[0xaa; 32], 3).or_panic("missing deposit")["status"],
         "ready"
     );
     assert_eq!(before.items, saved_items);
@@ -848,6 +858,10 @@ fn an_inbound_bridge_in_is_receipted_then_committed_from_the_sequencer_receipt()
     assert_eq!(recording.sent(), sent);
     assert_all_matched(&recording);
 
+    assert_direct_committed_submission();
+}
+
+fn assert_direct_committed_submission() {
     let (recording, _signer, instance, mut relayer, item) =
         sequencer_submission("sequencer-direct-commit");
     recording.set_phase("committed");
@@ -897,7 +911,7 @@ fn a_receipt_with_status_zero_reverts_the_paxeer_submission() {
         let tx_hash = hash(&recording.sent()[0].1);
         let pending = relayer.journal().state().items[&item]
             .pending()
-            .expect("the sent transaction is pending before its receipt");
+            .or_panic("the sent transaction is pending before its receipt");
         assert_eq!(pending.tx_hash, tx_hash);
         assert_eq!(pending.raw, recording.sent()[0].1);
         assert_eq!(pending.status, SubmissionStatus::Pending);
@@ -1308,4 +1322,26 @@ fn a_final_paxeer_burn_is_released_from_the_vault_with_the_vector_digest() {
             block_number: 0x100,
         })
     );
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

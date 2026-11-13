@@ -1,0 +1,38 @@
+[member]
+name = "layerx-oracle-feeder"
+
+[lint.assigning_clones]
+files = ["src/bin/price-sidecar/health.rs"]
+behavior = "Pending transaction hashes reuse the existing string allocation."
+
+[lint.missing_errors_doc]
+files = ["src/bin/price-sidecar/main.rs", "src/bin/price-sidecar/round.rs"]
+behavior = "Public Result functions describe their error conditions."
+
+[lint.items_after_statements]
+files = ["src/bin/price-sidecar/round.rs"]
+behavior = "Transaction execution decoding declares its response type before reconciliation statements."
+
+[lint.dead_code]
+files = ["src/bin/price-sidecar/main.rs", "tests/repair_22_33_1412.rs"]
+behavior = "The sidecar entry points remain reachable when the integration suite imports the binary module."
+
+[lint.doc_markdown]
+files = ["tests/repair_22_33_1412.rs"]
+behavior = "The protocol transcript documentation identifies the transaction encoder as code."
+
+[lint.unwrap_used]
+files = ["tests/repair_22_33_1412.rs", "tests/repair_22_33_1413.rs"]
+behavior = "Socket, JSON, journal, and protocol checks retain explicit error handling."
+
+[lint.expect_used]
+files = ["tests/feeder.rs", "tests/repair_22_33_1412.rs", "tests/repair_22_33_1413.rs"]
+behavior = "Package metadata and protocol fields retain explicit presence checks."
+
+[lint.unnecessary_wraps]
+files = ["tests/repair_22_33_1412.rs"]
+behavior = "The pending reconciliation case returns unit after its assertions."
+
+[lint.too_many_lines]
+files = ["tests/repair_22_33_1412.rs"]
+behavior = "The protocol transcript assembles account responses in a dedicated helper."

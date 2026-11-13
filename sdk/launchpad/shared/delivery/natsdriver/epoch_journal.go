@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/util"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -85,7 +88,11 @@ func readEpochJournal(path string) ([]byte, error) {
 		return nil, err
 	}
 	file := os.NewFile(uintptr(fd), path)
-	defer file.Close()
+	defer func() {
+		if cleanupErr := file.Close(); cleanupErr != nil {
+			log.Printf("cleanup file.Close: %v", cleanupErr)
+		}
+	}()
 	info, err := file.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > 1<<20 {
 		return nil, errors.New("natsdriver: private bounded journal required")
@@ -106,7 +113,11 @@ func writeEpochJournal(path string, record *epochFenceRecord) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(temp.Name())
+	defer func() {
+		if cleanupErr := os.Remove(temp.Name()); cleanupErr != nil {
+			log.Printf("cleanup os.Remove: %v", cleanupErr)
+		}
+	}()
 	if _, err = temp.Write(wire); err == nil {
 		err = temp.Sync()
 	}
@@ -120,7 +131,7 @@ func writeEpochJournal(path string, record *epochFenceRecord) error {
 	if err = os.Rename(temp.Name(), path); err != nil {
 		return err
 	}
-	directory, err := os.Open(dir)
+	directory, err := util.OpenPath(dir)
 	if err != nil {
 		return err
 	}
@@ -147,7 +158,11 @@ func (s *fileEpochFenceStore) run(ctx context.Context, id epochFenceIdentity, bi
 		return err
 	}
 	lock := os.NewFile(uintptr(fd), s.path+".lock")
-	defer lock.Close()
+	defer func() {
+		if cleanupErr := lock.Close(); cleanupErr != nil {
+			log.Printf("cleanup lock.Close: %v", cleanupErr)
+		}
+	}()
 	info, err := lock.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
 		return errors.New("natsdriver: private journal lock required")
@@ -155,11 +170,15 @@ func (s *fileEpochFenceStore) run(ctx context.Context, id epochFenceIdentity, bi
 	if err = syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
 		return errors.New("natsdriver: recovery operation already running")
 	}
-	defer syscall.Flock(fd, syscall.LOCK_UN)
-	record := &epochFenceRecord{Identity: id, Revision: s.plan.Revision, State: "applying", Members: map[string]*epochMemberProgress{}}
+	defer func() {
+		if cleanupErr := syscall.Flock(fd, syscall.LOCK_UN); cleanupErr != nil {
+			log.Printf("cleanup syscall.Flock: %v", cleanupErr)
+		}
+	}()
+	record := &epochFenceRecord{Identity: id, Revision: s.plan.Revision, State: valueApplying, Members: map[string]*epochMemberProgress{}}
 	wire, err := readEpochJournal(s.path)
 	if err == nil {
-		if json.Unmarshal(wire, record) != nil || record.Identity != id || record.Revision != s.plan.Revision || record.Members == nil || (record.State != "applying" && record.State != "failed" && record.State != "verified") {
+		if json.Unmarshal(wire, record) != nil || record.Identity != id || record.Revision != s.plan.Revision || record.Members == nil || (record.State != valueApplying && record.State != valueFailed && record.State != valueVerified) {
 			return errors.New("natsdriver: durable recovery journal authority mismatch")
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
@@ -182,7 +201,7 @@ func (s *fileEpochFenceStore) run(ctx context.Context, id epochFenceIdentity, bi
 	}
 	err = work(record, save)
 	if err != nil {
-		record.State = "failed"
+		record.State = valueFailed
 		record.Result = nil
 		record.BoundProof = ""
 		_ = writeEpochJournal(s.path, record)
@@ -191,7 +210,7 @@ func (s *fileEpochFenceStore) run(ctx context.Context, id epochFenceIdentity, bi
 }
 
 func validateEpochRecord(record *epochFenceRecord, bind bool) error {
-	if record.State != "verified" {
+	if record.State != valueVerified {
 		return nil
 	}
 	if record.Result == nil || record.Result.Proposal != record.Identity.Proposal || record.Result.Epoch != record.Identity.Epoch || record.Result.Region != record.Identity.Region || record.Result.ConfigurationSHA256 != record.Identity.ConfigurationSHA256 || len(record.Result.Evidence) == 0 || len(record.Result.Transitions) != len(record.Members) {
@@ -202,7 +221,7 @@ func validateEpochRecord(record *epochFenceRecord, bind bool) error {
 		return errors.New("natsdriver: durable fence proof mismatch")
 	}
 	for _, progress := range record.Members {
-		if progress == nil || progress.Stage != "verified" || len(progress.Evidence) == 0 {
+		if progress == nil || progress.Stage != valueVerified || len(progress.Evidence) == 0 {
 			return errors.New("natsdriver: unverified member in aggregate proof")
 		}
 	}
@@ -239,7 +258,7 @@ func (s *postgresEpochFenceStore) run(ctx context.Context, id epochFenceIdentity
 			_ = conn.Conn().Close(cleanup)
 		}
 	}()
-	record := &epochFenceRecord{Identity: id, State: "applying", Members: map[string]*epochMemberProgress{}}
+	record := &epochFenceRecord{Identity: id, State: valueApplying, Members: map[string]*epochMemberProgress{}}
 	transact := func(action func(pgx.Tx) error) error {
 		tx, err := conn.Begin(ctx)
 		if err != nil {
@@ -293,7 +312,7 @@ func (s *postgresEpochFenceStore) run(ctx context.Context, id epochFenceIdentity
 			return errors.New("natsdriver: durable broker fence authority mismatch")
 		}
 		if len(wire) > 0 {
-			if record.State == "verified" {
+			if record.State == valueVerified {
 				var result EpochFenceResult
 				if json.Unmarshal(wire, &result) != nil || proof == nil || result.Transitions == nil {
 					return errors.New("natsdriver: durable broker proof cannot resume")
@@ -326,7 +345,7 @@ func (s *postgresEpochFenceStore) run(ctx context.Context, id epochFenceIdentity
 			var wire []byte
 			var err error
 			var proof any
-			if record.State == "verified" {
+			if record.State == valueVerified {
 				wire, err = json.Marshal(record.Result)
 				proof = record.Result.ProofSHA256
 			} else {
@@ -342,7 +361,7 @@ func (s *postgresEpochFenceStore) run(ctx context.Context, id epochFenceIdentity
 			if tag.RowsAffected() != 1 {
 				return errors.New("natsdriver: broker fence confirmation conflict")
 			}
-			if bind && record.State == "verified" {
+			if bind && record.State == valueVerified {
 				// Read the durable row, rather than binding an unchecked in-memory digest.
 				tag, err = tx.Exec(ctx, "UPDATE "+s.schema+".recovery_proposals p SET fence_proof_sha256=f.proof_sha256 FROM "+s.schema+".recovery_broker_fences f WHERE p.proposal_id=$1 AND f.proposal_id=p.proposal_id AND f.state='verified' AND f.proof_sha256=$2 AND f.actor=p.actor AND f.expected_epoch=p.expected_epoch AND f.revision=p.revision", id.Proposal, record.BoundProof)
 				if err != nil {
@@ -357,7 +376,7 @@ func (s *postgresEpochFenceStore) run(ctx context.Context, id epochFenceIdentity
 	}
 	err = work(record, save)
 	if err != nil {
-		record.State = "failed"
+		record.State = valueFailed
 		record.Result = nil
 		record.BoundProof = ""
 		_ = save()

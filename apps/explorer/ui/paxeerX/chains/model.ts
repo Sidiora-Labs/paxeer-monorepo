@@ -15,6 +15,11 @@ const chainSchema = v.object({
 });
 
 export type ChainRecord = v.InferOutput<typeof chainSchema>;
+export type ChainListRow = ChainRecord & { launchSymbol: string | null };
+
+export function chainListRow(chain: ChainRecord, launchSymbol: string | null): ChainListRow {
+  return { ...chain, launchSymbol };
+}
 
 export function parseChainsResponse(json: unknown): Array<ChainRecord> {
   const { chains } = v.parse(v.object({ chains: v.array(chainSchema) }), json);
