@@ -10,15 +10,15 @@ import (
 	"github.com/tidwall/wal"
 )
 
-func TestRepairM_1073_BinaryRestartRecovery(t *testing.T) {
-	repairM1073RestartRecovery(t, wal.Binary)
+func TestBinaryRestartRecovery(t *testing.T) {
+	assertRestartRecovery(t, wal.Binary)
 }
 
-func TestRepairM_1073_JSONRestartRecovery(t *testing.T) {
-	repairM1073RestartRecovery(t, wal.JSON)
+func TestJSONRestartRecovery(t *testing.T) {
+	assertRestartRecovery(t, wal.JSON)
 }
 
-func repairM1073RestartRecovery(t *testing.T, format wal.LogFormat) {
+func assertRestartRecovery(t *testing.T, format wal.LogFormat) {
 	t.Helper()
 	for _, tc := range []struct {
 		name      string
