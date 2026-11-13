@@ -2,9 +2,9 @@
 audit = "22.30.160"
 base_revision = "c507c9672abc2f15e1a78efb20471cead3ca61b5"
 verified_revision = "The authoritative candidate revision, command, exit and private evidence location are emitted by hf-done and retained in /out/run/gates.jsonl; no gate pass is claimed before that evidence exists."
-verify_cmd = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier/Cargo.toml --test repair_22_33_591"
+verify_cmd = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier/Cargo.toml --test sourcify_settings_conversion"
 baseline = "Not run: explicit implementation-first gate order forbids invoking verify_cmd by hand or before implementation; the integration target did not exist at the base, and no baseline failures are claimed."
-peer = "fixtures/repair_22_33_591_files.json copies the committed Sourcify files transcript from types.rs::files_try_from_api_files_response; the integration peer checks complete methods, routes and request JSON over loopback HTTP and serves that transcript, with explicit metadata mutations for boundary cases."
+peer = "fixtures/contract_files.json copies the committed Sourcify files transcript from types.rs::files_try_from_api_files_response; the integration peer checks complete methods, routes and request JSON over loopback HTTP and serves that transcript, with explicit metadata mutations for boundary cases."
 proof_limit = "Both public verification APIs, real HTTP clients, Files/GetSourceFilesResponse decoders, shared Success conversion and production SolcInput codec execute in-process; native solc recompilation is not claimed because the task gate prohibits subprocess toolchains and native artifacts."
 wiring_request = "Domain 14: services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/sourcify.rs owns the out-of-scope metadata-shaped server expectation and native compiler-backed recompilation coverage; update the canonical expectation and qualify recompilation there under a gate permitting solc."
 

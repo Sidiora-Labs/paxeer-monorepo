@@ -2,7 +2,7 @@
 mod etherscan_import_success_untested;
 #[path = "sourcify.rs"]
 mod sourcify_route_tests_commented;
-#[path = "support/repair_22_33_596/mod.rs"]
+#[path = "support/sourcify_transcripts/mod.rs"]
 mod support;
 
 use actix_web::{http::StatusCode, test, App};

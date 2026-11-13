@@ -17,7 +17,7 @@ use std::{
 const ADDRESS: &str = "0x5d3A6C34Ef73C557958f41A3Bd084316Edf288Cb";
 const LIB_A: &str = "0xcafecafecafecafecafecafecafecafecafecafe";
 const LIB_B: &str = "0xcafecafecafecafecafecafecafecafecafecaf1";
-const TRANSCRIPT: &str = include_str!("../src/sourcify/fixtures/repair_22_33_591_files.json");
+const TRANSCRIPT: &str = include_str!("../src/sourcify/fixtures/contract_files.json");
 
 struct Exchange {
     method: &'static str,

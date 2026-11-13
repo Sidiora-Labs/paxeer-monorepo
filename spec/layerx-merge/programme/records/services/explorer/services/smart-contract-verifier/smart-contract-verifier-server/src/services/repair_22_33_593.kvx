@@ -59,7 +59,7 @@ command = "cargo build --locked --manifest-path services/explorer/services/smart
 exit = 101
 log = "/out/logs/build-1.log"
 observed = "Existing repair_22_33_598 includes zksync_solidity_verifier.rs outside the server services module, so its new super::verification_metrics reference fails with E0433; no verification ran."
-assumption = "Domain 14 must wire the real metrics and verification_metrics modules into smart-contract-verifier-server/tests/repair_22_33_598.rs under its own scope; this cross-task module contradiction is recorded without altering that test or weakening checks."
+assumption = "Domain 14 must wire the real metrics and verification_metrics modules into smart-contract-verifier-server/tests/documentation_contracts.rs under its own scope; this cross-task module contradiction is recorded without altering that test or weakening checks."
 
 [gotcha.error_chain]
 observed = "FetchError::HashMismatch itself wraps Mismatch as a source; inspect the immediate source below the fetching evm compiler context to assert HashMismatch, rather than root_cause(), which reaches the inner digest mismatch. The final assertion adjustment is not qualified because the build stopped on the recorded cross-task module contradiction."
