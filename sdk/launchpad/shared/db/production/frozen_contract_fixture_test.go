@@ -11,7 +11,7 @@ import (
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v1"
 )
 
-func TestRepairM_957_FrozenFixtureProvenance(t *testing.T) {
+func TestFrozenContractFrozenFixtureProvenance(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "protocol", "contracts", "v1", "examples.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func TestRepairM_957_FrozenFixtureProvenance(t *testing.T) {
 	}
 }
 
-func TestRepairM_957_CompatibilityFixture(t *testing.T) {
+func TestFrozenContractCompatibilityFixture(t *testing.T) {
 	wire, oldPool := phase2FrozenPool(t)
 	newPool, err := interfaces.DecodePool(wire)
 	if err != nil {

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func repairM975Trusted() []netip.Prefix {
+func forwardedIdentityTrusted() []netip.Prefix {
 	return []netip.Prefix{
 		netip.MustParsePrefix("127.0.0.0/8"),
 		netip.MustParsePrefix("10.0.0.0/8"),
@@ -19,7 +19,7 @@ func repairM975Trusted() []netip.Prefix {
 	}
 }
 
-func repairM975Headers(xff, real []string) http.Header {
+func forwardedIdentityHeaders(xff, real []string) http.Header {
 	h := make(http.Header)
 	if xff != nil {
 		h["X-Forwarded-For"] = xff
@@ -30,19 +30,19 @@ func repairM975Headers(xff, real []string) http.Header {
 	return h
 }
 
-type repairM975Identity struct {
+type forwardedIdentityIdentity struct {
 	Remote string
 	Client string
 }
 
 // Both entry points consume requests transported over loopback, through the
 // production router and (when requested) the production in-memory rate limiter.
-func repairM975Server(t *testing.T, trusted []netip.Prefix, limited bool) *httptest.Server {
+func forwardedIdentityServer(t *testing.T, trusted []netip.Prefix, limited bool) *httptest.Server {
 	t.Helper()
 	router := NewRouter(ServerOptions{TrustedProxies: trusted})
 	router.Get("/identity", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(repairM975Identity{
+		if err := json.NewEncoder(w).Encode(forwardedIdentityIdentity{
 			Remote: r.RemoteAddr,
 			Client: TrustedClientIP(r, trusted),
 		}); err != nil {
@@ -62,7 +62,7 @@ func repairM975Server(t *testing.T, trusted []netip.Prefix, limited bool) *httpt
 	return server
 }
 
-func repairM975Request(t *testing.T, server *httptest.Server, headers http.Header, wantStatus int, wantClient string) {
+func forwardedIdentityRequest(t *testing.T, server *httptest.Server, headers http.Header, wantStatus int, wantClient string) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, server.URL+"/identity", nil)
 	if err != nil {
@@ -89,7 +89,7 @@ func repairM975Request(t *testing.T, server *httptest.Server, headers http.Heade
 		}
 		return
 	}
-	var identity repairM975Identity
+	var identity forwardedIdentityIdentity
 	if err := json.NewDecoder(response.Body).Decode(&identity); err != nil {
 		t.Fatal(err)
 	}
@@ -107,8 +107,8 @@ func repairM975Request(t *testing.T, server *httptest.Server, headers http.Heade
 	}
 }
 
-func TestRepairM_975_RouterForwardedValidation(t *testing.T) {
-	server := repairM975Server(t, repairM975Trusted(), false)
+func TestForwardedIdentityRouterForwardedValidation(t *testing.T) {
+	server := forwardedIdentityServer(t, forwardedIdentityTrusted(), false)
 	cases := []struct {
 		name string
 		xff  []string
@@ -152,76 +152,76 @@ func TestRepairM_975_RouterForwardedValidation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			repairM975Request(t, server, repairM975Headers(tc.xff, tc.real), http.StatusOK, tc.want)
+			forwardedIdentityRequest(t, server, forwardedIdentityHeaders(tc.xff, tc.real), http.StatusOK, tc.want)
 		})
 	}
 }
 
-func TestRepairM_975_OuterLimiterIdentity(t *testing.T) {
+func TestForwardedIdentityOuterLimiterIdentity(t *testing.T) {
 	cases := []struct {
 		name     string
 		identity string
 		headers  []http.Header
 	}{
 		{"malformed chains share peer budget", "127.0.0.1", []http.Header{
-			repairM975Headers([]string{"invalid-a"}, []string{"203.0.113.1"}),
-			repairM975Headers([]string{"invalid-b"}, []string{"203.0.113.2"}),
-			repairM975Headers([]string{"invalid,198.51.100.8,10.1.2.3"}, nil),
-			repairM975Headers([]string{"198.51.100.8,,10.1.2.3"}, nil),
-			repairM975Headers([]string{"198.51.100.8", "invalid"}, nil),
-			repairM975Headers([]string{""}, []string{"203.0.113.3"}),
-			repairM975Headers([]string{"10.1.2.3"}, []string{"203.0.113.4"}),
-			repairM975Headers(nil, nil),
+			forwardedIdentityHeaders([]string{"invalid-a"}, []string{"203.0.113.1"}),
+			forwardedIdentityHeaders([]string{"invalid-b"}, []string{"203.0.113.2"}),
+			forwardedIdentityHeaders([]string{"invalid,198.51.100.8,10.1.2.3"}, nil),
+			forwardedIdentityHeaders([]string{"198.51.100.8,,10.1.2.3"}, nil),
+			forwardedIdentityHeaders([]string{"198.51.100.8", "invalid"}, nil),
+			forwardedIdentityHeaders([]string{""}, []string{"203.0.113.3"}),
+			forwardedIdentityHeaders([]string{"10.1.2.3"}, []string{"203.0.113.4"}),
+			forwardedIdentityHeaders(nil, nil),
 		}},
 		{"malformed real values share peer budget", "127.0.0.1", []http.Header{
-			repairM975Headers(nil, []string{"invalid-a"}),
-			repairM975Headers(nil, []string{"invalid-b"}),
-			repairM975Headers(nil, []string{"198.51.100.8:443"}),
-			repairM975Headers(nil, []string{"fe80::8%eth0"}),
-			repairM975Headers(nil, []string{"198.51.100.8", "203.0.113.2"}),
+			forwardedIdentityHeaders(nil, []string{"invalid-a"}),
+			forwardedIdentityHeaders(nil, []string{"invalid-b"}),
+			forwardedIdentityHeaders(nil, []string{"198.51.100.8:443"}),
+			forwardedIdentityHeaders(nil, []string{"fe80::8%eth0"}),
+			forwardedIdentityHeaders(nil, []string{"198.51.100.8", "203.0.113.2"}),
 		}},
 		{"IPv6 spellings share client budget", "2001:db8::8", []http.Header{
-			repairM975Headers([]string{"2001:db8::8,10.1.2.3"}, nil),
-			repairM975Headers([]string{"2001:0DB8:0:0:0:0:0:8,192.168.1.2"}, nil),
-			repairM975Headers(nil, []string{"2001:0db8:0000:0000:0000:0000:0000:0008"}),
+			forwardedIdentityHeaders([]string{"2001:db8::8,10.1.2.3"}, nil),
+			forwardedIdentityHeaders([]string{"2001:0DB8:0:0:0:0:0:8,192.168.1.2"}, nil),
+			forwardedIdentityHeaders(nil, []string{"2001:0db8:0000:0000:0000:0000:0000:0008"}),
 		}},
 		{"mapped IPv4 shares client budget", "198.51.100.8", []http.Header{
-			repairM975Headers([]string{"198.51.100.8"}, nil),
-			repairM975Headers([]string{"::ffff:198.51.100.8,::ffff:10.1.2.3"}, nil),
-			repairM975Headers(nil, []string{"::ffff:c633:6408"}),
+			forwardedIdentityHeaders([]string{"198.51.100.8"}, nil),
+			forwardedIdentityHeaders([]string{"::ffff:198.51.100.8,::ffff:10.1.2.3"}, nil),
+			forwardedIdentityHeaders(nil, []string{"::ffff:c633:6408"}),
 		}},
 		{"trusted chains share client budget", "198.51.100.8", []http.Header{
-			repairM975Headers([]string{"203.0.113.1,198.51.100.8,10.1.2.3,fd00::1"}, nil),
-			repairM975Headers([]string{"203.0.113.2,198.51.100.8", "192.168.1.2,::ffff:10.1.2.3"}, nil),
-			repairM975Headers(nil, []string{"198.51.100.8"}),
+			forwardedIdentityHeaders([]string{"203.0.113.1,198.51.100.8,10.1.2.3,fd00::1"}, nil),
+			forwardedIdentityHeaders([]string{"203.0.113.2,198.51.100.8", "192.168.1.2,::ffff:10.1.2.3"}, nil),
+			forwardedIdentityHeaders(nil, []string{"198.51.100.8"}),
 		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			server := repairM975Server(t, repairM975Trusted(), true)
+			server := forwardedIdentityServer(t, forwardedIdentityTrusted(), true)
 			for i, headers := range tc.headers {
 				status := http.StatusTooManyRequests
 				if i == 0 {
 					status = http.StatusOK
 				}
-				repairM975Request(t, server, headers, status, tc.identity)
+				forwardedIdentityRequest(t, server, headers, status, tc.identity)
 			}
 			// A different valid client has an independent budget, even after
 			// malformed input or equivalent spellings exhaust the first one.
-			repairM975Request(t, server, repairM975Headers([]string{"198.51.100.99,10.1.2.3"}, nil), http.StatusOK, "198.51.100.99")
+			forwardedIdentityRequest(t, server, forwardedIdentityHeaders([]string{"198.51.100.99,10.1.2.3"}, nil), http.StatusOK, "198.51.100.99")
 		})
 	}
 }
 
-func TestRepairM_975_UntrustedPeer(t *testing.T) {
-	server := repairM975Server(t, nil, true)
-	repairM975Request(t, server, repairM975Headers([]string{"198.51.100.8,10.1.2.3"}, nil), http.StatusOK, "127.0.0.1")
-	repairM975Request(t, server, repairM975Headers(nil, []string{"2001:db8::8"}), http.StatusTooManyRequests, "127.0.0.1")
+func TestForwardedIdentityUntrustedPeer(t *testing.T) {
+	server := forwardedIdentityServer(t, nil, true)
+	forwardedIdentityRequest(t, server, forwardedIdentityHeaders([]string{"198.51.100.8,10.1.2.3"}, nil), http.StatusOK, "127.0.0.1")
+	forwardedIdentityRequest(t, server, forwardedIdentityHeaders(nil, []string{"2001:db8::8"}), http.StatusTooManyRequests, "127.0.0.1")
 }
 
-func TestRepairM_975_MappedConnectionPeer(t *testing.T) {
+func TestForwardedIdentityMappedConnectionPeer(t *testing.T) {
 	for _, trusted := range [][]netip.Prefix{
-		repairM975Trusted(),
+		forwardedIdentityTrusted(),
 		{
 			netip.MustParsePrefix("::ffff:127.0.0.0/104"),
 			netip.MustParsePrefix("::ffff:10.0.0.0/104"),

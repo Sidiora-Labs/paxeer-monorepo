@@ -19,7 +19,7 @@ import (
 )
 
 func TestMeasurementReportsRecordedPinnedCases(t *testing.T) {
-	chain := repair38OpenChain(t, true)
+	chain := preflightFixtureOpenChain(t, true)
 	block := chain.peer.blocks[0]
 	header := chain.peer.headers[block]
 	request := chain.request(PlainQuote, block)
@@ -88,7 +88,7 @@ func TestMeasurementReportsRecordedPinnedCases(t *testing.T) {
 }
 
 func TestMeasurementCaptureBindsPinnedReads(t *testing.T) {
-	chain := repair38OpenChain(t, true)
+	chain := preflightFixtureOpenChain(t, true)
 	block := chain.peer.blocks[0]
 	ctx := context.Background()
 	var raw bytes.Buffer
@@ -111,9 +111,9 @@ func TestMeasurementCaptureBindsPinnedReads(t *testing.T) {
 	if err != nil || price.Cmp(big.NewInt(1_000_000_000)) != 0 {
 		t.Fatalf("captured gas price: %v, %v", price, err)
 	}
-	call := ethereum.CallMsg{To: &address, Data: repair38Call(t, "getReserves()")}
+	call := ethereum.CallMsg{To: &address, Data: preflightFixtureCall(t, "getReserves()")}
 	result, err := capture.CallContractAtHash(ctx, call, block)
-	if err != nil || !bytes.Equal(result, chain.peer.calls[repair38Key(address, call.Data, block)]) {
+	if err != nil || !bytes.Equal(result, chain.peer.calls[preflightFixtureKey(address, call.Data, block)]) {
 		t.Fatalf("captured reserve call: %x, %v", result, err)
 	}
 	if _, err := capture.CodeAt(ctx, address, header.Number); err == nil {
@@ -135,7 +135,7 @@ func TestMeasurementCaptureBindsPinnedReads(t *testing.T) {
 }
 
 func TestMeasurementCaptureStopsAtRawByteBudget(t *testing.T) {
-	chain := repair38OpenChain(t, true)
+	chain := preflightFixtureOpenChain(t, true)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var raw bytes.Buffer

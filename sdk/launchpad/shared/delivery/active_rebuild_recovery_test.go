@@ -20,11 +20,11 @@ import (
 // This SQL projection persists the archive's actual raw records and compares
 // their ordered bytes with the canonical source, without replacing the engine,
 // archive, object transport, store or promotion checks under test.
-type repair41Projection struct {
+type activeRebuildProjection struct {
 	archive *Archive
 }
 
-func (p repair41Projection) ApplyRawTx(ctx context.Context, tx pgx.Tx, generation string, record ArchiveRaw) error {
+func (p activeRebuildProjection) ApplyRawTx(ctx context.Context, tx pgx.Tx, generation string, record ArchiveRaw) error {
 	body, err := json.Marshal(record)
 	if err != nil {
 		return err
@@ -33,7 +33,7 @@ func (p repair41Projection) ApplyRawTx(ctx context.Context, tx pgx.Tx, generatio
 	return err
 }
 
-func (p repair41Projection) ProjectionDigestTx(ctx context.Context, tx pgx.Tx, generation string) (string, error) {
+func (p activeRebuildProjection) ProjectionDigestTx(ctx context.Context, tx pgx.Tx, generation string) (string, error) {
 	rows, err := tx.Query(ctx, "SELECT body FROM "+p.archive.store.table("repair_41_projection")+" WHERE generation=$1 ORDER BY height,transaction_index,log_index", generation)
 	if err != nil {
 		return "", err
@@ -51,7 +51,7 @@ func (p repair41Projection) ProjectionDigestTx(ctx context.Context, tx pgx.Tx, g
 	return Hash(raw.Bytes()), rows.Err()
 }
 
-func (p repair41Projection) CanonicalDigestTx(ctx context.Context, tx pgx.Tx, manifest ArchiveManifest) (string, error) {
+func (p activeRebuildProjection) CanonicalDigestTx(ctx context.Context, tx pgx.Tx, manifest ArchiveManifest) (string, error) {
 	if err := p.archive.ValidateSourceTx(ctx, tx, manifest); err != nil {
 		return "", err
 	}
@@ -66,7 +66,7 @@ func (p repair41Projection) CanonicalDigestTx(ctx context.Context, tx pgx.Tx, ma
 	return Hash(raw.Bytes()), nil
 }
 
-func repair41Open(t *testing.T, schema string) (context.Context, *pgxpool.Pool, *Archive, *ReplayEngine) {
+func activeRebuildOpen(t *testing.T, schema string) (context.Context, *pgxpool.Pool, *Archive, *ReplayEngine) {
 	t.Helper()
 	requireArchiveFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -99,17 +99,17 @@ func repair41Open(t *testing.T, schema string) (context.Context, *pgxpool.Pool, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	engine, err := NewReplayEngine(archive, "repair_41", "generation_41", "owner_41", repair41Projection{archive}, verifyWebhookFixtureAdmin, 30*time.Second)
+	engine, err := NewReplayEngine(archive, "repair_41", "generation_41", "owner_41", activeRebuildProjection{archive}, verifyWebhookFixtureAdmin, 30*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return ctx, pool, archive, engine
 }
 
-func repair41Fixture(t *testing.T) (context.Context, *pgxpool.Pool, *Archive, *ReplayEngine, ArchiveManifest, string) {
+func activeRebuildFixture(t *testing.T) (context.Context, *pgxpool.Pool, *Archive, *ReplayEngine, ArchiveManifest, string) {
 	t.Helper()
 	schema := "kd_repair_41_" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	ctx, pool, archive, engine := repair41Open(t, schema)
+	ctx, pool, archive, engine := activeRebuildOpen(t, schema)
 	if _, err := pool.Exec(ctx, "CREATE SCHEMA "+pgx.Identifier{schema}.Sanitize()); err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func repair41Fixture(t *testing.T) (context.Context, *pgxpool.Pool, *Archive, *R
 	return ctx, pool, archive, engine, manifest, digest
 }
 
-func repair41Rebuild(t *testing.T, ctx context.Context, engine *ReplayEngine, digest string) {
+func activeRebuildRebuild(t *testing.T, ctx context.Context, engine *ReplayEngine, digest string) {
 	t.Helper()
 	budget, err := NewWorkBudget(1, 10000, 1000)
 	if err != nil {
@@ -206,7 +206,7 @@ func repair41Rebuild(t *testing.T, ctx context.Context, engine *ReplayEngine, di
 	}
 }
 
-func repair41Snapshot(t *testing.T, ctx context.Context, archive *Archive) string {
+func activeRebuildSnapshot(t *testing.T, ctx context.Context, archive *Archive) string {
 	t.Helper()
 	var snapshot strings.Builder
 	for _, table := range []string{"delivery_rebuilds", "delivery_read_aliases", "delivery_cutover_history", "delivery_generation_paths", "repair_41_projection"} {
@@ -219,16 +219,16 @@ func repair41Snapshot(t *testing.T, ctx context.Context, archive *Archive) strin
 	return snapshot.String()
 }
 
-func TestRepair_41_ActiveRebuildRestart(t *testing.T) {
+func TestActiveRebuildRecoveryRestart(t *testing.T) {
 	if os.Getenv("DELIVERY_REPAIR_41_CHILD") == "1" {
-		ctx, _, _, engine := repair41Open(t, os.Getenv("DELIVERY_REPAIR_41_SCHEMA"))
-		repair41Rebuild(t, ctx, engine, os.Getenv("DELIVERY_REPAIR_41_MANIFEST"))
+		ctx, _, _, engine := activeRebuildOpen(t, os.Getenv("DELIVERY_REPAIR_41_SCHEMA"))
+		activeRebuildRebuild(t, ctx, engine, os.Getenv("DELIVERY_REPAIR_41_MANIFEST"))
 		return
 	}
-	ctx, pool, archive, engine, manifest, digest := repair41Fixture(t)
+	ctx, pool, archive, engine, manifest, digest := activeRebuildFixture(t)
 	runProcess := func() {
 		t.Helper()
-		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestRepair_41_ActiveRebuildRestart$", "-test.v")
+		cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestActiveRebuildRecoveryRestart$", "-test.v")
 		cmd.Env = append(os.Environ(), "DELIVERY_REPAIR_41_CHILD=1", "DELIVERY_REPAIR_41_SCHEMA="+strings.Trim(archive.store.schema, `"`), "DELIVERY_REPAIR_41_MANIFEST="+digest)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("rebuild process: %v\n%s", err, output)
@@ -239,9 +239,9 @@ func TestRepair_41_ActiveRebuildRestart(t *testing.T) {
 	if _, err := pool.Exec(ctx, "UPDATE "+archive.store.table("delivery_rebuilds")+" SET lease_until=clock_timestamp()-interval '1 second'"); err != nil {
 		t.Fatal(err)
 	}
-	before := repair41Snapshot(t, ctx, archive)
+	before := activeRebuildSnapshot(t, ctx, archive)
 	runProcess()
-	if after := repair41Snapshot(t, ctx, archive); after != before {
+	if after := activeRebuildSnapshot(t, ctx, archive); after != before {
 		t.Fatal("restart changed persisted rebuild, projection, lease, alias or cutover history")
 	}
 	var revision, cutovers, visible int64
@@ -256,7 +256,7 @@ func TestRepair_41_ActiveRebuildRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer rollbackBounded(tx)
-	projection := repair41Projection{archive}
+	projection := activeRebuildProjection{archive}
 	actual, err := projection.ProjectionDigestTx(ctx, tx, engine.generation)
 	if err != nil {
 		t.Fatal(err)
@@ -267,9 +267,9 @@ func TestRepair_41_ActiveRebuildRestart(t *testing.T) {
 	}
 }
 
-func TestRepair_41_RejectInconsistentActiveRecovery(t *testing.T) {
-	ctx, pool, archive, engine, manifest, digest := repair41Fixture(t)
-	repair41Rebuild(t, ctx, engine, digest)
+func TestActiveRebuildRecoveryRejectInconsistentActiveRecovery(t *testing.T) {
+	ctx, pool, archive, engine, manifest, digest := activeRebuildFixture(t)
+	activeRebuildRebuild(t, ctx, engine, digest)
 	other := *archive
 	other.deployment += "-other"
 	_, otherDigest, err := other.Capture(ctx, manifest.FromHeight, manifest.ToHeight)
@@ -281,15 +281,15 @@ func TestRepair_41_RejectInconsistentActiveRecovery(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	alternate, err := NewReplayEngine(&other, engine.consumer, engine.generation, engine.owner, repair41Projection{&other}, verifyWebhookFixtureAdmin, 30*time.Second)
+	alternate, err := NewReplayEngine(&other, engine.consumer, engine.generation, engine.owner, activeRebuildProjection{&other}, verifyWebhookFixtureAdmin, 30*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := repair41Snapshot(t, ctx, archive)
+	before := activeRebuildSnapshot(t, ctx, archive)
 	if err = alternate.Start(ctx, otherDigest); !errors.Is(err, ErrIntegrity) {
 		t.Fatal("active generation accepted a different valid manifest", err)
 	}
-	if after := repair41Snapshot(t, ctx, archive); after != before {
+	if after := activeRebuildSnapshot(t, ctx, archive); after != before {
 		t.Fatal("refused manifest recovery changed persisted state")
 	}
 	for _, test := range []struct {
@@ -309,11 +309,11 @@ func TestRepair_41_RejectInconsistentActiveRecovery(t *testing.T) {
 					t.Error(err)
 				}
 			}()
-			before := repair41Snapshot(t, ctx, archive)
+			before := activeRebuildSnapshot(t, ctx, archive)
 			if err := engine.Start(ctx, digest); !errors.Is(err, ErrIntegrity) {
 				t.Fatal("inconsistent active recovery accepted", err)
 			}
-			if after := repair41Snapshot(t, ctx, archive); after != before {
+			if after := activeRebuildSnapshot(t, ctx, archive); after != before {
 				t.Fatal("refused active recovery changed persisted state")
 			}
 		})

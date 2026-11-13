@@ -23,32 +23,32 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-type repair38Epoch struct {
+type preflightFixtureEpoch struct {
 	ActivationHeight    uint64
 	Pool, Token, Trader common.Address
 	Codes               map[common.Address]hexutil.Bytes
 }
-type repair38Snapshot struct {
+type preflightFixtureSnapshot struct {
 	NumberOffset    int64
 	Reserves, Quote []string
 	Allowance       string
 	Gas             hexutil.Uint64
 	EstimateError   string
 }
-type repair38Fixture struct {
+type preflightFixtureFixture struct {
 	Provenance map[string]string
-	Epochs     map[string]repair38Epoch
+	Epochs     map[string]preflightFixtureEpoch
 	Policy     map[string]int64
-	Snapshots  []repair38Snapshot
+	Snapshots  []preflightFixtureSnapshot
 }
-type repair38RPC struct {
+type preflightFixtureRPC struct {
 	t         *testing.T
 	mu        sync.Mutex
 	manifest  deployment.Manifest
-	epoch     repair38Epoch
-	fixture   repair38Fixture
+	epoch     preflightFixtureEpoch
+	fixture   preflightFixtureFixture
 	headers   map[common.Hash]*types.Header
-	snapshots map[common.Hash]repair38Snapshot
+	snapshots map[common.Hash]preflightFixtureSnapshot
 	blocks    []common.Hash
 	calls     map[string]hexutil.Bytes
 	overrides map[string]hexutil.Bytes
@@ -57,12 +57,12 @@ type repair38RPC struct {
 	seen      map[string]int
 }
 
-func repair38Word(v int64) []byte             { return common.LeftPadBytes(big.NewInt(v).Bytes(), 32) }
-func repair38Address(a common.Address) []byte { return common.LeftPadBytes(a.Bytes(), 32) }
-func repair38Key(address common.Address, data []byte, block common.Hash) string {
+func preflightFixtureWord(v int64) []byte             { return common.LeftPadBytes(big.NewInt(v).Bytes(), 32) }
+func preflightFixtureAddress(a common.Address) []byte { return common.LeftPadBytes(a.Bytes(), 32) }
+func preflightFixtureKey(address common.Address, data []byte, block common.Hash) string {
 	return address.Hex() + "/" + hexutil.Encode(data) + "/" + block.Hex()
 }
-func repair38Call(t *testing.T, signature string, args ...any) []byte {
+func preflightFixtureCall(t *testing.T, signature string, args ...any) []byte {
 	t.Helper()
 	data, err := encodeCall(signature, args...)
 	if err != nil {
@@ -70,7 +70,7 @@ func repair38Call(t *testing.T, signature string, args ...any) []byte {
 	}
 	return data
 }
-func repair38Tuple(t *testing.T, values []string) []byte {
+func preflightFixtureTuple(t *testing.T, values []string) []byte {
 	t.Helper()
 	var out []byte
 	for _, s := range values {
@@ -82,27 +82,27 @@ func repair38Tuple(t *testing.T, values []string) []byte {
 	}
 	return out
 }
-func (b *repair38RPC) address(role string) common.Address {
+func (b *preflightFixtureRPC) address(role string) common.Address {
 	return common.HexToAddress(b.manifest.Roles[role].Address)
 }
-func (b *repair38RPC) put(address common.Address, signature string, value []byte, args ...any) {
-	data := repair38Call(b.t, signature, args...)
+func (b *preflightFixtureRPC) put(address common.Address, signature string, value []byte, args ...any) {
+	data := preflightFixtureCall(b.t, signature, args...)
 	for _, block := range b.blocks {
-		b.calls[repair38Key(address, data, block)] = value
+		b.calls[preflightFixtureKey(address, data, block)] = value
 	}
 }
-func (b *repair38RPC) override(address common.Address, signature string, value []byte, args ...any) {
+func (b *preflightFixtureRPC) override(address common.Address, signature string, value []byte, args ...any) {
 	b.t.Helper()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for _, block := range b.blocks {
-		b.overrides[repair38Key(address, repair38Call(b.t, signature, args...), block)] = value
+		b.overrides[preflightFixtureKey(address, preflightFixtureCall(b.t, signature, args...), block)] = value
 	}
 }
 
 // The peer replays committed bytecode and ABI vectors. No default response is
 // allowed: a request outside the recorded identity, calldata or block fails.
-func (b *repair38RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (b *preflightFixtureRPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ID     json.RawMessage   `json:"id"`
 		Method string            `json:"method"`
@@ -209,10 +209,10 @@ func (b *repair38RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			break
 		}
-		key := repair38Key(call.To, call.Data, block)
+		key := preflightFixtureKey(call.To, call.Data, block)
 		b.seen[req.Method+"/"+key]++
 		if req.Method == "eth_estimateGas" {
-			expected := repair38Call(b.t, "createMarket(string,string,uint8,address)", "Repair native", "R38", uint8(0), common.Address{})
+			expected := preflightFixtureCall(b.t, "createMarket(string,string,uint8,address)", "Repair native", "R38", uint8(0), common.Address{})
 			if (call.To != b.address("Router") && call.To != b.address("SidioraFactory")) || call.From != b.epoch.Trader || !bytes.Equal(call.Data, expected) {
 				fail("unrecorded creation destination, caller or calldata")
 				break
@@ -232,7 +232,7 @@ func (b *repair38RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				fail("unrecorded call " + key)
 			}
-			quote := repair38Call(b.t, "quoteExactInput(address,uint256,bool)", b.epoch.Pool, big.NewInt(1_000_000), true)
+			quote := preflightFixtureCall(b.t, "quoteExactInput(address,uint256,bool)", b.epoch.Pool, big.NewInt(1_000_000), true)
 			if call.To == b.address("Quoter") && bytes.Equal(call.Data[:min(len(call.Data), 4)], quote[:4]) && (!bytes.Equal(call.Data, quote) || call.From != b.epoch.Trader) {
 				fail("quote lost the recorded trader context")
 			}
@@ -252,22 +252,22 @@ func (b *repair38RPC) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type repair38Chain struct {
+type preflightFixtureChain struct {
 	t      *testing.T
 	ctx    context.Context
-	peer   *repair38RPC
+	peer   *preflightFixtureRPC
 	reader *PinnedRPCReader
 	engine *PreflightEngine
 	trader common.Address
 }
 
-func repair38OpenChain(t *testing.T, native bool) *repair38Chain {
+func preflightFixtureOpenChain(t *testing.T, native bool) *preflightFixtureChain {
 	t.Helper()
-	raw, err := os.ReadFile("testdata/repair38-rpc.json")
+	raw, err := os.ReadFile("testdata/preflight-rpc.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var fixture repair38Fixture
+	var fixture preflightFixtureFixture
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +283,7 @@ func repair38OpenChain(t *testing.T, native bool) *repair38Chain {
 	if !ok {
 		t.Fatal("unapproved fixture epoch")
 	}
-	b := &repair38RPC{t: t, manifest: m, epoch: epoch, fixture: fixture, headers: map[common.Hash]*types.Header{}, snapshots: map[common.Hash]repair38Snapshot{}, calls: map[string]hexutil.Bytes{}, overrides: map[string]hexutil.Bytes{}, codes: epoch.Codes, storage: map[string]hexutil.Bytes{}, seen: map[string]int{}}
+	b := &preflightFixtureRPC{t: t, manifest: m, epoch: epoch, fixture: fixture, headers: map[common.Hash]*types.Header{}, snapshots: map[common.Hash]preflightFixtureSnapshot{}, calls: map[string]hexutil.Bytes{}, overrides: map[string]hexutil.Bytes{}, codes: epoch.Codes, storage: map[string]hexutil.Bytes{}, seen: map[string]int{}}
 	for _, snapshot := range fixture.Snapshots {
 		// Only the freshness envelope moves with the test clock. Recorded code,
 		// policy, pool state, quote and payment identity remain unchanged.
@@ -307,22 +307,22 @@ func repair38OpenChain(t *testing.T, native bool) *repair38Chain {
 				t.Fatalf("%s committed implementation hash=%s want=%s", name, hash, role.ImplementationHash)
 			}
 			if role.Kind == "erc1967" {
-				b.storage[address.Hex()+"/"+deployment.ImplementationSlot.Hex()] = repair38Address(impl)
+				b.storage[address.Hex()+"/"+deployment.ImplementationSlot.Hex()] = preflightFixtureAddress(impl)
 			} else {
-				b.put(address, "implementation()", repair38Address(impl))
+				b.put(address, "implementation()", preflightFixtureAddress(impl))
 			}
 		}
 	}
-	b.put(b.address("PoolBeacon"), "owner()", repair38Address(common.HexToAddress(m.Governance.ExpectedBeaconOwner)))
-	b.put(b.address("PoolBeacon"), "pendingOwner()", repair38Word(0))
+	b.put(b.address("PoolBeacon"), "owner()", preflightFixtureAddress(common.HexToAddress(m.Governance.ExpectedBeaconOwner)))
+	b.put(b.address("PoolBeacon"), "pendingOwner()", preflightFixtureWord(0))
 	for signature, value := range fixture.Policy {
 		role := "ProtocolConfig"
 		if signature == "decimals()" {
 			role = "USDL"
 		}
-		b.put(b.address(role), signature, repair38Word(value))
+		b.put(b.address(role), signature, preflightFixtureWord(value))
 	}
-	b.put(b.address("ProtocolConfig"), "usdlAddress()", repair38Address(b.address("USDL")))
+	b.put(b.address("ProtocolConfig"), "usdlAddress()", preflightFixtureAddress(b.address("USDL")))
 	for role, getters := range map[string]map[string]string{
 		"Router":         {"factory()": "SidioraFactory", "poolRegistry()": "PoolRegistry", "protocolConfig()": "ProtocolConfig", "usdlAddress()": "USDL"},
 		"Quoter":         {"poolRegistry()": "PoolRegistry", "protocolConfig()": "ProtocolConfig"},
@@ -333,40 +333,40 @@ func repair38OpenChain(t *testing.T, native bool) *repair38Chain {
 		"FeesRouter":     {"nftContract()": "SidioraNFT", "feeAccumulator()": "FeeAccumulator", "poolRegistry()": "PoolRegistry"},
 	} {
 		for signature, target := range getters {
-			b.put(b.address(role), signature, repair38Address(b.address(target)))
+			b.put(b.address(role), signature, preflightFixtureAddress(b.address(target)))
 		}
 	}
 	for signature, role := range map[string]string{"protocolConfig()": "ProtocolConfig", "usdlAddress()": "USDL", "eventEmitter()": "EventEmitter", "factory()": "SidioraFactory", "feeAccumulator()": "FeeAccumulator"} {
-		b.put(epoch.Pool, signature, repair38Address(b.address(role)))
+		b.put(epoch.Pool, signature, preflightFixtureAddress(b.address(role)))
 	}
-	b.put(epoch.Pool, "opticalAddress()", repair38Word(0))
-	b.put(epoch.Pool, "tokenAddress()", repair38Address(epoch.Token))
-	b.put(epoch.Pool, "guardian()", repair38Address(epoch.Trader))
-	b.put(epoch.Pool, "paused()", repair38Word(0))
-	b.put(b.address("PoolRegistry"), "isRegisteredPool(address)", repair38Word(1), epoch.Pool)
-	b.put(b.address("PoolRegistry"), "isRegisteredPool(address)", repair38Word(0), epoch.Token)
-	b.put(b.address("PoolRegistry"), "getPoolByToken(address)", repair38Address(epoch.Pool), epoch.Token)
-	metadata := append(repair38Address(epoch.Trader), repair38Address(epoch.Token)...)
-	metadata = append(metadata, repair38Word(0)...)
-	metadata = append(metadata, repair38Word(1)...)
-	metadata = append(metadata, repair38Word(1_700_000_000)...)
-	metadata = append(metadata, repair38Word(int64(m.ActivationHeight))...)
+	b.put(epoch.Pool, "opticalAddress()", preflightFixtureWord(0))
+	b.put(epoch.Pool, "tokenAddress()", preflightFixtureAddress(epoch.Token))
+	b.put(epoch.Pool, "guardian()", preflightFixtureAddress(epoch.Trader))
+	b.put(epoch.Pool, "paused()", preflightFixtureWord(0))
+	b.put(b.address("PoolRegistry"), "isRegisteredPool(address)", preflightFixtureWord(1), epoch.Pool)
+	b.put(b.address("PoolRegistry"), "isRegisteredPool(address)", preflightFixtureWord(0), epoch.Token)
+	b.put(b.address("PoolRegistry"), "getPoolByToken(address)", preflightFixtureAddress(epoch.Pool), epoch.Token)
+	metadata := append(preflightFixtureAddress(epoch.Trader), preflightFixtureAddress(epoch.Token)...)
+	metadata = append(metadata, preflightFixtureWord(0)...)
+	metadata = append(metadata, preflightFixtureWord(1)...)
+	metadata = append(metadata, preflightFixtureWord(1_700_000_000)...)
+	metadata = append(metadata, preflightFixtureWord(int64(m.ActivationHeight))...)
 	b.put(b.address("PoolRegistry"), "getPoolMetadata(address)", metadata, epoch.Pool)
 	for _, block := range b.blocks {
 		snapshot := b.snapshots[block]
-		b.calls[repair38Key(epoch.Pool, repair38Call(t, "getReserves()"), block)] = repair38Tuple(t, snapshot.Reserves)
-		b.calls[repair38Key(b.address("Quoter"), repair38Call(t, "quoteExactInput(address,uint256,bool)", epoch.Pool, big.NewInt(1_000_000), true), block)] = repair38Tuple(t, snapshot.Quote)
+		b.calls[preflightFixtureKey(epoch.Pool, preflightFixtureCall(t, "getReserves()"), block)] = preflightFixtureTuple(t, snapshot.Reserves)
+		b.calls[preflightFixtureKey(b.address("Quoter"), preflightFixtureCall(t, "quoteExactInput(address,uint256,bool)", epoch.Pool, big.NewInt(1_000_000), true), block)] = preflightFixtureTuple(t, snapshot.Quote)
 		for _, spender := range []common.Address{b.address(deployment.LaunchpadPrecompileRole), b.address("Router"), b.address("SidioraFactory")} {
 			allowance := snapshot.Allowance
 			if spender != b.address(deployment.LaunchpadPrecompileRole) {
 				allowance = "1000000"
 			}
-			b.calls[repair38Key(b.address("USDL"), repair38Call(t, "allowance(address,address)", epoch.Trader, spender), block)] = repair38Tuple(t, []string{allowance})
+			b.calls[preflightFixtureKey(b.address("USDL"), preflightFixtureCall(t, "allowance(address,address)", epoch.Trader, spender), block)] = preflightFixtureTuple(t, []string{allowance})
 		}
 	}
-	slot := repair38Word(0)
+	slot := preflightFixtureWord(0)
 	if !native {
-		slot = repair38Address(b.address("PoolBeacon"))
+		slot = preflightFixtureAddress(b.address("PoolBeacon"))
 	}
 	b.storage[epoch.Pool.Hex()+"/"+deployment.BeaconSlot.Hex()] = slot
 	server := httptest.NewServer(b)
@@ -389,12 +389,12 @@ func repair38OpenChain(t *testing.T, native bool) *repair38Chain {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &repair38Chain{t: t, ctx: t.Context(), peer: b, reader: reader, engine: engine, trader: epoch.Trader}
+	return &preflightFixtureChain{t: t, ctx: t.Context(), peer: b, reader: reader, engine: engine, trader: epoch.Trader}
 }
-func (c *repair38Chain) request(family Family, block common.Hash) PreflightRequest {
+func (c *preflightFixtureChain) request(family Family, block common.Hash) PreflightRequest {
 	return PreflightRequest{Family: family, ExpectedRevision: c.engine.Revision().RevisionSHA256, BlockHash: block, Trader: c.trader, Recipient: c.trader, AmountIn: "1000000", IsBuy: true, Name: "Repair native", Symbol: "R38"}
 }
-func (c *repair38Chain) connected(request PreflightRequest) interfaces.ConnectedCapabilitiesPreflight {
+func (c *preflightFixtureChain) connected(request PreflightRequest) interfaces.ConnectedCapabilitiesPreflight {
 	c.t.Helper()
 	status, body := servePreflight(c.t, c.engine, request)
 	if status != http.StatusOK {
@@ -406,7 +406,7 @@ func (c *repair38Chain) connected(request PreflightRequest) interfaces.Connected
 	}
 	return result
 }
-func (c *repair38Chain) allowance(spender common.Address, block common.Hash) *big.Int {
+func (c *preflightFixtureChain) allowance(spender common.Address, block common.Hash) *big.Int {
 	c.t.Helper()
 	value, err := c.engine.call(c.ctx, c.peer.address("USDL"), "allowance(address,address)", block, c.trader, spender)
 	if err != nil || len(value) != 32 {
@@ -415,8 +415,8 @@ func (c *repair38Chain) allowance(spender common.Address, block common.Hash) *bi
 	return new(big.Int).SetBytes(value)
 }
 
-func TestRepair_38_NativeCostSpender(t *testing.T) {
-	c := repair38OpenChain(t, true)
+func TestPreflightPoolNativeCostSpender(t *testing.T) {
+	c := preflightFixtureOpenChain(t, true)
 	authority := c.peer.address(deployment.LaunchpadPrecompileRole)
 	for _, path := range []string{"Router", "SidioraFactory"} {
 		t.Run(path, func(t *testing.T) {
@@ -450,9 +450,9 @@ func TestRepair_38_NativeCostSpender(t *testing.T) {
 			if child.allowance(authority, c.peer.blocks[2]).Sign() != 0 || child.allowance(c.peer.address(path), c.peer.blocks[2]).String() != "1000000" {
 				t.Fatal("recorded creation consumed the wrong allowance")
 			}
-			data := repair38Call(t, "createMarket(string,string,uint8,address)", request.Name, request.Symbol, request.FeeStrategy, request.Optical)
+			data := preflightFixtureCall(t, "createMarket(string,string,uint8,address)", request.Name, request.Symbol, request.FeeStrategy, request.Optical)
 			c.peer.mu.Lock()
-			seen := c.peer.seen["eth_estimateGas/"+repair38Key(c.peer.address(path), data, request.BlockHash)]
+			seen := c.peer.seen["eth_estimateGas/"+preflightFixtureKey(c.peer.address(path), data, request.BlockHash)]
 			c.peer.mu.Unlock()
 			if seen == 0 {
 				t.Fatal("creation simulation did not retain its transaction destination")
@@ -461,8 +461,8 @@ func TestRepair_38_NativeCostSpender(t *testing.T) {
 	}
 }
 
-func TestRepair_38_NativePoolIdentity(t *testing.T) {
-	c := repair38OpenChain(t, true)
+func TestPreflightPoolNativePoolIdentity(t *testing.T) {
+	c := preflightFixtureOpenChain(t, true)
 	pool, token := c.peer.epoch.Pool, c.peer.epoch.Token
 	for _, family := range []Family{PlainQuote, Trading} {
 		t.Run(string(family), func(t *testing.T) {
@@ -511,7 +511,7 @@ func TestRepair_38_NativePoolIdentity(t *testing.T) {
 	}
 }
 
-func TestRepair_38_DeploymentAuthority(t *testing.T) {
+func TestPreflightPoolDeploymentAuthority(t *testing.T) {
 	engine := &PreflightEngine{manifest: deployment.Current()}
 	if native, err := engine.nativeDeployment(); err != nil || !native {
 		t.Fatalf("approved native deployment refused: %v", err)
@@ -548,8 +548,8 @@ func TestRepair_38_DeploymentAuthority(t *testing.T) {
 	}
 }
 
-func TestRepair_38_HistoricalPoolIdentity(t *testing.T) {
-	c := repair38OpenChain(t, false)
+func TestPreflightPoolHistoricalPoolIdentity(t *testing.T) {
+	c := preflightFixtureOpenChain(t, false)
 	block, pool := c.peer.blocks[1], c.peer.epoch.Pool
 	state, err := c.engine.poolState(c.ctx, pool, block)
 	if err != nil || state.ImplementationVersion != c.engine.manifest.Roles["PoolBeacon"].ImplementationHash {
@@ -564,7 +564,7 @@ func TestRepair_38_HistoricalPoolIdentity(t *testing.T) {
 		}
 	}
 	c.peer.mu.Lock()
-	c.peer.storage[pool.Hex()+"/"+deployment.BeaconSlot.Hex()] = repair38Address(common.HexToAddress("0xdead"))
+	c.peer.storage[pool.Hex()+"/"+deployment.BeaconSlot.Hex()] = preflightFixtureAddress(common.HexToAddress("0xdead"))
 	c.peer.mu.Unlock()
 	if _, err := c.engine.poolState(c.ctx, pool, block); err == nil {
 		t.Fatal("historical beacon mismatch admitted")
@@ -581,13 +581,13 @@ func TestRepair_38_HistoricalPoolIdentity(t *testing.T) {
 	}
 }
 
-func TestRepair_38_NativeIdentityRefusals(t *testing.T) {
+func TestPreflightPoolNativeIdentityRefusals(t *testing.T) {
 	for _, caseName := range []string{"runtime", "factory", "config", "usdl", "emitter", "fee_accumulator", "zero_token", "reverse_registry", "metadata_token", "metadata_optical", "metadata_creator", "metadata_length", "registration", "pool_paused", "guardian", "authority_runtime", "registry_runtime"} {
 		t.Run(caseName, func(t *testing.T) {
-			c := repair38OpenChain(t, true)
+			c := preflightFixtureOpenChain(t, true)
 			b := c.peer
 			pool := b.epoch.Pool
-			wrong := repair38Address(common.HexToAddress("0xdead"))
+			wrong := preflightFixtureAddress(common.HexToAddress("0xdead"))
 			switch caseName {
 			case "runtime":
 				b.codes[pool] = common.FromHex("0x6000")
@@ -602,12 +602,12 @@ func TestRepair_38_NativeIdentityRefusals(t *testing.T) {
 			case "fee_accumulator":
 				b.override(pool, "feeAccumulator()", wrong)
 			case "zero_token":
-				b.override(pool, "tokenAddress()", repair38Word(0))
+				b.override(pool, "tokenAddress()", preflightFixtureWord(0))
 			case "reverse_registry":
 				b.override(b.address("PoolRegistry"), "getPoolByToken(address)", wrong, b.epoch.Token)
 			case "metadata_token", "metadata_optical", "metadata_creator", "metadata_length":
-				data := repair38Call(t, "getPoolMetadata(address)", pool)
-				key := repair38Key(b.address("PoolRegistry"), data, b.blocks[1])
+				data := preflightFixtureCall(t, "getPoolMetadata(address)", pool)
+				key := preflightFixtureKey(b.address("PoolRegistry"), data, b.blocks[1])
 				metadata := append([]byte(nil), b.calls[key]...)
 				switch caseName {
 				case "metadata_token":
@@ -615,15 +615,15 @@ func TestRepair_38_NativeIdentityRefusals(t *testing.T) {
 				case "metadata_optical":
 					copy(metadata[64:96], wrong)
 				case "metadata_creator":
-					copy(metadata[:32], repair38Word(0))
+					copy(metadata[:32], preflightFixtureWord(0))
 				case "metadata_length":
 					metadata = metadata[:160]
 				}
 				b.override(b.address("PoolRegistry"), "getPoolMetadata(address)", metadata, pool)
 			case "registration":
-				b.override(b.address("PoolRegistry"), "isRegisteredPool(address)", repair38Word(0), pool)
+				b.override(b.address("PoolRegistry"), "isRegisteredPool(address)", preflightFixtureWord(0), pool)
 			case "pool_paused":
-				b.override(pool, "paused()", repair38Word(1))
+				b.override(pool, "paused()", preflightFixtureWord(1))
 			case "guardian":
 				b.override(pool, "guardian()", append([]byte{1}, make([]byte, 31)...))
 			case "authority_runtime":

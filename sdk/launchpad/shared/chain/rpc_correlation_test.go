@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func repairM912ObservedPeer(t *testing.T, peer *httptest.Server) (string, func()) {
+func rpcCorrelationObservedPeer(t *testing.T, peer *httptest.Server) (string, func()) {
 	t.Helper()
 	target, err := url.Parse(peer.URL)
 	if err != nil {
@@ -69,17 +69,17 @@ func repairM912ObservedPeer(t *testing.T, peer *httptest.Server) (string, func()
 	}
 }
 
-func TestRepairM_912_RPCFixtureCorrelation(t *testing.T) {
+func TestRPCCorrelationRPCFixtureCorrelation(t *testing.T) {
 	for _, failPrimary := range []bool{false, true} {
 		t.Run(strconv.FormatBool(failPrimary), func(t *testing.T) {
 			results := map[string]string{"eth_chainId": "0x7d", "eth_blockNumber": "0x1a4"}
 			primary := rpcServer(t, results, failPrimary)
-			primaryURL, checkPrimary := repairM912ObservedPeer(t, primary)
+			primaryURL, checkPrimary := rpcCorrelationObservedPeer(t, primary)
 			fallbackURL := ""
 			var checkFallback func()
 			if failPrimary {
 				fallback := rpcServer(t, results, false)
-				fallbackURL, checkFallback = repairM912ObservedPeer(t, fallback)
+				fallbackURL, checkFallback = rpcCorrelationObservedPeer(t, fallback)
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
@@ -106,7 +106,7 @@ func TestRepairM_912_RPCFixtureCorrelation(t *testing.T) {
 	}
 	t.Run("method-error-and-recovery", func(t *testing.T) {
 		peer := rpcServer(t, map[string]string{"eth_chainId": "0x7d"}, false)
-		peerURL, checkIDs := repairM912ObservedPeer(t, peer)
+		peerURL, checkIDs := rpcCorrelationObservedPeer(t, peer)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		client, err := NewClient(ctx, peerURL, "")
@@ -133,7 +133,7 @@ func TestRepairM_912_RPCFixtureCorrelation(t *testing.T) {
 	t.Run("existing-wrong-chain", TestWrongChainCannotServe)
 }
 
-func TestRepairM_912_RPCFixtureIDTypes(t *testing.T) {
+func TestRPCCorrelationRPCFixtureIDTypes(t *testing.T) {
 	peer := rpcServer(t, map[string]string{"eth_chainId": "0x7d"}, false)
 	client := &http.Client{Timeout: 5 * time.Second}
 	for _, id := range []json.RawMessage{json.RawMessage(`41`), json.RawMessage(`42`), json.RawMessage(`9007199254740993`), json.RawMessage(`"request-43"`)} {
@@ -171,7 +171,7 @@ func TestRepairM_912_RPCFixtureIDTypes(t *testing.T) {
 	}
 }
 
-func TestRepairM_912_ContractFixtureCorrelation(t *testing.T) {
+func TestRPCCorrelationContractFixtureCorrelation(t *testing.T) {
 	t.Run("beacon-routing", TestCreateContractsRouting)
 	t.Run("precompile-filter-and-separate-beacon", TestRolesBindToPrecompile)
 }

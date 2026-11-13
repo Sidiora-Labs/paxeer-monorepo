@@ -14,7 +14,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 )
 
-var repairM951Sources = []string{
+var sourceIndexTestSources = []string{
 	"sdk/launchpad/shared/config/capabilities/measurement.go",
 	"sdk/launchpad/shared/config/capabilities/cmd/measure/main.go",
 	"sdk/launchpad/shared/config/capabilities/cmd/measure/source.go",
@@ -34,10 +34,10 @@ var repairM951Sources = []string{
 	"spec/layerx-merge/contracts/launchpad.md",
 	"sdk/launchpad/protocol/addresses.go",
 	"apps/launchpad/web/src/core/network/deployment.ts",
-	"sdk/launchpad/shared/config/capabilities/cmd/measure/repair_m951_test.go",
+	"sdk/launchpad/shared/config/capabilities/cmd/measure/source_index_test.go",
 }
 
-func repairM951Root(t *testing.T) string {
+func sourceIndexTestRoot(t *testing.T) string {
 	t.Helper()
 	_, source, _, ok := runtime.Caller(0)
 	if !ok {
@@ -53,12 +53,12 @@ func repairM951Root(t *testing.T) string {
 	}
 }
 
-func repairM951Digest(data []byte) string {
+func sourceIndexTestDigest(data []byte) string {
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
 }
 
-func repairM951Issue(t *testing.T, err error, code string) {
+func sourceIndexTestIssue(t *testing.T, err error, code string) {
 	t.Helper()
 	var issue deployment.Issue
 	if !errors.As(err, &issue) || issue.Code != code {
@@ -66,17 +66,17 @@ func repairM951Issue(t *testing.T, err error, code string) {
 	}
 }
 
-func repairM951Index(t *testing.T, root string) (sourceIndex, string, string) {
+func sourceIndexTestIndex(t *testing.T, root string) (sourceIndex, string, string) {
 	t.Helper()
 	output := filepath.Join(t.TempDir(), "source-index.json")
-	if err := writeSourceIndex(root, output, repairM951Sources[len(repairM951Sources)-1:]); err != nil {
+	if err := writeSourceIndex(root, output, sourceIndexTestSources[len(sourceIndexTestSources)-1:]); err != nil {
 		t.Fatalf("produce candidate index: %v", err)
 	}
 	data, err := os.ReadFile(output)
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest := repairM951Digest(data)
+	digest := sourceIndexTestDigest(data)
 	pinned, err := readPinned(output, digest, 8<<20)
 	if err != nil {
 		t.Fatal(err)
@@ -91,11 +91,11 @@ func repairM951Index(t *testing.T, root string) (sourceIndex, string, string) {
 	return index, output, digest
 }
 
-func repairM951Candidate(t *testing.T) string {
+func sourceIndexTestCandidate(t *testing.T) string {
 	t.Helper()
-	repository := repairM951Root(t)
+	repository := sourceIndexTestRoot(t)
 	root := t.TempDir()
-	for _, path := range repairM951Sources {
+	for _, path := range sourceIndexTestSources {
 		data, err := os.ReadFile(filepath.Join(repository, path))
 		if err != nil {
 			t.Fatal(err)
@@ -110,13 +110,13 @@ func repairM951Candidate(t *testing.T) string {
 	return root
 }
 
-func TestRepairM_951_CurrentAuthorityLayout(t *testing.T) {
-	root := repairM951Root(t)
+func TestSourceIndexCurrentAuthorityLayout(t *testing.T) {
+	root := sourceIndexTestRoot(t)
 	if _, err := os.Stat(filepath.Join(root, "spec/production-system/spec.kvx")); !os.IsNotExist(err) {
 		t.Fatalf("obsolete authority should be absent from this checkout: %v", err)
 	}
-	index, output, _ := repairM951Index(t, root)
-	if index.SchemaVersion != 1 || len(index.Files) != len(repairM951Sources) {
+	index, output, _ := sourceIndexTestIndex(t, root)
+	if index.SchemaVersion != 1 || len(index.Files) != len(sourceIndexTestSources) {
 		t.Fatalf("candidate inputs omitted: %+v", index)
 	}
 	actual := map[string]string{}
@@ -126,12 +126,12 @@ func TestRepairM_951_CurrentAuthorityLayout(t *testing.T) {
 		}
 		actual[file.Path] = file.SHA256
 	}
-	for _, path := range repairM951Sources {
+	for _, path := range sourceIndexTestSources {
 		data, err := os.ReadFile(filepath.Join(root, path))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if actual[path] != repairM951Digest(data) {
+		if actual[path] != sourceIndexTestDigest(data) {
 			t.Fatalf("producer did not hash the complete current input %s", path)
 		}
 	}
@@ -146,22 +146,22 @@ func TestRepairM_951_CurrentAuthorityLayout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repairM951Issue(t, writeSourceIndex(root, output, nil), "candidate_source_index_output_unavailable")
+	sourceIndexTestIssue(t, writeSourceIndex(root, output, nil), "candidate_source_index_output_unavailable")
 	after, err := os.ReadFile(output)
 	if err != nil || string(before) != string(after) {
 		t.Fatalf("producer overwrote an existing pinned index: %v", err)
 	}
 }
 
-func TestRepairM_951_CommandProducesPinnedIndex(t *testing.T) {
-	root := repairM951Root(t)
+func TestSourceIndexCommandProducesPinnedIndex(t *testing.T) {
+	root := sourceIndexTestRoot(t)
 	output := filepath.Join(t.TempDir(), "source-index.json")
 	previousFlags, previousArgs := flag.CommandLine, os.Args
 	t.Cleanup(func() {
 		flag.CommandLine, os.Args = previousFlags, previousArgs
 	})
 	flag.CommandLine = flag.NewFlagSet("measure", flag.ContinueOnError)
-	os.Args = []string{"measure", "-write-source-index", "-source-root", root, "-source-index", output, repairM951Sources[len(repairM951Sources)-1]}
+	os.Args = []string{"measure", "-write-source-index", "-source-root", root, "-source-index", output, sourceIndexTestSources[len(sourceIndexTestSources)-1]}
 	if err := run(); err != nil {
 		t.Fatalf("source-index command failed: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestRepairM_951_CommandProducesPinnedIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pinned, err := readPinned(output, repairM951Digest(data), 8<<20)
+	pinned, err := readPinned(output, sourceIndexTestDigest(data), 8<<20)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestRepairM_951_CommandProducesPinnedIndex(t *testing.T) {
 	if err := decode(pinned, &index); err != nil {
 		t.Fatal(err)
 	}
-	if len(index.Files) != len(repairM951Sources) {
+	if len(index.Files) != len(sourceIndexTestSources) {
 		t.Fatalf("command omitted candidate inputs: %+v", index)
 	}
 	if err := validateSource(root, index); err != nil {
@@ -185,9 +185,9 @@ func TestRepairM_951_CommandProducesPinnedIndex(t *testing.T) {
 	}
 }
 
-func TestRepairM_951_CompleteCandidateHashVerification(t *testing.T) {
-	root := repairM951Candidate(t)
-	index, _, _ := repairM951Index(t, root)
+func TestSourceIndexCompleteCandidateHashVerification(t *testing.T) {
+	root := sourceIndexTestCandidate(t)
+	index, _, _ := sourceIndexTestIndex(t, root)
 	for _, file := range index.Files {
 		t.Run(file.Path, func(t *testing.T) {
 			path := filepath.Join(root, file.Path)
@@ -198,7 +198,7 @@ func TestRepairM_951_CompleteCandidateHashVerification(t *testing.T) {
 			if err := os.WriteFile(path, append(append([]byte(nil), original...), '\n'), 0600); err != nil {
 				t.Fatal(err)
 			}
-			repairM951Issue(t, validateSource(root, index), "candidate_source_changed")
+			sourceIndexTestIssue(t, validateSource(root, index), "candidate_source_changed")
 			if err := os.WriteFile(path, original, 0600); err != nil {
 				t.Fatal(err)
 			}
@@ -209,14 +209,14 @@ func TestRepairM_951_CompleteCandidateHashVerification(t *testing.T) {
 	}
 }
 
-func TestRepairM_951_EveryAuthorityRequired(t *testing.T) {
-	root := repairM951Candidate(t)
-	index, _, _ := repairM951Index(t, root)
+func TestSourceIndexEveryAuthorityRequired(t *testing.T) {
+	root := sourceIndexTestCandidate(t)
+	index, _, _ := sourceIndexTestIndex(t, root)
 	for i, file := range index.Files[:len(index.Files)-1] {
 		t.Run(file.Path, func(t *testing.T) {
 			missing := sourceIndex{SchemaVersion: 1, Files: append([]sourceFile(nil), index.Files[:i]...)}
 			missing.Files = append(missing.Files, index.Files[i+1:]...)
-			repairM951Issue(t, validateSource(root, missing), "candidate_source_authority_missing")
+			sourceIndexTestIssue(t, validateSource(root, missing), "candidate_source_authority_missing")
 		})
 	}
 	for _, path := range []string{"spec/layerx-merge/spec.kvx", "spec/layerx-merge/contracts/launchpad.md"} {
@@ -229,9 +229,9 @@ func TestRepairM_951_EveryAuthorityRequired(t *testing.T) {
 			if err := os.Remove(full); err != nil {
 				t.Fatal(err)
 			}
-			repairM951Issue(t, validateSource(root, index), "candidate_source_changed")
+			sourceIndexTestIssue(t, validateSource(root, index), "candidate_source_changed")
 			output := filepath.Join(t.TempDir(), "source-index.json")
-			repairM951Issue(t, writeSourceIndex(root, output, nil), "candidate_source_changed")
+			sourceIndexTestIssue(t, writeSourceIndex(root, output, nil), "candidate_source_changed")
 			if _, err := os.Stat(output); !os.IsNotExist(err) {
 				t.Fatalf("missing authority produced evidence: %v", err)
 			}
@@ -242,9 +242,9 @@ func TestRepairM_951_EveryAuthorityRequired(t *testing.T) {
 	}
 }
 
-func TestRepairM_951_ObsoleteAuthorityCannotSubstitute(t *testing.T) {
-	root := repairM951Candidate(t)
-	index, _, _ := repairM951Index(t, root)
+func TestSourceIndexObsoleteAuthorityCannotSubstitute(t *testing.T) {
+	root := sourceIndexTestCandidate(t)
+	index, _, _ := sourceIndexTestIndex(t, root)
 	programme, err := os.ReadFile(filepath.Join(root, "spec/layerx-merge/spec.kvx"))
 	if err != nil {
 		t.Fatal(err)
@@ -263,14 +263,14 @@ func TestRepairM_951_ObsoleteAuthorityCannotSubstitute(t *testing.T) {
 				legacy.Files = append(legacy.Files, file)
 			}
 		}
-		legacy.Files = append(legacy.Files, sourceFile{Path: obsolete, SHA256: repairM951Digest(programme)})
-		repairM951Issue(t, validateSource(root, legacy), "candidate_source_authority_missing")
+		legacy.Files = append(legacy.Files, sourceFile{Path: obsolete, SHA256: sourceIndexTestDigest(programme)})
+		sourceIndexTestIssue(t, validateSource(root, legacy), "candidate_source_authority_missing")
 	}
 }
 
-func TestRepairM_951_PinnedIndexAndPathGuards(t *testing.T) {
-	root := repairM951Candidate(t)
-	index, output, digest := repairM951Index(t, root)
+func TestSourceIndexPinnedIndexAndPathGuards(t *testing.T) {
+	root := sourceIndexTestCandidate(t)
+	index, output, digest := sourceIndexTestIndex(t, root)
 	data, err := os.ReadFile(output)
 	if err != nil {
 		t.Fatal(err)
@@ -279,23 +279,23 @@ func TestRepairM_951_PinnedIndexAndPathGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = readPinned(output, digest, 8<<20)
-	repairM951Issue(t, err, "pinned_file_digest_mismatch")
+	sourceIndexTestIssue(t, err, "pinned_file_digest_mismatch")
 	for _, path := range []string{"", "../outside", "..", "/outside", "sdk/../outside", index.Files[0].Path} {
 		t.Run("invalid/"+path, func(t *testing.T) {
 			invalid := sourceIndex{SchemaVersion: 1, Files: append([]sourceFile(nil), index.Files...)}
 			invalid.Files = append(invalid.Files, sourceFile{Path: path, SHA256: strings.Repeat("a", 64)})
-			repairM951Issue(t, validateSource(root, invalid), "candidate_source_path_invalid")
+			sourceIndexTestIssue(t, validateSource(root, invalid), "candidate_source_path_invalid")
 			destination := filepath.Join(t.TempDir(), "index.json")
-			repairM951Issue(t, writeSourceIndex(root, destination, []string{path}), "candidate_source_path_invalid")
+			sourceIndexTestIssue(t, writeSourceIndex(root, destination, []string{path}), "candidate_source_path_invalid")
 			if _, err := os.Stat(destination); !os.IsNotExist(err) {
 				t.Fatalf("invalid path produced evidence: %v", err)
 			}
 		})
 	}
 	for _, invalid := range []sourceIndex{{}, {SchemaVersion: 2, Files: index.Files}, {SchemaVersion: 1}, {SchemaVersion: 1, Files: make([]sourceFile, 10001)}} {
-		repairM951Issue(t, validateSource(root, invalid), "candidate_source_index_invalid")
+		sourceIndexTestIssue(t, validateSource(root, invalid), "candidate_source_index_invalid")
 	}
 	badDigest := sourceIndex{SchemaVersion: 1, Files: append([]sourceFile(nil), index.Files...)}
 	badDigest.Files[len(badDigest.Files)-1].SHA256 = strings.Repeat("0", 64)
-	repairM951Issue(t, validateSource(root, badDigest), "candidate_source_changed")
+	sourceIndexTestIssue(t, validateSource(root, badDigest), "candidate_source_changed")
 }
