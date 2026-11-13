@@ -56,7 +56,7 @@ signed_message = UTF8(event_id + "." + timestamp + ".") || raw_body`}</code></pr
       <tr><td><code>POST /v1/webhooks/endpoints/&#123;id&#125;/redeliveries</code></td><td>Enqueue replay from a signed cursor with an idempotency key.</td></tr>
       <tr><td><code>POST /v1/webhooks/endpoints/&#123;id&#125;/suspensions</code></td><td>Suspend an endpoint with a reason.</td></tr>
       <tr><td><code>POST /v1/webhooks/endpoints/&#123;id&#125;/resumptions</code></td><td>Resume delivery and clear consecutive dead-letter accounting.</td></tr>
-      <tr><td><code>GET /v1/webhooks/events</code>, <code>/deliveries</code>, <code>/dead-letters</code></td><td>Inspect events and operational outcomes.</td></tr>
+      <tr><td><code>GET /v1/webhooks/events</code>, <code>GET /v1/webhooks/deliveries</code>, <code>GET /v1/webhooks/dead-letters</code></td><td>Inspect events and operational outcomes.</td></tr>
       <tr><td><code>POST /v1/webhooks/dead-letters/&#123;id&#125;/replay</code></td><td>Retry a dead letter with an idempotency key.</td></tr>
     </tbody></table>
     <p>Pagination defaults to 50 items with a maximum of 200. Preserve cursors as opaque signed values. Expired retention returns <code>410 cursor_expired</code>; repair continuity using retained event and receipt history rather than silently assuming all events were delivered. Replay keeps the original event identifier and body digest.</p>
