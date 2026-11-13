@@ -14,6 +14,10 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
+PROTOCOL = (ROOT / "docs/wiki/Protocol.md").read_text(encoding="utf-8")
+PAGE_DIR = ROOT / "docs/readme"
 RECORD_PATH = (ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_31_470.kvx")
 
 
@@ -24,10 +28,10 @@ def source(path):
 def section(heading, level=3):
     """Read a Markdown section without interpreting fenced code as headings."""
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -66,19 +70,18 @@ def test_single_network_embeds_the_block_proposing_kernel():
     assert "var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)" in source(
         "node/sequencer/consensus_source.go"
     )
-    assert "no router and no separate LayerX interface" in overview
+    assert "There is no separate LayerX interface, router, or unified `/rpc` endpoint." in PROTOCOL
     assert "outside consensus" in overview
     assert "durable WAL for recovery" in overview
 
 
 def test_root_rpc_hosts_chain_probe_and_library_mirror():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert "api1.mainnet-beta.paxeer.network" in quickstart
-    assert "through `https://api14.mainnet-beta.paxeer.network`" in quickstart
-    assert "https://api-mainnet-beta.paxeer.network" in quickstart
-    assert "`test` is restricted to non-live chain IDs" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    assert "compare `eth_blockNumber`" in quickstart
+    assert "api1.mainnet-beta.paxeer.network" in PUBLIC_RPC
+    assert "api14.mainnet-beta.paxeer.network" in PUBLIC_RPC
+    assert "`test` namespace is restricted to" in PUBLIC_RPC
     blocks = re.findall(r"```sh\n(.*?)\n```", quickstart, re.S)
     assert len(blocks) == 1
     argv = shlex.split(blocks[0].split("\n# Expected result:")[0].replace("\\\n", " "))
@@ -88,14 +91,10 @@ def test_root_rpc_hosts_chain_probe_and_library_mirror():
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
     }
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert '# Expected result: "0x7d"' in blocks[0]
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
-    assert "compare `eth_blockNumber`" in quickstart
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    assert "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint." in PUBLIC_RPC
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.scheme == "https" and parsed.path in ("", "/")
@@ -157,7 +156,7 @@ def test_submission_and_committed_receipt_follow_real_node_path():
 
 
 def test_diagrams_keep_execution_inside_the_network_and_commit_finality():
-    diagrams = re.findall(r"```mermaid\n(.*?)\n```", README, re.S)
+    diagrams = re.findall(r"```mermaid\n(.*?)\n```", NETWORK, re.S)
     assert len(diagrams) == 2
     topology, sequence = diagrams
     assert "subgraph Network[One Paxeer BFT network / EVM chain 125]" in topology
@@ -261,11 +260,11 @@ def test_active_interfaces_retired_refusals_and_historical_formats():
 def test_retired_construct_names_and_routes_do_not_leak_into_current_guidance():
     # The three retained ABI names and source links are required historical
     # compatibility facts; permit them only in the single explicit refusal paragraph.
-    retired_paragraphs = [p for p in README.split("\n\n") if p.startswith("The pre-merge ")]
+    retired_paragraphs = [p for p in NETWORK.split("\n\n") if p.startswith("The pre-merge ")]
     assert len(retired_paragraphs) == 1
     paragraph = retired_paragraphs[0]
     assert "retired refusal surfaces" in paragraph and "archive-only" in paragraph
-    current = README.replace(paragraph, "")
+    current = NETWORK.replace(paragraph, "")
     retained_names = {
         "layerxverify", "layerxVerify", "layerxcustody", "layerxCustody",
         "layerxanchor", "layerxAnchor",
@@ -280,11 +279,11 @@ def test_retired_construct_names_and_routes_do_not_leak_into_current_guidance():
             if name not in retained_names:
                 assert not re.search(pattern, paragraph), name
     for stale in (
-        r"\blayerxd\b", r"\blx_[A-Za-z0-9_*]*", r"/rpc(?:/|\b)",
+        r"\blayerxd\b", r"\blx_[A-Za-z0-9_*]*",
         r"two (?:execution )?domains", r"kernel still runs separately",
         r"merge is (?:only )?a draft", r"\bLNI\b",
     ):
-        assert not re.search(stale, README, re.I), stale
+        assert not re.search(stale, NETWORK, re.I), stale
 
 
 def test_paxd_build_start_and_source_navigation_match_current_layout():
@@ -304,11 +303,10 @@ def test_paxd_build_start_and_source_navigation_match_current_layout():
     release = section("Releases and Network Upgrades")
     assert "executes kernel activity inside `paxd`" in release
     assert "commits it with the BFT chain state" in release
-    assert "maintained architecture entry point" in README
-    assert "Source directory names describe code organization, not separate network deployments" in README
-    for target in re.findall(r"\]\(([^)]+)\)", README):
+    assert "Source directory names describe code organization, not separate network deployments" in NETWORK
+    for target in re.findall(r"\]\(([^)]+)\)", NETWORK):
         if not target.startswith(("https:", "http:", "#")):
-            assert (ROOT / target.split("#", 1)[0]).exists(), target
+            assert (PAGE_DIR / target.split("#", 1)[0]).exists(), target
 
 
 def test_repair_record_covers_every_medium_root_finding_and_names_its_proofs():

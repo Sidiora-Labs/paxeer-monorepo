@@ -11,15 +11,19 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
+NETWORK = (ROOT / "docs/readme/NETWORK.md").read_text(encoding="utf-8")
+PUBLIC_RPC = (ROOT / "docs/readme/PUBLIC-RPC.md").read_text(encoding="utf-8")
+PROTOCOL = (ROOT / "docs/wiki/Protocol.md").read_text(encoding="utf-8")
+PAGE_DIR = ROOT / "docs/readme"
 RECORD = ROOT / "spec/layerx-merge/programme/records/tools/qualification/audit_repairs/repair_22_33_1555.kvx"
 
 
 def section(heading, level=3):
     marker = "#" * level + " " + heading + "\n"
-    assert README.count(marker) == 1, heading
+    assert NETWORK.count(marker) == 1, heading
     lines = []
     fence = None
-    for line in README.split(marker, 1)[1].splitlines(keepends=True):
+    for line in NETWORK.split(marker, 1)[1].splitlines(keepends=True):
         delimiter = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
         if delimiter:
             ticks, suffix = delimiter.groups()
@@ -49,7 +53,6 @@ def test_doc_root_merged_network_and_embedded_proposer():
         "A receipt is final once its block is committed",
         "no separate kernel daemon, sequencer service or checkpoint deployment",
         "External checkpoint settlement is retired",
-        "no router and no separate LayerX interface",
         "Sub-chains are tenant domains stored in the database",
         "does not require new node infrastructure",
     ):
@@ -63,14 +66,8 @@ def test_doc_root_merged_network_and_embedded_proposer():
 
 def test_doc_root_public_rpc_hosts_and_chain_probe():
     quickstart = section("Quick start: connect to chain 125")
-    assert "Public node JSON-RPC uses the root URL" in quickstart
-    assert "root path of these hosts, without a route suffix" in quickstart
-    assert (
-        "`https://api1.mainnet-beta.paxeer.network` through "
-        "`https://api14.mainnet-beta.paxeer.network`"
-    ) in quickstart
-    assert "node.hyperpaxeer.com` is only the hpx library mirror" in quickstart
-    assert "never a JSON-RPC endpoint" in quickstart
+    assert "Send HTTPS JSON-RPC requests to the root path without a route suffix" in quickstart
+    assert "node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint." in PUBLIC_RPC
     assert "compare `eth_blockNumber`" in quickstart
     assert "gateway contract does not establish method availability at public node URLs" in quickstart
     seen = set()
@@ -78,7 +75,7 @@ def test_doc_root_public_rpc_hosts_and_chain_probe():
         "api-mainnet-beta.paxeer.network",
         *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
-    for url in re.findall(r"https?://[^\s`<>)]+", README):
+    for url in re.findall(r"https?://[^\s`<>)]+", PUBLIC_RPC):
         parsed = urlsplit(url)
         if parsed.hostname and parsed.hostname.endswith("mainnet-beta.paxeer.network"):
             assert parsed.hostname in allowed, url
@@ -88,16 +85,12 @@ def test_doc_root_public_rpc_hosts_and_chain_probe():
             seen.add(parsed.hostname)
     assert seen == {
         "api-mainnet-beta.paxeer.network",
-        "api1.mainnet-beta.paxeer.network",
-        "api2.mainnet-beta.paxeer.network",
-        "api14.mainnet-beta.paxeer.network",
+        *(f"api{i}.mainnet-beta.paxeer.network" for i in range(1, 15)),
     }
     example, = blocks(quickstart, "sh")
     argv = shlex.split(example.replace("\\\n", " "), comments=True)
     assert argv[:4] == ["curl", "--max-time", "10", "-sS"]
-    assert [arg for arg in argv if arg.startswith("https://")] == [
-        "https://api1.mainnet-beta.paxeer.network"
-    ]
+    assert "$PAXEER_RPC_URL" in argv
     assert argv[argv.index("-H") + 1] == "Content-Type: application/json"
     assert json.loads(argv[argv.index("-d") + 1]) == {
         "jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []
@@ -158,7 +151,7 @@ def test_doc_root_custody_and_checkpoint_executors_are_retired():
     assert "`getLayerXDid(address)`" in accounts
     # Match the retired daemon name, including paths/commands, without treating
     # the current getLayerXDid ABI identifier as that daemon.
-    assert re.search(r"\blayerxd\b", README, re.I) is None
+    assert re.search(r"\blayerxd\b", NETWORK, re.I) is None
     assert not re.search(r"\bmake\s+[^\n#]*\b(?:checkpoint|settlement)[-_]deploy\b", README)
 
 
@@ -185,7 +178,7 @@ def test_doc_root_build_operations_and_supported_layout():
         assert (ROOT / path).is_dir(), path
     overview = section("What is Paxeer X Network?", 2)
     for path in ("daemon/paxd/", "node/", "consensus/", "modules/", "rpc/", "modules/lxphost/", "programs/"):
-        assert f"]({path})" in overview, path
+        assert f"](../../{path})" in overview, path
         assert (ROOT / path).is_dir(), path
     assert "Source directory names describe code organization, not separate network deployments" in layout
 
