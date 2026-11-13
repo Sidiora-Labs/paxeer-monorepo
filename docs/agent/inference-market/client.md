@@ -59,8 +59,9 @@ release serving F11, the room-list request has this JSON-RPC shape:
 | `POST /v1/chat/completions` | OpenAI-compatible request/response shape; streaming uses server-sent events |
 | `POST /v1/messages` | Anthropic-compatible shape mapped to the same completion |
 
-Both routes check askStreamOf and stream state. An absent, closed or capped
-stream returns **402**. A foreign model ID returns **404**. The body limit is
+Both routes check askStreamOf and stream state. An absent, paused, underfunded,
+closed or capped stream returns **402**; so does credit insufficient for one
+token. A foreign model ID returns **404**. The body limit is
 1048576 bytes and generated tokens are bounded by the room profile; response
 usage comes from lap token counts. A paused room with insufficient layer
 capacity returns **503** with Retry-After. The per-room queue returns
@@ -76,8 +77,12 @@ comes from a committed block on the connected network.
 ## Wallet and explorer paths
 
 The wallet registers the inference surface at **`/surfaces/inference`**.
-Its ask form accepts model, price cap per thousand tokens and total cap, and
-uses `fundAsk` through the wallet send path. The ask list shows stream reading
+Its funding form selects an open room and an existing unfunded ask, then accepts
+the settlement wallet address, price per thousand tokens and total cap. It uses
+`fundAsk` through the wallet send path and verifies the settlement address
+against the room's account. The price must be positive with at most 15 decimal
+places; funding encodes it as a per-token rate with rate unit `1`.
+The ask list shows stream reading
 and remaining cap; earnings use peer and reward-ledger reads for the connected
 key. CLAIM is the separate signed operation that withdraws credited rewards.
 

@@ -1,6 +1,6 @@
 # Pax EVM JSON-RPC: explicitly unsupported methods
 
-This page documents the EVM JSON-RPC handlers in this monorepo. Paxeer is one network: the kernel runs inside the node and proposes blocks, and a receipt is final once its block is committed. Mainnet-beta uses chain ID **125** (`0x7d`). Send public JSON-RPC requests to the root of a node URL, for example `https://api1.mainnet-beta.paxeer.network`. See [public RPC endpoints](site/docs/reference/public-rpc.md) for the node list.
+This page documents the EVM JSON-RPC handlers in this monorepo. Paxeer is one network: the kernel runs inside the node and proposes blocks, and a receipt is final once its block is committed. Mainnet-beta uses chain ID **125** (`0x7d`). Send public JSON-RPC requests to the root of the configured node URL. See [public RPC endpoints](site/docs/reference/public-rpc.md) for the node list.
 
 Some Ethereum JSON-RPC methods are **registered** on Pax's EVM endpoint but return a **JSON-RPC error** instead of a result, so clients and tools get a stable, documented failure (code **`-32000`**) rather than “method not found” (`-32601`). This code identifies an explicit refusal here; other execution or lookup errors can also use `-32000`, so inspect `error.message`.
 
@@ -23,6 +23,7 @@ The following registered methods return code `-32000` with these messages:
 
 - Omit the optional `fullTx` argument or pass `false` to create a filter of transaction hashes. On a node with the feed, `true` returns code `-32000` with `eth_newPendingTransactionFilter serves transaction hashes only`.
 - Poll `eth_getFilterChanges` with the returned filter ID on the same node and transport. It drains hashes receipted since installation or the last poll, in receipt sequence order, and returns `[]` when there are no changes. Installation does not replay existing pending transactions, and block commit does not replay hashes already delivered.
+- A filter installed in a tenant domain retains that scope. Polling it from a different domain returns `filter belongs to another chain`.
 - Use `eth_uninstallFilter` to remove the filter. Filters live in memory, expire after the configured inactivity timeout, and do not survive a server restart. Polling an unknown or expired ID returns `filter does not exist`; install a new filter to resume delivery of future receipts.
 - A filter buffers at most 10,000 receipted transactions between polls. Exceeding that limit makes polling fail with `pending filter fell behind the receipted transactions; uninstall it and install a new one`. Reinstalling starts a new stream; reconcile any missed history through committed blocks and receipts.
 - `eth_getFilterLogs` does not apply to transaction-hash filters and returns `pending transaction filter has no logs`.

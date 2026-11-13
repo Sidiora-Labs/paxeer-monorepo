@@ -42,7 +42,7 @@ Run these commands from the repository root with the required toolchains install
 | Target | Result |
 | --- | --- |
 | `make build` | Build the C kernel library and tools |
-| `make paxd-native-libs` | Build the kernel, release programs sandbox and evmone native archives needed by the node |
+| `make paxd-native-libs` | Build the kernel and release programs sandbox archives and the evmone shared library needed by the node |
 | `make paxeer-build` | Build the native prerequisites and linked Go node |
 | `make paxd-build` | Build the node with release version metadata |
 | `make programs-build` | Build the programs workspace |
@@ -55,6 +55,10 @@ Run these commands from the repository root with the required toolchains install
 The kernel uses C17, the root Go module declares Go 1.25.8, and
 [rust-toolchain.toml](../rust-toolchain.toml) pins Rust 1.91.1.
 The root Foundry configurations pin Solidity 0.8.27.
+`foundry.toml` defines the kernel-contract project; `make test-contracts`
+selects its `names` and `governance` profiles. `foundry.paxeer.toml` defines
+the separate `contracts/src` and `contracts/test` project, selected with
+`FOUNDRY_CONFIG=foundry.paxeer.toml`.
 The node's native integration is declared in
 [modules/lxphost/host.go](../modules/lxphost/host.go).
 See [Qualification](QUALIFICATION.md) for the test suites and their coverage.
