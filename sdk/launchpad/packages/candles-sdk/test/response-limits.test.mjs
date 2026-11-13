@@ -5,9 +5,6 @@ import { test } from 'node:test';
 import { gzipSync } from 'node:zlib';
 import { CandlesClient, CandlesHttpError, UdfResponseError } from '../dist/index.js';
 
-// Task 22.33.1061 closes audit 22.30.41 finding 38 with finding38FastOversizedStreamCancelled
-// and finding38DeclaredOversizeCancelled. No out-of-path wiring is required.
-// Baseline verification is unrun: the task's ordered gate rules require implementation first.
 const byteLimit = 1024 * 1024;
 const time = 1800000000;
 const historyRequest = { symbol: 'SID', resolution: '1', from: 0, to: 120 };
@@ -74,7 +71,7 @@ function largeResponse(response, state, headers = {}, status = 200) {
   scheduled = setImmediate(pump);
 }
 
-async function finding38FastOversizedStreamCancelled() {
+async function fastOversizedStreamCancelled() {
   const state = {};
   await fixture((request, response) => {
     assert.equal(request.url, '/udf/time');
@@ -87,9 +84,9 @@ async function finding38FastOversizedStreamCancelled() {
     assert.ok(state.sent < state.total, 'the server must observe cancellation before sending the entire fast body');
   });
 }
-test(finding38FastOversizedStreamCancelled);
+test(fastOversizedStreamCancelled);
 
-async function finding38DeclaredOversizeCancelled() {
+async function declaredOversizeCancelled() {
   const state = {};
   await fixture((_request, response) => {
     largeResponse(response, state, { 'Content-Length': 16 * byteLimit + String(time).length });
@@ -99,9 +96,9 @@ async function finding38DeclaredOversizeCancelled() {
     assert.ok(state.sent < state.total, 'declared oversize must be refused before full buffering');
   });
 }
-test(finding38DeclaredOversizeCancelled);
+test(declaredOversizeCancelled);
 
-async function finding38ByteBoundary() {
+async function byteBoundary() {
   for (const declaredLength of [false, true]) {
     for (const length of [byteLimit, byteLimit + 1]) {
       const body = Buffer.from(`${' '.repeat(length - String(time).length)}${time}`);
@@ -119,9 +116,9 @@ async function finding38ByteBoundary() {
     }
   }
 }
-test(finding38ByteBoundary);
+test(byteBoundary);
 
-async function finding38CountsDecodedResponseBytes() {
+async function countsDecodedResponseBytes() {
   const body = gzipSync(Buffer.from(`${' '.repeat(2 * byteLimit)}${time}`));
   assert.ok(body.length < byteLimit);
   await fixture((_request, response) => {
@@ -144,9 +141,9 @@ async function finding38CountsDecodedResponseBytes() {
     await assert.rejects(client.getSymbol('SID'), oversized);
   });
 }
-test(finding38CountsDecodedResponseBytes);
+test(countsDecodedResponseBytes);
 
-async function finding38PreservesDtos() {
+async function preservesDtos() {
   const seen = [];
   await fixture((request, response) => {
     const url = new URL(request.url, 'http://localhost');
@@ -183,9 +180,9 @@ async function finding38PreservesDtos() {
     });
   }
 }
-test(finding38PreservesDtos);
+test(preservesDtos);
 
-async function finding38PreservesFullHistoryPage() {
+async function preservesFullHistoryPage() {
   const count = 5000;
   const value = Number.MAX_VALUE;
   const page = {
@@ -199,9 +196,9 @@ async function finding38PreservesFullHistoryPage() {
     assert.deepEqual(await client.getHistory({ symbol: 'SID', resolution: '1', to: Number.MAX_SAFE_INTEGER, countback: count }), page);
   });
 }
-test(finding38PreservesFullHistoryPage);
+test(preservesFullHistoryPage);
 
-async function finding38PreservesHttpStatusAndCancelsBody() {
+async function preservesHttpStatusAndCancelsBody() {
   const state = {};
   await fixture((_request, response) => {
     largeResponse(response, state, { 'Content-Length': 16 * byteLimit + String(time).length }, 503);
@@ -211,9 +208,9 @@ async function finding38PreservesHttpStatusAndCancelsBody() {
     assert.ok(state.sent < state.total);
   });
 }
-test(finding38PreservesHttpStatusAndCancelsBody);
+test(preservesHttpStatusAndCancelsBody);
 
-async function finding38PreservesDeadlineAndCallerAbort() {
+async function preservesDeadlineAndCallerAbort() {
   for (const callerAbort of [false, true]) {
     let closed;
     let received;
@@ -240,4 +237,4 @@ async function finding38PreservesDeadlineAndCallerAbort() {
     }, callerAbort ? 10000 : 100);
   }
 }
-test(finding38PreservesDeadlineAndCallerAbort);
+test(preservesDeadlineAndCallerAbort);

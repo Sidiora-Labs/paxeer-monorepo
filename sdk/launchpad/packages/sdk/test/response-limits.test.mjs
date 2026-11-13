@@ -1,7 +1,3 @@
-// Repair record 22.33.1059: finding 34 is proved by the finding34* tests below.
-// No out-of-path wiring is required. The baseline gate was not run: the task's
-// ordered gate rules require complete implementation before qualification.
-// The verified revision and private evidence are recorded by hf-done.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -90,7 +86,7 @@ function isTooLarge(status) {
   };
 }
 
-async function finding34BoundsStreamedSuccessBeforeBuffering() {
+async function boundsStreamedSuccessBeforeBuffering() {
   for (const [major, request] of [
     [1, 'request'],
     [1, 'requestV1Generated'],
@@ -118,7 +114,7 @@ async function finding34BoundsStreamedSuccessBeforeBuffering() {
   }
 }
 
-async function finding34BoundsErrorsWithoutCloningOrRetryingOversize() {
+async function boundsErrorsWithoutCloningOrRetryingOversize() {
   for (const [major, status, binary] of [
     [2, 400, false],
     [2, 404, false],
@@ -152,7 +148,7 @@ async function finding34BoundsErrorsWithoutCloningOrRetryingOversize() {
   }
 }
 
-async function finding34RejectsDeclaredOversizeBeforeReading() {
+async function rejectsDeclaredOversizeBeforeReading() {
   for (const status of [200, 400]) {
     let stream;
     await withServer(
@@ -174,7 +170,7 @@ async function finding34RejectsDeclaredOversizeBeforeReading() {
   }
 }
 
-async function finding34CountsDecodedBytesAndAcceptsExactLimits() {
+async function countsDecodedBytesAndAcceptsExactLimits() {
   const envelope = JSON.stringify(errorEnvelope);
   const exactError =
     envelope + ' '.repeat(ERROR_LIMIT - Buffer.byteLength(envelope));
@@ -253,7 +249,7 @@ async function finding34CountsDecodedBytesAndAcceptsExactLimits() {
   );
 }
 
-async function finding34PreservesStableErrorsAndRetryLimits() {
+async function preservesStableErrorsAndRetryLimits() {
   const counts = new Map();
   await withServer(
     (req, res) => {
@@ -355,7 +351,7 @@ async function finding34PreservesStableErrorsAndRetryLimits() {
   );
 }
 
-async function finding34CancelsUnusedBodiesAndLeavesBinaryStreaming() {
+async function cancelsUnusedBodiesAndLeavesBinaryStreaming() {
   for (const [major, status, code] of [
     [1, 404, 'capability_unavailable'],
     [1, 500, 'TRANSPORT_ERROR'],
@@ -407,7 +403,7 @@ async function finding34CancelsUnusedBodiesAndLeavesBinaryStreaming() {
   );
 }
 
-async function finding34PreservesDeadlineAndCallerCancellationWhileReading() {
+async function preservesDeadlineAndCallerCancellationWhileReading() {
   for (const status of [200, 400]) {
     for (const cancel of [false, true]) {
       let closed;
@@ -442,10 +438,10 @@ async function finding34PreservesDeadlineAndCallerCancellationWhileReading() {
   }
 }
 
-test(finding34BoundsStreamedSuccessBeforeBuffering);
-test(finding34BoundsErrorsWithoutCloningOrRetryingOversize);
-test(finding34RejectsDeclaredOversizeBeforeReading);
-test(finding34CountsDecodedBytesAndAcceptsExactLimits);
-test(finding34PreservesStableErrorsAndRetryLimits);
-test(finding34CancelsUnusedBodiesAndLeavesBinaryStreaming);
-test(finding34PreservesDeadlineAndCallerCancellationWhileReading);
+test(boundsStreamedSuccessBeforeBuffering);
+test(boundsErrorsWithoutCloningOrRetryingOversize);
+test(rejectsDeclaredOversizeBeforeReading);
+test(countsDecodedBytesAndAcceptsExactLimits);
+test(preservesStableErrorsAndRetryLimits);
+test(cancelsUnusedBodiesAndLeavesBinaryStreaming);
+test(preservesDeadlineAndCallerCancellationWhileReading);

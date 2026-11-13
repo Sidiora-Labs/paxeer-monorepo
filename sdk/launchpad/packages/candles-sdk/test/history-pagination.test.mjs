@@ -10,9 +10,6 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { CandlesClient, CandlesHttpError, UdfResponseError, getHistory, httpClient, parseHistory } from '../dist/index.js';
 
-// Task 22.31.72: audit 22.30.41 finding 1 is proved by finding1VendorPageBounds;
-// finding 2 is proved by finding2ForwardPagination and finding2CountbackPagination.
-// No producer wiring change is required outside this task's paths.
 const run = promisify(execFile);
 const root = fileURLToPath(new URL('../../../../..', import.meta.url));
 const charts = join(root, 'services/launchpad/trading-charts');
@@ -56,7 +53,7 @@ func main() {
 func serve() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	dsn := os.Getenv("CANDLES_REPAIR_POSTGRES_URL")
+	dsn := os.Getenv("CANDLES_HISTORY_POSTGRES_URL")
 	if err := migrate.Up(ctx, dsn); err != nil { return err }
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil { return err }
@@ -115,7 +112,7 @@ after(async function closeRealProducer() {
 });
 
 before(async function openRealProducer() {
-  directory = await mkdtemp(join(tmpdir(), 'candles-sdk-22-31-72-'));
+  directory = await mkdtemp(join(tmpdir(), 'candles-history-pagination-'));
   await chmod(directory, 0o755);
   const socket = join(directory, 'socket');
   const data = join(directory, 'postgres');
@@ -140,7 +137,7 @@ before(async function openRealProducer() {
   // A temporary module under the producer's import namespace can use its real
   // internal packages without writing a helper into the Go domain's checkout.
   let goMod = await readFile(join(charts, 'go.mod'), 'utf8');
-  goMod = goMod.replace(/^module (.+)$/m, 'module $1/candles-sdk-repair');
+  goMod = goMod.replace(/^module (.+)$/m, 'module $1/candles-sdk-pagination');
   goMod = goMod.replaceAll('=> ../../../sdk/launchpad/shared', `=> ${JSON.stringify(join(root, 'sdk/launchpad/shared'))}`);
   goMod = goMod.replaceAll('=> ../../../sdk/launchpad/protocol', `=> ${JSON.stringify(join(root, 'sdk/launchpad/protocol'))}`);
   goMod += `\nrequire github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts v0.0.0\n`;
@@ -150,7 +147,7 @@ before(async function openRealProducer() {
   await writeFile(join(directory, 'main.go'), goProducer);
   producer = spawn('go', ['run', '-mod=mod', '.'], {
     cwd: directory, detached: true, stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, GOWORK: 'off', CANDLES_REPAIR_POSTGRES_URL: `host=${socket} user=postgres dbname=postgres sslmode=disable` },
+    env: { ...process.env, GOWORK: 'off', CANDLES_HISTORY_POSTGRES_URL: `host=${socket} user=postgres dbname=postgres sslmode=disable` },
   });
   let diagnostics = '';
   producer.stderr.setEncoding('utf8').on('data', chunk => { diagnostics += chunk; });
@@ -188,7 +185,7 @@ async function vendorPage(parameters) {
   return response.json();
 }
 
-async function finding1VendorPageBounds() {
+async function vendorPageBounds() {
   for (const count of [2001, 5000]) {
     const rangePage = await client.getHistory({ ...request, to: (count + 1) * 60 });
     assertBars(rangePage, 1, count);
@@ -210,9 +207,9 @@ async function finding1VendorPageBounds() {
   for (const field of fields) oversized[field] = full[field].concat(extra[field]);
   assert.throws(() => parseHistory(oversized), /History exceeds 5000 bars/);
 }
-test(finding1VendorPageBounds);
+test(vendorPageBounds);
 
-async function finding2ForwardPagination() {
+async function forwardPagination() {
   const received = [];
   let cursor;
   for (const [first, count] of [[1, 5000], [5001, 5000], [10001, 3]]) {
@@ -231,9 +228,9 @@ async function finding2ForwardPagination() {
   assert.deepEqual(received, Array.from({ length: rowCount }, (_, i) => (i + 1) * 60));
   assert.equal(new Set(received).size, rowCount);
 }
-test(finding2ForwardPagination);
+test(forwardPagination);
 
-async function finding2CountbackPagination() {
+async function countbackPagination() {
   const received = [];
   let cursor;
   let remaining = rowCount;
@@ -251,9 +248,9 @@ async function finding2CountbackPagination() {
   assert.deepEqual(received, Array.from({ length: rowCount }, (_, i) => (i + 1) * 60));
   assert.equal(new Set(received).size, rowCount);
 }
-test(finding2CountbackPagination);
+test(countbackPagination);
 
-async function finding2CursorValidationAndBinding() {
+async function cursorValidationAndBinding() {
   const raw = await vendorPage({});
   assert.equal(parseHistory(raw).nextCursor, raw.nextCursor);
   for (const invalid of ['', null, 42, {}, 'x'.repeat(257), 'not-a-token', 'a.b.c', 'a. b', 'a.b\n']) {
@@ -271,4 +268,4 @@ async function finding2CursorValidationAndBinding() {
   }
   assert.deepEqual(await getHistory({ ...request, from: request.to, to: request.to + 60 }), { s: 'no_data' });
 }
-test(finding2CursorValidationAndBinding);
+test(cursorValidationAndBinding);

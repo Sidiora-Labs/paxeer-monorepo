@@ -6,8 +6,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import './repair-22-33-1047-loader.mjs';
-import { runPythonProof } from './repair-22-33-1047-python.mjs';
+import './sdk-source-loader.mjs';
+import { runPythonProof } from './python-proof-runtime.mjs';
 
 const { operationDefinitions } = await import('../dist/operations.gen.js');
 const { decodeV2Contract } = await import('../dist/index.js');
@@ -16,7 +16,7 @@ const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = url => JSON.parse(readFileSync(url, 'utf8'));
 const recorded = new URL('services/launchpad/api/internal/rest/testdata/contracts/v2/openapi.json', root);
 
-async function finding6VersionedGenerationInputsMatchImmutableReleasePins() {
+async function versionedGenerationInputsMatchImmutableReleasePins() {
   await runPythonProof(`
 generation = runpy.run_path(str(suite / 'generation.test.py'))
 generation['test_versioned_clean_generations']()
@@ -40,7 +40,7 @@ generation['test_versioned_clean_generations']()
   }
 }
 
-async function finding7SupportedBundlesHaveUsableSchemas() {
+async function supportedBundlesHaveUsableSchemas() {
   await runPythonProof(`
 layout = load_module(suite / 'test_generate_layout.py', 'sdk_generate_layout_proof')
 layout.test_repository_root_is_monorepo()
@@ -86,7 +86,7 @@ layout.test_unsupported_major_is_explicitly_refused()
   }
 }
 
-async function finding8ExamplesReadTheAdmittedOperationCatalog() {
+async function examplesReadTheAdmittedOperationCatalog() {
   await runPythonProof(`
 layout = load_module(suite / 'test_examples_layout.py', 'sdk_examples_layout_proof')
 with tempfile.TemporaryDirectory() as directory:
@@ -115,7 +115,7 @@ with tempfile.TemporaryDirectory() as directory:
   assert.equal(operationDefinitions.IF_STREAM_TICKET_ISSUE.path, '/v2/stream/tickets');
 }
 
-async function finding8RealPaginationExampleConsumesOpaqueContinuation() {
+async function realPaginationExampleConsumesOpaqueContinuation() {
   const pool = '0x1111111111111111111111111111111111111111';
   const position = {
     chainId: '125', height: '1', transactionIndex: '0', logIndex: '0',
@@ -161,7 +161,7 @@ async function finding8RealPaginationExampleConsumesOpaqueContinuation() {
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
-  const directory = mkdtempSync(join(tmpdir(), 'repair-22-33-1047-'));
+  const directory = mkdtempSync(join(tmpdir(), 'sdk-pagination-'));
   const configPath = join(directory, 'config.json');
   const previousConfig = process.env.SDK_CONNECTED_CONFIG;
   const previousWebSocket = globalThis.WebSocket;
@@ -173,7 +173,7 @@ async function finding8RealPaginationExampleConsumesOpaqueContinuation() {
       transport: { apiOrigin: origin, identityOrigin: origin, mediaOrigin: origin, streamOrigin, approvedStreamOrigins: [streamOrigin], production: false },
     }));
     process.env.SDK_CONNECTED_CONFIG = configPath;
-    await import('../examples/pagination.mjs?repair-22-33-1047');
+    await import('../examples/pagination.mjs?pagination-example');
     assert.deepEqual(failures, []);
     assert.deepEqual(requests, [
       { method: 'GET', path: `/v2/pools/${pool}/trades`, query: [['limit', '100']], origin: applicationOrigin },
@@ -193,10 +193,10 @@ async function finding8RealPaginationExampleConsumesOpaqueContinuation() {
   }
 }
 
-test(finding6VersionedGenerationInputsMatchImmutableReleasePins);
-test(finding7SupportedBundlesHaveUsableSchemas);
-test(finding8ExamplesReadTheAdmittedOperationCatalog);
-test(finding8RealPaginationExampleConsumesOpaqueContinuation);
+test(versionedGenerationInputsMatchImmutableReleasePins);
+test(supportedBundlesHaveUsableSchemas);
+test(examplesReadTheAdmittedOperationCatalog);
+test(realPaginationExampleConsumesOpaqueContinuation);
 
 // These retain the independent inventory, real reward-claim request/response
 // walkthrough and both network refusal contracts in this focused gate.

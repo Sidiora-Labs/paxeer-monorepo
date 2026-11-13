@@ -36,7 +36,7 @@ def load_module(path, name):
 
 
 def load_script(root, name):
-    return load_module(copy_file(root, SCRIPTS / (name + '.py')), 'repair_' + name)
+    return load_module(copy_file(root, SCRIPTS / (name + '.py')), 'bundle_consumer_' + name)
 
 
 def write_json(path, document):
@@ -48,7 +48,7 @@ def copy_bundle(root, major):
     """Build a small pinned fixture with the real producer, never a substitute emitter."""
     generator_path = copy_file(root, GENERATOR)
     copy_file(root, GENERATOR.with_name('validator.go.txt'))
-    producer = load_module(generator_path, 'repair_protocol_codegen')
+    producer = load_module(generator_path, 'bundle_protocol_codegen')
     contracts = root / BUNDLES / ('v' + str(major))
     schemas = {'EventId': {'type': 'string', 'minLength': 1}}
     document = {'$schema': 'https://json-schema.org/draft/2020-12/schema',
@@ -94,7 +94,7 @@ def run_generator(module, monkeypatch, *arguments):
     return json.loads(output.getvalue())
 
 
-def test_finding4_default_and_examples_paths_share_protocol_owner(tmp_path):
+def test_default_and_examples_paths_share_protocol_owner(tmp_path):
     generate = load_script(tmp_path, 'generate')
     examples = load_script(tmp_path, 'examples')
     assert generate.repository_root() == tmp_path
@@ -106,7 +106,7 @@ def test_finding4_default_and_examples_paths_share_protocol_owner(tmp_path):
 
 
 @pytest.mark.parametrize('arguments', [(), ('--operations-only',)])
-def test_finding4_retired_contract_tree_is_outside_allowlist(tmp_path, monkeypatch, arguments):
+def test_retired_contract_tree_is_outside_allowlist(tmp_path, monkeypatch, arguments):
     generate = load_script(tmp_path, 'generate')
     retired = tmp_path / 'untrusted/contracts/v2'
     retired.mkdir(parents=True)
@@ -115,7 +115,7 @@ def test_finding4_retired_contract_tree_is_outside_allowlist(tmp_path, monkeypat
 
 
 @pytest.mark.parametrize('major', (1, 2))
-def test_finding4_manifest_resolution_and_refusal(tmp_path, major):
+def test_manifest_resolution_and_refusal(tmp_path, major):
     generate = load_script(tmp_path, 'generate')
     contracts = generate.default_contracts(major)
     expected = contracts / 'codegen-manifest.json'
@@ -132,7 +132,7 @@ def test_finding4_manifest_resolution_and_refusal(tmp_path, major):
 
 
 @pytest.mark.parametrize('major', (1, 2))
-def test_finding4_authoritative_bundle_matches_frozen_release(tmp_path, major, monkeypatch):
+def test_authoritative_bundle_matches_frozen_release(tmp_path, major, monkeypatch):
     generate = load_script(tmp_path, 'generate')
     contracts = copy_bundle(tmp_path, major)
     manifest = generate.read_manifest(contracts)
@@ -162,7 +162,7 @@ def test_finding4_authoritative_bundle_matches_frozen_release(tmp_path, major, m
             assert digest == manifest['outputs'][source]
 
 
-def test_finding4_clean_default_v2_operations(tmp_path, monkeypatch):
+def test_clean_default_v2_operations(tmp_path, monkeypatch):
     results = []
     for name in ('clean-a', 'clean-b'):
         root = tmp_path / name
@@ -181,7 +181,7 @@ def test_finding4_clean_default_v2_operations(tmp_path, monkeypatch):
     assert results[0] == results[1]
 
 
-def test_finding5_clean_digest_bound_examples(tmp_path, monkeypatch):
+def test_clean_digest_bound_examples(tmp_path, monkeypatch):
     results = []
     for name in ('clean-a', 'clean-b'):
         root = tmp_path / name
@@ -202,7 +202,7 @@ def test_finding5_clean_digest_bound_examples(tmp_path, monkeypatch):
     assert results[0] == results[1]
 
 
-def test_finding5_unpinned_recorded_document_is_refused_before_writing(tmp_path):
+def test_unpinned_recorded_document_is_refused_before_writing(tmp_path):
     examples = load_script(tmp_path, 'examples')
     copy_bundle(tmp_path, 2)
     copy_file(tmp_path, V2_RELEASE)
@@ -248,7 +248,7 @@ def test_missing_bundle_cli_has_one_actionable_error(tmp_path, monkeypatch, scri
     ('transport-schema', 'schema drift'),
     ('output', 'Pinned generated output mismatch'),
 ])
-def test_finding4_pinned_input_and_output_checks_remain(tmp_path, monkeypatch, kind, message):
+def test_pinned_input_and_output_checks_remain(tmp_path, monkeypatch, kind, message):
     generate = load_script(tmp_path, 'generate')
     contracts = copy_bundle(tmp_path, 2)
     manifest = generate.read_manifest(contracts)
@@ -277,7 +277,7 @@ def test_finding4_pinned_input_and_output_checks_remain(tmp_path, monkeypatch, k
     assert not (tmp_path / V2_RELEASE.parent / 'src').exists()
 
 
-def test_finding4_manifest_cannot_escape_bundle(tmp_path, monkeypatch):
+def test_manifest_cannot_escape_bundle(tmp_path, monkeypatch):
     generate = load_script(tmp_path, 'generate')
     outside = tmp_path / 'codegen-manifest.json'
     write_json(outside, {'schemaMajor': 2})
@@ -287,7 +287,7 @@ def test_finding4_manifest_cannot_escape_bundle(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize('major', (1, 2))
 def test_repository_bundle_absence_is_reported(major):
-    generate = load_module(ROOT / SCRIPTS / 'generate.py', 'repair_repository_codegen')
+    generate = load_module(ROOT / SCRIPTS / 'generate.py', 'repository_codegen')
     contracts = generate.default_contracts(major)
     assert not (contracts / 'codegen-manifest.json').exists()
     with pytest.raises(ValueError) as failure:

@@ -1,9 +1,3 @@
-// Finding 32: repair32DefaultDeadline, repair32StalledHeaders,
-// repair32StalledBodies, repair32CallerCancellation, repair32StreamedByteCaps,
-// repair32DeclaredByteCaps, and repair32ResponsesAndCleanup prove the repair.
-// Baseline verification was not run: the ordered gate rules require complete
-// implementation before qualification and prohibit a separate verify run.
-// No out-of-path wiring is required.
 import assert from 'node:assert/strict';
 import { once, getEventListeners } from 'node:events';
 import { createServer } from 'node:http';
@@ -88,7 +82,7 @@ function isOversize(status, limit) {
   };
 }
 
-async function repair32DefaultDeadline(t) {
+async function defaultDeadline(t) {
   let received = false;
   const client = await loopback(t, () => { received = true; });
   assert.equal(DEFAULT_RANKING_TIMEOUT_MS, 10_000);
@@ -99,7 +93,7 @@ async function repair32DefaultDeadline(t) {
   assert.equal(received, true);
 }
 
-async function repair32StalledHeaders(t) {
+async function stalledHeaders(t) {
   let received = false;
   let disconnected;
   const closed = new Promise(resolve => { disconnected = resolve; });
@@ -115,7 +109,7 @@ async function repair32StalledHeaders(t) {
   await withinDeadline(closed);
 }
 
-async function repair32StalledBodies(t) {
+async function stalledBodies(t) {
   for (const status of [200, 503]) {
     for (const trickle of [false, true]) {
       await t.test(`status ${status}, trickle ${trickle}`, async t => {
@@ -138,7 +132,7 @@ async function repair32StalledBodies(t) {
   }
 }
 
-async function repair32CallerCancellation(t) {
+async function callerCancellation(t) {
   for (const phase of ['headers', 'body']) {
     await t.test(phase, async t => {
       let ready;
@@ -172,7 +166,7 @@ async function repair32CallerCancellation(t) {
   assertNoListeners(caller.signal);
 }
 
-async function repair32StreamedByteCaps(t) {
+async function streamedByteCaps(t) {
   for (const status of [200, 503]) {
     for (const compressed of [false, true]) {
       await t.test(`status ${status}, gzip ${compressed}`, async t => {
@@ -201,7 +195,7 @@ async function repair32StreamedByteCaps(t) {
   }
 }
 
-async function repair32DeclaredByteCaps(t) {
+async function declaredByteCaps(t) {
   for (const status of [200, 503]) {
     await t.test(`status ${status}`, async t => {
       const limit = status === 200 ? MAX_RANKINGS_RESPONSE_BYTES : MAX_RANKING_ERROR_RESPONSE_BYTES;
@@ -216,7 +210,7 @@ async function repair32DeclaredByteCaps(t) {
   }
 }
 
-async function repair32ResponsesAndCleanup(t) {
+async function responsesAndCleanup(t) {
   const expected = rankingFixture();
   const typedError = errorFixture();
   const requests = [];
@@ -280,7 +274,7 @@ async function repair32ResponsesAndCleanup(t) {
   caller.abort();
 }
 
-function repair32ConfigurationBounds() {
+function configurationBounds() {
   const client = new RankingHttpClient();
   const baseUrl = 'http://127.0.0.1';
   for (const timeoutMs of [0, -1, 0.5, NaN, Infinity, MAX_RANKING_TIMEOUT_MS + 1]) {
@@ -291,11 +285,11 @@ function repair32ConfigurationBounds() {
   }
 }
 
-test(repair32DefaultDeadline);
-test(repair32StalledHeaders);
-test(repair32StalledBodies);
-test(repair32CallerCancellation);
-test(repair32StreamedByteCaps);
-test(repair32DeclaredByteCaps);
-test(repair32ResponsesAndCleanup);
-test(repair32ConfigurationBounds);
+test(defaultDeadline);
+test(stalledHeaders);
+test(stalledBodies);
+test(callerCancellation);
+test(streamedByteCaps);
+test(declaredByteCaps);
+test(responsesAndCleanup);
+test(configurationBounds);

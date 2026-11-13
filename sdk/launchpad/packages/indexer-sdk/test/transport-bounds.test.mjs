@@ -4,10 +4,6 @@ import { createServer } from 'node:http';
 import { getEventListeners } from 'node:events';
 import { HttpClient, HttpError, httpClient, getRecentTrades } from '../dist/index.js';
 
-// Task 22.33.1055 closes audit 22.30.41 finding 30 with the Repair30 tests below.
-// Baseline not executed: the task's implementation-first, gate-only order takes
-// precedence over its contradictory request for an unchanged-tree verification.
-// No production wiring outside this task's paths is required.
 const pool = `0x${'1'.repeat(40)}`;
 const route = `/stats/${pool}/transactions`;
 const successLimit = 1024 * 1024;
@@ -48,7 +44,7 @@ function configuredClient(baseUrl, timeoutMs = 250) {
   return client;
 }
 
-async function Repair30DefaultDeadlineBoundsStalledHeaders() {
+async function defaultDeadlineBoundsStalledHeaders() {
   await withHttp(() => {}, async (baseUrl, requests) => {
     const client = new HttpClient();
     client.configure({ baseUrl });
@@ -59,7 +55,7 @@ async function Repair30DefaultDeadlineBoundsStalledHeaders() {
   });
 }
 
-async function Repair30ConfiguredDeadlineBoundsHeadersAndStreamingBodies() {
+async function configuredDeadlineBoundsHeadersAndStreamingBodies() {
   for (const mode of ['headers', 'body', 'error', 'drip']) {
     await withHttp((_req, res) => {
       if (mode === 'headers') return;
@@ -84,7 +80,7 @@ async function Repair30ConfiguredDeadlineBoundsHeadersAndStreamingBodies() {
   }
 }
 
-async function Repair30CallerCancellationCombinesWithDeadlineAndCleansListeners() {
+async function callerCancellationCombinesWithDeadlineAndCleansListeners() {
   for (const mode of ['headers', 'body']) {
     const controller = new AbortController();
     const reason = new Error(`caller stopped ${mode}`);
@@ -114,7 +110,7 @@ async function Repair30CallerCancellationCombinesWithDeadlineAndCleansListeners(
   });
 }
 
-async function Repair30OversizedSuccessAndErrorStreamsAreRefusedAndClosed() {
+async function oversizedSuccessAndErrorStreamsAreRefusedAndClosed() {
   for (const status of [200, 503]) {
     const limit = status === 200 ? successLimit : errorLimit;
     let sent = 0;
@@ -153,7 +149,7 @@ async function Repair30OversizedSuccessAndErrorStreamsAreRefusedAndClosed() {
   }
 }
 
-async function Repair30ByteBoundariesAndUtf8DecodingArePreserved() {
+async function byteBoundariesAndUtf8DecodingArePreserved() {
   let payload;
   let status = 200;
   await withHttp((_req, res) => {
@@ -188,7 +184,7 @@ async function Repair30ByteBoundariesAndUtf8DecodingArePreserved() {
   });
 }
 
-async function Repair30PreservesHttpErrorsShapesAndListenerCleanupAcrossRequests() {
+async function preservesHttpErrorsShapesAndListenerCleanupAcrossRequests() {
   let body = { transactions: [trade], limit: 50, offset: 0 };
   let status = 200;
   let raw = false;
@@ -241,9 +237,9 @@ async function Repair30PreservesHttpErrorsShapesAndListenerCleanupAcrossRequests
   });
 }
 
-test(Repair30DefaultDeadlineBoundsStalledHeaders);
-test(Repair30ConfiguredDeadlineBoundsHeadersAndStreamingBodies);
-test(Repair30CallerCancellationCombinesWithDeadlineAndCleansListeners);
-test(Repair30OversizedSuccessAndErrorStreamsAreRefusedAndClosed);
-test(Repair30ByteBoundariesAndUtf8DecodingArePreserved);
-test(Repair30PreservesHttpErrorsShapesAndListenerCleanupAcrossRequests);
+test(defaultDeadlineBoundsStalledHeaders);
+test(configuredDeadlineBoundsHeadersAndStreamingBodies);
+test(callerCancellationCombinesWithDeadlineAndCleansListeners);
+test(oversizedSuccessAndErrorStreamsAreRefusedAndClosed);
+test(byteBoundariesAndUtf8DecodingArePreserved);
+test(preservesHttpErrorsShapesAndListenerCleanupAcrossRequests);
