@@ -19,7 +19,7 @@ assumption = "The task explicitly requires the five-field native shape to exclud
 
 [qualification]
 build_command = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
-verify_command = "test -s sdk/platform/jvm/repair_22_39_287.kvx && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest=GeneratedCatalogueProgramsTest+Repair22331391Test -Dsurefire.failIfNoSpecifiedTests=false"
+verify_command = "test -s spec/layerx-merge/programme/records/sdk/platform/jvm/repair_22_39_287.kvx && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest=GeneratedCatalogueProgramsTest+Repair22331391Test -Dsurefire.failIfNoSpecifiedTests=false"
 verified_revision = "/out/run/gates.jsonl: final verify row records the exact candidate revision with its command, exit and private log; it qualifies only if both gates pass on the same revision."
 build_evidence = "/out/run/gates.jsonl: build row matching the final verify revision."
 publication = "The task runner publishes the candidate; no manual commit or push."

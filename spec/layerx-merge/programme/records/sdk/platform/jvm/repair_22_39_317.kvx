@@ -98,7 +98,7 @@ lock = "sdk/platform/pipeline.kvx generator.platform-sdkgen and files.platform-j
 
 [qualification]
 build_command = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
-verify_command = "test -s sdk/platform/jvm/repair_22_39_317.kvx && mvn -q -f sdk/platform/jvm/pom.xml test"
+verify_command = "test -s spec/layerx-merge/programme/records/sdk/platform/jvm/repair_22_39_317.kvx && mvn -q -f sdk/platform/jvm/pom.xml test"
 verified_revision = "/out/run/gates.jsonl: final passing verify row names the exact candidate revision, command, exit and private log; a matching passing build row is required."
 build_evidence = "/out/run/gates.jsonl: build row matching the final verify revision."
 publication = "The runner publishes the candidate; no manual commit or push."

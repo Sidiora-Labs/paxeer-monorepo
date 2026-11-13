@@ -35,33 +35,33 @@ import XCTest
 // committed interface policy still admits only ABI 1...4. SDK interface bytes are opaque.
 // Wiring request: rpc/sequencer_receipt_vectors_test.go (node RPC domain 5) must record the
 // fee-token vector's complete receiptJson; its signed receipt and denominations are retained
-// here with the companion transfer's unchanged summary, as in Repair2231346Tests.
-final class Repair22331398Tests: XCTestCase {
+// here with the companion transfer's unchanged summary, as in SequencerReceiptRecoveryTests.
+final class RecordedProgramContractTests: XCTestCase {
   func testCommittedTestTrust() throws {
-    try CommittedReceiptTests.proveRecordedCommitTrust1398()
+    try CommittedReceiptTests.proveRecordedCommitTrust()
   }
   func testPortableTestProducerShape() throws {
-    try PortableReceiptTests.proveRecordedPortableShapes1398()
+    try PortableReceiptTests.proveRecordedPortableShapes()
     // Published bytes and independent receipt-key refusals remain part of the focused gate.
-    try PortableReceiptTests.provePublishedPortableBytes1398()
+    try PortableReceiptTests.provePublishedPortableBytes()
   }
   func testProgramPending() async throws {
-    try await ProgramsContractTests.proveRetainedPending1398()
+    try await ProgramsContractTests.proveRetainedPending()
   }
   func testProgramCurrentStatusAndDiscovery() async throws {
-    try ProgramsContractTests.proveCurrentDaemonStatuses1398()
-    try await ProgramsContractTests.proveCurrentRegistry1398()
+    try ProgramsContractTests.proveCurrentDaemonStatuses()
+    try await ProgramsContractTests.proveCurrentRegistry()
   }
   func testProgramABIFive() async throws {
-    try await ProgramsContractTests.proveABIFiveRegistration1398()
+    try await ProgramsContractTests.proveABIFiveRegistration()
   }
   func testProgramEVMProducer() async throws {
-    try await ProgramsEvmTests.proveRecordedEVMProducer1398()
+    try await ProgramsEvmTests.proveRecordedEVMProducer()
   }
 }
 
 // These helpers decode committed producer fixtures without replacing or signing their bytes.
-enum RecordedProgramEvidence1398 {
+enum RecordedProgramEvidence {
   typealias Record = [String: JSONValue]
   static var root: URL {
     var url = URL(fileURLWithPath: #filePath)
@@ -244,7 +244,7 @@ enum RecordedProgramEvidence1398 {
     try XCTUnwrap(array(fixture(name), "cases").first?.objectValue)
   }
   static func client(
-    _ server: ProgramReplayServer1398, vector: Record? = nil,
+    _ server: RecordedProgramReplayServer, vector: Record? = nil,
     keys: [ReceiptKeys]? = nil
   ) throws -> ProgramsClient {
     try ProgramsClient(
@@ -254,7 +254,7 @@ enum RecordedProgramEvidence1398 {
       prevSeqHash: try vector.map { try bytes($0, "prevSeqHash") } ?? Data(repeating: 0, count: 32))
   }
   static func rpcSteps(_ vector: Record, view: Record, raw: String? = nil)
-    throws -> [ProgramReplayServer1398.Exchange]
+    throws -> [RecordedProgramReplayServer.Exchange]
   {
     let hash = try text(view, "txHash")
     return [
@@ -281,7 +281,7 @@ enum RecordedProgramEvidence1398 {
 
 // A bounded, in-process HTTP transcript peer. Production URLSession, ProgramRPC,
 // ProgramsClient and the verifiers remain on the exercised path.
-final class ProgramReplayServer1398: @unchecked Sendable {
+final class RecordedProgramReplayServer: @unchecked Sendable {
   struct Exchange: Sendable {
     let method: String
     let params: [JSONValue]

@@ -18,7 +18,9 @@ ROOT = JVM.parents[2]
 VERIFY = JVM / "src/main/java/com/sidiora/layerx/sdk/verify"
 FIXTURES = ROOT / "sdk/platform/conformance/fixtures"
 README = JVM / "README.md"
-RECORD = JVM / "repair-22.33.1394.kvx"
+RECORD = (
+    ROOT / "spec/layerx-merge/programme/records/sdk/platform/jvm/repair-22.33.1394.kvx"
+)
 
 
 def source(name):

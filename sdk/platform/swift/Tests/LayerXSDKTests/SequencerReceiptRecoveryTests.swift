@@ -24,7 +24,7 @@ import XCTest
 // records only a successful signed transfer without receiptJson. No such revert is fabricated here.
 // Wiring request: SDK applications and CommittedReceiptTests/PortableReceiptTests (platform SDK
 // owner) must supply independently authenticated CommittedTrust when requesting commitment.
-final class Repair2231346Tests: XCTestCase {
+final class SequencerReceiptRecoveryTests: XCTestCase {
   private typealias Record = [String: JSONValue]
   private var root: URL {
     var url = URL(fileURLWithPath: #filePath)
@@ -113,7 +113,7 @@ final class Repair2231346Tests: XCTestCase {
     let pendingView = try object(vector, "receiptJson")
     var digests: [Data] = []
     for view in [pendingView, committedView] {
-      let server = try ReceiptReplayServer2231346(
+      let server = try SequencerReceiptReplayServer(
         receipt: view, rawTransaction: text(vector, "rawTransaction"))
       defer { server.stop() }
       let client = try ProgramsClient(
@@ -486,7 +486,7 @@ extension Int64 {
   fileprivate func flatMapByte() throws -> UInt8 { try XCTUnwrap(UInt8(exactly: self)) }
 }
 
-private final class ReceiptReplayServer2231346: @unchecked Sendable {
+private final class SequencerReceiptReplayServer: @unchecked Sendable {
   let url: URL
   private let descriptor: Int32
   private let lock = NSLock()

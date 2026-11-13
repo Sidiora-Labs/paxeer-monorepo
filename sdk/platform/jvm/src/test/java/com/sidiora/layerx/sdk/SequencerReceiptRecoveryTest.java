@@ -27,7 +27,7 @@ import org.bouncycastle.crypto.signers.Ed25519Signer;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-public final class Repair2231343Test {
+public final class SequencerReceiptRecoveryTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String CHAIN = "committed-fixture";
     private static final byte[] VALIDATOR_ROOT = Base64.getDecoder()

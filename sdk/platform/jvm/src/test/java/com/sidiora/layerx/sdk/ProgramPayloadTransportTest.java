@@ -62,7 +62,7 @@ import org.junit.jupiter.api.Timeout;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Timeout(60)
-public final class Repair22331389Test {
+public final class ProgramPayloadTransportTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final int LIMIT = 524288;
     private static final BigInteger FEE = BigInteger.valueOf(1000);

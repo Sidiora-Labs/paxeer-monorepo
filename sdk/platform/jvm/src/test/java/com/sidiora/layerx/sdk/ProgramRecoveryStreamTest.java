@@ -41,7 +41,7 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Timeout(60)
-public final class Repair22331390Test {
+public final class ProgramRecoveryStreamTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final IdempotencyKey KEY = new IdempotencyKey("44".repeat(32));
     @TempDir Path temporary;

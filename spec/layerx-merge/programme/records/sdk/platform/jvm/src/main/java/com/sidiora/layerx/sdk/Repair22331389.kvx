@@ -2,7 +2,7 @@
 audit = "22.30.77"
 base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
 mode = "BUILD"
-scope = "JVM SDK production package and Repair22331389Test.java only"
+scope = "JVM SDK production package and ProgramPayloadTransportTest.java only"
 qualification = "Only hf-build followed by hf-done; the runner ledger binds the final candidate revision, exact command, exit code and private evidence log."
 verified_revision_record = "/out/run/gates.jsonl final verify row; reproduced in the task handoff JSON"
 baseline = "No baseline gate ran: the task's ordered gate instructions prohibit verification before implementation and prohibit invoking verify_cmd by hand. No pre-change test failures are claimed."
