@@ -165825,7 +165825,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.41.117]
 title = "Correct the text of the home page and the programs page of the documentation site and regenerate the derived files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.41.114"]
