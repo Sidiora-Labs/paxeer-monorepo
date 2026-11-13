@@ -6,10 +6,7 @@ It provides hosted reads and testnet administration backed by the merged
 Paxeer network. `paxd` runs the kernel as part of the network and proposes
 blocks. Receipts become final when their block is committed.
 
-The public node JSON-RPC is at the root of
-`https://api-mainnet-beta.paxeer.network` and the numbered
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network` hosts, with EVM chain ID `125`
+Use the operator-provided node JSON-RPC root, with EVM chain ID `125`
 (`0x7d`). See [Public RPC endpoints](../reference/public-rpc.md). The node
 namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 The `px` namespace answers from node state; `px_register` and
@@ -21,11 +18,8 @@ infrastructure.
 ## Deployment and trust
 
 `docker/platform-core/Dockerfile` builds the boundary and runs it as user
-`4020:4020`. The deployment definition in
-`services/platform/hosted/node/deployment.yaml` runs the core container as
-`4021:4020`, alongside the supervised `paxd` container and treasury signer.
-It sources `/run/layerx/node/core.env` before starting the boundary.
-These are repository deployment definitions, not evidence of a live deployment.
+`4020:4020`, with entrypoint `/usr/local/bin/layerx-core-boundary`. Provision
+the service independently with its network, signer and storage configuration.
 
 Core and admin bind separately, by default on `0.0.0.0:9443` and
 `0.0.0.0:9444`. Both use TLS. The core plane can validate a presented client
@@ -68,7 +62,7 @@ Native funding configuration is read in `src/chain_fund.rs`:
 
 | Variable | Role |
 | --- | --- |
-| `LAYERX_CORE_CHAIN_RPC_URL` | Plain HTTP loopback node URL with explicit port; no path other than trailing slashes, query or credentials; deployment value `http://127.0.0.1:8545` |
+| `LAYERX_CORE_CHAIN_RPC_URL` | Plain HTTP loopback node URL with explicit port; no path other than trailing slashes, query or credentials |
 | `LAYERX_CORE_FUNDING_SENDER_KEY_FILE` | EVM funding sender key file; choose this or the KMS key ID |
 | `LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID` | EVM funding sender KMS key ID; ambiguous signer sources are refused |
 
@@ -78,11 +72,6 @@ core network readiness. Secret-file reads strip trailing CR/LF and reject
 empty values or values longer than 4096 bytes. The treasury signing key stays
 behind `SocketSigner`; its authorization role is separate from the EVM funding
 sender that pays for native value transfers.
-
-The legacy `LAYERX_CORE_NODE_URL`, `LAYERX_CORE_NODE_BEARER_TOKEN_FILE`,
-`LAYERX_CORE_REPLICA_URL` and `LAYERX_CORE_REPLICA_BEARER_TOKEN_FILE` entries
-remain in the deployment YAML, but current `config()` does not read them.
-They do not configure active transports.
 
 ## Public routes
 

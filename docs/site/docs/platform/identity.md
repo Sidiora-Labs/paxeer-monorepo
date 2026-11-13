@@ -135,9 +135,9 @@ With a provisioning or registrar bearer, post this body to `/v1/principals`:
 ```json
 {
   "tenant": "example",
-  "sub": "did:example:alice",
+  "sub": "did:example:principal",
   "allowed_signer_public_keys": [],
-  "account": "customer-alice",
+  "account": "customer-example",
   "audiences": ["payments"]
 }
 ```
@@ -148,7 +148,7 @@ The response echoes all five principal fields, including `tenant`. Then use a
 provisioning bearer on `/v1/sessions`:
 
 ```json
-{"tenant":"example","sub":"did:example:alice","ttl_seconds":3600}
+{"tenant":"example","sub":"did:example:principal","ttl_seconds":3600}
 ```
 
 Retain the returned `session_id`, `tenant`, and `sub` alongside the session token
@@ -314,9 +314,11 @@ Secrets `layerx-identity-server-tls`, `layerx-identity-service-tokens`, and
 `layerx-identity-store-key`.
 
 The checked-in NetworkPolicy admits TCP 9443 from testnet control, faucet,
-gateway, and the developer namespace. Egress admits DNS on port 53; enabling
-SMTP requires an appropriate deployment egress policy. The health listener's
-port is not exposed by that Service.
+gateway, and the developer namespace. Egress admits DNS on port 53 and TCP
+465 to pods labelled `app: layerx-identity-smtp`. SMTP configuration comes from
+Secret `layerx-identity-smtp` key `url` and ConfigMap `layerx-identity-mail` key
+`from`; the SMTP Service uses port 465. The identity health listener's port is
+not exposed by the identity Service.
 
 Principal and session creation return HTTP 200. Provisioning supplies the
 tenant and uses the provisioning credential.

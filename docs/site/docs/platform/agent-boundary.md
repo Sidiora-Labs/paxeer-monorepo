@@ -133,11 +133,9 @@ These are the configuration keys read by the current binary:
 | `LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL` | Required chain JSON-RPC URL, including the intended root path |
 | `LAYERX_AGENT_BOUNDARY_RECEIPT_KEYS_FILE` | Required pinned receipt-key JSON file |
 
-For public mainnet-beta, a root-path example is
-`https://api1.mainnet-beta.paxeer.network/`; the EVM chain id is `125` (`0x7d`).
-The node names `api1` through `api14.mainnet-beta.paxeer.network` and
-`api-mainnet-beta.paxeer.network` serve public JSON-RPC. The hosted gateway has
-its own `px_` method contract; nodes also expose registered `px_` reads. `node.hyperpaxeer.com` is the library mirror, not RPC.
+Use the operator-provided mainnet-beta node root; the EVM chain id is `125`
+(`0x7d`). The hosted gateway has its own `px_` method contract; nodes also
+expose registered `px_` reads.
 The configured network name is a label, not a chain-id check: this adapter's
 startup does not query `eth_chainId`, so validate the target network when
 provisioning the URL and pins.
@@ -163,9 +161,9 @@ configuration. They are not aliases for the chain URL or key file.
 
 ## Deployment and readiness
 
-`services/platform/hosted/node/deployment.yaml` declares the boundary
-container on port `9446` and a ClusterIP service on `9443`. Configure its chain
-URL and receipt-key file using the keys above before starting the service.
+Deploy the boundary as a separate service with its TLS listener on port
+`9446` by default. Configure its chain URL, receipt-key file and credentials
+using the keys above before starting it.
 
 `/livez` checks only that the boundary is serving HTTP. `/readyz` performs a
 chain receipt lookup for a fixed probe hash. A valid null result is sufficient;

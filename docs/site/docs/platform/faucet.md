@@ -15,10 +15,8 @@ committed. Fund public accounts through transfers on that network and read the
 resulting account balances directly. A private faucet grant is not public
 custody credit or evidence of a mainnet balance.
 
-Use the [public node endpoints](../reference/public-rpc.md) at their HTTPS root:
-`https://api-mainnet-beta.paxeer.network` or
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. Check `eth_chainId` before signing;
+Use the operator-provided HTTPS node root; see
+[public node endpoints](../reference/public-rpc.md). Check `eth_chainId` before signing;
 use `eth_getBalance` for an EVM address's native balance.
 
 The node serves the `px` namespace at its root and answers from node state.

@@ -14,14 +14,12 @@ and [Checkpoints](../concepts/checkpoints.md) for committed-block evidence.
 
 ## 1. Connect to a node
 
-The public HTTPS JSON-RPC endpoints are the root of
-`https://api-mainnet-beta.paxeer.network` and
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. Keep several configured and
-compare `eth_blockNumber` when choosing a node near the head.
+Set `RPC_URL` to an operator-provided HTTPS node root. Keep several nodes
+configured and compare `eth_blockNumber` when choosing one near the head.
 
 ```sh
-export RPC_URL=https://api1.mainnet-beta.paxeer.network
+: "${RPC_URL:?}"
+export RPC_URL
 curl --fail --silent --show-error --max-time 15 "$RPC_URL" \
   --header 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
@@ -30,10 +28,7 @@ curl --fail --silent --show-error --max-time 15 "$RPC_URL" \
 The response's `result` must be `"0x7d"`. Public node namespaces are `debug`,
 `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`; an advertised namespace does
 not imply every upstream Geth method is available. WebSocket clients use
-root URLs such as `wss://api1.mainnet-beta.paxeer.network`.
-
-The unified router and `/rpc`, `/rpc/ws` and `/rpc/schema` routes are retired.
-`node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
+the operator-provided WebSocket root URL.
 
 ## 2. Derive an account and fund it
 
@@ -369,7 +364,7 @@ funding implemented in `src/rpc_register.rs` and `src/rpc_faucet.rs` beside it.
 
 | Method | Positional parameters and result |
 | --- | --- |
-| `px_register` | Lowercase Ed25519 public key (64 hex) and proof-of-possession signature (128 hex). Returns the principal's `tenant`, `sub`, `allowed_signer_public_keys`, `account` and `audiences`. |
+| `px_register` | Lowercase Ed25519 public key (64 hex), proof-of-possession signature (128 hex), and optional email or verification token. The two-argument form returns the principal's `tenant`, `sub`, `allowed_signer_public_keys`, `account` and `audiences`. |
 | `px_resolveAccount` | An EVM address or explicit `did:layerx:<64 hex>` selector. Returns the EVM/Paxeer/DID/native-account join and `bound`; unbound halves are null. |
 | `px_getAccount` | The same EVM/DID selector. Returns `{account, paxeer}`; `paxeer` contains address, balance, nonce and height when an EVM binding exists. |
 | `px_requestFunds` | DID and bound lowercase Ed25519 public key. Requires a Bearer session authorizing that signer; returns `funded`, `funding_id`, `transaction_id`, decimal-string `amount`, `network` and `starter_credit`. |
@@ -377,12 +372,16 @@ funding implemented in `src/rpc_register.rs` and `src/rpc_faucet.rs` beside it.
 | `px_getReceiptKeys` | Empty array. Returns `{keys:[{keyId,publicKey,firstHeight,lastHeight}]}`. Key IDs/public keys are `0x`-prefixed; height bounds are JSON integers. |
 
 For `px_register`, sign the SHA-256 digest of three parts: ASCII
-`layerx-register-binding-v1`, ASCII `beta` and the raw 32-byte signer public
-key. Prefix **each** part with its byte length as an unsigned 64-bit
+`layerx-register-binding-v1`, the operator-configured tenant as ASCII, and
+the raw 32-byte signer public key. Prefix **each** part with its byte length
+as an unsigned 64-bit
 big-endian integer before hashing. This proof is distinct from the raw
 on-chain addr binding message in step 4. Registration is idempotent for the
-same key and does not itself provide a Bearer session or pay transaction gas.
-Use the operator's identity session flow before requesting starter credit.
+same key and tenant. The two-argument form does not provide a Bearer session
+or pay transaction gas. An optional email starts signup; a verification token
+(`vfy_` followed by 64 lowercase hex characters) completes verification and
+returns session data. Use the operator's identity session flow before
+requesting starter credit.
 
 Keep the original EVM/DID selector for subsequent reads; a returned
 `layerx_account` identifier is not a reverse lookup selector. Starter credit

@@ -19,10 +19,10 @@ Les sous-chaînes sont des domaines locataires : des espaces de noms dans la bas
 
 ## Essayer la connexion
 
-Le JSON-RPC public est servi en HTTPS à la racine de `api1.mainnet-beta.paxeer.network` à `api14.mainnet-beta.paxeer.network`, ainsi que de `api-mainnet-beta.paxeer.network`. Ces requêtes lisent uniquement l’identifiant de chaîne et la hauteur de bloc. `PAXEER_RPC_URL` est ici une variable shell locale.
+Choisissez auprès de l’opérateur une URL HTTPS de nœud à la racine et définissez `PAXEER_RPC_URL`. Ces requêtes lisent uniquement l’identifiant de chaîne et la hauteur de bloc.
 
 ```sh
-PAXEER_RPC_URL=https://api-mainnet-beta.paxeer.network
+: "${PAXEER_RPC_URL:?}"
 curl --fail --silent --show-error --max-time 30 "$PAXEER_RPC_URL" \
   --header 'Content-Type: application/json' \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'

@@ -9,22 +9,17 @@ the database and can be launched without new chain infrastructure.
 
 ## Connect to the network
 
-Use root-path node JSON-RPC at
-`https://api-mainnet-beta.paxeer.network` or
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. Check `eth_chainId` before
+Use root-path node JSON-RPC at an operator-provided origin. Check
+`eth_chainId` before
 signing, keep multiple nodes configured and compare their block heights.
 The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
 and `txpool`; see [Public RPC endpoints](../reference/public-rpc.md).
 
-The former unified router, `/rpc` and `/rpc/ws` public endpoints are retired.
-The separate LayerX interface and sequencer service deployment model are retired.
-`node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
-
 Hosted gateway methods are a distinct service contract for this same network.
 Obtain the gateway origin from its operator and post JSON-RPC to its root.
-The 17 declared methods in
-`services/platform/hosted/gateway/openrpc.json` cover account resolution,
+The gateway serves 17 methods and publishes their schema at `GET /openrpc.json`.
+The checked-in contract is `services/platform/hosted/gateway/openrpc.json`.
+The served methods cover account resolution,
 balances, indexed history, registration, funding claims, consensus evidence,
 capabilities and the node receipt relay. They are not automatically available
 on every public node. The gateway refuses all retired `lx_` calls with

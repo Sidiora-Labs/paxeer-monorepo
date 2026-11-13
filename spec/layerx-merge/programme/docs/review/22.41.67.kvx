@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.67"
+pages = 20
+
+[page.1]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "corrected"
+
+[page.2]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "corrected"
+
+[page.3]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "corrected"
+
+[page.4]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "corrected"
+
+[page.5]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "corrected"
+
+[page.6]
+path = "docs/site/docs/overview/monorepo.md"
+status = "corrected"
+
+[page.7]
+path = "docs/site/docs/overview/payments.md"
+status = "corrected"
+
+[page.8]
+path = "docs/site/docs/overview/quickstart.md"
+status = "corrected"
+
+[page.9]
+path = "docs/site/docs/overview/translations.md"
+status = "corrected"
+
+[page.10]
+path = "docs/site/docs/overview/unified-network.md"
+status = "corrected"
+
+[page.11]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "corrected"
+
+[page.12]
+path = "docs/site/docs/platform/cli.md"
+status = "corrected"
+
+[page.13]
+path = "docs/site/docs/platform/faucet.md"
+status = "corrected"
+
+[page.14]
+path = "docs/site/docs/platform/gateway-rpc.md"
+status = "corrected"
+
+[page.15]
+path = "docs/site/docs/platform/hosted-authority.md"
+status = "corrected"
+
+[page.16]
+path = "docs/site/docs/platform/hosted-core.md"
+status = "corrected"
+
+[page.17]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "corrected"
+
+[page.18]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "corrected"
+
+[page.19]
+path = "docs/site/docs/platform/identity.md"
+status = "corrected"
+
+[page.20]
+path = "docs/site/docs/platform/index.md"
+status = "corrected"

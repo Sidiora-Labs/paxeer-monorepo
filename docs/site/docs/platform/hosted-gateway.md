@@ -13,10 +13,8 @@ Paxeer mainnet-beta is one BFT chain, run by `paxd`, with EVM chain ID `125`
 final when its block is committed. Sub-chains are tenant domains in the
 database and can be launched without provisioning another chain.
 
-Public node JSON-RPC is served at the root of
-`https://api-mainnet-beta.paxeer.network` and
-`https://api1.mainnet-beta.paxeer.network` through
-`https://api14.mainnet-beta.paxeer.network`. The node namespaces are `debug`,
+Public node JSON-RPC uses the operator-provided node root. The node namespaces
+are `debug`,
 `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`; method availability depends
 on node configuration. Use [Public RPC endpoints](../reference/public-rpc.md)
 for node HTTP and WebSocket examples.
@@ -27,23 +25,22 @@ Ingress manifest is not evidence of a deployed public gateway. The gateway
 accepts JSON-RPC at `POST /` with `Content-Type: application/json`. A hosted
 `px_` method must not be assumed available on every public node.
 
-The former unified router and its `/rpc`, `/rpc/schema` and `/rpc/ws` public contract are retired.
-The separate LayerX interface and standalone daemon deployment model are retired.
-`node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
-
 ## Hosted JSON-RPC contract
 
-OpenRPC declares **17 methods**, including the node receipt relay below.
-Arguments are positional arrays. Methods without arguments use `params: []`.
+The gateway serves **17 methods**, including the node receipt relay below,
+and publishes their schema at `GET /openrpc.json`. The checked-in OpenRPC
+document also includes five node inference methods, which are filtered from
+the gateway schema. Arguments are positional arrays; methods without
+arguments use `params: []`.
 
 | Method | Arguments | Result or purpose |
 | --- | --- | --- |
-| `px_register` | `signer_public_key`, `registration_signature` | Self-service identity registration bound to proof of possession of an Ed25519 key |
+| `px_register` | `signer_public_key`, `registration_signature`, optional `email_or_verification_token` | Identity registration, email signup or verification with Ed25519 proof of possession |
 | `px_requestFunds` | `did`, `signer_public_key` | Authenticated starter-credit claim through the configured faucet |
 | `px_resolveAccount` | `account` | EVM address, Pax address and native identity bindings; unbound fields are null |
 | `px_getAccount` | `account` | Resolution, EVM balance and nonce at one chain height |
 | `px_getBalances` | `account` | Bound account's bank denoms and decimal-string base-unit amounts at one height |
-| `px_listAssets` | none | At most 16 indexed assets, sorted by asset ID, with chain metadata where available |
+| `px_listAssets` | optional `cursor`, `limit` | At most 16 indexed assets in registration order, with chain metadata where available |
 | `px_getNetwork` | none | Network identifier, EVM head and optional consensus head |
 | `px_getHistory` | `account`, optional `cursor`, `limit`, `kind` | Indexed transfers of one EVM address in indexer position order |
 | `px_getUnifiedHistory` | `account`, optional `cursor`, `limit`, `kind` | Resolved account history with side tags; current dispatch queries the EVM side |
@@ -67,6 +64,11 @@ Consensus `height` arguments are positive decimal `u64` strings, such as
 Receipt keys have `0x`-prefixed 32-byte `keyId` and `publicKey` fields;
 `firstHeight` and `lastHeight` are JSON integers. Preserve these encodings
 when building clients.
+
+Asset cursors are canonical positive decimal signed-64-bit registration-row
+IDs. `px_listAssets` returns `height`, `assets`, `joined_limit: 16`,
+`next_cursor` and `order: "registration"`. The runtime accepts a limit from
+1 to 16, defaulting to 16; the checked-in schema declares the optional cursor.
 
 Account selectors are an EVM address or `did:layerx:<64 hex>`.
 `layerx_account` is a distinct native account reference: retain the original
@@ -97,7 +99,12 @@ results describe decoded views, not successful execution of every operation.
 ## Tokens and scopes
 
 Registration requires a lowercase 32-byte Ed25519 public key and a lowercase
-64-byte signature over the registration binding described in OpenRPC.
+64-byte signature over the registration binding in `src/rpc_register.rs`.
+The binding is SHA-256 of the domain `layerx-register-binding-v1`, configured
+tenant and raw public key, each prefixed with its unsigned 64-bit big-endian
+byte length. Two arguments provision the principal directly. An optional
+email starts signup; a verification token (`vfy_` plus 64 lowercase hex
+characters) completes verification and returns session data.
 `px_requestFunds` requires a Bearer session authorising the supplied DID's
 signer. Its result must contain funding evidence and a settled starter-credit
 record. This hosted claim is not an unauthenticated public faucet or a
@@ -137,12 +144,12 @@ JSON-RPC, key management and configured product routes, it admits:
 | `GET /livez` | Process liveness, service name and package version |
 | `GET /readyz` | Product-scope dependency readiness |
 | `GET /readyz/core` | Core-scope dependency readiness |
-| `GET /v1/status` | Gateway, kernel boundary, chain and indexer status |
+| `GET /v1/status` | Gateway, durable-store, event-producer, chain, consensus and indexer status |
 | `GET /metrics` | Event producer failure and overflow counters |
 | `GET /internal/v1/principal` | Authenticated gateway key's principal digest |
 | `POST /v1/settle` | Authenticated merchant receipt settlement check |
 | `GET /v1/receipts/{id}` | Principal-owned receipt lookup and verification |
-| `GET /v1/state` | Verified backend state; refuses missing, stale or invalid proof evidence |
+| `GET /v1/state` | Validator-authenticated committed state; refuses missing, stale or invalid evidence |
 
 `POST /v1/activities` and the `/v1/programs` route family are retired ingress:
 requests return `404 not_found`. All `lx_` JSON-RPC methods, including the
@@ -178,6 +185,7 @@ username/password authentication.
 | `LAYERX_GATEWAY_CONSENSUS_RPC_URL` | Consensus endpoint for commit, validator and batch reads |
 | `LAYERX_GATEWAY_INDEXER_URL` | Indexer read endpoint |
 | `LAYERX_GATEWAY_RECEIPT_KEYS_FILE` | Receipt key list used for publication and verification |
+| `LAYERX_GATEWAY_STATE_VALIDATORS_FILE` | Pinned consensus chain ID and validator set for committed state verification |
 | `LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS` | Capability cache lifetime; default 15 seconds |
 | `LAYERX_GATEWAY_REDIS_URL` | Durable Redis TLS endpoint |
 | `LAYERX_GATEWAY_REDIS_USERNAME_FILE`, `LAYERX_GATEWAY_REDIS_PASSWORD_FILE` | Redis ACL credential files |
@@ -185,28 +193,31 @@ username/password authentication.
 | `LAYERX_GATEWAY_LXP_WIRE_VERSION` | Numeric current state-commitment protocol version |
 | `LAYERX_GATEWAY_PROTOCOL_NETWORK_ID` | Signed protocol network identifier; distinct from EVM chain ID |
 | `LAYERX_GATEWAY_IDEMPOTENCY_SECONDS` | Retention from 3600 to 2592000 seconds; default 604800 |
-| `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | Service credential for self-registration |
+| `LAYERX_GATEWAY_IDENTITY_URL`, `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | Identity endpoint and service credential; configured together |
+| `LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` | Optional key-provisioning binding key for the identity client |
+| `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | Service credential for self-registration; requires identity configuration |
+| `LAYERX_GATEWAY_TENANT` | Required registration tenant when provisioning is enabled; 1–95 lowercase letters, digits or `-_.` |
 | `LAYERX_GATEWAY_FAUCET_URL`, `LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE`, `LAYERX_GATEWAY_FAUCET_CLAIM_AMOUNT` | Hosted starter-credit claim configuration |
 | `LAYERX_GATEWAY_TRUSTED_PROXIES` | Trusted proxy addresses/CIDRs for client identity attribution |
 | `LAYERX_GATEWAY_ROUTE_BINDINGS_FILE` | Protected route bindings and allowed origins |
 
-Kernel-dependent hosted boundaries are optional gateway backends. Configuring
-`LAYERX_GATEWAY_COMPONENT_URL` enables their configuration bundle, including
-`LAYERX_GATEWAY_AUTHORITY_URL`, `LAYERX_GATEWAY_IDENTITY_URL`,
-`LAYERX_GATEWAY_PROGRAM_REGISTRY_URL` and the corresponding
-`*_TOKEN_FILE` credentials. `LAYERX_GATEWAY_PUBLIC_CORE_URL` configures public
-kernel reads. The bundle uses `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12`,
-`LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE`,
-`LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` and
-`LAYERX_GATEWAY_MODULE_REGISTRY_FILE`. Partial kernel configuration is refused.
-These service boundaries do not create an additional chain or finality stage.
+Identity configuration is independent of the optional kernel bundle. It can
+be supplied without `LAYERX_GATEWAY_COMPONENT_URL`.
 
-A deployment without that bundle may supply
-`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12` and
-`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE` together for service
-mTLS. The service identity pair conflicts with the kernel client identity.
-Use the runtime configuration parser in `src/main.rs` as the source for
-required combinations; deployment YAML values are not mainnet defaults.
+Configuring `LAYERX_GATEWAY_COMPONENT_URL` enables the kernel bundle: component,
+authority and program-registry URLs and their `*_TOKEN_FILE` credentials,
+plus `LAYERX_GATEWAY_MODULE_REGISTRY_FILE`. `LAYERX_GATEWAY_PUBLIC_CORE_URL`
+optionally selects public core reads. Partial kernel configuration is refused.
+These boundaries do not create another chain or finality stage.
+
+Outbound service mTLS accepts either
+`LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` with
+`LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE`, or
+`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12` with
+`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE`. Each pair must be
+complete, and the pairs are mutually exclusive. A kernel bundle requires a
+client identity. Use the configuration parser in `src/main.rs` for required
+combinations.
 
 ## Redis state and ACL
 
@@ -259,12 +270,25 @@ trust anchor. `px_getReceiptKeys` publishes the gateway's configured list;
 missing configuration returns `receipt_keys_unavailable` rather than invented
 keys.
 
-`GET /v1/state` verifies the backend head receipt, batch signature and
-inclusion proof against configured receipt keys before returning state facts.
-Unavailable or noncurrent evidence returns
-`503 principal_state_proof_unavailable`; invalid proof returns
-`502 state_proof_unverified`. This signed head evidence does not replace
-committed-block verification.
+`GET /v1/state` reads consensus status and the commit at its reported head.
+`LAYERX_GATEWAY_STATE_VALIDATORS_FILE` pins the chain ID and validator set;
+its JSON document contains `chain_id` and 1–256 `validators`, each with an
+Ed25519 `public_key` in hex and positive integer `voting_power`. The file is
+bounded to 65536 bytes and rejects unknown fields and duplicate keys.
+
+The gateway authenticates the header and validator commit, matches the
+status height, block hash and application hash, requires `catching_up: false`,
+and accepts timestamps at most 120 seconds old or five seconds in the future.
+Redis retains the observed height/hash to refuse regression or divergence.
+The response includes `canonical_state_root`, `state_root`, `block_height`,
+`block_hash`, `timestamp_ms`, `commitment_proof` and
+`verification: "bft-signed-committed-header"`.
+
+Missing pins return `503 state_authority_not_configured`; missing node or
+commit evidence returns `503 state_node_unavailable` or
+`503 state_proof_unavailable`. Invalid evidence returns
+`502 state_proof_unverified`; stale or regressing evidence returns
+`502 state_proof_stale`.
 
 `POST /v1/settle` binds the merchant request to canonical receipt evidence,
 checks receipt authorisation, then queries `pax_sequencerReceipt` and
@@ -279,24 +303,27 @@ queue acknowledgements and capability flags do not prove committed execution.
 
 ## Readiness
 
-`GET /readyz` and `GET /readyz/core` report configured dependency health.
-They return HTTP 200 when all configured backends are ready, otherwise 503.
-Unconfigured backends do not make that aggregate fail. Inspect the individual
-`backends` and `capabilities.chain_serving` entries before assuming a feature
-is usable. Chain readiness requires an `eth_chainId` result of `0x7d`;
-consensus readiness requires a valid status with `catching_up: false`.
+`GET /readyz/core` requires a configured, ready chain and all configured
+backends to be ready. `GET /readyz` additionally requires
+`product_routes.complete: true`. They return HTTP 200 when those conditions
+hold and HTTP 503 otherwise. Chain readiness requires `eth_chainId: "0x7d"`;
+consensus readiness requires `catching_up: false`.
+
+The `backends` map reports `durable_store`, an enabled `event_producer`,
+`paxeer_chain`, `consensus` and `indexer`. Unconfigured consensus and indexer
+entries remain explicit and do not alone fail readiness; an unconfigured
+chain does. `components` contains `durable_store`. Inspect
+`capabilities.chain_serving` and the backend entries for feature availability.
 
 Readiness includes protocol/network identity, observation and expiry times,
-and `scope` (`product` or `core`). Product scope additionally includes
-`product_routes`. The document is valid for 30 seconds. A dependency probe
-or a ready route listing does not attest to a completed payment or program
-execution.
+and `scope` (`product` or `core`). Product scope includes `product_routes`;
+core scope reports it as null. The document is valid for 30 seconds. Readiness
+does not attest to a completed payment or program execution.
 
-With no kernel bundle, kernel component entries are omitted. With a bundle,
-its five backends and `principal_state_boundary` are included; the latter is
-currently `unavailable`. `GET /v1/status` has a different summary shape:
-`hosted_gateway` is `degraded` when Redis is ready and `unavailable` otherwise.
-It does not report that field as `available`.
+`GET /v1/status` has a separate summary. Its `hosted_gateway` field is
+`available` when every listed backend is ready, `degraded` when that condition
+fails but Redis is ready, and `unavailable` otherwise. Unconfigured listed
+backends prevent the `available` summary.
 
 ## Tests and build entry points
 
