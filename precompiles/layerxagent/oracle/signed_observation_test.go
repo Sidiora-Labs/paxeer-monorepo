@@ -33,7 +33,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type repair197Node struct {
+type oracleNode struct {
 	a             *app.App
 	ctx           sdk.Context
 	p             precompiles.IPrecompile
@@ -45,7 +45,7 @@ type repair197Node struct {
 	txIndex       uint64
 }
 
-func newRepair197Node(t *testing.T) *repair197Node {
+func newOracleNode(t *testing.T) *oracleNode {
 	t.Helper()
 	a := app.Setup(t, false, true, false)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
@@ -57,7 +57,7 @@ func newRepair197Node(t *testing.T) *repair197Node {
 	a.RefreshPrecompiles(ctx)
 	p, ok := a.EvmKeeper.CustomPrecompiles(ctx)[common.HexToAddress(oracle.OracleAddress)].(precompiles.IPrecompile)
 	require.True(t, ok)
-	h := &repair197Node{a: a, ctx: ctx, p: p, signer: utils.NewSigner(), other: utils.NewSigner(), feed: [32]byte{0x19, 0x7}}
+	h := &oracleNode{a: a, ctx: ctx, p: p, signer: utils.NewSigner(), other: utils.NewSigner(), feed: [32]byte{0x19, 0x7}}
 	h.private = ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x79}, ed25519.SeedSize))
 	copy(h.public[:], h.private.Public().(ed25519.PublicKey))
 	h.did = []byte("did:layerx:" + hex.EncodeToString(h.public[:]))
@@ -96,7 +96,7 @@ func newRepair197Node(t *testing.T) *repair197Node {
 	return h
 }
 
-func (h *repair197Node) deliver(t *testing.T, account utils.TestAcct, to common.Address, input []byte, success bool) *evmtypes.Receipt {
+func (h *oracleNode) deliver(t *testing.T, account utils.TestAcct, to common.Address, input []byte, success bool) *evmtypes.Receipt {
 	t.Helper()
 	signer := ethtypes.LatestSignerForChainID(h.a.EvmKeeper.ChainID(h.ctx))
 	signed, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.LegacyTx{
@@ -143,7 +143,7 @@ func (h *repair197Node) deliver(t *testing.T, account utils.TestAcct, to common.
 	return receipt
 }
 
-func (h *repair197Node) bind(t *testing.T, account utils.TestAcct, private ed25519.PrivateKey) {
+func (h *oracleNode) bind(t *testing.T, account utils.TestAcct, private ed25519.PrivateKey) {
 	t.Helper()
 	var public [32]byte
 	copy(public[:], private.Public().(ed25519.PublicKey))
@@ -159,7 +159,7 @@ func (h *repair197Node) bind(t *testing.T, account utils.TestAcct, private ed255
 	require.Equal(t, public, bound)
 }
 
-func (h *repair197Node) register(t *testing.T, private ed25519.PrivateKey) {
+func (h *oracleNode) register(t *testing.T, private ed25519.PrivateKey) {
 	t.Helper()
 	var public [32]byte
 	copy(public[:], private.Public().(ed25519.PublicKey))
@@ -180,7 +180,7 @@ func (h *repair197Node) register(t *testing.T, private ed25519.PrivateKey) {
 	require.Zero(t, receipt.ResultCode, receipt.ResultCode.Error())
 }
 
-func (h *repair197Node) observation(t *testing.T, sequence uint64, price int64) (lxphost.Activity, []byte) {
+func (h *oracleNode) observation(t *testing.T, sequence uint64, price int64) (lxphost.Activity, []byte) {
 	t.Helper()
 	identitySequence, err := h.a.LayerXHost.ReadIdentitySequence(h.ctx, h.did)
 	require.NoError(t, err)
@@ -194,7 +194,7 @@ func (h *repair197Node) observation(t *testing.T, sequence uint64, price int64) 
 	return a, input
 }
 
-func (h *repair197Node) read(t *testing.T, ctx sdk.Context, caller sdk.AccAddress, price int64) {
+func (h *oracleNode) read(t *testing.T, ctx sdk.Context, caller sdk.AccAddress, price int64) {
 	t.Helper()
 	input, err := h.p.GetABI().Pack(oracle.GetValidatorPriceMethod, h.feed)
 	require.NoError(t, err)
@@ -206,7 +206,7 @@ func (h *repair197Node) read(t *testing.T, ctx sdk.Context, caller sdk.AccAddres
 	require.Equal(t, []interface{}{big.NewInt(price), big.NewInt(1), big.NewInt(ctx.BlockTime().Unix())}, values)
 }
 
-func (h *repair197Node) auditCount(t *testing.T) int {
+func (h *oracleNode) auditCount(t *testing.T) int {
 	t.Helper()
 	it := sdk.KVStorePrefixIterator(h.ctx.KVStore(h.a.GetKey(exchangetypes.StoreKey)), []byte("oracle/activity/"))
 	defer func() { require.NoError(t, it.Close()) }()
@@ -217,8 +217,8 @@ func (h *repair197Node) auditCount(t *testing.T) int {
 	return count
 }
 
-func TestRepair_197_SignedNodeTransaction(t *testing.T) {
-	h := newRepair197Node(t)
+func TestOracleSignedNodeTransaction(t *testing.T) {
+	h := newOracleNode(t)
 	a, input := h.observation(t, 1, 1000)
 	decoded, err := h.p.GetABI().Methods[oracle.SubmitPriceMethod].Inputs.Unpack(input[4:])
 	require.NoError(t, err)
@@ -295,8 +295,8 @@ func TestRepair_197_SignedNodeTransaction(t *testing.T) {
 	require.Equal(t, 2, h.auditCount(t))
 }
 
-func TestRepair_197_RetiredExchange(t *testing.T) {
-	h := newRepair197Node(t)
+func TestOracleRetiredExchange(t *testing.T) {
+	h := newOracleNode(t)
 	retired, err := h.a.LayerXExchangeKeeper.Retired(h.ctx)
 	require.NoError(t, err)
 	require.True(t, retired)
@@ -321,8 +321,8 @@ func TestRepair_197_RetiredExchange(t *testing.T) {
 	require.True(t, retired)
 }
 
-func TestRepair_197_ReadWithoutReplay(t *testing.T) {
-	h := newRepair197Node(t)
+func TestOracleReadWithoutReplay(t *testing.T) {
+	h := newOracleNode(t)
 	dir, keys := t.TempDir(), h.ctx.MultiStore().StoreKeys()
 	open := func() sdk.CommitMultiStore {
 		cfg := config.DefaultStateCommitConfig()
@@ -388,7 +388,7 @@ func TestRepair_197_ReadWithoutReplay(t *testing.T) {
 	require.Equal(t, 2, h.auditCount(t))
 }
 
-func TestRepair_197_WeightedMedian(t *testing.T) {
+func TestOracleWeightedMedian(t *testing.T) {
 	f := fixture(t)
 	live, err := oracle.NewKeeper(f.host, f.hostKey.Name(), f.exchangeKey.Name())
 	require.NoError(t, err)

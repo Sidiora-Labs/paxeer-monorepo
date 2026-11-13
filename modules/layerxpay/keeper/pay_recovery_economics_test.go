@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_131_SnapshotGrowth(t *testing.T) {
+func TestPayRecoverySnapshotGrowth(t *testing.T) {
 	h, stream, token := newAgentStreamHarness(t, "pointer")
 	payer, payee := h.actors[0], h.actors[1]
 	params := types.Params{EscrowEnabled: true, BudgetEnabled: true, StreamEnabled: true, ServiceEnabled: true}
@@ -200,7 +200,7 @@ func TestRepair_131_SnapshotGrowth(t *testing.T) {
 	})
 }
 
-func TestRepair_131_EscrowReceiptBinding(t *testing.T) {
+func TestEscrowEconomicReceiptBinding(t *testing.T) {
 	for _, operation := range []string{"release", "capture", "partial", "timeout", "split"} {
 		t.Run(operation, func(t *testing.T) {
 			directory := t.TempDir()
@@ -330,7 +330,7 @@ func TestRepair_131_EscrowReceiptBinding(t *testing.T) {
 	}
 }
 
-func TestRepair_131_UnusedBudgetRevoke(t *testing.T) {
+func TestBudgetRevokeRefundsUnusedFunds(t *testing.T) {
 	for _, spent := range []uint64{0, 20} {
 		t.Run(fmt.Sprint(spent), func(t *testing.T) {
 			directory := t.TempDir()
@@ -411,9 +411,9 @@ func TestRepair_131_UnusedBudgetRevoke(t *testing.T) {
 	}
 }
 
-// Repair131BudgetWorld exposes real persistent producers to the external-package
+// BudgetRevokeWorld exposes real persistent producers to the external-package
 // 0x101B proof without introducing an import cycle through the precompile.
-type Repair131BudgetWorld struct {
+type BudgetRevokeWorld struct {
 	Keeper    *Keeper
 	Context   sdk.Context
 	Caller    common.Address
@@ -428,12 +428,12 @@ type Repair131BudgetWorld struct {
 	stop      func()
 }
 
-func OpenRepair131BudgetWorld(t *testing.T) *Repair131BudgetWorld {
+func OpenBudgetRevokeWorld(t *testing.T) *BudgetRevokeWorld {
 	t.Helper()
 	directory := t.TempDir()
 	h, stop := proofPayKeeperOpen(t, directory)
 	h.actors = []payActor{h.registerActor(t, 1), h.registerActor(t, 2)}
-	w := &Repair131BudgetWorld{Keeper: &h.keeper, Context: h.ctx, Caller: h.actors[0].address, Stranger: h.actors[1].address,
+	w := &BudgetRevokeWorld{Keeper: &h.keeper, Context: h.ctx, Caller: h.actors[0].address, Stranger: h.actors[1].address,
 		ID: [32]byte{0xf1}, directory: directory, harness: h, stop: stop}
 	seed := paySubmitFundedEscrow(t, h, w.ID)
 	copy(w.Owner[:], seed[32:64])
@@ -449,7 +449,7 @@ func OpenRepair131BudgetWorld(t *testing.T) *Repair131BudgetWorld {
 	return w
 }
 
-func (w *Repair131BudgetWorld) Reopen(t *testing.T) {
+func (w *BudgetRevokeWorld) Reopen(t *testing.T) {
 	t.Helper()
 	w.harness.cms.Commit(true)
 	w.stop()

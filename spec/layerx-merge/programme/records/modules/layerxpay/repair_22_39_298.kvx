@@ -5,7 +5,7 @@ base_revision = "f621bfa24458a6ef03b9907cf1f2a699e7ea5baa"
 producer_revision = "ecb298987c"
 verified_revision = "The candidate revision recorded by hf-done in /out/run/gates.jsonl and the final evidence JSON; the record is part of that candidate."
 build_cmd = "go build ./modules/layerxpay/... && go vet ./modules/layerxpay/types/ ./modules/layerxpay/keeper/"
-verify_cmd = "test -s modules/layerxpay/repair_22_39_298.kvx && go test -count=1 ./modules/layerxpay/types/ ./modules/layerxpay/keeper/ -skip 'TestMethodActivityMatchesKernelTypes|TestCheckWritePauseExitPaths|TestCheckWriteFamilyDisabled|TestCheckWriteViewsUngated'"
+verify_cmd = "test -s spec/layerx-merge/programme/records/modules/layerxpay/repair_22_39_298.kvx && go test -count=1 ./modules/layerxpay/types/ ./modules/layerxpay/keeper/ -skip 'TestMethodActivityMatchesKernelTypes|TestCheckWritePauseExitPaths|TestCheckWriteFamilyDisabled|TestCheckWriteViewsUngated'"
 evidence = "Private hf-build and hf-done logs and /out/run/gates.jsonl record actual revision, command, exit and log; this record does not assert an unrun gate passed."
 
 [case.params_json]

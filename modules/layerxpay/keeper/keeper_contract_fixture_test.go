@@ -18,7 +18,7 @@ import (
 
 // The exported fixture connects the package's committed real host/store/binding
 // producers to external ABI consumers without substituting the keeper or host.
-type RepairM1303World struct {
+type EscrowContractWorld struct {
 	Keeper              *Keeper
 	Context             sdk.Context
 	HostKey, PayKey     sdk.StoreKey
@@ -31,13 +31,13 @@ type RepairM1303World struct {
 	stop                func()
 }
 
-func OpenRepairM1303World(t *testing.T) *RepairM1303World {
+func OpenEscrowContractWorld(t *testing.T) *EscrowContractWorld {
 	t.Helper()
 	directory := t.TempDir()
 	h, stop := proofPayKeeperOpen(t, directory)
 	h.actors = []payActor{h.registerActor(t, 1), h.registerActor(t, 2)}
 	a := payEscrowFundedArgs(t, h)
-	w := &RepairM1303World{Keeper: &h.keeper, Context: h.ctx, HostKey: h.hostKey, PayKey: h.storeKey,
+	w := &EscrowContractWorld{Keeper: &h.keeper, Context: h.ctx, HostKey: h.hostKey, PayKey: h.storeKey,
 		Caller: h.actors[0].address, Beneficiary: h.actors[1].address, ID: a.EscrowID,
 		ResultKey: [32]byte{0x93}, Open: a, directory: directory, harness: h, stop: stop}
 	var err error
@@ -46,14 +46,14 @@ func OpenRepairM1303World(t *testing.T) *RepairM1303World {
 	return w
 }
 
-func (w *RepairM1303World) Capture(t *testing.T) {
+func (w *EscrowContractWorld) Capture(t *testing.T) {
 	t.Helper()
 	var err error
 	w.Receipt, err = w.Keeper.EscrowPartialCapture(w.Context, w.Beneficiary, w.ID, codec.U128{Lo: 25}, w.ResultKey)
 	require.NoError(t, err)
 }
 
-func (w *RepairM1303World) Reopen(t *testing.T) {
+func (w *EscrowContractWorld) Reopen(t *testing.T) {
 	t.Helper()
 	at := w.Context.BlockTime()
 	w.harness.cms.Commit(true)
@@ -63,7 +63,7 @@ func (w *RepairM1303World) Reopen(t *testing.T) {
 	w.Context, w.HostKey, w.PayKey = h.ctx.WithBlockTime(at), h.hostKey, h.storeKey
 }
 
-func ProveRepairM1303Authority(t *testing.T) {
+func ProvePayCallerAuthority(t *testing.T) {
 	t.Helper()
 	h := newPayHarness(t)
 	for _, actor := range h.actors {
@@ -82,7 +82,7 @@ func ProveRepairM1303Authority(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrUnboundCaller)
 }
 
-func ProveRepairM1303Constructor(t *testing.T) {
+func ProvePayKeeperConstructor(t *testing.T) {
 	t.Helper()
 	h := newPayHarness(t)
 	k, err := NewKeeper(h.cdc, h.storeKey, h.hostKey, h.host, h.evm, h.custody, "pay-governance")
@@ -121,7 +121,7 @@ func ProveRepairM1303Constructor(t *testing.T) {
 	require.ErrorContains(t, err, "LXP_AGENT_STREAMS_UNKNOWN_TOKEN")
 }
 
-func ProveRepairM1303Keeper(t *testing.T) {
+func ProvePayKeeperAssetBindings(t *testing.T) {
 	t.Helper()
 	for _, kind := range []string{"pointer", "native", "factory"} {
 		t.Run(kind, func(t *testing.T) {
@@ -162,7 +162,7 @@ func ProveRepairM1303Keeper(t *testing.T) {
 	}
 }
 
-func ProveRepairM1303BudgetTime(t *testing.T) {
+func ProveBudgetTimeProjection(t *testing.T) {
 	t.Helper()
 	for _, tc := range []struct {
 		name             string
@@ -257,9 +257,9 @@ func ProveRepairM1303BudgetTime(t *testing.T) {
 	})
 }
 
-func ProveRepairM1303EscrowRecovery(t *testing.T) {
+func ProveEscrowRecordRecovery(t *testing.T) {
 	t.Helper()
-	w := OpenRepairM1303World(t)
+	w := OpenEscrowContractWorld(t)
 	w.Capture(t)
 	good := w.Keeper.ExportGenesis(w.Context)
 	wire, err := json.Marshal(good)
@@ -374,7 +374,7 @@ func ProveRepairM1303EscrowRecovery(t *testing.T) {
 	}
 }
 
-func ProveRepairM1303ServiceEscrowCorruption(t *testing.T) {
+func ProveServiceEscrowCorruptionRefusal(t *testing.T) {
 	t.Helper()
 	h, _, escrowID, agreementID, disputeID := serviceDisputeSetup(t, true, false)
 	key := types.KernelKVKey(types.EscrowModuleID, append([]byte("hold:"), escrowID[:]...))
