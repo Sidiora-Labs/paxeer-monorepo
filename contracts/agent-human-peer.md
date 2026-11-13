@@ -146,6 +146,10 @@ owner contract.
 | 2 | Submitted; 32-byte transaction hash, then u64 nonce |
 | 1 | Found; the complete `ReceiptLookupFrame` below |
 
+The Absent answer occupies one byte; Submitted occupies 41 bytes including
+its tag. The Found tag precedes the encoded frame; `ReceiptLookupFrame::encode`
+encodes the frame fields without that tag.
+
 Integers use the canonical wire encoder's big-endian encoding. Variable byte
 arrays have a u32 byte length followed by exactly that many bytes. Fixed digests
 and keys have exactly 32 bytes without a length prefix. A Found frame has this

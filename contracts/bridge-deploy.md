@@ -75,6 +75,10 @@ supplied.
 | [deploy-solana-program.sh](../services/bridge/deploy/deploy-solana-program.sh) | `[--preflight]`; builds, deploys, checks rooted program bytes and authority, initializes and registers configured assets |
 | [checklist.sh](../services/bridge/deploy/checklist.sh) | `<chain\|--all>`; compares foreign-chain state and Paxeer bridge views against records and generated governance expectations |
 
+EVM deployment requires `jq`, `forge`, `cast`, `git` and `python3`; broadcasting
+also requires `flock`. Its preflight derives the local signer and checks it
+against the configured deployer, when one is supplied.
+
 Preflight stops before a chain or explorer call; it is not evidence of a
 deployment. EVM `--all` visits the eight chains in the table's order and stops
 at the first failure. Checklist `--all` also visits Solana last.
@@ -141,7 +145,14 @@ EVM records include chain identity, configuration, vault, deployer, code hash,
 deployment block, observed/configured owner, ownership state, threshold,
 attestors and caps. Ownership can be recorded as `proposed` rather than
 `held`; a written file alone does not establish that ownership transfer is
-complete. The checklist reads back actual state.
+complete. The configured owner must call `acceptOwnership()` on the vault.
+The checklist reads back actual state.
+
+The EVM deployer retains a `.<chain>.run` journal and `.<chain>.deploy.lock`
+beside the output record. The journal stores the resolved configuration,
+signer, broadcast intent and transaction evidence. Repeating deployment
+reopens that same run and reads back its vault; it does not automatically
+create a replacement vault. Preserve the journal to retain that identity.
 
 Solana records include program ID, genesis hash, program-data account,
 upgradeable loader ID, ELF SHA-256 and size, deployment signature/slot, rooted
