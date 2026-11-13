@@ -4,7 +4,7 @@
 
 | Component       | Role                                                                                                                                                                                                                                                                                                            |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Server**      | Central hub. Stores all state in a SQLite database, exposes an HTTP API, and pushes change notifications over WebSocket. Stateless itself; the DB is the source of truth. Routes work to hosts over the active daemon WebSocket.                                                                                |
+| **Server**      | Central hub. Stores runtime state in SQLite or PostgreSQL, exposes an HTTP API, and pushes change notifications over WebSocket. Stateless itself; the DB is the source of truth. Routes work to hosts over the active daemon WebSocket.                                                                                |
 | **Host daemon** | Runs on each enrolled execution machine. Connects to the server, handles host RPC requests, provisions workspaces, runs agent provider processes, and posts events back. Exposes a local HTTP API for co-located app and CLI operations such as opening an editor, picking folders, and checking daemon status. |
 | **App**         | Web UI for inspecting projects and threads, following progress, and steering work.                                                                                                                                                                                                                              |
 | **CLI** (`hyperfide platform`)  | First-class interface for both users and agents. Same capabilities as the app, scriptable.                                                                                                                                                                                                                      |
@@ -52,6 +52,9 @@ it. During the grace it still counts as live, so its environment and machine
 are not retired under it. A thread start still in flight is stopped as soon as
 it is archived.
 
+`HYPERFIDE_DATABASE_URL` selects the runtime database; see
+[PostgreSQL storage](postgresql-storage.md) for the supported URL forms.
+
 ### Transport contracts
 
 Two contract packages define the boundaries between components:
@@ -65,7 +68,7 @@ Implementation packages never import across these boundaries. The server doesn't
 ## Authority and qualification
 
 The runtime server database owns runtime state. Distributed task authority lives
-in `core/control-plane`, backed by PostgreSQL. Spec, Ask, qualification and dispatch
+in `tools/hyperfide/core/control-plane`, backed by PostgreSQL. Spec, Ask, qualification and dispatch
 integrations call the binary and the control plane; a thread ending cannot grant
 a task done status. See the [platform guide](../hyperfide/platform.md) for
 the four layers, current plugin inventory, adapter boundaries, slices,

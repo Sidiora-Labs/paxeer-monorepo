@@ -4,12 +4,12 @@
 
 ## One call
 
-`fetch(url, init)` does the whole loop:
+`fetch(url, init, idempotencyKey)` does the whole loop:
 
 1. Issues the request.
 2. If the response is `402`, parses the `PAYMENT-REQUIRED` header into a typed offer.
-3. Checks the offer against the kinds you declared as supported. An unsupported scheme, network or asset is refused here - before any money moves - as `unsupported-payment`.
-4. Quotes and commits the move through the SDK under an idempotency key derived from the request, then waits for the journey to settle.
+3. Checks the offer against the kinds you declared as supported. An unsupported scheme or network is refused as `unsupported-payment`. Supported networks use `eip155:<chain-id>`, where the chain identifier is a positive 32-bit integer.
+4. For an `exact` offer, quotes and commits the move through the SDK under a caller-supplied idempotency key, then waits for the journey to settle.
 5. Retries the original request with a `PAYMENT-SIGNATURE` header carrying the receipt evidence.
 6. Reads the `PAYMENT-RESPONSE` header and returns the response together with the captured settlement.
 
@@ -20,13 +20,13 @@
 | `parseOffer(header)` | You want to inspect or price-check an offer without paying |
 | `prepare(header, idempotencyKey)` | You want to pay now and retry later, or pay under your own key |
 | `captureSettlement(...)` | You issued the retry yourself and want the settlement parsed and verified |
-| `fetch(url, init)` | You want the whole loop |
+| `fetch(url, init, idempotencyKey)` | You want the whole loop |
 
 ## Keys and retries
 
 The idempotency key you pass to `prepare` is the one that protects the payment. Derive it from what you are buying - the URL plus a request digest, an order identifier - not from the attempt. The middleware's retry policy governs how many times it will re-quote, re-commit and re-poll; the key governs whether any of that can cost you twice. Both matter, and only the key is a correctness property.
 
-The retry policy is configurable and validated: non-integer or non-positive attempt counts are refused at construction rather than producing a loop that never terminates. `protocolVersion` is configured the same way and has no default: a configuration that omits it is refused at construction with `missing-protocol-version`, and every receipt the buyer verifies is verified at that version.
+The retry policy is configurable and validated: quote and commit attempt counts must be positive safe integers; journey polls and the base delay may be zero. Configure `receiptKeys` with independently trusted, height-ranged receipt keys. A `committed` offer also requires a `commitments` resolver. Metered and subscription payments use `grantHeader` and `fetchGrant` with an already signed grant transaction rather than the exact-payment `prepare` flow.
 
 ## The transport
 
@@ -34,14 +34,14 @@ The retry policy is configurable and validated: non-integer or non-positive atte
 
 ## Verification is not optional here either
 
-A settlement the buyer captures is checked against the receipt evidence, not merely read from the header. A seller that returns a `PAYMENT-RESPONSE` claiming success without a receipt behind it does not produce a verified settlement.
+A captured settlement is checked against `PortableReceiptV2` evidence: signed receipt bytes, the bound transaction and pinned receipt keys. Verification also matches the payment requirements. The offer's `extra.layerx` block identifies its commitment, account and currency; account derivation must match `payTo`. A `PAYMENT-RESPONSE` success claim alone does not produce a verified settlement.
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
 | Atomic settlement | `protocol` | The move behind the payment applied whole or not at all. |
-| Replay refusal | `protocol` | The middleware's own retries cannot pay twice. |
+| Replay refusal | `protocol` | The same signed transaction cannot apply twice. |
 | Offline receipt verification | `protocol` | The captured settlement is checked against receipt evidence. |
-| Idempotent money moves | `service` | The commit carries your key, so a mid-flight failure resolves to the original journey. |
+| Idempotent money moves | `service` | The commit carries the caller's key for reconciliation with the original journey. |
 | Quote then commit | `service` | The price you accepted from the offer is the price that is committed. |

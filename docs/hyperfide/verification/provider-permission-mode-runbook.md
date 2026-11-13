@@ -29,10 +29,13 @@ The matrix checks:
 
 ## Prerequisites
 
+Run the commands from the `tools/hyperfide` workspace. Paths below are relative to that workspace.
+
 Build through Turbo, clear any ambient generic OpenAI API-key route, and start
 an isolated server/daemon pair:
 
 ```bash
+cd tools/hyperfide
 pnpm exec turbo run build
 codex --help
 claude --help

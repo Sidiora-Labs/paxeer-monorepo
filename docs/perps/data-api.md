@@ -9,9 +9,9 @@ topics share this gateway; separate per-asset ports are not required.
 
 Paxeer mainnet-beta is one BFT network with EVM chain ID **125 (`0x7d`)**. Its
 kernel participates in block proposal and receipts are final when their block
-commits. Public node JSON-RPC uses the root of the `api1` through `api14` hosts
-under `mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`, for
-example `https://api1.mainnet-beta.paxeer.network`. Those node endpoints are
+commits. Public node JSON-RPC uses the node root path; see the
+[public RPC guide](../site/docs/reference/public-rpc.md) for connection details.
+Those node endpoints are
 separate from the application data gateway described here. Tenant sub-chains
 are database domains, not additional networks to deploy for this UI.
 
@@ -132,6 +132,11 @@ automatically. A server under load or unable to build a snapshot may close with
 code `1013` and reason `retry-after=<seconds>` (5–30 seconds); respect that delay.
 
 Source: [`internal/ws`](../../services/platform/perps-data/internal/ws).
+
+Frames older than 60 seconds trigger a fresh snapshot rather than stale delivery.
+If the backing stream remains unanswered for 10 seconds, subscribed sockets close
+with code `1013`; reconnect and acquire new snapshots. Stream loss also closes
+sockets so a client cannot continue from an incomplete sequence.
 
 ## Symbol Service
 

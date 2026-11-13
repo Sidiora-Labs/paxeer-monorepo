@@ -37,7 +37,7 @@ the same derived-account pattern. Allowances over third-party funds, direct
 lamport writes, supply-burning messages and cross-chain transfers remain named
 refusals where their source semantics are not representable.
 
-```
+```text
 guest program  ->  AbiEffects
 TransferCapability::authorize  ->  AtomicTransferSet
 KernelTransferPrimitive::apply_and_verify_402lxp_set  ->  VerifiedProgramSettlement
@@ -75,39 +75,49 @@ Replay is first-class: a recorded execution can be replayed and any divergence r
 
 ## Building and deploying
 
-ABI 2 is the current frozen guest ABI. ABI 1 remains supported for legacy programs;
-ProgramSpend and BalanceView grants require ABI 2.
+ABI 2 is the current guest ABI. ABI 1 remains supported; ProgramSpend and BalanceView grants require ABI 2.
 
-**Funding prerequisite:** Ordinary genesis starts with zero balances. Program calls require an authenticated actor with the required fee asset. Follow the [network quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/overview/quickstart.md#2-derive-an-account-and-fund-it) to fund the actor through a chain transfer, and verify the committed funding outcome before spending. The former [custody-credit funding procedure](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/site/docs/human/custody.md) is retired; do not substitute prefunding or state injection. Local funding qualification does not establish production finality.
+Program transactions require a funded EVM sender. Follow the [network quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/site/docs/overview/quickstart.md#2-derive-an-account-and-fund-it) and confirm the funding in committed chain state before spending.
 
-**Escrow account prerequisite:** After deployment and before `OPEN`, register the escrow's derived value account through a real Programs account-registration activity (module 9, ordinal 6). Submit the canonical signed protocol-3 activity to authenticated `POST /v1/activities` as `application/octet-stream`, with its `Idempotency-Key`, and verify the receipt before calling `OPEN`. The payload is `program_id(32) ‖ "LXPA1"(5) ‖ asset_id(32) ‖ seed_length(u32 big-endian) ‖ seed`: exactly `73 + seed_length` bytes, with seed length at most 128. Use the same program, asset and seed as the escrow call, signed by an authorized registration principal. Deployment does not automatically register this account; there is no dedicated registration CLI command.
+Before an escrow's `OPEN`, register its derived value account using `registerAccount(bytes32,uint8,bytes32,bytes)` on the [Programs precompile](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/precompiles/layerxprograms/LayerXPrograms.sol). Deployment does not register that account automatically. Use the same program, asset and seed as the escrow call.
 
-```
+Run the CLI with a configured node RPC URL. Lifecycle commands require a local, owner-only EVM key file and an independently configured receipt policy:
+
+```sh
 layerx program build --manifest-path ./Cargo.toml
-layerx program deploy ./target/program.wasm --program-id <hex32> --upgrade-authority <hex32> --interface ./interface.bin --idempotency-key <hex32> --account-sequence <n> --not-before-ms <start> --expires-at-ms <end> --previous-state-root <verified-hex32>
-layerx program upgrade ./target/program.wasm --program-id <hex32> --old-hash <hex32> --migration-hook ./migration.bin --idempotency-key <hex32> --account-sequence <n> --not-before-ms <start> --expires-at-ms <end> --previous-state-root <verified-hex32>
-layerx program wind-down route --program-id <hex32> --account <hex32> --asset <hex32> --destination <hex32> --seed <hex> --idempotency-key <hex32> --account-sequence <n> --not-before-ms <start> --expires-at-ms <end> --previous-state-root <verified-hex32>
-layerx program wind-down deprecate --program-id <hex32> --exit-program <hex32> --deadline-batch <batch> --idempotency-key <hex32> --account-sequence <n> --not-before-ms <start> --expires-at-ms <end> --previous-state-root <verified-hex32>
-layerx program wind-down tombstone --program-id <hex32> --idempotency-key <hex32> --account-sequence <n> --not-before-ms <start> --expires-at-ms <end> --previous-state-root <verified-hex32>
-layerx program wind-down exit --program-id <hex32> --account <hex32> --idempotency-key <hex32> --account-sequence <n> --not-before-ms <start> --expires-at-ms <end> --previous-state-root <verified-hex32>
-layerx program call <hex32> --entrypoint layerx_call --abi-version 2 --calldata <hex> --fuel <units> --fee-limit <units> --idempotency-key <hex32> --account-sequence <n> --not-before-ms <start> --expires-at-ms <end>
-layerx program simulate <hex32> --entrypoint layerx_call --abi-version 2 --calldata <hex> --fuel <units> --fee-limit <units> --idempotency-key <hex32> --account-sequence <n> --not-before-ms <start> --expires-at-ms <end>
-layerx program registry get <program-id>
+layerx --rpc "$PAXEER_RPC_URL" program deploy ./target/program.wasm \
+  --program-id <hex32> --upgrade-authority <hex32> \
+  --interface ./interface.bin --evm-key-file ./evm-key.json \
+  --receipt-policy ./receipt-policy.json
+layerx --rpc "$PAXEER_RPC_URL" program upgrade ./target/program.wasm \
+  --program-id <hex32> --old-hash <hex32> \
+  --evm-key-file ./evm-key.json --receipt-policy ./receipt-policy.json
+layerx --rpc "$PAXEER_RPC_URL" program wind-down deprecate \
+  --program-id <hex32> --exit-program <hex32> --deadline-batch <batch> \
+  --evm-key-file ./evm-key.json --receipt-policy ./receipt-policy.json
+layerx --rpc "$PAXEER_RPC_URL" program call <hex32> \
+  --evm-key-file ./evm-key.json --abi-version 2 \
+  --entrypoint layerx_call --calldata <hex> --fuel <units> --fee-limit <units>
+layerx --rpc "$PAXEER_RPC_URL" program simulate <hex32> \
+  --from <evm-address> --abi-version 2 --entrypoint layerx_call \
+  --calldata <hex> --fuel <units>
+layerx --rpc "$PAXEER_RPC_URL" program registry get <hex32>
+layerx --rpc "$PAXEER_RPC_URL" program registry list
 ```
 
-`build` compiles to WASM and enforces the deterministic runtime policy locally, before anything is submitted - so a policy violation is a local failure, not a rejected deployment.
+`build` compiles WASM and validates the deterministic runtime policy locally. Deploy, upgrade, wind-down and call submit signed EIP-1559 transactions to `0x000000000000000000000000000000000000101d`. The CLI obtains the sender nonce and gas information through RPC. Simulation uses `eth_call` with the `pending` block tag and does not commit state.
 
-`deploy`, `upgrade`, `wind-down`, `call`, and `simulate` construct and sign canonical protocol-3 activities locally, then send their exact bytes as `application/octet-stream`. Select the local signing key with `--key`, or use the configured default. The environment must have a pinned sequencer trust anchor. Idempotency keys and program identifiers are 32-byte hex values. Use a distinct key and the current account sequence for each mutation; validity intervals must be nonempty and at most 300000 milliseconds.
+The lifecycle receipt policy is a closed JSON object with `protocol_version: 2`, `network_id: 125`, 32-byte hex `sequencer_id` and `sequencer_key`, and integer `first_batch` and `last_batch`. The first batch must be at least 1 and the last must be at least the first. Obtain these values from an independent trust policy, not from the answer being verified.
 
-Deployment and upgrade read `abi_version` (or the existing `abi` spelling) from the nearest enclosing `LayerX.toml` and `layerx-program.json`, defaulting to ABI 2. Conflicting declarations are refused. Omitting `--upgrade-authority` makes deployment immutable. The program identifier is chosen by the caller and signed into the payload, not invented by the server.
+Deployment and upgrade read `abi_version` (or `abi`) from the enclosing `LayerX.toml` and `layerx-program.json`, defaulting to ABI 2. Conflicting declarations are refused. Omitting `--upgrade-authority` makes deployment immutable. The caller chooses the 32-byte hex program identifier.
 
-`--interface` takes canonical binary interface encoding, **not** `interface.kvx` source. Its digest-bound code hash and ABI must match the artifact. Upgrade preserves the existing interface unless supplied a replacement or `--clear-interface`; clearing and replacing are mutually exclusive. The optional migration-hook file contains the exact hook bytes. Route seeds are hex, at most 128 bytes; the default is empty.
+`--interface` takes canonical binary interface encoding, rather than `interface.kvx` source. Its code hash and ABI must match the artifact. Upgrade preserves the existing interface unless given a replacement or `--clear-interface`; those options are mutually exclusive. `--allow-breaking-interface` requires a replacement interface. `--migration-hook` reads the exact hook bytes from a file.
 
-Lifecycle verification requires `--previous-state-root` from independently verified committed state. The CLI checks the canonical receipt signature, protocol/module version, prior root, and exact signed activity ID. Lifecycle receipts carry state operation 0; the activity ID binds the deploy, upgrade, or wind-down ordinal. Refusals remain refusals. An unknown submission result retains signed bytes for reconciliation, rather than claiming completion. Calls additionally verify terminal and call-graph commitments against receipt evidence.
+The wind-down subcommands share `--program-id`, `--evm-key-file`, `--receipt-policy` and optional `--fee-limit`. `route` adds `--account`, `--asset`, `--destination` and optional hex `--seed` (at most 128 bytes, empty by default). `deprecate` adds `--exit-program` and `--deadline-batch`; `exit` adds `--account`; `tombstone` has no additional arguments.
 
-`registry get` prints the receipt-verified registry document for one program: `program_id`, `lifecycle`, `version`, `code_hash`, `abi_version`, `receipt_digest`, `deployment_receipt_digest`, `state_root`, `observed_sequence`, `observed_at`, `valid_through`, the sequencer discovery proof (`discovery_public_key`, `discovery_signature`) when the head carries one, and `value_accounts`. The CLI refuses a document without `value_accounts`. That block is either `{"status":"account-incapable-abi1","accounts":[]}` for the frozen ABI-one programs that cannot own accounts, or `{"status":"current"}` with the program's `lifecycle`, its `accounts` (each with `account_id`, `asset_id`, a decimal `balance` and `frozen`), and a `receipt` carrying `receipt_digest`, `state_root`, `observed_sequence`, `observed_at` and the `account-primary-and-state-proof-verified` marker. Both the hosted registry and the emulator publish it from their own receipt-proven balances; the gateway forwards it unchanged and fabricates nothing, so a read whose balances cannot be proven at the current head refuses instead.
+Lifecycle success requires a signed receipt matching the transaction, the Programs target, module 12 operation 2, and the authenticated lifecycle event. Pending and unknown submissions retain those states. A program call's submission acknowledgement alone does not establish terminal execution; consumers must verify the resulting execution evidence.
 
-Call and simulation verification require an authenticated current program head; unsigned registry metadata is not a substitute. When a call acknowledgement contains only its activity ID and receipt, the CLI retrieves execution material from `/v1/programs/activities/{activity_id}`, binds it to that same receipt, and then verifies the terminal commitments. Program GET requests carry the bounded identity and verification-level selector required by the emulator.
+`registry get` reads `getProgram` through `eth_call` and returns the program identifier, policy, authority, code hash, ABI version, version and active flag. `registry list` scans deployment events with bounded `eth_getLogs` requests. These RPC views do not independently prove consensus commit. `program discover`, `program interface get`, `program interface publish` and `program bindings` provide discovery, interface and binding operations.
 
 Calls accept repeated `--capability` grants using the native capability set:
 
@@ -118,7 +128,7 @@ Calls accept repeated `--capability` grants using the native capability set:
 - `program-spend:<owner-program-hex32>:<seed-hex>:<source-account-hex32>:<asset-hex32>:<to-hex32>:<maximum-u128>`
 - `balance-view:<account-hex32>:<asset-hex32>:<receipt-digest-hex32>`
 
-Unscoped legacy `transfer` and `compose` grants are refused. `--access-declaration` accepts canonical declaration hex; omission encodes an explicit absence marker, not an empty access set. Resource ceilings are configurable with `--memory-bytes`, `--storage-read-bytes`, `--storage-write-bytes`, `--output-values`, `--output-bytes`, `--table-elements`, and `--response-capacity`. Registry listing is not a production route and has no CLI command.
+Unscoped legacy `transfer` and `compose` grants are refused. `--access-declaration` accepts canonical declaration hex; omission encodes an explicit absence marker, not an empty access set. Resource ceilings are configurable with `--memory-bytes`, `--storage-read-bytes`, `--storage-write-bytes`, `--output-values`, `--output-bytes`, `--table-elements`, and `--response-capacity`.
 
 ## Interpret or compile
 
@@ -131,56 +141,17 @@ The script decoder, bounds checks, register operations and control-flow loop
 are therefore real metered work in addition to the host operations the script
 requests.
 
-The published release ceilings for the representative v1 arithmetic, storage,
-transfer and bounded-control workload set are **12.00x compiled protocol fee**
-and, separately, **12.00x compiled execution time**, each with a **15%
-regression tolerance** (hard gates at 13.80x). 12x is a release ceiling, not
-an expected price. Protocol fee is the economic comparison an
-agent uses; wall-clock time is an operator performance signal and is never
-presented as protocol price. `make programs-bench` builds the
-real interpreter and its real compiled ABI-v2 equivalents, executes both
-through the production ABI-v2 executor, reports median integer nanoseconds
-and every metered resource and fee class, and refuses the release if either
-aggregate ratio exceeds its gate.
-
-Measured at revision `4bfd709a2f330d448a1201b6f642f42d00ed3ff8` with
-`tools/paxeer-x/verify-task.sh 104.33.5`, which runs the `programs-bench`
-interpreter benchmark at 31 samples, the interpreted route cost **1.0034x the
-compiled protocol fee** and took **1.95x the compiled execution time**. The fee
-multiplier is small because memory use of 2 MiB per call dominates the fee, so
-the interpreted route's extra CPU fuel (4x to 8x on these workloads) barely
-moves the price. These observed values are measurements, not a promise: a
-different script, schedule or host can land anywhere up to the 12x ceiling,
-and only the ceiling is gated. The broader cold/warm execution baseline and
-performance ledger remain qualification components of this aggregate Make entry.
-
-Use interpretation when removing a compiler from an agent's deployment path
-is worth a potentially material execution premium: small policies, bounded
-automation, infrequent jobs, or logic expected to change before its execution
-cost dominates. Compile repeated, compute-heavy, latency-sensitive or
-high-volume logic. An agent can make that choice mechanically: estimate the
-expected invocation count, multiply the compiled protocol-fee estimate by 12 for
-admission planning, and compile when that conservative lifetime premium costs
-more than operating the toolchain. Both routes have identical authority and
-isolation rules; changing routes cannot grant capabilities.
-
-The benchmark additionally refuses any workload whose committed storage,
-effects, receipt identity, runtime/schedule versions, call graph or receipt
-outcome differs between the interpreted and compiled routes. Only metered
-usage and the fee derived from it may differ. This equivalence check uses real
-runtime types and the fail-closed receipt oracle; it is not a mock guest.
+Interpretation adds script decoding and dispatch to the metered guest work. Use it for bounded policies and automation when avoiding a separate compilation step matters; compile repeated or compute-heavy logic when execution cost dominates. Both routes use the same authority and isolation rules.
 
 ## The registry
 
-The registry is the record of what is deployed, and it is receipt-backed rather than self-asserted. Source verification binds a program's code hash to a build environment - builder image digest, toolchain digest, dependency lock digest, `SOURCE_DATE_EPOCH`, and the exact command - so a third party can reproduce the artifact and check the binding themselves. A registry record with unverified source says so.
-
-Deprecation is a wind-down, not a switch: a deprecated program still lets value accounts exit. The registry models that explicitly through the deprecation and wind-down views rather than leaving stranded balances to a migration script.
+The Programs precompile records deployed code, version, policy, authority and lifecycle state. Deprecation supports a wind-down in which value accounts can exit. The current `getProgram` view does not expose a source digest, so the CLI's source-verification command reports that source verification is unavailable.
 
 ## Restart and snapshot restore
 
-The snapshot implementation retains program code as committed state across restore. The snapshot format carries a kernel-blob section holding every module blob the state root commits - module id, key and bytes in canonical order - under declared bounds (`LXP_SNAPSHOT_MAX_BLOBS`, `LXP_SNAPSHOT_MAX_BLOB_BYTES` and `LXP_SNAPSHOT_MAX_BLOB_TOTAL_BYTES` in `include/layerx/lxp_snapshot.h`). `lxp_snapshot_write` serialises the section, accounts for it in the snapshot size and refuses a blob set beyond the bound rather than dropping blobs (`src/state/lxp_snapshot.c:470`). `lxp_snapshot_load` parses the section structurally, rejects a snapshot whose parsed blobs do not reproduce the committed state root with a typed error, and rejects a legacy snapshot that omits the section while the state carries a registered Programs module (`src/state/lxp_snapshot.c:1141`, `LXP_ERR_SNAPSHOT_BLOBS_MISSING`). Only after the whole snapshot validates does the loader replace the kernel blob store, freeing the previous blobs, so no stale executable bytes survive a restore.
+The snapshot implementation retains program code as committed state across restore. The snapshot format carries a kernel-blob section holding every module blob the state root commits - module id, key and bytes in canonical order - under declared bounds (`LXP_SNAPSHOT_MAX_BLOBS`, `LXP_SNAPSHOT_MAX_BLOB_BYTES` and `LXP_SNAPSHOT_MAX_BLOB_TOTAL_BYTES` in `include/layerx/lxp_snapshot.h`). `lxp_snapshot_write` serialises the section, accounts for it in the snapshot size and refuses a blob set beyond the bound rather than dropping blobs (`src/state/lxp_snapshot.c`). `lxp_snapshot_load` parses the section structurally, rejects a snapshot whose parsed blobs do not reproduce the committed state root with a typed error, and rejects a legacy snapshot that omits the section while the state carries a registered Programs module (`src/state/lxp_snapshot.c`, `LXP_ERR_SNAPSHOT_BLOBS_MISSING`). Only after the whole snapshot validates does the loader replace the kernel blob store, freeing the previous blobs, so no stale executable bytes survive a restore.
 
-After a restore the artifact resolver locates and hash-checks a program exactly as before, and a later `program call` executes under the recorded runtime version with the same receipt shape as before the restore. Deploy, snapshot, restore into a fresh node, state-root equality, a post-restore call and the refusal of a tampered, missing or oversize blob set are the evidence the snapshot acceptance criteria require; the Programs deploy, paid-call and restart journeys are qualified by the release runner, and this page does not supply those release-bound gate records.
+After a restore the artifact resolver locates and hash-checks a program exactly as before, and a later `program call` executes under the recorded runtime version with the same receipt shape as before the restore.
 
 ## Enforced by
 

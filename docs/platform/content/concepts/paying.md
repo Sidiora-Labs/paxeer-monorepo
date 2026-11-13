@@ -1,12 +1,12 @@
 # Paying for things
 
-Every payment on every Paxeer X Network surface has the same three steps. Learn them once.
+The human payment service uses a quote, commit and journey flow. Direct EVM and agent submissions use their respective transaction APIs.
 
 1. **Quote.** You say who is paying, who is being paid and how much. You get back what will actually happen: the mechanism, the fee estimate with its ceiling, when the money is expected to arrive, and whether any part of it is irreversible.
 2. **Commit.** You turn exactly that quote into a journey, carrying an idempotency key you chose.
 3. **Watch the journey.** The journey moves through stages and ends in a state. Every claim it makes carries an evidence reference behind it.
 
-Here is the whole thing in TypeScript. This is the measured region of a runnable sample, not an excerpt:
+The TypeScript sample opens a client and commits a payment quote:
 
 ```js sample=first-payment-typescript
 import { LayerXPaymentHttpTransport } from "@sidiora/layerx-buyer-middleware";
@@ -46,7 +46,7 @@ A receipt is final once its block is committed. `checkpoint-finalised` is also a
 
 A journey carries evidence references rather than raw protocol structures. A reference with class `layerx-receipt` points at a canonical receipt you can fetch and verify yourself; see [Receipts and verification](receipts.md).
 
-For finality, use [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence): authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height.
+For finality, use [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/345655b6e6e4a193455b9aa34fcc9e5961188d42/docs/site/docs/concepts/checkpoints.md#committed-block-evidence): authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height.
 
 ## Enforced by
 

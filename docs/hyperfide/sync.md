@@ -2,18 +2,14 @@
 
 One indexer per project, one core budget per machine.
 
-Every `hyperfide` command that wants a fresh graph used to walk, parse, and
-resolve on its own. That is fine for one session. Under a fleet of agents
-it meant one indexer per hook invocation — fifty processes, each sized for
-the whole machine, all walking the same tree for the same change. The gate
-makes indexing a shared resource instead of a per-process habit.
+The gate shares graph indexing between local callers, bounding concurrent walking, parsing and resolution for each checkout.
 
 `hyperfide` is the command; `cg` is the deprecated compatibility alias from
 the same executable, with identical arguments, JSON and exit codes. Quoted
 messages below keep the `cg` wording this build prints.
 
-Implemented in `src/syncgate.c` and `src/scan.c`; covered by
-`tests/integration/25_syncgate.sh`.
+Implemented in `tools/hyperfide/core/native/src/syncgate.c` and `tools/hyperfide/core/native/src/scan.c`; covered by
+`tools/hyperfide/tests/integration/25_syncgate.sh`.
 
 ## The gate
 
@@ -135,8 +131,7 @@ to the agent's own build and tests, not compete with them.
 
 ## Incremental post-scan resolution
 
-Walking less is only half of it — the pass after the walk used to rewrite
-every reference, import, and anchor edge in the graph for a one-file edit.
+Incremental resolution limits reference, import and anchor work to the affected graph scope.
 
 The write phase now collects the changed file ids and the symbol names the
 change added or removed into temp tables (`index_scope_begin`). When the
@@ -189,7 +184,7 @@ than walked, and a targeted pass never claims the whole tree is fresh.
 
 In text form the same three outcomes read as:
 
-```
+```text
 indexed 1 file (2 unchanged, 0 removed, 0 skipped) in 16ms — … [1 workers]
 index in progress in another cg process — change queued for it
 graph is fresh (indexed 412ms ago)
@@ -199,8 +194,7 @@ graph is fresh (indexed 412ms ago)
 
 `hyperfide hook post-edit` is the wired edit hook. It reads the Claude Code hook
 payload on stdin, does **one** targeted background sync of the edited path,
-and guards that path — where the old template ran a full `hyperfide sync` and a
-separate `hyperfide guard`, two whole-tree passes per edit. A payload with no file
+and guards that path. A payload with no file
 path degrades to a background sync inside a 5-second window rather than an
 error.
 
@@ -267,38 +261,11 @@ not with the size of the repository, wherever it can.
   (`walk`, `parse`, `write`, `resolve`, `soft`) and `peak_rss_kb`. The
   one-line summary is unchanged.
 
-### Measured
+### Benchmark workload
 
-`scripts/bench.sh` builds the profile below in a scratch repository and
-times each operation. `CG_SCALE=1 tests/integration/46_scale.sh` checks the
-same profile against its limits (peak RSS under 2 GB, database under 6× the
-source). Without `CG_SCALE`, the test runs a 2000-file profile on every
-`make test`.
-
-The table is the local benchmark recorded when the scale work landed
-(codify-v15 task 1.3, commit `a2b88ff5`). It was not re-run on this tree,
-it describes one machine's single-project indexer, and it says nothing
-about fleet or control-plane throughput.
-
-Profile: workstation, 16 effective cores, SQLite 3.45.1, body index
-contentless. Fixture: 20000 files, 1,950,030 lines, 50.5 MB of source. The
-machine was shared during the runs, so times vary by about 25%.
-
-| Operation | Before (v1.4) | At codify-v15 1.3 | Notes |
-|---|---|---|---|
-| `hyperfide init` | 331 s | 30–40 s | |
-| database after init | 208.6 MB (4.1×) | 141 MB (2.8×) | bytes per source byte in parentheses |
-| peak RSS, `hyperfide init` | 276 MB | 206 MB | |
-| `hyperfide sync`, nothing changed, `walk = full` | | 372 ms | walk 204 ms |
-| `hyperfide sync`, nothing changed, `walk = git` | | 362 ms | |
-| `hyperfide sync`, one file edited, `walk = full` | | 1073 ms | resolve 372 ms, soft 114 ms |
-| `hyperfide sync`, one file edited, `walk = git` | | 901 ms | |
-| `hyperfide index --full` | | 39–61 s | write 39–51 s, resolve 7 s; peak RSS 351–376 MB; database 180 MB (3.56×) |
-| `hyperfide context` (a literal) | | 326 ms | |
-| `hyperfide search` | | 93 ms | |
-
-On the 2000-file profile, `hyperfide init` drops from 6.0 s to 2.3 s and the
-database from 20.7 MB to 13.9 MB.
+From `tools/hyperfide`, `tools/repository/bench.sh` measures a generated source tree.
+`CG_SCALE=1 tests/integration/46_scale.sh` selects its 20,000-file profile;
+without `CG_SCALE`, the integration case selects 2,000 files.
 
 Some costs remain:
 
@@ -312,9 +279,9 @@ Some costs remain:
 
 ## Environment
 
-Each variable also answers to its `HYPERFIDE_` name (`HYPERFIDE_INDEX_WORKERS`,
-`HYPERFIDE_SLOT_DIR`, …); setting both to different values is refused
-(`src/config.c`).
+Each variable also accepts its legacy `CG_` alias, such as `CG_INDEX_WORKERS`
+for `HYPERFIDE_INDEX_WORKERS`. Setting both to different values is refused by
+`tools/hyperfide/core/native/src/config.c`.
 
 | Variable | Effect |
 |---|---|
@@ -329,7 +296,7 @@ Each variable also answers to its `HYPERFIDE_` name (`HYPERFIDE_INDEX_WORKERS`,
 
 The gate, the slots and the freshness marks coordinate processes on one
 machine against one checkout's SQLite graph. The binary picks an authority
-mode before it opens that graph (`src/hyperfide/client.c`;
+mode before it opens that graph (`tools/hyperfide/core/native/src/hyperfide/client.c`;
 `hyperfide authority mode` prints it). In `local` mode, the default with no
 descriptor, everything above applies. With a distributed descriptor
 (`.hyperfide/authority.json`, or `HYPERFIDE_AUTHORITY_DESCRIPTOR`),
@@ -338,11 +305,9 @@ descriptor, everything above applies. With a distributed descriptor
 
 The distributed graph is the control service's: remote extraction,
 bounded batch ingestion and atomically published graph generations live in
-`core/control-plane/src/graph/` (`extraction.ts`, `ingestion.ts`,
+`tools/hyperfide/core/control-plane/src/graph/` (`extraction.ts`, `ingestion.ts`,
 `publication.ts`, `projection.ts`), and graph reads route there through
-`hyperfide graph status|search|context|traverse` in distributed mode. Tasks
-7.1 to 7.4 and 25.3 are `pending` in `spec/hyperfide/spec.kvx`, so that
-path is not qualified in this revision.
+`hyperfide graph status|search|context|traverse` in distributed mode.
 
 ## Limitations
 

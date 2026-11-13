@@ -9,7 +9,7 @@ whatever the agent does without affecting the rest of your work.
 You can pair a worktree with a **`.worktreeinclude` file** that lists the local
 files each new worktree needs, and with a **setup script** that hyperfide platform runs the
 first time the worktree is created — useful for installing dependencies,
-generating secrets, or anything else you need before the agent starts.
+preparing local files, or other setup needed before the agent starts.
 You can also add a **teardown script** that releases resources outside the
 worktree before hyperfide platform removes it.
 
@@ -39,7 +39,7 @@ a thread.
 From the CLI:
 
 ```bash
-pnpm hyperfide-platform thread spawn \
+pnpm --dir tools/hyperfide hyperfide-platform thread spawn \
   --project <project-id> \
   --new-environment worktree \
   --prompt "..."
@@ -63,7 +63,7 @@ worktree needs. It uses gitignore syntax — one pattern per line, `#` for
 comments, `!` to negate an earlier pattern:
 
 ```gitignore
-# Local credentials the agent needs
+# Local files needed by the workspace
 .env
 .env.*
 !.env.example
@@ -97,7 +97,7 @@ workspace (`ownsPath: false`) does not run either hook. Provider-specific
 preparation, including `.worktreeinclude` copying, finishes before setup starts.
 
 Use it for anything the agent will need in a fresh checkout — install
-dependencies, sync local state, generate tokens, etc. To bring local files in
+dependencies, sync local state, prepare local files. To bring local files in
 from your main checkout, prefer `.worktreeinclude` above.
 
 ```bash
