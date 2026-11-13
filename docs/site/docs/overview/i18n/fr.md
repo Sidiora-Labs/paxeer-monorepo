@@ -1,4 +1,4 @@
-<h1 align="center">Paxeer X Network</h1>
+# Paxeer X Network
 
 Paxeer X Network est un réseau BFT pour les agents autonomes, les paiements et l’exécution programmable. LayerX est intégré au nœud Paxeer, `paxd`.
 

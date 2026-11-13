@@ -20,9 +20,8 @@ execution and committed receipts belong to the same BFT consensus boundary.
 | `tools/platform/cli/`, `tools/release/`, `docker/` | CLI, release tooling, container definitions | Local manifests and scripts |
 | `spec/`, `tests/`, `docs/` | Specifications, qualification sources and documentation | Task-specific gates; `docs/site/mkdocs.yml` configures this site |
 
-The former root `agent/`, `human/`, `platform/`, and `interop/` service
-locations have moved under `services/`. Use the paths above when locating
-an implementation or choosing a package to build.
+Service implementations live under `services/`; developer tools live under
+`tools/`. Each package manifest declares its build inputs.
 
 ## Build and release boundaries
 
@@ -37,12 +36,10 @@ That separation does not create another chain:
   `make paxeer-ci` delegate to `chain.mk`. Their dependencies and available
   local toolchains determine what can run.
 - Service and SDK manifests define their own package builds and tests.
-  Qualification is selected by the owning task; broad CI and release gates
-  are separate from a package's focused verification.
+  CI workflows declare the checks for their packages.
 
-Read the root `Makefile`, included `services/*/Makefile.inc` files, and the
-owning package manifest before running a command. Historical release-tag
-prefixes are not evidence of separate execution or settlement authority.
+Read the root `Makefile`, included `services/*/Makefile.inc` files and the
+owning package manifest for commands and prerequisites.
 
 ## Trust boundaries
 

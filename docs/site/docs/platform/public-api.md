@@ -5,7 +5,7 @@ Payments on Paxeer X Network use the public node JSON-RPC at the root path of
 `api14.mainnet-beta.paxeer.network`, EVM chain ID `125` (`0x7d`). A payment
 is a locally signed EVM transaction to a native precompile; it is final once
 its block is committed. Mainnet-beta uses real value and there is no public
-faucet; funding follows the operator's approved allocation process.
+faucet; fund an EVM account with a native chain transfer.
 
 The former activity API (`lx_sendActivity`, `lx_getReceipt`, `lx_subscribe`
 and the other `lx_*` methods) and its `/rpc` routes are retired. The node and
@@ -22,7 +22,7 @@ the hosted gateway answer `lx_*` with `-32601`.
 | Read balances and assets | `balanceOf` and `getAsset` through `eth_call`, or `px_getBalances` and `px_listAssets` |
 | Read the outcome | `pax_sequencerReceipt` until the rung is `committed` with `status: "0x1"` |
 
-The [Payments](../overview/payments.md) gives the exact ABI
+The [Payments guide](../overview/payments.md) gives the exact ABI
 methods, signing steps, request bodies and refusal codes. The ledger ABI is
 [`precompiles/layerxledger/abi.json`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/precompiles/layerxledger/abi.json).
 

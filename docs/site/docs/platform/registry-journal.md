@@ -1,67 +1,55 @@
 # Registry deployment journal
 
-`POST /__registry/deployments` accepts a canonical signed Programs deploy or
-upgrade activity as an octet-stream body under the existing registry bearer
-policy. It submits those exact bytes through the authenticated
-`LAYERX_REGISTRY_NODE_ENDPOINT` boundary (the service binary configures no
-local LNI socket), and
-requests native proof-bundle tag 16, payload version 1, selector 4, followed by
-the 32-byte activity ID. Tag 17 returns the canonical `DeploymentProof` as its
-payload and an empty proof-material field. Selectors 1–3 remain unchanged.
+The hosted registry accepts deployment evidence at
+`POST /__registry/deployments` under its request bearer and mTLS policy.
+Send canonical `DeploymentProof` bytes or JSON with exactly one `admission`
+field containing the canonical bytes as a numeric array. A transaction hash
+alone does not authorize a deployment record.
 
-The proof carries the signed activity and its inclusion path, signed receipt
-and its inclusion path, signed batch header, Programs subtree root and outer
-membership path, exact program-record leaf and membership path, and lifecycle
-membership or adjacent absence witnesses. The node derives all witnesses from
-its real kernel and retained batch evidence. It refuses a failed deployment or
-a live state root different from the authenticated proof root. Historical state
-reconstruction is not provided by this selector.
+`services/platform/hosted/registry/src/routes.rs` verifies the proof through
+`NodeProgramStateSource::verify_stored_deployment`. It checks program identity,
+code hash, ABI, version and upgrade predecessor before committing the record.
+The verifier authenticates transaction, result and mounted-state evidence
+against configured chain trust. Paxeer is one BFT network, EVM chain ID 125;
+receipt finality comes from block commitment.
 
-Protocol 3 uses `LayerX/programs/deployment-proof/v2\0`: the v1 fields followed
-by a length-prefixed occupancy-maintenance receipt and length-prefixed Merkle
-proof. Both receipts must be included in the same signed header at their exact
-indices and count. The maintained-outcome verifier binds the activity transition
-to occupancy maintenance; Programs witnesses bind to the signed final root.
-The deployment receipt root need not equal that final root. Legacy v1 encoding
-and protocol 1/2 refusal checks remain unchanged.
+## Atomic envelopes
 
-The registry verifies the full proof with its protected sequencer history and
-checks the receipt against the independent receipt authority before publishing.
-An admission acknowledgement alone never produces a deployment record. An
-unavailable or indeterminate result remains unavailable; clients reconcile with
-the same signed activity and idempotency key.
+`LAYERX_REGISTRY_JOURNAL` holds sealed `<receipt_digest>.envelope` units.
+Each contains the canonical deployment record and proof under domain
+`LayerX/deployment-envelope/v1\0`, with a SHA-256 seal over both framed
+values. Publication writes and syncs a temporary file, renames it into place
+and syncs the directory. A complete envelope is the durable commit unit.
 
-`LAYERX_REGISTRY_JOURNAL` holds the existing sealed `.envelope` commit units.
-The `pairs/` directory exports `<unsigned-receipt-digest>.admission` using
-`DeploymentProof::canonical_encoding()` and the matching `.deployment` using
-`DeploymentRecord::canonical_encoding()`, with lowercase 64-digit digest names.
-These are precisely the legacy pair encodings consumed by Human. Files are
-mode 0600, the export directory is mode 0700, and each file is staged, fsynced,
-renamed and followed by a directory fsync. The envelope remains the atomic
-commit authority. Verified startup replay regenerates exports, including an
-interrupted pair; a consumer presented an incomplete pair must refuse it.
-Temporary export files remain outside `pairs/`.
+On restart, the registry loads complete units, verifies their proofs, sorts
+accepted deployments by authenticated sequence, program and version, and
+rebuilds the catalog and interface history. Incomplete or corrupt units are
+quarantined; local files alone do not establish a verified deployment.
+See `src/journal.rs` and `src/routes.rs` under
+`services/platform/hosted/registry/`.
 
-Configure the Human assembler's journal input to the exported `pairs/`
-directory, not the internal journal containing envelopes and head metadata.
-The boundary exposes registry-only `POST /internal/v1/programs/deploy` and
-`/upgrade` for canonical admission, and `GET /internal/v1/deployment-proof/<activity-id>`
-for selector 4. Submission returns the native acknowledged activity ID; proof
-responses retain native refusals or carry canonical proof bytes as `proof_hex`.
-The existing node bearer and outbound CA settings authenticate this bridge.
-The registry network policies allow only its required boundary port 9443.
-The evidence assembler still runs on the invoking host and needs journal export. Protocol-3 trust histories are accepted explicitly alongside legacy versions 1/2.
+## Human consumer exports
 
-The registry StatefulSet and the existing Human owner-provisioning Job mount
-`layerx-registry-journal` PVC, subpath `journal`, at
-`/var/lib/layerx-registry-journal`; both declare that path as
-`LAYERX_REGISTRY_JOURNAL`. The registry initializes it as UID 4030, mode 0700.
-The Job mount is read-only. Registry pod affinity keeps this ReadWriteOnce
-volume on the node pod's host, where the owner Job is already pinned.
+Verified replay exports a canonical pair beneath `pairs/`:
 
-This mount does not implement host export. The current owner Job provisions
-identity and account material; the Python evidence assembler runs on the host
-before registry application. Its input must be a protected local copy of
-`pairs/`, owned by its executing user. UID 4020 cannot read UID 4030 mode-0600
-journal files directly. An authorized export/materialization step and corrected
-registry startup order remain required; file modes must not be widened.
+| File | Encoding |
+| --- | --- |
+| `<receipt_digest>.admission` | `DeploymentProof::canonical_encoding()` |
+| `<receipt_digest>.deployment` | `DeploymentRecord::canonical_encoding()` |
+
+Digest names are 64 lowercase hexadecimal characters. The export directory
+uses mode `0700`; files use `0600`. Publication stages, syncs and renames
+each file and syncs the directory. Replay regenerates an interrupted export
+from the committed envelope. Consumers require both matching halves.
+
+Configure the Human evidence assembler to read an authorized protected copy
+of `pairs/`. Its executing user must own that copy. Preserve the registry's
+owner-only permissions when transferring the evidence.
+
+The registry StatefulSet and Human owner-provisioning Job mount the
+`layerx-registry-journal` PVC at `/var/lib/layerx-registry-journal`, with a
+read-only mount for the Job. The registry initializes the journal as UID 4030.
+The host evidence assembler consumes its configured local export; a shared
+volume mount does not itself transfer that export to the host.
+
+[Hosted registry](registry.md) · [Programs](../programs/index.md)

@@ -2,7 +2,7 @@
 
 The `programs/` Cargo workspace contains the deterministic WASM runtime, receipt-bound registry, guest SDKs, programs, porting kits and qualification corpus. Guest execution is kernel module `0x09` in the merged Paxeer network. The node invokes the C kernel and Rust runtime through `modules/lxphost/`; the Programs EVM precompile lives in `precompiles/layerxprograms/` at `0x000000000000000000000000000000000000101D`. See [Protocol](../protocol/index.md) and [Modules](../protocol/modules.md).
 
-The recipes below describe available repository checks. Select the checks declared by the task being qualified; this catalogue is not a requirement to run every tier for a documentation change.
+The recipes below build Programs artifacts and check runtime, ABI, dependency and deployment contracts.
 
 ## Workspace and crate layout
 
@@ -89,7 +89,7 @@ The shell license check applies to sourced packages and requires an allowed SPDX
 
 Every sourced package/version must have a vendored `Cargo.toml` and `.cargo-checksum.json`. The engine remains pinned to `vendor/wasmi-0.31.2`, version `=0.31.2`, and `programs/.cargo/config.toml` replaces crates.io with `vendored-sources` and enables offline resolution.
 
-Under `programs/crates/`, unsafe code is restricted to the runtime's `src/ffi*.rs` and sandbox's `src/host_ffi.rs` boundary files. The policy also rejects `f32` and `f64` tokens. These boundaries keep clock, randomness, network and database dependencies out of consensus-adjacent guest execution.
+Under `programs/crates/`, unsafe code is restricted to the script's explicit per-file allowlist. It includes runtime FFI and native-contract boundaries, the AI-market guest cell, sandbox host exports and designated test boundaries. The policy also rejects `f32` and `f64` tokens. Dependency checks exclude clock, randomness, network and database packages from guest execution.
 
 ### Failure reporting
 
@@ -141,9 +141,6 @@ Stored vectors in `daemon/committed-fixture/vectors/` remain verification author
 | `vector-v4-committed.json` | Receipt inclusion, both inclusion-envelope refusals and recorded `payExact` proofs; refuse a consensus commit with at most two thirds voting power. |
 
 The V4 recording uses EIP-1559 type-2 transactions on EVM chain ID `125`.
-Its `payExact` transaction is `0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2` and its execution block is
-`0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108`. The daemon recording SHA-256 is
-`5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b`. These are private fixture identities; production consumers need their own trust anchors.
 
 Reference tests are `TestVectorV1ReceiptedPositiveVerifies`, `TestVectorV2ReceiptedRevertVerifies`, `TestVectorV3EveryRefusalIsRefused` and `TestVectorV4CommittedVerifies` in `daemon/committed-fixture/vector_v*_test.go`.
 
@@ -153,7 +150,7 @@ An execution signature authenticates the signed result. Proving commitment addit
 
 `programs-build` builds the locked workspace with `layerx-programs-sandbox/host-ffi` and fixes `CARGO_TARGET_DIR` to `programs/target`. `PROGRAMS_RUNTIME_LIB` is `programs/target/debug/liblayerx_programs_sandbox.a`. C activity binaries link that library and `$(LIBRARY)` or `$(TEST_LIBRARY)` after the `programs-build` prerequisite.
 
-The following targets are the current Makefile recipes, not additional gates run by this documentation task:
+The Makefile exposes these recipes:
 
 | Recipe | Work performed |
 | --- | --- |
@@ -177,17 +174,20 @@ AI-market guest packaging must use a release build with size optimization (`opt-
 
 `programs/crates/layerx-programs-ai-market/src/lib.rs` derives the merged chain domain as SHA-256 of `PAXAI/chain-domain/v1` followed by the 8-byte big-endian chain ID `125`. Its value is `62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6`. `PAXAI_CHAIN_DOMAIN` is read with `option_env!`, so it is a build input, not a runtime setting. An explicit value must be 64 lowercase hex characters and match that domain; malformed or foreign values return `WRONG_DOMAIN`. An unset setting selects the built-in merged-chain domain.
 
-For an explicit deployment build, run from `programs/`:
+For a packaged deployment build, run from the repository root:
 
 ```sh
-PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 \
-CARGO_PROFILE_RELEASE_OPT_LEVEL=z \
-CARGO_TARGET_DIR=target \
-cargo build --locked --release --target wasm32-unknown-unknown \
-  -p layerx-programs-ai-market
+make paxai-host-boundary-build
 ```
 
-Measure the resulting `target/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm` and include the actual deployment framing in the payload budget. The workspace's default release optimization level 3 is not this size profile. `make paxai-host-boundary-build` builds and records a guest/host manifest, but its current default `PAXAI_CHAIN_DOMAIN` differs from the guest's chain-125 derivation; supply the domain above and the size-profile override explicitly when using that recipe.
+The recipe defaults `PAXAI_CHAIN_DOMAIN` to the chain-125 value above. It uses
+`programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh`,
+which requires Binaryen 133, compiles a release `cdylib` with optimization level
+`z` and LTO, compresses relocations, and applies the shared `wasm-opt` passes.
+It checks that the packaged guest fits 524184 bytes, executes the native host
+harness and records the artifact path, harness path and domain in a manifest
+under `$(BUILD_DIR)/paxai-host-boundary`. Include any interface framing in the
+final deployment payload budget.
 
 A size check alone does not qualify deployment. The guest must validate as ABI 5 under the selected metering schedule, be admitted by the ABI-v5 Programs registration, and execute through the real host boundary. Relevant authorities are `tests/programs/test_programs_abi5_admission.c`, `tests/programs/test_ai_host_boundary.c`, and the AI-market crate's `chain_domain`, `host_boundary` and `fuel_budget` integration tests. Preserve the artifact's domain, code hash, ABI, size and metering context with deployment evidence.
 
