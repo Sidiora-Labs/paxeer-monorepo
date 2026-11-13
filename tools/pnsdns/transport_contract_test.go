@@ -34,7 +34,7 @@ import (
 	"golang.org/x/net/dns/dnsmessage"
 )
 
-func repairM866Query(t *testing.T, id uint16, name string, kind dnsmessage.Type) []byte {
+func dnsQueryWire(t *testing.T, id uint16, name string, kind dnsmessage.Type) []byte {
 	t.Helper()
 	wire, err := (&dnsmessage.Message{
 		Header:    dnsmessage.Header{ID: id, RecursionDesired: true},
@@ -46,14 +46,14 @@ func repairM866Query(t *testing.T, id uint16, name string, kind dnsmessage.Type)
 	return wire
 }
 
-func repairM866Frame(wire []byte) []byte {
+func dnsTCPFrame(wire []byte) []byte {
 	frame := make([]byte, 2+len(wire))
 	binary.BigEndian.PutUint16(frame, uint16(len(wire)))
 	copy(frame[2:], wire)
 	return frame
 }
 
-func repairM866ReadTCP(conn net.Conn) (dnsmessage.Message, error) {
+func readTCPDNSMessage(conn net.Conn) (dnsmessage.Message, error) {
 	var msg dnsmessage.Message
 	var size [2]byte
 	if _, err := io.ReadFull(conn, size[:]); err != nil {
@@ -66,7 +66,7 @@ func repairM866ReadTCP(conn net.Conn) (dnsmessage.Message, error) {
 	return msg, msg.Unpack(wire)
 }
 
-func repairM866ListenTCP(t *testing.T, h *Handler) net.Listener {
+func startTCPDNSServer(t *testing.T, h *Handler) net.Listener {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -88,7 +88,7 @@ func repairM866ListenTCP(t *testing.T, h *Handler) net.Listener {
 	return listener
 }
 
-func repairM866Dial(t *testing.T, network, address string) net.Conn {
+func dialDNSPeer(t *testing.T, network, address string) net.Conn {
 	t.Helper()
 	conn, err := net.DialTimeout(network, address, 2*time.Second)
 	if err != nil {
@@ -101,10 +101,10 @@ func repairM866Dial(t *testing.T, network, address string) net.Conn {
 	return conn
 }
 
-func TestRepairM_866_TCPCapacity(t *testing.T) {
+func TestPnsDnsTCPCapacity(t *testing.T) {
 	h := &Handler{TTL: 60, ShellA: []netip.Addr{netip.MustParseAddr("192.0.2.80")}}
-	listener := repairM866ListenTCP(t, h)
-	query := repairM866Frame(repairM866Query(t, 77, "pax.", dnsmessage.TypeA))
+	listener := startTCPDNSServer(t, h)
+	query := dnsTCPFrame(dnsQueryWire(t, 77, "pax.", dnsmessage.TypeA))
 	assertAnswer := func(msg dnsmessage.Message, err error, id uint16) {
 		t.Helper()
 		if err != nil {
@@ -122,16 +122,16 @@ func TestRepairM_866_TCPCapacity(t *testing.T) {
 	// one is opened; filling the kernel accept queue alone would not prove it.
 	peers := make([]net.Conn, tcpConnectionLimit)
 	for i := range peers {
-		peers[i] = repairM866Dial(t, "tcp", listener.Addr().String())
+		peers[i] = dialDNSPeer(t, "tcp", listener.Addr().String())
 		if _, err := peers[i].Write(query); err != nil {
 			t.Fatal(err)
 		}
-		msg, err := repairM866ReadTCP(peers[i])
+		msg, err := readTCPDNSMessage(peers[i])
 		assertAnswer(msg, err, 77)
 	}
 	assertOverload := func() {
 		t.Helper()
-		conn := repairM866Dial(t, "tcp", listener.Addr().String())
+		conn := dialDNSPeer(t, "tcp", listener.Addr().String())
 		defer conn.Close()
 		// A silent idle excess peer must be closed without waiting for a
 		// question, allocating a worker or consuming an RPC timeout.
@@ -150,13 +150,13 @@ func TestRepairM_866_TCPCapacity(t *testing.T) {
 	// must all be answered in order on the already admitted connection.
 	var pipeline []byte
 	for id := uint16(100); id < 108; id++ {
-		pipeline = append(pipeline, repairM866Frame(repairM866Query(t, id, "pax.", dnsmessage.TypeA))...)
+		pipeline = append(pipeline, dnsTCPFrame(dnsQueryWire(t, id, "pax.", dnsmessage.TypeA))...)
 	}
 	if _, err := peers[0].Write(pipeline); err != nil {
 		t.Fatal(err)
 	}
 	for id := uint16(100); id < 108; id++ {
-		msg, err := repairM866ReadTCP(peers[0])
+		msg, err := readTCPDNSMessage(peers[0])
 		assertAnswer(msg, err, id)
 	}
 
@@ -168,7 +168,7 @@ func TestRepairM_866_TCPCapacity(t *testing.T) {
 	udpDone := make(chan error, 1)
 	go func() { udpDone <- h.serveUDP(udp) }()
 	t.Cleanup(func() { udp.Close(); <-udpDone })
-	u := repairM866Dial(t, "udp", udp.LocalAddr().String())
+	u := dialDNSPeer(t, "udp", udp.LocalAddr().String())
 	if _, err := u.Write(query[2:]); err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestRepairM_866_TCPCapacity(t *testing.T) {
 					t.Fatal(err)
 				}
 				for id := uint16(100); id < 108; id++ {
-					msg, err := repairM866ReadTCP(conn)
+					msg, err := readTCPDNSMessage(conn)
 					assertAnswer(msg, err, id)
 				}
 			}
@@ -228,9 +228,9 @@ func TestRepairM_866_TCPCapacity(t *testing.T) {
 			// within a deadline, until the released slot can answer again.
 			deadline := time.Now().Add(2 * time.Second)
 			for {
-				replacement := repairM866Dial(t, "tcp", listener.Addr().String())
+				replacement := dialDNSPeer(t, "tcp", listener.Addr().String())
 				_, writeErr := replacement.Write(query)
-				msg, readErr := repairM866ReadTCP(replacement)
+				msg, readErr := readTCPDNSMessage(replacement)
 				if writeErr == nil && readErr == nil {
 					assertAnswer(msg, nil, 77)
 					peers[i+1] = replacement
@@ -251,7 +251,7 @@ func TestRepairM_866_TCPCapacity(t *testing.T) {
 // testResolverLayoutVectorIsCurrent, not a hand-written eth_call transcript.
 // Pin both its producers (including imports/compiler settings) and its bytes so
 // an upstream change requires an explicit fixture review rather than stale code.
-func repairM866Contracts(t *testing.T) map[string]struct {
+func loadResolverContracts(t *testing.T) map[string]struct {
 	CreationCode hexutil.Bytes `json:"creation_code"`
 } {
 	t.Helper()
@@ -296,8 +296,8 @@ func repairM866Contracts(t *testing.T) map[string]struct {
 	return layout.Contracts
 }
 
-func TestRepairM_866_RealContractRPC(t *testing.T) {
-	contracts := repairM866Contracts(t)
+func TestPnsDnsRealContractRPC(t *testing.T) {
+	contracts := loadResolverContracts(t)
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
@@ -416,7 +416,7 @@ func TestRepairM_866_RealContractRPC(t *testing.T) {
 	insert(blocks[:2])
 	h := &Handler{RPCURL: stack.HTTPEndpoint(), Registry: registry.Hex(), Resolver: resolver.Hex(), TTL: 60,
 		ShellA: []netip.Addr{netip.MustParseAddr("192.0.2.80")}, ShellAAAA: []netip.Addr{netip.MustParseAddr("2001:db8::80")}}
-	tcp := repairM866ListenTCP(t, h)
+	tcp := startTCPDNSServer(t, h)
 	udp, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -426,22 +426,22 @@ func TestRepairM_866_RealContractRPC(t *testing.T) {
 	t.Cleanup(func() { udp.Close(); <-udpDone })
 	query := func(network, name string, kind dnsmessage.Type) dnsmessage.Message {
 		t.Helper()
-		wire := repairM866Query(t, 866, name, kind)
+		wire := dnsQueryWire(t, 866, name, kind)
 		address := udp.LocalAddr().String()
 		if network == "tcp" {
 			address = tcp.Addr().String()
 		}
-		conn := repairM866Dial(t, network, address)
+		conn := dialDNSPeer(t, network, address)
 		defer conn.Close()
 		if network == "tcp" {
-			wire = repairM866Frame(wire)
+			wire = dnsTCPFrame(wire)
 		}
 		if _, err := conn.Write(wire); err != nil {
 			t.Fatal(err)
 		}
 		var answer dnsmessage.Message
 		if network == "tcp" {
-			answer, err = repairM866ReadTCP(conn)
+			answer, err = readTCPDNSMessage(conn)
 		} else {
 			buf := make([]byte, 4096)
 			var n int
