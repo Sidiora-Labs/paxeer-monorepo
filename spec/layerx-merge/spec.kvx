@@ -170235,7 +170235,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.15]
 title = "Move the task records and name the files after what they hold in apps/launchpad/web/test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -170328,7 +170328,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.12]
 title = "Move the task records and name the files after what they hold in apps/launchpad and 5 more directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -240613,7 +240613,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.28]
 title = "Move the task records and name the files after what they hold in consensus/cmd"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373692,7 +373692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.175]
 title = "Write the page of the directory contracts/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373722,7 +373722,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.174]
 title = "Write the page of the directory contracts/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373752,7 +373752,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.173]
 title = "Write the page of the directory deploy/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373782,7 +373782,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.172]
 title = "Write the page of the directory tests/vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373812,7 +373812,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.171]
 title = "Write the page of the directory tests/testutil"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373842,7 +373842,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.170]
 title = "Write the page of the directory tests/protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373872,7 +373872,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.169]
 title = "Write the page of the directory tests/programs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373902,7 +373902,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.168]
 title = "Write the page of the directory tests/modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373932,7 +373932,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.167]
 title = "Write the page of the directory tests/integration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373962,7 +373962,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.166]
 title = "Write the page of the directory tests/fuzz"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -373992,7 +373992,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.165]
 title = "Write the page of the directory tests/fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -376782,7 +376782,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.72]
 title = "Write the page of the directory apps/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
