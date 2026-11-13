@@ -1,0 +1,11 @@
+[manifest]
+task = "22.41.100"
+pages = 2
+
+[page.1]
+path = "spec/layerx-merge/source-control/implementation-plan.md"
+status = "corrected"
+
+[page.2]
+path = "spec/layerx-merge/source-control/traceability.md"
+status = "corrected"
