@@ -74,8 +74,8 @@ paths = [
     "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_kms.rs",
     "services/human/crates/layerx-human-test-support/tests/support/committed_evidence.rs",
     "services/human/crates/layerx-network-gateway/src/lib.rs",
-    "services/human/crates/layerx-network-gateway/tests/repair_22_31_157.rs",
-    "services/human/crates/layerx-network-gateway/tests/repair_22_33_56.rs",
+    "services/human/crates/layerx-network-gateway/tests/amount_width.rs",
+    "services/human/crates/layerx-network-gateway/tests/transport_boundaries.rs",
     "services/human/crates/layerx-network-gateway/tests/support/hosted_gateway.rs"
 ]
 

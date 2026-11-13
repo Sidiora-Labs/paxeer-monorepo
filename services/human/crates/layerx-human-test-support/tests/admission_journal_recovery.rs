@@ -58,7 +58,7 @@ fn listener() -> (TcpListener, NodeRpcConfig) {
 }
 
 #[test]
-fn finding18_documented_http_admission_stays_submitted_after_journal_recovery() {
+fn documented_http_admission_stays_submitted_after_journal_recovery() {
     for description in [
         "HTTP JSON-RPC",
         "Submitted-only receipt replies",
@@ -216,7 +216,7 @@ fn assert_recovered_admission(
 }
 
 #[test]
-fn finding18_documented_committed_proof_uses_separate_real_node_recording() {
+fn documented_committed_proof_uses_separate_real_node_recording() {
     for description in [
         "separate real-node proof",
         "proof_human_test_support_real_committed_receipt_recovers_after_human_restart",

@@ -12,7 +12,7 @@ client = "apps/web/src/api/generated/index.ts"
 manifest = "services/human/Cargo.toml"
 lock = "services/human/Cargo.lock"
 policy = "services/human/deny.toml"
-record = "services/human/tools/api-gen/repair_22_39_500.kvx"
+record = "spec/layerx-merge/programme/records/services/human/tools/api-gen/repair_22_39_500.kvx"
 
 [dependencies]
 getrandom = "Human crates use getrandom 0.4.3, matching layerx-platform-internal and ureq; agent and cryptography dependencies retain their required older versions."
@@ -25,7 +25,7 @@ crypto_bigint = "elliptic-curve 0.13.8 requires crypto-bigint ^0.5; its requirem
 generate = "make -s human-gen-api"
 sdk_check = "make platform-sdk-check"
 build = "make -s human-build"
-verify = "test -s services/human/tools/api-gen/repair_22_39_500.kvx && make -s human-lint"
+verify = "test -s spec/layerx-merge/programme/records/services/human/tools/api-gen/repair_22_39_500.kvx && make -s human-lint"
 
 [advisory.RUSTSEC-2024-0436]
 reason = "Reviewed 2026-11-13: paste 1.0.15 is a compile-time proc macro required by the pinned vendored engine tree; no maintained paste release is available"
