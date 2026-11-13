@@ -1,0 +1,345 @@
+[manifest]
+task = "22.41.32"
+pages = 114
+
+[record.1]
+path = "spec/layerx-merge/docs/decisions/D61.md"
+
+[record.2]
+path = "spec/layerx-merge/docs/decisions/D610.md"
+
+[record.3]
+path = "spec/layerx-merge/docs/decisions/D611.md"
+
+[record.4]
+path = "spec/layerx-merge/docs/decisions/D612.md"
+
+[record.5]
+path = "spec/layerx-merge/docs/decisions/D613.md"
+
+[record.6]
+path = "spec/layerx-merge/docs/decisions/D62.md"
+
+[record.7]
+path = "spec/layerx-merge/docs/decisions/D621.md"
+
+[record.8]
+path = "spec/layerx-merge/docs/decisions/D622.md"
+
+[record.9]
+path = "spec/layerx-merge/docs/decisions/D623.md"
+
+[record.10]
+path = "spec/layerx-merge/docs/decisions/D624.md"
+
+[record.11]
+path = "spec/layerx-merge/docs/decisions/D625.md"
+
+[record.12]
+path = "spec/layerx-merge/docs/decisions/D626.md"
+
+[record.13]
+path = "spec/layerx-merge/docs/decisions/D627.md"
+
+[record.14]
+path = "spec/layerx-merge/docs/decisions/D628.md"
+
+[record.15]
+path = "spec/layerx-merge/docs/decisions/D629.md"
+
+[record.16]
+path = "spec/layerx-merge/docs/decisions/D63.md"
+
+[record.17]
+path = "spec/layerx-merge/docs/decisions/D630.md"
+
+[record.18]
+path = "spec/layerx-merge/docs/decisions/D631.md"
+
+[record.19]
+path = "spec/layerx-merge/docs/decisions/D632.md"
+
+[record.20]
+path = "spec/layerx-merge/docs/decisions/D633.md"
+
+[record.21]
+path = "spec/layerx-merge/docs/decisions/D64.md"
+
+[record.22]
+path = "spec/layerx-merge/docs/decisions/D641.md"
+
+[record.23]
+path = "spec/layerx-merge/docs/decisions/D642.md"
+
+[record.24]
+path = "spec/layerx-merge/docs/decisions/D643.md"
+
+[record.25]
+path = "spec/layerx-merge/docs/decisions/D644.md"
+
+[record.26]
+path = "spec/layerx-merge/docs/decisions/D645.md"
+
+[record.27]
+path = "spec/layerx-merge/docs/decisions/D646.md"
+
+[record.28]
+path = "spec/layerx-merge/docs/decisions/D647.md"
+
+[record.29]
+path = "spec/layerx-merge/docs/decisions/D648.md"
+
+[record.30]
+path = "spec/layerx-merge/docs/decisions/D649.md"
+
+[record.31]
+path = "spec/layerx-merge/docs/decisions/D65.md"
+
+[record.32]
+path = "spec/layerx-merge/docs/decisions/D650.md"
+
+[record.33]
+path = "spec/layerx-merge/docs/decisions/D651.md"
+
+[record.34]
+path = "spec/layerx-merge/docs/decisions/D652.md"
+
+[record.35]
+path = "spec/layerx-merge/docs/decisions/D653.md"
+
+[record.36]
+path = "spec/layerx-merge/docs/decisions/D654.md"
+
+[record.37]
+path = "spec/layerx-merge/docs/decisions/D655.md"
+
+[record.38]
+path = "spec/layerx-merge/docs/decisions/D656.md"
+
+[record.39]
+path = "spec/layerx-merge/docs/decisions/D657.md"
+
+[record.40]
+path = "spec/layerx-merge/docs/decisions/D658.md"
+
+[record.41]
+path = "spec/layerx-merge/docs/decisions/D659.md"
+
+[record.42]
+path = "spec/layerx-merge/docs/decisions/D66.md"
+
+[record.43]
+path = "spec/layerx-merge/docs/decisions/D660.md"
+
+[record.44]
+path = "spec/layerx-merge/docs/decisions/D661.md"
+
+[record.45]
+path = "spec/layerx-merge/docs/decisions/D662.md"
+
+[record.46]
+path = "spec/layerx-merge/docs/decisions/D663.md"
+
+[record.47]
+path = "spec/layerx-merge/docs/decisions/D664.md"
+
+[record.48]
+path = "spec/layerx-merge/docs/decisions/D665.md"
+
+[record.49]
+path = "spec/layerx-merge/docs/decisions/D666.md"
+
+[record.50]
+path = "spec/layerx-merge/docs/decisions/D667.md"
+
+[record.51]
+path = "spec/layerx-merge/docs/decisions/D668.md"
+
+[record.52]
+path = "spec/layerx-merge/docs/decisions/D67.md"
+
+[record.53]
+path = "spec/layerx-merge/docs/decisions/D68.md"
+
+[record.54]
+path = "spec/layerx-merge/docs/decisions/D681.md"
+
+[record.55]
+path = "spec/layerx-merge/docs/decisions/D682.md"
+
+[record.56]
+path = "spec/layerx-merge/docs/decisions/D683.md"
+
+[record.57]
+path = "spec/layerx-merge/docs/decisions/D684.md"
+
+[record.58]
+path = "spec/layerx-merge/docs/decisions/D685.md"
+
+[record.59]
+path = "spec/layerx-merge/docs/decisions/D69.md"
+
+[record.60]
+path = "spec/layerx-merge/docs/decisions/D7.md"
+
+[record.61]
+path = "spec/layerx-merge/docs/decisions/D70.md"
+
+[record.62]
+path = "spec/layerx-merge/docs/decisions/D701.md"
+
+[record.63]
+path = "spec/layerx-merge/docs/decisions/D702.md"
+
+[record.64]
+path = "spec/layerx-merge/docs/decisions/D703.md"
+
+[record.65]
+path = "spec/layerx-merge/docs/decisions/D704.md"
+
+[record.66]
+path = "spec/layerx-merge/docs/decisions/D705.md"
+
+[record.67]
+path = "spec/layerx-merge/docs/decisions/D706.md"
+
+[record.68]
+path = "spec/layerx-merge/docs/decisions/D707.md"
+
+[record.69]
+path = "spec/layerx-merge/docs/decisions/D708.md"
+
+[record.70]
+path = "spec/layerx-merge/docs/decisions/D709.md"
+
+[record.71]
+path = "spec/layerx-merge/docs/decisions/D71.md"
+
+[record.72]
+path = "spec/layerx-merge/docs/decisions/D710.md"
+
+[record.73]
+path = "spec/layerx-merge/docs/decisions/D711.md"
+
+[record.74]
+path = "spec/layerx-merge/docs/decisions/D712.md"
+
+[record.75]
+path = "spec/layerx-merge/docs/decisions/D713.md"
+
+[record.76]
+path = "spec/layerx-merge/docs/decisions/D714.md"
+
+[record.77]
+path = "spec/layerx-merge/docs/decisions/D715.md"
+
+[record.78]
+path = "spec/layerx-merge/docs/decisions/D716.md"
+
+[record.79]
+path = "spec/layerx-merge/docs/decisions/D717.md"
+
+[record.80]
+path = "spec/layerx-merge/docs/decisions/D718.md"
+
+[record.81]
+path = "spec/layerx-merge/docs/decisions/D719.md"
+
+[record.82]
+path = "spec/layerx-merge/docs/decisions/D72.md"
+
+[record.83]
+path = "spec/layerx-merge/docs/decisions/D720.md"
+
+[record.84]
+path = "spec/layerx-merge/docs/decisions/D721.md"
+
+[record.85]
+path = "spec/layerx-merge/docs/decisions/D722.md"
+
+[record.86]
+path = "spec/layerx-merge/docs/decisions/D723.md"
+
+[record.87]
+path = "spec/layerx-merge/docs/decisions/D724.md"
+
+[record.88]
+path = "spec/layerx-merge/docs/decisions/D725.md"
+
+[record.89]
+path = "spec/layerx-merge/docs/decisions/D726.md"
+
+[record.90]
+path = "spec/layerx-merge/docs/decisions/D727.md"
+
+[record.91]
+path = "spec/layerx-merge/docs/decisions/D728.md"
+
+[record.92]
+path = "spec/layerx-merge/docs/decisions/D729.md"
+
+[record.93]
+path = "spec/layerx-merge/docs/decisions/D73.md"
+
+[record.94]
+path = "spec/layerx-merge/docs/decisions/D730.md"
+
+[record.95]
+path = "spec/layerx-merge/docs/decisions/D731.md"
+
+[record.96]
+path = "spec/layerx-merge/docs/decisions/D732.md"
+
+[record.97]
+path = "spec/layerx-merge/docs/decisions/D733.md"
+
+[record.98]
+path = "spec/layerx-merge/docs/decisions/D74.md"
+
+[record.99]
+path = "spec/layerx-merge/docs/decisions/D75.md"
+
+[record.100]
+path = "spec/layerx-merge/docs/decisions/D76.md"
+
+[record.101]
+path = "spec/layerx-merge/docs/decisions/D77.md"
+
+[record.102]
+path = "spec/layerx-merge/docs/decisions/D78.md"
+
+[record.103]
+path = "spec/layerx-merge/docs/decisions/D79.md"
+
+[record.104]
+path = "spec/layerx-merge/docs/decisions/D8.md"
+
+[record.105]
+path = "spec/layerx-merge/docs/decisions/D80.md"
+
+[record.106]
+path = "spec/layerx-merge/docs/decisions/D801.md"
+
+[record.107]
+path = "spec/layerx-merge/docs/decisions/D802.md"
+
+[record.108]
+path = "spec/layerx-merge/docs/decisions/D803.md"
+
+[record.109]
+path = "spec/layerx-merge/docs/decisions/D804.md"
+
+[record.110]
+path = "spec/layerx-merge/docs/decisions/D805.md"
+
+[record.111]
+path = "spec/layerx-merge/docs/decisions/D806.md"
+
+[record.112]
+path = "spec/layerx-merge/docs/decisions/D807.md"
+
+[record.113]
+path = "spec/layerx-merge/docs/decisions/D808.md"
+
+[record.114]
+path = "spec/layerx-merge/docs/decisions/D809.md"
