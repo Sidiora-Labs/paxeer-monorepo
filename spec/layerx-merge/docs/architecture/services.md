@@ -65,7 +65,7 @@ An unknown transaction outcome keeps the exact signed bytes in the outbox for re
 
 [The human workspace](../../../../services/human/Cargo.toml) contains human service, identity provider, security provider, KMS, intents, network gateway and test support. The service composes authenticated user journeys; the network gateway uses the shared chain client. Intent construction reads chain state and preserves the authority of the resulting transaction.
 
-[Human KMS](../../../../services/human/crates/layerx-human-kms) binds a TCP listener protected by mutual TLS and certificate pin checks. Its key material remains behind the signing boundary. Other component adapters use their declared local transports; the KMS is not described by a blanket Unix-socket assumption.
+[Human KMS](../../../../services/human/crates/layerx-human-kms) binds a TCP listener protected by mutual TLS and certificate pin checks. Its key material remains behind the signing boundary.
 
 Human service exposes liveness separately from dependency readiness. The identity/security providers, KMS and wallet attestors retain separate responsibilities. A successful user session does not by itself prove that a signer or chain dependency is ready.
 

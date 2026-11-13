@@ -8,7 +8,7 @@ The sequencer is embedded in `paxd`. [The daemon root command](../../../../daemo
 
 [Configuration](../../../../node/sequencer/config.go) includes `sequencer.enable`, `sequencer.role`, `sequencer.mode`, `sequencer.wal-dir`, `sequencer.receipt-key-file`, `sequencer.receipt-forward-url`, `sequencer.standby-address`, `sequencer.replication-timeout` and `sequencer.lease-duration`. The execution modes are `sequential` and `microbatch`; count, timing and nonce-queue bounds also belong to this configuration. Replicated operation requires the TLS certificate, roots, peer identity and key pin configured for each side.
 
-The [sequencer keeper](../../../../modules/sequencer/keeper/keeper.go) persists activation height `S`; sequencing applies at heights `h >= S`. Genesis initialization uses the next height, and an upgrade at height `H` first sequences height `H + 1`. The governed leader schedule controls eligible sequencer proposers. Receipt keys and validator consensus keys are distinct.
+The [sequencer keeper](../../../../modules/sequencer/keeper/keeper.go) persists activation height `S`; sequencing applies at heights `h >= S`. Genesis initialization defaults an unset activation height to the next height. The [merge handler](../../../../node/upgrades.go) defaults an unset activation height to `H + 1` for an upgrade at height `H` and requires receipt-key coverage at `H + 1`. An explicit activation height is validated with the supplied genesis. The governed leader schedule controls eligible sequencer proposers. Receipt keys and validator consensus keys are distinct.
 
 ## Receipt life cycle
 
@@ -56,8 +56,8 @@ Finalization adopts a successful local sealed state only when it matches the dec
 
 | Record | Payload |
 |---|---|
-| `OPEN` | Height, open time in milliseconds and base fee |
-| `ACCEPT` | Sequence, height, transaction bytes and canonical signed receipt bytes |
+| `OPEN` | Height, open time in milliseconds, base fee and optional proposer address |
+| `ACCEPT` | Sequence, height, transaction bytes and canonical signed receipt bytes; optional return data, VM error and log data |
 | `SEAL` | Height, first/last sequence and final sequence hash |
 | `COMMITTED` | Height, last sequence and application hash |
 | `LEASE` | Epoch, receipt key ID and expiry in milliseconds |

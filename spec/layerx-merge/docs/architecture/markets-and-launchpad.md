@@ -42,7 +42,7 @@ sequenceDiagram
 
 `createVault` ensures the caller's cross account and returns the shared precompile address. It does not deploy an individual vault. Deposit and withdrawal handlers perform ERC20 token movement; `TransferCollateral` is an internal book transfer with no ERC20 leg. See [the precompile account handlers](../../../../precompiles/perps/account.go) and [keeper account logic](../../../../modules/perps/keeper/account.go).
 
-[Order admission](../../../../modules/perps/keeper/orders.go) checks pause state, account, enabled market, fresh prices, order kind and deadline, sizing, leverage, order counts, client IDs, reduce-only restrictions and margin. [Matching](../../../../modules/perps/keeper/matching.go) and [position fills](../../../../modules/perps/keeper/positions.go) use cached branches. Makers fill at maker limit prices. Closing a position is a reduce-only order and remains subject to liquidity and size bounds.
+[Order admission](../../../../modules/perps/keeper/orders.go) checks account, order kind and deadline, sizing, leverage, order counts, client IDs, reduce-only restrictions and margin. Opening orders require an unpaused venue and an enabled market. Reduce-only orders remain eligible when the venue is paused or the market is disabled. Admission requires fresh prices for opening orders and reduce-only market orders. [Matching](../../../../modules/perps/keeper/matching.go) and [position fills](../../../../modules/perps/keeper/positions.go) use cached branches. Makers fill at maker limit prices. Closing a position is a reduce-only order and remains subject to liquidity and size bounds.
 
 The precompile rejects delegate calls, static writes, attached value and missing keeper dependencies. Pause policy permits the defined exit operations and views. Governed risk limits, including `WithdrawFloorPpm`, constrain the keeper's execution rather than merely describing client-side limits.
 
@@ -54,7 +54,7 @@ Funding samples produce a capped hourly rate and cumulative index. Positions rea
 
 ## Pricefeed and oracle
 
-[Pricefeed submission](../../../../modules/pricefeed/keeper/msg_server.go) accepts registered bonded feeders, bounds observation input and prevents repeated validator submission at one height. Feed-key registration and revocation emit EVM `FeedKeyRegistered` and `FeedKeyRevoked` logs. Submission and aggregation also emit Cosmos events.
+[Pricefeed submission](../../../../modules/pricefeed/keeper/msg_server.go) accepts registered bonded feeders, bounds observation input and prevents repeated validator submission at one height. [The EVM feed-key handlers](../../../../precompiles/pricefeed/register.go) emit `FeedKeyRegistered` and `FeedKeyRevoked` logs. Submission and aggregation also emit Cosmos events.
 
 [Aggregation](../../../../modules/pricefeed/keeper/aggregate.go) requires at least `MinSources` and reporting bonded voting power strictly greater than two-thirds of the total bonded power. Both conditions apply before and after divergence filtering around the first median. Successful aggregation stores the median index, smoothed mark, oldest agreeing timestamp, height and source count.
 
@@ -84,7 +84,7 @@ The five spot rails are market/swaps `0x1021`, limit orders `0x1022`, stop order
 
 [MigrateV6120](../../../../modules/launchpad/keeper/migrate_v6120.go) runs in a cache. It reconciles USDL quote custody, pool-held deltas, fee rights and liabilities, installs forwarding surfaces, records retired role addresses and checks custody and solvency before committing and forwarding events.
 
-The [forwarding runtime](../../../../precompiles/launchpad/surface.go) is 41 bytes. It appends the original caller and uses `CALL` to `0x1017` without value. [Dispatch](../../../../precompiles/launchpad/run.go) trusts the appended caller only for a registered surface. Direct calls use the aggregate ABI. Native surfaces are forwarding contracts rather than UUPS proxies.
+The [forwarding runtime](../../../../precompiles/launchpad/surface.go) installed at fixed roles and newly created pools is 51 bytes. It rejects native value, appends the original caller and uses `CALL` to `0x1017` without value. Pool migration installs the 41-byte runtime defined in [MigrateV6120](../../../../modules/launchpad/keeper/migrate_v6120.go), which appends the original caller and calls `0x1017` with zero value. [Dispatch](../../../../precompiles/launchpad/run.go) trusts the appended caller only for a registered surface. Direct calls use the aggregate ABI. Native surfaces are forwarding contracts rather than UUPS proxies.
 
 | Role | Fixed surface address |
 |---|---|
