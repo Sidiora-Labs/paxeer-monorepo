@@ -38,7 +38,7 @@ done
 		printf 'kernel.paxeer.network\tstream\t10.20.0.7:%s\t-\n' "$p"
 	done
 } >"$work/edge-apps"
-pool=$("${BRINGUP_INSPECT_BIN:-bringup-inspect}" rpc-names "$here/../../docs/site/docs/reference/public-rpc.md" | paste -sd' ')
+pool=$("${BRINGUP_INSPECT_BIN:-bringup-inspect}" rpc-names "$here/../../docs/readme/PUBLIC-RPC.md" | paste -sd' ')
 cat >"$work/edge.env" <<EOF
 EDGE_APP=edge-apps
 EDGE_RPC_NAME=api-mainnet-beta.paxeer.network
