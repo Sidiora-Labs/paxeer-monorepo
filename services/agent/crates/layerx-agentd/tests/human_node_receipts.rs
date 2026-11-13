@@ -329,7 +329,7 @@ fn human_receipt_fixture_missing_payment() {
     // Committed derivation of the shared producer's zero-value ledger vectors:
     // payment stays uhpx while the independently signed gas denomination is usid.
     let fixtures: Value = must(serde_json::from_str(include_str!(
-        "../../layerx-agentd-host/src/repair_22_31_363_receipts.json"
+        "../../layerx-agentd-host/src/payer_payment_receipts.json"
     )));
     assert_eq!(
         fixtures["provenance"]["generator"],

@@ -15,7 +15,7 @@
 //! Current readiness is also exercised from a freshly reopened protected config
 //! and loopback node, including a second start and malformed key refusal.
 //! Main's private environment loader still requires the wiring request recorded
-//! in `repair_22_33_1537.kvx`.
+//! in `spec/layerx-merge/programme/records/services/agent/crates/layerx-agentd/tests/repair_22_33_1537.kvx`.
 
 #[path = "config.rs"]
 mod config_consumer;

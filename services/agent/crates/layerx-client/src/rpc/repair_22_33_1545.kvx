@@ -48,7 +48,7 @@ repair = "Keep the verified block context private and distinct; put the independ
 
 [repair.consumer-22.31.485]
 change = "The fee-projection test constructs Head with CommittedBlockContext derived from a signature-verified recorded node header and separately supplies the observed sequence; sealed_batch and finalised_checkpoint are removed without changing any fee-projection assertions. The RPC boundary re-exports ChainProofVerifier and VerifiedChainHead for callers of its evidence APIs."
-proof = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs preserves stale/future snapshot refusal, exact current snapshot acceptance, freshness mismatch refusal, and malformed snapshot validation, including the sequence above 2^53; the committed height remains independently verified at 1200."
+proof = "services/agent/crates/layerx-agent-api/tests/fee_snapshot_freshness.rs preserves stale/future snapshot refusal, exact current snapshot acceptance, freshness mismatch refusal, and malformed snapshot validation, including the sequence above 2^53; the committed height remains independently verified at 1200."
 provenance = "The constructor embeds lossless storage.signedHeader and validator excerpts from services/agent/crates/layerx-client/tests/fixtures/repair_22_33_1546_node.json because the consumer manifest and additional fixture paths are outside scope; production commit decoding and signature verification construct the context."
 
 [qualification.attempt-3]
