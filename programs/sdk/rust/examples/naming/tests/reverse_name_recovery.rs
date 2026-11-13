@@ -1,13 +1,4 @@
-//! Task 22.33.243, finding 011: `reclaim_a_preserves_reverse_b_after_restart`
-//! and `transfer_a_preserves_reverse_b_after_restart` prove closure using the
-//! production handlers, SDK request/record/label codecs and an in-memory host.
-//! `cleanup_removes_only_the_affected_reverse_name` covers matching and absent
-//! entries; `malformed_reverse_refuses_without_committing` covers corrupt state.
-//! Baseline UNRUN: the test target did not exist on the base, and the bounded
-//! implementation-first gate order forbids a preliminary verification run.
-//! Wiring request (domain 13): refresh the naming WASM fixture at
-//! programs/crates/layerx-programs-registry/tests/fixtures/naming/naming.wasm
-//! and qualify it through the native chain host; generated artifacts are outside scope.
+//! Checks reverse-name cleanup and recovery across naming ownership changes.
 
 use std::collections::BTreeMap;
 
