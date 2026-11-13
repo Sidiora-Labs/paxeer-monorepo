@@ -53,7 +53,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM690Store struct {
+type stakingDocStore struct {
 	ctx      sdk.Context
 	ms       *rootmulti.Store
 	cdc      *codec.ProtoCodec
@@ -63,7 +63,7 @@ type repairM690Store struct {
 	stop     func()
 }
 
-func repairM690Open(t *testing.T, dir string) repairM690Store {
+func stakingDocOpen(t *testing.T, dir string) stakingDocStore {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("repair-m690", dir)
 	require.NoError(t, err)
@@ -104,22 +104,22 @@ func repairM690Open(t *testing.T, dir string) repairM690Store {
 		}
 	}
 	t.Cleanup(stop)
-	return repairM690Store{ctx, ms, cdc, registry, sk, bk, stop}
+	return stakingDocStore{ctx, ms, cdc, registry, sk, bk, stop}
 }
 
-func repairM690Address(b byte) sdk.AccAddress { return sdk.AccAddress(bytes.Repeat([]byte{b}, 20)) }
+func stakingDocAddress(b byte) sdk.AccAddress { return sdk.AccAddress(bytes.Repeat([]byte{b}, 20)) }
 
-func (f repairM690Store) fund(t *testing.T, addr sdk.AccAddress, amount sdk.Int) {
+func (f stakingDocStore) fund(t *testing.T, addr sdk.AccAddress, amount sdk.Int) {
 	t.Helper()
 	coins := sdk.NewCoins(sdk.NewCoin(f.staking.BondDenom(f.ctx), amount))
 	require.NoError(t, f.bank.MintCoins(f.ctx, "mint", coins))
 	require.NoError(t, f.bank.SendCoinsFromModuleToAccount(f.ctx, "mint", addr, coins))
 }
 
-func (f repairM690Store) validator(t *testing.T, b byte, status types.BondStatus) types.Validator {
+func (f stakingDocStore) validator(t *testing.T, b byte, status types.BondStatus) types.Validator {
 	t.Helper()
 	key := ed25519.GenPrivKeyFromSecret([]byte{b}).PubKey()
-	v, err := types.NewValidator(sdk.ValAddress(repairM690Address(b)), key, types.Description{Moniker: fmt.Sprintf("validator-%d", b)})
+	v, err := types.NewValidator(sdk.ValAddress(stakingDocAddress(b)), key, types.Description{Moniker: fmt.Sprintf("validator-%d", b)})
 	require.NoError(t, err)
 	v.Status = status
 	v.UnbondingHeight = f.ctx.BlockHeight() - 1
@@ -130,7 +130,7 @@ func (f repairM690Store) validator(t *testing.T, b byte, status types.BondStatus
 	return v
 }
 
-func (f repairM690Store) delegate(t *testing.T, del sdk.AccAddress, val sdk.ValAddress, power int64) sdk.Int {
+func (f stakingDocStore) delegate(t *testing.T, del sdk.AccAddress, val sdk.ValAddress, power int64) sdk.Int {
 	t.Helper()
 	amount := f.staking.TokensFromConsensusPower(f.ctx, power)
 	f.fund(t, del, amount)
@@ -143,14 +143,14 @@ func (f repairM690Store) delegate(t *testing.T, del sdk.AccAddress, val sdk.ValA
 	return amount
 }
 
-func repairM690Doc(t *testing.T, path string) string {
+func stakingDocRead(t *testing.T, path string) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("spec", path))
 	require.NoError(t, err)
 	return string(b)
 }
 
-func repairM690JSONBlock(t *testing.T, doc, label string) []byte {
+func stakingDocJSONBlock(t *testing.T, doc, label string) []byte {
 	t.Helper()
 	marker := "<!-- repair-m690:" + label + " -->"
 	_, rest, ok := strings.Cut(doc, marker)
@@ -165,7 +165,7 @@ func repairM690JSONBlock(t *testing.T, doc, label string) []byte {
 
 // The node is closed and re-created over the committed database, rather than
 // retaining a keeper or an Any cache across the export/restart boundary.
-func TestRepairM_690_ExportErrorRecovery(t *testing.T) {
+func TestStakingDocumentation_ExportErrorRecovery(t *testing.T) {
 	for _, kind := range []string{"unsupported", "empty_any"} {
 		t.Run(kind, func(t *testing.T) {
 			dir := t.TempDir()
@@ -197,7 +197,7 @@ func TestRepairM_690_ExportErrorRecovery(t *testing.T) {
 			}
 			app, ctx, stop := open(true)
 			goodKey := ed25519.GenPrivKeyFromSecret([]byte("repair-m690-good")).PubKey()
-			good, err := types.NewValidator(sdk.ValAddress(repairM690Address(1)), goodKey, types.Description{Moniker: "first"})
+			good, err := types.NewValidator(sdk.ValAddress(stakingDocAddress(1)), goodKey, types.Description{Moniker: "first"})
 			require.NoError(t, err)
 			good.Status = types.Bonded
 			good.Tokens = app.StakingKeeper.TokensFromConsensusPower(ctx, 3)
@@ -207,7 +207,7 @@ func TestRepairM_690_ExportErrorRecovery(t *testing.T) {
 			vals, err := staking.WriteValidators(ctx, app.StakingKeeper)
 			require.NoError(t, err)
 			require.Len(t, vals, 1)
-			bad, err := types.NewValidator(sdk.ValAddress(repairM690Address(2)), secp256k1.GenPrivKey().PubKey(), types.Description{Moniker: "unsupported"})
+			bad, err := types.NewValidator(sdk.ValAddress(stakingDocAddress(2)), secp256k1.GenPrivKey().PubKey(), types.Description{Moniker: "unsupported"})
 			require.NoError(t, err)
 			bad.Status, bad.Tokens, bad.DelegatorShares = good.Status, good.Tokens, good.DelegatorShares
 			if kind == "empty_any" {
@@ -269,9 +269,9 @@ func TestRepairM_690_ExportErrorRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_690_StateLayoutAndHistory(t *testing.T) {
-	f := repairM690Open(t, t.TempDir())
-	del := repairM690Address(90)
+func TestStakingDocumentation_StateLayoutAndHistory(t *testing.T) {
+	f := stakingDocOpen(t, t.TempDir())
+	del := stakingDocAddress(90)
 	vals := []types.Validator{f.validator(t, 11, types.Unbonded), f.validator(t, 12, types.Unbonded), f.validator(t, 13, types.Unbonded)}
 	for i, v := range vals {
 		f.delegate(t, del, v.GetOperator(), []int64{3, 5, 5}[i])
@@ -327,17 +327,17 @@ func TestRepairM_690_StateLayoutAndHistory(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, before, after)
 	require.False(t, f.ctx.KVStore(f.staking.GetStoreKey()).Has(expected))
-	doc := repairM690Doc(t, "01_state.md")
+	doc := stakingDocRead(t, "01_state.md")
 	for _, claim := range []string{"BE64(len(timeBytes)) | timeBytes | BE64(UnbondingHeight)", "ASCII(decimal block height)", "consensus voting power **descending**", "consensus address **ascending**", "Delegation shares remain recorded", "02_state_transitions.md#begin-unbonding"} {
 		require.Contains(t, doc, claim)
 	}
 }
 
-func TestRepairM_690_MessageWaitingPeriod(t *testing.T) {
+func TestStakingDocumentation_MessageWaitingPeriod(t *testing.T) {
 	for _, status := range []types.BondStatus{types.Bonded, types.Unbonding, types.Unbonded} {
 		t.Run(status.String(), func(t *testing.T) {
-			f := repairM690Open(t, t.TempDir())
-			del := repairM690Address(90)
+			f := stakingDocOpen(t, t.TempDir())
+			del := stakingDocAddress(90)
 			v := f.validator(t, 21, status)
 			amount := f.delegate(t, del, v.GetOperator(), 10).QuoRaw(2)
 			now := f.ctx.BlockTime()
@@ -380,7 +380,7 @@ func TestRepairM_690_MessageWaitingPeriod(t *testing.T) {
 			require.False(t, found)
 		})
 	}
-	doc := repairM690Doc(t, "03_messages.md")
+	doc := stakingDocRead(t, "03_messages.md")
 	for _, status := range []string{"Bonded", "Unbonding", "Unbonded"} {
 		require.Contains(t, doc, "| "+status+" | Current block time plus `UnbondingTime` |")
 	}
@@ -388,13 +388,13 @@ func TestRepairM_690_MessageWaitingPeriod(t *testing.T) {
 	require.Contains(t, doc, "operator's own delegation")
 }
 
-func TestRepairM_690_TransitionsAndDurableRetry(t *testing.T) {
+func TestStakingDocumentation_TransitionsAndDurableRetry(t *testing.T) {
 	for _, status := range []types.BondStatus{types.Bonded, types.Unbonding, types.Unbonded} {
 		t.Run("redelegation_"+status.String(), func(t *testing.T) {
-			f := repairM690Open(t, t.TempDir())
+			f := stakingDocOpen(t, t.TempDir())
 			src := f.validator(t, 31, status)
 			dst := f.validator(t, 32, types.Unbonded)
-			del := repairM690Address(90)
+			del := stakingDocAddress(90)
 			amount := f.delegate(t, del, src.GetOperator(), 10).QuoRaw(2)
 			msg := types.NewMsgBeginRedelegate(del, src.GetOperator(), dst.GetOperator(), sdk.NewCoin(f.staking.BondDenom(f.ctx), amount))
 			response, err := keeper.NewMsgServerImpl(f.staking).BeginRedelegate(sdk.WrapSDKContext(f.ctx), msg)
@@ -420,10 +420,10 @@ func TestRepairM_690_TransitionsAndDurableRetry(t *testing.T) {
 		})
 	}
 	t.Run("redelegation_removed_source", func(t *testing.T) {
-		f := repairM690Open(t, t.TempDir())
+		f := stakingDocOpen(t, t.TempDir())
 		src := f.validator(t, 35, types.Unbonded)
 		dst := f.validator(t, 36, types.Unbonded)
-		del := repairM690Address(90)
+		del := stakingDocAddress(90)
 		amount := f.delegate(t, del, src.GetOperator(), 10)
 		response, err := keeper.NewMsgServerImpl(f.staking).BeginRedelegate(sdk.WrapSDKContext(f.ctx), types.NewMsgBeginRedelegate(del, src.GetOperator(), dst.GetOperator(), sdk.NewCoin(f.staking.BondDenom(f.ctx), amount)))
 		require.NoError(t, err)
@@ -437,14 +437,14 @@ func TestRepairM_690_TransitionsAndDurableRetry(t *testing.T) {
 		require.Equal(t, response.CompletionTime, red.Entries[0].CompletionTime)
 	})
 	dir := t.TempDir()
-	f := repairM690Open(t, dir)
+	f := stakingDocOpen(t, dir)
 	v := f.validator(t, 41, types.Unbonded)
-	del := repairM690Address(90)
+	del := stakingDocAddress(90)
 	amount := f.delegate(t, del, v.GetOperator(), 10).QuoRaw(2)
 	// Keep another validator's backing in the not-bonded pool: the retry
 	// must preserve that stake as well as paying exactly the mature entry.
 	reserve := f.validator(t, 42, types.Unbonded)
-	reserveAmount := f.delegate(t, repairM690Address(91), reserve.GetOperator(), 1)
+	reserveAmount := f.delegate(t, stakingDocAddress(91), reserve.GetOperator(), 1)
 	reserveCons, err := reserve.GetConsAddr()
 	require.NoError(t, err)
 	f.staking.Jail(f.ctx, reserveCons)
@@ -475,7 +475,7 @@ func TestRepairM_690_TransitionsAndDurableRetry(t *testing.T) {
 	require.Equal(t, before, f.bank.GetBalance(f.ctx, del, denom))
 	committed := f.ms.Commit(true)
 	f.stop()
-	f = repairM690Open(t, dir)
+	f = stakingDocOpen(t, dir)
 	require.Equal(t, committed, f.ms.LastCommitID())
 	recovered, found = f.staking.GetUnbondingDelegation(f.ctx, del, v.GetOperator())
 	require.True(t, found)
@@ -502,19 +502,19 @@ func TestRepairM_690_TransitionsAndDurableRetry(t *testing.T) {
 	f.ctx = f.ctx.WithBlockTime(retryTime.Add(2 * time.Second)).WithBlockHeight(13)
 	staking.EndBlocker(f.ctx, f.staking)
 	require.Equal(t, before.Add(payout), f.bank.GetBalance(f.ctx, del, denom))
-	doc := repairM690Doc(t, "02_state_transitions.md")
+	doc := stakingDocRead(t, "02_state_transitions.md")
 	for _, claim := range []string{"For **Bonded, Unbonding and Unbonded**", "getBeginInfo", "after a restart", "without a partial payment", "current block time"} {
 		require.Contains(t, doc, claim)
 	}
 }
 
-func TestRepairM_690_RegisteredParameters(t *testing.T) {
-	f := repairM690Open(t, t.TempDir())
+func TestStakingDocumentation_RegisteredParameters(t *testing.T) {
+	f := stakingDocOpen(t, t.TempDir())
 	params := f.staking.GetParams(f.ctx)
 	require.Equal(t, types.DefaultParams(), params)
 	pairs := params.ParamSetPairs()
 	require.Len(t, pairs, 8)
-	table := repairM690Doc(t, "08_params.md")
+	table := stakingDocRead(t, "08_params.md")
 	expectedTypes := map[string]reflect.Type{
 		"UnbondingTime": reflect.TypeOf(time.Duration(0)), "MaxValidators": reflect.TypeOf(uint32(0)), "MaxEntries": reflect.TypeOf(uint32(0)), "HistoricalEntries": reflect.TypeOf(uint32(0)),
 		"BondDenom": reflect.TypeOf(""), "MinCommissionRate": reflect.TypeOf(sdk.Dec{}), "MaxVotingPower": reflect.TypeOf(sdk.Dec{}), "MaxVotingPowerEnforcementThreshold": reflect.TypeOf(sdk.Int{}),
@@ -552,8 +552,8 @@ func TestRepairM_690_RegisteredParameters(t *testing.T) {
 	require.Equal(t, params, result.Params)
 }
 
-func TestRepairM_690_ClientExamples(t *testing.T) {
-	f := repairM690Open(t, t.TempDir())
+func TestStakingDocumentation_ClientExamples(t *testing.T) {
+	f := stakingDocOpen(t, t.TempDir())
 	router := baseapp.NewQueryServerTestHelper(f.ctx, f.registry)
 	types.RegisterQueryServer(router, keeper.Querier{Keeper: f.staking})
 	grpcClient := types.NewQueryClient(router)
@@ -570,9 +570,9 @@ func TestRepairM_690_ClientExamples(t *testing.T) {
 		require.Equal(t, http.StatusOK, response.StatusCode, string(raw))
 		return raw
 	}
-	doc := repairM690Doc(t, "09_client.md")
+	doc := stakingDocRead(t, "09_client.md")
 	actual := get("/cosmos/staking/v1beta1/params")
-	require.JSONEq(t, string(repairM690JSONBlock(t, doc, "params")), string(actual))
+	require.JSONEq(t, string(stakingDocJSONBlock(t, doc, "params")), string(actual))
 	var params types.QueryParamsResponse
 	require.NoError(t, f.cdc.UnmarshalAsJSON(actual, &params))
 	require.Equal(t, f.staking.GetParams(f.ctx), params.Params)
@@ -603,12 +603,12 @@ func TestRepairM_690_ClientExamples(t *testing.T) {
 	out, err := clitestutil.ExecTestCLICmd(clientCtx, cli.GetCmdQueryParams(), []string{"--output=json"})
 	require.NoError(t, err, out.String())
 	t.Logf("staking params CLI capture: %s", out.String())
-	require.JSONEq(t, string(repairM690JSONBlock(t, doc, "params-cli")), out.String())
+	require.JSONEq(t, string(stakingDocJSONBlock(t, doc, "params-cli")), out.String())
 	var cliParams types.Params
 	require.NoError(t, f.cdc.UnmarshalAsJSON(out.Bytes(), &cliParams))
 	require.Equal(t, params.Params, cliParams)
 	// Produce the documented redelegation through the real message handler.
-	del := repairM690Address(90)
+	del := stakingDocAddress(90)
 	src := f.validator(t, 51, types.Unbonding)
 	dst := f.validator(t, 52, types.Unbonded)
 	initial := sdk.NewInt(10_000_000)
@@ -625,7 +625,7 @@ func TestRepairM_690_ClientExamples(t *testing.T) {
 	args := url.Values{"src_validator_addr": {src.OperatorAddress}, "dst_validator_addr": {dst.OperatorAddress}, "pagination.limit": {"1"}, "pagination.count_total": {"true"}}
 	path := "/cosmos/staking/v1beta1/delegators/" + del.String() + "/redelegations?" + args.Encode()
 	actual = get(path)
-	require.JSONEq(t, string(repairM690JSONBlock(t, doc, "redelegations")), string(actual))
+	require.JSONEq(t, string(stakingDocJSONBlock(t, doc, "redelegations")), string(actual))
 	var gatewayResponse types.QueryRedelegationsResponse
 	require.NoError(t, f.cdc.UnmarshalAsJSON(actual, &gatewayResponse))
 	// RedelegationResponse.MarshalJSON is used even inside protobuf JSON.
@@ -643,7 +643,7 @@ func TestRepairM_690_ClientExamples(t *testing.T) {
 	require.Equal(t, stored.Entries[0], response.RedelegationResponses[0].Entries[0].RedelegationEntry)
 	require.Equal(t, amount, response.RedelegationResponses[0].Entries[0].Balance)
 	var documentedRequest types.QueryRedelegationsRequest
-	require.NoError(t, f.cdc.UnmarshalAsJSON(repairM690JSONBlock(t, doc, "redelegations-request"), &documentedRequest))
+	require.NoError(t, f.cdc.UnmarshalAsJSON(stakingDocJSONBlock(t, doc, "redelegations-request"), &documentedRequest))
 	require.Equal(t, &types.QueryRedelegationsRequest{DelegatorAddr: del.String(), SrcValidatorAddr: src.OperatorAddress, DstValidatorAddr: dst.OperatorAddress, Pagination: &query.PageRequest{Limit: 1, CountTotal: true}}, &documentedRequest)
 	grpcResponse, err := grpcClient.Redelegations(context.Background(), &documentedRequest)
 	require.NoError(t, err)
@@ -657,7 +657,7 @@ func TestRepairM_690_ClientExamples(t *testing.T) {
 	out, err = clitestutil.ExecTestCLICmd(clientCtx, cli.GetCmdQueryRedelegation(), []string{del.String(), src.OperatorAddress, dst.OperatorAddress, "--output=json"})
 	require.NoError(t, err, out.String())
 	t.Logf("staking redelegation CLI capture: %s", out.String())
-	require.JSONEq(t, string(repairM690JSONBlock(t, doc, "redelegations-cli")), out.String())
+	require.JSONEq(t, string(stakingDocJSONBlock(t, doc, "redelegations-cli")), out.String())
 	var cliResult types.QueryRedelegationsResponse
 	require.NoError(t, f.cdc.UnmarshalAsJSON(out.Bytes(), &cliResult))
 	require.Len(t, cliResult.RedelegationResponses, 1)
@@ -678,9 +678,9 @@ func TestRepairM_690_ClientExamples(t *testing.T) {
 	}
 }
 
-func TestRepairM_690_MessageRestrictions(t *testing.T) {
-	f := repairM690Open(t, t.TempDir())
-	operator := repairM690Address(61)
+func TestStakingDocumentation_MessageRestrictions(t *testing.T) {
+	f := stakingDocOpen(t, t.TempDir())
+	operator := stakingDocAddress(61)
 	address := sdk.ValAddress(operator)
 	amount := f.staking.TokensFromConsensusPower(f.ctx, 10)
 	f.fund(t, operator, amount)
@@ -699,7 +699,7 @@ func TestRepairM_690_MessageRestrictions(t *testing.T) {
 	_, err = server.CreateValidator(sdk.WrapSDKContext(f.ctx), create(f.staking.MinCommissionRate(f.ctx)))
 	require.NoError(t, err)
 	// Third-party tokens cannot back an operator's requested minimum.
-	f.delegate(t, repairM690Address(62), address, 20)
+	f.delegate(t, stakingDocAddress(62), address, 20)
 	validator, found := f.staking.GetValidator(f.ctx, address)
 	require.True(t, found)
 	minimum := f.staking.TokensFromConsensusPower(f.ctx, 11)
@@ -710,7 +710,7 @@ func TestRepairM_690_MessageRestrictions(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, validator, unchanged)
 	// Drive the default 20% cap at the default projected-power threshold.
-	del := repairM690Address(63)
+	del := stakingDocAddress(63)
 	addition := f.staking.TokensFromConsensusPower(f.ctx, 1_000_000-30)
 	f.fund(t, del, addition)
 	before := f.bank.GetBalance(f.ctx, del, f.staking.BondDenom(f.ctx))
@@ -720,7 +720,7 @@ func TestRepairM_690_MessageRestrictions(t *testing.T) {
 	unchanged, found = f.staking.GetValidator(f.ctx, address)
 	require.True(t, found)
 	require.Equal(t, validator, unchanged)
-	doc := repairM690Doc(t, "03_messages.md")
+	doc := stakingDocRead(t, "03_messages.md")
 	for _, claim := range []string{"20%", "1000000", "5%", "ErrSelfDelegationBelowMinimum", "operator's own delegation"} {
 		require.Contains(t, doc, claim)
 	}

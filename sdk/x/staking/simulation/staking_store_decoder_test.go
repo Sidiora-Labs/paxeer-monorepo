@@ -26,7 +26,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM697State struct {
+type stakingDecoderState struct {
 	ctx        sdk.Context
 	validator  types.Validator
 	del        sdk.AccAddress
@@ -37,13 +37,13 @@ type repairM697State struct {
 	historical types.HistoricalInfo
 }
 
-type repairM697Fixture struct {
+type stakingDecoderFixture struct {
 	cdc    codec.Codec
 	keeper keeper.Keeper
-	states [2]repairM697State
+	states [2]stakingDecoderState
 }
 
-func newRepairM697Fixture(t *testing.T) repairM697Fixture {
+func newStakingDecoderFixture(t *testing.T) stakingDecoderFixture {
 	t.Helper()
 	registry := codectypes.NewInterfaceRegistry()
 	cryptocodec.RegisterInterfaces(registry)
@@ -65,7 +65,7 @@ func newRepairM697Fixture(t *testing.T) repairM697Fixture {
 		map[string][]string{types.BondedPoolName: {authtypes.Staking}, types.NotBondedPoolName: {authtypes.Staking}})
 	bk := bankkeeper.NewBaseKeeper(cdc, keys["bank"], ak, pk.Subspace("bank"), map[string]bool{})
 	k := keeper.NewKeeper(cdc, keys["staking"], ak, bk, pk.Subspace("staking"))
-	f := repairM697Fixture{cdc: cdc, keeper: k}
+	f := stakingDecoderFixture{cdc: cdc, keeper: k}
 	for i := range f.states {
 		branch, _ := ctx.CacheContext()
 		branch = branch.WithBlockHeight(100 + int64(i))
@@ -92,20 +92,20 @@ func newRepairM697Fixture(t *testing.T) repairM697Fixture {
 		k.InsertUnbondingValidatorQueue(branch, validator)
 		historical := types.NewHistoricalInfo(branch.BlockHeader(), []types.Validator{validator}, k.PowerReduction(branch))
 		k.SetHistoricalInfo(branch, branch.BlockHeight(), &historical)
-		f.states[i] = repairM697State{branch, validator, del, dst, delegation, ubd, red, historical}
+		f.states[i] = stakingDecoderState{branch, validator, del, dst, delegation, ubd, red, historical}
 	}
 	return f
 }
 
-func (f repairM697Fixture) pair(t *testing.T, state int, key []byte) kv.Pair {
+func (f stakingDecoderFixture) pair(t *testing.T, state int, key []byte) kv.Pair {
 	t.Helper()
 	store := f.states[state].ctx.KVStore(f.keeper.GetStoreKey())
 	require.True(t, store.Has(key), "keeper must have written key %X", key)
 	return kv.Pair{Key: bytes.Clone(key), Value: bytes.Clone(store.Get(key))}
 }
 
-func TestRepairM_697_LastValidatorPowers(t *testing.T) {
-	f := newRepairM697Fixture(t)
+func TestStakingStoreDecoder_LastValidatorPowers(t *testing.T) {
+	f := newStakingDecoderFixture(t)
 	decode := NewDecodeStore(f.cdc)
 	for _, powers := range [][2]int64{{0, 1}, {127, 128}, {1 << 40, math.MaxInt64}} {
 		t.Run(fmt.Sprintf("%d_%d", powers[0], powers[1]), func(t *testing.T) {
@@ -120,18 +120,18 @@ func TestRepairM_697_LastValidatorPowers(t *testing.T) {
 	}
 }
 
-func TestRepairM_697_EmptyIndexes(t *testing.T) {
-	f := newRepairM697Fixture(t)
+func TestStakingStoreDecoder_EmptyIndexes(t *testing.T) {
+	f := newStakingDecoderFixture(t)
 	decode := NewDecodeStore(f.cdc)
 	for _, index := range []struct {
 		name string
-		key  func(repairM697State) []byte
+		key  func(stakingDecoderState) []byte
 	}{
-		{"unbonding_by_validator", func(s repairM697State) []byte { return types.GetUBDByValIndexKey(s.del, s.validator.GetOperator()) }},
-		{"redelegation_by_source", func(s repairM697State) []byte {
+		{"unbonding_by_validator", func(s stakingDecoderState) []byte { return types.GetUBDByValIndexKey(s.del, s.validator.GetOperator()) }},
+		{"redelegation_by_source", func(s stakingDecoderState) []byte {
 			return types.GetREDByValSrcIndexKey(s.del, s.validator.GetOperator(), s.dst)
 		}},
-		{"redelegation_by_destination", func(s repairM697State) []byte {
+		{"redelegation_by_destination", func(s stakingDecoderState) []byte {
 			return types.GetREDByValDstIndexKey(s.del, s.validator.GetOperator(), s.dst)
 		}},
 	} {
@@ -146,41 +146,43 @@ func TestRepairM_697_EmptyIndexes(t *testing.T) {
 	}
 }
 
-func TestRepairM_697_QueuesHistoricalAndRecords(t *testing.T) {
-	f := newRepairM697Fixture(t)
+func TestStakingStoreDecoder_QueuesHistoricalAndRecords(t *testing.T) {
+	f := newStakingDecoderFixture(t)
 	decode := NewDecodeStore(f.cdc)
 	for _, record := range []struct {
 		name  string
-		key   func(repairM697State) []byte
-		value func(repairM697State) interface{}
+		key   func(stakingDecoderState) []byte
+		value func(stakingDecoderState) interface{}
 	}{
-		{"total_power", func(s repairM697State) []byte { return types.LastTotalPowerKey }, func(s repairM697State) interface{} {
+		{"total_power", func(s stakingDecoderState) []byte { return types.LastTotalPowerKey }, func(s stakingDecoderState) interface{} {
 			return sdk.IntProto{Int: s.validator.Tokens.Quo(f.keeper.PowerReduction(s.ctx))}
 		}},
-		{"validator", func(s repairM697State) []byte { return types.GetValidatorKey(s.validator.GetOperator()) }, func(s repairM697State) interface{} { return s.validator }},
-		{"consensus_index", func(s repairM697State) []byte {
+		{"validator", func(s stakingDecoderState) []byte { return types.GetValidatorKey(s.validator.GetOperator()) }, func(s stakingDecoderState) interface{} { return s.validator }},
+		{"consensus_index", func(s stakingDecoderState) []byte {
 			addr, err := s.validator.GetConsAddr()
 			require.NoError(t, err)
 			return types.GetValidatorByConsAddrKey(addr)
-		}, func(s repairM697State) interface{} { return s.validator.GetOperator() }},
-		{"power_index", func(s repairM697State) []byte {
+		}, func(s stakingDecoderState) interface{} { return s.validator.GetOperator() }},
+		{"power_index", func(s stakingDecoderState) []byte {
 			return types.GetValidatorsByPowerIndexKey(s.validator, f.keeper.PowerReduction(s.ctx))
-		}, func(s repairM697State) interface{} { return s.validator.GetOperator() }},
-		{"delegation", func(s repairM697State) []byte { return types.GetDelegationKey(s.del, s.validator.GetOperator()) }, func(s repairM697State) interface{} { return s.delegation }},
-		{"unbonding", func(s repairM697State) []byte { return types.GetUBDKey(s.del, s.validator.GetOperator()) }, func(s repairM697State) interface{} { return s.ubd }},
-		{"redelegation", func(s repairM697State) []byte { return types.GetREDKey(s.del, s.validator.GetOperator(), s.dst) }, func(s repairM697State) interface{} { return s.red }},
-		{"unbonding_queue", func(s repairM697State) []byte { return types.GetUnbondingDelegationTimeKey(s.validator.UnbondingTime) }, func(s repairM697State) interface{} {
+		}, func(s stakingDecoderState) interface{} { return s.validator.GetOperator() }},
+		{"delegation", func(s stakingDecoderState) []byte { return types.GetDelegationKey(s.del, s.validator.GetOperator()) }, func(s stakingDecoderState) interface{} { return s.delegation }},
+		{"unbonding", func(s stakingDecoderState) []byte { return types.GetUBDKey(s.del, s.validator.GetOperator()) }, func(s stakingDecoderState) interface{} { return s.ubd }},
+		{"redelegation", func(s stakingDecoderState) []byte { return types.GetREDKey(s.del, s.validator.GetOperator(), s.dst) }, func(s stakingDecoderState) interface{} { return s.red }},
+		{"unbonding_queue", func(s stakingDecoderState) []byte {
+			return types.GetUnbondingDelegationTimeKey(s.validator.UnbondingTime)
+		}, func(s stakingDecoderState) interface{} {
 			return types.DVPairs{Pairs: []types.DVPair{{DelegatorAddress: s.del.String(), ValidatorAddress: s.validator.OperatorAddress}}}
 		}},
-		{"redelegation_queue", func(s repairM697State) []byte { return types.GetRedelegationTimeKey(s.validator.UnbondingTime) }, func(s repairM697State) interface{} {
+		{"redelegation_queue", func(s stakingDecoderState) []byte { return types.GetRedelegationTimeKey(s.validator.UnbondingTime) }, func(s stakingDecoderState) interface{} {
 			return types.DVVTriplets{Triplets: []types.DVVTriplet{{DelegatorAddress: s.del.String(), ValidatorSrcAddress: s.validator.OperatorAddress, ValidatorDstAddress: s.dst.String()}}}
 		}},
-		{"validator_queue", func(s repairM697State) []byte {
+		{"validator_queue", func(s stakingDecoderState) []byte {
 			return types.GetValidatorQueueKey(s.validator.UnbondingTime, s.validator.UnbondingHeight)
-		}, func(s repairM697State) interface{} {
+		}, func(s stakingDecoderState) interface{} {
 			return types.ValAddresses{Addresses: []string{s.validator.OperatorAddress}}
 		}},
-		{"historical", func(s repairM697State) []byte { return types.GetHistoricalInfoKey(s.ctx.BlockHeight()) }, func(s repairM697State) interface{} { return s.historical }},
+		{"historical", func(s stakingDecoderState) []byte { return types.GetHistoricalInfoKey(s.ctx.BlockHeight()) }, func(s stakingDecoderState) interface{} { return s.historical }},
 	} {
 		t.Run(record.name, func(t *testing.T) {
 			a := f.pair(t, 0, record.key(f.states[0]))

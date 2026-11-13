@@ -41,7 +41,7 @@ import (
 // The norace suite imports the native node. Check its constructor call without
 // linking that node into this service-free gate; the HTTP proof below runs the
 // production gateway, keeper, store and codec.
-func TestRepairM_696_StakingRESTConfig(t *testing.T) {
+func TestStakingREST_Config(t *testing.T) {
 	_, filename, _, ok := runtime.Caller(0)
 	require.True(t, ok)
 	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(filepath.Dir(filename), "grpc_query_test.go"), nil, 0)
@@ -82,7 +82,7 @@ func TestRepairM_696_StakingRESTConfig(t *testing.T) {
 	require.Equal(t, 1, calls)
 }
 
-func TestRepairM_696_RedelegationFilterPages(t *testing.T) {
+func TestStakingREST_RedelegationFilterPages(t *testing.T) {
 	testRedelegationFilterPages(t)
 }
 
@@ -261,7 +261,7 @@ func testRedelegationFilterPages(t *testing.T) {
 	}
 }
 
-func TestRepairM_696_RedelegationInvalidFilters(t *testing.T) {
+func TestStakingREST_RedelegationInvalidFilters(t *testing.T) {
 	f := newRedelegationRESTFixture(t)
 	for _, tc := range []struct {
 		name, delegator string

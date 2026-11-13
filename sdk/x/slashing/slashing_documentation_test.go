@@ -35,7 +35,7 @@ import (
 
 // All peers are production keepers over local persisted fixtures. Reopening
 // constructs a fresh multistore, codec and keepers over the closed database.
-type repairM600Store struct {
+type slashingDocStore struct {
 	cms sdk.CommitMultiStore
 	ctx sdk.Context
 	cdc codec.Codec
@@ -45,7 +45,7 @@ type repairM600Store struct {
 	ek  *evidencekeeper.Keeper
 }
 
-func openRepairM600Store(t *testing.T, dir string) *repairM600Store {
+func openSlashingDocStore(t *testing.T, dir string) *slashingDocStore {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("slashing", dir)
 	require.NoError(t, err)
@@ -74,10 +74,10 @@ func openRepairM600Store(t *testing.T, dir string) *repairM600Store {
 		sk.SetParams(ctx, stakingtypes.DefaultParams())
 		k.SetParams(ctx, types.DefaultParams())
 	}
-	return &repairM600Store{cms, ctx, enc.Marshaler, k, sk, bk, ek}
+	return &slashingDocStore{cms, ctx, enc.Marshaler, k, sk, bk, ek}
 }
 
-func (s *repairM600Store) validator(t *testing.T) cryptotypes.PubKey {
+func (s *slashingDocStore) validator(t *testing.T) cryptotypes.PubKey {
 	t.Helper()
 	pk := ed25519.GenPrivKey().PubKey()
 	v, err := stakingtypes.NewValidator(sdk.ValAddress(pk.Address()), pk, stakingtypes.Description{})
@@ -95,23 +95,23 @@ func (s *repairM600Store) validator(t *testing.T) cryptotypes.PubKey {
 	return pk
 }
 
-func (s *repairM600Store) window(window int64, fraction sdk.Dec) {
+func (s *slashingDocStore) window(window int64, fraction sdk.Dec) {
 	params := s.k.GetParams(s.ctx)
 	params.SignedBlocksWindow = window
 	params.MinSignedPerWindow = fraction
 	s.k.SetParams(s.ctx, params)
 }
 
-func repairM600Vote(pk cryptotypes.PubKey, signed bool) abci.VoteInfo {
+func slashingDocVote(pk cryptotypes.PubKey, signed bool) abci.VoteInfo {
 	return abci.VoteInfo{Validator: abci.Validator{Address: pk.Address(), Power: 100}, SignedLastBlock: signed}
 }
 
-func (s *repairM600Store) vote(pk cryptotypes.PubKey, signed bool) {
+func (s *slashingDocStore) vote(pk cryptotypes.PubKey, signed bool) {
 	s.ctx = s.ctx.WithBlockHeight(s.ctx.BlockHeight() + 1).WithEventManager(sdk.NewEventManager())
-	slashing.BeginBlocker(s.ctx, []abci.VoteInfo{repairM600Vote(pk, signed)}, s.k)
+	slashing.BeginBlocker(s.ctx, []abci.VoteInfo{slashingDocVote(pk, signed)}, s.k)
 }
 
-func assertRepairM600Window(t *testing.T, s *repairM600Store, pk cryptotypes.PubKey, want []bool, index int64) {
+func assertSlashingDocWindow(t *testing.T, s *slashingDocStore, pk cryptotypes.PubKey, want []bool, index int64) {
 	t.Helper()
 	addr := sdk.ConsAddress(pk.Address())
 	array, found := s.k.GetValidatorMissedBlocks(s.ctx, addr)
@@ -150,10 +150,10 @@ func assertRepairM600Window(t *testing.T, s *repairM600Store, pk cryptotypes.Pub
 	require.False(t, iter.Valid(), "a validator has only one packed bitmap key")
 }
 
-func TestRepairM_600_ReadmeBitmap(t *testing.T) {
+func TestSlashingDocumentation_ReadmeBitmap(t *testing.T) {
 	for _, window := range []int64{1, 64, 65, 129} {
 		t.Run(fmt.Sprintf("window_%d", window), func(t *testing.T) {
-			s := openRepairM600Store(t, t.TempDir())
+			s := openSlashingDocStore(t, t.TempDir())
 			defer func() { require.NoError(t, s.cms.Close()) }()
 			s.window(window, sdk.ZeroDec())
 			pk := s.validator(t)
@@ -164,21 +164,21 @@ func TestRepairM_600_ReadmeBitmap(t *testing.T) {
 				missed := n%3 != 1
 				s.vote(pk, !missed)
 				want[n%window] = missed
-				assertRepairM600Window(t, s, pk, want, (n+1)%window)
+				assertSlashingDocWindow(t, s, pk, want, (n+1)%window)
 			}
 		})
 	}
 }
 
-func TestRepairM_600_EventOrder(t *testing.T) {
-	s := openRepairM600Store(t, t.TempDir())
+func TestSlashingDocumentation_EventOrder(t *testing.T) {
+	s := openSlashingDocStore(t, t.TempDir())
 	defer func() { require.NoError(t, s.cms.Close()) }()
 	s.window(2, sdk.NewDecWithPrec(5, 1))
 	votes := make([]abci.VoteInfo, 7)
 	for i := range votes {
 		pk := s.validator(t)
 		s.vote(pk, false)
-		votes[i] = repairM600Vote(pk, i%3 == 1)
+		votes[i] = slashingDocVote(pk, i%3 == 1)
 	}
 	// Each execution starts from identical real persisted keeper state. No
 	// worker ordering or EventManager is replaced by a test double.
@@ -232,9 +232,9 @@ func TestRepairM_600_EventOrder(t *testing.T) {
 	}
 }
 
-func TestRepairM_600_StateLayout(t *testing.T) {
+func TestSlashingDocumentation_StateLayout(t *testing.T) {
 	dir := t.TempDir()
-	s := openRepairM600Store(t, dir)
+	s := openSlashingDocStore(t, dir)
 	defer func() { require.NoError(t, s.cms.Close()) }()
 	s.window(65, sdk.ZeroDec())
 	pk := s.validator(t)
@@ -267,27 +267,27 @@ func TestRepairM_600_StateLayout(t *testing.T) {
 	require.NoError(t, m.Migrate3to4(s.ctx))
 	want := make([]bool, 65)
 	want[0], want[64] = true, true
-	assertRepairM600Window(t, s, pk, want, 64)
+	assertSlashingDocWindow(t, s, pk, want, 64)
 	s.vote(pk, true)
 	want[64] = false
-	assertRepairM600Window(t, s, pk, want, 0)
+	assertSlashingDocWindow(t, s, pk, want, 0)
 	commit := s.cms.Commit(true)
 	height := s.ctx.BlockHeight()
 	require.NoError(t, s.cms.Close())
-	s = openRepairM600Store(t, dir)
+	s = openSlashingDocStore(t, dir)
 	require.Equal(t, commit, s.cms.LastCommitID())
 	s.ctx = s.ctx.WithBlockHeight(height)
-	assertRepairM600Window(t, s, pk, want, 0)
+	assertSlashingDocWindow(t, s, pk, want, 0)
 	pubkey, err := s.k.GetPubkey(s.ctx, pk.Address())
 	require.NoError(t, err)
 	require.True(t, pk.Equals(pubkey))
 	s.vote(pk, true)
 	want[0] = false
-	assertRepairM600Window(t, s, pk, want, 1)
+	assertSlashingDocWindow(t, s, pk, want, 1)
 }
 
-func TestRepairM_600_BeginBlockAlgorithm(t *testing.T) {
-	s := openRepairM600Store(t, t.TempDir())
+func TestSlashingDocumentation_BeginBlockAlgorithm(t *testing.T) {
+	s := openSlashingDocStore(t, t.TempDir())
 	defer func() { require.NoError(t, s.cms.Close()) }()
 	s.window(65, sdk.ZeroDec())
 	pk := ed25519.GenPrivKey().PubKey()
@@ -316,7 +316,7 @@ func TestRepairM_600_BeginBlockAlgorithm(t *testing.T) {
 		s.vote(pk, !missed)
 		want[n%65] = missed
 	}
-	assertRepairM600Window(t, s, pk, want, 64)
+	assertSlashingDocWindow(t, s, pk, want, 64)
 	// 65 -> 66 changes the window within two packed words. The final old
 	// slot is retained after the newly inserted slot at the write offset.
 	s.window(66, sdk.ZeroDec())
@@ -325,14 +325,14 @@ func TestRepairM_600_BeginBlockAlgorithm(t *testing.T) {
 	expanded[65] = want[64]
 	s.vote(pk, false)
 	expanded[64] = true
-	assertRepairM600Window(t, s, pk, expanded, 65)
+	assertSlashingDocWindow(t, s, pk, expanded, 65)
 	s.window(64, sdk.ZeroDec())
 	s.vote(pk, true)
-	assertRepairM600Window(t, s, pk, make([]bool, 64), 1)
+	assertSlashingDocWindow(t, s, pk, make([]bool, 64), 1)
 }
 
-func TestRepairM_600_TombstoneDoc(t *testing.T) {
-	s := openRepairM600Store(t, t.TempDir())
+func TestSlashingDocumentation_TombstoneDoc(t *testing.T) {
+	s := openSlashingDocStore(t, t.TempDir())
 	defer func() { require.NoError(t, s.cms.Close()) }()
 	pk := s.validator(t)
 	addr := sdk.ConsAddress(pk.Address())

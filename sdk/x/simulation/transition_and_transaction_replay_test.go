@@ -32,7 +32,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func TestRepairM_633_TransitionWeightValidation(t *testing.T) {
+func TestSimulationReplay_TransitionWeightValidation(t *testing.T) {
 	cases := []struct {
 		name    string
 		weights [][]int
@@ -81,7 +81,7 @@ func TestRepairM_633_TransitionWeightValidation(t *testing.T) {
 	require.Len(t, seen, 2)
 }
 
-func TestRepairM_633_InitialStateValidation(t *testing.T) {
+func TestSimulationReplay_InitialStateValidation(t *testing.T) {
 	r := rand.New(rand.NewSource(633))
 	cases := []struct {
 		weights []int
@@ -102,7 +102,7 @@ func TestRepairM_633_InitialStateValidation(t *testing.T) {
 	}
 }
 
-func TestRepairM_633_TransitionWeightAlias(t *testing.T) {
+func TestSimulationReplay_TransitionWeightAlias(t *testing.T) {
 	weights := [][]int{{1, 0}, {0, 1}}
 	matrix, err := CreateTransitionMatrix(weights)
 	require.NoError(t, err)
@@ -119,7 +119,7 @@ func TestRepairM_633_TransitionWeightAlias(t *testing.T) {
 	}
 }
 
-func repair633Codec() (*codec.ProtoCodec, client.TxConfig) {
+func simulationReplayCodec() (*codec.ProtoCodec, client.TxConfig) {
 	registry := codectypes.NewInterfaceRegistry()
 	sdk.RegisterInterfaces(registry)
 	cryptocodec.RegisterInterfaces(registry)
@@ -129,7 +129,7 @@ func repair633Codec() (*codec.ProtoCodec, client.TxConfig) {
 	return cdc, authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
 }
 
-type repair633Fixture struct {
+type simulationReplayFixture struct {
 	input     OperationInput
 	bank      bankkeeper.BaseKeeper
 	account   authkeeper.AccountKeeper
@@ -137,9 +137,9 @@ type repair633Fixture struct {
 	delivered *[][]byte
 }
 
-func repair633App(t *testing.T, seed int64) repair633Fixture {
+func simulationReplayApp(t *testing.T, seed int64) simulationReplayFixture {
 	t.Helper()
-	cdc, gen := repair633Codec()
+	cdc, gen := simulationReplayCodec()
 	app := baseapp.NewBaseApp("repair633", dbm.NewMemDB(), gen.TxDecoder(), nil, &testutil.TestAppOpts{})
 	t.Cleanup(func() { require.NoError(t, app.Close()) })
 	authKey := sdk.NewKVStoreKey(authtypes.StoreKey)
@@ -185,7 +185,7 @@ func repair633App(t *testing.T, seed int64) repair633Fixture {
 	require.NoError(t, err)
 	ctx := *app.DeliverContext()
 	coins := sdk.NewCoins(sdk.NewInt64Coin("stake", 7))
-	return repair633Fixture{
+	return simulationReplayFixture{
 		input: OperationInput{R: rand.New(rand.NewSource(seed)), App: app, TxGen: gen, Cdc: cdc,
 			Msg: banktypes.NewMsgSend(sender, recipient, coins), MsgType: "send", ModuleName: banktypes.ModuleName,
 			CoinsSpentInMsg: coins, Context: ctx, SimAccount: simtypes.Account{Address: sender, PrivKey: key}, AccountKeeper: ak, Bankkeeper: bk},
@@ -193,10 +193,10 @@ func repair633App(t *testing.T, seed int64) repair633Fixture {
 	}
 }
 
-func TestRepairM_633_MissingSimulationAccount(t *testing.T) {
+func TestSimulationReplay_MissingSimulationAccount(t *testing.T) {
 	for _, randomFees := range []bool{false, true} {
 		t.Run(map[bool]string{false: "explicit fees", true: "random fees"}[randomFees], func(t *testing.T) {
-			fixture := repair633App(t, 633)
+			fixture := simulationReplayApp(t, 633)
 			in := fixture.input
 			fixture.account.RemoveAccount(in.Context, fixture.account.GetAccount(in.Context, in.SimAccount.Address))
 			require.Nil(t, fixture.account.GetAccount(in.Context, in.SimAccount.Address))
@@ -223,11 +223,11 @@ func TestRepairM_633_MissingSimulationAccount(t *testing.T) {
 	}
 }
 
-func TestRepairM_633_SeededTransactionReplay(t *testing.T) {
+func TestSimulationReplay_SeededTransactionReplay(t *testing.T) {
 	for _, randomFees := range []bool{false, true} {
 		t.Run(map[bool]string{false: "explicit fees", true: "random fees"}[randomFees], func(t *testing.T) {
 			replay := func(seed int64) ([][]byte, []byte, []byte) {
-				fixture := repair633App(t, seed)
+				fixture := simulationReplayApp(t, seed)
 				in := fixture.input
 				expectedR := rand.New(rand.NewSource(seed))
 				for i := 0; i < 6; i++ {
@@ -269,8 +269,8 @@ func TestRepairM_633_SeededTransactionReplay(t *testing.T) {
 	}
 }
 
-func TestRepairM_633_TransactionSigningErrors(t *testing.T) {
-	cdc, gen := repair633Codec()
+func TestSimulationReplay_TransactionSigningErrors(t *testing.T) {
+	cdc, gen := simulationReplayCodec()
 	key := secp256k1.GenPrivKeyFromSecret([]byte("repair633 signer"))
 	address := sdk.AccAddress(key.PubKey().Address())
 	msgs := []sdk.Msg{banktypes.NewMsgSend(address, address, sdk.NewCoins(sdk.NewInt64Coin("stake", 1)))}

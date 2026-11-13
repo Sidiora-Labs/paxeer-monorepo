@@ -19,7 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types/proposal"
 )
 
-func repairM628Components(table paramtypes.KeyTable) (sdk.Context, keeper.Keeper, paramtypes.Subspace, *codec.ProtoCodec, *codec.LegacyAmino) {
+func parameterKeyComponents(table paramtypes.KeyTable) (sdk.Context, keeper.Keeper, paramtypes.Subspace, *codec.ProtoCodec, *codec.LegacyAmino) {
 	key := sdk.NewKVStoreKey(paramtypes.StoreKey)
 	tkey := sdk.NewTransientStoreKey(paramtypes.TStoreKey)
 	ctx := testutil.DefaultContext(key, tkey)
@@ -32,7 +32,7 @@ func repairM628Components(table paramtypes.KeyTable) (sdk.Context, keeper.Keeper
 	return ctx, k, ss, cdc, amino
 }
 
-func repairM628Proposal(t *testing.T, cdc *codec.ProtoCodec, amino *codec.LegacyAmino, key string, value interface{}) govtypes.Content {
+func parameterKeyProposal(t *testing.T, cdc *codec.ProtoCodec, amino *codec.LegacyAmino, key string, value interface{}) govtypes.Content {
 	t.Helper()
 	valueJSON, err := amino.MarshalAsJSON(value)
 	require.NoError(t, err)
@@ -49,7 +49,7 @@ func repairM628Proposal(t *testing.T, cdc *codec.ProtoCodec, amino *codec.Legacy
 	return decoded
 }
 
-func repairM628Positive(value interface{}) error {
+func parameterKeyPositive(value interface{}) error {
 	v, ok := value.(uint64)
 	if !ok || v == 0 {
 		return fmt.Errorf("expected a positive uint64, got %v", value)
@@ -57,7 +57,7 @@ func repairM628Positive(value interface{}) error {
 	return nil
 }
 
-func TestRepairM_628_ExactRegisteredKeys(t *testing.T) {
+func TestParameterKeyRegistration_ExactRegisteredKeys(t *testing.T) {
 	doc, err := os.ReadFile("spec/02_subspace.md")
 	require.NoError(t, err)
 	text := strings.Join(strings.Fields(string(doc)), " ")
@@ -65,11 +65,11 @@ func TestRepairM_628_ExactRegisteredKeys(t *testing.T) {
 	require.Contains(t, text, "executing an update for an unregistered key panics")
 
 	primary := []byte("ExampleParameter")
-	table := paramtypes.NewKeyTable(paramtypes.NewParamSetPair(primary, new(uint64), repairM628Positive))
-	ctx, k, ss, cdc, amino := repairM628Components(table)
+	table := paramtypes.NewKeyTable(paramtypes.NewParamSetPair(primary, new(uint64), parameterKeyPositive))
+	ctx, k, ss, cdc, amino := parameterKeyComponents(table)
 	handler := params.NewParamChangeProposalHandler(k)
 	initial := uint64(7)
-	require.NoError(t, handler(ctx, repairM628Proposal(t, cdc, amino, string(primary), initial)))
+	require.NoError(t, handler(ctx, parameterKeyProposal(t, cdc, amino, string(primary), initial)))
 	var got uint64
 	ss.Get(ctx, primary, &got)
 	require.Equal(t, initial, got)
@@ -85,7 +85,7 @@ func TestRepairM_628_ExactRegisteredKeys(t *testing.T) {
 			require.EqualError(t, ss.Validate(ctx, unregistered, initial), expected)
 			require.PanicsWithValue(t, expected, func() { ss.Set(ctx, unregistered, initial) })
 			require.PanicsWithValue(t, expected, func() { ss.Get(ctx, unregistered, &got) })
-			content := repairM628Proposal(t, cdc, amino, key, initial)
+			content := parameterKeyProposal(t, cdc, amino, key, initial)
 			require.PanicsWithValue(t, expected, func() { _ = handler(ctx, content) })
 			require.False(t, ss.Has(ctx, unregistered))
 			require.False(t, ss.Modified(ctx, unregistered))
@@ -103,7 +103,7 @@ func TestRepairM_628_ExactRegisteredKeys(t *testing.T) {
 	require.Equal(t, initial, got)
 }
 
-func TestRepairM_628_IndependentAttributes(t *testing.T) {
+func TestParameterKeyRegistration_IndependentAttributes(t *testing.T) {
 	primary := []byte("ExampleParameter")
 	child := []byte("ExampleParameterChild")
 	validateChild := func(value interface{}) error {
@@ -113,13 +113,13 @@ func TestRepairM_628_IndependentAttributes(t *testing.T) {
 		return nil
 	}
 	table := paramtypes.NewKeyTable(
-		paramtypes.NewParamSetPair(primary, new(uint64), repairM628Positive),
+		paramtypes.NewParamSetPair(primary, new(uint64), parameterKeyPositive),
 		paramtypes.NewParamSetPair(child, new(string), validateChild),
 	)
-	ctx, k, ss, cdc, amino := repairM628Components(table)
+	ctx, k, ss, cdc, amino := parameterKeyComponents(table)
 	handler := params.NewParamChangeProposalHandler(k)
-	require.NoError(t, handler(ctx, repairM628Proposal(t, cdc, amino, string(primary), uint64(7))))
-	require.NoError(t, handler(ctx, repairM628Proposal(t, cdc, amino, string(child), "enabled")))
+	require.NoError(t, handler(ctx, parameterKeyProposal(t, cdc, amino, string(primary), uint64(7))))
+	require.NoError(t, handler(ctx, parameterKeyProposal(t, cdc, amino, string(child), "enabled")))
 	var parentValue uint64
 	var childValue string
 	ss.Get(ctx, primary, &parentValue)
@@ -131,11 +131,11 @@ func TestRepairM_628_IndependentAttributes(t *testing.T) {
 	require.PanicsWithValue(t, "type mismatch with registered table", func() { ss.Set(ctx, child, uint64(9)) })
 
 	beforePrimary, beforeChild := ss.GetRaw(ctx, primary), ss.GetRaw(ctx, child)
-	require.ErrorContains(t, handler(ctx, repairM628Proposal(t, cdc, amino, string(primary), uint64(0))), "expected a positive uint64")
-	require.ErrorContains(t, handler(ctx, repairM628Proposal(t, cdc, amino, string(child), "invalid")), "expected enabled or disabled")
+	require.ErrorContains(t, handler(ctx, parameterKeyProposal(t, cdc, amino, string(primary), uint64(0))), "expected a positive uint64")
+	require.ErrorContains(t, handler(ctx, parameterKeyProposal(t, cdc, amino, string(child), "invalid")), "expected enabled or disabled")
 	require.Equal(t, beforePrimary, ss.GetRaw(ctx, primary))
 	require.Equal(t, beforeChild, ss.GetRaw(ctx, child))
-	require.NoError(t, handler(ctx, repairM628Proposal(t, cdc, amino, string(child), "disabled")))
+	require.NoError(t, handler(ctx, parameterKeyProposal(t, cdc, amino, string(child), "disabled")))
 	ss.Get(ctx, child, &childValue)
 	require.Equal(t, "disabled", childValue)
 	ss.Get(ctx, primary, &parentValue)

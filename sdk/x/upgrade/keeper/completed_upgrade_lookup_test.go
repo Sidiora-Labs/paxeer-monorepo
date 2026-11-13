@@ -20,7 +20,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair286Store(t *testing.T, home string) (*rootmulti.Store, keeper.Keeper) {
+func completedUpgradeStore(t *testing.T, home string) (*rootmulti.Store, keeper.Keeper) {
 	t.Helper()
 	sc := config.DefaultStateCommitConfig()
 	sc.MemIAVLConfig.AsyncCommitBuffer = 0
@@ -34,7 +34,7 @@ func repair286Store(t *testing.T, home string) (*rootmulti.Store, keeper.Keeper)
 	return rs, k
 }
 
-func TestRepair_286_UpgradeNameOrder(t *testing.T) {
+func TestCompletedUpgrade_UpgradeNameOrder(t *testing.T) {
 	type completed struct {
 		name   string
 		height int64
@@ -59,7 +59,7 @@ func TestRepair_286_UpgradeNameOrder(t *testing.T) {
 		{"maximum_height", []completed{{"z-old", 10}, {"a-max", math.MaxInt64}}, math.MaxInt64, "a-max", math.MaxInt64},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			rs, k := repair286Store(t, t.TempDir())
+			rs, k := completedUpgradeStore(t, t.TempDir())
 			defer func() { require.NoError(t, rs.Close()) }()
 			cache := rs.CacheMultiStore()
 			ctx := sdk.NewContext(cache, tmproto.Header{}, false)
@@ -85,9 +85,9 @@ func TestRepair_286_UpgradeNameOrder(t *testing.T) {
 	}
 }
 
-func TestRepair_286_HistoricalContextsAcrossRestart(t *testing.T) {
+func TestCompletedUpgrade_HistoricalContextsAcrossRestart(t *testing.T) {
 	home := t.TempDir()
-	rs, k := repair286Store(t, home)
+	rs, k := completedUpgradeStore(t, home)
 	for h := int64(1); h <= 21; h++ {
 		ctx := sdk.NewContext(rs, tmproto.Header{Height: h}, false)
 		if h == 10 {
@@ -187,7 +187,7 @@ func TestRepair_286_HistoricalContextsAcrossRestart(t *testing.T) {
 		if phase == "before_restart" {
 			// The preceding subtest closed the BaseApp and both disk stores.
 			// Reopen the same directory with fresh keeper, codec and store keys.
-			rs, k = repair286Store(t, home)
+			rs, k = completedUpgradeStore(t, home)
 			require.Equal(t, int64(21), rs.LastCommitID().Version)
 		}
 	}

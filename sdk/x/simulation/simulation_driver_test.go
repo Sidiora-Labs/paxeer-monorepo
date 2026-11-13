@@ -25,39 +25,39 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair632Params(t *testing.T) Params {
+func simulationDriverParams(t *testing.T) Params {
 	t.Helper()
 	matrix, err := CreateTransitionMatrix([][]int{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}})
 	require.NoError(t, err)
 	return Params{initialLivenessWeightings: []int{1, 0, 0}, livenessTransitionMatrix: matrix}
 }
 
-func repair632Validator(power int64) abci.ValidatorUpdate {
+func simulationDriverValidator(power int64) abci.ValidatorUpdate {
 	return abci.ValidatorUpdate{PubKey: cryptoproto.PublicKey{Sum: &cryptoproto.PublicKey_Ed25519{Ed25519: bytes.Repeat([]byte{7}, 32)}}, Power: power}
 }
 
-func repair632App(t *testing.T) (*baseapp.BaseApp, *sdk.KVStoreKey) {
+func simulationDriverApp(t *testing.T) (*baseapp.BaseApp, *sdk.KVStoreKey) {
 	t.Helper()
 	app := baseapp.NewBaseApp(t.Name(), dbm.NewMemDB(), nil, nil, &testutil.TestAppOpts{})
 	key := sdk.NewKVStoreKey("repair632")
 	app.MountStores(key)
 	app.SetInitChainer(func(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 		ctx.KVStore(key).Set([]byte("genesis-chain"), []byte(req.ChainId))
-		return abci.ResponseInitChain{Validators: []abci.ValidatorUpdate{repair632Validator(10)}}
+		return abci.ResponseInitChain{Validators: []abci.ValidatorUpdate{simulationDriverValidator(10)}}
 	})
 	return app, key
 }
 
-func repair632Config(t *testing.T) SimulationConfig {
+func simulationDriverConfig(t *testing.T) SimulationConfig {
 	t.Helper()
 	return SimulationConfig{
-		Seed: 31, NumBlocks: 3, BlockSize: 1, Params: repair632Params(t),
+		Seed: 31, NumBlocks: 3, BlockSize: 1, Params: simulationDriverParams(t),
 		Genesis:      abci.RequestInitChain{ChainId: "repair632", Time: time.Unix(1700000000, 0).UTC()},
 		LogDirectory: t.TempDir(),
 	}
 }
 
-func TestRepairM_632_SimulationLogOverwrite(t *testing.T) {
+func TestSimulationDriver_SimulationLogOverwrite(t *testing.T) {
 	directory := t.TempDir()
 	const count = 24
 	paths := make([]string, count)
@@ -107,14 +107,14 @@ func TestRepairM_632_SimulationLogOverwrite(t *testing.T) {
 	require.ErrorIs(t, err, os.ErrClosed)
 }
 
-func TestRepairM_632_ValidatorPowerUpdate(t *testing.T) {
-	p := repair632Params(t)
+func TestSimulationDriver_ValidatorPowerUpdate(t *testing.T) {
+	p := simulationDriverParams(t)
 	p.initialLivenessWeightings = []int{0, 0, 1}
 	p.evidenceFraction = .9
 	r := rand.New(rand.NewSource(14))
 	events := NewEventStats()
-	validators := newMockValidators(r, []abci.ValidatorUpdate{repair632Validator(10)}, p)
-	validators = updateValidators(t, r, p, validators, []abci.ValidatorUpdate{repair632Validator(45)}, events.Tally)
+	validators := newMockValidators(r, []abci.ValidatorUpdate{simulationDriverValidator(10)}, p)
+	validators = updateValidators(t, r, p, validators, []abci.ValidatorUpdate{simulationDriverValidator(45)}, events.Tally)
 	for _, val := range validators {
 		require.Equal(t, 2, val.livenessState)
 	}
@@ -135,10 +135,10 @@ func TestRepairM_632_ValidatorPowerUpdate(t *testing.T) {
 	require.Equal(t, 1, events["end_block"]["validator_updates"]["updated"])
 }
 
-func TestRepairM_632_ValidatorLivenessUpdate(t *testing.T) {
-	p := repair632Params(t)
+func TestSimulationDriver_ValidatorLivenessUpdate(t *testing.T) {
+	p := simulationDriverParams(t)
 	r := rand.New(rand.NewSource(3))
-	validators := newMockValidators(r, []abci.ValidatorUpdate{repair632Validator(10)}, p)
+	validators := newMockValidators(r, []abci.ValidatorUpdate{simulationDriverValidator(10)}, p)
 	events := NewEventStats()
 	first, err := RandomRequestBeginBlock(r, p, validators, VoteHistory{}, events.Tally, tmproto.Header{Height: 1})
 	require.NoError(t, err)
@@ -159,11 +159,11 @@ func TestRepairM_632_ValidatorLivenessUpdate(t *testing.T) {
 	}
 }
 
-func TestRepairM_632_EvidenceHistoryBounds(t *testing.T) {
-	p := repair632Params(t)
+func TestSimulationDriver_EvidenceHistoryBounds(t *testing.T) {
+	p := simulationDriverParams(t)
 	r := rand.New(rand.NewSource(8))
 	events := NewEventStats()
-	validators := newMockValidators(r, []abci.ValidatorUpdate{repair632Validator(10)}, p)
+	validators := newMockValidators(r, []abci.ValidatorUpdate{simulationDriverValidator(10)}, p)
 	history := VoteHistory{StartHeight: 40}
 	for h := int64(40); h <= 42; h++ {
 		request, err := RandomRequestBeginBlock(r, p, validators, VoteHistory{}, events.Tally, tmproto.Header{Height: h, Time: time.Unix(h, 0)})
@@ -172,7 +172,7 @@ func TestRepairM_632_EvidenceHistoryBounds(t *testing.T) {
 		history.Votes = append(history.Votes, request.LastCommitInfo.Votes)
 	}
 	history.Votes[1] = nil
-	validators = updateValidators(t, r, p, validators, []abci.ValidatorUpdate{repair632Validator(0)}, events.Tally)
+	validators = updateValidators(t, r, p, validators, []abci.ValidatorUpdate{simulationDriverValidator(0)}, events.Tally)
 	require.Empty(t, validators)
 	p.evidenceFraction, p.pastEvidenceFraction = .9, 1
 	heights := make(map[int64]bool)
@@ -212,7 +212,7 @@ func TestRepairM_632_EvidenceHistoryBounds(t *testing.T) {
 	}
 }
 
-func TestRepairM_632_InvalidOperationWeights(t *testing.T) {
+func TestSimulationDriver_InvalidOperationWeights(t *testing.T) {
 	op := simtypes.Operation(func(*rand.Rand, *baseapp.BaseApp, sdk.Context, []simtypes.Account, string) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
 		return simtypes.OperationMsg{}, nil, nil
 	})
@@ -233,7 +233,7 @@ func TestRepairM_632_InvalidOperationWeights(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			config := repair632Config(t)
+			config := simulationDriverConfig(t)
 			config.Operations = tc.ops
 			_, err := Simulate(t, nil, config)
 			require.ErrorContains(t, err, tc.message, "weights must fail before application execution")
@@ -244,7 +244,7 @@ func TestRepairM_632_InvalidOperationWeights(t *testing.T) {
 	require.NotNil(t, selectOp(rand.New(rand.NewSource(1))))
 }
 
-func TestRepairM_632_WeightedSelectionBoundary(t *testing.T) {
+func TestSimulationDriver_WeightedSelectionBoundary(t *testing.T) {
 	for _, weights := range [][]int{{1, 1}, {0, 1, 1}, {1, 0, 1}, {1, 1, 0}, {0, 2, 0, 3, 0}} {
 		t.Run(fmt.Sprint(weights), func(t *testing.T) {
 			var ops WeightedOperations
@@ -282,9 +282,9 @@ func TestRepairM_632_WeightedSelectionBoundary(t *testing.T) {
 	}
 }
 
-func TestRepairM_632_LostTimedOperations(t *testing.T) {
-	app, key := repair632App(t)
-	config := repair632Config(t)
+func TestSimulationDriver_LostTimedOperations(t *testing.T) {
+	app, key := simulationDriverApp(t)
+	config := simulationDriverConfig(t)
 	config.NumBlocks = 4
 	config.BeginBlock = func(ctx sdk.Context, req abci.RequestBeginBlock) error {
 		ctx.KVStore(key).Set([]byte("height"), []byte(fmt.Sprint(req.Header.Height)))
@@ -337,9 +337,9 @@ func TestRepairM_632_LostTimedOperations(t *testing.T) {
 	require.Equal(t, 49, bytes.Count(data, []byte(`"entry_kind":"queued_msg"`)))
 }
 
-func TestRepairM_632_MissingSimulationDriver(t *testing.T) {
-	app, key := repair632App(t)
-	config := repair632Config(t)
+func TestSimulationDriver_MissingSimulationDriver(t *testing.T) {
+	app, key := simulationDriverApp(t)
+	config := simulationDriverConfig(t)
 	config.Params.evidenceFraction = .9
 	config.Genesis.InitialHeight = 40
 	app.SetEndBlocker(func(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
@@ -351,7 +351,7 @@ func TestRepairM_632_MissingSimulationDriver(t *testing.T) {
 		if req.Height == 42 {
 			return abci.ResponseEndBlock{}
 		}
-		return abci.ResponseEndBlock{ValidatorUpdates: []abci.ValidatorUpdate{repair632Validator(power)}}
+		return abci.ResponseEndBlock{ValidatorUpdates: []abci.ValidatorUpdate{simulationDriverValidator(power)}}
 	})
 	config.BeginBlock = func(ctx sdk.Context, req abci.RequestBeginBlock) error {
 		require.Equal(t, ctx.BlockHeight(), req.Header.Height)
@@ -397,10 +397,10 @@ func TestRepairM_632_MissingSimulationDriver(t *testing.T) {
 	require.Equal(t, 3, bytes.Count(data, []byte(`"entry_kind":"end_block"`)))
 }
 
-func TestRepairM_632_DriverReportsErrors(t *testing.T) {
+func TestSimulationDriver_DriverReportsErrors(t *testing.T) {
 	sentinel := errors.New("application operation failed")
-	app, _ := repair632App(t)
-	config := repair632Config(t)
+	app, _ := simulationDriverApp(t)
+	config := simulationDriverConfig(t)
 	config.BeginBlock = func(sdk.Context, abci.RequestBeginBlock) error { return nil }
 	config.Operations = WeightedOperations{NewWeightedOperation(1, func(*rand.Rand, *baseapp.BaseApp, sdk.Context, []simtypes.Account, string) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
 		return simtypes.OperationMsg{}, nil, sentinel
@@ -411,8 +411,8 @@ func TestRepairM_632_DriverReportsErrors(t *testing.T) {
 	require.NotEmpty(t, result.LogPath)
 	_, err = os.ReadFile(result.LogPath)
 	require.NoError(t, err)
-	app, _ = repair632App(t)
-	config = repair632Config(t)
+	app, _ = simulationDriverApp(t)
+	config = simulationDriverConfig(t)
 	config.BeginBlock = func(sdk.Context, abci.RequestBeginBlock) error { return sentinel }
 	config.Operations = WeightedOperations{NewWeightedOperation(1, func(*rand.Rand, *baseapp.BaseApp, sdk.Context, []simtypes.Account, string) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
 		t.Fatal("operation must not run after begin error")

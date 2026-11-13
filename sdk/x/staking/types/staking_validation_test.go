@@ -30,7 +30,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-type repairM688Keepers struct {
+type stakingValidationKeepers struct {
 	ctx      sdk.Context
 	cdc      *codec.ProtoCodec
 	cms      storetypes.CommitMultiStore
@@ -41,7 +41,7 @@ type repairM688Keepers struct {
 	stop     func()
 }
 
-func repairM688Open(t *testing.T, dir string, initialize bool) repairM688Keepers {
+func stakingValidationOpen(t *testing.T, dir string, initialize bool) stakingValidationKeepers {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("repair-m688", dir)
 	require.NoError(t, err)
@@ -85,10 +85,10 @@ func repairM688Open(t *testing.T, dir string, initialize bool) repairM688Keepers
 		}
 	}
 	t.Cleanup(stop)
-	return repairM688Keepers{ctx: ctx, cdc: cdc, cms: cms, staking: staking, authz: authorizations, bank: bank, accounts: accounts, stop: stop}
+	return stakingValidationKeepers{ctx: ctx, cdc: cdc, cms: cms, staking: staking, authz: authorizations, bank: bank, accounts: accounts, stop: stop}
 }
 
-func repairM688Exec(t *testing.T, h repairM688Keepers, grantee sdk.AccAddress, msg sdk.Msg) error {
+func stakingValidationExec(t *testing.T, h stakingValidationKeepers, grantee sdk.AccAddress, msg sdk.Msg) error {
 	t.Helper()
 	exec := authz.NewMsgExec(grantee, []sdk.Msg{msg})
 	var decoded authz.MsgExec
@@ -97,8 +97,8 @@ func repairM688Exec(t *testing.T, h repairM688Keepers, grantee sdk.AccAddress, m
 	return err
 }
 
-func TestRepairM_688_StakeLimitPanics(t *testing.T) {
-	h := repairM688Open(t, t.TempDir(), true)
+func TestStakingValidation_StakeLimitPanics(t *testing.T) {
+	h := stakingValidationOpen(t, t.TempDir(), true)
 	granter := sdk.AccAddress(bytes.Repeat([]byte{11}, 20))
 	grantee := sdk.AccAddress(bytes.Repeat([]byte{12}, 20))
 	validator := createValidators(t)[0]
@@ -145,7 +145,7 @@ func TestRepairM_688_StakeLimitPanics(t *testing.T) {
 			} {
 				t.Run(tc.name, func(t *testing.T) {
 					var execErr error
-					require.NotPanics(t, func() { execErr = repairM688Exec(t, h, grantee, op.message(tc.amount)) })
+					require.NotPanics(t, func() { execErr = stakingValidationExec(t, h, grantee, op.message(tc.amount)) })
 					require.ErrorIs(t, execErr, tc.want)
 					require.Equal(t, savedBefore, h.cdc.MustMarshal(h.authz.ExportGenesis(h.ctx)))
 					require.Equal(t, balancesBefore, h.bank.GetAccountsBalances(h.ctx))
@@ -161,11 +161,11 @@ func TestRepairM_688_StakeLimitPanics(t *testing.T) {
 		})
 	}
 	// Successful execution proves the same real handler moves funds and persists the reduced allowance.
-	require.NoError(t, repairM688Exec(t, h, grantee, types.NewMsgDelegate(granter, validator.GetOperator(), sdk.NewInt64Coin(denom, 40))))
+	require.NoError(t, stakingValidationExec(t, h, grantee, types.NewMsgDelegate(granter, validator.GetOperator(), sdk.NewInt64Coin(denom, 40))))
 	stored, _ := h.authz.GetCleanAuthorization(h.ctx, grantee, granter, sdk.MsgTypeURL(&types.MsgDelegate{}))
 	require.Equal(t, sdk.NewInt(60), stored.(*types.StakeAuthorization).MaxTokens.Amount)
 	require.Equal(t, sdk.NewInt(460), h.bank.GetBalance(h.ctx, granter, denom).Amount)
-	require.NoError(t, repairM688Exec(t, h, grantee, types.NewMsgDelegate(granter, validator.GetOperator(), sdk.NewInt64Coin(denom, 60))))
+	require.NoError(t, stakingValidationExec(t, h, grantee, types.NewMsgDelegate(granter, validator.GetOperator(), sdk.NewInt64Coin(denom, 60))))
 	stored, _ = h.authz.GetCleanAuthorization(h.ctx, grantee, granter, sdk.MsgTypeURL(&types.MsgDelegate{}))
 	require.Nil(t, stored)
 	require.Equal(t, sdk.NewInt(400), h.bank.GetBalance(h.ctx, granter, denom).Amount)
@@ -175,8 +175,8 @@ func TestRepairM_688_StakeLimitPanics(t *testing.T) {
 	require.True(t, sdk.NewDec(100).Equal(delegation.Shares))
 }
 
-func TestRepairM_688_InvalidStakeCoins(t *testing.T) {
-	h := repairM688Open(t, t.TempDir(), true)
+func TestStakingValidation_InvalidStakeCoins(t *testing.T) {
+	h := stakingValidationOpen(t, t.TempDir(), true)
 	validator := createValidators(t)[0].GetOperator()
 	limit := sdk.NewInt64Coin("stake", 100)
 	for _, coin := range []sdk.Coin{{Denom: "stake"}, {Denom: "stake", Amount: sdk.NewInt(-1)}, {Denom: "!", Amount: sdk.OneInt()}} {
@@ -200,10 +200,10 @@ func TestRepairM_688_InvalidStakeCoins(t *testing.T) {
 	}
 }
 
-func TestRepairM_688_HistoricalSortFixture(t *testing.T) {
+func TestStakingValidation_HistoricalSortFixture(t *testing.T) {
 	TestHistoricalInfo(t)
 	TestValidateBasic(t)
-	h := repairM688Open(t, t.TempDir(), true)
+	h := stakingValidationOpen(t, t.TempDir(), true)
 	validators := createValidators(t)
 	for _, validator := range validators {
 		h.staking.SetValidator(h.ctx, validator)
@@ -212,11 +212,11 @@ func TestRepairM_688_HistoricalSortFixture(t *testing.T) {
 	h.staking.TrackHistoricalInfo(h.ctx)
 	historical, found := h.staking.GetHistoricalInfo(h.ctx, h.ctx.BlockHeight())
 	require.True(t, found)
-	repairM688AssertHistoricalOrder(t, historical)
+	stakingValidationAssertHistoricalOrder(t, historical)
 	require.NoError(t, types.ValidateBasic(historical, sdk.DefaultPowerReduction))
 }
 
-func repairM688MalformedQueueKeys(valid []byte) map[string][]byte {
+func stakingValidationMalformedQueueKeys(valid []byte) map[string][]byte {
 	cases := map[string][]byte{}
 	for n := 0; n < 8; n++ {
 		cases[fmt.Sprintf("height-%d-bytes", n)] = append([]byte(nil), valid[:len(valid)-8+n]...)
@@ -245,7 +245,7 @@ func repairM688MalformedQueueKeys(valid []byte) map[string][]byte {
 	return cases
 }
 
-func repairM688AssertQueueRejected(t *testing.T, key []byte) {
+func stakingValidationAssertQueueRejected(t *testing.T, key []byte) {
 	t.Helper()
 	require.NotPanics(t, func() {
 		ts, height, err := types.ParseValidatorQueueKey(key)
@@ -255,32 +255,32 @@ func repairM688AssertQueueRejected(t *testing.T, key []byte) {
 	})
 }
 
-func TestRepairM_688_ValidatorQueueKeyBounds(t *testing.T) {
+func TestStakingValidation_ValidatorQueueKeyBounds(t *testing.T) {
 	dir := t.TempDir()
-	h := repairM688Open(t, dir, true)
+	h := stakingValidationOpen(t, dir, true)
 	ts, height := h.ctx.BlockTime(), int64(1024)
 	operator := createValidators(t)[0].OperatorAddress
 	h.staking.SetUnbondingValidatorsQueue(h.ctx, ts, height, []string{operator})
 	valid := types.GetValidatorQueueKey(ts, height)
 	value := h.ctx.KVStore(h.staking.GetStoreKey()).Get(valid)
-	cases := repairM688MalformedQueueKeys(valid)
+	cases := stakingValidationMalformedQueueKeys(valid)
 	// Persist corrupted height suffixes alongside the producer's valid key, then close and reopen the store.
 	for name, key := range cases {
 		if len(key) > 0 {
 			h.ctx.KVStore(h.staking.GetStoreKey()).Set(key, value)
 		}
-		t.Run(name, func(t *testing.T) { repairM688AssertQueueRejected(t, key) })
+		t.Run(name, func(t *testing.T) { stakingValidationAssertQueueRejected(t, key) })
 	}
 	committed := h.cms.Commit(true)
 	h.stop()
-	reopened := repairM688Open(t, dir, false)
+	reopened := stakingValidationOpen(t, dir, false)
 	require.Equal(t, committed, reopened.cms.LastCommitID())
 	require.Equal(t, []string{operator}, reopened.staking.GetUnbondingValidators(reopened.ctx, ts, height))
 	stored := reopened.ctx.KVStore(reopened.staking.GetStoreKey())
 	for name, key := range cases {
 		if len(key) > 0 {
 			require.Equal(t, value, stored.Get(key))
-			t.Run("recovered-"+name, func(t *testing.T) { repairM688AssertQueueRejected(t, key) })
+			t.Run("recovered-"+name, func(t *testing.T) { stakingValidationAssertQueueRejected(t, key) })
 		}
 	}
 	for _, height := range []int64{0, 1024, math.MaxInt64} {
@@ -291,7 +291,7 @@ func TestRepairM_688_ValidatorQueueKeyBounds(t *testing.T) {
 	}
 }
 
-func TestRepairM_688_NilMinimumCommission(t *testing.T) {
+func TestStakingValidation_NilMinimumCommission(t *testing.T) {
 	defaults := types.DefaultParams()
 	for _, tc := range []struct {
 		name  string

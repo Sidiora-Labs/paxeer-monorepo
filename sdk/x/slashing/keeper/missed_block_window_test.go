@@ -48,7 +48,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type repair284Store struct {
+type missedBlockWindowStore struct {
 	cms      sdk.CommitMultiStore
 	ctx      sdk.Context
 	k        keeper.Keeper
@@ -59,7 +59,7 @@ type repair284Store struct {
 	registry codectypes.InterfaceRegistry
 }
 
-func openRepair284Store(t *testing.T, dir string) *repair284Store {
+func openMissedBlockWindowStore(t *testing.T, dir string) *missedBlockWindowStore {
 	t.Helper()
 	db, err := dbm.NewGoLevelDB("slashing", dir)
 	require.NoError(t, err)
@@ -87,10 +87,10 @@ func openRepair284Store(t *testing.T, dir string) *repair284Store {
 		sk.SetParams(ctx, stakingtypes.DefaultParams())
 		k.SetParams(ctx, types.DefaultParams())
 	}
-	return &repair284Store{cms, ctx, k, sk, bk, enc.Marshaler, enc.Amino, enc.InterfaceRegistry}
+	return &missedBlockWindowStore{cms, ctx, k, sk, bk, enc.Marshaler, enc.Amino, enc.InterfaceRegistry}
 }
 
-func (s *repair284Store) addValidator(t *testing.T) cryptotypes.PubKey {
+func (s *missedBlockWindowStore) addValidator(t *testing.T) cryptotypes.PubKey {
 	t.Helper()
 	pk := ed25519.GenPrivKey().PubKey()
 	v, err := stakingtypes.NewValidator(sdk.ValAddress(pk.Address()), pk, stakingtypes.Description{})
@@ -107,12 +107,12 @@ func (s *repair284Store) addValidator(t *testing.T) cryptotypes.PubKey {
 	return pk
 }
 
-func (s *repair284Store) vote(pk cryptotypes.PubKey, signed bool) {
+func (s *missedBlockWindowStore) vote(pk cryptotypes.PubKey, signed bool) {
 	s.ctx = s.ctx.WithBlockHeight(s.ctx.BlockHeight() + 1)
 	slashing.BeginBlocker(s.ctx, testslashing.CreateBeginBlockReq(pk.Address(), 100, signed).LastCommitInfo.Votes, s.k)
 }
 
-func (s *repair284Store) assertWindow(t *testing.T, pk cryptotypes.PubKey, expected []bool, index int64) {
+func (s *missedBlockWindowStore) assertWindow(t *testing.T, pk cryptotypes.PubKey, expected []bool, index int64) {
 	t.Helper()
 	addr := sdk.ConsAddress(pk.Address())
 	info, found := s.k.GetValidatorSigningInfo(s.ctx, addr)
@@ -131,11 +131,11 @@ func (s *repair284Store) assertWindow(t *testing.T, pk cryptotypes.PubKey, expec
 	require.Equal(t, index, info.IndexOffset)
 }
 
-func TestRepair_284_WindowExpansionRestartPenalty(t *testing.T) {
+func TestMissedBlockWindow_WindowExpansionRestartPenalty(t *testing.T) {
 	for _, old := range []int64{1, 5, 65} {
 		t.Run(fmt.Sprintf("window_%d", old), func(t *testing.T) {
 			dir := t.TempDir()
-			s := openRepair284Store(t, dir)
+			s := openMissedBlockWindowStore(t, dir)
 			params := s.k.GetParams(s.ctx)
 			params.SignedBlocksWindow = old
 			params.MinSignedPerWindow = sdk.ZeroDec()
@@ -169,7 +169,7 @@ func TestRepair_284_WindowExpansionRestartPenalty(t *testing.T) {
 			commit := s.cms.Commit(true)
 			require.Greater(t, commit.Version, int64(0))
 			require.NoError(t, s.cms.Close())
-			s = openRepair284Store(t, dir)
+			s = openMissedBlockWindowStore(t, dir)
 			defer func() { require.NoError(t, s.cms.Close()) }()
 			require.Equal(t, commit, s.cms.LastCommitID())
 			require.Equal(t, params, s.k.GetParams(s.ctx))
@@ -217,8 +217,8 @@ func TestRepair_284_WindowExpansionRestartPenalty(t *testing.T) {
 	}
 }
 
-func TestRepair_284_LegacyConsumerEncoding(t *testing.T) {
-	s := openRepair284Store(t, t.TempDir())
+func TestMissedBlockWindow_LegacyConsumerEncoding(t *testing.T) {
+	s := openMissedBlockWindowStore(t, t.TempDir())
 	defer func() { require.NoError(t, s.cms.Close()) }()
 	pk := s.addValidator(t)
 	s.vote(pk, false)

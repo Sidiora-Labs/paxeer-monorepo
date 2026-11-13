@@ -3,7 +3,7 @@ audit = "22.30.168"
 requirement = "22998.1"
 baseline = "Not run: the ordered task instructions prohibit tests before implementation and authorize verification only through hf-done after hf-build; no baseline failure is claimed."
 evidence = "The runner gate ledger records the exact candidate revision, command, exit and private log location; final response copies the terminal gate evidence."
-wiring = "No out-of-path changes required; generated gRPC gateway and staking precompile are exercised unchanged from repair_310_test.go."
+wiring = "No out-of-path changes required; generated gRPC gateway and staking precompile are exercised unchanged from staking_transitions_test.go."
 
 [finding.unbonding-retry]
 tests = ["TestRepair_310_UnbondingRetryRestart", "TestRepair_310_UnbondingAtomicFailure"]
