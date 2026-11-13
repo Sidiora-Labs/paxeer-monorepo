@@ -54,7 +54,7 @@ directly; setting only the library's file keys does not configure this binary.
 
 | Setting | Executable behavior |
 | --- | --- |
-| `LAYERX_AGENT_MODE` | Unset or `full` starts full mode; `human-owner` starts the owner and health listener; other values fail |
+| `LAYERX_AGENT_MODE` | Unset or `full` starts full mode; `human-owner` starts the owner and health listener; `inference-market` starts full mode with inference services; other values fail |
 | `LAYERX_AGENT_PROGRAM_LISTEN` | Loopback `127.0.0.1:` listener |
 | `LAYERX_AGENT_PROGRAM_BEARER_TOKEN` | At least 32 bytes; health/read credential |
 | `LAYERX_AGENT_NODE_ENDPOINT`, `LAYERX_AGENT_NODE_BEARER_TOKEN` | Full-mode read backend and distinct backend credential |
@@ -67,12 +67,22 @@ directly; setting only the library's file keys does not configure this binary.
 | `LAYERX_POLICY_SOURCES` | Policy path for every configured Human tenant |
 | `LAYERX_AGENT_NODE_RPC_URL`, `LAYERX_AGENT_NODE_CHAIN_ID` | Node JSON-RPC URL and chain ID; decimal or `0x` chain ID accepted by `NodeRpcConfig` |
 | `LAYERX_AGENT_HUMAN_PROTOCOL_VERSION`, `LAYERX_AGENT_HUMAN_NETWORK_ID` | Current compiled occupancy protocol and network ID; network must equal node chain ID |
-| `LAYERX_AGENT_NODE_CONSENSUS_ENDPOINT` | Node consensus connection for committed evidence |
+| `LAYERX_AGENT_NODE_CONSENSUS_ENDPOINT` | Human-owner node consensus connection for committed evidence |
+| `LAYERX_AGENT_CONSENSUS_ENDPOINT` | Optional full-mode consensus endpoint for the program read backend |
 
 Full mode requires the program bearer to differ from both backend bearers.
 Human-owner mode requires its health bearer to differ from its Human authority
 bearer. `NodeRpcConfig` supplies a 30-second default deadline and the connection
 checks the observed chain ID. Protocol version and chain ID are different values.
+
+Inference-market mode additionally loads `InferenceConfig` from
+`LAYERX_AGENT_INFERENCE_MODEL_DIGEST`, `LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST`
+and `LAYERX_AGENT_INFERENCE_ROOM_PROFILE`. Both digests must be nonzero hex32;
+the room profile must be a nonempty regular file of at most 65,536 bytes.
+`LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN` defaults to `127.0.0.1:8790` and
+`LAYERX_AGENT_INFERENCE_SERVE_LISTEN` to `127.0.0.1:8791`. The two addresses
+must differ unless their port is zero. The executable also validates its
+inference gateway, market, signing and runtime inputs before serving.
 
 The optional operation listener uses `LAYERX_AGENTD_RPC_LISTEN` with
 `LAYERX_AGENTD_RPC_TLS_CERT`, `LAYERX_AGENTD_RPC_TLS_KEY`,

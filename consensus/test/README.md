@@ -6,7 +6,7 @@ The unit tests (`go test`) live next to the packages they cover. Run them from t
 go test ./consensus/...
 ```
 
-From the `consensus` directory, `make test` runs the same packages with `go test -p 1 -tags deadlock` (target defined in [`Makefile`](./Makefile)).
+From the `consensus` directory, `make test` runs the same packages with `go test -p 1 -tags deadlock`. The [consensus Makefile](../Makefile) includes the targets from [`test/Makefile`](./Makefile); their package list comes from `go list ./...` in the invoking directory.
 
 `make test_release` selects the `release` build tag. `make test_race` runs the packages with the race detector, verbose output and package parallelism limited to one.
 

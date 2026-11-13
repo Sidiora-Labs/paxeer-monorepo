@@ -99,7 +99,8 @@ a previously authenticated session is not perpetual permission.
 
 `UnifiedAgentOwner` and `ProductionHumanOperations` bind the
 [Human peer](agent-human-peer.md) to real runtime operations. The binary has
-full and human-owner modes; see [its actual environment](agent-config.md#agentd-env).
+`full`, `human-owner` and `inference-market` modes; see
+[its actual environment](agent-config.md#agentd-env).
 `Store` keys always include `TenantId`. Keep Unknown, pending, failed and
 executed states distinct during recovery; absent evidence is not an executed
 result.
@@ -108,7 +109,7 @@ result.
 
 [`layerx-agentd-host`](../services/agent/crates/layerx-agentd-host/Cargo.toml)
 integrates the executable's host dependencies. Its
-[`ProductionWebPayer`](../services/agent/crates/layerx-agentd-host/src/payer.rs)
+[`ProductionWebPayer`](../services/agent/crates/layerx-agentd-host/src/payer/implementation.rs)
 uses the owner, KMS attestor, native precompile calls and node receipts for web
 payments. The payer fixes mainnet-beta chain ID 125 and a 30-second receipt
 timeout. A payment boundary refusal, attestor refusal and node refusal remain

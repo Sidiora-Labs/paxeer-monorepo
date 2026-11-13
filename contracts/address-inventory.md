@@ -156,9 +156,9 @@ repository's pinned `forge-std` and OpenZeppelin libraries.
 
 ### cfg-foundry-toml
 
-[foundry.toml](../foundry.toml) is a separate project rooted at `contracts`,
-with artifacts under `build/forge-artifacts`, IR compilation, and 100,000
-optimizer runs. It excludes `contracts/src`, `contracts/test`, libraries,
+[foundry.toml](../foundry.toml) is a separate repository-root project with
+sources under `contracts`, artifacts under `build/forge-artifacts`, IR
+compilation, and 100,000 optimizer runs. It excludes `contracts/src`, `contracts/test`, libraries,
 bridge and launchpad trees; it has separate names and governance profiles.
 The [bridge EVM project](bridge/evm/foundry.toml) has its own configuration.
 [bootstrap-libs.sh](bootstrap-libs.sh) fetches library dependencies;

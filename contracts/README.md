@@ -16,6 +16,8 @@ The two Foundry configurations at the repository root cover different source tre
 | Launchpad application contracts | [`launchpad/contracts`](launchpad/contracts) | See the [launchpad guide](launchpad/README.md) | [`launchpad/`](launchpad) |
 | Benchmark workload contracts | [`tools/benchmark/loadtest/contracts/evm/src`](../tools/benchmark/loadtest/contracts/evm/src) | Owned by the benchmark project | [Benchmark Foundry configuration](../tools/benchmark/loadtest/contracts/evm/foundry.toml) |
 
+The root and Paxeer X chain projects pin Solidity `0.8.27`. The bridge EVM project pins `0.8.30`, enables IR compilation and uses 100,000 optimizer runs; its artifacts and cache are under `contracts/bridge/evm/build/`.
+
 ## Kernel contracts
 
 The merged network uses the native bank and committed block state for funding and finality.
