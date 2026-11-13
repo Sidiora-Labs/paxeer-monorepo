@@ -30,7 +30,7 @@ test = "web_search_receipt_verification_snapshots_inputs starts verification of 
 [qualification]
 verified_revision = "By reference: the hf-done candidate revision in /out/run/gates.jsonl; successful qualification requires exit zero at the same candidate as hf-build."
 build = "npm --prefix services/agent/sdk/typescript ci --no-audit --no-fund && pnpm --dir services/agent/sdk/typescript run build"
-verify = "test -s services/agent/sdk/repair_22_39_299.kvx && cd services/agent/sdk/typescript && node dist/test/repair-22-33-24.test.js && node dist/test/web-search-sequencer.test.js"
+verify = "test -s spec/layerx-merge/programme/records/services/agent/sdk/repair_22_39_299.kvx && cd services/agent/sdk/typescript && node dist/test/recorded-payment-evidence.test.js && node dist/test/web-search-sequencer.test.js"
 evidence = "The runner records exact revision, command, exit code and private log in /out/run/gates.jsonl and /out/logs/build-1.log or /out/logs/verify-1.log; the final response copies the last gate evidence. No gate is claimed before execution."
 baseline = "Initial git status and diff contained only runner bookkeeping, no in-scope edits, and no gate ledger. The ordered gates prohibit running verification by hand or before implementation; no unchanged-tree run was performed or claimed. Gotchas 4030/4031 and repair_22_39_297.kvx retain the historical failed aggregator and standalone results with their actual revisions."
 

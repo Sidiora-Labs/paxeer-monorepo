@@ -1,13 +1,13 @@
 [repair.22.33.24]
 audit = "22.30.101"
 base = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
-verify = "cd services/agent/sdk/typescript && npm run build && node dist/test/repair-22-33-24.test.js"
+verify = "cd services/agent/sdk/typescript && npm run build && node dist/test/recorded-payment-evidence.test.js"
 evidence = "The hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; no unexecuted gate is claimed here."
-baseline = "No earlier gate ledger or in-scope changes existed; repair-22-33-24.test.ts was absent. The ordered bounded gates prohibit running verification before implementation, so no baseline test execution or failure is claimed. Inspection found stale 274/37 counts, /rpc and /rpc/ws routes, missing committed inclusion, re-signed positive web receipts, obsolete authority configuration, and memory-only draw coverage."
+baseline = "No earlier gate ledger or in-scope changes existed; recorded-payment-evidence.test.ts was absent. The ordered bounded gates prohibit running verification before implementation, so no baseline test execution or failure is claimed. Inspection found stale 274/37 counts, /rpc and /rpc/ws routes, missing committed inclusion, re-signed positive web receipts, obsolete authority configuration, and memory-only draw coverage."
 qualification = "The runner owns the final qualification record and commit. Preserve strict positive assertions on the original producer recordings even when they expose missing out-of-path interfaces."
 
 [finding.revert-stale-counts]
-test = "revert.test.ts registrySnapshot and per-code decoder assertions (imported by repair-22-33-24.test.ts)"
+test = "revert.test.ts registrySnapshot and per-code decoder assertions (imported by recorded-payment-evidence.test.ts)"
 repair = "Pin audit-22.30.101-v1: 392 codes, 54 retryable, row SHA-256; compare the generator's exact TypeScript region against the table and retain every decoder/refusal assertion."
 
 [finding.rpc-node-route-test]
@@ -115,7 +115,7 @@ repair = "Fix the negative no-acceptable-offer setup's payer-address-required er
 base = "8d343183c0e4380323166b7b998f97f41221d046"
 previous_attempt = "Attempt 4's sixteen paths were present at inspection; the current gate ledger had zero build/verify runs. Preserve its implementation and exact assertions."
 command = "cd services/agent/sdk/typescript && node --experimental-transform-types test/record-web-search.mjs"
-producer = "Production sequencer-receipt-codec.ts and sequencer-log.ts regenerate all four metered log commitments over the context in the unchanged signed draw calldata, using the seller's deterministic fixture pin; receipts, logs and settlement digests are captured together under test/fixtures/repair-22-33-24. No positive receipt is changed at test runtime."
+producer = "Production sequencer-receipt-codec.ts and sequencer-log.ts regenerate all four metered log commitments over the context in the unchanged signed draw calldata, using the seller's deterministic fixture pin; receipts, logs and settlement digests are captured together under test/fixtures/recorded-payment-evidence. No positive receipt is changed at test runtime."
 test = "repair_22_33_24_replays_regenerated_metered_evidence pins codec sources, preserves all four original raw transactions, verifies regenerated receipts/offer bindings, and separately proves original signed zero-context receipts remain refused."
 committed = "record-committed.py calls the existing conformance refresh_receipt_vectors.py conversion functions on current daemon evidence; recorded-committed.ts and the provenance assertion consume the resulting local recording with its exact current source digest. No source evidence is re-signed."
 recovery = "record-draw.ts shares the existing type-2 signing fixture with the capture tool. The durable component consumes a captured receipt bound to those bytes; all three interruption cases now reopen again, settle, preserve the original idempotency key, and assert exactly one payment with no further delivery."

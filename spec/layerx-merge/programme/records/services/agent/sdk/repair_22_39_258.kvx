@@ -230,7 +230,7 @@ severity = "blocker"
 
 [qualification.finding.3]
 task = "22.39.258"
-file = "services/agent/sdk/typescript/test/repair-22-31-148.test.ts"
+file = "services/agent/sdk/typescript/test/rpc-commitment-and-payments.test.ts"
 symbol = "commit_inclusion_refuses_unrelated_valid_commit"
 observed = "At revision 110b460fb3f7c5c1cc0e121d0e8d5b8bed672d9e, command cg spec done 22.39.258 -f layerx-merge --root /work/paxeer-monorepo exited 1; log /out/logs/verify-1.log: The test's base64 helper passes null to Buffer.from while building commit evidence, before production verification."
 assumption = "The commit fixture adapter is outside this task's scope and was not changed."
@@ -246,7 +246,7 @@ severity = "blocker"
 
 [qualification.finding.5]
 task = "22.39.258"
-file = "services/agent/sdk/typescript/test/repair-22-33-24.test.ts"
+file = "services/agent/sdk/typescript/test/recorded-payment-evidence.test.ts"
 symbol = "imported registry hash assertion"
 observed = "At revision 110b460fb3f7c5c1cc0e121d0e8d5b8bed672d9e, command cg spec done 22.39.258 -f layerx-merge --root /work/paxeer-monorepo exited 1; log /out/logs/verify-1.log: This test fails on the same imported revert.test.ts registry hash assertion."
 assumption = "This is the same unchanged registry mismatch, not a second source defect to investigate."
