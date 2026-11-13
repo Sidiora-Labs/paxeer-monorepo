@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func repair461GoVersion(t *testing.T, path string) string {
+func workspaceVersionGoVersion(t *testing.T, path string) string {
 	t.Helper()
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -27,13 +27,13 @@ func repair461GoVersion(t *testing.T, path string) string {
 	return v
 }
 
-func TestRepair461SharedWorkspace(t *testing.T) {
+func TestWorkspaceVersionSharedWorkspace(t *testing.T) {
 	workspacePath := filepath.Join("..", "go.work")
 	raw, err := os.ReadFile(workspacePath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	workspaceVersion := repair461GoVersion(t, workspacePath)
+	workspaceVersion := workspaceVersionGoVersion(t, workspacePath)
 	useBlock := regexp.MustCompile(`(?ms)^use\s*\((.*?)^\)`).FindSubmatch(raw)
 	if len(useBlock) != 2 {
 		t.Fatal("shared workspace has no use block")
@@ -54,7 +54,7 @@ func TestRepair461SharedWorkspace(t *testing.T) {
 		members = append(members, member)
 		t.Run(member, func(t *testing.T) {
 			dir := filepath.Join("..", member)
-			moduleVersion := repair461GoVersion(t, filepath.Join(dir, "go.mod"))
+			moduleVersion := workspaceVersionGoVersion(t, filepath.Join(dir, "go.mod"))
 			if version.Compare(workspaceVersion, moduleVersion) < 0 {
 				t.Errorf("shared workspace %s is below member %s requirement %s", workspaceVersion, member, moduleVersion)
 			}

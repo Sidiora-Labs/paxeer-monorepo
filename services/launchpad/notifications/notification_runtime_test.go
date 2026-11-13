@@ -29,7 +29,7 @@ import (
 // An isolated database lets the authority proof install the owner interfaces
 // without touching another test's schemas. All setup uses the database driver;
 // no subprocess or additional service is started by these repair tests.
-func repair40Database(t *testing.T, ctx context.Context) string {
+func notificationIdentityDatabase(t *testing.T, ctx context.Context) string {
 	t.Helper()
 	fixture, _ := notificationDatabase(t)
 	config, err := pgx.ParseConfig(os.Getenv("NOTIFICATIONS_TEST_DATABASE_URL"))
@@ -54,7 +54,7 @@ func repair40Database(t *testing.T, ctx context.Context) string {
 	return dsn
 }
 
-func repair40Open(t *testing.T, ctx context.Context, dsn string) *sql.DB {
+func notificationIdentityOpen(t *testing.T, ctx context.Context, dsn string) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -71,7 +71,7 @@ func repair40Open(t *testing.T, ctx context.Context, dsn string) *sql.DB {
 // headers. Here that boundary is a real CA-verified TLS certificate carrying
 // both identity fields; all notification handlers, persistence and codecs run
 // in the test process. No identity or SDK toolchain is launched.
-func repair40Principal(r *http.Request) (Principal, error) {
+func notificationIdentityPrincipal(r *http.Request) (Principal, error) {
 	if r.TLS == nil || len(r.TLS.VerifiedChains) == 0 || len(r.TLS.PeerCertificates) == 0 {
 		return Principal{}, ErrForbidden
 	}
@@ -85,7 +85,7 @@ func repair40Principal(r *http.Request) (Principal, error) {
 	return Principal{AccountID: names[0], Wallet: names[1]}, nil
 }
 
-func repair40Request(t *testing.T, ctx context.Context, client *http.Client, method, endpoint string, headers http.Header, status int) []byte {
+func notificationIdentityRequest(t *testing.T, ctx context.Context, client *http.Client, method, endpoint string, headers http.Header, status int) []byte {
 	t.Helper()
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, nil)
 	if err != nil {
@@ -113,11 +113,11 @@ func repair40Request(t *testing.T, ctx context.Context, client *http.Client, met
 
 // Consume the same frozen list/read envelopes used by IF_NOTIFICATIONS and
 // IF_NOTIFICATION_READ, using the generated Go validators and decoders.
-func repair40Consume(t *testing.T, ctx context.Context, client *http.Client, endpoint string, account Principal, mode, id, readAt string) string {
+func notificationIdentityConsume(t *testing.T, ctx context.Context, client *http.Client, endpoint string, account Principal, mode, id, readAt string) string {
 	t.Helper()
 	list := func(query string) v2.NotificationsResponse {
 		t.Helper()
-		raw := repair40Request(t, ctx, client, http.MethodGet, endpoint+"/v2/me/notifications"+query, nil, http.StatusOK)
+		raw := notificationIdentityRequest(t, ctx, client, http.MethodGet, endpoint+"/v2/me/notifications"+query, nil, http.StatusOK)
 		out, err := v2.DecodeNotificationsResponse(raw)
 		if err != nil {
 			t.Fatalf("frozen list consumer: %s: %v", raw, err)
@@ -128,7 +128,7 @@ func repair40Consume(t *testing.T, ctx context.Context, client *http.Client, end
 		return out
 	}
 	if mode == "foreign" {
-		raw := repair40Request(t, ctx, client, http.MethodPut, endpoint+"/v2/me/notifications/"+id+"/read", nil, http.StatusNotFound)
+		raw := notificationIdentityRequest(t, ctx, client, http.MethodPut, endpoint+"/v2/me/notifications/"+id+"/read", nil, http.StatusNotFound)
 		out, err := v2.DecodeError(raw)
 		if err != nil || out.Code != "NOT_FOUND" {
 			t.Fatalf("foreign read: %s %v", raw, err)
@@ -153,7 +153,7 @@ func repair40Consume(t *testing.T, ctx context.Context, client *http.Client, end
 	} else if item.ReadAt == nil || *item.ReadAt != readAt {
 		t.Fatalf("recovered read state: %+v want %s", item, readAt)
 	}
-	raw := repair40Request(t, ctx, client, http.MethodPut, endpoint+"/v2/me/notifications/"+id+"/read", nil, http.StatusOK)
+	raw := notificationIdentityRequest(t, ctx, client, http.MethodPut, endpoint+"/v2/me/notifications/"+id+"/read", nil, http.StatusOK)
 	read, err := v2.DecodeNotificationReadResponse(raw)
 	if err != nil || read.RequestId != notificationErrorRequestID || read.Quality != "complete" || read.Data.ReadAt == "" {
 		t.Fatalf("frozen read consumer: %s: %v", raw, err)
@@ -167,10 +167,10 @@ func repair40Consume(t *testing.T, ctx context.Context, client *http.Client, end
 	return read.Data.ReadAt
 }
 
-func TestRepair_40_NotificationWalletBoundary(t *testing.T) {
+func TestNotificationIdentityNotificationWalletBoundary(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
-	dsn := repair40Database(t, ctx)
+	dsn := notificationIdentityDatabase(t, ctx)
 	account := Principal{AccountID: uuid.NewString(), Wallet: "0x1111111111111111111111111111111111111111"}
 	other := Principal{AccountID: uuid.NewString(), Wallet: "0x2222222222222222222222222222222222222222"}
 	pki := testpki.New(t)
@@ -182,7 +182,7 @@ func TestRepair_40_NotificationWalletBoundary(t *testing.T) {
 		t.Cleanup(client.CloseIdleConnections)
 		clients = append(clients, client)
 	}
-	db := repair40Open(t, ctx, dsn)
+	db := notificationIdentityOpen(t, ctx, dsn)
 	if _, err := db.ExecContext(ctx, Schema); err != nil {
 		t.Fatal(err)
 	}
@@ -197,14 +197,14 @@ func TestRepair_40_NotificationWalletBoundary(t *testing.T) {
 	}
 	id := page.Items[0].V2ID
 	start := func() *httptest.Server {
-		server := httptest.NewUnstartedServer((&HTTPRuntime{Notifications: HTTP{Store: store, Principal: repair40Principal}}).Handler())
+		server := httptest.NewUnstartedServer((&HTTPRuntime{Notifications: HTTP{Store: store, Principal: notificationIdentityPrincipal}}).Handler())
 		server.TLS = &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.VerifyClientCertIfGiven, ClientCAs: pki.Roots(), Certificates: []tls.Certificate{serverPeer.Pair}}
 		server.StartTLS()
 		return server
 	}
 	server := start()
 	defer func() { server.Close() }()
-	readAt := repair40Consume(t, ctx, clients[0], server.URL, account, "read", id, "")
+	readAt := notificationIdentityConsume(t, ctx, clients[0], server.URL, account, "read", id, "")
 	read, err := store.ListPage(ctx, account.AccountID, false, "", 50)
 	if err != nil || len(read.Items) != 1 || read.Items[0].ReadAt == nil || read.Items[0].ReadAt.UTC().Format("2006-01-02T15:04:05.000Z") != readAt {
 		t.Fatalf("committed consumer read: %+v %v", read, err)
@@ -216,7 +216,7 @@ func TestRepair_40_NotificationWalletBoundary(t *testing.T) {
 	if err = db.PingContext(ctx); err == nil {
 		t.Fatal("closed producer database remained usable")
 	}
-	db = repair40Open(t, ctx, dsn)
+	db = notificationIdentityOpen(t, ctx, dsn)
 	store = Store{DB: db}
 	recovered, err := store.ListPage(ctx, account.AccountID, false, "", 50)
 	if err != nil || !reflect.DeepEqual(recovered, read) {
@@ -227,10 +227,10 @@ func TestRepair_40_NotificationWalletBoundary(t *testing.T) {
 		t.Fatalf("replay changed recovered inbox: %+v %v %v", replay, created, err)
 	}
 	server = start()
-	if after := repair40Consume(t, ctx, clients[0], server.URL, account, "recovered", id, readAt); after != readAt {
+	if after := notificationIdentityConsume(t, ctx, clients[0], server.URL, account, "recovered", id, readAt); after != readAt {
 		t.Fatalf("first read changed on restart: %s -> %s", readAt, after)
 	}
-	repair40Consume(t, ctx, clients[1], server.URL, other, "foreign", id, "")
+	notificationIdentityConsume(t, ctx, clients[1], server.URL, other, "foreign", id, "")
 	for _, method := range []string{http.MethodGet, http.MethodPut} {
 		path := "/v2/me/notifications"
 		if method == http.MethodPut {
@@ -284,11 +284,11 @@ func TestRepair_40_NotificationWalletBoundary(t *testing.T) {
 	}
 }
 
-func TestRepair_40_RuntimeAuthorities(t *testing.T) {
+func TestNotificationIdentityRuntimeAuthorities(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	dsn := repair40Database(t, ctx)
-	db := repair40Open(t, ctx, dsn)
+	dsn := notificationIdentityDatabase(t, ctx)
+	db := notificationIdentityOpen(t, ctx, dsn)
 	if _, err := db.ExecContext(ctx, Schema+discovery.Schema); err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +314,7 @@ func TestRepair_40_RuntimeAuthorities(t *testing.T) {
 	peer := pki.Leaf("api", "api.example")
 	client := &http.Client{Timeout: time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: pki.Roots(), Certificates: []tls.Certificate{peer.Pair}}}}
 	defer client.CloseIdleConnections()
-	principal := AuthenticatePrincipal(repair40Principal)
+	principal := AuthenticatePrincipal(notificationIdentityPrincipal)
 	config := RuntimeConfig{Principal: principal, Secrets: secrets.Options{Provider: secrets.ProviderEnv}, Client: client, D11Base: "https://accounts.example", D12Base: "https://social.example", D11TokenRef: "REPAIR40_D11", D12TokenRef: "REPAIR40_D12", CursorKeyRef: "REPAIR40_CURSOR", InternalTokenRef: "REPAIR40_INTERNAL", DeletePeerDNS: "accounts.example", ChatPeerDNS: "social.example"}
 	var err error
 	config.Pools, config.Intervals, err = NewRuntimeAuthorities(ctx, db, config, quote)

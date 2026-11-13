@@ -28,12 +28,12 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-const repair57RequestID = "22222222-2222-4222-8222-222222222222"
-const repair57StreamID = "11111111-1111-4111-8111-111111111111"
+const streamContractRequestID = "22222222-2222-4222-8222-222222222222"
+const streamContractStreamID = "11111111-1111-4111-8111-111111111111"
 
 // This is a real signed ingress and reverse proxy, using the same shared
 // request issuer/verifier and certificate policy as the integration proofs.
-func repair57Ingress(t *testing.T, next http.Handler) *httptest.Server {
+func streamContractIngress(t *testing.T, next http.Handler) *httptest.Server {
 	t.Helper()
 	pki := testpki.New(t)
 	upstream := pki.Leaf("livestream", "livestream.test")
@@ -74,7 +74,7 @@ func repair57Ingress(t *testing.T, next http.Handler) *httptest.Server {
 			}
 		}
 		r.Body = io.NopCloser(bytes.NewReader(raw))
-		r.Header.Set("X-Request-ID", repair57RequestID)
+		r.Header.Set("X-Request-ID", streamContractRequestID)
 		if err := issuer.SignRequest(r, raw); err != nil {
 			panic(err)
 		}
@@ -84,7 +84,7 @@ func repair57Ingress(t *testing.T, next http.Handler) *httptest.Server {
 	return public
 }
 
-func repair57Envelope(t *testing.T, schema string, raw []byte) {
+func streamContractEnvelope(t *testing.T, schema string, raw []byte) {
 	t.Helper()
 	if err := v2.ValidateJSON(schema, raw); err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func repair57Envelope(t *testing.T, schema string, raw []byte) {
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		t.Fatal(err)
 	}
-	if len(fields) != 7 || string(fields["requestId"]) != strconv.Quote(repair57RequestID) || string(fields["quality"]) != `"complete"` || string(fields["watermark"]) != "null" || string(fields["nextCursor"]) != "null" {
+	if len(fields) != 7 || string(fields["requestId"]) != strconv.Quote(streamContractRequestID) || string(fields["quality"]) != `"complete"` || string(fields["watermark"]) != "null" || string(fields["nextCursor"]) != "null" {
 		t.Fatalf("incomplete frozen envelope: %s", raw)
 	}
 	if bytes.Contains(raw, []byte("private_")) {
@@ -101,11 +101,11 @@ func repair57Envelope(t *testing.T, schema string, raw []byte) {
 	}
 }
 
-func repair57ResponseServer(t *testing.T, status int, produce func() ([]byte, error)) *httptest.Server {
+func streamContractResponseServer(t *testing.T, status int, produce func() ([]byte, error)) *httptest.Server {
 	t.Helper()
 	// The codec is the component under test. HTTP and the actual SDK remain real;
 	// no lifecycle store, SQL driver, ledger, provider or RPC double is installed.
-	return repair57Ingress(t, alias(func(w http.ResponseWriter, r *http.Request) {
+	return streamContractIngress(t, alias(func(w http.ResponseWriter, r *http.Request) {
 		raw, err := produce()
 		if err != nil {
 			New(Deps{}).lifecycleError(w, err)
@@ -117,12 +117,12 @@ func repair57ResponseServer(t *testing.T, status int, produce func() ([]byte, er
 	}))
 }
 
-func TestRepair_57_001_RetiredCredentialRecovery(t *testing.T) {
+func TestStreamContractRetiredCredentialRecovery(t *testing.T) {
 	router := chi.NewRouter()
 	New(Deps{}).RegisterRoutes(router)
-	server := repair57Ingress(t, router)
+	server := streamContractIngress(t, router)
 	client := &http.Client{Timeout: 5 * time.Second}
-	path := "/v2/streams/" + repair57StreamID + "/ingest-credential"
+	path := "/v2/streams/" + streamContractStreamID + "/ingest-credential"
 	var first []byte
 	for i := 0; i < 2; i++ {
 		req, err := http.NewRequest("POST", server.URL+path, nil)
@@ -138,7 +138,7 @@ func TestRepair_57_001_RetiredCredentialRecovery(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if response.StatusCode != http.StatusGone || response.Header.Get("Cache-Control") != "no-store" || response.Header.Get("Link") != "</v2/streams/"+repair57StreamID+"/ingest-key>; rel=\"successor-version\"" {
+		if response.StatusCode != http.StatusGone || response.Header.Get("Cache-Control") != "no-store" || response.Header.Get("Link") != "</v2/streams/"+streamContractStreamID+"/ingest-key>; rel=\"successor-version\"" {
 			t.Fatalf("unsupported credential was not explicitly retired: %d %v %s", response.StatusCode, response.Header, raw)
 		}
 		var refusal v2.Error
@@ -157,23 +157,23 @@ func TestRepair_57_001_RetiredCredentialRecovery(t *testing.T) {
 		// must remain explicit even without a database or an available provider.
 		router = chi.NewRouter()
 		New(Deps{}).RegisterRoutes(router)
-		server = repair57Ingress(t, router)
+		server = streamContractIngress(t, router)
 	}
 	var decoded v2.Error
-	repair57Consumer(t).decode("Error", first, &decoded)
+	streamContractConsumer(t).decode("Error", first, &decoded)
 	if decoded.Code != "INGEST_CREDENTIAL_RETIRED" {
 		t.Fatal(decoded)
 	}
 }
 
-func TestRepair_57_002_CreateEnvelopeTransportReplay(t *testing.T) {
-	consumer := repair57Consumer(t)
-	o := Operation{ID: repair57StreamID, State: "REQUESTED", Revision: 9007199254740992, ProviderID: "private_provider", Wallet: "private_wallet", Title: "private_title"}
-	raw, err := AdaptV2StreamCreate(repair57RequestID, o)
+func TestStreamContractCreateEnvelopeTransportReplay(t *testing.T) {
+	consumer := streamContractConsumer(t)
+	o := Operation{ID: streamContractStreamID, State: "REQUESTED", Revision: 9007199254740992, ProviderID: "private_provider", Wallet: "private_wallet", Title: "private_title"}
+	raw, err := AdaptV2StreamCreate(streamContractRequestID, o)
 	if err != nil {
 		t.Fatal(err)
 	}
-	repair57Envelope(t, "StreamCreateResponse", raw)
+	streamContractEnvelope(t, "StreamCreateResponse", raw)
 	var response v2.StreamCreateResponse
 	consumer.decode("StreamCreateResponse", raw, &response)
 	if response.Data.Operation.OperationId != o.ID || response.Data.Operation.StreamId != o.ID || response.Data.Operation.Status != "requested" || response.Revision == nil || *response.Revision != response.Data.Operation.Revision || string(*response.Revision) != "9007199254740992" || response.Data.Operation.RetryAt != nil {
@@ -181,7 +181,7 @@ func TestRepair_57_002_CreateEnvelopeTransportReplay(t *testing.T) {
 	}
 	// Persist the actual serialized producer bytes, close the transport, and
 	// reopen both transport and SDK consumer. The full signed SQL-ledger restart
-	// assertions remain in TestRepairIntegration_57_002_CreateEnvelopeReplay.
+	// assertions remain in TestStreamContractIntegrationCreateEnvelopeReplay.
 	path := filepath.Join(t.TempDir(), "response.json")
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
@@ -197,13 +197,13 @@ func TestRepair_57_002_CreateEnvelopeTransportReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 	serve := func() ([]byte, error) { return os.ReadFile(path) }
-	first := repair57ResponseServer(t, http.StatusAccepted, serve)
+	first := streamContractResponseServer(t, http.StatusAccepted, serve)
 	decoded := consumer.run("operation", map[string]any{"origin": first.URL, "operation": "IF_STREAM_CREATE", "input": map[string]any{"body": map[string]string{"poolAddress": "0x2222222222222222222222222222222222222222", "title": "Codec replay"}}})
 	if err = json.Unmarshal(decoded, &response); err != nil {
 		t.Fatal(err)
 	}
 	first.Close()
-	second := repair57ResponseServer(t, http.StatusAccepted, serve)
+	second := streamContractResponseServer(t, http.StatusAccepted, serve)
 	replay := consumer.run("operation", map[string]any{"origin": second.URL, "operation": "IF_STREAM_CREATE", "input": map[string]any{"body": map[string]string{"poolAddress": "0x2222222222222222222222222222222222222222", "title": "Codec replay"}}})
 	if !bytes.Equal(decoded, replay) {
 		t.Fatal("reopened SDK consumer observed different frozen response")
@@ -218,7 +218,7 @@ func TestRepair_57_002_CreateEnvelopeTransportReplay(t *testing.T) {
 		t.Fatalf("serialized bytes changed across transport restart: %s %v", wire, err)
 	}
 	for _, invalid := range []Operation{{ID: "invalid", State: "REQUESTED", Revision: 1}, {ID: o.ID, State: "unknown", Revision: 1}, {ID: o.ID, State: "READY", Revision: 0}} {
-		if wire, err := AdaptV2StreamCreate(repair57RequestID, invalid); err == nil || wire != nil {
+		if wire, err := AdaptV2StreamCreate(streamContractRequestID, invalid); err == nil || wire != nil {
 			t.Fatalf("invalid operation serialized: %s %v", wire, err)
 		}
 	}
@@ -227,19 +227,19 @@ func TestRepair_57_002_CreateEnvelopeTransportReplay(t *testing.T) {
 	}
 }
 
-func TestRepair_57_003_OperationPollingEnvelope(t *testing.T) {
-	consumer := repair57Consumer(t)
+func TestStreamContractOperationPollingEnvelope(t *testing.T) {
+	consumer := streamContractConsumer(t)
 	at := time.Now().UTC().Truncate(time.Millisecond)
 	retry := at.Add(time.Minute)
 	for _, state := range []string{"REQUESTED", "PROVISIONING", "READY", "LIVE", "ENDING", "ENDED", "FAILED", "SUSPENDED"} {
 		t.Run(state, func(t *testing.T) {
-			o := Operation{ID: repair57StreamID, State: state, Revision: 9007199254740992, RetryAt: &retry, ProviderID: "private_provider", Wallet: "private_wallet"}
-			raw, err := AdaptV2StreamOperationGet(repair57RequestID, o, at)
+			o := Operation{ID: streamContractStreamID, State: state, Revision: 9007199254740992, RetryAt: &retry, ProviderID: "private_provider", Wallet: "private_wallet"}
+			raw, err := AdaptV2StreamOperationGet(streamContractRequestID, o, at)
 			if err != nil {
 				t.Fatal(err)
 			}
-			repair57Envelope(t, "StreamOperationGetResponse", raw)
-			server := repair57ResponseServer(t, http.StatusOK, func() ([]byte, error) { return AdaptV2StreamOperationGet(repair57RequestID, o, at) })
+			streamContractEnvelope(t, "StreamOperationGetResponse", raw)
+			server := streamContractResponseServer(t, http.StatusOK, func() ([]byte, error) { return AdaptV2StreamOperationGet(streamContractRequestID, o, at) })
 			decoded := consumer.run("operation", map[string]any{"origin": server.URL, "operation": "IF_STREAM_OPERATION_GET", "input": map[string]any{"path": map[string]string{"operationId": o.ID}}})
 			var response v2.StreamOperationGetResponse
 			if err = json.Unmarshal(decoded, &response); err != nil {
@@ -251,21 +251,21 @@ func TestRepair_57_003_OperationPollingEnvelope(t *testing.T) {
 			server.Close()
 		})
 	}
-	for _, o := range []Operation{{ID: "invalid", State: "READY", Revision: 1}, {ID: repair57StreamID, State: "unknown", Revision: 1}, {ID: repair57StreamID, State: "READY", Revision: -1}} {
-		if raw, err := AdaptV2StreamOperationGet(repair57RequestID, o, at); err == nil || raw != nil {
+	for _, o := range []Operation{{ID: "invalid", State: "READY", Revision: 1}, {ID: streamContractStreamID, State: "unknown", Revision: 1}, {ID: streamContractStreamID, State: "READY", Revision: -1}} {
+		if raw, err := AdaptV2StreamOperationGet(streamContractRequestID, o, at); err == nil || raw != nil {
 			t.Fatalf("invalid polling observation serialized: %s %v", raw, err)
 		}
 	}
-	if raw, err := AdaptV2StreamOperationGet(repair57RequestID, Operation{ID: repair57StreamID, State: "READY", Revision: 1}, time.Time{}); err == nil || raw != nil {
+	if raw, err := AdaptV2StreamOperationGet(streamContractRequestID, Operation{ID: streamContractStreamID, State: "READY", Revision: 1}, time.Time{}); err == nil || raw != nil {
 		t.Fatal("missing observation time serialized")
 	}
 }
 
-func TestRepair_57_004_BodylessRetirement(t *testing.T) {
+func TestStreamContractBodylessRetirement(t *testing.T) {
 	bodyless := make(chan bool, 1)
 	router := chi.NewRouter()
 	New(Deps{}).RegisterRoutes(router)
-	server := repair57Ingress(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := streamContractIngress(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "unreadable request", 400)
@@ -275,7 +275,7 @@ func TestRepair_57_004_BodylessRetirement(t *testing.T) {
 		r.Body = io.NopCloser(bytes.NewReader(raw))
 		router.ServeHTTP(w, r)
 	}))
-	raw := repair57Consumer(t).run("retired", map[string]string{"origin": server.URL, "id": repair57StreamID, "session": "owner-session"})
+	raw := streamContractConsumer(t).run("retired", map[string]string{"origin": server.URL, "id": streamContractStreamID, "session": "owner-session"})
 	var response v2.Error
 	if err := json.Unmarshal(raw, &response); err != nil || response.Code != "INGEST_CREDENTIAL_RETIRED" || response.Retryable {
 		t.Fatalf("SDK did not decode retirement: %s %v", raw, err)
@@ -294,7 +294,7 @@ func TestRepair_57_004_BodylessRetirement(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().Unix()
-	envelope := sharedauth.OperationEnvelope{Version: 1, ChainID: "125", Environment: "test", Actor: "0x1111111111111111111111111111111111111111", Action: "stream.credential", Method: "POST", Path: "/v2/streams/" + repair57StreamID + "/ingest-key", BodyHash: digest, Nonce: strings.Repeat("a", 64), IssuedAt: now, ExpiresAt: now + 300}
+	envelope := sharedauth.OperationEnvelope{Version: 1, ChainID: "125", Environment: "test", Actor: "0x1111111111111111111111111111111111111111", Action: "stream.credential", Method: "POST", Path: "/v2/streams/" + streamContractStreamID + "/ingest-key", BodyHash: digest, Nonce: strings.Repeat("a", 64), IssuedAt: now, ExpiresAt: now + 300}
 	if err = envelope.Validate(time.Unix(now, 0), "test", envelope.Actor, envelope.Action, envelope.Method, envelope.Path, []byte(`{}`)); err != nil {
 		t.Fatal(err)
 	}
@@ -303,8 +303,8 @@ func TestRepair_57_004_BodylessRetirement(t *testing.T) {
 	}
 }
 
-func TestRepair_57_005_NormalizedStudioWebhookContract(t *testing.T) {
-	consumer := repair57Consumer(t)
+func TestStreamContractNormalizedStudioWebhookContract(t *testing.T) {
+	consumer := streamContractConsumer(t)
 	secret := strings.Repeat("s", 32)
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	for _, tc := range []struct{ studio, state, event string }{{"stream.started", "LIVE", "active"}, {"stream.idle", "ENDED", "inactive"}} {
@@ -358,12 +358,12 @@ func TestRepair_57_005_NormalizedStudioWebhookContract(t *testing.T) {
 				t.Fatalf("invalid normalized delivery accepted: %+v %t %d", event, ok, status)
 			}
 		}
-		response, err := AdaptV2LiveWebhook(repair57RequestID, now)
+		response, err := AdaptV2LiveWebhook(streamContractRequestID, now)
 		if err != nil {
 			t.Fatal(err)
 		}
-		repair57Envelope(t, "LiveWebhookResponse", response)
-		server := repair57Ingress(t, alias(func(w http.ResponseWriter, r *http.Request) {
+		streamContractEnvelope(t, "LiveWebhookResponse", response)
+		server := streamContractIngress(t, alias(func(w http.ResponseWriter, r *http.Request) {
 			event, ok := VerifyNormalizedProviderWebhook(w, r, secret, now)
 			if !ok {
 				return
@@ -372,7 +372,7 @@ func TestRepair_57_005_NormalizedStudioWebhookContract(t *testing.T) {
 				t.Errorf("HTTP authentication changed the normalized event: %+v", event)
 				return
 			}
-			raw, err := AdaptV2LiveWebhook(repair57RequestID, now)
+			raw, err := AdaptV2LiveWebhook(streamContractRequestID, now)
 			if err != nil {
 				New(Deps{}).lifecycleError(w, err)
 				return

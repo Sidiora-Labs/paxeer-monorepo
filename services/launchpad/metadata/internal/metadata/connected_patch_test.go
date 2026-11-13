@@ -36,8 +36,8 @@ func TestConnectedCanonicalPatchAndSearch(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	key := repair1007Key(t)
-	creation := repair1007Creator(loadCreationFixture(t), key)
+	key := publicationRecoveryKey(t)
+	creation := publicationRecoveryCreator(loadCreationFixture(t), key)
 	const stream = "paxeer125-canonical"
 	seedCanonical(t, pool, "metadata_patch_canonical", stream, creation)
 	store, err := NewProductionStore(pool, "metadata_patch_document", nil)

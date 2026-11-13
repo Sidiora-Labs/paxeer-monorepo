@@ -51,31 +51,31 @@ import (
 )
 
 const (
-	m1006Schema       = "repair_m1006"
-	m1006Operation    = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-	m1006Session      = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
-	m1006Account      = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
-	m1006Request      = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
-	m1006Expired      = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
-	m1006AccountAsset = "ffffffff-ffff-4fff-8fff-ffffffffffff"
+	maintenanceSchema       = "repair_m1006"
+	maintenanceOperation    = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+	maintenanceSession      = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+	maintenanceAccount      = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+	maintenanceRequest      = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+	maintenanceExpired      = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+	maintenanceAccountAsset = "ffffffff-ffff-4fff-8fff-ffffffffffff"
 )
 
-type m1006Evidence struct {
+type maintenanceEvidence struct {
 	Receipt types.Receipt
 	Block   json.RawMessage
 }
 
-func m1006LoadEvidence(t *testing.T) (m1006Evidence, map[string][]map[string]json.RawMessage) {
+func maintenanceLoadEvidence(t *testing.T) (maintenanceEvidence, map[string][]map[string]json.RawMessage) {
 	t.Helper()
-	var evidence m1006Evidence
-	raw, err := os.ReadFile("testdata/repair_m1006_factory.json")
+	var evidence maintenanceEvidence
+	raw, err := os.ReadFile("testdata/metadata_maintenance_factory.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = json.Unmarshal(raw, &evidence); err != nil {
 		t.Fatal(err)
 	}
-	raw, err = os.ReadFile("testdata/repair_m1006_indexer.json")
+	raw, err = os.ReadFile("testdata/metadata_maintenance_indexer.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,11 +93,11 @@ func m1006LoadEvidence(t *testing.T) (m1006Evidence, map[string][]map[string]jso
 		logs[strconv.FormatUint(uint64(log.Index), 10)] = log
 	}
 	for _, row := range indexed["indexer.indexer_raw_logs"] {
-		log := logs[m1006String(row["log_index"])]
-		if log == nil || strings.ToLower(log.Address.Hex()) != m1006String(row["emitter"]) || log.TxHash.Hex() != m1006String(row["transaction_hash"]) || log.BlockHash.Hex() != m1006String(row["block_hash"]) || strconv.FormatUint(log.BlockNumber, 10) != m1006String(row["height"]) || strconv.FormatUint(uint64(log.TxIndex), 10) != m1006String(row["transaction_index"]) {
+		log := logs[maintenanceString(row["log_index"])]
+		if log == nil || strings.ToLower(log.Address.Hex()) != maintenanceString(row["emitter"]) || log.TxHash.Hex() != maintenanceString(row["transaction_hash"]) || log.BlockHash.Hex() != maintenanceString(row["block_hash"]) || strconv.FormatUint(log.BlockNumber, 10) != maintenanceString(row["height"]) || strconv.FormatUint(uint64(log.TxIndex), 10) != maintenanceString(row["transaction_index"]) {
 			t.Fatal("indexer retained log position differs from factory receipt")
 		}
-		data, err := hex.DecodeString(strings.TrimPrefix(m1006String(row["data"]), "\\x"))
+		data, err := hex.DecodeString(strings.TrimPrefix(maintenanceString(row["data"]), "\\x"))
 		if err != nil || !bytes.Equal(data, log.Data) {
 			t.Fatal("indexer retained data differs from factory receipt")
 		}
@@ -114,7 +114,7 @@ func m1006LoadEvidence(t *testing.T) (m1006Evidence, map[string][]map[string]jso
 	return evidence, indexed
 }
 
-func m1006String(raw json.RawMessage) string {
+func maintenanceString(raw json.RawMessage) string {
 	var s string
 	if json.Unmarshal(raw, &s) == nil {
 		return s
@@ -122,9 +122,9 @@ func m1006String(raw json.RawMessage) string {
 	return string(raw)
 }
 
-func m1006Hash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
+func maintenanceHash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
 
-func m1006PNG(t *testing.T) []byte {
+func maintenancePNG(t *testing.T) []byte {
 	t.Helper()
 	var out bytes.Buffer
 	if err := png.Encode(&out, image.NewNRGBA(image.Rect(0, 0, 4, 3))); err != nil {
@@ -135,7 +135,7 @@ func m1006PNG(t *testing.T) []byte {
 
 // Only the transport peers are fixtures. Production pgx, ProductionStore,
 // scanner protocol, raster decoder, S3 client and all maintenance workers run.
-type m1006Asset struct {
+type maintenanceAsset struct {
 	ID, Pool, Hash, Key, State, MIME string
 	Size                             int64
 	Until                            time.Time
@@ -143,18 +143,18 @@ type m1006Asset struct {
 	Variants                         json.RawMessage
 }
 
-type m1006State struct {
-	Assets                                   map[string]m1006Asset
+type maintenanceState struct {
+	Assets                                   map[string]maintenanceAsset
 	AccountState, PublicationState, Revision string
 	Document                                 json.RawMessage
 	Outbox                                   int
 }
 
-type m1006Database struct {
+type maintenanceDatabase struct {
 	t                                                                 *testing.T
 	mu                                                                sync.Mutex
 	txMu                                                              sync.Mutex
-	state                                                             m1006State
+	state                                                             maintenanceState
 	path                                                              string
 	now                                                               time.Time
 	indexed                                                           map[string][]map[string]json.RawMessage
@@ -164,31 +164,31 @@ type m1006Database struct {
 	publishOnce, accountOnce                                          sync.Once
 }
 
-func m1006NewDatabase(t *testing.T) *m1006Database {
+func maintenanceNewDatabase(t *testing.T) *maintenanceDatabase {
 	t.Helper()
-	evidence, indexed := m1006LoadEvidence(t)
+	evidence, indexed := maintenanceLoadEvidence(t)
 	c := indexed["indexer.indexer_canonical_creations"][0]
-	d := &m1006Database{t: t, indexed: indexed, now: time.Now().UTC(), path: filepath.Join(t.TempDir(), "state.json"), published: make(chan struct{}), accountExpired: make(chan struct{})}
-	d.token, d.pool, d.creator, d.txHash = m1006String(c["token"]), m1006String(c["pool"]), m1006String(c["creator"]), evidence.Receipt.TxHash.Hex()
+	d := &maintenanceDatabase{t: t, indexed: indexed, now: time.Now().UTC(), path: filepath.Join(t.TempDir(), "state.json"), published: make(chan struct{}), accountExpired: make(chan struct{})}
+	d.token, d.pool, d.creator, d.txHash = maintenanceString(c["token"]), maintenanceString(c["pool"]), maintenanceString(c["creator"]), evidence.Receipt.TxHash.Hex()
 	d.patch = []byte("{\"expectedRevision\":\"0\",\"displayName\":\"Repaired publication\",\"description\":\"Accepted before the corrupt upload\",\"tags\":[],\"socialLinks\":[]}")
-	d.body, _ = json.Marshal(metadata.PublicationBody{DraftID: m1006Operation, OperationID: m1006Operation, CreationTxHash: d.txHash, Metadata: d.patch, UploadRefs: []string{}})
+	d.body, _ = json.Marshal(metadata.PublicationBody{DraftID: maintenanceOperation, OperationID: maintenanceOperation, CreationTxHash: d.txHash, Metadata: d.patch, UploadRefs: []string{}})
 	if _, _, err := metadata.ParsePublicationBody(d.body); err != nil {
 		t.Fatal(err)
 	}
-	envelope := sharedauth.OperationEnvelope{Version: 2, ChainID: "125", Environment: "development", Actor: d.creator, Action: metadata.PublicationAction, Method: "POST", Path: "/v3/tokens/" + d.token + "/metadata-publications", BodyHash: m1006Hash(d.body), Nonce: strings.Repeat("a", 64), IssuedAt: d.now.Unix(), ExpiresAt: d.now.Add(time.Minute).Unix()}
+	envelope := sharedauth.OperationEnvelope{Version: 2, ChainID: "125", Environment: "development", Actor: d.creator, Action: metadata.PublicationAction, Method: "POST", Path: "/v3/tokens/" + d.token + "/metadata-publications", BodyHash: maintenanceHash(d.body), Nonce: strings.Repeat("a", 64), IssuedAt: d.now.Unix(), ExpiresAt: d.now.Add(time.Minute).Unix()}
 	statement, err := envelope.Statement()
 	if err != nil {
 		t.Fatal(err)
 	}
 	d.envelope, _ = json.Marshal(envelope)
-	d.envelopeHash, d.bodyHash, d.contentHash = m1006Hash([]byte(statement)), m1006Hash(d.body), m1006Hash(d.patch)
+	d.envelopeHash, d.bodyHash, d.contentHash = maintenanceHash([]byte(statement)), maintenanceHash(d.body), maintenanceHash(d.patch)
 	d.admission = []byte("{\"accepted\":true}")
-	d.state = m1006State{Assets: map[string]m1006Asset{}, AccountState: "REJECTED", PublicationState: "metadata_pending", Revision: "0", Document: json.RawMessage("{}")}
+	d.state = maintenanceState{Assets: map[string]maintenanceAsset{}, AccountState: "REJECTED", PublicationState: "metadata_pending", Revision: "0", Document: json.RawMessage("{}")}
 	d.save(d.state)
 	return d
 }
 
-func (d *m1006Database) save(state m1006State) {
+func (d *maintenanceDatabase) save(state maintenanceState) {
 	d.t.Helper()
 	raw, err := json.Marshal(state)
 	if err != nil {
@@ -202,15 +202,17 @@ func (d *m1006Database) save(state m1006State) {
 	}
 }
 
-type m1006Result struct {
+type maintenanceResult struct {
 	rows [][]any
 	tag  string
 }
 
-func m1006Row(values ...any) m1006Result { return m1006Result{rows: [][]any{values}, tag: "SELECT 1"} }
-func m1006NoRows() m1006Result           { return m1006Result{tag: "SELECT 0"} }
+func maintenanceRow(values ...any) maintenanceResult {
+	return maintenanceResult{rows: [][]any{values}, tag: "SELECT 1"}
+}
+func maintenanceNoRows() maintenanceResult { return maintenanceResult{tag: "SELECT 0"} }
 
-func m1006WireValue(value any) (uint32, []byte) {
+func maintenanceWireValue(value any) (uint32, []byte) {
 	switch v := value.(type) {
 	case nil:
 		return 25, nil
@@ -238,14 +240,14 @@ func m1006WireValue(value any) (uint32, []byte) {
 	}
 }
 
-func (d *m1006Database) open() (*pgxpool.Pool, func()) {
+func (d *maintenanceDatabase) open() (*pgxpool.Pool, func()) {
 	d.t.Helper()
 	raw, err := os.ReadFile(d.path)
 	if err != nil {
 		d.t.Fatal(err)
 	}
 	d.mu.Lock()
-	d.state = m1006State{}
+	d.state = maintenanceState{}
 	if err = json.Unmarshal(raw, &d.state); err != nil {
 		d.t.Fatal(err)
 	}
@@ -270,7 +272,7 @@ func (d *m1006Database) open() (*pgxpool.Pool, func()) {
 		d.t.Fatal(err)
 	}
 	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
-	cfg.ConnConfig.RuntimeParams["search_path"] = m1006Schema + ",pg_catalog"
+	cfg.ConnConfig.RuntimeParams["search_path"] = maintenanceSchema + ",pg_catalog"
 	cfg.MaxConns = 8
 	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
@@ -281,7 +283,7 @@ func (d *m1006Database) open() (*pgxpool.Pool, func()) {
 	return pool, stop
 }
 
-func (d *m1006Database) serve(conn net.Conn) {
+func (d *maintenanceDatabase) serve(conn net.Conn) {
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(30 * time.Second))
 	wire := pgproto3.NewBackend(conn, conn)
@@ -296,7 +298,7 @@ func (d *m1006Database) serve(conn net.Conn) {
 	if wire.Flush() != nil {
 		return
 	}
-	var tx *m1006State
+	var tx *maintenanceState
 	defer func() {
 		if tx != nil {
 			d.txMu.Unlock()
@@ -312,14 +314,14 @@ func (d *m1006Database) serve(conn net.Conn) {
 			return
 		case *pgproto3.Query:
 			sql := strings.TrimSpace(q.String)
-			var result m1006Result
+			var result maintenanceResult
 			var queryErr error
 			switch {
 			case strings.HasPrefix(sql, "begin"):
 				d.txMu.Lock()
 				d.mu.Lock()
 				raw, _ := json.Marshal(d.state)
-				tx = &m1006State{}
+				tx = &maintenanceState{}
 				_ = json.Unmarshal(raw, tx)
 				d.mu.Unlock()
 				result.tag = "BEGIN"
@@ -366,14 +368,14 @@ func (d *m1006Database) serve(conn net.Conn) {
 				if len(result.rows) > 0 {
 					fields := make([]pgproto3.FieldDescription, len(result.rows[0]))
 					for i, v := range result.rows[0] {
-						oid, _ := m1006WireValue(v)
+						oid, _ := maintenanceWireValue(v)
 						fields[i] = pgproto3.FieldDescription{Name: []byte(fmt.Sprintf("c%d", i)), DataTypeOID: oid, DataTypeSize: -1, TypeModifier: -1}
 					}
 					wire.Send(&pgproto3.RowDescription{Fields: fields})
 					for _, row := range result.rows {
 						values := make([][]byte, len(row))
 						for i, v := range row {
-							_, values[i] = m1006WireValue(v)
+							_, values[i] = maintenanceWireValue(v)
 						}
 						wire.Send(&pgproto3.DataRow{Values: values})
 					}
@@ -395,17 +397,17 @@ func (d *m1006Database) serve(conn net.Conn) {
 	}
 }
 
-func (d *m1006Database) query(sql string, state *m1006State) (m1006Result, error) {
-	table := func(n string) string { return pgx.Identifier{m1006Schema, n}.Sanitize() }
+func (d *maintenanceDatabase) query(sql string, state *maintenanceState) (maintenanceResult, error) {
+	table := func(n string) string { return pgx.Identifier{maintenanceSchema, n}.Sanitize() }
 	has := func(v string) bool { return strings.Contains(sql, "'"+v+"'") }
-	var asset m1006Asset
+	var asset maintenanceAsset
 	for id, a := range state.Assets {
 		if has(id) {
 			asset = a
 			break
 		}
 	}
-	mutation := func(tag string) (m1006Result, error) { return m1006Result{tag: tag}, nil }
+	mutation := func(tag string) (maintenanceResult, error) { return maintenanceResult{tag: tag}, nil }
 	quotedJSON := func(marker string) (json.RawMessage, error) {
 		i := strings.Index(sql, marker)
 		if i < 0 {
@@ -423,12 +425,12 @@ func (d *m1006Database) query(sql string, state *m1006State) (m1006Result, error
 	}
 	switch {
 	case sql == "-- ping":
-		return m1006NoRows(), nil
+		return maintenanceNoRows(), nil
 	case strings.Contains(sql, "pg_try_advisory_lock") || strings.Contains(sql, "pg_advisory_unlock"):
-		return m1006Row(true), nil
+		return maintenanceRow(true), nil
 	case strings.HasPrefix(sql, "SELECT a.id,a.pool,a.hash,a.size,a.object_key,a.state,d.mime"):
 		if !strings.Contains(sql, "d.rejected_until<=clock_timestamp()") || !strings.Contains(sql, "LIMIT 10") {
-			return m1006Result{}, fmt.Errorf("scan must bound the batch and filter persisted retry times")
+			return maintenanceResult{}, fmt.Errorf("scan must bound the batch and filter persisted retry times")
 		}
 		var ids []string
 		for id, a := range state.Assets {
@@ -453,7 +455,7 @@ func (d *m1006Database) query(sql string, state *m1006State) (m1006Result, error
 		if len(ids) > 10 {
 			ids = ids[:10]
 		}
-		r := m1006NoRows()
+		r := maintenanceNoRows()
 		for _, id := range ids {
 			a := state.Assets[id]
 			r.rows = append(r.rows, []any{a.ID, a.Pool, a.Hash, a.Size, a.Key, a.State, a.MIME})
@@ -472,7 +474,7 @@ func (d *m1006Database) query(sql string, state *m1006State) (m1006Result, error
 			return mutation("UPDATE 0")
 		}
 		if !strings.Contains(sql, "state='REJECTED'") || !strings.Contains(sql, "interval '24 hours'") {
-			return m1006Result{}, fmt.Errorf("rejection lost terminal state or retention")
+			return maintenanceResult{}, fmt.Errorf("rejection lost terminal state or retention")
 		}
 		asset.State = "REJECTED"
 		asset.Until = d.now.Add(24 * time.Hour)
@@ -480,42 +482,42 @@ func (d *m1006Database) query(sql string, state *m1006State) (m1006Result, error
 		return mutation("UPDATE 1")
 	case strings.HasPrefix(sql, "SELECT state FROM "+table("assets")):
 		if asset.ID == "" {
-			return m1006NoRows(), nil
+			return maintenanceNoRows(), nil
 		}
-		return m1006Row(asset.State), nil
+		return maintenanceRow(asset.State), nil
 	case strings.HasPrefix(sql, "SELECT pool,state,hash,size FROM "+table("assets")):
-		return m1006Row(asset.Pool, asset.State, asset.Hash, asset.Size), nil
+		return maintenanceRow(asset.Pool, asset.State, asset.Hash, asset.Size), nil
 	case strings.HasPrefix(sql, "SELECT pool FROM "+table("assets")):
-		return m1006Row(asset.Pool), nil
+		return maintenanceRow(asset.Pool), nil
 	case strings.HasPrefix(sql, "SELECT creator FROM "+table("pools")):
 		if !has(d.pool) {
-			return m1006Result{}, fmt.Errorf("wrong creator pool")
+			return maintenanceResult{}, fmt.Errorf("wrong creator pool")
 		}
-		return m1006Row(d.creator), nil
+		return maintenanceRow(d.creator), nil
 	case strings.HasPrefix(sql, "INSERT INTO "+table("documents")):
 		if !has(d.pool) {
-			return m1006Result{}, fmt.Errorf("wrong moderation pool")
+			return maintenanceResult{}, fmt.Errorf("wrong moderation pool")
 		}
 		return mutation("INSERT 0 1")
 	case strings.HasPrefix(sql, "SELECT blocked FROM "+table("documents")):
-		return m1006Row(false), nil
+		return maintenanceRow(false), nil
 	case strings.HasPrefix(sql, "UPDATE "+table("assets")+" SET state="):
 		if asset.ID == "" {
 			return mutation("UPDATE 0")
 		}
 		m := regexp.MustCompile("SET state=\\s*'([A-Z]+)'").FindStringSubmatch(sql)
 		if len(m) != 2 {
-			return m1006Result{}, fmt.Errorf("missing asset transition: %s", sql)
+			return maintenanceResult{}, fmt.Errorf("missing asset transition: %s", sql)
 		}
 		asset.State = m[1]
 		state.Assets[asset.ID] = asset
 		return mutation("UPDATE 1")
 	case strings.HasPrefix(sql, "SELECT to_regclass("):
-		return m1006Row(true), nil
+		return maintenanceRow(true), nil
 	case strings.HasPrefix(sql, "UPDATE "+table("asset_details_v2")+" SET variants="):
 		raw, err := quotedJSON("SET variants=")
 		if err != nil {
-			return m1006Result{}, err
+			return maintenanceResult{}, err
 		}
 		if asset.ID == "" {
 			return mutation("UPDATE 0")
@@ -527,7 +529,7 @@ func (d *m1006Database) query(sql string, state *m1006State) (m1006Result, error
 		state.Assets[asset.ID] = asset
 		return mutation("UPDATE 1")
 	case strings.HasPrefix(sql, "SELECT a.id,a.object_key FROM "+table("assets")):
-		r := m1006NoRows()
+		r := maintenanceNoRows()
 		for _, a := range state.Assets {
 			if a.State == "REJECTED" && !a.Until.IsZero() && !a.Until.After(d.now) {
 				r.rows = append(r.rows, []any{a.ID, a.Key})
@@ -537,12 +539,12 @@ func (d *m1006Database) query(sql string, state *m1006State) (m1006Result, error
 		return r, nil
 	case strings.HasPrefix(sql, "SELECT id::text FROM "+table("account_assets_v2")):
 		if strings.Contains(sql, "state='REJECTED'") && state.AccountState == "REJECTED" {
-			return m1006Row(m1006AccountAsset), nil
+			return maintenanceRow(maintenanceAccountAsset), nil
 		}
-		return m1006NoRows(), nil
+		return maintenanceNoRows(), nil
 	case strings.HasPrefix(sql, "UPDATE "+table("account_assets_v2")+" SET state='DELETED'"):
-		if !has(m1006AccountAsset) {
-			return m1006Result{}, fmt.Errorf("wrong expired account asset")
+		if !has(maintenanceAccountAsset) {
+			return maintenanceResult{}, fmt.Errorf("wrong expired account asset")
 		}
 		state.AccountState = "DELETED"
 		d.accountOnce.Do(func() { close(d.accountExpired) })
@@ -551,70 +553,70 @@ func (d *m1006Database) query(sql string, state *m1006State) (m1006Result, error
 		return mutation("UPDATE 0")
 	case strings.HasPrefix(sql, "WITH due AS (SELECT j.operation FROM "+table("metadata_publication_jobs_v3")):
 		if state.PublicationState != "metadata_pending" {
-			return m1006NoRows(), nil
+			return maintenanceNoRows(), nil
 		}
 		state.PublicationState = "publishing"
-		return m1006Row(m1006Operation, int64(1), 1, d.pool), nil
+		return maintenanceRow(maintenanceOperation, int64(1), 1, d.pool), nil
 	case strings.HasPrefix(sql, "SELECT lease_owner="):
-		return m1006Row(state.PublicationState == "publishing"), nil
+		return maintenanceRow(state.PublicationState == "publishing"), nil
 	case strings.HasPrefix(sql, "SELECT i.body,i.metadata,g.envelope,g.response"):
-		return m1006Row(d.body, d.patch, d.envelope, d.admission, d.token, d.pool, d.creator, d.txHash, d.contentHash, d.bodyHash, d.envelopeHash, strings.Repeat("a", 64), m1006Request, m1006Account, m1006Session, int64(1)), nil
+		return maintenanceRow(d.body, d.patch, d.envelope, d.admission, d.token, d.pool, d.creator, d.txHash, d.contentHash, d.bodyHash, d.envelopeHash, strings.Repeat("a", 64), maintenanceRequest, maintenanceAccount, maintenanceSession, int64(1)), nil
 	case strings.HasPrefix(sql, "SELECT response,envelope_digest,body_digest,request_id::text"):
-		return m1006Row(d.admission, d.envelopeHash, d.bodyHash, m1006Request), nil
+		return maintenanceRow(d.admission, d.envelopeHash, d.bodyHash, maintenanceRequest), nil
 	case strings.HasPrefix(sql, "SELECT EXISTS(SELECT 1 FROM "+table("security_audit_outbox")):
-		if !has(d.envelopeHash) || !has(m1006Request) {
-			return m1006Result{}, fmt.Errorf("publication lost admission binding")
+		if !has(d.envelopeHash) || !has(maintenanceRequest) {
+			return maintenanceResult{}, fmt.Errorf("publication lost admission binding")
 		}
-		return m1006Row(true), nil
+		return maintenanceRow(true), nil
 	case strings.HasPrefix(sql, "SELECT account_id::text,session_id::text,wallet,auth_epoch,proof_at,access_expires_at"):
-		if !has(m1006Session) || !has(d.creator) {
-			return m1006Result{}, fmt.Errorf("publication identity mismatch")
+		if !has(maintenanceSession) || !has(d.creator) {
+			return maintenanceResult{}, fmt.Errorf("publication identity mismatch")
 		}
-		return m1006Row(m1006Account, m1006Session, d.creator, int64(1), time.Now().Add(-time.Minute), time.Now().Add(time.Hour)), nil
+		return maintenanceRow(maintenanceAccount, maintenanceSession, d.creator, int64(1), time.Now().Add(-time.Minute), time.Now().Add(time.Hour)), nil
 	case strings.HasPrefix(sql, "SELECT token,pool,creator,factory,optical,nft_id::text"):
 		c := d.indexed["indexer.indexer_canonical_creations"][0]
 		if !has(d.token) {
-			return m1006NoRows(), nil
+			return maintenanceNoRows(), nil
 		}
-		return m1006Row(m1006String(c["token"]), m1006String(c["pool"]), m1006String(c["creator"]), m1006String(c["factory"]), m1006String(c["optical"]), m1006String(c["nft_id"]), m1006String(c["height"]), m1006String(c["block_hash"]), m1006String(c["transaction_hash"]), m1006String(c["transaction_index"]), m1006String(c["log_index"]), m1006String(c["block_timestamp"]), c["provenance"], c["payload"]), nil
+		return maintenanceRow(maintenanceString(c["token"]), maintenanceString(c["pool"]), maintenanceString(c["creator"]), maintenanceString(c["factory"]), maintenanceString(c["optical"]), maintenanceString(c["nft_id"]), maintenanceString(c["height"]), maintenanceString(c["block_hash"]), maintenanceString(c["transaction_hash"]), maintenanceString(c["transaction_index"]), maintenanceString(c["log_index"]), maintenanceString(c["block_timestamp"]), c["provenance"], c["payload"]), nil
 	case strings.HasPrefix(sql, "SELECT EXISTS(SELECT 1 FROM "+pgx.Identifier{"indexer", "indexer_block_completeness_v1"}.Sanitize()):
 		c := d.indexed["indexer.indexer_block_completeness"][0]
-		return m1006Row(has(m1006String(c["height"])) && has(m1006String(c["block_hash"])) && has(m1006String(c["stream_id"]))), nil
+		return maintenanceRow(has(maintenanceString(c["height"])) && has(maintenanceString(c["block_hash"])) && has(maintenanceString(c["stream_id"]))), nil
 	case strings.HasPrefix(sql, "SELECT height::text,transaction_index::text,block_hash,emitter,topics,data"):
 		for _, l := range d.indexed["indexer.indexer_raw_logs"] {
-			if !has(m1006String(l["transaction_hash"])) || !regexp.MustCompile("log_index=\\s*'"+m1006String(l["log_index"])+"'\\s*::bigint").MatchString(sql) {
+			if !has(maintenanceString(l["transaction_hash"])) || !regexp.MustCompile("log_index=\\s*'"+maintenanceString(l["log_index"])+"'\\s*::bigint").MatchString(sql) {
 				continue
 			}
-			data, err := hex.DecodeString(strings.TrimPrefix(m1006String(l["data"]), "\\x"))
+			data, err := hex.DecodeString(strings.TrimPrefix(maintenanceString(l["data"]), "\\x"))
 			if err != nil {
-				return m1006Result{}, err
+				return maintenanceResult{}, err
 			}
-			return m1006Row(m1006String(l["height"]), m1006String(l["transaction_index"]), m1006String(l["block_hash"]), m1006String(l["emitter"]), l["topics"], data), nil
+			return maintenanceRow(maintenanceString(l["height"]), maintenanceString(l["transaction_index"]), maintenanceString(l["block_hash"]), maintenanceString(l["emitter"]), l["topics"], data), nil
 		}
-		return m1006NoRows(), nil
+		return maintenanceNoRows(), nil
 	case strings.HasPrefix(sql, "SELECT pool,creator FROM "+table("pools")):
-		return m1006Row(d.pool, d.creator), nil
+		return maintenanceRow(d.pool, d.creator), nil
 	case strings.HasPrefix(sql, "SELECT EXISTS(SELECT 1 FROM "+table("documents")):
-		return m1006Row(false), nil
+		return maintenanceRow(false), nil
 	case strings.HasPrefix(sql, "SELECT pool,actor,body_hash,result FROM "+table("v2_operations")):
-		return m1006NoRows(), nil
+		return maintenanceNoRows(), nil
 	case strings.HasPrefix(sql, "INSERT INTO "+table("v2_documents")):
 		return mutation("INSERT 0 1")
 	case strings.HasPrefix(sql, "SELECT revision::text FROM "+table("v2_documents")):
-		return m1006Row(state.Revision), nil
+		return maintenanceRow(state.Revision), nil
 	case strings.HasPrefix(sql, "UPDATE "+table("v2_documents")+" SET revision=revision+1"):
 		if state.Revision != "0" {
-			return m1006Result{}, fmt.Errorf("publication applied twice")
+			return maintenanceResult{}, fmt.Errorf("publication applied twice")
 		}
 		raw, err := quotedJSON("document=document||")
 		if err != nil {
-			return m1006Result{}, err
+			return maintenanceResult{}, err
 		}
 		state.Document = raw
 		state.Revision = "1"
 		return mutation("UPDATE 1")
 	case strings.HasPrefix(sql, "SELECT p.pool,p.token,d.revision::text,d.document"):
-		return m1006Row(d.pool, d.token, state.Revision, state.Document, time.Now().UTC(), nil, false), nil
+		return maintenanceRow(d.pool, d.token, state.Revision, state.Document, time.Now().UTC(), nil, false), nil
 	case strings.HasPrefix(sql, "UPDATE "+table("v2_documents")+" SET search_document="):
 		return mutation("UPDATE 1")
 	case strings.HasPrefix(sql, "INSERT INTO "+table("v2_operations")):
@@ -628,19 +630,19 @@ func (d *m1006Database) query(sql string, state *m1006State) (m1006Result, error
 		return mutation("UPDATE 1")
 	case strings.HasPrefix(sql, "SELECT lower(pool_address),lower(token_address),lower(creator),lower(tx_hash),created_block FROM indexer.pools"):
 		if !has(d.token) {
-			return m1006NoRows(), nil
+			return maintenanceNoRows(), nil
 		}
 		p := d.indexed["indexer.pools"][0]
-		height, _ := strconv.ParseInt(m1006String(p["created_block"]), 10, 64)
-		return m1006Row(m1006String(p["pool_address"]), m1006String(p["token_address"]), m1006String(p["creator"]), m1006String(p["tx_hash"]), height), nil
+		height, _ := strconv.ParseInt(maintenanceString(p["created_block"]), 10, 64)
+		return maintenanceRow(maintenanceString(p["pool_address"]), maintenanceString(p["token_address"]), maintenanceString(p["creator"]), maintenanceString(p["tx_hash"]), height), nil
 	case strings.Contains(sql, "FROM metadata.token_metadata"):
-		return m1006NoRows(), nil
+		return maintenanceNoRows(), nil
 	default:
-		return m1006Result{}, fmt.Errorf("unsupported SQL: %s", sql)
+		return maintenanceResult{}, fmt.Errorf("unsupported SQL: %s", sql)
 	}
 }
 
-type m1006Objects struct {
+type maintenanceObjects struct {
 	t              *testing.T
 	server         *httptest.Server
 	mu             sync.Mutex
@@ -655,16 +657,16 @@ type m1006Objects struct {
 	knownAnonymous int
 }
 
-func m1006NewObjects(t *testing.T) *m1006Objects {
-	o := &m1006Objects{t: t, data: map[string][]byte{}, gets: map[string]int{}, mode: "private", stallEntered: make(chan struct{}), release: make(chan struct{})}
+func maintenanceNewObjects(t *testing.T) *maintenanceObjects {
+	o := &maintenanceObjects{t: t, data: map[string][]byte{}, gets: map[string]int{}, mode: "private", stallEntered: make(chan struct{}), release: make(chan struct{})}
 	o.server = httptest.NewServer(http.HandlerFunc(o.serve))
 	t.Cleanup(o.server.Close)
 	return o
 }
-func (o *m1006Objects) client() *s3.Client {
+func (o *maintenanceObjects) client() *s3.Client {
 	return s3.NewFromConfig(aws.Config{Region: "us-east-1", Credentials: credentials.NewStaticCredentialsProvider("fixture", "fixture-secret", ""), HTTPClient: o.server.Client(), RetryMaxAttempts: 1}, func(c *s3.Options) { c.BaseEndpoint = aws.String(o.server.URL); c.UsePathStyle = true })
 }
-func (o *m1006Objects) serve(w http.ResponseWriter, r *http.Request) {
+func (o *maintenanceObjects) serve(w http.ResponseWriter, r *http.Request) {
 	key := strings.TrimPrefix(r.URL.Path, "/")
 	signed := strings.HasPrefix(r.Header.Get("Authorization"), "AWS4-HMAC-SHA256 ")
 	if !signed {
@@ -762,7 +764,7 @@ func (o *m1006Objects) serve(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(405)
 	}
 }
-func (o *m1006Objects) put(t *testing.T, bucket, key string, body []byte) {
+func (o *maintenanceObjects) put(t *testing.T, bucket, key string, body []byte) {
 	t.Helper()
 	_, err := o.client().PutObject(context.Background(), &s3.PutObjectInput{Bucket: aws.String(bucket), Key: aws.String(key), Body: bytes.NewReader(body), ContentLength: aws.Int64(int64(len(body))), ContentType: aws.String("image/png")})
 	if err != nil {
@@ -770,7 +772,7 @@ func (o *m1006Objects) put(t *testing.T, bucket, key string, body []byte) {
 	}
 }
 
-func m1006Scanner(t *testing.T, original []byte) sharedhttp.ScanOptions {
+func maintenanceScanner(t *testing.T, original []byte) sharedhttp.ScanOptions {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -831,7 +833,7 @@ func m1006Scanner(t *testing.T, original []byte) sharedhttp.ScanOptions {
 
 // The chain ID comes from a real in-process geth node, while the factory
 // receipt is a recorded producer transcript rather than custom LOG bytecode.
-func m1006Chain(t *testing.T, id int64) (*gethrpc.Client, *atomic.Int64) {
+func maintenanceChain(t *testing.T, id int64) (*gethrpc.Client, *atomic.Int64) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -854,7 +856,7 @@ func m1006Chain(t *testing.T, id int64) (*gethrpc.Client, *atomic.Int64) {
 		t.Fatal(err)
 	}
 	t.Cleanup(actual.Close)
-	evidence, _ := m1006LoadEvidence(t)
+	evidence, _ := maintenanceLoadEvidence(t)
 	var receiptCalls atomic.Int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var call struct {
@@ -901,17 +903,17 @@ func m1006Chain(t *testing.T, id int64) (*gethrpc.Client, *atomic.Int64) {
 	return client, &receiptCalls
 }
 
-func m1006Media(t *testing.T, pool *pgxpool.Pool, objects *m1006Objects, original []byte, chain *gethrpc.Client) (metadata.ConnectedMedia, metadata.PublicationService) {
+func maintenanceMedia(t *testing.T, pool *pgxpool.Pool, objects *maintenanceObjects, original []byte, chain *gethrpc.Client) (metadata.ConnectedMedia, metadata.PublicationService) {
 	t.Helper()
 	backend := sharedauth.NewReportedHashBackend(chain)
-	v2, err := metadata.NewV2ProductionHandlers(pool, m1006Schema, "metadata-development", backend, metadata.PostgresCanonicalSource{Schema: "indexer", CanonicalStreamID: "chain125-canonical"}, time.Now)
+	v2, err := metadata.NewV2ProductionHandlers(pool, maintenanceSchema, "metadata-development", backend, metadata.PostgresCanonicalSource{Schema: "indexer", CanonicalStreamID: "chain125-canonical"}, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	media := metadata.ConnectedMedia{
 		Metadata: v2, Identity: sharedauth.HTTPIdentityAuthority{Endpoint: "http://127.0.0.1", ServiceToken: strings.Repeat("i", 32), AllowPlainHTTP: true},
 		Objects: metadata.S3AssetObjects{Client: objects.client(), QuarantineBucket: "quarantine-bucket", PublicBucket: "approved-bucket", PublicOrigin: "https://metadata.example"},
-		Scanner: m1006Scanner(t, original), Worker: raster.InProcessWorker{}, Moderation: metadata.DevelopmentVisibility{},
+		Scanner: maintenanceScanner(t, original), Worker: raster.InProcessWorker{}, Moderation: metadata.DevelopmentVisibility{},
 	}
 	publication, err := metadata.NewPublicationService(media, sharedauth.OperationAuthorizer{
 		Ledger:    sharedauth.Ledger{Pool: pool, Environment: "development", AuditKey: bytes.Repeat([]byte{1}, 32)},
@@ -924,7 +926,7 @@ func m1006Media(t *testing.T, pool *pgxpool.Pool, objects *m1006Objects, origina
 	return media, publication
 }
 
-func m1006SeedAssets(t *testing.T, d *m1006Database, o *m1006Objects, original []byte) []string {
+func maintenanceSeedAssets(t *testing.T, d *maintenanceDatabase, o *maintenanceObjects, original []byte) []string {
 	t.Helper()
 	ids := []string{
 		"11111111-1111-4111-8111-111111111111",
@@ -935,27 +937,27 @@ func m1006SeedAssets(t *testing.T, d *m1006Database, o *m1006Objects, original [
 	bodies := [][]byte{[]byte("corrupt object"), original[:33], append(bytes.Clone(original), 0), original}
 	for i, id := range ids {
 		body := bodies[i]
-		a := m1006Asset{ID: id, Pool: d.pool, Hash: m1006Hash(body), Size: int64(len(body)), Key: "quarantine/" + id, State: "QUARANTINED", MIME: http.DetectContentType(body), CreatedAt: d.now.Add(time.Duration(i) * time.Second), Variants: json.RawMessage("{}")}
+		a := maintenanceAsset{ID: id, Pool: d.pool, Hash: maintenanceHash(body), Size: int64(len(body)), Key: "quarantine/" + id, State: "QUARANTINED", MIME: http.DetectContentType(body), CreatedAt: d.now.Add(time.Duration(i) * time.Second), Variants: json.RawMessage("{}")}
 		if i == 0 {
 			a.Hash = strings.Repeat("0", 64)
 		}
 		d.state.Assets[id] = a
 		o.put(t, "quarantine-bucket", a.Key, body)
 	}
-	d.state.Assets[m1006Expired] = m1006Asset{ID: m1006Expired, Pool: d.pool, Hash: m1006Hash([]byte("expired")), Size: 7, Key: "quarantine/" + m1006Expired, State: "REJECTED", MIME: "image/png", Until: d.now.Add(-time.Hour), Variants: json.RawMessage("{}")}
-	o.put(t, "quarantine-bucket", "quarantine/"+m1006Expired, []byte("expired"))
-	o.put(t, "quarantine-bucket", "quarantine/account/"+m1006AccountAsset, []byte("expired account"))
+	d.state.Assets[maintenanceExpired] = maintenanceAsset{ID: maintenanceExpired, Pool: d.pool, Hash: maintenanceHash([]byte("expired")), Size: 7, Key: "quarantine/" + maintenanceExpired, State: "REJECTED", MIME: "image/png", Until: d.now.Add(-time.Hour), Variants: json.RawMessage("{}")}
+	o.put(t, "quarantine-bucket", "quarantine/"+maintenanceExpired, []byte("expired"))
+	o.put(t, "quarantine-bucket", "quarantine/account/"+maintenanceAccountAsset, []byte("expired account"))
 	o.unavailable = "quarantine-bucket/quarantine/" + ids[2]
 	d.save(d.state)
 	return ids
 }
 
-func m1006AssertPublished(t *testing.T, d *m1006Database, media metadata.ConnectedMedia) {
+func maintenanceAssertPublished(t *testing.T, d *maintenanceDatabase, media metadata.ConnectedMedia) {
 	t.Helper()
 	d.mu.Lock()
 	state := d.state
 	d.mu.Unlock()
-	if state.PublicationState != "published" || state.Revision != "1" || state.Outbox != 1 || state.AccountState != "DELETED" || state.Assets[m1006Expired].State != "DELETED" {
+	if state.PublicationState != "published" || state.Revision != "1" || state.Outbox != 1 || state.AccountState != "DELETED" || state.Assets[maintenanceExpired].State != "DELETED" {
 		t.Fatalf("maintenance starved unrelated work: %+v", state)
 	}
 	router := chi.NewRouter()
@@ -983,18 +985,18 @@ func m1006AssertPublished(t *testing.T, d *m1006Database, media metadata.Connect
 	}
 }
 
-func TestRepairM_1006_CorruptOldestRecovery(t *testing.T) {
-	d := m1006NewDatabase(t)
-	objects := m1006NewObjects(t)
-	original := m1006PNG(t)
-	ids := m1006SeedAssets(t, d, objects, original)
-	chain, _ := m1006Chain(t, 125)
+func TestMetadataMaintenanceCorruptOldestRecovery(t *testing.T) {
+	d := maintenanceNewDatabase(t)
+	objects := maintenanceNewObjects(t)
+	original := maintenancePNG(t)
+	ids := maintenanceSeedAssets(t, d, objects, original)
+	chain, _ := maintenanceChain(t, 125)
 	pool, stop := d.open()
 	t.Cleanup(stop)
-	media, publication := m1006Media(t, pool, objects, original, chain)
+	media, publication := maintenanceMedia(t, pool, objects, original, chain)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	err := runMediaMaintenance(ctx, pool, m1006Schema, media, publication, true)
+	err := runMediaMaintenance(ctx, pool, maintenanceSchema, media, publication, true)
 	if err == nil || !strings.Contains(err.Error(), "metadata_quarantine_unavailable") {
 		stop()
 		t.Fatalf("temporary object failure must remain observable: %v", err)
@@ -1019,26 +1021,26 @@ func TestRepairM_1006_CorruptOldestRecovery(t *testing.T) {
 		objects.mu.Lock()
 		body := bytes.Clone(objects.data["approved-bucket/"+key])
 		objects.mu.Unlock()
-		if !strings.HasSuffix(key, "/"+m1006Hash(body)+".png") || len(body) == 0 {
+		if !strings.HasSuffix(key, "/"+maintenanceHash(body)+".png") || len(body) == 0 {
 			stop()
 			t.Fatal("promotion did not deliver hash-bound bytes")
 		}
 	}
-	m1006AssertPublished(t, d, media)
+	maintenanceAssertPublished(t, d, media)
 	stop()
 
 	// Destroy the process-local state and reopen the storage transport and
 	// production component. Only the committed file can restore these rows.
 	d.mu.Lock()
-	d.state = m1006State{}
+	d.state = maintenanceState{}
 	d.mu.Unlock()
 	pool, stop = d.open()
 	defer stop()
-	media, publication = m1006Media(t, pool, objects, original, chain)
+	media, publication = maintenanceMedia(t, pool, objects, original, chain)
 	objects.mu.Lock()
 	beforeBad, beforeRetry := objects.gets["quarantine-bucket/quarantine/"+ids[0]], objects.gets["quarantine-bucket/quarantine/"+ids[2]]
 	objects.mu.Unlock()
-	if err = runMediaMaintenance(ctx, pool, m1006Schema, media, publication, true); err != nil {
+	if err = runMediaMaintenance(ctx, pool, maintenanceSchema, media, publication, true); err != nil {
 		t.Fatalf("restart before retry: %v", err)
 	}
 	objects.mu.Lock()
@@ -1047,11 +1049,11 @@ func TestRepairM_1006_CorruptOldestRecovery(t *testing.T) {
 	if beforeBad != afterBad || beforeRetry != afterRetry {
 		t.Fatal("restart forgot rejection or per-item backoff")
 	}
-	m1006AssertPublished(t, d, media)
+	maintenanceAssertPublished(t, d, media)
 	d.mu.Lock()
 	d.now = d.now.Add(31 * time.Second)
 	d.mu.Unlock()
-	err = runMediaMaintenance(ctx, pool, m1006Schema, media, publication, false)
+	err = runMediaMaintenance(ctx, pool, maintenanceSchema, media, publication, false)
 	if err == nil || !strings.Contains(err.Error(), "metadata_quarantine_unavailable") {
 		t.Fatalf("due retry not attempted: %v", err)
 	}
@@ -1066,21 +1068,21 @@ func TestRepairM_1006_CorruptOldestRecovery(t *testing.T) {
 	}
 }
 
-func TestRepairM_1006_IndependentWorkClasses(t *testing.T) {
-	d := m1006NewDatabase(t)
-	objects := m1006NewObjects(t)
-	original := m1006PNG(t)
-	ids := m1006SeedAssets(t, d, objects, original)
+func TestMetadataMaintenanceIndependentWorkClasses(t *testing.T) {
+	d := maintenanceNewDatabase(t)
+	objects := maintenanceNewObjects(t)
+	original := maintenancePNG(t)
+	ids := maintenanceSeedAssets(t, d, objects, original)
 	objects.stalled = "quarantine-bucket/quarantine/" + ids[0]
 	objects.unavailable = ""
 	pool, stop := d.open()
 	defer stop()
-	chain, _ := m1006Chain(t, 125)
-	media, publication := m1006Media(t, pool, objects, original, chain)
+	chain, _ := maintenanceChain(t, 125)
+	media, publication := maintenanceMedia(t, pool, objects, original, chain)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	result := make(chan error, 1)
-	go func() { result <- runMediaMaintenance(ctx, pool, m1006Schema, media, publication, true) }()
+	go func() { result <- runMediaMaintenance(ctx, pool, maintenanceSchema, media, publication, true) }()
 	released := false
 	defer func() {
 		if !released {
@@ -1110,13 +1112,13 @@ func TestRepairM_1006_IndependentWorkClasses(t *testing.T) {
 	if err := <-result; err == nil || !strings.Contains(err.Error(), "metadata_quarantine_unavailable") {
 		t.Fatalf("maintenance failure lost: %v", err)
 	}
-	m1006AssertPublished(t, d, media)
+	maintenanceAssertPublished(t, d, media)
 }
 
-func TestRepairM_1006_QuarantinePrivacy(t *testing.T) {
+func TestMetadataMaintenanceQuarantinePrivacy(t *testing.T) {
 	for _, mode := range []string{"private", "readable", "account-readable", "listing", "redirect"} {
 		t.Run(mode, func(t *testing.T) {
-			objects := m1006NewObjects(t)
+			objects := maintenanceNewObjects(t)
 			objects.mode = mode
 			cfg := config.Config{S3Endpoint: objects.server.URL, S3Region: "us-east-1", S3AccessKeyID: "fixture", S3SecretAccessKey: "fixture-secret", S3Bucket: "approved-bucket", QuarantineBucket: "quarantine-bucket", PublicURL: "https://metadata.example", IdentityServiceURL: "http://127.0.0.1", IdentityServiceToken: strings.Repeat("i", 32)}
 			o, err := newDevelopmentObjects(context.Background(), cfg)
@@ -1170,7 +1172,7 @@ func TestRepairM_1006_QuarantinePrivacy(t *testing.T) {
 				if denied.Code != 404 {
 					t.Fatalf("original unexpectedly routed: %d", denied.Code)
 				}
-				chain, _ := m1006Chain(t, 125)
+				chain, _ := maintenanceChain(t, 125)
 				if media, startErr := newDevelopmentMedia(context.Background(), cfg, nil, nil, chain); startErr == nil || media != nil || startErr.Error() != "metadata_private_quarantine_unavailable" {
 					t.Fatalf("public bucket did not refuse development startup before DB access: %v", startErr)
 				}
@@ -1179,12 +1181,12 @@ func TestRepairM_1006_QuarantinePrivacy(t *testing.T) {
 	}
 }
 
-func TestRepairM_1006_FactoryReceiptChainBinding(t *testing.T) {
+func TestMetadataMaintenanceFactoryReceiptChainBinding(t *testing.T) {
 	pool, _ := internaltest.NewPostgresURL(t)
-	evidence, indexed := m1006LoadEvidence(t)
+	evidence, indexed := maintenanceLoadEvidence(t)
 	creation := indexed["indexer.indexer_canonical_creations"][0]
 	d := struct{ pool, token, creator, txHash string }{
-		pool: m1006String(creation["pool"]), token: m1006String(creation["token"]), creator: m1006String(creation["creator"]), txHash: evidence.Receipt.TxHash.Hex(),
+		pool: maintenanceString(creation["pool"]), token: maintenanceString(creation["token"]), creator: maintenanceString(creation["creator"]), txHash: evidence.Receipt.TxHash.Hex(),
 	}
 	if _, err := pool.Exec(context.Background(), `ALTER TABLE indexer.pools ADD COLUMN tx_hash text, ADD COLUMN created_block bigint`); err != nil {
 		t.Fatal(err)
@@ -1201,7 +1203,7 @@ func TestRepairM_1006_FactoryReceiptChainBinding(t *testing.T) {
 	}
 	for _, chainID := range []int64{125, 1337} {
 		t.Run(strconv.FormatInt(chainID, 10), func(t *testing.T) {
-			chain, calls := m1006Chain(t, chainID)
+			chain, calls := maintenanceChain(t, chainID)
 			client := ethclient.NewClient(chain)
 			admitted := requireMetadataChain(context.Background(), client)
 			if chainID == 125 && admitted != nil {

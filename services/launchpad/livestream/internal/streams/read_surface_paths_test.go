@@ -9,7 +9,7 @@ import (
 )
 
 func TestPublicReadWiringServesStoreAndRefusesBroadcast(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	if err := ReadSchemaReady(ctx, f.database, "livestream"); err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ func TestPublicReadWiringServesStoreAndRefusesBroadcast(t *testing.T) {
 }
 
 func TestPublicReadsRequireModerationAuthorityForStoredStreams(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	o, intent := f.create("read-restriction-authority")
 	f.handlers.restrictions = nil
 	for _, path := range []string{

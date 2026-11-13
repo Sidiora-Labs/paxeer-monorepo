@@ -41,14 +41,14 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-type repair57Session struct {
+type streamContractSession struct {
 	Wallet    string `json:"wallet"`
 	SessionID string `json:"sessionId"`
 	Expires   int64  `json:"expires"`
 	Signature string `json:"signature"`
 }
 
-type repair57System struct {
+type streamContractSystem struct {
 	t               *testing.T
 	dsn             string
 	key             *ecdsa.PrivateKey
@@ -65,14 +65,14 @@ type repair57System struct {
 	connectedConfig *config.Config
 }
 
-func repair57New(t *testing.T) *repair57System {
+func streamContractNew(t *testing.T) *streamContractSystem {
 	t.Helper()
 	dsn, redis := proofLivestreamStores(t)
 	key, err := crypto.GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &repair57System{t: t, dsn: dsn, redis: redis, key: key, wallet: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), verifier: proofLivestreamChain(t), secret: strings.Repeat("s", 32), bodyless: make(chan bool, 8)}
+	f := &streamContractSystem{t: t, dsn: dsn, redis: redis, key: key, wallet: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), verifier: proofLivestreamChain(t), secret: strings.Repeat("s", 32), bodyless: make(chan bool, 8)}
 	f.open()
 	t.Cleanup(f.close)
 	_, err = f.database.Exec(context.Background(), "CREATE SCHEMA livestream; CREATE SCHEMA chat; CREATE TABLE chat.safety_bans(wallet text,revoked_at timestamptz,expires_at timestamptz,scope text,resource text); CREATE VIEW chat.safety_bans_v1 AS SELECT * FROM chat.safety_bans; CREATE SCHEMA indexer; CREATE TABLE indexer.creations(pool text PRIMARY KEY,creator text); CREATE VIEW indexer.indexer_canonical_creations_v1 AS SELECT pool,creator FROM indexer.creations;"+f.store.SchemaSQL()+f.store.ConnectedSchemaSQL()+f.store.PlaybackPrivacySchemaSQL()+";"+sharedauth.LedgerDDL)
@@ -82,7 +82,7 @@ func repair57New(t *testing.T) *repair57System {
 	return f
 }
 
-func (f *repair57System) close() {
+func (f *streamContractSystem) close() {
 	if f.server != nil {
 		f.server.Close()
 	}
@@ -94,7 +94,7 @@ func (f *repair57System) close() {
 	}
 }
 
-func (f *repair57System) open() {
+func (f *streamContractSystem) open() {
 	f.t.Helper()
 	ctx := context.Background()
 	configuration, err := pgxpool.ParseConfig(f.dsn)
@@ -112,12 +112,12 @@ func (f *repair57System) open() {
 	}
 	policy := &RestrictionReader{Pool: f.database}
 	authorize := func(ctx context.Context, r *http.Request, action string, o Operation) (Authorization, error) {
-		var session repair57Session
+		var session streamContractSession
 		raw, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
 		if err != nil || json.Unmarshal(raw, &session) != nil || session.Expires <= time.Now().Unix() {
 			return Authorization{}, ErrDenied
 		}
-		if err = f.verifier.Verify(ctx, session.Wallet, repair57SessionStatement(session), session.Signature); err != nil {
+		if err = f.verifier.Verify(ctx, session.Wallet, streamContractSessionStatement(session), session.Signature); err != nil {
 			return Authorization{}, ErrDenied
 		}
 		if action == "stream.heartbeat" && o.Pool == "" {
@@ -210,7 +210,7 @@ func (f *repair57System) open() {
 	f.server = httptest.NewServer(proxy)
 }
 
-func (f *repair57System) useConnectedRuntime() {
+func (f *streamContractSystem) useConnectedRuntime() {
 	f.t.Helper()
 	pki := testpki.New(f.t)
 	client := pki.Leaf("livestream-identity", "livestream.test")
@@ -237,18 +237,18 @@ func (f *repair57System) useConnectedRuntime() {
 	f.open()
 }
 
-func repair57SessionStatement(s repair57Session) string {
+func streamContractSessionStatement(s streamContractSession) string {
 	return "livestream repair owner session\n" + s.Wallet + "\n" + s.SessionID + "\n" + strconv.FormatInt(s.Expires, 10)
 }
 
-func (f *repair57System) session(key *ecdsa.PrivateKey) string {
+func (f *streamContractSystem) session(key *ecdsa.PrivateKey) string {
 	f.t.Helper()
 	sessionID, err := randomID()
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	s := repair57Session{Wallet: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), SessionID: sessionID, Expires: time.Now().Add(5 * time.Minute).Unix()}
-	signature, err := crypto.Sign(accounts.TextHash([]byte(repair57SessionStatement(s))), key)
+	s := streamContractSession{Wallet: strings.ToLower(crypto.PubkeyToAddress(key.PublicKey).Hex()), SessionID: sessionID, Expires: time.Now().Add(5 * time.Minute).Unix()}
+	signature, err := crypto.Sign(accounts.TextHash([]byte(streamContractSessionStatement(s))), key)
 	if err != nil {
 		f.t.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func (f *repair57System) session(key *ecdsa.PrivateKey) string {
 	return base64.RawURLEncoding.EncodeToString(raw)
 }
 
-func (f *repair57System) create(idempotency string) (Operation, CreateIntent) {
+func (f *streamContractSystem) create(idempotency string) (Operation, CreateIntent) {
 	f.t.Helper()
 	r := CreateIntent{Wallet: f.wallet, Pool: "0x2222222222222222222222222222222222222222", Title: "Repair contract stream", IdempotencyKey: idempotency}
 	if _, err := f.database.Exec(context.Background(), "INSERT INTO indexer.creations(pool,creator) VALUES($1,$2) ON CONFLICT DO NOTHING", r.Pool, r.Wallet); err != nil {
@@ -273,7 +273,7 @@ func (f *repair57System) create(idempotency string) (Operation, CreateIntent) {
 	return o, r
 }
 
-func (f *repair57System) signed(path, action string, body []byte, key *ecdsa.PrivateKey) map[string]string {
+func (f *streamContractSystem) signed(path, action string, body []byte, key *ecdsa.PrivateKey) map[string]string {
 	f.t.Helper()
 	digest, err := sharedauth.BodyDigest(body)
 	if err != nil {
@@ -300,7 +300,7 @@ func (f *repair57System) signed(path, action string, body []byte, key *ecdsa.Pri
 	return map[string]string{"Authorization": "Bearer " + f.session(key), "X-Kindle-Operation": base64.RawURLEncoding.EncodeToString(raw), "X-Kindle-Signature": hexutil.Encode(sig), "Content-Type": "application/json"}
 }
 
-func (f *repair57System) exchange(method, path string, body []byte, headers map[string]string, status int) []byte {
+func (f *streamContractSystem) exchange(method, path string, body []byte, headers map[string]string, status int) []byte {
 	f.t.Helper()
 	req, err := http.NewRequest(method, f.server.URL+path, bytes.NewReader(body))
 	if err != nil {
@@ -329,23 +329,23 @@ func (f *repair57System) exchange(method, path string, body []byte, headers map[
 	return raw
 }
 
-type repair57SDK struct {
+type streamContractSDK struct {
 	t               *testing.T
 	repo, directory string
 }
 
-func repair57Consumer(t *testing.T) repair57SDK {
+func streamContractConsumer(t *testing.T) streamContractSDK {
 	t.Helper()
 	repo, err := filepath.Abs("../../../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	consumer := repair57SDK{t: t, repo: repo, directory: t.TempDir()}
+	consumer := streamContractSDK{t: t, repo: repo, directory: t.TempDir()}
 	consumer.run("prepare", nil)
 	return consumer
 }
 
-func (s repair57SDK) run(mode string, value any) []byte {
+func (s streamContractSDK) run(mode string, value any) []byte {
 	s.t.Helper()
 	input, err := json.Marshal(value)
 	if err != nil {
@@ -353,7 +353,7 @@ func (s repair57SDK) run(mode string, value any) []byte {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "node", "--no-warnings", "testdata/repair57-sdk/consumer.mjs", mode, s.repo, s.directory)
+	cmd := exec.CommandContext(ctx, "node", "--no-warnings", "testdata/stream_contract_sdk/consumer.mjs", mode, s.repo, s.directory)
 	cmd.Stdin = bytes.NewReader(input)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -364,7 +364,7 @@ func (s repair57SDK) run(mode string, value any) []byte {
 	return raw
 }
 
-func (s repair57SDK) decode(schema string, raw []byte, dst any) {
+func (s streamContractSDK) decode(schema string, raw []byte, dst any) {
 	s.t.Helper()
 	decoded := s.run("decode", map[string]any{"schema": schema, "wire": string(raw)})
 	if err := json.Unmarshal(decoded, dst); err != nil {
@@ -375,9 +375,9 @@ func (s repair57SDK) decode(schema string, raw []byte, dst any) {
 	}
 }
 
-func TestRepairIntegration_57_002_CreateEnvelopeReplay(t *testing.T) {
-	f := repair57New(t)
-	consumer := repair57Consumer(t)
+func TestStreamContractIntegrationCreateEnvelopeReplay(t *testing.T) {
+	f := streamContractNew(t)
+	consumer := streamContractConsumer(t)
 	operation, intent := f.create("repair57-create")
 	body, err := json.Marshal(v2.StreamCreateBody{PoolAddress: intent.Pool, Title: intent.Title})
 	if err != nil {
@@ -414,9 +414,9 @@ func TestRepairIntegration_57_002_CreateEnvelopeReplay(t *testing.T) {
 	f.exchange("POST", "/v2/streams", changed, headers, http.StatusServiceUnavailable)
 }
 
-func TestRepairIntegration_57_003_OperationPollingRecovery(t *testing.T) {
-	f := repair57New(t)
-	consumer := repair57Consumer(t)
+func TestStreamContractIntegrationOperationPollingRecovery(t *testing.T) {
+	f := streamContractNew(t)
+	consumer := streamContractConsumer(t)
 	o, _ := f.create("repair57-poll")
 	path := "/v2/streams/operations/" + o.ID
 	headers := map[string]string{"Authorization": "Bearer " + f.session(f.key)}
@@ -453,9 +453,9 @@ func TestRepairIntegration_57_003_OperationPollingRecovery(t *testing.T) {
 	f.exchange("GET", path, nil, headers, http.StatusForbidden)
 }
 
-func TestRepairIntegration_57_004_BodylessRetirement(t *testing.T) {
-	f := repair57New(t)
-	consumer := repair57Consumer(t)
+func TestStreamContractIntegrationBodylessRetirement(t *testing.T) {
+	f := streamContractNew(t)
+	consumer := streamContractConsumer(t)
 	o, _ := f.create("repair57-retired")
 	f.useConnectedRuntime()
 	raw := consumer.run("retired", map[string]string{"origin": f.server.URL, "id": o.ID, "session": f.session(f.key)})
@@ -477,7 +477,7 @@ func TestRepairIntegration_57_004_BodylessRetirement(t *testing.T) {
 	}
 }
 
-func repair57Vault(t *testing.T) *VaultTransit {
+func streamContractVault(t *testing.T) *VaultTransit {
 	t.Helper()
 	if _, err := exec.LookPath("vault"); err != nil {
 		t.Fatal("real Vault executable required for the encrypted-key path", err)
@@ -548,10 +548,10 @@ func repair57Vault(t *testing.T) *VaultTransit {
 	return &VaultTransit{Endpoint: "https://" + address, Token: token, Key: "repair57", Client: client}
 }
 
-func TestRepairIntegration_57_001_PrivateIngestKeyRecovery(t *testing.T) {
-	f := repair57New(t)
-	consumer := repair57Consumer(t)
-	f.transit = repair57Vault(t)
+func TestStreamContractIntegrationPrivateIngestKeyRecovery(t *testing.T) {
+	f := streamContractNew(t)
+	consumer := streamContractConsumer(t)
+	f.transit = streamContractVault(t)
 	o, _ := f.create("repair57-private-key")
 	o, err := f.store.BeginProvision(context.Background(), o.ID)
 	if err != nil {
@@ -614,9 +614,9 @@ func TestRepairIntegration_57_001_PrivateIngestKeyRecovery(t *testing.T) {
 	f.exchange("POST", path, body, f.signed(path, "stream.credential", body, f.key), http.StatusConflict)
 }
 
-func TestRepairIntegration_57_005_NormalizedStudioWebhookRecovery(t *testing.T) {
-	f := repair57New(t)
-	consumer := repair57Consumer(t)
+func TestStreamContractIntegrationNormalizedStudioWebhookRecovery(t *testing.T) {
+	f := streamContractNew(t)
+	consumer := streamContractConsumer(t)
 	o, _ := f.create("repair57-webhook")
 	o, err := f.store.BindProvider(context.Background(), o.ID, "studio_provider")
 	if err != nil {

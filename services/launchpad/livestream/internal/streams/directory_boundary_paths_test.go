@@ -15,7 +15,7 @@ import (
 )
 
 func TestRankedDirectoryRequiresPlaybackAndMarketProjection(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("ranked-directory")
 	o, err := f.store.BindProvider(ctx, o.ID, "ranked_provider")
