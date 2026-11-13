@@ -207,7 +207,13 @@ func TestProductionRewardSchemaReadiness(t *testing.T) {
 		})
 	}
 	role := pgx.Identifier{schema + "_role"}.Sanitize()
+	sql("DROP ROLE IF EXISTS " + role)
 	sql("CREATE ROLE " + role + " NOLOGIN")
+	defer func() {
+		sql("RESET ROLE")
+		sql("DROP OWNED BY " + role)
+		sql("DROP ROLE IF EXISTS " + role)
+	}()
 	sql("GRANT USAGE ON SCHEMA " + q + " TO " + role)
 	sql("GRANT SELECT ON " + q + ".l18_requests," + q + ".l18_audit TO " + role)
 	sql("SET ROLE " + role)
