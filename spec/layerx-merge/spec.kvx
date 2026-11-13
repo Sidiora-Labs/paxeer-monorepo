@@ -13954,6 +13954,12 @@ value = "README.md of the repository root keeps the short form of task 22.42.29.
 basis = "Gotcha 4386."
 affects = []
 
+[decision.3474]
+title = "Task 22.43.261 admits the references that state a retirement and names the others"
+value = "Task 22.43.261 runs the scan for retired interfaces, reads every reported line, and adds to the register the references whose line states that the interface is retired, disabled or kept as a compatibility declaration, and the references of record files and of generated copies of pages. A line that presents a retired interface as present is not admitted; the task names it and a later task changes the file. The task changes files under tools/paxeer-x only."
+basis = "Gotcha 4387."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -43614,6 +43620,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.43.261]
+title = "Admit in the register of retired interfaces the references that state a retirement"
+reqs = ["22998.1"]
+touches = ["tools/paxeer-x"]
+tests = []
+verification_contract = "python3 tools/paxeer-x/tests/retired_callers_test.py"
+do_1 = "do_1 Decision 3474, gotcha 4387. Run python3 tools/paxeer-x/tests/retired_callers_test.py and keep its output. Each row names a file, a line, a component and a symbol. Read in tools/paxeer-x/retired_callers.json the entry of each component that the rows name: it says what was retired and what took its place. Read also how the register admits references: its list of documentation paths with a reason, and its list of allowed references with a path, symbols and a citation."
+symbols = []
 
 [capability.22.43.260]
 title = "Keep the reference text of the earlier front page as a page under docs/readme"
@@ -373391,6 +373406,37 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.43.261]
+title = "Admit in the register of retired interfaces the references that state a retirement"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.43.261"]
+interfaces = []
+do_1 = "do_1 Decision 3474, gotcha 4387. Run python3 tools/paxeer-x/tests/retired_callers_test.py and keep its output. Each row names a file, a line, a component and a symbol. Read in tools/paxeer-x/retired_callers.json the entry of each component that the rows name: it says what was retired and what took its place. Read also how the register admits references: its list of documentation paths with a reason, and its list of allowed references with a path, symbols and a citation."
+do_2 = "do_2 Read every reported line in its file, with the lines around it. A line belongs to the first class when it states that the interface is retired, disabled, refused or kept only as a compatibility declaration, when it sits in a record file that records an earlier state, or when it sits in a generated copy of pages of the documentation site whose source page is in the first class. A line belongs to the second class when it presents the retired interface as present, tells a reader to use it, or is code that calls it."
+do_3 = "do_3 Admit the references of the first class in the register, in the form the register uses for that kind of file, with a reason or a citation that says what the line states. Admit the narrowest thing the form allows: a file with its symbols and not a directory. The generated copies of the documentation site may follow one entry that names them as generated from the pages. Keep the rules the self-test of the scan enforces, and change the test file only where a new entry of the register needs a case. Do not admit a reference of the second class and change nothing in its file: name the file, the line and the component in the final message."
+do_4 = "do_4 Before each commit read the output of git status. Name in the final message the count of rows at the start, the count admitted for each file, and every row of the second class. Run the build once and the verification once at the final revision; where rows of the second class remain, the verification cannot pass, so say that instead of repeating it."
+symbols = []
+touches = ["tools/paxeer-x"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m pip install -q pytest PyYAML"
+verify_cmd = "python3 tools/paxeer-x/tests/retired_callers_test.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.43.260]
 title = "Keep the reference text of the earlier front page as a page under docs/readme"

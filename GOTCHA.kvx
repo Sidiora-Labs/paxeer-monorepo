@@ -21755,3 +21755,8 @@ fix = "Task 22.43.259 brings the five pages to the one-line form. A task that re
 title = "Tests under tools/qualification read sections and sentences of the front page of the repository"
 symptom = "Test files under tools/qualification/audit_repairs read README.md of the repository root and look for sections and sentences of the text it held before task 22.42.29 wrote the short front page: the overview of the network, the quick start for chain 125, the build and test sections and others."
 fix = "The earlier text lives on as the page docs/readme/NETWORK.md, brought to the present paths, and the front page links to it. A task that shortens a page first searches the tests for readers of its sections and sentences and names the page where each fact lives afterwards."
+
+[gotcha.4387]
+title = "Pages and records written or moved after the register of retired interfaces name symbols it does not list"
+symptom = "The scan tools/paxeer-x/tests/retired_callers_test.py reads the files of the tree for the symbols of retired interfaces and admits the references that the register tools/paxeer-x/retired_callers.json lists. Pages of the documentation site under docs/site/paxeer-docs with their generated copies, three directory pages, one record under apps/launchpad/qualification/records and four other files name such symbols on lines the register does not list. The pages read so far state that the interface is disabled or retired."
+fix = "Task 22.43.261 reads each reported line and admits in the register the lines that state a retirement or record an earlier state. A task that writes or moves a file that names a retired interface adds the reference to the register in the same change."
