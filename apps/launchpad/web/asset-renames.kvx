@@ -240,7 +240,7 @@ sha256 = "effc6853b6b38ea6ea38211ce9da4658fa36d532490e6d2a50850625d6b265cb"
 [deduplicate.4]
 old = "src/assets/icons/logo.svg"
 new = "public/icons/logo.svg"
-sha256 = "b3c3f3d1ad2212e596656915eb0386dce5e81d4bf02112aab670a3b68c989646"
+sha256 = "c359602bb1f9b50b0e96ffa0c18d72f163ad3fbeb70e8910c603da0fda1564f8"
 
 [deduplicate.5]
 old = "src/assets/icons/pump.svg"
