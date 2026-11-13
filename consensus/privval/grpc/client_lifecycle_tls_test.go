@@ -33,7 +33,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repairM1085Server(t *testing.T, pv *privval.FilePV, opts ...grpc.ServerOption) (string, func()) {
+func startLifecycleSignerServer(t *testing.T, pv *privval.FilePV, opts ...grpc.ServerOption) (string, func()) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -55,7 +55,7 @@ func repairM1085Server(t *testing.T, pv *privval.FilePV, opts ...grpc.ServerOpti
 	return listener.Addr().String(), stop
 }
 
-func repairM1085Connection(t *testing.T, address string) *grpc.ClientConn {
+func dialLifecycleSignerConnection(t *testing.T, address string) *grpc.ClientConn {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
@@ -70,11 +70,11 @@ func repairM1085Connection(t *testing.T, address string) *grpc.ClientConn {
 	return conn
 }
 
-func TestRepairM_1085_CloseConnection(t *testing.T) {
-	pv, _ := repair171FilePV(t)
-	address, _ := repairM1085Server(t, pv)
+func TestSignerClientLifecycleTLS_CloseConnection(t *testing.T) {
+	pv, _ := newSigningSafetyValidator(t)
+	address, _ := startLifecycleSignerServer(t, pv)
 	for range 3 {
-		conn := repairM1085Connection(t, address)
+		conn := dialLifecycleSignerConnection(t, address)
 		client, err := tmgrpc.NewSignerClient(conn, chainID)
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -91,10 +91,10 @@ func TestRepairM_1085_CloseConnection(t *testing.T) {
 	}
 }
 
-func TestRepairM_1085_NilPayload(t *testing.T) {
-	pv, files := repair171FilePV(t)
-	address, _ := repairM1085Server(t, pv)
-	conn := repairM1085Connection(t, address)
+func TestSignerClientLifecycleTLS_NilPayload(t *testing.T) {
+	pv, files := newSigningSafetyValidator(t)
+	address, _ := startLifecycleSignerServer(t, pv)
+	conn := dialLifecycleSignerConnection(t, address)
 	wire := privvalproto.NewPrivValidatorAPIClient(conn)
 	direct := tmgrpc.NewSignerServer(chainID, pv)
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -127,24 +127,24 @@ func TestRepairM_1085_NilPayload(t *testing.T) {
 	require.Equal(t, before, after)
 	client, err := tmgrpc.NewSignerClient(conn, chainID)
 	require.NoError(t, err)
-	p := repair171Proposal(1, 1)
+	p := signingSafetyProposal(1, 1)
 	require.NoError(t, client.SignProposal(ctx, chainID, p))
-	repair171Verify(t, pv.Key.PubKey, types.ProposalSignBytes(chainID, p), p.Signature)
-	v := repair171Vote(pv, 1, 1)
+	verifySigningSafetySignature(t, pv.Key.PubKey, types.ProposalSignBytes(chainID, p), p.Signature)
+	v := signingSafetyVote(pv, 1, 1)
 	require.NoError(t, client.SignVote(ctx, chainID, v))
-	repair171Verify(t, pv.Key.PubKey, types.VoteSignBytes(chainID, v), v.Signature)
+	verifySigningSafetySignature(t, pv.Key.PubKey, types.VoteSignBytes(chainID, v), v.Signature)
 }
 
-func TestRepairM_1085_SafetyState(t *testing.T) {
+func TestSignerClientLifecycleTLS_SafetyState(t *testing.T) {
 	testSignerServerSafetyState(t)
 }
 
-type repairM1085TLSFiles struct {
+type signerTLSFiles struct {
 	cert, key, ca string
 	server        *tls.Config
 }
 
-func repairM1085TLS(t *testing.T) repairM1085TLSFiles {
+func newSignerTLSFiles(t *testing.T) signerTLSFiles {
 	t.Helper()
 	pub, key, err := stded25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
@@ -171,7 +171,7 @@ func repairM1085TLS(t *testing.T) repairM1085TLSFiles {
 	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
 	caPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})
 	dir := t.TempDir()
-	files := repairM1085TLSFiles{cert: filepath.Join(dir, "client.pem"), key: filepath.Join(dir, "client.key"), ca: filepath.Join(dir, "ca.pem")}
+	files := signerTLSFiles{cert: filepath.Join(dir, "client.pem"), key: filepath.Join(dir, "client.key"), ca: filepath.Join(dir, "ca.pem")}
 	require.NoError(t, os.WriteFile(files.cert, certPEM, 0600))
 	require.NoError(t, os.WriteFile(files.key, keyPEM, 0600))
 	require.NoError(t, os.WriteFile(files.ca, caPEM, 0600))
@@ -184,8 +184,8 @@ func repairM1085TLS(t *testing.T) repairM1085TLSFiles {
 	return files
 }
 
-func TestRepairM_1085_TLSLoaderErrors(t *testing.T) {
-	files := repairM1085TLS(t)
+func TestSignerClientLifecycleTLS_TLSLoaderErrors(t *testing.T) {
+	files := newSignerTLSFiles(t)
 	invalid := filepath.Join(t.TempDir(), "invalid.pem")
 	require.NoError(t, os.WriteFile(invalid, []byte("invalid PEM"), 0600))
 	missing := filepath.Join(t.TempDir(), "missing.pem")
@@ -219,8 +219,8 @@ func TestRepairM_1085_TLSLoaderErrors(t *testing.T) {
 		})
 	}
 	// A subsequent real authenticated signing call proves errors did not kill the host.
-	pv, _ := repair171FilePV(t)
-	address, _ := repairM1085Server(t, pv, grpc.Creds(credentials.NewTLS(files.server)))
+	pv, _ := newSigningSafetyValidator(t)
+	address, _ := startLifecycleSignerServer(t, pv, grpc.Creds(credentials.NewTLS(files.server)))
 	cfg := config.DefaultPrivValidatorConfig()
 	cfg.ListenAddr = "grpc://" + address
 	cfg.ClientCertificate, cfg.ClientKey, cfg.RootCA = files.cert, files.key, files.ca
@@ -229,15 +229,15 @@ func TestRepairM_1085_TLSLoaderErrors(t *testing.T) {
 	client, err := tmgrpc.DialRemoteSigner(ctx, cfg, chainID, false)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
-	v := repair171Vote(pv, 1, 1)
+	v := signingSafetyVote(pv, 1, 1)
 	require.NoError(t, client.SignVote(ctx, chainID, v))
-	repair171Verify(t, pv.Key.PubKey, types.VoteSignBytes(chainID, v), v.Signature)
+	verifySigningSafetySignature(t, pv.Key.PubKey, types.VoteSignBytes(chainID, v), v.Signature)
 }
 
-func TestRepairM_1085_TLSSelection(t *testing.T) {
-	files := repairM1085TLS(t)
-	pv, state := repair171FilePV(t)
-	address, _ := repairM1085Server(t, pv)
+func TestSignerClientLifecycleTLS_TLSSelection(t *testing.T) {
+	files := newSignerTLSFiles(t)
+	pv, state := newSigningSafetyValidator(t)
+	address, _ := startLifecycleSignerServer(t, pv)
 	before, err := os.ReadFile(state.state)
 	require.NoError(t, err)
 	for mask := 0; mask < 8; mask++ {
@@ -294,7 +294,7 @@ func TestRepairM_1085_TLSSelection(t *testing.T) {
 	require.Nil(t, client)
 }
 
-func TestRepairM_1085_DialError(t *testing.T) {
+func TestSignerClientLifecycleTLS_DialError(t *testing.T) {
 	client, err := tmgrpc.NewSignerClient(nil, chainID)
 	require.Error(t, err)
 	require.Nil(t, client)

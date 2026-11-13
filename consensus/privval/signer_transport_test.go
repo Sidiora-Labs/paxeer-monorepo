@@ -23,9 +23,9 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-const repairM1086Chain = "repair-m1086"
+const signerTransportChain = "repair-m1086"
 
-func TestRepairM_1086_RetrySigningCancellation(t *testing.T) {
+func TestSignerTransport_RetrySigningCancellation(t *testing.T) {
 	for _, method := range []string{"vote", "proposal", "pubkey"} {
 		for _, unavailable := range []string{"connection", "retry-delay", "already-canceled"} {
 			t.Run(method+"/"+unavailable, func(t *testing.T) {
@@ -33,7 +33,7 @@ func TestRepairM_1086_RetrySigningCancellation(t *testing.T) {
 				require.NoError(t, err)
 				lifetime, stop := context.WithCancel(t.Context())
 				endpoint := NewSignerListenerEndpoint(ln)
-				client, err := NewSignerClient(lifetime, endpoint, repairM1086Chain)
+				client, err := NewSignerClient(lifetime, endpoint, signerTransportChain)
 				require.NoError(t, err)
 				t.Cleanup(func() { stop(); require.NoError(t, client.Close()) })
 				if unavailable != "connection" {
@@ -56,9 +56,9 @@ func TestRepairM_1086_RetrySigningCancellation(t *testing.T) {
 				started := time.Now()
 				switch method {
 				case "vote":
-					err = clientWithRetries.SignVote(ctx, repairM1086Chain, repairM1086Vote())
+					err = clientWithRetries.SignVote(ctx, signerTransportChain, transportVote())
 				case "proposal":
-					err = clientWithRetries.SignProposal(ctx, repairM1086Chain, repairM1086Proposal())
+					err = clientWithRetries.SignProposal(ctx, signerTransportChain, transportProposal())
 				case "pubkey":
 					_, err = clientWithRetries.GetPubKey(ctx)
 				}
@@ -74,11 +74,11 @@ func TestRepairM_1086_RetrySigningCancellation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1086_PingTransportFailure(t *testing.T) {
+func TestSignerTransport_PingTransportFailure(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	lifetime, cancel := context.WithCancel(t.Context())
-	client, err := NewSignerClient(lifetime, NewSignerListenerEndpoint(ln), repairM1086Chain)
+	client, err := NewSignerClient(lifetime, NewSignerListenerEndpoint(ln), signerTransportChain)
 	require.NoError(t, err)
 	defer func() { cancel(); require.NoError(t, client.Close()) }()
 	ctx, stop := context.WithTimeout(t.Context(), 50*time.Millisecond)
@@ -86,13 +86,13 @@ func TestRepairM_1086_PingTransportFailure(t *testing.T) {
 	require.ErrorIs(t, client.Ping(ctx), context.DeadlineExceeded)
 }
 
-func TestRepairM_1086_PingResponseVariant(t *testing.T) {
-	pv, _, _ := repairM1086Validator(t)
+func TestSignerTransport_PingResponseVariant(t *testing.T) {
+	pv, _, _ := newTransportValidator(t)
 	nodeKey, signerKey := ed25519.GenerateSecretKey(), ed25519.GenerateSecretKey()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	endpoint := NewSignerListenerEndpoint(NewTCPListener(ln, nodeKey, signerKey.Public()))
-	client, server, stop := repairM1086Transport(t, pv, endpoint,
+	client, server, stop := startSignerTransport(t, pv, endpoint,
 		DialTCPFn(ln.Addr().String(), time.Second, signerKey, nodeKey.Public()))
 	defer stop()
 	// A loopback peer fixture deliberately returns a valid, differently typed
@@ -112,7 +112,7 @@ func TestRepairM_1086_PingResponseVariant(t *testing.T) {
 	require.NoError(t, client.Ping(t.Context()))
 }
 
-func TestRepairM_1086_TimeoutClassification(t *testing.T) {
+func TestSignerTransport_TimeoutClassification(t *testing.T) {
 	deadline := stalledHandshakeError(t)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -145,8 +145,8 @@ func TestRepairM_1086_TimeoutClassification(t *testing.T) {
 	}
 }
 
-func TestRepairM_1086_FilePVTransportReopen(t *testing.T) {
-	pv, keyPath, statePath := repairM1086Validator(t)
+func TestSignerTransport_FilePVTransportReopen(t *testing.T) {
+	pv, keyPath, statePath := newTransportValidator(t)
 	dir := t.TempDir()
 	nodePath, signerPath := filepath.Join(dir, "node.key"), filepath.Join(dir, "signer.key")
 	nodeKey, err := LoadOrGenSocketIdentity(nodePath)
@@ -156,7 +156,7 @@ func TestRepairM_1086_FilePVTransportReopen(t *testing.T) {
 	start := func(pv *FilePV) (*SignerClient, func()) {
 		endpoint, err := NewSignerListener("tcp://127.0.0.1:0", SocketIdentity{KeyFile: nodePath, PeerKey: signerKey.Public()})
 		require.NoError(t, err)
-		client, _, stop := repairM1086Transport(t, pv, endpoint,
+		client, _, stop := startSignerTransport(t, pv, endpoint,
 			DialTCPFn("tcp://"+endpoint.listener.Addr().String(), time.Second, signerKey, nodeKey.Public()))
 		return client, stop
 	}
@@ -164,11 +164,11 @@ func TestRepairM_1086_FilePVTransportReopen(t *testing.T) {
 	pubKey, err := client.GetPubKey(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, pv.Key.PubKey, pubKey)
-	proposal := repairM1086Proposal()
-	proposalBytes := types.ProposalSignBytes(repairM1086Chain, proposal)
+	proposal := transportProposal()
+	proposalBytes := types.ProposalSignBytes(signerTransportChain, proposal)
 	require.Empty(t, proposal.Signature)
-	require.NoError(t, client.SignProposal(t.Context(), repairM1086Chain, proposal))
-	repairM1086Verify(t, pubKey, proposalBytes, proposal.Signature)
+	require.NoError(t, client.SignProposal(t.Context(), signerTransportChain, proposal))
+	verifyTransportSignature(t, pubKey, proposalBytes, proposal.Signature)
 	proposalSignature := bytes.Clone(proposal.Signature)
 	stop()
 
@@ -183,38 +183,38 @@ func TestRepairM_1086_FilePVTransportReopen(t *testing.T) {
 	pv, err = LoadFilePV(keyPath, statePath)
 	require.NoError(t, err)
 	client, stop = start(pv)
-	proposal = repairM1086Proposal()
-	require.NoError(t, client.SignProposal(t.Context(), repairM1086Chain, proposal))
+	proposal = transportProposal()
+	require.NoError(t, client.SignProposal(t.Context(), signerTransportChain, proposal))
 	require.Equal(t, proposalSignature, proposal.Signature)
-	repairM1086Verify(t, pubKey, proposalBytes, proposal.Signature)
-	conflict := repairM1086Proposal()
+	verifyTransportSignature(t, pubKey, proposalBytes, proposal.Signature)
+	conflict := transportProposal()
 	conflict.BlockID.Hash = bytes.Repeat([]byte{9}, crypto.HashSize)
 	var remoteErr *RemoteSignerError
-	require.ErrorAs(t, client.SignProposal(t.Context(), repairM1086Chain, conflict), &remoteErr)
+	require.ErrorAs(t, client.SignProposal(t.Context(), signerTransportChain, conflict), &remoteErr)
 	require.Empty(t, conflict.Signature)
 
-	vote := repairM1086Vote()
-	voteBytes := types.VoteSignBytes(repairM1086Chain, vote)
+	vote := transportVote()
+	voteBytes := types.VoteSignBytes(signerTransportChain, vote)
 	require.Empty(t, vote.Signature)
-	require.NoError(t, client.SignVote(t.Context(), repairM1086Chain, vote))
-	repairM1086Verify(t, pubKey, voteBytes, vote.Signature)
+	require.NoError(t, client.SignVote(t.Context(), signerTransportChain, vote))
+	verifyTransportSignature(t, pubKey, voteBytes, vote.Signature)
 	voteSignature := bytes.Clone(vote.Signature)
 	stop()
 	pv, err = LoadFilePV(keyPath, statePath)
 	require.NoError(t, err)
 	client, stop = start(pv)
 	defer stop()
-	vote = repairM1086Vote()
-	require.NoError(t, client.SignVote(t.Context(), repairM1086Chain, vote))
+	vote = transportVote()
+	require.NoError(t, client.SignVote(t.Context(), signerTransportChain, vote))
 	require.Equal(t, voteSignature, vote.Signature)
-	repairM1086Verify(t, pubKey, voteBytes, vote.Signature)
-	vote = repairM1086Vote()
+	verifyTransportSignature(t, pubKey, voteBytes, vote.Signature)
+	vote = transportVote()
 	vote.BlockID.Hash = bytes.Repeat([]byte{9}, crypto.HashSize)
-	require.ErrorAs(t, client.SignVote(t.Context(), repairM1086Chain, vote), &remoteErr)
+	require.ErrorAs(t, client.SignVote(t.Context(), signerTransportChain, vote), &remoteErr)
 	require.Empty(t, vote.Signature)
 }
 
-func TestRepairM_1086_SocketPeerIdentity(t *testing.T) {
+func TestSignerTransport_SocketPeerIdentity(t *testing.T) {
 	for _, rejectedSide := range []string{"listener", "dialer", "missing-listener-pin", "missing-dialer-pin"} {
 		t.Run(rejectedSide, func(t *testing.T) {
 			nodeKey, signerKey, intruder := ed25519.GenerateSecretKey(), ed25519.GenerateSecretKey(), ed25519.GenerateSecretKey()
@@ -259,7 +259,7 @@ func TestRepairM_1086_SocketPeerIdentity(t *testing.T) {
 					defer dialed.Close()
 					// Attempt a real signing request. A listener rejecting this
 					// peer must never return its connection to a handler.
-					req := mustWrapMsg(&privvalproto.SignVoteRequest{ChainId: repairM1086Chain, Vote: repairM1086Vote()})
+					req := mustWrapMsg(&privvalproto.SignVoteRequest{ChainId: signerTransportChain, Vote: transportVote()})
 					_, _ = protoio.NewDelimitedWriter(dialed).WriteMsg(&req)
 				}
 				return nil
@@ -277,7 +277,7 @@ func TestRepairM_1086_SocketPeerIdentity(t *testing.T) {
 	}
 }
 
-func TestRepairM_1086_IdentityStorage(t *testing.T) {
+func TestSignerTransport_IdentityStorage(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "identity.key")
 	key, err := LoadOrGenSocketIdentity(path)
 	require.NoError(t, err)
@@ -305,7 +305,7 @@ func TestRepairM_1086_IdentityStorage(t *testing.T) {
 	require.Error(t, err)
 }
 
-func repairM1086Validator(t *testing.T) (*FilePV, string, string) {
+func newTransportValidator(t *testing.T) (*FilePV, string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	keyPath, statePath := filepath.Join(dir, "validator-key.json"), filepath.Join(dir, "validator-state.json")
@@ -315,14 +315,14 @@ func repairM1086Validator(t *testing.T) (*FilePV, string, string) {
 	return pv, keyPath, statePath
 }
 
-func repairM1086Transport(t *testing.T, pv *FilePV, endpoint *SignerListenerEndpoint, dialer SocketDialer) (*SignerClient, *SignerServer, func()) {
+func startSignerTransport(t *testing.T, pv *FilePV, endpoint *SignerListenerEndpoint, dialer SocketDialer) (*SignerClient, *SignerServer, func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
-	client, err := NewSignerClient(ctx, endpoint, repairM1086Chain)
+	client, err := NewSignerClient(ctx, endpoint, signerTransportChain)
 	require.NoError(t, err)
 	dialerEndpoint := NewSignerDialerEndpoint(dialer)
 	SignerDialerEndpointTimeoutReadWrite(time.Second)(dialerEndpoint)
-	server := NewSignerServer(dialerEndpoint, repairM1086Chain, pv)
+	server := NewSignerServer(dialerEndpoint, signerTransportChain, pv)
 	stop := sync.OnceFunc(func() {
 		cancel()
 		server.Stop()
@@ -336,27 +336,27 @@ func repairM1086Transport(t *testing.T, pv *FilePV, endpoint *SignerListenerEndp
 	return client, server, stop
 }
 
-func repairM1086Block() types.BlockID {
+func transportBlockID() types.BlockID {
 	hash := bytes.Repeat([]byte{7}, crypto.HashSize)
 	return types.BlockID{Hash: hash, PartSetHeader: types.PartSetHeader{Total: 1, Hash: bytes.Clone(hash)}}
 }
 
-func repairM1086Vote() *tmproto.Vote {
+func transportVote() *tmproto.Vote {
 	vote := types.Vote{Type: tmproto.PrevoteType, Height: 10, Round: 2,
-		BlockID: repairM1086Block(), Timestamp: time.Unix(1700000000, 0).UTC(),
+		BlockID: transportBlockID(), Timestamp: time.Unix(1700000000, 0).UTC(),
 		ValidatorAddress: bytes.Repeat([]byte{3}, crypto.AddressSize)}
 	return vote.ToProto()
 }
 
-func repairM1086Proposal() *tmproto.Proposal {
+func transportProposal() *tmproto.Proposal {
 	proposal := types.Proposal{Type: tmproto.ProposalType, Height: 10, Round: 2, POLRound: -1,
-		BlockID: repairM1086Block(), Timestamp: time.Unix(1700000000, 0).UTC()}
+		BlockID: transportBlockID(), Timestamp: time.Unix(1700000000, 0).UTC()}
 	pb := proposal.ToProto()
 	pb.Signature = nil
 	return pb
 }
 
-func repairM1086Verify(t *testing.T, pubKey crypto.PubKey, signBytes, raw []byte) {
+func verifyTransportSignature(t *testing.T, pubKey crypto.PubKey, signBytes, raw []byte) {
 	t.Helper()
 	require.NotEmpty(t, raw)
 	signature, err := crypto.SigFromBytes(raw)
