@@ -1,6 +1,3 @@
-//! Producer -> canonical transaction/SSH transport -> production consumer proofs.
-//! Findings and out-of-scope migrations are recorded in `src/repair_22_33_1558.kvx`.
-
 use support::assertions;
 mod support;
 
@@ -237,14 +234,21 @@ fn api_contract_document_absent_is_closed_by_owned_contract_and_raw_bind_vector(
     }
     // Published chain/client vector: a hash of this message would produce a
     // different signature, so this proves the raw-message signing contract.
-    let message_bytes = hex("4c583a5041584545522d42494e443a763100000000000000000000000000000000000000000000000000000000000ae3f2102132435465768798a9bacbdcedfe0f1e2d3c4b0000000000000000");
+    let message_bytes = hex(
+        "4c583a5041584545522d42494e443a763100000000000000000000000000000000000000000000000000000000000ae3f2102132435465768798a9bacbdcedfe0f1e2d3c4b0000000000000000",
+    );
     let binding = BindMessage::decode(&message_bytes)
         .map_err(|error| format!("published consent: {error:?}"))?;
     assert_eq!(binding.as_bytes().len(), BIND_MESSAGE_BYTES);
     let signer = LocalSigner::new([0x61; 32]);
     let signature = ready(signer.sign(SigningRequest::bind(&binding)))
         .map_err(|error| format!("raw consent signing: {error:?}"))?;
-    assert_eq!(signature.as_bytes().as_slice(), hex("c815ff4b2c34fe06ed50e904133b8f4cc618255ce6493d1a1177480eb2e959ed16f055fbe0e12885c199bf662b430e4f9f131addb2aa705fde963fa5995ece0f"));
+    assert_eq!(
+        signature.as_bytes().as_slice(),
+        hex(
+            "c815ff4b2c34fe06ed50e904133b8f4cc618255ce6493d1a1177480eb2e959ed16f055fbe0e12885c199bf662b430e4f9f131addb2aa705fde963fa5995ece0f"
+        )
+    );
     binding
         .verify(&signer.public_key(), signature.as_bytes())
         .map_err(|error| format!("chain-compatible verification: {error:?}"))?;

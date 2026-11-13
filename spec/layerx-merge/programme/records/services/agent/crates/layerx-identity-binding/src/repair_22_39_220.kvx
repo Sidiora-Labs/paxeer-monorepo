@@ -16,7 +16,7 @@ repair = "Use usize::try_from and propagate InvalidData through the existing bin
 
 [qualification]
 build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --all-targets"
-verify_command = "test -s services/agent/crates/layerx-identity-binding/src/repair_22_39_220.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --no-deps --all-targets -- -D warnings"
+verify_command = "test -s spec/layerx-merge/programme/records/services/agent/crates/layerx-identity-binding/src/repair_22_39_220.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-identity-binding --no-deps --all-targets -- -D warnings"
 build_ref = "hf-build: /out/run/gates.jsonl build row for this candidate; /out/logs/build-2.log (build-1 preceded the source-line record correction)."
 verify_ref = "hf-done: /out/run/gates.jsonl verify row for this candidate; /out/logs/verify-1.log"
 verified_revision_ref = "revision field shared by the passing build and verify rows in /out/run/gates.jsonl; external references avoid changing the candidate after qualification."

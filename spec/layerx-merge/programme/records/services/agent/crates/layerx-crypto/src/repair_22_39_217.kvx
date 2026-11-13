@@ -334,805 +334,805 @@ lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.55]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"
+file = "services/agent/crates/layerx-crypto/tests/program_lifecycle_disclosure.rs"
 line = 220
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.56]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"
+file = "services/agent/crates/layerx-crypto/tests/program_lifecycle_disclosure.rs"
 line = 308
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.57]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"
+file = "services/agent/crates/layerx-crypto/tests/program_lifecycle_disclosure.rs"
 line = 322
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.58]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"
+file = "services/agent/crates/layerx-crypto/tests/program_lifecycle_disclosure.rs"
 line = 374
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.59]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 78
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.60]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 78
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.61]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 90
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.62]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 124
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.63]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 156
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.64]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 180
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.65]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 244
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.66]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 258
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.67]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 270
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.68]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 52
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.69]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 52
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.70]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 59
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.71]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 100
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.72]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 103
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.73]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 104
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.74]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 107
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.75]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 111
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.76]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 119
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.77]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 120
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.78]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 131
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.79]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 152
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.80]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 207
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.81]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 211
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.82]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 213
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.83]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 227
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.84]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 233
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.85]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 251
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.86]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 256
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.87]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 259
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.88]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 259
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.89]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 261
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.90]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 261
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.91]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 267
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.92]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 273
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.93]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 274
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.94]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 298
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.95]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 304
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.96]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 308
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.97]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 310
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.98]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 311
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.99]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 313
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.100]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 393
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.101]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 394
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.102]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 411
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.103]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 419
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.104]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 436
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.105]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 437
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.106]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 455
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.107]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 458
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.108]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 462
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.109]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 466
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.110]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 483
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.111]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 486
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.112]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 499
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.113]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 499
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.114]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 505
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.115]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 530
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.116]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 541
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.117]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 585
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.118]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 586
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.119]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 598
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.120]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 599
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.121]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 602
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.122]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 603
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.123]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 607
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.124]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 624
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.125]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1559.rs"
+file = "services/agent/crates/layerx-crypto/tests/disclosure_projection.rs"
 line = 37
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.126]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1559.rs"
+file = "services/agent/crates/layerx-crypto/tests/disclosure_projection.rs"
 line = 37
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.127]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1559.rs"
+file = "services/agent/crates/layerx-crypto/tests/disclosure_projection.rs"
 line = 401
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.128]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 83
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.129]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 85
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.130]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 86
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.131]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 87
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.132]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 88
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.133]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 98
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.134]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 105
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.135]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 110
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.136]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 141
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.137]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 143
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.138]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 166
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.139]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 177
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.140]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 179
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.141]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 186
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.142]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 189
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.143]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 193
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.144]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 230
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.145]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 238
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.146]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 239
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.147]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 246
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.148]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 249
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.149]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 255
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.150]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 255
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.151]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 293
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.152]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 294
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.153]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 298
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.154]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 325
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.155]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 343
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.156]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 348
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.157]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 351
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.158]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 352
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.159]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 358
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.160]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 370
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.161]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 372
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.162]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 379
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.163]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 407
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.164]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 408
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.165]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 411
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.166]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 414
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.167]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 419
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.168]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 420
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.169]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 421
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.170]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 437
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.171]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 440
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.172]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 443
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.173]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 445
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.174]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 448
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.175]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 449
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.176]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 454
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.177]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 455
 lint = "clippy::expect_used"
 repair = "Assert the success variant explicitly in test support; failure still panics with the original context."
 
 [source_lint.178]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 460
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.179]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 480
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.180]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 482
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.181]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 490
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.182]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 491
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.183]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 549
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.184]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 554
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.185]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 557
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.186]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 563
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.187]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 577
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
 
 [source_lint.188]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 587
 lint = "clippy::expect_used"
 repair = "Propagate failed setup from the Result-returning test, preserving its context and all assertions."
@@ -1888,97 +1888,97 @@ lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.314]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"
+file = "services/agent/crates/layerx-crypto/tests/program_lifecycle_disclosure.rs"
 line = 118
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.315]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"
+file = "services/agent/crates/layerx-crypto/tests/program_lifecycle_disclosure.rs"
 line = 154
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.316]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"
+file = "services/agent/crates/layerx-crypto/tests/program_lifecycle_disclosure.rs"
 line = 199
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.317]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"
+file = "services/agent/crates/layerx-crypto/tests/program_lifecycle_disclosure.rs"
 line = 241
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.318]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 91
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.319]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 127
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.320]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 159
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.321]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 256
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.322]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 259
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.323]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 276
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.324]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 105
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.325]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 120
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.326]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 151
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.327]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 355
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.328]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 542
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
 
 [source_lint.329]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 494
 lint = "clippy::expect_used"
 repair = "Require the success variant or propagate setup failure inside the existing assertion; preserve assertion operands."
@@ -2030,7 +2030,7 @@ files = ["src/disclosure.rs", "src/disclosure/native.rs", "src/disclosure/progra
 repairs = "Delete unused private historical activity ingress and its exclusively dead helper tree; retain all exported types, canonical EVM paths and unit-test bridge decoder; remove the shadowed private call validator while retaining the public wrapper; group private budget validator inputs without changing its bounds."
 
 [repair.test_function_size]
-files = ["tests/disclosure_call.rs", "tests/proof_crypto.rs", "tests/repair_22_33_1334.rs", "tests/repair_22_33_1558.rs", "tests/repair_22_33_1559.rs", "tests/support/signing.rs", "tests/support/assertions.rs"]
+files = ["tests/disclosure_call.rs", "tests/proof_crypto.rs", "tests/payment_signing.rs", "tests/signing_surface.rs", "tests/disclosure_projection.rs", "tests/support/signing.rs", "tests/support/assertions.rs"]
 repairs = "Extract protocol-specific constructor, refusal, certificate-extension and peer-loop helpers while retaining the original registered test functions and their assertions. Shared outcome assertions panic on every failed Result or absent Option; there is no fallback value."
 
 [attempt_1_qualification.pending]
@@ -2049,7 +2049,7 @@ line = 387
 compiler_error_count = 1
 compiler_error = "E0425: extracted serve_agent_peer compares requested_key with public_key, but the helper does not define or receive public_key."
 clippy_count = "Unknown; Clippy did not run."
-affected_targets = ["remote", "send_call", "repair_22_33_1558", "proof_crypto", "native_fee_grant"]
+affected_targets = ["remote", "send_call", "signing_surface", "proof_crypto", "native_fee_grant"]
 
 [gotcha.peer_extraction]
 observed = "Extracting the peer loop requires carrying every captured value, including the verifying public key; the final bounded build exposed the omitted capture."
@@ -2066,7 +2066,7 @@ qualification = "Pending bounded hf-build and hf-done; attempt-1 evidence above 
 
 [attempt_2.inventory]
 revision = "5630683299de3f88a67280d5aa5c9f1ddd2cb1ab"
-command = "test -s services/agent/crates/layerx-crypto/src/repair_22_39_217.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --no-deps --all-targets -- -D warnings"
+command = "test -s spec/layerx-merge/programme/records/services/agent/crates/layerx-crypto/src/repair_22_39_217.kvx && cargo clippy --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --no-deps --all-targets -- -D warnings"
 exit = 101
 log = "/out/logs/verify-1.log"
 reported_locations = 12
@@ -2145,7 +2145,7 @@ lint = "clippy::must_use_candidate"
 repair = "Annotate the returned selector or signing future with must_use without changing its signature."
 
 [attempt_2.source_inspection]
-files = ["tests/payments.rs", "tests/proof_crypto.rs", "tests/repair_22_33_1558.rs", "tests/support/signing.rs"]
+files = ["tests/payments.rs", "tests/proof_crypto.rs", "tests/signing_surface.rs", "tests/support/signing.rs"]
 repairs = "Extract the program-transfer assertions unchanged from the 101-line payment test; mark code identifiers in existing test documentation; extract SSH frame helpers and borrow the closure-owned peer resources instead of transferring ownership to a helper that only borrows them."
 compiler_reported = false
 
@@ -2182,40 +2182,40 @@ reported_lint_count = 4
 result = "Implemented, not qualified; both repair reruns consumed; no further source changes or gate runs. This record-only amendment documents the bounded failure and is not a newly qualified candidate."
 
 [attempt_2.remaining_file.1]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"
+file = "services/agent/crates/layerx-crypto/tests/bind_registration.rs"
 count = 1
 
 [attempt_2.remaining_file.2]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 count = 2
 
 [attempt_2.remaining_file.3]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1559.rs"
+file = "services/agent/crates/layerx-crypto/tests/disclosure_projection.rs"
 count = 1
 
 [attempt_2.remaining_lint.1]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"
+file = "services/agent/crates/layerx-crypto/tests/bind_registration.rs"
 line = 32
 column = 22
 lint = "clippy::type_complexity"
 repair = "Pending: name the private test fixture tuple with a type alias, retaining all component types."
 
 [attempt_2.remaining_lint.2]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1559.rs"
+file = "services/agent/crates/layerx-crypto/tests/disclosure_projection.rs"
 line = 374
 column = 1
 lint = "clippy::unnecessary_wraps"
 repair = "Pending: return unit from the infallible private budget-case helper and update its caller without changing the cases."
 
 [attempt_2.remaining_lint.3]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 4
 column = 1
 lint = "clippy::duplicate_mod"
 repair = "Pending: reuse support::assertions instead of declaring the same module file twice in the test target."
 
 [attempt_2.remaining_lint.4]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 2
 column = 58
 lint = "clippy::doc_markdown"
@@ -2246,31 +2246,31 @@ inventory = "Continue the four compiler-reported locations in attempt_2.remainin
 assertions = "No registered tests, assertions, cases, bounds, production signatures or lint levels change."
 
 [attempt_3.lint.1]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"
+file = "services/agent/crates/layerx-crypto/tests/bind_registration.rs"
 line = 32
 lint = "clippy::type_complexity"
 repair = "Name the private registration fixture tuple Registration, preserving every component type and all callers."
 
 [attempt_3.lint.2]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1559.rs"
+file = "services/agent/crates/layerx-crypto/tests/disclosure_projection.rs"
 line = 374
 lint = "clippy::unnecessary_wraps"
 repair = "Return unit from the infallible private append_budget_constructor_cases helper and remove the caller's question mark; retain all generated cases."
 
 [attempt_3.lint.3]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 4
 lint = "clippy::duplicate_mod"
 repair = "Import support::assertions instead of redeclaring its source file; expose the unchanged test-only require function and TestOutcome trait within the test crate so the same checks remain accessible."
 
 [attempt_3.lint.4]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1558.rs"
+file = "services/agent/crates/layerx-crypto/tests/signing_surface.rs"
 line = 2
 lint = "clippy::doc_markdown"
 repair = "Wrap the existing repair-record path in backticks."
 
 [attempt_3.source_inspection]
-files = ["services/agent/crates/layerx-crypto/tests/send_call.rs", "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"]
+files = ["services/agent/crates/layerx-crypto/tests/send_call.rs", "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"]
 lint = "clippy::duplicate_mod"
 repair = "Reuse support::assertions in the other two test targets that also declared the same assertions file twice."
 compiler_reported = false
@@ -2296,13 +2296,13 @@ reported_lint_count = 3
 build_reference = "/out/run/gates.jsonl kind=build n=1; revision 19253a06bbbea1d36c385a57196bdbf0964f1886, exit 0, private log /out/logs/build-1.log."
 
 [attempt_3.lint.5]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1561.rs"
+file = "services/agent/crates/layerx-crypto/tests/shared_signing_fixtures.rs"
 line = 178
 lint = "clippy::unnecessary_wraps"
 repair = "Return unit from the infallible shared_fixtures_refuse_invalid_kernel_signatures_and_abi test, retaining its registration and every refusal assertion."
 
 [attempt_3.lint.6]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1333.rs"
+file = "services/agent/crates/layerx-crypto/tests/payment_codec.rs"
 line = 2
 lint = "clippy::doc_markdown"
 repair = "Wrap the existing repair-record path in backticks."
@@ -2346,14 +2346,14 @@ lines = [8, 3, 4, 5]
 loaded_files = ["../../../layerx-client/src/paxeer_binding.rs", "assertions.rs", "kernel_payloads.rs", "signing.rs"]
 
 [attempt_3.remaining_file.2]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 count = 1
 lint = "clippy::duplicate_mod"
 line = 38
 loaded_file = "support/mod.rs"
 
 [attempt_3.gotcha.nested_fixture_modules]
-observed = "The repair_22_33_1560 test target imports authority_grant, disclosure_call, disclosure, native_fee_grant and remote as fixture modules, loading their support trees again despite removing its direct duplicate assertions declaration."
+observed = "The signer_ingress test target imports authority_grant, disclosure_call, disclosure, native_fee_grant and remote as fixture modules, loading their support trees again despite removing its direct duplicate assertions declaration."
 repair = "Record all five duplicate_mod diagnostics and their per-file counts from the final verification log; stop without bypassing the repair budget or claiming qualification."
 
 
@@ -2365,7 +2365,7 @@ assertions = "Preserve all carried-over repairs, test functions, assertions, pro
 inventory = "Continue the five duplicate_mod diagnostics recorded in attempt_3.remaining_file.1 and .2; the unnecessary_wraps, doc_markdown and expect_used repairs in attempt_3.lint.5 through .7 are already present in the seed."
 
 [attempt_4.lint.1]
-file = "services/agent/crates/layerx-crypto/tests/repair_22_33_1560.rs"
+file = "services/agent/crates/layerx-crypto/tests/signer_ingress.rs"
 line = 38
 lint = "clippy::duplicate_mod"
 repair = "Make the reused authority_grant, disclosure, native_fee_grant and remote fixture modules import crate::support. Explicit Cargo test harnesses declare support once for each standalone binary; the combined target retains its single root support declaration. All fixture test functions remain registered."
@@ -2383,5 +2383,5 @@ verified_revision_reference = "The revision of the last kind=verify row, only wh
 final_count = "0 if the last kind=verify row exits zero; otherwise the remaining diagnostics in that private log are authoritative and qualification is not claimed."
 
 [attempt_4.gotcha.shared_fixture_roots]
-observed = "Standalone integration fixtures that declare mod support load that same source again when included in repair_22_33_1560; disclosure_call also declares the same assertions source used by support."
+observed = "Standalone integration fixtures that declare mod support load that same source again when included in signer_ingress; disclosure_call also declares the same assertions source used by support."
 repair = "Keep the original fixture bodies and use imports of the binary root's module; thin explicit standalone harnesses provide one declaration without conditional compilation or lint allowances."

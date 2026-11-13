@@ -1,6 +1,3 @@
-//! Repair 22.33.1333: payment-codec-retired-dependency.
-//! Proving cases and the baseline constraint are recorded in `src/repair_22_33_1333.kvx`.
-
 #[path = "support/assertions.rs"]
 mod assertions;
 use ed25519_dalek::{Signer as _, SigningKey};

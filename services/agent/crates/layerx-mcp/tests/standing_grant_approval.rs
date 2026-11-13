@@ -1,5 +1,3 @@
-//! Existing-grant disclosure approvals through the authenticated, served web route.
-
 use layerx_mcp_test_support::option_assertion;
 use layerx_mcp_test_support::result_assertion;
 

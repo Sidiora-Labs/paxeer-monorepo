@@ -1,11 +1,3 @@
-//! Task 22.33.1556 repair record, finding `doc_crate`.
-//! Proofs: `doc_crate_examples`, `doc_crate_receipt_keys`, `doc_crate_readiness`,
-//! and `doc_crate_catalogue` exercise the producer shape and production MCP consumers.
-//! Baseline: no prior gate ledger or repair target existed; the implementation-first,
-//! wrapper-only gate order prohibits an extra unchanged-tree verify. No baseline
-//! failure is claimed. No out-of-path wiring is needed; hf-`build/hf-done` record
-//! the exact qualified revision, command, exit and private evidence location.
-
 use layerx_mcp_test_support::option_assertion;
 use layerx_mcp_test_support::result_assertion;
 

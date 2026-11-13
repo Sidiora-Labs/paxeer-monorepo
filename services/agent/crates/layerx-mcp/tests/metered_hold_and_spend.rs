@@ -328,9 +328,11 @@ fn undecodable_stored_spend_is_refused_without_payment() {
                 response["result"]["isError"], true,
                 "{mutation}, ticket={keep_ticket}: {response}"
             );
-            assert_eq!(response["result"]["structuredContent"]["refusal"],
+            assert_eq!(
+                response["result"]["structuredContent"]["refusal"],
                 "the daemon response is unusable: the web spend differs from the disclosure under approval",
-                "{mutation}, ticket={keep_ticket}: {response}");
+                "{mutation}, ticket={keep_ticket}: {response}"
+            );
             assert_eq!(
                 result_assertion::required(registry.ticket(search_key()), "no replacement hold")
                     .is_some(),

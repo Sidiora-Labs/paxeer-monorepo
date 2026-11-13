@@ -1,6 +1,3 @@
-//! Audit 22.30.98: retained calls and bind consent through production signers,
-//! transaction codecs, encrypted key recovery and bounded loopback peers.
-
 use std::future::Future;
 use std::pin::pin;
 use std::sync::Arc;
