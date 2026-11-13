@@ -3,9 +3,9 @@
 Ethereum and Solana source-chain verifiers for the `migration` interop adapter.
 This crate imports provenance against pinned source deployments. Network credits must cross
 the authenticated payment boundary and be checked against network evidence.
-Paxeer mainnet-beta is one
-network (chain ID 125), with the kernel participating in block proposal and
-finality at block commit.
+Paxeer mainnet-beta uses chain ID 125. The LayerX kernel inside `paxd` executes
+and orders each transaction and builds each block; validators check and commit
+it. Finality is at block commit.
 
 Operator contract: [`OPERATIONS.md`](OPERATIONS.md). Workspace index: [`../../README.md`](../../README.md).
 

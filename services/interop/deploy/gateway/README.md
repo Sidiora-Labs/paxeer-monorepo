@@ -1,8 +1,9 @@
 # Interop gateway deployment
 
 The `layerx-interop-gateway` binary is the hosted protocol adapter service for
-one Paxeer network. `paxd` includes the kernel that proposes blocks; EVM chain
-id 125 (`0x7d`) identifies mainnet-beta. Public node JSON-RPC uses the root
+Paxeer mainnet-beta. It uses EVM chain id 125 (`0x7d`). The LayerX kernel inside
+`paxd` executes and orders each transaction and builds each block; validators
+check and commit it. Public node JSON-RPC uses the root
 path. The hosted gateway in `services/platform/hosted/gateway` supplies the
 `px_*` methods, registration and funding; its contract is `openrpc.json`.
 Sub-chains are tenant domains in the database, not additional node deployments.
