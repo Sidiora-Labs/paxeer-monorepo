@@ -1,6 +1,9 @@
 # Paxeer boundary
 
-Paxeer mainnet-beta is one BFT network, running `paxd`, with EVM chain ID **125** (`0x7d`). The kernel is part of the network and proposes blocks. LayerX execution and accounting are integrated into the node; a receipt is final when its block is committed.
+Paxeer mainnet-beta runs `paxd` with EVM chain ID **125** (`0x7d`). The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. LayerX execution and accounting are integrated
+into the node; a receipt is final when its block is committed.
 
 The former custody relay and checkpoint-settlement topology is retired. There is no separate LayerX interface, router, or sequencer service to deploy. The retired `layerxd` binary and `layerx-paxeer-client` crate are not prerequisites for connecting to the merged network.
 

@@ -7,10 +7,10 @@ Its implementation is
 [`include/layerx/lx_spot.h`](../../include/layerx/lx_spot.h) and
 [`src/modules/spot/`](../../src/modules/spot/).
 
-Spot executes in the integrated kernel inside `paxd`. Paxeer is one BFT network
-with EVM chain ID `125` (`0x7d`); its kernel participates in block proposal, and a
-receipt is final when its block is committed. See
-[Unified Network Architecture](UnifiedNetwork.md).
+Spot executes in the integrated kernel inside `paxd`. Paxeer uses EVM chain ID
+`125` (`0x7d`). The LayerX kernel inside `paxd` executes and orders each
+transaction and builds each block; validators check and commit it. A receipt is
+final when its block is committed. See [Unified Network Architecture](UnifiedNetwork.md).
 
 ---
 

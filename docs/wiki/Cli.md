@@ -6,9 +6,10 @@
 dispatch live in [main.rs](../../tools/platform/cli/src/main.rs).
 The stable graph anchor returned by `platform_cli()` is `layerx-cli-v1`.
 
-Paxeer mainnet-beta is one BFT network, running `paxd`, with EVM chain ID
-`125` (`0x7d`). The kernel is part of the network and proposes blocks. A
-transaction receipt is final once its block is committed. Sub-chains are
+Paxeer mainnet-beta runs `paxd` with EVM chain ID `125` (`0x7d`). The LayerX
+kernel inside `paxd` executes and orders each transaction and builds each block;
+validators check and commit it. A transaction receipt is final once its block is
+committed. Sub-chains are
 tenant domains in the database, without separate node infrastructure.
 See [Public RPC](PublicRpc.md) for node access and
 [Programs](Programs.md) for program concepts.
