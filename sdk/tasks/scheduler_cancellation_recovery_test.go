@@ -16,11 +16,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func repairM631Tracing() *tracing.Info {
-	return tracing.NewTracingInfo(trace.NewNoopTracerProvider().Tracer("repair-m631"), true)
+func schedulerBehaviorTracing() *tracing.Info {
+	return tracing.NewTracingInfo(trace.NewNoopTracerProvider().Tracer("scheduler-behavior"), true)
 }
 
-func TestRepairM_631_CancelBeforeDispatch(t *testing.T) {
+func TestCancellationBeforeDispatch(t *testing.T) {
 	for _, empty := range []bool{false, true} {
 		for _, expired := range []bool{false, true} {
 			t.Run(fmt.Sprintf("empty=%t/deadline=%t", empty, expired), func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestRepairM_631_CancelBeforeDispatch(t *testing.T) {
 				kv := ctx.MultiStore().GetKVStore(testStoreKey)
 				kv.Set(itemKey, []byte("before"))
 				var calls atomic.Int32
-				s := NewScheduler(2, repairM631Tracing(), func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) types.ResponseDeliverTx {
+				s := NewScheduler(2, schedulerBehaviorTracing(), func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) types.ResponseDeliverTx {
 					calls.Add(1)
 					ctx.MultiStore().GetKVStore(testStoreKey).Set(itemKey, req.Tx)
 					return types.ResponseDeliverTx{Info: string(req.Tx)}
@@ -59,7 +59,7 @@ func TestRepairM_631_CancelBeforeDispatch(t *testing.T) {
 	}
 }
 
-func TestRepairM_631_CancelDuringExecutionJoinsWorkers(t *testing.T) {
+func TestCancellationDuringExecutionJoinsWorkers(t *testing.T) {
 	for _, synchronous := range []bool{false, true} {
 		t.Run(fmt.Sprintf("synchronous=%t", synchronous), func(t *testing.T) {
 			batchCtx, cancel := context.WithCancel(context.Background())
@@ -69,7 +69,7 @@ func TestRepairM_631_CancelDuringExecutionJoinsWorkers(t *testing.T) {
 			kv.Set(itemKey, []byte("before"))
 			started, cancelled, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
 			var active, calls atomic.Int32
-			s := NewScheduler(1, repairM631Tracing(), func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) types.ResponseDeliverTx {
+			s := NewScheduler(1, schedulerBehaviorTracing(), func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) types.ResponseDeliverTx {
 				active.Add(1)
 				defer active.Add(-1)
 				calls.Add(1)
@@ -138,7 +138,7 @@ func TestRepairM_631_CancelDuringExecutionJoinsWorkers(t *testing.T) {
 	}
 }
 
-func TestRepairM_631_SchedulerReuse(t *testing.T) {
+func TestSchedulerReuse(t *testing.T) {
 	reader := oteltest.Install()
 	beforeRetries, beforeIncarnations := retries(reader), incarnations(reader)
 	first, second := initTestCtx(true), initTestCtx(true)
@@ -146,7 +146,7 @@ func TestRepairM_631_SchedulerReuse(t *testing.T) {
 	second.MultiStore().GetKVStore(testStoreKey).Set(itemKey, []byte("second"))
 	secondRead := make(chan struct{})
 	var attempts [2]atomic.Int32
-	s := NewScheduler(2, repairM631Tracing(), func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx) {
+	s := NewScheduler(2, schedulerBehaviorTracing(), func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx) {
 		defer abortRecoveryFunc(&res)
 		attempt := attempts[ctx.TxIndex()].Add(1)
 		kv := ctx.MultiStore().GetKVStore(testStoreKey)
@@ -176,7 +176,7 @@ func TestRepairM_631_SchedulerReuse(t *testing.T) {
 	require.Equal(t, int32(2), attempts[1].Load())
 	require.Equal(t, afterRetries, retries(reader), "refused batches must not emit stale retry counts")
 	require.Equal(t, afterIncarnations, incarnations(reader))
-	fresh := NewScheduler(1, repairM631Tracing(), func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) types.ResponseDeliverTx {
+	fresh := NewScheduler(1, schedulerBehaviorTracing(), func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) types.ResponseDeliverTx {
 		kv := ctx.MultiStore().GetKVStore(testStoreKey)
 		previous := kv.Get(itemKey)
 		kv.Set(itemKey, []byte("fresh"))
@@ -191,20 +191,20 @@ func TestRepairM_631_SchedulerReuse(t *testing.T) {
 	require.Equal(t, afterIncarnations, incarnations(reader))
 }
 
-func TestRepairM_631_ValidationOrder(t *testing.T) {
+func TestValidationOrder(t *testing.T) {
 	t.Run("read_conflict", func(t *testing.T) { proveProcessAllOrderedRerun(t, false) })
 	t.Run("iterator_conflict", func(t *testing.T) { proveProcessAllOrderedRerun(t, true) })
 }
 
-func TestRepairM_631_RerunDriver(t *testing.T) {
+func TestRerunDriver(t *testing.T) {
 	t.Run("ProcessAll", TestProcessAllRetriesLowerIndexBeforeReader)
 	t.Run("direct_invalidation", TestShouldRerunInvalidatesValidatedTaskOnNewConflict)
 	t.Run("unchanged_read", TestShouldRerunKeepsValidatedTaskWithoutConflict)
 }
 
-func TestRepairM_631_MixedConflictResponses(t *testing.T) {
+func TestMixedConflictResponses(t *testing.T) {
 	ctx := initTestCtx(true)
-	s := NewScheduler(12, repairM631Tracing(), func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx) {
+	s := NewScheduler(12, schedulerBehaviorTracing(), func(ctx sdk.Context, req types.RequestDeliverTxV2, tx sdk.Tx, checksum [32]byte) (res types.ResponseDeliverTx) {
 		defer abortRecoveryFunc(&res)
 		if ctx.TxIndex()%10 != 0 {
 			return types.ResponseDeliverTx{Info: "none"}
