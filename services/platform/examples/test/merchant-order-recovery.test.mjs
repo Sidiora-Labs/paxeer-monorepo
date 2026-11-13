@@ -225,7 +225,7 @@ function worker(t, options) {
 }
 
 async function fixture(t, overrides = {}) {
-  const directory = await mkdtemp(join(tmpdir(), "layerx-repair-1474-"));
+  const directory = await mkdtemp(join(tmpdir(), "layerx-merchant-order-"));
   const transactions = new Map();
   const requests = [];
   const failures = [];
@@ -324,21 +324,21 @@ async function fixture(t, overrides = {}) {
   const peer = await listen(server);
   const environment = {
     LAYERX_EXAMPLE_STATE_ROOT: directory,
-    REPAIR_1474_TOKEN: "loopback-settlement-token",
-    REPAIR_1474_CUSTOMERS: JSON.stringify(customers),
-    REPAIR_1474_KEYS: JSON.stringify([{ keyId: hex(keyId), publicKey: hex(publicKey), firstHeight: "1", lastHeight: "1000" }]),
-    REPAIR_1474_WEBHOOK_KEYS: JSON.stringify({ merchant: hex(publicKey) }),
-    REPAIR_1474_ASSET: hex(asset), REPAIR_1474_PAYEE: hex(payee),
-    REPAIR_1474_ACCOUNT: "agent:merchant:main", REPAIR_1474_CURRENCY: "USD", REPAIR_1474_PRICE: "25",
+    MERCHANT_ORDER_TOKEN: "loopback-settlement-token",
+    MERCHANT_ORDER_CUSTOMERS: JSON.stringify(customers),
+    MERCHANT_ORDER_KEYS: JSON.stringify([{ keyId: hex(keyId), publicKey: hex(publicKey), firstHeight: "1", lastHeight: "1000" }]),
+    MERCHANT_ORDER_WEBHOOK_KEYS: JSON.stringify({ merchant: hex(publicKey) }),
+    MERCHANT_ORDER_ASSET: hex(asset), MERCHANT_ORDER_PAYEE: hex(payee),
+    MERCHANT_ORDER_ACCOUNT: "agent:merchant:main", MERCHANT_ORDER_CURRENCY: "USD", MERCHANT_ORDER_PRICE: "25",
   };
   const config = {
     application: "merchant-checkout", directory, stateDirectory: "state", publicUrl: "http://127.0.0.1",
     scheme: "exact", rpcUrl: peer + "/", settlementUrl: peer + "/settle",
-    tokenEnvironment: "REPAIR_1474_TOKEN", customerCredentialsEnvironment: "REPAIR_1474_CUSTOMERS",
-    receiptKeysEnvironment: "REPAIR_1474_KEYS", webhookKeysEnvironment: "REPAIR_1474_WEBHOOK_KEYS",
-    assetEnvironment: "REPAIR_1474_ASSET", payToEnvironment: "REPAIR_1474_PAYEE",
-    accountEnvironment: "REPAIR_1474_ACCOUNT", currencyEnvironment: "REPAIR_1474_CURRENCY",
-    priceEnvironment: "REPAIR_1474_PRICE", transportLimits: { timeoutMs: 250, maxResponseBytes: 8192 },
+    tokenEnvironment: "MERCHANT_ORDER_TOKEN", customerCredentialsEnvironment: "MERCHANT_ORDER_CUSTOMERS",
+    receiptKeysEnvironment: "MERCHANT_ORDER_KEYS", webhookKeysEnvironment: "MERCHANT_ORDER_WEBHOOK_KEYS",
+    assetEnvironment: "MERCHANT_ORDER_ASSET", payToEnvironment: "MERCHANT_ORDER_PAYEE",
+    accountEnvironment: "MERCHANT_ORDER_ACCOUNT", currencyEnvironment: "MERCHANT_ORDER_CURRENCY",
+    priceEnvironment: "MERCHANT_ORDER_PRICE", transportLimits: { timeoutMs: 250, maxResponseBytes: 8192 },
     ...overrides,
   };
   async function start(boundary) {
@@ -833,7 +833,7 @@ if (process.argv[2] === "--application-worker") {
     process.disconnect();
   }
 } else {
-  test(async function repair22331474(t) {
+  test(async function merchantOrderRecovery(t) {
     await t.test(merchantOrderReadAuth);
     await t.test(merchantCheckoutPrincipalAuth);
     await t.test(merchantTransportUnbounded);

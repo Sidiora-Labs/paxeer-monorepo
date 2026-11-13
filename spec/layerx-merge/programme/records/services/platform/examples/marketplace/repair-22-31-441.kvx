@@ -1,7 +1,7 @@
 [repair.22.31.441]
 base_revision = "84b6cf09552744359c78f419900ba8fcd9bbeaf5"
 implementation = "Remove the marketplace ganache devDependency and refresh the root npm workspace lock, including the buyer-agent manifest's existing undici devDependency metadata."
-proving_test = "services/platform/examples/test/repair-22-31-349.test.mjs::repair2231349"
+proving_test = "services/platform/examples/test/marketplace-lifecycle-anchor.test.mjs::marketplaceLifecycleAnchor"
 production_module = "services/platform/examples/marketplace/deploy-payload.mjs; readLifecycleAnchor and marketplaceCallRequest run through their real SDK imports and HTTP transport."
 fixture_source = "services/platform/examples/test/marketplace-chain-125.fixture.json; 23 JSON-RPC request/result exchanges recorded from Ganache 7.9.2 using the deterministic chain-125, 2026-01-01 genesis, one-second blocks, funded deriveFromSeed(fill(7)) account and storage/echo runtime of the original repair test at base_revision."
 fixture_provenance = "The original repair committed a Ganache scenario but no RPC transcript; this task re-records that scenario during fixture authoring, signing its deployment/list/buy transactions with eth_signTransaction and capturing eth_sendRawTransaction, receipts, blocks, nonces, transaction inputs, eth_call, code and storage results. The fixture contains no private key."

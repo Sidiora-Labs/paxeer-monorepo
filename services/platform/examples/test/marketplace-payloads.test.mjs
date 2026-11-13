@@ -24,9 +24,9 @@ registerHooks({
   },
 });
 
-async function repair22331408() {
+async function marketplacePayloads() {
   await import("../marketplace/test/deploy-payload.test.mjs");
   await import("../marketplace/test/receipt-outcome.test.mjs");
 }
 
-await repair22331408();
+await marketplacePayloads();

@@ -32,7 +32,7 @@ repair = "Import the example in place, resolve its declared dependencies from it
 
 [qualification.continuation]
 source_attempt_revision = "079af126c1a2a461d46771489b4ab59f6c084e06"
-command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/agent run build && node --test services/platform/examples/test/repair-22-33-1364.test.mjs"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/agent run build && node --test services/platform/examples/test/wallet-review-recovery.test.mjs"
 evidence = "The final unchanged candidate revision and private build/verify logs are recorded by hf-build and hf-done in the runner ledger. No baseline or manual verification rerun is performed."
 lockfile = "Refresh the root workspace package-lock.json from the updated example manifest before the declared npm ci gate; the prior attempt lock still described the old dependency and engine declarations."
 

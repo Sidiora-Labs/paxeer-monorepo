@@ -53,7 +53,7 @@ async function readMessage(request) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-export async function createMerchantRepairFixture(context) {
+export async function createMerchantSettlementFixture(context) {
   const directory = await mkdtemp(join(tmpdir(), "merchant-shop-origins-"));
   const sequencer = await ConformanceSequencer.generate();
   const key = sequencer.receiptKey();
