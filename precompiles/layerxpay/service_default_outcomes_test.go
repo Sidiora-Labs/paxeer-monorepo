@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRepair_132_DefaultEventLoss(t *testing.T) {
+func TestServiceDefaultOutcomeEvents(t *testing.T) {
 	for _, method := range []string{"serviceAccept", "serviceReject"} {
 		for requested := 0; requested < 2; requested++ {
 			t.Run(fmt.Sprintf("%s_requested_%d", method, requested), func(t *testing.T) {
