@@ -201,17 +201,17 @@ def test_finding_36_historical_proofs_preserve_refusals_without_direct_wire_impo
     ):
         assert fact in historical, fact
     for path in (
-        "tests/repair_22_31_188.rs",
-        "tests/repair_22_31_340.rs",
-        "src/repair_22_33_1328_authority.rs",
+        "tests/authority_and_consumer.rs",
+        "tests/network_authority.rs",
+        "src/authority_receipt_support.rs",
     ):
         assert "layerx_proof::inclusion::verify_header(" in (WEBHOOKS / path).read_text()
-    preserved = (WEBHOOKS / "tests/repair_22_31_340.rs").read_text()
+    preserved = (WEBHOOKS / "tests/network_authority.rs").read_text()
     assert "layerx_proof::receipt::verify_sequencer_signature(" in preserved
     assert "assert_eq!(facts.resulting_state_root, header.resulting_state_root());" in preserved
     assert "foreign network {foreign} must not establish receipt authority" in preserved
     assert 'let foreign_networks = ["testnet", "foreign-network", "layerx-testnet-other"]' in preserved
-    support = (WEBHOOKS / "src/repair_22_33_1328_authority.rs").read_text()
+    support = (WEBHOOKS / "src/authority_receipt_support.rs").read_text()
     for refusal in ("null evidence", "unknown field", "foreign protocol network", "receipt mismatch"):
         assert f'"{refusal}"' in support
     assert 'field("sequencer_id_hex")' in support

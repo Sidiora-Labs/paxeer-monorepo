@@ -200,8 +200,8 @@ def test_precompile_unknown_and_unavailable_documented_outcomes():
 def test_precompile_real_rust_integration_is_registered():
     manifest = tomllib.loads(source("sig-provider-server/Cargo.toml"))
     targets = [item for item in manifest["test"] if item["name"] == "repair_22_33_312"]
-    assert targets == [{"name": "repair_22_33_312", "path": "../tests/repair_22_33_312.rs"}]
-    rust = source("tests/repair_22_33_312.rs")
+    assert targets == [{"name": "repair_22_33_312", "path": "../tests/documented_abi_http.rs"}]
+    rust = source("tests/documented_abi_http.rs")
     assert "use sig_provider_server::{new_service, Service, SourcesSettings};" in rust
     assert "route_abi_service(config, service.clone());" in rust
     assert "HttpServer::new" in rust and 'TcpListener::bind("127.0.0.1:0")' in rust

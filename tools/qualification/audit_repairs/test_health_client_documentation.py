@@ -159,7 +159,7 @@ def test_doc_13_documented_example_and_committed_lifecycle_validate():
     assert recording["request"] == {"method": "GET", "urlPath": "/api/health"}
     assert recording["response"]["status"] == 200
     validator(spec, 200).validate(json.loads(recording["response"]["body"]))
-    cases = json.loads(source("crate/tests/health/repair_22_31_269.json"))
+    cases = json.loads(source("crate/tests/health/controller_lifecycle.json"))
     assert [case["case"] for case in cases] == ["healthy", "no_blocks", "stale", "rollup", "media_worker"]
     for case in cases:
         validator(spec, case["status"]).validate(case["body"])
@@ -222,7 +222,7 @@ def test_doc_13_controller_and_generated_consumer_preserve_documented_fields():
 def test_doc_13_real_client_integration_is_registered_and_disclosed():
     manifest = tomllib.loads(source("crate/Cargo.toml"))
     targets = [item for item in manifest["test"] if item["name"] == "repair_22_33_360"]
-    assert targets == [{"name": "repair_22_33_360", "path": "../../tests/repair_22_33_360.rs"}]
+    assert targets == [{"name": "repair_22_33_360", "path": "../../tests/health_client_contract.rs"}]
     rust = (CLIENT / "crate" / targets[0]["path"]).read_text()
     record = tomllib.loads(RECORD.read_text())
     cases = re.findall(r"#\[tokio::test\]\s*async fn (\w+)\(", rust)
@@ -234,7 +234,7 @@ def test_doc_13_real_client_integration_is_registered_and_disclosed():
         "Error::ResponseError(response)", "HealthError::Status500(model)",
         'assert_eq!(response.content, body)', "assert_preserved(&produced",
         "client.health_api().health_v1().await", "Error::UnsupportedCapability(_)",
-        "_api_health.json", "health/repair_22_31_269.json",
+        "_api_health.json", "health/controller_lifecycle.json",
     ):
         assert fact in rust
     assert "it does not execute Rust or Elixir" in document()

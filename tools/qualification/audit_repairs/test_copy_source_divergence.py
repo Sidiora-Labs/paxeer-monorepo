@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[3]
 TOOLS = ROOT / "services/explorer/deploy/tools"
 SCRIPT = TOOLS / "tests/copy-blockscout-test.sh"
 SPEC = importlib.util.spec_from_file_location(
-    "copy_protocol_support", TOOLS / "test_repair_22_33_310.py"
+    "copy_protocol_support", TOOLS / "test_copy_session.py"
 )
 SUPPORT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SUPPORT)
