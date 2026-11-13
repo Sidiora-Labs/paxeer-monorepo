@@ -36,7 +36,7 @@ import (
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 )
 
-func repairM571Keeper(t *testing.T) (sdk.Context, keeper.Keeper, *codec.ProtoCodec) {
+func newMinterProposalKeeper(t *testing.T) (sdk.Context, keeper.Keeper, *codec.ProtoCodec) {
 	t.Helper()
 	db := tmdb.NewMemDB()
 	stores := store.NewCommitMultiStore(db)
@@ -64,7 +64,7 @@ func repairM571Keeper(t *testing.T) (sdk.Context, keeper.Keeper, *codec.ProtoCod
 	return ctx, k, cdc
 }
 
-func repairM571Refusal(t *testing.T, ctx sdk.Context, k keeper.Keeper, proposal *types.UpdateMinterProposal, want error) {
+func assertMinterProposalRefusal(t *testing.T, ctx sdk.Context, k keeper.Keeper, proposal *types.UpdateMinterProposal, want error) {
 	t.Helper()
 	before := append([]byte(nil), ctx.KVStore(k.GetStoreKey()).Get(types.MinterKey)...)
 	params := k.GetParams(ctx)
@@ -83,10 +83,10 @@ func repairM571Refusal(t *testing.T, ctx sdk.Context, k keeper.Keeper, proposal 
 	}
 }
 
-func TestRepairM_571_MissingContent(t *testing.T) {
+func TestUpdateMinterProposalMissingContent(t *testing.T) {
 	for _, transport := range []string{"omitted", "null", "protobuf"} {
 		t.Run(transport, func(t *testing.T) {
-			ctx, k, cdc := repairM571Keeper(t)
+			ctx, k, cdc := newMinterProposalKeeper(t)
 			var proposal types.UpdateMinterProposal
 			if transport == "protobuf" {
 				original := &types.UpdateMinterProposal{Title: "Update minter", Description: "Replace the release"}
@@ -111,25 +111,25 @@ func TestRepairM_571_MissingContent(t *testing.T) {
 			require.NotPanics(t, func() { err = proposal.ValidateBasic() })
 			require.ErrorIs(t, err, govtypes.ErrInvalidProposalContent)
 			require.ErrorContains(t, err, "minter cannot be nil")
-			repairM571Refusal(t, ctx, k, &proposal, err)
+			assertMinterProposalRefusal(t, ctx, k, &proposal, err)
 		})
 	}
 }
 
-func TestRepairM_571_NilProposal(t *testing.T) {
-	ctx, k, _ := repairM571Keeper(t)
+func TestUpdateMinterNilProposal(t *testing.T) {
+	ctx, k, _ := newMinterProposalKeeper(t)
 	var proposal *types.UpdateMinterProposal
 	var err error
 	require.NotPanics(t, func() { err = proposal.ValidateBasic() })
 	require.ErrorIs(t, err, govtypes.ErrInvalidProposalContent)
 	require.ErrorContains(t, err, "proposal cannot be nil")
-	repairM571Refusal(t, ctx, k, proposal, err)
+	assertMinterProposalRefusal(t, ctx, k, proposal, err)
 	before := append([]byte(nil), ctx.KVStore(k.GetStoreKey()).Get(types.MinterKey)...)
 	require.Error(t, mint.NewProposalHandler(k)(ctx, nil))
 	require.Equal(t, before, ctx.KVStore(k.GetStoreKey()).Get(types.MinterKey))
 }
 
-func TestRepairM_571_InvalidMinter(t *testing.T) {
+func TestUpdateMinterProposalInvalidMinter(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		change func(*types.Minter)
@@ -140,7 +140,7 @@ func TestRepairM_571_InvalidMinter(t *testing.T) {
 		{"invalid_denom", func(m *types.Minter) { m.Denom = "invalid" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, k, cdc := repairM571Keeper(t)
+			ctx, k, cdc := newMinterProposalKeeper(t)
 			proposal := types.NewUpdateMinterProposalHandler("Update minter", "Replace the release", types.NewMinter("2030-01-01", "2030-01-11", "uhpx", 1000))
 			tc.change(proposal.Minter)
 			wire, err := cdc.Marshal(proposal)
@@ -149,12 +149,12 @@ func TestRepairM_571_InvalidMinter(t *testing.T) {
 			require.NoError(t, cdc.Unmarshal(wire, &decoded))
 			want := decoded.ValidateBasic()
 			require.Error(t, want)
-			repairM571Refusal(t, ctx, k, &decoded, want)
+			assertMinterProposalRefusal(t, ctx, k, &decoded, want)
 		})
 	}
 }
 
-func repairM571Generate(t *testing.T, cdc *codec.ProtoCodec, body []byte) *types.UpdateMinterProposal {
+func generateMinterProposal(t *testing.T, cdc *codec.ProtoCodec, body []byte) *types.UpdateMinterProposal {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "minter_prop.json")
 	require.NoError(t, os.WriteFile(path, body, 0o600))
@@ -162,7 +162,7 @@ func repairM571Generate(t *testing.T, cdc *codec.ProtoCodec, body []byte) *types
 	proposer := sdk.AccAddress(bytes.Repeat([]byte{0x57}, 20))
 	txConfig := authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
 	clientCtx := client.Context{}.WithCodec(cdc).WithInterfaceRegistry(cdc.InterfaceRegistry()).
-		WithTxConfig(txConfig).WithKeyring(keyring.NewInMemory()).WithChainID("mint-repair-571").
+		WithTxConfig(txConfig).WithKeyring(keyring.NewInMemory()).WithChainID("mint-governance").
 		WithFrom(proposer.String()).WithFromAddress(proposer).WithOffline(true).WithOutput(&output)
 	root := govcli.NewTxCmd([]*cobra.Command{mintcli.UpdateMinterHandler.CLIHandler()})
 	root.SilenceErrors = true
@@ -189,7 +189,7 @@ func repairM571Generate(t *testing.T, cdc *codec.ProtoCodec, body []byte) *types
 	return content
 }
 
-func TestRepairM_571_ReadmeProposals(t *testing.T) {
+func TestReadmeMinterProposals(t *testing.T) {
 	readme, err := os.ReadFile("README.md")
 	require.NoError(t, err)
 	blocks := regexp.MustCompile("(?s)```json\\n(.*?)\\n```").FindAllSubmatch(readme, -1)
@@ -198,11 +198,11 @@ func TestRepairM_571_ReadmeProposals(t *testing.T) {
 	require.Len(t, beforeBlocks, 1)
 	for index, name := range []string{"fresh", "ongoing"} {
 		t.Run(name, func(t *testing.T) {
-			ctx, k, cdc := repairM571Keeper(t)
+			ctx, k, cdc := newMinterProposalKeeper(t)
 			var submitted types.UpdateMinterProposal
 			require.NoError(t, cdc.UnmarshalAsJSON(blocks[index][1], &submitted))
 			require.NoError(t, submitted.ValidateBasic())
-			proposal := repairM571Generate(t, cdc, blocks[index][1])
+			proposal := generateMinterProposal(t, cdc, blocks[index][1])
 			require.Equal(t, &submitted, proposal)
 			if name == "fresh" {
 				want := types.NewMinter("2030-01-01", "2030-01-11", "uhpx", 100000)

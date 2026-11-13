@@ -24,7 +24,7 @@ import (
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 )
 
-func repairM572ClientContext() client.Context {
+func minterProposalClientContext() client.Context {
 	registry := cdctypes.NewInterfaceRegistry()
 	std.RegisterInterfaces(registry)
 	govtypes.RegisterInterfaces(registry)
@@ -42,7 +42,7 @@ func repairM572ClientContext() client.Context {
 		WithOffline(true)
 }
 
-func repairM572RunProposal(t *testing.T, clientCtx client.Context, path string, args ...string) (string, error) {
+func runMinterProposal(t *testing.T, clientCtx client.Context, path string, args ...string) (string, error) {
 	t.Helper()
 	var output bytes.Buffer
 	clientCtx = clientCtx.WithOutput(&output)
@@ -60,14 +60,14 @@ func repairM572RunProposal(t *testing.T, clientCtx client.Context, path string, 
 	return output.String(), err
 }
 
-func repairM572ProposalFile(t *testing.T, contents []byte) string {
+func writeMinterProposalFile(t *testing.T, contents []byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "minter proposal.json")
 	require.NoError(t, os.WriteFile(path, contents, 0o600))
 	return path
 }
 
-func TestRepairM_572_MalformedProposalFiles(t *testing.T) {
+func TestUpdateMinterMalformedProposalFiles(t *testing.T) {
 	testCases := []struct {
 		name string
 		body string
@@ -81,15 +81,15 @@ func TestRepairM_572_MalformedProposalFiles(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			clientCtx := repairM572ClientContext()
-			path := repairM572ProposalFile(t, []byte(tc.body))
+			clientCtx := minterProposalClientContext()
+			path := writeMinterProposalFile(t, []byte(tc.body))
 			var proposal types.UpdateMinterProposal
 			decodeErr := clientCtx.Codec.UnmarshalAsJSON([]byte(tc.body), &proposal)
 			require.Error(t, decodeErr, "fixture must fail the real protobuf decoder")
 
 			for _, deposit := range []string{"1250uhpx", "invalid-deposit"} {
 				t.Run(deposit, func(t *testing.T) {
-					output, err := repairM572RunProposal(t, clientCtx, path, "--deposit", deposit)
+					output, err := runMinterProposal(t, clientCtx, path, "--deposit", deposit)
 					require.EqualError(t, err, fmt.Sprintf("decode minter proposal file %q: %s", path, decodeErr))
 					require.EqualError(t, errors.Unwrap(err), decodeErr.Error())
 					require.Empty(t, output, "bad files must return before transaction generation or broadcast")
@@ -99,8 +99,8 @@ func TestRepairM_572_MalformedProposalFiles(t *testing.T) {
 	}
 }
 
-func TestRepairM_572_ValidProposalFile(t *testing.T) {
-	clientCtx := repairM572ClientContext()
+func TestUpdateMinterValidProposalFile(t *testing.T) {
+	clientCtx := minterProposalClientContext()
 	minter := types.NewMinter("2026-01-01", "2026-12-31", "uhpx", 1000)
 	minter.RemainingMintAmount = 750
 	minter.LastMintDate = "2026-01-03"
@@ -110,9 +110,9 @@ func TestRepairM_572_ValidProposalFile(t *testing.T) {
 	require.NoError(t, proposal.ValidateBasic())
 	contents, err := clientCtx.Codec.MarshalAsJSON(proposal)
 	require.NoError(t, err)
-	path := repairM572ProposalFile(t, contents)
+	path := writeMinterProposalFile(t, contents)
 
-	output, err := repairM572RunProposal(t, clientCtx, path,
+	output, err := runMinterProposal(t, clientCtx, path,
 		"--generate-only", "--offline", "--from", clientCtx.From,
 		"--deposit", "1250uhpx")
 	require.NoError(t, err)
@@ -133,9 +133,9 @@ func TestRepairM_572_ValidProposalFile(t *testing.T) {
 	require.NoError(t, msg.ValidateBasic())
 }
 
-func TestRepairM_572_UnreadableProposalFile(t *testing.T) {
+func TestUpdateMinterUnreadableProposalFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing proposal.json")
-	output, err := repairM572RunProposal(t, repairM572ClientContext(), path, "--deposit", "1250uhpx")
+	output, err := runMinterProposal(t, minterProposalClientContext(), path, "--deposit", "1250uhpx")
 	require.ErrorContains(t, err, fmt.Sprintf("read minter proposal file %q:", path))
 	require.ErrorIs(t, err, os.ErrNotExist)
 	var pathErr *os.PathError

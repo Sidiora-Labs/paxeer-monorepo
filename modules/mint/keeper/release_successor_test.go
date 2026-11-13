@@ -24,7 +24,7 @@ import (
 	tmdb "github.com/tendermint/tm-db"
 )
 
-type repair18MintNode struct {
+type mintReleaseNode struct {
 	stores storetypes.CommitMultiStore
 	ctx    sdk.Context
 	mint   mintkeeper.Keeper
@@ -33,7 +33,7 @@ type repair18MintNode struct {
 	closed bool
 }
 
-func (n *repair18MintNode) close(t *testing.T) {
+func (n *mintReleaseNode) close(t *testing.T) {
 	t.Helper()
 	if !n.closed {
 		require.NoError(t, n.stores.Close())
@@ -41,11 +41,11 @@ func (n *repair18MintNode) close(t *testing.T) {
 	}
 }
 
-func openRepair18MintNode(t *testing.T, directory string) *repair18MintNode {
+func openMintReleaseNode(t *testing.T, directory string) *mintReleaseNode {
 	t.Helper()
-	db, err := tmdb.NewGoLevelDB("mint-repair-18", directory)
+	db, err := tmdb.NewGoLevelDB("mint-release", directory)
 	require.NoError(t, err)
-	n := &repair18MintNode{stores: store.NewCommitMultiStore(db)}
+	n := &mintReleaseNode{stores: store.NewCommitMultiStore(db)}
 	t.Cleanup(func() { n.close(t) })
 	keys := sdk.NewKVStoreKeys(minttypes.StoreKey, epochtypes.StoreKey,
 		authtypes.StoreKey, banktypes.StoreKey, paramtypes.ModuleName)
@@ -82,7 +82,7 @@ func openRepair18MintNode(t *testing.T, directory string) *repair18MintNode {
 	return n
 }
 
-func (n *repair18MintNode) nextEpoch(t *testing.T) {
+func (n *mintReleaseNode) nextEpoch(t *testing.T) {
 	t.Helper()
 	epoch := n.epoch.GetEpoch(n.ctx)
 	n.ctx = n.ctx.WithBlockHeight(n.ctx.BlockHeight() + 1).
@@ -92,7 +92,7 @@ func (n *repair18MintNode) nextEpoch(t *testing.T) {
 	require.Equal(t, epoch.CurrentEpoch+1, n.epoch.GetEpoch(n.ctx).CurrentEpoch)
 }
 
-func TestRepair_18_ReleaseSuccessorAfterRestart(t *testing.T) {
+func TestReleaseSuccessorAfterRestart(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		firstEnd  string
@@ -105,7 +105,7 @@ func TestRepair_18_ReleaseSuccessorAfterRestart(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			directory := t.TempDir()
-			n := openRepair18MintNode(t, directory)
+			n := openMintReleaseNode(t, directory)
 			start := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 			params := minttypes.NewParams(sdk.DefaultBondDenom, []minttypes.ScheduledTokenRelease{
 				{StartDate: "2026-01-01", EndDate: tc.firstEnd, TokenReleaseAmount: 100},
@@ -119,11 +119,11 @@ func TestRepair_18_ReleaseSuccessorAfterRestart(t *testing.T) {
 			n.mint.SetParams(n.ctx, params)
 			n.epoch.SetEpoch(n.ctx, epochtypes.Epoch{GenesisTime: start, EpochDuration: 24 * time.Hour,
 				CurrentEpochStartTime: start, CurrentEpochHeight: n.ctx.BlockHeight()})
-			holder := sdk.AccAddress([]byte("repair18-holder-addr"))
+			holder := sdk.AccAddress([]byte("mint-release-holder"))
 			existing := sdk.NewCoins(sdk.NewInt64Coin(params.MintDenom, 37))
 			require.NoError(t, n.bank.MintCoins(n.ctx, minttypes.ModuleName, existing))
 			require.NoError(t, n.bank.SendCoinsFromModuleToAccount(n.ctx, minttypes.ModuleName, holder, existing))
-			assertBalances := func(n *repair18MintNode, released int64) {
+			assertBalances := func(n *mintReleaseNode, released int64) {
 				t.Helper()
 				require.Equal(t, sdk.NewInt64Coin(params.MintDenom, 37+released), n.bank.GetSupply(n.ctx, params.MintDenom))
 				require.Equal(t, existing[0], n.bank.GetBalance(n.ctx, holder, params.MintDenom))
@@ -143,7 +143,7 @@ func TestRepair_18_ReleaseSuccessorAfterRestart(t *testing.T) {
 			epoch := n.epoch.GetEpoch(n.ctx)
 			commit := n.stores.Commit(true)
 			n.close(t)
-			n = openRepair18MintNode(t, directory)
+			n = openMintReleaseNode(t, directory)
 			require.Equal(t, commit, n.stores.LastCommitID())
 			require.Equal(t, first, n.mint.GetMinter(n.ctx))
 			require.Equal(t, params, n.mint.GetParams(n.ctx))
@@ -170,7 +170,7 @@ func TestRepair_18_ReleaseSuccessorAfterRestart(t *testing.T) {
 			require.Contains(t, mintEvents[0].Attributes, sdk.NewAttribute(sdk.AttributeKeyAmount, "200").ToKVPair())
 			commit = n.stores.Commit(true)
 			n.close(t)
-			n = openRepair18MintNode(t, directory)
+			n = openMintReleaseNode(t, directory)
 			require.Equal(t, commit, n.stores.LastCommitID())
 			require.Equal(t, second, n.mint.GetMinter(n.ctx))
 			assertBalances(n, 300)
