@@ -1,4 +1,4 @@
-<h1 align="center">Paxeer X Network — LayerX</h1>
+# Paxeer X Network
 
 Paxeer X Network 将支付、程序执行和自主智能体操作整合到同一网络。
 

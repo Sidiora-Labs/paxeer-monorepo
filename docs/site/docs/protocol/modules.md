@@ -48,7 +48,7 @@ system:paxeer-withdrawals
 
 `src/ledger/lx_account_id.c` implements account-name parsing and derivation. The issuance account ID is derived from the `asset:<lowercase hex64 asset_id>:issuance` seed, while `lx_asset_issuance_name` produces its `module:asset:value:` stored name. Program account derivation is domain-separated from principal accounts.
 
-**One record per account and asset.** An `lx_account` holds an account ID, an asset binding, a balance and its account sequence. `agent:<did>:main` is `LX_ACCOUNT_AGENT_MAIN`; `agent:<did>:asset:<hex64>` is `LX_ACCOUNT_AGENT_ASSET` (14). The parser, not an old comment about main accounts, defines that distinction. An account's asset cannot silently rebind after it has been established. The enum is in `include/layerx/lxp_ledger.h`.
+**One record per account and asset.** An `lx_account` holds an account ID, an asset binding, a balance and its account sequence. `agent:<did>:main` is `LX_ACCOUNT_AGENT_MAIN`; `agent:<did>:asset:<hex64>` is `LX_ACCOUNT_AGENT_ASSET` (14). These account types have distinct parsed names. An account's asset cannot silently rebind after it has been established. The enum is in `include/layerx/lxp_ledger.h`.
 
 The activity's identity sequence and a transfer set's account sequence serve different checks. Do not substitute an identity's sequence for the sequence of a different asset account. Opening another per-asset account does not copy the owner's native-account counter.
 
@@ -71,7 +71,7 @@ The header `include/layerx/lx_asset.h` retains ordinal names 1 through 11. The a
 
 Ordinals 6 (`receive`), 7 (`grant_issue`) and 8 (`grant_revoke`) are retired payer-grant operations, not active C module transitions. The decoder rejects them with `LXP_ERR_UNKNOWN_ACTIVITY`. The merged ledger keeper's `Draw`, `IssueGrant` and `RevokeGrant` methods also refuse the retired route with `ErrNoPayerGrant` after their applicable pause and authority checks (`modules/layerxledger/keeper/draw.go` and `grants.go`). Account funding must follow an authorized current transfer path.
 
-Register uses `issuer_kind = 1` for native assets and `2` for Paxeer custody. The current persisted enum is `LX_ASSET_CUSTODY_NATIVE = 1`, `LX_ASSET_CUSTODY_PAXEER = 2`; use the definitions and record validation, rather than the outdated numbering in the header's introductory comment. The canonical record binds issuance authority, custody data and supply.
+Register uses `issuer_kind = 1` for native assets and `2` for Paxeer custody. The persisted enum is `LX_ASSET_CUSTODY_NATIVE = 1`, `LX_ASSET_CUSTODY_PAXEER = 2`. The canonical record binds issuance authority, custody data and supply.
 
 WITHDRAW has a C transition; it is not evidence that every submission API exposes a withdrawal operation. Its payload is `asset_id32 || amount16 || payout_recipient20 || checkpoint_id32 || fee8` (108 bytes). `fee8` must agree with the activity fee limit. The transition debits the admitted principal account into `system:paxeer-withdrawals`, stages a `withdrawal:` record and rejects an already recorded request with `LXP_ERR_WITHDRAWAL_ALREADY_SETTLED`. `lxp_kernel_withdraw_execution_sequence` checks admission facts and refuses an account mismatch with `LXP_ERR_CONTEXT_MISMATCH`. The presence of the legacy `checkpoint_id` field in this encoding does not add a second finality stage to the merged network. Sources: `src/modules/asset/lx_asset_registry.c`, `lx_asset_custody.c` and `src/protocol/lxp_kernel.c`.
 

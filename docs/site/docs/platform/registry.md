@@ -2,11 +2,11 @@
 
 `layerx-program-registry` is the hosted program catalog and source-rebuild service (crate `layerx-platform-registry`). It derives deployment, version, lifecycle, interface and source-verification information from protocol evidence; local files alone do not authorize a current read. Its implementation is in `services/platform/hosted/registry/src/`.
 
-Paxeer mainnet-beta is one BFT network, with the kernel participating in block proposal. A receipt is final when its block commits. Registration and recovery must refer to that committed chain state. The separate receipt-authority topology is retired; it is not an additional finality requirement. Some hosted configuration and replay code still retain that topology, as detailed under [implementation limits](#facts-the-sources-disagree-on-or-leave-unset).
+Paxeer mainnet-beta is one BFT network, with the kernel participating in block proposal. A receipt is final when its block commits. Registration and recovery must refer to that committed chain state. The separate receipt-authority topology is retired; it is not an additional finality requirement. Hosted reads authenticate chain evidence using configured trust and compare the declared evidence sources.
 
 The public EVM JSON-RPC uses chain id **125** (`0x7d`) and the root HTTPS path of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. See [Public RPC](../reference/public-rpc.md). Registry HTTP routes are hosted service routes, not extra public node namespaces. Sub-chains are tenant domains in the database; registering a program does not provision another chain.
 
-The checked-in StatefulSet and Service are named `layerx-program-registry` in `layerx-testnet`. The Service exposes the mTLS registry listener on port **9420**. A separate pod port **9421** serves readiness. The StatefulSet selects `layerx.io/program-registry-boundary=v2` nodes and requires colocation with `app: layerx-node`. Ingress to 9420 admits the gateway, testnet-control and pods labelled `layerx-role: source-publication-operator` (`services/platform/hosted/registry/deployment.yaml`). The manifest is deployment material with the limitations below, not proof that a public deployment is available.
+The checked-in StatefulSet and Service are named `layerx-program-registry` in `layerx-testnet`. The Service exposes the mTLS registry listener on port **9420**. A separate pod port **9421** serves readiness. The StatefulSet selects `layerx.io/program-registry-boundary=v2` nodes and requires colocation with `app: layerx-node`. Ingress to 9420 admits the gateway, testnet-control and pods labelled `layerx-role: source-publication-operator` (`services/platform/hosted/registry/deployment.yaml`). The manifest declares service configuration; availability depends on the running deployment.
 
 ---
 
@@ -39,7 +39,7 @@ The listener parses bounded HTTP/1.1 requests, strips query strings, refuses dup
 | --- | --- | --- | --- |
 | GET | `/healthz` | No bearer | Serving readiness; success is `{"status":"ready","service":"program-registry"}` |
 | GET | `/metrics` | Request | Listener-owned event producer counters |
-| POST | `/__registry/deployments` | Request | Resolve a transaction hash against committed Programs state and journal the deployment |
+| POST | `/__registry/deployments` | Request | Verify canonical deployment admission evidence and journal the deployment |
 | POST | `/__registry/head` | Request | Refresh the observed head from native program state for a supplied program id |
 | POST | `/__registry/sources` | Publication + principal | Mirror a source archive with its pinned build plan |
 | GET | `/v1/programs/registry` | Request | Current receipt-verified catalog of program ids |
@@ -51,18 +51,35 @@ Program ids in route segments are 32 bytes encoded as hexadecimal. Wrong methods
 
 ### Deployment and head admission
 
-Set `LAYERX_REGISTRY_CHAIN_RPC_URL` to a trusted merged-node JSON-RPC endpoint at its root path. `ProgramsChain::new` accepts HTTPS, or HTTP on loopback, and refuses redirects. Reads have a 15-second bound within the request deadline (`src/programs_chain.rs`). This client does not itself query `eth_chainId`; select a node on chain 125.
+`POST /__registry/deployments` accepts canonical `DeploymentProof` bytes, or
+JSON with exactly one `admission` field containing an array of those bytes.
+The running route decodes that proof and verifies it against the configured
+chain trust before admitting a deployment or upgrade. A transaction hash alone
+is insufficient input.
 
-`POST /__registry/deployments` accepts either exactly 32 raw transaction-hash bytes or JSON containing only `transaction_hash` (64 hexadecimal digits, optionally prefixed with `0x`). It does not accept caller-asserted deployment records or proof blobs. The handler:
+`NodeProgramStateSource::verify_stored_deployment` verifies chain-backed
+execution evidence and its current-head binding. Admission checks the program,
+code hash, ABI, version and predecessor. Repeating identical evidence for an
+existing version is accepted; conflicting evidence is refused. The handler
+appends the verified record and proof to one sealed journal envelope, replays
+that journal, then returns HTTP 200 with `program_id`, `code_hash`,
+`abi_version`, `version`, `transaction_hash` and `state: "deployed"`.
+The transaction field is the verified evidence's activity identity. Preserve
+the proof's native and EVM transaction bindings when consuming it.
 
-1. Reads `eth_getTransactionReceipt` and requires a successful receipt with the matching transaction hash, nonzero block hash and nonzero block number.
-2. Requires one unambiguous `ProgramDeployed(bytes32,bytes32)` event from Programs at **`0x000000000000000000000000000000000000101d`**, with consistent transaction/block identities and nonzero program and code hashes.
-3. Calls `getProgram(bytes32)` at that block hash using `requireCanonical: true`. It checks policy, authority, ABI/version, active state and code hash against the event.
-4. Persists the admitted record before returning `200`, including `transaction_hash`, `program_id`, `code_hash`, `abi_version`, `version`, `policy`, `authority`, `block_hash`, `block_number` and `state: deployed`.
+Set `LAYERX_REGISTRY_CHAIN_RPC_URL` to the selected node's JSON-RPC root.
+`ProgramsChain::new` accepts HTTPS, or HTTP on loopback, and refuses redirects.
+Its reads have a 15-second bound within the request deadline
+(`src/programs_chain.rs`). Select chain 125 when provisioning this URL.
 
-These are RPC receipt and canonical-state checks; this admission helper does not independently verify a validator commit proof. Full stored-evidence replay has additional verification requirements below. A successful admission response alone does not establish that the hosted catalog can serve that program.
-
-`POST /__registry/head` accepts JSON containing only `program_id`, with the same optional `0x` prefix. `ProgramsChain::head` obtains a nonzero `eth_blockNumber`, reads that block and its timestamp, and calls `getProgram(bytes32)` and `getStateHead(bytes32)` at the selected height. It checks the ABI encodings and derives `state_root` as Keccak-256 of the returned state-head bytes. This root is the handler's program-state digest, not the block's application root. The timestamp is converted from seconds to milliseconds; caller-supplied sequence/time/root claims are not accepted (`route_chain_head` and `refresh_head` in `src/routes.rs`).
+`POST /__registry/head` accepts JSON containing only `program_id`, a 32-byte
+hexadecimal identifier with an optional `0x` prefix. It obtains the head
+height and timestamp and calls `getProgram(bytes32)` and
+`getStateHead(bytes32)` at that height. It derives `state_root` as Keccak-256
+of the returned state-head bytes and converts the timestamp to milliseconds.
+This is the handler's program-state digest. It is distinct from the block's
+application root. Caller-supplied sequence, time and root claims are refused
+(`route_chain_head` and `refresh_head` in `src/routes.rs`).
 
 ---
 
@@ -96,9 +113,9 @@ The default state root is `/var/lib/layerx-program-registry`, with `journal`, `s
 
 `Registrar::rebuild` re-verifies stored deployment proofs, audits their projections, reconstructs version/interface history and replays completed source-verification records only when deployment provenance, code digest and pinned mirrored build plan agree. It audits the native state-cache filenames and clears in-memory head/balance authority. A restart must obtain fresh chain evidence before publishing current reads; retained files and a previous `ready` response do not suffice.
 
-Synchronization scans program changes within 1024 pages (up to 4096 notices per page), resolves affected programs at the current verified head, stores native state via `eth_call`, restores account evidence, then advances the cursor and observed head. Head verification checks commitment/header evidence against retained chain trust, transaction inclusion and freshness; claimed receipt digest, state root, height and time must match the verified evidence (`src/node_state.rs`, `src/head_attestation.rs`, `src/routes.rs`). The remaining independent-authority comparison is an implementation limitation described below.
+Synchronization scans program changes within 1024 pages (up to 4096 notices per page), resolves affected programs at the current verified head, stores native state via `eth_call`, restores account evidence, then advances the cursor and observed head. Head verification checks commitment/header evidence against retained chain trust, transaction inclusion and freshness; claimed receipt digest, state root, height and time must match the verified evidence (`src/node_state.rs`, `src/head_attestation.rs`, `src/routes.rs`). The authenticated evidence source is compared with the configured authority response before publishing a head.
 
-ABI support is path-specific. Account synchronization skips ABI 1 only when it has no value accounts, restores ABI 2 through the original account protocol, and restores ABI 3/4 through account profile 2. Other ABIs are refused. Stored source-verification provenance and source-deployment selection accept ABI 1–4. The chain-deployment RPC decoder accepts a nonzero ABI value, so admission does **not** imply ABI 5 support throughout hosted reads, restart replay or source verification (`src/routes.rs`, `src/verified.rs`, `src/programs_chain.rs`).
+Account synchronization skips ABI 1 when it has no value accounts, restores ABI 2 through the original account protocol and restores ABI 3–5 through account profile 2. Deployment replay and source-verification records use `VerifiedDeploymentEvidence::admit_abi_version`, which delegates to the runtime policy for guest ABIs 1–5. The deployed artifact, interface and account profile must agree (`src/routes.rs`, `src/verified.rs` and `programs/crates/layerx-programs-registry/src/protocol_evidence.rs`).
 
 Known programs are synchronized before serving current reads. Stale or unavailable head/account evidence yields a typed refusal rather than stale cached success. An empty registry may open before the first protocol head only for the narrowly recognized pending answer (`503` with exactly `{"error":-903}`); reads still need a verified head. This exception does not hide authentication, malformed-proof or transport failures (`current_head_or_pending` in `src/node_state.rs`).
 
@@ -199,22 +216,31 @@ The checked-in deployment derives the replica id, `LAYERX_REGISTRY_KERNEL_GENERA
 
 ## Make targets
 
-`make platform-test-registry` runs the registry crate's offline, locked Cargo tests through `tools/runtime/run-with-clock.sh`. `make platform-hosted-topology-check` invokes the hosted manifest topology checker (`services/platform/Makefile.inc`). These are broader service checks, separate from this documentation page's manifest gate.
+`make platform-test-registry` runs the registry crate's offline, locked Cargo tests through `tools/runtime/run-with-clock.sh`. `make platform-hosted-topology-check` invokes the hosted manifest topology checker (`services/platform/Makefile.inc`).
 
 ---
 
 ## What the tests prove
 
-The repository contains authentication and HTTP-framing tests in `src/auth.rs` and `src/http.rs`; journal interruption, quarantine, legacy-pair and observed-head tests in `tests/journal.rs`; and native admission/state-read coverage in `tests/programs_chain.rs` and `tests/program_state_eth_call.rs`. `tests/journal_chain_trust.rs` covers deployment-journal chain trust, and `tests/readiness.py` exercises serving readiness. Their presence is not a claim that these suites ran for this documentation change or that they qualify a live deployment.
+The repository contains authentication and HTTP-framing tests in `src/auth.rs` and `src/http.rs`; journal interruption, quarantine, legacy-pair and observed-head tests in `tests/journal.rs`; and native admission/state-read coverage in `tests/programs_chain.rs` and `tests/program_state_eth_call.rs`. `tests/journal_chain_trust.rs` covers deployment-journal chain trust, and `tests/readiness.py` exercises serving readiness.
 
 ---
 
-## Facts the sources disagree on or leave unset
+## Chain evidence and replay
 
-The registry's merged-node admission path and hosted replay path are not yet interchangeable. Chain admission journals JSON under `chain-deployments`, while `FileDeploymentJournal::load` scans canonical envelope and legacy deployment/admission units. A JSON admission record is not automatically a replayable envelope, so a successful deployment POST does not guarantee that the hosted GET catalog has ingested it (`src/programs_chain.rs`, `src/journal.rs`, `Registrar::rebuild`).
+Deployment admission and restart replay both verify the stored canonical proof.
+Replayed envelopes rebuild program versions in authenticated sequence order.
+RPC metadata under `chain-deployments` supplements those envelopes and requires
+an already authenticated journal entry; metadata alone does not authorize a
+catalog record.
 
-The retired independent receipt-authority topology remains in the hosted startup/replay client's endpoint and replica checks and in deployment configuration. Cryptographic head verification now consumes chain commitments and transaction proofs, but `parse_head_authority` still requests a second copy of the evidence and checks its replica identity. This is a migration gap, not a second consensus or finality plane (`src/node_state.rs`).
+Current-head verification checks the configured node and authority responses
+for matching sequence, time, receipt digest, state root and chain evidence.
+It validates the declared authority identity, then verifies the signed head,
+transaction proof and freshness against retained chain trust. These are checks
+on the same committed chain (`src/node_state.rs`).
 
-`config()` requires `LAYERX_REGISTRY_CHAIN_RPC_URL`, but `deployment.yaml` does not supply it. The manifest's retained authority settings do not replace that missing input. Treat the manifest as requiring deployment reconciliation before use; a documentation rewrite cannot make those code paths operational or extend the ABI 1–4 replay/source-verification bounds to ABI 5.
+The deployment supplies `LAYERX_REGISTRY_CHAIN_RPC_URL`. Keep it consistent
+with the trust history, authenticated state endpoints and selected network.
 
 [Programs](../programs/index.md) · [Public RPC](../reference/public-rpc.md) · [Home](../index.md)

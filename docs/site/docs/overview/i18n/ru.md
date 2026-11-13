@@ -1,4 +1,4 @@
-<h1 align="center">Paxeer X Network — LayerX</h1>
+# Paxeer X Network
 
 Paxeer X Network объединяет платежи, исполнение программ и операции автономных агентов в одной сети.
 

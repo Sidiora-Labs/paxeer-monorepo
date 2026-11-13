@@ -10,7 +10,6 @@ execute payments or supply another finality authority. The crate is
 The current implementation reads `pax_sequencerReceipt` over chain JSON-RPC and
 verifies signed receipt bytes against configured keys. The old activity submit,
 simulation, account-state relay and local idempotency-journal routes are removed.
-This page describes the running route table, not unused legacy record types.
 For the local agent runtime, see [Agentd](../agents/agentd.md).
 
 See also [Paxeer settlement](../concepts/paxeer-settlement.md),
@@ -137,8 +136,8 @@ These are the configuration keys read by the current binary:
 For public mainnet-beta, a root-path example is
 `https://api1.mainnet-beta.paxeer.network/`; the EVM chain id is `125` (`0x7d`).
 The node names `api1` through `api14.mainnet-beta.paxeer.network` and
-`api-mainnet-beta.paxeer.network` serve public JSON-RPC. The `px_` methods are
-hosted gateway methods. `node.hyperpaxeer.com` is the library mirror, not RPC.
+`api-mainnet-beta.paxeer.network` serve public JSON-RPC. The hosted gateway has
+its own `px_` method contract; nodes also expose registered `px_` reads. `node.hyperpaxeer.com` is the library mirror, not RPC.
 The configured network name is a label, not a chain-id check: this adapter's
 startup does not query `eth_chainId`, so validate the target network when
 provisioning the URL and pins.
@@ -164,12 +163,9 @@ configuration. They are not aliases for the chain URL or key file.
 
 ## Deployment and readiness
 
-`services/platform/hosted/node/deployment.yaml` still contains the boundary
-container on port `9446` and a ClusterIP service on `9443`. Its current env list
-retains old node URL/state settings and omits the required chain URL and receipt
-key file. It therefore does not by itself configure this binary successfully.
-Provision the keys and chain URL using the current configuration contract before
-expecting readiness; old manifest entries do not activate retired transports.
+`services/platform/hosted/node/deployment.yaml` declares the boundary
+container on port `9446` and a ClusterIP service on `9443`. Configure its chain
+URL and receipt-key file using the keys above before starting the service.
 
 `/livez` checks only that the boundary is serving HTTP. `/readyz` performs a
 chain receipt lookup for a fixed probe hash. A valid null result is sufficient;
@@ -195,13 +191,9 @@ Retriable errors also carry `retry_after_seconds` and an HTTP `Retry-After`.
 The last error intentionally covers verification failures too; it must not be
 interpreted as evidence that a payment failed or that resubmission is safe.
 
-## Source checks
+## Receipt coverage
 
-`tests/chain_receipt.rs` covers TLS receipt reads, unknown transactions,
-deployment-proof lookup and startup without an old socket dependency.
-`tests/repair_22_31_191.rs` covers removed account-state relays, readiness using
-chain dependencies and receipt-key height enforcement. These are existing
-source coverage references, not a claim that a deployment or those suites have
-been qualified by this documentation rewrite.
+The crate's receipt tests cover TLS reads, unknown transactions,
+deployment-proof lookup, chain readiness and receipt-key height enforcement.
 
 [Home](../index.md)

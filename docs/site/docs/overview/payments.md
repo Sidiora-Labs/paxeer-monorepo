@@ -193,9 +193,8 @@ ABI-v2 token backed by one native Asset. It does not create a second ledger
 or mint native units. Build the token itself:
 
 ```sh
-cargo build \
-  --manifest-path programs/sdk/rust/examples/token-lxt20/Cargo.toml \
-  --target wasm32-unknown-unknown --release
+(cd programs/sdk/rust/examples/token-lxt20 && \
+  cargo build --locked --target wasm32-unknown-unknown --release)
 ```
 
 Its release manifest uses `opt-level = "z"`, LTO and aborting panics. The
@@ -262,13 +261,14 @@ See [x402 transport](../interop/x402.md) for header schemas.
 
 ## CLI and MCP boundaries
 
-The CLI declares account-open, Asset info/list, burn, fee estimate, receipt,
-and watch commands in `tools/platform/cli/src/wallet.rs`. Availability still
-depends on their actual transport and trust inputs. In particular,
-`execute_write` retains a retired transport-path assumption, and its
-`finalised` wait refuses without finality trust. The historical wallet command
-sequence is not a working root-node payment recipe; use the transaction and
-verification boundaries above.
+The CLI declares account-open, Asset info/list, burn, fee estimate, receipt
+and watch commands in `tools/platform/cli/src/wallet.rs`. Node transactions
+use root-path RPC; hosted source-account queries take `--gateway-rpc`.
+Writes require an EVM key export, fee limit and independently pinned receipt
+policy. `--wait committed` checks signed receipt evidence and the matching
+successful EVM receipt under the authenticated node trust boundary.
+`executed`, `batched` and `finalised` remain aliases for `receipted`,
+`committed` and `committed`, respectively. See [CLI](../platform/cli.md).
 
 The MCP base catalogue has 22 entries in
 `services/agent/crates/layerx-mcp/src/server.rs`, including `tenant.readiness`,

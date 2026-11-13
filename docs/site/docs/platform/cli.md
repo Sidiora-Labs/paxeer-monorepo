@@ -58,10 +58,9 @@ use their transport protocol rather than a single command-result object.
 ### Wallet and token commands
 
 These commands are present in the parser. Presence does not guarantee that
-the configured remote endpoint supplies their backend. Native account reads
-require authenticated SDK snapshots; token reads use the SDK's paginated
-asset contract and do not independently prove its state. An ordinary EVM
-balance response is not a substitute for account evidence.
+the configured remote endpoint supplies their backend. Wallet balances can be
+read as hosted observations or verified from an offline snapshot and independently
+pinned policy. Token reads use the SDK's paginated asset contract and do not independently prove its state.
 
 | Command | Inputs and behavior |
 | --- | --- |
@@ -69,11 +68,11 @@ balance response is not a substitute for account evidence.
 | `wallet import <name>` | Read a 32-byte hexadecimal Ed25519 seed from stdin; optional `--did`. Imports a local key without registering or funding it. |
 | `wallet derive` | Read a BIP-39 phrase from stdin or `--mnemonic-file`; optional `--passphrase-file`, `--index` (default `0`), `--export-private-keys <new-file>`, and `--bind`. Local derivation returns EVM address and DID metadata. Binding requires RPC and remains subject to transport and method availability. |
 | `wallet list` | List local public key metadata. |
-| `wallet balance` | Optional `--did` and `--asset`. Select the DID explicitly or from the default key; emulator reads local state, other targets require an authenticated SDK account snapshot. |
+| `wallet balance` | Optional `--did` and `--asset`. Emulator reads local state. Other targets use `--gateway-rpc` for observations labelled `unverified_node_observation`, or the paired `--proof-snapshot` and `--proof-policy` inputs for verified evidence. |
 | `wallet send` | `--to`, `--asset`, `--amount`, plus the write inputs below. Signs and submits a native transfer when all required account, sequence, signing, and RPC inputs are available. |
 | `wallet open-account` | `--asset`, plus the write inputs below. Opens the selected wallet's account for that native asset. |
-| `wallet estimate-fee <unsigned_tx_hex>` | Required `--from <0x-address>`. Validate unsigned EIP-1559 bytes, call `eth_estimateGas` with `pending`, then `eth_gasPrice`; return decimal strings `gas`, `gas_price`, and `fee`. Uses the CLI RPC client with the transport limitation above. |
-| `wallet watch <topic>` | Parser accepts `receipts`, `checkpoints`, or `account`; optional `--account-id` and `--timeout-seconds` (default `60`, range `1–300`). The transport supports `account --account-id <EVM-address>`, translating it to an `eth_subscribe` logs filter. Other topics are refused. Requires RPC and a gateway credential; retains retired routing rather than using the public root WebSocket endpoint. |
+| `wallet estimate-fee <unsigned_tx_hex>` | Required `--from <0x-address>`. Validate unsigned EIP-1559 bytes, call `eth_estimateGas` with `pending`, then `eth_gasPrice`; return decimal strings `gas`, `gas_price`, and `fee`. Uses the configured node root. |
+| `wallet watch <topic>` | Parser accepts `receipts`, `checkpoints`, or `account`; optional `--account-id` and `--timeout-seconds` (default `60`, range `1–300`). The transport supports `account --account-id <EVM-address>`, translating it to an `eth_subscribe` logs filter. Other topics are refused. Requires RPC and a gateway credential; upgrades the configured HTTP(S) root URL to WS(S) without adding a path. |
 | `wallet receipt <tx_hash>` | A `0x`-prefixed 32-byte transaction hash, `--receipt-policy <file>`, and optional `--wait`. Fetch and verify transaction evidence; see receipt limitations below. |
 | `wallet history` | Hidden compatibility command; optional `--did`. Returns `wallet_history_unavailable`. |
 | `token create` | `--symbol`, `--name`, `--decimals`, `--salt`, and write inputs. Optional `--supply-cap` defaults to `0`. Encodes native token registration. |
@@ -87,15 +86,16 @@ Native writes require `--evm-key-file`, `--receipt-policy`, and `--fee-limit`;
 `--key` selects the local Ed25519 key, otherwise the configured default is used.
 The EVM key file must match the selected wallet identity. `wallet send` and
 `token transfer` enforce these inputs at runtime; the other native write
-commands require them in the parser. The former claim that transfers always
-refuse because a signing API is missing is obsolete: `src/wallet.rs::execute_write`
-now prepares and signs the EIP-1559 transaction, checks the fee estimate,
-checks the returned transaction hash, and waits for evidence.
+commands require them in the parser. `src/wallet.rs::execute_write` prepares
+and signs the EIP-1559 transaction,
+checks the fee estimate and returned hash, journals the signed submission,
+and waits for evidence. Native source-account queries require an explicit
+`--gateway-rpc`; these hosted observations are distinct from verified snapshots.
 
-Write commands accept `--wait executed|batched|finalised` (default `executed`)
-and `--timeout-seconds` (`1–300`, default `60`). These are compatibility names
-with the behavior described under [Receipt verification](#receipt-verification-before-success).
-They do not define different network consensus stages.
+Write commands accept `--wait submitted|receipted|committed` (default
+`receipted`) and `--timeout-seconds` (`1–300`, default `60`). `executed` is
+an alias for `receipted`; `batched` and `finalised` are aliases for
+`committed`. See [Receipt verification](#receipt-verification-before-success).
 
 ### Projects, programs, and tenant domains
 
@@ -103,7 +103,7 @@ Program network commands encode calls to the `layerxprograms` precompile at
 `0x000000000000000000000000000000000000101d`. Mutations use signed EIP-1559
 transactions and `eth_sendRawTransaction`; reads use `eth_call` or bounded
 `eth_getLogs`. They do not use the retired REST program-mutation ingress.
-Their HTTP transport still has the limitation stated at the top of this page.
+Their HTTP transport uses the configured node root.
 
 | Command | Inputs and behavior |
 | --- | --- |
@@ -184,7 +184,7 @@ Enrollment must write that document first; installation refuses a missing or
 invalid binding. This path holds no CLI signing seed or gateway credential.
 A2A uses stored gateway credentials; its `activity.submit` accepts signed
 EIP-1559 transaction bytes and preserves a hash for indeterminate submissions.
-Its current submission transport also retains retired routing.
+It submits to the configured node root and retains that identity for recovery.
 
 ## Credentials
 
@@ -298,7 +298,8 @@ are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`.
 
 | Error or condition | Meaning and next step |
 | --- | --- |
-| `command_failed` with a URL-suffix error | The CLI transport still enforces a retired route. Use a client supporting the documented root node endpoint; changing the public URL does not repair the CLI. |
+| `command_failed` with a node URL error | Supply an HTTP(S) origin at the node root, without credentials, a query or a fragment. |
+| `gateway_rpc_required`, `gateway_endpoint_required` | Supply the explicit hosted service URL required for a hosted operation. |
 | `wallet_registration_unavailable` | Native main-account registration is unavailable on that target; no new key was generated. Hosted `register` creates a tenant principal instead. |
 | `wallet_history_unavailable` | No DID activity-history backend is published for this command. |
 | `identity_session_required` | Faucet needs a stored bearer identity session. Set it with `auth set`. |
@@ -343,11 +344,13 @@ Current CLI behavior has several distinct evidence scopes:
   network `125`, a nonzero ordered height range (`first_batch`, `last_batch`),
   `sequencer_id`, `sequencer_key`, and no checkpoint context digest. These are
   retained policy field names, not instructions to trust a gateway's own keys.
-- Wallet `--wait executed` verifies receipted evidence. Compatibility value
-  `batched` requests committed evidence and cross-checks the chain receipt's
-  hash, block, status, and transaction index. `finalised` currently refuses
-  because that CLI path has no finality trust configured. This limitation does
-  not change when the network itself considers a block final.
+- Wallet `--wait receipted` verifies the signed execution evidence.
+  `committed` additionally cross-checks the EVM receipt's transaction hash,
+  block, successful status and transaction index. The result reports
+  `trust: "pinned_receipt_key_and_authenticated_node"` and `final: true`.
+  This path trusts the authenticated node for commitment; independent
+  validator-quorum verification requires portable chain evidence.
+  `submitted` returns `final: false` without waiting for execution.
 - `receipt verify` reads raw bytes or hex from a local file and calls
   `layerx_proof::receipt::verify_outcome` with caller-supplied `AuthorizedBatch`
   facts. It is a compatibility verifier for that receipt format, not a public

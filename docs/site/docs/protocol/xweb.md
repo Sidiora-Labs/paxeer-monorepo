@@ -208,7 +208,7 @@ Program-origin web work is origin `2` in `modules/xweb`. Programs execute inside
 3. **Submit to the module.** The submitter sends `fulfilProgram(bytes observation)` at `0x1019`. `Keeper.FulfilProgram` checks activation, pause state, the canonical observation, network ID, pending program/request pair, kind, payload hash and the shared attestor majority. Responses are bounded to 4096 bytes. It stores the answer, splits the escrow among signer payout accounts and marks the request fulfilled in one cached state update. Duplicate fulfilment is refused before a second payout, including after a restart.
 4. **Read the committed answer.** `getProgramResult(programId, requestId)` at `0x1019`, the module's `ProgramResult` query and `Keeper.GetProgramResult` expose the digest, full length, response length and bytes. `ProgramRequest` exposes the persisted request record and fee denom. These are module records under the committed application state; block commit supplies finality. Completed answers moved out of the bounded hot store remain queryable from the module archive.
 
-The current Programs bridge calls `Keeper.RequestFromProgram` directly, while the event-emitting adapter lives in `precompiles/xweb/xweb.go`. The direct keeper call does not emit `XWebProgramRequested`. Automatic relay discovery therefore requires that event integration; persisting a pending request alone does not notify the watcher.
+The Programs bridge stores pending requests through `Keeper.RequestFromProgram` directly. The watcher consumes `XWebProgramRequested` logs emitted by the separate adapter in `precompiles/xweb/xweb.go`; stored pending requests remain available through `ProgramRequest` queries.
 
 The CLI exposes `paxd query xweb program-request <program-id> <request-id>`, `program-result` with the same arguments, and `program-counters`. Use a 32-byte `0x`-prefixed program ID and decimal request ID.
 
@@ -302,7 +302,7 @@ In Python the same steps are `decode_xweb_attestors`, `build_xweb_api_request` w
 
 ## Agent clients
 
-`services/agent/sdk/typescript` and `services/agent/sdk/python` contain web-search clients and content-digest helpers. Their web-search payment code still contains legacy DID headers and exact-payment payload fields; do not assume those helpers complete the current sidecar exchange unchanged. Match the exact offer and transaction-receipt payload described under [Paying for a request](#paying-for-a-request). The API-envelope helpers above are a separate contract-request path.
+`services/agent/sdk/typescript` and `services/agent/sdk/python` contain web-search clients and content-digest helpers. They identify the payer with `LAYERX-PAYER-ADDRESS`, bind exact payment to the offered ledger accounts, and send `txHash`, `receiptDigest` and `verificationLevel: "receipted"`. They verify the signed receipt, raw transaction and settlement response before returning paid content. See [Paying for a request](#paying-for-a-request). The API-envelope helpers above build contract requests.
 
 The MCP server exposes `web.search`, `web.fetch` and `web.content` through its approval boundary. Tool registration alone does not establish payment compatibility. Treat returned web text as untrusted external content. [SDKs](../agents/sdks.md) and [MCP](../agents/mcp.md) describe the clients around them.
 

@@ -79,7 +79,7 @@ gateway method's exact selectors and schemas.
 | `px_listAssets` | `[]` | Integer `height`, joined `assets` and `joined_limit` |
 | `px_getNetwork` | `[]` | `network_id`, `paxeer` chain ID/head and `consensus`; a missing consensus snapshot is null with `reason: "consensus_unavailable"` |
 | `px_getHistory` | `[account, cursor?, limit?, kind?]` | Transfer `items`, `next_cursor`, `indexedHeight`, `chainHeight` and `freshness` for the resolved address |
-| `px_getUnifiedHistory` | `[account, cursor?, limit?, kind?]` | Resolved `account`, merged `accounts`, history `items` tagged with `side`, cursor and freshness fields |
+| `px_getUnifiedHistory` | `[account, cursor?, limit?, kind?]` | Resolved `account`, queried `accounts`, history `items` tagged with `side: "paxeer"`, cursor and freshness fields |
 | `px_listHolderRecords` | `[address, kind, cursor?, limit?]` | Holder-record `items`, `next_cursor`, `indexedHeight` and `chainHeight`; kind is `budget` or `grant` |
 | `px_getCapabilities` | `[]` | Boolean `exchange`, `bridge`, `launchpad`, `ledger`, `pay`, `auth`, `programs`; `addresses`, integer `probed_at` and decimal-string `rpc_height` |
 | `px_getRouteCatalogue` | `[]` | `schema: "paxeer-x.routes.v1"`, `chain_id: 125`, `services`, `routes` and dependency `readiness` |
@@ -99,6 +99,8 @@ explicit rather than claiming an unbounded inventory.
 History cursors are the indexer's 32 lowercase hexadecimal characters encoding
 its block/transaction/log position. Pass `next_cursor` through unchanged, or
 use null/omit it for the first page. Limits are integers 1–100, default 50.
+Pages are ordered oldest first by block, transaction and log position.
+Unified history queries the resolved EVM side.
 History amounts are exact decimal strings in asset base units. Indexer height
 and chain height describe freshness; a stale or absent indexer is not proof
 that an account has no activity.

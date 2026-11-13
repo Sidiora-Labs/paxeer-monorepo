@@ -1,7 +1,7 @@
 # Reference
 
 Operator and developer references for the merged Paxeer network. Node RPC,
-hosted service APIs and historical protocol encodings have different contracts.
+hosted service APIs and protocol encodings have distinct contracts.
 
 ## Public contracts
 
@@ -16,35 +16,16 @@ hosted service APIs and historical protocol encodings have different contracts.
 
 ## Specifications
 
-This index and the [contribution guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md)
-provide the contributor specification references. Product guides explain behavior
-and link tests by what they check; numbered development history belongs in
-contributor records.
-
-The current merged-network specification is `spec/layerx-merge/spec.kvx`.
-It describes one execution domain in `paxd`, including the kernel, native
-ledger and authority modules, markets and committed receipts. Its `[meta]`
-status is `draft`; that status is not a claim that every requirement is
-qualified or every feature is deployed. Consult each task's evidence and
-the running network's activation state.
+The network specification describes one execution domain in `paxd`, including
+the kernel, native ledger, authority modules, markets and committed receipts.
+Feature availability on a node depends on activation and configuration.
 
 | Reference | Checked-in path | Purpose |
 | --- | --- | --- |
-| Merged network | `spec/layerx-merge/spec.kvx` | Requirements, decisions, tasks and qualification evidence |
+| Merged network | `spec/layerx-merge/spec.kvx` | Network requirements and behavior |
 | Interface registry | `spec/layerx-merge/interfaces.kvx` | Declared interfaces, producers and consumers |
 | Contracts | `spec/layerx-merge/contracts/` | Detailed module and client contracts |
 | Retirements | `spec/layerx-merge/programme/data/retired.kvx` | Retired components and their replacements |
-
-Earlier protocol, platform, beta and agent-interface specification names in
-archival prose are historical references. The previously listed
-`spec/layerx-protocol`, `spec/layerx-platform`, `spec/layerx-beta` and
-`spec/.beta/layerx-agent-interface` directories are absent from this checkout.
-Use the merged specification and checked-in implementation for current behavior.
-
-KVX is the source for specification text. Generated Markdown mirrors are not
-independent normative sources and must not be edited by hand. Older pages
-that describe external checkpoint settlement are archival context; current
-receipt finality is BFT block commitment.
 
 ## Qualification and layout
 

@@ -16,11 +16,7 @@ to EVM callers. `node/sequencer/` and `modules/sequencer/` implement ordered
 transaction execution, receipt production and committed sequence tracking
 inside this network.
 
-The pre-merge router, separate `layerxd` daemon and execution-to-settlement
-bridge are retired. The historical LayerXVerify, LayerXCustody and LayerXAnchor
-surfaces at `0x1012`, `0x1013` and `0x1014` are retired integration guidance;
-they do not define current funding or finality. Current applications submit
-signed EVM transactions and verify committed-chain evidence.
+Applications submit signed EVM transactions and verify committed-chain evidence.
 
 Sub-chains are tenant domains: namespaces in the database, launchable without
 new infrastructure. A tenant identifier scopes data and authority; it does
