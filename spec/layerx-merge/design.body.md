@@ -62,7 +62,7 @@ Hosted gateway methods have their own [OpenRPC contract](../../services/platform
 
 ## Programs and paid web requests
 
-The [program runtime workspace](../../programs/Cargo.toml) contains the interpreter, sandbox, registry, arbiter and market crates. Guest ABI versions must agree with the host registration path. The AI market guest uses release `opt-level = "z"`, a build-time chain domain, and a deployment ceiling of `524288` bytes including its `104`-byte envelope.
+The [program runtime workspace](../../programs/Cargo.toml) contains the interpreter, sandbox, registry, arbiter and market crates. Guest ABI versions must agree with the host registration path. The AI market guest uses release `opt-level = "z"` and a deployment ceiling of `524288` bytes including its `104`-byte envelope. Its [deployment-domain reader](../../programs/crates/layerx-programs-ai-market/src/lib.rs) uses the chain-125 domain when `PAXAI_CHAIN_DOMAIN` is unset and accepts an override only when it matches that domain. The [guest recipe](../../programs/crates/layerx-programs-ai-market/tests/fixtures/guest-recipe.sh) compiles for `wasm32-unknown-unknown` and packages the guest with Binaryen 133.
 
 [xweb](contracts/web.md) records paid requests and attested answers. Origin 1 is an EVM request with fee escrow, attestation, callback and timeout refund. Origin 2 records program fetch/search requests and observations. Attestor agreement concerns external data; block commitment determines transaction finality.
 

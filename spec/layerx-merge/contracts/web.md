@@ -4,7 +4,7 @@
 |---|---|
 | Module / store | `xweb` / `modules/xweb` |
 | Precompile | `0x0000000000000000000000000000000000001019` |
-| Contract status | Current implementation reference; limitations are stated below. |
+| Contract | Paid requests, attested answers and result reads. |
 
 ## Scope and reading guide
 
@@ -68,7 +68,7 @@ The kernel network id is `params.kernel_network_id`; it must not be inferred fro
 
 Fulfilment stores the answer and splits the recorded fee equally among signing attestors' bank payout accounts, with the remainder going to the lowest signer. The EVM entry then calls `onXWebResponse(uint64,bytes32,uint32,bytes)` on the requester from address `0x1019`, records the callback outcome and emits `XWebFulfilled`. Callback values are `0` pending, `1` delivered, `2` reverted and `3` out of gas. A callback revert or out-of-gas result leaves the accepted fulfilment standing. Direct `Execute` dispatch of origin-1 `fulfil` refuses with `LXP_XWEB_FULFIL_EVM_ONLY`; `RunAndCalculateGas` owns the metered EVM path.
 
-[Keeper.Refund](../../../modules/xweb/keeper/refund.go) is callable by anyone at or after the stored timeout height for a still-pending origin-1 request. Payment returns only to its requester, exactly once. Refund remains available while paused. A fulfilled request cannot be refunded, and a refunded request cannot be fulfilled. Timeout eligibility does not itself expire or delete a pending request. The current timeout configuration accepts any nonzero `uint64`, and admission adds `int64(timeout_blocks)` to the block height without an overflow check; the implementation does not guarantee a future representable height for every allowed setting.
+[Keeper.Refund](../../../modules/xweb/keeper/refund.go) is callable by anyone at or after the stored timeout height for a still-pending origin-1 request. Payment returns only to its requester, exactly once. Refund remains available while paused. A fulfilled request cannot be refunded, and a refunded request cannot be fulfilled. Timeout eligibility does not itself expire or delete a pending request. `timeout_blocks` is bounded to `1` through `9223372036854775807` (`math.MaxInt64`). Request admission checks that the block height is nonnegative and its sum with the timeout fits `int64` before accepting payment, then records that sum as the timeout height.
 
 **Origin 2.** [Keeper.RequestFromProgram](../../../modules/xweb/keeper/program.go) consumes guest events with topic `PAXEERX_WEB_REQUEST_V1`. Other topics return without recording anything. For a matching topic it checks activation, pause, call identity, one request per call, canonical event data, unused `(programId,requestId)`, pending capacity and fee legs. Admission supports fetch/search only; API and storage receipts have no origin-2 request lifecycle.
 
@@ -170,7 +170,7 @@ Archived answers persist across a normal store restart. The JSON genesis schema 
 
 ### xweb-errors
 
-[types/errors.go](../../../modules/xweb/types/errors.go) registers these SDK codes in codespace `xweb` and maps codes 2–25 through `LXPName` to the EVM revert names below. Reverts use `Error(string)` reasons, not ABI custom errors with these names.
+[types/errors.go](../../../modules/xweb/types/errors.go) maps SDK codes 2–26 in codespace `xweb` through `LXPName` to the EVM revert names below. The storage-receipt code is registered in [storage_receipt.go](../../../modules/xweb/types/storage_receipt.go). Reverts use `Error(string)` reasons, not ABI custom errors with these names.
 
 | Code | Go error | Revert name |
 |---|---|---|
@@ -198,7 +198,7 @@ Archived answers persist across a normal store restart. The JSON genesis schema 
 | 23 | `ErrInvalidApi` | `LXP_XWEB_INVALID_API` |
 | 24 | `ErrInvalidEnvelope` | `LXP_XWEB_INVALID_ENVELOPE` |
 | 25 | `ErrInvalidLevel` | `LXP_XWEB_INVALID_LEVEL` |
-| 26 | `ErrInvalidPayload` (storage receipt) | No `LXPName` mapping in the current tree; reason text is `invalid storage receipt payload` with context. |
+| 26 | `ErrInvalidPayload` (storage receipt) | `LXP_XWEB_INVALID_PAYLOAD` |
 
 Program paths additionally return literal names: `LXP_MODULE_DISABLED`, `LXP_DUPLICATE_ENTRY`, `LXP_SEQUENCE_REUSED`, `LXP_FEE_UNPAYABLE`, `LXP_ASSET_MISMATCH`, `LXP_AUTH_SCOPE`, `LXP_ARENA_EXHAUSTED`, `LXP_OVERFLOW`, `LXP_FATAL_INVARIANT`, `LXP_NON_CANONICAL`, `LXP_WRONG_NETWORK`, `LXP_UNKNOWN_FIELD`, `LXP_CONTEXT_MISMATCH`, `LXP_ATTESTATION_THRESHOLD`, `LXP_BAD_SIGNATURE`, `LXP_AUTH_DUPLICATE_SIGNER`, `LXP_UNSORTED_SEQUENCE` and `LXP_INVALID_ATTESTATION`. Bank transfer errors propagate rather than being replaced with an invented program error.
 
@@ -222,7 +222,7 @@ event XWebRefunded(uint64 indexed requestId, address indexed requester, uint256 
 
 [The x-websearch watcher](../../../services/interop/crates/x-websearch/src/watch.rs) decodes program work as `program_id, request_id, kind, payload, sequence`. The direct-keeper forwarding behavior in [methods](#section-a-methods) applies: watcher delivery requires an emitted log.
 
-The Solidity event declarations in [precompiles/xweb/XWeb.sol](../../../precompiles/xweb/XWeb.sol) and [contracts/src/precompiles/IXWeb.sol](../../../contracts/src/precompiles/IXWeb.sol) name the non-indexed program fields `method, payload, deadline`. Their positional types, indexed flags and event topic match the producer. Decode those positions as `kind, payload, sequence`, as specified by the JSON ABI; the final `uint64` is the recording sequence.
+The Solidity event declarations in [precompiles/xweb/XWeb.sol](../../../precompiles/xweb/XWeb.sol) and [contracts/src/precompiles/IXWeb.sol](../../../contracts/src/precompiles/IXWeb.sol) name the non-indexed program fields `kind, payload, sequence`, matching the JSON ABI. The final `uint64` is the recording sequence.
 
 Module SDK events are distinct from EVM logs. [types/events.go](../../../modules/xweb/types/events.go) defines:
 
@@ -379,7 +379,7 @@ The implemented parameter defaults and bounds in [types/state.go](../../../modul
 | `fee` | `1000000` base units | positive SDK Int |
 | `max_payload_bytes` | `8192` | 1–16384 |
 | `max_callback_gas` | `500000` | 1–5000000 |
-| `timeout_blocks` | `3600` | nonzero `uint64`; height-overflow limitation above |
+| `timeout_blocks` | `3600` | 1–9223372036854775807; request height plus timeout must fit `int64` |
 | `kernel_network_id` | `0` (unset) | nonzero when configured |
 | `program_fee_denoms` | empty (unset) | nonempty subset of the four mapped denoms, without duplicates, when configured |
 

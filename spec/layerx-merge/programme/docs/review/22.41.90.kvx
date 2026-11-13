@@ -1,0 +1,79 @@
+[manifest]
+task = "22.41.90"
+pages = 19
+
+[page.1]
+path = "spec/layerx-merge/contracts/proto-api.md"
+status = "reviewed"
+
+[page.2]
+path = "spec/layerx-merge/contracts/retirements.md"
+status = "reviewed"
+
+[page.3]
+path = "spec/layerx-merge/contracts/rpc.md"
+status = "reviewed"
+
+[page.4]
+path = "spec/layerx-merge/contracts/sdk-js.md"
+status = "reviewed"
+
+[page.5]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "reviewed"
+
+[page.6]
+path = "spec/layerx-merge/contracts/services.md"
+status = "corrected"
+
+[page.7]
+path = "spec/layerx-merge/contracts/sig-provider-http.md"
+status = "reviewed"
+
+[page.8]
+path = "spec/layerx-merge/contracts/telemetry.md"
+status = "reviewed"
+
+[page.9]
+path = "spec/layerx-merge/contracts/test-harness.md"
+status = "corrected"
+
+[page.10]
+path = "spec/layerx-merge/contracts/tokenfactory.md"
+status = "reviewed"
+
+[page.11]
+path = "spec/layerx-merge/contracts/tools-ops.md"
+status = "reviewed"
+
+[page.12]
+path = "spec/layerx-merge/contracts/verifier-http.md"
+status = "corrected"
+
+[page.13]
+path = "spec/layerx-merge/contracts/virtual-chains.md"
+status = "corrected"
+
+[page.14]
+path = "spec/layerx-merge/contracts/wasm-runtime.md"
+status = "reviewed"
+
+[page.15]
+path = "spec/layerx-merge/contracts/web-client.md"
+status = "reviewed"
+
+[page.16]
+path = "spec/layerx-merge/contracts/web.md"
+status = "corrected"
+
+[page.17]
+path = "spec/layerx-merge/design.body.md"
+status = "corrected"
+
+[page.18]
+path = "spec/layerx-merge/docs/BUILD-REPORT.md"
+status = "corrected"
+
+[page.19]
+path = "spec/layerx-merge/docs/README.md"
+status = "reviewed"
