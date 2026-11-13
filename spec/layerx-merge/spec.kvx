@@ -170742,7 +170742,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.303]
 title = "Bring the pages of the documentation site to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.43.294"]
@@ -374726,7 +374726,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.302]
 title = "Bring the pages of the node, the modules, the RPC and the storage to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -374816,7 +374816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.299]
 title = "Bring the system, release, platform and remaining documentation pages to the kernel sentence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -375346,7 +375346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.43.281]
 title = "Bring the Python tests 1 to 17 of tests/ci to the present pages and paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
