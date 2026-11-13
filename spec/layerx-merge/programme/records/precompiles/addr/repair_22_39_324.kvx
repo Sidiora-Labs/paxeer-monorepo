@@ -17,6 +17,6 @@ gotcha = "The repository graph was stale and its general brief named another tas
 [repair.22.39.324.qualification]
 build = "go build ./precompiles/addr/... ./layerxproof/testvectors/... && go test -count=1 -run '^$' ./precompiles/addr/..."
 verify = "cg spec done 22.39.324 -f layerx-merge --root /work/paxeer-monorepo"
-verify_cmd = "test -s precompiles/addr/repair_22_39_324.kvx && go test -count=1 ./precompiles/addr/..."
+verify_cmd = "test -s spec/layerx-merge/programme/records/precompiles/addr/repair_22_39_324.kvx && go test -count=1 ./precompiles/addr/..."
 verified_revision = "The exact candidate revision in the passing hf-done entry of /out/run/gates.jsonl and the final evidence line; no qualification is claimed before that entry exists."
 private_evidence = "/out/run/gates.jsonl; /out/logs/build-1.log; /out/logs/verify-1.log"
