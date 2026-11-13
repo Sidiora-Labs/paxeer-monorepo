@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
@@ -73,7 +75,7 @@ func externalPostgres(t *testing.T, admin string) (string, *pgxpool.Pool) {
 	if err != nil {
 		t.Fatalf("connect external postgres: %v", err)
 	}
-	defer conn.Close(context.Background())
+	defer checked.CloseContext(conn, context.Background())
 	if _, err = conn.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
 		t.Fatalf("create throwaway database: %v", err)
 	}
@@ -85,7 +87,7 @@ func externalPostgres(t *testing.T, admin string) (string, *pgxpool.Pool) {
 			t.Logf("drop throwaway database %s: %v", name, err)
 			return
 		}
-		defer c.Close(context.Background())
+		defer checked.CloseContext(c, context.Background())
 		if _, err = c.Exec(cleanup, "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)"); err != nil {
 			t.Logf("drop throwaway database %s: %v", name, err)
 		}

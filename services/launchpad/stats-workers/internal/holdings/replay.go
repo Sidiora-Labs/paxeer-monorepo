@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math/big"
+	"strconv"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"math/big"
-	"strconv"
-	"strings"
 )
 
 type PersistedCheckpoint struct {
@@ -46,7 +47,7 @@ func (r *Repository) checkpointTx(ctx context.Context, tx pgx.Tx, token, height,
 	if err != nil {
 		return out, err
 	}
-	if coverage == "quarantined" {
+	if coverage == valueQuarantined {
 		return out, ErrIntegrity
 	}
 	start, _ := UInt(out.CoverageStart)
@@ -117,7 +118,7 @@ func (r *Repository) Checkpoint(ctx context.Context, token, height, blockHash, v
 	if err != nil {
 		return PersistedCheckpoint{}, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), tx)
 	out, err := r.checkpointTx(ctx, tx, token, height, blockHash, version)
 	if err != nil {
 		return out, err
@@ -150,7 +151,7 @@ func (r *Repository) RebuildFromCanonical(ctx context.Context, source *pgxpool.P
 	if err != nil {
 		return PersistedCheckpoint{}, err
 	}
-	defer src.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), src)
 	var matches bool
 	var initialSupply, creationTransaction string
 	err = src.QueryRow(ctx, "SELECT height=$2::bigint AND (payload->'metadata'->>'decimals')::integer=$3,payload->'metadata'->>'totalSupply',transaction_hash FROM indexer.indexer_canonical_creations_v1 WHERE token=$1", token, first, int(decimals)).Scan(&matches, &initialSupply, &creationTransaction)
@@ -185,7 +186,7 @@ func (r *Repository) RebuildFromCanonical(ctx context.Context, source *pgxpool.P
 	if err = r.pool.QueryRow(ctx, "SELECT coverage,expected_initial_supply IS NOT NULL OR creation_transaction_hash IS NOT NULL FROM "+r.schema+".tokens WHERE token=$1", token).Scan(&coverage, &liveDiscovery); err != nil {
 		return PersistedCheckpoint{}, err
 	}
-	if coverage != "incomplete" || liveDiscovery {
+	if coverage != valueIncomplete || liveDiscovery {
 		return PersistedCheckpoint{}, ErrConflict
 	}
 	signature := crypto.Keccak256Hash([]byte("Transfer(address,address,uint256)"))
@@ -250,7 +251,7 @@ func (r *Repository) RebuildFromCanonical(ctx context.Context, source *pgxpool.P
 	if err != nil {
 		return PersistedCheckpoint{}, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer rollbackTransaction(context.WithoutCancel(ctx), tx)
 	var retained int64
 	if err = tx.QueryRow(ctx, "SELECT count(*) FROM "+r.schema+".transfers WHERE token=$1", token).Scan(&retained); err != nil {
 		return PersistedCheckpoint{}, err

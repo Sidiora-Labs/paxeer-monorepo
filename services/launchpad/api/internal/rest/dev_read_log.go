@@ -82,7 +82,7 @@ func (w *developmentReadWriter) Write(raw []byte) (int, error) {
 		}
 		if json.Unmarshal(raw, &failure) == nil {
 			switch failure.Code {
-			case "DEPENDENCY_UNAVAILABLE", "INTEGRITY_QUARANTINED":
+			case literalDEPENDENCYUNAVAILABLE, literalINTEGRITYQUARANTINED:
 				w.code = failure.Code
 			}
 		}

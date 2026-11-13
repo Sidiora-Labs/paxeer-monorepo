@@ -64,13 +64,17 @@ struct Success {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Settlement {
-    source_settlement: SourceSettlementResponseV2,
+    #[serde(rename = "source_settlement")]
+    source: SourceSettlementResponseV2,
     provenance: String,
     custody_label: String,
     layerx_receipt: bool,
 }
 
 impl GatewayClient {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn new(config: &GatewayClientConfig) -> Result<Self, MigrationError> {
         if !(100..=30_000).contains(&config.connect_timeout_ms)
             || !(100..=120_000).contains(&config.request_timeout_ms)
@@ -114,6 +118,9 @@ impl GatewayClient {
         })
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn migrate_asset(
         &self,
         order_digest: [u8; 32],
@@ -171,11 +178,8 @@ impl GatewayClient {
             || success.result.provenance != "external-custody" || success.result.layerx_receipt
             || success.result.custody_label != "External custody: this independent market maker controls the off-platform funds and payout."
         { return Err(MigrationError::RpcResponseMismatch); }
-        success
-            .result
-            .source_settlement
-            .validate(&binding, evidence)?;
-        let settled = success.result.source_settlement;
+        success.result.source.validate(&binding, evidence)?;
+        let settled = success.result.source;
         Ok(FundedMigrationObservation {
             state: "producer-observed",
             producer_state: settled.state,
@@ -312,18 +316,7 @@ fn response(
     let text =
         std::str::from_utf8(&bytes[..end]).map_err(|_| MigrationError::RpcResponseMismatch)?;
     let mut lines = text.split("\r\n");
-    let mut status = lines
-        .next()
-        .ok_or(MigrationError::RpcResponseMismatch)?
-        .split_whitespace();
-    if !matches!(status.next(), Some("HTTP/1.1" | "HTTP/1.0")) {
-        return Err(MigrationError::RpcResponseMismatch);
-    }
-    let status = status
-        .next()
-        .and_then(|value| value.parse::<u16>().ok())
-        .filter(|value| (100..=599).contains(value))
-        .ok_or(MigrationError::RpcResponseMismatch)?;
+    let status = response_status(lines.next().ok_or(MigrationError::RpcResponseMismatch)?)?;
     let mut headers = BTreeMap::new();
     for line in lines.filter(|line| !line.is_empty()) {
         let (name, value) = line
@@ -340,9 +333,9 @@ fn response(
             return Err(MigrationError::RpcResponseMismatch);
         }
     }
-    if !headers
+    if headers
         .get("content-type")
-        .is_some_and(|value| value.split(';').next() == Some("application/json"))
+        .is_none_or(|value| value.split(';').next() != Some("application/json"))
         || (headers.contains_key("transfer-encoding") && headers.contains_key("content-length"))
     {
         return Err(MigrationError::RpcResponseMismatch);
@@ -387,6 +380,18 @@ fn response(
         }
         body.extend_from_slice(&buffer[..count]);
     }
+}
+
+fn response_status(line: &str) -> Result<u16, MigrationError> {
+    let mut fields = line.split_whitespace();
+    if !matches!(fields.next(), Some("HTTP/1.1" | "HTTP/1.0")) {
+        return Err(MigrationError::RpcResponseMismatch);
+    }
+    fields
+        .next()
+        .and_then(|value| value.parse::<u16>().ok())
+        .filter(|value| (100..=599).contains(value))
+        .ok_or(MigrationError::RpcResponseMismatch)
 }
 
 fn chunked(wire: &[u8]) -> Result<Option<Vec<u8>>, MigrationError> {

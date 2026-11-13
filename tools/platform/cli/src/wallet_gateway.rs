@@ -1,7 +1,7 @@
 //! Shared hosted wallet query producers. Native calls must be pinned to `height` by the caller.
 use serde_json::{json, Value};
 
-#[path = "wallet_gateway/evm.rs"]
+#[path = "../../../../services/platform/hosted/gateway/src/evm.rs"]
 pub mod evm;
 
 pub const ASSET_PAGE_LIMIT: usize = 16;
@@ -10,7 +10,13 @@ pub type LedgerQuery<'a> = dyn FnMut(&[u8]) -> Result<Vec<u8>, &'static str> + '
 
 #[must_use]
 pub fn hex(bytes: &[u8]) -> String {
-    crate::encoding::hex_encode(bytes)
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        encoded.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    encoded
 }
 
 ///

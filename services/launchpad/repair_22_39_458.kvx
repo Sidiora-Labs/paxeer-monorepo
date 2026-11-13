@@ -1,0 +1,7 @@
+[launchpad]
+lint_release = "v2.15.0"
+lint_binary = "build/bin/golangci-lint"
+lint_config = "../../.golangci.yml"
+modules = "MODULES selects the lint, race, cover and cover-check module inventory"
+coverage = "Coverage totals resolve package paths from each module root"
+baseline = "The wiring test checks the current package baseline and module source inventory"

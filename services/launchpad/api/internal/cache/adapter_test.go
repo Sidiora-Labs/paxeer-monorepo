@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	sharedredis "github.com/Sidiora-Technologies/KindleLaunch/shared/redis"
 	"github.com/jackc/pgx/v5"
@@ -122,15 +123,8 @@ func TestLocalPolicyRevisionFloorAndBounds(t *testing.T) {
 }
 
 func TestRealPostgresOriginBudgetAndRedisLoss(t *testing.T) {
-	dsn := os.Getenv("L09_DATABASE_URL")
-	redisURL := os.Getenv("L09_REDIS_URL")
-	ns := os.Getenv("L09_NAMESPACE")
-	if dsn == "" || redisURL == "" {
-		t.Skip("requires allocated real PostgreSQL and Redis")
-	}
-	if ns == "" {
-		t.Fatal("namespace required")
-	}
+	dsn, _ := internaltest.NewPostgresWithDSN(t)
+	redisURL := internaltest.NewRedisURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	pool, e := pgxpool.New(ctx, dsn)

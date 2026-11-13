@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::io::{Read, Write};
@@ -42,6 +46,7 @@ const CREDENTIAL: &str = "loopback-framing-credential";
 struct Scratch(PathBuf);
 impl Scratch {
     fn new(label: &str) -> Checked<Self> {
+        test_network::isolate()?;
         let path =
             std::env::temp_dir().join(format!("repair-22-33-118-{}-{label}", std::process::id()));
         std::fs::create_dir(&path)?;
@@ -145,6 +150,7 @@ struct HttpTranscript {
 }
 impl HttpTranscript {
     fn start(replies: BTreeMap<String, Vec<u8>>, tls: bool, delay: Duration) -> Checked<Self> {
+        test_network::isolate()?;
         let (acceptor, root) = if tls {
             let (identity, root) = certificate()?;
             (Some(TlsAcceptor::new(identity)?), Some(root))
@@ -167,10 +173,10 @@ impl HttpTranscript {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(3)))
-                    .unwrap();
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
                 stream
                     .set_write_timeout(Some(Duration::from_secs(3)))
-                    .unwrap();
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
                 if let Some(acceptor) = &acceptor {
                     if let Ok(mut stream) = acceptor.accept(stream) {
                         Self::respond(&mut stream, &replies, &served, true, delay);
@@ -207,7 +213,10 @@ impl HttpTranscript {
         let authenticated = head
             .lines()
             .any(|line| line == format!("X-Api-Key: {CREDENTIAL}"));
-        calls.lock().unwrap().push(head);
+        calls
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .push(head);
         let response = if credentials && !authenticated {
             b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n".as_slice()
         } else if let Some(reply) = replies.get(&target) {
@@ -236,7 +245,9 @@ impl Drop for HttpTranscript {
         self.stop.store(true, Ordering::Release);
         let _ = TcpStream::connect(self.address);
         if let Some(worker) = self.worker.take() {
-            worker.join().unwrap();
+            worker
+                .join()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         }
     }
 }
@@ -391,7 +402,11 @@ fn api_framing_memory_is_bounded_over_tls_with_credentials() -> Checked {
     let decoded = ApiPayload::decode(&raw)?;
     let answer = api::answer(&client, &signer, &raw, &decoded)?;
     assert_eq!(answer.answer, b"[true]");
-    let before = peer.calls.lock().unwrap().len();
+    let before = peer
+        .calls
+        .lock()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        .len();
     let mut tampered = decoded.clone();
     tampered.envelopes[0].ciphertext[0] ^= 1;
     assert!(matches!(
@@ -402,7 +417,13 @@ fn api_framing_memory_is_bounded_over_tls_with_credentials() -> Checked {
         api::answer(&client, &key(3)?, &raw, &decoded),
         Err(ApiError::NoEnvelope)
     );
-    assert_eq!(peer.calls.lock().unwrap().len(), before);
+    assert_eq!(
+        peer.calls
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .len(),
+        before
+    );
     Ok(())
 }
 
@@ -414,6 +435,7 @@ struct DnsTranscript {
 }
 impl DnsTranscript {
     fn start(addresses: Vec<IpAddr>) -> Checked<Self> {
+        test_network::isolate()?;
         let socket = UdpSocket::bind("127.0.0.1:0")?;
         let address = socket.local_addr()?;
         let questions = Arc::new(Mutex::new(Vec::new()));
@@ -423,14 +445,19 @@ impl DnsTranscript {
         let worker = thread::spawn(move || {
             let mut bytes = [0; 2048];
             loop {
-                let (count, peer) = socket.recv_from(&mut bytes).unwrap();
+                let (count, peer) = socket
+                    .recv_from(&mut bytes)
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
                 if stopping.load(Ordering::Acquire) {
                     break;
                 }
                 assert!(count >= 16);
                 let question = &bytes[..count];
                 let kind = u16::from_be_bytes([question[count - 4], question[count - 3]]);
-                recorded.lock().unwrap().push(kind);
+                recorded
+                    .lock()
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+                    .push(kind);
                 let matching: Vec<_> = addresses
                     .iter()
                     .filter(|ip| matches!((kind, ip), (1, IpAddr::V4(_)) | (28, IpAddr::V6(_))))
@@ -438,8 +465,11 @@ impl DnsTranscript {
                 let mut response = question.to_vec();
                 response[2] = 0x81;
                 response[3] = 0x80;
-                response[6..8]
-                    .copy_from_slice(&u16::try_from(matching.len()).unwrap().to_be_bytes());
+                response[6..8].copy_from_slice(
+                    &u16::try_from(matching.len())
+                        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+                        .to_be_bytes(),
+                );
                 for ip in matching {
                     response.extend_from_slice(&[0xc0, 0x0c]);
                     response.extend_from_slice(&kind.to_be_bytes());
@@ -455,7 +485,9 @@ impl DnsTranscript {
                         }
                     }
                 }
-                socket.send_to(&response, peer).unwrap();
+                socket
+                    .send_to(&response, peer)
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
             }
         });
         Ok(Self {
@@ -476,13 +508,16 @@ impl Drop for DnsTranscript {
             let _ = socket.send_to(&[0], self.address);
         }
         if let Some(worker) = self.worker.take() {
-            worker.join().unwrap();
+            worker
+                .join()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         }
     }
 }
 
 #[test]
 fn fetch_dns_deadline_cancels_slow_resolution_for_fetch_api_and_robots() -> Checked {
+    test_network::isolate()?;
     // A real DNS peer that keeps the datagrams pending, without detached
     // resolver threads, environment changes or a substituted resolver.
     let dns = UdpSocket::bind("127.0.0.1:0")?;
@@ -539,7 +574,12 @@ fn fetch_dns_preserves_all_address_ssrf_checks_and_pins_the_transport() -> Check
             fetcher.destination(&Url::parse("http://mixed.test/")?),
             Err(FetchError::ForbiddenDestination)
         );
-        assert_eq!(*dns.questions.lock().unwrap(), vec![1, 28]);
+        assert_eq!(
+            *dns.questions
+                .lock()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+            vec![1, 28]
+        );
     }
     let dns = DnsTranscript::start(vec!["127.0.0.1".parse()?])?;
     let mut replies = BTreeMap::new();
@@ -552,8 +592,16 @@ fn fetch_dns_preserves_all_address_ssrf_checks_and_pins_the_transport() -> Check
     let page = fetcher.fetch(&format!("http://pinned.test:{}/page", peer.address.port()))?;
     assert_eq!(page.text, "pinned");
     assert_eq!(page.body, b"pinned");
-    assert_eq!(*dns.questions.lock().unwrap(), vec![1, 28]);
-    let calls = peer.calls.lock().unwrap();
+    assert_eq!(
+        *dns.questions
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}")),
+        vec![1, 28]
+    );
+    let calls = peer
+        .calls
+        .lock()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
     assert_eq!(calls.len(), 2);
     assert!(calls
         .iter()
@@ -639,7 +687,9 @@ fn receipt_key_registry_generated_configuration_uses_strict_nested_snake_case() 
     for legacy in ["sequencer_id", "sequencer_public_key"] {
         let mut bad = template.clone();
         bad["gateway"][legacy] = json!("12".repeat(32));
-        let error = Config::parse(&bad.to_string()).expect_err("retired key must be unknown");
+        let error = Config::parse(&bad.to_string())
+            .err()
+            .unwrap_or_else(|| panic!("retired key must be unknown"));
         assert_eq!(error.refusal, Refusal::Unknown);
         assert_eq!(error.field, format!("gateway.{legacy}"));
     }
@@ -670,6 +720,7 @@ struct RpcTranscript {
 }
 impl RpcTranscript {
     fn start(handler: impl Fn(&Value) -> Result<Value, Value> + Send + 'static) -> Checked<Self> {
+        test_network::isolate()?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         let calls = Arc::new(Mutex::new(Vec::new()));
@@ -686,16 +737,21 @@ impl RpcTranscript {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
-                    .unwrap();
-                let (_, body) = read_request(&mut stream).unwrap();
-                let request: Value = serde_json::from_slice(&body).unwrap();
-                recorded.lock().unwrap().push(request.clone());
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+                let (_, body) = read_request(&mut stream)
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+                let request: Value = serde_json::from_slice(&body)
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
+                recorded
+                    .lock()
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+                    .push(request.clone());
                 let response = match handler(&request) {
                     Ok(result) => json!({"jsonrpc":"2.0", "id":request["id"], "result":result}),
                     Err(error) => json!({"jsonrpc":"2.0", "id":request["id"], "error":error}),
                 }
                 .to_string();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}", response.len()).unwrap();
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}", response.len()).unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
             }
         });
         Ok(Self {
@@ -717,7 +773,9 @@ impl Drop for RpcTranscript {
         self.stop.store(true, Ordering::Release);
         let _ = TcpStream::connect(self.address);
         if let Some(worker) = self.worker.take() {
-            worker.join().unwrap();
+            worker
+                .join()
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"));
         }
     }
 }
@@ -800,7 +858,11 @@ fn settlement_authority_is_shared_with_readiness_and_paid_route_eligibility() ->
     assert_eq!(eligible.status, 402);
     assert!(eligible.header("PAYMENT-REQUIRED").is_some());
     assert!(
-        watcher.calls.lock().unwrap().is_empty(),
+        watcher
+            .calls
+            .lock()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            .is_empty(),
         "payment used the watcher authority"
     );
     receipt_support.store(false, Ordering::Release);
@@ -818,13 +880,13 @@ fn settlement_authority_is_shared_with_readiness_and_paid_route_eligibility() ->
     assert!(settlement
         .calls
         .lock()
-        .unwrap()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
         .iter()
         .any(|call| call["method"] == "eth_call"));
     assert!(settlement
         .calls
         .lock()
-        .unwrap()
+        .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
         .iter()
         .any(|call| call["method"] == "pax_sequencerReceipt"));
     server.shutdown()?;
@@ -901,7 +963,14 @@ fn watcher_ownership_retires_mixed_traffic_and_recovers_without_orphans() -> Che
                 json!([[hex0x(&requested_topic()), hex0x(&program_requested_topic())]])
             );
             let number = |value: &Value| {
-                u64::from_str_radix(value.as_str().unwrap().trim_start_matches("0x"), 16).unwrap()
+                u64::from_str_radix(
+                    value
+                        .as_str()
+                        .unwrap_or_else(|| panic!("expected Some value"))
+                        .trim_start_matches("0x"),
+                    16,
+                )
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
             };
             let (from, to) = (number(&filter["fromBlock"]), number(&filter["toBlock"]));
             Ok(Value::Array(
@@ -971,7 +1040,7 @@ fn watcher_ownership_retires_mixed_traffic_and_recovers_without_orphans() -> Che
     assert_eq!(
         peer.calls
             .lock()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
             .iter()
             .filter(|call| call["method"] == "eth_getLogs")
             .count(),
@@ -1009,7 +1078,7 @@ fn search_tie_expansion_keeps_ten_candidates_and_loads_only_winning_bodies() -> 
     );
     assert!(results
         .windows(2)
-        .all(|pair| pair[0].score == pair[1].score));
+        .all(|pair| pair[0].score.to_bits() == pair[1].score.to_bits()));
     assert_eq!(stats.matches_considered, 4096);
     assert_eq!(stats.retained_candidates_peak, MAX_RESULTS);
     assert_eq!(stats.stored_bodies_loaded, MAX_RESULTS);
@@ -1034,6 +1103,7 @@ fn search_tie_expansion_keeps_ten_candidates_and_loads_only_winning_bodies() -> 
 
 #[test]
 fn fetch_dns_tcp_fallback_obeys_the_same_deadline() -> Checked {
+    test_network::isolate()?;
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let address = listener.local_addr()?;
     let udp = UdpSocket::bind(address)?;

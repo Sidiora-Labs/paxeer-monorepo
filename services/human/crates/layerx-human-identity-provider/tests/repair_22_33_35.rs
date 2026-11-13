@@ -1,4 +1,9 @@
+#[path = "support/mod.rs"]
+#[allow(dead_code)]
+mod support;
+
 #[path = "support/producer_path.rs"]
+#[allow(dead_code)]
 mod producer_path;
 
 #[test]

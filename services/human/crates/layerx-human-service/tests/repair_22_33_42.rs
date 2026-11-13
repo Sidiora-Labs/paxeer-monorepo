@@ -52,25 +52,25 @@ struct Directory(PathBuf);
 impl Directory {
     fn new(label: &str) -> Self {
         let path = support::directory(label);
-        fs::create_dir_all(&path).expect("create private fixture directory");
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).expect("private directory");
+        fs::create_dir_all(&path).or_fail("create private fixture directory");
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).or_fail("private directory");
         Self(path)
     }
 }
 impl Drop for Directory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove fixture directory");
+        fs::remove_dir_all(&self.0).or_fail("remove fixture directory");
     }
 }
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_human_service::hex::lower(bytes)
 }
 fn index(root: &std::path::Path) -> AuthDiscoveryIndex {
     AuthDiscoveryIndex::open(
         root,
-        IndexAuthenticationKey::new([17; 32]).expect("index key"),
+        IndexAuthenticationKey::new([17; 32]).or_fail("index key"),
     )
-    .expect("authenticated index")
+    .or_fail("authenticated index")
 }
 fn disclosure<'a>(
     operation: &'a Operation,
@@ -98,7 +98,11 @@ fn identity_field_allocation_is_bounded_on_the_provider_transport() {
     let mut overlong = b"LXIP\x01\x00\x00\x00\x00\x01".to_vec();
     overlong.extend_from_slice(&u32::MAX.to_be_bytes());
     let mut valid = b"LXIP\x01\x00\x00\x00\x00\x01".to_vec();
-    valid.extend_from_slice(&(ACCOUNT.len() as u32).to_be_bytes());
+    valid.extend_from_slice(
+        &u32::try_from(ACCOUNT.len())
+            .unwrap_or_else(|_| panic!("account length fits u32"))
+            .to_be_bytes(),
+    );
     valid.extend_from_slice(ACCOUNT.as_bytes());
     let mut trailing = valid.clone();
     trailing.push(0);
@@ -114,23 +118,27 @@ fn identity_field_allocation_is_bounded_on_the_provider_transport() {
     ];
     let directory = Directory::new("identity-allocation");
     let socket = directory.0.join("identity.sock");
-    let listener = UnixListener::bind(&socket).expect("provider socket");
-    fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).expect("socket permissions");
+    let listener = UnixListener::bind(&socket).or_fail("provider socket");
+    fs::set_permissions(&socket, fs::Permissions::from_mode(0o600)).or_fail("socket permissions");
     let worker = thread::spawn(move || {
         for response in cases {
-            let (mut stream, _) = listener.accept().expect("provider accept");
+            let (mut stream, _) = listener.accept().or_fail("provider accept");
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
-                .expect("read deadline");
+                .or_fail("read deadline");
             let mut length = [0; 4];
-            stream.read_exact(&mut length).expect("request length");
+            stream.read_exact(&mut length).or_fail("request length");
             let mut request = vec![0; u32::from_be_bytes(length) as usize];
-            stream.read_exact(&mut request).expect("request");
+            stream.read_exact(&mut request).or_fail("request");
             assert_eq!(&request[..6], b"LXIP\x01\x04");
             stream
-                .write_all(&(response.len() as u32).to_be_bytes())
-                .expect("response length");
-            stream.write_all(&response).expect("response");
+                .write_all(
+                    &u32::try_from(response.len())
+                        .unwrap_or_else(|_| panic!("response length fits u32"))
+                        .to_be_bytes(),
+                )
+                .or_fail("response length");
+            stream.write_all(&response).or_fail("response");
         }
     });
     let provider = RemoteIdentityProvider::new(IdentityProviderConfig {
@@ -140,7 +148,7 @@ fn identity_field_allocation_is_bounded_on_the_provider_transport() {
         peer_uid: rustix::process::getuid().as_raw(),
         peer_gid: rustix::process::getgid().as_raw(),
     })
-    .expect("provider");
+    .or_fail("provider");
     for _ in 0..6 {
         assert!(matches!(
             provider.resolve_assertion(ASSERTION),
@@ -150,11 +158,106 @@ fn identity_field_allocation_is_bounded_on_the_provider_transport() {
     assert_eq!(
         provider
             .resolve_assertion(ASSERTION)
-            .expect("valid response after malformed frames")
+            .unwrap_or_else(|error| panic!(
+                "{}: {error:?}",
+                "valid response after malformed frames"
+            ))
             .principal,
         support::principal(ACCOUNT)
     );
-    worker.join().expect("provider thread");
+    worker.join().or_fail("provider thread");
+}
+
+fn assert_auth_index_compaction(
+    auth: &mut AuthDiscoveryIndex,
+    principal: &layerx_human_service::store::PrincipalId,
+) {
+    auth.bind_account("owner@example.test", principal)
+        .or_fail("durable account binding");
+    for n in 0..AUTH_INDEX_TRANSIENT_LIMIT {
+        auth.bind_assertion(&format!("asr_{n}"), principal, NOW)
+            .or_fail("bounded assertion admission");
+    }
+    assert!(auth
+        .bind_registration("reg_overflow", principal, NOW)
+        .is_err());
+    auth.compact(NOW + 1).or_fail("compact expired discoveries");
+    auth.bind_step_up("stp_live", principal, NOW + 1000)
+        .or_fail("new ceremony after full capacity");
+    assert!(auth.resolve_assertion("asr_0", NOW + 1).is_err());
+}
+
+fn assert_durable_auth_index(
+    root: &std::path::Path,
+    principal: &layerx_human_service::store::PrincipalId,
+) {
+    let auth = index(root);
+    assert_eq!(
+        auth.resolve_account("owner@example.test")
+            .unwrap_or_else(|error| panic!(
+                "{}: {error:?}",
+                "durable account after expiry and reopen"
+            )),
+        *principal
+    );
+    assert!(
+        fs::metadata(root.join("authentication.index"))
+            .or_fail("bounded persisted index")
+            .len()
+            < 2048
+    );
+}
+
+fn bearer_context(
+    store: &mut PrincipalStore,
+    auth: &AuthDiscoveryIndex,
+    principal: &layerx_human_service::store::PrincipalId,
+    operation: &Operation,
+    parameters: &BTreeMap<String, String>,
+    body: &Value,
+    context: &str,
+) -> PrincipalContext {
+    authorize_bearer_execution(
+        store,
+        auth,
+        principal,
+        ASSERTION,
+        disclosure(operation, "/v1/account/balance", parameters, body),
+        NOW + 1,
+        30,
+    )
+    .or_fail(context)
+    .into_bearer_context(ASSERTION, DID)
+    .or_fail(context)
+}
+
+fn admission_contexts(
+    store: &mut PrincipalStore,
+    auth: &AuthDiscoveryIndex,
+    principal: &layerx_human_service::store::PrincipalId,
+    operation: &Operation,
+    parameters: &BTreeMap<String, String>,
+    body: &Value,
+) -> (PrincipalContext, PrincipalContext) {
+    let context = bearer_context(
+        store,
+        auth,
+        principal,
+        operation,
+        parameters,
+        body,
+        "real capability producer",
+    );
+    let abandoned = bearer_context(
+        store,
+        auth,
+        principal,
+        operation,
+        parameters,
+        body,
+        "abandoned capability",
+    );
+    (context, abandoned)
 }
 
 #[test]
@@ -169,60 +272,26 @@ fn auth_index_compacts_with_admission_and_replay_refusal_after_reopen() {
     let principal = support::principal(ACCOUNT);
     let root = directory.0.join("index");
     let mut auth = index(&root);
-    auth.bind_account("owner@example.test", &principal)
-        .expect("durable account binding");
-    for n in 0..AUTH_INDEX_TRANSIENT_LIMIT {
-        auth.bind_assertion(&format!("asr_{n}"), &principal, NOW)
-            .expect("bounded assertion admission");
-    }
-    assert!(auth
-        .bind_registration("reg_overflow", &principal, NOW)
-        .is_err());
-    auth.compact(NOW + 1).expect("compact expired discoveries");
-    auth.bind_step_up("stp_live", &principal, NOW + 1000)
-        .expect("new ceremony after full capacity");
-    assert!(auth.resolve_assertion("asr_0", NOW + 1).is_err());
-    let schema = ApiSchema::v1().expect("schema");
-    let operation = schema.operation("account.balance").expect("operation");
+    assert_auth_index_compaction(&mut auth, &principal);
+    let schema = ApiSchema::v1().or_fail("schema");
+    let operation = schema.operation("account.balance").or_fail("operation");
     let parameters = BTreeMap::new();
     let body = json!({});
-    let context = authorize_bearer_execution(
-        &mut store,
-        &auth,
-        &principal,
-        ASSERTION,
-        disclosure(operation, "/v1/account/balance", &parameters, &body),
-        NOW + 1,
-        30,
-    )
-    .expect("real capability producer")
-    .into_bearer_context(ASSERTION, DID)
-    .expect("transport context");
-    let abandoned = authorize_bearer_execution(
-        &mut store,
-        &auth,
-        &principal,
-        ASSERTION,
-        disclosure(operation, "/v1/account/balance", &parameters, &body),
-        NOW + 1,
-        30,
-    )
-    .expect("abandoned capability")
-    .into_bearer_context(ASSERTION, DID)
-    .expect("abandoned context");
+    let (context, abandoned) =
+        admission_contexts(&mut store, &auth, &principal, operation, &parameters, &body);
     drop(auth);
     drop(store);
     auth = index(&root);
     store = PrincipalStore::open(&store_root, support::retention_uniform(86400), digest)
-        .expect("reopen store");
+        .or_fail("reopen store");
     assert_eq!(
         auth.resolve_account("owner@example.test")
-            .expect("account retained"),
+            .or_fail("account retained"),
         principal
     );
     assert_eq!(
         auth.resolve_step_up("stp_live", NOW + 2)
-            .expect("live discovery retained"),
+            .or_fail("live discovery retained"),
         principal
     );
     consume_context(
@@ -231,7 +300,7 @@ fn auth_index_compacts_with_admission_and_replay_refusal_after_reopen() {
         disclosure(operation, "/v1/account/balance", &parameters, &body),
         NOW + 2,
     )
-    .expect("retained authentication");
+    .or_fail("retained authentication");
     assert!(consume_context(
         &auth,
         &context,
@@ -248,7 +317,8 @@ fn auth_index_compacts_with_admission_and_replay_refusal_after_reopen() {
         NOW + 2
     )
     .is_err());
-    auth.compact(NOW + 62).expect("abandoned capability expiry");
+    auth.compact(NOW + 62)
+        .or_fail("abandoned capability expiry");
     assert!(consume_context(
         &auth,
         &abandoned,
@@ -269,29 +339,18 @@ fn auth_index_compacts_with_admission_and_replay_refusal_after_reopen() {
         NOW + 62,
         30,
     )
-    .expect("continued capability issue")
+    .or_fail("continued capability issue")
     .into_bearer_context(ASSERTION, DID)
-    .expect("new context");
+    .or_fail("new context");
     consume_context(
         &auth,
         &next,
         disclosure(operation, "/v1/account/balance", &parameters, &body),
         NOW + 63,
     )
-    .expect("continued authentication");
+    .or_fail("continued authentication");
     drop(auth);
-    let auth = index(&root);
-    assert_eq!(
-        auth.resolve_account("owner@example.test")
-            .expect("durable account after expiry and reopen"),
-        principal
-    );
-    assert!(
-        fs::metadata(root.join("authentication.index"))
-            .expect("bounded persisted index")
-            .len()
-            < 2048
-    );
+    assert_durable_auth_index(&root, &principal);
 }
 
 static ENVIRONMENT: Mutex<()> = Mutex::new(());
@@ -318,153 +377,155 @@ impl Drop for Environment {
     }
 }
 
+const CONFIG_VARIABLES: &[(&str, &str)] = &[
+    ("LAYERX_HUMAN_ACTIVITY_EXPORT_MAXIMUM_BYTES", "30"),
+    ("LAYERX_HUMAN_ACTIVITY_FRESHNESS_SECONDS", "30"),
+    (
+        "LAYERX_HUMAN_AGENT_ACTOR",
+        "did:layerx:1111111111111111111111111111111111111111111111111111111111111111",
+    ),
+    ("LAYERX_HUMAN_AGENT_AUTHORITY", "custody-human-primary"),
+    ("LAYERX_HUMAN_AGENT_DEADLINE_SECONDS", "5"),
+    ("LAYERX_HUMAN_AGENT_FEE_LIMIT", "30"),
+    ("LAYERX_HUMAN_AGENT_MAX_CONNECTIONS", "5"),
+    ("LAYERX_HUMAN_AGENT_MAX_FRAME_BYTES", "1024"),
+    ("LAYERX_HUMAN_AGENT_MAX_QUEUED_BYTES", "1024"),
+    ("LAYERX_HUMAN_AGENT_MAX_STREAMS", "5"),
+    (
+        "LAYERX_HUMAN_AGENT_OWNER_ACCOUNT",
+        "0x1111111111111111111111111111111111111111",
+    ),
+    (
+        "LAYERX_HUMAN_AGENT_PURPOSE_CATALOG",
+        "/tmp/layerx-config-fixture/layerx_human_agent_purpose_catalog",
+    ),
+    (
+        "LAYERX_HUMAN_AGENT_RECOVERY_ROOT",
+        "ERERERERERERERERERERERERERERERERERERERERERE",
+    ),
+    ("LAYERX_HUMAN_AGENT_RECOVERY_THRESHOLD", "30"),
+    (
+        "LAYERX_HUMAN_AGENT_SOCKET",
+        "/tmp/layerx-config-fixture/layerx_human_agent_socket",
+    ),
+    ("LAYERX_HUMAN_AGENT_TIMESTAMP_SPAN_SECONDS", "30"),
+    ("LAYERX_HUMAN_ASSERTION_TTL_SECONDS", "30"),
+    (
+        "LAYERX_HUMAN_AUTH_INDEX_KEY",
+        "ERERERERERERERERERERERERERERERERERERERERERE",
+    ),
+    (
+        "LAYERX_HUMAN_AUTH_INDEX_ROOT",
+        "/tmp/layerx-config-fixture/layerx_human_auth_index_root",
+    ),
+    ("LAYERX_HUMAN_AUTH_RATE_ATTEMPTS", "30"),
+    ("LAYERX_HUMAN_AUTH_RATE_WINDOW_SECONDS", "30"),
+    ("LAYERX_HUMAN_CAPABILITY_TTL_SECONDS", "30"),
+    ("LAYERX_HUMAN_CEREMONY_TTL_SECONDS", "30"),
+    ("LAYERX_HUMAN_CONTINUATION_UNKNOWN_DEADLINE_SECONDS", "30"),
+    (
+        "LAYERX_HUMAN_CUSTODY_ROOT",
+        "/tmp/layerx-config-fixture/layerx_human_custody_root",
+    ),
+    ("LAYERX_HUMAN_EVM_GAS_LIMIT", "30"),
+    ("LAYERX_HUMAN_EVM_MAX_FEE_PER_GAS", "30"),
+    ("LAYERX_HUMAN_EVM_MAX_PRIORITY_FEE_PER_GAS", "30"),
+    ("LAYERX_HUMAN_IDENTITY_BINDING_DEADLINE_SECONDS", "30"),
+    ("LAYERX_HUMAN_IDENTITY_BINDING_PEER_GID", "30"),
+    ("LAYERX_HUMAN_IDENTITY_BINDING_PEER_UID", "30"),
+    (
+        "LAYERX_HUMAN_IDENTITY_BINDING_SOCKET",
+        "/tmp/layerx-config-fixture/layerx_human_identity_binding_socket",
+    ),
+    ("LAYERX_HUMAN_IDENTITY_BINDING_TENANT", "tenant-a"),
+    ("LAYERX_HUMAN_IDENTITY_DEADLINE_SECONDS", "30"),
+    ("LAYERX_HUMAN_IDENTITY_MAX_FRAME_BYTES", "30"),
+    ("LAYERX_HUMAN_IDENTITY_PEER_GID", "30"),
+    ("LAYERX_HUMAN_IDENTITY_PEER_UID", "30"),
+    (
+        "LAYERX_HUMAN_IDENTITY_SOCKET",
+        "/tmp/layerx-config-fixture/layerx_human_identity_socket",
+    ),
+    (
+        "LAYERX_HUMAN_KMS_CLIENT_CERTIFICATE_DER",
+        "/tmp/layerx-config-fixture/layerx_human_kms_client_certificate_der",
+    ),
+    (
+        "LAYERX_HUMAN_KMS_CLIENT_PRIVATE_KEY_DER",
+        "/tmp/layerx-config-fixture/layerx_human_kms_client_private_key_der",
+    ),
+    ("LAYERX_HUMAN_KMS_DEADLINE_SECONDS", "30"),
+    ("LAYERX_HUMAN_KMS_ENDPOINT", "127.0.0.1:1"),
+    ("LAYERX_HUMAN_KMS_MAX_CONNECTIONS", "30"),
+    ("LAYERX_HUMAN_KMS_MAX_FRAME_BYTES", "30"),
+    ("LAYERX_HUMAN_KMS_MAX_QUEUED_BYTES", "30"),
+    ("LAYERX_HUMAN_KMS_MAX_STREAMS", "30"),
+    (
+        "LAYERX_HUMAN_KMS_PROVIDER_REFERENCE",
+        "configured-provider/v1",
+    ),
+    (
+        "LAYERX_HUMAN_KMS_ROOT_CERTIFICATE_DER",
+        "/tmp/layerx-config-fixture/layerx_human_kms_root_certificate_der",
+    ),
+    ("LAYERX_HUMAN_KMS_SERVER_NAME", "localhost"),
+    ("LAYERX_HUMAN_NETWORK_ID", "125"),
+    ("LAYERX_HUMAN_ONBOARDING_INITIAL_FUNDING", "30"),
+    (
+        "LAYERX_HUMAN_ONBOARDING_SPONSOR_PRINCIPAL",
+        "act_00112233445566778899aabbccddeeff",
+    ),
+    ("LAYERX_HUMAN_ORIGIN", "https://paxportwallet.com"),
+    ("LAYERX_HUMAN_REFRESH_TTL_SECONDS", "30"),
+    ("LAYERX_HUMAN_RETENTION_AUDIT_SECONDS", "30"),
+    ("LAYERX_HUMAN_RETENTION_CACHE_SECONDS", "30"),
+    ("LAYERX_HUMAN_RETENTION_JOURNEYS_SECONDS", "30"),
+    ("LAYERX_HUMAN_RETENTION_NOTIFICATIONS_SECONDS", "30"),
+    ("LAYERX_HUMAN_RETENTION_TELEMETRY_SECONDS", "30"),
+    ("LAYERX_HUMAN_RP_NAME", "Paxport"),
+    ("LAYERX_HUMAN_SECURITY_DEADLINE_SECONDS", "30"),
+    ("LAYERX_HUMAN_SECURITY_MAX_FRAME_BYTES", "30"),
+    (
+        "LAYERX_HUMAN_SECURITY_SOCKET",
+        "/tmp/layerx-config-fixture/layerx_human_security_socket",
+    ),
+    ("LAYERX_HUMAN_SESSION_TTL_SECONDS", "30"),
+    ("LAYERX_HUMAN_SIGNING_RATE_MAXIMUM", "30"),
+    ("LAYERX_HUMAN_SIGNING_RATE_WINDOW_SECONDS", "30"),
+    ("LAYERX_HUMAN_STEP_UP_TTL_SECONDS", "30"),
+    (
+        "LAYERX_HUMAN_STORE_ROOT",
+        "/tmp/layerx-config-fixture/layerx_human_store_root",
+    ),
+    (
+        "LAYERX_HUMAN_STREAM_CURSOR_KEY",
+        "ERERERERERERERERERERERERERERERERERERERERERE",
+    ),
+    (
+        "LAYERX_HUMAN_TENANCY_DIGEST",
+        "ERERERERERERERERERERERERERERERERERERERERERE",
+    ),
+];
+
 #[test]
 fn protocol_selection_uses_the_real_environment_loader() {
-    let _guard = ENVIRONMENT.lock().expect("environment lock");
+    let _guard = ENVIRONMENT.lock().or_fail("environment lock");
     let mut environment = Environment(Vec::new());
     environment.set("LAYERX_HUMAN_ATTESTOR_NODES", None);
-    for (key, value) in [
-        ("LAYERX_HUMAN_ACTIVITY_EXPORT_MAXIMUM_BYTES", "30"),
-        ("LAYERX_HUMAN_ACTIVITY_FRESHNESS_SECONDS", "30"),
-        (
-            "LAYERX_HUMAN_AGENT_ACTOR",
-            "did:layerx:1111111111111111111111111111111111111111111111111111111111111111",
-        ),
-        ("LAYERX_HUMAN_AGENT_AUTHORITY", "custody-human-primary"),
-        ("LAYERX_HUMAN_AGENT_DEADLINE_SECONDS", "5"),
-        ("LAYERX_HUMAN_AGENT_FEE_LIMIT", "30"),
-        ("LAYERX_HUMAN_AGENT_MAX_CONNECTIONS", "5"),
-        ("LAYERX_HUMAN_AGENT_MAX_FRAME_BYTES", "1024"),
-        ("LAYERX_HUMAN_AGENT_MAX_QUEUED_BYTES", "1024"),
-        ("LAYERX_HUMAN_AGENT_MAX_STREAMS", "5"),
-        (
-            "LAYERX_HUMAN_AGENT_OWNER_ACCOUNT",
-            "0x1111111111111111111111111111111111111111",
-        ),
-        (
-            "LAYERX_HUMAN_AGENT_PURPOSE_CATALOG",
-            "/tmp/layerx-config-fixture/layerx_human_agent_purpose_catalog",
-        ),
-        (
-            "LAYERX_HUMAN_AGENT_RECOVERY_ROOT",
-            "ERERERERERERERERERERERERERERERERERERERERERE",
-        ),
-        ("LAYERX_HUMAN_AGENT_RECOVERY_THRESHOLD", "30"),
-        (
-            "LAYERX_HUMAN_AGENT_SOCKET",
-            "/tmp/layerx-config-fixture/layerx_human_agent_socket",
-        ),
-        ("LAYERX_HUMAN_AGENT_TIMESTAMP_SPAN_SECONDS", "30"),
-        ("LAYERX_HUMAN_ASSERTION_TTL_SECONDS", "30"),
-        (
-            "LAYERX_HUMAN_AUTH_INDEX_KEY",
-            "ERERERERERERERERERERERERERERERERERERERERERE",
-        ),
-        (
-            "LAYERX_HUMAN_AUTH_INDEX_ROOT",
-            "/tmp/layerx-config-fixture/layerx_human_auth_index_root",
-        ),
-        ("LAYERX_HUMAN_AUTH_RATE_ATTEMPTS", "30"),
-        ("LAYERX_HUMAN_AUTH_RATE_WINDOW_SECONDS", "30"),
-        ("LAYERX_HUMAN_CAPABILITY_TTL_SECONDS", "30"),
-        ("LAYERX_HUMAN_CEREMONY_TTL_SECONDS", "30"),
-        ("LAYERX_HUMAN_CONTINUATION_UNKNOWN_DEADLINE_SECONDS", "30"),
-        (
-            "LAYERX_HUMAN_CUSTODY_ROOT",
-            "/tmp/layerx-config-fixture/layerx_human_custody_root",
-        ),
-        ("LAYERX_HUMAN_EVM_GAS_LIMIT", "30"),
-        ("LAYERX_HUMAN_EVM_MAX_FEE_PER_GAS", "30"),
-        ("LAYERX_HUMAN_EVM_MAX_PRIORITY_FEE_PER_GAS", "30"),
-        ("LAYERX_HUMAN_IDENTITY_BINDING_DEADLINE_SECONDS", "30"),
-        ("LAYERX_HUMAN_IDENTITY_BINDING_PEER_GID", "30"),
-        ("LAYERX_HUMAN_IDENTITY_BINDING_PEER_UID", "30"),
-        (
-            "LAYERX_HUMAN_IDENTITY_BINDING_SOCKET",
-            "/tmp/layerx-config-fixture/layerx_human_identity_binding_socket",
-        ),
-        ("LAYERX_HUMAN_IDENTITY_BINDING_TENANT", "tenant-a"),
-        ("LAYERX_HUMAN_IDENTITY_DEADLINE_SECONDS", "30"),
-        ("LAYERX_HUMAN_IDENTITY_MAX_FRAME_BYTES", "30"),
-        ("LAYERX_HUMAN_IDENTITY_PEER_GID", "30"),
-        ("LAYERX_HUMAN_IDENTITY_PEER_UID", "30"),
-        (
-            "LAYERX_HUMAN_IDENTITY_SOCKET",
-            "/tmp/layerx-config-fixture/layerx_human_identity_socket",
-        ),
-        (
-            "LAYERX_HUMAN_KMS_CLIENT_CERTIFICATE_DER",
-            "/tmp/layerx-config-fixture/layerx_human_kms_client_certificate_der",
-        ),
-        (
-            "LAYERX_HUMAN_KMS_CLIENT_PRIVATE_KEY_DER",
-            "/tmp/layerx-config-fixture/layerx_human_kms_client_private_key_der",
-        ),
-        ("LAYERX_HUMAN_KMS_DEADLINE_SECONDS", "30"),
-        ("LAYERX_HUMAN_KMS_ENDPOINT", "127.0.0.1:1"),
-        ("LAYERX_HUMAN_KMS_MAX_CONNECTIONS", "30"),
-        ("LAYERX_HUMAN_KMS_MAX_FRAME_BYTES", "30"),
-        ("LAYERX_HUMAN_KMS_MAX_QUEUED_BYTES", "30"),
-        ("LAYERX_HUMAN_KMS_MAX_STREAMS", "30"),
-        (
-            "LAYERX_HUMAN_KMS_PROVIDER_REFERENCE",
-            "configured-provider/v1",
-        ),
-        (
-            "LAYERX_HUMAN_KMS_ROOT_CERTIFICATE_DER",
-            "/tmp/layerx-config-fixture/layerx_human_kms_root_certificate_der",
-        ),
-        ("LAYERX_HUMAN_KMS_SERVER_NAME", "localhost"),
-        ("LAYERX_HUMAN_NETWORK_ID", "125"),
-        ("LAYERX_HUMAN_ONBOARDING_INITIAL_FUNDING", "30"),
-        (
-            "LAYERX_HUMAN_ONBOARDING_SPONSOR_PRINCIPAL",
-            "act_00112233445566778899aabbccddeeff",
-        ),
-        ("LAYERX_HUMAN_ORIGIN", "https://paxportwallet.com"),
-        ("LAYERX_HUMAN_REFRESH_TTL_SECONDS", "30"),
-        ("LAYERX_HUMAN_RETENTION_AUDIT_SECONDS", "30"),
-        ("LAYERX_HUMAN_RETENTION_CACHE_SECONDS", "30"),
-        ("LAYERX_HUMAN_RETENTION_JOURNEYS_SECONDS", "30"),
-        ("LAYERX_HUMAN_RETENTION_NOTIFICATIONS_SECONDS", "30"),
-        ("LAYERX_HUMAN_RETENTION_TELEMETRY_SECONDS", "30"),
-        ("LAYERX_HUMAN_RP_NAME", "Paxport"),
-        ("LAYERX_HUMAN_SECURITY_DEADLINE_SECONDS", "30"),
-        ("LAYERX_HUMAN_SECURITY_MAX_FRAME_BYTES", "30"),
-        (
-            "LAYERX_HUMAN_SECURITY_SOCKET",
-            "/tmp/layerx-config-fixture/layerx_human_security_socket",
-        ),
-        ("LAYERX_HUMAN_SESSION_TTL_SECONDS", "30"),
-        ("LAYERX_HUMAN_SIGNING_RATE_MAXIMUM", "30"),
-        ("LAYERX_HUMAN_SIGNING_RATE_WINDOW_SECONDS", "30"),
-        ("LAYERX_HUMAN_STEP_UP_TTL_SECONDS", "30"),
-        (
-            "LAYERX_HUMAN_STORE_ROOT",
-            "/tmp/layerx-config-fixture/layerx_human_store_root",
-        ),
-        (
-            "LAYERX_HUMAN_STREAM_CURSOR_KEY",
-            "ERERERERERERERERERERERERERERERERERERERERERE",
-        ),
-        (
-            "LAYERX_HUMAN_TENANCY_DIGEST",
-            "ERERERERERERERERERERERERERERERERERERERERERE",
-        ),
-    ] {
+    for &(key, value) in CONFIG_VARIABLES {
         environment.set(key, Some(value));
     }
     environment.set("LAYERX_HUMAN_PROTOCOL_VERSION", None);
     assert_eq!(
         ProductionComponentsConfig::from_environment()
-            .expect("absent selects merged protocol")
+            .or_fail("absent selects merged protocol")
             .protocol_version(),
         3
     );
     environment.set("LAYERX_HUMAN_PROTOCOL_VERSION", Some("3"));
     assert_eq!(
         ProductionComponentsConfig::from_environment()
-            .expect("explicit merged protocol")
+            .or_fail("explicit merged protocol")
             .protocol_version(),
         3
     );
@@ -472,7 +533,7 @@ fn protocol_selection_uses_the_real_environment_loader() {
         environment.set("LAYERX_HUMAN_PROTOCOL_VERSION", Some(invalid));
         let error = ProductionComponentsConfig::from_environment()
             .err()
-            .expect("invalid protocol refused");
+            .or_fail("invalid protocol refused");
         assert!(
             error.contains("LAYERX_HUMAN_PROTOCOL_VERSION"),
             "{invalid:?}: {error}"
@@ -484,7 +545,7 @@ fn protocol_selection_uses_the_real_environment_loader() {
     );
     assert!(ProductionComponentsConfig::from_environment()
         .err()
-        .expect("invalid protocol precedes attestor I/O")
+        .or_fail("invalid protocol precedes attestor I/O")
         .contains("LAYERX_HUMAN_PROTOCOL_VERSION"));
 }
 
@@ -503,9 +564,9 @@ fn signed_send(nonce: u64, now: u64) -> (Value, Vec<u8>) {
     };
     let raw = call
         .sign(&[19; 32])
-        .expect("real EIP-1559 signing producer");
-    let (_, signature) = decode_signed(&raw).expect("signed transaction codec");
-    let wallet = recover_sender(&call, &signature).expect("real signer wallet");
+        .or_fail("real EIP-1559 signing producer");
+    let (_, signature) = decode_signed(&raw).or_fail("signed transaction codec");
+    let wallet = recover_sender(&call, &signature).or_fail("real signer wallet");
     let mut action = [0; 32];
     action[24..].copy_from_slice(&(nonce + 1).to_be_bytes());
     let mut amount = [0; 32];
@@ -521,7 +582,7 @@ fn signed_send(nonce: u64, now: u64) -> (Value, Vec<u8>) {
         calldata: Vec::new(),
     }
     .with_bank_transfer(wallet, [3; 20], "alxp", amount)
-    .expect("real bank-send producer");
+    .or_fail("real bank-send producer");
     let call = Eip1559Call {
         chain_id: 125,
         nonce,
@@ -531,7 +592,7 @@ fn signed_send(nonce: u64, now: u64) -> (Value, Vec<u8>) {
         to: bank,
         data: transaction.calldata.clone(),
     };
-    let raw = call.sign(&[19; 32]).expect("sign production bank call");
+    let raw = call.sign(&[19; 32]).or_fail("sign production bank call");
     let authorization = layerx_human_service::custody::EvmPlanAuthorization {
         plan_id: [1; 32],
         action_key: action,
@@ -551,7 +612,7 @@ fn signed_send(nonce: u64, now: u64) -> (Value, Vec<u8>) {
 #[test]
 fn attestor_send_journal_continues_beyond_capacity_and_preserves_duplicates_after_restart() {
     let directory = Directory::new("attestor-send-replay");
-    let mut journal = AttestorSendJournal::open(&directory.0, [23; 32]).expect("durable journal");
+    let mut journal = AttestorSendJournal::open(&directory.0, [23; 32]).or_fail("durable journal");
     assert!(
         AttestorSendJournal::open(&directory.0, [23; 32]).is_err(),
         "only one signing writer"
@@ -560,49 +621,51 @@ fn attestor_send_journal_continues_beyond_capacity_and_preserves_duplicates_afte
     for nonce in 0..=ATTESTOR_SEND_RETENTION_CAPACITY as u64 {
         let now = NOW + nonce * 2;
         let (payload, raw) = signed_send(nonce, now);
-        let bytes = serde_json::to_vec(&payload).expect("authorization producer");
+        let bytes = serde_json::to_vec(&payload).or_fail("authorization producer");
         assert_eq!(
-            journal
-                .reserve(&bytes, now)
-                .expect("continued reservation beyond capacity"),
+            journal.reserve(&bytes, now).unwrap_or_else(|error| panic!(
+                "{}: {error:?}",
+                "continued reservation beyond capacity"
+            )),
             None
         );
         assert_eq!(
             journal
                 .complete(&bytes, raw.clone())
-                .expect("durable completion"),
+                .or_fail("durable completion"),
             raw
         );
         assert_eq!(
-            journal.reserve(&bytes, now).expect("exact duplicate"),
+            journal.reserve(&bytes, now).or_fail("exact duplicate"),
             Some(raw.clone())
         );
-        assert!(
-            journal.retained_requests() <= 1,
-            "safe expiry bounds retained work"
-        );
+        let retained = journal.retained_requests();
+        assert!(retained <= 1, "safe expiry bounds retained work");
         last = Some((payload, raw, now));
     }
-    let (payload, raw, now) = last.expect("last send");
-    let bytes = serde_json::to_vec(&payload).expect("payload");
+    let (payload, raw, now) = last.or_fail("last send");
+    let bytes = serde_json::to_vec(&payload).or_fail("payload");
     drop(journal);
-    journal = AttestorSendJournal::open(&directory.0, [23; 32]).expect("reopen signing journal");
+    journal = AttestorSendJournal::open(&directory.0, [23; 32]).or_fail("reopen signing journal");
     assert_eq!(
         journal
             .reserve(&bytes, now)
-            .expect("exact replay after restart"),
+            .or_fail("exact replay after restart"),
         Some(raw)
     );
     let mut changed = payload.clone();
     changed["disclosure"]["denom"] = json!("another-denom");
     assert!(journal
-        .reserve(&serde_json::to_vec(&changed).expect("changed payload"), now)
+        .reserve(
+            &serde_json::to_vec(&changed).or_fail("changed payload"),
+            now
+        )
         .is_err());
     let (mut collision, _) = signed_send(0, now);
     collision["authorization"]["action_key"] = json!(vec![99; 32]);
     assert!(
         journal
-            .reserve(&serde_json::to_vec(&collision).expect("collision"), now)
+            .reserve(&serde_json::to_vec(&collision).or_fail("collision"), now)
             .is_err(),
         "evicted nonce is still protected"
     );
@@ -611,24 +674,24 @@ fn attestor_send_journal_continues_beyond_capacity_and_preserves_duplicates_afte
         "expired exact request cannot sign again"
     );
     let (pending, _) = signed_send(ATTESTOR_SEND_RETENTION_CAPACITY as u64 + 1, now + 2);
-    let pending_bytes = serde_json::to_vec(&pending).expect("pending payload");
+    let pending_bytes = serde_json::to_vec(&pending).or_fail("pending payload");
     assert!(journal
         .reserve(&pending_bytes, now + 2)
-        .expect("pending reservation")
+        .or_fail("pending reservation")
         .is_none());
     drop(journal);
     journal =
-        AttestorSendJournal::open(&directory.0, [23; 32]).expect("crash recovery of reservation");
+        AttestorSendJournal::open(&directory.0, [23; 32]).or_fail("crash recovery of reservation");
     assert!(journal
         .reserve(&pending_bytes, now + 2)
-        .expect("exact unfinished recovery")
+        .or_fail("exact unfinished recovery")
         .is_none());
     let mut changed = pending;
     changed["authorization"]["action_key"] = json!(vec![98; 32]);
     assert!(
         journal
             .reserve(
-                &serde_json::to_vec(&changed).expect("changed pending"),
+                &serde_json::to_vec(&changed).or_fail("changed pending"),
                 now + 2
             )
             .is_err(),
@@ -640,9 +703,9 @@ fn attestor_send_journal_continues_beyond_capacity_and_preserves_duplicates_afte
         "authenticate persisted replay state"
     );
     let path = directory.0.join("attestor-sends.v1");
-    let mut tampered = fs::read(&path).expect("journal bytes");
+    let mut tampered = fs::read(&path).or_fail("journal bytes");
     tampered[10] ^= 1;
-    fs::write(&path, tampered).expect("tamper journal");
+    fs::write(&path, tampered).or_fail("tamper journal");
     assert!(
         AttestorSendJournal::open(&directory.0, [23; 32]).is_err(),
         "tampered nonce floor must refuse reopen"
@@ -762,7 +825,7 @@ fn http_evidence(backend: EvidenceApi, id: &str, session: &SessionGrant) -> (Str
     let router = Arc::new(
         Router::new(
             Arc::new(backend),
-            PrincipalLimits::new(100, 60, 100).expect("limits"),
+            PrincipalLimits::new(100, 60, 100).or_fail("limits"),
             HttpConfig {
                 maximum_header_bytes: 32768,
                 maximum_body_bytes: 32768,
@@ -771,26 +834,47 @@ fn http_evidence(backend: EvidenceApi, id: &str, session: &SessionGrant) -> (Str
             },
             Arc::new(support::StepClock::new(NOW * 1000)),
         )
-        .expect("real HTTP router"),
+        .or_fail("real HTTP router"),
     );
-    let (mut client, mut server) = UnixStream::pair().expect("HTTP transport");
+    let (mut client, mut server) = UnixStream::pair().or_fail("HTTP transport");
     client
         .set_read_timeout(Some(Duration::from_secs(5)))
-        .expect("HTTP read deadline");
+        .or_fail("HTTP read deadline");
     let worker = thread::spawn(move || {
         router
             .serve_one(&mut server, "evidence-fixture")
-            .expect("serve HTTP")
+            .or_fail("serve HTTP");
     });
-    write!(client, "GET /v1/evidence/{id} HTTP/1.1\r\nHost: paxportwallet.com\r\nCookie: __Host-layerx_access={}; __Host-layerx_csrf={}\r\nContent-Length: 0\r\n\r\n", session.access_token().expose(), session.csrf_token().expose()).expect("HTTP evidence request");
+    write!(client, "GET /v1/evidence/{id} HTTP/1.1\r\nHost: paxportwallet.com\r\nCookie: __Host-layerx_access={}; __Host-layerx_csrf={}\r\nContent-Length: 0\r\n\r\n", session.access_token().expose(), session.csrf_token().expose()).or_fail("HTTP evidence request");
     let mut response = String::new();
-    client.read_to_string(&mut response).expect("HTTP response");
-    worker.join().expect("HTTP worker");
-    let (headers, body) = response.split_once("\r\n\r\n").expect("HTTP envelope");
+    client
+        .read_to_string(&mut response)
+        .or_fail("HTTP response");
+    worker.join().or_fail("HTTP worker");
+    let (headers, body) = response.split_once("\r\n\r\n").or_fail("HTTP envelope");
     (
         headers.to_owned(),
-        serde_json::from_str(body).expect("HTTP JSON"),
+        serde_json::from_str(body).or_fail("HTTP JSON"),
     )
+}
+
+fn balance_for_rung(rung: Option<Rung>) -> AccountBalance {
+    AccountBalance::from_agent(VerifiedBalance {
+        account: [1; 32],
+        asset: [2; 32],
+        currency: "LXP".into(),
+        observed_at: "2023-11-14T22:13:20Z".into(),
+        age_seconds: 0,
+        amount: 123,
+        verification: rung,
+        global_sequence: 10,
+        batch_number: 1,
+        observed_head_sequence: 10,
+        observed_checkpoint: [0; 32],
+        canonical_bytes: 123u128.to_be_bytes().to_vec(),
+        proof_material: vec![1; 32],
+    })
+    .or_fail("production balance")
 }
 
 #[test]
@@ -806,35 +890,20 @@ fn balance_fixture_uses_production_material_through_persistence_reopen_and_http(
     let (passkeys, grant) = browser_session(&mut store);
     index(&auth_root)
         .bind_session(&grant, &support::principal(ACCOUNT))
-        .expect("durable browser discovery");
-    let schema = ApiSchema::v1().expect("schema");
+        .or_fail("durable browser discovery");
+    let schema = ApiSchema::v1().or_fail("schema");
     for (rung, label, class) in [
         (None, "unverified", "submission-record"),
         (Some(Rung::Submitted), "unverified", "submission-record"),
         (Some(Rung::Receipted), "receipt-verified", "layerx-receipt"),
         (Some(Rung::Committed), "committed", "checkpoint-proof"),
     ] {
-        let balance = AccountBalance::from_agent(VerifiedBalance {
-            account: [1; 32],
-            asset: [2; 32],
-            currency: "LXP".into(),
-            observed_at: "2023-11-14T22:13:20Z".into(),
-            age_seconds: 0,
-            amount: 123,
-            verification: rung,
-            global_sequence: 10,
-            batch_number: 1,
-            observed_head_sequence: 10,
-            observed_checkpoint: [0; 32],
-            canonical_bytes: 123u128.to_be_bytes().to_vec(),
-            proof_material: vec![1; 32],
-        })
-        .expect("production balance");
+        let balance = balance_for_rung(rung);
         let bytes = balance
             .evidence_material()
-            .expect("production evidence encoder");
+            .or_fail("production evidence encoder");
         assert_eq!(
-            AccountBalance::material_rung(&bytes).expect("production evidence decoder"),
+            AccountBalance::material_rung(&bytes).or_fail("production evidence decoder"),
             rung
         );
         let hash: [u8; 32] = Sha256::digest(&bytes).into();
@@ -842,19 +911,19 @@ fn balance_fixture_uses_production_material_through_persistence_reopen_and_http(
         let key = support::row_key(&format!("state-proof-{}", hex(&hash)));
         store
             .principal(&support::principal(ACCOUNT))
-            .expect("scope")
+            .or_fail("scope")
             .put(Table::Cache, key.clone(), NOW, bytes.clone())
-            .expect("persist evidence");
+            .or_fail("persist evidence");
         let projected = balance.project(hash, 60);
         assert_eq!(projected["verification"], label);
         schema
             .encode_response(
                 schema
                     .operation("account.balance")
-                    .expect("balance operation"),
+                    .or_fail("balance operation"),
                 &projected,
             )
-            .expect("balance schema");
+            .or_fail("balance schema");
         for _ in 0..2 {
             let (headers, response) = http_evidence(
                 EvidenceApi {
@@ -876,21 +945,23 @@ fn balance_fixture_uses_production_material_through_persistence_reopen_and_http(
                     .decode(
                         response["result"]["bytes_base64"]
                             .as_str()
-                            .expect("evidence bytes")
+                            .or_fail("evidence bytes")
                     )
-                    .expect("decode HTTP material"),
+                    .or_fail("decode HTTP material"),
                 bytes
             );
             store = PrincipalStore::open(&root, support::retention_uniform(86400), digest)
-                .expect("reopen after stopping HTTP consumer");
+                .unwrap_or_else(|error| {
+                    panic!("{}: {error:?}", "reopen after stopping HTTP consumer")
+                });
         }
         let mut altered = bytes.clone();
         altered[5] ^= 1;
         store
             .principal(&support::principal(ACCOUNT))
-            .expect("scope")
+            .or_fail("scope")
             .put(Table::Cache, key, NOW, altered)
-            .expect("persist tampered label");
+            .or_fail("persist tampered label");
         let (headers, response) = http_evidence(
             EvidenceApi {
                 store: Mutex::new(store),
@@ -905,7 +976,7 @@ fn balance_fixture_uses_production_material_through_persistence_reopen_and_http(
             "tampered evidence accepted: {headers}: {response}"
         );
         store = PrincipalStore::open(&root, support::retention_uniform(86400), digest)
-            .expect("reopen after tamper refusal");
+            .or_fail("reopen after tamper refusal");
     }
 }
 
@@ -937,21 +1008,25 @@ fn read_peer_response(
     bytes: Vec<u8>,
 ) -> Result<ManagedAgentView, layerx_human_service::journeys::AgentBoundaryError> {
     let socket = directory.0.join("managed-peer.sock");
-    let listener = UnixListener::bind(&socket).expect("peer listener");
+    let listener = UnixListener::bind(&socket).or_fail("peer listener");
     let worker = thread::spawn(move || {
-        let (mut stream, _) = listener.accept().expect("peer accept");
+        let (mut stream, _) = listener.accept().or_fail("peer accept");
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
-            .expect("peer read deadline");
+            .or_fail("peer read deadline");
         let mut length = [0; 4];
-        stream.read_exact(&mut length).expect("frame length");
+        stream.read_exact(&mut length).or_fail("frame length");
         let mut request = vec![0; u32::from_be_bytes(length) as usize];
-        stream.read_exact(&mut request).expect("agent request");
+        stream.read_exact(&mut request).or_fail("agent request");
         assert_eq!(&request[..8], b"LXHAGT01");
         stream
-            .write_all(&(bytes.len() as u32).to_be_bytes())
-            .expect("peer response length");
-        stream.write_all(&bytes).expect("peer response");
+            .write_all(
+                &u32::try_from(bytes.len())
+                    .unwrap_or_else(|_| panic!("response length fits u32"))
+                    .to_be_bytes(),
+            )
+            .or_fail("peer response length");
+        stream.write_all(&bytes).or_fail("peer response");
     });
     let mut runtime = AgentRuntime::new_with_clock(
         &socket,
@@ -959,17 +1034,17 @@ fn read_peer_response(
         support::evidence_registry(),
         Arc::new(support::StepClock::new(NOW * 1000)),
     )
-    .expect("real agent consumer");
+    .or_fail("real agent consumer");
     let result = runtime.agent_get("agt_00112233445566778899aabbccddeeff");
-    worker.join().expect("peer worker");
-    fs::remove_file(socket).expect("remove peer socket");
+    worker.join().or_fail("peer worker");
+    fs::remove_file(socket).or_fail("remove peer socket");
     result
 }
 
 #[test]
 fn projection_uses_versioned_typed_rungs_through_peer_codec_and_reopen() {
     let directory = Directory::new("managed-rung-peer");
-    let schema = ApiSchema::v1().expect("schema");
+    let schema = ApiSchema::v1().or_fail("schema");
     for (rung, label) in [
         (Rung::Submitted, "unverified"),
         (Rung::Receipted, "receipt-verified"),
@@ -978,30 +1053,30 @@ fn projection_uses_versioned_typed_rungs_through_peer_codec_and_reopen() {
         let producer = peer_agent(rung);
         let bytes = producer
             .encode_peer_response()
-            .expect("versioned production peer codec");
+            .or_fail("versioned production peer codec");
         let retained = directory.0.join("managed-state.response");
-        fs::write(&retained, &bytes).expect("retain producer record");
+        fs::write(&retained, &bytes).or_fail("retain producer record");
         for response in [
             bytes.clone(),
-            fs::read(&retained).expect("reopen retained response"),
+            fs::read(&retained).or_fail("reopen retained response"),
         ] {
-            let consumed = read_peer_response(&directory, response).expect("typed peer consumer");
+            let consumed = read_peer_response(&directory, response).or_fail("typed peer consumer");
             assert_eq!(consumed.spend_verification, rung);
             assert_eq!(consumed.evidence[0].verification, rung);
-            let projected = consumed.project().expect("real managed projection");
+            let projected = consumed.project().or_fail("real managed projection");
             assert_eq!(projected["spend"]["verification"], label);
             assert_eq!(projected["evidence"][0]["verification"], label);
             schema
                 .encode_response(
-                    schema.operation("agent.get").expect("agent operation"),
+                    schema.operation("agent.get").or_fail("agent operation"),
                     &projected,
                 )
-                .expect("HTTP managed schema");
+                .or_fail("HTTP managed schema");
         }
         let marker = bytes
             .iter()
             .position(|byte| *byte == 0xa3)
-            .expect("explicit rung version marker");
+            .or_fail("explicit rung version marker");
         let mut retired = bytes.clone();
         retired.remove(marker);
         retired[marker] = 4;
@@ -1190,37 +1265,43 @@ fn browser_session(store: &mut PrincipalStore) -> (Passkeys, SessionGrant) {
             window_secs: 60,
         },
     })
-    .expect("real passkeys");
+    .or_fail("real passkeys");
     let mut scope = store
         .principal(&support::principal(ACCOUNT))
-        .expect("browser principal");
+        .or_fail("browser principal");
     let mut authenticator = SoftwareAuthenticator::new();
     let registration = passkeys
         .begin_registration(
             &mut scope,
-            &AccountIdentity::new(ACCOUNT, "Owner").expect("account"),
+            &AccountIdentity::new(ACCOUNT, "Owner").or_fail("account"),
             "Primary",
             NOW,
         )
-        .expect("registration challenge");
+        .or_fail("registration challenge");
     let credential = authenticator.register(&registration.ceremony);
     passkeys
         .finish_registration(&mut scope, &registration.registration_id, &credential, NOW)
-        .expect("signed WebAuthn registration");
+        .or_fail("signed WebAuthn registration");
     let assertion = passkeys
         .begin_assertion(&mut scope, NOW)
-        .expect("assertion challenge");
+        .or_fail("assertion challenge");
     let credential = authenticator.assert(&assertion.ceremony);
     let proof = passkeys
         .finish_assertion(&mut scope, &assertion.assertion_id, &credential, NOW)
-        .expect("signed WebAuthn assertion");
+        .or_fail("signed WebAuthn assertion");
     let grant = passkeys
         .open_session(
             &mut scope,
             &proof.assertion_id,
-            Device::mint("Browser", "web").expect("device"),
+            Device::mint("Browser", "web").or_fail("device"),
             NOW,
         )
-        .expect("real browser session");
+        .or_fail("real browser session");
     (passkeys, grant)
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

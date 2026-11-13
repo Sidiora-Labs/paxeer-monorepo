@@ -2,14 +2,20 @@ package queue
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 	goredis "github.com/redis/go-redis/v9"
 )
 
@@ -133,5 +139,83 @@ func TestEnqueueIntegration(t *testing.T) {
 	}
 	if qi.Pending < 1 {
 		t.Fatalf("pending = %d, want >= 1", qi.Pending)
+	}
+}
+
+func TestRecoveryEpochGuardChecksCommittedDatabaseState(t *testing.T) {
+	dsn := os.Getenv("DELIVERY_TEST_DSN")
+	parsed, err := pgxpool.ParseConfig(dsn)
+	if err != nil || parsed.ConnConfig.Host != "127.0.0.1" || parsed.ConnConfig.Database != "kindle_fixture" {
+		t.Fatal("private PostgreSQL fixture is required")
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	schema := fmt.Sprintf("kd_queue_epoch_%x", time.Now().UnixNano())
+	quoted := pgx.Identifier{schema}.Sanitize()
+	if _, err := pool.Exec(ctx, "CREATE SCHEMA "+quoted); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(), "DROP SCHEMA "+quoted+" CASCADE"); err != nil {
+			t.Error(err)
+		}
+	})
+	content, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "deploy", "launchpad", "production", "recovery", "epoch.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ddl, err := RenderEpochSQL(schema, string(content))
+	if err != nil || strings.Contains(ddl, "__SCHEMA__") || !strings.Contains(ddl, quoted+".assert_epoch") {
+		t.Fatalf("rendered recovery schema: %v", err)
+	}
+	if _, err := pool.Exec(ctx, ddl); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, "INSERT INTO "+quoted+".recovery_control(singleton,epoch,region,revision,checkpoint_sha256) VALUES(true,3,'region-primary',1,$1)", strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	guard, err := NewEpochGuard(schema, 3, "region-primary")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := guard.Assert(ctx, tx); err != nil {
+		t.Fatalf("matching recovery epoch: %v", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	stale, err := NewEpochGuard(schema, 2, "region-primary")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err = pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	if err := stale.Assert(ctx, tx); err == nil {
+		t.Fatal("stale recovery epoch admitted")
+	} else {
+		var pgError *pgconn.PgError
+		if !errors.As(err, &pgError) || pgError.Code != "55000" {
+			t.Fatalf("stale recovery epoch: %v", err)
+		}
+	}
+	if err := (*EpochGuard)(nil).Assert(ctx, tx); err == nil {
+		t.Fatal("missing recovery authority admitted")
+	}
+	if _, err := NewEpochGuard(schema, 0, "region-primary"); err == nil {
+		t.Fatal("zero recovery epoch admitted")
+	}
+	if _, err := RenderEpochSQL(schema, "SELECT 1"); err == nil {
+		t.Fatal("unbound recovery schema accepted")
 	}
 }

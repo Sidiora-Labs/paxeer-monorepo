@@ -100,6 +100,7 @@ impl WorkerAggregate {
             weight,
         })
     }
+
     #[must_use]
     pub const fn worker(self) -> WorkerId {
         self.worker
@@ -348,34 +349,6 @@ pub struct AggregationInputView<'a> {
     reports: &'a [ReportBody<'a>],
 }
 impl<'a> AggregationInputView<'a> {
-    pub(crate) fn committed_chunk(
-        binding: FrozenBinding,
-        workers: &'a [WorkerRosterEntry],
-        reports: &'a [ReportBody<'a>],
-    ) -> CodecResult<Self> {
-        if workers.len() > crate::aggregation::WORKERS_PER_CHUNK || reports.len() > 8 {
-            return Err(CAPACITY);
-        }
-        let mut previous = None;
-        for report in reports {
-            check_binding(report.binding.frozen, binding)?;
-            if previous.is_some_and(|id| id >= report.binding.evaluator) {
-                return Err(F05_REPORT_INVARIANT);
-            }
-            previous = Some(report.binding.evaluator);
-        }
-        Ok(Self {
-            binding,
-            roster: Roster {
-                market: binding.market,
-                epoch: binding.epoch,
-                config: binding.config,
-                workers,
-                evaluators: &[],
-            },
-            reports,
-        })
-    }
     /// Consume reports already admitted against this captured opening. Their
     /// vectors were checked by admission; aggregation reads votes for its chunk.
     pub(crate) fn from_committed(
@@ -708,7 +681,7 @@ impl CurrentAggregation<'_> {
                 }
                 match self.phase {
                     AggregationPhase::Processing if self.root != Presence::Absent => {
-                        return Err(NON_CANONICAL)
+                        return Err(NON_CANONICAL);
                     }
                     AggregationPhase::Terminal => {
                         let Presence::Present(input) = self.input else {
@@ -829,14 +802,7 @@ impl<'a> CheckedCurrent<'a> {
             binding: aggregation.binding,
         })
     }
-    pub(crate) fn new(
-        value: CurrentAggregation<'a>,
-        binding: FrozenBinding,
-        workers: &[WorkerRosterEntry],
-    ) -> CodecResult<Self> {
-        value.validate(binding, workers)?;
-        Ok(Self { value, binding })
-    }
+
     pub(crate) fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         encode_checked_current(&self.value, out)
     }
@@ -1120,7 +1086,7 @@ pub fn decode_current(
         *slot = Some(output);
     }
     let running_weight = r.u64()?;
-    let root = r.presence(|r| r.digest32())?;
+    let root = r.presence(super::codec::Reader::digest32)?;
     r.finish()?;
     if sum != running_weight || sum > MAX_TOTAL_WEIGHT {
         return Err(NON_CANONICAL);
@@ -1724,6 +1690,7 @@ impl<'a> ChunkVotes<'a> {
             checked_scores: [Score::new(0)?; crate::aggregation::WORKERS_PER_CHUNK],
         })
     }
+
     #[cfg_attr(target_arch = "wasm32", inline(always))]
     pub(crate) fn add_report(
         &mut self,
@@ -1912,7 +1879,7 @@ fn score_cell(
             core::cmp::Ordering::Less => left = mid + 1,
             core::cmp::Ordering::Greater => right = mid,
             core::cmp::Ordering::Equal => {
-                return Ok(Some(crate::types::ScoreEntry { worker, score }))
+                return Ok(Some(crate::types::ScoreEntry { worker, score }));
             }
         }
     }

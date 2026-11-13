@@ -480,26 +480,7 @@ impl SignerService {
             path: path.clone(),
             reason,
         };
-        let metadata =
-            fs::metadata(path).map_err(|error| refuse(format!("is unreadable: {error}")))?;
-        if !metadata.is_file() || metadata.len() > MAX_MANIFEST_BYTES {
-            return Err(refuse(format!(
-                "is not a regular file of at most {MAX_MANIFEST_BYTES} bytes"
-            )));
-        }
-        let text =
-            fs::read_to_string(path).map_err(|error| refuse(format!("cannot be read: {error}")))?;
-        let document: serde_json::Value =
-            serde_json::from_str(&text).map_err(|error| refuse(format!("is not JSON: {error}")))?;
-        let Some(root) = document.as_object().filter(|root| root.len() == 1) else {
-            return Err(refuse("must be an object holding keys only".to_owned()));
-        };
-        let Some(entries) = root.get("keys").and_then(serde_json::Value::as_array) else {
-            return Err(refuse("must be an object holding keys only".to_owned()));
-        };
-        if entries.is_empty() || entries.len() > MAX_BRIDGE_KEYS {
-            return Err(refuse(format!("must list 1 to {MAX_BRIDGE_KEYS} keys")));
-        }
+        let entries = read_bridge_entries(path)?;
         let mut keys: Vec<KeyPolicy> = Vec::with_capacity(entries.len());
         for (index, entry) in entries.iter().enumerate() {
             let refuse_entry = |reason: &str| refuse(format!("keys[{index}] {reason}"));
@@ -613,11 +594,7 @@ impl SignerService {
             .keys
             .iter()
             .find(|policy| policy.handle == request.handle)?;
-        if policy.key.algorithm() != request.algorithm
-            || !policy
-                .domains
-                .iter()
-                .any(|domain| *domain == request.domain)
+        if policy.key.algorithm() != request.algorithm || !policy.domains.contains(&request.domain)
         {
             return None;
         }
@@ -674,6 +651,33 @@ impl SignerService {
         stream.write_all(&response)?;
         stream.flush()
     }
+}
+
+fn read_bridge_entries(path: &Path) -> Result<Vec<serde_json::Value>, StartupError> {
+    let refuse = |reason: String| StartupError::Manifest {
+        path: path.to_path_buf(),
+        reason,
+    };
+    let metadata = fs::metadata(path).map_err(|error| refuse(format!("is unreadable: {error}")))?;
+    if !metadata.is_file() || metadata.len() > MAX_MANIFEST_BYTES {
+        return Err(refuse(format!(
+            "is not a regular file of at most {MAX_MANIFEST_BYTES} bytes"
+        )));
+    }
+    let text =
+        fs::read_to_string(path).map_err(|error| refuse(format!("cannot be read: {error}")))?;
+    let document: serde_json::Value =
+        serde_json::from_str(&text).map_err(|error| refuse(format!("is not JSON: {error}")))?;
+    let Some(root) = document.as_object().filter(|root| root.len() == 1) else {
+        return Err(refuse("must be an object holding keys only".to_owned()));
+    };
+    let Some(entries) = root.get("keys").and_then(serde_json::Value::as_array) else {
+        return Err(refuse("must be an object holding keys only".to_owned()));
+    };
+    if entries.is_empty() || entries.len() > MAX_BRIDGE_KEYS {
+        return Err(refuse(format!("must list 1 to {MAX_BRIDGE_KEYS} keys")));
+    }
+    Ok(entries.clone())
 }
 
 /// A bound signer socket together with the keys it answers with.

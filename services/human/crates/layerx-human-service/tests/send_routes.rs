@@ -28,20 +28,53 @@ fn send_route(pending_nonce: u64) -> SendRoute {
             PublicKey::new(signer.verifying_key().to_bytes()),
             AuthorizationSignature::new(signer.sign(&context).to_bytes()),
         ),
-        network_id: NetworkId::new(125).expect("network"),
-        protocol_version: ProtocolVersion::new(3).expect("protocol"),
+        network_id: NetworkId::new(125).or_fail("network"),
+        protocol_version: ProtocolVersion::new(3).or_fail("protocol"),
     }
     .with_pending_nonce(pending_nonce)
+}
+
+fn assert_rejected_bank_variants(request: &RouteRequest) {
+    let mut no_pointer = request.clone();
+    if let Relationship::BankTransfer { pointer, .. } = &mut no_pointer.relationship {
+        *pointer = EvmAddress::new([0; 20]);
+    } else {
+        panic!("bank transfer relationship");
+    }
+    assert!(matches!(
+        RouteResolver::resolve(&no_pointer),
+        Err(RouteError::Unavailable { .. })
+    ));
+    assert!(matches!(
+        RouteRequest::canonical_decode(&no_pointer.canonical_encode()),
+        Err(RouteError::Unavailable { .. })
+    ));
+    let mut zero = request.clone();
+    zero.amount = Amount::ZERO;
+    assert!(matches!(
+        RouteResolver::resolve(&zero),
+        Err(RouteError::Unavailable { .. })
+    ));
+    let mut self_transfer = request.clone();
+    if let Relationship::BankTransfer { from, to, .. } = &mut self_transfer.relationship {
+        *to = *from;
+    } else {
+        panic!("bank transfer relationship");
+    }
+    assert!(matches!(
+        RouteResolver::resolve(&self_transfer),
+        Err(RouteError::Unavailable { .. })
+    ));
 }
 
 #[test]
 fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
     let secret = [3; 32];
-    let signer = k256::ecdsa::SigningKey::from_slice(&secret).expect("EVM signer");
+    let signer = k256::ecdsa::SigningKey::from_slice(&secret).or_fail("EVM signer");
     let from = layerx_crypto::secp256k1::evm_address(
         signer.verifying_key().to_encoded_point(false).as_bytes(),
     )
-    .expect("sender address");
+    .or_fail("sender address");
     let to = [4; 20];
     let pointer = [6; 20];
     for (pending_nonce, amount, denom) in [
@@ -71,16 +104,16 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
             AssetId::new([1; 32]),
             Amount::from_u128(amount),
         )
-        .expect("bank route admitted through public API");
+        .or_fail("bank route admitted through public API");
         if let Relationship::BankTransfer { route, .. } = &request.relationship {
             assert_eq!(route.pending_nonce(), pending_nonce);
         } else {
             panic!("bank transfer relationship");
         }
         let wire = request.canonical_encode();
-        let decoded = RouteRequest::canonical_decode(&wire).expect("canonical request");
+        let decoded = RouteRequest::canonical_decode(&wire).or_fail("canonical request");
         assert_eq!(decoded, request);
-        let route = RouteResolver::resolve(&decoded).expect("EVM destination route");
+        let route = RouteResolver::resolve(&decoded).or_fail("EVM destination route");
         assert!(route.legs().is_empty());
         assert_eq!(route.bank_transfers().len(), 1);
         let call = &route.bank_transfers()[0];
@@ -100,73 +133,44 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
         assert_eq!(&call.data[4..16], &[0; 12]);
         assert_eq!(&call.data[16..36], &to);
         assert_eq!(&call.data[36..68], &amount_word);
-        let disclosure = bind_call(call, from).expect("real pointer calldata consumer");
+        let disclosure = bind_call(call, from).or_fail("real pointer calldata consumer");
         assert_eq!(
-            disclosure.construct_method().expect("bank ABI"),
+            disclosure.construct_method().or_fail("bank ABI"),
             Some(ConstructMethod::PointerTransfer {
                 pointer,
                 to,
                 amount: amount_word,
             })
         );
-        let signed = call.sign(&secret).expect("signed executable bank call");
+        let signed_call = call.sign(&secret).or_fail("signed executable bank call");
         let (transaction, signature) =
-            decode_signed(&signed).expect("canonical signed transaction");
+            decode_signed(&signed_call).or_fail("canonical signed transaction");
         assert_eq!(&transaction, call);
         assert_eq!(
-            recover_sender(&transaction, &signature).expect("transaction sender"),
+            recover_sender(&transaction, &signature).or_fail("transaction sender"),
             from
         );
         assert_eq!(
-            disclosure.signing_digest().expect("signing digest"),
+            disclosure.signing_digest().or_fail("signing digest"),
             transaction.signing_hash()
         );
 
-        let mut no_pointer = request.clone();
-        if let Relationship::BankTransfer { pointer, .. } = &mut no_pointer.relationship {
-            *pointer = EvmAddress::new([0; 20]);
-        } else {
-            panic!("bank transfer relationship");
-        }
-        assert!(matches!(
-            RouteResolver::resolve(&no_pointer),
-            Err(RouteError::Unavailable { .. })
-        ));
-        assert!(matches!(
-            RouteRequest::canonical_decode(&no_pointer.canonical_encode()),
-            Err(RouteError::Unavailable { .. })
-        ));
-        let mut zero = request.clone();
-        zero.amount = Amount::ZERO;
-        assert!(matches!(
-            RouteResolver::resolve(&zero),
-            Err(RouteError::Unavailable { .. })
-        ));
-        let mut self_transfer = request.clone();
-        if let Relationship::BankTransfer { from, to, .. } = &mut self_transfer.relationship {
-            *to = *from;
-        } else {
-            panic!("bank transfer relationship");
-        }
-        assert!(matches!(
-            RouteResolver::resolve(&self_transfer),
-            Err(RouteError::Unavailable { .. })
-        ));
+        assert_rejected_bank_variants(&request);
     }
 }
 
 #[test]
 fn bridge_only_destination_is_refused() {
     let human =
-        Endpoint::human(AccountId::parse("agent:did:layerx:human:main").expect("human account"))
-            .expect("human endpoint");
+        Endpoint::human(AccountId::parse("agent:did:layerx:human:main").or_fail("human account"))
+            .or_fail("human endpoint");
     let request = RouteRequest {
         source: Endpoint::PaxeerWallet,
         destination: human.clone(),
         relationship: Relationship::Custody(CustodyRoute::Deposit {
             deposit_proof: DepositProofId::new([1; 32]),
             checkpoint: CheckpointId::new([2; 32]),
-            reserve: AccountId::parse("system:treasury").expect("old deposit reserve"),
+            reserve: AccountId::parse("system:treasury").or_fail("old deposit reserve"),
             idempotency_key: IdempotencyKey::new([3; 32]),
         }),
         asset: AssetId::new([4; 32]),
@@ -199,7 +203,7 @@ fn bridge_only_destination_is_refused() {
             request_anchor: CheckpointId::new([5; 32]),
             fee_limit: 100,
             withdrawals_account: AccountId::parse("system:paxeer-withdrawals")
-                .expect("old withdrawal account"),
+                .or_fail("old withdrawal account"),
             payout_address: EvmAddress::new([6; 20]),
             idempotency_key: IdempotencyKey::new([7; 32]),
         }),
@@ -232,16 +236,16 @@ fn bridge_only_destination_is_refused() {
         Some(ExecutableShape::Kernel)
     );
     let direct = RouteRequest::from_wire_parts(
-        Endpoint::human(AccountId::parse("agent:did:layerx:human:main").expect("human"))
-            .expect("human endpoint"),
-        Endpoint::agent(AccountId::parse("agent:did:layerx:agent:main").expect("agent"))
-            .expect("agent endpoint"),
+        Endpoint::human(AccountId::parse("agent:did:layerx:human:main").or_fail("human"))
+            .or_fail("human endpoint"),
+        Endpoint::agent(AccountId::parse("agent:did:layerx:agent:main").or_fail("agent"))
+            .or_fail("agent endpoint"),
         Relationship::Direct(send_route(42)),
         AssetId::new([4; 32]),
         Amount::from_u128(50),
     )
-    .expect("agent-runtime route");
-    let route = RouteResolver::resolve(&direct).expect("direct route");
+    .or_fail("agent-runtime route");
+    let route = RouteResolver::resolve(&direct).or_fail("direct route");
     assert!(route.bank_transfers().is_empty());
     assert_eq!(route.legs().len(), 1);
     let intent: &Intent = route.legs()[0].intent();
@@ -249,4 +253,10 @@ fn bridge_only_destination_is_refused() {
         panic!("agent-runtime send intent");
     };
     assert_eq!(send.to_wire_parts().4.value(), 42);
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

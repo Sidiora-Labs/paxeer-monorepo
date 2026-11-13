@@ -125,6 +125,7 @@ func NewConsumer(ctx context.Context, nc *nats.Conn, cfg ConsumerConfig) (*Consu
 	if info.Stream != cfg.Stream || info.Name != cfg.Durable || actual.Durable != expected.Durable || actual.AckPolicy != expected.AckPolicy || actual.AckWait != expected.AckWait || actual.MaxDeliver != expected.MaxDeliver || actual.DeliverPolicy != expected.DeliverPolicy || actual.ReplayPolicy != expected.ReplayPolicy || actual.FilterSubject != expected.FilterSubject || len(actual.FilterSubjects) != 0 || actual.MaxAckPending != expected.MaxAckPending || actual.MaxWaiting != expected.MaxWaiting || actual.MaxRequestBatch != expected.MaxRequestBatch || actual.MaxRequestExpires != expected.MaxRequestExpires || actual.DeliverSubject != "" || actual.MemoryStorage || actual.HeadersOnly || actual.InactiveThreshold != 0 || len(actual.BackOff) != 0 {
 		return nil, errors.New("natsdriver: durable configuration differs from reviewed configuration")
 	}
+	//nolint:gosec // Consumer owns cancellation for its lifecycle.
 	lifecycle, cancel := context.WithCancel(context.Background())
 	return &Consumer{consumer: consumer, config: cfg, ctx: lifecycle, cancel: cancel, fetch: make(chan struct{}, 1)}, nil
 }

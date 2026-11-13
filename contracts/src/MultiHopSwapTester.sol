@@ -31,7 +31,14 @@ contract SimplePair {
     uint256 public reserve0;
     uint256 public reserve1;
 
-    event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to);
+    event Swap(
+        address indexed sender,
+        uint256 amount0In,
+        uint256 amount1In,
+        uint256 amount0Out,
+        uint256 amount1Out,
+        address indexed to
+    );
     event Sync(uint256 reserve0, uint256 reserve1);
 
     constructor(address _token0, address _token1) {
@@ -107,12 +114,10 @@ contract SimpleRouter {
      * @param to Final recipient of the output tokens
      * @return amountOut Final output amount
      */
-    function swapExactTokensForTokens(
-        uint256 amountIn,
-        address[] calldata path,
-        address[] calldata pairs,
-        address to
-    ) external returns (uint256 amountOut) {
+    function swapExactTokensForTokens(uint256 amountIn, address[] calldata path, address[] calldata pairs, address to)
+        external
+        returns (uint256 amountOut)
+    {
         require(path.length >= 2, "path too short");
         require(pairs.length == path.length - 1, "pairs/path mismatch");
 

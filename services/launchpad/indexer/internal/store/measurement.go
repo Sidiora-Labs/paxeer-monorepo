@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/jackc/pgx/v5"
 )
 
@@ -97,7 +99,10 @@ type CanonicalRangeDigest struct {
 	ProjectionCount, AccountingFillCount                   int64
 }
 
-func digestPart(h hash.Hash, value []byte) { fmt.Fprintf(h, "%d:", len(value)); h.Write(value) }
+func digestPart(h hash.Hash, value []byte) {
+	checked.Write(fmt.Fprintf(h, "%d:", len(value)))
+	checked.Write(h.Write(value))
+}
 func canonicalPayload(body []byte) ([]byte, error) {
 	var value any
 	d := json.NewDecoder(bytes.NewReader(body))
@@ -123,7 +128,7 @@ func (s *Store) MeasureCanonicalRange(ctx context.Context, stream string, from, 
 	if err != nil {
 		return result, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	blocks, err := tx.Query(ctx, `SELECT height,block_hash,raw_count,fetch_complete,required_decode_complete FROM indexer.indexer_block_completeness WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2 AND $3 ORDER BY height`, stream, from, to)
 	if err != nil {
 		return result, err
@@ -142,7 +147,11 @@ func (s *Store) MeasureCanonicalRange(ctx context.Context, stream string, from, 
 		}
 		body, _ := json.Marshal(b)
 		digestPart(blockHash, body)
-		expectedRaw += int64(b.RawCount)
+		bRawCountInt64, conversionErr := checked.Convert[int64](b.RawCount)
+		if conversionErr != nil {
+			return CanonicalRangeDigest{}, conversionErr
+		}
+		expectedRaw += bRawCountInt64
 		result.BlockCount++
 	}
 	blocks.Close()
@@ -296,7 +305,7 @@ func (s *Store) CompareReconstructionSegment(ctx context.Context, r ReplayReques
 	if err != nil {
 		return 0, 0, err
 	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
+	defer checked.Rollback(tx, context.WithoutCancel(ctx))
 	var rawCount, typedCount int64
 	for _, raw := range segment.Records {
 		digest, err := RawDigest(raw)
@@ -306,7 +315,11 @@ func (s *Store) CompareReconstructionSegment(ctx context.Context, r ReplayReques
 		var topics []byte
 		var data []byte
 		var actual RawRecord
-		err = tx.QueryRow(ctx, `SELECT transaction_hash,block_hash,emitter,height,transaction_index,log_index,topics,data FROM indexer.indexer_raw_logs WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2`, raw.TransactionHash, int64(raw.LogIndex)).Scan(&actual.TransactionHash, &actual.BlockHash, &actual.Emitter, &actual.Height, &actual.TransactionIndex, &actual.LogIndex, &topics, &data)
+		rawLogIndexInt64, conversionErr := checked.Convert[int64](raw.LogIndex)
+		if conversionErr != nil {
+			return 0, 0, conversionErr
+		}
+		err = tx.QueryRow(ctx, `SELECT transaction_hash,block_hash,emitter,height,transaction_index,log_index,topics,data FROM indexer.indexer_raw_logs WHERE chain_id=125 AND transaction_hash=$1 AND log_index=$2`, raw.TransactionHash, rawLogIndexInt64).Scan(&actual.TransactionHash, &actual.BlockHash, &actual.Emitter, &actual.Height, &actual.TransactionIndex, &actual.LogIndex, &topics, &data)
 		if err != nil {
 			return rawCount, typedCount, err
 		}

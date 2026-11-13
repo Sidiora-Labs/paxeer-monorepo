@@ -89,12 +89,12 @@ func (l *Ledger) begin(ctx context.Context) (pgx.Tx, error) {
 	}
 	_, e = tx.Exec(ctx, "SET LOCAL search_path TO "+pgx.Identifier{l.schema}.Sanitize())
 	if e != nil {
-		tx.Rollback(ctx)
+		_ = tx.Rollback(ctx)
 		return nil, e
 	}
 	if l.epochGuard != nil {
 		if e = l.epochGuard(ctx, tx); e != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 			return nil, e
 		}
 	}
@@ -162,7 +162,7 @@ func (l *Ledger) Fund(ctx context.Context, f Funding) error {
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	duplicate, e := inbox(ctx, tx, "fund:"+f.Proof, f)
 	if e != nil {
 		return e
@@ -180,7 +180,7 @@ func (l *Ledger) Fund(ctx context.Context, f Funding) error {
 	return tx.Commit(ctx)
 }
 func (l *Ledger) Accrue(ctx context.Context, a Award) (Liability, error) {
-	if !identifier.MatchString(a.Identity) || !identifier.MatchString(a.Program) || !identifier.MatchString(a.Version) || !validDay(a.Day) || !canonicalEvent.MatchString(a.Provenance) || (a.Kind != "referral" && a.Kind != "cashback") {
+	if !identifier.MatchString(a.Identity) || !identifier.MatchString(a.Program) || !identifier.MatchString(a.Version) || !validDay(a.Day) || !canonicalEvent.MatchString(a.Provenance) || (a.Kind != sourceReferral && a.Kind != "cashback") {
 		return Liability{}, ErrInvalid
 	}
 	var e error
@@ -190,7 +190,7 @@ func (l *Ledger) Accrue(ctx context.Context, a Award) (Liability, error) {
 	if a.Beneficiary, e = wallet(a.Beneficiary); e != nil {
 		return Liability{}, e
 	}
-	if a.Kind == "referral" {
+	if a.Kind == sourceReferral {
 		a.Referred, e = wallet(a.Referred)
 		if e != nil || a.Referred == a.Beneficiary {
 			return Liability{}, ErrUnauthorized
@@ -215,8 +215,8 @@ func (l *Ledger) Accrue(ctx context.Context, a Award) (Liability, error) {
 	if e != nil {
 		return Liability{}, e
 	}
-	defer tx.Rollback(ctx)
-	if a.Kind == "referral" {
+	defer func() { _ = tx.Rollback(ctx) }()
+	if a.Kind == sourceReferral {
 		if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "referral-account:"+a.Program+":"+a.Referred); e != nil {
 			return Liability{}, e
 		}
@@ -311,7 +311,7 @@ func (l *Ledger) Liability(ctx context.Context, id string) (Liability, error) {
 	if e != nil {
 		return Liability{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	out, e := readLiability(ctx, tx, id)
 	if e != nil {
 		return Liability{}, e
@@ -329,7 +329,7 @@ func (l *Ledger) Hold(ctx context.Context, request, id, reason string) error {
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	change := struct{ ID, Reason, Service string }{id, reason, l.service}
 	dup, e := inbox(ctx, tx, "hold:"+request, change)
 	if e != nil {
@@ -365,7 +365,7 @@ func (l *Ledger) RecordCreatorClaim(ctx context.Context, c *Creator, txHash, poo
 	if e != nil {
 		return ClaimEvidence{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	dup, e := inbox(ctx, tx, "claim:"+ev.Identity, ev)
 	if e != nil {
 		return ClaimEvidence{}, e

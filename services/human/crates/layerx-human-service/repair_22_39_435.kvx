@@ -1,0 +1,89 @@
+[repair]
+member = "layerx-human-service"
+
+[lint.missing_errors_doc]
+locations = 179
+
+[lint.must_use_candidate]
+locations = 15
+
+[lint.unnecessary_semicolon]
+locations = 14
+
+[lint.semicolon_if_nothing_returned]
+locations = 9
+
+[lint.assigning_clones]
+locations = 4
+
+[lint.clone_on_copy]
+locations = 3
+
+[lint.format_collect]
+locations = 13
+
+[lint.format_push_string]
+locations = 4
+
+[lint.redundant_closure_for_method_calls]
+locations = 4
+
+[lint.map_unwrap_or]
+locations = 2
+
+[lint.unused_unit]
+locations = 2
+
+[lint.cloned_ref_to_slice_refs]
+locations = 1
+
+[lint.duplicate_mod]
+locations = 1
+
+[lint.ignored_unit_patterns]
+locations = 1
+
+[lint.match_wildcard_for_single_variants]
+locations = 1
+
+[lint.needless_borrow]
+locations = 1
+
+[lint.needless_continue]
+locations = 1
+
+[lint.nonminimal_bool]
+locations = 1
+
+[lint.used_underscore_binding]
+locations = 1
+
+[lint.wildcard_imports]
+locations = 1
+
+[lint.unused_imports]
+locations = 6
+
+[lint.similar_names]
+locations = 3
+
+[lint.match_same_arms]
+locations = 3
+
+[lint.large_enum_variant]
+locations = 1
+
+[lint.dead_code]
+locations = 8
+
+[lint.too_many_lines]
+locations = 29
+
+[lint.type_complexity]
+locations = 2
+
+[lint.needless_borrow]
+locations = 13
+
+[lint.needless_pass_by_value]
+locations = 1

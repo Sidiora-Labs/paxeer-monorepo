@@ -1,6 +1,8 @@
+#[allow(dead_code)]
+mod programs {
+    include!("../src/programs.rs");
+}
 use layerx_platform_cli::{encoding, http};
-#[path = "../src/programs.rs"]
-mod programs;
 
 use std::io::{BufRead as _, Read as _};
 use std::net::{Shutdown, TcpListener};

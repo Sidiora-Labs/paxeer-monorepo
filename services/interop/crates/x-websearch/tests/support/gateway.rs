@@ -1,3 +1,7 @@
+mod test_network {
+    include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../test_network.rs"));
+}
+
 use serde_json::{json, Value};
 use std::io::{Read as _, Write as _};
 use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -104,6 +108,7 @@ fn answer_rpc(
 
 impl Gateway {
     pub(crate) fn start_with_chain_id(chain_id: Option<u64>) -> std::io::Result<Self> {
+        test_network::isolate()?;
         let mut ledger_calls = if chain_id.is_some() {
             let recording: Value =
                 serde_json::from_slice(&std::fs::read(fixtures().join("gateway/metered.json"))?)?;
@@ -209,4 +214,29 @@ impl Drop for Gateway {
             let _ = acceptor.join();
         }
     }
+}
+
+#[test]
+fn gateway_records_rpc_parameters() -> std::io::Result<()> {
+    let gateway = Gateway::start_with_chain_id(None)?;
+    let mut stream = TcpStream::connect(gateway.address)?;
+    let body = json!({"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}).to_string();
+    write!(
+        stream,
+        "POST /rpc HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    )?;
+    let mut response = Vec::new();
+    stream.read_to_end(&mut response)?;
+    assert!(response.starts_with(b"HTTP/1.1 200 OK"));
+    assert_eq!(gateway.params("eth_chainId"), vec![json!([])]);
+    assert_eq!(
+        gateway
+            .calls
+            .lock()
+            .map_err(|_| std::io::Error::other("gateway call state"))?
+            .len(),
+        1
+    );
+    Ok(())
 }

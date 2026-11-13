@@ -110,7 +110,7 @@ func (s Store) mutate(ctx context.Context, p Principal, id uuid.UUID, expected s
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	if e = s.mutateTx(ctx, tx, p, id, expected, kind, fn); e != nil {
 		return e
 	}
@@ -157,7 +157,7 @@ func (s Store) mutateTx(ctx context.Context, tx pgx.Tx, p Principal, id uuid.UUI
 	if e != nil {
 		return e
 	}
-	body := any(map[string]any{"accountId": id, "revision": strconv.FormatInt(a.Revision, 10)})
+	body := any(map[string]any{"accountId": id, fieldRevision: strconv.FormatInt(a.Revision, 10)})
 	if payload, _ := ctx.Value(mutationPayloadKey{}).(*mutationPayload); payload != nil && payload.Body != nil {
 		body = payload.Body
 	}
@@ -388,7 +388,7 @@ func (s Store) Idempotent(ctx context.Context, p Principal, method, path string,
 	if e != nil {
 		return nil, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	a, e := load(ctx, tx, p.AccountID)
 	if e != nil {
 		return nil, e

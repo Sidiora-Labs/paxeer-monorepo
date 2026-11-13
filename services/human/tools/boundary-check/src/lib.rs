@@ -53,6 +53,17 @@ const AMBIENT_NONDETERMINISM: &[&str] = &[
     "OsRng",
 ];
 
+pub const TRANSPORT_DEADLINE_CLOCK_READS: &[(&str, &str)] = &[
+    (
+        "services/human/crates/layerx-human-kms/src/server.rs",
+        "A monotonic deadline bounds TLS handshakes and framed KMS requests.",
+    ),
+    (
+        "services/human/crates/layerx-network-gateway/src/lib.rs",
+        "A monotonic deadline bounds gateway transport requests.",
+    ),
+];
+
 const PAYLOAD_AUTHORITY_CRATE: &str = "layerx-intents";
 
 const PAYLOAD_ENCODING_INVOCATIONS: &[&str] = &[
@@ -73,7 +84,8 @@ fn visit_files(root: &Path, output: &mut Vec<PathBuf>) -> Result<(), String> {
     let entries =
         fs::read_dir(root).map_err(|error| format!("cannot read {}: {error}", root.display()))?;
     for entry in entries {
-        let entry = entry.map_err(|error| error.to_string())?;
+        let entry =
+            entry.map_err(|error| format!("cannot read entry in {}: {error}", root.display()))?;
         let path = entry.path();
         if path.is_dir() {
             if path.file_name().is_some_and(|name| name == "target") {
@@ -93,7 +105,8 @@ fn visit_all_files(root: &Path, output: &mut Vec<PathBuf>) -> Result<(), String>
     let entries =
         fs::read_dir(root).map_err(|error| format!("cannot read {}: {error}", root.display()))?;
     for entry in entries {
-        let entry = entry.map_err(|error| error.to_string())?;
+        let entry =
+            entry.map_err(|error| format!("cannot read entry in {}: {error}", root.display()))?;
         let path = entry.path();
         if path.is_dir() {
             if path.file_name().is_some_and(|name| name == "cache") {
@@ -118,7 +131,7 @@ fn manifest_uses_banned_dependency(body: &str) -> bool {
     })
 }
 
-fn source_violation(body: &str) -> Option<&'static str> {
+fn source_violation(body: &str, transport_deadline_clock: bool) -> Option<&'static str> {
     if body.contains("include!(") && body.contains("include/layerx")
         || body.contains("include_bytes!(") && body.contains("include/layerx")
         || body.contains("bindgen::")
@@ -142,10 +155,9 @@ fn source_violation(body: &str) -> Option<&'static str> {
     }) {
         return Some("node-private-path");
     }
-    if AMBIENT_NONDETERMINISM
-        .iter()
-        .any(|ambient| body.contains(ambient))
-    {
+    if AMBIENT_NONDETERMINISM.iter().any(|ambient| {
+        body.contains(ambient) && !(transport_deadline_clock && *ambient == "Instant::now")
+    }) {
         return Some("ambient-nondeterminism");
     }
     if body.contains("lni::transport::Uds")
@@ -211,7 +223,12 @@ pub fn human_boundary_policy(root: &Path) -> Result<(), Vec<Violation>> {
         .filter(|path| path.extension().is_some_and(|extension| extension == "rs"))
         .filter_map(|path| {
             let body = fs::read_to_string(&path).ok()?;
-            source_violation(&body).map(|rule| Violation { path, rule })
+            let transport_deadline_clock = path.canonicalize().is_ok_and(|resolved| {
+                TRANSPORT_DEADLINE_CLOCK_READS
+                    .iter()
+                    .any(|(file, _)| resolved.ends_with(file))
+            });
+            source_violation(&body, transport_deadline_clock).map(|rule| Violation { path, rule })
         })
         .collect::<Vec<_>>();
     if violations.is_empty() {

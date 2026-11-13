@@ -63,7 +63,7 @@ pub struct SolanaConfig {
     pub custody_program_owner: [u8; 32],
     pub custody_program_data_account: [u8; 32],
     pub custody_program_data_reference_offset: u16,
-    /// SHA-256 of every byte after the loader's fixed 45-byte ProgramData
+    /// SHA-256 of every byte after the loader's fixed 45-byte `ProgramData`
     /// metadata region, including all allocated executable trailing padding.
     pub custody_program_data_hash: [u8; 32],
     pub custody_account: [u8; 32],
@@ -207,6 +207,9 @@ pub struct SolanaVerifier {
 impl crate::sealed::SourceVerifier for SolanaVerifier {}
 
 impl SolanaVerifier {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn verify_owned_history(
         &self,
         ownership_evidence: &SourceEvidence,

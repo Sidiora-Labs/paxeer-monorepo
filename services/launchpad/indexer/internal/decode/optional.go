@@ -27,30 +27,30 @@ type FamilyAvailability struct {
 
 func optionalFamily(role, name string) string {
 	switch role {
-	case "PECOR":
-		return "pecor"
-	case "PECOROrders":
-		return "orders"
-	case "PECORVault":
-		return "vault"
-	case "MetaAGRouter", "MetaAGQuoter", "SidioraAdapter", "VaultAdapter":
-		return "routing"
-	case "TransactionTracker":
+	case valuePECOR:
+		return valuePecor
+	case valuePECOROrders:
+		return valueOrders
+	case valuePECORVault:
+		return valueVault
+	case valueMetaAGRouter, "MetaAGQuoter", "SidioraAdapter", "VaultAdapter":
+		return valueRouting
+	case valueTransactionTracker:
 		return "tracker"
-	case "PriceOracle", "OracleHub":
-		return "oracle"
-	case "EventEmitter":
+	case valuePriceOracle, valueOracleHub:
+		return valueOracle
+	case valueEventEmitter:
 		switch name {
-		case "PecorSwap":
-			return "pecor"
-		case "PecorOrderCreated", "PecorOrderLifecycle":
-			return "orders"
-		case "VaultFlow":
-			return "vault"
-		case "BestRouteSwap":
-			return "routing"
-		case "PriceUpdated", "CircuitBreakerTriggered", "OracleAdapterLifecycle":
-			return "oracle"
+		case valuePecorSwap:
+			return valuePecor
+		case valuePecorOrderCreated, valuePecorOrderLifecycle:
+			return valueOrders
+		case valueVaultFlow:
+			return valueVault
+		case valueBestRouteSwap:
+			return valueRouting
+		case valuePriceUpdated, valueCircuitBreakerTriggered, valueOracleAdapterLifecycle:
+			return valueOracle
 		}
 	}
 	return ""
@@ -65,34 +65,34 @@ func eventFamily(role, name string) string {
 
 func nativeRoles(f string) []string {
 	switch f {
-	case "pecor":
-		return []string{"PECOR"}
-	case "orders":
-		return []string{"PECOROrders"}
-	case "vault":
-		return []string{"PECORVault"}
-	case "routing":
-		return []string{"MetaAGRouter"}
+	case valuePecor:
+		return []string{valuePECOR}
+	case valueOrders:
+		return []string{valuePECOROrders}
+	case valueVault:
+		return []string{valuePECORVault}
+	case valueRouting:
+		return []string{valueMetaAGRouter}
 	case "tracker":
-		return []string{"TransactionTracker"}
-	case "oracle":
-		return []string{"PriceOracle", "OracleHub"}
+		return []string{valueTransactionTracker}
+	case valueOracle:
+		return []string{valuePriceOracle, valueOracleHub}
 	}
 	return nil
 }
 
 func mirrorNames(f string) []string {
 	switch f {
-	case "pecor":
-		return []string{"PecorSwap"}
-	case "orders":
-		return []string{"PecorOrderCreated", "PecorOrderLifecycle"}
-	case "vault":
-		return []string{"VaultFlow"}
-	case "routing":
-		return []string{"BestRouteSwap"}
-	case "oracle":
-		return []string{"PriceUpdated", "CircuitBreakerTriggered", "OracleAdapterLifecycle"}
+	case valuePecor:
+		return []string{valuePecorSwap}
+	case valueOrders:
+		return []string{valuePecorOrderCreated, valuePecorOrderLifecycle}
+	case valueVault:
+		return []string{valueVaultFlow}
+	case valueRouting:
+		return []string{valueBestRouteSwap}
+	case valueOracle:
+		return []string{valuePriceUpdated, valueCircuitBreakerTriggered, valueOracleAdapterLifecycle}
 	}
 	return nil
 }
@@ -125,23 +125,24 @@ func (r *Registry) OptionalAvailability(at Order, policies []CapabilityPolicy) (
 					if optionalFamily(d.Role, ev.Name) != p.Family {
 						continue
 					}
-					state := "unsupported"
-					if (d.Optional && d.Enabled) || (d.Role == "EventEmitter" && optionalEnabled(d, ev.Name)) {
-						state = "optional_deployed"
+					state := valueUnsupported
+					if (d.Optional && d.Enabled) || (d.Role == valueEventEmitter && optionalEnabled(d, ev.Name)) {
+						state = valueOptionalDeployed
 					}
 					a.Coverage = append(a.Coverage, Coverage{d.Role, d.ABIRevision, ev.Name, ev.Sig, state, authority(d.Role, ev.Name), p.Family})
-					if d.Role == "EventEmitter" && state != "unsupported" {
+					if d.Role == valueEventEmitter && state != valueUnsupported {
 						mirrors[ev.Name] = true
 					}
 				}
 			}
 		}
+		a.DeploymentPresent = true
 		for _, role := range roles {
 			if !active[role] {
+				a.DeploymentPresent = false
 				a.Missing = append(a.Missing, "deployment:"+role)
 			}
 		}
-		a.DeploymentPresent = len(active) == len(roles)
 		for _, role := range roles {
 			found := false
 			for _, coverage := range r.coverage {
@@ -212,7 +213,7 @@ func (r *Registry) DecodeOptionalBatch(logs []ethtypes.Log) (*OptionalBatch, err
 		}
 		if f != "" {
 			out.Optional = append(out.Optional, e)
-			if decodeErr != nil || e.Status != "decoded" {
+			if decodeErr != nil || e.Status != valueDecoded {
 				out.Failures = append(out.Failures, OptionalFailure{e.Raw.Identity, f, e.FailureReason})
 			}
 			continue
@@ -245,7 +246,7 @@ func (r *Registry) DecodeOracle(l ethtypes.Log) (*OracleTelemetry, error) {
 	if err != nil {
 		return nil, err
 	}
-	if optionalFamily(e.EmitterRole, e.EventName) != "oracle" || e.Event == nil || e.Status != "decoded" {
+	if optionalFamily(e.EmitterRole, e.EventName) != valueOracle || e.Event == nil || e.Status != valueDecoded {
 		return nil, fmt.Errorf("approved enabled oracle event required")
 	}
 	get := func(name string) *string {
@@ -256,7 +257,7 @@ func (r *Registry) DecodeOracle(l ethtypes.Log) (*OracleTelemetry, error) {
 		return &v
 	}
 	t := &OracleTelemetry{Identity: e.Raw.Identity, Emitter: e.Raw.Emitter, ABIRevision: e.ABIRevision, Event: e.EventName, Token: get("token"), RawValue: get("price"), ObservedAt: get("timestamp"), SourceID: get("sourceId"), Confidence: get("confidence"), Indicative: true, Status: "telemetry"}
-	if e.EmitterRole == "PriceOracle" && e.EventName == "PriceUpdated" {
+	if e.EmitterRole == valuePriceOracle && e.EventName == valuePriceUpdated {
 		scale := uint8(18)
 		t.Scale = &scale
 	}

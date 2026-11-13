@@ -6,7 +6,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"math/big"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
+	chartcleanup "github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/cleanup"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/engine"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
@@ -14,12 +23,6 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/storage"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"io"
-	"math/big"
-	"os"
-	"regexp"
-	"strings"
-	"time"
 )
 
 type rebuildOptions struct {
@@ -91,11 +94,11 @@ func runArgs(args []string) error {
 	if err != nil {
 		return err
 	}
-	file, err := os.Open(manifestPath)
+	file, err := os.OpenInRoot(filepath.Dir(manifestPath), filepath.Base(manifestPath))
 	if err != nil {
-		return err
+		return &os.PathError{Op: "open", Path: manifestPath, Err: err}
 	}
-	defer file.Close()
+	defer chartcleanup.Close(file)
 	raw, err := io.ReadAll(io.LimitReader(file, 16<<20+1))
 	if err != nil || len(raw) > 16<<20 {
 		return errors.New("manifest file exceeds bound")
@@ -137,16 +140,7 @@ func runArgs(args []string) error {
 		return errors.New("archive object reader configuration unavailable")
 	}
 	reader := store.ArchiveReader{Objects: objects, Bucket: objects.Bucket(), Exact: exact, BlockTime: func(ctx context.Context, height int64, expectedHash string) (int64, error) {
-		bounded, stop := context.WithTimeout(ctx, 2*time.Second)
-		defer stop()
-		block, err := (chainread.Reader{RPC: rpc}).Block(bounded, height)
-		if err != nil {
-			return 0, errors.New("archive boundary header unavailable")
-		}
-		if !strings.EqualFold(block.Hash, expectedHash) {
-			return 0, store.ErrIntegrity
-		}
-		return block.Time, nil
+		return rebuildBlockTime(ctx, rpc, height, expectedHash)
 	}}
 	report, err := engine.ReconstructArchive(ctx, exact, reader, id, pool, from, to, manifests)
 	if err != nil {
@@ -154,6 +148,20 @@ func runArgs(args []string) error {
 	}
 	return json.NewEncoder(os.Stdout).Encode(report)
 }
+
+func rebuildBlockTime(ctx context.Context, rpc *ethclient.Client, height int64, expectedHash string) (int64, error) {
+	bounded, stop := context.WithTimeout(ctx, 2*time.Second)
+	defer stop()
+	block, err := (chainread.Reader{RPC: rpc}).Block(bounded, height)
+	if err != nil {
+		return 0, errors.New("archive boundary header unavailable")
+	}
+	if !strings.EqualFold(block.Hash, expectedHash) {
+		return 0, store.ErrIntegrity
+	}
+	return block.Time, nil
+}
+
 func run() error {
 	return runArgs(os.Args[1:])
 }

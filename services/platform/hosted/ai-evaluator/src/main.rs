@@ -40,6 +40,7 @@ use layerx_programs_ai_market::{
     },
     queries::{ReadProof, StateCapture},
     registry_ops::PolicySection,
+    reputation_transition::joint_table,
     state::{
         decode_shared_state, settlement_rewards, ActorSlot, HeightWindow, ReplayTable, Section,
     },
@@ -168,11 +169,11 @@ impl EpochView {
         {
             return Err("captured state belongs to another market".to_owned());
         }
-        let epoch =
-            AdmissionTable::decode(state.feature_sections[Section::ReputationAdmission.index()])
-                .map_err(app)?
-                .current_epoch()
-                .ok_or("no epoch is open")?;
+        let epoch = joint_table(state.feature_sections[Section::ReputationAdmission.index()])
+            .and_then(AdmissionTable::decode)
+            .map_err(app)?
+            .current_epoch()
+            .ok_or("no epoch is open")?;
         let roster = settlement_rewards(&state, None)
             .and_then(|rewards| rewards.row(epoch))
             .map_err(app)?

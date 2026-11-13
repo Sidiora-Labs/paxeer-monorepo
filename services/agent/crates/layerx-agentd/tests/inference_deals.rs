@@ -575,6 +575,12 @@ fn all_acknowledge(engine: &mut DealEngine, peers: &mut [WirePeer], now: u64) ->
     assert_eq!(engine.ready_to_record(), Some(&frame));
     frame
 }
+pub(crate) fn host_evm_address() -> [u8; 20] {
+    LocalSigner::from_derived_account(&must(derive_from_seed(&[11; 32], 0)))
+        .evm_address()
+        .unwrap_or_else(|| panic!("host EVM signing address"))
+}
+
 fn sign_record(engine: &DealEngine) -> OperationRecord {
     let envelope = must(engine.envelope(350));
     let env = must(codec::decode_envelope(&envelope)).envelope;
@@ -603,6 +609,50 @@ fn sign_record(engine: &DealEngine) -> OperationRecord {
     .unwrap_or_else(|error| panic!("host signing failed: {error:?}"))
 }
 
+fn confirm_finalized_deal(
+    server: &NodeServer,
+    frame: &DealFrame,
+    peer: &mut WirePeer,
+) -> FinalizedSnapshot {
+    must(server.node.lock()).commit_pending();
+    let snapshot = server.snapshot();
+    let mut bytes = vec![0; queries::DEAL_VIEW_BYTES];
+    let length = must(queries::answer_deal_view(
+        snapshot.state_bytes(),
+        &frame.deal_id,
+        &mut bytes,
+    ));
+    let recorded = must(client::decode_deal_view(&bytes[..length]));
+    assert_eq!(recorded.deal.deal_id.bytes(), frame.deal_id);
+    assert_eq!(recorded.deal.layers, must(frame.request()).layers);
+    peer.confirm_recorded(frame, &snapshot, &server.endpoint);
+    let mut altered_price = frame.clone();
+    altered_price.price = (must(frame.price.parse::<u128>()) + 1).to_string();
+    assert!(altered_price
+        .verify_recorded(&server.endpoint, &snapshot)
+        .is_err());
+    let mut altered_plan = frame.clone();
+    altered_plan.plan.layers[0].end_layer -= 1;
+    altered_plan.plan.layers[1].first_layer -= 1;
+    assert!(altered_plan
+        .verify_recorded(&server.endpoint, &snapshot)
+        .is_err());
+    snapshot
+}
+
+fn confirm_reopened_deal(server: &NodeServer, directory: &Directory, frame: &DealFrame, now: u64) {
+    let mut reopened = must(DealEngine::open(
+        &directory.0.join("session.json"),
+        config(),
+    ));
+    assert!(
+        !must(reopened.live(&frame.deal_id)),
+        "restart must reacquire chain authority"
+    );
+    must(reopened.poll(server.snapshot(), now));
+    assert!(must(reopened.live(&frame.deal_id)));
+}
+
 #[test]
 fn crossing_pair_becomes_recorded_only_after_acknowledgements_and_finality() {
     let server = NodeServer::start(1000);
@@ -626,12 +676,22 @@ fn crossing_pair_becomes_recorded_only_after_acknowledgements_and_finality() {
     let journal_path = directory.0.join("operations");
     let journal = must(OperationJournal::open(&journal_path));
     let mut record = sign_record(&engine);
+    assert!(record_deal(
+        &mut engine,
+        &journal,
+        &server.endpoint,
+        &mut record,
+        [0x99; 20],
+    )
+    .is_err());
+    assert_eq!(must(server.node.lock()).submissions, 0);
     assert_eq!(
         must(record_deal(
             &mut engine,
             &journal,
             &server.endpoint,
-            &mut record
+            &mut record,
+            host_evm_address(),
         )),
         OperationState::Pending
     );
@@ -661,42 +721,11 @@ fn crossing_pair_becomes_recorded_only_after_acknowledgements_and_finality() {
         "pending delivery must not be repeated"
     );
     assert!(!must(engine.live(&frame.deal_id)));
-    must(server.node.lock()).commit_pending();
-    let snapshot = server.snapshot();
-    let mut bytes = vec![0; queries::DEAL_VIEW_BYTES];
-    let length = must(queries::answer_deal_view(
-        snapshot.state_bytes(),
-        &frame.deal_id,
-        &mut bytes,
-    ));
-    let recorded = must(client::decode_deal_view(&bytes[..length]));
-    assert_eq!(recorded.deal.deal_id.bytes(), frame.deal_id);
-    assert_eq!(recorded.deal.layers, must(frame.request()).layers);
-    peers[0].confirm_recorded(&frame, &snapshot, &server.endpoint);
-    let mut altered_price = frame.clone();
-    altered_price.price = (must(frame.price.parse::<u128>()) + 1).to_string();
-    assert!(altered_price
-        .verify_recorded(&server.endpoint, &snapshot)
-        .is_err());
-    let mut altered_plan = frame.clone();
-    altered_plan.plan.layers[0].end_layer -= 1;
-    altered_plan.plan.layers[1].first_layer -= 1;
-    assert!(altered_plan
-        .verify_recorded(&server.endpoint, &snapshot)
-        .is_err());
+    let snapshot = confirm_finalized_deal(&server, &frame, &mut peers[0]);
     must(engine.poll(snapshot, now + 3));
     assert!(must(engine.live(&frame.deal_id)));
     drop(engine);
-    let mut reopened = must(DealEngine::open(
-        &directory.0.join("session.json"),
-        config(),
-    ));
-    assert!(
-        !must(reopened.live(&frame.deal_id)),
-        "restart must reacquire chain authority"
-    );
-    must(reopened.poll(server.snapshot(), now + 4));
-    assert!(must(reopened.live(&frame.deal_id)));
+    confirm_reopened_deal(&server, &directory, &frame, now + 4);
 }
 
 #[test]
@@ -788,6 +817,7 @@ fn missing_acknowledgement_drops_the_peer_and_replans_with_fresh_signatures() {
         &journal,
         &server.endpoint,
         &mut record,
+        host_evm_address(),
     ));
     must(server.node.lock()).commit_pending();
     must(engine.poll(server.snapshot(), now + 5002));
@@ -839,6 +869,7 @@ fn roster_digest_matches_the_finalized_chain_value_and_includes_admitted_evaluat
         &journal,
         &server.endpoint,
         &mut record,
+        host_evm_address(),
     ));
     must(server.node.lock()).commit_pending();
     let snapshot = server.snapshot();

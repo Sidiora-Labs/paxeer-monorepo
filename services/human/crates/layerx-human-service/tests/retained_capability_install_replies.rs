@@ -10,7 +10,7 @@ use layerx_human_service::agents::{
     AgentCreationContract, AgentEvidence, AgentFailure, CapabilityProvision, CreationStage,
 };
 use layerx_human_service::custody::{CustodySigner, EnvelopeKms, Keystore, SigningLimits};
-use layerx_human_service::frame::{read_frame, write_frame, Limits};
+use layerx_human_service::frame::Limits;
 use layerx_human_service::server::agent_creation::{CreationBounds, ProductionAgentCreation, Rung};
 use layerx_human_service::server::agent_runtime::AgentRuntime;
 use layerx_human_service::trace::TraceId;
@@ -33,7 +33,7 @@ fn checked<T, E: Debug>(value: Result<T, E>) -> T {
     value.unwrap_or_else(|error| panic!("retained capability reply: {error:?}"))
 }
 fn hex(value: &[u8]) -> String {
-    value.iter().map(|byte| format!("{byte:02x}")).collect()
+    layerx_human_service::hex::lower(value)
 }
 fn registry() -> ModuleRegistry {
     checked(ModuleRegistry::new(&[checked(ModuleRegistration::new(
@@ -68,7 +68,6 @@ mod capability_install_boundary {
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
     use std::path::Path;
-    use std::time::Instant;
 
     use layerx_agentd::human::{serve_one, AcceptedTransport, HumanPeer};
     use layerx_agentd::human_runtime::{ProductionHumanOperations, RemoteHumanAuthority};
@@ -81,7 +80,7 @@ mod capability_install_boundary {
     const DEADLINE: Duration = Duration::from_secs(5);
 
     fn accept(listener: &TcpListener) -> TcpStream {
-        let deadline = Instant::now() + DEADLINE;
+        let mut accept_steps = 0..5_000;
         loop {
             match listener.accept() {
                 Ok((stream, _)) => {
@@ -90,7 +89,10 @@ mod capability_install_boundary {
                     return stream;
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    assert!(Instant::now() < deadline, "capability authority deadline");
+                    assert!(
+                        accept_steps.next().is_some(),
+                        "capability authority deadline"
+                    );
                     thread::sleep(Duration::from_millis(1));
                 }
                 Err(error) => panic!("capability authority accept: {error}"),
@@ -161,7 +163,7 @@ mod capability_install_boundary {
             summary.extend_from_slice(&[0x75; 32]);
             summary.extend_from_slice(&request.expiry_sequence.to_be_bytes());
             summary.extend_from_slice(&(1_u64 << (ModuleId::Budget as u16)).to_be_bytes());
-            let activity = *request.activity_types.first().expect("activity type");
+            let activity = *request.activity_types.first().or_fail("activity type");
             summary.extend_from_slice(&activity.to_be_bytes());
             summary.extend_from_slice(&activity.to_be_bytes());
             summary.extend_from_slice(&1_000_000_u64.to_be_bytes());
@@ -288,12 +290,12 @@ mod capability_install_boundary {
         let count = requests.len();
         let server = thread::spawn(move || {
             for _ in 0..count {
-                let deadline = Instant::now() + DEADLINE;
+                let mut accept_steps = 0..5_000;
                 let stream = loop {
                     match listener.accept() {
                         Ok((stream, _)) => break stream,
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            assert!(Instant::now() < deadline, "capability install deadline");
+                            assert!(accept_steps.next().is_some(), "capability install deadline");
                             thread::sleep(Duration::from_millis(1));
                         }
                         Err(error) => panic!("capability install accept: {error}"),
@@ -381,18 +383,20 @@ fn peer() -> HumanPeer {
 fn record(store: &Arc<Mutex<Store>>) -> Vec<u8> {
     checked(store.lock())
         .get(&action_key(tenant()))
-        .expect("retained action")
+        .or_fail("retained action")
         .bytes()
         .to_vec()
 }
 
 fn installed(store: &Arc<Mutex<Store>>) -> Capability {
+    let guard = checked(store.lock());
+    let store: &Store = &guard;
     checked(Capability::restore(
-        &*checked(store.lock()),
+        store,
         tenant(),
         CapabilityId(capability().capability_id),
     ))
-    .expect("installed capability")
+    .or_fail("installed capability")
 }
 
 fn snapshot(path: &Path) -> Vec<u8> {
@@ -475,6 +479,407 @@ const POST_RUNG_PRODUCER: &str = "2c7ff104282ab5e1e67afeb2576086a482d8a366";
 const PRE_RUNG_STORE: &[u8] = include_bytes!("fixtures/issue_1758/pre_rung_store.bin");
 const POST_RUNG_STORE: &[u8] = include_bytes!("fixtures/issue_1758/post_rung_store.bin");
 
+fn assert_historical_producer(root: &Path, pre_rung: bool, producer: &str, fixture: &[u8]) {
+    // Reproduce the old producer, rather than synthesizing a successful reply.
+    let path = root.join(format!("producer-{pre_rung}"));
+    let store = Arc::new(Mutex::new(checked(Store::open(&path))));
+    let (authority, authority_server) = capability_install_boundary::authority(2);
+    let (node, node_server) = capability_install_boundary::node(1);
+    let mut operations = capability_install_boundary::operations(
+        Arc::clone(&store),
+        &authority,
+        &node,
+        &peer(),
+        Arc::new(StepClock::new(1_000_000_000)),
+    );
+    let original = checked(retained_capability_producers::install(
+        &mut operations,
+        &peer(),
+        &install_request(),
+        pre_rung,
+    ));
+    assert_eq!(original.bytes()[40], if pre_rung { 6 } else { 2 });
+    let mut historical = snapshot(&path);
+    assert_eq!(&historical[4..8], &4_u32.to_be_bytes());
+    historical[4..8].copy_from_slice(&3_u32.to_be_bytes());
+    assert_eq!(
+        historical, fixture,
+        "retained bytes from producer {producer}"
+    );
+    checked(authority_server.join());
+    checked(node_server.join());
+    drop(operations);
+    drop(store);
+}
+
+fn assert_replay_schema(
+    root: &Path,
+    custody: &CustodySigner,
+    request: &CapabilityProvision,
+    expected: &AgentEvidence,
+    pre_rung: bool,
+    schema: u32,
+    fixture: &[u8],
+) {
+    let path = root.join(format!("replay-{pre_rung}-{schema}"));
+    let mut bytes = fixture.to_vec();
+    bytes[4..8].copy_from_slice(&schema.to_be_bytes());
+    let store = open_fixture(&path, &bytes);
+    assert_eq!(&snapshot(&path)[4..8], &4_u32.to_be_bytes());
+    let before_capability = installed(&store);
+    let before_record = record(&store);
+    let before = snapshot(&path);
+    grant_discovered(&store);
+    assert_eq!(
+        snapshot(&path),
+        before,
+        "lookup must not rewrite legacy records"
+    );
+    let first = checked(
+        exchange(
+            root,
+            &store,
+            custody,
+            vec![request.clone()],
+            "tenant-alice",
+            0,
+        )
+        .remove(0),
+    );
+    assert_eq!(&first, expected);
+    assert!(first.creation_complete());
+    let converted = record(&store);
+    assert_eq!(converted[0], 2);
+    assert_eq!(&converted[1..34], &before_record[1..34]);
+    assert_eq!(converted.len(), 107);
+    assert_eq!(installed(&store), before_capability);
+    assert_eq!(
+        checked(store.lock()).list_object_ids(&tenant(), ObjectKind::Capability),
+        vec![request.capability_id.to_vec()]
+    );
+    grant_discovered(&store);
+    let converted_snapshot = snapshot(&path);
+    assert_eq!(Arc::strong_count(&store), 1);
+    drop(store);
+
+    let store = Arc::new(Mutex::new(checked(Store::open(&path))));
+    let mut changed = request.clone();
+    changed.amount_ceiling -= 1;
+    let mut changed_did = request.clone();
+    changed_did.did = checked(Did::new(b"did:layerx:another-owner"));
+    let mut changed_authority = request.clone();
+    changed_authority.primary_authority[0] ^= 1;
+    let results = exchange(
+        root,
+        &store,
+        custody,
+        vec![request.clone(), changed, changed_did, changed_authority],
+        "tenant-alice",
+        0,
+    );
+    assert_eq!(checked(results[0].clone()), first);
+    for result in &results[1..] {
+        assert_eq!(
+            *result,
+            Err(AgentFailure::Refused(
+                "agent refused or corrupted creation operation"
+            ))
+        );
+    }
+    assert_eq!(record(&store), converted);
+    assert_eq!(
+        snapshot(&path),
+        converted_snapshot,
+        "restart replay must be byte-identical"
+    );
+    assert_eq!(installed(&store), before_capability);
+    grant_discovered(&store);
+    assert!(!checked(has_completed_capability_install(
+        &store,
+        &checked(TenantId::new("tenant-bob")),
+        CapabilityId(request.capability_id)
+    )));
+    // The same action in a different tenant is independently pending. It
+    // must not replay Alice's completed result or modify either capability.
+    let mut pending = before_record[..34].to_vec();
+    pending[33] = 0;
+    checked(
+        checked(store.lock()).put_local(action_key(checked(TenantId::new("tenant-bob"))), pending),
+    );
+    let before_cross_tenant = snapshot(&path);
+    assert_eq!(
+        exchange(
+            root,
+            &store,
+            custody,
+            vec![request.clone()],
+            "tenant-bob",
+            0
+        )
+        .remove(0),
+        Err(AgentFailure::Unavailable)
+    );
+    assert_eq!(snapshot(&path), before_cross_tenant);
+    assert_eq!(installed(&store), before_capability);
+    drop(store);
+}
+
+fn assert_fresh_replay(
+    root: &Path,
+    custody: &CustodySigner,
+    request: &CapabilityProvision,
+    expected: &AgentEvidence,
+) -> Vec<u8> {
+    // The current producer must emit the same canonical evidence on first use,
+    // and retain exactly those bytes through a process/store restart.
+    let path = root.join("fresh");
+    let store = Arc::new(Mutex::new(checked(Store::open(&path))));
+    assert_eq!(
+        checked(
+            exchange(
+                root,
+                &store,
+                custody,
+                vec![request.clone()],
+                "tenant-alice",
+                2
+            )
+            .remove(0)
+        ),
+        *expected
+    );
+    let fresh = record(&store);
+    assert_eq!(fresh[0], 2);
+    let fresh_snapshot = snapshot(&path);
+    let fresh_capability = installed(&store);
+    drop(store);
+    let store = Arc::new(Mutex::new(checked(Store::open(&path))));
+    let replays = exchange(
+        root,
+        &store,
+        custody,
+        vec![request.clone(), request.clone()],
+        "tenant-alice",
+        0,
+    );
+    assert_eq!(replays, vec![Ok(expected.clone()), Ok(expected.clone())]);
+    assert_eq!(snapshot(&path), fresh_snapshot);
+    assert_eq!(installed(&store), fresh_capability);
+    grant_discovered(&store);
+    drop(store);
+
+    fresh
+}
+
+fn assert_read_only_conversion(
+    root: &Path,
+    custody: &CustodySigner,
+    request: &CapabilityProvision,
+) {
+    // A replay is not returned until the converted record is durable.
+    let path = root.join("read-only-conversion");
+    let store = open_fixture(&path, PRE_RUNG_STORE);
+    let before = snapshot(&path);
+    drop(store);
+    let store = Arc::new(Mutex::new(checked(Store::open_read_only(&path))));
+    assert_eq!(
+        exchange(
+            root,
+            &store,
+            custody,
+            vec![request.clone()],
+            "tenant-alice",
+            0
+        )
+        .remove(0),
+        Err(AgentFailure::Unavailable)
+    );
+    assert_eq!(snapshot(&path), before);
+    assert_eq!(record(&store)[0], 1);
+    drop(store);
+}
+
+fn invalid_record_cases(original: &[u8], fresh: &[u8]) -> Vec<(&'static str, Vec<u8>, bool)> {
+    let mut cases: Vec<(&str, Vec<u8>, bool)> = Vec::new();
+    for source_record in [original, fresh] {
+        for length in [0, 1, 33, 34, 66, 74, 75, 106] {
+            cases.push(("truncated", source_record[..length].to_vec(), false));
+        }
+        let mut extra = source_record.to_vec();
+        extra.push(0);
+        cases.push(("trailing payload", extra, false));
+        for version in [0, 3, 255] {
+            let mut invalid = source_record.to_vec();
+            invalid[0] = version;
+            cases.push(("unknown version", invalid, false));
+        }
+        for rung in [0, 1, 3, 4, 5, 7, 255] {
+            let mut invalid = source_record.to_vec();
+            invalid[74] = rung;
+            cases.push(("invalid rung", invalid, false));
+        }
+        for offset in [34, 66, 75, 106] {
+            let mut invalid = source_record.to_vec();
+            invalid[offset] ^= 1;
+            cases.push(("inconsistent digest", invalid, false));
+        }
+        let mut invalid = source_record.to_vec();
+        invalid[66..74].fill(0);
+        cases.push(("zero sequence", invalid, false));
+        let mut invalid = source_record.to_vec();
+        invalid[33] = 2;
+        cases.push(("invalid state", invalid, false));
+        let mut pending = source_record[..34].to_vec();
+        pending[33] = 0;
+        cases.push(("pending", pending.clone(), true));
+        pending.push(0);
+        cases.push(("pending with payload", pending, false));
+    }
+    let mut wrong_contract = original.to_vec();
+    wrong_contract[74] = if original[74] == 6 { 2 } else { 6 };
+    cases.push(("rung/digest contract mismatch", wrong_contract, false));
+    let mut wrong_contract = fresh.to_vec();
+    wrong_contract[74] = 6;
+    cases.push(("legacy label in new version", wrong_contract, false));
+    cases
+}
+
+fn assert_binding_refusals(
+    root: &Path,
+    custody: &CustodySigner,
+    request: &CapabilityProvision,
+    store: &Arc<Mutex<Store>>,
+    path: &Path,
+    original: Vec<u8>,
+    capability_before: &Capability,
+) {
+    // Request binding is checked before conversion, including the retained
+    // producer records themselves, so a failed retry cannot repair its record.
+    checked(checked(store.lock()).put_local(action_key(tenant()), original.clone()));
+    let before = snapshot(path);
+    let mut changed = request.clone();
+    changed.amount_ceiling -= 1;
+    assert_eq!(
+        exchange(root, store, custody, vec![changed], "tenant-alice", 0).remove(0),
+        Err(AgentFailure::Refused(
+            "agent refused or corrupted creation operation"
+        ))
+    );
+    assert_eq!(snapshot(path), before);
+    let mut wrong_binding = original.clone();
+    wrong_binding[1] ^= 1;
+    checked(checked(store.lock()).put_local(action_key(tenant()), wrong_binding));
+    let before = snapshot(path);
+    assert_eq!(
+        exchange(
+            root,
+            store,
+            custody,
+            vec![request.clone()],
+            "tenant-alice",
+            0
+        )
+        .remove(0),
+        Err(AgentFailure::Refused(
+            "agent refused or corrupted creation operation"
+        ))
+    );
+    assert_eq!(snapshot(path), before);
+    checked(checked(store.lock()).put_core_cache(action_key(tenant()), original));
+    let before = snapshot(path);
+    assert_eq!(
+        checked(store.lock())
+            .get(&action_key(tenant()))
+            .or_fail("action")
+            .class(),
+        StorageClass::CoreProducedCache
+    );
+    assert_eq!(
+        exchange(
+            root,
+            store,
+            custody,
+            vec![request.clone()],
+            "tenant-alice",
+            0
+        )
+        .remove(0),
+        Err(AgentFailure::Refused(
+            "agent refused or corrupted creation operation"
+        ))
+    );
+    assert_eq!(snapshot(path), before);
+    assert_eq!(&installed(store), capability_before);
+    assert!(has_completed_capability_install(
+        store,
+        &tenant(),
+        CapabilityId(request.capability_id)
+    )
+    .is_err());
+}
+
+fn assert_invalid_records(
+    root: &Path,
+    custody: &CustodySigner,
+    request: &CapabilityProvision,
+    fresh: &[u8],
+    source: &str,
+    bytes: &[u8],
+) {
+    let path = root.join(format!("invalid-{source}"));
+    let store = open_fixture(&path, bytes);
+    let original = record(&store);
+    let capability_before = installed(&store);
+    let cases = invalid_record_cases(&original, fresh);
+    for (name, invalid, pending) in cases {
+        checked(checked(store.lock()).put_local(action_key(tenant()), invalid.clone()));
+        let before = snapshot(&path);
+        let result = exchange(
+            root,
+            &store,
+            custody,
+            vec![request.clone()],
+            "tenant-alice",
+            0,
+        )
+        .remove(0);
+        assert_eq!(
+            result,
+            if pending {
+                Err(AgentFailure::Unavailable)
+            } else {
+                Err(AgentFailure::Refused(
+                    "agent refused or corrupted creation operation",
+                ))
+            },
+            "{source}: {name}"
+        );
+        assert_eq!(snapshot(&path), before, "{source}: {name} must not rewrite");
+        assert_eq!(record(&store), invalid);
+        assert_eq!(installed(&store), capability_before);
+        let discovery = has_completed_capability_install(
+            &store,
+            &tenant(),
+            CapabilityId(request.capability_id),
+        );
+        if pending {
+            assert!(!checked(discovery));
+        } else {
+            assert!(discovery.is_err(), "{name}");
+        }
+    }
+    assert_binding_refusals(
+        root,
+        custody,
+        request,
+        &store,
+        &path,
+        original,
+        &capability_before,
+    );
+    drop(store);
+}
+
 #[test]
 fn retained_capability_install_replays_survive_upgrade() {
     let root = support::directory("retained-capability-install");
@@ -510,353 +915,25 @@ fn retained_capability_install_replays_survive_upgrade() {
         (true, PRE_RUNG_PRODUCER, PRE_RUNG_STORE),
         (false, POST_RUNG_PRODUCER, POST_RUNG_STORE),
     ] {
-        // Reproduce the old producer, rather than synthesizing a successful reply.
-        let path = root.join(format!("producer-{pre_rung}"));
-        let store = Arc::new(Mutex::new(checked(Store::open(&path))));
-        let (authority, authority_server) = capability_install_boundary::authority(2);
-        let (node, node_server) = capability_install_boundary::node(1);
-        let mut operations = capability_install_boundary::operations(
-            Arc::clone(&store),
-            &authority,
-            &node,
-            &peer(),
-            Arc::new(StepClock::new(1_000_000_000)),
-        );
-        let original = checked(retained_capability_producers::install(
-            &mut operations,
-            &peer(),
-            &install_request(),
-            pre_rung,
-        ));
-        assert_eq!(original.bytes()[40], if pre_rung { 6 } else { 2 });
-        let mut historical = snapshot(&path);
-        assert_eq!(&historical[4..8], &4_u32.to_be_bytes());
-        historical[4..8].copy_from_slice(&3_u32.to_be_bytes());
-        assert_eq!(
-            historical, fixture,
-            "retained bytes from producer {producer}"
-        );
-        checked(authority_server.join());
-        checked(node_server.join());
-        drop(operations);
-        drop(store);
-
+        assert_historical_producer(&root, pre_rung, producer, fixture);
         for schema in [3_u32, 4_u32] {
-            let path = root.join(format!("replay-{pre_rung}-{schema}"));
-            let mut bytes = fixture.to_vec();
-            bytes[4..8].copy_from_slice(&schema.to_be_bytes());
-            let store = open_fixture(&path, &bytes);
-            assert_eq!(&snapshot(&path)[4..8], &4_u32.to_be_bytes());
-            let before_capability = installed(&store);
-            let before_record = record(&store);
-            let before = snapshot(&path);
-            grant_discovered(&store);
-            assert_eq!(
-                snapshot(&path),
-                before,
-                "lookup must not rewrite legacy records"
+            assert_replay_schema(
+                &root, &custody, &request, &expected, pre_rung, schema, fixture,
             );
-            let first = checked(
-                exchange(
-                    &root,
-                    &store,
-                    &custody,
-                    vec![request.clone()],
-                    "tenant-alice",
-                    0,
-                )
-                .remove(0),
-            );
-            assert_eq!(first, expected);
-            assert!(first.creation_complete());
-            let converted = record(&store);
-            assert_eq!(converted[0], 2);
-            assert_eq!(&converted[1..34], &before_record[1..34]);
-            assert_eq!(converted.len(), 107);
-            assert_eq!(installed(&store), before_capability);
-            assert_eq!(
-                checked(store.lock()).list_object_ids(&tenant(), ObjectKind::Capability),
-                vec![request.capability_id.to_vec()]
-            );
-            grant_discovered(&store);
-            let converted_snapshot = snapshot(&path);
-            assert_eq!(Arc::strong_count(&store), 1);
-            drop(store);
-
-            let store = Arc::new(Mutex::new(checked(Store::open(&path))));
-            let mut changed = request.clone();
-            changed.amount_ceiling -= 1;
-            let mut changed_did = request.clone();
-            changed_did.did = checked(Did::new(b"did:layerx:another-owner"));
-            let mut changed_authority = request.clone();
-            changed_authority.primary_authority[0] ^= 1;
-            let results = exchange(
-                &root,
-                &store,
-                &custody,
-                vec![request.clone(), changed, changed_did, changed_authority],
-                "tenant-alice",
-                0,
-            );
-            assert_eq!(checked(results[0].clone()), first);
-            for result in &results[1..] {
-                assert_eq!(
-                    *result,
-                    Err(AgentFailure::Refused(
-                        "agent refused or corrupted creation operation"
-                    ))
-                );
-            }
-            assert_eq!(record(&store), converted);
-            assert_eq!(
-                snapshot(&path),
-                converted_snapshot,
-                "restart replay must be byte-identical"
-            );
-            assert_eq!(installed(&store), before_capability);
-            grant_discovered(&store);
-            assert!(!checked(has_completed_capability_install(
-                &store,
-                &checked(TenantId::new("tenant-bob")),
-                CapabilityId(request.capability_id)
-            )));
-            // The same action in a different tenant is independently pending. It
-            // must not replay Alice's completed result or modify either capability.
-            let mut pending = before_record[..34].to_vec();
-            pending[33] = 0;
-            checked(
-                checked(store.lock())
-                    .put_local(action_key(checked(TenantId::new("tenant-bob"))), pending),
-            );
-            let before_cross_tenant = snapshot(&path);
-            assert_eq!(
-                exchange(
-                    &root,
-                    &store,
-                    &custody,
-                    vec![request.clone()],
-                    "tenant-bob",
-                    0
-                )
-                .remove(0),
-                Err(AgentFailure::Unavailable)
-            );
-            assert_eq!(snapshot(&path), before_cross_tenant);
-            assert_eq!(installed(&store), before_capability);
-            drop(store);
         }
     }
 
-    // The current producer must emit the same canonical evidence on first use,
-    // and retain exactly those bytes through a process/store restart.
-    let path = root.join("fresh");
-    let store = Arc::new(Mutex::new(checked(Store::open(&path))));
-    assert_eq!(
-        checked(
-            exchange(
-                &root,
-                &store,
-                &custody,
-                vec![request.clone()],
-                "tenant-alice",
-                2
-            )
-            .remove(0)
-        ),
-        expected
-    );
-    let fresh = record(&store);
-    assert_eq!(fresh[0], 2);
-    let fresh_snapshot = snapshot(&path);
-    let fresh_capability = installed(&store);
-    drop(store);
-    let store = Arc::new(Mutex::new(checked(Store::open(&path))));
-    let replays = exchange(
-        &root,
-        &store,
-        &custody,
-        vec![request.clone(), request.clone()],
-        "tenant-alice",
-        0,
-    );
-    assert_eq!(replays, vec![Ok(expected.clone()), Ok(expected.clone())]);
-    assert_eq!(snapshot(&path), fresh_snapshot);
-    assert_eq!(installed(&store), fresh_capability);
-    grant_discovered(&store);
-    drop(store);
-
-    // A replay is not returned until the converted record is durable.
-    let path = root.join("read-only-conversion");
-    let store = open_fixture(&path, PRE_RUNG_STORE);
-    let before = snapshot(&path);
-    drop(store);
-    let store = Arc::new(Mutex::new(checked(Store::open_read_only(&path))));
-    assert_eq!(
-        exchange(
-            &root,
-            &store,
-            &custody,
-            vec![request.clone()],
-            "tenant-alice",
-            0
-        )
-        .remove(0),
-        Err(AgentFailure::Unavailable)
-    );
-    assert_eq!(snapshot(&path), before);
-    assert_eq!(record(&store)[0], 1);
-    drop(store);
-
-    // Validate every envelope/payload boundary for both historical producers and
-    // the new version, and check that rejection performs no durable write.
+    let fresh = assert_fresh_replay(&root, &custody, &request, &expected);
+    assert_read_only_conversion(&root, &custody, &request);
     for (source, bytes) in [("pre", PRE_RUNG_STORE), ("post", POST_RUNG_STORE)] {
-        let path = root.join(format!("invalid-{source}"));
-        let store = open_fixture(&path, bytes);
-        let original = record(&store);
-        let capability_before = installed(&store);
-        let mut cases: Vec<(&str, Vec<u8>, bool)> = Vec::new();
-        for source_record in [&original, &fresh] {
-            for length in [0, 1, 33, 34, 66, 74, 75, 106] {
-                cases.push(("truncated", source_record[..length].to_vec(), false));
-            }
-            let mut extra = source_record.clone();
-            extra.push(0);
-            cases.push(("trailing payload", extra, false));
-            for version in [0, 3, 255] {
-                let mut invalid = source_record.clone();
-                invalid[0] = version;
-                cases.push(("unknown version", invalid, false));
-            }
-            for rung in [0, 1, 3, 4, 5, 7, 255] {
-                let mut invalid = source_record.clone();
-                invalid[74] = rung;
-                cases.push(("invalid rung", invalid, false));
-            }
-            for offset in [34, 66, 75, 106] {
-                let mut invalid = source_record.clone();
-                invalid[offset] ^= 1;
-                cases.push(("inconsistent digest", invalid, false));
-            }
-            let mut invalid = source_record.clone();
-            invalid[66..74].fill(0);
-            cases.push(("zero sequence", invalid, false));
-            let mut invalid = source_record.clone();
-            invalid[33] = 2;
-            cases.push(("invalid state", invalid, false));
-            let mut pending = source_record[..34].to_vec();
-            pending[33] = 0;
-            cases.push(("pending", pending.clone(), true));
-            pending.push(0);
-            cases.push(("pending with payload", pending, false));
-        }
-        let mut wrong_contract = original.clone();
-        wrong_contract[74] = if original[74] == 6 { 2 } else { 6 };
-        cases.push(("rung/digest contract mismatch", wrong_contract, false));
-        let mut wrong_contract = fresh.clone();
-        wrong_contract[74] = 6;
-        cases.push(("legacy label in new version", wrong_contract, false));
-        for (name, invalid, pending) in cases {
-            checked(checked(store.lock()).put_local(action_key(tenant()), invalid.clone()));
-            let before = snapshot(&path);
-            let result = exchange(
-                &root,
-                &store,
-                &custody,
-                vec![request.clone()],
-                "tenant-alice",
-                0,
-            )
-            .remove(0);
-            assert_eq!(
-                result,
-                if pending {
-                    Err(AgentFailure::Unavailable)
-                } else {
-                    Err(AgentFailure::Refused(
-                        "agent refused or corrupted creation operation",
-                    ))
-                },
-                "{source}: {name}"
-            );
-            assert_eq!(snapshot(&path), before, "{source}: {name} must not rewrite");
-            assert_eq!(record(&store), invalid);
-            assert_eq!(installed(&store), capability_before);
-            let discovery = has_completed_capability_install(
-                &store,
-                &tenant(),
-                CapabilityId(request.capability_id),
-            );
-            if pending {
-                assert!(!checked(discovery));
-            } else {
-                assert!(discovery.is_err(), "{name}");
-            }
-        }
-        // Request binding is checked before conversion, including the retained
-        // producer records themselves, so a failed retry cannot repair its record.
-        checked(checked(store.lock()).put_local(action_key(tenant()), original.clone()));
-        let before = snapshot(&path);
-        let mut changed = request.clone();
-        changed.amount_ceiling -= 1;
-        assert_eq!(
-            exchange(&root, &store, &custody, vec![changed], "tenant-alice", 0).remove(0),
-            Err(AgentFailure::Refused(
-                "agent refused or corrupted creation operation"
-            ))
-        );
-        assert_eq!(snapshot(&path), before);
-        let mut wrong_binding = original.clone();
-        wrong_binding[1] ^= 1;
-        checked(checked(store.lock()).put_local(action_key(tenant()), wrong_binding));
-        let before = snapshot(&path);
-        assert_eq!(
-            exchange(
-                &root,
-                &store,
-                &custody,
-                vec![request.clone()],
-                "tenant-alice",
-                0
-            )
-            .remove(0),
-            Err(AgentFailure::Refused(
-                "agent refused or corrupted creation operation"
-            ))
-        );
-        assert_eq!(snapshot(&path), before);
-        checked(checked(store.lock()).put_core_cache(action_key(tenant()), original));
-        let before = snapshot(&path);
-        assert_eq!(
-            checked(store.lock())
-                .get(&action_key(tenant()))
-                .expect("action")
-                .class(),
-            StorageClass::CoreProducedCache
-        );
-        assert_eq!(
-            exchange(
-                &root,
-                &store,
-                &custody,
-                vec![request.clone()],
-                "tenant-alice",
-                0
-            )
-            .remove(0),
-            Err(AgentFailure::Refused(
-                "agent refused or corrupted creation operation"
-            ))
-        );
-        assert_eq!(snapshot(&path), before);
-        assert_eq!(installed(&store), capability_before);
-        assert!(has_completed_capability_install(
-            &store,
-            &tenant(),
-            CapabilityId(request.capability_id)
-        )
-        .is_err());
-        drop(store);
+        assert_invalid_records(&root, &custody, &request, &fresh, source, bytes);
     }
     drop(custody);
     checked(std::fs::remove_dir_all(root));
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

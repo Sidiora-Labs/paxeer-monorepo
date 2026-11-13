@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/db/sqlcdb"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
@@ -90,12 +91,20 @@ func (p *Processor) projectLegacyEnvelopes(ctx context.Context, b store.Canonica
 		events[k] = envelope.Event
 	}
 	for _, r := range b.Records {
-		ev := events[key{r.TransactionHash, uint(r.LogIndex)}]
+		rLogIndexUint, conversionErr := checked.Convert[uint](r.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		ev := events[key{r.TransactionHash, rLogIndexUint}]
 		if ev == nil {
 			continue
 		}
 		timestamp, ok := timestamps[r.TransactionHash]
-		if !ok || timestamp <= 0 || ev.TxHash != r.TransactionHash || ev.LogIndex != uint(r.LogIndex) || ev.BlockNumber != uint64(r.Height) {
+		rHeightUint64, conversionErr := checked.Convert[uint64](r.Height)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		if !ok || timestamp <= 0 || ev.TxHash != r.TransactionHash || ev.LogIndex != rLogIndexUint || ev.BlockNumber != rHeightUint64 {
 			return store.ErrIntegrity
 		}
 		if _, err := p.processEvent(ctx, ev, timestamp, senders); err != nil {
@@ -107,6 +116,10 @@ func (p *Processor) projectLegacyEnvelopes(ctx context.Context, b store.Canonica
 		if !ok {
 			return store.ErrIntegrity
 		}
+		rLogIndexInt32, conversionErr := checked.Convert[int32](r.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
 		if err := p.deps.Store.InsertPoolStateSnapshot(ctx, sqlcdb.InsertPoolStateSnapshotParams{
 			ID:             fmt.Sprintf("%s-%d-%d", r.PoolID, r.Height, r.LogIndex),
 			PoolID:         r.PoolID,
@@ -117,7 +130,7 @@ func (p *Processor) projectLegacyEnvelopes(ctx context.Context, b store.Canonica
 			BlockNumber:    r.Height,
 			BlockTimestamp: timestamp,
 			TxHash:         r.TransactionHash,
-			LogIndex:       int32(r.LogIndex),
+			LogIndex:       rLogIndexInt32,
 		}); err != nil {
 			return fmt.Errorf("legacy projection reserves: %w", err)
 		}
@@ -195,7 +208,11 @@ func (p *Processor) readSwapReserves(ctx context.Context, fills []accounting.Fil
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, reserveSnapshot{PoolID: poolIDFor(pool), TransactionHash: f.Position.TransactionHash, Height: height, LogIndex: uint32(logIndex), Reserves: reserves})
+		logIndexUint32, conversionErr := checked.Convert[uint32](logIndex)
+		if conversionErr != nil {
+			return nil, conversionErr
+		}
+		out = append(out, reserveSnapshot{PoolID: poolIDFor(pool), TransactionHash: f.Position.TransactionHash, Height: height, LogIndex: logIndexUint32, Reserves: reserves})
 	}
 	return out, nil
 }

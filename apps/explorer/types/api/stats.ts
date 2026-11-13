@@ -19,6 +19,8 @@ export type HomeStats = {
   rootstock_locked_btc?: string | null;
   last_output_root_size?: string | null;
   secondary_coin_price?: string | null;
+  secondary_coin_market_cap?: string | null;
+  secondary_coin_price_change_percentage?: number | null;
   secondary_coin_image?: string | null;
   celo?: {
     epoch_number: number;

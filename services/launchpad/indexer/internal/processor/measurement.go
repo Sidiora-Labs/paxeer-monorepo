@@ -17,6 +17,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -113,11 +115,19 @@ type boundedCaptureWriter struct {
 }
 
 func (w *boundedCaptureWriter) Write(body []byte) (int, error) {
-	if int64(len(body)) > w.remaining {
+	lenBodyInt64, conversionErr := checked.Convert[int64](len(body))
+	if conversionErr != nil {
+		return 0, conversionErr
+	}
+	if lenBodyInt64 > w.remaining {
 		return 0, errors.New("actual raw capture exceeds admitted storage budget")
 	}
 	n, err := w.writer.Write(body)
-	w.remaining -= int64(n)
+	nInt64, conversionErr := checked.Convert[int64](n)
+	if conversionErr != nil {
+		return 0, conversionErr
+	}
+	w.remaining -= nInt64
 	return n, err
 }
 
@@ -129,11 +139,11 @@ type IngestTopologyEvidence struct {
 
 func readTopology(path, digest string) (IngestTopologyEvidence, []byte, error) {
 	var evidence IngestTopologyEvidence
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return evidence, nil, err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	body, err := io.ReadAll(io.LimitReader(file, 1<<20+1))
 	if err != nil {
 		return evidence, nil, err
@@ -167,7 +177,7 @@ func openMeasurementCapture(path string, maxBytes int64) (*measurementCapture, e
 	if maxBytes < 1 {
 		return nil, errors.New("explicit capture storage budget required")
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +304,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 	if err != nil {
 		return report, err
 	}
-	defer capture.file.Close()
+	defer checked.Close(capture.file)
 	var observed, scheduled, commit measurementHistogram
 	var finalRange *store.CanonicalRangeDigest
 	defer func() {
@@ -346,7 +356,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 		if report.SQLTrace.CopyCalls == 0 {
 			report.Violations = append(report.Violations, "actual ingest executed no COPY staging")
 		}
-		if report.SQLTrace.RawScalarInsertQueries >= uint64(report.CommittedRaw) && report.CommittedRaw > 0 {
+		if report.SQLTrace.RawScalarInsertQueries >= uint64(report.CommittedRaw) && report.CommittedRaw > 0 { //nolint:gosec // persisted chain value uses the existing unsigned protocol representation
 			report.Violations = append(report.Violations, "actual ingest used one scalar raw insert per event")
 		}
 		if report.SQLTrace.MaxCopyRows > 5000 || report.MaxRawBatchBytes > 8<<20 || report.MaxRawBatchRows > 5000 {
@@ -427,7 +437,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 	}()
 	report.StartedAt = time.Now().UTC()
 	deadline := report.StartedAt.Add(spec.Duration)
-	firstObserved := report.StartedAt
+	var firstObserved time.Time
 	initialHead, err := h.Processor.deps.Head.Head(ctx)
 	if err != nil {
 		return report, err
@@ -490,12 +500,24 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 			observations = observations[1:]
 		}
 		firstObserved = observations[0].ObservedAt
-		to := from + int64(spec.BatchBlocks) - 1
+		specBatchBlocksInt64, conversionErr := checked.Convert[int64](spec.BatchBlocks)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		to := from + specBatchBlocksInt64 - 1
 		if to > observedHead {
 			to = observedHead
 		}
+		fromUint64, conversionErr := checked.Convert[uint64](from)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		toUint64, conversionErr := checked.Convert[uint64](to)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
 		readCtx, readCancel := context.WithTimeout(ctx, 20*time.Second)
-		batch, receipts, err := h.Processor.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, uint64(from), uint64(to))
+		batch, receipts, err := h.Processor.deps.QualifiedBatchSource.FetchQualifiedBatch(readCtx, fromUint64, toUint64)
 		readCancel()
 		if err != nil {
 			return report, err
@@ -523,7 +545,11 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 			if err != nil {
 				return report, err
 			}
-			rawBytes += uint64(len(encoded))
+			lenEncodedUint64, conversionErr := checked.Convert[uint64](len(encoded))
+			if conversionErr != nil {
+				return report, conversionErr
+			}
+			rawBytes += lenEncodedUint64
 		}
 		if rawBytes > report.MaxRawBatchBytes {
 			report.MaxRawBatchBytes = rawBytes
@@ -538,8 +564,16 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 		if err != nil {
 			return report, err
 		}
-		report.SourceBytes += uint64(len(body))
-		report.OfferedRaw += int64(len(segment.Records))
+		lenBodyUint64, conversionErr := checked.Convert[uint64](len(body))
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		report.SourceBytes += lenBodyUint64
+		segmentRecordsInt64, conversionErr := checked.Convert[int64](len(segment.Records))
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		report.OfferedRaw += segmentRecordsInt64
 		due := report.StartedAt.Add(time.Duration(report.CommittedRaw) * time.Second / time.Duration(report.TargetEventsPerSecond))
 		if wait := time.Until(due); wait > 0 {
 			if !sleep(ctx, wait) {
@@ -571,7 +605,10 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 		if reconcileErr != nil || !committed {
 			return report, errors.Join(store.ErrIntegrity, reconcileErr)
 		}
-		count := uint64(len(segment.Records))
+		count, conversionErr := checked.Convert[uint64](len(segment.Records))
+		if conversionErr != nil {
+			return report, conversionErr
+		}
 		if count == 0 {
 			count = 1
 		}
@@ -579,7 +616,10 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 			matched := false
 			for _, observation := range observations {
 				if observation.Height >= block.Height {
-					weight := uint64(block.RawCount)
+					weight, conversionErr := checked.Convert[uint64](block.RawCount)
+					if conversionErr != nil {
+						return report, conversionErr
+					}
 					if weight == 0 {
 						weight = 1
 					}
@@ -594,8 +634,12 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 		}
 		scheduled.add(ack.Sub(due), count)
 		commit.add(ack.Sub(started), 1)
-		report.CommittedRaw += int64(len(segment.Records))
-		report.CommittedBlocks += int64(len(segment.Blocks))
+		report.CommittedRaw += segmentRecordsInt64
+		segmentBlocksInt64, conversionErr := checked.Convert[int64](len(segment.Blocks))
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		report.CommittedBlocks += segmentBlocksInt64
 		report.Transactions++
 		checkpoint = to
 		if err = capture.write("durable-ack", struct {
@@ -603,7 +647,7 @@ func (h *IngestMeasurementHarness) Run(ctx context.Context, spec IngestMeasureme
 			From, To, RawCount                  int64
 			AcknowledgedAt                      time.Time
 			CommitNS, ObservationNS, ScheduleNS int64
-		}{batch.BatchID, from, to, int64(len(segment.Records)), ack, ack.Sub(started).Nanoseconds(), ack.Sub(firstObserved).Nanoseconds(), ack.Sub(due).Nanoseconds()}); err != nil {
+		}{batch.BatchID, from, to, segmentRecordsInt64, ack, ack.Sub(started).Nanoseconds(), ack.Sub(firstObserved).Nanoseconds(), ack.Sub(due).Nanoseconds()}); err != nil {
 			return report, err
 		}
 		for _, event := range segment.Events {
@@ -727,11 +771,11 @@ func (h *IngestMeasurementHarness) CaptureRestoreCheckpoint(ctx context.Context,
 	if err != nil {
 		return checkpoint, err
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return checkpoint, err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	if _, err = file.Write(body); err != nil {
 		return checkpoint, err
 	}
@@ -756,11 +800,11 @@ type IngestReconstructionReport struct {
 
 func loadRestoreCheckpoint(path, digest string) (IngestRestoreCheckpoint, error) {
 	var checkpoint IngestRestoreCheckpoint
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return checkpoint, err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	body, err := io.ReadAll(io.LimitReader(file, 1<<20+1))
 	if err != nil {
 		return checkpoint, err
@@ -798,7 +842,7 @@ func (h *IngestMeasurementHarness) Reconstruct(ctx context.Context, spec IngestR
 	if err := store.ValidateReplayRequest(spec.DuplicateRequest); err != nil {
 		return report, err
 	}
-	if spec.Request.Mode != "reconstruct" || spec.DuplicateRequest.Mode != "reconstruct" || spec.Request.JobID == spec.DuplicateRequest.JobID {
+	if spec.Request.Mode != valueReconstruct || spec.DuplicateRequest.Mode != valueReconstruct || spec.Request.JobID == spec.DuplicateRequest.JobID {
 		return report, errors.New("two distinct authorized archive reconstruction jobs required")
 	}
 	a, b := spec.Request, spec.DuplicateRequest
@@ -822,7 +866,7 @@ func (h *IngestMeasurementHarness) Reconstruct(ctx context.Context, spec IngestR
 	if err != nil {
 		return report, err
 	}
-	defer capture.file.Close()
+	defer checked.Close(capture.file)
 	defer func() {
 		report.FinishedAt = time.Now().UTC()
 		if err := capture.write("reconstruction-report", report); err != nil {
@@ -852,7 +896,11 @@ func (h *IngestMeasurementHarness) Reconstruct(ctx context.Context, spec IngestR
 	}
 	report.CheckpointMatched = true
 	for from := spec.Request.FromHeight; from <= spec.Request.ToHeight; {
-		to := from + int64(h.Replay.BatchSize) - 1
+		replayBatchSizeInt64, conversionErr := checked.Convert[int64](h.Replay.BatchSize)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		to := from + replayBatchSizeInt64 - 1
 		if to > spec.Request.ToHeight {
 			to = spec.Request.ToHeight
 		}
@@ -887,7 +935,11 @@ func (h *IngestMeasurementHarness) Reconstruct(ctx context.Context, spec IngestR
 		return report, err
 	}
 	for from := spec.Request.FromHeight; from <= spec.Request.ToHeight; {
-		to := from + int64(h.Replay.BatchSize) - 1
+		replayBatchSizeInt642, conversionErr := checked.Convert[int64](h.Replay.BatchSize)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		to := from + replayBatchSizeInt642 - 1
 		if to > spec.Request.ToHeight {
 			to = spec.Request.ToHeight
 		}
@@ -921,7 +973,11 @@ func (h *IngestMeasurementHarness) Reconstruct(ctx context.Context, spec IngestR
 		return report, store.ErrIntegrity
 	}
 	for from := spec.Request.FromHeight; from <= spec.Request.ToHeight; {
-		to := from + int64(h.Replay.BatchSize) - 1
+		replayBatchSizeInt643, conversionErr := checked.Convert[int64](h.Replay.BatchSize)
+		if conversionErr != nil {
+			return report, conversionErr
+		}
+		to := from + replayBatchSizeInt643 - 1
 		if to > spec.Request.ToHeight {
 			to = spec.Request.ToHeight
 		}
@@ -971,7 +1027,7 @@ func (h *IngestMeasurementHarness) reconstructionEffects(ctx context.Context, r 
 		if err != nil {
 			return "", err
 		}
-		fmt.Fprintf(digest, "%d:%s:%d:%s:%d:%s:%d:", len(effect), effect, len(raw), raw, height, kind, len(payload))
+		checked.Write(fmt.Fprintf(digest, "%d:%s:%d:%s:%d:%s:%d:", len(effect), effect, len(raw), raw, height, kind, len(payload)))
 		digest.Write(payload)
 	}
 	if err = rows.Err(); err != nil {
@@ -1005,7 +1061,7 @@ func (t *IngestSQLMeasurementTracer) TraceCopyFromEnd(_ context.Context, _ *pgx.
 		t.failures.Add(1)
 		return
 	}
-	rows := uint64(data.CommandTag.RowsAffected())
+	rows := uint64(data.CommandTag.RowsAffected()) //nolint:gosec // database affected-row count is nonnegative
 	t.copyRows.Add(rows)
 	for {
 		old := t.maxCopyRows.Load()
@@ -1035,11 +1091,11 @@ func (h *IngestMeasurementHarness) ObserveInfrastructureFailure(ctx context.Cont
 	if err := validateMeasurementSource(spec); err != nil {
 		return observation, err
 	}
-	file, err := os.Open(failureEvidencePath)
+	file, err := os.Open(failureEvidencePath) //nolint:gosec // caller selects this path for a bounded evidence file
 	if err != nil {
 		return observation, err
 	}
-	defer file.Close()
+	defer checked.Close(file)
 	body, err := io.ReadAll(io.LimitReader(file, 1<<20+1))
 	if err != nil {
 		return observation, err
@@ -1078,7 +1134,7 @@ func (h *IngestMeasurementHarness) verifyReconstructionOutbox(ctx context.Contex
 	table := pgx.Identifier{h.Replay.DeliverySchema, "delivery_outbox"}.Sanitize()
 	for _, event := range segment.Events {
 		effect := ReplayEffectIdentity(r, event)
-		wrapper := ReplayEnvelopeV2{Version: "indexer-replay-v2", Mode: "historical", Target: r.Target, Generation: r.Generation, ProjectionRevision: r.ProjectionRevision, SourceStream: r.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
+		wrapper := ReplayEnvelopeV2{Version: valueIndexerReplayV2, Mode: valueHistorical, Target: r.Target, Generation: r.Generation, ProjectionRevision: r.ProjectionRevision, SourceStream: r.SourceStream, RawDigest: event.RawDigest, Raw: event.Raw, OriginalTimestampSeconds: strconv.FormatInt(event.Timestamp, 10), EventKind: event.Kind, Event: event.Payload}
 		expected, err := canonicalReplayPayload(wrapper)
 		if err != nil {
 			return err
@@ -1092,7 +1148,15 @@ func (h *IngestMeasurementHarness) verifyReconstructionOutbox(ctx context.Contex
 		if err != nil {
 			return err
 		}
-		if subject != ReplaySubjectV2 || payloadHash != delivery.Hash(expected) || envelope.EventID != effect || envelope.PayloadHash != payloadHash || !bytes.Equal(envelope.Payload, expected) || envelope.SourceOrder.Height != strconv.FormatInt(event.Raw.Height, 10) || envelope.SourceOrder.TransactionIndex != strconv.FormatUint(uint64(event.Raw.TransactionIndex), 10) || envelope.SourceOrder.LogIndex != strconv.FormatUint(uint64(event.Raw.LogIndex), 10) || envelope.EmittedAt.Unix() != event.Timestamp {
+		rawTransactionIndexUint64, conversionErr := checked.Convert[uint64](event.Raw.TransactionIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		rawLogIndexUint64, conversionErr := checked.Convert[uint64](event.Raw.LogIndex)
+		if conversionErr != nil {
+			return conversionErr
+		}
+		if subject != ReplaySubjectV2 || payloadHash != delivery.Hash(expected) || envelope.EventID != effect || envelope.PayloadHash != payloadHash || !bytes.Equal(envelope.Payload, expected) || envelope.SourceOrder.Height != strconv.FormatInt(event.Raw.Height, 10) || envelope.SourceOrder.TransactionIndex != strconv.FormatUint(rawTransactionIndexUint64, 10) || envelope.SourceOrder.LogIndex != strconv.FormatUint(rawLogIndexUint64, 10) || envelope.EmittedAt.Unix() != event.Timestamp {
 			return store.ErrIntegrity
 		}
 	}
@@ -1164,7 +1228,7 @@ func validateCandidateFiles(files map[string]string, candidateDigest string) err
 		if !info.Mode().IsRegular() || info.Size() > 64<<20 {
 			return errors.New("bounded actual source file required")
 		}
-		f, err := os.Open(path)
+		f, err := os.Open(path) //nolint:gosec // caller selects this path for a bounded evidence file
 		if err != nil {
 			return err
 		}
@@ -1181,7 +1245,7 @@ func validateCandidateFiles(files map[string]string, candidateDigest string) err
 		if digest != files[path] {
 			return fmt.Errorf("candidate source digest changed: %s", path)
 		}
-		fmt.Fprintf(candidate, "%d:%s:%s\n", len(path), path, digest)
+		checked.Write(fmt.Fprintf(candidate, "%d:%s:%s\n", len(path), path, digest))
 	}
 	if hex.EncodeToString(candidate.Sum(nil)) != candidateDigest {
 		return errors.New("candidate digest does not bind actual measurement sources")

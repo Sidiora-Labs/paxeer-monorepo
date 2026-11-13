@@ -8,6 +8,8 @@ use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use zeroize::Zeroizing;
 
+/// # Errors
+/// Refuses invalid signup details, failed storage, or failed delivery publication.
 pub fn start(
     desk: &mut Desk,
     store: &mut Store,
@@ -42,12 +44,16 @@ pub struct StagedDelivery {
 }
 
 impl StagedDelivery {
+    /// # Errors
+    /// Returns an error when publication or directory synchronization fails.
     pub fn publish(self) -> Result<(), String> {
         fs::rename(&self.temporary, &self.published).map_err(|e| e.to_string())?;
         sync(&self.directory)
     }
 }
 
+/// # Errors
+/// Refuses invalid delivery bindings or failed outbox writes.
 pub fn stage(
     outbox: &Path,
     digest: &str,
@@ -87,6 +93,8 @@ pub fn stage(
     })
 }
 
+/// # Errors
+/// Refuses invalid delivery bindings or failed outbox publication.
 pub fn publish(
     outbox: &Path,
     digest: &str,
@@ -96,6 +104,8 @@ pub fn publish(
     stage(outbox, digest, delivery, key)?.publish()
 }
 
+/// # Errors
+/// Returns an error when delivery state cannot be published or removed.
 pub fn reconcile(store: &mut Store, key: &StoreKey, outbox: &Path, now: u64) -> Result<(), String> {
     for (digest, delivery) in store.signup_deliveries() {
         if delivery.expires_at <= now {
@@ -175,6 +185,8 @@ fn random_hex(bytes: usize) -> Result<Zeroizing<String>, Refused> {
     Ok(Zeroizing::new(crate::seal::hex(&random)))
 }
 
+/// # Errors
+/// Refuses invalid or expired tokens and failed session storage.
 pub fn complete(
     store: &mut Store,
     key: &StoreKey,
@@ -254,7 +266,7 @@ pub fn complete(
     };
     store
         .verify_signup_session(&digest, now, session, result)
-        .map_err(signup::store_refusal)?;
+        .map_err(|error| signup::store_refusal(&error))?;
     let _ = store.audit(&json!({"event":"signup_verified", "at":now, "sub":sub, "email_digest":pending.email_digest, "outcome":"accepted"}));
     Ok(response)
 }

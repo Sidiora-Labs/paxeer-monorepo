@@ -126,13 +126,11 @@ func (r Runtime) EvaluateBatch(ctx context.Context, limit int, now time.Time) (i
 				e = json.Unmarshal(raw, &rule)
 			}
 			if e != nil {
-				rows.Close()
-				return e
+				return errors.Join(e, rows.Close())
 			}
 			rules = append(rules, rule)
 		}
-		e = rows.Err()
-		rows.Close()
+		e = errors.Join(rows.Err(), rows.Close())
 		if e != nil {
 			return e
 		}

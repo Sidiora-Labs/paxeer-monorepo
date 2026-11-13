@@ -1,0 +1,17 @@
+[repair]
+module = "sdk/launchpad/protocol"
+errcheck = "Four file and response closes now return or join their errors."
+goconst = "Sixty-six repeated role, event, status and effect literals use package constants with the same string values."
+goimports = "Seven import blocks use the repository's Go import grouping."
+gosec = "Two caller-selected file paths retain the manifest and output directory interfaces."
+staticcheck = "The asset movement role dispatch uses a tagged switch."
+
+[comment.manifest_path]
+site = "coverage/cmd/measure/main.go:49"
+linter = "gosec"
+reason = "The caller selects the reviewed manifest path."
+
+[comment.output_path]
+site = "coverage/cmd/measure/main.go:85"
+linter = "gosec"
+reason = "The caller selects the output directory."

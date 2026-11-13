@@ -6,13 +6,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"html"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/fileaccess"
+	"github.com/jackc/pgx/v5"
 )
 
 // ShareSnapshot is an allowlist, never a serialization of a private account.
@@ -46,7 +48,7 @@ func (r Repository) Share(ctx context.Context, wallet, verifiedWallet, snapshot 
 		return ShareSnapshot{}, e
 	}
 	s := page.Summary
-	out := ShareSnapshot{Version: 1, SnapshotID: s.SnapshotID, QuoteAsset: "USDL", Decimals: 6, Methodology: Algorithm, Watermark: s.Watermark, KnownRealizedSubtotalUsdlRaw: s.KnownRealizedSubtotalUsdlRaw, RealizedPnlRaw: s.RealizedPnlRaw, CompleteValueUsdlRaw: s.CompleteValueUsdlRaw, BasisQuality: s.BasisQuality, PricingQuality: s.PricingQuality, Label: "Known realized result (USDL); total profit unavailable"}
+	out := ShareSnapshot{Version: 1, SnapshotID: s.SnapshotID, QuoteAsset: symbolUSDL, Decimals: 6, Methodology: Algorithm, Watermark: s.Watermark, KnownRealizedSubtotalUsdlRaw: s.KnownRealizedSubtotalUsdlRaw, RealizedPnlRaw: s.RealizedPnlRaw, CompleteValueUsdlRaw: s.CompleteValueUsdlRaw, BasisQuality: s.BasisQuality, PricingQuality: s.PricingQuality, Label: "Known realized result (USDL); total profit unavailable"}
 	if includeWallet {
 		out.Wallet = ptr(s.Wallet)
 	}
@@ -125,18 +127,18 @@ func (r Repository) ExportJSON(ctx context.Context, dir, wallet, verifiedWallet,
 	if e = privateExportDirectory(dir); e != nil {
 		return manifest, e
 	}
-	f, e := os.OpenFile(filepath.Join(dir, id+".partial"), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	f, e := fileaccess.CreateExclusive(filepath.Join(dir, id+".partial"))
 	if e != nil {
 		return manifest, e
 	}
-	partial := f.Name()
+	partial := filepath.Join(dir, id+".partial")
 	complete := filepath.Join(dir, id+".jsonl")
 	success := false
 	defer func() {
-		f.Close()
-		os.Remove(partial)
+		_ = f.Close()
+		_ = os.Remove(partial)
 		if !success {
-			os.Remove(complete)
+			_ = os.Remove(complete)
 		}
 	}()
 	hash := sha256.New()
@@ -182,7 +184,7 @@ func (r Repository) ExportJSON(ctx context.Context, dir, wallet, verifiedWallet,
 		return manifest, e
 	}
 	success = true
-	return ExportManifest{Object: id + ".jsonl", Rows: count, SHA256: hex.EncodeToString(hash.Sum(nil)), SnapshotID: snapshot, ExpiresAt: now.Add(15 * time.Minute), Format: "jsonl"}, nil
+	return ExportManifest{Object: id + ".jsonl", Rows: count, SHA256: hex.EncodeToString(hash.Sum(nil)), SnapshotID: snapshot, ExpiresAt: now.Add(15 * time.Minute), Format: formatJSONL}, nil
 }
 
 const MetadataDDL = `CREATE TABLE portfolio_snapshot_history_metadata (snapshot_id uuid PRIMARY KEY REFERENCES portfolio_snapshots(id),source_event text NOT NULL UNIQUE,payload jsonb NOT NULL);`
@@ -199,7 +201,7 @@ func (r Repository) CommitHistoryMetadataTx(ctx context.Context, tx pgx.Tx, wall
 	if tx == nil || !validUUID(snapshot) || len(m.SourceEvent) == 0 || len(m.SourceEvent) > 256 || m.Start.IsZero() || !m.Start.Before(m.End) {
 		return ErrInvalid
 	}
-	if m.Quote.Kind != "erc20" || m.Quote.ChainID == nil || *m.Quote.ChainID != "125" || m.Quote.Address == nil || m.Quote.Decimals == nil || *m.Quote.Decimals != 6 || m.Quote.CurrencyCode == nil || *m.Quote.CurrencyCode != "USDL" {
+	if m.Quote.Kind != tokenERC20 || m.Quote.ChainID == nil || *m.Quote.ChainID != "125" || m.Quote.Address == nil || m.Quote.Decimals == nil || *m.Quote.Decimals != 6 || m.Quote.CurrencyCode == nil || *m.Quote.CurrencyCode != symbolUSDL {
 		return ErrInvalid
 	}
 	if _, e := Wallet(*m.Quote.Address); e != nil {
@@ -257,7 +259,7 @@ func (r Repository) ShareV2(ctx context.Context, wallet, verified, snapshot stri
 	out.RangeStart = &m.Start
 	out.RangeEnd = &m.End
 	out.QuoteIdentity = &m.Quote
-	historical := HistoricalReturn{Method: "unavailable", Reason: "incomplete_cash_flow_or_valuation_history"}
+	historical := HistoricalReturn{Method: statusUnavailable, Reason: incompleteHistoryReason}
 	if len(m.Periods) > 0 {
 		historical, e = TimeWeightedReturn(m.Periods)
 		if e != nil {

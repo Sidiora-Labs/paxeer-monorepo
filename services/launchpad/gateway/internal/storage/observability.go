@@ -3,10 +3,11 @@ package storage
 import (
 	"context"
 	"errors"
-	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 	"sort"
 	"sync"
 	"time"
+
+	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 )
 
 type MediaHealth struct {
@@ -46,7 +47,7 @@ func (o *MediaObserver) ScannerResult(available bool, elapsed time.Duration, now
 }
 func (o *MediaObserver) RecordUpload(outcome string) error {
 	switch outcome {
-	case "approved", "quarantined", "rejected", "rate_limited", "unauthenticated", "unavailable":
+	case approvedState, "quarantined", "rejected", "rate_limited", "unauthenticated", "unavailable":
 	default:
 		return ErrConflict
 	}
@@ -183,7 +184,7 @@ func NewEnvelopeAccumulator() *EnvelopeAccumulator {
 
 func (a *EnvelopeAccumulator) Observe(class string, latency time.Duration, status int, size int64, accepted bool) error {
 	switch class {
-	case "origin", "metadata", "upload", "cdn":
+	case originServiceName, metadataServiceName, uploadKind, cdnServiceName:
 	default:
 		return errors.New("unknown media measurement class")
 	}

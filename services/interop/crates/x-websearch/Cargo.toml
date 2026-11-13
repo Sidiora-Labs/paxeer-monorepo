@@ -33,5 +33,8 @@ tantivy = "=0.26.2"
 unicode-normalization = "=0.1.25"
 zeroize.workspace = true
 
+[dev-dependencies]
+nix = { version = "=0.29.0", features = ["sched"] }
+
 [lints]
 workspace = true

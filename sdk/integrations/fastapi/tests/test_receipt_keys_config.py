@@ -30,19 +30,19 @@ def test_load_config_reads_receipt_keys() -> None:
     environment = _environment()
     pins = [
         {
-            "keyId": b64encode(bytes.fromhex("44" * 32)).decode("ascii"),
-            "publicKey": b64encode(bytes.fromhex("55" * 32)).decode("ascii"),
-            "firstHeight": 0,
-            "lastHeight": 100,
+            "keyId": "0x" + "44" * 32,
+            "publicKey": "0x" + "55" * 32,
+            "firstHeight": "0x0",
+            "lastHeight": "0x64",
         },
         {
-            "keyId": b64encode(bytes.fromhex("66" * 32)).decode("ascii"),
-            "publicKey": b64encode(bytes.fromhex("77" * 32)).decode("ascii"),
-            "firstHeight": 101,
-            "lastHeight": 18446744073709551615,
+            "keyId": "0x" + "66" * 32,
+            "publicKey": "0x" + "77" * 32,
+            "firstHeight": "0x65",
+            "lastHeight": "0xffffffffffffffff",
         },
     ]
-    environment["LAYERX_RECEIPT_KEYS_JSON"] = json.dumps(pins)
+    environment["LAYERX_RECEIPT_KEYS_JSON"] = json.dumps({"keys": pins})
 
     loaded = config.read_declared_config(environment)
 
@@ -64,20 +64,22 @@ def test_load_config_reads_receipt_keys() -> None:
         "{",
         "null",
         "[]",
-        json.dumps({"keys": pins}),
-        json.dumps([None]),
-        json.dumps([{}]),
-        json.dumps([pins[0], pins[0]]),
-        json.dumps([{**pins[0], "keyId": "0x" + "44" * 32}]),
-        json.dumps([{**pins[0], "publicKey": "!" * 44}]),
-        json.dumps([{**pins[0], "publicKey": b64encode(bytes(31)).decode("ascii")}]),
-        json.dumps([{**pins[0], "keyId": b64encode(bytes(32)).decode("ascii")}]),
-        json.dumps([{**pins[0], "publicKey": b64encode(bytes(32)).decode("ascii")}]),
-        json.dumps([{**pins[0], "firstHeight": 101}]),
-        json.dumps([{**pins[0], "firstHeight": -1}]),
-        json.dumps([{**pins[0], "firstHeight": True}]),
-        json.dumps([{**pins[0], "lastHeight": 18446744073709551616}]),
-        json.dumps([{**pins[0], "extra": "refuse"}]),
+        json.dumps(pins),
+        json.dumps({"keys": []}),
+        json.dumps({"keys": [None]}),
+        json.dumps({"keys": [{}]}),
+        json.dumps({"keys": [pins[0], pins[0]]}),
+        json.dumps({"keys": [{**pins[0], "keyId": b64encode(bytes.fromhex("44" * 32)).decode("ascii")}]}),
+        json.dumps({"keys": [{**pins[0], "publicKey": "!" * 44}]}),
+        json.dumps({"keys": [{**pins[0], "publicKey": b64encode(bytes.fromhex("55" * 32)).decode("ascii")}]}),
+        json.dumps({"keys": [{**pins[0], "publicKey": "0x" + "00" * 31}]}),
+        json.dumps({"keys": [{**pins[0], "keyId": "0x" + "00" * 32}]}),
+        json.dumps({"keys": [{**pins[0], "publicKey": "0x" + "00" * 32}]}),
+        json.dumps({"keys": [{**pins[0], "firstHeight": 101}]}),
+        json.dumps({"keys": [{**pins[0], "firstHeight": -1}]}),
+        json.dumps({"keys": [{**pins[0], "firstHeight": True}]}),
+        json.dumps({"keys": [{**pins[0], "lastHeight": 18446744073709551616}]}),
+        json.dumps({"keys": [{**pins[0], "extra": "refuse"}]}),
     ]
     for value in invalid_values:
         environment["LAYERX_RECEIPT_KEYS_JSON"] = value

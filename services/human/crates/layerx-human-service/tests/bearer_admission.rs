@@ -115,7 +115,7 @@ fn respond(stream: &mut TcpStream, body: &Mutex<String>) {
     }
     let document = body
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clone();
     let _ = write!(
         stream,
@@ -279,62 +279,17 @@ impl Drop for Fixture {
 }
 
 impl Fixture {
-    fn start() -> Self {
-        let clock = clock();
-        let now = required(clock.sample(Duration::from_secs(1)), "clock sample").unix_seconds();
-        let signer = TokenSigner::generate("signing-key-1");
-        let keys = KeySetServer::serve(&[signer.jwk()]);
-        let provider_root = private_directory("bearer-provider");
-        let mut state = required(
-            State::open(
-                &provider_root.join("identity"),
-                Policy {
-                    root: [0x43; 32],
-                    threshold: 1,
-                    delay_seconds: 86_400,
-                },
-            ),
-            "provider state",
-        );
-        required(
-            state.enable_assertion(required(
-                AssertionVerifier::new(AssertionConfig {
-                    jwks_url: keys.url(),
-                    issuer: ISSUER.to_owned(),
-                    audience: AUDIENCE.to_owned(),
-                    clock_skew_seconds: 30,
-                    refresh_interval_seconds: 300,
-                }),
-                "assertion verifier",
-            )),
-            "enable assertion",
-        );
-        let token = signer.mint(&claims(SUBJECT, now));
-        let (account, _) = required(
-            state.open_or_create_by_assertion(&token, Some(WALLET_DID), now),
-            "create account by assertion",
-        );
-        let principal = account.principal().to_owned();
-        let socket = provider_root.join("identity.sock");
-        let server = required(
-            Server::bind(
-                &socket,
-                state,
-                rustix::process::geteuid().as_raw(),
-                Duration::from_secs(2),
-                clock.clone(),
-            ),
-            "bind identity provider",
-        );
-        let shutdown = Arc::new(AtomicBool::new(false));
-        let flag = Arc::clone(&shutdown);
-        let provider = ProviderRun {
-            shutdown,
-            worker: Some(thread::spawn(move || server.run(&flag))),
-        };
-
+    fn start_components(
+        principal: &str,
+        socket: PathBuf,
+        clock: Arc<RuntimeClock>,
+    ) -> (
+        ComponentShutdown,
+        UnixComponents,
+        Arc<Router<UnixComponents>>,
+    ) {
         let store_root = directory("bearer-store");
-        let map = tenancy(&[(principal.as_str(), "tenant-bearer")]);
+        let map = tenancy(&[(principal, "tenant-bearer")]);
         let (store, _) = install_and_open(&store_root, &map, retention_uniform(86_400));
         let components = required(
             PrivilegedHumanComponents::new(
@@ -343,7 +298,7 @@ impl Fixture {
                 IdentityServices::new(required(
                     ProvisionedAccounts::new([required(
                         ProvisionedAccount::new(
-                            principal.as_str(),
+                            principal,
                             "holder@example.test",
                             "Holder",
                             "Primary passkey",
@@ -402,6 +357,65 @@ impl Fixture {
             ),
             "router",
         ));
+        (component_shutdown, client, router)
+    }
+
+    fn start() -> Self {
+        let clock = clock();
+        let now = required(clock.sample(Duration::from_secs(1)), "clock sample").unix_seconds();
+        let signer = TokenSigner::generate("signing-key-1");
+        let keys = KeySetServer::serve(&[signer.jwk()]);
+        let provider_root = private_directory("bearer-provider");
+        let mut state = required(
+            State::open(
+                &provider_root.join("identity"),
+                Policy {
+                    root: [0x43; 32],
+                    threshold: 1,
+                    delay_seconds: 86_400,
+                },
+            ),
+            "provider state",
+        );
+        required(
+            state.enable_assertion(required(
+                AssertionVerifier::new(AssertionConfig {
+                    jwks_url: keys.url(),
+                    issuer: ISSUER.to_owned(),
+                    audience: AUDIENCE.to_owned(),
+                    clock_skew_seconds: 30,
+                    refresh_interval_seconds: 300,
+                }),
+                "assertion verifier",
+            )),
+            "enable assertion",
+        );
+        let token = signer.mint(&claims(SUBJECT, now));
+        let (account, _) = required(
+            state.open_or_create_by_assertion(&token, Some(WALLET_DID), now),
+            "create account by assertion",
+        );
+        let principal = account.principal().to_owned();
+        let socket = provider_root.join("identity.sock");
+        let server = required(
+            Server::bind(
+                &socket,
+                state,
+                rustix::process::geteuid().as_raw(),
+                Duration::from_secs(2),
+                clock.clone(),
+            ),
+            "bind identity provider",
+        );
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&shutdown);
+        let provider = ProviderRun {
+            shutdown,
+            worker: Some(thread::spawn(move || server.run(&flag))),
+        };
+
+        let (component_shutdown, client, router) =
+            Self::start_components(&principal, socket, clock);
         Self {
             _keys: keys,
             signer,

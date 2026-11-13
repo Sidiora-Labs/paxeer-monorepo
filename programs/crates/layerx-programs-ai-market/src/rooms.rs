@@ -3,7 +3,13 @@ use crate::{
     admission::{AdmissionTable, Participant},
     codec::{self, Reader, ValidatedEnvelope, Writer},
     dispatch,
-    errors::*,
+    errors::{
+        CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, F02_CAPABILITY_MISMATCH,
+        F11_ASK_UNFUNDED, F11_BID_BELOW_FLOOR, F11_BOND_INSUFFICIENT, F11_ROOM_CLOSED,
+        F11_ROOM_UNKNOWN, F11_ROSTER_DIGEST_MISMATCH, NON_CANONICAL, NOT_FOUND, UNAUTHORIZED,
+        UNKNOWN_OPERATION, WRONG_CONFIG, WRONG_DOMAIN, WRONG_EPOCH, WRONG_MARKET, WRONG_PHASE,
+        WRONG_PROGRAM,
+    },
     evaluators::authority::split_identity_section,
     policy::{RoomProfile, ROOM_PROFILE_BYTES},
     registry::market_clock,
@@ -112,6 +118,8 @@ pub struct RoomRecord {
 }
 impl RoomRecord {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.profile.validate()?;
         let mut w = Writer::new(out.get_mut(..ROOM_RECORD_BYTES).ok_or(CAPACITY)?);
@@ -128,6 +136,8 @@ impl RoomRecord {
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = crate::codec::read_record!(&mut r, Self {  }; room_id = r.digest32()?;
@@ -157,6 +167,8 @@ pub struct AskRecord {
 }
 impl AskRecord {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.maximum_price_per_thousand_tokens == 0 {
             return Err(NON_CANONICAL);
@@ -175,6 +187,8 @@ impl AskRecord {
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = crate::codec::read_record!(&mut r, Self {  }; room_id = r.digest32()?;
@@ -216,6 +230,8 @@ impl BidRecord {
         Ok(())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         let mut w = Writer::new(out.get_mut(..BID_RECORD_BYTES).ok_or(CAPACITY)?);
@@ -231,6 +247,8 @@ impl BidRecord {
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let value = crate::codec::read_record!(&mut r, Self {  }; room_id = r.digest32()?;
@@ -292,6 +310,7 @@ impl DealRecord {
             return Err(NON_CANONICAL);
         }
         let mut end = 0;
+        let mut seen_prefix = [0u64; 4];
         for (i, split) in self
             .layers
             .guest_index(..count)
@@ -299,24 +318,35 @@ impl DealRecord {
             .flatten()
             .enumerate()
         {
+            let prefix = split.bid_id.as_bytes()[0];
+            let word = usize::from(prefix >> 6);
+            let mask = 1u64 << (prefix & 63);
             if split.first_layer != end
                 || split.end_layer <= split.first_layer
-                || self
-                    .layers
-                    .guest_index(..i)
-                    .iter()
-                    .flatten()
-                    .any(|p| p.bid_id == split.bid_id)
+                || (*seen_prefix.guest_index(word) & mask != 0
+                    && self
+                        .layers
+                        .guest_index(..i)
+                        .iter()
+                        .flatten()
+                        .any(|p| p.bid_id == split.bid_id))
             {
                 return Err(NON_CANONICAL);
             }
+            *seen_prefix.guest_index_mut(word) |= mask;
             end = split.end_layer;
         }
         Ok(count)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         let count = self.peer_count()?;
+        self.encode_with_count(count, out)
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn encode_with_count(&self, count: usize, out: &mut [u8]) -> CodecResult<usize> {
         let mut w = Writer::new(out.get_mut(..DEAL_RECORD_BYTES).ok_or(CAPACITY)?);
         RecordDealRequest::write_header(
             &mut w,
@@ -338,6 +368,8 @@ impl DealRecord {
         Ok(w.len())
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn decode(input: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(input);
         let (request, count) = RecordDealRequest::read_header(&mut r)?;
@@ -365,6 +397,8 @@ pub struct OpenRoomRequest {
 }
 impl OpenRoomRequest {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         self.profile.validate()?;
         let mut w = Writer::new(out.get_mut(..OPEN_ROOM_REQUEST_BYTES).ok_or(CAPACITY)?);
@@ -387,6 +421,8 @@ pub struct PostAskRequest {
 }
 impl PostAskRequest {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.maximum_price_per_thousand_tokens == 0 {
             return Err(NON_CANONICAL);
@@ -413,6 +449,8 @@ pub struct PostBidRequest {
 }
 impl PostBidRequest {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         if self.minimum_price_per_thousand_tokens == 0
             || self.bond_amount == 0
@@ -455,6 +493,8 @@ impl RecordDealRequest {
         }
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> {
         let count = self.record().peer_count()?;
         let mut w = Writer::new(out.get_mut(..145 + 36 * count).ok_or(CAPACITY)?);
@@ -506,7 +546,7 @@ impl RecordDealRequest {
             u128: price;
             id32: roster.as_bytes();
         )?;
-        w.u8(count as u8)
+        w.u8(u8::try_from(count).map_err(|_| crate::errors::CAPACITY)?)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn decode(input: &[u8]) -> CodecResult<Self> {
@@ -555,8 +595,8 @@ impl BondAdjustment {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 fn bond_identity_key(bid: &BidRecord) -> CodecResult<Digest32> {
     let mut bytes = [0; 64];
-    let mut w = Writer::new(&mut bytes);
-    crate::codec::write_fields!(w; id32: bid.peer_key.as_bytes(); id32: bid.capability_digest.as_bytes();)?;
+    bytes[..32].guest_copy_from_slice(bid.peer_key.as_bytes());
+    bytes[32..].guest_copy_from_slice(bid.capability_digest.as_bytes());
     codec::domain_hash("PAXAI/bond-identity/v1", &bytes)
 }
 
@@ -583,14 +623,30 @@ const CAPS: [usize; 7] = [
     BID_CAPACITY,
     BID_CAPACITY,
 ];
+#[cfg(target_arch = "wasm32")]
+static DECODED_BOOK: crate::guest_cell::GuestOnce<(&'static [u8], RoomBook<'static>)> =
+    crate::guest_cell::GuestOnce::new();
+
 impl<'a> RoomBook<'a> {
+    // The stored book was validated when its producer committed it. Read its
+    // framing and bounded tables for a transition whose output is fully checked.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
-    pub fn decode(input: &'a [u8]) -> CodecResult<Self> {
+    pub(crate) fn committed(input: &'a [u8]) -> CodecResult<Self> {
+        let (book, used) = Self::read_tables(input)?;
+        if used != input.len() {
+            return Err(NON_CANONICAL);
+        }
+        Ok(book)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn read_tables(input: &'a [u8]) -> CodecResult<(Self, usize)> {
+        let mut book = Self {
+            tables: [&[]; 7],
+            counts: [0; 7],
+        };
         if input.is_empty() {
-            return Ok(Self {
-                tables: [&[]; 7],
-                counts: [0; 7],
-            });
+            return Ok((book, 0));
         }
         if input.len() > BOOK_MAX_BYTES {
             return Err(CAPACITY);
@@ -602,10 +658,6 @@ impl<'a> RoomBook<'a> {
         if r.u16()? != ROOM_BOOK_VERSION {
             return Err(BAD_VERSION);
         }
-        let mut book = Self {
-            tables: [&[]; 7],
-            counts: [0; 7],
-        };
         for (i, cap) in CAPS.iter().enumerate() {
             *book.counts.guest_index_mut(i) = usize::from(r.u16()?);
             if *book.counts.guest_index(i) > *cap {
@@ -614,7 +666,60 @@ impl<'a> RoomBook<'a> {
         }
         for (i, width) in WIDTHS.iter().enumerate() {
             *book.tables.guest_index_mut(i) = r.take(*book.counts.guest_index(i) * width)?;
+        }
+        Ok((book, r.offset()))
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error for an invalid room book.
+    pub fn decode(input: &'a [u8]) -> CodecResult<Self> {
+        #[cfg(target_arch = "wasm32")]
+        {
+            if let Some((bytes, book)) = DECODED_BOOK.get() {
+                if core::ptr::eq(*bytes, input) {
+                    return Ok(*book);
+                }
+            } else if let Some(frozen) = state::current_slice(input) {
+                let (_, book) = DECODED_BOOK.get_or_try_init(
+                    || Ok((frozen, RoomBook::decode_uncached(frozen)?)),
+                    NON_CANONICAL,
+                )?;
+                return Ok(*book);
+            }
+        }
+        Self::decode_uncached(input)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn decode_uncached(input: &'a [u8]) -> CodecResult<Self> {
+        let (book, used) = Self::read_tables(input)?;
+        let mut room_refs_preserved = false;
+        let mut bid_unchanged = false;
+        for (i, width) in WIDTHS.iter().enumerate() {
+            // An unchanged table keeps its current-state validation when the
+            // rows that supply its foreign keys remain present.
+            #[cfg(target_arch = "wasm32")]
+            let unchanged = DECODED_BOOK.get().is_some_and(|(_, previous)| {
+                codec::equal_bytes(book.tables.guest_index(i), previous.tables.guest_index(i))
+            });
+            #[cfg(not(target_arch = "wasm32"))]
+            let unchanged = false;
+            if i == 0 {
+                room_refs_preserved = unchanged;
+            } else if i == 2 {
+                bid_unchanged = unchanged;
+            }
+            if unchanged
+                && match i {
+                    1..=4 => room_refs_preserved,
+                    6 => bid_unchanged,
+                    _ => true,
+                }
+            {
+                continue;
+            }
             let mut previous = None;
+            let mut previous_room = None;
             for bytes in book.tables.guest_index(i).guest_chunks_exact(*width) {
                 let (id, room) = match i {
                     0 => {
@@ -643,48 +748,112 @@ impl<'a> RoomBook<'a> {
                     }
                     _ => {
                         let v = BondAdjustment::decode(bytes)?;
-                        if book.bid(v.bid)?.is_none() {
-                            return Err(NON_CANONICAL);
-                        }
                         (v.bid, v.bid)
                     }
                 };
+                if i == 6 && book.get(2, id).is_none() {
+                    return Err(NON_CANONICAL);
+                }
                 if previous.is_some_and(|p| p >= id) {
                     return Err(NON_CANONICAL);
                 }
                 previous = Some(id);
-                if i > 0 && i < 5 && book.room(room)?.is_none() {
-                    return Err(NON_CANONICAL);
+                if i > 0 && i < 5 && previous_room != Some(room) {
+                    if book.get(0, room).is_none() {
+                        return Err(NON_CANONICAL);
+                    }
+                    // Consecutive orders can share a room. Its immutable row
+                    // needs only one successful join in this table scan.
+                    previous_room = Some(room);
+                }
+            }
+            if i == 0 && !room_refs_preserved {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    room_refs_preserved = DECODED_BOOK.get().is_some_and(|(_, previous)| {
+                        let mut new_rooms = book.table(0).guest_chunks_exact(ROOM_RECORD_BYTES);
+                        previous
+                            .table(0)
+                            .guest_chunks_exact(ROOM_RECORD_BYTES)
+                            .all(|old| {
+                                new_rooms.any(|new| {
+                                    codec::equal_bytes(new.guest_index(..32), old.guest_index(..32))
+                                })
+                            })
+                    });
                 }
             }
         }
-        r.finish()?;
+        if used != input.len() {
+            return Err(NON_CANONICAL);
+        }
         Ok(book)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn get(&self, table: usize, id: Digest32) -> Option<&'a [u8]> {
-        let at = if table == 0 || table >= 5 { 0 } else { 32 };
-        self.tables
-            .guest_index(table)
-            .guest_chunks_exact(*WIDTHS.guest_index(table))
-            .find(|bytes| bytes.guest_index(at..at + 32) == id.as_bytes())
+        let offset = if table == 0 || table >= 5 { 0 } else { 32 };
+        let width = *WIDTHS.guest_index(table);
+        let rows = *self.tables.guest_index(table);
+        let mut low = 0;
+        let mut high = *self.counts.guest_index(table);
+        while low < high {
+            let mid = low + (high - low) / 2;
+            let row = rows.guest_index(mid * width..(mid + 1) * width);
+            match crate::types::identity_order(
+                row.guest_index(offset..offset + 32)
+                    .as_chunks::<32>()
+                    .0
+                    .guest_index(0),
+                id.as_bytes(),
+            ) {
+                core::cmp::Ordering::Less => low = mid + 1,
+                core::cmp::Ordering::Greater => high = mid,
+                core::cmp::Ordering::Equal => return Some(row),
+            }
+        }
+        None
+    }
+
+    // The room rows were strictly validated before the dependent tables. Joins
+    // consume only these two fields, without decoding the profile for every order.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn placement_room(&self, id: Digest32) -> CodecResult<(Digest32, RoomState)> {
+        let bytes = self.get(0, id).ok_or(NON_CANONICAL)?;
+        Ok((
+            Digest32::new(
+                bytes
+                    .guest_index(64..96)
+                    .try_into()
+                    .map_err(|_| NON_CANONICAL)?,
+            )?,
+            RoomState::decode(*bytes.guest_index(4 * 32 + ROOM_PROFILE_BYTES))?,
+        ))
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn room(&self, id: Digest32) -> CodecResult<Option<RoomRecord>> {
         self.get(0, id).map(RoomRecord::decode).transpose()
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn ask(&self, id: Digest32) -> CodecResult<Option<AskRecord>> {
         self.get(1, id).map(AskRecord::decode).transpose()
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn bid(&self, id: Digest32) -> CodecResult<Option<BidRecord>> {
         self.get(2, id).map(BidRecord::decode).transpose()
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn deal(&self, id: Digest32) -> CodecResult<Option<DealRecord>> {
         self.get(3, id).map(DealRecord::decode).transpose()
     }
+    #[must_use]
     pub fn counts(&self) -> [usize; 4] {
         [
             *self.counts.guest_index(0),
@@ -694,7 +863,7 @@ impl<'a> RoomBook<'a> {
         ]
     }
     pub(crate) fn table(&self, index: usize) -> &'a [u8] {
-        *self.tables.guest_index(index)
+        self.tables.guest_index(index)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn bond(
@@ -731,6 +900,7 @@ impl<'a> RoomBook<'a> {
         }
         Ok(Some(bond))
     }
+
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn held(&self) -> CodecResult<u128> {
         let mut sum = 0u128;
@@ -751,6 +921,45 @@ impl<'a> RoomBook<'a> {
         }
         Ok(sum)
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn held_committed(&self) -> CodecResult<u128> {
+        let mut sum = 0u128;
+        let mut adjustments = self.table(6).guest_chunks_exact(57).peekable();
+        for row in self.table(2).guest_chunks_exact(BID_RECORD_BYTES) {
+            let id: &[u8; 32] = row
+                .guest_index(32..64)
+                .try_into()
+                .map_err(|_| NON_CANONICAL)?;
+            let amount = u128::from_be_bytes(
+                row.guest_index(4 * 32 + 16..4 * 32 + 32)
+                    .try_into()
+                    .map_err(|_| NON_CANONICAL)?,
+            );
+            if amount == 0 {
+                return Err(NON_CANONICAL);
+            }
+            let (slashed, refunded) = match adjustments.peek() {
+                Some(bytes) if bytes.guest_index(..32) == id => {
+                    let adjustment =
+                        BondAdjustment::decode(adjustments.next().ok_or(NON_CANONICAL)?)?;
+                    (adjustment.slashed, adjustment.refunded)
+                }
+                _ => (0, false),
+            };
+            if slashed > amount {
+                return Err(NON_CANONICAL);
+            }
+            sum = sum
+                .checked_add(if refunded { 0 } else { amount - slashed })
+                .ok_or(ARITHMETIC)?;
+        }
+        for row in self.table(4).guest_chunks_exact(BOND_RECORD_BYTES) {
+            let bond = crate::rewards::bonds::BondRecord::decode(row)?;
+            sum = sum.checked_add(bond.remaining()?).ok_or(ARITHMETIC)?;
+        }
+        Ok(sum)
+    }
+
     pub(crate) fn bond_capacity(&self) -> CodecResult<()> {
         if self.counts.guest_index(2) + self.counts.guest_index(4) >= BID_CAPACITY {
             return Err(CAPACITY);
@@ -781,12 +990,7 @@ impl<'a> RoomBook<'a> {
         }
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
-    fn post_bond(
-        &self,
-        bid: &BidRecord,
-        first: &mut [u8],
-        second: &mut [u8],
-    ) -> CodecResult<usize> {
+    fn post_bond(&self, bid: &BidRecord, first: &mut [u8]) -> CodecResult<usize> {
         let bond = self.bond(bid.bid_id)?.ok_or(F11_BOND_INSUFFICIENT)?;
         let key = bond_identity_key(bid)?;
         let identity = if let Some(row) = self.get(5, key) {
@@ -805,21 +1009,30 @@ impl<'a> RoomBook<'a> {
         let mut row = [0; 72];
         let mut w = Writer::new(&mut row);
         crate::codec::write_fields!(w; id32: identity.key.as_bytes(); id32: identity.worker.as_bytes(); u64: identity.height;)?;
-        let n = self.write(5, key, &row, self.get(5, key).is_some(), first)?;
-        let n =
-            RoomBook::decode(first.guest_index(..n))?.write(4, bid.bid_id, &[], true, second)?;
         let mut bytes = [0; BID_RECORD_BYTES];
         bid.encode(&mut bytes)?;
-        let n = RoomBook::decode(second.guest_index(..n))?
-            .write(2, bid.bid_id, &bytes, false, first)?;
-        if identity.height != bond.locked_height || bond.slashed != 0 || bond.refunded {
-            let n = RoomBook::decode(first.guest_index(..n))?.write_bond(&bond, second)?;
-            first
-                .guest_index_mut(..n)
-                .guest_copy_from_slice(second.guest_index(..n));
-            return Ok(n);
-        }
-        Ok(n)
+        let mut adjustment = [0; 57];
+        let mut edits = [
+            (5, key, row.as_slice(), self.get(5, key).is_some()),
+            (4, bid.bid_id, &[][..], true),
+            (2, bid.bid_id, bytes.as_slice(), false),
+            (6, bid.bid_id, &[][..], false),
+        ];
+        let count = if identity.height != bond.locked_height || bond.slashed != 0 || bond.refunded {
+            let mut w = Writer::new(&mut adjustment);
+            crate::codec::write_fields!(w; id32: bond.bid.as_bytes(); u128: bond.slashed;
+                u64: bond.locked_height; u8: u8::from(bond.refunded);)?;
+            edits[3] = (
+                6,
+                bid.bid_id,
+                &adjustment,
+                self.get(6, bid.bid_id).is_some(),
+            );
+            4
+        } else {
+            3
+        };
+        self.write_edits(&edits[..count], first)
     }
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn write(
@@ -830,39 +1043,60 @@ impl<'a> RoomBook<'a> {
         replace: bool,
         out: &mut [u8],
     ) -> CodecResult<usize> {
-        if record.len() != *WIDTHS.guest_index(table) && !(replace && record.is_empty()) {
-            return Err(NON_CANONICAL);
-        }
-        let found = self.get(table, id).is_some();
-        if found != replace {
-            return Err(CONFLICT);
-        }
+        self.write_edits(&[(table, id, record, replace)], out)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn write_edits(
+        &self,
+        edits: &[(usize, Digest32, &[u8], bool)],
+        out: &mut [u8],
+    ) -> CodecResult<usize> {
         let mut counts = self.counts;
-        if record.is_empty() {
-            *counts.guest_index_mut(table) -= 1;
-        } else if !replace {
-            *counts.guest_index_mut(table) += 1;
-        }
-        if *counts.guest_index(table) > *CAPS.guest_index(table) {
-            return Err(CAPACITY);
+        for (index, &(table, id, record, replace)) in edits.iter().enumerate() {
+            if edits[..index].iter().any(|edit| edit.0 == table)
+                || record.len() != *WIDTHS.guest_index(table) && !(replace && record.is_empty())
+            {
+                return Err(NON_CANONICAL);
+            }
+            if self.get(table, id).is_some() != replace {
+                return Err(CONFLICT);
+            }
+            if record.is_empty() {
+                *counts.guest_index_mut(table) -= 1;
+            } else if !replace {
+                *counts.guest_index_mut(table) += 1;
+            }
+            if *counts.guest_index(table) > *CAPS.guest_index(table) {
+                return Err(CAPACITY);
+            }
         }
         let mut w = Writer::new(out);
         w.put(b"F11B")?;
         w.u16(ROOM_BOOK_VERSION)?;
         for count in counts {
-            w.u16(count as u16)?;
+            w.u16(u16::try_from(count).map_err(|_| crate::errors::CAPACITY)?)?;
         }
         for (i, width) in WIDTHS.iter().enumerate() {
-            if i != table {
-                w.put(*self.tables.guest_index(i))?;
+            let Some(&(_, id, record, replace)) = edits.iter().find(|edit| edit.0 == i) else {
+                w.put(self.tables.guest_index(i))?;
                 continue;
-            }
+            };
             let offset = if i == 0 || i >= 5 { 0 } else { 32 };
             let index = self
                 .tables
                 .guest_index(i)
                 .guest_chunks_exact(*width)
-                .take_while(|b| b.guest_index(offset..offset + 32) < id.as_bytes().guest_index(..))
+                .take_while(|b| {
+                    crate::types::identity_order(
+                        b.guest_index(offset..offset + 32)
+                            .as_chunks::<32>()
+                            .0
+                            .guest_index(0),
+                        id.as_bytes(),
+                    )
+                    .is_lt()
+                })
                 .count();
             let at = index * width;
             w.put((*self.tables.guest_index(i)).guest_index(..at))?;
@@ -913,6 +1147,12 @@ fn worker_for(
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "The public deal operation accepts separate admission and worker views."
+)]
 pub fn apply_record_deal(
     book: &RoomBook<'_>,
     request: &RecordDealRequest,
@@ -927,7 +1167,7 @@ pub fn apply_record_deal(
     if actor != room.host_key {
         return Err(UNAUTHORIZED);
     }
-    let ask = book.ask(request.ask_id)?.ok_or(NOT_FOUND)?;
+    let mut ask = book.ask(request.ask_id)?.ok_or(NOT_FOUND)?;
     if ask.room_id != room.room_id
         || ask.model_digest != room.model_digest
         || ask.state == AskState::Closed
@@ -943,10 +1183,12 @@ pub fn apply_record_deal(
         return Err(F11_ROSTER_DIGEST_MISMATCH);
     }
     let record = request.record();
-    record.peer_count()?;
+    let peer_count = record.peer_count()?;
     if record.agreed_price_per_thousand_tokens > ask.maximum_price_per_thousand_tokens {
         return Err(CONFLICT);
     }
+    let mut seen_peers = [[0u8; 32]; MAX_DEAL_PEERS];
+    let mut seen_prefix = [0u64; 4];
     for (i, split) in record.layers.iter().flatten().enumerate() {
         let bid = book.bid(split.bid_id)?.ok_or(NOT_FOUND)?;
         if bid.room_id != room.room_id {
@@ -972,21 +1214,43 @@ pub fn apply_record_deal(
         {
             return Err(UNAUTHORIZED);
         }
-        for previous in record.layers.guest_index(..i).iter().flatten() {
-            if book.bid(previous.bid_id)?.ok_or(NOT_FOUND)?.peer_key == bid.peer_key {
-                return Err(CONFLICT);
-            }
+        let prefix = bid.peer_key.as_bytes()[0];
+        let word = usize::from(prefix >> 6);
+        let mask = 1u64 << (prefix & 63);
+        if *seen_prefix.guest_index(word) & mask != 0
+            && seen_peers
+                .guest_index(..i)
+                .iter()
+                .any(|previous| codec::equal_bytes(previous, bid.peer_key.as_bytes()))
+        {
+            return Err(CONFLICT);
         }
+        *seen_prefix.guest_index_mut(word) |= mask;
+        seen_peers
+            .guest_index_mut(i)
+            .copy_from_slice(bid.peer_key.as_bytes());
         if bid.bond_amount < room.profile.minimum_bond {
             return Err(F11_BOND_INSUFFICIENT);
         }
     }
-    let mut bytes = [0; DEAL_RECORD_BYTES];
-    record.encode(&mut bytes)?;
-    book.write(3, record.deal_id, &bytes, false, out)
+    let mut deal_bytes = [0; DEAL_RECORD_BYTES];
+    record.encode_with_count(peer_count, &mut deal_bytes)?;
+    ask.state = AskState::Matched;
+    let mut ask_bytes = [0; ASK_RECORD_BYTES];
+    ask.encode(&mut ask_bytes)?;
+    let n = book.write_edits(
+        &[
+            (3, record.deal_id, &deal_bytes, false),
+            (1, ask.ask_id, &ask_bytes, true),
+        ],
+        out,
+    )?;
+    Ok(n)
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
+/// # Errors
+/// Returns an error if the requested operation cannot be completed.
 pub fn apply(
     ctx: &CallContext,
     envelope: &ValidatedEnvelope<'_>,
@@ -1016,6 +1280,285 @@ pub fn apply(
     e.check_expiry(ctx.height)?;
     op.validate_payload_length(e.payload.len())?;
     let state = state::decode_shared_state(current)?;
+
+    let (policy, epoch) = room_policy(ctx, e, &state)?;
+    let header = &policy.header;
+
+    let workers = if matches!(op, dispatch::PostBid | dispatch::RecordDeal)
+        || op != dispatch::PostAsk && ctx.principal != header.owner_principal
+    {
+        Some(WorkerTable::decode(
+            split_identity_section(state.section(Section::IdentityRoster)?)?.0,
+        )?)
+    } else {
+        None
+    };
+
+    let book_bytes = state.room_market()?.1;
+    let book = if matches!(op, dispatch::PostBid | dispatch::RecordDeal) {
+        RoomBook::committed(book_bytes)?
+    } else {
+        RoomBook::decode(book_bytes)?
+    };
+
+    let (room_id, bid_worker) = room_subject(ctx, e, workers.as_ref())?;
+    let replay = if op == dispatch::PostAsk {
+        None
+    } else {
+        let slot = room_actor_slot(
+            bid_worker.as_ref(),
+            workers.as_ref(),
+            ctx.principal,
+            header.owner_principal,
+        )?;
+        let authority = state.control.replay.actor(slot).ok_or(UNAUTHORIZED)?;
+        let request = ReplayRequest::from_envelope(slot, authority.authority_version, envelope)?;
+        if let ReplayDecision::AlreadyApplied(retained) =
+            state.control.replay.check(&request, ctx.height)?
+        {
+            return Ok(Outcome::Retained(retained));
+        }
+        Some(request)
+    };
+    if !matches!(header.lifecycle, REGISTERED | ACTIVE) {
+        return Err(WRONG_PHASE);
+    }
+    let (first, rest) = scratch
+        .split_at_mut_checked(BOOK_MAX_BYTES)
+        .ok_or(CAPACITY)?;
+    let (settlement, rest) = rest
+        .split_at_mut_checked(Section::SettlementClaims.payload_cap())
+        .ok_or(CAPACITY)?;
+    let (policy_out, control) = rest
+        .split_at_mut_checked(Section::PolicyLifecycle.payload_cap())
+        .ok_or(CAPACITY)?;
+    let update = RoomMutation {
+        ctx,
+        envelope,
+        current,
+        state: &state,
+        workers: workers.as_ref(),
+        book: &book,
+        epoch,
+        room_id,
+    };
+    let (book_bytes, subject) = match update.write(first)? {
+        BookUpdate::Written { len, subject } => (first.guest_index(..len), subject),
+        BookUpdate::AlreadyApplied(subject) => return Ok(Outcome::AlreadyApplied(subject)),
+    };
+
+    let settlement_len = state.encode_room_market(book_bytes, settlement)?;
+
+    let outcome = crate::rewards::finish_room_transition(
+        ctx.height,
+        envelope,
+        state,
+        &policy,
+        settlement.guest_index(..settlement_len),
+        (subject.as_bytes(), replay.as_ref()),
+        (policy_out, control, next, event),
+    )?;
+
+    Ok(outcome)
+}
+
+enum BookUpdate {
+    Written { len: usize, subject: Digest32 },
+    AlreadyApplied(Digest32),
+}
+
+struct RoomMutation<'a, 'b> {
+    ctx: &'a CallContext,
+    envelope: &'a ValidatedEnvelope<'b>,
+    current: &'a [u8],
+    state: &'a state::SharedState<'b>,
+    workers: Option<&'a WorkerTable>,
+    book: &'a RoomBook<'b>,
+    epoch: u64,
+    room_id: Digest32,
+}
+
+impl RoomMutation<'_, '_> {
+    fn write(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        match self.envelope.envelope.operation {
+            dispatch::OpenRoom => self.open_room(first),
+            dispatch::PostAsk => self.post_ask(first),
+            dispatch::PostBid => self.post_bid(first),
+            dispatch::RecordDeal => self.record_deal(first),
+            dispatch::CloseRoom => self.close_room(first),
+            _ => Err(UNKNOWN_OPERATION),
+        }
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn open_room(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        let e = &self.envelope.envelope;
+        let ctx = self.ctx;
+        let book = self.book;
+        let epoch = self.epoch;
+        let room_id = self.room_id;
+        let mut r = Reader::new(e.payload);
+        r.take(32)?;
+        let room = RoomRecord {
+            room_id,
+            host_key: ctx.principal,
+            model_digest: r.digest32()?,
+            runtime_digest: r.digest32()?,
+            profile: r.room_profile()?,
+            state: RoomState::Open,
+            opened_at_epoch: epoch,
+            closed_height: 0,
+        };
+        r.finish()?;
+        let mut bytes = [0; ROOM_RECORD_BYTES];
+        room.encode(&mut bytes)?;
+        let n = book.write(0, room_id, &bytes, false, first)?;
+        Ok(BookUpdate::Written {
+            len: n,
+            subject: room_id,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn post_ask(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        let e = &self.envelope.envelope;
+        let ctx = self.ctx;
+        let envelope = self.envelope;
+        let book = self.book;
+        let room_id = self.room_id;
+        let room = book.open_room(room_id)?;
+        let mut r = Reader::new(e.payload);
+        r.take(32)?;
+        let ask = AskRecord {
+            room_id,
+            ask_id: r.digest32()?,
+            asker_key: ctx.principal,
+            model_digest: r.digest32()?,
+            maximum_price_per_thousand_tokens: r.u128()?,
+            stream_id: r.u128()?,
+            state: AskState::Open,
+            posted_request: envelope.request_digest()?,
+        };
+        r.finish()?;
+        if ask.model_digest != room.model_digest {
+            return Err(CONFLICT);
+        }
+        if let Some(previous) = book.ask(ask.ask_id)? {
+            if previous.posted_request == ask.posted_request {
+                return Ok(BookUpdate::AlreadyApplied(ask.ask_id));
+            }
+            return Err(CONFLICT);
+        }
+        let mut bytes = [0; ASK_RECORD_BYTES];
+        ask.encode(&mut bytes)?;
+        let n = book.write(1, ask.ask_id, &bytes, false, first)?;
+        Ok(BookUpdate::Written {
+            len: n,
+            subject: ask.ask_id,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn post_bid(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        let e = &self.envelope.envelope;
+        let ctx = self.ctx;
+        let envelope = self.envelope;
+        let current = self.current;
+        let book = self.book;
+        let room_id = self.room_id;
+        let room = book.open_room(room_id)?;
+        let mut r = Reader::new(e.payload);
+        r.take(32)?;
+        let bid = BidRecord {
+            room_id,
+            bid_id: r.digest32()?,
+            peer_key: ctx.principal,
+            capability_digest: r.digest32()?,
+            minimum_price_per_thousand_tokens: r.u128()?,
+            bond_amount: r.u128()?,
+            layer_capacity: r.u16()?,
+        };
+        r.finish()?;
+        if bid.bond_amount < room.profile.minimum_bond {
+            return Err(F11_BOND_INSUFFICIENT);
+        }
+        let mut bytes = [0; BID_RECORD_BYTES];
+        bid.encode(&mut bytes)?;
+        // The final placement scan validates this bid in the committed book.
+        // A staging scan here would traverse the full book a second time.
+        crate::rewards::bonds::check_bid(ctx, envelope, current)?;
+        let n = book.post_bond(&bid, first)?;
+        Ok(BookUpdate::Written {
+            len: n,
+            subject: bid.bid_id,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn record_deal(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        let state = self.state;
+        let e = &self.envelope.envelope;
+        let ctx = self.ctx;
+        let workers = self.workers;
+        let book = self.book;
+        let epoch = self.epoch;
+        let request = RecordDealRequest::decode(e.payload)?;
+        if e.roster != Presence::Present(request.roster_digest) {
+            return Err(F11_ROSTER_DIGEST_MISMATCH);
+        }
+        let admission_bytes = split_joint(state.section(Section::ReputationAdmission)?)?.1;
+        let n = AdmissionTable::with_decoded(admission_bytes, |admission| {
+            apply_record_deal(
+                book,
+                &request,
+                ctx.principal,
+                admission,
+                workers.as_ref().ok_or(UNAUTHORIZED)?,
+                epoch,
+                ctx.height,
+                first,
+            )
+        })?;
+        Ok(BookUpdate::Written {
+            len: n,
+            subject: request.deal_id,
+        })
+    }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn close_room(&self, first: &mut [u8]) -> CodecResult<BookUpdate> {
+        let ctx = self.ctx;
+        let book = self.book;
+        let room_id = self.room_id;
+        let mut room = book.open_room(room_id)?;
+        if room.host_key != ctx.principal {
+            return Err(UNAUTHORIZED);
+        }
+        for bytes in book
+            .tables
+            .guest_index(3)
+            .as_chunks::<{ DEAL_RECORD_BYTES }>()
+            .0
+            .iter()
+            .map(<[u8; 1298]>::as_slice)
+        {
+            let deal = DealRecord::decode(bytes)?;
+            if deal.room_id == room_id && deal.state == DealState::Open {
+                return Err(WRONG_PHASE);
+            }
+        }
+        room.state = RoomState::Closed;
+        room.closed_height = ctx.height;
+        let mut bytes = [0; ROOM_RECORD_BYTES];
+        room.encode(&mut bytes)?;
+        let n = book.write(0, room_id, &bytes, true, first)?;
+        Ok(BookUpdate::Written {
+            len: n,
+            subject: room_id,
+        })
+    }
+}
+
+fn room_policy<'a>(
+    ctx: &CallContext,
+    e: &crate::codec::Envelope<'_>,
+    state: &state::SharedState<'a>,
+) -> CodecResult<(PolicySection<'a>, u64)> {
     let policy = PolicySection::decode(state.section(Section::PolicyLifecycle)?)?;
     let header = &policy.header;
     if header.state_revision != state.revision {
@@ -1037,204 +1580,53 @@ pub fn apply(
     if e.config != header.active_config_version {
         return Err(WRONG_CONFIG);
     }
-    let workers =
-        WorkerTable::decode(split_identity_section(state.section(Section::IdentityRoster)?)?.0)?;
-    let book = RoomBook::decode(state.room_market()?.1)?;
+
+    Ok((policy, epoch))
+}
+
+fn room_actor_slot(
+    bid_worker: Option<&crate::workers::WorkerCurrent>,
+    workers: Option<&WorkerTable>,
+    principal: PrincipalId,
+    owner: PrincipalId,
+) -> CodecResult<ActorSlot> {
+    let slot = if let Some(worker) = bid_worker {
+        ActorSlot::worker(usize::from(worker.slot))?
+    } else if principal == owner {
+        ActorSlot::OWNER
+    } else {
+        ActorSlot::worker(usize::from(
+            workers
+                .ok_or(UNAUTHORIZED)?
+                .iter()
+                .find(|w| {
+                    w.owner == principal
+                        && matches!(w.state, WorkerState::Enrolled | WorkerState::Available)
+                })
+                .ok_or(UNAUTHORIZED)?
+                .slot,
+        ))?
+    };
+    Ok(slot)
+}
+
+fn room_subject(
+    ctx: &CallContext,
+    e: &crate::codec::Envelope<'_>,
+    workers: Option<&WorkerTable>,
+) -> CodecResult<(Digest32, Option<crate::workers::WorkerCurrent>)> {
+    let op = e.operation;
     let mut r = Reader::new(e.payload);
     let room_id = r.digest32()?;
     let mut bid_worker = None;
     if op == dispatch::PostBid {
         let _bid = r.digest32()?;
         bid_worker = Some(worker_for(
-            &workers,
+            workers.ok_or(UNAUTHORIZED)?,
             ctx.principal,
             r.digest32()?,
             ctx.height,
         )?);
     }
-    let replay = if op == dispatch::PostAsk {
-        None
-    } else {
-        let slot = if let Some(worker) = bid_worker {
-            ActorSlot::worker(usize::from(worker.slot))?
-        } else if ctx.principal == header.owner_principal {
-            ActorSlot::OWNER
-        } else {
-            ActorSlot::worker(usize::from(
-                workers
-                    .iter()
-                    .find(|w| {
-                        w.owner == ctx.principal
-                            && matches!(w.state, WorkerState::Enrolled | WorkerState::Available)
-                    })
-                    .ok_or(UNAUTHORIZED)?
-                    .slot,
-            ))?
-        };
-        let authority = state.control.replay.actor(slot).ok_or(UNAUTHORIZED)?;
-        let request = ReplayRequest::from_envelope(slot, authority.authority_version, envelope)?;
-        if let ReplayDecision::AlreadyApplied(retained) =
-            state.control.replay.check(&request, ctx.height)?
-        {
-            return Ok(Outcome::Retained(retained));
-        }
-        Some(request)
-    };
-    if !matches!(header.lifecycle, REGISTERED | ACTIVE) {
-        return Err(WRONG_PHASE);
-    }
-    let (first, rest) = scratch
-        .split_at_mut_checked(BOOK_MAX_BYTES)
-        .ok_or(CAPACITY)?;
-    let (second, rest) = rest.split_at_mut_checked(BOOK_MAX_BYTES).ok_or(CAPACITY)?;
-    let (settlement, rest) = rest
-        .split_at_mut_checked(Section::SettlementClaims.payload_cap())
-        .ok_or(CAPACITY)?;
-    let (policy_out, control) = rest
-        .split_at_mut_checked(Section::PolicyLifecycle.payload_cap())
-        .ok_or(CAPACITY)?;
-    let (book_bytes, subject): (&[u8], Digest32) = match op {
-        dispatch::OpenRoom => {
-            let mut r = Reader::new(e.payload);
-            r.take(32)?;
-            let room = RoomRecord {
-                room_id,
-                host_key: ctx.principal,
-                model_digest: r.digest32()?,
-                runtime_digest: r.digest32()?,
-                profile: r.room_profile()?,
-                state: RoomState::Open,
-                opened_at_epoch: epoch,
-                closed_height: 0,
-            };
-            r.finish()?;
-            let mut bytes = [0; ROOM_RECORD_BYTES];
-            room.encode(&mut bytes)?;
-            let n = book.write(0, room_id, &bytes, false, first)?;
-            (first.guest_index(..n), room_id)
-        }
-        dispatch::PostAsk => {
-            let room = book.open_room(room_id)?;
-            let mut r = Reader::new(e.payload);
-            r.take(32)?;
-            let ask = AskRecord {
-                room_id,
-                ask_id: r.digest32()?,
-                asker_key: ctx.principal,
-                model_digest: r.digest32()?,
-                maximum_price_per_thousand_tokens: r.u128()?,
-                stream_id: r.u128()?,
-                state: AskState::Open,
-                posted_request: envelope.request_digest()?,
-            };
-            r.finish()?;
-            if ask.model_digest != room.model_digest {
-                return Err(CONFLICT);
-            }
-            if let Some(previous) = book.ask(ask.ask_id)? {
-                if previous.posted_request == ask.posted_request {
-                    return Ok(Outcome::AlreadyApplied(ask.ask_id));
-                }
-                return Err(CONFLICT);
-            }
-            let mut bytes = [0; ASK_RECORD_BYTES];
-            ask.encode(&mut bytes)?;
-            let n = book.write(1, ask.ask_id, &bytes, false, first)?;
-            (first.guest_index(..n), ask.ask_id)
-        }
-        dispatch::PostBid => {
-            let room = book.open_room(room_id)?;
-            let mut r = Reader::new(e.payload);
-            r.take(32)?;
-            let bid = BidRecord {
-                room_id,
-                bid_id: r.digest32()?,
-                peer_key: ctx.principal,
-                capability_digest: r.digest32()?,
-                minimum_price_per_thousand_tokens: r.u128()?,
-                bond_amount: r.u128()?,
-                layer_capacity: r.u16()?,
-            };
-            r.finish()?;
-            if bid.bond_amount < room.profile.minimum_bond {
-                return Err(F11_BOND_INSUFFICIENT);
-            }
-            let mut bytes = [0; BID_RECORD_BYTES];
-            bid.encode(&mut bytes)?;
-            let n = book.write(2, bid.bid_id, &bytes, false, first)?;
-            crate::queries::placement::PlacementBook::decode(
-                first.guest_index(..n),
-                room.model_digest,
-            )?;
-            crate::rewards::bonds::check_bid(ctx, envelope, current)?;
-            let n = book.post_bond(&bid, first, second)?;
-            (first.guest_index(..n), bid.bid_id)
-        }
-        dispatch::RecordDeal => {
-            let request = RecordDealRequest::decode(e.payload)?;
-            if e.roster != Presence::Present(request.roster_digest) {
-                return Err(F11_ROSTER_DIGEST_MISMATCH);
-            }
-            let admission = AdmissionTable::decode(
-                split_joint(state.section(Section::ReputationAdmission)?)?.1,
-            )?;
-            let n = apply_record_deal(
-                &book,
-                &request,
-                ctx.principal,
-                &admission,
-                &workers,
-                epoch,
-                ctx.height,
-                first,
-            )?;
-            let staged = RoomBook::decode(first.guest_index(..n))?;
-            let mut ask = staged.ask(request.ask_id)?.ok_or(NOT_FOUND)?;
-            ask.state = AskState::Matched;
-            let mut bytes = [0; ASK_RECORD_BYTES];
-            ask.encode(&mut bytes)?;
-            let n = staged.write(1, ask.ask_id, &bytes, true, second)?;
-            (second.guest_index(..n), request.deal_id)
-        }
-        dispatch::CloseRoom => {
-            let mut room = book.open_room(room_id)?;
-            if room.host_key != ctx.principal {
-                return Err(UNAUTHORIZED);
-            }
-            for bytes in book
-                .tables
-                .guest_index(3)
-                .as_chunks::<{ DEAL_RECORD_BYTES }>()
-                .0
-                .iter()
-                .map(|chunk| chunk.as_slice())
-            {
-                let deal = DealRecord::decode(bytes)?;
-                if deal.room_id == room_id && deal.state == DealState::Open {
-                    return Err(WRONG_PHASE);
-                }
-            }
-            room.state = RoomState::Closed;
-            room.closed_height = ctx.height;
-            let mut bytes = [0; ROOM_RECORD_BYTES];
-            room.encode(&mut bytes)?;
-            let n = book.write(0, room_id, &bytes, true, first)?;
-            (first.guest_index(..n), room_id)
-        }
-        _ => return Err(UNKNOWN_OPERATION),
-    };
-    let settlement_len = state.encode_room_market(book_bytes, settlement)?;
-    crate::rewards::finish_room_transition(
-        ctx.height,
-        envelope,
-        state,
-        policy,
-        settlement.guest_index(..settlement_len),
-        subject.as_bytes(),
-        replay.as_ref(),
-        policy_out,
-        control,
-        next,
-        event,
-    )
+    Ok((room_id, bid_worker))
 }

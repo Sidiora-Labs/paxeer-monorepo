@@ -8,6 +8,8 @@ pub(crate) mod cluster;
 #[path = "../../src/time.rs"]
 pub(crate) mod time;
 
+// The included runtime-clock/src/server.rs is shared with another test module.
+#[allow(clippy::duplicate_mod)]
 #[path = "../../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod runtime_clock_server;
 
@@ -73,7 +75,7 @@ pub(crate) struct ClockServer {
 }
 
 #[derive(Debug)]
-pub(crate) struct IdentityTenancy(layerx_identity_binding::Client);
+pub(crate) struct IdentityTenancy(pub(crate) layerx_identity_binding::Client);
 
 impl layerx_human_service::store::PrincipalTenancyAuthority for IdentityTenancy {
     fn tenant_for(
@@ -168,13 +170,36 @@ pub(crate) struct PeerState {
 pub(crate) fn bytes(out: &mut Vec<u8>, value: &[u8]) {
     out.extend_from_slice(
         &u32::try_from(value.len())
-            .expect("frame length")
+            .or_fail("frame length")
             .to_be_bytes(),
     );
     out.extend_from_slice(value);
 }
 
 impl PeerState {
+    fn identity_response(&self, agent: &str) -> Vec<u8> {
+        let mut out = Vec::new();
+        let (key, _) = self.identities.get(agent).or_fail("registered identity");
+        let did = layerx_types::ids::Did::new(agent.as_bytes()).or_fail("DID");
+        let mut canonical = vec![0; 223];
+        canonical[..5].copy_from_slice(b"LXGI1");
+        canonical[5..37]
+            .copy_from_slice(&layerx_wire::hash::did_id_for_protocol(&did, 3).or_fail("DID id"));
+        canonical[37..69].copy_from_slice(key);
+        canonical[69..77].copy_from_slice(&1_u64.to_be_bytes());
+        canonical[77..109].copy_from_slice(&[0x63; 32]);
+        canonical[109..111].copy_from_slice(&1_u16.to_be_bytes());
+        canonical[215..].copy_from_slice(&HEAD.to_be_bytes());
+        out.extend_from_slice(&HEAD.to_be_bytes());
+        out.extend_from_slice(&1_u64.to_be_bytes());
+        out.extend_from_slice(&[4, 0]);
+        out.extend_from_slice(&1_u16.to_be_bytes());
+        out.push(1);
+        out.extend_from_slice(key);
+        bytes(&mut out, &canonical);
+        out
+    }
+
     fn answer(
         &mut self,
         request: layerx_agentd::human::HumanRequest,
@@ -208,7 +233,7 @@ impl PeerState {
                         layerx_types::payload::ModuleId::Asset,
                         5,
                     )
-                    .expect("send activity")
+                    .or_fail("send activity")
                     .value()
                     .to_be_bytes(),
                 );
@@ -227,16 +252,16 @@ impl PeerState {
                 out.extend_from_slice(&[0x32; 32]);
             }
             HumanRequest::AccountSequence { actor, authority } => {
-                let (key, wallet) = self.identities.get(&actor).expect("registered actor");
+                let (key, wallet) = self.identities.get(&actor).or_fail("registered actor");
                 assert_eq!(authority, cluster::hex(key));
                 let next = self
                     .submitted
                     .values()
                     .filter_map(|raw| {
-                        let (call, signature) =
-                            layerx_crypto::evm_transaction::decode_signed(raw).expect("signed leg");
+                        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw)
+                            .or_fail("signed leg");
                         (layerx_crypto::evm_transaction::recover_sender(&call, &signature)
-                            .expect("sender")
+                            .or_fail("sender")
                             == *wallet)
                             .then_some(call.nonce + 1)
                     })
@@ -245,39 +270,19 @@ impl PeerState {
                 out.extend_from_slice(&next.to_be_bytes());
                 out.push(Rung::Committed.wire_rank());
             }
-            HumanRequest::IdentityResolve { agent } => {
-                let (key, _) = self.identities.get(&agent).expect("registered identity");
-                let did = layerx_types::ids::Did::new(agent.as_bytes()).expect("DID");
-                let mut canonical = vec![0; 223];
-                canonical[..5].copy_from_slice(b"LXGI1");
-                canonical[5..37].copy_from_slice(
-                    &layerx_wire::hash::did_id_for_protocol(&did, 3).expect("DID id"),
-                );
-                canonical[37..69].copy_from_slice(key);
-                canonical[69..77].copy_from_slice(&1_u64.to_be_bytes());
-                canonical[77..109].copy_from_slice(&[0x63; 32]);
-                canonical[109..111].copy_from_slice(&1_u16.to_be_bytes());
-                canonical[215..].copy_from_slice(&HEAD.to_be_bytes());
-                out.extend_from_slice(&HEAD.to_be_bytes());
-                out.extend_from_slice(&1_u64.to_be_bytes());
-                out.extend_from_slice(&[4, 0]);
-                out.extend_from_slice(&1_u16.to_be_bytes());
-                out.push(1);
-                out.extend_from_slice(key);
-                bytes(&mut out, &canonical);
-            }
+            HumanRequest::IdentityResolve { agent } => return self.identity_response(&agent),
             HumanRequest::Balance => {
                 let named =
-                    layerx_types::account::AccountId::parse(&account.expect("subject account"))
-                        .expect("account");
+                    layerx_types::account::AccountId::parse(&account.or_fail("subject account"))
+                        .or_fail("account");
                 let id = layerx_intents::canonical::account_id_for_protocol(&named, 3)
-                    .expect("account id");
+                    .or_fail("account id");
                 bytes(&mut out, &serde_json::to_vec(&json!({
                     "achieved_verification_level": "committed",
                     "value": {"account": cluster::hex(&id), "asset": cluster::hex(&ASSET),
                         "amount": "1000000000000000000", "canonical_state": "01", "height": HEAD.to_string()},
                     "freshness": {"chain_head": HEAD.to_string(), "value_height": HEAD.to_string(), "relative_to": HEAD.to_string()}
-                })).expect("balance JSON"));
+                })).or_fail("balance JSON"));
             }
             HumanRequest::ReceiptLookup {
                 expected_activity_id,
@@ -366,6 +371,22 @@ pub(crate) fn request_name(request: &layerx_agentd::human::HumanRequest) -> &'st
     }
 }
 
+fn decode_agent_frame(frame: Vec<u8>) -> (Option<layerx_human_service::trace::TraceId>, Vec<u8>) {
+    if frame.starts_with(b"LXHAGT02") {
+        assert!(frame.len() >= 48, "truncated traced agent request");
+        let trace = layerx_human_service::trace::TraceId::parse(
+            std::str::from_utf8(&frame[8..44]).or_fail("request trace UTF-8"),
+        )
+        .or_fail("request trace");
+        let length = u32::from_be_bytes(frame[44..48].try_into().or_fail("frame length")) as usize;
+        assert_eq!(frame.len(), 48 + length, "traced request length");
+        assert!(frame[48..].starts_with(b"LXHAGT01"));
+        (Some(trace), frame[48..].to_vec())
+    } else {
+        (None, frame)
+    }
+}
+
 pub(crate) struct RealAgentLayer {
     shutdown: Arc<AtomicBool>,
     worker: Option<JoinHandle<std::io::Result<()>>>,
@@ -401,20 +422,7 @@ impl RealAgentLayer {
                 stream.set_read_timeout(Some(Duration::from_secs(5)))?;
                 let frame = read_frame(&mut stream, MAX_FRAME)
                     .map_err(|error| std::io::Error::other(format!("agent frame: {error:?}")))?;
-                let (trace, frame) = if frame.starts_with(b"LXHAGT02") {
-                    assert!(frame.len() >= 48, "truncated traced agent request");
-                    let trace = layerx_human_service::trace::TraceId::parse(
-                        std::str::from_utf8(&frame[8..44]).expect("request trace UTF-8"),
-                    )
-                    .expect("request trace");
-                    let length = u32::from_be_bytes(frame[44..48].try_into().expect("frame length"))
-                        as usize;
-                    assert_eq!(frame.len(), 48 + length, "traced request length");
-                    assert!(frame[48..].starts_with(b"LXHAGT01"));
-                    (Some(trace), frame[48..].to_vec())
-                } else {
-                    (None, frame)
-                };
+                let (trace, frame) = decode_agent_frame(frame);
                 let request = decode_request(frame)
                     .unwrap_or_else(|error| panic!("decode agent request: {error:?}"));
                 let mut inner = &request;
@@ -427,7 +435,7 @@ impl RealAgentLayer {
                 } = inner
                 {
                     let raw = {
-                        let mut state = state.lock().expect("peer state");
+                        let mut state = state.lock().or_fail("peer state");
                         state.served.push("ReceiptLookup".to_owned());
                         state
                             .receipt_lookups
@@ -439,7 +447,7 @@ impl RealAgentLayer {
                         let raw = state
                             .submitted
                             .get(expected_activity_id)
-                            .expect("accepted leg");
+                            .or_fail("accepted leg");
                         let (call, signature) = required(
                             layerx_crypto::evm_transaction::decode_signed(raw),
                             "signed leg",
@@ -460,10 +468,10 @@ impl RealAgentLayer {
                     };
                     receipt_lookup_answer(&rpc_url, *expected_activity_id, &raw)
                 } else {
-                    state.lock().expect("peer state").answer(request, None)
+                    state.lock().or_fail("peer state").answer(request, None)
                 };
                 let response =
-                    encode_response(Ok(HumanResponse::new(payload).expect("agent response")));
+                    encode_response(Ok(HumanResponse::new(payload).or_fail("agent response")));
                 let response = if let Some(trace) = trace {
                     let mut envelope = b"LXHAGT02".to_vec();
                     envelope.extend_from_slice(trace.as_str().as_bytes());
@@ -491,8 +499,8 @@ impl Drop for RealAgentLayer {
         if let Some(worker) = self.worker.take() {
             worker
                 .join()
-                .expect("agent peer panicked")
-                .expect("agent peer IO");
+                .or_fail("agent peer panicked")
+                .or_fail("agent peer IO");
         }
     }
 }
@@ -522,7 +530,7 @@ fn receipt_lookup_answer(rpc_url: &str, hash: [u8; 32], raw: &[u8]) -> Vec<u8> {
     let Lookup::Verified(receipt) = lookup else {
         unreachable!("not-ready answer handled")
     };
-    let protocol = receipt.receipt().protocol().expect("protocol receipt");
+    let protocol = receipt.receipt().protocol().or_fail("protocol receipt");
     let (call, signature) = required(
         layerx_crypto::evm_transaction::decode_signed(raw),
         "submitted call",
@@ -540,7 +548,7 @@ fn receipt_lookup_answer(rpc_url: &str, hash: [u8; 32], raw: &[u8]) -> Vec<u8> {
         "receipt binding: activity_id=0x{} retained_hash=0x{} batch_height={} submission_height={} timestamp={} fee_charged={} fee_limit={} result_code={} module_id={} expected_module=12 protocol_version={} expected_protocol={} module_version={} expiry={}..={}",
         cluster::hex(&protocol.activity_id()),
         cluster::hex(&hash),
-        u64::from_be_bytes(batch[24..].try_into().expect("batch height")),
+        u64::from_be_bytes(batch[24..].try_into().or_fail("batch height")),
         receipt.height(),
         protocol.timestamp(),
         protocol.fee_charged(),
@@ -556,7 +564,7 @@ fn receipt_lookup_answer(rpc_url: &str, hash: [u8; 32], raw: &[u8]) -> Vec<u8> {
     let key = keys
         .iter()
         .find(|key| key.key_id == receipt.execution().key_id)
-        .expect("published receipt key");
+        .or_fail("published receipt key");
     required(
         ReceiptLookupAnswer::Found(ReceiptLookupFrame {
             canonical_bytes: receipt.canonical_bytes().to_vec(),
@@ -591,12 +599,13 @@ pub(crate) struct RpcServer {
 }
 
 pub(crate) fn unhex(text: &str) -> Vec<u8> {
-    let text = text.strip_prefix("0x").expect("hex prefix");
+    let text = text.strip_prefix("0x").or_fail("hex prefix");
     assert_eq!(text.len() % 2, 0);
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex text"), 16).expect("hex byte")
+            u8::from_str_radix(std::str::from_utf8(pair).or_fail("hex text"), 16)
+                .or_fail("hex byte")
         })
         .collect()
 }
@@ -658,8 +667,10 @@ const SEQUENCER_RECEIPT_TEMPLATE: &str = concat!(
 fn receipted_answer(raw: &[u8], timestamp: u64) -> Value {
     use ed25519_dalek::Signer as _;
     use sha2::{Digest as _, Sha256};
-    let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw).expect("signed leg");
-    let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature).expect("sender");
+    let (call, signature) =
+        layerx_crypto::evm_transaction::decode_signed(raw).or_fail("signed leg");
+    let sender =
+        layerx_crypto::evm_transaction::recover_sender(&call, &signature).or_fail("sender");
     let hash = layerx_crypto::evm_transaction::transaction_hash(raw);
     let sequence = call.nonce - NONCE + 1;
     let gas = 21_000_u64;
@@ -691,7 +702,7 @@ fn receipted_answer(raw: &[u8], timestamp: u64) -> Value {
     assert_eq!(
         receipt
             .protocol()
-            .expect("protocol receipt")
+            .or_fail("protocol receipt")
             .protocol_version(),
         layerx_wire::limits::PROTOCOL_VERSION
     );
@@ -703,8 +714,8 @@ fn receipted_answer(raw: &[u8], timestamp: u64) -> Value {
         layerx_wire::hash::receipt_digest(&unsigned),
         "receipt digest",
     );
-    let signer = ed25519_dalek::SigningKey::from_bytes(&[0x93; 32]);
-    signed[707..771].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let receipt_key = ed25519_dalek::SigningKey::from_bytes(&[0x93; 32]);
+    signed[707..771].copy_from_slice(&receipt_key.sign(&digest).to_bytes());
     let signed = required(
         layerx_wire::receipt::encode(&required(
             layerx_wire::receipt::decode(&signed),
@@ -729,22 +740,248 @@ fn receipted_answer(raw: &[u8], timestamp: u64) -> Value {
     answer
 }
 
+fn read_rpc_request(stream: &mut std::net::TcpStream) -> std::io::Result<(String, Value)> {
+    let mut request = Vec::new();
+    let header_end = loop {
+        let mut byte = [0];
+        stream.read_exact(&mut byte)?;
+        request.push(byte[0]);
+        assert!(request.len() < MAX_FRAME);
+        if request.ends_with(b"\r\n\r\n") {
+            break request.len();
+        }
+    };
+    let headers = std::str::from_utf8(&request).or_fail("HTTP headers");
+    let path = headers
+        .lines()
+        .next()
+        .or_fail("HTTP request line")
+        .split_whitespace()
+        .nth(1)
+        .or_fail("HTTP request path")
+        .to_owned();
+    let length: usize = headers
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("content-length")
+                .then(|| value.trim().parse().or_fail("content length"))
+        })
+        .or_fail("content length header");
+    request.resize(header_end + length, 0);
+    stream.read_exact(&mut request[header_end..])?;
+    let request: Value = serde_json::from_slice(&request[header_end..]).or_fail("RPC request");
+    Ok((path, request))
+}
+
+fn pending_nonce_answer(state: &mut PeerState, request: &Value) -> Value {
+    assert_eq!(request["params"][1], "pending");
+    let wallet: [u8; 20] = unhex(request["params"][0].as_str().or_fail("nonce wallet"))
+        .try_into()
+        .or_fail("nonce wallet length");
+    assert!(state.identities.values().any(|(_, known)| *known == wallet));
+    let nonce = state
+        .submitted
+        .values()
+        .filter_map(|raw| {
+            let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "signed transaction"));
+            (layerx_crypto::evm_transaction::recover_sender(&call, &signature).or_fail("sender")
+                == wallet)
+                .then_some(call.nonce + 1)
+        })
+        .max()
+        .unwrap_or(NONCE);
+    state.pending_nonces.push((wallet, nonce));
+    json!(format!("0x{nonce:x}"))
+}
+
+fn send_transaction_answer(
+    state: &mut PeerState,
+    request: &Value,
+    rpc_error: &mut Option<Value>,
+) -> Value {
+    let raw = unhex(request["params"][0].as_str().or_fail("raw transaction"));
+    let (call, signature) =
+        layerx_crypto::evm_transaction::decode_signed(&raw).or_fail("signed type-2 leg");
+    let sender =
+        layerx_crypto::evm_transaction::recover_sender(&call, &signature).or_fail("leg sender");
+    assert!(state
+        .identities
+        .values()
+        .any(|(_, wallet)| *wallet == sender));
+    assert_eq!(call.chain_id, 125);
+    layerx_crypto::disclosure::call::bind_call(&call, sender).or_fail("disclosed call");
+    let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
+    if state.reject_repeated_send && state.submitted.contains_key(&hash) {
+        *rpc_error = Some(json!({"code": -32000,
+                                "message": format!("same nonce already receipted or held: sender 0x{} nonce {} receipted",
+                                    cluster::hex(&sender), call.nonce)}));
+    } else if let Some(previous) = state.submitted.insert(hash, raw.clone()) {
+        assert_eq!(previous, raw);
+    } else {
+        assert_eq!(layerx_crypto::evm_transaction::transaction_hash(&raw), hash);
+    }
+    json!(format!("0x{}", cluster::hex(&hash)))
+}
+
+fn sequencer_receipt_answer(
+    state: &mut PeerState,
+    request: &Value,
+    clock: Option<&Arc<SerialClock>>,
+) -> Value {
+    let hash: [u8; 32] = unhex(request["params"][0].as_str().or_fail("hash"))
+        .try_into()
+        .or_fail("hash length");
+    match state.submitted.get(&hash) {
+        Some(raw) => {
+            let (call, _) = layerx_crypto::evm_transaction::decode_signed(raw)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "signed transaction"));
+            match state.receipt_rung {
+                Some(layerx_types::rung::Rung::Receipted) => {
+                    let timestamp = clock
+                        .unwrap_or_else(|| panic!("{}", "receipted peer clock"))
+                        .sample(Duration::from_secs(1))
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "receipt clock"))
+                        .unix_seconds();
+                    receipted_answer(raw, timestamp)
+                }
+                _ => {
+                    json!({"rung": "submitted", "txHash": format!("0x{}", cluster::hex(&hash)), "nonce": format!("0x{:x}", call.nonce)})
+                }
+            }
+        }
+        None => Value::Null,
+    }
+}
+
+fn balance_answer(state: &PeerState, request: &Value) -> Value {
+    let address = request["params"][0].as_str().or_fail("balance wallet");
+    let wallet: [u8; 20] = unhex(address)
+        .try_into()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "balance wallet length"));
+    let identity = state
+        .identities
+        .values()
+        .find(|(_, known_wallet)| *known_wallet == wallet)
+        .map(|(key, _)| cluster::hex(key));
+    let did = identity.as_ref().map(|key| format!("did:layerx:{key}"));
+    json!({
+        "account": {
+            "evm_address": address, "pax_address": null,
+            "layerx_did": did, "layerx_account": identity,
+            "bound": identity.is_some()
+        },
+        "height": HEAD.to_string(),
+        "balances": [{
+            "denom": "alxp", "amount": "1000000000000000000"
+        }]
+    })
+}
+
+fn answer_rpc(
+    state: &mut PeerState,
+    method: &str,
+    request: &Value,
+    clock: Option<&Arc<SerialClock>>,
+) -> (Value, Option<Value>) {
+    let mut rpc_error = None;
+    let recording = state.node_recording.clone().or_else(|| {
+        (state.receipt_rung == Some(layerx_types::rung::Rung::Committed)
+            && matches!(
+                method,
+                "px_getReceiptKeys"
+                    | "pax_sequencerReceipt"
+                    | "eth_getTransactionReceipt"
+                    | "eth_getBlockByNumber"
+                    | "eth_getRawTransactionByHash"
+                    | "block"
+                    | "commit"
+                    | "validators"
+                    | "tx"
+            ))
+        .then(recorded_node::NodeRecording::open)
+    });
+    let result = if let Some(recording) = recording {
+        match recording.answer(method, &request["params"]) {
+            Ok(answer) => answer,
+            Err(error) => {
+                rpc_error = Some(error);
+                Value::Null
+            }
+        }
+    } else {
+        match method {
+            "eth_chainId" => json!("0x7d"),
+            "eth_getTransactionCount" => pending_nonce_answer(state, request),
+            "px_listAssets" => {
+                assert_eq!(request["params"], json!([]));
+                json!({
+                    "height": HEAD.to_string(),
+                    "joined_limit": 16,
+                    "assets": [{
+                        "asset_id": "denom:alxp",
+                        "denom": "alxp", "kind": "bank",
+                        "name": null, "symbol": null, "decimals": null, "supply": null
+                    }]
+                })
+            }
+            "eth_call" => {
+                let data = unhex(request["params"][0]["data"].as_str().or_fail("call data"));
+                let key: [u8; 32] = data[4..].try_into().or_fail("DID public key");
+                let wallet = state
+                    .identities
+                    .values()
+                    .find(|(public, _)| *public == key)
+                    .or_fail("bound identity")
+                    .1;
+                json!(format!("0x{}{}", "00".repeat(12), cluster::hex(&wallet)))
+            }
+            "px_getBalances" => balance_answer(state, request),
+            "eth_sendRawTransaction" => send_transaction_answer(state, request, &mut rpc_error),
+            "eth_getTransactionReceipt" => {
+                let hash: [u8; 32] = unhex(request["params"][0].as_str().or_fail("hash"))
+                    .try_into()
+                    .or_fail("hash length");
+                state.receipts.get(&hash).cloned().unwrap_or(Value::Null)
+            }
+            "eth_getBlockByNumber" => {
+                let height = request["params"][0].as_str().or_fail("block height");
+                let height = u64::from_str_radix(
+                    height.strip_prefix("0x").or_fail("block height prefix"),
+                    16,
+                )
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "block height quantity"));
+                state.blocks.get(&height).cloned().unwrap_or(Value::Null)
+            }
+
+            "px_getReceiptKeys" => {
+                assert_eq!(request["params"], json!([]));
+                let key = receipt_key();
+                json!({"keys": [{"keyId": format!("0x{}", cluster::hex(&key.sequencer_id())),
+                            "publicKey": format!("0x{}", cluster::hex(&key.public_key())),
+                            "firstHeight": key.first_batch_number(),
+                            "lastHeight": key.last_batch_number()}]})
+            }
+            "pax_sequencerReceipt" => sequencer_receipt_answer(state, request, clock),
+            method => panic!("unexpected node request: {method}"),
+        }
+    };
+    if method.starts_with("px_") {
+        state.gateway_last_answer = Some(result.clone());
+    }
+    (result, rpc_error)
+}
+
 impl RpcServer {
     fn start(state: Arc<Mutex<PeerState>>, clock: Arc<SerialClock>) -> Result<Self> {
         Self::serve(state, Some(clock))
     }
 
-    pub(crate) fn start_recorded(state: Arc<Mutex<PeerState>>) -> Result<Self> {
-        let peer = state.lock().expect("peer state");
-        assert!(
-            peer.node_recording.is_some()
-                || peer.receipt_rung == Some(layerx_types::rung::Rung::Committed)
-        );
-        drop(peer);
-        Self::serve(state, None)
-    }
-
-    fn serve(state: Arc<Mutex<PeerState>>, clock: Option<Arc<SerialClock>>) -> Result<Self> {
+    pub(crate) fn serve(
+        state: Arc<Mutex<PeerState>>,
+        clock: Option<Arc<SerialClock>>,
+    ) -> Result<Self> {
         let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
         let url = format!("http://{}", listener.local_addr()?);
         listener.set_nonblocking(true)?;
@@ -761,240 +998,20 @@ impl RpcServer {
                     Err(error) => return Err(error),
                 };
                 stream.set_read_timeout(Some(Duration::from_secs(5)))?;
-                let mut request = Vec::new();
-                let header_end = loop {
-                    let mut byte = [0];
-                    stream.read_exact(&mut byte)?;
-                    request.push(byte[0]);
-                    assert!(request.len() < MAX_FRAME);
-                    if request.ends_with(b"\r\n\r\n") {
-                        break request.len();
-                    }
-                };
-                let headers = std::str::from_utf8(&request).expect("HTTP headers");
-                let path = headers
-                    .lines()
-                    .next()
-                    .expect("HTTP request line")
-                    .split_whitespace()
-                    .nth(1)
-                    .expect("HTTP request path")
-                    .to_owned();
-                let length: usize = headers
-                    .lines()
-                    .find_map(|line| {
-                        let (name, value) = line.split_once(':')?;
-                        name.eq_ignore_ascii_case("content-length")
-                            .then(|| value.trim().parse().expect("content length"))
-                    })
-                    .expect("content length header");
-                request.resize(header_end + length, 0);
-                stream.read_exact(&mut request[header_end..])?;
-                let request: Value =
-                    serde_json::from_slice(&request[header_end..]).expect("RPC request");
-                let mut state = state.lock().expect("peer state");
-                let method = request["method"].as_str().expect("RPC method");
+                let (path, request) = read_rpc_request(&mut stream)?;
+                let mut state = state.lock().or_fail("peer state");
+                let method = request["method"].as_str().or_fail("RPC method");
                 state.rpc_served.push(method.to_owned());
                 if method.starts_with("px_") {
                     state.gateway_served.push(format!("{path} {method}"));
                 }
-                let mut rpc_error = None;
-                let recording = state.node_recording.clone().or_else(|| {
-                    (state.receipt_rung == Some(layerx_types::rung::Rung::Committed)
-                        && matches!(
-                            method,
-                            "px_getReceiptKeys"
-                                | "pax_sequencerReceipt"
-                                | "eth_getTransactionReceipt"
-                                | "eth_getBlockByNumber"
-                                | "eth_getRawTransactionByHash"
-                                | "block"
-                                | "commit"
-                                | "validators"
-                                | "tx"
-                        ))
-                    .then(recorded_node::NodeRecording::open)
-                });
-                let result = if let Some(recording) = recording {
-                    match recording.answer(method, &request["params"]) {
-                        Ok(answer) => answer,
-                        Err(error) => {
-                            rpc_error = Some(error);
-                            Value::Null
-                        }
-                    }
-                } else {
-                    match method {
-                        "eth_chainId" => json!("0x7d"),
-                        "eth_getTransactionCount" => {
-                            assert_eq!(request["params"][1], "pending");
-                            let wallet: [u8; 20] =
-                                unhex(request["params"][0].as_str().expect("nonce wallet"))
-                                    .try_into()
-                                    .expect("nonce wallet length");
-                            assert!(state.identities.values().any(|(_, known)| *known == wallet));
-                            let nonce = state
-                                .submitted
-                                .values()
-                                .filter_map(|raw| {
-                                    let (call, signature) =
-                                        layerx_crypto::evm_transaction::decode_signed(raw)
-                                            .expect("signed transaction");
-                                    (layerx_crypto::evm_transaction::recover_sender(
-                                        &call, &signature,
-                                    )
-                                    .expect("sender")
-                                        == wallet)
-                                        .then_some(call.nonce + 1)
-                                })
-                                .max()
-                                .unwrap_or(NONCE);
-                            state.pending_nonces.push((wallet, nonce));
-                            json!(format!("0x{nonce:x}"))
-                        }
-                        "px_listAssets" => {
-                            assert_eq!(request["params"], json!([]));
-                            json!({
-                                "height": HEAD.to_string(),
-                                "joined_limit": 16,
-                                "assets": [{
-                                    "asset_id": "denom:alxp",
-                                    "denom": "alxp", "kind": "bank",
-                                    "name": null, "symbol": null, "decimals": null, "supply": null
-                                }]
-                            })
-                        }
-                        "eth_call" => {
-                            let data =
-                                unhex(request["params"][0]["data"].as_str().expect("call data"));
-                            let key: [u8; 32] = data[4..].try_into().expect("DID public key");
-                            let wallet = state
-                                .identities
-                                .values()
-                                .find(|(public, _)| *public == key)
-                                .expect("bound identity")
-                                .1;
-                            json!(format!("0x{}{}", "00".repeat(12), cluster::hex(&wallet)))
-                        }
-                        "px_getBalances" => {
-                            let address = request["params"][0].as_str().expect("balance wallet");
-                            let wallet: [u8; 20] =
-                                unhex(address).try_into().expect("balance wallet length");
-                            let identity = state
-                                .identities
-                                .values()
-                                .find(|(_, known_wallet)| *known_wallet == wallet)
-                                .map(|(key, _)| cluster::hex(key));
-                            let did = identity.as_ref().map(|key| format!("did:layerx:{key}"));
-                            json!({
-                                "account": {
-                                    "evm_address": address, "pax_address": null,
-                                    "layerx_did": did, "layerx_account": identity,
-                                    "bound": identity.is_some()
-                                },
-                                "height": HEAD.to_string(),
-                                "balances": [{
-                                    "denom": "alxp", "amount": "1000000000000000000"
-                                }]
-                            })
-                        }
-                        "eth_sendRawTransaction" => {
-                            let raw =
-                                unhex(request["params"][0].as_str().expect("raw transaction"));
-                            let (call, signature) =
-                                layerx_crypto::evm_transaction::decode_signed(&raw)
-                                    .expect("signed type-2 leg");
-                            let sender =
-                                layerx_crypto::evm_transaction::recover_sender(&call, &signature)
-                                    .expect("leg sender");
-                            assert!(state
-                                .identities
-                                .values()
-                                .any(|(_, wallet)| *wallet == sender));
-                            assert_eq!(call.chain_id, 125);
-                            layerx_crypto::disclosure::call::bind_call(&call, sender)
-                                .expect("disclosed call");
-                            let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
-                            if state.reject_repeated_send && state.submitted.contains_key(&hash) {
-                                rpc_error = Some(json!({"code": -32000,
-                                "message": format!("same nonce already receipted or held: sender 0x{} nonce {} receipted",
-                                    cluster::hex(&sender), call.nonce)}));
-                            } else if let Some(previous) = state.submitted.insert(hash, raw.clone())
-                            {
-                                assert_eq!(previous, raw);
-                            } else {
-                                assert_eq!(
-                                    layerx_crypto::evm_transaction::transaction_hash(&raw),
-                                    hash
-                                );
-                            }
-                            json!(format!("0x{}", cluster::hex(&hash)))
-                        }
-                        "eth_getTransactionReceipt" => {
-                            let hash: [u8; 32] =
-                                unhex(request["params"][0].as_str().expect("hash"))
-                                    .try_into()
-                                    .expect("hash length");
-                            state.receipts.get(&hash).cloned().unwrap_or(Value::Null)
-                        }
-                        "eth_getBlockByNumber" => {
-                            let height = request["params"][0].as_str().expect("block height");
-                            let height = u64::from_str_radix(
-                                height.strip_prefix("0x").expect("block height prefix"),
-                                16,
-                            )
-                            .expect("block height quantity");
-                            state.blocks.get(&height).cloned().unwrap_or(Value::Null)
-                        }
-
-                        "px_getReceiptKeys" => {
-                            assert_eq!(request["params"], json!([]));
-                            let key = receipt_key();
-                            json!({"keys": [{"keyId": format!("0x{}", cluster::hex(&key.sequencer_id())),
-                            "publicKey": format!("0x{}", cluster::hex(&key.public_key())),
-                            "firstHeight": key.first_batch_number(),
-                            "lastHeight": key.last_batch_number()}]})
-                        }
-                        "pax_sequencerReceipt" => {
-                            let hash: [u8; 32] =
-                                unhex(request["params"][0].as_str().expect("hash"))
-                                    .try_into()
-                                    .expect("hash length");
-                            match state.submitted.get(&hash) {
-                                Some(raw) => {
-                                    let (call, _) =
-                                        layerx_crypto::evm_transaction::decode_signed(raw)
-                                            .expect("signed transaction");
-                                    match state.receipt_rung {
-                                        Some(layerx_types::rung::Rung::Receipted) => {
-                                            let timestamp = clock
-                                                .as_ref()
-                                                .expect("receipted peer clock")
-                                                .sample(Duration::from_secs(1))
-                                                .expect("receipt clock")
-                                                .unix_seconds();
-                                            receipted_answer(raw, timestamp)
-                                        }
-                                        _ => {
-                                            json!({"rung": "submitted", "txHash": format!("0x{}", cluster::hex(&hash)), "nonce": format!("0x{:x}", call.nonce)})
-                                        }
-                                    }
-                                }
-                                None => Value::Null,
-                            }
-                        }
-                        method => panic!("unexpected node request: {method}"),
-                    }
-                };
-                if method.starts_with("px_") {
-                    state.gateway_last_answer = Some(result.clone());
-                }
+                let (result, rpc_error) = answer_rpc(&mut state, method, &request, clock.as_ref());
                 drop(state);
                 let answer = match rpc_error {
                     Some(error) => json!({"jsonrpc": "2.0", "id": request["id"], "error": error}),
                     None => json!({"jsonrpc": "2.0", "id": request["id"], "result": result}),
                 };
-                let body = serde_json::to_vec(&answer).expect("RPC response");
+                let body = serde_json::to_vec(&answer).or_fail("RPC response");
                 write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len())?;
                 stream.write_all(&body)?;
             }
@@ -1014,8 +1031,8 @@ impl Drop for RpcServer {
         if let Some(worker) = self.worker.take() {
             worker
                 .join()
-                .expect("node peer panicked")
-                .expect("node peer IO");
+                .or_fail("node peer panicked")
+                .or_fail("node peer IO");
         }
     }
 }
@@ -1051,6 +1068,84 @@ impl Drop for ClockServer {
             }
         }
     }
+}
+
+fn bind_owner_browser_session(
+    root: &std::path::Path,
+    scope: &mut layerx_human_service::store::PrincipalScope<'_>,
+    principal: &layerx_human_service::store::PrincipalId,
+    now: u64,
+    browser_access: &mut String,
+    browser_csrf: &mut String,
+) -> Result<()> {
+    use layerx_human_service::auth::{AccountIdentity, AuthConfig, Device, Passkeys, RateLimit};
+    use layerx_human_service::server::production_auth::{
+        AuthDiscoveryIndex, IndexAuthenticationKey,
+    };
+    let passkeys = Passkeys::new(AuthConfig {
+        rp_id: "paxportwallet.com".to_owned(),
+        rp_name: "Paxport".to_owned(),
+        origin: "https://paxportwallet.com".to_owned(),
+        ceremony_ttl_secs: 300,
+        assertion_ttl_secs: 300,
+        session_ttl_secs: 900,
+        refresh_ttl_secs: 86400,
+        step_up_ttl_secs: 300,
+        rate_limit: RateLimit {
+            attempts: 10,
+            window_secs: 60,
+        },
+    })?;
+    let mut authenticator = SoftwareAuthenticator::new();
+    let identity = AccountIdentity::new("intent-owner@example.test", "Intent owner")?;
+    let registration = passkeys.begin_registration(scope, &identity, "Intent passkey", now)?;
+    let credential = authenticator.register(&registration.ceremony);
+    passkeys.finish_registration(scope, &registration.registration_id, &credential, now)?;
+    let challenge = passkeys.begin_assertion(scope, now)?;
+    let credential = authenticator.assert(&challenge.ceremony);
+    passkeys.finish_assertion(scope, &challenge.assertion_id, &credential, now)?;
+    let grant = passkeys.open_session(
+        scope,
+        &challenge.assertion_id,
+        Device::mint("Intent browser", "web")?,
+        now,
+    )?;
+    let index = AuthDiscoveryIndex::open(
+        root.join("auth-index"),
+        IndexAuthenticationKey::new([0x61; 32])
+            .map_err(|error| format!("auth index key: {error:?}"))?,
+    )
+    .map_err(|error| format!("auth index: {error:?}"))?;
+    index
+        .bind_session(&grant, principal)
+        .map_err(|error| format!("browser session binding: {error:?}"))?;
+    grant.access_token().expose().clone_into(browser_access);
+    grant.csrf_token().expose().clone_into(browser_csrf);
+    Ok(())
+}
+
+fn assert_wallet_binding(
+    identities: &layerx_human_service::server::RemoteIdentityProvider,
+    producer: &p256::ecdsa::SigningKey,
+    subject: &str,
+    did: &str,
+    assertion: &str,
+) -> Result<()> {
+    use p256::ecdsa::{signature::Signer as _, Signature};
+    let header = json!({"alg": "ES256", "typ": "layerx-wallet-binding+jwt"});
+    let claims = json!({"iss": cluster::ISSUER, "sub": subject, "did": did, "tenant": "tenant-a"});
+    let input = format!(
+        "{}.{}",
+        URL_SAFE_NO_PAD.encode(header.to_string()),
+        URL_SAFE_NO_PAD.encode(claims.to_string())
+    );
+    let signature: Signature = producer.sign(input.as_bytes());
+    let binding = format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature.to_bytes()));
+    let bound = identities
+        .resolve_assertion_with_binding(assertion, Some(&binding))
+        .map_err(|error| format!("wallet binding: {error:?}"))?;
+    assert_eq!(bound.did.as_deref(), Some(did));
+    Ok(())
 }
 
 impl Fixture {
@@ -1181,16 +1276,116 @@ impl Fixture {
         Ok(())
     }
 
-    pub(crate) fn bootstrap(&mut self) -> Result<()> {
-        use layerx_human_identity_provider::{AssertionConfig, AssertionVerifier, Policy, State};
-        use layerx_human_service::custody::{KeyClass, KeyId, Keystore};
-        use layerx_human_service::server::production_components::AttestorKms;
-        use layerx_human_service::server::{IdentityProviderConfig, RemoteIdentityProvider};
+    fn provision_account(
+        &mut self,
+        subject: &str,
+        identities: &layerx_human_service::server::RemoteIdentityProvider,
+        keystore: &layerx_human_service::custody::Keystore,
+        key: &layerx_human_service::custody::KeyId,
+        producer: &p256::ecdsa::SigningKey,
+        store: &mut layerx_human_service::store::PrincipalStore,
+    ) -> Result<(layerx_human_service::store::PrincipalId, String, String)> {
+        use layerx_human_service::custody::KeyClass;
         use layerx_human_service::store::PrincipalId;
-        use p256::ecdsa::{signature::Signer as _, Signature, SigningKey};
-
         let cluster = self.custody_cluster.as_mut().ok_or("attestor cluster")?;
-        let producer = SigningKey::from_slice(&[0x45; 32])?;
+        let kms = self.kms.as_ref().ok_or("attestor custody")?;
+        let assertion = cluster.tokens.mint(subject)?;
+        let pending = identities
+            .resolve_assertion(&assertion)
+            .map_err(|error| format!("assertion identity: {error:?}"))?;
+        let principal = PrincipalId::new(pending.principal.as_str())?;
+        let wallet_public = cluster
+            .generate_key(&format!("wallet-{subject}"), "secp256k1", subject, "")
+            .map_err(|error| {
+                format!(
+                    "wallet generation: {error}; refusal: {:?}; attestors: {}",
+                    kms.last_refusal_code(),
+                    cluster.logs()
+                )
+            })?;
+        let wallet_address = layerx_crypto::secp256k1::evm_address(&wallet_public)
+            .map_err(|error| format!("wallet address: {error:?}"))?;
+        let account = format!("0x{}", cluster::hex(&wallet_address));
+        let digest = keystore
+            .binding(&principal, key, KeyClass::HumanPrimary)?
+            .digest();
+        let key_id = format!("lx-{}", cluster::hex(&digest[..16]));
+        cluster.approve_generate(&key_id, "ed25519", subject)?;
+        let public = kms
+            .create_owned_key(keystore, &principal, key, subject, &account)
+            .map_err(|error| {
+                format!(
+                    "primary key creation: {error:?}; refusal: {:?}; attestors: {}",
+                    kms.last_refusal_code(),
+                    cluster.logs()
+                )
+            })?;
+        cluster.approve_sign(&key_id, &public)?;
+        let did = format!("did:layerx:{}", cluster::hex(&public));
+        assert_wallet_binding(identities, producer, subject, &did, &assertion)?;
+        let now = self.clock.sample(Duration::from_secs(1))?.unix_seconds();
+        let mut scope = store.principal(&principal)?;
+        let start = layerx_human_service::onboarding::OnboardingStart::new(
+            public,
+            layerx_types::ids::Did::new(did.as_bytes())
+                .map_err(|error| format!("onboarding DID: {error:?}"))?,
+            layerx_human_service::onboarding::RecoveryPolicy::new(
+                layerx_types::intent::RecoveryRoot::new([0x63; 32]),
+                layerx_types::intent::ApprovalThreshold::new(1)
+                    .map_err(|error| format!("recovery threshold: {error:?}"))?,
+                86400,
+            )?,
+        )?;
+        let mut onboarding =
+            layerx_human_service::onboarding::OnboardingJourney::start(&mut scope, &start, now)?;
+        onboarding.resume_local(&mut scope, keystore, now)?;
+        if subject == "intent-owner" {
+            bind_owner_browser_session(
+                &self.root,
+                &mut scope,
+                &principal,
+                now,
+                &mut self.browser_access,
+                &mut self.browser_csrf,
+            )?;
+        }
+        drop(scope);
+        kms.admit_assertion(subject, &assertion).map_err(|error| {
+            format!(
+                "assertion admission: {error:?}; refusal: {:?}; attestors: {}",
+                kms.last_refusal_code(),
+                cluster.logs()
+            )
+        })?;
+        let wallet = keystore.evm_wallet(&principal, key).map_err(|error| {
+            format!(
+                "wallet lookup: {error:?}; refusal: {:?}; attestors: {}",
+                kms.last_refusal_code(),
+                cluster.logs()
+            )
+        })?;
+        assert_eq!(
+            wallet,
+            wallet_address,
+            "refusal: {:?}; attestors: {}",
+            kms.last_refusal_code(),
+            cluster.logs()
+        );
+        self.peer_state
+            .lock()
+            .map_err(|_| "peer state")?
+            .identities
+            .insert(did.clone(), (public, wallet));
+        Ok((principal, did, assertion))
+    }
+
+    fn start_identity_provider(
+        &mut self,
+        key_set_url: String,
+        producer: &p256::ecdsa::SigningKey,
+    ) -> Result<layerx_human_service::server::RemoteIdentityProvider> {
+        use layerx_human_identity_provider::{AssertionConfig, AssertionVerifier, Policy, State};
+        use layerx_human_service::server::{IdentityProviderConfig, RemoteIdentityProvider};
         let mut state = State::open(
             &self.root.join("identity-state"),
             Policy {
@@ -1201,7 +1396,7 @@ impl Fixture {
         )?;
         state.enable_assertion(
             AssertionVerifier::new(AssertionConfig {
-                jwks_url: cluster.key_set_url(),
+                jwks_url: key_set_url,
                 issuer: cluster::ISSUER.to_owned(),
                 audience: cluster::AUDIENCE.to_owned(),
                 clock_skew_seconds: 60,
@@ -1224,6 +1419,21 @@ impl Fixture {
             peer_gid: rustix::process::getgid().as_raw(),
         })
         .map_err(|error| format!("identity provider: {error:?}"))?;
+        Ok(identities)
+    }
+
+    pub(crate) fn bootstrap(&mut self) -> Result<()> {
+        use layerx_human_service::custody::{KeyId, Keystore};
+        use layerx_human_service::server::production_components::AttestorKms;
+        use p256::ecdsa::SigningKey;
+
+        let key_set_url = self
+            .custody_cluster
+            .as_ref()
+            .ok_or("attestor cluster")?
+            .key_set_url();
+        let producer = SigningKey::from_slice(&[0x45; 32])?;
+        let identities = self.start_identity_provider(key_set_url, &producer)?;
         let config = ProductionComponentsConfig::from_environment()?;
         let kms = AttestorKms::connect(
             config
@@ -1256,154 +1466,17 @@ impl Fixture {
         )?;
         let mut accounts = Vec::new();
         for subject in ["intent-owner", "intent-recipient"] {
-            let assertion = cluster.tokens.mint(subject)?;
-            let pending = identities
-                .resolve_assertion(&assertion)
-                .map_err(|error| format!("assertion identity: {error:?}"))?;
-            let principal = PrincipalId::new(pending.principal.as_str())?;
-            let wallet_public = cluster
-                .generate_key(&format!("wallet-{subject}"), "secp256k1", subject, "")
-                .map_err(|error| {
-                    format!(
-                        "wallet generation: {error}; refusal: {:?}; attestors: {}",
-                        kms.last_refusal_code(),
-                        cluster.logs()
-                    )
-                })?;
-            let wallet_address = layerx_crypto::secp256k1::evm_address(&wallet_public)
-                .map_err(|error| format!("wallet address: {error:?}"))?;
-            let account = format!("0x{}", cluster::hex(&wallet_address));
-            let digest = keystore
-                .binding(&principal, &key, KeyClass::HumanPrimary)?
-                .digest();
-            let key_id = format!("lx-{}", cluster::hex(&digest[..16]));
-            cluster.approve_generate(&key_id, "ed25519", subject)?;
-            let public = kms
-                .create_owned_key(&keystore, &principal, &key, subject, &account)
-                .map_err(|error| {
-                    format!(
-                        "primary key creation: {error:?}; refusal: {:?}; attestors: {}",
-                        kms.last_refusal_code(),
-                        cluster.logs()
-                    )
-                })?;
-            cluster.approve_sign(&key_id, &public)?;
-            let did = format!("did:layerx:{}", cluster::hex(&public));
-            let header = json!({"alg": "ES256", "typ": "layerx-wallet-binding+jwt"});
-            let claims =
-                json!({"iss": cluster::ISSUER, "sub": subject, "did": did, "tenant": "tenant-a"});
-            let input = format!(
-                "{}.{}",
-                URL_SAFE_NO_PAD.encode(header.to_string()),
-                URL_SAFE_NO_PAD.encode(claims.to_string())
-            );
-            let signature: Signature = producer.sign(input.as_bytes());
-            let binding = format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature.to_bytes()));
-            let bound = identities
-                .resolve_assertion_with_binding(&assertion, Some(&binding))
-                .map_err(|error| format!("wallet binding: {error:?}"))?;
-            assert_eq!(bound.did.as_deref(), Some(did.as_str()));
-            let now = self.clock.sample(Duration::from_secs(1))?.unix_seconds();
-            let mut scope = store.principal(&principal)?;
-            let start = layerx_human_service::onboarding::OnboardingStart::new(
-                public,
-                layerx_types::ids::Did::new(did.as_bytes())
-                    .map_err(|error| format!("onboarding DID: {error:?}"))?,
-                layerx_human_service::onboarding::RecoveryPolicy::new(
-                    layerx_types::intent::RecoveryRoot::new([0x63; 32]),
-                    layerx_types::intent::ApprovalThreshold::new(1)
-                        .map_err(|error| format!("recovery threshold: {error:?}"))?,
-                    86400,
-                )?,
-            )?;
-            let mut onboarding = layerx_human_service::onboarding::OnboardingJourney::start(
-                &mut scope, &start, now,
-            )?;
-            onboarding.resume_local(&mut scope, &keystore, now)?;
-            if subject == "intent-owner" {
-                use layerx_human_service::auth::{
-                    AccountIdentity, AuthConfig, Device, Passkeys, RateLimit,
-                };
-                use layerx_human_service::server::production_auth::{
-                    AuthDiscoveryIndex, IndexAuthenticationKey,
-                };
-                let passkeys = Passkeys::new(AuthConfig {
-                    rp_id: "paxportwallet.com".to_owned(),
-                    rp_name: "Paxport".to_owned(),
-                    origin: "https://paxportwallet.com".to_owned(),
-                    ceremony_ttl_secs: 300,
-                    assertion_ttl_secs: 300,
-                    session_ttl_secs: 900,
-                    refresh_ttl_secs: 86400,
-                    step_up_ttl_secs: 300,
-                    rate_limit: RateLimit {
-                        attempts: 10,
-                        window_secs: 60,
-                    },
-                })?;
-                let mut authenticator = SoftwareAuthenticator::new();
-                let identity = AccountIdentity::new("intent-owner@example.test", "Intent owner")?;
-                let registration =
-                    passkeys.begin_registration(&mut scope, &identity, "Intent passkey", now)?;
-                let credential = authenticator.register(&registration.ceremony);
-                passkeys.finish_registration(
-                    &mut scope,
-                    &registration.registration_id,
-                    &credential,
-                    now,
-                )?;
-                let challenge = passkeys.begin_assertion(&mut scope, now)?;
-                let credential = authenticator.assert(&challenge.ceremony);
-                passkeys.finish_assertion(&mut scope, &challenge.assertion_id, &credential, now)?;
-                let grant = passkeys.open_session(
-                    &mut scope,
-                    &challenge.assertion_id,
-                    Device::mint("Intent browser", "web")?,
-                    now,
-                )?;
-                let index = AuthDiscoveryIndex::open(
-                    self.root.join("auth-index"),
-                    IndexAuthenticationKey::new([0x61; 32])
-                        .map_err(|error| format!("auth index key: {error:?}"))?,
-                )
-                .map_err(|error| format!("auth index: {error:?}"))?;
-                index
-                    .bind_session(&grant, &principal)
-                    .map_err(|error| format!("browser session binding: {error:?}"))?;
-                self.browser_access = grant.access_token().expose().to_owned();
-                self.browser_csrf = grant.csrf_token().expose().to_owned();
-            }
-            drop(scope);
-            kms.admit_assertion(subject, &assertion).map_err(|error| {
-                format!(
-                    "assertion admission: {error:?}; refusal: {:?}; attestors: {}",
-                    kms.last_refusal_code(),
-                    cluster.logs()
-                )
-            })?;
-            let wallet = keystore.evm_wallet(&principal, &key).map_err(|error| {
-                format!(
-                    "wallet lookup: {error:?}; refusal: {:?}; attestors: {}",
-                    kms.last_refusal_code(),
-                    cluster.logs()
-                )
-            })?;
-            assert_eq!(
-                wallet,
-                wallet_address,
-                "refusal: {:?}; attestors: {}",
-                kms.last_refusal_code(),
-                cluster.logs()
-            );
-            self.peer_state
-                .lock()
-                .map_err(|_| "peer state")?
-                .identities
-                .insert(did.clone(), (public, wallet));
-            accounts.push((principal, did, assertion));
+            accounts.push(self.provision_account(
+                subject,
+                &identities,
+                &keystore,
+                &key,
+                &producer,
+                &mut store,
+            )?);
         }
         let (principal, actor, assertion) = &accounts[0];
-        self.assertion = assertion.clone();
+        self.assertion.clone_from(assertion);
         let now = self.clock.sample(Duration::from_secs(1))?.unix_seconds();
         self.document = json!({"principal": principal.as_str(), "actor": actor, "not_after": now + 300,
             "intent": {"source": {"kind": "human", "account": format!("agent:{actor}:main")},
@@ -1430,7 +1503,7 @@ impl Fixture {
                 PrincipalLimits::new(100, 60, 100).map_err(|e| format!("limits: {e:?}"))?,
                 HttpConfig {
                     maximum_header_bytes: 32768,
-                    maximum_body_bytes: 1048576,
+                    maximum_body_bytes: 1_048_576,
                     allowed_origin: "https://paxportwallet.com".to_owned(),
                     service_version: "intent-plan-evm".to_owned(),
                 },
@@ -1489,11 +1562,11 @@ impl Fixture {
         client.read_to_string(&mut response)?;
         worker.join().map_err(|_| "router worker panicked")??;
         let (headers, body) = response.split_once("\r\n\r\n").ok_or("HTTP response")?;
-        let (served, rpc_served, gateway_served, gateway_last_answer) = {
+        let (agent_calls, node_calls, gateway_calls, gateway_response) = {
             let peer = self
                 .peer_state
                 .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             (
                 peer.served.clone(),
                 peer.rpc_served.clone(),
@@ -1506,105 +1579,16 @@ impl Fixture {
                 || headers.starts_with("HTTP/1.1 201 ")
                 || headers.starts_with("HTTP/1.1 202 "),
             "{method} {path}: {response}; agent: {:?}; node: {:?}; gateway: {:?}; last gateway answer: {:?}; document: {}; attestor refusal: {:?}; attestors: {}",
-            served,
-            rpc_served,
-            gateway_served,
-            gateway_last_answer,
+            agent_calls,
+            node_calls,
+            gateway_calls,
+            gateway_response,
             self.document,
-            self.kms.as_ref().and_then(|kms| kms.last_refusal_code()),
-            self.custody_cluster.as_ref().map(|cluster| cluster.logs()).unwrap_or_default()
+            self.kms.as_ref().and_then(layerx_human_service::server::production_components::AttestorKms::last_refusal_code),
+            self.custody_cluster.as_ref().map(cluster::Cluster::logs).unwrap_or_default()
         );
         let response: Value = serde_json::from_str(body)?;
         Ok(response["result"].clone())
-    }
-
-    pub(crate) fn plan(&self) -> Result<Value> {
-        self.request(
-            "POST",
-            "/v1/intents/plan",
-            &self.document["intent"],
-            "intent-plan-evm",
-        )
-    }
-
-    pub(crate) fn journey_record(&mut self, journey_id: &str) -> Result<Value> {
-        self.edit_journey_record(journey_id, |_| {})
-    }
-
-    pub(crate) fn edit_journey_record(
-        &mut self,
-        journey_id: &str,
-        edit: impl FnOnce(&mut Value),
-    ) -> Result<Value> {
-        use layerx_human_service::store::{
-            PrincipalId, PrincipalStore, RowKey, Table, TenancyDigest,
-        };
-
-        self.close_router()?;
-        let binding = layerx_identity_binding::Client::new(
-            layerx_identity_binding::Config {
-                socket: self.root.join("identity-binding.sock"),
-                tenant: "tenant-a".to_owned(),
-                peer_uid: rustix::process::getuid().as_raw(),
-                peer_gid: rustix::process::getgid().as_raw(),
-                deadline: Duration::from_secs(5),
-            },
-            self.clock.clone(),
-        )?;
-        let digest: [u8; 32] = URL_SAFE_NO_PAD
-            .decode(std::env::var("LAYERX_HUMAN_TENANCY_DIGEST")?)?
-            .try_into()
-            .map_err(|_| "tenancy digest")?;
-        let mut store = PrincipalStore::open_with_authority(
-            self.root.join("store"),
-            layerx_human_test_support::retention_uniform(86400),
-            TenancyDigest::new(digest),
-            Arc::new(IdentityTenancy(binding)),
-        )?;
-        let principal = PrincipalId::new(self.document["principal"].as_str().ok_or("principal")?)?;
-        let mut scope = store.principal(&principal)?;
-        let key = RowKey::new(format!("intent-evm-{journey_id}"))?;
-        let mut record: Value = serde_json::from_slice(
-            scope
-                .get(Table::Journeys, &key)
-                .ok_or("journey record")?
-                .bytes(),
-        )?;
-        let original = record.clone();
-        edit(&mut record);
-        if record != original {
-            let now = self.clock.sample(Duration::from_secs(1))?.unix_seconds();
-            scope.put(Table::Journeys, key, now, serde_json::to_vec(&record)?)?;
-        }
-        drop(scope);
-        drop(store);
-        self.reopen()?;
-        Ok(record)
-    }
-
-    pub(crate) fn submission(&self, plan: &Value) -> Result<Value> {
-        let now = self.clock.sample(Duration::from_secs(1))?.unix_seconds();
-        let deadline = self.document["not_after"]
-            .as_u64()
-            .ok_or("fixture deadline")?;
-        let actor = self.document["actor"].as_str().ok_or("fixture actor")?;
-        let bindings = plan["signing_requirements"]
-            .as_array()
-            .ok_or("signing requirements")?
-            .iter()
-            .enumerate()
-            .map(|(index, requirement)| {
-                json!({
-                    "leg_index": index, "action_key": requirement["action_key"], "actor": actor,
-                    "authority": requirement["authority"], "relationship": "self",
-                    "account_sequence": plan["legs"][index]["nonce"], "not_before": now,
-                    "not_after": deadline, "fee_limit": plan["legs"][index]["fee"],
-                })
-            })
-            .collect::<Vec<_>>();
-        Ok(
-            json!({"plan_digest": plan["plan_digest"], "signed_digest": plan["plan_digest"], "bindings": bindings}),
-        )
     }
 }
 
@@ -1614,7 +1598,7 @@ impl Drop for Fixture {
             let peer = self
                 .peer_state
                 .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             eprintln!(
                 "agent: {:?}; node: {:?}; gateway: {:?}; document: {}",
                 peer.served, peer.rpc_served, peer.gateway_served, self.document
@@ -1623,7 +1607,7 @@ impl Drop for Fixture {
         if let Some(cluster) = &self.custody_cluster {
             eprintln!(
                 "attestor refusal: {:?}; attestor logs: {}",
-                self.kms.as_ref().and_then(|kms| kms.last_refusal_code()),
+                self.kms.as_ref().and_then(layerx_human_service::server::production_components::AttestorKms::last_refusal_code),
                 cluster.logs()
             );
         }
@@ -1663,58 +1647,12 @@ pub(crate) fn purpose_catalog() -> Value {
     }]})
 }
 
-pub(crate) fn loader_environment(
+fn events_loader_environment(
     root: &std::path::Path,
-    cluster: &cluster::Cluster,
-    tenancy_digest: [u8; 32],
-    rpc_url: &str,
-) -> std::result::Result<Vec<(&'static str, String)>, Box<dyn std::error::Error>> {
-    write_private(
-        &root.join("attestor-ca.der"),
-        &cluster.pki.certificate_der("node-ca")?,
-    )?;
-    write_private(
-        &root.join("attestor-client.der"),
-        &cluster.pki.certificate_der("gateway")?,
-    )?;
-    write_private(
-        &root.join("attestor-client-key.der"),
-        &cluster.pki.key_der("gateway")?,
-    )?;
-    write_private(
-        &root.join("events-token"),
-        b"intent-integration-producer-token",
-    )?;
-    write_private(&root.join("events-password"), b"intent-integration-pkcs12")?;
-    let status = std::process::Command::new("openssl")
-        .args(["pkcs12", "-export", "-inkey"])
-        .arg(cluster.pki.path("gateway.key"))
-        .arg("-in")
-        .arg(cluster.pki.path("gateway.pem"))
-        .arg("-certfile")
-        .arg(cluster.pki.path("gateway-ca.pem"))
-        .arg("-passout")
-        .arg(format!("file:{}", root.join("events-password").display()))
-        .arg("-out")
-        .arg(root.join("events-client.p12"))
-        .status()?;
-    if !status.success() {
-        return Err("event client identity export failed".into());
-    }
-    fs::set_permissions(
-        root.join("events-client.p12"),
-        fs::Permissions::from_mode(0o600),
-    )?;
+    events_url: String,
+) -> Vec<(&'static str, String)> {
     let path = |name: &str| root.join(name).display().to_string();
-    let secret = |byte: u8| URL_SAFE_NO_PAD.encode([byte; 32]);
-    let nodes = cluster
-        .nodes
-        .iter()
-        .map(|(id, address)| format!("{id}={address}"))
-        .collect::<Vec<_>>()
-        .join(",");
-    let events_url = format!("https://localhost:{}", cluster.nodes[0].1.port());
-    Ok(vec![
+    vec![
         ("LAYERX_EVENTS_JOURNEY_UPSTREAM_URL", events_url.clone()),
         ("LAYERX_EVENTS_APPROVAL_UPSTREAM_URL", events_url.clone()),
         ("LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL", events_url),
@@ -1766,6 +1704,17 @@ pub(crate) fn loader_environment(
             "LAYERX_EVENTS_WEBHOOKS_UPSTREAM_TOKEN_FILE",
             path("events-token"),
         ),
+    ]
+}
+
+fn base_loader_environment(
+    root: &std::path::Path,
+    tenancy_digest: [u8; 32],
+    rpc_url: &str,
+) -> Vec<(&'static str, String)> {
+    let path = |name: &str| root.join(name).display().to_string();
+    let secret = |byte: u8| URL_SAFE_NO_PAD.encode([byte; 32]);
+    vec![
         ("LAYERX_HUMAN_STORE_ROOT", path("store")),
         ("LAYERX_HUMAN_CUSTODY_ROOT", path("custody")),
         ("LAYERX_HUMAN_AUTH_INDEX_ROOT", path("auth-index")),
@@ -1818,6 +1767,12 @@ pub(crate) fn loader_environment(
             "LAYERX_HUMAN_SECURITY_MAX_FRAME_BYTES",
             "1048576".to_owned(),
         ),
+    ]
+}
+
+fn identity_loader_environment(root: &std::path::Path) -> Vec<(&'static str, String)> {
+    let path = |name: &str| root.join(name).display().to_string();
+    vec![
         (
             "LAYERX_HUMAN_IDENTITY_BINDING_SOCKET",
             path("identity-binding.sock"),
@@ -1852,6 +1807,16 @@ pub(crate) fn loader_environment(
             "LAYERX_HUMAN_IDENTITY_PEER_GID",
             rustix::process::getgid().as_raw().to_string(),
         ),
+    ]
+}
+
+fn attestor_loader_environment(
+    root: &std::path::Path,
+    nodes: String,
+) -> Vec<(&'static str, String)> {
+    let path = |name: &str| root.join(name).display().to_string();
+    let secret = |byte: u8| URL_SAFE_NO_PAD.encode([byte; 32]);
+    vec![
         ("LAYERX_HUMAN_ATTESTOR_NODES", nodes),
         ("LAYERX_HUMAN_ATTESTOR_SIGNERS", cluster::SIGNERS.join(",")),
         (
@@ -1916,7 +1881,63 @@ pub(crate) fn loader_environment(
             "LAYERX_HUMAN_CONTINUATION_UNKNOWN_DEADLINE_SECONDS",
             "300".to_owned(),
         ),
-    ])
+    ]
+}
+
+pub(crate) fn loader_environment(
+    root: &std::path::Path,
+    cluster: &cluster::Cluster,
+    tenancy_digest: [u8; 32],
+    rpc_url: &str,
+) -> std::result::Result<Vec<(&'static str, String)>, Box<dyn std::error::Error>> {
+    write_private(
+        &root.join("attestor-ca.der"),
+        &cluster.pki.certificate_der("node-ca")?,
+    )?;
+    write_private(
+        &root.join("attestor-client.der"),
+        &cluster.pki.certificate_der("gateway")?,
+    )?;
+    write_private(
+        &root.join("attestor-client-key.der"),
+        &cluster.pki.key_der("gateway")?,
+    )?;
+    write_private(
+        &root.join("events-token"),
+        b"intent-integration-producer-token",
+    )?;
+    write_private(&root.join("events-password"), b"intent-integration-pkcs12")?;
+    let status = std::process::Command::new("openssl")
+        .args(["pkcs12", "-export", "-inkey"])
+        .arg(cluster.pki.path("gateway.key"))
+        .arg("-in")
+        .arg(cluster.pki.path("gateway.pem"))
+        .arg("-certfile")
+        .arg(cluster.pki.path("gateway-ca.pem"))
+        .arg("-passout")
+        .arg(format!("file:{}", root.join("events-password").display()))
+        .arg("-out")
+        .arg(root.join("events-client.p12"))
+        .status()?;
+    if !status.success() {
+        return Err("event client identity export failed".into());
+    }
+    fs::set_permissions(
+        root.join("events-client.p12"),
+        fs::Permissions::from_mode(0o600),
+    )?;
+    let nodes = cluster
+        .nodes
+        .iter()
+        .map(|(id, address)| format!("{id}={address}"))
+        .collect::<Vec<_>>()
+        .join(",");
+    let events_url = format!("https://localhost:{}", cluster.nodes[0].1.port());
+    let mut environment = events_loader_environment(root, events_url);
+    environment.extend(base_loader_environment(root, tenancy_digest, rpc_url));
+    environment.extend(identity_loader_environment(root));
+    environment.extend(attestor_loader_environment(root, nodes));
+    Ok(environment)
 }
 
 pub(crate) fn required<T, E: std::fmt::Debug>(result: std::result::Result<T, E>, label: &str) -> T {
@@ -2077,3 +2098,5 @@ pub(crate) fn client_data(kind: &str, challenge: &str) -> Vec<u8> {
         "encode client data",
     )
 }
+
+use crate::require_value::RequireValue as _;

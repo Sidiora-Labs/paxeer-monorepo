@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"time"
+
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/jackc/pgx/v5"
-	"io"
-	"time"
 )
 
 func (r Repository) CommitPortfolioUpdateTx(ctx context.Context, tx pgx.Tx, sourceEvent string, update interfaces.PortfolioUpdate, expires time.Time) (Summary, error) {

@@ -56,7 +56,7 @@ func (s *DevelopmentSource) frame(ctx context.Context, row developmentSourceRow)
 	if err := s.rpc.CallContext(ctx, &receipt, "eth_getTransactionReceipt", row.hash); err != nil {
 		return DevelopmentFrame{}, err
 	}
-	if receipt == nil || receipt.Status != "0x1" || receipt.TransactionIndex == nil || uint64(receipt.BlockNumber) != uint64(row.height) || !strings.EqualFold(receipt.TransactionHash, row.hash) || len(receipt.BlockHash) != 66 {
+	if row.height < 0 || row.timestamp < 0 || row.logIndex < 0 || receipt == nil || receipt.Status != "0x1" || receipt.TransactionIndex == nil || uint64(receipt.BlockNumber) != uint64(row.height) || !strings.EqualFold(receipt.TransactionHash, row.hash) || len(receipt.BlockHash) != 66 {
 		return DevelopmentFrame{}, errors.New("consumer: development receipt position unavailable")
 	}
 	var block *struct {

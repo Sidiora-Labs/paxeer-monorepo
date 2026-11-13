@@ -3,9 +3,7 @@ pragma solidity ^0.8.0;
 
 address constant ADDR_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000001004;
 
-IAddr constant ADDR_CONTRACT = IAddr(
-    ADDR_PRECOMPILE_ADDRESS
-);
+IAddr constant ADDR_CONTRACT = IAddr(ADDR_PRECOMPILE_ADDRESS);
 
 interface IAddr {
     event LayerXBound(address indexed evm, bytes32 indexed didPublicKey, uint64 nonce);
@@ -37,10 +35,8 @@ interface IAddr {
     // association, didPublicKey and layerxMainAccountId are zero without a
     // binding. layerxMainAccountId is the LayerX account id of
     // "agent:did:layerx:<hex>:main".
-    function getUnifiedAccount(address addr) external view returns (
-        address evm,
-        string memory paxAddr,
-        bytes32 didPublicKey,
-        bytes32 layerxMainAccountId
-    );
+    function getUnifiedAccount(address addr)
+        external
+        view
+        returns (address evm, string memory paxAddr, bytes32 didPublicKey, bytes32 layerxMainAccountId);
 }

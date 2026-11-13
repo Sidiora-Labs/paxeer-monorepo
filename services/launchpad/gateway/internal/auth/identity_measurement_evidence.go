@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
 )
 
 type IdentityRuntimeEvidence struct {
@@ -38,11 +40,11 @@ func readIdentityEvidence(path string, dest any) error {
 	if err != nil || !info.Mode().IsRegular() || info.Size() < 1 || info.Size() > 32*1024*1024 {
 		return errors.New("identity measurement: bounded regular evidence required")
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // The evidence file is regular and bounded before decoding.
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer cleanup.Close(file)
 	decoder := json.NewDecoder(io.LimitReader(file, 32*1024*1024+1))
 	decoder.DisallowUnknownFields()
 	if err = decoder.Decode(dest); err != nil {

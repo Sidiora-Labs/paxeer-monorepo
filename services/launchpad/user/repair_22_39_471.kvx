@@ -1,0 +1,23 @@
+[repair.22.39.471]
+module = "services/launchpad/user"
+behavior = "The user service preserves account and image wire values while validating expiry and size bounds, handling cleanup errors, and serving JSON with explicit content types."
+
+[findings]
+errcheck = "20 cleanup calls handle transaction, response body, database, and object close errors."
+goconst = "79 repeated literals use shared constants for account fields, states, routes, and service values."
+goimports = "6 import groups follow the module formatter."
+gosec = "15 conversion, JSON response, and configured file findings retain bounded values or their declared wire contracts."
+prealloc = "2 signed cursor buffers reserve their encoded authentication tags."
+staticcheck = "6 boolean, selector, and runtime profile branches use direct expressions."
+unconvert = "2 expiry bound comparisons use their native unsigned type."
+
+[comments]
+account_cursor_revision_write = "internal/account/http.go:encodeCursor keeps the signed database revision bit pattern."
+account_cursor_revision_read = "internal/account/http.go:decodeCursor compares the signed database revision bit pattern."
+account_cursor_time_read = "internal/account/http.go:decodeCursor decodes signed Unix nanoseconds."
+deletion_response = "internal/account/jobs_http.go:deletionPost returns the signed JSON envelope bytes."
+export_response = "internal/account/jobs_http.go:downloadHandler returns authenticated JSON export bytes."
+watchlist_response = "internal/account/v2_watchlist_http.go:writeV2AccountResponse returns the account JSON envelope bytes."
+runtime_document = "internal/config/config.go:boundBytes reads a configured regular file with a digest binding."
+runtime_material = "internal/config/config.go:Material reads a configured regular material file."
+image_size = "internal/user/handlers.go:uploadImage stores the checked image size as int32."

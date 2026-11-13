@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { VerifiedWebhookConsumer } from "@sidiora/layerx-seller-middleware";
+import { keccak256 } from "@sidiora/layerx-sdk";
+import { VerifiedWebhookConsumer, decodePaymentExactLog } from "@sidiora/layerx-seller-middleware";
 import { committedFixture } from "../../conformance/pay6/committed-fixture.mjs";
+import { committedVector } from "../../seller/test/committed-fixture.mjs";
 import { MerchantError, MerchantSettlementWebhooks } from "../dist/index.js";
 
 const toHex = (value) => Buffer.from(value).toString("hex");
@@ -92,11 +94,36 @@ class DeliveryLedger {
 }
 
 async function committedEvidence(context) {
-  return committedFixture(context);
+  const { verified, evidence, resolver } = await committedFixture(context);
+  const bytes = (value) => Uint8Array.from(Buffer.from(value.slice(2), "hex"));
+  const hex = (value) => `0x${toHex(value)}`;
+  const key = committedVector.pinnedKey;
+  const pins = [{ keyId: bytes(key.keyId), publicKey: bytes(key.publicKey),
+    first_height: BigInt(key.firstHeight), last_height: BigInt(key.lastHeight) }];
+  const receipt = {
+    format: "layerx-receipt-proof-v2", verificationLevel: "committed",
+    rawTransaction: committedVector.rawTransaction, signedReceipt: committedVector.signedReceipt,
+    receiptDigest: hex(verified.receiptDigest),
+    receiptKey: { keyId: key.keyId, publicKey: key.publicKey,
+      firstHeight: `0x${BigInt(key.firstHeight).toString(16)}`,
+      lastHeight: `0x${BigInt(key.lastHeight).toString(16)}` },
+    txHash: committedVector.receiptJson.txHash,
+  };
+  const topic = hex(keccak256(new TextEncoder().encode("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")));
+  const log = committedVector.receiptJson.logs.find((entry) => entry.topics[0] === topic);
+  assert.ok(log);
+  const payment = decodePaymentExactLog({ address: log.address, topics: log.topics.map(bytes), data: bytes(log.data) });
+  const requirements = {
+    scheme: "exact", network: "eip155:125", amount: payment.amount.toString(),
+    asset: hex(payment.assetId), payTo: hex(payment.to), maxTimeoutSeconds: 120,
+    extra: { layerx: { commitment: "committed", payer: toHex(payment.from),
+      purposeHash: toHex(payment.paymentReference) } },
+  };
+  return { evidence, receipt, pins, requirements, resolver };
 }
 
 async function webhookContext(commitment, context) {
-  const { evidence, receipt, pins, requirements: fixtureRequirements } = await committedEvidence(context);
+  const { evidence, receipt, pins, requirements: fixtureRequirements, resolver } = await committedEvidence(context);
   const proof = { ...receipt, verificationLevel: commitment };
   const key = await globalThis.crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
   const publicKey = new Uint8Array(await globalThis.crypto.subtle.exportKey("raw", key.publicKey));
@@ -141,6 +168,7 @@ async function webhookContext(commitment, context) {
       },
     },
     commitments: {
+      resolveValidators: (network, height) => resolver.resolveValidators(network, height),
       async resolve(transactionHash, network) {
         assert.equal(network, requirements.network);
         assert.equal(proof.verificationLevel, "committed");

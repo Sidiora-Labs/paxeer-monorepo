@@ -80,7 +80,7 @@ func (w Worker) RunOnce(ctx context.Context) error {
 	}
 	bounded, cancel := context.WithTimeout(ctx, w.LeaseDuration/2)
 	defer cancel()
-	if j.Kind == "export" {
+	if j.Kind == kindExport {
 		e = w.prepareExport(bounded, j)
 	} else {
 		e = w.processDeletion(bounded, j)
@@ -126,7 +126,7 @@ func (w Worker) prepareExport(ctx context.Context, j jobLease) (failure error) {
 		return delivery.ErrLease
 	}
 	ready = true
-	w.Runtime.Metrics.Observe("export", "success", time.Since(j.RequestedAt))
+	w.Runtime.Metrics.Observe(kindExport, outcomeSuccess, time.Since(j.RequestedAt))
 	return nil
 }
 
@@ -178,7 +178,7 @@ func (w Worker) processDeletion(ctx context.Context, j jobLease) error {
 		return ErrState
 	}
 	if w.Store.now().After(v.Deadline) {
-		w.Runtime.Metrics.Observe("deletion", "overdue", w.Store.now().Sub(v.Deadline))
+		w.Runtime.Metrics.Observe(kindDeletion, "overdue", w.Store.now().Sub(v.Deadline))
 	}
 	seen := map[string]bool{}
 	for _, owner := range v.Acks {
@@ -215,7 +215,7 @@ func (w Worker) processDeletion(ctx context.Context, j jobLease) error {
 	if tag.RowsAffected() != 1 {
 		return delivery.ErrLease
 	}
-	w.Runtime.Metrics.Observe("deletion", "success", time.Since(j.RequestedAt))
+	w.Runtime.Metrics.Observe(kindDeletion, outcomeSuccess, time.Since(j.RequestedAt))
 	return nil
 }
 func (w Worker) PurgeExpiredExports(ctx context.Context, limit int) error {
@@ -342,7 +342,7 @@ func (p ImagePurger) DeleteAccount(ctx context.Context, account, deletion uuid.U
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackAccountTx(ctx, tx)
 	if _, e = tx.Exec(ctx, `DELETE FROM users.user_images WHERE lower(wallet_address)=$1`, wallet); e != nil {
 		return e
 	}
@@ -367,7 +367,7 @@ func NewConnectedHTTP(store Store, runtime Runtime, cursorKey []byte) (HTTP, err
 			return HTTP{}, errors.New("DEPENDENCY_UNAVAILABLE")
 		}
 	}
-	if runtime.DeletionOwners["images"] == nil || runtime.DeletionOwners["notifications"] == nil {
+	if runtime.DeletionOwners[domainImages] == nil || runtime.DeletionOwners[domainNotifications] == nil {
 		return HTTP{}, errors.New("DEPENDENCY_UNAVAILABLE")
 	}
 	subjects := map[string]string{}

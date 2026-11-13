@@ -1,31 +1,27 @@
-//! Task 22.33.31, audit 22.30.102, acceptance 22998.1.
-//! kms-operator-doc is proved by documented_configuration_and_assertion_lifecycle,
-//! documented_v7_sign_and_retired_encodings, documented_bank_send_and_recovery,
-//! and documented_recipient_export_and_recovery.
-//! Baseline: not run; the explicit implementation-first, hf-build/hf-done order
-//! prohibits the audit step's unchanged-tree verify. No baseline failures claimed.
-//! No out-of-path wiring is needed for this documentation repair. This module is
-//! the task record because the task scope prohibits editing spec/ records.
-//! The gates attach the exact verified candidate revision and private log path.
-//! Production server/store/codec plus the real Human remote client are exercised
-//! in-process; the committed loopback peers produce real EIP-1559 signatures
-//! using independent fixture keys, without an external threshold toolchain.
+//! The KMS configuration and signing contract support documented custody operations.
 
 #![allow(dead_code)]
 
 pub use layerx_human_kms::attestor;
+#[allow(dead_code)]
 #[path = "../src/config.rs"]
 mod config;
+#[allow(dead_code)]
 #[path = "../src/evm.rs"]
 mod evm;
+#[allow(dead_code)]
 #[path = "../src/evm_types.rs"]
 mod evm_types;
+#[allow(dead_code)]
 #[path = "../src/export.rs"]
 mod export;
+#[allow(dead_code)]
 #[path = "../src/send.rs"]
 mod send;
+#[allow(dead_code)]
 #[path = "../src/store.rs"]
 mod store;
+#[allow(dead_code)]
 #[path = "../src/wire.rs"]
 mod wire;
 mod server {
@@ -33,11 +29,19 @@ mod server {
 
     pub fn serve_connection(
         tcp: std::net::TcpStream,
-        config: &crate::config::Config,
-        store: &std::sync::Mutex<crate::store::Store>,
-        clock: &dyn layerx_types::clock::Clock,
+        config: std::sync::Arc<crate::config::Config>,
+        store: std::sync::Arc<std::sync::Mutex<crate::store::Store>>,
+        clock: std::sync::Arc<dyn layerx_types::clock::Clock>,
     ) -> crate::wire::Result<()> {
-        connection(tcp, config, store, clock)
+        spawn_connection(
+            tcp,
+            config,
+            store,
+            clock,
+            std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+        )?
+        .join()
+        .map_err(|_| crate::wire::Error::Unavailable)
     }
 }
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
@@ -102,57 +106,7 @@ fn documented_configuration_and_assertion_lifecycle() -> Result<()> {
     let _serial = SERIAL.lock().map_err(|_| "fixture lock poisoned")?;
     let mut host = Host::new()?;
     let mut environment = Environment(Vec::new());
-    let registry = host.root.join("registry.json");
-    let snapshot = README
-        .split("```json\n")
-        .nth(1)
-        .ok_or("registry example missing")?
-        .split("\n```")
-        .next()
-        .ok_or("registry example unclosed")?;
-    fs::write(&registry, snapshot)?;
-    for (suffix, value) in [
-        ("LISTEN", "127.0.0.1:0".into()),
-        ("STATE_DIR", host.root.join("config-state").into_os_string()),
-        ("PROVIDER_REFERENCE", fixture::PROVIDER.into()),
-        ("DEADLINE_SECONDS", "5".into()),
-        ("REGISTRY_FILE", registry.clone().into_os_string()),
-    ] {
-        environment.set(suffix, &value);
-    }
-    for (suffix, name, bytes) in [
-        (
-            "CLIENT_CA_DER",
-            "config-ca.der",
-            include_bytes!("fixtures/repair_22_33_27/ca.der").as_slice(),
-        ),
-        (
-            "CLIENT_CERT_DER",
-            "config-client.der",
-            include_bytes!("fixtures/repair_22_33_27/client.der").as_slice(),
-        ),
-        (
-            "TLS_CERT_DER",
-            "config-server.der",
-            include_bytes!("fixtures/repair_22_33_27/server.der").as_slice(),
-        ),
-        (
-            "TLS_KEY_DER",
-            "config-server.pk8",
-            include_bytes!("fixtures/repair_22_33_27/server.pk8").as_slice(),
-        ),
-        ("SEAL_SECRET_FILE", "config-seal", &[37; 32][..]),
-        (
-            "EVM_CLIENT_CERT_DER",
-            "config-executor.der",
-            include_bytes!("fixtures/repair_22_33_27/executor.der").as_slice(),
-        ),
-    ] {
-        let path = host.root.join(name);
-        fs::write(&path, bytes)?;
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
-        environment.set(suffix, path.as_os_str());
-    }
+    let (registry, snapshot) = configure_from_readme(&host, &mut environment)?;
     let loaded = config::Config::load()?;
     assert_eq!(loaded.chain.chain_id, 125);
     assert_eq!(loaded.provider, fixture::PROVIDER);
@@ -472,4 +426,62 @@ fn documented_recipient_export_and_recovery() -> Result<()> {
         "remote.acknowledge_export(&binding, reference, &acknowledgement)?;",
     ] { assert!(README.contains(example), "missing client example: {example}"); }
     Ok(())
+}
+
+fn configure_from_readme(
+    host: &Host,
+    environment: &mut Environment,
+) -> Result<(std::path::PathBuf, &'static str)> {
+    let registry = host.root.join("registry.json");
+    let snapshot = README
+        .split("```json\n")
+        .nth(1)
+        .ok_or("registry example missing")?
+        .split("\n```")
+        .next()
+        .ok_or("registry example unclosed")?;
+    fs::write(&registry, snapshot)?;
+    for (suffix, value) in [
+        ("LISTEN", "127.0.0.1:0".into()),
+        ("STATE_DIR", host.root.join("config-state").into_os_string()),
+        ("PROVIDER_REFERENCE", fixture::PROVIDER.into()),
+        ("DEADLINE_SECONDS", "5".into()),
+        ("REGISTRY_FILE", registry.clone().into_os_string()),
+    ] {
+        environment.set(suffix, &value);
+    }
+    for (suffix, name, bytes) in [
+        (
+            "CLIENT_CA_DER",
+            "config-ca.der",
+            include_bytes!("fixtures/repair_22_33_27/ca.der").as_slice(),
+        ),
+        (
+            "CLIENT_CERT_DER",
+            "config-client.der",
+            include_bytes!("fixtures/repair_22_33_27/client.der").as_slice(),
+        ),
+        (
+            "TLS_CERT_DER",
+            "config-server.der",
+            include_bytes!("fixtures/repair_22_33_27/server.der").as_slice(),
+        ),
+        (
+            "TLS_KEY_DER",
+            "config-server.pk8",
+            include_bytes!("fixtures/repair_22_33_27/server.pk8").as_slice(),
+        ),
+        ("SEAL_SECRET_FILE", "config-seal", &[37; 32][..]),
+        (
+            "EVM_CLIENT_CERT_DER",
+            "config-executor.der",
+            include_bytes!("fixtures/repair_22_33_27/executor.der").as_slice(),
+        ),
+    ] {
+        let path = host.root.join(name);
+        fs::write(&path, bytes)?;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
+        environment.set(suffix, path.as_os_str());
+    }
+    Ok((registry, snapshot))
 }

@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use k256::ecdsa::SigningKey;
 use serde_json::{json, Value};
-use x_websearch::attest::{signer_address, AttestorSet};
+use x_websearch::attest::{signer_address, Answer, AttestorSet};
 use x_websearch::content::ContentStore;
 use x_websearch::fetch::{Fetcher, HttpClient, Url};
 use x_websearch::index::WebIndex;
@@ -64,7 +64,9 @@ fn readme_metered_documents_exact_receipt_verification_and_receiver_identity() -
     assert!(README.contains("signed receipt, authorized signer and height range"));
     assert!(README.contains(RECEIVER_KEY_FILE));
     assert!(README.contains("Exact payment verification still requires this identity"));
-    let missing = KeyFiles::from_lookup(|_| None).expect_err("receiver identity is required");
+    let missing = KeyFiles::from_lookup(|_| None)
+        .err()
+        .or_panic("receiver identity is required");
     assert_eq!(missing.role, KeyRole::Receiver);
     assert_eq!(missing.refusal, KeyRefusal::Unset);
     // The existing shared proof authenticates producer-issued exact receipts for
@@ -126,16 +128,19 @@ impl RpcTranscript {
                 };
                 stream
                     .set_read_timeout(Some(Duration::from_secs(2)))
-                    .unwrap();
-                let (_, body) = read_request(&mut stream).unwrap();
-                let request: Value = serde_json::from_slice(&body).unwrap();
-                recorded.lock().unwrap().push(request.clone());
+                    .or_panic("expected Ok value");
+                let (_, body) = read_request(&mut stream).or_panic("expected Ok value");
+                let request: Value = serde_json::from_slice(&body).or_panic("expected Ok value");
+                recorded
+                    .lock()
+                    .or_panic("expected Ok value")
+                    .push(request.clone());
                 let response = match handler(&request) {
                     Ok(result) => json!({"jsonrpc":"2.0", "id":request["id"], "result":result}),
                     Err(error) => json!({"jsonrpc":"2.0", "id":request["id"], "error":error}),
                 }
                 .to_string();
-                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}", response.len()).unwrap();
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response}", response.len()).or_panic("expected Ok value");
             }
         });
         Ok(Self {
@@ -154,7 +159,7 @@ impl Drop for RpcTranscript {
         self.stop.store(true, Ordering::Release);
         let _ = TcpStream::connect(self.address);
         if let Some(worker) = self.worker.take() {
-            worker.join().unwrap();
+            worker.join().or_panic("expected Ok value");
         }
     }
 }
@@ -245,7 +250,11 @@ fn readme_endpoint_matches_distinct_settlement_and_watcher_authorities() -> Chec
     assert_eq!(eligible.status, 402);
     assert!(eligible.header("PAYMENT-REQUIRED").is_some());
     assert!(
-        watcher.calls.lock().unwrap().is_empty(),
+        watcher
+            .calls
+            .lock()
+            .or_panic("expected Ok value")
+            .is_empty(),
         "payment used the watcher authority"
     );
     receipt_support.store(false, Ordering::Release);
@@ -263,13 +272,13 @@ fn readme_endpoint_matches_distinct_settlement_and_watcher_authorities() -> Chec
     assert!(settlement
         .calls
         .lock()
-        .unwrap()
+        .or_panic("expected Ok value")
         .iter()
         .any(|call| call["method"] == "eth_call"));
     assert!(settlement
         .calls
         .lock()
-        .unwrap()
+        .or_panic("expected Ok value")
         .iter()
         .any(|call| call["method"] == "pax_sequencerReceipt"));
     server.shutdown()?;
@@ -307,19 +316,7 @@ fn serve_exchange(exchange: &Arc<ProgramExchange>) -> Checked<x_websearch::Runni
 
 #[test]
 fn readme_peer_recovery_preserves_pre_quorum_bytes_and_retirement_tombstones() -> Checked {
-    for claim in [
-        "program-watch/pending.json",
-        "program-attest/answers.json",
-        "program-attest/identity.json",
-        "including before quorum",
-        "local signature and collected signer",
-        "Pending submission or quorum alone does not retire",
-        "retirement tombstone",
-        "retirement does not delete those records",
-        "tests/proof_x_websearch_program_requests.rs",
-    ] {
-        assert!(README.contains(claim), "missing recovery guidance: {claim}");
-    }
+    assert_readme_guidance();
     let scratch = Scratch::new("peer-recovery")?;
     let directory = scratch.0.join("program-attest");
     let peer_dir = scratch.0.join("peer");
@@ -332,18 +329,7 @@ fn readme_peer_recovery_preserves_pre_quorum_bytes_and_retirement_tombstones() -
         "paxeer network",
     )?;
     index.commit()?;
-    let fixture: Value = serde_json::from_str(include_str!("fixtures/kernel/watch.json"))?;
-    let event = &fixture["endpoints"]["gateway"]["*"][0]["result"]["events"][0];
-    let program_id = x_websearch::payment::unhex(event["program_id"].as_str().ok_or("program id")?)
-        .ok_or("program hex")?
-        .try_into()
-        .map_err(|_| "program width")?;
-    let request = program::decode_request_record(
-        program_id,
-        event["sequence"].as_u64().ok_or("sequence")?,
-        &x_websearch::payment::unhex(event["data"].as_str().ok_or("request data")?)
-            .ok_or("request hex")?,
-    )?;
+    let request = readme_program_request()?;
     let program_key = (request.program_id, request.request_id);
     let mut signers = vec![
         signer_address(&key(1)?),
@@ -371,20 +357,9 @@ fn readme_peer_recovery_preserves_pre_quorum_bytes_and_retirement_tombstones() -
         1,
     )?;
     local.record(local_answer.clone())?;
-    assert_eq!(local.collect(program_key, &set), 2);
-    assert!(
-        local.ready(program_key, &set).is_none(),
-        "two signers cannot satisfy three-member quorum"
-    );
+    assert_pre_quorum(&local, program_key, &set);
     let before = std::fs::read(directory.join("answers.json"))?;
-    let saved: Value = serde_json::from_slice(&before)?;
-    assert_eq!(
-        saved["answers"][0]["held"]["signatures"]
-            .as_array()
-            .ok_or("saved signatures")?
-            .len(),
-        2
-    );
+    assert_saved_signatures(&before)?;
     peer_server.shutdown()?;
     drop(local);
     drop(peer);
@@ -418,33 +393,15 @@ fn readme_peer_recovery_preserves_pre_quorum_bytes_and_retirement_tombstones() -
     )?;
     assert_eq!(std::fs::read(directory.join("answers.json"))?, before);
     assert_eq!(local.answer(program_key), Some(local_answer.clone()));
-    assert!(local.ready(program_key, &set).is_none());
-    assert!(local
-        .bind_chain(CHAIN + 1, NETWORK, signer_address(&key(1)?))
-        .is_err());
-    assert!(local
-        .bind_chain(CHAIN, NETWORK, signer_address(&key(2)?))
-        .is_err());
-    let changed = attestor(1, &index, &store)?.attest(&request)?;
-    assert_ne!(changed.response, local_answer.response);
-    assert_ne!(changed.digest, local_answer.digest);
-    assert!(local.record(changed).is_err());
-    assert_eq!(local.collect(program_key, &set), 3);
-    let ready = local.ready(program_key, &set).ok_or("recovered quorum")?;
-    assert_eq!(ready.digest, local_answer.digest);
-    assert_eq!(ready.response, local_answer.response);
-    assert_eq!(ready.signers, set.signers);
-    assert!(store.get(&ready.content_digest)?.is_some());
-    let observation = program::observation_bytes(NETWORK, &request, &ready)?;
-    assert_eq!(
-        decode_program_observation(program_key, &observation, 3)?,
-        ready
-    );
-    assert_eq!(
-        local.pending(),
-        vec![program_key],
-        "quorum alone does not retire the answer"
-    );
+    assert_recovered_quorum(
+        &local,
+        program_key,
+        &set,
+        &local_answer,
+        &index,
+        &store,
+        &request,
+    )?;
     assert_eq!(local.handle(program_key).status, 200);
     local.forget(program_key)?;
     assert!(local.pending().is_empty());
@@ -456,10 +413,111 @@ fn readme_peer_recovery_preserves_pre_quorum_bytes_and_retirement_tombstones() -
     drop(local);
     drop(peer);
     drop(third);
-    let local = exchange(&directory, &[], 1)?;
+    assert_retired(&directory, program_key, &set, local_answer)?;
+    Ok(())
+}
+
+fn readme_program_request() -> Checked<program::ProgramRequest> {
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/kernel/watch.json"))?;
+    let event = &fixture["endpoints"]["gateway"]["*"][0]["result"]["events"][0];
+    let program_id = x_websearch::payment::unhex(event["program_id"].as_str().ok_or("program id")?)
+        .ok_or("program hex")?
+        .try_into()
+        .map_err(|_| "program width")?;
+    let request = program::decode_request_record(
+        program_id,
+        event["sequence"].as_u64().ok_or("sequence")?,
+        &x_websearch::payment::unhex(event["data"].as_str().ok_or("request data")?)
+            .ok_or("request hex")?,
+    )?;
+    Ok(request)
+}
+
+fn assert_pre_quorum(local: &ProgramExchange, program_key: ([u8; 32], u64), set: &AttestorSet) {
+    assert_eq!(local.collect(program_key, set), 2);
+    assert!(
+        local.ready(program_key, set).is_none(),
+        "two signers cannot satisfy three-member quorum"
+    );
+}
+
+fn assert_readme_guidance() {
+    for claim in [
+        "program-watch/pending.json",
+        "program-attest/answers.json",
+        "program-attest/identity.json",
+        "including before quorum",
+        "local signature and collected signer",
+        "Pending submission or quorum alone does not retire",
+        "retirement tombstone",
+        "retirement does not delete those records",
+        "tests/proof_x_websearch_program_requests.rs",
+    ] {
+        assert!(README.contains(claim), "missing recovery guidance: {claim}");
+    }
+}
+
+fn assert_saved_signatures(before: &[u8]) -> Checked {
+    let saved: Value = serde_json::from_slice(before)?;
+    assert_eq!(
+        saved["answers"][0]["held"]["signatures"]
+            .as_array()
+            .ok_or("saved signatures")?
+            .len(),
+        2
+    );
+    Ok(())
+}
+
+fn assert_recovered_quorum(
+    local: &ProgramExchange,
+    program_key: ([u8; 32], u64),
+    set: &AttestorSet,
+    local_answer: &Answer,
+    index: &Arc<WebIndex>,
+    store: &Arc<ContentStore>,
+    request: &program::ProgramRequest,
+) -> Checked {
+    assert!(local.ready(program_key, set).is_none());
+    assert!(local
+        .bind_chain(CHAIN + 1, NETWORK, signer_address(&key(1)?))
+        .is_err());
+    assert!(local
+        .bind_chain(CHAIN, NETWORK, signer_address(&key(2)?))
+        .is_err());
+    let changed = attestor(1, index, store)?.attest(request)?;
+    assert_ne!(changed.response, local_answer.response);
+    assert_ne!(changed.digest, local_answer.digest);
+    assert!(local.record(changed).is_err());
+    assert_eq!(local.collect(program_key, set), 3);
+    let ready = local.ready(program_key, set).ok_or("recovered quorum")?;
+    assert_eq!(ready.digest, local_answer.digest);
+    assert_eq!(ready.response, local_answer.response);
+    assert_eq!(ready.signers, set.signers);
+    assert!(store.get(&ready.content_digest)?.is_some());
+    let observation = program::observation_bytes(NETWORK, request, &ready)?;
+    assert_eq!(
+        decode_program_observation(program_key, &observation, 3)?,
+        ready
+    );
+    assert_eq!(
+        local.pending(),
+        vec![program_key],
+        "quorum alone does not retire the answer"
+    );
+    Ok(())
+}
+
+fn assert_retired(
+    directory: &std::path::Path,
+    program_key: ([u8; 32], u64),
+    set: &AttestorSet,
+    local_answer: Answer,
+) -> Checked {
+    let local = exchange(directory, &[], 1)?;
     assert!(local.pending().is_empty());
     assert!(local.answer(program_key).is_none());
-    assert!(local.ready(program_key, &set).is_none());
+    assert!(local.ready(program_key, set).is_none());
     assert_eq!(local.handle(program_key).status, 404);
     assert!(
         local.record(local_answer).is_err(),
@@ -479,4 +537,26 @@ fn readme_peer_recovery_preserves_pre_quorum_bytes_and_retirement_tombstones() -
         3
     );
     Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

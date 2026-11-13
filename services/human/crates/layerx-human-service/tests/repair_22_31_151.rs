@@ -1,7 +1,7 @@
-//! Task 22.31.151, finding native-onboarding-refused: native_onboarding_identity_producer_transport_and_restart
+//! Task 22.31.151, finding native-onboarding-refused: `native_onboarding_identity_producer_transport_and_restart`
 //! proves the chain identity producer, signed-call binding and durable restart interface.
 //! Baseline verification was not run: the gate order requires implementation first.
-//! Wiring request (domain 10): services/human/crates/layerx-human-service/src/server/{agent_creation_native.rs,production_components.rs} must drive prepare_native_identity -> retain_native_identity_submission -> chain submission/receipt -> accept_native_identity before resume_native; HTTP creation-to-receipt and restart qualification remains outstanding.
+//! Wiring request (domain 10): services/human/crates/layerx-human-service/src/server/{agent_creation_native.rs,production_components.rs} must drive `prepare_native_identity` -> `retain_native_identity_submission` -> chain submission/receipt -> `accept_native_identity` before `resume_native`; HTTP creation-to-receipt and restart qualification remains outstanding.
 
 use std::fmt::Debug;
 use std::fs;
@@ -108,8 +108,8 @@ fn catalog() -> PurposePresetCatalog {
                 "session_scopes": ["prepare", "submit"],
                 "session_lifetime_seconds": 5000,
                 "budget_asset": ASSET,
-                "budget_period_seconds": 2592000,
-                "budget_expiry_seconds": 31536000,
+                "budget_period_seconds": 2_592_000,
+                "budget_expiry_seconds": 31_536_000,
                 "initial_funding": 250
             }]
         })),
@@ -159,7 +159,7 @@ fn signed_identity(request: &NativeIdentityCreationRequest, nonce: u64) -> Vec<u
             max_fee_per_gas: None,
             declared_payload_limit: 4096,
         },
-        100000,
+        100_000,
     ));
     checked(prepared.call.sign(&[0x68; 32]))
 }
@@ -225,7 +225,7 @@ fn native_onboarding_identity_producer_transport_and_restart() {
     let mut store = fixture.store();
     let custody = fixture.custody();
     let mut scope = checked(store.principal(&principal("alice")));
-    let mut recovered = checked(CreationJourney::load(&scope, id)).expect("durable creation");
+    let mut recovered = checked(CreationJourney::load(&scope, id)).or_fail("durable creation");
     assert_eq!(recovered.status(), status);
     assert_eq!(
         checked(recovered.prepare_native_identity(&mut scope, &custody, &registry, 1003)),
@@ -278,7 +278,7 @@ fn native_onboarding_identity_refuses_cross_journey_network_and_payload() {
                         primary_key: layerx_types::intent::PublicKey::new([0x51; 32]),
                     }
                     .compile(&registry),
-                )
+                );
             }
         }
         let signed = if mutation == 1 {
@@ -327,7 +327,7 @@ fn native_onboarding_identity_cannot_complete_without_its_committed_receipt() {
     )
     .to_vec();
     let decoded = checked(layerx_wire::receipt::decode(&receipt));
-    let protocol = decoded.protocol().expect("native receipt");
+    let protocol = decoded.protocol().or_fail("native receipt");
     let mut evidence = ProtocolEvidence {
         signed_activity: signed.clone(),
         actor: disclosure.actor,
@@ -340,7 +340,7 @@ fn native_onboarding_identity_cannot_complete_without_its_committed_receipt() {
         block_height: u64::from_be_bytes(
             protocol.batch_id()[24..]
                 .try_into()
-                .expect("receipt height"),
+                .or_fail("receipt height"),
         ),
         receipt_bytes: receipt,
         rung: Rung::Receipted,
@@ -362,7 +362,7 @@ fn native_onboarding_identity_cannot_complete_without_its_committed_receipt() {
     assert_eq!(journey.status(), before);
     assert_eq!(
         checked(CreationJourney::load(&scope, journey.agent_id()))
-            .expect("durable journey")
+            .or_fail("durable journey")
             .status(),
         before
     );
@@ -388,11 +388,11 @@ fn native_onboarding_historical_records_remain_readable_and_are_not_upgraded() {
         .keys(Table::Journeys)
         .into_iter()
         .find(|key| key.as_str().starts_with("agent-create-"))
-        .expect("creation row");
+        .or_fail("creation row");
     let mut historical: serde_json::Value = checked(serde_json::from_slice(
         scope
             .get(Table::Journeys, &key)
-            .expect("creation row")
+            .or_fail("creation row")
             .bytes(),
     ));
     // Version 2 has the same durable fields and stage/action identifiers.
@@ -401,7 +401,7 @@ fn native_onboarding_historical_records_remain_readable_and_are_not_upgraded() {
     let bytes = checked(serde_json::to_vec(&historical));
     checked(scope.put(Table::Journeys, key.clone(), 1002, bytes.clone()));
     let status = checked(CreationJourney::load(&scope, id))
-        .expect("historical native journey")
+        .or_fail("historical native journey")
         .status();
     drop(scope);
     drop(store);
@@ -427,9 +427,15 @@ fn native_onboarding_historical_records_remain_readable_and_are_not_upgraded() {
     assert_eq!(
         scope
             .get(Table::Journeys, &key)
-            .expect("historical row")
+            .or_fail("historical row")
             .bytes(),
         bytes
     );
     assert_eq!(checked(CreationJourney::list(&scope)), vec![recovered]);
+}
+
+use crate::require_value::RequireValue as _;
+
+pub mod require_value {
+    include!("support/require_value.rs");
 }

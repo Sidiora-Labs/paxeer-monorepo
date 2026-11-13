@@ -17,29 +17,31 @@ mod px_reads {
         let fixture: Value = serde_json::from_str(include_str!(
             "../../../../services/platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json"
         ))
-        .expect("committed ABI vectors");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "committed ABI vectors"));
         let case = |name: &str| {
             fixture["cases"]
                 .as_array()
-                .expect("cases")
+                .unwrap_or_else(|| panic!("{}", "cases"))
                 .iter()
                 .find(|row| row["name"] == name)
-                .expect("ABI case")
+                .unwrap_or_else(|| panic!("{}", "ABI case"))
         };
-        let bytes =
-            |text: &str| crate::encoding::hex_decode("ABI fixture", text).expect("ABI bytes");
+        let bytes = |text: &str| {
+            crate::encoding::hex_decode("ABI fixture", text)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "ABI bytes"))
+        };
         let unified = producer::evm::decode_unified_account(&bytes(
             case("addr.getUnifiedAccount")["result"]
                 .as_str()
-                .expect("unified result"),
+                .unwrap_or_else(|| panic!("{}", "unified result")),
         ))
-        .expect("real addr codec");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "real addr codec"));
         let coins = producer::evm::decode_coins(&bytes(
             case("bank.all_balances")["result"]
                 .as_str()
-                .expect("bank result"),
+                .unwrap_or_else(|| panic!("{}", "bank result")),
         ))
-        .expect("real bank codec");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "real bank codec"));
         let rows = coins.into_iter().map(|(denom, amount)| json!({"denom":denom,"amount":producer::evm::uint256_decimal(&amount)})).collect();
         let document = producer::balances(
             producer::account_document(
@@ -90,13 +92,15 @@ mod px_reads {
         }
         abi.extend(word(0));
         let mut row = json!({"asset_id":producer::hex(&asset),"kind":"ledger","denom":format!("layerx/{}",producer::hex(&asset))});
-        row.as_object_mut().expect("row").extend(
-            producer::ledger_asset_metadata(&abi, asset)
-                .expect("real ledger metadata codec")
-                .as_object()
-                .expect("metadata")
-                .clone(),
-        );
+        row.as_object_mut()
+            .unwrap_or_else(|| panic!("{}", "row"))
+            .extend(
+                producer::ledger_asset_metadata(&abi, asset)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "real ledger metadata codec"))
+                    .as_object()
+                    .unwrap_or_else(|| panic!("{}", "metadata"))
+                    .clone(),
+            );
         row
     }
 
@@ -109,9 +113,18 @@ mod px_reads {
     }
 
     fn capture_at(path: &'static str) -> (String, std::thread::JoinHandle<Value>) {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("wire capture listener");
-        let endpoint = format!("http://{}{}", listener.local_addr().expect("address"), path);
-        listener.set_nonblocking(true).expect("nonblocking capture");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "wire capture listener"));
+        let endpoint = format!(
+            "http://{}{}",
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "address")),
+            path
+        );
+        listener
+            .set_nonblocking(true)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "nonblocking capture"));
         let worker = std::thread::spawn(move || {
             let deadline = Instant::now() + Duration::from_secs(10);
             let stream = loop {
@@ -126,44 +139,64 @@ mod px_reads {
             };
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
-                .expect("read timeout");
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "read timeout"));
             let mut reader = std::io::BufReader::new(stream);
             let mut line = String::new();
-            reader.read_line(&mut line).expect("request line");
+            reader
+                .read_line(&mut line)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "request line"));
             assert_eq!(line, format!("POST {path} HTTP/1.1\r\n"));
             let mut length = None;
             loop {
                 line.clear();
-                assert_ne!(reader.read_line(&mut line).expect("header"), 0);
+                assert_ne!(
+                    reader
+                        .read_line(&mut line)
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "header")),
+                    0
+                );
                 if line == "\r\n" {
                     break;
                 }
                 if let Some((name, value)) = line.split_once(':') {
                     if name.eq_ignore_ascii_case("content-length") {
-                        length = Some(value.trim().parse::<usize>().expect("content length"));
+                        length = Some(
+                            value
+                                .trim()
+                                .parse::<usize>()
+                                .unwrap_or_else(|error| panic!("{}: {error:?}", "content length")),
+                        );
                     }
                 }
             }
-            let length = length.expect("content-length header");
+            let length = length.unwrap_or_else(|| panic!("{}", "content-length header"));
             assert!(length <= 1_048_576);
             let mut body = vec![0; length];
-            reader.read_exact(&mut body).expect("request body");
-            let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
+            reader
+                .read_exact(&mut body)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "request body"));
+            let request: Value = serde_json::from_slice(&body)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON-RPC request"));
             assert_eq!(request["jsonrpc"], "2.0");
             assert!(!request["method"]
                 .as_str()
-                .expect("method")
+                .unwrap_or_else(|| panic!("{}", "method"))
                 .starts_with("lx_"));
             if path == "/" {
                 // Root receipt transport is asserted independently of hosted service reads.
                 return request;
             }
-            let result = match request["method"].as_str().expect("method") {
+            let result = match request["method"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "method"))
+            {
                 "px_getBalances" => balance_document(),
                 "px_listAssets" => {
                     let (cursor, limit) =
                         layerx_platform_cli::wallet_gateway::page_params(Some(&request["params"]))
-                            .expect("published page parameters");
+                            .unwrap_or_else(|error| {
+                                panic!("{}: {error:?}", "published page parameters")
+                            });
                     layerx_platform_cli::wallet_gateway::assets_page(
                         vec![asset_row()],
                         94,
@@ -171,13 +204,13 @@ mod px_reads {
                         limit,
                         None,
                     )
-                    .expect("real gateway page producer")
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "real gateway page producer"))
                 }
                 "pax_sequencerReceipt" => receipt(),
                 method => panic!("unexpected read method {method}"),
             };
             let response = json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
-            write!(reader.get_mut(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).expect("producer response transport");
+            write!(reader.get_mut(), "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", response.len(), response).unwrap_or_else(|error| panic!("{}: {error:?}", "producer response transport"));
             request
         });
         (endpoint, worker)
@@ -194,7 +227,7 @@ mod px_reads {
                 "wallet px read transport contract",
             )
             .output()
-            .expect("CLI process")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "CLI process"))
     }
 
     pub fn configure(directory: &Path, endpoint: &str) {
@@ -207,14 +240,14 @@ mod px_reads {
             })
             .to_string(),
         )
-        .expect("isolated configuration");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "isolated configuration"));
     }
 
     pub fn receipt() -> Value {
         let corpus: Value = serde_json::from_str(include_str!(
             "../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
         ))
-        .expect("recorded node conformance receipts");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "recorded node conformance receipts"));
         corpus["cases"][0]["receiptJson"].clone()
     }
 
@@ -225,7 +258,7 @@ mod px_reads {
                 "recorded signer",
                 "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
             )
-            .expect("signer"),
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "signer")),
             1000,
             1000,
         )
@@ -234,7 +267,8 @@ mod px_reads {
 
 #[test]
 fn wallet_balance_reads_px_get_balances() {
-    let directory = tempfile::tempdir().expect("configuration directory");
+    let directory = tempfile::tempdir()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "configuration directory"));
     for explicit_rpc in [true, false] {
         for asset in [None, Some("22".repeat(32))] {
             let (endpoint, captured) = px_reads::hosted();
@@ -254,9 +288,12 @@ fn wallet_balance_reads_px_get_balances() {
                 "{}",
                 String::from_utf8_lossy(&output.stderr)
             );
-            let printed: Value = serde_json::from_slice(&output.stdout).expect("CLI public output");
+            let printed: Value = serde_json::from_slice(&output.stdout)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "CLI public output"));
             assert_eq!(printed["ok"], true);
-            let request = captured.join().expect("wire capture");
+            let request = captured
+                .join()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "wire capture"));
             assert_eq!(request["method"], "px_getBalances");
             assert_eq!(request["params"], json!([px_reads::DID]));
             assert_eq!(printed["kind"], "wallet.balance");
@@ -272,11 +309,17 @@ fn wallet_balance_reads_px_get_balances() {
         }
     }
 
-    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("unused node listener");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "unused node listener"));
     listener
         .set_nonblocking(true)
-        .expect("nonblocking listener");
-    let endpoint = format!("http://{}/", listener.local_addr().expect("node address"));
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "nonblocking listener"));
+    let endpoint = format!(
+        "http://{}/",
+        listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "node address"))
+    );
     px_reads::configure(directory.path(), &endpoint);
     let output = px_reads::cli(
         directory.path(),
@@ -291,7 +334,8 @@ fn wallet_balance_reads_px_get_balances() {
     );
     assert!(!output.status.success());
     assert!(output.stdout.is_empty());
-    let printed: Value = serde_json::from_slice(&output.stderr).expect("CLI public refusal");
+    let printed: Value = serde_json::from_slice(&output.stderr)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "CLI public refusal"));
     assert_eq!(printed["ok"], false);
     assert_eq!(printed["error"]["code"], "gateway_rpc_required");
     assert_eq!(
@@ -306,7 +350,8 @@ fn wallet_balance_reads_px_get_balances() {
 
 #[test]
 fn token_list_reads_px_list_assets() {
-    let directory = tempfile::tempdir().expect("configuration directory");
+    let directory = tempfile::tempdir()
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "configuration directory"));
     let cursor = "16".to_owned();
     let asset = "22".repeat(32);
     for (args, params) in [
@@ -332,9 +377,12 @@ fn token_list_reads_px_list_assets() {
                 "{}",
                 String::from_utf8_lossy(&output.stderr)
             );
-            let printed: Value = serde_json::from_slice(&output.stdout).expect("CLI public output");
+            let printed: Value = serde_json::from_slice(&output.stdout)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "CLI public output"));
             assert_eq!(printed["ok"], true);
-            let request = captured.join().expect("wire capture");
+            let request = captured
+                .join()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "wire capture"));
             assert_eq!(request["method"], "px_listAssets");
             assert_eq!(request["params"], params);
             assert_eq!(printed["kind"], "token.read");
@@ -420,18 +468,29 @@ fn wallet_receipt_reads_sequencer_receipt_by_tx_hash() -> Result<(), String> {
         .as_str()
         .ok_or("receipt message")?
         .contains("rung receipted"));
-    assert!(wallet::verified_receipted_status(&receipt, [0x44; 32], 0, &policy).is_err());
-    assert!(wallet::verified_receipted_status(&receipt, hash, 1, &policy).is_err());
+    assert_receipt_refusals(&receipt, hash, &policy, directory.path(), &policy_path)?;
+    Ok(())
+}
+
+fn assert_receipt_refusals(
+    receipt: &Value,
+    hash: [u8; 32],
+    policy: &layerx_proof::inclusion::SequencerAuthorization,
+    directory: &std::path::Path,
+    policy_path: &std::path::Path,
+) -> Result<(), String> {
+    assert!(wallet::verified_receipted_status(receipt, [0x44; 32], 0, policy).is_err());
+    assert!(wallet::verified_receipted_status(receipt, hash, 1, policy).is_err());
     let unpinned =
         layerx_proof::inclusion::SequencerAuthorization::new([0x6b; 32], [0x42; 32], 1000, 1000);
-    assert!(wallet::verified_receipted_status(&receipt, hash, 0, &unpinned).is_err());
+    assert!(wallet::verified_receipted_status(receipt, hash, 0, &unpinned).is_err());
     let expired = layerx_proof::inclusion::SequencerAuthorization::new(
         [0x6b; 32],
         policy.public_key(),
         999,
         999,
     );
-    assert!(wallet::verified_receipted_status(&receipt, hash, 0, &expired).is_err());
+    assert!(wallet::verified_receipted_status(receipt, hash, 0, &expired).is_err());
     for field in [
         "nonce",
         "height",
@@ -440,10 +499,10 @@ fn wallet_receipt_reads_sequencer_receipt_by_tx_hash() -> Result<(), String> {
         "returnData",
         "signingKey",
     ] {
-        let mut altered = receipt.clone();
+        let mut altered = (*receipt).clone();
         altered[field] = json!(if field == "status" { "0x0" } else { "0x1" });
         assert!(
-            wallet::verified_receipted_status(&altered, hash, 0, &policy).is_err(),
+            wallet::verified_receipted_status(&altered, hash, 0, policy).is_err(),
             "accepted altered {field}"
         );
     }
@@ -453,7 +512,7 @@ fn wallet_receipt_reads_sequencer_receipt_by_tx_hash() -> Result<(), String> {
         format!("0x{}", "gg".repeat(32)),
     ] {
         let output = px_reads::cli(
-            directory.path(),
+            directory,
             &[
                 "--rpc",
                 "http://127.0.0.1:1",

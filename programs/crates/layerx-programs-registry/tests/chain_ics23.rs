@@ -1,6 +1,11 @@
+#[path = "support/assertions.rs"]
+mod assertions;
+use assertions::TestResultExt;
+
 use layerx_programs::chain_proof::{proto, ChainProofError};
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/ics23.rs"]
 mod ics23;
 
@@ -21,17 +26,19 @@ fn hex(text: &str) -> Vec<u8> {
     assert_eq!(text.len() % 2, 0);
     (0..text.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).expect("hex byte"))
+        .map(|i| u8::from_str_radix(&text[i..i + 2], 16).or_panic("hex byte"))
         .collect()
 }
 
 fn varint(mut value: usize) -> Vec<u8> {
     let mut result = Vec::new();
     while value >= 128 {
-        result.push((value as u8 & 127) | 128);
+        result.push(
+            (u8::try_from((value) & 127).unwrap_or_else(|error| panic!("{error:?}")) & 127) | 128,
+        );
         value >>= 7;
     }
-    result.push(value as u8);
+    result.push(u8::try_from(value).unwrap_or_else(|error| panic!("{error:?}")));
     result
 }
 
@@ -181,84 +188,7 @@ fn chain_ics23_existence_verifies_iavl_leaf() -> Result<(), ChainProofError> {
     Ok(())
 }
 
-#[test]
-fn chain_ics23_existence_refuses_spec_violations() -> Result<(), ChainProofError> {
-    let spec = ProofSpec::iavl();
-    let proof = decode_existence(&hex(GO_VECTORS[0].3))?;
-    let root = hex(GO_VECTORS[0].2);
-    assert_eq!(
-        verify_existence(&proof, &spec, &root, &proof.key, b"changed value"),
-        Err(ChainProofError::Mismatch)
-    );
-    assert_eq!(
-        verify_existence(&proof, &spec, &root, b"changed key", &proof.value),
-        Err(ChainProofError::Mismatch)
-    );
-    let mut changed = proof.clone();
-    changed.value[0] ^= 1;
-    assert_eq!(
-        verify_existence(&changed, &spec, &root, &changed.key, &changed.value),
-        Err(ChainProofError::Mismatch)
-    );
-    let mut changed_root = root.clone();
-    changed_root[0] ^= 1;
-    assert_eq!(
-        verify_existence(&proof, &spec, &changed_root, &proof.key, &proof.value),
-        Err(ChainProofError::Mismatch)
-    );
-    assert_eq!(
-        verify_existence(&proof, &spec, &root[..31], &proof.key, &proof.value),
-        Err(ChainProofError::Mismatch)
-    );
-
-    for violation in 0..18 {
-        let mut bad = proof.clone();
-        match violation {
-            0 => bad.leaf.prehash_value = NO_HASH,
-            1 => bad.path[0]
-                .prefix
-                .truncate(spec.inner_spec.min_prefix_length - 1),
-            2 => bad.leaf.hash = NO_HASH,
-            3 => bad.leaf.prehash_key = SHA256,
-            4 => bad.leaf.length = 0,
-            5 => bad.leaf.prefix[0] = 2,
-            6 => bad.path[0].hash = 2,
-            7 => bad.path[0].prefix = vec![2; spec.inner_spec.max_prefix_length + 1],
-            8 => bad.path[0].suffix.pop().map(|_| ()).unwrap(),
-            9 => bad.path[0].suffix.extend_from_slice(&[32; 33]),
-            10 => bad.path[0].prefix[0] = 0,
-            11 => bad.path[0].suffix[0] = 31,
-            12 => bad.leaf.prefix.push(0),
-            13 => bad.leaf.prefix[1] = 1,
-            14 => bad.path[0].prefix[0] = 1,
-            15 => bad.key.clear(),
-            16 => bad.value.clear(),
-            17 => bad.path = vec![bad.path[0].clone(); 129],
-            _ => unreachable!(),
-        }
-        // A matching hash must never rescue an operation that violates the spec.
-        assert_eq!(
-            verify_existence(&bad, &spec, &reference_root(&bad), &bad.key, &bad.value),
-            Err(ChainProofError::Mismatch),
-            "violation {violation}"
-        );
-    }
-    for violation in 0..5 {
-        let mut bad = spec.clone();
-        match violation {
-            0 => bad.min_depth = proof.path.len() + 1,
-            1 => bad.max_depth = proof.path.len() - 1,
-            2 => bad.inner_spec.child_size = 0,
-            3 => bad.inner_spec.child_order.reverse(),
-            4 => bad.inner_spec.min_prefix_length = bad.inner_spec.max_prefix_length + 1,
-            _ => unreachable!(),
-        }
-        assert_eq!(
-            verify_existence(&proof, &bad, &root, &proof.key, &proof.value),
-            Err(ChainProofError::Mismatch)
-        );
-    }
-
+fn verify_malformed_ics23_encoding(proof: &ExistenceProof) {
     for (encoded, error) in [
         (vec![], ChainProofError::NonCanonical),
         (vec![0x0a, 0x80], ChainProofError::Truncated),
@@ -309,5 +239,89 @@ fn chain_ics23_existence_refuses_spec_violations() -> Result<(), ChainProofError
         decode_existence(&vec![0; (1 << 20) + 1]),
         Err(ChainProofError::NonCanonical)
     );
+}
+
+#[test]
+fn chain_ics23_existence_refuses_spec_violations() -> Result<(), ChainProofError> {
+    let spec = ProofSpec::iavl();
+    let proof = decode_existence(&hex(GO_VECTORS[0].3))?;
+    let root = hex(GO_VECTORS[0].2);
+    assert_eq!(
+        verify_existence(&proof, &spec, &root, &proof.key, b"changed value"),
+        Err(ChainProofError::Mismatch)
+    );
+    assert_eq!(
+        verify_existence(&proof, &spec, &root, b"changed key", &proof.value),
+        Err(ChainProofError::Mismatch)
+    );
+    let mut changed = proof.clone();
+    changed.value[0] ^= 1;
+    assert_eq!(
+        verify_existence(&changed, &spec, &root, &changed.key, &changed.value),
+        Err(ChainProofError::Mismatch)
+    );
+    let mut changed_root = root.clone();
+    changed_root[0] ^= 1;
+    assert_eq!(
+        verify_existence(&proof, &spec, &changed_root, &proof.key, &proof.value),
+        Err(ChainProofError::Mismatch)
+    );
+    assert_eq!(
+        verify_existence(&proof, &spec, &root[..31], &proof.key, &proof.value),
+        Err(ChainProofError::Mismatch)
+    );
+
+    for violation in 0..18 {
+        let mut bad = proof.clone();
+        match violation {
+            0 => bad.leaf.prehash_value = NO_HASH,
+            1 => bad.path[0]
+                .prefix
+                .truncate(spec.inner_spec.min_prefix_length - 1),
+            2 => bad.leaf.hash = NO_HASH,
+            3 => bad.leaf.prehash_key = SHA256,
+            4 => bad.leaf.length = 0,
+            5 => bad.leaf.prefix[0] = 2,
+            6 => bad.path[0].hash = 2,
+            7 => bad.path[0].prefix = vec![2; spec.inner_spec.max_prefix_length + 1],
+            8 => bad.path[0]
+                .suffix
+                .pop()
+                .map_or_else(|| panic!("expected value"), |_| ()),
+            9 => bad.path[0].suffix.extend_from_slice(&[32; 33]),
+            10 => bad.path[0].prefix[0] = 0,
+            11 => bad.path[0].suffix[0] = 31,
+            12 => bad.leaf.prefix.push(0),
+            13 => bad.leaf.prefix[1] = 1,
+            14 => bad.path[0].prefix[0] = 1,
+            15 => bad.key.clear(),
+            16 => bad.value.clear(),
+            17 => bad.path = vec![bad.path[0].clone(); 129],
+            _ => unreachable!(),
+        }
+        // A matching hash must never rescue an operation that violates the spec.
+        assert_eq!(
+            verify_existence(&bad, &spec, &reference_root(&bad), &bad.key, &bad.value),
+            Err(ChainProofError::Mismatch),
+            "violation {violation}"
+        );
+    }
+    for violation in 0..5 {
+        let mut bad = spec.clone();
+        match violation {
+            0 => bad.min_depth = proof.path.len() + 1,
+            1 => bad.max_depth = proof.path.len() - 1,
+            2 => bad.inner_spec.child_size = 0,
+            3 => bad.inner_spec.child_order.reverse(),
+            4 => bad.inner_spec.min_prefix_length = bad.inner_spec.max_prefix_length + 1,
+            _ => unreachable!(),
+        }
+        assert_eq!(
+            verify_existence(&proof, &bad, &root, &proof.key, &proof.value),
+            Err(ChainProofError::Mismatch)
+        );
+    }
+
+    verify_malformed_ics23_encoding(&proof);
     Ok(())
 }

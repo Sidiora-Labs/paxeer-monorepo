@@ -1,11 +1,16 @@
 //! Deployment transaction, execution-result and predecessor authentication.
 
-use super::*;
+use super::{
+    bundle_helpers, chain_error, decode_program_record_value, put_chain_field, put_chain_ops,
+    put_chain_option, take_array, take_bytes, take_chain_ops, take_chain_option, ChainHeader,
+    ChainProofVerifier, CommitmentProof, ProgramStateProof, ProofOp, ProtocolEvidenceError,
+    SimpleProof, UpgradePolicy, VerifiedHeader, MAX_EVIDENCE_BYTES, PROGRAM_KEY_PREFIX,
+};
 use crate::chain_proof::{
     proto::{ProtoReader, ProtoValue},
     results::TxResult,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 const DOMAIN: &[u8] = b"LXTX\x03";
 const EVM_MESSAGE: &[u8] = b"/paxprotocol.paxchain.evm.MsgEVMTransaction";
@@ -27,6 +32,10 @@ pub struct DeploymentExecutionProof {
 }
 
 impl DeploymentExecutionProof {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the deployment input cannot be validated or encoded.
     pub fn canonical_encoding(&self) -> Result<Vec<u8>, ProtocolEvidenceError> {
         let mut bytes = DOMAIN.to_vec();
         put_chain_field(&mut bytes, &self.transaction)?;
@@ -42,7 +51,7 @@ impl DeploymentExecutionProof {
         bytes.extend_from_slice(&proof.total.to_be_bytes());
         bytes.extend_from_slice(&proof.index.to_be_bytes());
         bytes.extend_from_slice(&proof.leaf_hash);
-        bytes.push(proof.aunts.len() as u8);
+        bytes.push(u8::try_from(proof.aunts.len()).map_err(|_| ProtocolEvidenceError::Encoding)?);
         for aunt in &proof.aunts {
             bytes.extend_from_slice(aunt);
         }
@@ -51,7 +60,7 @@ impl DeploymentExecutionProof {
             &mut bytes,
             self.migration
                 .as_ref()
-                .map(|evidence| evidence.canonical_bytes()),
+                .map(crate::MigrationExecutionEvidence::canonical_bytes),
         )?;
         put_chain_ops(&mut bytes, &self.migration_ops)?;
         put_chain_ops(&mut bytes, &self.migration_previous_ops)?;
@@ -61,6 +70,10 @@ impl DeploymentExecutionProof {
         Ok(bytes)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the deployment input cannot be validated or encoded.
     pub fn decode(bytes: &[u8]) -> Result<Self, ProtocolEvidenceError> {
         if bytes.len() > MAX_EVIDENCE_BYTES || !bytes.starts_with(DOMAIN) {
             return Err(ProtocolEvidenceError::Encoding);
@@ -200,7 +213,7 @@ impl DeploymentExecutionProof {
             || call.interface
                 != deployment
                     .interface()
-                    .map(|value| value.canonical_encoding())
+                    .map(crate::ProgramInterface::canonical_encoding)
             || call.old_hash != old_hash
         {
             return Err(ProtocolEvidenceError::DeploymentMismatch);
@@ -223,6 +236,17 @@ impl DeploymentExecutionProof {
         if call.has_migration != self.migration.is_some() {
             return Err(ProtocolEvidenceError::Receipt);
         }
+        self.verify_migration(deployment, old_hash, next, &previous)?;
+        Ok((identity, old_hash))
+    }
+
+    fn verify_migration(
+        &self,
+        deployment: &crate::chain_evidence::deployment::VerifiedDeploymentEvidence,
+        old_hash: Option<[u8; 32]>,
+        next: &VerifiedHeader,
+        previous: &VerifiedHeader,
+    ) -> Result<(), ProtocolEvidenceError> {
         if let Some(migration) = &self.migration {
             if migration.abi_version() != deployment.abi_version() {
                 return Err(ProtocolEvidenceError::Receipt);
@@ -251,7 +275,7 @@ impl DeploymentExecutionProof {
             )
             .map_err(chain_error)?;
             crate::verify_absent(
-                &previous,
+                previous,
                 crate::chain_evidence::HOST_STORE_NAME,
                 &key,
                 &self.migration_previous_ops,
@@ -260,7 +284,7 @@ impl DeploymentExecutionProof {
         } else if !self.migration_ops.is_empty() || !self.migration_previous_ops.is_empty() {
             return Err(ProtocolEvidenceError::Encoding);
         }
-        Ok((identity, old_hash))
+        Ok(())
     }
 }
 
@@ -311,10 +335,10 @@ fn successful_evm_result(bytes: &[u8]) -> Result<(), ProtocolEvidenceError> {
         return Err(ProtocolEvidenceError::Receipt);
     }
     let mut response = ProtoReader::new(byte_field(&message, 2)?);
-    let mut seen = BTreeMap::new();
+    let mut seen = BTreeSet::new();
     while let Some(field) = response.next_field().map_err(chain_error)? {
         if !(1..=5).contains(&field.number)
-            || (field.number != 5 && seen.insert(field.number, ()).is_some())
+            || (field.number != 5 && !seen.insert(field.number))
             || (field.number == 2
                 && !matches!(field.value, ProtoValue::Bytes(bytes) if bytes.is_empty()))
         {
@@ -446,7 +470,7 @@ fn abi_call(input: &[u8]) -> Result<DeploymentCall<'_>, ProtocolEvidenceError> {
             let hook = dynamic(bytes, 5, &mut cursor)?;
             let interface = dynamic(bytes, 6, &mut cursor)?;
             let code = dynamic(bytes, 7, &mut cursor)?;
-            if (flag & 1 != 0) != !hook.is_empty() || word(bytes, 8)?[..16] != [0; 16] {
+            if (flag & 1 != 0) == hook.is_empty() || word(bytes, 8)?[..16] != [0; 16] {
                 return Err(ProtocolEvidenceError::Encoding);
             }
             (

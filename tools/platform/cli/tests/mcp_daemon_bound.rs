@@ -111,12 +111,12 @@ fn enrol_published(
                 root.join("gateway-key"),
                 Some(root.join("ca.pem")),
             )
-            .expect("real publisher readiness inputs"),
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "real publisher readiness inputs")),
         )
     } else {
         surface
     };
-    let publisher = BindingPublisher::new(
+    let binding_publisher_handle = BindingPublisher::new(
         root.join("mcp"),
         root.join("store"),
         root.join("audit"),
@@ -146,11 +146,17 @@ fn enrol_published(
         policy_version: "policy-v1".to_owned(),
         core_sequence: 50,
     };
-    let published = enrolment::enrol(&mut store, &mut sessions, &identity, request, &publisher)
-        .unwrap_or_else(|error| panic!("enrol: {error}"));
+    let published = enrolment::enrol(
+        &mut store,
+        &mut sessions,
+        &identity,
+        request,
+        &binding_publisher_handle,
+    )
+    .unwrap_or_else(|error| panic!("enrol: {error}"));
     assert_eq!(
         fs::metadata(&published.binding)
-            .expect("published binding metadata")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "published binding metadata"))
             .permissions()
             .mode()
             & 0o777,
@@ -161,13 +167,17 @@ fn enrol_published(
 
 fn enrol(root: &Path, endpoint: &str, bearer: &str, readiness: &str) -> PublishedBinding {
     let published = enrol_published(root, endpoint, bearer, Some(readiness));
-    let bytes = fs::read(&published.binding).expect("read enrolled binding");
-    let document: Value = serde_json::from_slice(&bytes).expect("enrolled binding JSON");
+    let bytes = fs::read(&published.binding)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "read enrolled binding"));
+    let document: Value = serde_json::from_slice(&bytes)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "enrolled binding JSON"));
     assert_eq!(document["core_height"], 50);
     assert!(document.get("core_sequence").is_none());
     assert_eq!(document["agent"]["readiness"]["endpoint"], readiness);
-    let mut store = Store::open(root.join("store")).expect("native capability store");
-    let tenant = TenantId::new("tenant-a").expect("native tenant");
+    let mut store = Store::open(root.join("store"))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "native capability store"));
+    let tenant =
+        TenantId::new("tenant-a").unwrap_or_else(|error| panic!("{}: {error:?}", "native tenant"));
     let native = NativeTimedCapabilityV1 {
         record: TimedCapability {
             id: [9; 32],
@@ -191,7 +201,7 @@ fn enrol(root: &Path, endpoint: &str, bearer: &str, readiness: &str) -> Publishe
             .into_iter()
             .map(|ordinal| {
                 ActivityType::new(ModuleId::Asset, ordinal)
-                    .expect("native activity")
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "native activity"))
                     .into()
             })
             .collect(),
@@ -200,10 +210,13 @@ fn enrol(root: &Path, endpoint: &str, bearer: &str, readiness: &str) -> Publishe
     };
     store
         .put_local(
-            timed::native_record_key(&tenant, &[9; 32]).expect("native key"),
-            native.encode().expect("native capability"),
+            timed::native_record_key(&tenant, &[9; 32])
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "native key")),
+            native
+                .encode()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "native capability")),
         )
-        .expect("persist native grant");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "persist native grant"));
     drop(store);
     let binding = layerx_mcp::binding::Binding::open(&published.binding)
         .unwrap_or_else(|error| panic!("current binding: {}", error.detail()));
@@ -320,20 +333,7 @@ fn strings(value: Option<&Value>) -> Vec<String> {
         .collect()
 }
 
-fn assert_installed_catalogue(root: &Path, binding_path: &Path, read_only: bool) {
-    let mut command = layerx(root);
-    command
-        .args(["mcp", "serve", "--daemon-binding"])
-        .arg(binding_path);
-    if read_only {
-        command.arg("--read-only");
-    }
-    let mut server = command
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap_or_else(|error| panic!("installed server should start: {error}"));
+fn send_catalogue_requests(server: &mut std::process::Child, read_only: bool) -> String {
     let program = "cc".repeat(32);
     {
         let mut stdin = server
@@ -355,6 +355,45 @@ fn assert_installed_catalogue(root: &Path, binding_path: &Path, read_only: bool)
             writeln!(stdin, "{request}").unwrap_or_else(|error| panic!("request: {error}"));
         }
     }
+    program
+}
+
+fn assert_catalogue_result(responses: &[Value], program: &str) {
+    assert_eq!(
+        responses[2]
+            .pointer("/result/isError")
+            .and_then(Value::as_bool),
+        Some(false)
+    );
+    assert_eq!(
+        responses[2]
+            .pointer("/result/structuredContent/result/program")
+            .and_then(Value::as_str),
+        Some(program)
+    );
+    assert_eq!(
+        responses[2]
+            .pointer("/result/structuredContent/result/freshness/observed_sequence")
+            .and_then(Value::as_u64),
+        Some(OBSERVED_SEQUENCE)
+    );
+}
+
+fn assert_installed_catalogue(root: &Path, binding_path: &Path, read_only: bool) {
+    let mut command = layerx(root);
+    command
+        .args(["mcp", "serve", "--daemon-binding"])
+        .arg(binding_path);
+    if read_only {
+        command.arg("--read-only");
+    }
+    let mut server = command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|error| panic!("installed server should start: {error}"));
+    let program = send_catalogue_requests(&mut server, read_only);
     let output = server
         .wait_with_output()
         .unwrap_or_else(|error| panic!("server exit: {error}"));
@@ -378,7 +417,7 @@ fn assert_installed_catalogue(root: &Path, binding_path: &Path, read_only: bool)
         assert!(responses[3]
             .pointer("/error/message")
             .and_then(Value::as_str)
-            .expect("read-only refusal")
+            .unwrap_or_else(|| panic!("{}", "read-only refusal"))
             .contains("read-only"));
     }
     assert_eq!(
@@ -405,18 +444,22 @@ fn assert_installed_catalogue(root: &Path, binding_path: &Path, read_only: bool)
                 .count()
         )
     );
-    let served = responses[1]
+    let listed_tools = responses[1]
         .pointer("/result/tools")
         .and_then(Value::as_array)
-        .expect("served tools");
+        .unwrap_or_else(|| panic!("{}", "served tools"));
     let expected = catalogue()
         .iter()
         .filter(|tool| !read_only || tool.kind == ToolKind::Read)
         .map(|tool| tool.name)
         .collect::<BTreeSet<_>>();
-    let names = served
+    let names = listed_tools
         .iter()
-        .map(|tool| tool["name"].as_str().expect("tool name"))
+        .map(|tool| {
+            tool["name"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "tool name"))
+        })
         .collect::<BTreeSet<_>>();
     assert_eq!(names, expected);
     assert_eq!(
@@ -425,46 +468,17 @@ fn assert_installed_catalogue(root: &Path, binding_path: &Path, read_only: bool)
             .and_then(Value::as_bool),
         Some(!read_only)
     );
-    assert_eq!(
-        responses[2]
-            .pointer("/result/isError")
-            .and_then(Value::as_bool),
-        Some(false)
-    );
-    assert_eq!(
-        responses[2]
-            .pointer("/result/structuredContent/result/program")
-            .and_then(Value::as_str),
-        Some(program.as_str())
-    );
-    assert_eq!(
-        responses[2]
-            .pointer("/result/structuredContent/result/freshness/observed_sequence")
-            .and_then(Value::as_u64),
-        Some(OBSERVED_SEQUENCE)
-    );
+    assert_catalogue_result(&responses, &program);
 }
 
-#[test]
-fn a_fresh_install_serves_the_catalogue_through_the_daemon_without_a_gateway_key() {
-    let root = isolated("journey");
-    let bearer = "d".repeat(48);
-    let endpoint = agent_daemon(bearer.clone());
-    daemon_gateway::transport_files(&root);
-    let mut gateway = daemon_gateway::Gateway::start(&root, 0);
-    let readiness = gateway.endpoint();
-    let published = enrol(&root, &endpoint, &bearer, &readiness);
-    let original_binding = fs::read(&published.binding).expect("unchanged publisher bytes");
-    gateway.serve(&root, &published.binding);
-    let binding_path = root.join("mcp").join("binding.json");
-    assert_eq!(published.binding, binding_path);
-
-    let first = success(&install(&root, &["--host", "layerx"]));
-    assert_eq!(first.pointer("/ok").and_then(Value::as_bool), Some(true));
-    assert_eq!(
-        first.pointer("/kind").and_then(Value::as_str),
-        Some("install.mcp")
-    );
+fn assert_full_install(
+    root: &Path,
+    endpoint: &str,
+    bearer: &str,
+    published: &PublishedBinding,
+    binding_path: &Path,
+    first: &Value,
+) {
     let data = first
         .pointer("/data")
         .unwrap_or_else(|| panic!("data absent"));
@@ -488,7 +502,7 @@ fn a_fresh_install_serves_the_catalogue_through_the_daemon_without_a_gateway_key
     assert_eq!(
         data.pointer("/daemon_binding/agent_endpoint")
             .and_then(Value::as_str),
-        Some(endpoint.as_str())
+        Some(endpoint)
     );
     assert_eq!(
         data.pointer("/daemon_binding/session_generation")
@@ -524,12 +538,12 @@ fn a_fresh_install_serves_the_catalogue_through_the_daemon_without_a_gateway_key
         Some(true)
     );
     let rendered = serde_json::to_string(&first).unwrap_or_else(|error| panic!("render: {error}"));
-    assert!(!rendered.contains(&bearer));
+    assert!(!rendered.contains(bearer));
     assert!(!rendered.contains("LAYERX_GATEWAY_KEY_ID"));
 
     let registration = fs::read_to_string(root.join("mcp.json"))
         .unwrap_or_else(|error| panic!("registration file: {error}"));
-    assert!(!registration.contains(&bearer));
+    assert!(!registration.contains(bearer));
     let registered: Value =
         serde_json::from_str(&registration).unwrap_or_else(|error| panic!("mcp.json: {error}"));
     assert_eq!(
@@ -543,7 +557,30 @@ fn a_fresh_install_serves_the_catalogue_through_the_daemon_without_a_gateway_key
             .map(serde_json::Map::len),
         Some(0)
     );
+}
 
+#[test]
+fn a_fresh_install_serves_the_catalogue_through_the_daemon_without_a_gateway_key() {
+    let root = isolated("journey");
+    let bearer = "d".repeat(48);
+    let endpoint = agent_daemon(bearer.clone());
+    daemon_gateway::transport_files(&root);
+    let mut gateway = daemon_gateway::Gateway::start(&root, 0);
+    let readiness = gateway.endpoint();
+    let published = enrol(&root, &endpoint, &bearer, &readiness);
+    let original_binding = fs::read(&published.binding)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "unchanged publisher bytes"));
+    gateway.serve(&root, &published.binding);
+    let binding_path = root.join("mcp").join("binding.json");
+    assert_eq!(published.binding, binding_path);
+
+    let first = success(&install(&root, &["--host", "layerx"]));
+    assert_eq!(first.pointer("/ok").and_then(Value::as_bool), Some(true));
+    assert_eq!(
+        first.pointer("/kind").and_then(Value::as_str),
+        Some("install.mcp")
+    );
+    assert_full_install(&root, &endpoint, &bearer, &published, &binding_path, &first);
     let second = success(&install(&root, &["--host", "layerx"]));
     assert_eq!(
         second.pointer("/data/changed").and_then(Value::as_bool),
@@ -553,22 +590,25 @@ fn a_fresh_install_serves_the_catalogue_through_the_daemon_without_a_gateway_key
     assert_installed_catalogue(&root, &binding_path, false);
     let port = gateway.port();
     drop(gateway);
-    let store = Store::open(root.join("store")).expect("reopen daemon state");
+    let store = Store::open(root.join("store"))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "reopen daemon state"));
     let mut sessions = SessionRegistry::default();
-    let tenant = TenantId::new("tenant-a").expect("tenant");
+    let tenant =
+        TenantId::new("tenant-a").unwrap_or_else(|error| panic!("{}: {error:?}", "tenant"));
     sessions
         .restore_tenant(&store, &tenant)
-        .expect("restore enrolled authority");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "restore enrolled authority"));
     assert_eq!(
         sessions
             .get(&tenant, published.session_id)
-            .expect("enrolled session survived")
+            .unwrap_or_else(|| panic!("{}", "enrolled session survived"))
             .generation,
         published.session_generation
     );
     drop(store);
     assert_eq!(
-        fs::read(&binding_path).expect("reopen same document"),
+        fs::read(&binding_path)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "reopen same document")),
         original_binding
     );
     let mut restarted = daemon_gateway::Gateway::start(&root, port);
@@ -577,7 +617,8 @@ fn a_fresh_install_serves_the_catalogue_through_the_daemon_without_a_gateway_key
     assert_eq!(reopened["data"]["changed"], false);
     assert_installed_catalogue(&root, &binding_path, false);
     assert_eq!(
-        fs::read(&binding_path).expect("served document unchanged"),
+        fs::read(&binding_path)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "served document unchanged")),
         original_binding
     );
     drop(restarted);
@@ -593,7 +634,8 @@ fn an_explicit_binding_path_narrows_the_installed_surface_to_read_only() {
     let mut gateway = daemon_gateway::Gateway::start(&root, 0);
     let readiness = gateway.endpoint();
     let published = enrol(&root, &endpoint, &bearer, &readiness);
-    let original_binding = fs::read(&published.binding).expect("unchanged publisher bytes");
+    let original_binding = fs::read(&published.binding)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "unchanged publisher bytes"));
     gateway.serve(&root, &published.binding);
     let relocated = root.join("elsewhere");
     fs::DirBuilder::new()
@@ -604,7 +646,7 @@ fn an_explicit_binding_path_narrows_the_installed_surface_to_read_only() {
     fs::copy(&published.binding, &binding_path).unwrap_or_else(|error| panic!("copy: {error}"));
     assert_eq!(
         fs::metadata(&binding_path)
-            .expect("relocated binding metadata")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "relocated binding metadata"))
             .permissions()
             .mode()
             & 0o777,
@@ -654,7 +696,10 @@ fn an_explicit_binding_path_narrows_the_installed_surface_to_read_only() {
     );
     assert_installed_catalogue(&root, &binding_path, true);
     assert_eq!(
-        fs::read(&binding_path).expect("relocated publisher document unchanged"),
+        fs::read(&binding_path).unwrap_or_else(|error| panic!(
+            "{}: {error:?}",
+            "relocated publisher document unchanged"
+        )),
         original_binding
     );
     drop(gateway);
@@ -681,19 +726,24 @@ fn installation_refuses_before_any_registration_when_the_daemon_has_not_enrolled
 fn a_retired_core_sequence_binding_is_refused_before_installation_or_serving() {
     let root = isolated("retired-binding");
     let published = enrol_published(&root, "127.0.0.1:1", &"f".repeat(48), None);
-    let mut retired: Value =
-        serde_json::from_slice(&fs::read(&published.binding).expect("published binding"))
-            .expect("binding JSON");
-    let fields = retired.as_object_mut().expect("binding object");
+    let mut retired: Value = serde_json::from_slice(
+        &fs::read(&published.binding)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "published binding")),
+    )
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "binding JSON"));
+    let fields = retired
+        .as_object_mut()
+        .unwrap_or_else(|| panic!("{}", "binding object"));
     let height = fields
         .remove("core_height")
-        .expect("current publisher height");
+        .unwrap_or_else(|| panic!("{}", "current publisher height"));
     fields.insert("core_sequence".into(), height);
     fs::write(
         &published.binding,
-        serde_json::to_vec(&retired).expect("explicit retired fixture"),
+        serde_json::to_vec(&retired)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "explicit retired fixture")),
     )
-    .expect("write negative fixture");
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "write negative fixture"));
     let output = install(&root, &["--host", "layerx"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -707,7 +757,7 @@ fn a_retired_core_sequence_binding_is_refused_before_installation_or_serving() {
         .arg(&published.binding)
         .stdin(Stdio::null())
         .output()
-        .expect("start MCP server with retired binding");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "start MCP server with retired binding"));
     assert!(!served.status.success());
     assert!(served.stdout.is_empty());
     let stderr = String::from_utf8_lossy(&served.stderr);
@@ -716,7 +766,8 @@ fn a_retired_core_sequence_binding_is_refused_before_installation_or_serving() {
         "stderr: {stderr}"
     );
     assert!(!root.join("mcp.json").exists());
-    fs::remove_dir_all(root).expect("remove retired binding profile");
+    fs::remove_dir_all(root)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "remove retired binding profile"));
 }
 
 mod daemon_gateway {
@@ -750,7 +801,7 @@ mod daemon_gateway {
     use std::thread::{self, JoinHandle};
     use std::time::Duration;
     const OBSERVED_HEIGHT: u64 = super::OBSERVED_SEQUENCE;
-    const FIXTURE_CA: &str = r#"-----BEGIN CERTIFICATE-----
+    const FIXTURE_CA: &str = r"-----BEGIN CERTIFICATE-----
 MIIBlDCCATugAwIBAgIUNP6tUTUFCd7EGaudA/UkPfUpH+wwCgYIKoZIzj0EAwIw
 HzEdMBsGA1UEAwwURW5yb2xtZW50IGZpeHR1cmUgQ0EwIBcNMjYxMTA0MDIyMDQw
 WhgPMjEyNjEwMTEwMjIwNDBaMB8xHTAbBgNVBAMMFEVucm9sbWVudCBmaXh0dXJl
@@ -761,9 +812,9 @@ gbinSw+v4J+ybGh79t8iI7RhMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwID
 RwAwRAIgCm91etnqdnb0RxhV1K+/JtItK9BAdJdmvd1Py+BlndkCIFq4svi/AO6M
 IeS+x/4AIbH1s/GmTtXt0p2/iYhhuUEz
 -----END CERTIFICATE-----
-"#;
+";
 
-    const FIXTURE_CERT: &str = r#"-----BEGIN CERTIFICATE-----
+    const FIXTURE_CERT: &str = r"-----BEGIN CERTIFICATE-----
 MIIBwzCCAWqgAwIBAgIURbkxTKfYXcMVQXtjHhdSOhWQlhQwCgYIKoZIzj0EAwIw
 HzEdMBsGA1UEAwwURW5yb2xtZW50IGZpeHR1cmUgQ0EwIBcNMjYxMTA0MDIyMDQw
 WhgPMjEyNjEwMTEwMjIwNDBaMBQxEjAQBgNVBAMMCWxvY2FsaG9zdDBZMBMGByqG
@@ -775,30 +826,33 @@ WDAfBgNVHSMEGDAWgBT3v4G4p0sPr+Cfsmxoe/bfIiO0YTAKBggqhkjOPQQDAgNH
 ADBEAiBe+llwgYyUukEYLW+o4d0P/uwaMU+refDoqjxaWEN64gIgY/+qpcjI7i0C
 KD0S/iQJo+IhkcHr0hFRrr3khSj+MU4=
 -----END CERTIFICATE-----
-"#;
+";
 
-    const FIXTURE_KEY: &str = r#"-----BEGIN PRIVATE KEY-----
+    const FIXTURE_KEY: &str = r"-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg9a2umZJLxAShe3Ai
 GrazueSKt9VKHVVG97limBRZ2SuhRANCAAQYmyn55dQD0QFi8yG5NR1q8Mg+LQqu
 Iramz66I4GpdnANGjPRWT5zF3C+cGTZ6RMWU+j/UaVRQrGYcCLXlteje
 -----END PRIVATE KEY-----
-"#;
+";
 
     pub(super) fn transport_files(root: &Path) {
-        fs::write(root.join("ca.pem"), FIXTURE_CA).expect("fixture trust anchor");
+        fs::write(root.join("ca.pem"), FIXTURE_CA)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "fixture trust anchor"));
         let mut secret = [0; 32];
-        getrandom::fill(&mut secret).expect("gateway credential entropy");
-        let secret = secret
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>();
+        getrandom::fill(&mut secret)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "gateway credential entropy"));
+        let secret = secret.iter().fold(String::new(), |mut output, byte| {
+            std::fmt::Write::write_fmt(&mut output, format_args!("{byte:02x}"))
+                .unwrap_or_else(|error| panic!("{error:?}"));
+            output
+        });
         fs::write(
             root.join("gateway-key"),
             format!("cli-daemon:lxp_live_{secret}"),
         )
-        .expect("gateway credential");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "gateway credential"));
         fs::set_permissions(root.join("gateway-key"), fs::Permissions::from_mode(0o600))
-            .expect("protected gateway credential");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "protected gateway credential"));
     }
 
     pub(super) struct Gateway {
@@ -821,16 +875,21 @@ Iramz66I4GpdnANGjPRWT5zF3C+cGTZ6RMWU+j/UaVRQrGYcCLXlteje
                 SocketFlags::CLOEXEC,
                 None,
             )
-            .expect("loopback listener socket");
-            net::sockopt::set_socket_reuseaddr(&socket, true).expect("restartable listener");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "loopback listener socket"));
+            net::sockopt::set_socket_reuseaddr(&socket, true)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "restartable listener"));
             net::bind(
                 &socket,
                 &SocketAddrV4::new(std::net::Ipv4Addr::LOCALHOST, port),
             )
-            .expect("bind declared origin");
-            net::listen(&socket, 16).expect("listen at declared origin");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "bind declared origin"));
+            net::listen(&socket, 16)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "listen at declared origin"));
             let listener = TcpListener::from(socket);
-            let bound = listener.local_addr().expect("bound address").port();
+            let bound = listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "bound address"))
+                .port();
             if port != 0 {
                 assert_eq!(bound, port);
             }
@@ -849,12 +908,15 @@ Iramz66I4GpdnANGjPRWT5zF3C+cGTZ6RMWU+j/UaVRQrGYcCLXlteje
         pub(super) fn serve(&mut self, root: &Path, binding_path: &Path) {
             let binding = Binding::open(binding_path)
                 .unwrap_or_else(|error| panic!("published binding: {}", error.detail()));
-            let listener = self.listener.take().expect("one Rust handler per listener");
+            let listener = self
+                .listener
+                .take()
+                .unwrap_or_else(|| panic!("{}", "one Rust handler per listener"));
             let stop = Arc::clone(&self.stop);
             let expected_authorization = format!(
                 "LayerX-Key {}",
                 fs::read_to_string(root.join("gateway-key"))
-                    .expect("gateway key")
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "gateway key"))
                     .trim()
             );
             let tls = Arc::new(
@@ -862,175 +924,248 @@ Iramz66I4GpdnANGjPRWT5zF3C+cGTZ6RMWU+j/UaVRQrGYcCLXlteje
                     tls::crypto::ring::default_provider(),
                 ))
                 .with_safe_default_protocol_versions()
-                .expect("TLS protocol versions")
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "TLS protocol versions"))
                 .with_no_client_auth()
                 .with_single_cert(
                     CertificateDer::pem_slice_iter(FIXTURE_CERT.as_bytes())
                         .collect::<Result<Vec<_>, _>>()
-                        .expect("fixture certificate"),
-                    PrivateKeyDer::from_pem_slice(FIXTURE_KEY.as_bytes()).expect("fixture key"),
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "fixture certificate")),
+                    PrivateKeyDer::from_pem_slice(FIXTURE_KEY.as_bytes())
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "fixture key")),
                 )
-                .expect("TLS server identity"),
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "TLS server identity")),
             );
-            let store = Store::open(root.join("store")).expect("daemon store");
+            let store = Store::open(root.join("store"))
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "daemon store"));
             let mut sessions = SessionRegistry::default();
             sessions
-                .restore_tenant(&store, &TenantId::new("tenant-a").expect("tenant"))
-                .expect("daemon session recovery");
-            let document: Value =
-                serde_json::from_slice(&fs::read(binding_path).expect("published binding"))
-                    .expect("binding JSON");
+                .restore_tenant(
+                    &store,
+                    &TenantId::new("tenant-a")
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "tenant")),
+                )
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "daemon session recovery"));
+            let document: Value = serde_json::from_slice(
+                &fs::read(binding_path)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "published binding")),
+            )
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "binding JSON"));
             let limit = &document["limit"];
             let budgets = BudgetLimiter::new(vec![layerx_agentd::budget::LimitConfig {
                 id: layerx_agentd::budget::LimitId([0x0a; 16]),
-                name: limit["name"].as_str().expect("limit name").into(),
+                name: limit["name"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("{}", "limit name"))
+                    .into(),
                 scope: layerx_agentd::budget::LimitScope::Tenant([1; 32]),
                 ceiling: 1_000,
                 consumed: 0,
             }])
-            .expect("daemon limits");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "daemon limits"));
             let control = SessionControl::new(
                 Arc::new(Mutex::new(store)),
                 sessions,
                 Arc::new(PreparationLifecycle::default()),
                 Arc::new(budgets),
             );
-            let worker = thread::spawn(move || loop {
-                let (socket, _) = listener.accept().expect("loopback connection");
-                if stop.load(Ordering::Acquire) {
-                    break;
-                }
-                socket
-                    .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("request deadline");
-                socket
-                    .set_write_timeout(Some(Duration::from_secs(5)))
-                    .expect("response deadline");
-                let connection =
-                    tls::ServerConnection::new(Arc::clone(&tls)).expect("TLS connection");
-                let mut reader = BufReader::new(tls::StreamOwned::new(connection, socket));
-                let mut line = String::new();
-                reader.read_line(&mut line).expect("HTTP request line");
-                assert_eq!(line, "POST /v1/agent/rpc HTTP/1.1\r\n");
-                let mut length = None;
-                let mut authorization = None;
-                let mut header_bytes = line.len();
-                loop {
-                    line.clear();
-                    assert!(reader.read_line(&mut line).expect("HTTP header") > 0);
-                    header_bytes += line.len();
-                    assert!(header_bytes <= 32_768);
-                    if line == "\r\n" {
-                        break;
-                    }
-                    let (name, value) = line.split_once(':').expect("header field");
-                    if name.eq_ignore_ascii_case("content-length") {
-                        assert!(length.is_none());
-                        length = Some(value.trim().parse::<usize>().expect("request length"));
-                    } else if name.eq_ignore_ascii_case("authorization") {
-                        assert!(authorization.is_none());
-                        authorization = Some(value.trim().to_owned());
-                    }
-                }
-                let length = length.expect("bounded SDK request");
-                assert!(length > 0 && length <= agent_rpc::MAX_BODY_BYTES);
-                let mut bytes = vec![0; length];
-                reader.read_exact(&mut bytes).expect("SDK request body");
-                let writer = reader.get_mut();
-                if authorization.as_deref() != Some(expected_authorization.as_str()) {
-                    write_response(
-                        writer,
-                        agent_rpc::refusal(
-                            401,
-                            layerx_sdk::programs::AgentErrorClass::PolicyRefusal,
-                            "gateway.authentication",
-                        ),
-                    );
-                    continue;
-                }
-                let invocation = agent_rpc::decode_mcp_invocation(&bytes)
-                    .unwrap_or_else(|_| panic!("SDK envelope must decode"))
-                    .expect("MCP operation");
-                assert!(binding.matches_session(&invocation.credential));
-                let tool = if invocation.tool == "mcp.describe" {
-                    "mcp.describe"
-                } else {
-                    catalogue()
-                        .iter()
-                        .find(|tool| tool.name == invocation.tool)
-                        .expect("catalogued invocation")
-                        .name
-                };
-                let digest = Sha256::new()
-                    .chain_update(b"LXP/mcp/daemon-invocation/v1\0")
-                    .chain_update((tool.len() as u64).to_be_bytes())
-                    .chain_update(tool.as_bytes())
-                    .chain_update(serde_json::to_vec(&invocation.arguments).expect("arguments"))
-                    .finalize()
-                    .into();
-                let identity = McpInvocationIdentity {
-                    tool_name: tool,
-                    idempotency_key: invocation.idempotency_key,
-                    request_digest: digest,
-                };
-                let activities = [1, 5, 6, 7, 10].map(|ordinal| {
-                    ActivityType::new(ModuleId::Asset, ordinal).expect("native activity")
-                });
-                let registry =
-                    ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &activities)
-                        .expect("native module")])
-                    .expect("native registry");
-                let environment = OwnerEnvironment {
-                    registry,
-                    core_time_ms: 120,
-                    head_sequence: OBSERVED_HEIGHT,
-                    native_effect_profile: true,
-                    native_send_profile: true,
-                };
-                let result = binding
-                    .daemon_invocation(
-                        control.clone(),
-                        invocation.credential,
-                        OBSERVED_HEIGHT,
-                        tool,
-                        &invocation.arguments,
-                        identity,
-                        Some(environment),
-                        |_, _, _, _| {
-                            unreachable!(
+            let worker = thread::spawn(move || {
+                gateway_worker(
+                    &listener,
+                    &stop,
+                    &expected_authorization,
+                    &tls,
+                    &binding,
+                    &control,
+                );
+            });
+            self.worker = Some(worker);
+        }
+    }
+
+    fn read_gateway_request(
+        socket: TcpStream,
+        tls: &Arc<tls::ServerConfig>,
+    ) -> (
+        BufReader<tls::StreamOwned<tls::ServerConnection, TcpStream>>,
+        Vec<u8>,
+        Option<String>,
+    ) {
+        socket
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "request deadline"));
+        socket
+            .set_write_timeout(Some(Duration::from_secs(5)))
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "response deadline"));
+        let connection = tls::ServerConnection::new(Arc::clone(tls))
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "TLS connection"));
+        let mut reader = BufReader::new(tls::StreamOwned::new(connection, socket));
+        let mut line = String::new();
+        reader
+            .read_line(&mut line)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "HTTP request line"));
+        assert_eq!(line, "POST /v1/agent/rpc HTTP/1.1\r\n");
+        let mut length = None;
+        let mut authorization = None;
+        let mut header_bytes = line.len();
+        loop {
+            line.clear();
+            assert!(
+                reader
+                    .read_line(&mut line)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "HTTP header"))
+                    > 0
+            );
+            header_bytes += line.len();
+            assert!(header_bytes <= 32_768);
+            if line == "\r\n" {
+                break;
+            }
+            let (name, value) = line
+                .split_once(':')
+                .unwrap_or_else(|| panic!("{}", "header field"));
+            if name.eq_ignore_ascii_case("content-length") {
+                assert!(length.is_none());
+                length = Some(
+                    value
+                        .trim()
+                        .parse::<usize>()
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "request length")),
+                );
+            } else if name.eq_ignore_ascii_case("authorization") {
+                assert!(authorization.is_none());
+                authorization = Some(value.trim().to_owned());
+            }
+        }
+        let length = length.unwrap_or_else(|| panic!("{}", "bounded SDK request"));
+        assert!(length > 0 && length <= agent_rpc::MAX_BODY_BYTES);
+        let mut bytes = vec![0; length];
+        reader
+            .read_exact(&mut bytes)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "SDK request body"));
+        (reader, bytes, authorization)
+    }
+
+    fn owner_environment() -> OwnerEnvironment {
+        let activities = [1, 5, 6, 7, 10].map(|ordinal| {
+            ActivityType::new(ModuleId::Asset, ordinal)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "native activity"))
+        });
+        let registry =
+            ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &activities)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "native module"))])
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "native registry"));
+        OwnerEnvironment {
+            registry,
+            core_time_ms: 120,
+            head_sequence: OBSERVED_HEIGHT,
+            native_effect_profile: true,
+            native_send_profile: true,
+        }
+    }
+
+    fn invocation_digest(tool: &str, arguments: &Value) -> [u8; 32] {
+        Sha256::new()
+            .chain_update(b"LXP/mcp/daemon-invocation/v1\0")
+            .chain_update((tool.len() as u64).to_be_bytes())
+            .chain_update(tool.as_bytes())
+            .chain_update(
+                serde_json::to_vec(arguments)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "arguments")),
+            )
+            .finalize()
+            .into()
+    }
+
+    fn gateway_worker(
+        listener: &TcpListener,
+        stop: &AtomicBool,
+        expected_authorization: &str,
+        tls: &Arc<tls::ServerConfig>,
+        binding: &Binding,
+        control: &SessionControl,
+    ) {
+        loop {
+            let (socket, _) = listener
+                .accept()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "loopback connection"));
+            if stop.load(Ordering::Acquire) {
+                break;
+            }
+            let (mut reader, bytes, authorization) = read_gateway_request(socket, tls);
+            let writer = reader.get_mut();
+            if authorization.as_deref() != Some(expected_authorization) {
+                write_response(
+                    writer,
+                    &agent_rpc::refusal(
+                        401,
+                        layerx_sdk::programs::AgentErrorClass::PolicyRefusal,
+                        "gateway.authentication",
+                    ),
+                );
+                continue;
+            }
+            let invocation = agent_rpc::decode_mcp_invocation(&bytes)
+                .unwrap_or_else(|_| panic!("SDK envelope must decode"))
+                .unwrap_or_else(|| panic!("{}", "MCP operation"));
+            assert!(binding.matches_session(&invocation.credential));
+            let tool = if invocation.tool == "mcp.describe" {
+                "mcp.describe"
+            } else {
+                catalogue()
+                    .iter()
+                    .find(|tool| tool.name == invocation.tool)
+                    .unwrap_or_else(|| panic!("{}", "catalogued invocation"))
+                    .name
+            };
+            let digest = invocation_digest(tool, &invocation.arguments);
+            let identity = McpInvocationIdentity {
+                tool_name: tool,
+                idempotency_key: invocation.idempotency_key,
+                request_digest: digest,
+            };
+            let environment = owner_environment();
+            let result = binding
+                .daemon_invocation(
+                    control.clone(),
+                    invocation.credential,
+                    OBSERVED_HEIGHT,
+                    tool,
+                    &invocation.arguments,
+                    identity,
+                    Some(environment),
+                    |_, _, _, _| {
+                        unreachable!(
                             "catalogue and balance reads must use the daemon's own read boundary"
                         )
-                        },
-                    )
-                    .unwrap_or_else(|error| panic!("real daemon authorization: {error:?}"));
-                result
-                    .release_current(OBSERVED_HEIGHT, |value| {
-                        let value =
-                            value.unwrap_or_else(|error| panic!("real daemon read: {error:?}"));
-                        let response = agent_rpc::mcp_result_response(invocation.request_id, value);
-                        assert_eq!(response.status, 200);
-                        write_response(writer, response);
-                        Ok(())
-                    })
-                    .unwrap_or_else(|error| panic!("daemon durable release: {error:?}"));
-            });
-
-            self.worker = Some(worker);
+                    },
+                )
+                .unwrap_or_else(|error| panic!("real daemon authorization: {error:?}"));
+            result
+                .release_current(OBSERVED_HEIGHT, |value| {
+                    let value = value.unwrap_or_else(|error| panic!("real daemon read: {error:?}"));
+                    let response = agent_rpc::mcp_result_response(invocation.request_id, value);
+                    assert_eq!(response.status, 200);
+                    write_response(writer, &response);
+                    Ok(())
+                })
+                .unwrap_or_else(|error| panic!("daemon durable release: {error:?}"));
         }
     }
 
     fn write_response(
         writer: &mut tls::StreamOwned<tls::ServerConnection, TcpStream>,
-        response: agent_rpc::AgentRpcResponse,
+        response: &agent_rpc::AgentRpcResponse,
     ) {
         let status = response.status;
         let reason = if status == 200 { "OK" } else { "Unauthorized" };
-        write!(writer, "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", response.body.len()).expect("HTTP response headers");
+        write!(writer, "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", response.body.len()).unwrap_or_else(|error| panic!("{}: {error:?}", "HTTP response headers"));
         writer
             .write_all(&response.body)
-            .expect("daemon response bytes");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "daemon response bytes"));
         writer.conn.send_close_notify();
-        writer.flush().expect("daemon response release");
+        writer
+            .flush()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "daemon response release"));
     }
 
     impl Drop for Gateway {
@@ -1038,7 +1173,9 @@ Iramz66I4GpdnANGjPRWT5zF3C+cGTZ6RMWU+j/UaVRQrGYcCLXlteje
             self.stop.store(true, Ordering::Release);
             if let Some(worker) = self.worker.take() {
                 let _ = TcpStream::connect((std::net::Ipv4Addr::LOCALHOST, self.port));
-                worker.join().expect("daemon handler");
+                worker
+                    .join()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "daemon handler"));
             }
         }
     }

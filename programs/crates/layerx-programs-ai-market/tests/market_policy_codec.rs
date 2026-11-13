@@ -877,7 +877,7 @@ fn exact_maximum_worksheet_measured_owned_records_and_capacity_refusals() -> Che
         Ok(())
     );
     assert_eq!(
-        check_f01_capacity(16376, layerx_programs_ai_market::MAX_STATE_BYTES),
+        check_f01_capacity(16_376, layerx_programs_ai_market::MAX_STATE_BYTES),
         Ok(())
     );
     for size in [16377, 16384, 16385, usize::MAX] {

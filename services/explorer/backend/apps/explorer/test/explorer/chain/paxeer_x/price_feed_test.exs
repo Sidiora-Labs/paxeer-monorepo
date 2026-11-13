@@ -138,6 +138,28 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
   end
 
   describe "transaction counts" do
+    test "the day count includes consensus submissions within 24 hours regardless of execution status", %{
+      update: update
+    } do
+      assert PriceFeed.update_count_24h() == 0
+      now = DateTime.utc_now()
+
+      recent = insert(:block, number: 40, timestamp: DateTime.add(now, -23 * 3600, :second))
+      old = insert(:block, number: 41, timestamp: DateTime.add(now, -25 * 3600, :second))
+      fork = insert(:block, number: 42, consensus: false, timestamp: DateTime.add(now, -3600, :second))
+      failed = %{update | hash: random_hash(), index: update.index + 1, status: 0}
+
+      assert {:ok, 2} = PriceFeed.replace_block_updates(recent, [update, failed])
+      assert {:ok, 1} = PriceFeed.replace_block_updates(old, [%{update | hash: random_hash()}])
+      assert {:ok, 1} = PriceFeed.replace_block_updates(fork, [%{update | hash: random_hash()}])
+
+      assert PriceFeed.update_count_24h() == 2
+      assert PriceFeed.total_update_count() == 4
+
+      assert {1, _} = Repo.update_all(from(b in Block, where: b.hash == ^recent.hash), set: [consensus: false])
+      assert PriceFeed.update_count_24h() == 0
+    end
+
     test "each block's submissions count and the total survives rescans and retention", %{update: update} do
       second = %{update | hash: random_hash(), index: update.index + 1}
       third = %{update | hash: random_hash()}

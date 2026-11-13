@@ -2,12 +2,43 @@ package app_test
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
+
+func awaitTradeHead(t *testing.T, f *repair372Fixture, path, height string) (int, []byte) {
+	t.Helper()
+	deadline := time.Now().Add(15 * time.Second)
+	for {
+		response, err := http.Get(f.srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var ready struct {
+			Watermark *struct {
+				Height string `json:"height"`
+			} `json:"watermark"`
+		}
+		body, readErr := io.ReadAll(response.Body)
+		closeErr := response.Body.Close()
+		if readErr != nil || closeErr != nil {
+			t.Fatalf("head read: %v, close: %v", readErr, closeErr)
+		}
+		if response.StatusCode == 200 && json.Unmarshal(body, &ready) == nil && ready.Watermark != nil && ready.Watermark.Height == height {
+			return response.StatusCode, body
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("head watermark was not ready: status %d body %s", response.StatusCode, body)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
 
 func TestRepair_22_39_376_trade_read_carries_the_head_watermark(t *testing.T) {
 	f := newRepair372Fixture(t)
@@ -20,7 +51,7 @@ func TestRepair_22_39_376_trade_read_carries_the_head_watermark(t *testing.T) {
 	path := "/v2/pools/" + dstPool + "/trades"
 	var revision string
 	for read := 0; read < 2; read++ {
-		status, raw := f.get(t, path)
+		status, raw := awaitTradeHead(t, f, path, second.BlockNumber.String())
 		if status != 200 {
 			t.Fatalf("trade read %d status = %d: %s", read, status, raw)
 		}
@@ -73,7 +104,7 @@ func TestRepair_22_39_376_trade_read_carries_the_head_watermark(t *testing.T) {
 	// A cursor behind the latest committed swap must not publish that swap
 	// above the page watermark.
 	f.exec(t, `UPDATE indexer.cursors SET last_processed_block=$1, updated_at=now() WHERE chain_id=125`, first.BlockNumber.Int64())
-	status, raw := f.get(t, path)
+	status, raw := awaitTradeHead(t, f, path, first.BlockNumber.String())
 	if status != 200 || interfaces.ValidateJSON("TradesResponse", raw) != nil {
 		t.Fatalf("lagging head trade read = %d: %s", status, raw)
 	}

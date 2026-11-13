@@ -1,16 +1,16 @@
 //! Task 22.33.70 repair record:
-//! registered-budget-unwired: registered_caps_survive_service_restart.
-//! gas-journal-growth: sustained_rotation_preserves_accounting_and_recovery and
-//! authenticated_snapshot_and_replay_index_reject_tampering, and
-//! rate_rotation_preserves_daily_costs_and_unresolved_bytes.
-//! rate-unbound-view: producer_receipts_bind_every_execution_field and
-//! publisher_rejects_json_only_outcome_forgery.
+//! registered-budget-unwired: `registered_caps_survive_service_restart`.
+//! gas-journal-growth: `sustained_rotation_preserves_accounting_and_recovery` and
+//! `authenticated_snapshot_and_replay_index_reject_tampering`, and
+//! `rate_rotation_preserves_daily_costs_and_unresolved_bytes`.
+//! rate-unbound-view: `producer_receipts_bind_every_execution_field` and
+//! `publisher_rejects_json_only_outcome_forgery`.
 //! Baseline: no pre-change test run is claimed; the explicit ordered gate rule
 //! requires completing implementation before hf-build and hf-done.
-//! Inherited attempt 1 failed registered_caps_survive_service_restart,
-//! sustained_rotation_preserves_accounting_and_recovery, and
-//! authenticated_snapshot_and_replay_index_reject_tampering with Rpc(Malformed),
-//! and publisher_rejects_json_only_outcome_forgery with Rpc(Configuration).
+//! Inherited attempt 1 failed `registered_caps_survive_service_restart`,
+//! `sustained_rotation_preserves_accounting_and_recovery`, and
+//! `authenticated_snapshot_and_replay_index_reject_tampering` with Rpc(Malformed),
+//! and `publisher_rejects_json_only_outcome_forgery` with Rpc(Configuration).
 //! Wiring requests: none. All repairs are within this crate's declared scope.
 
 use std::fs;
@@ -116,7 +116,7 @@ fn config() -> ServiceConfig {
             balance_floor: 100,
             relayer_key_env: "REPAIR_RELAYER_KEY".into(),
         },
-        listen: "127.0.0.1:9000".parse().expect("literal listen address"),
+        listen: "127.0.0.1:9000".parse().or_panic("literal listen address"),
         gas_limit: 200_000,
         max_priority_fee_per_gas: 1_000_000_000,
         registered_senders: vec![
@@ -238,7 +238,7 @@ impl Exchange for Transcript {
 type Rpc = ConfiguredRpc<Transcript>;
 type TestService = Service<Signer, Rpc, PaymasterRateSource<Rpc>, fn() -> Option<u64>>;
 fn clock() -> Option<u64> {
-    Some(1000)
+    1000_u64.checked_add(0)
 }
 fn open_service(
     config: &ServiceConfig,
@@ -268,7 +268,7 @@ fn open_service(
 }
 fn request(account: Address, nonce: u64) -> Vec<u8> {
     serde_json::to_vec(&json!({"account":hex(&account),"nonce":nonce.to_string(),"calls":[],
-        "maxTokenAmount":"4000000","gasCost":GAS_COST.to_string(),"chainId":"1325","token":hex(&SIDIORA),"decimals":6})).expect("serializable request")
+        "maxTokenAmount":"4000000","gasCost":GAS_COST.to_string(),"chainId":"1325","token":hex(&SIDIORA),"decimals":6})).or_panic("serializable request")
 }
 fn quote(
     service: &mut TestService,
@@ -298,10 +298,10 @@ fn registered_caps_survive_service_restart() -> Result {
     // Exercise the actual strict configuration parser as the producer.
     let station = &config.station;
     let encoded = json!({"chain_id":station.chain_id,"endpoints":station.endpoints,"paymaster":hex(&station.paymaster),"token":hex(&station.token),
-        "decimals":6,"max_rate_age":300,"spread_bps":500,"margin_bps":100,"per_account_limit":7000000,"per_interval_limit":100000000,
-        "per_quote_limit":4000000,"interval_seconds":60,"balance_floor":100,"relayer_key_env":"REPAIR_RELAYER_KEY",
-        "listen":"127.0.0.1:9000","gas_limit":200000,"max_priority_fee_per_gas":1000000000,
-        "registered_senders":[{"address":hex(&[0x11;20]),"budget":10000000},{"address":hex(&[0x22;20]),"budget":4000000}]});
+        "decimals":6,"max_rate_age":300,"spread_bps":500,"margin_bps":100,"per_account_limit":7_000_000,"per_interval_limit":100_000_000,
+        "per_quote_limit":4_000_000,"interval_seconds":60,"balance_floor":100,"relayer_key_env":"REPAIR_RELAYER_KEY",
+        "listen":"127.0.0.1:9000","gas_limit":200_000,"max_priority_fee_per_gas":1_000_000_000,
+        "registered_senders":[{"address":hex(&[0x11;20]),"budget":10_000_000},{"address":hex(&[0x22;20]),"budget":4_000_000}]});
     config = ServiceConfig::parse(&serde_json::to_string(&encoded)?)?;
     let transcript = Transcript::new();
     let mut service = open_service(&config, &runtime.journal(), &transcript)?;
@@ -370,7 +370,7 @@ fn registered_caps_survive_service_restart() -> Result {
 
 fn prepare(
     journal: &mut Journal,
-    quote: QuoteRecord,
+    quote: &QuoteRecord,
     nonce: u64,
     secret: u8,
 ) -> Result<Submission> {
@@ -431,38 +431,8 @@ fn sustained_rotation_preserves_accounting_and_recovery() -> Result {
         .clone()
         .ok_or("second quote")?;
     drop(service);
-    let mut journal = Journal::open(&runtime.journal())?;
-    let settled = prepare(&mut journal, first_quote, 5, 2)?;
-    let prepared = prepare(&mut journal, second_quote, 6, 3)?;
-    // Finalized Ethereum receipt shape from the committed cycle transcript.
-    let cycle: Value = serde_json::from_str(include_str!("fixtures/cycle.json"))?;
-    let mut receipt = cycle["phases"]["included"][0]["result"].clone();
-    receipt["transactionHash"] = json!(hex(&settled.hash));
-    receipt["from"] = json!(hex(&first.sponsor));
-    receipt["to"] = json!(hex(&first_account));
-    receipt["status"] = json!("0x0");
-    receipt["blockHash"] = json!(hex(&[0xab; 32]));
-    receipt["logs"] = json!([]);
-    let canonical = json!({"number":"0x10","hash":hex(&[0xab;32]),"timestamp":"0x3e8"});
-    journal.append(&Entry::ReceiptObserved {
-        key: first,
-        hash: settled.hash,
-        receipt,
-        canonical: canonical.clone(),
-        finalized: canonical,
-    })?;
-    journal.append(&Entry::Completed {
-        key: first,
-        account: first_account,
-        completion: Completion::Reverted { hash: settled.hash },
-    })?;
-    journal.append(&Entry::LiabilityReleased {
-        key: first,
-        proof: LiabilityRelease::Settled { hash: settled.hash },
-    })?;
-    let spent = 100_000 * 5_000_000_000_000u128;
-    assert_eq!(journal.state().finalized_spend()?, spent);
-    drop(journal);
+    let (prepared, spent) =
+        settle_first_quote(&runtime, &first_quote, &second_quote, first, first_account)?;
     transcript.held = Some(prepared.clone());
     let mut service = open_service(&config, &runtime.journal(), &transcript)?;
     let traffic = [0x55; 20];
@@ -534,6 +504,48 @@ fn sustained_rotation_preserves_accounting_and_recovery() -> Result {
     assert!(fs::metadata(runtime.journal())?.len() < 512 * 1024);
     assert_eq!(fs::read_dir(&runtime.directory)?.count(), 5);
     Ok(())
+}
+
+fn settle_first_quote(
+    runtime: &Runtime,
+    first_quote: &QuoteRecord,
+    second_quote: &QuoteRecord,
+    first: Key,
+    first_account: Address,
+) -> Result<(Submission, u128)> {
+    let mut journal = Journal::open(&runtime.journal())?;
+    let settled = prepare(&mut journal, first_quote, 5, 2)?;
+    let prepared = prepare(&mut journal, second_quote, 6, 3)?;
+    // Finalized Ethereum receipt shape from the committed cycle transcript.
+    let cycle: Value = serde_json::from_str(include_str!("fixtures/cycle.json"))?;
+    let mut receipt = cycle["phases"]["included"][0]["result"].clone();
+    receipt["transactionHash"] = json!(hex(&settled.hash));
+    receipt["from"] = json!(hex(&first.sponsor));
+    receipt["to"] = json!(hex(&first_account));
+    receipt["status"] = json!("0x0");
+    receipt["blockHash"] = json!(hex(&[0xab; 32]));
+    receipt["logs"] = json!([]);
+    let canonical = json!({"number":"0x10","hash":hex(&[0xab;32]),"timestamp":"0x3e8"});
+    journal.append(&Entry::ReceiptObserved {
+        key: first,
+        hash: settled.hash,
+        receipt,
+        canonical: canonical.clone(),
+        finalized: canonical,
+    })?;
+    journal.append(&Entry::Completed {
+        key: first,
+        account: first_account,
+        completion: Completion::Reverted { hash: settled.hash },
+    })?;
+    journal.append(&Entry::LiabilityReleased {
+        key: first,
+        proof: LiabilityRelease::Settled { hash: settled.hash },
+    })?;
+    let spent = 100_000 * 5_000_000_000_000u128;
+    assert_eq!(journal.state().finalized_spend()?, spent);
+    drop(journal);
+    Ok((prepared, spent))
 }
 
 #[test]
@@ -746,8 +758,7 @@ fn publisher_rejects_json_only_outcome_forgery() -> Result {
         let mut answer = view.clone();
         if let Some(field) = field {
             answer[field] = match field {
-                "status" => json!("0x1"),
-                "gasUsed" => json!("0x1"),
+                "status" | "gasUsed" => json!("0x1"),
                 _ => {
                     json!([{"address":hex(&transaction.paymaster),"topics":[],"data":"0x","logIndex":"0x0"}])
                 }
@@ -776,6 +787,23 @@ fn publisher_rejects_json_only_outcome_forgery() -> Result {
         assert!(publisher.journal().state().publications.is_empty());
     }
     Ok(())
+}
+
+fn failed_rate_receipt(
+    produced: &Value,
+    transaction: &PublicationTransaction,
+    canonical: &Value,
+    signer_address: [u8; 20],
+) -> Value {
+    let mut receipt = produced.clone();
+    receipt["transactionHash"] = json!(hex(&transaction.publication.hash));
+    receipt["blockNumber"] = json!("0x10");
+    receipt["blockHash"] = canonical["hash"].clone();
+    receipt["from"] = json!(hex(&signer_address));
+    receipt["to"] = json!(hex(&PAYMASTER));
+    receipt["status"] = json!("0x0");
+    receipt["logs"] = json!([]);
+    receipt
 }
 
 #[test]
@@ -823,14 +851,7 @@ fn rate_rotation_preserves_daily_costs_and_unresolved_bytes() -> Result {
             pending = Some(transaction);
             continue;
         }
-        let mut receipt = produced.clone();
-        receipt["transactionHash"] = json!(hex(&transaction.publication.hash));
-        receipt["blockNumber"] = json!("0x10");
-        receipt["blockHash"] = canonical["hash"].clone();
-        receipt["from"] = json!(hex(&signer.address()));
-        receipt["to"] = json!(hex(&PAYMASTER));
-        receipt["status"] = json!("0x0");
-        receipt["logs"] = json!([]);
+        let receipt = failed_rate_receipt(&produced, &transaction, &canonical, signer.address());
         journal.append(&Entry::RateFinalized {
             hash: transaction.publication.hash,
             settlement: layerx_gas_station::journal::Settlement {
@@ -884,4 +905,26 @@ fn rate_rotation_preserves_daily_costs_and_unresolved_bytes() -> Result {
     );
     assert_eq!(journal.state(), &before);
     Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

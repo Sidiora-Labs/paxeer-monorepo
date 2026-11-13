@@ -1,6 +1,7 @@
 use layerx_programs::chain_proof::{proto, ChainProofError};
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/multistore.rs"]
 mod multistore;
 
@@ -11,10 +12,12 @@ const LEAF_OP: &[u8] = &[0x08, 0x01, 0x18, 0x01, 0x20, 0x01, 0x2a, 0x01, 0x00];
 fn varint(mut value: usize) -> Vec<u8> {
     let mut bytes = Vec::new();
     while value >= 128 {
-        bytes.push((value as u8 & 127) | 128);
+        bytes.push(
+            (u8::try_from((value) & 127).unwrap_or_else(|error| panic!("{error:?}")) & 127) | 128,
+        );
         value >>= 7;
     }
-    bytes.push(value as u8);
+    bytes.push(u8::try_from(value).unwrap_or_else(|error| panic!("{error:?}")));
     bytes
 }
 

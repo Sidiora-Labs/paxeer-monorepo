@@ -9,14 +9,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/devsocial"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/fanout"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/interactions"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery/natsdriver"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	goredis "github.com/redis/go-redis/v9"
 	"io"
 	"net"
 	"net/url"
@@ -246,6 +250,53 @@ func TestConnectedRealR3PublisherKillRestartAndConsumerInbox(t *testing.T) {
 	if len(received) != 1 {
 		t.Fatalf("broker received=%d", len(received))
 	}
+	var committed fanout.SocialBrokerEnvelope
+	if err := json.Unmarshal(received[0].Wire, &committed); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		change func(*fanout.SocialBrokerEnvelope)
+	}{
+		{"old version", func(e *fanout.SocialBrokerEnvelope) { e.Version = 1 }},
+		{"wrong payload digest", func(e *fanout.SocialBrokerEnvelope) { e.PayloadHash = strings.Repeat("0", 64) }},
+		{"missing event type", func(e *fanout.SocialBrokerEnvelope) {
+			e.Payload = json.RawMessage(`{"conversation_id":"` + message.ConversationID + `"}`)
+			e.PayloadHash = delivery.Hash(e.Payload)
+		}},
+		{"duplicate channels", func(e *fanout.SocialBrokerEnvelope) { e.Channels = append(e.Channels, e.Channels[0]) }},
+		{"foreign channel", func(e *fanout.SocialBrokerEnvelope) { e.Channels[0] = "other:dm:" + addr(0xbb) }},
+		{"long channel", func(e *fanout.SocialBrokerEnvelope) {
+			e.Channels[0] = store.ChannelNamespace + strings.Repeat("x", 257)
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			altered := committed
+			altered.Channels = append([]string(nil), committed.Channels...)
+			tc.change(&altered)
+			wire, err := json.Marshal(altered)
+			if err != nil {
+				t.Fatal(err)
+			}
+			candidate := *received[0]
+			candidate.Wire = wire
+			if err := store.ConsumeSocialBroker(ctx, &candidate, subject, stream); err == nil {
+				t.Fatal("altered broker publication entered the durable inbox")
+			}
+		})
+	}
+	for _, wire := range [][]byte{[]byte(`not-json`), append(append([]byte(nil), received[0].Wire...), []byte(` {}`)...)} {
+		candidate := *received[0]
+		candidate.Wire = wire
+		if err := store.ConsumeSocialBroker(ctx, &candidate, subject, stream); err == nil {
+			t.Fatal("malformed broker document entered the durable inbox")
+		}
+	}
+	tooLarge := *received[0]
+	tooLarge.Sequence = ^uint64(0)
+	if err := store.ConsumeSocialBroker(ctx, &tooLarge, subject, stream); err == nil {
+		t.Fatal("out-of-range broker sequence entered the durable inbox")
+	}
 	if err = store.ConsumeSocialBroker(ctx, received[0], subject, stream); err != nil {
 		t.Fatal(err)
 	}
@@ -282,6 +333,36 @@ func TestConnectedRealR3PublisherKillRestartAndConsumerInbox(t *testing.T) {
 		t.Fatal(err)
 	}
 	broker := fanout.SocialBroker{Publisher: publisher, Stream: stream, Subject: subject}
+	if err := store.MarkReadConnected(ctx, addr(0xbb), message.ConversationID, message.Sequence); err != nil {
+		t.Fatal(err)
+	}
+	count, err := store.DrainControlOutbox(ctx, 1, func(ctx context.Context, id, wallet string, payload []byte) error {
+		return broker.Publish(ctx, id, []string{fanout.WalletChannel(store.ChannelNamespace, wallet)}, payload)
+	})
+	if err != nil || count != 1 {
+		t.Fatalf("read marker publication = %d: %v", count, err)
+	}
+	var marker []*natsdriver.Message
+	for len(marker) == 0 {
+		marker, err = consumer.Fetch(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(marker) != 1 {
+		t.Fatalf("committed read marker = %+v", marker)
+	}
+	if err := store.ConsumeSocialBroker(ctx, marker[0], subject, stream); err != nil {
+		t.Fatalf("committed read marker = %v", err)
+	}
+	var markerEnvelope fanout.SocialBrokerEnvelope
+	if err := json.Unmarshal(marker[0].Wire, &markerEnvelope); err != nil || markerEnvelope.EventID == "" {
+		t.Fatalf("read marker envelope = %+v: %v", markerEnvelope, err)
+	}
+	var markerCount int
+	if err := store.Pool.QueryRow(ctx, `SELECT count(*) FROM chat_live_outbox WHERE event_id=$1 AND channel=$2`, markerEnvelope.EventID, fanout.WalletChannel(store.ChannelNamespace, addr(0xbb))).Scan(&markerCount); err != nil || markerCount != 1 {
+		t.Fatalf("read marker live intent = %d: %v", markerCount, err)
+	}
 	payload, err := json.Marshal(message)
 	if err != nil {
 		t.Fatal(err)
@@ -302,6 +383,99 @@ func TestConnectedRealR3PublisherKillRestartAndConsumerInbox(t *testing.T) {
 	}
 	if err = store.Pool.QueryRow(ctx, `SELECT count(*) FROM chat_live_outbox WHERE channel=$1`, store.ChannelNamespace+"pool:"+addr(1)).Scan(&live); err != nil || live != 0 {
 		t.Fatal("unauthorized live outbox payload", live, err)
+	}
+}
+
+func TestConnectedRunnerDeliversCommittedDirectMessage(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+	defer cancel()
+	store, contexts, _ := realPolicyChat(t)
+	redisURL := internaltest.NewRedisURL(t)
+	options, err := goredis.ParseURL(redisURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub, sub := goredis.NewClient(options), goredis.NewClient(options)
+	t.Cleanup(func() { _ = pub.Close(); _ = sub.Close() })
+	wallet := addr(0xbb)
+	channel := fanout.WalletChannel(store.ChannelNamespace, wallet)
+	listener := pub.Subscribe(ctx, channel)
+	t.Cleanup(func() { _ = listener.Close() })
+	if _, err := listener.Receive(ctx); err != nil {
+		t.Fatal(err)
+	}
+	nc, err := nats.Connect(os.Getenv("SOCIAL_TEST_NATS_URL"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(nc.Close)
+	js, err := jetstream.New(nc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	suffix := strings.ReplaceAll(uuid.NewString(), "-", "")
+	stream, subject := "SOCIAL_"+suffix, "fixture.social."+suffix
+	if _, err := js.CreateStream(ctx, jetstream.StreamConfig{Name: stream, Subjects: []string{subject}, Storage: jetstream.FileStorage, Replicas: 3, Duplicates: time.Second, MaxAge: time.Hour, MaxBytes: 8 * 1024 * 1024, MaxMsgs: 1000}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		cleanup, stop := context.WithTimeout(context.Background(), 5*time.Second)
+		defer stop()
+		if err := js.DeleteStream(cleanup, stream); err != nil {
+			t.Error(err)
+		}
+	})
+	cfg := natsdriver.ConsumerConfig{Stream: stream, Durable: "social_" + suffix, Subject: subject, Batch: 1, MaxAckPending: 4, MaxWaiting: 1, MaxDeliver: 10, FetchWait: 250 * time.Millisecond, AckWait: time.Second}
+	brokerCfg, err := cfg.BrokerConsumerConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := js.CreateConsumer(ctx, stream, brokerCfg); err != nil {
+		t.Fatal(err)
+	}
+	consumer, err := natsdriver.NewConsumer(ctx, nc, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(consumer.Close)
+	publisher, err := natsdriver.NewPublisher(nc, stream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub := fanout.New(fanout.Deps{ProtocolVersion: 2, Durable: store, Pub: pub, Sub: sub, Authenticate: devsocial.Authenticate, ChannelNamespace: store.ChannelNamespace})
+	message, err := store.Send(contexts[addr(0xaa)], fanout.SendInput{Actor: addr(0xaa), Target: wallet, Kind: "dm", ClientID: "connected-runner-message", Content: "committed notification"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	work, stop := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() {
+		done <- hub.RunConnected(work, consumer, fanout.SocialBroker{Publisher: publisher, Subject: subject, Stream: stream})
+	}()
+	defer func() {
+		stop()
+		if err := <-done; err != nil && !errors.Is(err, context.Canceled) {
+			t.Errorf("connected runner stopped: %v", err)
+		}
+	}()
+	delivered, err := listener.ReceiveMessage(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var event fanout.DurableMessage
+	if err := json.Unmarshal([]byte(delivered.Payload), &event); err != nil || event.ID != message.ID || event.Content != "committed notification" {
+		t.Fatalf("connected live delivery = %+v: %v", event, err)
+	}
+	var inbox, pending int
+	for {
+		err = store.Pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM chat_broker_inbox),(SELECT count(*) FROM chat_live_outbox WHERE delivered_at IS NULL)`).Scan(&inbox, &pending)
+		if err == nil && inbox == 1 && pending == 0 {
+			break
+		}
+		if ctx.Err() != nil {
+			t.Fatalf("connected delivery state = inbox %d pending %d: %v", inbox, pending, err)
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }
 

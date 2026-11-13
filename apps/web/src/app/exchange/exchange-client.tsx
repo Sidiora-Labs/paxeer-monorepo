@@ -154,7 +154,7 @@ export function ExchangeOrderControls({
       label={label}
       inputMode="decimal"
       value={inputs[key]}
-      onChange={(event) => onChange(key, event.target.value)}
+      onChange={(event) => { onChange(key, event.target.value); }}
     />
   );
   const write = (
@@ -191,19 +191,19 @@ export function ExchangeOrderControls({
         <ChoiceField
           label="Order market"
           value={inputs.market}
-          onChange={(value) => onChange("market", value)}
+          onChange={(value) => { onChange("market", value); }}
           options={markets.map((market) => ({ value: market.id, label: market.label }))}
         />
         <ChoiceField
           label="Order type"
           value={inputs.orderType}
-          onChange={(value) => onChange("orderType", value)}
+          onChange={(value) => { onChange("orderType", value); }}
           options={[{ value: "limit", label: "Limit" }, { value: "stop-limit", label: "Stop-limit" }]}
         />
         <SegmentedControl
           aria-label={copyEntry("exchange.copy.order_side").message}
           value={inputs.side}
-          onValueChange={(value) => onChange("side", value)}
+          onValueChange={(value) => { onChange("side", value); }}
           options={[{ value: "long", label: "Long" }, { value: "short", label: "Short" }]}
         />
         {field("Trigger price", "triggerPrice")}
@@ -326,28 +326,30 @@ function AccountExchangeActions({
 
   useEffect(() => {
     let stopped = false;
+    const isStopped = () => stopped;
     let polling = false;
     async function reconcile() {
-      if (polling || sending.current || stopped) return;
+      if (polling || sending.current || isStopped()) return;
       polling = true;
       try {
         if (account === undefined) return;
         const existing = retainedWalletNativeSubmission(account);
         if (existing === undefined) return;
         const outcome = await resumeWalletNativeSubmission(account);
-        if (stopped) return;
+        if (isStopped()) return;
         if (existing.stage === "approval") setApprovalOutcome(outcome);
         else {
           const records: Record<string, typeof setOpenOutcome> = { open: setOpenOutcome, close: setCloseOutcome, cancel: setCancelOutcome,
             margin: setMarginOutcome, order: setOrderOutcome };
           records[existing.operation]?.(outcome);
         }
-        if (outcome !== undefined && "receipt" in outcome && outcome.receipt !== undefined)
+        const receipt = outcome !== undefined && "receipt" in outcome ? outcome.receipt : undefined;
+        if (receipt !== undefined)
           router.refresh();
       } catch (error) {
-        if (!stopped) setRecoveryError(error instanceof Error ? error.message : "Native recovery failed.");
+        if (!isStopped()) setRecoveryError(error instanceof Error ? error.message : "Native recovery failed.");
       } finally {
-        if (!stopped) {
+        if (!isStopped()) {
           try { setRetained(account === undefined ? undefined : retainedWalletNativeSubmission(account)); }
           catch (error) { setRecoveryError(error instanceof Error ? error.message : "Native recovery failed."); }
           setRecovering(false);
@@ -487,7 +489,7 @@ function AccountExchangeActions({
           positionId={positionId}
           pending={pending}
           walletReason={walletReason}
-          send={(build, pull) => send(build, pull, setOrderOutcome)}
+          send={(build, pull) => { send(build, pull, setOrderOutcome); }}
         />
         <SendOutcome outcome={orderOutcome} />
       </ExplorerPanel>
@@ -526,7 +528,7 @@ function AccountExchangeActions({
             positionId={positionId}
             pending={pending}
             walletReason={walletReason}
-            send={(build, pull) => send(build, pull, setCloseOutcome)}
+            send={(build, pull) => { send(build, pull, setCloseOutcome); }}
           />
           <SendOutcome outcome={closeOutcome} />
         </div>

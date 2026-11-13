@@ -8,6 +8,7 @@
 //! finalized state. Epoch 7 settles through the real F05 begin/process/finalize transitions
 //! before `OPEN_EPOCH` rolls the market into epoch 8.
 use ed25519_dalek::{Signer, SigningKey};
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     admission::{
         Admission, AdmissionContext, AdmissionTable, ApprovalTerms, EvaluatorConsent, Participant,
@@ -609,7 +610,7 @@ impl World {
         })
     }
     /// Owner nomination, owner approval and signed evaluator consent all cross the router.
-    /// Only AdmitEvaluator binds the evaluator replay slot and consumes its first sequence.
+    /// Only `AdmitEvaluator` binds the evaluator replay slot and consumes its first sequence.
     fn evaluator(&mut self, n: u8, at: u64) -> TestResult {
         let parts = self.parts()?;
         let market = parts.market()?;
@@ -685,6 +686,27 @@ impl World {
             .ok_or(NOT_FOUND)?
             .digest;
         assert_eq!(digest, terms.digest(&market)?);
+        self.admit_evaluator_consent(n, at, &market, &terms, &key)?;
+        Ok(())
+    }
+    fn admit_evaluator_consent(
+        &mut self,
+        n: u8,
+        at: u64,
+        market: &MarketHeader,
+        terms: &ApprovalTerms,
+        key: &SigningKey,
+    ) -> TestResult {
+        let participant = terms.participant;
+        let owner = terms.owner;
+        let evaluator = match participant {
+            Participant::Evaluator(id) => id,
+            Participant::Worker(_) => return Err(NON_CANONICAL),
+        };
+        let effective = terms.effective_epoch;
+        let signing_key = terms.delegate;
+        let digest = terms.digest(market)?;
+        let grant = EvaluatorRegion::decode(&self.parts()?.region)?.stored_grant(evaluator)?;
         let request = RequestId::new(tag(0x33, n, 1))?;
         let consent = EvaluatorConsent {
             chain: market.deployment_chain_domain,
@@ -745,6 +767,7 @@ impl World {
         assert_eq!(self.bytes, committed);
         Ok(())
     }
+
     /// Real owner FUND of `amount` into the F06 reward state.
     fn fund(&mut self, amount: u128, at: u64) -> TestResult {
         let mut parts = self.parts()?;
@@ -1250,7 +1273,7 @@ impl JournalDirectory {
 }
 impl Drop for JournalDirectory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.dir).expect("clean up recovery journal fixture");
+        fs::remove_dir_all(&self.dir).required_with("clean up recovery journal fixture");
     }
 }
 impl Journal {
@@ -1849,6 +1872,10 @@ pub(crate) fn a09_crash_after_finalized_commit_reveals_from_the_journal() -> Che
         journal.persist(MARKET_FILE, &world.bytes)?;
         assert_eq!(journal.load(REVEAL_FILE)?, reveal);
     }
+    verify_retained_reveal(&directory)?;
+    Ok(())
+}
+fn verify_retained_reveal(directory: &JournalDirectory) -> Checked {
     {
         let journal = Journal::open(&directory.dir)?;
         let mut world = World::reload(&journal)?;

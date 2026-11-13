@@ -93,15 +93,15 @@ impl OccupancyAuthority {
         })
     }
 
-    #[cfg(feature = "host-ffi")]
+    #[cfg(any(feature = "host-ffi", test))]
     pub(crate) const fn fee_ceiling(self) -> u128 {
         self.occupancy_fee_ceiling
     }
-    #[cfg(feature = "host-ffi")]
+    #[cfg(any(feature = "host-ffi", test))]
     pub(crate) const fn payer(self) -> PrincipalId {
         self.payer
     }
-    #[cfg(feature = "host-ffi")]
+    #[cfg(any(feature = "host-ffi", test))]
     pub(crate) const fn root_program(self) -> ProgramId {
         self.root_program
     }
@@ -1169,7 +1169,7 @@ impl OccupancyLedger {
     pub fn contains_namespace(&self, namespace: StorageNamespace) -> bool {
         self.positions.contains_key(&namespace)
     }
-    #[cfg(feature = "host-ffi")]
+    #[cfg(any(feature = "host-ffi", test))]
     pub(crate) fn responsibility_limits(
         &self,
         namespace: StorageNamespace,
@@ -1204,7 +1204,7 @@ impl OccupancyLedger {
             .iter()
             .filter_map(|(namespace, position)| position.frozen.then_some(*namespace))
     }
-    #[cfg(feature = "host-ffi")]
+    #[cfg(any(feature = "host-ffi", test))]
     pub(crate) fn requires_migration(&self, namespace: StorageNamespace) -> bool {
         self.positions
             .get(&namespace)

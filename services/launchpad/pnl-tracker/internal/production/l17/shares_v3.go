@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fogleman/gg"
 	"image/png"
 	"io"
 	"math/big"
@@ -20,6 +19,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/fogleman/gg"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/ogrender"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
@@ -151,7 +152,7 @@ func validateSelectionV3(selection ShareSelectionV3, now time.Time) error {
 	seen := map[string]bool{}
 	for _, field := range selection.Fields {
 		switch field {
-		case "knownRealizedSubtotalUsdlRaw", "realizedPnlRaw", "completeValueUsdlRaw", "historicalReturn":
+		case fieldKnownRealizedSubtotalUsdlRaw, fieldRealizedPnlRaw, fieldCompleteValueUsdlRaw, fieldHistoricalReturn:
 		default:
 			return ErrInvalid
 		}
@@ -188,16 +189,16 @@ func (s *SharesV3) Preview(ctx context.Context, p auth.IdentityPrincipal, select
 	public := PublicShareV3{Version: 3, ID: id, ExpiresAt: selection.ExpiresAt.UTC(), Fields: fields, Wallet: source.Wallet, QuoteIdentity: *source.QuoteIdentity, Decimals: source.Decimals, Methodology: source.Methodology, Watermark: source.Watermark, RangeStart: *source.RangeStart, RangeEnd: *source.RangeEnd, BasisQuality: source.BasisQuality, PricingQuality: source.PricingQuality, Labels: []string{}}
 	for _, field := range fields {
 		switch field {
-		case "knownRealizedSubtotalUsdlRaw":
+		case fieldKnownRealizedSubtotalUsdlRaw:
 			public.Values.KnownRealizedSubtotalUsdlRaw, e = json.Marshal(source.KnownRealizedSubtotalUsdlRaw)
 			public.Labels = append(public.Labels, "Known realized subtotal (USDL); total profit unavailable")
-		case "realizedPnlRaw":
+		case fieldRealizedPnlRaw:
 			public.Values.RealizedPnlRaw, e = json.Marshal(source.RealizedPnlRaw)
 			public.Labels = append(public.Labels, "Realized result (USDL); unavailable when historical basis is incomplete")
-		case "completeValueUsdlRaw":
+		case fieldCompleteValueUsdlRaw:
 			public.Values.CompleteValueUsdlRaw, e = json.Marshal(source.CompleteValueUsdlRaw)
 			public.Labels = append(public.Labels, "Current portfolio value (USDL); value is not trading profit")
-		case "historicalReturn":
+		case fieldHistoricalReturn:
 			public.Values.HistoricalReturn, e = json.Marshal(source.HistoricalReturn)
 			public.Labels = append(public.Labels, "Historical time-weighted return; unavailable without complete dated inputs")
 		}
@@ -222,7 +223,7 @@ func (s *SharesV3) Preview(ctx context.Context, p auth.IdentityPrincipal, select
 	if e != nil {
 		return out, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", "share-v3:"+p.Wallet); e != nil {
 		return out, e
 	}
@@ -255,7 +256,7 @@ func (s *SharesV3) Publish(ctx context.Context, p auth.IdentityPrincipal, reques
 	if e != nil {
 		return out, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	if _, e = tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended($1,0))", "share-v3:"+p.Wallet); e != nil {
 		return out, e
 	}
@@ -343,10 +344,10 @@ func (s *SharesV3) Owner(ctx context.Context, p auth.IdentityPrincipal, id strin
 	if e = json.Unmarshal(raw, &out.Share); e != nil {
 		return out, e
 	}
-	if !now.Before(out.Share.ExpiresAt) && out.State != "revoked" {
-		out.State = "expired"
+	if !now.Before(out.Share.ExpiresAt) && out.State != statusRevoked {
+		out.State = statusExpired
 	}
-	out.RenderExhausted = out.State == "pending" && out.RenderAttempts >= 3
+	out.RenderExhausted = out.State == statusPending && out.RenderAttempts >= 3
 	out.PurgePending = out.PurgeRequestedAt != nil && out.PurgedAt == nil
 	out.PrivacyIncident = out.PurgePending && now.Sub(*out.PurgeRequestedAt) > 300*time.Second
 	return out, nil
@@ -363,7 +364,7 @@ func (s *SharesV3) Revoke(ctx context.Context, p auth.IdentityPrincipal, id stri
 	if e != nil {
 		return OwnerShareV3{}, e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	var key *string
 	e = tx.QueryRow(ctx, `UPDATE portfolio_shares_v3 SET state='revoked',image=NULL,purge_requested_at=CASE WHEN publish_key IS NULL THEN NULL ELSE COALESCE(purge_requested_at,$5) END WHERE id=$1 AND wallet=$2 AND account_id=$3 AND realm=$4 RETURNING publish_key`, id, p.Wallet, p.AccountID, s.realm, now).Scan(&key)
 	if errors.Is(e, pgx.ErrNoRows) {
@@ -401,10 +402,10 @@ func (s *SharesV3) Public(ctx context.Context, id string) (PublicShareV3, []byte
 	if publishKey == nil {
 		return out, nil, ErrNotFound
 	}
-	if state == "revoked" || state == "expired" || !s.clock().Before(expiry) {
+	if state == statusRevoked || state == statusExpired || !s.clock().Before(expiry) {
 		return out, nil, ErrGone
 	}
-	if state != "public" {
+	if state != visibilityPublic {
 		return out, nil, ErrNotFound
 	}
 	if e = json.Unmarshal(raw, &out); e != nil {
@@ -431,7 +432,7 @@ func (w ShareWorkerV3) ExpireOnce(ctx context.Context) error {
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 	_, e = tx.Exec(ctx, `WITH expired AS (SELECT id FROM portfolio_shares_v3 WHERE expires_at<=clock_timestamp() AND state IN ('draft','pending','public') ORDER BY expires_at FOR UPDATE SKIP LOCKED LIMIT 100), updated AS (UPDATE portfolio_shares_v3 s SET state='expired',image=NULL,purge_requested_at=CASE WHEN publish_key IS NULL THEN NULL ELSE COALESCE(purge_requested_at,clock_timestamp()) END FROM expired e WHERE s.id=e.id RETURNING s.id,s.publish_key) INSERT INTO portfolio_share_outbox_v3(event_id,share_id,kind) SELECT 'purge:'||id::text,id,'purge' FROM updated WHERE publish_key IS NOT NULL ON CONFLICT(event_id) DO NOTHING`)
 	if e != nil {
 		return e
@@ -446,7 +447,7 @@ func (w ShareWorkerV3) RunOnce(ctx context.Context) error {
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackPortfolio(tx)
 	var event, id, kind string
 	var fence int64
 	var raw []byte
@@ -457,7 +458,7 @@ func (w ShareWorkerV3) RunOnce(ctx context.Context) error {
 	if e != nil {
 		return e
 	}
-	if kind == "render" {
+	if kind == jobRender {
 		tag, e := tx.Exec(ctx, "UPDATE portfolio_shares_v3 SET attempts=attempts+1 WHERE id=$1 AND state='pending' AND attempts<3 AND expires_at>clock_timestamp()", id)
 		if e != nil {
 			return e
@@ -475,7 +476,7 @@ func (w ShareWorkerV3) RunOnce(ctx context.Context) error {
 	work, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	var image []byte
-	if kind == "purge" {
+	if kind == jobPurge {
 		if w.Purger == nil {
 			e = ErrUnavailable
 		} else {
@@ -499,7 +500,7 @@ func (w ShareWorkerV3) RunOnce(ctx context.Context) error {
 	if e != nil {
 		return e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackPortfolio(tx)
 	var live bool
 	if e = tx.QueryRow(ctx, "SELECT lease_until>clock_timestamp() FROM portfolio_share_outbox_v3 WHERE event_id=$1 AND fence=$2 AND lease_owner=$3 FOR UPDATE", event, fence, w.Owner).Scan(&live); e != nil {
 		return e
@@ -507,7 +508,7 @@ func (w ShareWorkerV3) RunOnce(ctx context.Context) error {
 	if !live {
 		return ErrConflict
 	}
-	if kind == "render" {
+	if kind == jobRender {
 		tag, e := tx.Exec(ctx, "UPDATE portfolio_shares_v3 SET image=$2,state='public' WHERE id=$1 AND state='pending' AND expires_at>clock_timestamp()", id, image)
 		if e != nil {
 			return e
@@ -526,7 +527,7 @@ func (w ShareWorkerV3) RunOnce(ctx context.Context) error {
 	return tx.Commit(ctx)
 }
 func formatShareAmountV3(raw json.RawMessage) (string, error) {
-	if len(raw) == 0 || string(raw) == "null" {
+	if len(raw) == 0 || string(raw) == jsonNull {
 		return "Unavailable", nil
 	}
 	var value string
@@ -552,16 +553,16 @@ func renderSelectedV3(renderer *ogrender.Renderer, share PublicShareV3, fontDir 
 		var value string
 		var e error
 		switch field {
-		case "knownRealizedSubtotalUsdlRaw":
+		case fieldKnownRealizedSubtotalUsdlRaw:
 			value, e = formatShareAmountV3(share.Values.KnownRealizedSubtotalUsdlRaw)
 			value = "Known realized: " + value
-		case "realizedPnlRaw":
+		case fieldRealizedPnlRaw:
 			value, e = formatShareAmountV3(share.Values.RealizedPnlRaw)
 			value = "Realized result: " + value
-		case "completeValueUsdlRaw":
+		case fieldCompleteValueUsdlRaw:
 			value, e = formatShareAmountV3(share.Values.CompleteValueUsdlRaw)
 			value = "Current value: " + value
-		case "historicalReturn":
+		case fieldHistoricalReturn:
 			var result HistoricalReturn
 			if json.Unmarshal(share.Values.HistoricalReturn, &result) != nil {
 				return nil, ErrInvalid
@@ -658,7 +659,7 @@ func (p CloudflareSharePurgerV3) PurgeShare(ctx context.Context, id string) erro
 		return ErrUnavailable
 	}
 	origin, e := url.Parse(p.PublicOrigin)
-	if e != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || (origin.Path != "" && origin.Path != "/") {
+	if e != nil || origin.Scheme != schemeHTTPS || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || (origin.Path != "" && origin.Path != "/") {
 		return ErrInvalid
 	}
 	base := strings.TrimRight(p.PublicOrigin, "/") + "/v3/portfolio/shares/" + id
@@ -689,7 +690,7 @@ func (p CloudflareSharePurgerV3) PurgeShare(ctx context.Context, id string) erro
 		Success bool `json:"success"`
 	}
 	decode := json.NewDecoder(io.LimitReader(response.Body, 65536)).Decode(&result)
-	response.Body.Close()
+	_ = response.Body.Close()
 	if response.StatusCode != 200 || decode != nil || !result.Success {
 		return ErrUnavailable
 	}
@@ -702,7 +703,7 @@ func (p CloudflareSharePurgerV3) PurgeShare(ctx context.Context, id string) erro
 		if e != nil {
 			return ErrUnavailable
 		}
-		actual.Body.Close()
+		_ = actual.Body.Close()
 		if actual.StatusCode != http.StatusGone {
 			return ErrUnavailable
 		}

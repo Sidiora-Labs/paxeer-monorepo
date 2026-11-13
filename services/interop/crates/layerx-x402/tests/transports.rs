@@ -77,7 +77,7 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
                 } else {
                     prefix - 0xf7
                 });
-                let length = input[1..1 + width]
+                let length = input[1..=width]
                     .iter()
                     .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
                 (1 + width, length)
@@ -104,7 +104,7 @@ fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
     std::array::from_fn(|index| {
         calldata[4 + index * 32..4 + (index + 1) * 32]
             .try_into()
-            .unwrap()
+            .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
     })
 }
 

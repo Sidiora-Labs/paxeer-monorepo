@@ -13,10 +13,10 @@ import (
 
 func RegisterReplayGateway(r chi.Router, gatewayOrigin string) error {
 	target, err := url.Parse(gatewayOrigin)
-	if err != nil || target.Host == "" || target.User != nil || target.RawPath != "" || target.RawQuery != "" || target.Fragment != "" || (target.Path != "" && target.Path != "/") || (target.Scheme != "https" && target.Scheme != "http") {
+	if err != nil || target.Host == "" || target.User != nil || target.RawPath != "" || target.RawQuery != "" || target.Fragment != "" || (target.Path != "" && target.Path != "/") || (target.Scheme != schemeHTTPS && target.Scheme != schemeHTTP) {
 		return fmt.Errorf("invalid replay gateway origin")
 	}
-	if target.Scheme == "http" && target.Hostname() != "127.0.0.1" && target.Hostname() != "localhost" && target.Hostname() != "::1" {
+	if target.Scheme == schemeHTTP && target.Hostname() != "127.0.0.1" && target.Hostname() != "localhost" && target.Hostname() != "::1" {
 		return fmt.Errorf("replay gateway requires HTTPS outside loopback")
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)

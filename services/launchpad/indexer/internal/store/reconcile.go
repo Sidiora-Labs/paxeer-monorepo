@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -78,14 +79,22 @@ func (s *Store) ReconcileCanonicalCommit(ctx context.Context, b CanonicalBatch) 
 			data = []byte{}
 		}
 		var same bool
-		err = tx.QueryRow(ctx, `SELECT height=$4 AND transaction_index=$5 AND block_hash=$6 AND emitter=$7 AND topics=$8::jsonb AND data=$9 FROM indexer.indexer_raw_logs WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, b.ChainID, record.TransactionHash, int64(record.LogIndex), record.Height, int64(record.TransactionIndex), record.BlockHash, record.Emitter, encodedTopics, data).Scan(&same)
+		recordLogIndexInt64, conversionErr := checked.Convert[int64](record.LogIndex)
+		if conversionErr != nil {
+			return false, conversionErr
+		}
+		recordTransactionIndexInt64, conversionErr := checked.Convert[int64](record.TransactionIndex)
+		if conversionErr != nil {
+			return false, conversionErr
+		}
+		err = tx.QueryRow(ctx, `SELECT height=$4 AND transaction_index=$5 AND block_hash=$6 AND emitter=$7 AND topics=$8::jsonb AND data=$9 FROM indexer.indexer_raw_logs WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, b.ChainID, record.TransactionHash, recordLogIndexInt64, record.Height, recordTransactionIndexInt64, record.BlockHash, record.Emitter, encodedTopics, data).Scan(&same)
 		if errors.Is(err, pgx.ErrNoRows) || err == nil && !same {
 			return false, ErrIntegrity
 		}
 		if err != nil {
 			return false, err
 		}
-		rows, queryErr := tx.Query(ctx, `SELECT transaction_hash,log_index,event_kind,payload FROM indexer.indexer_ingest_outbox WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, b.ChainID, record.TransactionHash, int64(record.LogIndex))
+		rows, queryErr := tx.Query(ctx, `SELECT transaction_hash,log_index,event_kind,payload FROM indexer.indexer_ingest_outbox WHERE chain_id=$1 AND transaction_hash=$2 AND log_index=$3`, b.ChainID, record.TransactionHash, recordLogIndexInt64)
 		if queryErr != nil {
 			return false, queryErr
 		}

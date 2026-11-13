@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -14,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/util"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -243,7 +246,9 @@ func replaceEpochConfig(m EpochMemberAuthority) error {
 	info, statErr := original.Stat()
 	link, linkErr := os.Lstat(m.ConfigPath)
 	if statErr != nil || linkErr != nil || !info.Mode().IsRegular() || link.Mode()&os.ModeSymlink != 0 || !os.SameFile(info, link) || info.Size() > 1<<20 || info.Mode().Perm()&0077 != 0 {
-		original.Close()
+		if cleanupErr := original.Close(); cleanupErr != nil {
+			log.Printf("cleanup original.Close: %v", cleanupErr)
+		}
 		return errors.New("natsdriver: private regular config required")
 	}
 	current, err := io.ReadAll(io.LimitReader(original, 1<<20+1))
@@ -262,7 +267,11 @@ func replaceEpochConfig(m EpochMemberAuthority) error {
 		return err
 	}
 	temporary := file.Name()
-	defer os.Remove(temporary)
+	defer func() {
+		if cleanupErr := os.Remove(temporary); cleanupErr != nil {
+			log.Printf("cleanup os.Remove: %v", cleanupErr)
+		}
+	}()
 	if err = file.Chmod(info.Mode().Perm()); err == nil {
 		_, err = file.Write(m.Replacement)
 	}
@@ -283,7 +292,7 @@ func replaceEpochConfig(m EpochMemberAuthority) error {
 	if err = os.Rename(temporary, m.ConfigPath); err != nil {
 		return err
 	}
-	dir, err := os.Open(directory)
+	dir, err := util.OpenPath(directory)
 	if err != nil {
 		return err
 	}
@@ -392,7 +401,7 @@ func (c *BrokerEpochController) fence(ctx context.Context, proposal, actor strin
 				return errors.New("natsdriver: unknown durable member progress")
 			}
 		}
-		record.State = "applying"
+		record.State = valueApplying
 		record.Result = nil
 		record.BoundProof = ""
 		if err := save(); err != nil {
@@ -448,7 +457,7 @@ func (c *BrokerEpochController) fence(ctx context.Context, proposal, actor strin
 					}
 				}
 			} else {
-				if progress.Stage != "prepared" && progress.Stage != "verified" {
+				if progress.Stage != "prepared" && progress.Stage != valueVerified {
 					return errors.New("natsdriver: invalid member progress")
 				}
 				if len(progress.Acks) != len(member.Credentials) {
@@ -465,12 +474,12 @@ func (c *BrokerEpochController) fence(ctx context.Context, proposal, actor strin
 			if err != nil {
 				return err
 			}
-			progress.Stage = "verified"
+			progress.Stage = valueVerified
 			progress.Evidence = evidence
 			if err = save(); err != nil {
 				return err
 			}
-			if err = c.atCheckpoint(member.Name, "verified"); err != nil {
+			if err = c.atCheckpoint(member.Name, valueVerified); err != nil {
 				return err
 			}
 			result.Evidence = append(result.Evidence, evidence...)
@@ -482,7 +491,7 @@ func (c *BrokerEpochController) fence(ctx context.Context, proposal, actor strin
 			return err
 		}
 		result.ProofSHA256 = epochSHA(wire)
-		record.State = "verified"
+		record.State = valueVerified
 		record.Result = &result
 		record.ProofSHA256 = result.ProofSHA256
 		if bind {

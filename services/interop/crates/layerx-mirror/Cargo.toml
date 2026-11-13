@@ -20,5 +20,9 @@ sha2.workspace = true
 sha3.workspace = true
 zeroize.workspace = true
 
+[dev-dependencies]
+nix = { version = "=0.29.0", features = ["sched"] }
+layerx-mirror-signer = { path = "../layerx-mirror-signer" }
+
 [lints]
 workspace = true

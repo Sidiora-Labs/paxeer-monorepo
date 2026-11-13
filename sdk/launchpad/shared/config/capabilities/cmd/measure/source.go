@@ -5,9 +5,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/util"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 )
@@ -38,11 +41,11 @@ func requiredSourcePaths() []string {
 
 func writeSourceIndex(root, output string, additional []string) error {
 	if root == "" || output == "" {
-		return deployment.Issue{Code: "candidate_source_index_invalid"}
+		return deployment.Issue{Code: valueCandidateSourceIndexInvalid}
 	}
 	paths := append(requiredSourcePaths(), additional...)
 	if len(paths) > 10000 {
-		return deployment.Issue{Code: "candidate_source_index_invalid"}
+		return deployment.Issue{Code: valueCandidateSourceIndexInvalid}
 	}
 	index := sourceIndex{SchemaVersion: 1}
 	seen := map[string]bool{}
@@ -51,26 +54,30 @@ func writeSourceIndex(root, output string, additional []string) error {
 			return deployment.Issue{Code: "candidate_source_path_invalid"}
 		}
 		seen[path] = true
-		file, err := os.Open(filepath.Join(root, path))
+		file, err := util.OpenPath(filepath.Join(root, path))
 		if err != nil {
-			return deployment.Issue{Code: "candidate_source_changed"}
+			return deployment.Issue{Code: valueCandidateSourceChanged}
 		}
 		hash := sha256.New()
 		count, readErr := io.Copy(hash, io.LimitReader(file, (64<<20)+1))
 		closeErr := file.Close()
 		if readErr != nil || closeErr != nil || count > 64<<20 {
-			return deployment.Issue{Code: "candidate_source_changed"}
+			return deployment.Issue{Code: valueCandidateSourceChanged}
 		}
 		index.Files = append(index.Files, sourceFile{Path: path, SHA256: hex.EncodeToString(hash.Sum(nil))})
 	}
 	if err := validateSource(root, index); err != nil {
 		return err
 	}
-	file, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	file, err := util.OpenFilePath(output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return deployment.Issue{Code: "candidate_source_index_output_unavailable"}
 	}
-	defer file.Close()
+	defer func() {
+		if cleanupErr := file.Close(); cleanupErr != nil {
+			log.Printf("cleanup file.Close: %v", cleanupErr)
+		}
+	}()
 	if err := json.NewEncoder(file).Encode(index); err != nil {
 		return deployment.Issue{Code: "candidate_source_index_write_failed"}
 	}

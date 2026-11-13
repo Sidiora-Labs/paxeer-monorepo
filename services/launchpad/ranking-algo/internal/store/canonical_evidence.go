@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -86,7 +87,11 @@ func (r *HTTPCanonicalEvidence) Read(ctx context.Context, height uint64, cutoff 
 	if err != nil {
 		return out, err
 	}
-	defer response.Body.Close()
+	defer func() {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			slog.Warn("canonical evidence response close failed", "error", closeErr)
+		}
+	}()
 	if response.StatusCode != http.StatusOK {
 		return out, ranker.ErrUnavailable
 	}

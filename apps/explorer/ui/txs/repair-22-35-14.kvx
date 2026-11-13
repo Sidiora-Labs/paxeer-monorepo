@@ -1,0 +1,10 @@
+[transactions_statistics]
+endpoint = "/api/v2/transactions/stats"
+day_count = "transactions_count_24h includes price updates and is displayed without adding or subtracting price_updates_count_24h."
+total_transactions = "total_transactions_count: optional string; displayed as Total transactions."
+price_updates_day = "price_updates_count_24h: optional string; displayed as Price updates (24h)."
+total_price_updates = "total_price_updates_count: optional string; displayed as Total price updates."
+absent_fields = "Each omitted optional field displays a dash; zero displays as 0."
+day_share = "transactions_count_24h / total_transactions_count; general:stats.total_transactions supplies the denominator only when total_transactions_count is absent."
+other_fields = ["pending_transactions_count", "transaction_fees_avg_24h", "transaction_fees_sum_24h"]
+counts = "String counts retain integer precision when formatted."

@@ -61,7 +61,7 @@ pub(crate) fn recorded_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
                                 match (field.number, field.value) {
                                     (1, ProtoValue::Varint(value)) => {
                                         parts.total = u32::try_from(value)
-                                            .map_err(|_| ChainProofError::NonCanonical)?
+                                            .map_err(|_| ChainProofError::NonCanonical)?;
                                     }
                                     (2, ProtoValue::Bytes(value)) => parts.hash = value.to_vec(),
                                     _ => return Err(ChainProofError::NonCanonical),
@@ -92,6 +92,77 @@ pub(crate) fn recorded_commit(bytes: &[u8]) -> Result<Commit, ChainProofError> {
 // bootstrap-header-encoding: exercise Go MakeBlock/Populate -> Header.ToProto
 // -> committed protobuf transcript -> production LXCP codec -> header hash and
 // commit verifier. No Go toolchain, network or environment is used by the gate.
+fn verify_header_fields(
+    verifier: &ChainProofVerifier,
+    header: &ChainHeader,
+    commit: &Commit,
+    encoded: &[u8],
+    expected: &Vec<u8>,
+    name: &str,
+    previous: &mut Option<Vec<u8>>,
+) -> Result<(), Box<dyn Error>> {
+    if name.starts_with("initial") {
+        assert!(header.last_block_id.hash.is_empty());
+        assert!(header.last_block_id.part_set_hash.is_empty());
+        assert_eq!(header.last_block_id.part_set_total, 0);
+        assert!(header.last_results_hash.is_empty());
+        // These headers authenticate but supply no preceding result root.
+        // The state-proof API must never silently manufacture one.
+        assert_eq!(
+            verifier.verify_head(header, commit),
+            Err(ChainProofError::NonCanonical)
+        );
+        assert!(!fields(encoded)?.iter().any(|(number, _)| *number == 12));
+        assert_eq!(header.app_hash, [0x41; 32]);
+    } else if name == "later" {
+        let head = verifier.verify_head(header, commit)?;
+        assert_eq!(head.header_hash().as_slice(), expected);
+        assert_eq!(
+            head.last_results_hash().as_slice(),
+            header.last_results_hash
+        );
+        assert_eq!(head.app_hash().as_slice(), header.app_hash);
+        assert_eq!(
+            header.last_block_id.hash,
+            previous.clone().unwrap_or_else(|| panic!("expected value"))
+        );
+    }
+    if name == "initial-seven" {
+        *previous = Some(expected.clone());
+    }
+    if name == "defaults" {
+        for number in [6, 7, 9, 10, 11, 12, 13] {
+            assert!(!fields(encoded)?.iter().any(|(field, _)| *field == number));
+        }
+        let mut explicit = fields(encoded)?;
+        for number in [6, 7, 9, 10, 11, 12, 13] {
+            explicit.push((number, bytes_field(number, &[])));
+        }
+        explicit.sort_by_key(|(number, _)| *number);
+        let explicit_header = ChainHeader::decode(&join(&explicit))?;
+        assert_eq!(&explicit_header, header);
+        assert_eq!(explicit_header.hash()?, header.hash()?);
+        // Both predecessor hash fields can also be explicitly empty.
+        let parts = bytes_field(2, &[]);
+        let block_id = [bytes_field(1, &[]), bytes_field(2, &parts)].concat();
+        let explicit = replace(encoded, 5, Some(bytes_field(5, &block_id)))?;
+        assert_eq!(&ChainHeader::decode(&explicit)?, header);
+    }
+    if name != "later" {
+        assert_eq!(
+            verifier.verify_head(header, commit),
+            Err(ChainProofError::NonCanonical)
+        );
+    }
+    if name == "app-short" {
+        assert_eq!(header.app_hash, [1, 2, 3]);
+    }
+    if name == "app-long" {
+        assert_eq!(header.app_hash, [0x42; 65]);
+    }
+    Ok(())
+}
+
 pub(crate) fn bootstrap_header_encoding_go_producer_transport_consumer(
 ) -> Result<(), Box<dyn Error>> {
     assert_eq!(
@@ -163,63 +234,15 @@ pub(crate) fn bootstrap_header_encoding_go_producer_transport_consumer(
             verifier.verify_header_commit(&header, &commit)?.as_slice(),
             expected
         );
-        if name.starts_with("initial") {
-            assert!(header.last_block_id.hash.is_empty());
-            assert!(header.last_block_id.part_set_hash.is_empty());
-            assert_eq!(header.last_block_id.part_set_total, 0);
-            assert!(header.last_results_hash.is_empty());
-            // These headers authenticate but supply no preceding result root.
-            // The state-proof API must never silently manufacture one.
-            assert_eq!(
-                verifier.verify_head(&header, &commit),
-                Err(ChainProofError::NonCanonical)
-            );
-            assert!(!fields(&encoded)?.iter().any(|(number, _)| *number == 12));
-            assert_eq!(header.app_hash, [0x41; 32]);
-        } else if name == "later" {
-            let head = verifier.verify_head(&header, &commit)?;
-            assert_eq!(head.header_hash().as_slice(), expected);
-            assert_eq!(
-                head.last_results_hash().as_slice(),
-                header.last_results_hash
-            );
-            assert_eq!(head.app_hash().as_slice(), header.app_hash);
-            assert_eq!(header.last_block_id.hash, previous.clone().unwrap());
-        }
-        if name == "initial-seven" {
-            previous = Some(expected.clone());
-        }
-        if name == "defaults" {
-            for number in [6, 7, 9, 10, 11, 12, 13] {
-                assert!(!fields(&encoded)?.iter().any(|(field, _)| *field == number));
-            }
-            let mut explicit = fields(&encoded)?;
-            for number in [6, 7, 9, 10, 11, 12, 13] {
-                explicit.push((number, bytes_field(number, &[])));
-            }
-            explicit.sort_by_key(|(number, _)| *number);
-            let explicit_header = ChainHeader::decode(&join(&explicit))?;
-            assert_eq!(explicit_header, header);
-            assert_eq!(explicit_header.hash()?, header.hash()?);
-            // Both predecessor hash fields can also be explicitly empty.
-            let parts = bytes_field(2, &[]);
-            let block_id = [bytes_field(1, &[]), bytes_field(2, &parts)].concat();
-            let explicit = replace(&encoded, 5, Some(bytes_field(5, &block_id)))?;
-            assert_eq!(ChainHeader::decode(&explicit)?, header);
-        }
-        if name != "later" {
-            assert_eq!(
-                verifier.verify_head(&header, &commit),
-                Err(ChainProofError::NonCanonical)
-            );
-        }
-        if name == "app-short" {
-            assert_eq!(header.app_hash, [1, 2, 3]);
-        }
-        if name == "app-long" {
-            assert_eq!(header.app_hash, [0x42; 65]);
-        }
-
+        verify_header_fields(
+            &verifier,
+            &header,
+            &commit,
+            &encoded,
+            &expected,
+            name,
+            &mut previous,
+        )?;
         let mut changed = header.clone();
         changed.height += 1;
         assert!(
@@ -247,10 +270,12 @@ pub(crate) fn bootstrap_header_encoding_go_producer_transport_consumer(
 fn varint(mut value: u64) -> Vec<u8> {
     let mut out = Vec::new();
     while value >= 128 {
-        out.push((value as u8 & 127) | 128);
+        out.push(
+            (u8::try_from((value) & 127).unwrap_or_else(|error| panic!("{error:?}")) & 127) | 128,
+        );
         value >>= 7;
     }
-    out.push(value as u8);
+    out.push(u8::try_from(value).unwrap_or_else(|error| panic!("{error:?}")));
     out
 }
 

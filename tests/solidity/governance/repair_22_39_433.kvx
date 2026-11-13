@@ -1,0 +1,7 @@
+[profile.default]
+artifact_output = "build/forge-artifacts"
+artifact_access = "read"
+vector_path = "tests/vectors/names"
+vector_access = "read-write"
+build_path = "build"
+build_access = "write"
