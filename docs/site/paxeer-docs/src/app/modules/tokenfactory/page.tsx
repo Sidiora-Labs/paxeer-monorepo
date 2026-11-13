@@ -15,7 +15,7 @@ export default function TokenFactory() {
       </div>
 
       <div className="source-note">
-        <strong>Source:</strong> <code>Paxeer-X-Network/modules/tokenfactory/</code>
+        <strong>Source:</strong> <code>modules/tokenfactory/</code>
       </div>
 
       <h2>Overview</h2>
@@ -40,7 +40,7 @@ export default function TokenFactory() {
         Example:
       </p>
 
-      <pre><code>{`factory/pax166vhptur29s3gw5qr6dm30s06gej6pr4zevkqk/ufoo`}</code></pre>
+      <pre><code>{`factory/{creator_address}/ufoo`}</code></pre>
 
       <ul>
         <li><strong>Prefix:</strong> Always <code>factory</code> (7 bytes)</li>
@@ -83,7 +83,7 @@ export default function TokenFactory() {
       </ul>
 
       <p>
-        Creation fails if the subdenom equals an existing native denom or the resulting denom already has bank metadata.
+        Replace angle-bracketed arguments with your denom or file path. Creation fails if the subdenom already has bank supply or the resulting denom already has bank metadata.
       </p>
 
       <h3>Mint</h3>
@@ -101,7 +101,7 @@ export default function TokenFactory() {
         CLI:
       </p>
 
-      <pre><code>{`paxd tx tokenfactory mint 100000000000factory/pax166vh.../ufoo --from mylocalwallet`}</code></pre>
+      <pre><code>{`paxd tx tokenfactory mint 100000000000<factory-denom> --from mylocalwallet`}</code></pre>
 
       <p>
         Checks: the denom was created via tokenfactory, the sender is the admin, and the denom is not paused. The amount is minted via the bank module to the sender&apos;s account; distributing it further is a separate bank send.
@@ -135,7 +135,7 @@ export default function TokenFactory() {
 }`}</code></pre>
 
       <p>
-        The sender must be the current admin, and <code>newAdmin</code> must differ from the current admin. <code>ValidateBasic</code> requires <code>newAdmin</code> to be a valid, non-empty bech32 address, so admin cannot be renounced by setting it to <code>""</code> through this message; an empty admin can only exist in stored or genesis authority metadata.
+        The sender must be the current admin, and <code>newAdmin</code> must differ from the current admin. <code>ValidateBasic</code> accepts either a valid bech32 address or <code>""</code> to renounce admin authority. Renouncing leaves no admin able to perform these operations.
       </p>
 
       <h3>UpdateDenom</h3>
@@ -150,10 +150,10 @@ export default function TokenFactory() {
     AllowList allow_list = 3;  // bank AllowList type
 }`}</code></pre>
 
-      <pre><code>{`paxd tx tokenfactory update-denom <denom> --from mylocalwallet`}</code></pre>
+      <pre><code>{`paxd tx tokenfactory update-denom <denom> --allow-list <allow-list-file> --from mylocalwallet`}</code></pre>
 
       <p>
-        The allow list must be defined, contain only valid bech32 addresses, and not exceed the <code>denom_allowlist_max_size</code> parameter (default <code>2000</code>).
+        The allow-list file is a JSON object with an addresses array; an empty array clears the list. The stored allow list must be defined, contain only valid bech32 addresses, and not exceed the <code>denom_allowlist_max_size</code> parameter (default <code>2000</code>).
       </p>
 
       <h3>SetDenomMetadata</h3>
@@ -173,7 +173,7 @@ export default function TokenFactory() {
       <pre><code>{`paxd tx tokenfactory set-denom-paused <denom> true --from mylocalwallet`}</code></pre>
 
       <p>
-        While a denom is paused, tokenfactory mint and burn reject with <code>ErrDenomPaused</code>.
+        While a denom is paused, tokenfactory mint and burn reject with <code>ErrDenomPaused</code>. This CLI message applies to denoms without an issuer DID; issuer-bound denoms use the issuer authorization path.
       </p>
 
       <h2>Admin Capabilities</h2>
@@ -198,10 +198,10 @@ export default function TokenFactory() {
       <pre><code>{`paxd query tokenfactory params
 paxd query tokenfactory denom-authority-metadata <denom>
 paxd query tokenfactory denom-paused <denom>
-paxd query tokenfactory denoms-from-creator pax166vhptur29s3gw5qr6dm30s06gej6pr4zevkqk
+paxd query tokenfactory denoms-from-creator <creator-address>
 paxd query tokenfactory denom-metadata <denom>
 paxd query tokenfactory denom-allow-list <denom>
-paxd query bank denom-metadata --denom factory/pax166vh.../ufoo`}</code></pre>
+paxd query bank denom-metadata --denom <factory-denom>`}</code></pre>
 
       <h2>Parameters</h2>
 
@@ -216,8 +216,8 @@ paxd query bank denom-metadata --denom factory/pax166vh.../ufoo`}</code></pre>
       </p>
 
       <ul>
-        <li><strong>Max subdenom length:</strong> 44 characters</li>
-        <li><strong>Max creator address length:</strong> 75 characters (bech32 prefix ≤ 16 chars)</li>
+        <li><strong>Max subdenom length:</strong> 44 bytes</li>
+        <li><strong>Max creator address length:</strong> 75 bytes (bech32 prefix ≤ 16 chars)</li>
       </ul>
 
       <p>
