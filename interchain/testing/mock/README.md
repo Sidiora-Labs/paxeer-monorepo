@@ -10,8 +10,9 @@ transfer or importing simapp. Keep that dependency direction: the
 
 [`MockIBCApp`](ibc_app.go) holds a port ID, a scoped capability keeper and optional
 function fields for the IBC application callbacks. Create it with
-`NewMockIBCApp(portID, scopedKeeper)`, then pass it and a `*AppModule` to
-`NewIBCModule`. During `AppModule.InitGenesis`, registered applications with a
+`NewMockIBCApp(portID, scopedKeeper)`, then register it with
+`NewIBCModule(appModule, app)`, where `appModule` is a `*AppModule` and `app`
+is the `*MockIBCApp`. During `AppModule.InitGenesis`, registered applications with a
 non-empty, unbound port ID bind that port and claim its capability. An empty
 port ID leaves port binding to the surrounding application or middleware.
 

@@ -33,7 +33,7 @@ for another asset.
 Build from the example directory so `programs/.cargo/config.toml` (vendored
 sources and the `wasm32-unknown-unknown` code-generation flags) applies:
 
-```
+```sh
 cd programs/sdk/rust/examples/payments-merchant
 cargo build --locked --release --target wasm32-unknown-unknown
 ```

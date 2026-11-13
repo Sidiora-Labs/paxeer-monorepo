@@ -22,7 +22,7 @@ execution before that height, or without a recorded merge activation,
 retains the prior value behavior. Do not infer this protection merely from
 the node binary version or ABI mutability.
 
-`repair_m1254_test.go` exercises the application's actual version routing,
-raw EVM calls, nonempty distribution keeper results, and stored payment
-balances. Its recorded heights 5 and 10 are isolated fixture heights, not
-network activation heights. The task record is `repair_m1254.kvx`.
+[Routing and value tests](repair_m1254_test.go) exercise the application's
+version routing, raw EVM calls, nonempty distribution keeper results, and
+stored payment balances. Their recorded heights 5 and 10 are isolated fixture
+heights, not network activation heights.

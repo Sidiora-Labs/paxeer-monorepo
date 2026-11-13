@@ -9,7 +9,7 @@ reward deposit or refund it. This includes a one-wei payment and payments with
 a fractional bank-unit remainder. Clients must send zero value when querying
 historical rewards; use STATICCALL for contract queries.
 
-The live executor in `precompiles/distribution/distribution.go` enforces zero
+The [current executor](../../distribution.go) enforces zero
 value once the `v7.0` upgrade is recorded as applied and the execution height
 reaches that recorded height. Positive-value calls then revert and retain the
 caller's value. Zero-value CALL and STATICCALL continue to return the keeper's
@@ -18,13 +18,13 @@ executor preserves its earlier payment behavior. The mere passage of a block
 height does not activate this check.
 
 Historical tracing selects the version recorded at the requested height. It
-must continue selecting v620 during its historical interval even when the
-store already contains the later merge marker. Never fix historical replay by
-adding a nonpayable check to `distribution.go` in this directory.
+continues selecting v620 during its historical interval even when the
+store already contains the later merge marker.
 
-`repair_m1259_test.go` drives the production distribution registry, keeper version selection,
-EVM CALL/STATICCALL, distribution query and ABI response. Its isolated in-memory
-upgrade history records v6.2.0 at height 20, v6.3.0 at 30, and v7.0 at 100.
+[Routing and value tests](repair_m1259_test.go) drive the production distribution
+registry, keeper version selection, EVM CALL/STATICCALL, distribution query and
+ABI response. Their isolated in-memory upgrade history records v6.2.0 at
+height 20, v6.3.0 at 30, and v7.0 at 100.
 These are fixture heights, not published network activation heights. The tests
 check exact activation boundaries, positive and zero values, nonempty rewards,
 and balances both immediately and after finalizing and reopening the EVM DB.

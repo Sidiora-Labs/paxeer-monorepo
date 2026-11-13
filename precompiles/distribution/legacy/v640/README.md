@@ -17,5 +17,5 @@ binary alone does not activate this rule. Calls below that height retain the
 historical behavior. Historical tracing selects v640 from its recorded
 `v6.4.0` activation until a later version takes over; normal execution uses
 the current executor, whose payment check is gated by the recorded merge
-height. The repair tests use in-memory activation heights 10 and 30; these
-are fixtures, not deployment heights.
+height. The [routing and value tests](repair_m1261_test.go) use in-memory
+activation heights 10 and 30; these are fixtures, not deployment heights.
