@@ -21860,3 +21860,8 @@ fix = "Decision 3493. Task 22.43.319 gets do_4: the case reads the present form 
 title = "Four page descriptions of the documentation site run past the recommended length"
 symptom = "The audit that follows the build of the documentation site reports the description of the front page and of the pages paxeer-vs-layerx, public-rpc and unified-network as longer than 160 characters. The description of a page is its lead paragraph, and the generated copies of the site carry it."
 fix = "Decision 3494. Task 22.43.321 shortens the four descriptions and keeps their facts in the body of the page."
+
+[gotcha.4408]
+title = "The shell harness of the wallet live checker names a variable the checker does not read"
+symptom = "The harness tests/wallet/check-live.test.sh passes its local responder to the checker in the variable CHECK_LIVE_ENDPOINT_BASE. The checker scripts/wallet/check-live.sh reads the node root from CHECK_LIVE_NODE_RPC_URL and takes a root without a route suffix."
+fix = "Decision 3495. Task 22.43.322 brings the harness and the test that reads its lines to the variable of the checker."
