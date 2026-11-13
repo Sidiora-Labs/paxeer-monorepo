@@ -23,7 +23,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-func repair283Configs(mode config.WriteMode, split bool) (config.StateCommitConfig, config.StateStoreConfig) {
+func restoreQueryConfigs(mode config.WriteMode, split bool) (config.StateCommitConfig, config.StateStoreConfig) {
 	sc := config.DefaultStateCommitConfig()
 	sc.WriteMode = mode
 	sc.MemIAVLConfig.AsyncCommitBuffer = 0
@@ -37,7 +37,7 @@ func repair283Configs(mode config.WriteMode, split bool) (config.StateCommitConf
 	return sc, state
 }
 
-func repair283Open(t *testing.T, home string, sc config.StateCommitConfig, state config.StateStoreConfig) *rootmulti.Store {
+func openRestoreQueryStore(t *testing.T, home string, sc config.StateCommitConfig, state config.StateStoreConfig) *rootmulti.Store {
 	t.Helper()
 	store := rootmulti.NewStore(home, sc, state, nil)
 	for _, name := range []string{"bank", "evm"} {
@@ -47,7 +47,7 @@ func repair283Open(t *testing.T, home string, sc config.StateCommitConfig, state
 	return store
 }
 
-func repair283App(t *testing.T, store *rootmulti.Store) *baseapp.BaseApp {
+func newRestoreQueryApp(t *testing.T, store *rootmulti.Store) *baseapp.BaseApp {
 	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -56,7 +56,7 @@ func repair283App(t *testing.T, store *rootmulti.Store) *baseapp.BaseApp {
 	return app
 }
 
-func repair283Query(t *testing.T, app *baseapp.BaseApp, height int64, prove bool, key []byte) *abci.ResponseQuery {
+func queryRestoreHistory(t *testing.T, app *baseapp.BaseApp, height int64, prove bool, key []byte) *abci.ResponseQuery {
 	t.Helper()
 	res, err := app.Query(context.Background(), &abci.RequestQuery{
 		Path: "/store/bank/key", Data: key, Height: height, Prove: prove,
@@ -66,14 +66,14 @@ func repair283Query(t *testing.T, app *baseapp.BaseApp, height int64, prove bool
 	return res
 }
 
-func repair283WaitForCommit(t *testing.T, store *rootmulti.Store, height int64) {
+func waitForHistoryCommit(t *testing.T, store *rootmulti.Store, height int64) {
 	t.Helper()
 	require.Eventually(t, func() bool {
 		return store.GetStateStore().GetLatestVersion() == height
 	}, 10*time.Second, time.Millisecond, "ordinary asynchronous commit did not reach SS")
 }
 
-func repair283AssertValue(t *testing.T, res *abci.ResponseQuery, height int64, key, value, hash []byte, prove bool) {
+func assertHistoryQueryValue(t *testing.T, res *abci.ResponseQuery, height int64, key, value, hash []byte, prove bool) {
 	t.Helper()
 	require.Zero(t, res.Code, res.Log)
 	require.Empty(t, res.Codespace)
@@ -92,12 +92,12 @@ func repair283AssertValue(t *testing.T, res *abci.ResponseQuery, height int64, k
 	}
 }
 
-func TestRepair_283_FutureQueryHeight(t *testing.T) {
+func TestQueryRejectsFutureHeight(t *testing.T) {
 	for _, enabled := range []bool{true, false} {
 		t.Run(fmt.Sprintf("SS=%t", enabled), func(t *testing.T) {
-			sc, state := repair283Configs(config.MemiavlOnly, false)
+			sc, state := restoreQueryConfigs(config.MemiavlOnly, false)
 			state.Enable = enabled
-			store := repair283Open(t, t.TempDir(), sc, state)
+			store := openRestoreQueryStore(t, t.TempDir(), sc, state)
 			t.Cleanup(func() { require.NoError(t, store.Close()) })
 			key := []byte("balance")
 			commits := make(map[int64]types.CommitID)
@@ -107,16 +107,16 @@ func TestRepair_283_FutureQueryHeight(t *testing.T) {
 				require.Equal(t, height, commits[height].Version)
 			}
 			if enabled {
-				repair283WaitForCommit(t, store, 3)
+				waitForHistoryCommit(t, store, 3)
 			}
-			app := repair283App(t, store)
+			app := newRestoreQueryApp(t, store)
 			for _, prove := range []bool{false, true} {
 				for _, height := range []int64{0, 2, 3, 4, 1 << 40} {
 					t.Run(fmt.Sprintf("height=%d/prove=%t", height, prove), func(t *testing.T) {
 						direct := store.Query(context.Background(), abci.RequestQuery{
 							Path: "/bank/key", Data: key, Height: height, Prove: prove,
 						})
-						response := repair283Query(t, app, height, prove, key)
+						response := queryRestoreHistory(t, app, height, prove, key)
 						if height > 3 {
 							for _, res := range []*abci.ResponseQuery{&direct, response} {
 								require.Equal(t, sdkerrors.ErrInvalidHeight.ABCICode(), res.Code)
@@ -134,19 +134,19 @@ func TestRepair_283_FutureQueryHeight(t *testing.T) {
 							resolved = 3
 						}
 						for _, res := range []*abci.ResponseQuery{&direct, response} {
-							repair283AssertValue(t, res, resolved, key, []byte(fmt.Sprint(resolved)), commits[resolved].Hash, prove)
+							assertHistoryQueryValue(t, res, resolved, key, []byte(fmt.Sprint(resolved)), commits[resolved].Hash, prove)
 						}
 					})
 				}
 			}
 			// CMS also resolves negative heights to the tip. BaseApp must preserve
 			// that resolved height rather than relabel the response with -1.
-			repair283AssertValue(t, repair283Query(t, app, -1, false, key), 3, key, []byte("3"), commits[3].Hash, false)
+			assertHistoryQueryValue(t, queryRestoreHistory(t, app, -1, false, key), 3, key, []byte("3"), commits[3].Hash, false)
 		})
 	}
 }
 
-func repair283Snapshot(t *testing.T, store *rootmulti.Store, height uint64) []byte {
+func snapshotQueryStore(t *testing.T, store *rootmulti.Store, height uint64) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	require.NoError(t, store.Snapshot(height, protoio.NewDelimitedWriter(&buf)))
@@ -154,7 +154,7 @@ func repair283Snapshot(t *testing.T, store *rootmulti.Store, height uint64) []by
 	return buf.Bytes()
 }
 
-func repair283Restore(t *testing.T, store *rootmulti.Store, height uint64, snapshot []byte) error {
+func restoreQuerySnapshot(t *testing.T, store *rootmulti.Store, height uint64, snapshot []byte) error {
 	t.Helper()
 	done := make(chan error, 1)
 	go func() {
@@ -170,11 +170,11 @@ func repair283Restore(t *testing.T, store *rootmulti.Store, height uint64, snaps
 	}
 }
 
-func TestRepair_283_RestoreImmediateHistoryAndRestart(t *testing.T) {
+func TestRestoreImmediateHistoryAndRestart(t *testing.T) {
 	for _, split := range []bool{false, true} {
 		t.Run(fmt.Sprintf("split=%t", split), func(t *testing.T) {
-			sc, state := repair283Configs(config.MemiavlOnly, split)
-			source := repair283Open(t, t.TempDir(), sc, state)
+			sc, state := restoreQueryConfigs(config.MemiavlOnly, split)
+			source := openRestoreQueryStore(t, t.TempDir(), sc, state)
 			const count = 257
 			evmKey := append([]byte{0x0a}, bytes.Repeat([]byte{0x12}, 20)...)
 			commits := make(map[int64]types.CommitID)
@@ -185,23 +185,23 @@ func TestRepair_283_RestoreImmediateHistoryAndRestart(t *testing.T) {
 				source.GetStoreByName("evm").(types.KVStore).Set(evmKey, bytes.Repeat([]byte{byte(height)}, 8))
 				commits[height] = source.Commit(true)
 			}
-			snapshot := repair283Snapshot(t, source, 2)
+			snapshot := snapshotQueryStore(t, source, 2)
 			require.NoError(t, source.Close())
 			home := t.TempDir()
-			destination := repair283Open(t, home, sc, state)
-			require.NoError(t, repair283Restore(t, destination, 2, snapshot))
+			destination := openRestoreQueryStore(t, home, sc, state)
+			require.NoError(t, restoreQuerySnapshot(t, destination, 2, snapshot))
 			require.Equal(t, commits[2], destination.LastCommitID())
 			check := func(store *rootmulti.Store) {
 				t.Helper()
 				require.Equal(t, int64(2), store.GetStateStore().GetEarliestVersion())
 				require.Equal(t, store.LastCommitID().Version, store.GetStateStore().GetLatestVersion())
-				app := repair283App(t, store)
+				app := newRestoreQueryApp(t, store)
 				for i := 0; i < count; i++ {
 					key := []byte(fmt.Sprintf("balance-%04d", i))
-					repair283AssertValue(t, repair283Query(t, app, 2, false, key), 2, key, []byte(fmt.Sprintf("2/%d", i)), commits[2].Hash, false)
+					assertHistoryQueryValue(t, queryRestoreHistory(t, app, 2, false, key), 2, key, []byte(fmt.Sprintf("2/%d", i)), commits[2].Hash, false)
 				}
 				key := []byte("balance-0000")
-				repair283AssertValue(t, repair283Query(t, app, 2, true, key), 2, key, []byte("2/0"), commits[2].Hash, true)
+				assertHistoryQueryValue(t, queryRestoreHistory(t, app, 2, true, key), 2, key, []byte("2/0"), commits[2].Hash, true)
 				evm := store.Query(context.Background(), abci.RequestQuery{Path: "/evm/key", Data: evmKey, Height: 2})
 				require.Zero(t, evm.Code, evm.Log)
 				require.Equal(t, int64(2), evm.Height)
@@ -212,10 +212,10 @@ func TestRepair_283_RestoreImmediateHistoryAndRestart(t *testing.T) {
 			check(destination)
 			destination.GetStoreByName("bank").(types.KVStore).Set([]byte("balance-0000"), []byte("3/0"))
 			require.Equal(t, int64(3), destination.Commit(true).Version)
-			repair283WaitForCommit(t, destination, 3)
+			waitForHistoryCommit(t, destination, 3)
 			check(destination)
 			require.NoError(t, destination.Close())
-			reopened := repair283Open(t, home, sc, state)
+			reopened := openRestoreQueryStore(t, home, sc, state)
 			t.Cleanup(func() { require.NoError(t, reopened.Close()) })
 			require.Equal(t, int64(3), reopened.LastCommitID().Version)
 			check(reopened)
@@ -223,7 +223,7 @@ func TestRepair_283_RestoreImmediateHistoryAndRestart(t *testing.T) {
 	}
 }
 
-func repair283RewriteSnapshot(t *testing.T, snapshot []byte, rewrite func(*snapshottypes.SnapshotItem)) []byte {
+func rewriteQuerySnapshot(t *testing.T, snapshot []byte, rewrite func(*snapshottypes.SnapshotItem)) []byte {
 	t.Helper()
 	reader := protoio.NewDelimitedReader(bytes.NewReader(snapshot), 1<<28)
 	var buf bytes.Buffer
@@ -241,17 +241,17 @@ func repair283RewriteSnapshot(t *testing.T, snapshot []byte, rewrite func(*snaps
 	return buf.Bytes()
 }
 
-func TestRepair_283_RestoreImportErrorAndRetry(t *testing.T) {
-	sc, state := repair283Configs(config.FlatKVOnly, false)
-	source := repair283Open(t, t.TempDir(), sc, state)
+func TestRestoreImportErrorAndRetry(t *testing.T) {
+	sc, state := restoreQueryConfigs(config.FlatKVOnly, false)
+	source := openRestoreQueryStore(t, t.TempDir(), sc, state)
 	key, value := []byte("balance"), []byte("snapshot-value")
 	source.GetStoreByName("bank").(types.KVStore).Set(key, value)
 	source.Commit(true)
 	commit := source.Commit(true)
-	snapshot := repair283Snapshot(t, source, 2)
+	snapshot := snapshotQueryStore(t, source, 2)
 	require.NoError(t, source.Close())
 	corrupted := 0
-	broken := repair283RewriteSnapshot(t, snapshot, func(item *snapshottypes.SnapshotItem) {
+	broken := rewriteQuerySnapshot(t, snapshot, func(item *snapshottypes.SnapshotItem) {
 		if node := item.GetIAVL(); node != nil {
 			// Damage only the SS serialization version; physical keys remain
 			// valid for the real SC importer, isolating the SS conversion error.
@@ -261,8 +261,8 @@ func TestRepair_283_RestoreImportErrorAndRetry(t *testing.T) {
 	})
 	require.Positive(t, corrupted)
 	home := t.TempDir()
-	destination := repair283Open(t, home, sc, state)
-	err := repair283Restore(t, destination, 2, broken)
+	destination := openRestoreQueryStore(t, home, sc, state)
+	err := restoreQuerySnapshot(t, destination, 2, broken)
 	require.ErrorContains(t, err, "SS import failure")
 	require.ErrorContains(t, err, "unsupported serialization version")
 	require.Zero(t, destination.GetStateStore().GetEarliestVersion())
@@ -270,25 +270,25 @@ func TestRepair_283_RestoreImportErrorAndRetry(t *testing.T) {
 	require.Zero(t, destination.LastCommitID().Version)
 	// The failed attempt has joined its workers; retry the real snapshot,
 	// then stop and reopen both stores before reading its history.
-	require.NoError(t, repair283Restore(t, destination, 2, snapshot))
+	require.NoError(t, restoreQuerySnapshot(t, destination, 2, snapshot))
 	require.Equal(t, commit, destination.LastCommitID())
-	repair283AssertValue(t, repair283Query(t, repair283App(t, destination), 2, false, key), 2, key, value, commit.Hash, false)
+	assertHistoryQueryValue(t, queryRestoreHistory(t, newRestoreQueryApp(t, destination), 2, false, key), 2, key, value, commit.Hash, false)
 	require.NoError(t, destination.Close())
-	reopened := repair283Open(t, home, sc, state)
+	reopened := openRestoreQueryStore(t, home, sc, state)
 	t.Cleanup(func() { require.NoError(t, reopened.Close()) })
 	require.Equal(t, commit, reopened.LastCommitID())
 	require.Equal(t, int64(2), reopened.GetStateStore().GetEarliestVersion())
 	require.Equal(t, int64(2), reopened.GetStateStore().GetLatestVersion())
-	repair283AssertValue(t, repair283Query(t, repair283App(t, reopened), 2, false, key), 2, key, value, commit.Hash, false)
+	assertHistoryQueryValue(t, queryRestoreHistory(t, newRestoreQueryApp(t, reopened), 2, false, key), 2, key, value, commit.Hash, false)
 }
 
-func TestRepair_283_RestoreReadAndSCFailures(t *testing.T) {
-	sc, state := repair283Configs(config.MemiavlOnly, false)
-	source := repair283Open(t, t.TempDir(), sc, state)
+func TestRestoreReadAndSCFailures(t *testing.T) {
+	sc, state := restoreQueryConfigs(config.MemiavlOnly, false)
+	source := openRestoreQueryStore(t, t.TempDir(), sc, state)
 	source.GetStoreByName("bank").(types.KVStore).Set([]byte("balance"), []byte("original"))
 	source.Commit(true)
 	source.Commit(true)
-	snapshot := repair283Snapshot(t, source, 2)
+	snapshot := snapshotQueryStore(t, source, 2)
 	require.NoError(t, source.Close())
 	for _, kind := range []string{"read", "SC"} {
 		t.Run(kind, func(t *testing.T) {
@@ -300,7 +300,7 @@ func TestRepair_283_RestoreReadAndSCFailures(t *testing.T) {
 			} else {
 				want = "node version under/overflows"
 				corrupted := 0
-				broken = repair283RewriteSnapshot(t, snapshot, func(item *snapshottypes.SnapshotItem) {
+				broken = rewriteQuerySnapshot(t, snapshot, func(item *snapshottypes.SnapshotItem) {
 					if node := item.GetIAVL(); node != nil {
 						node.Version = -1
 						corrupted++
@@ -309,8 +309,8 @@ func TestRepair_283_RestoreReadAndSCFailures(t *testing.T) {
 				require.Positive(t, corrupted)
 			}
 			home := t.TempDir()
-			destination := repair283Open(t, home, sc, state)
-			err := repair283Restore(t, destination, 2, broken)
+			destination := openRestoreQueryStore(t, home, sc, state)
+			err := restoreQuerySnapshot(t, destination, 2, broken)
 			require.ErrorContains(t, err, want)
 			require.Zero(t, destination.LastCommitID().Version)
 			require.Zero(t, destination.GetStateStore().GetEarliestVersion())

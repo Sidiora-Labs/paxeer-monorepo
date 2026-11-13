@@ -6,7 +6,7 @@ import (
 	paxdbconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 )
 
-func TestRepairM_608_SnapshotHeightHash(t *testing.T) {
+func TestSnapshotHeightHashAcrossWriteModes(t *testing.T) {
 	for _, mode := range []paxdbconfig.WriteMode{
 		paxdbconfig.MemiavlOnly,
 		paxdbconfig.MigrateEVM,
@@ -21,14 +21,14 @@ func TestRepairM_608_SnapshotHeightHash(t *testing.T) {
 	}
 }
 
-func TestRepairM_608_DualWriteContinuation(t *testing.T) {
+func TestSnapshotDualWriteContinuation(t *testing.T) {
 	TestFlatKVSnapshotRestoreWithLatticeHash(t)
 }
 
-func TestRepairM_608_EVMMigratedContinuation(t *testing.T) {
+func TestSnapshotEVMMigratedContinuation(t *testing.T) {
 	TestFlatKVEVMMigratedSnapshotRestore(t)
 }
 
-func TestRepairM_608_FlatKVOnlyContinuation(t *testing.T) {
+func TestSnapshotFlatKVOnlyContinuation(t *testing.T) {
 	TestFlatKVOnlySnapshotRestoreAppHashParity(t)
 }
