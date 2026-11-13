@@ -15,7 +15,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func repairM1107CompareResults(got, want []*abci.TxResultV2) error {
+func compareLegacySearchResults(got, want []*abci.TxResultV2) error {
 	if len(got) != len(want) {
 		return fmt.Errorf("transaction result count: got %d, want %d", len(got), len(want))
 	}
@@ -38,16 +38,16 @@ func repairM1107CompareResults(got, want []*abci.TxResultV2) error {
 	return nil
 }
 
-func TestRepairM_1107_LegacySearchResults(t *testing.T) {
+func TestLegacyTxSearchLegacySearchResults(t *testing.T) {
 	TestTxSearchDeprecatedIndexing(t)
 }
 
-func TestRepairM_1107_RejectMissingMatches(t *testing.T) {
+func TestLegacyTxSearchRejectMissingMatches(t *testing.T) {
 	store, sink, expected := deprecatedTxSearchFixture(t)
 	q := query.MustCompile("sender = 'addr1'")
 	results, err := sink.SearchTxEvents(t.Context(), q)
 	require.NoError(t, err)
-	require.NoError(t, repairM1107CompareResults(results, expected[1:]))
+	require.NoError(t, compareLegacySearchResults(results, expected[1:]))
 
 	key, err := orderedcode.Append(nil, types.TxHashKey, string(types.Tx(expected[1].Tx).Hash().Bytes()))
 	require.NoError(t, err)
@@ -55,20 +55,20 @@ func TestRepairM_1107_RejectMissingMatches(t *testing.T) {
 	results, err = sink.SearchTxEvents(t.Context(), q)
 	require.NoError(t, err)
 	require.Empty(t, results)
-	require.Error(t, repairM1107CompareResults(results, expected[1:]))
+	require.Error(t, compareLegacySearchResults(results, expected[1:]))
 
 	results, err = sink.SearchTxEvents(t.Context(), query.MustCompile("tx.height = 1"))
 	require.NoError(t, err)
-	require.NoError(t, repairM1107CompareResults(results, expected[:1]))
-	require.Error(t, repairM1107CompareResults(results, expected))
+	require.NoError(t, compareLegacySearchResults(results, expected[:1]))
+	require.Error(t, compareLegacySearchResults(results, expected))
 }
 
-func TestRepairM_1107_RejectUnexpectedMatches(t *testing.T) {
+func TestLegacyTxSearchRejectUnexpectedMatches(t *testing.T) {
 	_, sink, expected := deprecatedTxSearchFixture(t)
 	q := query.MustCompile("tx.height = 1")
 	results, err := sink.SearchTxEvents(t.Context(), q)
 	require.NoError(t, err)
-	require.NoError(t, repairM1107CompareResults(results, expected))
+	require.NoError(t, compareLegacySearchResults(results, expected))
 
 	extra := txResultWithEvents(nil)
 	extra.Tx = types.Tx("UNEXPECTED TRANSACTION")
@@ -77,16 +77,16 @@ func TestRepairM_1107_RejectUnexpectedMatches(t *testing.T) {
 	results, err = sink.SearchTxEvents(t.Context(), q)
 	require.NoError(t, err)
 	require.Len(t, results, 3)
-	require.Error(t, repairM1107CompareResults(results, expected))
+	require.Error(t, compareLegacySearchResults(results, expected))
 
 	results, err = sink.SearchTxEvents(t.Context(), query.MustCompile(fmt.Sprintf("tx.hash = '%X'", types.Tx(extra.Tx).Hash())))
 	require.NoError(t, err)
-	require.NoError(t, repairM1107CompareResults(results, []*abci.TxResultV2{extra}))
-	require.Error(t, repairM1107CompareResults(results, expected[1:]))
-	require.Error(t, repairM1107CompareResults(results, nil))
+	require.NoError(t, compareLegacySearchResults(results, []*abci.TxResultV2{extra}))
+	require.Error(t, compareLegacySearchResults(results, expected[1:]))
+	require.Error(t, compareLegacySearchResults(results, nil))
 }
 
-func TestRepairM_1107_LegacyProducerRecord(t *testing.T) {
+func TestLegacyTxSearchLegacyProducerRecord(t *testing.T) {
 	store, sink, expected := deprecatedTxSearchFixture(t)
 	legacy := expected[1]
 	hash := types.Tx(legacy.Tx).Hash().Bytes()

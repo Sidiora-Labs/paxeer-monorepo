@@ -25,7 +25,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
-func testRepairM1183BlockQueueClose(t *testing.T) {
+func assertBlockQueueShutdown(t *testing.T) {
 	t.Helper()
 	for _, shutdown := range []string{"close", "retry", "success"} {
 		t.Run(shutdown, func(t *testing.T) {
@@ -100,22 +100,22 @@ func testRepairM1183BlockQueueClose(t *testing.T) {
 	}
 }
 
-func TestRepairM_1183_BackfillClose(t *testing.T) {
-	testRepairM1183BlockQueueClose(t)
+func TestStateSyncBackfillClose(t *testing.T) {
+	assertBlockQueueShutdown(t)
 }
 
 // This application is a committed snapshot announcement fixture. Both the wire
 // response and its decoding/consumption are produced by the real reactors.
-type repairM1183SnapshotApp struct {
+type snapshotAnnouncementApp struct {
 	abci.BaseApplication
 	snapshots []*abci.Snapshot
 }
 
-func (app repairM1183SnapshotApp) ListSnapshots(context.Context, *abci.RequestListSnapshots) (*abci.ResponseListSnapshots, error) {
+func (app snapshotAnnouncementApp) ListSnapshots(context.Context, *abci.RequestListSnapshots) (*abci.ResponseListSnapshots, error) {
 	return &abci.ResponseListSnapshots{Snapshots: app.snapshots}, nil
 }
 
-func repairM1183SnapshotPair(t *testing.T, snapshots []*abci.Snapshot) (*Reactor, *Reactor, types.NodeID) {
+func newSnapshotReactorPair(t *testing.T, snapshots []*abci.Snapshot) (*Reactor, *Reactor, types.NodeID) {
 	t.Helper()
 	network := p2p.MakeTestNetwork(t, p2p.TestNetworkOptions{NumNodes: 2})
 	nodes := network.Nodes()
@@ -127,7 +127,7 @@ func repairM1183SnapshotPair(t *testing.T, snapshots []*abci.Snapshot) (*Reactor
 			require.NoError(t, blockDB.Close())
 		})
 		r, err := NewReactor(factory.DefaultTestChainID, 1, *config.DefaultStateSyncConfig(),
-			proxy.New(repairM1183SnapshotApp{snapshots: snapshots}, proxy.NopMetrics()), node.Router,
+			proxy.New(snapshotAnnouncementApp{snapshots: snapshots}, proxy.NopMetrics()), node.Router,
 			sm.NewStore(stateDB), store.NewBlockStore(blockDB), t.TempDir(), NopMetrics(),
 			nil, nil, false, func() {}, config.DefaultSelfRemediationConfig())
 		require.NoError(t, err)
@@ -138,7 +138,7 @@ func repairM1183SnapshotPair(t *testing.T, snapshots []*abci.Snapshot) (*Reactor
 	return reactors[0], reactors[1], nodes[1].NodeID
 }
 
-func TestRepairM_1183_SnapshotAllocation(t *testing.T) {
+func TestStateSyncSnapshotAllocation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	counts := []uint32{maxSnapshotChunks - 1, maxSnapshotChunks, maxSnapshotChunks + 1, ^uint32(0)}
@@ -146,7 +146,7 @@ func TestRepairM_1183_SnapshotAllocation(t *testing.T) {
 	for i, count := range counts {
 		announcements = append(announcements, &abci.Snapshot{Height: uint64(i + 1), Format: 1, Chunks: count, Hash: []byte{byte(i + 1)}})
 	}
-	client, producer, producerID := repairM1183SnapshotPair(t, announcements)
+	client, producer, producerID := newSnapshotReactorPair(t, announcements)
 	client.snapshotChannel.Send(wrap(&pb.SnapshotsRequest{}), producerID)
 	request, err := producer.snapshotChannel.Recv(ctx)
 	require.NoError(t, err)
@@ -196,11 +196,11 @@ func TestRepairM_1183_SnapshotAllocation(t *testing.T) {
 	}
 }
 
-func TestRepairM_1183_DispatcherClose(t *testing.T) {
+func TestStateSyncDispatcherClose(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
-		client, server, serverID := repairM1183SnapshotPair(t, nil)
+		client, server, serverID := newSnapshotReactorPair(t, nil)
 		d := NewDispatcher(client.lightBlockChannel)
 		result := make(chan error, 1)
 		s.Spawn(func() error {
@@ -241,10 +241,10 @@ func TestRepairM_1183_DispatcherClose(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRepairM_1183_DispatcherCancellation(t *testing.T) {
+func TestStateSyncDispatcherCancellation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	client, server, serverID := repairM1183SnapshotPair(t, nil)
+	client, server, serverID := newSnapshotReactorPair(t, nil)
 	d := NewDispatcher(client.lightBlockChannel)
 	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 		requestCtx, stop := context.WithCancel(ctx)
@@ -274,11 +274,11 @@ func TestRepairM_1183_DispatcherCancellation(t *testing.T) {
 	d.Close()
 }
 
-func TestRepairM_1183_PeerListConcurrent(t *testing.T) { TestPeerListConcurrent(t) }
-func TestRepairM_1183_BackfillRecoveredInterval(t *testing.T) {
+func TestStateSyncPeerListConcurrent(t *testing.T) { TestPeerListConcurrent(t) }
+func TestStateSyncBackfillRecoveredInterval(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
-	client, server, serverID := repairM1183SnapshotPair(t, nil)
+	client, server, serverID := newSnapshotReactorPair(t, nil)
 	client.dispatcher = NewDispatcher(client.lightBlockChannel)
 	client.peers.Append(serverID)
 	const startHeight, stopHeight int64 = 20, 10
@@ -322,13 +322,13 @@ func TestRepairM_1183_BackfillRecoveredInterval(t *testing.T) {
 	require.Equal(t, visited, client.BackFilledBlocks())
 	require.Equal(t, visited, client.BackFillBlocksTotal())
 }
-func TestRepairM_1183_ParamsTransition(t *testing.T) {
-	t.Run("restored", TestRepair_120_ParamsHeightRestoration)
-	t.Run("wrong-height", TestRepair_120_ParamsWrongHeightRefused)
-	t.Run("wrong-hash", TestRepair_120_ParamsWrongHashRefused)
+func TestStateSyncParamsTransition(t *testing.T) {
+	t.Run("restored", TestStateProviderParamsHeightRestoration)
+	t.Run("wrong-height", TestStateProviderParamsWrongHeightRefused)
+	t.Run("wrong-hash", TestStateProviderParamsWrongHashRefused)
 }
 
-func TestRepairM_1183_SnapshotComparator(t *testing.T) {
+func TestStateSyncSnapshotComparator(t *testing.T) {
 	candidates := []*snapshot{
 		{Height: 10, Format: 1, Chunks: 1, Hash: []byte{1}},
 		{Height: 10, Format: 9, Chunks: 1, Hash: []byte{2}},
@@ -373,26 +373,26 @@ func TestRepairM_1183_SnapshotComparator(t *testing.T) {
 
 // Observe wait registration without replacing the context's cancellation or
 // deadline behavior, so both discovery branches can be canceled deterministically.
-type repairM1183DiscoveryContext struct {
+type discoveryWaitContext struct {
 	context.Context
 	waiting chan struct{}
 	once    sync.Once
 }
 
-func (ctx *repairM1183DiscoveryContext) Done() <-chan struct{} {
+func (ctx *discoveryWaitContext) Done() <-chan struct{} {
 	ctx.once.Do(func() { close(ctx.waiting) })
 	return ctx.Context.Done()
 }
 
-func TestRepairM_1183_DiscoveryCancellation(t *testing.T) {
+func TestStateSyncDiscoveryCancellation(t *testing.T) {
 	for _, local := range []bool{false, true} {
 		t.Run(fmt.Sprintf("local=%t", local), func(t *testing.T) {
-			client, _, _ := repairM1183SnapshotPair(t, nil)
+			client, _, _ := newSnapshotReactorPair(t, nil)
 			syncer := client.syncer
 			syncer.useLocalSnapshot = local // initial discovery and repeated empty discovery
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
-			observed := &repairM1183DiscoveryContext{Context: ctx, waiting: make(chan struct{})}
+			observed := &discoveryWaitContext{Context: ctx, waiting: make(chan struct{})}
 			completed := make(chan error, 1)
 			err := scope.Run(t.Context(), func(_ context.Context, s scope.Scope) error {
 				s.Spawn(func() error {

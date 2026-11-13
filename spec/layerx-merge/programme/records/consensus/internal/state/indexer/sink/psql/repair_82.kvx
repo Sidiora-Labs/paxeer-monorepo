@@ -5,7 +5,7 @@ findings = ["7", "34"]
 build = "hf-build"
 verify = "hf-done"
 evidence = "The gate runner records the exact qualified candidate revision, command, exit and private log; the final response copies that evidence."
-baseline = "Not run: the explicit gate order forbids verification before implementation and permits only hf-done after hf-build; repair_82_test.go did not exist on the unchanged tree."
+baseline = "Not run: the explicit gate order forbids verification before implementation and permits only hf-done after hf-build; event_storage_test.go did not exist on the unchanged tree."
 
 [finding.7]
 test = "TestRepair_82_BigintIdentifiers"
