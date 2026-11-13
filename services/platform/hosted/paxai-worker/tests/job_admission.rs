@@ -81,6 +81,16 @@ use std::sync::Barrier;
 use std::thread;
 use std::time::Duration;
 
+fn hex_bytes(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut text = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        text.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        text.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    text
+}
+
 const CHAIN: [u8; 32] = [10; 32];
 const PROGRAM: [u8; 32] = [11; 32];
 const OWNER: [u8; 32] = [12; 32];
@@ -1379,7 +1389,7 @@ fn worker_service(directory: &Scratch) -> Checked<worker::Service> {
     Ok(worker::Service {
         binding,
         key: delegate(),
-        metrics: Default::default(),
+        metrics: layerx_paxai_worker::metrics::Metrics::default(),
         jobs: service(
             &directory.store(),
             PathBuf::from(env!("CARGO_BIN_EXE_layerx-paxai-runner")),
@@ -1426,23 +1436,16 @@ fn feed(service: &worker::Service, market: &Market, height: u64) -> Checked {
         roster: Some(&market.roster),
         observed_ms: NOW,
     };
-    service.runtime.lock().expect("runtime lock").observe(
-        &evidence,
-        &market.signed,
-        vec![customer_at(height)?],
-    )?;
+    service
+        .runtime
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "runtime lock"))
+        .observe(&evidence, &market.signed, vec![customer_at(height)?])?;
     Ok(())
 }
 
 fn stage_input(service: &worker::Service, order: &Order) -> Checked {
-    let name = order
-        .submit
-        .request
-        .input_commitment
-        .bytes()
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+    let name = hex_bytes(&order.submit.request.input_commitment.bytes());
     fs::write(
         service.input_dir.join(format!("{name}.manifest")),
         &order.manifest,
@@ -1460,7 +1463,8 @@ fn job_admitted_after_finalized_observation() -> Checked {
     let service = worker_service(&directory)?;
     let mut fixture = admitting()?;
     let order = order(&fixture, 0x41, 1, 128)?;
-    admit_chain_task(&mut fixture, &order, 0x41).expect("native task admission");
+    admit_chain_task(&mut fixture, &order, 0x41)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "native task admission"));
     stage_input(&service, &order)?;
     let before = service.dispatch(
         "POST",
@@ -1473,7 +1477,8 @@ fn job_admitted_after_finalized_observation() -> Checked {
         ServiceError::StaleAuthority.body(Presence::Present(order.submit.context.request))
     );
     assert_eq!(service.jobs.store().usage()?.queued, 0);
-    feed(&service, &fixture.market, HEIGHT).expect("bind finalized observation");
+    feed(&service, &fixture.market, HEIGHT)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "bind finalized observation"));
     let response = service.dispatch(
         "POST",
         layerx_paxai_worker::auth::SUBMIT_PATH,
@@ -1495,9 +1500,16 @@ fn job_admitted_after_finalized_observation() -> Checked {
     assert_eq!(duplicate.status, 200);
     assert_eq!(duplicate.body, response.body);
     assert_eq!(service.jobs.store().usage()?.queued, 1);
-    service.runtime.lock().expect("runtime lock").refreshed = Some(
+    service
+        .runtime
+        .lock()
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "runtime lock"))
+        .refreshed = Some(
         std::time::Instant::now()
-            - Duration::from_millis(layerx_paxai_worker::discovery::READINESS_TTL_MS),
+            .checked_sub(Duration::from_millis(
+                layerx_paxai_worker::discovery::READINESS_TTL_MS,
+            ))
+            .unwrap_or_else(|| panic!("readiness deadline")),
     );
     assert_eq!(
         service
@@ -1518,13 +1530,15 @@ fn job_refused_after_membership_revoked() -> Checked {
     let service = worker_service(&directory)?;
     let mut fixture = admitting()?;
     let order = order(&fixture, 0x42, 1, 128)?;
-    admit_chain_task(&mut fixture, &order, 0x42).expect("native task admission");
+    admit_chain_task(&mut fixture, &order, 0x42)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "native task admission"));
     stage_input(&service, &order)?;
-    feed(&service, &fixture.market, HEIGHT).expect("bind finalized observation");
+    feed(&service, &fixture.market, HEIGHT)
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "bind finalized observation"));
     assert!(service
         .runtime
         .lock()
-        .expect("runtime lock")
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "runtime lock"))
         .membership
         .new_work()
         .is_ok());
@@ -1548,10 +1562,11 @@ fn job_refused_after_membership_revoked() -> Checked {
     let error = service
         .runtime
         .lock()
-        .expect("runtime lock")
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "runtime lock"))
         .membership
         .new_work()
-        .expect_err("revoked membership refused");
+        .err()
+        .unwrap_or_else(|| panic!("revoked membership refused"));
     assert_eq!(error, ServiceError::DelegateRevoked);
     let response = service.dispatch(
         "POST",
@@ -1582,7 +1597,7 @@ fn program_operations_preserve_delegate_and_abi_bindings() -> Checked {
         "chain_config": "chain.json", "capabilities": [1, 2], "access_declaration": [3, 4],
         "response_capacity": 16384, "budget": [1, 2, 3, 4, 5, 6, 7], "fee_limit": 100
     }))
-    .expect("valid call configuration");
+    .unwrap_or_else(|error| panic!("{error:?}: {}", "valid call configuration"));
     for operation in [
         dispatch::ACCEPT_TASK,
         dispatch::COMMIT_TASK_RESULT,
@@ -1607,20 +1622,22 @@ fn program_operations_preserve_delegate_and_abi_bindings() -> Checked {
                 decoded.request_digest()?.as_bytes(),
                 &ed25519_dalek::Signature::from_bytes(&signature.0),
             )
-            .expect("genuine delegate signature");
+            .unwrap_or_else(|error| panic!("{error:?}: {}", "genuine delegate signature"));
         let call = worker::programs_call(&config, service.binding.program, &pending.envelope);
         assert_eq!(&call[..4], &[0x54, 0xbd, 0x2b, 0x48]);
         assert_eq!(&call[4..36], service.binding.program.as_bytes());
         let offset = usize::try_from(u128::from_be_bytes(
-            call[116..132].try_into().expect("ABI offset"),
+            call[116..132]
+                .try_into()
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "ABI offset")),
         ))
-        .expect("offset fits");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "offset fits"));
         let length = usize::try_from(u128::from_be_bytes(
             call[4 + offset + 16..4 + offset + 32]
                 .try_into()
-                .expect("ABI length"),
+                .unwrap_or_else(|error| panic!("{error:?}: {}", "ABI length")),
         ))
-        .expect("length fits");
+        .unwrap_or_else(|error| panic!("{error:?}: {}", "length fits"));
         assert_eq!(
             &call[4 + offset + 32..4 + offset + 32 + length],
             pending.envelope

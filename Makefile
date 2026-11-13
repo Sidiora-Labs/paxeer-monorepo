@@ -2570,6 +2570,7 @@ paxeer-npm-install: paxeer-node-preflight
 	npm --prefix contracts ci --ignore-scripts --no-audit --no-fund
 	npm --prefix tests/integration/dapp_tests ci --ignore-scripts --no-audit --no-fund
 	npm --prefix tests/integration/rpc_tests ci --ignore-scripts --no-audit --no-fund
+	node scripts/workspace/install-hardhat-compilers.mjs
 
 paxeer-npm-dependencies-ready:
 	@test -d contracts/node_modules
@@ -2585,9 +2586,9 @@ paxeer-npm-build: paxeer-hardhat-compilers-ready
 	npm --prefix tests/integration/rpc_tests run compile
 
 paxeer-npm-static-test: paxeer-npm-dependencies-ready
-	npm --prefix contracts exec -- tsc --noEmit
+	npm --prefix contracts exec -- tsc --noEmit --project contracts/tsconfig.json
 	find tests/integration/dapp_tests -type f -name '*.js' -exec node --check {} \;
-	npm --prefix tests/integration/rpc_tests exec -- tsc --noEmit
+	npm --prefix tests/integration/rpc_tests exec -- tsc --noEmit --project tests/integration/rpc_tests/tsconfig.json
 
 paxeer-tools-install:
 	@set -eu; \
@@ -2642,11 +2643,12 @@ developer-dashboard-install:
 		ln -s ../../../../../apps/web/node_modules services/platform/hosted/dashboard/web/node_modules
 
 developer-dashboard-build:
-	npm --prefix apps/web run build --workspace @layerx/ui
-	npm --prefix services/platform/hosted/dashboard/web run build
+	npm --prefix apps/web run build:ui
+	DASHBOARD_API_ORIGIN=http://127.0.0.1:9445 npm --prefix services/platform/hosted/dashboard/web run build
 
 developer-dashboard-static-test:
 	npm --prefix services/platform/hosted/dashboard/web run test:static
+	rm -rf apps/web/packages/layerx-ui/dist
 
 specgen-build:
 	go build -o /dev/null ./tools/specgen
@@ -2710,8 +2712,11 @@ workspace-install:
 	cargo fetch --manifest-path sdk/platform/generators/Cargo.toml --locked
 	cd programs && cargo fetch --locked
 	cargo fetch --manifest-path services/interop/Cargo.toml --locked
-	$(MAKE) platform-js-install programs-js-install
-	$(MAKE) developer-dashboard-install paxeer-manifest-install platform-dependencies-install
+	$(MAKE) platform-js-install
+	$(MAKE) programs-js-install
+	$(MAKE) developer-dashboard-install
+	$(MAKE) paxeer-manifest-install
+	$(MAKE) platform-dependencies-install
 	go mod download
 
 workspace-build: build agent-build human-build platform-build-all programs-build interop-build \
@@ -2831,6 +2836,10 @@ PROGRAMS_CARGO ?= cargo
 PROGRAMS_DIR ?= $(CURDIR)/programs
 PROGRAMS_TARGET_DIR := $(CURDIR)/programs/target
 PROGRAMS_WORKSPACE_CARGO = env CARGO_TARGET_DIR='$(PROGRAMS_TARGET_DIR)' $(PROGRAMS_CARGO)
+PROGRAMS_INTERPRETER_TARGET_DIR := $(if $(CARGO_TARGET_DIR),$(if $(filter /%,$(CARGO_TARGET_DIR)),$(CARGO_TARGET_DIR),$(abspath $(PROGRAMS_DIR)/$(CARGO_TARGET_DIR))),$(abspath $(PROGRAMS_DIR)/target))
+PROGRAMS_PORTING_EVM_TARGET_DIR := $(abspath $(or $(CARGO_TARGET_DIR),programs/porting/evm/reference-v2/target))
+PROGRAMS_PORTING_SOLANA_TARGET_DIR := $(abspath $(or $(CARGO_TARGET_DIR),programs/porting/solana/reference-v2/target))
+PROGRAMS_PORTING_COSMWASM_TARGET_DIR := $(abspath $(or $(CARGO_TARGET_DIR),programs/porting/cosmwasm/reference-v2/target))
 PROGRAMS_RUNTIME_LIB := programs/target/debug/liblayerx_programs_sandbox.a
 PROGRAMS_RELEASE_RUNTIME_LIB := programs/target/release/liblayerx_programs_sandbox.a
 PROGRAMS_NATIVE_LDLIBS := -lssl
@@ -2878,46 +2887,71 @@ programs-check-capability-fixture:
 		(cd programs && $(PROGRAMS_CARGO) run --locked -p layerx-programs-runtime --example capability_fixture) > "$$temporary" && \
 		cmp "$$temporary" sdk/platform/conformance/fixtures/native-program-capabilities-v2.json
 
+PROGRAMS_TEST_TARGETS := \
+	$(BUILD_DIR)/tests/programs_registration \
+	$(BUILD_DIR)/tests/programs_lifecycle \
+	$(BUILD_DIR)/tests/programs_monetary_law \
+	$(BUILD_DIR)/tests/programs_transfer_principal \
+	$(BUILD_DIR)/tests/programs_call_escrow_principal \
+	$(BUILD_DIR)/tests/programs_call_activity \
+	$(BUILD_DIR)/tests/programs_metered_call \
+	$(BUILD_DIR)/tests/test_programs_oracle_read \
+	$(BUILD_DIR)/tests/test_web_program_path \
+	$(BUILD_DIR)/tests/programs_metering_schedule \
+	$(BUILD_DIR)/tests/programs_accounts \
+	$(BUILD_DIR)/tests/programs_winddown \
+	$(BUILD_DIR)/tests/lxp_test_blob_lifecycle \
+	$(BUILD_DIR)/tests/test_programs_abi5_admission \
+	$(BUILD_DIR)/tests/paxai_host_boundary \
+	$(BUILD_DIR)/tests/lxp_test_blob_admission \
+	$(BUILD_DIR)/tests/lxp_test_paxai_native_gaps \
+	$(BUILD_DIR)/tests/programs_parallel_differential \
+	$(BUILD_DIR)/tests/test_call_builders
+PROGRAMS_TEST_DEPFLAGS = -MMD -MP -MF $@.d -MT $@
+
+$(PROGRAMS_TEST_TARGETS): Makefile
+-include $(PROGRAMS_TEST_TARGETS:=.d)
+
 $(BUILD_DIR)/tests/programs_registration: tests/programs/test_registration.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_lifecycle: tests/programs/test_lifecycle.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_monetary_law: tests/programs/test_monetary_law.c \
 		$(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) $< $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_transfer_principal: tests/programs/test_transfer_principal.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_call_escrow_principal: tests/programs/test_call_escrow_principal.c \
 		src/modules/programs/call.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_call_activity: tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_metered_call: tests/programs/test_metered_call.c \
 		tests/programs/test_call_activity.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 .PHONY: test-programs-metered-call
@@ -2928,7 +2962,7 @@ $(BUILD_DIR)/tests/test_programs_oracle_read: tests/test_programs_oracle_read.c 
 		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
@@ -2952,7 +2986,7 @@ $(BUILD_DIR)/tests/test_web_program_path: tests/test_web_program_path.c \
 		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
@@ -2975,25 +3009,25 @@ programs-check-executed-v4-fixture: programs-build
 $(BUILD_DIR)/tests/programs_metering_schedule: tests/programs/test_metering_schedule.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< -Wl,--start-group $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) -Wl,--end-group \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< -Wl,--start-group $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) -Wl,--end-group \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_accounts: tests/programs/test_accounts.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/programs_winddown: tests/programs/test_winddown.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/lxp_test_blob_lifecycle: tests/programs/test_blob_lifecycle.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-paxai-blob-lifecycle: $(BUILD_DIR)/tests/lxp_test_blob_lifecycle
@@ -3002,7 +3036,7 @@ test-paxai-blob-lifecycle: $(BUILD_DIR)/tests/lxp_test_blob_lifecycle
 $(BUILD_DIR)/tests/test_programs_abi5_admission: tests/programs/test_programs_abi5_admission.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 .PHONY: test-programs-abi5-admission
@@ -3015,7 +3049,7 @@ PAXAI_HOST_BOUNDARY_DIR := $(BUILD_DIR)/paxai-host-boundary
 $(BUILD_DIR)/tests/paxai_host_boundary: tests/programs/test_ai_host_boundary.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 paxai-host-boundary: paxai-host-boundary-build
@@ -3033,7 +3067,7 @@ paxai-host-boundary-build: $(BUILD_DIR)/tests/paxai_host_boundary
 $(BUILD_DIR)/tests/lxp_test_blob_admission: tests/programs/test_blob_admission.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
@@ -3042,7 +3076,7 @@ PAXAI_FUNDED_SCRIPT ?=
 $(BUILD_DIR)/tests/lxp_test_paxai_native_gaps: tests/programs/test_paxai_native_gaps.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
@@ -3092,7 +3126,7 @@ $(BUILD_DIR)/tests/programs_parallel_differential: programs/tests/differential/p
 		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) programs/tests/differential/parallel.c \
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) programs/tests/differential/parallel.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
@@ -3102,29 +3136,29 @@ programs-differential: $(BUILD_DIR)/tests/programs_parallel_differential
 
 programs-interpreter-conformance:
 	cd programs && $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-programs-interpreter
-	cd programs && LAYERX_INTERPRETER_WASM=$$(pwd)/target/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm $(PROGRAMS_CARGO) test --locked -p layerx-programs-runtime --test interpreter_program
+	cd programs && LAYERX_INTERPRETER_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm' $(PROGRAMS_CARGO) test --locked -p layerx-programs-runtime --test interpreter_program
 
 programs-bench: programs-interpreter-bench
 
 programs-interpreter-bench:
 	cd programs && $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-programs-interpreter
 	cd programs && $(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-interpreter-compiled-equivalent
-	cd programs && LAYERX_INTERPRETER_WASM=$$(pwd)/target/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm LAYERX_COMPILED_EQUIVALENT_WASM=$$(pwd)/target/wasm32-unknown-unknown/release/layerx_interpreter_compiled_equivalent.wasm $(PROGRAMS_CARGO) bench --locked -p layerx-programs-runtime --bench interpreter
+	cd programs && LAYERX_INTERPRETER_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm' LAYERX_COMPILED_EQUIVALENT_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_interpreter_compiled_equivalent.wasm' $(PROGRAMS_CARGO) bench --locked -p layerx-programs-runtime --bench interpreter
 
 programs-test: programs-module-boundaries programs-abi-drift programs-core-test programs-protocol-regression programs-adversarial programs-fuzz-smoke programs-differential programs-interpreter-conformance programs-sdk-rust programs-sdk-c programs-sdk-assemblyscript programs-porting-v2-references
-	cd programs && LAYERX_INTERPRETER_WASM=$$(pwd)/target/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm $(PROGRAMS_CARGO) test --locked --workspace
+	cd programs && LAYERX_INTERPRETER_WASM='$(PROGRAMS_INTERPRETER_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm' $(PROGRAMS_CARGO) test --locked --workspace
 
 programs-porting-v2-references: $(BUILD_DIR)/tests/programs_call_activity
 	$(PROGRAMS_CARGO) build --locked --manifest-path programs/porting/evm/reference-v2/Cargo.toml --target wasm32-unknown-unknown --release
 	$(PROGRAMS_CARGO) build --locked --manifest-path programs/porting/solana/reference-v2/Cargo.toml --target wasm32-unknown-unknown --release
 	$(PROGRAMS_CARGO) build --locked --manifest-path programs/porting/cosmwasm/reference-v2/Cargo.toml --target wasm32-unknown-unknown --release
-	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/evm/reference-v2 porting/evm/reference-v2/target/wasm32-unknown-unknown/release/layerx_evm_context_reference.wasm
-	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/solana/reference-v2 porting/solana/reference-v2/target/wasm32-unknown-unknown/release/layerx_anchor_context_reference.wasm
-	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/cosmwasm/reference-v2 porting/cosmwasm/reference-v2/target/wasm32-unknown-unknown/release/layerx_cosmwasm_context_reference.wasm
+	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/evm/reference-v2 '$(PROGRAMS_PORTING_EVM_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_evm_context_reference.wasm'
+	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/solana/reference-v2 '$(PROGRAMS_PORTING_SOLANA_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_anchor_context_reference.wasm'
+	cd programs && $(PROGRAMS_CARGO) run --locked --quiet -p layerx-program-lint --bin layerx-program-lint -- --abi-version 2 porting/cosmwasm/reference-v2 '$(PROGRAMS_PORTING_COSMWASM_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_cosmwasm_context_reference.wasm'
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_call_activity \
-		programs/porting/evm/reference-v2/target/wasm32-unknown-unknown/release/layerx_evm_context_reference.wasm \
-		programs/porting/solana/reference-v2/target/wasm32-unknown-unknown/release/layerx_anchor_context_reference.wasm \
-		programs/porting/cosmwasm/reference-v2/target/wasm32-unknown-unknown/release/layerx_cosmwasm_context_reference.wasm
+		'$(PROGRAMS_PORTING_EVM_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_evm_context_reference.wasm' \
+		'$(PROGRAMS_PORTING_SOLANA_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_anchor_context_reference.wasm' \
+		'$(PROGRAMS_PORTING_COSMWASM_TARGET_DIR)/wasm32-unknown-unknown/release/layerx_cosmwasm_context_reference.wasm'
 
 programs-sdk-c:
 	STRICT=1 sh programs/sdk/c/examples/paid-counter/build.sh all
@@ -3249,7 +3283,7 @@ test-module-registry: layerx-module-registry
 .PHONY: test-program-call-builders
 $(BUILD_DIR)/tests/test_call_builders: tests/programs/test_call_builders.c src/modules/programs/call.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB)
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(PROGRAMS_TEST_DEPFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-program-call-builders: $(BUILD_DIR)/tests/test_call_builders
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_call_builders

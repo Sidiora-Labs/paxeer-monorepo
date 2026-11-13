@@ -15,7 +15,17 @@ from .account_derivation import keccak256
 PRE_V6120_EXCHANGE_PRECOMPILE = "0x0000000000000000000000000000000000001015"
 
 AbiType = Literal[
-    "address", "bool", "bytes32", "bytes[]", "string", "uint8", "uint64", "uint256"
+    "address",
+    "bool",
+    "bytes16",
+    "bytes32",
+    "bytes[]",
+    "int256",
+    "string",
+    "uint8",
+    "uint32",
+    "uint64",
+    "uint256",
 ]
 AbiValue = Union[int, bool, str, Sequence[str]]
 EventValue = Union[int, bool, str]
@@ -23,6 +33,7 @@ WalletRequest = Callable[[str, list[object]], object]
 
 _ADDRESS = re.compile(r"^0x[0-9a-fA-F]{40}$")
 _BYTES32 = re.compile(r"^0x[0-9a-fA-F]{64}$")
+_BYTES16 = re.compile(r"^0x[0-9a-fA-F]{32}$")
 _WORD = 32
 
 
@@ -79,7 +90,7 @@ def _unhex(value: str, label: str) -> bytes:
 
 
 def _bits(kind: AbiType) -> int:
-    return {"uint8": 8, "uint64": 64}.get(kind, 256)
+    return {"uint8": 8, "uint32": 32, "uint64": 64}.get(kind, 256)
 
 
 def _uint(value: int, bits: int, label: str) -> bytes:
@@ -109,6 +120,18 @@ def _static(kind: AbiType, value: AbiValue, label: str) -> bytes:
         if not isinstance(value, str) or not _BYTES32.match(value):
             raise PrecompileAbiError("invalid_value", label)
         return _unhex(value, label)
+    if kind == "bytes16":
+        if not isinstance(value, str) or not _BYTES16.match(value):
+            raise PrecompileAbiError("invalid_value", label)
+        return _padded(_unhex(value, label))
+    if kind == "int256":
+        if (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or not -(1 << 255) <= value < 1 << 255
+        ):
+            raise PrecompileAbiError("invalid_value", label)
+        return _uint(value % (1 << 256), 256, label)
     if kind == "bool":
         if not isinstance(value, bool):
             raise PrecompileAbiError("invalid_value", label)
@@ -206,7 +229,7 @@ def _encode_value(kind: str, value: object, label: str) -> bytes:
         return _padded(raw)
     if kind.startswith("uint") and kind[4:].isdigit():
         return _uint(value, int(kind[4:]), label)  # type: ignore[arg-type]
-    if kind in ("address", "bool"):
+    if kind in ("address", "bool", "int256"):
         return _static(kind, value, label)  # type: ignore[arg-type]
     raise PrecompileAbiError("invalid_value", f"{label} type {kind}")
 
@@ -270,7 +293,13 @@ def _decode_word(kind: AbiType, raw: bytes) -> EventValue:
         return "0x" + raw[12:].hex()
     if kind == "bytes32":
         return "0x" + raw.hex()
+    if kind == "bytes16":
+        if any(raw[16:]):
+            raise PrecompileAbiError("non_canonical_word", kind)
+        return "0x" + raw[:16].hex()
     value = int.from_bytes(raw, "big")
+    if kind == "int256":
+        return value - (1 << 256) if value >= 1 << 255 else value
     if kind == "bool":
         if value > 1:
             raise PrecompileAbiError("non_canonical_word", kind)

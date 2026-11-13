@@ -881,7 +881,7 @@ func TestRepairM_948_NativeExecutorTransport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertProofABI(t, abi.ABI{Events: canonical.Events}, *native)
+	assertProofABI(t, abi.ABI{Events: canonical.Events, Errors: canonical.Errors}, abi.ABI{Events: native.Events, Errors: native.Errors})
 	// This helper-emitted transcript proves schemas and codecs only; production
 	// role origins and initialization refusals are asserted by NativeExecutorNode.
 	// Recorded executor output is the boundary between the node's geth fork

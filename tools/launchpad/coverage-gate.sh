@@ -76,6 +76,7 @@ for mod in $MODULES; do
 	prof="$COVER_DIR/${mod//\//_}.out"
 	# Successful discovery of a package-free module is explicitly recorded above.
 	[ -f "$prof" ] || continue
+	prof="$(realpath "$prof")"
 
 	# Empty results include header-only profiles and zero-statement blocks.
 	if ! awk 'NR > 1 && $2 > 0 {found=1} END {exit !found}' "$prof"; then
@@ -86,11 +87,17 @@ for mod in $MODULES; do
 	# Drop generated files (abigen/sqlc) before measuring — only hand-written
 	# code counts toward the gate.
 	fprof="$(filter_generated "$prof" "$mod")"
-	pct="$(go tool cover -func="$fprof" | awk '/^total:/ {gsub(/%/,"",$3); print $3}')"
-	[ "$fprof" != "$prof" ] && rm -f "$fprof"
-	if [ -z "$pct" ]; then
+	if ! awk 'NR > 1 && $2 > 0 {found=1} END {exit !found}' "$fprof"; then
 		printf '%-26s %8s %8s   %s\n' "$mod" "n/a" "-" "EMPTY (generated code only)"
+		[ "$fprof" != "$prof" ] && rm -f "$fprof"
 		continue
+	fi
+	fprof="$(realpath "$fprof")"
+	pct="$(cd "$mod" && go tool cover -func="$fprof" | awk '$1 == "total:" {gsub(/%/, "", $3); print $3}')"
+	[ "$fprof" != "$prof" ] && rm -f "$fprof"
+	if ! [[ "$pct" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+		echo "coverage-gate: invalid coverage total for $mod: $pct" >&2
+		exit 1
 	fi
 
 	if is_money "$mod"; then min="$MONEY_MIN"; else min="$DEFAULT_MIN"; fi

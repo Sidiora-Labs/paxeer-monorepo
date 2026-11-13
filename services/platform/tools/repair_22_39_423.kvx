@@ -1,0 +1,22 @@
+[platform_tools_lint]
+members = ["layerx-platform-kvx", "layerx-platform-workspace-gate", "layerx-platform-benchmark"]
+
+[lint.expect_used]
+files = ["services/platform/tools/workspace-gate/tests/repair_22_33_1414.rs"]
+resolution = "Workspace refusal tests assert that validation returns an error."
+
+[lint.struct_field_names]
+files = ["services/platform/tools/benchmark/src/main.rs"]
+resolution = "Registry snapshots keep the serialized snapshot_id field."
+
+[lint.verbose_bit_mask]
+files = ["services/platform/tools/benchmark/src/main.rs"]
+resolution = "Private inputs and output directories require owner-only permissions."
+
+[lint.format_collect]
+files = ["services/platform/tools/benchmark/src/main.rs"]
+resolution = "SHA-256 digests use lowercase hexadecimal encoding."
+
+[lint.too_many_lines]
+files = ["services/platform/tools/benchmark/src/main.rs"]
+resolution = "Sample measurement validates installed packages and published imports before writing the measurement."

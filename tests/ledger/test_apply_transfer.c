@@ -260,6 +260,87 @@ done:
     return failed;
 }
 
+static int occupancy_asset_account_checks(void)
+{
+    lx_account_registry registry;
+    lx_account *matching;
+    lx_account *different;
+    lx_account *third_kind;
+    lx_account *to;
+    const char *names[] = {
+        "agent:did:key:alice:asset:0100000000000000000000000000000000000000000000000000000000000000",
+        "agent:did:key:alice:asset:0200000000000000000000000000000000000000000000000000000000000000",
+        "agent:did:key:alice:budget:daily",
+        "agent:did:key:bob:main"
+    };
+    lx_account **accounts[] = { &matching, &different, &third_kind, &to };
+    uint8_t ids[4][32];
+    uint8_t asset_id[32] = { 1U };
+    uint8_t other_asset[32] = { 2U };
+    lxp_transfer_asset_state assets[1] = { 0 };
+    lxp_transfer_leg leg = { 0 };
+    lxp_transfer_context context = { 0 };
+    lxp_transfer_result result;
+    size_t index;
+
+    if (!TEST_EQ(lx_account_registry_init(&registry), LXP_OK)) return 1;
+    for (index = 0U; index < 4U; ++index) {
+        size_t length = strlen(names[index]);
+        if (!TEST_EQ(lx_account_id_from_string((const uint8_t *)names[index],
+                length, ids[index]), LXP_OK) ||
+            !TEST_EQ(lx_account_open(&registry, (const uint8_t *)names[index],
+                length, ids[index], 1U, LX_ACCOUNT_OPEN_CREDIT, NULL,
+                accounts[index]), LXP_OK)) return 1;
+    }
+    if (!TEST_EQ(lxp_ledger_bootstrap_balance(matching, asset_id,
+            (lxp_u128){ 0U, 100U }, 7U), LXP_OK) ||
+        !TEST_EQ(lxp_ledger_bootstrap_balance(different, other_asset,
+            (lxp_u128){ 0U, 100U }, 7U), LXP_OK) ||
+        !TEST_EQ(lxp_ledger_bootstrap_balance(third_kind, asset_id,
+            (lxp_u128){ 0U, 100U }, 7U), LXP_OK) ||
+        !TEST_EQ(lxp_ledger_bootstrap_balance(to, asset_id,
+            (lxp_u128){ 0U, 0U }, 0U), LXP_OK)) return 1;
+    (void)memcpy(assets[0].asset_id, asset_id, 32U);
+    assets[0].registered = true;
+    context.assets = assets;
+    context.asset_count = 1U;
+    context.protocol_system_capability = true;
+    context.origin_module_id = LXP_MODULE_PROGRAMS;
+    context.debit_authority_kind = LXP_AUTH_OCCUPANCY_RESPONSIBILITY;
+    leg.from = matching;
+    leg.to = to;
+    leg.reason = LXP_REASON_STORAGE_OCCUPANCY;
+    leg.amount = (lxp_u128){ 0U, 10U };
+    (void)memcpy(leg.asset_id, asset_id, 32U);
+    (void)memcpy(context.authorized_from, matching->id, 32U);
+    if (!TEST_EQ(matching->kind, LX_ACCOUNT_AGENT_ASSET) ||
+        !TEST_EQ(lxp_apply_transfer(&leg, &context, &result), LXP_OK) ||
+        !TEST_EQ(unchanged(matching, to, 90U, 10U), 1) ||
+        !TEST_EQ(matching->next_sequence, 7U)) return 1;
+
+    leg.from = different;
+    (void)memcpy(context.authorized_from, different->id, 32U);
+    if (!TEST_EQ(lxp_apply_transfer(&leg, &context, &result), LXP_ERR_ASSET_MISMATCH) ||
+        !TEST_EQ(unchanged(different, to, 100U, 10U), 1) ||
+        !TEST_EQ(different->next_sequence, 7U)) return 1;
+
+    leg.from = third_kind;
+    (void)memcpy(context.authorized_from, third_kind->id, 32U);
+    if (!TEST_EQ(third_kind->kind, LX_ACCOUNT_AGENT_BUDGET) ||
+        !TEST_EQ(lxp_apply_transfer(&leg, &context, &result), LXP_ERR_UNAUTHORIZED_DEBIT) ||
+        !TEST_EQ(unchanged(third_kind, to, 100U, 10U), 1) ||
+        !TEST_EQ(third_kind->next_sequence, 7U)) return 1;
+
+    leg.from = matching;
+    (void)memcpy(context.authorized_from, matching->id, 32U);
+    context.origin_module_id = LXP_MODULE_ASSET;
+    if (!TEST_EQ(lxp_apply_transfer(&leg, &context, &result), LXP_ERR_UNAUTHORIZED_DEBIT) ||
+        !TEST_EQ(unchanged(matching, to, 90U, 10U), 1) ||
+        !TEST_EQ(matching->next_sequence, 7U)) return 1;
+    lx_account_registry_release(&registry);
+    return 0;
+}
+
 int main(void)
 {
     lx_account_registry registry;
@@ -420,5 +501,6 @@ int main(void)
         !TEST_EQ(from->next_sequence, 8U)) return 1;
     }
     if (!TEST_EQ(allowance_checks(), 0)) return 1;
+    if (!TEST_EQ(occupancy_asset_account_checks(), 0)) return 1;
     return 0;
 }

@@ -45,6 +45,7 @@ func (svd *EVMSigVerifyDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 	ctx = ctx.WithEVMSenderAddress(evmAddr)
 	ctx = ctx.WithPaxSenderAddress(types.MustGetEVMTransactionMessage(tx).Derived.SenderPaxAddr)
 	ctx = ctx.WithEVMTxHash(ethTx.Hash())
+	ctx = chainstypes.WithDomain(ctx, 0)
 
 	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 	chainID := svd.evmKeeper.ChainID(readCtx)

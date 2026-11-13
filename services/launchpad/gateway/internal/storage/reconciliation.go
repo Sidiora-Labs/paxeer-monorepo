@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/media/gateway/internal/cleanup"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -51,7 +53,7 @@ func replayTombstoneBatch(ctx context.Context, store TombstoneStore) (int, error
 	if err != nil {
 		return 0, ErrUnavailable
 	}
-	defer batch.Rollback(context.WithoutCancel(ctx))
+	defer cleanup.Rollback(context.WithoutCancel(ctx), batch)
 	pending, err := batch.Pending(ctx, 256)
 	if err != nil {
 		return 0, ErrUnavailable
@@ -66,8 +68,8 @@ func replayTombstoneBatch(ctx context.Context, store TombstoneStore) (int, error
 		if err = batch.RestoreRestriction(ctx, item); err != nil {
 			return 0, ErrUnavailable
 		}
-		for _, kind := range []string{"delete", "purge"} {
-			if err = batch.EnsureOperation(ctx, Operation{ID: uuid.NewString(), Hash: item.Hash, Revision: item.Revision, Kind: kind, State: "requested"}); err != nil {
+		for _, kind := range []string{deleteKind, purgeKind} {
+			if err = batch.EnsureOperation(ctx, Operation{ID: uuid.NewString(), Hash: item.Hash, Revision: item.Revision, Kind: kind, State: requestedState}); err != nil {
 				return 0, ErrUnavailable
 			}
 		}

@@ -789,107 +789,139 @@ mod ledger_producer_proof {
     use std::io::Read;
     use std::process::Command;
 
-    #[test]
-    fn proof_layerxledger_0x101a() {
-        let mut input = Vec::new();
-        std::io::stdin()
-            .lock()
-            .read_to_end(&mut input)
-            .expect("read ledger producer input");
-        if input.is_empty() {
-            eprintln!("Building the real ledger producer's kernel library");
-            let output = Command::new("make")
-                .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
-                .args(["build", "-j2"])
-                .output()
-                .expect("build the real ledger producer's kernel library");
-            assert!(
-                output.status.success(),
-                "ledger producer kernel build failed: {}\n{}\n{}",
-                output.status,
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            );
-            eprintln!("Building the real ledger producer's native programs library");
-            let output = Command::new("cargo")
-                .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
-                .args([
-                    "build",
-                    "--locked",
-                    "--manifest-path",
-                    "programs/Cargo.toml",
-                    "-p",
-                    "layerx-programs-sandbox",
-                    "--features",
-                    "host-ffi",
-                    "--target-dir",
-                    "programs/target",
-                ])
-                .output()
-                .expect("build the real ledger producer's native programs library");
-            assert!(
-                output.status.success(),
-                "ledger producer native programs library build failed: {}\n{}\n{}",
-                output.status,
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            );
-            eprintln!("Starting the real ledger producer and its gateway consumer");
-            let output = Command::new("go")
-                .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
-                .args([
-                    "test",
-                    "-count=1",
-                    "-v",
-                    "./precompiles/layerxledger",
-                    "-run",
-                    "^TestProofLayerxledger0x101a$/^gateway$",
-                ])
-                .output()
-                .expect("start the real ledger producer");
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            assert!(
-                output.status.success(),
-                "ledger producer and gateway consumer failed: {}\n{stdout}\n{stderr}",
-                output.status
-            );
-            assert!(
-                stdout.contains("--- PASS: TestProofLayerxledger0x101a/gateway"),
-                "the real ledger producer must execute its gateway consumer: {stdout}"
-            );
-            return;
-        }
-        let proof: serde_json::Value = serde_json::from_slice(&input)
-            .expect("precompiles/layerxledger/proof_layerxledger_0x101a_test.go producer");
-        fn bytes<const N: usize>(value: &str) -> [u8; N] {
-            let value = value.strip_prefix("0x").unwrap();
-            assert_eq!(value.len(), N * 2);
-            std::array::from_fn(|i| u8::from_str_radix(&value[i * 2..i * 2 + 2], 16).unwrap())
-        }
-        let key = bytes::<32>(proof["reference"].as_str().unwrap());
+    fn bytes<const N: usize>(value: &str) -> [u8; N] {
+        let value = value
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("expected Some value"));
+        assert_eq!(value.len(), N * 2);
+        std::array::from_fn(|i| {
+            u8::from_str_radix(&value[i * 2..i * 2 + 2], 16)
+                .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+        })
+    }
+    fn run_real_ledger_producer() {
+        eprintln!("Building the real ledger producer's kernel library");
+        let output = Command::new("make")
+            .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
+            .args(["build", "-j2"])
+            .output()
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{}: {error:?}",
+                    "build the real ledger producer's kernel library"
+                )
+            });
+        assert!(
+            output.status.success(),
+            "ledger producer kernel build failed: {}\n{}\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        eprintln!("Building the real ledger producer's native programs library");
+        let output = Command::new("cargo")
+            .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
+            .args([
+                "build",
+                "--locked",
+                "--manifest-path",
+                "programs/Cargo.toml",
+                "-p",
+                "layerx-programs-sandbox",
+                "--features",
+                "host-ffi",
+                "--target-dir",
+                "programs/target",
+            ])
+            .output()
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{}: {error:?}",
+                    "build the real ledger producer's native programs library"
+                )
+            });
+        assert!(
+            output.status.success(),
+            "ledger producer native programs library build failed: {}\n{}\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        eprintln!("Starting the real ledger producer and its gateway consumer");
+        let output = Command::new("go")
+            .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
+            .args([
+                "test",
+                "-count=1",
+                "-v",
+                "./precompiles/layerxledger",
+                "-run",
+                "^TestProofLayerxledger0x101a$/^gateway$",
+            ])
+            .output()
+            .unwrap_or_else(|error| panic!("start the real ledger producer: {error:?}"));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            output.status.success(),
+            "ledger producer and gateway consumer failed: {}\n{stdout}\n{stderr}",
+            output.status
+        );
+        assert!(
+            stdout.contains("--- PASS: TestProofLayerxledger0x101a/gateway"),
+            "the real ledger producer must execute its gateway consumer: {stdout}"
+        );
+    }
+
+    fn verify_producer_input(input: &[u8]) {
+        let proof: serde_json::Value = serde_json::from_slice(input).unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "precompiles/layerxledger/proof_layerxledger_0x101a_test.go producer"
+            )
+        });
+        let key = bytes::<32>(
+            proof["reference"]
+                .as_str()
+                .unwrap_or_else(|| panic!("expected Some value")),
+        );
         let exact = keccak256(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)");
         let drawn =
             keccak256(b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)");
-        let logs = proof["paymentLogs"].as_array().unwrap();
+        let logs = proof["paymentLogs"]
+            .as_array()
+            .unwrap_or_else(|| panic!("expected Some value"));
         assert_eq!(logs.len(), 2);
         let produced = &logs[1];
         let data_hex = produced["data"]
             .as_str()
-            .unwrap()
+            .unwrap_or_else(|| panic!("expected Some value"))
             .strip_prefix("0x")
-            .unwrap();
+            .unwrap_or_else(|| panic!("expected Some value"));
         let data: Vec<u8> = (0..data_hex.len())
             .step_by(2)
-            .map(|i| u8::from_str_radix(&data_hex[i..i + 2], 16).unwrap())
+            .map(|i| {
+                u8::from_str_radix(&data_hex[i..i + 2], 16)
+                    .unwrap_or_else(|error| panic!("expected Ok value: {error:?}"))
+            })
             .collect();
         let log = SequencerLog::new(
-            bytes(produced["address"].as_str().unwrap()),
+            bytes(
+                produced["address"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("expected Some value")),
+            ),
             produced["topics"]
                 .as_array()
-                .unwrap()
+                .unwrap_or_else(|| panic!("expected Some value"))
                 .iter()
-                .map(|topic| bytes(topic.as_str().unwrap()))
+                .map(|topic| {
+                    bytes(
+                        topic
+                            .as_str()
+                            .unwrap_or_else(|| panic!("expected Some value")),
+                    )
+                })
                 .collect(),
             data.clone(),
             1,
@@ -900,5 +932,19 @@ mod ledger_producer_proof {
         malformed[47] = 1;
         let log = SequencerLog::new(log.address(), log.topics().to_vec(), malformed, 1);
         assert!(!pays_idempotency_key(&log, &key, &exact, &drawn));
+    }
+
+    #[test]
+    fn proof_layerxledger_0x101a() {
+        let mut input = Vec::new();
+        std::io::stdin()
+            .lock()
+            .read_to_end(&mut input)
+            .unwrap_or_else(|error| panic!("read ledger producer input: {error:?}"));
+        if input.is_empty() {
+            run_real_ledger_producer();
+            return;
+        }
+        verify_producer_input(&input);
     }
 }

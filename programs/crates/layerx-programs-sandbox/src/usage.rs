@@ -17,6 +17,50 @@ const GENESIS_RECEIPT: [u8; 32] = [0; 32];
 pub const MAX_USAGE_RECEIPTS: u64 = 1_000_000;
 pub const MAX_USAGE_STATE_VALUE_BYTES: usize = 1_048_576;
 
+#[cfg(feature = "host-ffi")]
+pub(crate) fn cumulative_usage(
+    lease: &Lease,
+    usage: MeteredUsage,
+    outcome: u8,
+    final_namespace_bytes: u64,
+) -> Result<LeaseUsage, i32> {
+    const OVERFLOW: i32 = -500;
+    Ok(LeaseUsage {
+        cpu_fuel: lease
+            .usage()
+            .cpu_fuel
+            .checked_add(usage.cpu_fuel)
+            .ok_or(OVERFLOW)?,
+        memory_bytes: lease.usage().memory_bytes.max(usage.memory_bytes),
+        storage_read_bytes: lease
+            .usage()
+            .storage_read_bytes
+            .checked_add(usage.storage_read_bytes)
+            .ok_or(OVERFLOW)?,
+        storage_write_bytes: lease
+            .usage()
+            .storage_write_bytes
+            .checked_add(usage.storage_write_bytes)
+            .ok_or(OVERFLOW)?,
+        output_values: lease
+            .usage()
+            .output_values
+            .checked_add(u64::from(usage.output_values))
+            .ok_or(OVERFLOW)?,
+        output_bytes: lease
+            .usage()
+            .output_bytes
+            .checked_add(usage.output_bytes)
+            .ok_or(OVERFLOW)?,
+        table_elements: lease.usage().table_elements,
+        namespace_bytes: if outcome == 1 {
+            final_namespace_bytes
+        } else {
+            lease.usage().namespace_bytes
+        },
+    })
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ActivityOutcome {
@@ -1682,13 +1726,9 @@ mod tests {
                 occupancy_fee_units,
                 ..metered
             };
-            let cumulative = crate::host_ffi::cumulative_usage(
-                &state.lease,
-                usage,
-                outcome as u8,
-                final_namespace_bytes,
-            )
-            .unwrap_or_else(|code| panic!("cumulative usage: {code}"));
+            let cumulative =
+                cumulative_usage(&state.lease, usage, outcome as u8, final_namespace_bytes)
+                    .unwrap_or_else(|code| panic!("cumulative usage: {code}"));
             let bindings = SettlementBindings {
                 lease_terms_digest: state
                     .lease

@@ -1,6 +1,6 @@
 //! Task 22.33.67, audit 22.30.108: evidence-identity is proven by
-//! evidence_identity_rejects_receipted_transaction_hash_mutation and
-//! evidence_identity_rejects_committed_transaction_hash_mutation.
+//! `evidence_identity_rejects_receipted_transaction_hash_mutation` and
+//! `evidence_identity_rejects_committed_transaction_hash_mutation`.
 //! The committed RPC producer transcript crosses JSON decoding, the public
 //! evidence boundary, real signature/log verification and the gateway store.
 //! Baseline verification was not run: the bounded gate order requires complete
@@ -39,7 +39,7 @@ fn bytes(value: &Value) -> Vec<u8> {
     let hex = value
         .as_str()
         .and_then(|text| text.strip_prefix("0x"))
-        .unwrap_or_else(|| panic!("expected producer hex bytes: {value}"));
+        .or_panic(&format!("expected producer hex bytes: {value}"));
     assert_eq!(hex.len() % 2, 0);
     (0..hex.len())
         .step_by(2)
@@ -65,21 +65,21 @@ fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 3
     );
     let case = document["cases"]
         .as_array()
-        .unwrap_or_else(|| panic!("missing producer cases"))
+        .or_panic("missing producer cases")
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .unwrap_or_else(|| panic!("missing real payExact output"));
+        .or_panic("missing real payExact output");
     let response = &case["receiptJson"];
     assert_eq!(response["rung"], "receipted");
     assert_eq!(bytes(&response["receipt"]), bytes(&case["signedReceipt"]));
     let logs = response["logs"]
         .as_array()
-        .unwrap_or_else(|| panic!("producer logs missing"))
+        .or_panic("producer logs missing")
         .iter()
         .map(|log| {
             let topics = log["topics"]
                 .as_array()
-                .unwrap_or_else(|| panic!("producer topics missing"))
+                .or_panic("producer topics missing")
                 .iter()
                 .map(array)
                 .collect();
@@ -87,7 +87,7 @@ fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 3
                 .as_str()
                 .and_then(|text| text.strip_prefix("0x"))
                 .and_then(|text| u64::from_str_radix(text, 16).ok())
-                .unwrap_or_else(|| panic!("producer log index missing"));
+                .or_panic("producer log index missing");
             SequencerLog::new(array(&log["address"]), topics, bytes(&log["data"]), index)
         })
         .collect();
@@ -101,12 +101,8 @@ fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 3
     let keys = [SequencerAuthorization::new(
         array(&pin["keyId"]),
         array(&pin["publicKey"]),
-        pin["firstHeight"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("first height")),
-        pin["lastHeight"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("last height")),
+        pin["firstHeight"].as_u64().or_panic("first height"),
+        pin["lastHeight"].as_u64().or_panic("last height"),
     )];
     (evidence, keys, array(&case["receiptDigest"]))
 }
@@ -143,28 +139,7 @@ fn pending(key: [u8; 32]) -> (GatewayCore, PrincipalId, TraceId) {
 fn assert_identity_binding(rung: SettlementRung) {
     let (mut original, keys, digest) = recorded_payment();
     original.rung = rung;
-    let receipt =
-        verify_sequencer_signature(&original.signed_receipt, ReceiptKeys::HeightRanges(&keys))
-            .unwrap_or_else(|error| panic!("producer signature: {error:?}"));
-    assert_eq!(
-        encode(&receipt).unwrap_or_else(|error| panic!("canonical encoding: {error:?}")),
-        original.signed_receipt
-    );
-    assert_eq!(
-        receipt
-            .protocol()
-            .unwrap_or_else(|| panic!("protocol receipt"))
-            .activity_id(),
-        original.transaction_hash
-    );
-    let verified = verify_logs(&receipt, original.logs.clone())
-        .unwrap_or_else(|error| panic!("producer logs: {error:?}"));
-    assert_eq!(verified.logs(), original.logs);
-    assert_eq!(verified.logs().len(), 1);
-    assert_eq!(
-        canonical_receipt_digest(&original.signed_receipt),
-        Ok(digest)
-    );
+    assert_recorded_identity(&original, &keys, digest);
 
     let key = original.logs[0].topics()[1];
     let (mut core, principal, trace) = pending(key);
@@ -180,7 +155,8 @@ fn assert_identity_binding(rung: SettlementRung) {
         assert_eq!(mutated.rung, original.rung);
         let error = core
             .settle_with_sequencer_evidence(&principal, key, &mutated, &keys, &trace, 3)
-            .unwrap_err();
+            .err()
+            .or_panic("expected Err value");
         let rejection = GatewayError::ReceiptRejected(VerificationFailure {
             check: ReceiptCheck::ActivityId,
         });
@@ -200,12 +176,12 @@ fn assert_identity_binding(rung: SettlementRung) {
             .unwrap_or_else(|error| panic!("error emission: {error}"));
         let response =
             redaction::decode(&wire).unwrap_or_else(|error| panic!("error response: {error}"));
-        let [FieldValue::Label(code), FieldValue::Label(retriability), FieldValue::Trace(observed)] =
+        let [FieldValue::Label(error_code), FieldValue::Label(retriability), FieldValue::Trace(observed)] =
             response.values()
         else {
             panic!("error response shape changed");
         };
-        assert_eq!(code.as_str(), "receipt-rejected");
+        assert_eq!(error_code.as_str(), "receipt-rejected");
         assert_eq!(retriability.as_str(), "retriable");
         assert_eq!(observed, &trace);
     }
@@ -221,7 +197,7 @@ fn assert_identity_binding(rung: SettlementRung) {
     assert_eq!(core.translation(&principal, key), Some(expected));
     let entries = core
         .principal_audit(&principal)
-        .unwrap_or_else(|| panic!("missing audit"))
+        .or_panic("missing audit")
         .entries();
     assert_eq!(entries.len(), 2);
     assert_eq!(entries[1].kind(), AuditEventKind::TranslationCompleted);
@@ -246,7 +222,8 @@ fn assert_identity_binding(rung: SettlementRung) {
     mutated.transaction_hash = changed_hash;
     let error = core
         .settle_with_sequencer_evidence(&principal, key, &mutated, &keys, &trace, 6)
-        .unwrap_err();
+        .err()
+        .or_panic("expected Err value");
     assert_eq!(
         error.error(),
         &SequencerSettlementError::Gateway(GatewayError::ReceiptRejected(VerificationFailure {
@@ -261,6 +238,34 @@ fn assert_identity_binding(rung: SettlementRung) {
     );
 }
 
+fn assert_recorded_identity(
+    original: &SequencerEvidence,
+    keys: &[SequencerAuthorization],
+    digest: [u8; 32],
+) {
+    let receipt =
+        verify_sequencer_signature(&original.signed_receipt, ReceiptKeys::HeightRanges(keys))
+            .or_panic("producer signature");
+    assert_eq!(
+        encode(&receipt).or_panic("canonical encoding"),
+        original.signed_receipt
+    );
+    assert_eq!(
+        receipt
+            .protocol()
+            .or_panic("protocol receipt")
+            .activity_id(),
+        original.transaction_hash
+    );
+    let verified = verify_logs(&receipt, original.logs.clone()).or_panic("producer logs");
+    assert_eq!(verified.logs(), original.logs);
+    assert_eq!(verified.logs().len(), 1);
+    assert_eq!(
+        canonical_receipt_digest(&original.signed_receipt),
+        Ok(digest)
+    );
+}
+
 #[test]
 fn evidence_identity_rejects_receipted_transaction_hash_mutation() {
     assert_identity_binding(SettlementRung::Receipted);
@@ -272,4 +277,26 @@ fn evidence_identity_rejects_committed_transaction_hash_mutation() {
         block_number: 1001,
         block_hash: [0x42; 32],
     });
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

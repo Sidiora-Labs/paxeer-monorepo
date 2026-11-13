@@ -1289,109 +1289,6 @@ impl Store {
     }
 }
 
-#[cfg(test)]
-mod batch_removing_tests {
-    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
-
-    use super::{ObjectKind, Store, StoreError, TenantId, TenantKey};
-
-    struct Directory(std::path::PathBuf);
-
-    impl Directory {
-        fn new(label: &str) -> Self {
-            let root = std::fs::canonicalize(std::env::temp_dir())
-                .unwrap_or_else(|error| panic!("temp directory: {error}"))
-                .join(format!(
-                    "layerx-batch-removing-{label}-{}",
-                    std::process::id()
-                ));
-            let _ = std::fs::remove_dir_all(&root);
-            std::fs::DirBuilder::new()
-                .mode(0o700)
-                .create(&root)
-                .unwrap_or_else(|error| panic!("private directory: {error}"));
-            Self(root)
-        }
-    }
-
-    impl Drop for Directory {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.0);
-        }
-    }
-
-    fn key(id: &[u8]) -> TenantKey {
-        TenantKey::new(
-            TenantId::new("tenant-batch-removing").unwrap_or_else(|error| panic!("{error}")),
-            ObjectKind::Configuration,
-            id.to_vec(),
-        )
-        .unwrap_or_else(|error| panic!("key: {error}"))
-    }
-
-    fn bytes(store: &Store, key: &TenantKey) -> Option<Vec<u8>> {
-        store.get(key).map(|value| value.bytes().to_vec())
-    }
-
-    #[test]
-    fn update_local_batch_removing_rolls_back_both_lists_on_failed_persist() {
-        let directory = Directory::new("rollback");
-        let metadata = std::fs::symlink_metadata(&directory.0)
-            .unwrap_or_else(|error| panic!("private directory metadata: {error}"));
-        assert!(metadata.is_dir());
-        assert_eq!(metadata.mode() & 0o7777, 0o700);
-        assert_eq!(metadata.uid(), rustix::process::geteuid().as_raw());
-        assert_eq!(
-            std::fs::canonicalize(&directory.0)
-                .unwrap_or_else(|error| panic!("canonical directory: {error}")),
-            directory.0
-        );
-        let mut store = Store::open(&directory.0).unwrap_or_else(|error| panic!("open: {error}"));
-        let (kept, removed) = (key(b"kept"), key(b"removed"));
-        store
-            .put_local(kept.clone(), b"kept-0".to_vec())
-            .unwrap_or_else(|error| panic!("put: {error}"));
-        store
-            .put_local(removed.clone(), b"removed-0".to_vec())
-            .unwrap_or_else(|error| panic!("put: {error}"));
-
-        assert!(matches!(
-            store.update_local_batch_removing(
-                vec![(kept.clone(), b"kept-1".to_vec())],
-                vec![kept.clone()]
-            ),
-            Err(StoreError::Corrupt(_))
-        ));
-        assert_eq!(bytes(&store, &kept), Some(b"kept-0".to_vec()));
-
-        let obstruction = directory.0.join("store.bin.tmp");
-        std::fs::write(&obstruction, b"blocked")
-            .unwrap_or_else(|error| panic!("obstruct persist: {error}"));
-        assert!(matches!(
-            store.update_local_batch_removing(
-                vec![(kept.clone(), b"kept-1".to_vec())],
-                vec![removed.clone()]
-            ),
-            Err(StoreError::Io(_))
-        ));
-        assert_eq!(bytes(&store, &kept), Some(b"kept-0".to_vec()));
-        assert_eq!(bytes(&store, &removed), Some(b"removed-0".to_vec()));
-
-        std::fs::remove_file(obstruction)
-            .unwrap_or_else(|error| panic!("unblock persist: {error}"));
-        store
-            .update_local_batch_removing(
-                vec![(kept.clone(), b"kept-1".to_vec())],
-                vec![removed.clone()],
-            )
-            .unwrap_or_else(|error| panic!("batch: {error}"));
-        drop(store);
-        let reopened = Store::open(&directory.0).unwrap_or_else(|error| panic!("reopen: {error}"));
-        assert_eq!(bytes(&reopened, &kept), Some(b"kept-1".to_vec()));
-        assert_eq!(bytes(&reopened, &removed), None);
-    }
-}
-
 pub(crate) fn activity_owner_key(
     tenant: &TenantId,
     activity_id: [u8; 32],
@@ -1593,5 +1490,108 @@ impl Store {
             return Err(error);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod batch_removing_tests {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+
+    use super::{ObjectKind, Store, StoreError, TenantId, TenantKey};
+
+    struct Directory(std::path::PathBuf);
+
+    impl Directory {
+        fn new(label: &str) -> Self {
+            let root = std::fs::canonicalize(std::env::temp_dir())
+                .unwrap_or_else(|error| panic!("temp directory: {error}"))
+                .join(format!(
+                    "layerx-batch-removing-{label}-{}",
+                    std::process::id()
+                ));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::DirBuilder::new()
+                .mode(0o700)
+                .create(&root)
+                .unwrap_or_else(|error| panic!("private directory: {error}"));
+            Self(root)
+        }
+    }
+
+    impl Drop for Directory {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn key(id: &[u8]) -> TenantKey {
+        TenantKey::new(
+            TenantId::new("tenant-batch-removing").unwrap_or_else(|error| panic!("{error}")),
+            ObjectKind::Configuration,
+            id.to_vec(),
+        )
+        .unwrap_or_else(|error| panic!("key: {error}"))
+    }
+
+    fn bytes(store: &Store, key: &TenantKey) -> Option<Vec<u8>> {
+        store.get(key).map(|value| value.bytes().to_vec())
+    }
+
+    #[test]
+    fn update_local_batch_removing_rolls_back_both_lists_on_failed_persist() {
+        let directory = Directory::new("rollback");
+        let metadata = std::fs::symlink_metadata(&directory.0)
+            .unwrap_or_else(|error| panic!("private directory metadata: {error}"));
+        assert!(metadata.is_dir());
+        assert_eq!(metadata.mode() & 0o7777, 0o700);
+        assert_eq!(metadata.uid(), rustix::process::geteuid().as_raw());
+        assert_eq!(
+            std::fs::canonicalize(&directory.0)
+                .unwrap_or_else(|error| panic!("canonical directory: {error}")),
+            directory.0
+        );
+        let mut store = Store::open(&directory.0).unwrap_or_else(|error| panic!("open: {error}"));
+        let (kept, removed) = (key(b"kept"), key(b"removed"));
+        store
+            .put_local(kept.clone(), b"kept-0".to_vec())
+            .unwrap_or_else(|error| panic!("put: {error}"));
+        store
+            .put_local(removed.clone(), b"removed-0".to_vec())
+            .unwrap_or_else(|error| panic!("put: {error}"));
+
+        assert!(matches!(
+            store.update_local_batch_removing(
+                vec![(kept.clone(), b"kept-1".to_vec())],
+                vec![kept.clone()]
+            ),
+            Err(StoreError::Corrupt(_))
+        ));
+        assert_eq!(bytes(&store, &kept), Some(b"kept-0".to_vec()));
+
+        let obstruction = directory.0.join("store.bin.tmp");
+        std::fs::write(&obstruction, b"blocked")
+            .unwrap_or_else(|error| panic!("obstruct persist: {error}"));
+        assert!(matches!(
+            store.update_local_batch_removing(
+                vec![(kept.clone(), b"kept-1".to_vec())],
+                vec![removed.clone()]
+            ),
+            Err(StoreError::Io(_))
+        ));
+        assert_eq!(bytes(&store, &kept), Some(b"kept-0".to_vec()));
+        assert_eq!(bytes(&store, &removed), Some(b"removed-0".to_vec()));
+
+        std::fs::remove_file(obstruction)
+            .unwrap_or_else(|error| panic!("unblock persist: {error}"));
+        store
+            .update_local_batch_removing(
+                vec![(kept.clone(), b"kept-1".to_vec())],
+                vec![removed.clone()],
+            )
+            .unwrap_or_else(|error| panic!("batch: {error}"));
+        drop(store);
+        let reopened = Store::open(&directory.0).unwrap_or_else(|error| panic!("reopen: {error}"));
+        assert_eq!(bytes(&reopened, &kept), Some(b"kept-1".to_vec()));
+        assert_eq!(bytes(&reopened, &removed), None);
     }
 }

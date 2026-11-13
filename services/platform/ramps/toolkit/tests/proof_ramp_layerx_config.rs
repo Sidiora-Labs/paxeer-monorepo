@@ -1,17 +1,7 @@
-//! Proves: LayerxConfig + ReceiptKeyConfig -> serde_json `layerx` configuration key -> LayerxConfig::build -> LayerxClient
-//!
-//! Repairs missing Serialize implementations on clients.rs::LayerxConfig and
-//! clients.rs::ReceiptKeyConfig: a typed producer can now emit the same schema
-//! the consumer decodes, including camelCase receipt pins and full-width fees.
-//! The test stands at the first consumer, using the same serde decoder and
-//! build function as src/bin/ramp-verify-receipt.rs::run. No RPC is needed to
-//! consume configuration. Each observation decodes new bytes and builds a new
-//! client; the second producer changes every inventoried field.
-//!
-//! The corrected contract requires a trust anchor; clients.rs::LayerxConfig
-//! requires a PathBuf. Missing and null anchors remain refused: authenticated
-//! RPC configuration must supply its pinned certificate. The test functions
-//! retain the inventory's five type names and exercise their corresponding keys.
+//! `LayerX` configuration serializes and decodes receipt key pins, fees, and trust anchors.
+//! Invalid certificate inputs are rejected before client construction.
+
+include!("support/required.rs");
 
 use std::fs;
 use std::io::Write as _;
@@ -46,32 +36,32 @@ impl ClientFiles {
             std::process::id(),
             NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).expect("create private credential directory");
+        fs::create_dir(&path).required("create private credential directory");
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
-            .expect("protect credential directory");
+            .required("protect credential directory");
         let files = Self(path);
         // Committed test-only identity; no subprocess or installed TLS tool is needed.
         fs::write(
             files.0.join("ca.pem"),
             include_bytes!("fixtures/repair_22_33_1486/ca.pem"),
         )
-        .unwrap();
+        .required("value");
         fs::write(
             files.0.join("ca-0.der"),
             include_bytes!("fixtures/repair_22_33_1486/ca.der"),
         )
-        .unwrap();
-        fs::copy(files.0.join("ca-0.der"), files.0.join("ca-1.der")).unwrap();
+        .required("value");
+        fs::copy(files.0.join("ca-0.der"), files.0.join("ca-1.der")).required("value");
         fs::write(
             files.0.join("identity.p12"),
             include_bytes!("fixtures/repair_22_33_1486/identity.p12"),
         )
-        .unwrap();
+        .required("value");
         fs::set_permissions(
             files.0.join("identity.p12"),
             fs::Permissions::from_mode(0o600),
         )
-        .expect("protect real TLS identity");
+        .required("protect real TLS identity");
         for (name, value) in [
             ("password", "ramp-config-proof"),
             ("token-0", "proof-credential-0"),
@@ -82,8 +72,9 @@ impl ClientFiles {
                 .create_new(true)
                 .mode(0o600)
                 .open(files.0.join(name))
-                .expect("create private credential");
-            file.write_all(value.as_bytes()).expect("write credential");
+                .required("create private credential");
+            file.write_all(value.as_bytes())
+                .required("write credential");
         }
         files
     }
@@ -93,13 +84,13 @@ impl ClientFiles {
             &MutualTlsFiles {
                 ca_pem: self.0.join("ca.pem"),
                 identity_pkcs12: SecretFile::new(self.0.join("identity.p12"))
-                    .expect("private identity"),
+                    .required("private identity"),
                 identity_password: SecretFile::new(self.0.join("password"))
-                    .expect("private password"),
+                    .required("private password"),
             },
             Duration::from_secs(1),
         )
-        .expect("real mutual TLS client")
+        .required("real mutual TLS client")
     }
 
     pub(crate) fn producer(&self, round: u8) -> LayerxConfig {
@@ -113,12 +104,7 @@ impl ClientFiles {
                 key_id: format!("0x{}", format!("{:02x}", 0x34 + round).repeat(32)),
                 public_key: format!(
                     "0x{}",
-                    signing_key
-                        .verifying_key()
-                        .as_bytes()
-                        .iter()
-                        .map(|byte| format!("{byte:02x}"))
-                        .collect::<std::string::String>()
+                    layerx_ramp_toolkit::clients::hex(signing_key.verifying_key().as_bytes())
                 ),
                 first_height: 10 + u64::from(round),
                 last_height: 20 + u64::from(round),
@@ -136,12 +122,12 @@ impl ClientFiles {
         serde_json::to_vec(&RampConfig {
             layerx: producer.clone(),
         })
-        .expect("production types emit the shared layerx schema")
+        .required("production types emit the shared layerx schema")
     }
 
     fn decode(bytes: &[u8]) -> LayerxConfig {
         serde_json::from_slice::<RampConfig>(bytes)
-            .expect("consumer decodes producer's layerx key")
+            .required("consumer decodes producer's layerx key")
             .layerx
     }
 
@@ -167,11 +153,11 @@ impl ClientFiles {
             for (observed, produced) in client.receipt_keys.iter().zip(&producer.receipt_keys) {
                 assert_eq!(
                     observed.key_id,
-                    parse_hex32(&produced.key_id).expect("producer id")
+                    parse_hex32(&produced.key_id).required("producer id")
                 );
                 assert_eq!(
                     observed.public_key,
-                    parse_hex32(&produced.public_key).expect("producer key")
+                    parse_hex32(&produced.public_key).required("producer key")
                 );
                 assert_eq!(observed.first_height, produced.first_height);
                 assert_eq!(observed.last_height, produced.last_height);
@@ -189,13 +175,13 @@ impl ClientFiles {
         Self::decode(&Self::transport(producer))
             .build(self.http())
             .err()
-            .expect("real config consumer must refuse invalid producer state")
+            .required("real config consumer must refuse invalid producer state")
     }
 }
 
 impl Drop for ClientFiles {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove private proof credentials");
+        fs::remove_dir_all(&self.0).required("remove private proof credentials");
     }
 }
 
@@ -235,7 +221,7 @@ fn u128() {
 }
 
 #[test]
-fn String() {
+fn string_field() {
     let files = ClientFiles::new();
     let mut producer = files.observe_twice();
     producer.operator_address = "0x12".to_owned();
@@ -252,7 +238,7 @@ fn String() {
 }
 
 #[test]
-fn Vec() {
+fn vector_field() {
     let files = ClientFiles::new();
     let mut producer = files.observe_twice();
     producer.receipt_keys[0].first_height = producer.receipt_keys[0].last_height + 1;
@@ -268,18 +254,18 @@ fn Vec() {
 }
 
 #[test]
-fn Option() {
+fn optional_field() {
     let files = ClientFiles::new();
     let mut producer = files.observe_twice();
     // Reuse exactly the already-consumed bytes after corrupting their referenced
     // certificate. A cached config/client would incorrectly keep succeeding.
     let bytes = ClientFiles::transport(&producer);
     fs::write(&producer.rpc_trust_anchor_der, b"malformed DER")
-        .expect("corrupt producer's anchor file");
+        .required("corrupt producer's anchor file");
     let error = ClientFiles::decode(&bytes)
         .build(files.http())
         .err()
-        .expect("consumer must re-read and refuse malformed trust anchor");
+        .required("consumer must re-read and refuse malformed trust anchor");
     assert_eq!(error, "invalid LayerX rpc_trust_anchor_der");
 
     // Malformed transport cases start from real producer output. Small fees
@@ -287,31 +273,33 @@ fn Option() {
     producer.max_fee_per_gas = 100;
     producer.max_priority_fee_per_gas = 2;
     let document: Value = serde_json::from_slice(&ClientFiles::transport(&producer))
-        .expect("producer JSON for malformed-input cases");
+        .required("producer JSON for malformed-input cases");
     for malformed in [Value::Null, json!(42)] {
         let mut changed = document.clone();
         changed["layerx"]["rpc_trust_anchor_der"] = malformed;
-        let bytes = serde_json::to_vec(&changed).expect("malformed producer JSON");
+        let bytes = serde_json::to_vec(&changed).required("malformed producer JSON");
         assert!(serde_json::from_slice::<RampConfig>(&bytes).is_err());
     }
     let mut missing = document.clone();
     missing["layerx"]
         .as_object_mut()
-        .expect("layerx object")
+        .required("layerx object")
         .remove("rpc_trust_anchor_der");
     let error = serde_json::from_slice::<RampConfig>(
-        &serde_json::to_vec(&missing).expect("missing-anchor document"),
+        &serde_json::to_vec(&missing).required("missing-anchor document"),
     )
-    .expect_err("missing anchor must fail at consumer decoding");
+    .err()
+    .required("missing anchor must fail at consumer decoding");
     assert!(error
         .to_string()
         .contains("missing field `rpc_trust_anchor_der`"));
     let mut retired = document;
     retired["layerx"]["gateway_endpoint"] = json!("https://retired.example.test");
     let error = serde_json::from_slice::<RampConfig>(
-        &serde_json::to_vec(&retired).expect("retired-field document"),
+        &serde_json::to_vec(&retired).required("retired-field document"),
     )
-    .expect_err("retired fields must fail at consumer decoding");
+    .err()
+    .required("retired fields must fail at consumer decoding");
     assert!(error
         .to_string()
         .contains("unknown field `gateway_endpoint`"));

@@ -17,7 +17,7 @@ const PROGRAMS: &str = "0x000000000000000000000000000000000000101d";
 const MAX_RESPONSE_BYTES: u64 = 2 * 1024 * 1024 + 1024;
 const READ_TIMEOUT: Duration = Duration::from_secs(15);
 
-/// Durable cache of native Programs storage heads read through eth_call.
+/// Durable cache of native Programs storage heads read through `eth_call`.
 pub struct FileProgramStateJournal {
     root: PathBuf,
 }

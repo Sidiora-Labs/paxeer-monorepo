@@ -1,10 +1,15 @@
 //! Audit 22.30.125: the existing fuel and close integration suites are the repair gate.
 //! Keeping their actual test functions here ensures that all assertions execute.
-//! Finding-to-test mappings and external wiring requests: repair_22_33_223.kvx.
+//! Finding-to-test mappings and external wiring requests: `repair_22_33_223.kvx`.
+use layerx_ai_market_test_values::RequiredValue as _;
+#[allow(dead_code)]
 #[path = "fuel_budget.rs"]
 mod fuel_budget;
-#[path = "support/guest.rs"]
-mod guest;
+#[allow(dead_code)]
+mod guest {
+    include!("support/guest.rs");
+}
+#[allow(dead_code)]
 #[path = "market_protocol_boundary.rs"]
 mod market_protocol_boundary;
 
@@ -325,13 +330,10 @@ fn reputation_roster_merge_preserves_bindings_and_refusals(
 fn aggregation_chunk_merge_preserves_sparse_votes_and_zero_scores(
 ) -> layerx_programs_ai_market::CodecResult<()> {
     use layerx_programs_ai_market::{
-        aggregation::{add_weight, aggregate_chunk, aggregate_worker},
-        aggregation_codec::AggregationInputView,
-        codec::{self, ReportBody, Roster, ScoreVector},
-        errors::{F05_REPORT_INVARIANT, STALE_CURSOR},
-        AccountId, ChainDomain, EvaluatorBinding, EvaluatorId, EvaluatorRosterEntry, EvidenceRoot,
-        FrozenBinding, MarketId, MetadataDigest, PrincipalId, ProgramId, PublicKey32, RubricDigest,
-        Score, ScoreEntry, Version, WorkerId, WorkerRosterEntry,
+        codec::{self, Roster},
+        AccountId, ChainDomain, EvaluatorId, EvaluatorRosterEntry, FrozenBinding, MarketId,
+        MetadataDigest, PrincipalId, ProgramId, PublicKey32, RubricDigest, Version, WorkerId,
+        WorkerRosterEntry,
     };
     let version = Version::new(1)?;
     let workers = (1..=32u8)
@@ -375,80 +377,99 @@ fn aggregation_chunk_merge_preserves_sparse_votes_and_zero_scores(
         roster: codec::roster_digest(&roster)?,
     };
     for dense in [false, true] {
-        let scores = (0..8usize)
-            .map(|evaluator| {
-                workers
-                    .iter()
-                    .enumerate()
-                    .filter(|(i, _)| dense || (i + evaluator) % 5 != 0)
-                    .map(|(i, worker)| {
-                        Ok(ScoreEntry {
-                            worker: worker.worker,
-                            score: Score::new(if i % 7 == 0 {
-                                0
-                            } else {
-                                (i * 1000 + evaluator) as u32
-                            })?,
-                        })
-                    })
-                    .collect::<layerx_programs_ai_market::CodecResult<Vec<_>>>()
-            })
-            .collect::<layerx_programs_ai_market::CodecResult<Vec<_>>>()?;
-        let reports = evaluators
-            .iter()
-            .zip(&scores)
-            .map(|(evaluator, scores)| {
-                Ok(ReportBody {
-                    binding: EvaluatorBinding {
-                        frozen,
-                        evaluator: evaluator.evaluator,
-                        grant: version,
-                        key_version: version,
-                    },
-                    evidence: EvidenceRoot::new([203; 32])?,
-                    scores: ScoreVector::Typed(scores),
-                })
-            })
-            .collect::<layerx_programs_ai_market::CodecResult<Vec<_>>>()?;
-        let encoded = reports
-            .iter()
-            .map(|report| {
-                let mut bytes = vec![0; codec::REPORT_MAX_BYTES];
-                let n = codec::encode_report(report, &mut bytes)?;
-                bytes.truncate(n);
-                Ok(bytes)
-            })
-            .collect::<layerx_programs_ai_market::CodecResult<Vec<_>>>()?;
-        let decoded = encoded
-            .iter()
-            .map(|bytes| codec::decode_report(bytes))
-            .collect::<layerx_programs_ai_market::CodecResult<Vec<_>>>()?;
-        for reports in [&reports, &decoded] {
-            let view = AggregationInputView::structural(frozen, roster, reports)?;
-            let mut running = 0;
-            for start in [0, 8, 16, 24] {
-                let chunk = aggregate_chunk(&view, start as u16, running)?;
-                assert_eq!(chunk.len(), 8);
-                for i in 0..8 {
-                    let expected = aggregate_worker(&view, workers[start + i])?;
-                    assert_eq!(chunk.output(i)?, expected);
-                    running = add_weight(running, expected)?;
-                }
-                assert_eq!(chunk.running_weight(), running);
-                assert_eq!(chunk.cursor(), (start + 8) as u16);
-            }
-            assert!(aggregate_chunk(&view, 32, running)?.is_empty());
-            assert!(matches!(
-                aggregate_chunk(&view, 33, running),
-                Err(STALE_CURSOR)
-            ));
-            assert!(matches!(
-                view.worker_votes(workers[0].worker, Version::new(2)?),
-                Err(F05_REPORT_INVARIANT)
-            ));
-        }
+        verify_aggregation_chunks(&roster, frozen, &workers, &evaluators, dense)?;
     }
 
+    Ok(())
+}
+fn verify_aggregation_chunks(
+    roster: &layerx_programs_ai_market::codec::Roster<'_>,
+    frozen: layerx_programs_ai_market::FrozenBinding,
+    workers: &[layerx_programs_ai_market::WorkerRosterEntry],
+    evaluators: &[layerx_programs_ai_market::EvaluatorRosterEntry],
+    dense: bool,
+) -> layerx_programs_ai_market::CodecResult<()> {
+    use layerx_programs_ai_market::{
+        aggregation::{add_weight, aggregate_chunk, aggregate_worker},
+        aggregation_codec::AggregationInputView,
+        codec::{self, ReportBody, ScoreVector},
+        errors::{F05_REPORT_INVARIANT, STALE_CURSOR},
+        EvaluatorBinding, EvidenceRoot, Score, ScoreEntry, Version,
+    };
+    let version = Version::new(1)?;
+
+    let scores = (0..8usize)
+        .map(|evaluator| {
+            workers
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| dense || (i + evaluator) % 5 != 0)
+                .map(|(i, worker)| {
+                    Ok(ScoreEntry {
+                        worker: worker.worker,
+                        score: Score::new(if i % 7 == 0 {
+                            0
+                        } else {
+                            u32::try_from(i * 1000 + evaluator).required()
+                        })?,
+                    })
+                })
+                .collect::<layerx_programs_ai_market::CodecResult<Vec<_>>>()
+        })
+        .collect::<layerx_programs_ai_market::CodecResult<Vec<_>>>()?;
+    let reports = evaluators
+        .iter()
+        .zip(&scores)
+        .map(|(evaluator, scores)| {
+            Ok(ReportBody {
+                binding: EvaluatorBinding {
+                    frozen,
+                    evaluator: evaluator.evaluator,
+                    grant: version,
+                    key_version: version,
+                },
+                evidence: EvidenceRoot::new([203; 32])?,
+                scores: ScoreVector::Typed(scores),
+            })
+        })
+        .collect::<layerx_programs_ai_market::CodecResult<Vec<_>>>()?;
+    let encoded = reports
+        .iter()
+        .map(|report| {
+            let mut bytes = vec![0; codec::REPORT_MAX_BYTES];
+            let n = codec::encode_report(report, &mut bytes)?;
+            bytes.truncate(n);
+            Ok(bytes)
+        })
+        .collect::<layerx_programs_ai_market::CodecResult<Vec<_>>>()?;
+    let decoded = encoded
+        .iter()
+        .map(|bytes| codec::decode_report(bytes))
+        .collect::<layerx_programs_ai_market::CodecResult<Vec<_>>>()?;
+    for reports in [&reports, &decoded] {
+        let view = AggregationInputView::structural(frozen, *roster, reports)?;
+        let mut running = 0;
+        for start in [0, 8, 16, 24] {
+            let chunk = aggregate_chunk(&view, u16::try_from(start).required(), running)?;
+            assert_eq!(chunk.len(), 8);
+            for i in 0..8 {
+                let expected = aggregate_worker(&view, workers[start + i])?;
+                assert_eq!(chunk.output(i)?, expected);
+                running = add_weight(running, expected)?;
+            }
+            assert_eq!(chunk.running_weight(), running);
+            assert_eq!(chunk.cursor(), u16::try_from(start + 8).required());
+        }
+        assert!(aggregate_chunk(&view, 32, running)?.is_empty());
+        assert!(matches!(
+            aggregate_chunk(&view, 33, running),
+            Err(STALE_CURSOR)
+        ));
+        assert!(matches!(
+            view.worker_votes(workers[0].worker, Version::new(2)?),
+            Err(F05_REPORT_INVARIANT)
+        ));
+    }
     Ok(())
 }
 
@@ -461,16 +482,16 @@ fn resumable_participant_calls_recover_and_retry_once() -> Result<(), Box<dyn st
 fn participant_identity_comparisons_preserve_every_byte() {
     use layerx_programs_ai_market::{Digest32, WorkerId};
     let baseline = [0x80; 32];
-    let worker = WorkerId::new(baseline).unwrap();
-    let digest = Digest32::new(baseline).unwrap();
+    let worker = WorkerId::new(baseline).required();
+    let digest = Digest32::new(baseline).required();
     assert_eq!(worker, worker);
     assert_eq!(digest, digest);
     for position in 0..32 {
         for value in 0..=255 {
             let mut bytes = baseline;
             bytes[position] = value;
-            let candidate = WorkerId::new(bytes).unwrap();
-            let candidate_digest = Digest32::new(bytes).unwrap();
+            let candidate = WorkerId::new(bytes).required();
+            let candidate_digest = Digest32::new(bytes).required();
             assert_eq!(worker == candidate, baseline == bytes);
             assert_eq!(digest == candidate_digest, baseline == bytes);
             assert_eq!(worker.cmp(&candidate), baseline.cmp(&bytes));
@@ -485,8 +506,8 @@ fn participant_identity_comparisons_preserve_every_byte() {
         right[position + 1] = 0;
         assert_eq!(
             WorkerId::new(left)
-                .unwrap()
-                .cmp(&WorkerId::new(right).unwrap()),
+                .required()
+                .cmp(&WorkerId::new(right).required()),
             left.cmp(&right)
         );
     }
@@ -494,8 +515,8 @@ fn participant_identity_comparisons_preserve_every_byte() {
         for value in 1..=255 {
             let mut bytes = [0; 32];
             bytes[position] = value;
-            assert_eq!(WorkerId::new(bytes).unwrap().bytes(), bytes);
-            assert_eq!(Digest32::new(bytes).unwrap().bytes(), bytes);
+            assert_eq!(WorkerId::new(bytes).required().bytes(), bytes);
+            assert_eq!(Digest32::new(bytes).required().bytes(), bytes);
         }
     }
     assert!(WorkerId::new([0; 32]).is_err());
@@ -510,18 +531,18 @@ fn participant_record_codec_keeps_the_canonical_layout() {
         AccountId, Digest32, MarketId, Presence, PrincipalId, Score, Version, WorkerId,
     };
     let key = SegmentKey {
-        market: MarketId::new([1; 32]).unwrap(),
-        worker: WorkerId::new([2; 32]).unwrap(),
-        config: Version::new(1).unwrap(),
-        policy: Digest32::new([3; 32]).unwrap(),
-        model: Digest32::new([4; 32]).unwrap(),
-        reset_generation: Version::new(1).unwrap(),
+        market: MarketId::new([1; 32]).required(),
+        worker: WorkerId::new([2; 32]).required(),
+        config: Version::new(1).required(),
+        policy: Digest32::new([3; 32]).required(),
+        model: Digest32::new([4; 32]).required(),
+        reset_generation: Version::new(1).required(),
     };
     let mut record =
-        ReputationCurrent::bootstrap(key, PrincipalId::new([5; 32]).unwrap(), 100).unwrap();
-    record.quality = Score::new(600_000).unwrap();
+        ReputationCurrent::bootstrap(key, PrincipalId::new([5; 32]).required(), 100).required();
+    record.quality = Score::new(600_000).required();
     record.qualifying_count = 1;
-    record.coverage = Presence::Present(Score::new(750_000).unwrap());
+    record.coverage = Presence::Present(Score::new(750_000).required());
     record.last_applied = Presence::Present(9);
     record.last_observed = Presence::Present(Observation {
         epoch: 9,
@@ -542,8 +563,8 @@ fn participant_record_codec_keeps_the_canonical_layout() {
     expected.extend_from_slice(&[0; 32]);
     expected.extend_from_slice(&[HistoryStatus::Active as u8, 7, 0, 0]);
     assert_eq!(expected.len(), CURRENT_BYTES);
-    assert_eq!(encode_current(&record).unwrap().as_slice(), expected);
-    assert_eq!(decode_current(&expected).unwrap(), record);
+    assert_eq!(encode_current(&record).required().as_slice(), expected);
+    assert_eq!(decode_current(&expected).required(), record);
     for n in 0..CURRENT_BYTES {
         assert!(decode_current(&expected[..n]).is_err());
     }
@@ -568,12 +589,12 @@ fn participant_record_codec_keeps_the_canonical_layout() {
     let mut roster = Vec::new();
     roster.extend_from_slice(key.worker.as_bytes());
     roster.extend_from_slice(record.owner.as_bytes());
-    roster.extend_from_slice(AccountId::new([6; 32]).unwrap().as_bytes());
+    roster.extend_from_slice(AccountId::new([6; 32]).required().as_bytes());
     roster.extend_from_slice(&1u64.to_be_bytes());
     roster.extend_from_slice(&2u64.to_be_bytes());
     roster.extend_from_slice(&[7; 32]);
     roster.extend_from_slice(&[8; 32]);
-    let decoded = layerx_programs_ai_market::codec::decode_worker_roster(&roster).unwrap();
+    let decoded = layerx_programs_ai_market::codec::decode_worker_roster(&roster).required();
     assert_eq!(decoded.worker, key.worker);
     assert_eq!(decoded.owner, record.owner);
     assert_eq!(decoded.recipient.bytes(), [6; 32]);
@@ -607,9 +628,9 @@ fn history_record_codec_keeps_the_canonical_layout() {
     let mut record = CompletedHistory {
         epoch: 9,
         execution_height: 120,
-        config: Version::new(1).unwrap(),
-        result: Digest32::new([3; 32]).unwrap(),
-        root: Digest32::new([4; 32]).unwrap(),
+        config: Version::new(1).required(),
+        result: Digest32::new([3; 32]).required(),
+        root: Digest32::new([4; 32]).required(),
         observed_workers: 2,
         total_workers: 32,
         covered_workers: 8,
@@ -622,8 +643,8 @@ fn history_record_codec_keeps_the_canonical_layout() {
     expected.extend_from_slice(&[4; 32]);
     expected.extend_from_slice(&[2, 32, 8, 0]);
     assert_eq!(expected.len(), HISTORY_BYTES);
-    assert_eq!(encode_history(&record).unwrap().as_slice(), expected);
-    assert_eq!(decode_history(&expected).unwrap(), record);
+    assert_eq!(encode_history(&record).required().as_slice(), expected);
+    assert_eq!(decode_history(&expected).required(), record);
     for n in 0..HISTORY_BYTES {
         assert_eq!(decode_history(&expected[..n]), Err(NON_CANONICAL));
     }
@@ -642,9 +663,9 @@ fn history_record_codec_keeps_the_canonical_layout() {
             record.total_workers = total;
             record.observed_workers = observed;
             record.covered_workers = total - observed;
-            let bytes = encode_history(&record).unwrap();
+            let bytes = encode_history(&record).required();
             assert_eq!(&bytes[88..], &[observed, total, total - observed, 0]);
-            assert_eq!(decode_history(&bytes).unwrap(), record);
+            assert_eq!(decode_history(&bytes).required(), record);
         }
     }
 }

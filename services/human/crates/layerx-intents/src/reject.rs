@@ -153,7 +153,9 @@ mod tests {
                 let tag = tag.to_be_bytes();
                 let input = [version[0], version[1], tag[0], tag[1], 0xde, 0xad];
                 for bytes in [&input[..4], input.as_slice()] {
-                    let rejected = inspect_intent(bytes).expect_err("retired shape accepted");
+                    let rejected = inspect_intent(bytes)
+                        .err()
+                        .unwrap_or_else(|| panic!("retired shape accepted"));
                     assert_eq!(rejected.reason(), RejectReason::RetiredShape);
                     assert_eq!(rejected.input(), bytes);
                     assert_eq!(rejected.input().as_ptr(), bytes.as_ptr());

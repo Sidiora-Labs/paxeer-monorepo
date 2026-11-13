@@ -37,7 +37,7 @@ func listPositions(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 				if positions == nil {
 					positions = []*store.PositionRow{}
 				}
-				return map[string]any{"user": user, "positions": positions}, nil
+				return map[string]any{actorUser: user, "positions": positions}, nil
 			})
 	}
 }
@@ -81,10 +81,10 @@ func listTrades(st *store.Store) http.HandlerFunc {
 			trades = []store.TradeRow{}
 		}
 		sharedhttp.WriteJSON(w, http.StatusOK, map[string]any{
-			"user":   user,
-			"trades": trades,
-			"limit":  limit,
-			"offset": offset,
+			actorUser: user,
+			"trades":  trades,
+			"limit":   limit,
+			"offset":  offset,
 		})
 	}
 }
@@ -99,7 +99,7 @@ func getPortfolio(st *store.Store, rdb *goredis.Client) http.HandlerFunc {
 					return nil, err
 				}
 				return map[string]any{
-					"user":           user,
+					actorUser:        user,
 					"totalValueUsdl": total,
 					"positions":      positions,
 				}, nil

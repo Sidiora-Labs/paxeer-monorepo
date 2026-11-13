@@ -1,0 +1,122 @@
+[sweep]
+name = "Workspace test and lint recipe coverage"
+
+[sweep.workspace-install]
+target = "workspace-install"
+covers = ["services/agent/Cargo.toml", "services/human/Cargo.toml", "services/platform/Cargo.toml", "tools/platform/Cargo.toml", "sdk/platform/generators/Cargo.toml", "programs/Cargo.toml", "services/interop/Cargo.toml", "apps/web", "contracts", "tests/integration", "go.mod"]
+tools = ["make", "cargo", "cargo-deny", "npm", "node", "go", "python3", "mvn", "swift", "dotnet"]
+
+[sweep.core-test-all]
+target = "core-test-all"
+covers = ["src", "include", "tests/ci", "tests/kernel", "tests/ledger", "tests/modules", "tests/programs", "tests/solidity", "programs/Cargo.toml"]
+tools = ["make", "cc", "ar", "python3", "go", "cargo", "forge", "sh"]
+
+[sweep.agent-test]
+target = "agent-test"
+covers = ["services/agent/Cargo.toml", "services/agent/tools/run-real-node-tests.sh", "services/platform/Cargo.toml", "src", "programs/Cargo.toml", "go.mod"]
+tools = ["make", "cargo", "sh", "python3", "go", "cc", "forge", "cast", "anvil"]
+
+[sweep.human-test]
+target = "human-test"
+covers = ["services/human/Cargo.toml", "apps/web", "services/platform/hosted/webhooks", "services/platform/hosted/human", "programs/Cargo.toml", "go.mod"]
+tools = ["make", "cargo", "npm", "node", "go", "cc", "cmake", "python3", "sh"]
+
+[sweep.platform-test]
+target = "platform-test"
+covers = ["services/platform/Cargo.toml", "tools/platform/Cargo.toml", "sdk/platform/generators/Cargo.toml", "services/platform/hosted"]
+tools = ["make", "cargo", "sh"]
+
+[sweep.platform-verify-sdks]
+target = "platform-verify-sdks"
+covers = ["sdk/platform", "sdk/platform/conformance", "services/agent/sdk", "sdk/integrations", "programs/Cargo.toml"]
+tools = ["make", "cargo", "npm", "node", "python3", "go", "mvn", "swift", "dotnet", "cc", "sh"]
+
+[sweep.platform-test-tooling]
+target = "platform-test-tooling"
+covers = ["tools/platform/Cargo.toml", "tools/platform/cli/tests", "services/platform/hosted/testnet", "services/platform/hosted/paxeer", "services/platform/examples"]
+tools = ["make", "cargo", "bash", "sh", "python3"]
+
+[sweep.platform-test-middleware]
+target = "platform-test-middleware"
+covers = ["services/platform/middleware", "services/platform/examples", "sdk/integrations/fastapi", "sdk/integrations/android", "sdk/integrations/ios"]
+tools = ["make", "npm", "node", "python3", "mvn", "swift", "sh"]
+
+[sweep.platform-test-reference-apps]
+target = "platform-test-reference-apps"
+covers = ["services/platform/examples", "services/platform/examples/run-reference-apps.mjs"]
+tools = ["make", "node", "npm"]
+
+[sweep.platform-test-docs]
+target = "platform-test-docs"
+covers = ["services/platform/tools/docs-gate", "services/platform/examples", "sdk/platform", "sdk/integrations"]
+tools = ["make", "sh", "node", "python3", "go", "cargo", "mvn", "swift", "dotnet"]
+
+[sweep.programs-test]
+target = "programs-test"
+covers = ["programs/Cargo.toml", "programs/crates", "programs/sdk", "programs/porting", "tests/programs", "src/modules/programs"]
+tools = ["make", "cargo", "cc", "npm", "node", "python3", "sh"]
+
+[sweep.interop-test]
+target = "interop-test"
+covers = ["services/interop/Cargo.toml", "services/interop/crates", "tests/ci/interop_workspace_test.py", "programs/Cargo.toml"]
+tools = ["make", "python3", "cargo", "go", "sh"]
+
+[sweep.paxeer-test]
+target = "paxeer-test"
+covers = ["chain.mk", "go.mod", "node", "modules", "rpc", "tests", "programs/Cargo.toml", "engine/executor"]
+tools = ["make", "go", "cargo", "cmake", "c++", "split", "xargs", "sh"]
+
+[sweep.paxeer-manifest-test]
+target = "paxeer-manifest-test"
+covers = ["tools/workspace", "contracts", "tests/integration", "tests/fixtures/example/cosmwasm", "tools/benchmark/loadtest/contracts", "wasm-runtime/libwasmvm/Cargo.toml", "tools/hpx/registry", "sdk/cosmovisor", "sdk/ics23"]
+tools = ["make", "sh", "npm", "node", "forge", "cargo", "go"]
+
+[sweep.developer-dashboard-static-test]
+target = "developer-dashboard-static-test"
+covers = ["services/platform/hosted/dashboard/web", "apps/web"]
+tools = ["make", "npm", "node"]
+
+[sweep.specgen-test]
+target = "specgen-test"
+covers = ["tools/specgen", "spec"]
+tools = ["make", "go"]
+
+[sweep.forge-test-offline]
+target = "forge test --offline"
+covers = ["foundry.toml", "contracts", "tests/solidity"]
+tools = ["forge"]
+
+[sweep.agent-lint]
+target = "agent-lint"
+covers = ["services/agent/Cargo.toml", "services/agent/tools/dependency-policy.sh"]
+tools = ["make", "cargo", "sh"]
+
+[sweep.human-lint]
+target = "human-lint"
+covers = ["services/human/Cargo.toml", "services/human/tools", "apps/web"]
+tools = ["make", "cargo", "cargo-deny", "npm", "node", "sh"]
+
+[sweep.platform-lint]
+target = "platform-lint"
+covers = ["services/platform/Cargo.toml", "tools/platform/Cargo.toml", "sdk/platform/generators/Cargo.toml", "services/platform/examples/marketplace/program", "services/platform/workspace.kvx"]
+tools = ["make", "cargo", "cargo-deny", "sh"]
+
+[sweep.programs-lint]
+target = "programs-lint"
+covers = ["programs/Cargo.toml", "programs/crates", "programs/sdk", "tests/programs/runtime-module-boundaries.sh"]
+tools = ["make", "cargo", "cargo-deny", "sh"]
+
+[sweep.interop-lint]
+target = "interop-lint"
+covers = ["services/interop/Cargo.toml", "services/interop/crates", "scripts/interop/dependency-policy.sh"]
+tools = ["make", "cargo", "cargo-deny", "sh"]
+
+[sweep.paxeer-manifest-lint]
+target = "paxeer-manifest-lint"
+covers = ["tools/workspace", "contracts", "tests/integration", "tests/fixtures/example/cosmwasm", "tools/benchmark/loadtest/contracts", "wasm-runtime/libwasmvm/Cargo.toml", "tools/hpx/registry", "sdk/cosmovisor", "sdk/ics23", "go.mod"]
+tools = ["make", "sh", "npm", "node", "forge", "cargo", "go", "gofmt", "find", "xargs"]
+
+[sweep.specgen-lint]
+target = "specgen-lint"
+covers = ["tools/specgen", "spec"]
+tools = ["make", "go"]

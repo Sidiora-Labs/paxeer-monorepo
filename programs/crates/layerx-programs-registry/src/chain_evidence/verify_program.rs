@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct VerifiedProgramHead {
+pub struct VerifiedProgramHead {
     record: VerifiedProgramRecord,
     lifecycle: ProgramLifecycle,
     wind_down: Option<[u8; 54]>,
@@ -19,43 +19,53 @@ pub(crate) struct VerifiedProgramHead {
 }
 
 impl VerifiedProgramHead {
-    pub(crate) const fn program(&self) -> ProgramId {
+    #[must_use]
+    pub const fn program(&self) -> ProgramId {
         self.record.program()
     }
 
-    pub(crate) const fn version(&self) -> u32 {
+    #[must_use]
+    pub const fn version(&self) -> u32 {
         self.record.version()
     }
 
-    pub(crate) const fn code_hash(&self) -> [u8; 32] {
+    #[must_use]
+    pub const fn code_hash(&self) -> [u8; 32] {
         self.record.code_hash()
     }
 
-    pub(crate) const fn abi_version(&self) -> u16 {
+    #[must_use]
+    pub const fn abi_version(&self) -> u16 {
         self.record.abi_version()
     }
 
-    pub(crate) const fn policy(&self) -> UpgradePolicy {
+    #[must_use]
+    pub const fn policy(&self) -> UpgradePolicy {
         self.record.upgrade_policy()
     }
 
-    pub(crate) const fn lifecycle(&self) -> ProgramLifecycle {
+    #[must_use]
+    pub const fn lifecycle(&self) -> ProgramLifecycle {
         self.lifecycle
     }
 
-    pub(crate) const fn wind_down(&self) -> Option<[u8; 54]> {
+    #[must_use]
+    pub const fn wind_down(&self) -> Option<[u8; 54]> {
         self.wind_down
     }
 
-    pub(crate) const fn state_root(&self) -> [u8; 32] {
+    #[must_use]
+    pub const fn state_root(&self) -> [u8; 32] {
         self.record.state_root()
     }
 
-    pub(crate) const fn freshness(&self) -> ReadFreshness {
+    #[must_use]
+    pub const fn freshness(&self) -> ReadFreshness {
         self.freshness
     }
 
-    pub(crate) const fn valid_until_ms(&self) -> u64 {
+    #[must_use]
+    pub const fn valid_until_ms(&self) -> u64 {
         self.valid_until_ms
     }
 }
@@ -84,7 +94,7 @@ pub(crate) fn current_program_at(
     let state = lifecycle.verify(head)?;
     let status = wind_down.verify(head)?;
     if state == ProgramLifecycle::Tombstoned
-        || lifecycle.status.as_deref() != status.as_ref().map(|value| value.as_slice())
+        || lifecycle.status.as_deref() != status.as_ref().map(<[u8; 54]>::as_slice)
     {
         return Err(ProtocolEvidenceError::LifecycleProof);
     }

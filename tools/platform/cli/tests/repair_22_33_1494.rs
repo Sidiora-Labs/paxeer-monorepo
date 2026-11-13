@@ -1,16 +1,16 @@
 //! Task 22.33.1494 repair record (scope prohibits editing the spec task record).
-//! wallet_finality_option -> wallet_finality_option_committed_receipt_for_every_wait.
-//! retired_endpoint_wallet -> retired_endpoint_wallet_separates_root_and_hosted_routes.
-//! wallet_submission_recovery -> wallet_submission_recovery_reopens_journal_without_resubmission.
-//! wallet_snapshot_proof_label -> wallet_snapshot_proof_label_binds_canonical_fields_and_pinned_root.
-//! wallet_key_file_open -> wallet_key_file_open_qualifies_protected_derived_exports.
-//! workspace_retired_core -> workspace_retired_core_uses_current_domain_targets.
+//! `wallet_finality_option` -> `wallet_finality_option_committed_receipt_for_every_wait`.
+//! `retired_endpoint_wallet` -> `retired_endpoint_wallet_separates_root_and_hosted_routes`.
+//! `wallet_submission_recovery` -> `wallet_submission_recovery_reopens_journal_without_resubmission`.
+//! `wallet_snapshot_proof_label` -> `wallet_snapshot_proof_label_binds_canonical_fields_and_pinned_root`.
+//! `wallet_key_file_open` -> `wallet_key_file_open_qualifies_protected_derived_exports`.
+//! `workspace_retired_core` -> `workspace_retired_core_uses_current_domain_targets`.
 //! Previous attempt: four cases passed; finality and recovery failed before submission on the estimate validator.
 //! Continuation: the unchanged baseline is not rerun under the implementation-first and hf-done-only order.
 //! Ruling: use a standard-library socket file for bounded nonregular-input refusal instead of the unavailable FIFO constructor.
 //! Wiring: services/agent/crates/layerx-sdk/src/rpc.rs (agent SDK domain 9): expose submitted/receipted/committed names and the pinned account-proof consumer; the CLI uses the shared proof codec directly meanwhile.
-//! Wiring: services/platform/hosted/gateway/src (platform domain 8): publish canonical AccountStateRecord and HeaderRecord with account snapshots; current observed balances remain explicitly unverified.
-//! Wiring: tools/platform/cli/src/main.rs and rpc_subscription.rs (platform domain 8): update global endpoint help and websocket routing; these files are outside this task.
+//! Wiring: services/platform/hosted/gateway/src (platform domain 8): publish canonical `AccountStateRecord` and `HeaderRecord` with account snapshots; current observed balances remain explicitly unverified.
+//! Wiring: tools/platform/cli/src/main.rs and `rpc_subscription.rs` (platform domain 8): update global endpoint help and websocket routing; these files are outside this task.
 //! Wiring: tools/platform/cli/tests/workspace.rs (platform domain 8): assert paxd/kernel targets in its historical workspace suite; the scoped test below covers the current plan.
 
 use ed25519_dalek::{Signer as _, SigningKey};
@@ -51,7 +51,11 @@ const PASSPHRASE: &str = "scoped wallet repair fixture passphrase";
 const MNEMONIC: &str =
     "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    bytes.iter().fold(String::new(), |mut output, byte| {
+        std::fmt::Write::write_fmt(&mut output, format_args!("{byte:02x}"))
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        output
+    })
 }
 fn unhex(text: &str) -> Vec<u8> {
     let text = text.strip_prefix("0x").unwrap_or(text);
@@ -59,7 +63,11 @@ fn unhex(text: &str) -> Vec<u8> {
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex"), 16).expect("hex byte")
+            u8::from_str_radix(
+                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("{}: {error:?}", "hex")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "hex byte"))
         })
         .collect()
 }
@@ -236,10 +244,12 @@ fn nested_fixture(
 }
 
 fn transaction_receipt(raw: &[u8], reverted: bool) -> Value {
-    let (call, signature) = decode_signed(raw).expect("signed EVM transaction");
-    let from_address = recover_sender(&call, &signature).expect("secp256k1 recovery");
+    let (call, signature) = decode_signed(raw)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "signed EVM transaction"));
+    let from_address = recover_sender(&call, &signature)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "secp256k1 recovery"));
     let hash = transaction_hash(raw);
-    let return_data = if reverted { Vec::new() } else { Vec::new() };
+    let return_data = Vec::new();
     let vm_error = if reverted { "execution reverted" } else { "" };
     let digest = |bytes: &[u8]| -> [u8; 32] { Sha256::digest(bytes).into() };
     let mut body = Vec::new();
@@ -249,7 +259,11 @@ fn transaction_receipt(raw: &[u8], reverted: bool) -> Value {
     body.extend_from_slice(&0_u32.to_be_bytes());
     body.extend_from_slice(&[0; 40]);
     body.extend_from_slice(&digest(vm_error.as_bytes()));
-    body.extend_from_slice(&(return_data.len() as u32).to_be_bytes());
+    body.extend_from_slice(
+        &u32::try_from(return_data.len())
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .to_be_bytes(),
+    );
     body.extend_from_slice(&0_u32.to_be_bytes());
     body.push(4);
     body.extend_from_slice(b"uhpx");
@@ -259,60 +273,31 @@ fn transaction_receipt(raw: &[u8], reverted: bool) -> Value {
     from[12..].copy_from_slice(&from_address);
     let mut to = [0; 32];
     to[12..].copy_from_slice(&call.to);
-    let encode = |signature: Option<[u8; 64]>| {
-        let mut e = Encoder::new(4096);
-        e.structure_header_version(0x5201, 2).expect("header");
-        e.u16(2).expect("protocol");
-        e.bytes(&hash, 32).expect("hash");
-        e.u64(10).expect("sequence");
-        e.bytes(&[0x21; 32], 32).expect("previous root");
-        e.bytes(&[0x22; 32], 32).expect("resulting root");
-        e.bytes(&digest(&return_data), 32).expect("return digest");
-        e.i32(i32::from(reverted)).expect("result");
-        e.sequence_length(1, layerx_wire::limits::MAX_SEQUENCER_EFFECTS)
-            .expect("effects");
-        e.u16(12).expect("module");
-        e.u16(0).expect("ordinal");
-        e.u16(0).expect("event");
-        e.tag(1, 3).expect("kind");
-        e.u8(0).expect("monetary");
-        e.bytes(&[0; 32], 32).expect("transfer root");
-        e.bytes(&body, 256).expect("summary");
-        e.u128(42_000).expect("fee");
-        e.bytes(&batch_id, 32).expect("batch id");
-        e.u16(12).expect("module");
-        e.u32(1).expect("module version");
-        e.u32(0).expect("parameter version");
-        e.u8(2).expect("operation");
-        e.bytes(&digest(b"uhpx"), 32).expect("denom");
-        e.u128(0).expect("amount");
-        e.bytes(&from, 32).expect("from");
-        e.u128(0).expect("balance before");
-        e.u128(0).expect("balance after");
-        e.u64(call.nonce).expect("nonce");
-        e.bytes(&to, 32).expect("to");
-        e.u128(0).expect("credit before");
-        e.u128(0).expect("credit after");
-        e.bytes(&[0; 32], 32).expect("transfer root");
-        e.bytes(&[0; 32], 32).expect("authorization");
-        e.bytes(&KEY_ID, 32).expect("key id");
-        e.u64(1000).expect("timestamp");
-        e.u8(u8::from(signature.is_some())).expect("signature flag");
-        if let Some(signature) = signature {
-            e.bytes(&signature, 64).expect("signature");
-        }
-        e.finish()
+    let fields = receipt_wire::ReceiptFields {
+        hash: &hash,
+        return_data: &return_data,
+        reverted,
+        body: &body,
+        batch_id: &batch_id,
+        from: &from,
+        to: &to,
+        nonce: call.nonce,
+        key_id: &KEY_ID,
     };
-    let unsigned = encode(None);
+    let unsigned = receipt_wire::encode(&fields, None);
     let signature = sequencer()
-        .sign(&receipt_digest(&unsigned).expect("receipt digest"))
+        .sign(
+            &receipt_digest(&unsigned)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "receipt digest")),
+        )
         .to_bytes();
-    let canonical = encode(Some(signature));
+    let canonical = receipt_wire::encode(&fields, Some(signature));
     assert_eq!(
         layerx_wire::receipt::encode(
-            &layerx_wire::receipt::decode(&canonical).expect("receipt decode")
+            &layerx_wire::receipt::decode(&canonical)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "receipt decode"))
         )
-        .expect("receipt encode"),
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "receipt encode")),
         canonical
     );
     json!({
@@ -374,10 +359,13 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
-        let directory = tempfile::tempdir().expect("fixture directory");
-        let account = derive_from_mnemonic(MNEMONIC, "", 0).expect("derived account");
+        let directory = tempfile::tempdir()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "fixture directory"));
+        let account = derive_from_mnemonic(MNEMONIC, "", 0)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "derived account"));
         let fixture = Self { directory, account };
-        fs::write(fixture.path("mnemonic"), MNEMONIC).expect("phrase fixture");
+        fs::write(fixture.path("mnemonic"), MNEMONIC)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "phrase fixture"));
         let output = fixture
             .command()
             .args(["wallet", "derive", "--mnemonic-file"])
@@ -385,7 +373,7 @@ impl Fixture {
             .arg("--export-private-keys")
             .arg(fixture.path("evm.json"))
             .output()
-            .expect("derive CLI");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "derive CLI"));
         assert!(
             output.status.success(),
             "derive failed without exporting an account"
@@ -399,10 +387,10 @@ impl Fixture {
             "environments":{"beta":{"endpoint":"http://127.0.0.1:1","network_id":125}}})
             .to_string(),
         )
-        .expect("public configuration");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "public configuration"));
         fs::write(fixture.path("policy.json"),json!({"protocol_version":2,"network_id":125,
             "sequencer_id":hex(&KEY_ID),"sequencer_key":hex(&sequencer().verifying_key().to_bytes()),
-            "first_batch":1,"last_batch":100}).to_string()).expect("pinned receipt policy");
+            "first_batch":1,"last_batch":100}).to_string()).unwrap_or_else(|error| panic!("{}: {error:?}", "pinned receipt policy"));
         fixture
     }
     fn path(&self, name: &str) -> std::path::PathBuf {
@@ -441,7 +429,7 @@ impl Fixture {
                 "3",
             ])
             .output()
-            .expect("wallet write CLI")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "wallet write CLI"))
     }
     fn receipt(&self, endpoint: &str, hash: &str, wait: &str) -> Output {
         self.command()
@@ -457,7 +445,7 @@ impl Fixture {
             ])
             .arg(self.path("policy.json"))
             .output()
-            .expect("receipt CLI")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "receipt CLI"))
     }
 }
 
@@ -469,14 +457,17 @@ struct Server {
 }
 impl Server {
     fn new(mut handle: impl FnMut(&str, &str, &Value) -> Option<Value> + Send + 'static) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "loopback listener"));
         let endpoint = format!(
             "http://{}",
-            listener.local_addr().expect("listener address")
+            listener
+                .local_addr()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "listener address"))
         );
         listener
             .set_nonblocking(true)
-            .expect("nonblocking listener");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "nonblocking listener"));
         let done = Arc::new(AtomicBool::new(false));
         let stop = Arc::clone(&done);
         let requests = Arc::new(Mutex::new(Vec::new()));
@@ -495,46 +486,58 @@ impl Server {
                 };
                 socket
                     .set_read_timeout(Some(Duration::from_secs(5)))
-                    .expect("socket deadline");
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "socket deadline"));
                 let mut reader = std::io::BufReader::new(socket);
                 let mut line = String::new();
-                reader.read_line(&mut line).expect("request line");
+                reader
+                    .read_line(&mut line)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "request line"));
                 let path = line
                     .split_whitespace()
                     .nth(1)
-                    .expect("request path")
+                    .unwrap_or_else(|| panic!("{}", "request path"))
                     .to_owned();
                 let mut length = None;
                 let mut authorization = String::new();
                 loop {
                     line.clear();
-                    assert_ne!(reader.read_line(&mut line).expect("header"), 0);
+                    assert_ne!(
+                        reader
+                            .read_line(&mut line)
+                            .unwrap_or_else(|error| panic!("{}: {error:?}", "header")),
+                        0
+                    );
                     if line == "\r\n" {
                         break;
                     }
                     if let Some((name, value)) = line.split_once(':') {
                         if name.eq_ignore_ascii_case("content-length") {
-                            length = Some(value.trim().parse::<usize>().expect("body length"));
+                            length =
+                                Some(value.trim().parse::<usize>().unwrap_or_else(|error| {
+                                    panic!("{}: {error:?}", "body length")
+                                }));
                         }
                         if name.eq_ignore_ascii_case("authorization") {
-                            authorization = value.trim().to_owned();
+                            value.trim().clone_into(&mut authorization);
                         }
                     }
                 }
-                let length = length.expect("body length header");
+                let length = length.unwrap_or_else(|| panic!("{}", "body length header"));
                 assert!(length <= 1_048_576);
                 let mut body = vec![0; length];
-                reader.read_exact(&mut body).expect("request body");
-                let request: Value = serde_json::from_slice(&body).expect("JSON-RPC request");
-                captured.lock().expect("requests").push((
-                    path.clone(),
-                    authorization.clone(),
-                    request.clone(),
-                ));
+                reader
+                    .read_exact(&mut body)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "request body"));
+                let request: Value = serde_json::from_slice(&body)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON-RPC request"));
+                captured
+                    .lock()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "requests"))
+                    .push((path.clone(), authorization.clone(), request.clone()));
                 if let Some(result) = handle(&path, &authorization, &request) {
                     let body =
                         json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
-                    write!(reader.get_mut(),"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).expect("response");
+                    write!(reader.get_mut(),"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap_or_else(|error| panic!("{}: {error:?}", "response"));
                 }
             }
         });
@@ -549,17 +552,22 @@ impl Server {
         self.done.store(true, Ordering::SeqCst);
         self.worker
             .take()
-            .expect("worker")
+            .unwrap_or_else(|| panic!("{}", "worker"))
             .join()
-            .expect("loopback producer");
-        self.requests.lock().expect("requests").clone()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "loopback producer"));
+        self.requests
+            .lock()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "requests"))
+            .clone()
     }
 }
 impl Drop for Server {
     fn drop(&mut self) {
         self.done.store(true, Ordering::SeqCst);
         if let Some(worker) = self.worker.take() {
-            worker.join().expect("loopback producer");
+            worker
+                .join()
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "loopback producer"));
         }
     }
 }
@@ -567,7 +575,10 @@ impl Drop for Server {
 fn node_server(raw: Arc<Mutex<Option<Vec<u8>>>>, lose_reply: bool, tamper: bool) -> Server {
     Server::new(move |path, _, request| {
         assert_eq!(path, "/", "Ethereum traffic must use the node root");
-        match request["method"].as_str().expect("method") {
+        match request["method"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{}", "method"))
+        {
             "eth_getTransactionCount" => Some(json!("0x11")),
             "eth_gasPrice" => Some(json!("0x2")),
             "eth_estimateGas" => {
@@ -582,16 +593,24 @@ fn node_server(raw: Arc<Mutex<Option<Vec<u8>>>>, lose_reply: bool, tamper: bool)
                 assert_eq!(transaction["value"], "0x0");
                 assert_eq!(transaction["accessList"], json!([]));
                 layerx_platform_cli::rpc::request("eth_estimateGas", &request["params"])
-                    .expect("complete production estimate contract");
+                    .unwrap_or_else(|error| {
+                        panic!("{}: {error:?}", "complete production estimate contract")
+                    });
                 Some(json!("0x5208"))
             }
             "eth_sendRawTransaction" => {
-                let bytes = unhex(request["params"][0].as_str().expect("raw bytes"));
-                decode_signed(&bytes).expect("production signed transaction");
+                let bytes = unhex(
+                    request["params"][0]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("{}", "raw bytes")),
+                );
+                decode_signed(&bytes).unwrap_or_else(|error| {
+                    panic!("{}: {error:?}", "production signed transaction")
+                });
                 let hash = transaction_hash(&bytes);
                 assert!(
                     raw.lock()
-                        .expect("accepted transactions")
+                        .unwrap_or_else(|error| panic!("{}: {error:?}", "accepted transactions"))
                         .replace(bytes)
                         .is_none(),
                     "no second signed transaction"
@@ -603,8 +622,12 @@ fn node_server(raw: Arc<Mutex<Option<Vec<u8>>>>, lose_reply: bool, tamper: bool)
                 }
             }
             "pax_sequencerReceipt" => {
-                let raw = raw.lock().expect("accepted transaction");
-                let bytes = raw.as_ref().expect("accepted bytes");
+                let raw = raw
+                    .lock()
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "accepted transaction"));
+                let bytes = raw
+                    .as_ref()
+                    .unwrap_or_else(|| panic!("{}", "accepted bytes"));
                 assert_eq!(
                     request["params"][0],
                     format!("0x{}", hex(&transaction_hash(bytes)))
@@ -631,7 +654,9 @@ fn public_result(output: &Output) -> Value {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    serde_json::from_slice::<Value>(&output.stdout).expect("CLI JSON")["data"].clone()
+    serde_json::from_slice::<Value>(&output.stdout)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "CLI JSON"))["data"]
+        .clone()
 }
 
 #[test]
@@ -655,7 +680,9 @@ fn wallet_finality_option_committed_receipt_for_every_wait() {
             assert_eq!(result["rung"], "committed");
             assert_eq!(result["final"], true);
         }
-        let hash = result["txHash"].as_str().expect("retained hash");
+        let hash = result["txHash"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{}", "retained hash"));
         let receipt = public_result(&fixture.receipt(&server.endpoint, hash, "committed"));
         assert_eq!(receipt["rung"], "committed");
         assert_eq!(receipt["final"], true);
@@ -689,9 +716,9 @@ fn wallet_submission_recovery_reopens_journal_without_resubmission() {
     assert!(!output.status.success());
     let bytes = raw
         .lock()
-        .expect("accepted bytes")
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "accepted bytes"))
         .clone()
-        .expect("accepted transaction");
+        .unwrap_or_else(|| panic!("{}", "accepted transaction"));
     let hash = format!("0x{}", hex(&transaction_hash(&bytes)));
     let error = String::from_utf8_lossy(&output.stderr);
     assert!(error.contains("transaction_indeterminate"));
@@ -699,8 +726,10 @@ fn wallet_submission_recovery_reopens_journal_without_resubmission() {
     let journal = fixture
         .path("config.wallet-submissions")
         .join(format!("{}.json", hex(&transaction_hash(&bytes))));
-    let retained: Value = serde_json::from_slice(&fs::read(&journal).expect("durable journal"))
-        .expect("journal JSON");
+    let retained: Value = serde_json::from_slice(
+        &fs::read(&journal).unwrap_or_else(|error| panic!("{}: {error:?}", "durable journal")),
+    )
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "journal JSON"));
     assert_eq!(retained["tx_hash"], hash);
     assert_eq!(retained["state"], "unknown");
     assert_eq!(retained["nonce"], 17);
@@ -717,8 +746,10 @@ fn wallet_submission_recovery_reopens_journal_without_resubmission() {
     let result = public_result(&fixture.receipt(&server.endpoint, &hash, "committed"));
     assert_eq!(result["txHash"], hash);
     assert_eq!(result["rung"], "committed");
-    let recovered: Value = serde_json::from_slice(&fs::read(journal).expect("reopened journal"))
-        .expect("journal JSON");
+    let recovered: Value = serde_json::from_slice(
+        &fs::read(journal).unwrap_or_else(|error| panic!("{}: {error:?}", "reopened journal")),
+    )
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "journal JSON"));
     assert_eq!(recovered["state"], "committed");
     assert!(server
         .stop()
@@ -745,7 +776,7 @@ fn retired_endpoint_wallet_separates_root_and_hosted_routes() {
         fixture.directory.path(),
         &format!("watch:lxp_live_{}", "a".repeat(64)),
     )
-    .expect("protected credential fixture");
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "protected credential fixture"));
     let server = Server::new(move |path, authorization, request| {
         assert_eq!(path, "/services/accounts");
         assert_eq!(
@@ -772,7 +803,7 @@ fn retired_endpoint_wallet_separates_root_and_hosted_routes() {
             &format!("{}/services/accounts", server.endpoint),
         ])
         .output()
-        .expect("hosted read CLI");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "hosted read CLI"));
     let result = public_result(&output);
     assert_eq!(result["balances"][0]["amount"], "100");
     assert_eq!(result["verification"], "unverified_node_observation");
@@ -785,9 +816,14 @@ fn retired_endpoint_wallet_separates_root_and_hosted_routes() {
 
 fn account_snapshot_fixture(did: &str) -> (Value, Value) {
     let name = format!("agent:{did}:asset:{}", hex(&ASSET));
-    let parsed = layerx_types::account::AccountId::parse(&name).expect("account name");
-    let id = account_id_for_protocol(&parsed, 3).expect("account identifier");
-    let mut canonical = (name.len() as u16).to_be_bytes().to_vec();
+    let parsed = layerx_types::account::AccountId::parse(&name)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "account name"));
+    let id = account_id_for_protocol(&parsed, 3)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "account identifier"));
+    let mut canonical = u16::try_from(name.len())
+        .unwrap_or_else(|error| panic!("{error:?}"))
+        .to_be_bytes()
+        .to_vec();
     canonical.extend_from_slice(name.as_bytes());
     canonical.push(14);
     canonical.extend_from_slice(&1000_u128.to_be_bytes());
@@ -800,7 +836,7 @@ fn account_snapshot_fixture(did: &str) -> (Value, Value) {
     canonical.push(0);
     assert_eq!(
         decode_account_value(id, &canonical)
-            .expect("canonical account")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "canonical account"))
             .balance(),
         1000
     );
@@ -829,13 +865,15 @@ fn account_snapshot_fixture(did: &str) -> (Value, Value) {
         universal_root_proof: proof.universal_root_proof,
         receipt_bytes: proof.receipt_bytes,
         receipt_proof: proof.receipt_proof,
-        header_digest: header.digest().expect("header digest"),
+        header_digest: header
+            .digest()
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "header digest")),
     };
     let snapshot = json!({"did":did,"verification":"state_proven","accounts":[{
         "account_id":hex(&id),"name":name,"asset_id":hex(&ASSET),"balance":"1000","next_sequence":"19",
         "observed_head_sequence":"10","batch_number":"7","canonical_value":hex(&canonical),
-        "proof_material":hex(&state.encode().expect("production account proof codec")),
-        "header_material":hex(&header.encode().expect("production header codec"))}]});
+        "proof_material":hex(&state.encode().unwrap_or_else(|error| panic!("{}: {error:?}", "production account proof codec"))),
+        "header_material":hex(&header.encode().unwrap_or_else(|error| panic!("{}: {error:?}", "production header codec")))}]});
     let trust = json!({"protocol_version":3,"network_id":NETWORK_ID,"batch_number":7,
         "state_root":hex(&proof.resulting_state_root),"sequencer_id":hex(&sequencer().verifying_key().to_bytes()),
         "sequencer_key":hex(&sequencer().verifying_key().to_bytes()),"first_batch":1,"last_batch":100});
@@ -849,9 +887,9 @@ fn wallet_snapshot_proof_label_binds_canonical_fields_and_pinned_root() {
     let (snapshot, trust) = account_snapshot_fixture(&did);
     let run = |snapshot: &Value, trust: &Value| {
         fs::write(fixture.path("snapshot.json"), snapshot.to_string())
-            .expect("snapshot codec output");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "snapshot codec output"));
         fs::write(fixture.path("account-policy.json"), trust.to_string())
-            .expect("independent root pin");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "independent root pin"));
         fixture
             .command()
             .args(["wallet", "balance", "--did", &did, "--proof-snapshot"])
@@ -859,7 +897,7 @@ fn wallet_snapshot_proof_label_binds_canonical_fields_and_pinned_root() {
             .arg("--proof-policy")
             .arg(fixture.path("account-policy.json"))
             .output()
-            .expect("proof consumer CLI")
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "proof consumer CLI"))
     };
     let result = public_result(&run(&snapshot, &trust));
     assert_eq!(result["verification"], "state_proven");
@@ -885,12 +923,12 @@ fn wallet_snapshot_proof_label_binds_canonical_fields_and_pinned_root() {
     let mut bytes = unhex(
         changed["accounts"][0]["canonical_value"]
             .as_str()
-            .expect("canonical value"),
+            .unwrap_or_else(|| panic!("{}", "canonical value")),
     );
     let balance_offset = 2
         + changed["accounts"][0]["name"]
             .as_str()
-            .expect("account name")
+            .unwrap_or_else(|| panic!("{}", "account name"))
             .len()
         + 1;
     bytes[balance_offset + 15] ^= 1;
@@ -921,26 +959,33 @@ fn wallet_key_file_open_qualifies_protected_derived_exports() {
     let did = fixture.account.did();
     let public = fixture.account.layerx_public_key();
     let valid = fixture.path("evm.json");
-    let key = EvmSigningKey::read(&valid, &did, public).expect("real derived export");
+    let key = EvmSigningKey::read(&valid, &did, public)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "real derived export"));
     assert_eq!(key.address(), fixture.account.evm_address());
     let link = fixture.path("symlink");
-    std::os::unix::fs::symlink(&valid, &link).expect("symlink fixture");
+    std::os::unix::fs::symlink(&valid, &link)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "symlink fixture"));
     assert!(EvmSigningKey::read(&link, &did, public).is_err());
     let socket = fixture.path("socket");
-    let _listener = std::os::unix::net::UnixListener::bind(&socket)
-        .expect("standard-library nonregular file fixture");
+    let _listener = std::os::unix::net::UnixListener::bind(&socket).unwrap_or_else(|error| {
+        panic!("{}: {error:?}", "standard-library nonregular file fixture")
+    });
     let (sender, receiver) = std::sync::mpsc::sync_channel(1);
     let owner = did.clone();
     thread::spawn(move || {
         sender
             .send(EvmSigningKey::read(&socket, &owner, public).is_err())
-            .expect("nonregular file result");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "nonregular file result"));
     });
     assert!(receiver
         .recv_timeout(Duration::from_secs(1))
-        .expect("nonregular key input must never block at open"));
+        .unwrap_or_else(|error| panic!(
+            "{}: {error:?}",
+            "nonregular key input must never block at open"
+        )));
     let foreign = fixture.path("foreign");
-    fs::copy(&valid, &foreign).expect("foreign-owner fixture");
+    fs::copy(&valid, &foreign)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "foreign-owner fixture"));
     rustix::fs::chown(
         &foreign,
         Some(rustix::process::Uid::from_raw(
@@ -948,17 +993,20 @@ fn wallet_key_file_open_qualifies_protected_derived_exports() {
         )),
         None,
     )
-    .expect("foreign owner");
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "foreign owner"));
     fs::set_permissions(&foreign, fs::Permissions::from_mode(0o600))
-        .expect("owner-only foreign fixture");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "owner-only foreign fixture"));
     assert!(EvmSigningKey::read(&foreign, &did, public).is_err());
-    fs::set_permissions(&valid, fs::Permissions::from_mode(0o640)).expect("unsafe mode");
+    fs::set_permissions(&valid, fs::Permissions::from_mode(0o640))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "unsafe mode"));
     assert!(EvmSigningKey::read(&valid, &did, public).is_err());
-    fs::set_permissions(&valid, fs::Permissions::from_mode(0o600)).expect("restore protected mode");
-    fs::write(&valid, vec![b'x'; 4097]).expect("oversized export");
+    fs::set_permissions(&valid, fs::Permissions::from_mode(0o600))
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "restore protected mode"));
+    fs::write(&valid, vec![b'x'; 4097])
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "oversized export"));
     let error = EvmSigningKey::read(&valid, &did, public)
         .err()
-        .expect("byte bound");
+        .unwrap_or_else(|| panic!("{}", "byte bound"));
     assert!(error.contains("4096"));
     assert!(!error.contains(&"x".repeat(64)));
 }
@@ -972,13 +1020,19 @@ fn workspace_retired_core_uses_current_domain_targets() {
         .env("LAYERX_REPO_ROOT", root)
         .args(["workspace", "test", "--module", "core", "--dry-run"])
         .output()
-        .expect("workspace plan CLI");
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "workspace plan CLI"));
     let result = public_result(&output);
-    let steps = result["steps"].as_array().expect("workspace steps");
+    let steps = result["steps"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{}", "workspace steps"));
     assert!(steps.iter().all(|step| step["status"] == "planned"));
     let commands: Vec<_> = steps
         .iter()
-        .map(|step| step["command"].as_str().expect("planned command"))
+        .map(|step| {
+            step["command"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "planned command"))
+        })
         .collect();
     assert!(commands
         .iter()
@@ -989,3 +1043,6 @@ fn workspace_retired_core_uses_current_domain_targets() {
     assert!(!result.to_string().contains("test-layerxd"));
     assert!(!result.to_string().contains("guarantor"));
 }
+
+#[path = "common/receipt_wire.rs"]
+mod receipt_wire;

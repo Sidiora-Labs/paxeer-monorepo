@@ -46,8 +46,8 @@ function middlewareError(code) {
 function encodesLedgerDrawCalldataWithDrawSelector() {
   assert.equal(LAYERX_LEDGER_ADDRESS, "0x000000000000000000000000000000000000101a");
   const draw = {
-    from: id(1), assetId: id(33), amount: 1_000_000n, grantId: id(65),
-    receiverSequence: 0x0102030405060708n, idempotencyKey: id(97), contextHash: id(129),
+    recipient: id(1), purposeHash: id(33), amount: 1_000_000n, grantId: id(65),
+    sequence: 0x0102030405060708n, idempotencyKey: id(97), contextHash: id(129),
   };
   const calldata = encodeLedgerDraw(draw);
   assert.ok(calldata instanceof Uint8Array);
@@ -55,8 +55,8 @@ function encodesLedgerDrawCalldataWithDrawSelector() {
   assert.deepEqual(calldata.slice(0, 4), hash(DRAW_SIGNATURE).slice(0, 4));
   assert.deepEqual(LEDGER_DRAW_SELECTOR, calldata.slice(0, 4));
   assert.equal(Buffer.from(calldata.slice(0, 4)).toString("hex"), "2e89490f");
-  const expectedWords = [draw.grantId, draw.from, uintWord(draw.amount), draw.idempotencyKey,
-    uintWord(draw.receiverSequence), draw.assetId, draw.contextHash];
+  const expectedWords = [draw.grantId, draw.recipient, uintWord(draw.amount), draw.idempotencyKey,
+    uintWord(draw.sequence), draw.purposeHash, draw.contextHash];
   for (const [index, word] of expectedWords.entries()) {
     assert.deepEqual(calldata.slice(4 + index * 32, 4 + (index + 1) * 32), word);
   }
@@ -68,11 +68,11 @@ function encodesLedgerDrawCalldataWithDrawSelector() {
   for (const amount of [-1n, 1n << 128n, 25]) {
     assert.throws(() => encodeLedgerDraw({ ...draw, amount }), middlewareError("invalid-payment-payload"));
   }
-  for (const receiverSequence of [-1n, 1n << 64n, 1]) {
-    assert.throws(() => encodeLedgerDraw({ ...draw, receiverSequence }), middlewareError("invalid-payment-payload"));
+  for (const sequence of [-1n, 1n << 64n, 1]) {
+    assert.throws(() => encodeLedgerDraw({ ...draw, sequence }), middlewareError("invalid-payment-payload"));
   }
-  assert.deepEqual(encodeLedgerDraw({ ...draw, receiverSequence: (1n << 64n) - 1n }).slice(132, 164), uintWord((1n << 64n) - 1n));
-  for (const field of ["from", "assetId", "grantId", "idempotencyKey", "contextHash"]) {
+  assert.deepEqual(encodeLedgerDraw({ ...draw, sequence: (1n << 64n) - 1n }).slice(132, 164), uintWord((1n << 64n) - 1n));
+  for (const field of ["recipient", "purposeHash", "grantId", "idempotencyKey", "contextHash"]) {
     for (const length of [31, 33]) {
       assert.throws(() => encodeLedgerDraw({ ...draw, [field]: new Uint8Array(length) }), middlewareError("invalid-payment-payload"));
     }

@@ -1,8 +1,19 @@
 #[path = "support/journal_entries.rs"]
 mod journal_entries;
+#[path = "support/journal_remove.rs"]
+mod journal_remove;
 
 include!("support/rate_harness.rs");
 include!("support/rate_repairs.rs");
+
+fn no_secret(value: &Value, secret: &str) {
+    match value {
+        Value::String(text) => assert_ne!(text.strip_prefix("0x").unwrap_or(text), secret),
+        Value::Array(values) => values.iter().for_each(|value| no_secret(value, secret)),
+        Value::Object(values) => values.values().for_each(|value| no_secret(value, secret)),
+        _ => {}
+    }
+}
 
 #[test]
 fn publishes_the_owner_rate_with_set_rate_and_journals_it() -> TestResult {
@@ -64,14 +75,6 @@ fn publishes_the_owner_rate_with_set_rate_and_journals_it() -> TestResult {
     // The captured producer uses test scalar 1. That public 32-byte value also
     // occurs inside ABI words and receipt signatures, so compare complete
     // persisted scalar values rather than substrings of opaque public evidence.
-    fn no_secret(value: &Value, secret: &str) {
-        match value {
-            Value::String(text) => assert_ne!(text.strip_prefix("0x").unwrap_or(text), secret),
-            Value::Array(values) => values.iter().for_each(|value| no_secret(value, secret)),
-            Value::Object(values) => values.values().for_each(|value| no_secret(value, secret)),
-            _ => {}
-        }
-    }
     for entry in &entries {
         no_secret(&serde_json::to_value(entry)?, &format!("{:064x}", 1));
     }
@@ -293,7 +296,7 @@ fn unsettled_publications_reserve_their_most_against_the_floor() -> TestResult {
         refused.downcast_ref::<RateRefusal>(),
         Some(&RateRefusal::LegacyUnresolved)
     );
-    journal_entries::remove(&lane.dir.join("rate.jsonl"))?;
+    journal_remove::remove(&lane.dir.join("rate.jsonl"))?;
     let floor = 10_u128.pow(15);
     lane.chain.borrow_mut().rung = "receipted";
     lane.chain.borrow_mut().balance = floor + RESERVE - 1;
@@ -592,7 +595,7 @@ fn real_signed_v2_publication_replays_exactly_and_refuses_identity_corruption() 
     }
     drop(journal);
     assert_eq!(Journal::open(&path)?.state(), &state);
-    journal_entries::remove(&path)?;
+    journal_remove::remove(&path)?;
     std::fs::remove_file(input)?;
     std::fs::remove_dir(directory)?;
     Ok(())

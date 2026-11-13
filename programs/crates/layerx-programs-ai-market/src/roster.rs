@@ -29,6 +29,8 @@ pub struct ParticipantRosterEntry {
 
 impl ParticipantRosterEntry {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn from_manifest(worker: WorkerRosterEntry, manifest: &[u8]) -> CodecResult<Self> {
         let summary = decode_manifest(manifest)?;
         if summary.worker != worker.worker
@@ -437,25 +439,27 @@ pub(crate) fn rollover_roster_in_state<'c>(
     ))
 }
 
-/// Validated rollover sections, before the enclosing transaction encodes its final state.
-pub(crate) fn rollover_roster_parts<'c: 's, 's>(
-    state: &SharedState<'c>,
-    height: u64,
-    expected_revision: u64,
-    scratch: &'s mut [u8],
-) -> CodecResult<(
+type RolloverRosterParts<'c, 's> = (
     RosterOpened,
     SharedState<'s>,
     Option<RewardState<'c>>,
     AdmissionTable,
     WorkerTable,
     &'s mut [u8],
-)> {
+);
+
+/// Validated rollover sections, before the enclosing transaction encodes its final state.
+pub(crate) fn rollover_roster_parts<'c: 's, 's>(
+    state: &SharedState<'c>,
+    height: u64,
+    expected_revision: u64,
+    scratch: &'s mut [u8],
+) -> CodecResult<RolloverRosterParts<'c, 's>> {
     if state.revision != expected_revision {
         return Err(F08_STALE_STATE);
     }
     let market = PolicySection::decode(
-        *state
+        state
             .feature_sections
             .guest_index(Section::PolicyLifecycle.index()),
     )?
@@ -473,11 +477,11 @@ pub(crate) fn rollover_roster_parts<'c: 's, 's>(
     {
         return Err(WRONG_EPOCH);
     }
-    let rewards = reward_state(state.section(Section::SettlementClaims)?, &market)?;
+    let rewards = reward_state(state.room_market()?.0, &market)?;
     rollover_roster_prepared(
         state,
         &market,
-        admission,
+        &admission,
         rewards,
         height,
         expected_revision,
@@ -489,19 +493,14 @@ pub(crate) fn rollover_roster_parts<'c: 's, 's>(
 pub(crate) fn rollover_roster_prepared<'c: 's, 's>(
     state: &SharedState<'c>,
     market: &MarketHeader,
-    admission: AdmissionTable,
+    admission: &AdmissionTable,
     rewards: Option<RewardState<'c>>,
     height: u64,
     expected_revision: u64,
     scratch: &'s mut [u8],
-) -> CodecResult<(
-    RosterOpened,
-    SharedState<'s>,
-    Option<RewardState<'c>>,
-    AdmissionTable,
-    WorkerTable,
-    &'s mut [u8],
-)> {
+) -> CodecResult<RolloverRosterParts<'c, 's>> {
+    let admission = *admission;
+
     if state.revision != expected_revision {
         return Err(F08_STALE_STATE);
     }
@@ -542,7 +541,7 @@ pub(crate) fn rollover_roster_prepared<'c: 's, 's>(
 pub(crate) fn rollover_roster_framed<'c: 's, 's>(
     reader: &state::SectionReader<'c>,
     market: &MarketHeader,
-    admission: AdmissionTable,
+    admission: &AdmissionTable,
     rewards: Option<RewardState<'c>>,
     height: u64,
     scratch: &'s mut [u8],
@@ -552,6 +551,8 @@ pub(crate) fn rollover_roster_framed<'c: 's, 's>(
     AdmissionTable,
     crate::workers::OpeningWorkers<'s>,
 )> {
+    let admission = *admission;
+
     let original = reader.frame();
     let prepared = prepare_roster_sections(
         core::array::from_fn(|i| original.sections[i]),
@@ -648,7 +649,7 @@ fn prepare_roster_sections<'c: 's, 's>(
         None => epoch,
     };
     let (worker_bytes, region) =
-        split_identity_section(*sections.guest_index(Section::IdentityRoster.index()))?;
+        split_identity_section(sections.guest_index(Section::IdentityRoster.index()))?;
     let opening_workers = crate::workers::OpeningWorkers::read(worker_bytes)?;
     let before = admission;
     let rollover = {

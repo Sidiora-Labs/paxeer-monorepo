@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"math/big"
 	"regexp"
 	"slices"
@@ -176,15 +177,13 @@ func (s Store) SquadPerformance(ctx context.Context, a IntervalAuthority, squadI
 			e = json.Unmarshal(b, &m)
 		}
 		if e != nil {
-			rows.Close()
-			return SquadPerformance{}, e
+			return SquadPerformance{}, errors.Join(e, rows.Close())
 		}
 		if m.CanPublish() {
 			members[m.AccountID] = true
 		}
 	}
-	e = rows.Err()
-	rows.Close()
+	e = errors.Join(rows.Err(), rows.Close())
 	if e != nil {
 		return SquadPerformance{}, e
 	}
@@ -243,7 +242,7 @@ func rawInteger(value string) (*big.Int, error) {
 func usdl(value *big.Int) string {
 	return new(big.Rat).SetFrac(value, big.NewInt(1000000)).FloatString(6)
 }
-func (a SQLIntervalAuthority) Intervals(ctx context.Context, start, end time.Time) ([]PnLInterval, error) {
+func (a SQLIntervalAuthority) Intervals(ctx context.Context, start, end time.Time) (intervals []PnLInterval, err error) {
 	if a.DB == nil || a.Attribution == nil {
 		return nil, ErrUnavailable
 	}
@@ -254,7 +253,7 @@ func (a SQLIntervalAuthority) Intervals(ctx context.Context, start, end time.Tim
 	if e != nil {
 		return nil, e
 	}
-	defer rows.Close()
+	defer func() { err = errors.Join(err, rows.Close()) }()
 	out := []PnLInterval{}
 	for rows.Next() {
 		var v PnLInterval

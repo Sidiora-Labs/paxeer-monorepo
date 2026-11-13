@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -64,5 +65,48 @@ func TestReleaseFixtureSymlinkCannotEscapeLicensedRoot(t *testing.T) {
 	}
 	if e := ValidateMediaReleaseInputs(input, time.Time{}); e == nil {
 		t.Fatal("missing qualification clock admitted")
+	}
+}
+
+func TestMediaReleaseChecksBoundFilesAndUniqueInventory(t *testing.T) {
+	root := t.TempDir()
+	body := []byte("owned media fixture")
+	quota := []byte(`{"provider":"owned"}`)
+	if err := os.WriteFile(filepath.Join(root, "media.bin"), body, 0600); err != nil {
+		t.Fatal(err)
+	}
+	quotaPath := filepath.Join(root, "quota.json")
+	if err := os.WriteFile(quotaPath, quota, 0600); err != nil {
+		t.Fatal(err)
+	}
+	input := MediaReleaseInputs{
+		ProviderAccount: "owned-provider", QuotaConfirmationPath: quotaPath,
+		QuotaConfirmationSHA256: measurementHashForEnvelope(quota), QuotaExpiresAt: time.Now().Add(time.Hour),
+		OriginalRetentionDays: 30, MixedWorkloadHours: 24, CDNViewerTarget: 20000,
+		FixtureRoot: root, Fixtures: []LicensedFixture{{Path: "media.bin", SHA256: measurementHashForEnvelope(body), Ownership: "owned"}},
+	}
+	if err := ValidateMediaReleaseInputs(input, time.Now()); err != nil {
+		t.Fatalf("owned inventory: %v", err)
+	}
+	for _, tc := range []struct {
+		name string
+		edit func(*MediaReleaseInputs)
+		want string
+	}{
+		{"missing quota", func(c *MediaReleaseInputs) { c.QuotaConfirmationPath = filepath.Join(root, "absent.json") }, "provider quota confirmation unavailable"},
+		{"changed quota", func(c *MediaReleaseInputs) { c.QuotaConfirmationSHA256 = measurementHashForEnvelope([]byte("changed")) }, "provider quota confirmation mismatch"},
+		{"missing root", func(c *MediaReleaseInputs) { c.FixtureRoot = filepath.Join(root, "absent") }, "fixture root unavailable"},
+		{"missing fixture", func(c *MediaReleaseInputs) { c.Fixtures[0].Path = "absent.bin" }, "fixture unavailable"},
+		{"duplicate fixture", func(c *MediaReleaseInputs) { c.Fixtures = append(c.Fixtures, c.Fixtures[0]) }, "fixture outside licensed inventory"},
+		{"changed fixture", func(c *MediaReleaseInputs) { c.Fixtures[0].SHA256 = measurementHashForEnvelope([]byte("changed")) }, "fixture provenance mismatch"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			candidate := input
+			candidate.Fixtures = append([]LicensedFixture(nil), input.Fixtures...)
+			tc.edit(&candidate)
+			if err := ValidateMediaReleaseInputs(candidate, time.Now()); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("release input error=%v, want %q", err, tc.want)
+			}
+		})
 	}
 }

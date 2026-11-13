@@ -17,8 +17,23 @@ import {
   type SupportMessage,
 } from "../api/index.ts";
 
+function jsonValue(value: unknown): JsonValue {
+  if (value === null || typeof value === "string" || typeof value === "boolean"
+    || (typeof value === "number" && Number.isFinite(value))) return value;
+  if (Array.isArray(value)) return value.map((entry: unknown) => jsonValue(entry));
+  if (typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, jsonValue(entry)]));
+  }
+  throw new TypeError("Support fixture requires a JSON value");
+}
+
 function golden(name: string): { status: number; body: JsonValue } {
-  return JSON.parse(readFileSync(new URL(`../../../../services/human/schema/human-api/golden/${name}.json`, import.meta.url), "utf8"));
+  const value = jsonValue(JSON.parse(readFileSync(new URL(`../../../../services/human/schema/human-api/golden/${name}.json`, import.meta.url), "utf8")));
+  if (value === null || typeof value !== "object" || Array.isArray(value)
+    || typeof value.status !== "number" || !Number.isInteger(value.status) || !("body" in value)) {
+    throw new TypeError("Support fixture requires an HTTP status and JSON body");
+  }
+  return { status: value.status, body: value.body };
 }
 
 function identity(domain: string, principal: string, key: string): string {
@@ -91,7 +106,7 @@ export class SupportServiceFixture {
     const path = new URL(request.url).pathname;
     const method = request.method;
     const key = request.headers.get("Idempotency-Key");
-    const body = method === "GET" ? null : await request.json() as JsonValue;
+    const body = method === "GET" ? null : jsonValue(await request.json());
     const principal = this.principal;
     this.requests.push({ method, path, principal, key, body });
     const json = (value: JsonValue, status = 200) => Response.json(value, { status });
@@ -182,32 +197,41 @@ export class SupportServiceFixture {
 
 export async function openSupportFixture() {
   const service = new SupportServiceFixture();
-  const server = createServer(async (incoming, outgoing) => {
-    try {
+  const server = createServer((incoming, outgoing) => {
+    const respond = async () => {
       const chunks: Buffer[] = [];
-      for await (const chunk of incoming) chunks.push(Buffer.from(chunk));
+      for await (const rawChunk of incoming) {
+        const chunk: unknown = rawChunk;
+        if (typeof chunk !== "string" && !(chunk instanceof Uint8Array)) throw new TypeError("Invalid HTTP body chunk");
+        chunks.push(Buffer.from(chunk));
+      }
       const body = Buffer.concat(chunks).toString();
       const headers = new Headers();
       for (const [name, value] of Object.entries(incoming.headers)) {
         if (typeof value === "string") headers.set(name, value);
       }
+      if (incoming.url === undefined) throw new TypeError("Missing HTTP request URL");
       const response = await service.handle(new Request(`http://localhost${incoming.url}`, {
         method: incoming.method ?? "GET", headers, ...(body.length === 0 ? {} : { body }),
       }));
       outgoing.writeHead(response.status, Object.fromEntries(response.headers));
       outgoing.end(await response.text());
-    } catch (error) {
+    };
+    void respond().catch((error: unknown) => {
       outgoing.writeHead(500).end(String(error));
-    }
+    });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (address === null || typeof address === "string") throw new Error("Support fixture did not listen");
   return {
     service,
-    baseUrl: `http://127.0.0.1:${address.port}/human`,
+    baseUrl: `http://127.0.0.1:${String(address.port)}/human`,
     close: () => new Promise<void>((resolve, reject) => {
-      server.close((error) => error === undefined ? resolve() : reject(error));
+      server.close((error) => {
+        if (error === undefined) resolve();
+        else reject(error);
+      });
       server.closeAllConnections();
     }),
   };

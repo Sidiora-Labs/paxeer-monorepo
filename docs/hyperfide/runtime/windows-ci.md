@@ -1,8 +1,8 @@
 # Windows checks
 
-The root `.github/workflows/platform.yml` owns platform CI. See
-[testing](testing.md) for the Node 24 and pnpm 9.15 checks. This repository does
-not carry a separate Windows shard workflow.
+Run the Node 24 and pnpm 9.15 checks from `tools/hyperfide`; see
+[testing](testing.md). The monorepo `.github/workflows/platform.yml` builds the
+network platform components.
 
 Windows support requires running the relevant workspace checks on Windows,
 including host process handling, filesystem paths and packaged desktop startup.

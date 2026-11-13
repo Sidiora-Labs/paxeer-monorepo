@@ -5,31 +5,38 @@ use clap::{Args, Parser, Subcommand};
 use layerx_mcp::server::DeploymentMode;
 use serde_json::{json, Value};
 
+#[cfg_attr(test, allow(dead_code))]
 mod a2a;
 mod account;
-mod config;
+#[cfg(test)]
 mod credential;
 mod emulator;
-mod encoding;
 mod faucet;
+#[cfg(test)]
 mod file_store;
-mod http;
 mod install;
 mod mcp;
+#[cfg(test)]
 mod output;
 mod payment;
+#[cfg_attr(test, allow(dead_code))]
 mod programs;
 mod receipt;
 mod register;
 mod scaffold;
+#[cfg_attr(test, allow(dead_code))]
 mod toolset;
+#[cfg_attr(test, allow(dead_code))]
 mod wallet;
+#[cfg(test)]
 mod wallet_derive;
 mod workspace;
 
 use config::{Configuration, Environment};
 use http::Client;
-use layerx_platform_cli::{chains, commands::ChainsCommand};
+use layerx_platform_cli::{chains, commands::ChainsCommand, config, encoding, http};
+#[cfg(not(test))]
+use layerx_platform_cli::{credential, output, wallet_derive};
 use output::CommandOutput;
 
 struct ProcessClock {
@@ -542,34 +549,37 @@ enum McpCommand {
 #[derive(Subcommand)]
 enum A2aCommand {
     /// Serve the agent card and task interface for one environment and key.
-    Serve {
-        #[arg(long)]
-        environment: Option<String>,
-        #[arg(long)]
-        key: Option<String>,
-        #[arg(long)]
-        gateway_credential: String,
-        #[arg(long)]
-        faucet_endpoint: Option<String>,
-        #[arg(long)]
-        receipt_policy: Option<PathBuf>,
-        #[arg(long)]
-        source_account: Option<String>,
-        #[arg(long)]
-        asset: Option<String>,
-        #[arg(long, default_value = "127.0.0.1:9433")]
-        listen: String,
-        #[arg(long)]
-        authorization_file: PathBuf,
-        #[arg(long)]
-        read_only: bool,
-    },
+    Serve(Box<A2aServeArgs>),
     /// Start the installed managed A2A runtime.
     Start,
     /// Stop the installed managed A2A runtime.
     Stop,
     /// Report the installed managed A2A runtime state.
     Status,
+}
+
+#[derive(Args)]
+struct A2aServeArgs {
+    #[arg(long)]
+    environment: Option<String>,
+    #[arg(long)]
+    key: Option<String>,
+    #[arg(long)]
+    gateway_credential: String,
+    #[arg(long)]
+    faucet_endpoint: Option<String>,
+    #[arg(long)]
+    receipt_policy: Option<PathBuf>,
+    #[arg(long)]
+    source_account: Option<String>,
+    #[arg(long)]
+    asset: Option<String>,
+    #[arg(long, default_value = "127.0.0.1:9433")]
+    listen: String,
+    #[arg(long)]
+    authorization_file: PathBuf,
+    #[arg(long)]
+    read_only: bool,
 }
 
 /// Stable graph anchor for the unified developer CLI.
@@ -653,18 +663,19 @@ fn run(
             Ok(None)
         }
         Command::A2a(command) => match command {
-            A2aCommand::Serve {
-                environment,
-                key,
-                gateway_credential,
-                faucet_endpoint,
-                receipt_policy,
-                source_account,
-                asset,
-                listen,
-                authorization_file,
-                read_only,
-            } => {
+            A2aCommand::Serve(arguments) => {
+                let A2aServeArgs {
+                    environment,
+                    key,
+                    gateway_credential,
+                    faucet_endpoint,
+                    receipt_policy,
+                    source_account,
+                    asset,
+                    listen,
+                    authorization_file,
+                    read_only,
+                } = *arguments;
                 let configuration = serving_configuration(environment)?;
                 let key = serving_key(&configuration, key.as_deref())?;
                 a2a::serve(
@@ -1210,8 +1221,8 @@ fn program(
             )
         }),
         ProgramCommand::WindDown(command) => program_wind_down(command, rpc, gateway),
-        ProgramCommand::Call(arguments) => program_call(arguments, rpc, gateway),
-        ProgramCommand::Simulate(arguments) => program_simulate(arguments, rpc, gateway),
+        ProgramCommand::Call(arguments) => program_call(&arguments, rpc, gateway),
+        ProgramCommand::Simulate(arguments) => program_simulate(&arguments, rpc, gateway),
         ProgramCommand::Registry(command) => registry(command, rpc, gateway),
     }
 }
@@ -1392,7 +1403,7 @@ fn registry(
 }
 
 fn program_call(
-    arguments: ProgramExecutionArgs,
+    arguments: &ProgramExecutionArgs,
     rpc: Option<&str>,
     gateway: Option<&str>,
 ) -> Result<CommandOutput, String> {
@@ -1405,7 +1416,7 @@ fn program_call(
     Ok(CommandOutput::new(
         "program.call_started",
         format!("Submitted program call to {environment}"),
-        programs::call(&client, &execution_request(&arguments), key_file)?,
+        programs::call(&client, &execution_request(arguments), key_file)?,
     ))
 }
 
@@ -1421,7 +1432,7 @@ fn execution_request(arguments: &ProgramExecutionArgs) -> programs::EvmCallReque
 }
 
 fn program_simulate(
-    arguments: ProgramExecutionArgs,
+    arguments: &ProgramExecutionArgs,
     rpc: Option<&str>,
     gateway: Option<&str>,
 ) -> Result<CommandOutput, String> {
@@ -1432,7 +1443,7 @@ fn program_simulate(
         format!("Simulated program call on {environment}"),
         programs::simulate(
             &client,
-            &execution_request(&arguments),
+            &execution_request(arguments),
             arguments.from.as_deref(),
         )?,
     ))

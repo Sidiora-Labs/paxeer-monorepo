@@ -1,5 +1,6 @@
 //! Audit 22.30.122 medium repairs through the production router and persisted codecs.
 use ed25519_dalek::{Signer, SigningKey};
+use layerx_ai_market_test_values::RequiredValue as _;
 use layerx_programs_ai_market::{
     admission::{AdmissionTable, EvaluatorConsent, Participant, RemovalReason},
     aggregation,
@@ -84,18 +85,18 @@ impl World {
             ok(state::decode_shared_state(&self.bytes)).feature_sections[0],
         ))
     }
-    fn market(&self) -> layerx_programs_ai_market::MarketId {
+    fn market() -> layerx_programs_ai_market::MarketId {
         ok(codec::derive_market(
             Self::context(OWNER, ORIGIN).chain,
             Self::context(OWNER, ORIGIN).program,
         ))
     }
-    fn worker(&self, n: u8) -> WorkerId {
-        ok(codec::derive_worker(self.market(), principal(n), [n; 32]))
+    fn worker(n: u8) -> WorkerId {
+        ok(codec::derive_worker(World::market(), principal(n), [n; 32]))
     }
-    fn evaluator(&self, n: u8) -> EvaluatorId {
+    fn evaluator(n: u8) -> EvaluatorId {
         ok(codec::derive_evaluator(
-            self.market(),
+            World::market(),
             principal(n),
             [n; 32],
         ))
@@ -106,7 +107,7 @@ impl World {
             ok(authority::split_identity_section(state.feature_sections[1])).0,
         ));
         table
-            .get(self.worker(n))
+            .get(World::worker(n))
             .unwrap_or_else(|| panic!("missing produced worker"))
     }
     fn binding(&self) -> FrozenBinding {
@@ -163,10 +164,10 @@ impl World {
             operation: op,
             chain: ctx.chain,
             program: ctx.program,
-            market: self.market(),
+            market: World::market(),
             actor: principal(actor),
             epoch,
-            config: if read { 0 } else { 1 },
+            config: u64::from(!read),
             roster,
             sequence,
             expiry: height + 1000,
@@ -409,7 +410,7 @@ impl World {
         let state = ok(state::decode_shared_state(&self.bytes));
         let region = ok(authority::evaluator_region(state.feature_sections[1]));
         let grant = region
-            .get(self.evaluator(n))
+            .get(World::evaluator(n))
             .unwrap_or_else(|| panic!("missing nomination"))
             .grant;
         let mut bytes = vec![0; layerx_programs_ai_market::evaluators::model::GRANT_BYTES];
@@ -431,7 +432,7 @@ impl World {
         let consent = EvaluatorConsent {
             chain: Self::context(n, at).chain,
             program: Self::context(n, at).program,
-            market: self.market(),
+            market: World::market(),
             evaluator: grant.evaluator,
             owner: principal(n),
             signing_key: grant.signing_key,
@@ -458,7 +459,7 @@ impl World {
     fn publish(&mut self, n: u8, at: u64) {
         let r = self.worker_record(n);
         let mut manifest = 1u16.to_be_bytes().to_vec();
-        manifest.extend_from_slice(self.market().as_bytes());
+        manifest.extend_from_slice(World::market().as_bytes());
         manifest.extend_from_slice(r.worker.as_bytes());
         manifest.extend_from_slice(r.owner.as_bytes());
         for value in [
@@ -486,7 +487,7 @@ impl World {
         manifest.extend_from_slice(&1u16.to_be_bytes());
         manifest.push(1);
         let uri = b"https://worker.example/paxai/v1";
-        manifest.extend_from_slice(&(uri.len() as u32).to_be_bytes());
+        manifest.extend_from_slice(&(u32::try_from(uri.len()).required()).to_be_bytes());
         manifest.extend_from_slice(uri);
         manifest.extend_from_slice(&[70; 32]);
         manifest.push(1);
@@ -502,7 +503,7 @@ impl World {
         payload.extend_from_slice(m.digest.as_bytes());
         payload.extend_from_slice(&m.valid_from.to_be_bytes());
         payload.extend_from_slice(&m.expiry.to_be_bytes());
-        payload.extend_from_slice(&(manifest.len() as u32).to_be_bytes());
+        payload.extend_from_slice(&(u32::try_from(manifest.len()).required()).to_be_bytes());
         payload.extend_from_slice(&manifest);
         let mut encoded = self.encoded_call(n, dispatch::PublishMetadata, &payload, at);
         let signed = ok(codec::decode_envelope(&encoded));
@@ -594,7 +595,7 @@ impl World {
         for n in 2..=4 {
             let evaluator_binding = EvaluatorBinding {
                 frozen: binding,
-                evaluator: self.evaluator(n),
+                evaluator: World::evaluator(n),
                 grant: ok(Version::new(1)),
                 key_version: ok(Version::new(1)),
             };
@@ -703,8 +704,8 @@ fn admission(w: &World) -> AdmissionTable {
         .1,
     ))
 }
-fn revoke_payload(w: &World, n: u8) -> Vec<u8> {
-    let mut payload = w.evaluator(n).bytes().to_vec();
+fn revoke_payload(_w: &World, n: u8) -> Vec<u8> {
+    let mut payload = World::evaluator(n).bytes().to_vec();
     payload.extend_from_slice(&1u64.to_be_bytes());
     payload.extend_from_slice(&(authority::RevocationReason::CompromisedKey as u16).to_be_bytes());
     payload.extend_from_slice(digest(0xe1).as_bytes());
@@ -716,7 +717,7 @@ fn assert_revocation(w: &World, n: u8, height: u64, excludes: bool) {
         shared.feature_sections[Section::IdentityRoster.index()],
     ));
     let record = region
-        .get(w.evaluator(n))
+        .get(World::evaluator(n))
         .unwrap_or_else(|| panic!("missing evaluator"));
     assert_eq!(record.grant.status, GrantStatus::Revoked);
     assert_eq!(
@@ -733,7 +734,7 @@ fn assert_revocation(w: &World, n: u8, height: u64, excludes: bool) {
         &w.event,
     ));
     assert_eq!(operation, dispatch::RevokeEvaluator);
-    assert_eq!(common.market, w.market());
+    assert_eq!(common.market, World::market());
     assert_eq!(common.revision, shared.revision);
     let mut expected = revoke_payload(w, n);
     expected.push(u8::from(excludes));
@@ -841,7 +842,7 @@ fn admit_payload(w: &World, nonce: u8) -> Vec<u8> {
     payload.extend_from_slice(ok(w.policy().current.digest()).as_bytes());
     payload.extend_from_slice(binding.roster.as_bytes());
     payload.extend_from_slice(principal(KEEPER).as_bytes());
-    payload.extend_from_slice(w.worker(WORKER).as_bytes());
+    payload.extend_from_slice(World::worker(WORKER).as_bytes());
     payload.extend_from_slice(w.worker_record(WORKER).metadata.as_bytes());
     payload.extend_from_slice(&[nonce; 32]);
     payload.extend_from_slice(digest(0x42).as_bytes());
@@ -858,7 +859,7 @@ fn quorum_gate_has_no_production_caller() {
     ok(w.route_encoded(KEEPER, 258, &retry));
     assert_eq!(w.status, Some(codec::ResultStatus::Ok));
     let task = ok(codec::derive_task(
-        w.market(),
+        World::market(),
         w.binding().epoch,
         principal(KEEPER),
         [1; 32],
@@ -869,7 +870,7 @@ fn quorum_gate_has_no_production_caller() {
     for n in 2..=4 {
         let at = 259 + u64::from(n - 2) * 2;
         let mut removal = vec![2];
-        removal.extend_from_slice(w.evaluator(n).as_bytes());
+        removal.extend_from_slice(World::evaluator(n).as_bytes());
         removal.extend_from_slice(&1u64.to_be_bytes());
         removal.push(if n == 2 {
             RemovalReason::Terms

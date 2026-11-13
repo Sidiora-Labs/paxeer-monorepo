@@ -520,6 +520,46 @@ enum RequestedLevel {
 // Keep the existing spelling assertions readable while representing all three
 // request states explicitly in the implementation.
 #[cfg(test)]
+trait AssertTestValue<T> {
+    fn assert_value(self, context: &str) -> T;
+}
+
+#[cfg(test)]
+impl<T> AssertTestValue<T> for Option<T> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T, E: std::fmt::Debug> AssertTestValue<T> for Result<T, E> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+trait AssertTestError<E> {
+    fn assert_error(self, context: &str) -> E;
+}
+
+#[cfg(test)]
+impl<T, E> AssertTestError<E> for Result<T, E> {
+    fn assert_error(self, context: &str) -> E {
+        match self {
+            Ok(_) => panic!("{context}"),
+            Err(error) => error,
+        }
+    }
+}
+
+#[cfg(test)]
 impl<T: PartialEq<Option<Rung>>> PartialEq<Option<T>> for RequestedLevel {
     fn eq(&self, other: &Option<T>) -> bool {
         match self {
@@ -1206,7 +1246,7 @@ fn requested_level_refuses_an_unknown_spelling() {
         let requested = requested_level(&level_request(name));
         assert_eq!(requested, Some(None));
         let refusal = verification_json(RequestId(3), None, None, requested)
-            .expect_err("an unknown requested level is refused");
+            .assert_error("an unknown requested level is refused");
         assert_eq!(refusal.class, ErrorClass::VerificationFailure);
         assert_eq!(refusal.reason, "verification.inconsistent");
     }
@@ -1492,13 +1532,16 @@ fn idempotent_replay_keeps_protocol_rejection_distinct_from_conflict() {
     let error = ApiError::idempotent_replay(RequestId(302));
     assert_eq!(error.class, ErrorClass::CoreRejection);
     assert_eq!(
-        error.protocol_result_code.map(|code| code.raw()),
+        error
+            .protocol_result_code
+            .map(layerx_types::result::ResultCode::raw),
         Some(-302)
     );
     assert_eq!(error.retriability, Retriability::Terminal);
     assert_eq!(error.reason.as_str(), "idempotent_replay");
     assert_ne!(error.class, ErrorClass::IdempotencyConflict);
     let response = mcp_api_refusal(&error);
-    let value: serde_json::Value = serde_json::from_slice(&response.body).expect("error envelope");
+    let value: serde_json::Value =
+        serde_json::from_slice(&response.body).assert_value("error envelope");
     assert_eq!(value["protocol_result_code"], -302);
 }

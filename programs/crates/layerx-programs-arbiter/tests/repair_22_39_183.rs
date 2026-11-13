@@ -1,15 +1,15 @@
 //! Runtime record -> producer envelope -> arbiter leaf consumers.
 
 #[path = "proof_arbiter_crate.rs"]
+#[allow(dead_code)]
 mod producer;
 
 // Compile the real market leaf consumer here so its crate-private entry point
 // can be exercised without manufacturing a VerifiedMarketSandbox admission.
 #[path = "../src/market.rs"]
+#[allow(dead_code)]
 mod market;
-use layerx_programs::chain_proof::{proto, ChainProofError};
-#[path = "../../layerx-programs-registry/src/chain_proof/multistore.rs"]
-mod multistore;
+use layerx_programs::chain_proof::multistore;
 
 use layerx_program_sdk::arbiter::{
     MarketBillingCommitment, MarketSandboxProfile, ProfileLimits, MARKET_SANDBOX_BILLING_CAPACITY,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { decodeContract } from '../../../../../sdk/launchpad/packages/sdk/src/validate.ts';
-import { Text } from 'react-native';
+import { Linking, Text } from 'react-native';
 import {
   Button,
   Card,
@@ -17,6 +17,7 @@ import {
 } from '../navigation.tsx';
 import { nativeRequestId } from '../platform/protected-storage.ts';
 import { executeExternalWallet } from '../runtime/lifecycle.ts';
+import { chainMarket, revenueEpochs } from '../runtime/chain-launch.ts';
 export function Token({
   runtime,
   address,
@@ -28,6 +29,24 @@ export function Token({
     runtime.services.pool(address, s),
   );
   const detail = state.data?.data;
+  const chainState = useResource(runtime, `chain:${address}`, (s) =>
+    chainMarket(runtime.services, address, s),
+  );
+  const chain = chainState.data;
+  const revenueState = useResource(
+    runtime,
+    `private:chain-revenue:${chain?.chain.chain ?? address}`,
+    (s) =>
+      chain && runtime.session.account
+        ? revenueEpochs(
+            runtime.services,
+            chain.chain,
+            runtime.session.account,
+            s,
+          )
+        : Promise.resolve([]),
+    true,
+  );
   const [amount, setAmount] = useRetainedInput(
       runtime,
       `token:${address}`,
@@ -63,6 +82,7 @@ export function Token({
       title={detail?.token.name ?? 'Token'}
     >
       <ResourceStatus {...state} />
+      <ResourceStatus {...chainState} />
       <Text style={ui.subtle}>Market continuity: {runtime.marketState}</Text>
       {price && (
         <Copyable
@@ -74,6 +94,28 @@ export function Token({
       <Copyable label="Pool address" value={address} />
       {detail && (
         <>
+          {chain && (
+            <Card>
+              <Text style={ui.text}>Home chain: {chain.name}</Text>
+              <Copyable label="Registry number" value={chain.chain.chain} />
+              <Copyable label="Chain ID" value={chain.chain.chainId} />
+              <Text style={ui.subtle}>Status: {chain.chain.status}</Text>
+              {runtime.session.account && <ResourceStatus {...revenueState} />}
+              {revenueState.data?.map((epoch) => (
+                <Card key={epoch.epoch}>
+                  <Copyable label="Revenue epoch" value={epoch.epoch} />
+                  <Copyable
+                    label="Epoch amount (wei)"
+                    value={epoch.epochAmount}
+                  />
+                  <Copyable
+                    label="Claimable to this wallet (wei)"
+                    value={epoch.claimableAmount}
+                  />
+                </Card>
+              ))}
+            </Card>
+          )}
           <Card>
             <Text style={ui.text}>{detail.token.symbol}</Text>
             <Copyable label="Token contract" value={detail.token.address} />
@@ -333,6 +375,9 @@ export function Token({
               label="Review in external wallet"
               disabled={
                 !runtime.wallet ||
+                chainState.data === undefined ||
+                !!chainState.error ||
+                (chain !== null && chain?.chain.status !== 'active') ||
                 runtime.wallet.supportsTrade === false ||
                 !runtime.lifecycle.canExecute ||
                 quote?.poolAddress.toLowerCase() !== address.toLowerCase() ||
@@ -351,7 +396,7 @@ export function Token({
                     runtime.pending,
                     {
                       requestId,
-                      chainId: 125,
+                      chainId: chain?.route.chainId ?? 125,
                       startedAt: Date.now(),
                       returnRoute: '/portfolio',
                       state: 'awaiting_wallet',
@@ -375,6 +420,18 @@ export function Token({
               </Text>
             )}
           </Card>
+          <Button
+            label="Launch a chain in the web app"
+            onPress={() =>
+              void showAction(
+                () =>
+                  Linking.openURL(
+                    `${runtime.services.config.canonicalOrigin}/create/chain`,
+                  ),
+                setError,
+              )
+            }
+          />
         </>
       )}
     </Page>

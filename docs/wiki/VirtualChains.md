@@ -4,15 +4,15 @@ A virtual chain is one record in Paxeer's `layerxchains` registry. Creating one 
 
 **Isolation:** EVM state is shared. A chain is a namespace for identity, fees and block space, not a trust boundary. Contracts, account state and balances are shared; choosing a chain RPC path does not create private storage or an independent execution environment.
 
-This guide describes the feature-20 contract. Runtime and client availability follow the individual tasks in [the programme specification](../../spec/layerx-merge/spec.kvx); these instructions do not establish that a particular deployment has enabled the feature. The [normative contract](../../spec/layerx-merge/contracts/virtual-chains.md) defines the integration requirements.
+The [virtual-chain contract](../../spec/layerx-merge/contracts/virtual-chains.md) defines the integration requirements. Availability depends on the deployment's registry and RPC configuration.
 
-## Launch in three clicks
+## Launch a market and chain
 
-Open **Launch a chain** in the launchpad at `/create/chain`, with a wallet connected to Paxeer's root network (chain ID `125`).
+Open **Launch a chain** in the launchpad at `/create/chain` with a wallet connected to Paxeer's root network (chain ID `125`). The merged flow creates a token, market pool, fee-right NFT and bound virtual chain in one payable `launchChain` transaction. The wallet supplies at least the current registry minimum bond plus creation fee as `msg.value`; market charges and transaction gas are separate. The receipt's `ChainLaunched` event identifies the new registry number and derived chain ID. The [chain launch guide](../launchpad/chain-launch.md) covers the transaction, home-chain trading, revenue claims and chain controls.
 
-1. **Name the chain.** Use 3 to 32 characters of lowercase `a-z`, digits and hyphen, with no leading or trailing hyphen. Availability is checked through `chainByName(name)`: zero means unused. Names are unique among every record, including retired ones.
-2. **Pick a size tier.** The wizard reads the current bond, creation fee and capacity from `params()`. A tier must fit the permitted gas range and remaining total allowance.
-3. **Confirm one wallet transaction.** The review shows the bond plus creation fee, with transaction gas charged separately. Confirm `createChain` once. After the receipt's `ChainCreated` event is decoded and `getChain` reads back the record, the ready panel shows the registry ID, derived chain ID, copyable RPC URL, **Add to wallet** and explorer link. Nothing else is installed, hosted or configured.
+Choose a chain name of 3 to 32 lowercase letters, digits or hyphens, without a leading or trailing hyphen. `chainByName(name)` returns zero for an unused name; retired names remain reserved. The wizard reads the current bond, creation fee and capacity from `params()`. A size tier must fit the permitted gas range and remaining total allowance. After confirmation, use the registry number to form `<rpcBase>/chain/<id>` and set the wallet to EVM chain ID `125000000 + id` before trading the launched market.
+
+The registry's direct `createChain` call remains available to create a chain without a launchpad market binding. Its `ChainCreated` event and `getChain` readback expose the registry record described in the ABI below.
 
 | Tier | Gas allowance per block | Byte allowance per block |
 | --- | --- | --- |
@@ -55,15 +55,15 @@ Paused records remain readable on their chain RPC path. An unknown or retired re
 The following declarations are the `ILayerXChains` interface. Tuple ordering and integer widths are part of the contract.
 
 ```solidity
-function createChain(string name,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps) external payable returns (uint32 id);
+function createChain(string calldata name,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps) external payable returns (uint32 id);
 function fundChain(uint32 id) external payable;
 function pauseChain(uint32 id) external;
 function resumeChain(uint32 id) external;
 function retireChain(uint32 id) external;
 function governancePause(uint32 id,bool paused) external;
 function setOperator(uint32 id,address operator) external;
-function getChain(uint32 id) external view returns (uint32 id,string name,address operator,uint8 status,uint64 chainId,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps,uint256 bond,uint256 baseFeePerGas,uint64 createdHeight);
-function chainByName(string name) external view returns (uint32);
+function getChain(uint32 chain) external view returns (uint32 id,string memory name,address operator,uint8 status,uint64 chainId,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps,uint256 bond,uint256 baseFeePerGas,uint64 createdHeight);
+function chainByName(string calldata name) external view returns (uint32);
 function chainCount() external view returns (uint32);
 function chainIdOf(uint32 id) external pure returns (uint64);
 function params() external view returns (address authority,uint256 minBond,uint256 creationFee,uint64 minGasAllowance,uint64 maxGasAllowance,uint64 totalGasAllowanceLeft,uint32 maxChains);
@@ -80,15 +80,15 @@ Read calls use `eth_call` against the precompile. Writes use signed EVM transact
 
 Admission counts gas and encoded bytes for each chain in each shared block. The chain's accumulated gas usage plus the incoming transaction's gas limit must fit `gasAllowance`; its bytes must fit `byteAllowance`. Admission refuses unknown, paused, governance-paused and retired chains. A gas refusal identifies the chain, gas wanted and allowance. The sum of active gas allowances cannot exceed `MaxTotalGasAllowance`; normal shared block limits still apply. Root transactions retain the whole `Block.MaxGas` limit.
 
-Each chain's base fee uses its own executed gas usage and the EIP-1559 adjustment in `modules/evm/keeper/fee.go`, with its gas allowance as the limit and `TargetGasPerBlock = gasAllowance / 2` as the target. The next fee stays within the EVM minimum and maximum. A chain transaction must meet that chain's fee, even if the root fee is lower. Chain traffic does not drive the root base fee. The registry, next base fee and per-height transaction index persist across a node restart.
+Each chain's base fee uses its own executed gas usage and `AdjustDomainBaseFee` in `modules/layerxchains/keeper/accounting.go`, with its gas allowance as the limit and `TargetGasPerBlock = gasAllowance / 2` as the target. The next fee stays within the EVM minimum and maximum. A chain transaction must meet that chain's fee, even if the root fee is lower. Chain traffic does not drive the root base fee. The registry, next base fee and per-height transaction index persist across a node restart.
 
-At end of block the operator receives the truncated share of base fees:
+At end of block, `modules/evm/keeper/abci.go` groups the chain's base fees by paid denomination. For each executed transaction it truncates the current base fee to an integer, multiplies by receipt gas used, and converts that amount when the transaction pays with a fee token. The operator receives a share of each denomination's total:
 
 ```text
-operator share = floor(baseFeePerGas * gasUsed * feeShareBps / 10000)
+operator share per denomination = floor(total base fees in denomination * feeShareBps / 10000)
 ```
 
-The calculation uses the chain's fee before the next-block adjustment and transfers from the fee collector in the base denomination. A share of `100` basis points is 1%; zero pays no share. The default maximum is `5000` basis points. The launch draft accepts 0 to 5000; live module parameters also constrain creation. This share concerns base fees, not the creation fee or a promise of revenue from unused allowance.
+The calculation uses the chain's fee before the next-block adjustment and transfers from the fee collector in each paid denomination. A share of `100` basis points is 1%; zero pays no share. The default maximum is `5000` basis points. The launch form accepts 0 to 5000; live module parameters also constrain creation. This share concerns base fees, not the creation fee or a promise of revenue from unused allowance.
 
 ## RPC scope
 
@@ -121,6 +121,8 @@ The hosted indexer decodes `ChainCreated`, `ChainStatusChanged`, `ChainFunded` a
 
 Records expose `id`, `name`, `operator`, `status`, `chain_id`, `created_height`, `bond`, `gas_allowance`, `byte_allowance` and `fee_share_bps`; status strings match the table above and bond is a base-unit decimal string. Unknown single-record lookups return 404 with `{"error":"unknown_chain"}`. The indexer derives transaction namespaces from signed chain IDs and records receipt gas usage; root rows keep their existing namespace.
 
+The event decoder initializes a created record with bond `"0"`, gas allowance `500000`, byte allowance `65536` and fee share `100`. Later funding, status and operator events update their respective fields. Read the registry's `getChain` for the current bond, configured allowances and fee share.
+
 In the explorer, **Chains** opens `/chains`. The list shows name, chain ID, operator, status, allowances and creation height, with active records first and then ID order. `/chains/<id>` shows the record, summary, recent transfers and events, copyable RPC path, launch link and **Add to wallet** action.
 
 ## Wallet and SDK entry points
@@ -129,7 +131,7 @@ The launchpad and explorer call EIP-3085 `wallet_addEthereumChain` with the hexa
 
 The wallet network switcher in settings keeps the root network and up to 32 saved virtual networks. Add by registry ID or explorer chain URL, switch networks, or remove a saved entry. The wallet checks the endpoint's `eth_chainId` and rejects a mismatch. `wallet_switchEthereumChain` selects a saved network; the active network supplies the RPC URL and transfer explorer links. Saved custom network URLs must use HTTPS.
 
-Feature 20 supplies the following SDK modules (repository paths):
+The following SDK modules provide virtual-chain helpers:
 
 | SDK | Entry point | Helpers |
 | --- | --- | --- |
@@ -143,4 +145,4 @@ Feature 20 supplies the following SDK modules (repository paths):
 
 Every SDK encodes all twelve methods, decodes both return tuples and all four events, and checks selectors, calldata and event topics against `tests/vectors/chains/abi-vectors.json`. That vector file is generated from the precompile ABI, so all languages share one wire contract.
 
-The platform CLI entry points are `lx chains list`, `lx chains show <id|name>` and `lx chains create --name demo --tier starter --fee-share-bps 100`. Creation reads current parameters, signs with the configured wallet and reports the receipt's registry ID, derived chain ID and RPC URL.
+The platform CLI entry points are `lx chains list`, `lx chains show <id|name>` and `lx chains create --name demo --tier starter --fee-share-bps 100 --evm-key-file <key-export-file>`. Creation requires an EVM key-export file, supplied by that option or `LAYERX_EVM_KEY_FILE`. It reads current parameters and signs a root-chain transaction. Once confirmed, it reports the receipt's registry ID, derived chain ID and RPC URL; an unresolved submission reports a pending or unknown state.

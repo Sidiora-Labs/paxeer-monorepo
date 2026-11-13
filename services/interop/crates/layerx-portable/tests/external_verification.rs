@@ -461,12 +461,13 @@ fn portable_external_path() {
     let fixture = ap2_external::MandateFixture::direct(false);
     let keys = ap2_external::MandateKeys::pinned();
     let suite = ap2_external::suite();
-    let verifier = Ap2ExternalMandateVerifier::new(&keys, suite.clone())
+    let mandate_checker = Ap2ExternalMandateVerifier::new(&keys, suite.clone())
         .unwrap_or_else(|error| panic!("production AP2 verifier: {error:?}"));
     let payload = fixture.payload();
     let presentation = ap2_presentation(&payload);
-    let verified = verify_external_evidence(&verifier, &presentation, &ap2_external::context())
-        .unwrap_or_else(|error| panic!("signed AP2 pair verifies: {error:?}"));
+    let verified =
+        verify_external_evidence(&mandate_checker, &presentation, &ap2_external::context())
+            .unwrap_or_else(|error| panic!("signed AP2 pair verifies: {error:?}"));
     assert_eq!(verified.adapter(), "ap2");
     assert_eq!(verified.protocol(), "ap2");
     assert_eq!(verified.spec_version(), "1.0.0");
@@ -502,7 +503,7 @@ fn portable_external_path() {
     let mut spaced_payload = payload.clone();
     spaced_payload.push(b'\n');
     let spaced = verify_external_evidence(
-        &verifier,
+        &mandate_checker,
         &ap2_presentation(&spaced_payload),
         &ap2_external::context(),
     )
@@ -529,7 +530,7 @@ fn portable_external_path() {
 #[test]
 fn portable_external_path_rejects_mandate_signature_tampering() {
     let keys = ap2_external::MandateKeys::pinned();
-    let verifier = layerx_ap2::Ap2ExternalMandateVerifier::new(&keys, ap2_external::suite())
+    let mandate_checker = layerx_ap2::Ap2ExternalMandateVerifier::new(&keys, ap2_external::suite())
         .unwrap_or_else(|error| panic!("production AP2 verifier: {error:?}"));
     for tamper_checkout in [true, false] {
         let mut fixture = ap2_external::MandateFixture::direct(false);
@@ -543,7 +544,7 @@ fn portable_external_path_rejects_mandate_signature_tampering() {
         assert!(
             matches!(
                 verify_external_evidence(
-                    &verifier,
+                    &mandate_checker,
                     &ap2_presentation(&payload),
                     &ap2_external::context()
                 ),
@@ -564,14 +565,14 @@ fn portable_external_path_rejects_mandate_signature_tampering() {
 #[test]
 fn portable_external_path_rejects_merchant_signature_tampering() {
     let keys = ap2_external::MandateKeys::pinned();
-    let verifier = layerx_ap2::Ap2ExternalMandateVerifier::new(&keys, ap2_external::suite())
+    let mandate_checker = layerx_ap2::Ap2ExternalMandateVerifier::new(&keys, ap2_external::suite())
         .unwrap_or_else(|error| panic!("production AP2 verifier: {error:?}"));
     // Both issuer signatures and checkout hashes bind the altered merchant JWS,
     // so only production verification of the nested merchant signature refuses it.
     let payload = ap2_external::MandateFixture::direct(true).payload();
     assert!(matches!(
         verify_external_evidence(
-            &verifier,
+            &mandate_checker,
             &ap2_presentation(&payload),
             &ap2_external::context()
         ),
@@ -591,13 +592,14 @@ fn portable_external_path_requires_purpose_scoped_trust() {
         let mut keys = ap2_external::MandateKeys::pinned();
         keys.pins
             .retain(|(purpose, _, _)| *purpose != missing_purpose);
-        let verifier = layerx_ap2::Ap2ExternalMandateVerifier::new(&keys, ap2_external::suite())
-            .unwrap_or_else(|error| panic!("production AP2 verifier: {error:?}"));
+        let mandate_checker =
+            layerx_ap2::Ap2ExternalMandateVerifier::new(&keys, ap2_external::suite())
+                .unwrap_or_else(|error| panic!("production AP2 verifier: {error:?}"));
         let payload = ap2_external::MandateFixture::direct(false).payload();
         assert!(
             matches!(
                 verify_external_evidence(
-                    &verifier,
+                    &mandate_checker,
                     &ap2_presentation(&payload),
                     &ap2_external::context()
                 ),

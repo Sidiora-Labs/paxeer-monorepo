@@ -361,6 +361,10 @@ impl AssertionVerifier {
         )
     }
 
+    /// Builds a verifier with the supplied clock for key refresh timing.
+    ///
+    /// # Errors
+    /// Refuses invalid configuration, unavailable trust roots, and an invalid producer key.
     pub fn new_with_clock(config: AssertionConfig, clock: Arc<dyn Clock>) -> io::Result<Self> {
         config.validate()?;
         let agent: ureq::Agent = ureq::Agent::config_builder()
@@ -579,11 +583,11 @@ impl State {
     ) -> io::Result<(AssertionPrincipal, bool)> {
         self.ready()?;
         let verifier = self.assertion_verifier()?;
-        let verified = verifier.verify(token, now)?;
+        let claims = verifier.verify(token, now)?;
         let did = binding
-            .map(|binding| verifier.verify_binding(binding, &verified, self.binding_tenant()))
+            .map(|binding| verifier.verify_binding(binding, &claims, self.binding_tenant()))
             .transpose()?;
-        self.record_assertion(&verified.issuer, &verified.subject, did.as_deref(), now)
+        self.record_assertion(&claims.issuer, &claims.subject, did.as_deref(), now)
     }
 
     /// Resolves a bearer assertion to its existing account and DID without creating one.
@@ -614,21 +618,21 @@ impl State {
         let Ok(verifier) = self.assertion_verifier() else {
             return Ok(refused(AssertionRefusal::Unavailable));
         };
-        let verified = match verifier.verify(token, now) {
-            Ok(verified) => verified,
+        let claims = match verifier.verify(token, now) {
+            Ok(claims) => claims,
             Err(error) if error.kind() == io::ErrorKind::InvalidData => {
                 return Ok(refused(AssertionRefusal::Assertion))
             }
             Err(_) => return Ok(refused(AssertionRefusal::Unavailable)),
         };
         let did = match binding
-            .map(|binding| verifier.verify_binding(binding, &verified, self.binding_tenant()))
+            .map(|binding| verifier.verify_binding(binding, &claims, self.binding_tenant()))
             .transpose()
         {
             Ok(did) => did,
             Err(refusal) => return Ok(refused(refusal)),
         };
-        match self.record_assertion(&verified.issuer, &verified.subject, did.as_deref(), now) {
+        match self.record_assertion(&claims.issuer, &claims.subject, did.as_deref(), now) {
             Ok((principal, _)) => Ok((
                 0,
                 std::iter::once(principal.principal())

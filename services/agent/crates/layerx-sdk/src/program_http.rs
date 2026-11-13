@@ -2275,12 +2275,13 @@ mod source_contract {
     #[test]
     fn v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes(
     ) -> Result<(), ProgramOperationError> {
-        let path = std::env::var_os("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
+        let path = std::env::var_os("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS").map_or_else(
+            || {
                 std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                     .join("tests/fixtures/program-terminal-v5-corpus.json")
-            });
+            },
+            std::path::PathBuf::from,
+        );
         if path
             .components()
             .any(|part| part.as_os_str().to_string_lossy().starts_with(".env"))

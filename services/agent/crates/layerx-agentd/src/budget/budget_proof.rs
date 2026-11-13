@@ -1,3 +1,6 @@
+#[cfg(test)]
+use crate::budget::AssertCase as _;
+
 use crate::read::ServedCheckpoint;
 use layerx_client::sequencer::SequencerEndpoint;
 use layerx_programs::hex;
@@ -594,7 +597,7 @@ mod tests {
         }
         encoded
     }
-    fn generated_answers() -> Value {
+    fn generated_signed_header() -> (Value, CheckpointHeader, CommitValidator, [u8; 32]) {
         let key = SigningKey::from_bytes(&[1; 32]);
         let public_key = key.verifying_key().to_bytes();
         let validator = CommitValidator {
@@ -647,18 +650,23 @@ mod tests {
             signature,
         });
         crate::read::checkpoint(HEIGHT, "125", &header, &commit, &[validator])
-            .expect("signed checkpoint");
+            .assert_case("signed checkpoint");
         let h = |bytes: &[u8]| hex::encode(bytes);
-        let prefixed = |bytes: &[u8]| format!("0x{}", h(bytes));
         let block_id = |id: BlockId| json!({"hash": h(&id.hash), "parts": {"total": id.part_set_total, "hash": h(&id.part_set_hash)}});
         let signed = json!({"header": {
             "version": {"block": "11", "app": "1"}, "chain_id": "125", "height": "8", "time": "2023-11-14T22:13:20Z",
-            "last_block_id": block_id(header.last_block_id.expect("parent")), "last_commit_hash": h(&[3;32]), "data_hash": h(&[4;32]),
+            "last_block_id": block_id(header.last_block_id.assert_case("parent")), "last_commit_hash": h(&[3;32]), "data_hash": h(&[4;32]),
             "validators_hash": h(&header.validators_hash), "next_validators_hash": h(&header.next_validators_hash), "consensus_hash": h(&[5;32]),
             "app_hash": h(&[6;32]), "last_results_hash": h(&[7;32]), "evidence_hash": h(&[8;32]), "proposer_address": h(&validator.address)
         }, "commit": {"height":"8", "round":1, "block_id":block_id(commit.block_id), "signatures":[{
             "block_id_flag":2, "validator_address":h(&validator.address), "timestamp":"2023-11-14T22:13:20Z", "signature":b64(&signature)
         }]}});
+        (signed, header, validator, public_key)
+    }
+    fn generated_answers() -> Value {
+        let (signed, header, validator, public_key) = generated_signed_header();
+        let h = |bytes: &[u8]| hex::encode(bytes);
+        let prefixed = |bytes: &[u8]| format!("0x{}", h(bytes));
         let mut words = vec![[0; 32]; 20];
         words[1] = [2; 32];
         words[2] = [3; 32];
@@ -698,18 +706,22 @@ mod tests {
         ]);
         let mut state_root = answers[1].clone();
         state_root["params"][1] = json!(false);
-        answers.as_array_mut().expect("answers").push(state_root);
+        answers
+            .as_array_mut()
+            .assert_case("answers")
+            .push(state_root);
         let mut address = [0; 32];
         address[12..].copy_from_slice(&[0x11; 20]);
         let mut offset = [0; 32];
         offset[31] = 128;
-        let owner = Did::new(OWNER.as_bytes()).expect("owner DID");
-        let owner_id = layerx_wire::hash::did_id_for_protocol(&owner, 3).expect("owner identity");
+        let owner = Did::new(OWNER.as_bytes()).assert_case("owner DID");
+        let owner_id =
+            layerx_wire::hash::did_id_for_protocol(&owner, 3).assert_case("owner identity");
         let owner_quantity = prefixed(&owner_id);
         let addr = layerx_client::sequencer::ADDR_PRECOMPILE;
         let mut ledger = addr;
         ledger[19] = 0x1a;
-        answers.as_array_mut().expect("answers").extend([
+        answers.as_array_mut().assert_case("answers").extend([
             json!({"method":"eth_call", "params":[{"to":prefixed(&addr),
                 "data":prefixed(&calldata(b"getEvmAddrByLayerX(bytes32)", [0x0a;32]))},"0x8"],
                 "result":prefixed(&address)}),
@@ -731,9 +743,9 @@ mod tests {
                         if name == "layerx_did" {
                             let suffix = value
                                 .as_str()
-                                .expect("layerx_did string")
+                                .assert_case("layerx_did string")
                                 .strip_prefix("did:layerx:")
-                                .expect("layerx_did prefix");
+                                .assert_case("layerx_did prefix");
                             assert_eq!(suffix.len(), 64, "layerx_did hex length");
                             assert!(
                                 suffix
@@ -756,15 +768,15 @@ mod tests {
         }
         let answers = generated_answers();
         assert_layerx_dids(&answers);
-        let mut generated = serde_json::to_vec_pretty(&answers).expect("answers JSON");
+        let mut generated = serde_json::to_vec_pretty(&answers).assert_case("answers JSON");
         generated.push(b'\n');
         if std::env::var("LAYERX_WRITE_VECTORS").as_deref() == Ok("1") {
-            std::fs::create_dir_all(fixture_path().parent().expect("fixture directory"))
-                .expect("directory");
-            std::fs::write(fixture_path(), &generated).expect("write answers");
+            std::fs::create_dir_all(fixture_path().parent().assert_case("fixture directory"))
+                .assert_case("directory");
+            std::fs::write(fixture_path(), &generated).assert_case("write answers");
         }
         assert_eq!(
-            std::fs::read(fixture_path()).expect("committed answers"),
+            std::fs::read(fixture_path()).assert_case("committed answers"),
             generated
         );
     }
@@ -778,8 +790,9 @@ mod tests {
             // Extend the historical transcript with the addr/ledger ownership reads.
             let public = [0x0a; 32];
             let address = [[0; 12].as_slice(), &[0x11; 20]].concat();
-            let owner = Did::new(OWNER.as_bytes()).expect("owner");
-            let identity = layerx_wire::hash::did_id_for_protocol(&owner, 3).expect("identity");
+            let owner = Did::new(OWNER.as_bytes()).assert_case("owner");
+            let identity =
+                layerx_wire::hash::did_id_for_protocol(&owner, 3).assert_case("identity");
             let addr = layerx_client::sequencer::ADDR_PRECOMPILE;
             let mut ledger = addr;
             ledger[19] = 0x1a;
@@ -793,7 +806,7 @@ mod tests {
                     addr,
                     calldata(
                         b"getUnifiedAccount(address)",
-                        address.as_slice().try_into().expect("address word"),
+                        address.as_slice().try_into().assert_case("address word"),
                     ),
                     [address, vec![0; 32], public.to_vec(), vec![2; 32]].concat(),
                 ),
@@ -803,15 +816,15 @@ mod tests {
                     identity.to_vec(),
                 ),
             ] {
-                answers.as_array_mut().expect("answers").push(json!({"method":"eth_call", "params":[{
+                answers.as_array_mut().assert_case("answers").push(json!({"method":"eth_call", "params":[{
                     "to":format!("0x{}",hex::encode(&target)),"data":format!("0x{}",hex::encode(&data))},"0x8"],
                     "result":format!("0x{}",hex::encode(&result))}));
             }
-            let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind RPC");
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").assert_case("bind RPC");
             listener
                 .set_nonblocking(true)
-                .expect("nonblocking listener");
-            let address = listener.local_addr().expect("RPC address");
+                .assert_case("nonblocking listener");
+            let address = listener.local_addr().assert_case("RPC address");
             let stop = Arc::new(AtomicBool::new(false));
             let stopped = Arc::clone(&stop);
             let worker = std::thread::spawn(move || {
@@ -827,47 +840,47 @@ mod tests {
                     };
                     stream
                         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                        .expect("read deadline");
+                        .assert_case("read deadline");
                     let mut headers = Vec::new();
                     while !headers.ends_with(b"\r\n\r\n") {
                         let mut byte = [0];
-                        stream.read_exact(&mut byte).expect("HTTP header");
+                        stream.read_exact(&mut byte).assert_case("HTTP header");
                         headers.push(byte[0]);
                     }
-                    let headers = String::from_utf8(headers).expect("headers");
+                    let headers = String::from_utf8(headers).assert_case("headers");
                     let length: usize = headers
                         .lines()
                         .find_map(|line| {
                             let (name, value) = line.split_once(':')?;
                             name.eq_ignore_ascii_case("content-length")
-                                .then(|| value.trim().parse().expect("length"))
+                                .then(|| value.trim().parse().assert_case("length"))
                         })
-                        .expect("content length");
+                        .assert_case("content length");
                     let mut body = vec![0; length];
-                    stream.read_exact(&mut body).expect("RPC body");
-                    let request: Value = serde_json::from_slice(&body).expect("RPC JSON");
+                    stream.read_exact(&mut body).assert_case("RPC body");
+                    let request: Value = serde_json::from_slice(&body).assert_case("RPC JSON");
                     let answer = answers
                         .as_array()
-                        .expect("answers")
+                        .assert_case("answers")
                         .iter()
                         .find(|answer| {
                             answer["method"] == request["method"]
                                 && answer["params"] == request["params"]
                         })
-                        .expect("recorded method and params");
+                        .assert_case("recorded method and params");
                     if request["method"] == "eth_call" {
                         calls += 1;
                     }
                     let body =
                         json!({"jsonrpc":"2.0", "id":request["id"], "result":answer["result"]})
                             .to_string();
-                    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).expect("RPC reply");
+                    write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).assert_case("RPC reply");
                 }
                 calls
             });
             Self {
                 endpoint: SequencerEndpoint::new(&format!("http://{address}"), &[])
-                    .expect("endpoint"),
+                    .assert_case("endpoint"),
                 stop,
                 worker: Some(worker),
             }
@@ -876,9 +889,9 @@ mod tests {
             self.stop.store(true, Ordering::SeqCst);
             self.worker
                 .take()
-                .expect("worker")
+                .assert_case("worker")
                 .join()
-                .expect("RPC replay")
+                .assert_case("RPC replay")
         }
     }
     impl Drop for Replay {
@@ -896,25 +909,29 @@ mod tests {
         };
         use crate::budget::ProgramSourceError;
 
-        let answers: Value =
-            serde_json::from_slice(&std::fs::read(fixture_path()).expect("recorded node answers"))
-                .expect("node answers JSON");
-        let export =
-            std::fs::read(fixture_path().with_file_name("export.json")).expect("authority export");
-        let mut document: Value = serde_json::from_slice(&export).expect("authority export JSON");
+        let answers: Value = serde_json::from_slice(
+            &std::fs::read(fixture_path()).assert_case("recorded node answers"),
+        )
+        .assert_case("node answers JSON");
+        let export = std::fs::read(fixture_path().with_file_name("export.json"))
+            .assert_case("authority export");
+        let mut document: Value =
+            serde_json::from_slice(&export).assert_case("authority export JSON");
         document["budget_state"]["verification"] = json!(VerificationLevel::COMMITTED.wire_rank());
-        let export = serde_json::to_vec(&document).expect("committed export");
+        let export = serde_json::to_vec(&document).assert_case("committed export");
         let replay = Replay::new(answers);
-        let block_hash = id(document["head"]["block_hash"].as_str().expect("block hash"))
-            .expect("decode block hash");
+        let block_hash = id(document["head"]["block_hash"]
+            .as_str()
+            .assert_case("block hash"))
+        .assert_case("decode block hash");
         let checkpoint = ServedCheckpoint::acquire_at_committed_block(
             &replay.endpoint,
             HEIGHT,
             Some(block_hash),
             "125",
         )
-        .expect("signed checkpoint");
-        let owner = Did::new(OWNER.as_bytes()).expect("owner DID");
+        .assert_case("signed checkpoint");
+        let owner = Did::new(OWNER.as_bytes()).assert_case("owner DID");
         let trust = BudgetProofTrust {
             tenant: "tenant",
             principal: "operator",
@@ -928,14 +945,14 @@ mod tests {
             maximum_age_seconds: 60,
         };
         let proof = verify_budget_proof(&export, budget_id(), &trust)
-            .expect("verify committed budget proof");
+            .assert_case("verify committed budget proof");
         assert_eq!(proof.verification(), VerificationLevel::COMMITTED);
         let sequence = proof.observed_head_sequence();
         let reservation = presentation_budget_reservation(&proof, sequence);
         assert_eq!(reservation.allocation_sequence(), Some(sequence));
         assert!(reservation
             .allocations()
-            .expect("allocations")
+            .assert_case("allocations")
             .iter()
             .any(|row| { row.asset == proof.asset() && row.source == proof.source_account() }));
         assert_eq!(
@@ -947,7 +964,7 @@ mod tests {
             ),
             Ok(())
         );
-        let future_sequence = sequence.checked_add(1).expect("future sequence");
+        let future_sequence = sequence.checked_add(1).assert_case("future sequence");
         let future_reservation = presentation_budget_reservation(&proof, future_sequence);
         assert_eq!(
             future_reservation.allocation_sequence(),
@@ -964,57 +981,14 @@ mod tests {
         );
     }
 
-    #[test]
-    fn budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering() {
-        let answers: Value =
-            serde_json::from_slice(&std::fs::read(fixture_path()).expect("answers"))
-                .expect("fixture JSON");
-        let export = std::fs::read(fixture_path().with_file_name("export.json"))
-            .expect("authority's committed export from task 8.98.18");
-        let mut document: Value = serde_json::from_slice(&export).expect("authority export JSON");
-        document["budget_state"]["verification"] = json!(VerificationLevel::COMMITTED.wire_rank());
-        let export = serde_json::to_vec(&document).expect("current committed export label");
-        let replay = Replay::new(answers);
-        let hash = id(document["head"]["block_hash"].as_str().expect("hash")).expect("block hash");
-        assert_eq!(
-            replay.endpoint.block_number().expect("current block"),
-            HEIGHT
-        );
-        let checkpoint = ServedCheckpoint::acquire_at_committed_block(
-            &replay.endpoint,
-            HEIGHT,
-            Some(hash),
-            "125",
-        )
-        .expect("acquire signed checkpoint");
-        let owner = Did::new(OWNER.as_bytes()).expect("owner DID");
-        let mut trust = BudgetProofTrust {
-            tenant: "tenant",
-            principal: "operator",
-            owner: &owner,
-            protocol_version: 3,
-            network_id: 125,
-            checkpoint: &checkpoint,
-            endpoint: &replay.endpoint,
-            current_height: HEIGHT,
-            now_ms: 1_700_000_000_000,
-            maximum_age_seconds: 60,
-        };
+    fn assert_budget_proof_refusals(document: &Value, mut trust: BudgetProofTrust<'_>) {
         let verify = |document: &Value, trust: &BudgetProofTrust<'_>| {
             verify_native_budget_proof(
-                &serde_json::to_vec(document).expect("export"),
+                &serde_json::to_vec(document).assert_case("export"),
                 budget_id(),
                 trust,
             )
         };
-        let verified = verify_native_budget_proof(&export, budget_id(), &trust)
-            .expect("authority's committed v2 proof must verify without adjustment");
-        assert_eq!(verified.canonical_export_bytes(), export.as_slice());
-        assert_eq!(verified.remaining(), 77);
-        assert_eq!(verified.committed_height(), HEIGHT);
-        assert_eq!(verified.checkpoint_digest(), checkpoint.block_hash);
-        assert_eq!(verified.source_account(), [2; 32]);
-        assert_eq!(verified.verification(), VerificationLevel::COMMITTED);
         for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
             let mut retired = document.clone();
             retired["budget_state"]["verification"] = json!(rank);
@@ -1026,14 +1000,14 @@ mod tests {
         let wrong_owner = Did::new(
             b"did:layerx:0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
         )
-        .expect("different owner DID");
+        .assert_case("different owner DID");
         let wrong_owner_trust = BudgetProofTrust {
             owner: &wrong_owner,
             ..trust
         };
         assert!(matches!(
             verify_budget_proof(
-                &serde_json::to_vec(&document).expect("export"),
+                &serde_json::to_vec(&document).assert_case("export"),
                 budget_id(),
                 &wrong_owner_trust,
             ),
@@ -1041,8 +1015,12 @@ mod tests {
         ));
         for name in ["budget_call", "remaining_call"] {
             let mut changed = document.clone();
-            let mut result =
-                bytes(changed["proofs"][name]["result"].as_str().expect("result")).expect("bytes");
+            let mut result = bytes(
+                changed["proofs"][name]["result"]
+                    .as_str()
+                    .assert_case("result"),
+            )
+            .assert_case("bytes");
             result[31] ^= 1;
             changed["proofs"][name]["result"] = json!(hex::encode(&result));
             assert!(verify(&changed, &trust).is_err(), "changed {name} result");
@@ -1060,18 +1038,67 @@ mod tests {
         assert!(verify(&changed, &trust).is_err(), "substituted height");
         trust.current_height = HEIGHT + 2;
         assert_eq!(
-            verify(&document, &trust)
-                .expect("maximum permitted age")
+            verify(document, &trust)
+                .assert_case("maximum permitted age")
                 .age_sequences(),
             2
         );
         trust.current_height = HEIGHT + 3;
-        assert!(verify(&document, &trust).is_err(), "stale height");
+        assert!(verify(document, &trust).is_err(), "stale height");
         trust.current_height = HEIGHT - 1;
-        assert!(verify(&document, &trust).is_err(), "future height");
+        assert!(verify(document, &trust).is_err(), "future height");
         trust.current_height = HEIGHT;
         trust.now_ms += 60_001;
-        assert!(verify(&document, &trust).is_err(), "stale time");
+        assert!(verify(document, &trust).is_err(), "stale time");
+    }
+
+    #[test]
+    fn budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering() {
+        let answers: Value =
+            serde_json::from_slice(&std::fs::read(fixture_path()).assert_case("answers"))
+                .assert_case("fixture JSON");
+        let export = std::fs::read(fixture_path().with_file_name("export.json"))
+            .assert_case("authority's committed export from task 8.98.18");
+        let mut document: Value =
+            serde_json::from_slice(&export).assert_case("authority export JSON");
+        document["budget_state"]["verification"] = json!(VerificationLevel::COMMITTED.wire_rank());
+        let export = serde_json::to_vec(&document).assert_case("current committed export label");
+        let replay = Replay::new(answers);
+        let hash = id(document["head"]["block_hash"].as_str().assert_case("hash"))
+            .assert_case("block hash");
+        assert_eq!(
+            replay.endpoint.block_number().assert_case("current block"),
+            HEIGHT
+        );
+        let checkpoint = ServedCheckpoint::acquire_at_committed_block(
+            &replay.endpoint,
+            HEIGHT,
+            Some(hash),
+            "125",
+        )
+        .assert_case("acquire signed checkpoint");
+        let owner = Did::new(OWNER.as_bytes()).assert_case("owner DID");
+        let trust = BudgetProofTrust {
+            tenant: "tenant",
+            principal: "operator",
+            owner: &owner,
+            protocol_version: 3,
+            network_id: 125,
+            checkpoint: &checkpoint,
+            endpoint: &replay.endpoint,
+            current_height: HEIGHT,
+            now_ms: 1_700_000_000_000,
+            maximum_age_seconds: 60,
+        };
+        let verified = verify_native_budget_proof(&export, budget_id(), &trust)
+            .assert_case("authority's committed v2 proof must verify without adjustment");
+        assert_eq!(verified.canonical_export_bytes(), export.as_slice());
+        assert_eq!(verified.remaining(), 77);
+        assert_eq!(verified.committed_height(), HEIGHT);
+        assert_eq!(verified.checkpoint_digest(), checkpoint.block_hash);
+        assert_eq!(verified.source_account(), [2; 32]);
+        assert_eq!(verified.verification(), VerificationLevel::COMMITTED);
+        assert_budget_proof_refusals(&document, trust);
         assert_eq!(
             replay.finish(),
             21,

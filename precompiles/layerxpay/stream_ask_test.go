@@ -62,7 +62,13 @@ func streamAskOpen(t *testing.T, f *escrowTestFixture, ask [32]byte) [32]byte {
 	require.NoError(t, err)
 	require.Len(t, values, 1)
 	id := values[0].([32]byte)
+	var selector [4]byte
+	copy(selector[:], a.Methods["streamOpenForAsk"].ID)
+	wantID := paytypes.DeriveIdempotencyKey([32]byte(h.db.Ctx().EVMTxHash()), 0, selector)
+	clear(wantID[:16])
+	require.Equal(t, wantID, id)
 	require.NotEqual(t, [32]byte{}, id)
+	require.Equal(t, [16]byte{}, [16]byte(id[:16]))
 	all := h.db.GetAllLogs()
 	require.Len(t, all, logs+1)
 	log := all[logs]

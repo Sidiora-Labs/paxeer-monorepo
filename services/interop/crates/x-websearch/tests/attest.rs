@@ -733,35 +733,7 @@ fn storage_receipt_kind_attests_the_object_digest_and_refuses_a_mismatch() -> Ou
     let hex = canonical::digest_hex(&digest);
     let path = format!("/manifests/{hex}.json");
     let body = Arc::new(Mutex::new(object.clone()));
-    let served_body = Arc::clone(&body);
-    let served_path = path.clone();
-    let listener = TcpListener::bind("127.0.0.1:0")?;
-    let base = format!("http://{}", listener.local_addr()?);
-    let server = thread::spawn(move || -> std::io::Result<Vec<String>> {
-        let mut requests = Vec::new();
-        for connection in listener.incoming().take(3) {
-            let mut stream = connection?;
-            stream.set_read_timeout(Some(Duration::from_secs(10)))?;
-            stream.set_write_timeout(Some(Duration::from_secs(10)))?;
-            let (head, _) =
-                read_http(&mut stream).map_err(|error| std::io::Error::other(error.to_string()))?;
-            let target = head.split(' ').nth(1).unwrap_or_default().to_owned();
-            if target == served_path {
-                let bytes = served_body.lock().unwrap_or_else(PoisonError::into_inner);
-                stream.write_all(format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                    bytes.len()
-                ).as_bytes())?;
-                stream.write_all(&bytes)?;
-            } else {
-                stream.write_all(
-                    b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                )?;
-            }
-            requests.push(target);
-        }
-        Ok(requests)
-    });
+    let (base, server) = spawn_storage_bucket(path.clone(), Arc::clone(&body))?;
     let attestor = Attestor::new(
         attestor_key(1)?,
         CHAIN_ID,
@@ -832,6 +804,45 @@ fn storage_receipt_kind_attests_the_object_digest_and_refuses_a_mismatch() -> Ou
         strict.attest(&request),
         Err(attest::AttestError::InvalidPayload)
     );
+    assert_invalid_storage_payloads(&attestor, &request, &digest);
+    Ok(())
+}
+
+fn spawn_storage_bucket(
+    served_path: String,
+    served_body: Arc<Mutex<Vec<u8>>>,
+) -> Outcome<(String, thread::JoinHandle<std::io::Result<Vec<String>>>)> {
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    let base = format!("http://{}", listener.local_addr()?);
+    let server = thread::spawn(move || -> std::io::Result<Vec<String>> {
+        let mut requests = Vec::new();
+        for connection in listener.incoming().take(3) {
+            let mut stream = connection?;
+            stream.set_read_timeout(Some(Duration::from_secs(10)))?;
+            stream.set_write_timeout(Some(Duration::from_secs(10)))?;
+            let (head, _) =
+                read_http(&mut stream).map_err(|error| std::io::Error::other(error.to_string()))?;
+            let target = head.split(' ').nth(1).unwrap_or_default().to_owned();
+            if target == served_path {
+                let bytes = served_body.lock().unwrap_or_else(PoisonError::into_inner);
+                stream.write_all(format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    bytes.len()
+                ).as_bytes())?;
+                stream.write_all(&bytes)?;
+            } else {
+                stream.write_all(
+                    b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )?;
+            }
+            requests.push(target);
+        }
+        Ok(requests)
+    });
+    Ok((base, server))
+}
+
+fn assert_invalid_storage_payloads(attestor: &Attestor, request: &WebRequest, digest: &[u8; 32]) {
     for invalid in [
         vec![1; 31],
         digest.to_vec(),
@@ -857,7 +868,6 @@ fn storage_receipt_kind_attests_the_object_digest_and_refuses_a_mismatch() -> Ou
             Err(attest::AttestError::InvalidPayload)
         );
     }
-    Ok(())
 }
 
 #[test]
@@ -1572,7 +1582,7 @@ fn origin_two_ready_refuses_seventeen_signatures_and_admits_sixteen() -> Outcome
     let scratch = Scratch::new("program-exchange-cap")?;
     let exchange = ProgramExchange::open(&scratch.0, &[])?;
     let key = (answer.attestation.requester, answer.request_id());
-    exchange.record(answer.clone());
+    exchange.record(answer.clone())?;
     let (set, signatures) = signed_set(&answer, 17)?;
     assert_eq!(Ready::from_signatures(&answer, &set, &signatures), None);
     for index in 2..=17 {

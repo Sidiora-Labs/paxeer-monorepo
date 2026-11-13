@@ -1,0 +1,11 @@
+[repair.22.39.390]
+function = "layerx_client::ai_market::market_value_call_terms"
+value_operations = "FUND, LockBond and ChallengeLap deposit; CLAIM, REFUND_FREE, ADVANCE_CLOSE, RefundBond and ResolveChallenge pay"
+capabilities = "The three MUTATION_CAPABILITIES plus one runtime Transfer402 or ProgramSpend grant, encoded by the runtime CapabilitySet; no BalanceView grant"
+decoder = "The runtime admits Transfer402 with decode_canonical and ProgramSpend with decode_v2_canonical; guest ABI 5 uses the latter encoding policy"
+access = "ActivityAccess::Absent, encoded by the program SDK as in market_call_terms"
+in_scope_sender = "services/agent/crates/layerx-agentd/src/main.rs:InferenceLapTransport::submit derives the canary deposit or payment grant from the payload and finalized state and uses both returned fields"
+outside_scope_sender_1 = "services/agent/crates/layerx-agentd/src/inference_market/canary.rs:605,629 passes ChallengeLap and ResolveChallenge operations to LapTransport::submit; the in-scope transport supplies their call terms"
+outside_scope_sender_2 = "services/agent/crates/layerx-agentd/src/inference_market/enrol.rs:539 submits a peer-signed LockBond record; it does not construct or change that call's terms"
+other_product_value_senders = "No other product caller under services/agent constructs and sends a value operation today; tests and generic native-call transport are not operation-specific product senders"
+refreshed_locks = "cmd/layerxctl/Cargo.lock, services/agent/Cargo.lock, services/agent/fuzz/Cargo.lock, services/agent/qualification/pay2/Cargo.lock, services/agent/tests/boundary/Cargo.lock, services/agent/tests/isolation/Cargo.lock, services/agent/tests/parity/Cargo.lock, services/agent/tests/qualify/Cargo.lock, services/agent/tools/audit-verify/Cargo.lock, services/agent/tools/policy-harness/Cargo.lock, services/human/Cargo.lock, services/human/crates/layerx-intents/fuzz/Cargo.lock, services/interop/Cargo.lock, services/platform/Cargo.lock, services/platform/examples/samples/verify-receipt-rust/Cargo.lock, services/platform/hosted/node/tests/probe/Cargo.lock, tools/platform/Cargo.lock"

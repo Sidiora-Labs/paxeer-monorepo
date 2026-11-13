@@ -15,6 +15,9 @@ impl CommandOutput {
         }
     }
 
+    ///
+    /// # Errors
+    /// Returns an error when input validation or the requested operation fails.
     pub fn emit(self, machine: bool) -> Result<(), String> {
         if machine {
             let value = json!({

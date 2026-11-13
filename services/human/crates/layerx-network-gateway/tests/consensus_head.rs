@@ -1,3 +1,5 @@
+include!("support/required.rs");
+
 use layerx_network_gateway::{decode_network, ConsensusHead, Evidence, GatewayError};
 use serde_json::{json, Value};
 
@@ -14,13 +16,13 @@ fn recorded_network_answer() -> Value {
             }
         }"#,
     )
-    .expect("task 8.5.3 network result")
+    .required_with("task 8.5.3 network result")
 }
 
 #[test]
 fn network_decodes_consensus_head() {
     let answer = recorded_network_answer();
-    let head = decode_network(&answer).expect("task 8.5.3 consensus head decodes");
+    let head = decode_network(&answer).required_with("task 8.5.3 consensus head decodes");
     assert_eq!(head.network_id, "paxeer-degraded");
     assert_eq!(head.chain_id, 125);
     assert_eq!(head.latest_block, 16);
@@ -44,7 +46,7 @@ fn network_decodes_consensus_head() {
         answer["paxeer"]["latest_block"] = json!(height);
         answer["consensus"]["latest_height"] = json!(height.to_string());
         answer["consensus"]["catching_up"] = json!(catching_up);
-        let head = decode_network(&answer).expect("exact heights and sync state decode");
+        let head = decode_network(&answer).required_with("exact heights and sync state decode");
         assert_eq!(head.chain_id, 125);
         assert_eq!(head.latest_block, height);
         assert_eq!(
@@ -85,7 +87,7 @@ fn network_decodes_consensus_head() {
         let mut incomplete = answer.clone();
         incomplete["consensus"]
             .as_object_mut()
-            .unwrap()
+            .required()
             .remove(field);
         assert_eq!(
             decode_network(&incomplete),
@@ -104,8 +106,8 @@ fn network_answers_without_consensus() {
             "reason": "consensus_unavailable"
         }"#,
     )
-    .expect("task 8.5.3 unavailable consensus result");
-    let head = decode_network(&answer).expect("Paxeer still answers without consensus");
+    .required_with("task 8.5.3 unavailable consensus result");
+    let head = decode_network(&answer).required_with("Paxeer still answers without consensus");
     assert_eq!(head.network_id, "paxeer-degraded");
     assert_eq!(head.chain_id, 125);
     assert_eq!(head.latest_block, 16);
@@ -121,13 +123,13 @@ fn network_answers_without_consensus() {
         );
     }
     let mut incomplete = answer.clone();
-    incomplete.as_object_mut().unwrap().remove("consensus");
+    incomplete.as_object_mut().required().remove("consensus");
     assert_eq!(
         decode_network(&incomplete),
         Err(GatewayError::MalformedAnswer)
     );
     incomplete = answer.clone();
-    incomplete.as_object_mut().unwrap().remove("reason");
+    incomplete.as_object_mut().required().remove("reason");
     assert_eq!(
         decode_network(&incomplete),
         Err(GatewayError::MalformedAnswer)

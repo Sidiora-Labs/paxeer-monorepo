@@ -1,0 +1,8 @@
+[integration_compile]
+rule = "Integration contracts compile with prepared Solidity compilers and installed, locked packages; RPC compilation generates ethers-v6 bindings from Hardhat artifact paths."
+dapp_compiler = "0.8.28"
+dapp_evm_target = "cancun"
+rpc_compiler = "0.8.28"
+files = ["scripts/workspace/check-hardhat-compilers.mjs", "tests/integration/dapp_tests/hardhat.config.js", "tests/integration/dapp_tests/contracts/NftMarketplace.sol", "tests/integration/rpc_tests/hardhat.config.ts", "tests/integration/rpc_tests/scripts/typechain.ts", "tests/integration/repair_22_39_508.kvx"]
+build_command = "make -s paxeer-npm-install"
+compile_command = "test -s tests/integration/repair_22_39_508.kvx && cd tests/integration/dapp_tests && npx --no-install hardhat compile && cd ../rpc_tests && npm run compile"

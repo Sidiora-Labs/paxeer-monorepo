@@ -6,42 +6,85 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
   - package-ecosystem: gomod
-    directory: /
+    directories:
+      - /
+      - /sdk/chainflow/go
+      - /sdk/cosmovisor
+      - /sdk/ics23
+      - /sdk/launchpad/protocol
+      - /sdk/launchpad/shared
+      - /sdk/platform/go
+      - /services/launchpad/api
+      - /services/launchpad/discovery
+      - /services/launchpad/gateway
+      - /services/launchpad/indexer
+      - /services/launchpad/livestream
+      - /services/launchpad/metadata
+      - /services/launchpad/notifications
+      - /services/launchpad/pnl-tracker
+      - /services/launchpad/ranking-algo
+      - /services/launchpad/security
+      - /services/launchpad/security/control
+      - /services/launchpad/social
+      - /services/launchpad/stats-workers
+      - /services/launchpad/trading-charts
+      - /services/launchpad/user
+      - /services/wallet/attestor
+      - /services/wallet/ceremony
+      - /tools/hpx/registry
+      - /tools/loadtest
+      - /tools/paxctl
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-  - package-ecosystem: gomod
-    directory: /tools/hpx/registry
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
-  - package-ecosystem: gomod
-    directory: /sdk/cosmovisor
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
-  - package-ecosystem: gomod
-    directory: /sdk/ics23
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
   - package-ecosystem: npm
-    directory: /contracts
+    directories:
+      - /
+      - /apps/bridge
+      - /apps/explorer
+      - /apps/inference-peer
+      - /apps/launchpad
+      - /apps/names
+      - /apps/perps
+      - /apps/wallet
+      - /apps/web
+      - /contracts
+      - /contracts/launchpad
+      - /docs/site/docs-assistant
+      - /docs/site/paxeer-docs
+      - /programs/sdk/assemblyscript
+      - /programs/sdk/rust
+      - /sdk/chainflow/typescript
+      - /sdk/js
+      - /sdk/names
+      - /sdk/platform/conformance-runner
+      - /services/wallet
+      - /tests/integration/dapp_tests
+      - /tests/integration/rpc_tests
+      - /tools/codebase-map
+      - /tools/hyperfide
+      - /tools/names
+      - /tools/wasm-tools/playground
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-  - package-ecosystem: npm
-    directory: /tests/integration/dapp_tests
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
-  - package-ecosystem: npm
-    directory: /tests/integration/rpc_tests
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 3
   - package-ecosystem: cargo
-    directory: /wasm-runtime/libwasmvm
+    directories:
+      - /cmd/layerxctl
+      - /contracts/bridge/solana
+      - /programs
+      - /sdk/chainflow/rust
+      - /sdk/platform/generators
+      - /services/agent
+      - /services/explorer/services/libs
+      - /services/explorer/services/sig-provider
+      - /services/explorer/services/smart-contract-verifier
+      - /services/human
+      - /services/interop
+      - /services/platform
+      - /tools/platform
+      - /tools/wasm-tools
+      - /wasm-runtime/libwasmvm
     schedule:
       interval: weekly
     open-pull-requests-limit: 3

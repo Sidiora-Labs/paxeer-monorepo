@@ -2,7 +2,9 @@ import { dataApiUrl } from '@/core/sdk-config';
 import { CHART_UDF_ROUTES, chartsOrigin } from '@/core/charts-udf';
 import { unsupportedStatuses } from '@/core/market/unsupported';
 import { reportUserFacingError } from '@/core/user-facing-error';
+import { getPublicClient } from '@/core/wallet-sdk/client';
 import { decodeV2Contract, type V2ContractTypes } from '@kindle/sdk';
+import { parseAbi, type Address } from 'viem';
 import type { LibrarySymbolInfo, ResolutionString } from '../../../public/charting_library/charting_library';
 
 const POLL_INTERVAL = 10_000;
@@ -53,8 +55,9 @@ export function canonicalCandleToDisplayBar(value: unknown, mode: ChartMode = 'p
   const convert = (price: CanonicalCandle['open']) => displayRatio(price.numerator, price.denominator, mode === 'mcap' ? supply : undefined);
   const base = candle.open.baseAsset, quote = candle.open.quoteAsset;
   if (base.kind !== 'erc20' || base.chainId !== '125' || base.address === null || base.decimals === null || quote.kind !== 'erc20' || quote.chainId !== '125' || quote.address === null || quote.decimals !== 6) throw new Error('Canonical candle assets unavailable');
+  const development = candle.seriesModelVersion === 'development-positioned-candles-v1';
   for (const price of [candle.open, candle.high, candle.low, candle.close]) {
-    if (price.baseAsset.address?.toLowerCase() !== base.address.toLowerCase() || price.baseAsset.chainId !== base.chainId || price.baseAsset.decimals !== base.decimals || price.quoteAsset.address?.toLowerCase() !== quote.address.toLowerCase() || price.quoteAsset.chainId !== quote.chainId || price.quoteAsset.decimals !== 6 || price.source.kind !== 'gross_execution' || price.source.amountBasis !== 'paid_input' || price.source.position === null || price.source.sourceEventId === null || price.source.sourceReference === null) throw new Error('Canonical candle price provenance mismatch');
+    if (price.baseAsset.address?.toLowerCase() !== base.address.toLowerCase() || price.baseAsset.chainId !== base.chainId || price.baseAsset.decimals !== base.decimals || price.quoteAsset.address?.toLowerCase() !== quote.address.toLowerCase() || price.quoteAsset.chainId !== quote.chainId || price.quoteAsset.decimals !== 6 || price.source.kind !== (development ? 'post_swap_spot' : 'gross_execution') || price.source.amountBasis !== (development ? 'effective_reserves' : 'paid_input') || price.source.position === null || price.source.sourceEventId === null || (!development && price.source.sourceReference === null)) throw new Error('Canonical candle price provenance mismatch');
   }
   return { time, open: convert(candle.open), high: convert(candle.high), low: convert(candle.low), close: convert(candle.close), volume: displayRatio(candle.volumeUsdlRaw, '1000000') };
 }
@@ -340,6 +343,42 @@ async function historicalValuationBars(candles: CanonicalCandle[], resolution: s
   return result;
 }
 
+const tokenSupplyAbi = parseAbi(['function totalSupply() view returns (uint256)', 'function decimals() view returns (uint8)']);
+
+async function historicalDevelopmentValuationBars(candles: CanonicalCandle[], signal: AbortSignal): Promise<Map<string, Bar>> {
+  const client = getPublicClient(undefined, signal);
+  if (await client.getChainId() !== 125) throw new Error('Historical valuation chain identity mismatch');
+  const supplies = new Map<string, CanonicalSupply>();
+  const result = new Map<string, Bar>();
+  for (const candle of candles) {
+    signal.throwIfAborted();
+    const values: number[] = [];
+    for (const price of [candle.open, candle.high, candle.low, candle.close]) {
+      const position = price.source.position;
+      const token = price.baseAsset.address;
+      if (!position || !token || price.baseAsset.decimals === null) throw new Error('Historical supply source unavailable');
+      const key = `${token.toLowerCase()}:${position.height}:${position.blockHash.toLowerCase()}`;
+      let supply = supplies.get(key);
+      if (!supply) {
+        const blockNumber = BigInt(position.height);
+        const block = await client.getBlock({ blockNumber });
+        if (block.hash?.toLowerCase() !== position.blockHash.toLowerCase()) throw new Error('Historical supply block hash mismatch');
+        const [raw, decimals] = await Promise.all([
+          client.readContract({ address: token as Address, abi: tokenSupplyAbi, functionName: 'totalSupply', blockNumber }),
+          client.readContract({ address: token as Address, abi: tokenSupplyAbi, functionName: 'decimals', blockNumber }),
+        ]);
+        if (Number(decimals) !== price.baseAsset.decimals) throw new Error('Historical supply decimals mismatch');
+        supply = { raw: raw.toString(), decimals: Number(decimals) };
+        supplies.set(key, supply);
+      }
+      values.push(displayRatio(price.numerator, price.denominator, supply));
+    }
+    const bar = canonicalCandleToDisplayBar(candle);
+    result.set(`${candle.start}:${candle.revision}`, { ...bar, open: values[0], high: values[1], low: values[2], close: values[3] });
+  }
+  return result;
+}
+
 export type ChartTableRow = { start: string; interval: string; revision: string; open: string; high: string; low: string; close: string; volumeUsdl: string; volumeTokenRaw: string };
 export type ConfirmedChartMarker = { id: string; time: number; candleStart: string; interval: string; side: 'buy' | 'sell'; tokenAmountRaw: string; usdlAmountRaw: string; executionPrice: string; transactionHash: string; actor: string; actorBasis: string };
 export type ChartAccessibleView = { rows: ChartTableRow[]; markers: ConfirmedChartMarker[]; annotationState: 'complete' | 'partial' | 'unavailable'; annotationReason: string | null };
@@ -366,7 +405,10 @@ export function canonicalCandleTableRow(value: unknown): ChartTableRow {
 }
 export function confirmedChartMarkers(candleValues: unknown[], tradeValues: unknown[]): { markers: ConfirmedChartMarker[]; partial: boolean } {
   const candles = candleValues.map(value => decodeV2Contract('Candle', value));
-  const trades = tradeValues.map(value => decodeV2Contract('Trade', value));
+  const trades = tradeValues.map(value => {
+    if (value !== null && typeof value === 'object' && 'status' in value && value.status !== 'confirmed') throw new Error('Unconfirmed trade cannot annotate a canonical candle');
+    return decodeV2Contract('Trade', value);
+  });
   const byId = new Map<string, V2ContractTypes['Trade']>();
   for (const trade of trades) {
     const previous = byId.get(trade.eventId);
@@ -378,10 +420,11 @@ export function confirmedChartMarkers(candleValues: unknown[], tradeValues: unkn
   let partial = false;
   for (const candle of candles) {
     canonicalCandleToDisplayBar(candle);
+    const development = candle.seriesModelVersion === 'development-positioned-candles-v1';
     let candleMarkers = 0;
     for (const price of [candle.open, candle.high, candle.low, candle.close]) {
       const source = price.source;
-      if (!source.sourceEventId || !source.position || !source.sourceReference) { partial = true; continue; }
+      if (!source.sourceEventId || !source.position || (!development && !source.sourceReference)) { partial = true; continue; }
       const trade = byId.get(source.sourceEventId);
       if (!trade) { partial = true; continue; }
       if (trade.poolAddress.toLowerCase() !== candle.poolAddress.toLowerCase() || canonicalChartContent(trade.position) !== canonicalChartContent(source.position) || trade.inputDerivationQuality !== 'exact' || trade.paidInputRaw === null) { partial = true; continue; }
@@ -442,9 +485,19 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
   let historyRevision: bigint | null = null;
   let annotationGeneration = 0;
   let annotationRequest: AbortController | undefined;
+  let annotationRetryTimer: ReturnType<typeof setTimeout> | undefined;
+  let annotationRetryCount = 0;
   let markers: ConfirmedChartMarker[] = [];
   let annotationState: ChartAccessibleView['annotationState'] = 'unavailable';
   let annotationReason: string | null = 'Confirmed fill annotations have not loaded';
+  const retryAnnotations = () => {
+    if (annotationRetryCount >= 20) return;
+    annotationRetryCount++;
+    annotationRetryTimer = setTimeout(() => {
+      annotationRetryTimer = undefined;
+      void reconcileMarkers();
+    }, 1000);
+  };
   const candleIdentity = (candle: CanonicalCandle) => `${candle.poolAddress.toLowerCase()}:${candle.interval}:${candle.start}`;
   const publishView = () => {
     if (disposed) return;
@@ -455,6 +508,7 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     if (decision === 'resync') throw new Error('Visible history revision conflict');
     const key = candleIdentity(candle);
     if (decision === 'apply') {
+      annotationRetryCount = 0;
       const old = visibleCandles.get(key);
       visibleCandles.set(key, candle);
       publishChartMeasurement({ kind: 'candle_state', received_utc_ns: chartMeasurementUtcNs(), topic: `market.candles.${poolAddress.toLowerCase()}.${candle.interval}`, payload: candle });
@@ -464,6 +518,8 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
     return visibleCandles.get(key) ?? candle;
   }
   async function reconcileMarkers() {
+    if (annotationRetryTimer !== undefined) clearTimeout(annotationRetryTimer);
+    annotationRetryTimer = undefined;
     annotationRequest?.abort();
     const controller = new AbortController(); annotationRequest = controller; historyRequests.add(controller);
     const generation = ++annotationGeneration;
@@ -490,14 +546,27 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
           const joined = confirmedChartMarkers([...visibleCandles.values()], trades);
           markers = joined.markers; annotationState = joined.partial || page.quality !== 'complete' ? 'partial' : 'complete';
           annotationReason = annotationState === 'partial' ? 'Only fills with canonical timestamp and execution-price provenance are annotated' : null;
-          publishView(); return;
+          publishView();
+          const tradeIds = new Set(trades.map(trade => trade.eventId));
+          const missingVisibleTrade = [...visibleCandles.values()].some(candle => {
+            const sourceId = candle.close.source.sourceEventId;
+            return typeof sourceId === 'string' && !tradeIds.has(sourceId);
+          });
+          if (missingVisibleTrade) retryAnnotations();
+          else annotationRetryCount = 0;
+          return;
         }
         if (seen.has(page.nextCursor)) throw new Error('Repeated confirmed trade cursor');
         seen.add(page.nextCursor); cursor = page.nextCursor;
       }
       throw new Error('Confirmed annotation window exceeds bounded replay');
     } catch (error) {
-      if (!disposed && !controller.signal.aborted && generation === annotationGeneration) { annotationState = 'partial'; annotationReason = error instanceof Error ? error.message : 'Confirmed annotations unavailable'; publishView(); }
+      if (!disposed && !controller.signal.aborted && generation === annotationGeneration) {
+        annotationState = 'partial';
+        annotationReason = error instanceof Error ? error.message : 'Confirmed annotations unavailable';
+        publishView();
+        retryAnnotations();
+      }
     } finally { historyRequests.delete(controller); if (annotationRequest === controller) annotationRequest = undefined; }
   }
   const display = (candle: CanonicalCandle) => { if (mode === 'price') return canonicalCandleToDisplayBar(candle, 'price'); const bar = valuations.get(`${candle.start}:${candle.revision}`); if (!bar) throw new Error('Historical total supply valuation unavailable for candle revision'); return bar; };
@@ -538,13 +607,14 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
   }
   async function readHistory(resolution: string, from: number, to: number, controller: AbortController, limit = 50) {
     const items: CanonicalCandle[] = [];
+    const origin = authority?.apiOrigin ?? (typeof window === 'undefined' ? undefined : window.location.origin);
     let cursor: string | undefined;
     let watermark: V2ContractTypes['Watermark'] | null = null;
     let snapshotId: string | undefined;
     let projectionRevision: string | null | undefined;
     const seen = new Set<string>();
     for (let pageNumber = 0; pageNumber < 100; pageNumber++) {
-      const page = await fetchCanonicalCandlePage(poolAddress, resolution, new Date(from * 1000).toISOString(), new Date(to * 1000).toISOString(), Math.min(limit, 50), cursor, controller.signal, authority?.apiOrigin);
+      const page = await fetchCanonicalCandlePage(poolAddress, resolution, new Date(from * 1000).toISOString(), new Date(to * 1000).toISOString(), Math.min(limit, 50), cursor, controller.signal, origin);
       controller.signal.throwIfAborted();
       if (snapshotId !== undefined && snapshotId !== page.data.snapshotId) throw new Error('History snapshot changed during pagination');
       if (projectionRevision !== undefined && projectionRevision !== page.revision) throw new Error('History projection changed during pagination');
@@ -561,12 +631,15 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
         if (items.length > CHART_WINDOW_CANDLES) throw new Error('History exceeds bounded chart window');
       }
       if (!page.nextCursor) {
+        if (items.length === 0) return { items, watermark };
         const revision = page.revision === null ? null : BigInt(page.revision);
         if (historyRevision !== null && (revision === null || revision < historyRevision)) throw new Error('History projection revision regression');
         if (historyWatermark && (!watermark || BigInt(watermark.height) < BigInt(historyWatermark.height) || (watermark.height === historyWatermark.height && watermark.blockHash !== historyWatermark.blockHash))) throw new Error('History watermark regression');
         if (mode === 'mcap' && items.length) {
           let valued: Map<string, Bar>;
-          try { valued = await historicalValuationBars(items, resolution, from, to, controller.signal, page.data.snapshotId, authority?.valuationOrigin); }
+          try { valued = items.every(candle => candle.seriesModelVersion === 'development-positioned-candles-v1')
+            ? await historicalDevelopmentValuationBars(items, controller.signal)
+            : await historicalValuationBars(items, resolution, from, to, controller.signal, page.data.snapshotId, authority?.valuationOrigin); }
           catch (error) {
             if (!disposed && !controller.signal.aborted) {
               if (error instanceof ValuationUnavailableError) onValuation(unsupportedStatuses.has(error.status) ? { state: 'unsupported', operation: error.operation, status: error.status, message: reportUserFacingError(error, 'Market cap history is not available yet', 'chart valuation') } : { state: 'error', message: reportUserFacingError(error, "Market cap chart can't load right now", 'chart valuation') });
@@ -778,7 +851,9 @@ export function createReplayUdfDatafeed(poolAddress: string, mode: ChartMode = '
       replayBindingListeners.delete(bindingChanged);
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visible);
       if (typeof window !== 'undefined') window.removeEventListener('online', online);
-      annotationRequest?.abort(); ++annotationGeneration; visibleCandles.clear(); viewMerge.clear(); markers = []; valuations.clear(); metadata.dispose();
+      annotationRequest?.abort(); ++annotationGeneration;
+      if (annotationRetryTimer !== undefined) clearTimeout(annotationRetryTimer);
+      visibleCandles.clear(); viewMerge.clear(); markers = []; valuations.clear(); metadata.dispose();
     },
   };
 }

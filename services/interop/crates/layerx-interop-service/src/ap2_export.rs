@@ -60,8 +60,6 @@ impl ReceiptSigner for HostedReceiptSigner {
 
 impl Ap2ReceiptSigners {
     pub(crate) fn from_json(bytes: &[u8]) -> Result<Self, String> {
-        let file: SignerFile = serde_json::from_slice(bytes)
-            .map_err(|_| "invalid AP2 receipt signer file".to_owned())?;
         fn signer(entry: SignerEntry) -> Result<HostedReceiptSigner, String> {
             if entry.issuer.is_empty()
                 || entry.issuer.len() > 1024
@@ -84,6 +82,8 @@ impl Ap2ReceiptSigners {
                 key,
             })
         }
+        let file: SignerFile = serde_json::from_slice(bytes)
+            .map_err(|_| "invalid AP2 receipt signer file".to_owned())?;
         Ok(Self {
             payment: signer(file.payment)?,
             checkout: signer(file.checkout)?,

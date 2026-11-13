@@ -197,6 +197,134 @@ fn events(connection: &Connection) -> Checked<Vec<Value>> {
     .collect()
 }
 
+fn assert_initial_name_events(chain: &Value, first_seven: &[Value]) {
+    let expected = [
+        (1, 0, "register", "names_registrar", "NameRegistered"),
+        (1, 1, "register", "names_controller", "NameRegistered"),
+        (1, 2, "transfer", "names_registry", "NewOwner"),
+        (1, 3, "set_addr", "names_resolver", "AddrChanged"),
+        (
+            1,
+            4,
+            "set_contenthash",
+            "names_resolver",
+            "ContenthashChanged",
+        ),
+        (2, 0, "renew", "names_controller", "NameRenewed"),
+        (2, 1, "transfer", "names_registrar", "Transfer"),
+    ];
+    for (row, (height, log_index, action, contract, event)) in first_seven.iter().zip(expected) {
+        let block = &chain["blocks"][height.to_string()];
+        assert_eq!(row["chain"], "paxeer");
+        assert_eq!(row["height"], height);
+        assert_eq!(row["position"], height);
+        assert_eq!(row["tx_hash"], block["transactions"][0]["hash"]);
+        assert_eq!(row["log_index"], log_index);
+        assert_eq!(row["node"], chain["node"]);
+        assert_eq!(row["action"], action);
+        assert_eq!(row["from_address"], block["transactions"][0]["from"]);
+        assert_eq!(row["timestamp"], 1_800_000_000 + height);
+        assert_eq!(row["data"]["contract"], contract);
+        assert_eq!(row["data"]["event"], event);
+    }
+}
+
+fn assert_other_name_logs(chain: &Value) -> Checked<()> {
+    let registry = registry();
+    for (index, action) in ["transfer", "set_resolver", "name_changed"]
+        .into_iter()
+        .enumerate()
+    {
+        let log = &chain["other_logs"][index];
+        let emitter = unhex_fixed(log["address"].as_str().ok_or("emitter missing")?)?;
+        let topics = log["topics"]
+            .as_array()
+            .ok_or("topics missing")?
+            .iter()
+            .map(|topic| {
+                unhex_fixed(
+                    topic
+                        .as_str()
+                        .ok_or_else(|| IndexError::Decode("topic missing".to_owned()))?,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let data = unhex(log["data"].as_str().ok_or("data missing")?)?;
+        assert!(registry.decode_log([0xee; 20], &topics, &data)?.is_none());
+        assert!(registry
+            .decode_log(config().reverse, &topics, &data)?
+            .is_none());
+        let (_, decoded) = registry
+            .decode_log(emitter, &topics, &data)?
+            .ok_or("event missing")?;
+        let decoded = layerx_indexer::names::decode(
+            &decoded,
+            chain["sender"].as_str().ok_or("sender missing")?,
+            42,
+        )
+        .ok_or("name event missing")?;
+        assert_eq!(decoded.action, action);
+        assert_eq!(decoded.timestamp, 42);
+        assert_eq!(decoded.from_address, chain["sender"]);
+    }
+    Ok(())
+}
+
+fn assert_name_reopen_events(
+    connection: &rusqlite::Connection,
+    chain: &Value,
+    first_seven: &[Value],
+    row: &Value,
+) -> Checked<()> {
+    let all = events(connection)?;
+    assert_eq!(all.len(), 9);
+    assert_eq!(&all[..7], first_seven);
+    assert_eq!(all[7]["action"], "set_text");
+    assert_eq!(all[7]["data"]["args"]["key"], "url");
+    assert_eq!(all[7]["data"]["args"]["value"], "https://alice.pax");
+    assert_eq!(all[8]["action"], "reverse_name_set");
+    assert_eq!(all[8]["node"], chain["reverse_node"]);
+    assert_eq!(all[8]["data"]["contract"], "names_resolver");
+    assert_eq!(all[8]["data"]["event"], "NameChanged");
+    assert_eq!(all[8]["data"]["args"]["name"], "alice.pax");
+    assert_eq!(
+        all[8]["from_address"],
+        chain["blocks"]["3"]["transactions"][0]["from"]
+    );
+    assert_eq!(all[8]["timestamp"], 1_800_000_003_u64);
+    let reverse_sender = chain["blocks"]["3"]["transactions"][0]["from"]
+        .as_str()
+        .ok_or("reverse sender missing")?;
+    assert_eq!(
+        layerx_indexer::names::reverse_node(reverse_sender),
+        Some(unhex_fixed(
+            chain["reverse_node"]
+                .as_str()
+                .ok_or("reverse node missing")?
+        )?)
+    );
+    assert_eq!(
+        layerx_indexer::names::reverse_node(&reverse_sender.to_ascii_uppercase()),
+        layerx_indexer::names::reverse_node(reverse_sender)
+    );
+    assert_eq!(
+        name(
+            connection,
+            chain["reverse_node"]
+                .as_str()
+                .ok_or("reverse node missing")?
+        )?
+        .ok_or("reverse name missing")?["name"],
+        "alice.pax"
+    );
+    assert_eq!(
+        name(connection, chain["node"].as_str().ok_or("node missing")?)?.as_ref(),
+        Some(row)
+    );
+
+    Ok(())
+}
+
 #[test]
 fn names_ingest_builds_the_view_and_events() -> Checked<()> {
     assert_eq!(NamesConfig::from_lookup(&|_| None)?, None);
@@ -236,40 +364,12 @@ fn names_ingest_builds_the_view_and_events() -> Checked<()> {
         json!({
             "label":"alice", "name":"alice.pax", "owner":chain["bob"], "registrant":chain["bob"],
             "resolver":null, "resolved_address":chain["alice"], "contenthash":chain["contenthash"],
-            "registered_at":1800000001, "expires_at":"2100000000", "token_id":chain["token_id"],
+            "registered_at":1_800_000_001, "expires_at":"2100000000", "token_id":chain["token_id"],
         })
     );
     let first_seven = events(&connection)?;
     assert_eq!(first_seven.len(), 7);
-    let expected = [
-        (1, 0, "register", "names_registrar", "NameRegistered"),
-        (1, 1, "register", "names_controller", "NameRegistered"),
-        (1, 2, "transfer", "names_registry", "NewOwner"),
-        (1, 3, "set_addr", "names_resolver", "AddrChanged"),
-        (
-            1,
-            4,
-            "set_contenthash",
-            "names_resolver",
-            "ContenthashChanged",
-        ),
-        (2, 0, "renew", "names_controller", "NameRenewed"),
-        (2, 1, "transfer", "names_registrar", "Transfer"),
-    ];
-    for (row, (height, log_index, action, contract, event)) in first_seven.iter().zip(expected) {
-        let block = &chain["blocks"][height.to_string()];
-        assert_eq!(row["chain"], "paxeer");
-        assert_eq!(row["height"], height);
-        assert_eq!(row["position"], height);
-        assert_eq!(row["tx_hash"], block["transactions"][0]["hash"]);
-        assert_eq!(row["log_index"], log_index);
-        assert_eq!(row["node"], chain["node"]);
-        assert_eq!(row["action"], action);
-        assert_eq!(row["from_address"], block["transactions"][0]["from"]);
-        assert_eq!(row["timestamp"], 1800000000 + height);
-        assert_eq!(row["data"]["contract"], contract);
-        assert_eq!(row["data"]["event"], event);
-    }
+    assert_initial_name_events(&chain, &first_seven);
     assert_eq!(
         unhex(row["contenthash"].as_str().ok_or("contenthash missing")?)?.len(),
         36
@@ -284,89 +384,8 @@ fn names_ingest_builds_the_view_and_events() -> Checked<()> {
             position: 3
         }
     );
-    let all = events(&connection)?;
-    assert_eq!(all.len(), 9);
-    assert_eq!(&all[..7], first_seven.as_slice());
-    assert_eq!(all[7]["action"], "set_text");
-    assert_eq!(all[7]["data"]["args"]["key"], "url");
-    assert_eq!(all[7]["data"]["args"]["value"], "https://alice.pax");
-    assert_eq!(all[8]["action"], "reverse_name_set");
-    assert_eq!(all[8]["node"], chain["reverse_node"]);
-    assert_eq!(all[8]["data"]["contract"], "names_resolver");
-    assert_eq!(all[8]["data"]["event"], "NameChanged");
-    assert_eq!(all[8]["data"]["args"]["name"], "alice.pax");
-    assert_eq!(
-        all[8]["from_address"],
-        chain["blocks"]["3"]["transactions"][0]["from"]
-    );
-    assert_eq!(all[8]["timestamp"], 1800000003_u64);
-    let reverse_sender = chain["blocks"]["3"]["transactions"][0]["from"]
-        .as_str()
-        .ok_or("reverse sender missing")?;
-    assert_eq!(
-        layerx_indexer::names::reverse_node(reverse_sender),
-        Some(unhex_fixed(
-            chain["reverse_node"]
-                .as_str()
-                .ok_or("reverse node missing")?
-        )?)
-    );
-    assert_eq!(
-        layerx_indexer::names::reverse_node(&reverse_sender.to_ascii_uppercase()),
-        layerx_indexer::names::reverse_node(reverse_sender)
-    );
-    assert_eq!(
-        name(
-            &connection,
-            chain["reverse_node"]
-                .as_str()
-                .ok_or("reverse node missing")?
-        )?
-        .ok_or("reverse name missing")?["name"],
-        "alice.pax"
-    );
-    assert_eq!(
-        name(&connection, chain["node"].as_str().ok_or("node missing")?)?,
-        Some(row)
-    );
-
-    let registry = registry();
-    for (index, action) in ["transfer", "set_resolver", "name_changed"]
-        .into_iter()
-        .enumerate()
-    {
-        let log = &chain["other_logs"][index];
-        let emitter = unhex_fixed(log["address"].as_str().ok_or("emitter missing")?)?;
-        let topics = log["topics"]
-            .as_array()
-            .ok_or("topics missing")?
-            .iter()
-            .map(|topic| {
-                unhex_fixed(
-                    topic
-                        .as_str()
-                        .ok_or_else(|| IndexError::Decode("topic missing".to_owned()))?,
-                )
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let data = unhex(log["data"].as_str().ok_or("data missing")?)?;
-        assert!(registry.decode_log([0xee; 20], &topics, &data)?.is_none());
-        assert!(registry
-            .decode_log(config().reverse, &topics, &data)?
-            .is_none());
-        let (_, decoded) = registry
-            .decode_log(emitter, &topics, &data)?
-            .ok_or("event missing")?;
-        let decoded = layerx_indexer::names::decode(
-            &decoded,
-            chain["sender"].as_str().ok_or("sender missing")?,
-            42,
-        )
-        .ok_or("name event missing")?;
-        assert_eq!(decoded.action, action);
-        assert_eq!(decoded.timestamp, 42);
-        assert_eq!(decoded.from_address, chain["sender"]);
-    }
+    assert_name_reopen_events(&connection, &chain, &first_seven, &row)?;
+    assert_other_name_logs(&chain)?;
     Ok(())
 }
 
@@ -490,7 +509,7 @@ fn names_rollback_replays_the_view() -> Checked<()> {
     assert_eq!(row["expires_at"], "2000000000");
     assert_eq!(row["resolved_address"], chain["alice"]);
     assert_eq!(row["contenthash"], chain["contenthash"]);
-    assert_eq!(row["registered_at"], 1800000001);
+    assert_eq!(row["registered_at"], 1_800_000_001);
     assert_eq!(events(&connection)?.len(), 5);
     assert!(name(
         &connection,

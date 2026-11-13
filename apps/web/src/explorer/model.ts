@@ -156,17 +156,14 @@ function text(value: unknown, at: string): string {
 }
 
 function decimal(value: unknown, at: string): string {
-  const candidate = text(value, at);
-  if (!/^(?:0|[1-9]\d*)$/u.test(candidate)) {
-    throw new TypeError(`${at} must be an unsigned decimal string`);
-  }
-  return candidate;
+  return signedDecimal(value, at, false);
 }
 
-function signedDecimal(value: unknown, at: string): string {
+function signedDecimal(value: unknown, at: string, signed = true): string {
   const candidate = text(value, at);
-  if (!/^(?:0|-?[1-9]\d*)$/u.test(candidate)) {
-    throw new TypeError(`${at} must be a signed decimal string`);
+  const grammar = signed ? /^(?:0|-?[1-9]\d*)$/u : /^(?:0|[1-9]\d*)$/u;
+  if (!grammar.test(candidate)) {
+    throw new TypeError(`${at} must be ${signed ? "a signed" : "an unsigned"} decimal string`);
   }
   return candidate;
 }
@@ -254,13 +251,12 @@ export function decodeProgram(value: unknown, at = "program"): ProgramRecord {
     lifecycle,
     versions: Object.freeze(item.versions.map((candidate, index) => {
       const version = record(candidate, `${at}.versions[${String(index)}]`);
+      const interfaceDigest = optionalHex(version.interface_digest, `${at}.versions[${String(index)}].interface_digest`);
       return Object.freeze({
         version: decimal(version.version, `${at}.versions[${String(index)}].version`),
         codeHash: hex(version.code_hash, `${at}.versions[${String(index)}].code_hash`),
         abiVersion: decimal(version.abi_version, `${at}.versions[${String(index)}].abi_version`),
-        ...(version.interface_digest === null || version.interface_digest === undefined
-          ? {}
-          : { interfaceDigest: hex(version.interface_digest, `${at}.versions[${String(index)}].interface_digest`) }),
+        ...(interfaceDigest === undefined ? {} : { interfaceDigest }),
         source: decodeProgramSource(version.source, `${at}.versions[${String(index)}].source`),
       });
     })),

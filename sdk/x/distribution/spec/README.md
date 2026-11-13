@@ -11,7 +11,7 @@ parent:
 
 This _simple_ distribution mechanism describes a functional way to passively
 distribute rewards between validators and delegators. Note that this mechanism does
-not distribute funds in as precisely as active reward distribution mechanisms and
+not distribute funds as precisely as active reward distribution mechanisms and
 will therefore be upgraded in the future.
 
 The mechanism operates as follows. Collected rewards are pooled globally and
@@ -50,7 +50,7 @@ As a part of the lazy computations, each delegator holds an accumulation term
 specific to each validator which is used to estimate what their approximate
 fair portion of tokens held in the global fee pool is owed to them.
 
-```
+```text
 entitlement = delegator-accumulation / all-delegators-accumulation
 ```
 

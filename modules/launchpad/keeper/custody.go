@@ -45,6 +45,43 @@ func (k *Keeper) ModuleEVMAddress(ctx sdk.Context) common.Address {
 	return k.evmKeeper.GetEVMAddressOrDefault(ctx, k.ModuleAddress())
 }
 
+// chainRevenueBalances returns the base fee balance and all other coins at a
+// chain's revenue account.
+func (k *Keeper) chainRevenueBalances(ctx sdk.Context, chain uint64) (sdk.Coin, sdk.Coins, error) {
+	denomSource, ok := k.evmKeeper.(interface{ GetBaseDenom(sdk.Context) string })
+	if !ok {
+		return sdk.Coin{}, nil, types.ErrInvalidConfiguration.Wrap("base denomination is unavailable")
+	}
+	balances, ok := k.bankKeeper.(interface {
+		GetAllBalances(sdk.Context, sdk.AccAddress) sdk.Coins
+	})
+	if !ok {
+		return sdk.Coin{}, nil, types.ErrInvalidConfiguration.Wrap("revenue balances are unavailable")
+	}
+	denom := denomSource.GetBaseDenom(ctx)
+	all := balances.GetAllBalances(ctx, types.ChainRevenueAccount(chain))
+	return k.bankKeeper.GetBalance(ctx, types.ChainRevenueAccount(chain), denom), all, nil
+}
+
+// moveChainRevenue places the base fee coins in module custody and sends the
+// other coins from the revenue account to the launchpad treasury.
+func (k *Keeper) moveChainRevenue(ctx sdk.Context, chain uint64, base sdk.Coin, all sdk.Coins) error {
+	from := types.ChainRevenueAccount(chain)
+	if err := k.bankKeeper.SendCoins(ctx, from, k.ModuleAddress(), sdk.NewCoins(base)); err != nil {
+		return err
+	}
+	treasury := k.evmKeeper.GetPaxAddressOrDefault(ctx, k.TreasuryContract())
+	for _, coin := range all {
+		if coin.Denom == base.Denom {
+			continue
+		}
+		if err := k.bankKeeper.SendCoins(ctx, from, treasury, sdk.NewCoins(coin)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type quoteLedgerKind uint8
 
 const (

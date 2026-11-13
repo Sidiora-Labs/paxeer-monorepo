@@ -9,23 +9,20 @@ use std::time::Duration;
 
 use k256::ecdsa::SigningKey;
 use k256::elliptic_curve::rand_core::OsRng;
-use layerx_gas_station::config::{
-    ConfigError, PaymasterRequired, RegisteredSender, ServiceConfig, StationConfig,
-};
+use layerx_gas_station::config::{RegisteredSender, ServiceConfig, StationConfig};
 use layerx_gas_station::journal::Journal;
 use layerx_gas_station::price::PaymasterRateSource;
 use layerx_gas_station::quote::{
     address_word, keccak, quote_digest, word, Address, Quote, SIDIORA,
 };
 use layerx_gas_station::rpc::{
-    bytes, hex, ConfiguredRpc, Exchange, HttpsExchange, JsonRpc, RpcFault, Rung, SequencerEndpoint,
-    SequencerReceipt,
+    bytes, hex, ConfiguredRpc, Exchange, HttpsExchange, RpcFault, SequencerEndpoint,
 };
 use layerx_gas_station::service::{serve, Limits, Service};
 use layerx_gas_station::signer::{LocalSigner, QuoteSigner};
-use layerx_gas_station::station::{GasStation, StationError};
+use layerx_gas_station::station::GasStation;
 use layerx_gas_station::tx::{
-    authorization_digest, batch_digest, encode_sponsored, recover, Authorization, Call,
+    authorization_digest, batch_digest, encode_sponsored, Authorization, Call,
 };
 use layerx_gas_station::SignedQuote;
 use serde_json::{json, Value};
@@ -206,7 +203,8 @@ fn sequencer_endpoint_rules() -> Value {
     let finalized = json!({"blockHash": "$finalized_block", "requireCanonical": true});
     let reverted =
         serde_json::from_str::<Value>(include_str!("../fixtures/producer_22_33_71.json"))
-            .expect("committed producer recording")["service"]["receipt"]
+            .unwrap_or_else(|error| panic!("committed producer recording: {error:?}"))["service"]
+            ["receipt"]
             .clone();
     let executed = |rung: &str, status: &str, sponsor: Value| {
         json!({"rung": rung, "txHash": "$hash", "seq": "0x2a", "height": "0x11", "index": "0x0",
@@ -256,7 +254,7 @@ fn sequencer_endpoint_rules() -> Value {
         "rate_age_120": rate("0x0000000000000000000000000000000000000000000000000000000000000370"),
     });
     for nonce in 2..=4 {
-        rules["*"].as_array_mut().expect("recorded RPC rules").push(json!({
+        rules["*"].as_array_mut().unwrap_or_else(|| panic!("recorded RPC rules")).push(json!({
             "method": "eth_call",
             "params": [{"to": "$account", "data": format!("$consumed_call_{nonce}")}, finalized],
             "result": "$zero",
@@ -302,7 +300,20 @@ fn with_sequencer_endpoint_rules(mut fixture: Value) -> Result<Value, Box<dyn st
 }
 
 #[derive(Clone)]
-struct SharedLog(Arc<Mutex<Vec<u8>>>);
+struct SharedLog(Arc<Mutex<Vec<u8>>>, Arc<Mutex<Option<TcpListener>>>);
+impl SharedLog {
+    fn new() -> Self {
+        Self(Arc::new(Mutex::new(Vec::new())), Arc::new(Mutex::new(None)))
+    }
+
+    fn stop_after_response(&self, listener: TcpListener) -> std::io::Result<()> {
+        *self
+            .1
+            .lock()
+            .map_err(|_| std::io::Error::other("listener control poisoned"))? = Some(listener);
+        Ok(())
+    }
+}
 impl std::io::Write for SharedLog {
     fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
         self.0
@@ -312,6 +323,14 @@ impl std::io::Write for SharedLog {
         Ok(data.len())
     }
     fn flush(&mut self) -> std::io::Result<()> {
+        if let Some(listener) = self
+            .1
+            .lock()
+            .map_err(|_| std::io::Error::other("listener control poisoned"))?
+            .take()
+        {
+            listener.set_nonblocking(true)?;
+        }
         Ok(())
     }
 }
@@ -523,7 +542,7 @@ fn start_configured(
         registered_senders: Vec::new(),
     };
     adjust(&mut config, account.address());
-    let log = SharedLog(Arc::new(Mutex::new(Vec::new())));
+    let log = SharedLog::new();
     let _did_env = DID_GAS_LIMIT_ENV
         .lock()
         .unwrap_or_else(PoisonError::into_inner);
@@ -746,9 +765,10 @@ impl Harness {
 
     fn stop(&mut self) -> TestResult {
         if let Some(worker) = self.worker.take() {
-            self.listener_control.set_nonblocking(true)?;
-            // Wake a blocking accept, then let the production serve loop return
-            // on its next nonblocking accept so it drops the journal lock.
+            // Switch the next accept to nonblocking after the final response,
+            // so the service releases its journal lock before reopening.
+            self.log
+                .stop_after_response(self.listener_control.try_clone()?)?;
             self.exchange(b"GET /healthz HTTP/1.1\r\nHost: station\r\n\r\n")?;
             worker.join().map_err(|_| "service worker panicked")?;
         }

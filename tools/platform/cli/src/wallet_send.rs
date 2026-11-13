@@ -3,6 +3,9 @@ use serde_json::{json, Value};
 
 use crate::wallet_signing::{PreparedPayment, SigningFacts};
 
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn payment_call(
     payload: &[u8],
     options: &CallOptions,
@@ -149,6 +152,9 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 /// Prepares a native debit using native ownership and source-sequence evidence.
+///
+/// # Errors
+/// Returns an error when input validation or the requested operation fails.
 pub fn native_send_debit(
     client: &layerx_sdk::rpc::RpcClient,
     facts: &crate::wallet_signing::SigningFacts<'_>,

@@ -804,7 +804,9 @@ mod approval_source_tests {
     #[test]
     fn approval_source_v2_carries_required_approval_and_exact_source() {
         let source = b"schema=layerx.policy.source.v2\nversion=approval-v2\nsteps=4\nrule=review,permit,required_approval\nrule=ordinary,permit,no_approval\nrule=blocked,deny,no_approval\n";
-        let registry = PolicyRegistry::from_source(source).expect("real configured policy");
+        let Ok(registry) = PolicyRegistry::from_source(source) else {
+            panic!("real configured policy");
+        };
         let snapshot = registry.begin_request();
         assert_eq!(snapshot.source(), Some(source.as_slice()));
         assert_eq!(snapshot.generation(), 1);
@@ -845,9 +847,11 @@ mod approval_source_tests {
 
     #[test]
     fn unprofiled_policy_source_keeps_two_field_grammar_and_refusals() {
-        let policy =
+        let Ok(policy) =
             load_policy_source(b"version=v1\nsteps=2\nrule=ordinary,permit\nrule=blocked,deny\n")
-                .expect("original configured source");
+        else {
+            panic!("original configured source");
+        };
         assert!(policy
             .rules
             .iter()

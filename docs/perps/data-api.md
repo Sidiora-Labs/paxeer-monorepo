@@ -9,9 +9,9 @@ topics share this gateway; separate per-asset ports are not required.
 
 Paxeer mainnet-beta is one BFT network with EVM chain ID **125 (`0x7d`)**. Its
 kernel participates in block proposal and receipts are final when their block
-commits. Public node JSON-RPC uses the root of the `api1` through `api14` hosts
-under `mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`, for
-example `https://api1.mainnet-beta.paxeer.network`. Those node endpoints are
+commits. Public node JSON-RPC uses the node root path; see the
+[public RPC guide](../site/paxeer-docs/src/app/public-rpc/page.tsx) for connection details.
+Those node endpoints are
 separate from the application data gateway described here. Tenant sub-chains
 are database domains, not additional networks to deploy for this UI.
 
@@ -133,6 +133,11 @@ code `1013` and reason `retry-after=<seconds>` (5–30 seconds); respect that de
 
 Source: [`internal/ws`](../../services/platform/perps-data/internal/ws).
 
+Frames older than 60 seconds trigger a fresh snapshot rather than stale delivery.
+If the backing stream remains unanswered for 10 seconds, subscribed sockets close
+with code `1013`; reconnect and acquire new snapshots. Stream loss also closes
+sockets so a client cannot continue from an incomplete sequence.
+
 ## Symbol Service
 
 Symbol REST routes live under `/api/<symbol>/` on the gateway origin. Symbol
@@ -244,6 +249,9 @@ The Next.js frontend forwards chart requests through its own
 [`src/pages/api/candle/[...path].ts`](../../apps/perps/src/pages/api/candle/%5B...path%5D.ts).
 It accepts GET/HEAD for `config`, `symbols`, `search`, `history`, `marks`,
 `timescale_marks`, `time` and `quotes`, with allowlisted query parameters.
+`search` returns the frontend's supported-symbol list, and `marks` and
+`timescale_marks` return empty arrays locally. `quotes` combines upstream
+responses for the requested symbols; the other endpoints proxy upstream.
 
 A typical history request is
 `/api/candle/history?symbol=BTC&resolution=1&from=1747522800&to=1747526400`.
@@ -344,11 +352,13 @@ A market record has this shape:
 `market_id` is a decimal **string**. Prices/notionals are USD, `change_24h` is a
 fraction (0.0123 means 1.23%), and `perp_basis_bps` is in basis points.
 `price`, `change_24h`, `last_updated`, mark/index/basis, long/short ratio,
-`perp_oi_contracts` and `perp_oi_usd` are nullable in the record type.
-Volumes, trade count and top-level open interest are numeric; empty aggregate
-windows yield zero. A zero short OI leaves the long/short ratio `null`.
-`last_updated` reflects a mark block in REST and the rolling-statistics update
-block in market topic records; it is not a per-field freshness guarantee.
+and `perp_oi_contracts` are nullable in the record type.
+`perp_oi_usd`, volumes, trade count and top-level open interest are numeric;
+empty aggregate windows yield zero. A zero short OI leaves the long/short ratio
+`null`. In REST, `last_updated` is the block time of the latest index price,
+selected from mark-price rows and successful pricefeed aggregates. Market
+topic records use the rolling-statistics update block instead. Neither value
+is a per-field freshness guarantee.
 
 ### Funding contract
 

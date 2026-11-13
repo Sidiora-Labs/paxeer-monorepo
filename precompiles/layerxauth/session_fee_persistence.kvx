@@ -1,0 +1,13 @@
+[authority.session_fee_persistence]
+
+[case.successor_spend]
+test = "TestSessionSuccessorSpendSurvivesReopen"
+proof = "A signed native governance proposal and its verified receipt stage and activate the fee schedule; admitted metered execution debits the payer and produces period and total counters. Revocation and replacement retain the exact budget and commitment across store and host reopen and refuse exhausted limits through native admission."
+
+[case.lifecycle_logs]
+test = "TestAuthLifecycleReceiptLogs"
+proof = "Registration and recovery receipts produce ordered EVM logs matching decoded auth events, including the exact signature, DID topic and ABI body; refused calls leave logs and host state unchanged."
+
+[case.successor_parity]
+test = "TestChargedSessionSuccessorParity"
+proof = "Native and EVM successor calls consume the same persisted predecessor commitment after reopen and produce identical grants, summaries, host state, receipt results and sequences, and ordered events; another reopen retains the result and fee admission limits."

@@ -457,6 +457,10 @@ impl JobStore {
 
     /// Persist a delegate before it signs an admission. Keys are never put in job records,
     /// and the private directory and every key file are accessible only by this OS user.
+    ///
+    /// # Errors
+    /// Returns `ExecutionUnavailable` on store failure or `BadSignature` when an existing
+    /// delegate key differs.
     pub fn retain_signing_key(&self, key: &SigningKey) -> Result<(), ServiceError> {
         let _lock = self.lock()?;
         let directory = self.root.join("delegates");
@@ -494,6 +498,9 @@ impl JobStore {
         sync_directory(&directory)
     }
 
+    /// # Errors
+    /// Returns `ExecutionUnavailable` when the key cannot be read securely or
+    /// `BadSignature` when it does not match the delegate.
     pub fn signing_key(&self, delegate: PublicKey32) -> Result<SigningKey, ServiceError> {
         let directory = self.root.join("delegates");
         let metadata = fs::symlink_metadata(&directory).durable()?;
@@ -517,6 +524,8 @@ impl JobStore {
         Ok(key)
     }
 
+    /// # Errors
+    /// Returns an integrity or store error when the grant set cannot be validated or saved.
     pub fn retain_evaluation_access(
         &self,
         commitment: Digest32,
@@ -533,6 +542,8 @@ impl JobStore {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an integrity or store error when the saved grant set cannot be read or validated.
     pub fn evaluation_access(
         &self,
         commitment: Digest32,
@@ -659,6 +670,9 @@ impl JobStore {
     }
 
     /// Durable admissions indexed by job key, including locally final jobs awaiting chain settlement.
+    ///
+    /// # Errors
+    /// Returns a store error when the job index cannot be read.
     pub fn tracked(&self) -> Result<Vec<JobKey>, ServiceError> {
         let _lock = self.lock()?;
         let mut keys = Vec::new();
@@ -998,6 +1012,9 @@ impl JobStore {
     }
 
     /// Purge only locally final, retained jobs whose chain obligations are settled.
+    ///
+    /// # Errors
+    /// Returns a store, encoding, or settlement error when an eligible job cannot be purged.
     pub fn purge_where(
         &self,
         now_ms: u64,

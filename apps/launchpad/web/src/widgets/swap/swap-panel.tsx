@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useAccount } from 'wagmi';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useOptimisticReceipt } from '@/hooks/tx/use-optimistic-receipt';
 import {
   useWriteRouterSwapTokenForToken,
@@ -13,7 +13,9 @@ import {
   useReadQuoterQuoteMultihop,
   ROUTER_ADDRESS,
 } from '@/core/network/contracts';
-import { parseUnits, formatUnits, zeroAddress } from 'viem';
+import { parseUnits, formatUnits, zeroAddress, erc20Abi, parseAbi, type Address, type Hash, type TransactionReceipt } from 'viem';
+import { getPaxeerRpcUrl } from '@/core/rpc';
+import { homeChainOfPool, ensureHomeChain, homeChainClient, homeChainMessage, type HomeChain } from '../trade/home-chain';
 import { CORE_DEPLOYMENT } from '@/core/network/deployment';
 import { formatNumber, formatCurrency, safeFixed } from '@/utils/format';
 import type { Operations } from '@kindle/sdk';
@@ -29,6 +31,7 @@ import { SlippageSelector, HighImpactWarning, computeMinOut, DEFAULT_SLIPPAGE_BP
 import { useDebouncedValue } from '@/hooks/ui/use-debounced-value';
 
 const LAUNCHPAD_DEFAULT_DECIMALS = 6; // Safe fallback for Sidiora launchpad tokens only
+const homeSwapAbi = parseAbi(['function swapTokenForToken(address tokenIn,address tokenOut,uint256 amountIn,uint256 minAmountOut,uint256 deadline) returns (uint256 amountOut,uint256 intermediateUsdl)']);
 
 interface TokenInfo {
   tokenAddress: string;
@@ -351,21 +354,30 @@ function TokenInputBox({
 
 // ── Main Swap Panel ─────────────────────────────────────────────
 
-export function useSwapQuoteExecution({ tokenIn, tokenOut, amountIn, enabled, slippageBps }: {
+export function useSwapQuoteExecution({ tokenIn, tokenOut, poolIn, poolOut, amountIn, enabled, slippageBps }: {
   tokenIn: `0x${string}`;
   tokenOut: `0x${string}`;
+  poolIn?: `0x${string}`;
+  poolOut?: `0x${string}`;
   amountIn: bigint;
   enabled: boolean;
   slippageBps: number;
 }) {
   const { address, chainId, isConnected } = useAccount();
+  const root = usePublicClient({ chainId: 125 });
+  const { data: wallet } = useWalletClient();
+  const [homeError, setHomeError] = useState<string | null>(null);
+  const [homePending, setHomePending] = useState(false);
+  const [homeTxHash, setHomeTxHash] = useState<Hash>();
+  const [homeReceipt, setHomeReceipt] = useState<TransactionReceipt>();
+  const [homeApprovalReceipt, setHomeApprovalReceipt] = useState<TransactionReceipt>();
   const debouncedAmountIn = useDebouncedValue(amountIn, 250);
   const { data: quoteRaw, isSuccess: quoteSuccess, isFetching: quoteFetching, dataUpdatedAt: quoteUpdatedAt } = useReadQuoterQuoteMultihop(
     { tokenIn, tokenOut, amountIn: debouncedAmountIn },
-    enabled && debouncedAmountIn > 0n && chainId === CORE_DEPLOYMENT.chainId,
+    enabled && debouncedAmountIn > 0n,
   );
   const quote = useMemo(() => {
-    if (!enabled || !isConnected || chainId !== CORE_DEPLOYMENT.chainId ||
+    if (!enabled || !isConnected ||
         amountIn !== debouncedAmountIn || !quoteSuccess || quoteFetching || !quoteRaw) return null;
     const q = quoteRaw as any;
     try {
@@ -413,28 +425,81 @@ export function useSwapQuoteExecution({ tokenIn, tokenOut, amountIn, enabled, sl
     if (review && review !== approval) setReview(null);
   }, [review, approval]);
 
-  const executeSwap = (approved: NonNullable<typeof approval>) => {
+  const resolveHome = async (): Promise<HomeChain | null> => {
+    if (!poolIn || !poolOut || !root) return null;
+    const rpc = getPaxeerRpcUrl();
+    const explorer = 'https://paxscan.paxeer.app';
+    const [left, right] = await Promise.all([
+      homeChainOfPool(root, poolIn, rpc, explorer),
+      homeChainOfPool(root, poolOut, rpc, explorer),
+    ]);
+    if (left.chainId !== right.chainId) throw new Error('These coins trade on different home chains.');
+    return left;
+  };
+
+  const approveHome = async (amount: bigint) => {
+    if (!wallet || !address) return;
+    setHomeError(null);
+    try {
+      const home = await resolveHome();
+      if (!home || home.registryNumber === 0) return false;
+      setHomePending(true);
+      setHomeApprovalReceipt(undefined);
+      await ensureHomeChain(wallet, home);
+      const client = homeChainClient(home);
+      const hash = await wallet.writeContract({ chain: client.chain, account: address, address: tokenIn, abi: erc20Abi, functionName: 'approve', args: [ROUTER_ADDRESS, amount] });
+      const receipt = await client.waitForTransactionReceipt({ hash });
+      if (receipt.status !== 'success') throw new Error('Approval was not confirmed.');
+      setHomeApprovalReceipt(receipt);
+      return true;
+    } catch (error) {
+      setHomeError(homeChainMessage(error));
+      return true;
+    } finally { setHomePending(false); }
+  };
+
+  const executeSwap = async (approved: NonNullable<typeof approval>) => {
     const current = latest.current;
     if (!current.isConnected || current.isPending || current.approval !== approved) return;
     const { identity } = approved.quote;
-    write({
+    const request = {
       tokenIn: identity.tokenIn,
       tokenOut: identity.tokenOut,
       amountIn: identity.amountIn,
       minAmountOut: approved.minAmountOut,
       deadline: BigInt(Math.floor(Date.now() / 1000) + 300),
-    });
+    };
+    setHomeError(null);
+    try {
+      const home = await resolveHome();
+      if (!home || home.registryNumber === 0) { write(request); return; }
+      if (!wallet || !address) throw new Error('Connect your wallet to trade.');
+      setHomePending(true);
+      setHomeReceipt(undefined);
+      await ensureHomeChain(wallet, home);
+      const client = homeChainClient(home);
+      const hash = await wallet.writeContract({
+        account: address, chain: client.chain, address: ROUTER_ADDRESS,
+        abi: homeSwapAbi, functionName: 'swapTokenForToken',
+        args: [request.tokenIn, request.tokenOut, request.amountIn, request.minAmountOut, request.deadline],
+      });
+      setHomeTxHash(hash);
+      const receipt = await client.waitForTransactionReceipt({ hash });
+      if (receipt.status !== 'success') throw new Error('Swap was not confirmed.');
+      setHomeReceipt(receipt);
+    } catch (error) { setHomeError(homeChainMessage(error)); }
+    finally { setHomePending(false); }
   };
 
   const requestSwap = () => {
     const approved = latest.current.approval;
     if (!approved || latest.current.isPending) return;
     if (approved.quote.combinedPriceImpactBps > 500) setReview(approved);
-    else executeSwap(approved);
+    else void executeSwap(approved);
   };
   const confirmSwap = () => {
     setReview(null);
-    if (review) executeSwap(review);
+    if (review) void executeSwap(review);
   };
 
   return {
@@ -442,7 +507,8 @@ export function useSwapQuoteExecution({ tokenIn, tokenOut, amountIn, enabled, sl
     quoteLoading: enabled && !quote && (quoteFetching || amountIn !== debouncedAmountIn),
     review: review === approval ? review : null,
     cancelReview: () => setReview(null),
-    requestSwap, confirmSwap, isPending, txHash,
+    requestSwap, confirmSwap, approveHome, homeTxHash, homeReceipt, homeApprovalReceipt, homeError,
+    isPending: isPending || homePending, txHash: homeTxHash ?? txHash,
   };
 }
 
@@ -515,8 +581,9 @@ export default function SwapPanel() {
   const parsedAmountIn = hasAmount ? parseUnits(amountIn, tokenInDec) : 0n;
   const canQuote = !!tokenIn && !!tokenOut && hasAmount && tokenIn.tokenAddress !== tokenOut.tokenAddress;
   const { quote, minAmountOut, quoteLoading, review, cancelReview, requestSwap, confirmSwap,
-    isPending: swapPending, txHash: swapTxHash } = useSwapQuoteExecution({
+    approveHome, homeTxHash, homeReceipt, homeApprovalReceipt, homeError, isPending: swapPending, txHash: swapTxHash } = useSwapQuoteExecution({
     tokenIn: tokenInAddr, tokenOut: tokenOutAddr, amountIn: parsedAmountIn,
+    poolIn: tokenIn?.poolAddress as Address | undefined, poolOut: tokenOut?.poolAddress as Address | undefined,
     enabled: canQuote, slippageBps,
   });
 
@@ -530,7 +597,8 @@ export default function SwapPanel() {
   // ── Approval state ────────────────────────────────────────────
   const needsApproval = hasAmount && allowance !== null && allowance < parsedAmountIn;
   const { write: writeApprove, isPending: approvePending, data: approveTxHash } = useWriteErc20Approve();
-  const { receipt: approveReceipt } = useOptimisticReceipt(approveTxHash);
+  const { receipt: rootApproveReceipt } = useOptimisticReceipt(approveTxHash);
+  const approveReceipt = homeApprovalReceipt ?? rootApproveReceipt;
   const approveConfirming = approvePending || (!!approveTxHash && !approveReceipt);
 
   useEffect(() => {
@@ -539,7 +607,8 @@ export default function SwapPanel() {
 
   // ── Swap execution ────────────────────────────────────────────
   // The swap trades on both legs' pools; their market.trades topics wake the receipt check.
-  const { receipt: swapReceipt } = useOptimisticReceipt(swapTxHash, { poolAddresses: [tokenIn?.poolAddress, tokenOut?.poolAddress] });
+  const { receipt: rootSwapReceipt } = useOptimisticReceipt(homeTxHash ? undefined : swapTxHash, { poolAddresses: [tokenIn?.poolAddress, tokenOut?.poolAddress] });
+  const swapReceipt = homeReceipt ?? rootSwapReceipt;
 
   useEffect(() => {
     if (swapReceipt?.status === 'success') {
@@ -555,9 +624,10 @@ export default function SwapPanel() {
 
   const quoteUnavailable = canQuote && !quote;
 
-  const handleSwap = () => {
+  const handleSwap = async () => {
     if (!canQuote || !isConnected || isPending || insufficientBalance) return;
     if (needsApproval) {
+      if (await approveHome(parsedAmountIn)) return;
       writeApprove({ token: tokenInAddr, spender: ROUTER_ADDRESS, amount: parsedAmountIn });
       return;
     }
@@ -743,9 +813,10 @@ export default function SwapPanel() {
             )}
           </AnimatePresence>
 
+          {homeError ? <p role="alert" className="text-xs text-danger">{homeError}</p> : null}
           {/* Swap / Approve button */}
           <motion.button
-            onClick={handleSwap}
+            onClick={() => void handleSwap()}
             disabled={buttonDisabled}
             whileTap={{ scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}

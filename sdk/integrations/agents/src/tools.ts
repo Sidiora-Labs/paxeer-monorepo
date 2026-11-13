@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
 import {
   AgentMiddlewareError,
+  decodeDaemonSubmission,
   type AgentMiddleware,
   type AgentReceiptResolver,
   type AgentSpendRequest,
@@ -8,7 +8,6 @@ import {
 } from "@sidiora/layerx-agent-middleware";
 import {
   decodeRawEip1559,
-  keccak256,
   PlatformSdkError,
   verifySequencerReceipt as verifyPinnedSequencerReceipt,
   type ProductionClient,
@@ -397,21 +396,25 @@ export class AgentToolExecutor {
       "track",
       { submission_ref: submissionRef },
     );
-    let submission: ReturnType<typeof decodeTrackedSubmission>;
-    try { submission = decodeTrackedSubmission(response, submissionRef); }
-    catch { throw new AgentMiddlewareError("verification-failure"); }
+    let submission: ReturnType<typeof decodeDaemonSubmission>;
+    try { submission = decodeDaemonSubmission(response, submissionRef, submissionRef); }
+    catch (error) {
+      if (error instanceof PlatformSdkError) throw error;
+      throw new AgentMiddlewareError("verification-failure");
+    }
+    if (typeof submission.state !== "string") throw new AgentMiddlewareError("verification-failure");
     const output: Record<string, ToolJson> = {
       submissionRef,
       state: submission.state,
     };
     if (submission.state === "Executed" || submission.state === "Committed") {
-      if (submission.receiptRef === undefined) throw new AgentMiddlewareError("verification-failure");
-      const evidence = await this.#receipts.resolve(submission.receiptRef);
+      if (submission.receipt_ref === undefined) throw new AgentMiddlewareError("verification-failure");
+      const evidence = await this.#receipts.resolve(submission.receipt_ref);
       try {
         const verified = await verifySequencerReceipt(receiptBytes(evidence.signedReceipt), receiptBytes(evidence.rawTransaction), this.#config.receiptKeys);
-        const receiptDigest = toHex(keccak256(receiptBytes(evidence.signedReceipt)));
-        if (toHex(verified.receipt.activityId) !== submission.txHash || evidence.receiptDigest !== `0x${receiptDigest}`
-          || createHash("sha256").update("LXP/v1/receipt\0").update(receiptBytes(evidence.signedReceipt)).digest("hex") !== submission.receiptRef) {
+        const receiptDigest = toHex(verified.receiptDigest);
+        if (toHex(verified.receipt.activityId) !== submission.tx_hash || evidence.receiptDigest !== `0x${receiptDigest}`
+          || receiptDigest !== submission.receipt_ref) {
           throw new AgentMiddlewareError("verification-failure");
         }
         output["receiptDigest"] = receiptDigest;
@@ -436,7 +439,7 @@ export class AgentToolExecutor {
       const network = `eip155:${decodeRawEip1559(receiptBytes(evidence.rawTransaction)).chainId}`;
       const signedReceipt = receiptBytes(evidence.signedReceipt);
       const verified = await verifySequencerReceipt(signedReceipt, receiptBytes(evidence.rawTransaction), this.#config.receiptKeys);
-      if (evidence.receiptDigest !== `0x${toHex(keccak256(signedReceipt))}`) {
+      if (evidence.receiptDigest !== `0x${toHex(verified.receiptDigest)}`) {
         throw new AgentMiddlewareError("verification-failure");
       }
       verification = await verifyPaymentReceipt({
@@ -451,61 +454,13 @@ export class AgentToolExecutor {
     return {
       receiptRef,
       level: verification.level,
-      receiptDigest: toHex(keccak256(receiptBytes(evidence.signedReceipt))),
+      receiptDigest: toHex(verification.receiptDigest),
       resultCode: verification.receipt.resultCode,
       amount,
       asset,
       recipient,
     };
   }
-}
-
-function decodeTrackedSubmission(value: unknown, expectedReference: string): {
-  readonly txHash: string;
-  readonly state: string;
-  readonly rung: "submitted" | "receipted" | "committed";
-  readonly receiptRef?: string;
-} {
-  function fail(): never { throw new AgentMiddlewareError("verification-failure"); }
-  if (value === null || typeof value !== "object" || Array.isArray(value)) fail();
-  const submission = value as Readonly<Record<string, unknown>>;
-  const states = ["Prepared", "Signed", "Queued", "Submitted", "Unknown", "Executed", "Failed", "Expired", "Committed"];
-  const state = submission["state"], rung = submission["rung"];
-  if (typeof state !== "string" || !states.includes(state)
-    || rung !== "submitted" && rung !== "receipted" && rung !== "committed") fail();
-  const executed = state === "Executed" || state === "Committed";
-  const fields = ["tx_hash", "submission_ref", "state", "rung", "evidence", "transitions",
-    ...(executed ? ["receipt_ref"] : state === "Failed" ? ["result_code"] : [])];
-  if (fields.some((field) => !Object.hasOwn(submission, field))
-    || Object.keys(submission).some((field) => !fields.includes(field))) fail();
-  const txHash = submission["tx_hash"];
-  if (typeof txHash !== "string" || !/^[0-9a-f]{64}$/u.test(txHash) || txHash === "00".repeat(32)
-    || txHash !== expectedReference || submission["submission_ref"] !== txHash) fail();
-  if (executed ? rung === "submitted" || state === "Committed" && rung !== "committed"
-    : state !== "Failed" && rung !== "submitted") fail();
-  const evidence = submission["evidence"], transitions = submission["transitions"];
-  if (!Array.isArray(evidence) || evidence.length > 64 || !Array.isArray(transitions) || transitions.length > 64) fail();
-  for (const value of evidence) {
-    const item = asObject(value);
-    if (Object.keys(item).length !== 2 || !Object.hasOwn(item, "kind") || !Object.hasOwn(item, "digest")) fail();
-    text(item, "kind", 255); hex32(item, "digest");
-  }
-  for (const value of transitions) {
-    const item = asObject(value);
-    if (Object.keys(item).length !== 4 || ["from", "to", "cause", "at"].some((field) => !Object.hasOwn(item, field))) fail();
-    for (const field of ["from", "to"]) {
-      const transition = text(item, field, 32);
-      if (!states.includes(transition) || transition === "Executed" || transition === "Failed") fail();
-    }
-    text(item, "cause", 255);
-    if (BigInt(canonicalInteger(item, "at")) > 0xffff_ffff_ffff_ffffn) fail();
-  }
-  if (state === "Failed") {
-    const code = submission["result_code"];
-    if (typeof code !== "string" || !/^(0|-?[1-9][0-9]*)$/u.test(code) || code.length > 11
-      || BigInt(code) < -2147483648n || BigInt(code) > 2147483647n) fail();
-  }
-  return { txHash, state, rung, ...(executed ? { receiptRef: hex32(submission, "receipt_ref") } : {}) };
 }
 
 async function verifySequencerReceipt(

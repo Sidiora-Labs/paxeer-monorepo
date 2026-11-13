@@ -354,6 +354,9 @@ mod tests {
         let protocol = receipt
             .protocol()
             .unwrap_or_else(|| panic!("protocol receipt"));
+        let (located_batch, located_digest) = must(locator(&receipt_bytes));
+        assert_eq!(located_batch, protocol.batch_id());
+        assert_ne!(located_digest, [0; 32]);
         let header = must(decode_batch_header(&must(canonical_hex(
             field("header_hex"),
             4096,
@@ -414,7 +417,15 @@ mod tests {
         )
         .unwrap_or_else(|| panic!("key encoding"));
         let document = &fixture["authority"]["batch_evidence"];
-        let evidence: BatchEvidence = must(serde_json::from_value(document.clone()));
+        let authority: AuthorityDocument = must(serde_json::from_value(serde_json::json!({
+            "sequencer_public_key": fixture["authority"]["sequencer_public_key"],
+            "batch_evidence": document,
+        })));
+        assert_eq!(
+            authority.sequencer_public_key,
+            fixture["sequencer_public_key"]
+        );
+        let evidence = authority.batch_evidence;
         let header = must(decode_batch_header(&must(canonical_hex(
             &evidence.header_hex,
             4096,

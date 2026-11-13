@@ -78,7 +78,7 @@ func (q *Queries) GetCursor(ctx context.Context, chainID int32) (IndexerCursor, 
 
 const getPoolByAddress = `-- name: GetPoolByAddress :one
 SELECT pool_address, token_address, creator, optical, pool_id,
-       nft_id, created_at, created_block, tx_hash
+       nft_id, created_at, created_block, tx_hash, home_chain
 FROM indexer.pools
 WHERE lower(pool_address) = lower($1::varchar)
 LIMIT 1
@@ -97,13 +97,14 @@ func (q *Queries) GetPoolByAddress(ctx context.Context, poolAddress string) (Ind
 		&i.CreatedAt,
 		&i.CreatedBlock,
 		&i.TxHash,
+		&i.HomeChain,
 	)
 	return i, err
 }
 
 const getPoolByNftID = `-- name: GetPoolByNftID :one
 SELECT pool_address, token_address, creator, optical, pool_id,
-       nft_id, created_at, created_block, tx_hash
+       nft_id, created_at, created_block, tx_hash, home_chain
 FROM indexer.pools
 WHERE nft_id = $1::bigint
 LIMIT 1
@@ -122,13 +123,14 @@ func (q *Queries) GetPoolByNftID(ctx context.Context, nftID int64) (IndexerPool,
 		&i.CreatedAt,
 		&i.CreatedBlock,
 		&i.TxHash,
+		&i.HomeChain,
 	)
 	return i, err
 }
 
 const getPoolByPoolID = `-- name: GetPoolByPoolID :one
 SELECT pool_address, token_address, creator, optical, pool_id,
-       nft_id, created_at, created_block, tx_hash
+       nft_id, created_at, created_block, tx_hash, home_chain
 FROM indexer.pools
 WHERE pool_id = $1
 LIMIT 1
@@ -147,6 +149,7 @@ func (q *Queries) GetPoolByPoolID(ctx context.Context, poolID string) (IndexerPo
 		&i.CreatedAt,
 		&i.CreatedBlock,
 		&i.TxHash,
+		&i.HomeChain,
 	)
 	return i, err
 }

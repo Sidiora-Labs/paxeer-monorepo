@@ -6,6 +6,159 @@
     "description": "Re-derived from RegisterProductionReads and RegisterAccountingV2WithAdmission at 38edc5ae15e259a556374378dfbb0bf3d3d4674a. No v1 operations are registered."
   },
   "paths": {
+    "/v2/chains": {
+      "get": {
+        "operationId": "IF_CHAINS",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainsResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/chains/{chain}": {
+      "get": {
+        "operationId": "IF_CHAIN_DETAIL",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "chain",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainDetailResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/chains/{chain}/revenue": {
+      "get": {
+        "operationId": "IF_CHAIN_REVENUE",
+        "x-authorization": "public",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "chain",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "holder",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChainRevenueResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Typed API error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/holder-rewards/pools": {
       "get": {
         "operationId": "IF_HOLDER_REWARDS_POOLS",
@@ -2218,10 +2371,250 @@
         ],
         "type": "object"
       },
+      "Chain": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "chain": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "chainId": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "pool": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "token": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "nftId": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "creator": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "blockNumber": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "retired"
+            ]
+          }
+        },
+        "required": [
+          "chain",
+          "chainId",
+          "pool",
+          "token",
+          "nftId",
+          "creator",
+          "blockNumber",
+          "status"
+        ]
+      },
+      "ChainRevenueEpoch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "epoch": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "epochAmount": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "snapshotBlock": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "eligibleSupply": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          }
+        },
+        "required": [
+          "epoch",
+          "epochAmount",
+          "snapshotBlock",
+          "eligibleSupply"
+        ]
+      },
+      "ChainRevenueClaim": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "epoch": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "holder": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{40}$"
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "blockNumber": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          }
+        },
+        "required": [
+          "epoch",
+          "holder",
+          "amount",
+          "blockNumber"
+        ]
+      },
+      "ChainsResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Chain"
+                }
+              }
+            },
+            "required": [
+              "items"
+            ]
+          },
+          "quality": {
+            "const": "complete"
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "quality",
+          "nextCursor"
+        ]
+      },
+      "ChainDetailResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "chain": {
+                "$ref": "#/components/schemas/Chain"
+              }
+            },
+            "required": [
+              "chain"
+            ]
+          },
+          "quality": {
+            "const": "complete"
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "quality",
+          "nextCursor"
+        ]
+      },
+      "ChainRevenueResponse": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "chain": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "epochs": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ChainRevenueEpoch"
+                }
+              },
+              "holder": {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{40}$"
+              },
+              "claims": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ChainRevenueClaim"
+                }
+              }
+            },
+            "required": [
+              "chain",
+              "epochs"
+            ]
+          },
+          "quality": {
+            "const": "complete"
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "requestId",
+          "data",
+          "quality",
+          "nextCursor"
+        ]
+      },
       "Pool": {
         "additionalProperties": true,
         "description": "effectivePricingUsdlReserveRaw=virtualUsdlReserveRaw+realUsdlBalanceRaw. Virtual reserve participates only in pricing and is not withdrawable funds. Current quote asset is verified deployed USDL6. Creation protocol fee1000000rawUSDL excludes PAX gas.",
         "properties": {
+          "homeChain": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
           "chainId": {
             "const": "125",
             "type": "string"
@@ -2276,6 +2669,7 @@
         },
         "required": [
           "chainId",
+          "homeChain",
           "poolAddress",
           "tokenAddress",
           "creator",

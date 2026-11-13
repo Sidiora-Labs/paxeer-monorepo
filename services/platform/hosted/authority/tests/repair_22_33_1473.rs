@@ -1,4 +1,5 @@
 include!("../src/main.rs");
+use layerx_platform_authority::assertion::Must;
 
 use chain_readiness_tests::{base64, must, ReceiptHarness};
 use serde_json::{json as document, Value};
@@ -12,12 +13,12 @@ fn native_case() -> Value {
     let fixture: Value = must(serde_json::from_str(include_str!(
         "fixtures/real-program-deploy-receipt.json"
     )));
-    let bytes = must(hex::decode(fixture["receipt_hex"].as_str().unwrap()));
+    let bytes = must(hex::decode(fixture["receipt_hex"].as_str().must()));
     let receipt = must(layerx_wire::receipt::decode(&bytes));
-    let protocol = receipt.protocol().unwrap();
+    let protocol = receipt.protocol().must();
     assert!((1..=11).contains(&protocol.module_id()));
     let public = must(hex::decode32(
-        fixture["sequencer_public_key_hex"].as_str().unwrap(),
+        fixture["sequencer_public_key_hex"].as_str().must(),
     ));
     let key_id: [u8; 32] = Sha256::digest(public).into();
     // Preserve the real producer's receipt bytes and signature; adapt only the
@@ -95,10 +96,10 @@ fn tls_get(config: Arc<Config>, path: &str, token: Option<&str>) -> (u16, Value)
     ));
     let mut answer = Vec::new();
     must(stream.read_to_end(&mut answer));
-    worker.join().unwrap();
-    let end = answer.windows(4).position(|b| b == b"\r\n\r\n").unwrap();
-    let header = std::str::from_utf8(&answer[..end]).unwrap();
-    let status = must(header.split_whitespace().nth(1).unwrap().parse());
+    worker.join().must();
+    let end = answer.windows(4).position(|b| b == b"\r\n\r\n").must();
+    let header = std::str::from_utf8(&answer[..end]).must();
+    let status = must(header.split_whitespace().nth(1).must().parse());
     (status, must(serde_json::from_slice(&answer[end + 4..])))
 }
 
@@ -175,7 +176,7 @@ fn documented_receipt_transport_and_tls_refusals() {
     let mut harness = ReceiptHarness::start(std::slice::from_ref(&case), &case);
     let activity = chain_readiness_tests::hex_bytes(&case["receiptJson"]["txHash"])
         .try_into()
-        .unwrap();
+        .must();
     let expected = chain_readiness_tests::hex_bytes(&case["signedReceipt"]);
     match lookup_receipt(&harness.config, activity, false) {
         ReceiptSource::Found(bytes) => assert_eq!(bytes, expected),
@@ -255,7 +256,7 @@ fn documented_protected_key_list_and_restart_rules() {
     assert_eq!(must(trust::current(&harness.config)), vec![key]);
     let activity = chain_readiness_tests::hex_bytes(&case["receiptJson"]["txHash"])
         .try_into()
-        .unwrap();
+        .must();
     assert!(matches!(
         harness.config.chain_receipts.lookup(activity),
         ReceiptSource::Found(_)

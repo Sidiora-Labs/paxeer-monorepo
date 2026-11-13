@@ -120,7 +120,9 @@ func hsdDevServer(t *testing.T, withDiscovery bool) (*httptest.Server, *pgxpool.
 		t.Fatal(err)
 	}
 	r := chi.NewRouter()
-	rest.RegisterDevelopmentHistorySearchDiscovery(r, store.New(pool, internaltest.NewRedis(t)), admission)
+	if err := rest.RegisterDevelopmentHistorySearchDiscovery(ctx, r, rest.DevelopmentHistoryOptions{Store: store.New(pool, internaltest.NewRedis(t)), Admission: admission}); err != nil {
+		t.Fatal(err)
+	}
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 	return srv, pool
@@ -482,7 +484,9 @@ func TestDevelopmentHistoryDiscoveryRoutesAreContractOperations(t *testing.T) {
 		operations[strings.ToUpper(operation.Method)+" "+operation.Path] = struct{}{}
 	}
 	router := chi.NewRouter()
-	rest.RegisterDevelopmentHistorySearchDiscovery(router, store.New(nil, nil), nil)
+	if err := rest.RegisterDevelopmentHistorySearchDiscovery(context.Background(), router, rest.DevelopmentHistoryOptions{Store: store.New(nil, nil)}); err != nil {
+		t.Fatal(err)
+	}
 	count := 0
 	err := chi.Walk(router, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		if _, ok := operations[method+" "+path]; !ok {

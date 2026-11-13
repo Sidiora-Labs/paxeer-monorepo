@@ -1,0 +1,33 @@
+[member]
+name = "layerx-human-test-support"
+scope = "Library and integration test sources"
+
+[lint.cloned_ref_to_slice_refs]
+locations = 3
+
+[lint.dead_code]
+locations = 2
+
+[lint.doc_markdown]
+locations = 17
+
+[lint.expect_used]
+locations = 147
+
+[lint.format_collect]
+locations = 1
+
+[lint.missing_panics_doc]
+locations = 5
+
+[lint.needless_borrow]
+locations = 11
+
+[lint.semicolon_if_nothing_returned]
+locations = 4
+
+[lint.similar_names]
+locations = 1
+
+[lint.too_many_lines]
+locations = 4

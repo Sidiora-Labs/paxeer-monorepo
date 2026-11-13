@@ -1,0 +1,1008 @@
+[meta]
+task = "22.39.381"
+acceptance = "22998.1"
+baseline_revision = "533ee54968469214acfdbae61f61df17b31c9efc"
+baseline_lint_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings"
+baseline_lint_exit = 101
+baseline_lint_log = "/tmp/lint-22-39-381-baseline.log"
+baseline_owned_messages = 138
+baseline_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+baseline_test_exit = 101
+baseline_test_log = "/tmp/test-22-39-381-baseline.log"
+baseline_passed = 334
+baseline_failed = 3
+baseline_ignored = 0
+baseline_failures = "agent_rpc_dispatch::middleware_submission_contract_tests::receipt_reference_reaches_recovery_consumer; outbound_tls::private_ca_checks_the_actual_server_identity; ops::program::simulation_tls_checks_the_actual_server_identity"
+qualification_evidence = "The final hf-build and hf-done ledger rows record exact candidate revision, command, exit and private log. No qualification is claimed before those gates pass on the same revision."
+
+[repair.001]
+file = "read/history.rs"
+line = 63
+column = 8
+lint = "dead_code"
+repair = "Remove the unused private helper after searching the library and host targets for callers."
+
+[repair.002]
+file = "read/history.rs"
+line = 334
+column = 4
+lint = "dead_code"
+repair = "Remove the unused private helper after searching the library and host targets for callers."
+
+[repair.003]
+file = "read/history.rs"
+line = 346
+column = 4
+lint = "dead_code"
+repair = "Remove the unused private helper after searching the library and host targets for callers."
+
+[repair.004]
+file = "read/program_balances.rs"
+line = 83
+column = 15
+lint = "dead_code"
+repair = "Remove the unused private helper after searching the library and host targets for callers."
+
+[repair.005]
+file = "read/committed.rs"
+line = 1092
+column = 24
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.006]
+file = "read/committed.rs"
+line = 1093
+column = 23
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.007]
+file = "read/committed.rs"
+line = 1096
+column = 39
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.008]
+file = "read/committed.rs"
+line = 1097
+column = 17
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.009]
+file = "read/committed.rs"
+line = 1103
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.010]
+file = "read/committed.rs"
+line = 1106
+column = 39
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.011]
+file = "read/committed.rs"
+line = 1107
+column = 38
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.012]
+file = "read/committed.rs"
+line = 1112
+column = 46
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.013]
+file = "read/committed.rs"
+line = 1119
+column = 17
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.014]
+file = "read/committed.rs"
+line = 1122
+column = 38
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.015]
+file = "read/committed.rs"
+line = 1125
+column = 21
+lint = "match_same_arms"
+repair = "Combine identical RPC match arms."
+
+[repair.016]
+file = "read/committed.rs"
+line = 1127
+column = 25
+lint = "semicolon_if_nothing_returned"
+repair = "End the match arm with a semicolon."
+
+[repair.017]
+file = "read/committed.rs"
+line = 1153
+column = 17
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.018]
+file = "read/committed.rs"
+line = 1157
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.019]
+file = "read/committed.rs"
+line = 1212
+column = 52
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.020]
+file = "read/committed.rs"
+line = 1273
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.021]
+file = "read/committed.rs"
+line = 1274
+column = 20
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.022]
+file = "read/committed.rs"
+line = 1281
+column = 22
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.023]
+file = "read/committed.rs"
+line = 1284
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.024]
+file = "read/committed.rs"
+line = 1293
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.025]
+file = "read/committed.rs"
+line = 1294
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.026]
+file = "read/committed.rs"
+line = 1299
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.027]
+file = "read/committed.rs"
+line = 1317
+column = 25
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.028]
+file = "read/committed.rs"
+line = 1322
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.029]
+file = "read/committed.rs"
+line = 1333
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.030]
+file = "read/committed.rs"
+line = 1334
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.031]
+file = "read/committed.rs"
+line = 1355
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.032]
+file = "read/committed.rs"
+line = 1377
+column = 55
+lint = "cast_possible_truncation"
+repair = "Use a fallible conversion or the source type directly."
+
+[repair.033]
+file = "read/committed.rs"
+line = 1389
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.034]
+file = "read/committed.rs"
+line = 1395
+column = 20
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.035]
+file = "read/committed.rs"
+line = 1396
+column = 19
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.036]
+file = "read/committed.rs"
+line = 1399
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.037]
+file = "read/committed.rs"
+line = 1401
+column = 24
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.038]
+file = "read/committed.rs"
+line = 1402
+column = 22
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.039]
+file = "read/committed.rs"
+line = 1408
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.040]
+file = "read/committed.rs"
+line = 1422
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.041]
+file = "read/committed.rs"
+line = 1423
+column = 20
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.042]
+file = "read/committed.rs"
+line = 1430
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.043]
+file = "read/committed.rs"
+line = 1434
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.044]
+file = "read/committed.rs"
+line = 1435
+column = 22
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.045]
+file = "read/committed.rs"
+line = 1440
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.046]
+file = "read/committed.rs"
+line = 1446
+column = 20
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.047]
+file = "read/committed.rs"
+line = 1449
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.048]
+file = "read/committed.rs"
+line = 1460
+column = 23
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.049]
+file = "read/committed.rs"
+line = 1469
+column = 27
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.050]
+file = "read/committed.rs"
+line = 1485
+column = 17
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.051]
+file = "read/committed.rs"
+line = 1495
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.052]
+file = "read/committed.rs"
+line = 1506
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.053]
+file = "read/committed.rs"
+line = 1510
+column = 17
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.054]
+file = "read/committed.rs"
+line = 1523
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.055]
+file = "read/committed.rs"
+line = 1530
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.056]
+file = "read/committed.rs"
+line = 1535
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.057]
+file = "read/committed.rs"
+line = 1550
+column = 24
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.058]
+file = "read/committed.rs"
+line = 1558
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.059]
+file = "read/committed.rs"
+line = 1591
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.060]
+file = "read/committed.rs"
+line = 1592
+column = 23
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.061]
+file = "read/committed.rs"
+line = 1602
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.062]
+file = "read/committed.rs"
+line = 1606
+column = 5
+lint = "too_many_lines"
+repair = "Extract a fixture setup helper while retaining all assertions."
+
+[repair.063]
+file = "read/committed.rs"
+line = 1611
+column = 19
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.064]
+file = "read/committed.rs"
+line = 1612
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.065]
+file = "read/committed.rs"
+line = 1614
+column = 23
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.066]
+file = "read/committed.rs"
+line = 1615
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.067]
+file = "read/committed.rs"
+line = 1620
+column = 26
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.068]
+file = "read/committed.rs"
+line = 1651
+column = 25
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.069]
+file = "read/committed.rs"
+line = 1704
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.070]
+file = "read/committed.rs"
+line = 1705
+column = 24
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.071]
+file = "read/committed.rs"
+line = 1708
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.072]
+file = "read/committed.rs"
+line = 1712
+column = 23
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.073]
+file = "read/committed.rs"
+line = 1723
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.074]
+file = "read/committed.rs"
+line = 1729
+column = 29
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.075]
+file = "read/committed.rs"
+line = 1736
+column = 25
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.076]
+file = "read/committed.rs"
+line = 1736
+column = 37
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.077]
+file = "read/committed.rs"
+line = 1738
+column = 38
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.078]
+file = "read/committed.rs"
+line = 1748
+column = 42
+lint = "cast_possible_truncation"
+repair = "Use a fallible conversion or the source type directly."
+
+[repair.079]
+file = "read/committed.rs"
+line = 1759
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.080]
+file = "read/committed.rs"
+line = 1760
+column = 23
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.081]
+file = "read/committed.rs"
+line = 1762
+column = 17
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.082]
+file = "read/committed.rs"
+line = 1763
+column = 17
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.083]
+file = "read/committed.rs"
+line = 1774
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.084]
+file = "read/committed.rs"
+line = 1778
+column = 5
+lint = "too_many_lines"
+repair = "Extract a fixture setup helper while retaining all assertions."
+
+[repair.085]
+file = "read/committed.rs"
+line = 1784
+column = 23
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.086]
+file = "read/committed.rs"
+line = 1785
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.087]
+file = "read/committed.rs"
+line = 1884
+column = 25
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.088]
+file = "read/committed.rs"
+line = 1898
+column = 30
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.089]
+file = "read/committed.rs"
+line = 1902
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.090]
+file = "read/committed.rs"
+line = 1906
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.091]
+file = "read/committed.rs"
+line = 1910
+column = 31
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.092]
+file = "read/committed.rs"
+line = 1917
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.093]
+file = "read/program_node.rs"
+line = 938
+column = 1
+lint = "items_after_test_module"
+repair = "Place test modules after production items."
+
+[repair.094]
+file = "read/program_node_tests.rs"
+line = 65
+column = 20
+lint = "unwrap_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.095]
+file = "read/program_node_tests.rs"
+line = 105
+column = 9
+lint = "unwrap_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.096]
+file = "read/program_node_tests.rs"
+line = 113
+column = 9
+lint = "unwrap_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.097]
+file = "read/program_node.rs"
+line = 959
+column = 38
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.098]
+file = "read/program_node.rs"
+line = 964
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.099]
+file = "read/program_node.rs"
+line = 973
+column = 23
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.100]
+file = "read/program_node.rs"
+line = 988
+column = 5
+lint = "too_many_lines"
+repair = "Extract a fixture setup helper while retaining all assertions."
+
+[repair.101]
+file = "read/program_node.rs"
+line = 999
+column = 36
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.102]
+file = "read/program_node.rs"
+line = 1000
+column = 23
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.103]
+file = "read/program_node.rs"
+line = 1005
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.104]
+file = "read/program_node.rs"
+line = 1019
+column = 28
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.105]
+file = "read/program_node.rs"
+line = 1026
+column = 40
+lint = "cast_possible_wrap"
+repair = "Use a fallible conversion or the source type directly."
+
+[repair.106]
+file = "read/program_node.rs"
+line = 1040
+column = 42
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.107]
+file = "read/program_node.rs"
+line = 1041
+column = 14
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.108]
+file = "read/program_node.rs"
+line = 1047
+column = 36
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.109]
+file = "read/program_node.rs"
+line = 1050
+column = 14
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.110]
+file = "read/program_node.rs"
+line = 1051
+column = 18
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.111]
+file = "read/program_node.rs"
+line = 1065
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.112]
+file = "read/program_node.rs"
+line = 1069
+column = 27
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.113]
+file = "read/program_node.rs"
+line = 1070
+column = 22
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.114]
+file = "read/program_node.rs"
+line = 1087
+column = 32
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.115]
+file = "read/program_node.rs"
+line = 1102
+column = 20
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.116]
+file = "read/program_node.rs"
+line = 1107
+column = 20
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.117]
+file = "read/program_node.rs"
+line = 1131
+column = 9
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.118]
+file = "read/program_node.rs"
+line = 1152
+column = 32
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.119]
+file = "read/program_node.rs"
+line = 1157
+column = 21
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.120]
+file = "read/program_node.rs"
+line = 1169
+column = 27
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.121]
+file = "read/program_node.rs"
+line = 1187
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.122]
+file = "read/program_node.rs"
+line = 1189
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.123]
+file = "read/program_node.rs"
+line = 1199
+column = 24
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.124]
+file = "read/program_node.rs"
+line = 1203
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.125]
+file = "read/program_node.rs"
+line = 1207
+column = 17
+lint = "unwrap_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.126]
+file = "read/program_node.rs"
+line = 1233
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.127]
+file = "read/program_node.rs"
+line = 1253
+column = 24
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.128]
+file = "read/program_node.rs"
+line = 1257
+column = 18
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.129]
+file = "read/program_node.rs"
+line = 1270
+column = 34
+lint = "unwrap_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.130]
+file = "read/program_node.rs"
+line = 1292
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.131]
+file = "read/program_node.rs"
+line = 1297
+column = 32
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.132]
+file = "read/program_node.rs"
+line = 1307
+column = 26
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.133]
+file = "read/program_node.rs"
+line = 1307
+column = 51
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.134]
+file = "read/program_node.rs"
+line = 1310
+column = 13
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.135]
+file = "read/program_node.rs"
+line = 1314
+column = 22
+lint = "expect_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.136]
+file = "read/program_node.rs"
+line = 1323
+column = 13
+lint = "cast_sign_loss"
+repair = "Use a fallible conversion or the source type directly."
+
+[repair.137]
+file = "read/program_node.rs"
+line = 1328
+column = 13
+lint = "unwrap_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[repair.138]
+file = "read/program_node.rs"
+line = 1335
+column = 13
+lint = "unwrap_used"
+repair = "Use Result propagation in cases or a matching assertion for a fixture whose shared signature cannot change."
+
+[result]
+owned_messages_after_repair = 0
+final_lint_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings"
+final_lint_exit = 101
+final_lint_log = "/tmp/lint-22-39-381-repair3.log"
+final_lint_other_files = "690 diagnostics remain in files owned by sibling tasks; no Rust error-code diagnostic was reported."
+final_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+final_test_exit = 101
+final_test_log = "/tmp/test-22-39-381-repair.log"
+final_passed = 334
+final_failed = 3
+final_ignored = 0
+final_failures = "The same three unrelated cases failed before and after this task: agent_rpc_dispatch::middleware_submission_contract_tests::receipt_reference_reaches_recovery_consumer; outbound_tls::private_ca_checks_the_actual_server_identity; ops::program::simulation_tls_checks_the_actual_server_identity."
+
+[additional_repair.1]
+file = "read/program_node.rs"
+line = 1415
+lint = "too_many_lines"
+repair = "The Result-returning rotation case grew past the limit after removing expect calls. Extracted both refusal assertions into assert_rotation_refusals without changing their order or conditions."
+
+[implementation_error.1]
+file = "read/committed.rs"
+line = 1673
+observed = "The first uncounted lint pass reported E0596 after the grant call setup was extracted because the already mutable answer reference was borrowed again."
+repair = "Passed the answer reference directly to stable_call, then the final uncounted lint pass reported zero owned messages."

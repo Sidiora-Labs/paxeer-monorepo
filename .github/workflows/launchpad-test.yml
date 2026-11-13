@@ -69,9 +69,45 @@ jobs:
         run: npm install --global "$(node -p 'require("./package.json").packageManager')"
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
+      - name: Install pinned Foundry for web fixtures
+        if: matrix.package == 'apps/launchpad/web'
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.8.1
+      - name: Set up Python for web fixture producers
+        if: matrix.package == 'apps/launchpad/web'
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
+        with:
+          python-version: '3.12'
+      - name: Set up Go for launchpad services
+        if: matrix.package == 'apps/launchpad/web'
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: sdk/launchpad/shared/go.mod
+          cache: false
+      - name: Install the joined event broker
+        if: matrix.package == 'apps/launchpad/web'
+        run: |
+          go install github.com/nats-io/nats-server/v2@v2.11.6
+          echo "NATS_SERVER_BINARY=$(go env GOPATH)/bin/nats-server" >> "$GITHUB_ENV"
+      - name: Install local database and TLS tools
+        if: matrix.package == 'apps/launchpad/web'
+        run: sudo apt-get update && sudo apt-get install --yes postgresql postgresql-client redis-server openssl
+      - name: Allow the owned loopback issuer to bind standard HTTPS
+        if: matrix.package == 'apps/launchpad/web'
+        run: sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0
+      - name: Install Chromium for the declared chart browser case
+        if: matrix.package == 'apps/launchpad/web'
+        working-directory: apps/launchpad/web
+        run: pnpm exec playwright install --with-deps chromium
       - name: Build SDK packages
         run: pnpm run build:packages
+      - name: Prepare chain fixtures and run web Vitest
+        if: matrix.package == 'apps/launchpad/web'
+        working-directory: apps/launchpad/web
+        run: python3 scripts/prepare-test-environment.py -- pnpm exec vitest run
       - name: Test package
+        if: matrix.package != 'apps/launchpad/web'
         working-directory: .
         run: pnpm --dir apps/launchpad --filter "./../../${{ matrix.package }}" --fail-if-no-match run test
 

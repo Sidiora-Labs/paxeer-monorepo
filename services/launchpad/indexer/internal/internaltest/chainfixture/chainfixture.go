@@ -23,6 +23,8 @@ import (
 	"sort"
 	"sync"
 	"testing"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 )
 
 // RecordEnv names the upstream RPC used to (re)record the fixture.
@@ -71,7 +73,10 @@ type Fixture struct {
 }
 
 func fixturePath() string {
-	_, file, _, _ := runtime.Caller(0)
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("chain fixture: caller path unavailable")
+	}
 	return filepath.Join(filepath.Dir(file), "testdata", fixtureName)
 }
 
@@ -86,7 +91,7 @@ func New(t testing.TB) *Fixture {
 		}
 		return f
 	}
-	defer raw.Close()
+	defer checked.Close(raw)
 	reader, err := gzip.NewReader(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +154,7 @@ func (f *Fixture) save() error {
 				}
 			}
 		}
-		current.Close()
+		checked.Close(current)
 	}
 	keys := make([]string, 0, len(f.entries))
 	for k := range f.entries {
@@ -170,11 +175,11 @@ func (f *Fixture) save() error {
 	if err := zw.Close(); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(f.path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(f.path), 0o750); err != nil {
 		return err
 	}
 	f.dirty = false
-	return os.WriteFile(f.path, buf.Bytes(), 0o644)
+	return os.WriteFile(f.path, buf.Bytes(), 0o600)
 }
 
 func (f *Fixture) answer(call rpcCall) (json.RawMessage, json.RawMessage, error) {
@@ -194,7 +199,7 @@ func (f *Fixture) answer(call rpcCall) (json.RawMessage, json.RawMessage, error)
 		if err != nil {
 			return nil, nil, err
 		}
-		defer response.Body.Close()
+		defer func() { checked.Report(response.Body.Close()) }()
 		var envelope struct {
 			Result json.RawMessage `json:"result"`
 			Error  json.RawMessage `json:"error"`

@@ -347,13 +347,7 @@ impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
         now: u64,
     ) -> Result<AdapterOutcome, Traced<Ap2Error>> {
         let fail = |error| trace.wrap(error);
-        if executed.order_id.is_empty()
-            || executed.order_id.len() > TEXT_LIMIT
-            || executed
-                .order_id
-                .bytes()
-                .any(|byte| byte.is_ascii_control())
-        {
+        if !valid_order_id(&executed.order_id) {
             return Err(fail(Ap2Error::EvidenceMismatch));
         }
         let evidence = &executed.evidence;
@@ -448,6 +442,12 @@ impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
             }),
         }
     }
+}
+
+fn valid_order_id(order_id: &str) -> bool {
+    !order_id.is_empty()
+        && order_id.len() <= TEXT_LIMIT
+        && !order_id.bytes().any(|byte| byte.is_ascii_control())
 }
 
 /// Binds one verified mandate pair to deployment asset policy, refusing any

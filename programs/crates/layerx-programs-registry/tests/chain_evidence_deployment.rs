@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[path = "support/repair_22_33_221.rs"]
 mod repair;
 
@@ -17,10 +18,15 @@ fn chain_deployment_binds_code_hash_at_head() {
             let head = fixture
                 .verifier
                 .verify_head(&fixture.header, &fixture.commit)
-                .unwrap();
-            let evidence = proof.verify(&head).unwrap();
+                .unwrap_or_else(|error| panic!("{error:?}"));
+            let evidence = proof
+                .verify(&head)
+                .unwrap_or_else(|error| panic!("{error:?}"));
             assert_eq!(evidence.program(), proof.program_state.program);
-            assert_eq!(evidence.version(), version as u32);
+            assert_eq!(
+                evidence.version(),
+                u32::try_from(version).unwrap_or_else(|error| panic!("{error:?}"))
+            );
             assert_eq!(evidence.upgrade_policy(), repair::policy());
             assert_eq!(evidence.abi_version(), 1);
             assert_eq!(evidence.code_hash(), repair::hash(&proof.code));
@@ -30,8 +36,8 @@ fn chain_deployment_binds_code_hash_at_head() {
             assert_eq!(
                 evidence.freshness(),
                 ReadFreshness {
-                    observed_sequence: head.height() as u64,
-                    observed_at: head.time_ms() as u64,
+                    observed_sequence: u64::from_le_bytes((head.height()).to_le_bytes()),
+                    observed_at: u64::from_le_bytes((head.time_ms()).to_le_bytes()),
                 }
             );
             assert_eq!(evidence.interface_present(), published.is_some());
@@ -40,7 +46,7 @@ fn chain_deployment_binds_code_hash_at_head() {
             let other_head = other
                 .verifier
                 .verify_head(&other.header, &other.commit)
-                .unwrap();
+                .unwrap_or_else(|error| panic!("{error:?}"));
             assert_ne!(other_head.app_hash(), head.app_hash());
             assert_eq!(
                 proof.verify(&other_head),
@@ -60,7 +66,7 @@ fn chain_deployment_refuses_substituted_code() {
     let head = fixture
         .verifier
         .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error:?}"));
     assert!(proof.verify(&head).is_ok());
     for code in [repair::node_producer()["wasm.2"].clone(), Vec::new()] {
         let mut substituted = proof.clone();
@@ -83,28 +89,38 @@ fn chain_deployment_refuses_substituted_code() {
     for bytes in [
         repair::descriptor(2).canonical_encoding().to_vec(),
         ProgramInterface::bind(&proof.code, 2, descriptor.entries().to_vec())
-            .unwrap()
+            .unwrap_or_else(|error| panic!("{error:?}"))
             .canonical_encoding()
             .to_vec(),
         malformed,
         Vec::new(),
     ] {
         let mut substituted = proof.clone();
-        let mut witness = decode_commitment_proof(proof.interface.as_deref().unwrap()).unwrap();
+        let mut witness = decode_commitment_proof(
+            proof
+                .interface
+                .as_deref()
+                .unwrap_or_else(|| panic!("expected value")),
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
         // Preserve the original proof: supplying a descriptor alone cannot
         // change the record the node authenticated.
-        let mut value = witness.value.take().unwrap();
+        let mut value = witness
+            .value
+            .take()
+            .unwrap_or_else(|| panic!("expected value"));
         value.truncate(72);
         value.extend_from_slice(&bytes);
         witness.value = Some(value);
-        substituted.interface = Some(witness.encode().unwrap());
+        substituted.interface = Some(witness.encode().unwrap_or_else(|error| panic!("{error:?}")));
         assert_eq!(
             substituted.verify(&head),
             Err(ProtocolEvidenceError::StateProof)
         );
     }
     let mut other_program = proof;
-    other_program.program_state.program = layerx_programs::ProgramId::new([33; 32]).unwrap();
+    other_program.program_state.program =
+        layerx_programs::ProgramId::new([33; 32]).unwrap_or_else(|error| panic!("{error:?}"));
     assert_eq!(
         other_program.verify(&head),
         Err(ProtocolEvidenceError::ProgramRecord)

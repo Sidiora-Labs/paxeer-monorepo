@@ -25,7 +25,7 @@ func (h *Hub) handleMessage(c *conn, raw []byte) {
 	}
 	var msg types.IncomingWS
 	if err := json.Unmarshal(raw, &msg); err != nil {
-		h.sendAck(c, types.WSAck{Type: "error", Message: "Invalid JSON"})
+		h.sendAck(c, types.WSAck{Type: errorField, Message: "Invalid JSON"})
 		return
 	}
 
@@ -46,28 +46,28 @@ func (h *Hub) handleMessage(c *conn, raw []byte) {
 		h.onDM(c, msg, envelope.ClientID)
 	case types.WSSubscribeDMs:
 		if !c.topicAllowed("private.chat." + c.actor) {
-			h.sendAck(c, types.WSAck{Type: "error", Message: "subscription denied"})
+			h.sendAck(c, types.WSAck{Type: errorField, Message: "subscription denied"})
 			return
 		}
 		if !c.isDMSubscribed() && len(c.joinedPools()) >= 20 {
-			h.sendAck(c, types.WSAck{Type: "error", Message: "subscription limit"})
+			h.sendAck(c, types.WSAck{Type: errorField, Message: "subscription limit"})
 			return
 		}
 		h.subscribeDMs(c)
 		h.sendAck(c, types.WSAck{Type: "subscribed_dms"})
 	default:
-		h.sendAck(c, types.WSAck{Type: "error", Message: "Unknown message type: " + msg.Type})
+		h.sendAck(c, types.WSAck{Type: errorField, Message: "Unknown message type: " + msg.Type})
 	}
 }
 
 func (h *Hub) onJoinPool(c *conn, msg types.IncomingWS) {
 	pool := common.NormalizeAddr(msg.PoolAddress)
 	if !common.IsAddr(pool) {
-		h.sendAck(c, types.WSAck{Type: "error", Message: "invalid pool address"})
+		h.sendAck(c, types.WSAck{Type: errorField, Message: "invalid pool address"})
 		return
 	}
 	if !c.topicAllowed("chat.pool." + pool) {
-		h.sendAck(c, types.WSAck{Type: "error", Message: "subscription denied"})
+		h.sendAck(c, types.WSAck{Type: errorField, Message: "subscription denied"})
 		return
 	}
 	subscriptions := len(c.joinedPools())
@@ -81,11 +81,11 @@ func (h *Hub) onJoinPool(c *conn, msg types.IncomingWS) {
 		}
 	}
 	if !joined && subscriptions >= 20 {
-		h.sendAck(c, types.WSAck{Type: "error", Message: "subscription limit"})
+		h.sendAck(c, types.WSAck{Type: errorField, Message: "subscription limit"})
 		return
 	}
 	if err := h.durable.JoinPool(WithPrincipal(context.Background(), c.principal), c.actor, pool); err != nil {
-		h.sendAck(c, types.WSAck{Type: "error", Message: "room unavailable"})
+		h.sendAck(c, types.WSAck{Type: errorField, Message: "room unavailable"})
 		return
 	}
 	h.joinRoom(c, pool)
@@ -95,7 +95,7 @@ func (h *Hub) onJoinPool(c *conn, msg types.IncomingWS) {
 func (h *Hub) onLeavePool(c *conn, msg types.IncomingWS) {
 	pool := common.NormalizeAddr(msg.PoolAddress)
 	if !common.IsAddr(pool) {
-		h.sendAck(c, types.WSAck{Type: "error", Message: "invalid pool address"})
+		h.sendAck(c, types.WSAck{Type: errorField, Message: "invalid pool address"})
 		return
 	}
 	h.leaveRoom(c, pool)
@@ -103,7 +103,7 @@ func (h *Hub) onLeavePool(c *conn, msg types.IncomingWS) {
 }
 
 func (h *Hub) onPoolMessage(c *conn, msg types.IncomingWS, clientID string) {
-	h.persistSend(c, SendInput{Actor: c.actor, Kind: "pool", Target: msg.PoolAddress, ClientID: clientID, Content: msg.Content, ReplyTo: replyString(msg.ReplyToID)})
+	h.persistSend(c, SendInput{Actor: c.actor, Kind: poolResource, Target: msg.PoolAddress, ClientID: clientID, Content: msg.Content, ReplyTo: replyString(msg.ReplyToID)})
 }
 func replyString(v *string) string {
 	if v == nil {
@@ -121,14 +121,14 @@ func (h *Hub) persistSend(c *conn, in SendInput) {
 	if err != nil {
 		h.logErr("durable send", err)
 		if errors.Is(err, ErrCommitUncertain) {
-			c.enqueue(h.marshal(map[string]string{"type": "message_uncertain", "client_message_id": in.ClientID, "message": "Commit outcome unknown; retry the same client message ID"}))
+			c.enqueue(h.marshal(map[string]string{typeField: "message_uncertain", clientMessageIDField: in.ClientID, "message": "Commit outcome unknown; retry the same client message ID"}))
 		} else {
 			h.sendSendError(c, in.ClientID, err.Error())
 		}
 		return
 	}
 	// No live echo before commit. The external durable publisher drains outbox.
-	c.enqueue(h.marshal(map[string]any{"type": "message_persisted", "client_message_id": in.ClientID, "id": m.ID, "sequence": itoa64(m.Sequence), "revision": itoa64(m.Revision), "conversation_id": m.ConversationID}))
+	c.enqueue(h.marshal(map[string]any{typeField: "message_persisted", clientMessageIDField: in.ClientID, "id": m.ID, "sequence": itoa64(m.Sequence), "revision": itoa64(m.Revision), "conversation_id": m.ConversationID}))
 }
 
 // isBanned reports whether wallet has an active ban (global or for pool). Fails
@@ -184,7 +184,7 @@ func itoa(v int) string {
 func itoa64(v int64) string { return strconv.FormatInt(v, 10) }
 
 func (h *Hub) sendSendError(c *conn, id, message string) {
-	c.enqueue(h.marshal(map[string]string{"type": "error", "client_message_id": id, "message": message}))
+	c.enqueue(h.marshal(map[string]string{typeField: errorField, clientMessageIDField: id, "message": message}))
 }
 
 func (c *conn) topicAllowed(topic string) bool {

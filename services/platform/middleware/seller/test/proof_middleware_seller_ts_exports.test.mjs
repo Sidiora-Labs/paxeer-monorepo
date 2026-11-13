@@ -14,9 +14,6 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { committedPaymentFixture, refusesUnboundCommitments } from "./repair-22-33-1478-support.mjs";
-import { keccak256 } from "@sidiora/layerx-sdk";
-import * as seller from "@sidiora/layerx-seller-middleware";
 
 const root = new URL("../../../../../", import.meta.url);
 const sourcePackages = new Map([
@@ -42,6 +39,9 @@ registerHooks({
     return nextLoad(url, context);
   },
 });
+const { committedPaymentFixture, refusesUnboundCommitments } = await import("./repair-22-33-1478-support.mjs");
+const { keccak256 } = await import("@sidiora/layerx-sdk");
+const seller = await import("@sidiora/layerx-seller-middleware");
 const express = await import(new URL("sdk/integrations/express/src/index.ts", root));
 const next = await import(new URL("sdk/integrations/next/src/index.ts", root));
 const { ConformanceSequencer, buildSignedReceipt, buyerPayload, fixedBytes, offerFixture } =
@@ -388,10 +388,10 @@ async function rpcProducerEvidenceCrossesThePublicNextExports() {
     });
     const gatewayBase = await listen(gatewayServer);
     try {
-      const gateway = new seller.HostedGatewayRpc(`${gatewayBase}/rpc`, { authorization: "Bearer hosted-fixture" });
+      const gateway = new seller.HostedGatewayRpc(`${gatewayBase}/`, { authorization: "Bearer hosted-fixture" });
       assert.notEqual(new URL(gatewayBase).origin, new URL(base).origin);
       assert.deepEqual(await gateway.call("px_resolveAccount", ["merchant"]), { account: "agent:merchant:main" });
-      assert.deepEqual(hostedRequests, [{ url: "/rpc", authorization: "Bearer hosted-fixture",
+      assert.deepEqual(hostedRequests, [{ url: "/", authorization: "Bearer hosted-fixture",
         body: { jsonrpc: "2.0", id: 1, method: "px_resolveAccount", params: ["merchant"] } }]);
       assert.throws(() => gateway.call("eth_sendRawTransaction", []), /invalid-gateway-method/u);
       assert.equal(hostedRequests.length, 1);

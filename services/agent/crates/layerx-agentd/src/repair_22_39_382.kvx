@@ -1,0 +1,1414 @@
+[meta]
+task = "22.39.382"
+baseline_revision = "6e50fba5bf0fb03d74f7cccee16b2ace9ea1c253"
+baseline_lint_command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings"
+baseline_lint_exit = 101
+baseline_lint_log = "/tmp/lint-22-39-382-baseline.log"
+baseline_owned_messages = 148
+baseline_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+baseline_test_exit = 101
+baseline_test_log = "/tmp/test-22-39-382-baseline.log"
+baseline_passed = 334
+baseline_failed = 3
+baseline_ignored = 0
+baseline_failed_cases = ["agent_rpc_dispatch::middleware_submission_contract_tests::receipt_reference_reaches_recovery_consumer", "ops::program::simulation_tls_checks_the_actual_server_identity", "outbound_tls::private_ca_checks_the_actual_server_identity"]
+
+[message.1]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 11
+column = 5
+lint = "unused_imports"
+observed = "unused import: `layerx_client::rpc::submit::Submission`"
+repair = "Removed the unused import after checking its target and test uses."
+
+[message.2]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 18
+column = 5
+lint = "unused_imports"
+observed = "unused import: `layerx_types::ids::IdempotencyKey`"
+repair = "Removed the unused import after checking its target and test uses."
+
+[message.3]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 18321
+column = 9
+lint = "unused_imports"
+observed = "unused import: `crate::prepare::LifecycleError`"
+repair = "Removed the unused import after checking its target and test uses."
+
+[message.4]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22290
+column = 9
+lint = "unused_imports"
+observed = "unused import: `layerx_types::activity::EnvelopeBuilder`"
+repair = "Removed the unused import after checking its target and test uses."
+
+[message.5]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22291
+column = 63
+lint = "unused_imports"
+observed = "unused import: `Payload`"
+repair = "Removed the unused import after checking its target and test uses."
+
+[message.6]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22724
+column = 17
+lint = "similar_names"
+observed = "binding's name is too similar to existing binding"
+repair = "Renamed the signed transaction binding to distinguish it from the signer."
+
+[message.7]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 25086
+column = 9
+lint = "unused_imports"
+observed = "unused import: `layerx_types::program_lifecycle::NativeProgramDeploy`"
+repair = "Removed the unused import after checking its target and test uses."
+
+[message.8]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 25088
+column = 9
+lint = "unused_imports"
+observed = "unused import: `layerx_types::program_lifecycle::NativeProgramUpgrade`"
+repair = "Removed the unused import after checking its target and test uses."
+
+[message.9]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 25090
+column = 9
+lint = "unused_imports"
+observed = "unused import: `layerx_types::program_lifecycle::NativeProgramWindDown`"
+repair = "Removed the unused import after checking its target and test uses."
+
+[message.10]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19057
+column = 1
+lint = "duplicate_mod"
+observed = "file is loaded as a module multiple times: `crates/layerx-agentd/src/outbound_tls/tests.rs`: first loaded here, loaded again here"
+repair = "Copied the retained TLS cases to the owned Human runtime module path so both baseline test selections remain present."
+
+[message.11]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs"
+line = 128
+column = 54
+lint = "deprecated"
+observed = "use of deprecated struct `layerx_crypto::onboarding::SponsoredRegistration`: Use binding::BindAuthorization in an EVM bindLayerX registration transaction"
+repair = "Scoped the deprecated allowance to the compatibility fixture with a retention reason."
+
+[message.12]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19096
+column = 58
+lint = "deprecated"
+observed = "use of deprecated struct `layerx_crypto::onboarding::SponsoredRegistration`: Use binding::BindAuthorization in an EVM bindLayerX registration transaction"
+repair = "Scoped the deprecated allowance to the compatibility fixture with a retention reason."
+
+[message.13]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs"
+line = 128
+column = 77
+lint = "deprecated"
+observed = "use of deprecated associated function `layerx_crypto::onboarding::SponsoredRegistration::decode`: Use binding::BindAuthorization for EVM identity registration"
+repair = "Scoped the deprecated allowance to the compatibility fixture with a retention reason."
+
+[message.14]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs"
+line = 131
+column = 23
+lint = "deprecated"
+observed = "use of deprecated method `layerx_crypto::onboarding::SponsoredRegistration::validate_outer`: Use binding::BindAuthorization for EVM identity registration"
+repair = "Scoped the deprecated allowance to the compatibility fixture with a retention reason."
+
+[message.15]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs"
+line = 133
+column = 22
+lint = "deprecated"
+observed = "use of deprecated method `layerx_crypto::onboarding::SponsoredRegistration::signed_consent`: Use binding::BindAuthorization for EVM identity registration"
+repair = "Scoped the deprecated allowance to the compatibility fixture with a retention reason."
+
+[message.16]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19096
+column = 81
+lint = "deprecated"
+observed = "use of deprecated associated function `layerx_crypto::onboarding::SponsoredRegistration::decode`: Use binding::BindAuthorization for EVM identity registration"
+repair = "Scoped the deprecated allowance to the compatibility fixture with a retention reason."
+
+[message.17]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19099
+column = 27
+lint = "deprecated"
+observed = "use of deprecated method `layerx_crypto::onboarding::SponsoredRegistration::validate_outer`: Use binding::BindAuthorization for EVM identity registration"
+repair = "Scoped the deprecated allowance to the compatibility fixture with a retention reason."
+
+[message.18]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19101
+column = 26
+lint = "deprecated"
+observed = "use of deprecated method `layerx_crypto::onboarding::SponsoredRegistration::signed_consent`: Use binding::BindAuthorization for EVM identity registration"
+repair = "Scoped the deprecated allowance to the compatibility fixture with a retention reason."
+
+[message.19]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22812
+column = 17
+lint = "unused_variables"
+observed = "unused variable: `message`: help: if this is intentional, prefix it with an underscore: `_message`"
+repair = "Kept the fallible fixture validation and removed the unused binding."
+
+[message.20]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 2225
+column = 19
+lint = "dead_code"
+observed = "method `owned_submission_for_activity` is never used"
+repair = "Searched agent source and host targets for uses, then removed the unused test-only item."
+
+[message.21]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 5314
+column = 4
+lint = "dead_code"
+observed = "function `rpc_owner_read_error` is never used"
+repair = "Searched agent source and host targets for uses, then removed the unused test-only item."
+
+[message.22]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 10476
+column = 4
+lint = "dead_code"
+observed = "function `committed_budget_rank` is never used"
+repair = "Searched agent source and host targets for uses, then removed the unused test-only item."
+
+[message.23]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 151
+column = 1
+lint = "too_many_lines"
+observed = "this function has too many lines (146/100)"
+repair = "Split the overlong case or fixture into named helpers while retaining assertions and order."
+
+[message.24]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 5314
+column = 32
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+repair = "Borrowed the input or removed the unused test-only helper."
+
+[message.25]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19069
+column = 5
+lint = "too_many_lines"
+observed = "this function has too many lines (123/100)"
+repair = "Split the overlong case or fixture into named helpers while retaining assertions and order."
+
+[message.26]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19145
+column = 18
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.27]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19284
+column = 5
+lint = "too_many_lines"
+observed = "this function has too many lines (147/100)"
+repair = "Split the overlong case or fixture into named helpers while retaining assertions and order."
+
+[message.28]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19442
+column = 5
+lint = "too_many_lines"
+observed = "this function has too many lines (112/100)"
+repair = "Split the overlong case or fixture into named helpers while retaining assertions and order."
+
+[message.29]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19473
+column = 24
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.30]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19478
+column = 24
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.31]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19541
+column = 22
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.32]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19543
+column = 24
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.33]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19582
+column = 22
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.34]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 20161
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.35]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 20164
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.36]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 20179
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.37]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21460
+column = 27
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.38]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21464
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.39]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21469
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.40]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21487
+column = 25
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.41]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21496
+column = 22
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.42]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21504
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.43]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21581
+column = 38
+lint = "cast_possible_truncation"
+observed = "casting `u64` to `u8` may truncate the value"
+repair = "Used a checked conversion that asserts the fixture value fits."
+
+[message.44]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21608
+column = 30
+lint = "cast_possible_truncation"
+observed = "casting `u64` to `u8` may truncate the value"
+repair = "Used a checked conversion that asserts the fixture value fits."
+
+[message.45]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21676
+column = 30
+lint = "cast_possible_wrap"
+observed = "casting `u64` to `i64` may wrap around the value"
+repair = "Used a checked conversion that asserts the fixture height fits i64."
+
+[message.46]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21706
+column = 52
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.47]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21710
+column = 39
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.48]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21731
+column = 52
+lint = "cast_possible_truncation"
+observed = "casting `u64` to `u8` may truncate the value"
+repair = "Used a checked conversion that asserts the fixture value fits."
+
+[message.49]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21748
+column = 26
+lint = "cast_possible_truncation"
+observed = "casting `u64` to `u8` may truncate the value"
+repair = "Used a checked conversion that asserts the fixture value fits."
+
+[message.50]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21751
+column = 22
+lint = "cast_possible_truncation"
+observed = "casting `u64` to `u8` may truncate the value"
+repair = "Used a checked conversion that asserts the fixture value fits."
+
+[message.51]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21765
+column = 28
+lint = "cast_possible_truncation"
+observed = "casting `u64` to `u8` may truncate the value"
+repair = "Used a checked conversion that asserts the fixture value fits."
+
+[message.52]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21786
+column = 73
+lint = "cast_possible_wrap"
+observed = "casting `u64` to `i64` may wrap around the value"
+repair = "Used a checked conversion that asserts the fixture height fits i64."
+
+[message.53]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21787
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.54]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21789
+column = 21
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.55]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21862
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.56]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21862
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.57]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21870
+column = 9
+lint = "too_many_lines"
+observed = "this function has too many lines (183/100)"
+repair = "Split the overlong case or fixture into named helpers while retaining assertions and order."
+
+[message.58]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21902
+column = 47
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.59]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21936
+column = 32
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.60]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21937
+column = 41
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.61]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21942
+column = 47
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.62]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21950
+column = 40
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.63]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21962
+column = 29
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.64]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21963
+column = 33
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.65]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21978
+column = 38
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.66]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21983
+column = 38
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.67]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 21996
+column = 38
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.68]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22032
+column = 40
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.69]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22033
+column = 42
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.70]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22089
+column = 22
+lint = "redundant_closure_for_method_calls"
+observed = "redundant closure: help: replace the closure with the method itself: `super::super::protocol_evidence::AuthenticatedReceiptAmount::amount`"
+repair = "Passed the method directly in the iterator callback."
+
+[message.71]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22157
+column = 21
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.72]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22313
+column = 33
+lint = "redundant_closure_for_method_calls"
+observed = "redundant closure: help: replace the closure with the method itself: `std::cell::Cell::get`"
+repair = "Passed the method directly in the iterator callback."
+
+[message.73]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22324
+column = 23
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body: help: consider changing the type to: `&[Vec<u8>]`"
+repair = "Borrowed the input or removed the unused test-only helper."
+
+[message.74]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22344
+column = 9
+lint = "too_many_lines"
+observed = "this function has too many lines (153/100)"
+repair = "Split the overlong case or fixture into named helpers while retaining assertions and order."
+
+[message.75]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22367
+column = 21
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.76]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22401
+column = 44
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.77]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22404
+column = 34
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.78]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22414
+column = 42
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.79]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22420
+column = 43
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.80]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22421
+column = 29
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.81]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22431
+column = 33
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.82]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22512
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.83]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22568
+column = 5
+lint = "too_many_lines"
+observed = "this function has too many lines (101/100)"
+repair = "Split the overlong case or fixture into named helpers while retaining assertions and order."
+
+[message.84]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22595
+column = 38
+lint = "bool_to_int_with_if"
+observed = "boolean to int conversion using if: help: replace with from: `usize::from(!failed)`"
+repair = "Used usize::from on the boolean condition."
+
+[message.85]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22696
+column = 9
+lint = "too_many_lines"
+observed = "this function has too many lines (188/100)"
+repair = "Split the overlong case or fixture into named helpers while retaining assertions and order."
+
+[message.86]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22916
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.87]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22929
+column = 27
+lint = "expect_used"
+observed = "used `expect()` on an `Option` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.88]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 25200
+column = 64
+lint = "used_underscore_binding"
+observed = "used underscore-prefixed binding"
+repair = "Renamed the used error binding and consumed it in the non-test build."
+
+[message.89]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 37
+column = 17
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.90]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 38
+column = 24
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.91]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 42
+column = 41
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.92]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 44
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.93]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 47
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.94]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 48
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.95]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 49
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.96]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 50
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.97]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 51
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.98]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 53
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.99]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 54
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.100]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 65
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.101]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 66
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.102]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 68
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.103]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 69
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.104]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 70
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.105]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 71
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.106]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 75
+column = 16
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.107]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 77
+column = 18
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.108]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 93
+column = 20
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.109]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 106
+column = 77
+lint = "cast_possible_truncation"
+observed = "casting `usize` to `u8` may truncate the value"
+repair = "Used a checked conversion that asserts the fixture value fits."
+
+[message.110]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 125
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.111]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 127
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.112]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 128
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.113]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 130
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.114]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 132
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.115]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 134
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.116]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 135
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.117]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 136
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.118]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 137
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.119]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 138
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.120]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 139
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.121]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 140
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.122]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 141
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.123]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 142
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.124]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 143
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.125]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 144
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.126]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 145
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.127]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 146
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.128]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 147
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.129]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 148
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.130]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 149
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.131]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 150
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.132]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 151
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.133]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 152
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.134]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 153
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.135]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 154
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.136]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 155
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.137]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 156
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.138]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 157
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.139]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 158
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.140]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 159
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.141]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 160
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.142]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 161
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.143]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 162
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.144]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 165
+column = 13
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.145]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 170
+column = 16
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.146]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 174
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.147]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 176
+column = 9
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[message.148]
+file = "services/agent/crates/layerx-agentd/src/read/program_account_fixture.rs"
+line = 179
+column = 5
+lint = "expect_used"
+observed = "used `expect()` on a `Result` value"
+repair = "Replaced expect with an explicit Result or Option match that preserves the fixture failure context."
+
+[followup.1]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 265
+column = 40
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `store`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.2]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 265
+column = 48
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `alice`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.3]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 265
+column = 56
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `did`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.4]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 285
+column = 14
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+repair = "Borrowed the fixture or request context instead of moving it."
+
+[followup.5]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 298
+column = 45
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `alice`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.6]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 298
+column = 53
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `bob`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.7]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 303
+column = 45
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `did`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.8]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 303
+column = 66
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `raw`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.9]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 303
+column = 72
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `activity`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.10]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 315
+column = 45
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `did`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.11]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 315
+column = 66
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `raw`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.12]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 315
+column = 72
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `activity`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.13]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 325
+column = 45
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `did`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.14]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 325
+column = 66
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `raw`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.15]
+file = "services/agent/crates/layerx-agentd/src/human_runtime/subject/registration_tests.rs"
+line = 325
+column = 72
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `activity`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.16]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 19127
+column = 13
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `registry`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.17]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22022
+column = 67
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `checkpoint`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.18]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22026
+column = 36
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `checkpoint`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.19]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22100
+column = 19
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+repair = "Borrowed the fixture or request context instead of moving it."
+
+[followup.20]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22101
+column = 15
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+repair = "Borrowed the fixture or request context instead of moving it."
+
+[followup.21]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22102
+column = 19
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+repair = "Borrowed the fixture or request context instead of moving it."
+
+[followup.22]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22103
+column = 17
+lint = "needless_pass_by_value"
+observed = "this argument is passed by value, but not consumed in the function body"
+repair = "Borrowed the fixture or request context instead of moving it."
+
+[followup.23]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22420
+column = 33
+lint = "redundant_closure_for_method_calls"
+observed = "redundant closure: help: replace the closure with the method itself: `std::cell::Cell::get`"
+repair = "Passed Cell::get directly to with."
+
+[followup.24]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22859
+column = 79
+lint = "needless_borrow"
+observed = "this expression creates a reference which is immediately dereferenced by the compiler: help: change this to: `actor`"
+repair = "Removed the extra reference introduced while extracting the helper."
+
+[followup.25]
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+line = 22960
+column = 9
+lint = "too_many_lines"
+observed = "this function has too many lines (121/100)"
+repair = "Extracted preparation setup into a named helper without changing assertions."
+
+[lint_result]
+command = "cargo clippy --locked --keep-going --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-deps --lib --profile test --message-format short -- -D warnings"
+exit = 101
+log = "/tmp/lint-22-39-382-work-3.log"
+owned_messages = 0
+
+[unit_result]
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+exit = 101
+log = "/tmp/test-22-39-382-after.log"
+passed = 334
+failed = 3
+ignored = 0
+same_as_baseline = true
+failed_cases = ["agent_rpc_dispatch::middleware_submission_contract_tests::receipt_reference_reaches_recovery_consumer", "ops::program::simulation_tls_checks_the_actual_server_identity", "outbound_tls::private_ca_checks_the_actual_server_identity"]

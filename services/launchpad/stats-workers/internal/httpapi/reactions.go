@@ -5,9 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"io"
 	"net"
 	"net/http"
@@ -15,6 +12,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/stats-workers/internal/analytics"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/go-chi/chi/v5"
 	goredis "github.com/redis/go-redis/v9"
@@ -93,10 +94,10 @@ func RegisterReactions(r chi.Router, rdb *goredis.Client) {
 	r.Post("/stats/{poolAddress}/reactions", reactionsPost(rdb))
 }
 func retiredReactions(w http.ResponseWriter, r *http.Request) {
-	target := "/v2/stats/" + strings.ToLower(chi.URLParam(r, "poolAddress")) + "/reactions"
+	target := "/v2/stats/" + strings.ToLower(chi.URLParam(r, valuePoolAddress)) + "/reactions"
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Link", "<"+target+">; rel=\"successor-version\"")
-	sharedhttp.WriteJSON(w, http.StatusGone, map[string]any{"code": "REACTION_V1_RETIRED", "message": "Use the durable v2 reactions endpoint. Mutations require a fresh signed reaction.replace operation, identity credential, nonce, expiry and expectedRevision. Use clear to remove a vote.", "successor": target})
+	sharedhttp.WriteJSON(w, http.StatusGone, map[string]any{valueCode: "REACTION_V1_RETIRED", valueMessage: "Use the durable v2 reactions endpoint. Mutations require a fresh signed reaction.replace operation, identity credential, nonce, expiry and expectedRevision. Use clear to remove a vote.", "successor": target})
 }
 func reactionsGet(_ *goredis.Client) http.HandlerFunc { return retiredReactions }
 
@@ -178,11 +179,11 @@ func durableReactionError(w http.ResponseWriter, err error) {
 }
 func RegisterDurableReactions(r chi.Router, d DurableReactionDeps) error {
 	policy, ok := d.Policies.Actions["reaction.replace"]
-	if !ok || d.Policies.Version == "" || policy.Scope != "wallet" || !policy.OwnerRequired || policy.RouteTemplate != "/v2/stats/{poolAddress}/reactions" {
+	if !ok || d.Policies.Version == "" || policy.Scope != valueWallet || !policy.OwnerRequired || policy.RouteTemplate != "/v2/stats/{poolAddress}/reactions" {
 		return errors.New("explicit reaction wallet policy required")
 	}
 	r.Get("/v2/stats/{poolAddress}/reactions", func(w http.ResponseWriter, request *http.Request) {
-		result, err := d.Authority.ReadReactions(request.Context(), strings.ToLower(chi.URLParam(request, "poolAddress")))
+		result, err := d.Authority.ReadReactions(request.Context(), strings.ToLower(chi.URLParam(request, valuePoolAddress)))
 		if err != nil {
 			durableReactionError(w, err)
 			return
@@ -210,7 +211,7 @@ func RegisterDurableReactions(r chi.Router, d DurableReactionDeps) error {
 			sharedhttp.WriteError(w, 400, "Bad Request", "invalid reaction intent")
 			return
 		}
-		if _, err = intent.Canonical(); err != nil || intent.Pool != strings.ToLower(chi.URLParam(request, "poolAddress")) {
+		if _, err = intent.Canonical(); err != nil || intent.Pool != strings.ToLower(chi.URLParam(request, valuePoolAddress)) {
 			sharedhttp.WriteError(w, 422, "Unprocessable Entity", "invalid reaction identity")
 			return
 		}
@@ -227,7 +228,7 @@ func RegisterDurableReactions(r chi.Router, d DurableReactionDeps) error {
 			durableReactionError(w, auth.ErrScopeDenied)
 			return
 		}
-		err = d.Policies.Authorize(auth.Principal{Wallet: principal.Wallet, SessionID: principal.SessionID, Roles: []string{"wallet"}}, "reaction.replace", intent.Wallet)
+		err = d.Policies.Authorize(auth.Principal{Wallet: principal.Wallet, SessionID: principal.SessionID, Roles: []string{valueWallet}}, "reaction.replace", intent.Wallet)
 		if err != nil {
 			durableReactionError(w, err)
 			return
@@ -277,7 +278,7 @@ func RegisterDurableReactions(r chi.Router, d DurableReactionDeps) error {
 			if err != nil {
 				return nil, err
 			}
-			return json.Marshal(map[string]any{"poolAddress": intent.Pool, "poolRevision": strconv.FormatInt(result.PoolRevision, 10), "revision": strconv.FormatInt(result.Revision, 10), "userVote": result.Vote, "reactions": result.Counts})
+			return json.Marshal(map[string]any{valuePoolAddress: intent.Pool, "poolRevision": strconv.FormatInt(result.PoolRevision, 10), valueRevision: strconv.FormatInt(result.Revision, 10), "userVote": result.Vote, "reactions": result.Counts})
 		})
 		if err != nil {
 			durableReactionError(w, err)

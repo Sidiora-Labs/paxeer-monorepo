@@ -7,12 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var ErrInvalidInput = errors.New("invalid analytics input")
@@ -25,7 +26,7 @@ var schemaPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 
 func validReaction(s string) bool {
 	switch s {
-	case "bullish", "hot", "diamond", "bearish", "trash", "warning", "clear":
+	case valueBullish, "hot", "diamond", valueBearish, "trash", "warning", "clear":
 		return true
 	}
 	return false
@@ -109,7 +110,7 @@ func (a ReactionAuthority) Apply(ctx context.Context, i Intent, verify func(cont
 	if e != nil {
 		return result, e
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTransaction(ctx, tx)
 	result, e = a.applyInTx(ctx, tx, i, message)
 	if e != nil {
 		return result, e

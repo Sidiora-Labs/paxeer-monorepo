@@ -103,6 +103,10 @@ pub struct MirrorObservation {
 }
 
 impl MirrorObservation {
+    /// Binds an archive to its observed source and target identity.
+    ///
+    /// # Errors
+    /// Refuses mismatched commitments, network identifiers or batch numbers.
     pub fn from_archive(
         source: MirrorSourceId,
         target: MirrorTargetIdentity,

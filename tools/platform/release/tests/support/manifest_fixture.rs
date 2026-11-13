@@ -112,13 +112,14 @@ fn pypi_record(package: &str) -> Record {
 fn go_record(package: &str) -> Record {
     let fixture = go_fixture::GoFixture::load(VERSION);
     assert_eq!(package, fixture.module);
+    assert_eq!(fixture.tag, format!("sdk/platform/go/v{VERSION}"));
     Record {
         name: package.to_owned(),
         file: fixture
             .location
             .rsplit('/')
             .next()
-            .expect("published Go archive filename")
+            .unwrap_or_else(|| panic!("published Go archive filename"))
             .to_owned(),
         digest_of: "registry-bytes",
         signature: "tag-signature.txt".to_owned(),

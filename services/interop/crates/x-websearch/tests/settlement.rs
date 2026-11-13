@@ -114,11 +114,11 @@ fn read_request(stream: &mut TcpStream) -> Checked<Value> {
 }
 
 fn exchange(method: &str, params: Value, result: Value) -> Exchange {
-    (
-        json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}),
-        json!({"jsonrpc": "2.0", "id": 1, "result": result}),
-        false,
-    )
+    let mut request = json!({"jsonrpc": "2.0", "id": 1, "method": method});
+    request["params"] = params;
+    let mut response = json!({"jsonrpc": "2.0", "id": 1});
+    response["result"] = result;
+    (request, response, false)
 }
 
 fn chain(id: &str) -> Exchange {
@@ -292,20 +292,7 @@ fn a_submitted_answer_with_receipt_fields_is_refused() -> Checked {
     let submitted = json!({"rung":"submitted",
         "txHash":"0x1111111111111111111111111111111111111111111111111111111111111111", "nonce":"0x2a"});
     let valid = decode(&submitted)?;
-    assert_eq!(valid.rung, SettlementRung::Submitted);
-    assert_eq!(valid.tx_hash, [0x11; 32]);
-    assert_eq!(valid.nonce, 42);
-    assert_eq!(
-        (
-            valid.seq,
-            valid.height,
-            valid.status,
-            valid.key_id,
-            valid.receipt
-        ),
-        (None, None, None, None, None)
-    );
-    assert!(valid.logs.is_empty());
+    assert_submitted_fields(&valid);
     let mut invalid = Vec::new();
     for (name, value) in [
         ("receipt", json!("0x0102")),
@@ -392,6 +379,23 @@ fn a_submitted_answer_with_receipt_fields_is_refused() -> Checked {
     }
     assert_eq!(replay.finish()?.len(), expected_requests);
     Ok(())
+}
+
+fn assert_submitted_fields(valid: &x_websearch::settlement::SettlementReceipt) {
+    assert_eq!(valid.rung, SettlementRung::Submitted);
+    assert_eq!(valid.tx_hash, [0x11; 32]);
+    assert_eq!(valid.nonce, 42);
+    assert_eq!(
+        (
+            valid.seq,
+            valid.height,
+            valid.status,
+            valid.key_id,
+            valid.receipt.as_ref()
+        ),
+        (None, None, None, None, None)
+    );
+    assert!(valid.logs.is_empty());
 }
 
 #[test]

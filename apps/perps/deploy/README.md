@@ -44,9 +44,7 @@ browser / wallet → Paxeer node JSON-RPC at the node root
 
 Paxeer mainnet-beta is one BFT chain, EVM chain ID **125 (`0x7d`)**. The kernel
 is part of block proposal; receipts are final at block commit. Public JSON-RPC
-uses the roots of `api1` through `api14.mainnet-beta.paxeer.network` and
-`api-mainnet-beta.paxeer.network`, for example
-`https://api1.mainnet-beta.paxeer.network`. The data gateway origin is a separate
+uses the node root URLs declared in [`core/rpc.ts`](../src/core/rpc.ts). The data gateway origin is a separate
 application configuration, not another chain or finality stage. Sub-chains are
 tenant domains in the database and do not require a frontend-specific node.
 
@@ -56,11 +54,11 @@ The bridge allows outbound access to the data gateway and candle feed.
 nginx waits for the app's image health check on initial startup. After an app
 recreation, nginx must resolve its new address. In the operator-supplied TLS
 server's `location /`, use the DNS resolver reachable from nginx and a variable
-upstream. The documentation address below must be replaced with your resolver
-(for Docker, read the nameserver from the nginx container's `/etc/resolv.conf`):
+upstream. Read the nameserver from the nginx container's `/etc/resolv.conf` and substitute
+it for `<resolver-address>` below:
 
 ```nginx
-resolver 192.0.2.53 valid=5s ipv6=off;
+resolver <resolver-address> valid=5s ipv6=off;
 set $perps_upstream app:3000;
 proxy_pass http://$perps_upstream;
 proxy_set_header Host $host;
@@ -82,12 +80,10 @@ refresh after replacement, then repeat the ingress health checks.
 | [`docker-compose.yml`](docker-compose.yml) | app build/runtime configuration, shared bridge and health-ordered nginx startup |
 | [`.env.production.example`](.env.production.example) | Public build inputs, server runtime inputs and explicit image revision |
 | [`build-args.production.env`](build-args.production.env) | Public build-argument values; Docker does not automatically read an env file as build arguments |
-| [`../ecosystem.config.js`](../ecosystem.config.js) | Host PM2 example with fixed `cwd: /root/Hyperpax-UI`; requires path/process review before use in this monorepo |
+| [`../ecosystem.config.js`](../ecosystem.config.js) | Host PM2 configuration; set `cwd` to the deployed application directory before use |
 
-There is no checked-in `deploy/scripts/deploy.sh`, `server-init.sh`,
-`cloudflare-firewall.sh`, `deploy/CLOUDFLARE.md`, or `deploy/nginx/` configuration
-in this checkout. The Compose mounts refer to nginx config, certificates,
-ACME webroot and DH parameters that an operator must supply. Starting this
+The Compose mounts require operator-supplied nginx config, certificates,
+ACME webroot and DH parameters. Starting this
 Compose file alone is not a production deployment procedure.
 
 ## Step-by-step
@@ -113,7 +109,7 @@ alone does not configure a Docker build.
 | Variable | Contract |
 | --- | --- |
 | `NEXT_PUBLIC_PERPS_GATEWAY_URL` | Required bare HTTP(S) origin. Parsed at module load; missing or malformed values throw. Frontend derives `/api`, `/ws` and `/graphql`. |
-| `NEXT_PUBLIC_PAXEER_RPC_URL` | Primary root-path node JSON-RPC URL; example template uses `https://api1.mainnet-beta.paxeer.network`. |
+| `NEXT_PUBLIC_PAXEER_RPC_URL` | Primary root-path node JSON-RPC URL. |
 | `NEXT_PUBLIC_PAXEER_RPC_URLS` | Optional comma-separated fallback list; see [`core/rpc.ts`](../src/core/rpc.ts) for selection. |
 | `NEXT_PUBLIC_MARKET_PROXY_HOST` | Optional browser feed hostname override. |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Embedded-wallet sign-in configuration; when either is blank in the bundle, that sign-in section is hidden. |
@@ -121,8 +117,8 @@ alone does not configure a Docker build.
 | `NEXT_PUBLIC_AUTH_REDIRECT_URL`, `NEXT_PUBLIC_WALLET_IFRAME_ORIGIN` | Optional auth callback and trusted wallet messaging origin configuration. |
 | `NEXT_PUBLIC_PAXSCAN_API_URL`, `NEXT_PUBLIC_PAXSCAN_WS_URL`, `NEXT_PUBLIC_PAXSCAN_BASE_URL` | Explorer integration and transaction links. |
 | `NEXT_PUBLIC_RELEASE_SPOT_OPEN` | `1` opens the spot route/navigation/markets mode. Blank keeps the release gate closed. |
-| `MARKET_PROXY_HOST` | Server candle-feed hostname, default `data.feed.chainflowtrading.com`. |
-| `MARKET_PROXY_ORIGIN` | Required server upstream Origin header: exact bare HTTP(S) origin, e.g. `https://perps.example.com`, with no trailing slash, path, credentials, query or fragment. |
+| `MARKET_PROXY_HOST` | Server candle-feed hostname; the default is declared in the candle route. |
+| `MARKET_PROXY_ORIGIN` | Required server upstream Origin header: exact bare HTTP(S) origin, with no trailing slash, path, credentials, query or fragment. |
 | `VERCEL_GIT_COMMIT_SHA` or `RAILWAY_GIT_COMMIT_SHA` | Runtime build identity for `/api/build-id`; Railway takes precedence. Unset values report `development`. |
 
 The optional precompile overrides are validated in
@@ -225,7 +221,7 @@ fetch("http://127.0.0.1:3000/api/candle/config").then(async response => {
   }
   console.log("Candle proxy origin and upstream config verified");
 }).catch(error => { console.error(error); process.exit(1); });
-' 'https://perps.example.com'
+' '<deployment-origin>'
 ```
 
 The route reads the same runtime variable and sends it as the upstream
@@ -234,8 +230,8 @@ and rollback; build identity alone does not exercise that header. Verify both
 endpoints through the actual HTTPS ingress as well (substitute your hostname):
 
 ```bash
-curl --fail-with-body https://perps.example.com/api/build-id
-curl --fail-with-body https://perps.example.com/api/candle/config
+curl --fail-with-body "<deployment-origin>/api/build-id"
+curl --fail-with-body "<deployment-origin>/api/candle/config"
 ```
 
 Check the ingress UDF config and intended build identity before routing users.
@@ -322,8 +318,8 @@ upstream timed out; HTTP 502 means it was unreachable. See the
 Check that both Supabase public values were passed to the build. Docker's
 `.dockerignore` excludes `.env.production`, and runtime `--env-file` cannot
 repair a previously built client bundle. Rebuild with the correct public
-arguments and replace the image. There is no `deploy.sh --no-cache` command in
-this checkout; Docker's own `build --no-cache` option is available when needed.
+arguments and replace the image. Docker's `build --no-cache` option is available
+when needed.
 
 ### Build identity reports `development`
 

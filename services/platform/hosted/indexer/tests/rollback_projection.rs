@@ -1,5 +1,5 @@
 //! Rollback restores the canonical asset and account projections of a real
-//! file-backed SQLite store: orphaned supply metadata and orphan-only
+//! file-backed `SQLite` store: orphaned supply metadata and orphan-only
 //! discovery disappear, configured records survive with their own
 //! provenance, a replacement branch without a supply update derives the last
 //! surviving canonical value, everything holds across a database reopen and
@@ -117,14 +117,7 @@ fn assert_configured_pointer(store: &Store) {
 /// asset, its supply metadata and the account only that batch discovered,
 /// while the configured pointer and the surviving accounts stay. The
 /// replacement branch carries no supply update and must not resurrect it.
-#[test]
-fn rolling_back_a_supply_bearing_receipt_restores_the_canonical_projection() {
-    let scratch = Scratch::new("orphan");
-    let store = open(&scratch.database());
-    store
-        .register_assets(&[pointer()])
-        .unwrap_or_else(|error| panic!("{error}"));
-
+fn commit_orphan_branch(store: &Store) {
     let mut first = layerx_unit(1, "b1", "b0", Vec::new(), RECEIVER);
     first.accounts = vec![SENDER.to_owned(), RECEIVER.to_owned()];
     let second = layerx_unit(2, "b2", "b1", Vec::new(), RECEIVER);
@@ -167,6 +160,17 @@ fn rolling_back_a_supply_bearing_receipt_restores_the_canonical_projection() {
             .commit(&unit, 1)
             .unwrap_or_else(|error| panic!("{error}"));
     }
+}
+
+#[test]
+fn rolling_back_a_supply_bearing_receipt_restores_the_canonical_projection() {
+    let scratch = Scratch::new("orphan");
+    let store = open(&scratch.database());
+    store
+        .register_assets(&[pointer()])
+        .unwrap_or_else(|error| panic!("{error}"));
+
+    commit_orphan_branch(&store);
 
     let observed = asset(&store, SEND_ASSET).unwrap_or_else(|| panic!("asset discovered"));
     assert_eq!(observed["configured"], false);
@@ -327,11 +331,7 @@ fn supply_of(store: &Store, id: &str) -> Value {
 /// apart from the observed value; the observed value follows the newest
 /// surviving canonical unit through rollback, a supply-free replacement
 /// branch and a reopen, and a full rollback leaves only the configured
-/// record.
-#[test]
-fn a_supply_free_replacement_branch_derives_the_last_surviving_canonical_metadata() {
-    let scratch = Scratch::new("replacement");
-    let store = open(&scratch.database());
+fn commit_supply_branch(store: &Store, depth: u64) {
     let configured = AssetRow {
         metadata: json!({ "symbol": "MNT", "decimals": 6 }),
         ..layerx_asset(MINTED, None)
@@ -339,7 +339,7 @@ fn a_supply_free_replacement_branch_derives_the_last_surviving_canonical_metadat
     store
         .register_assets(&[configured])
         .unwrap_or_else(|error| panic!("{error}"));
-    let declared = asset(&store, MINTED).unwrap_or_else(|| panic!("configured"));
+    let declared = asset(store, MINTED).unwrap_or_else(|| panic!("configured"));
     assert_eq!(declared["metadata_provenance"], "configured");
     assert_eq!(
         declared["metadata"],
@@ -348,7 +348,6 @@ fn a_supply_free_replacement_branch_derives_the_last_surviving_canonical_metadat
     assert_eq!(declared["observed_metadata"], json!({}));
     assert_eq!(declared["observed_at"], Value::Null);
 
-    let depth = 100;
     store
         .commit(
             &layerx_unit(
@@ -388,7 +387,7 @@ fn a_supply_free_replacement_branch_derives_the_last_surviving_canonical_metadat
             depth,
         )
         .unwrap_or_else(|error| panic!("{error}"));
-    let orphaned = asset(&store, MINTED).unwrap_or_else(|| panic!("indexed"));
+    let orphaned = asset(store, MINTED).unwrap_or_else(|| panic!("indexed"));
     assert_eq!(
         orphaned["metadata"],
         json!({"supply": "900", "supply_sequence": "30"})
@@ -398,8 +397,17 @@ fn a_supply_free_replacement_branch_derives_the_last_surviving_canonical_metadat
         orphaned["configured_metadata"],
         json!({ "symbol": "MNT", "decimals": 6 })
     );
-    assert!(asset(&store, ORPHAN_ASSET).is_some());
-    assert!(known(&store, CHAIN, ORPHAN_ACCOUNT));
+    assert!(asset(store, ORPHAN_ASSET).is_some());
+    assert!(known(store, CHAIN, ORPHAN_ACCOUNT));
+}
+
+/// record.
+#[test]
+fn a_supply_free_replacement_branch_derives_the_last_surviving_canonical_metadata() {
+    let scratch = Scratch::new("replacement");
+    let store = open(&scratch.database());
+    let depth = 100;
+    commit_supply_branch(&store, depth);
 
     store
         .rollback(CHAIN, Some(2))

@@ -1,3 +1,17 @@
-# BlockScout Docker Integration
+# Blockscout Docker integration
 
-`Makefile` is upstream Blockscout's wrapper around the compose files in [`../docker-compose`](../docker-compose/README.md): `make start` and `make stop` bring the database, backend, microservices, frontend and proxy up and down from `../docker-compose/services/`. See [the docker-compose README](../docker-compose/README.md) for the services and their environment files.
+The `Makefile` wraps the Compose files in
+[`../docker-compose`](../docker-compose/README.md). From
+`services/explorer/backend/docker`, run `make start` to start the database,
+backend, microservices, frontend and proxy. Run `make stop` to stop and remove
+the running application containers managed by the wrapper.
+
+Manage the explorer database separately with its Compose file. From the same
+directory, stop it with:
+
+```sh
+docker-compose -f ../docker-compose/services/db.yml down
+```
+
+See the [Compose guide](../docker-compose/README.md) for service configuration
+and environment files.

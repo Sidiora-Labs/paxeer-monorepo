@@ -11,7 +11,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use k256::ecdsa::SigningKey;
 use serde_json::{json, Value};
-use x_websearch::attest::{signer_address, AttestorSet, Ready};
+use x_websearch::attest::{signer_address, Answer, AttestorSet, Ready};
 use x_websearch::config::FetchLimits;
 use x_websearch::content::ContentStore;
 use x_websearch::fetch::Fetcher;
@@ -137,19 +137,7 @@ fn program_answer_recovery_preserves_emitted_bytes_and_quorum() -> Checked {
     let peer_url = format!("http://{}", peer_server.local_addr());
     let exchange = Arc::new(ProgramExchange::open(&scratch.0.join("local"), &[])?);
     exchange.bind_chain(CHAIN, NETWORK, signer_address(&key(1)?))?;
-    let mut relay = ProgramRelay {
-        watcher: RequestWatcher::open(rpc_unavailable()?, 2, &scratch.0.join("watch"), None)?
-            .with_chain_id(CHAIN)?,
-        attestor: attestor(1, &index, &store)?,
-        exchange,
-        set: set()?,
-        submitter: Submitter::open(
-            rpc_unavailable()?,
-            key(4)?,
-            CHAIN,
-            &scratch.0.join("submit"),
-        )?,
-    };
+    let mut relay = program_relay(&scratch, &index, &store, exchange)?;
     assert!(relay.prepare_program(&request)?.is_none());
     let original = relay
         .exchange
@@ -180,28 +168,8 @@ fn program_answer_recovery_preserves_emitted_bytes_and_quorum() -> Checked {
         &[peer_url],
     )?);
     exchange.bind_chain(CHAIN, NETWORK, signer_address(&key(1)?))?;
-    assert!(exchange
-        .bind_chain(CHAIN + 1, NETWORK, signer_address(&key(1)?))
-        .is_err());
-    assert!(exchange
-        .bind_chain(CHAIN, NETWORK + 1, signer_address(&key(1)?))
-        .is_err());
-    assert!(exchange
-        .bind_chain(CHAIN, NETWORK, signer_address(&key(2)?))
-        .is_err());
-    relay = ProgramRelay {
-        watcher: RequestWatcher::open(rpc_unavailable()?, 2, &scratch.0.join("watch"), None)?
-            .with_chain_id(CHAIN)?,
-        attestor: attestor(1, &index, &store)?,
-        exchange,
-        set: set()?,
-        submitter: Submitter::open(
-            rpc_unavailable()?,
-            key(4)?,
-            CHAIN,
-            &scratch.0.join("submit"),
-        )?,
-    };
+    assert_exchange_binding(&exchange)?;
+    relay = program_relay(&scratch, &index, &store, exchange)?;
     let mut changed_request = request.clone();
     changed_request.payload = b"changed request binding".to_vec();
     assert!(relay.prepare_program(&changed_request).is_err());
@@ -222,17 +190,73 @@ fn program_answer_recovery_preserves_emitted_bytes_and_quorum() -> Checked {
     peer_server.shutdown()?;
     drop(peer);
     drop(relay);
+    assert_completed_exchange(
+        &scratch,
+        &request,
+        program_key,
+        original,
+        &observation,
+        &index,
+        &store,
+    )?;
+    Ok(())
+}
+
+fn program_relay(
+    scratch: &Scratch,
+    index: &Arc<WebIndex>,
+    store: &Arc<ContentStore>,
+    exchange: Arc<ProgramExchange>,
+) -> Checked<ProgramRelay> {
+    let relay = ProgramRelay {
+        watcher: RequestWatcher::open(rpc_unavailable()?, 2, &scratch.0.join("watch"), None)?
+            .with_chain_id(CHAIN)?,
+        attestor: attestor(1, index, store)?,
+        exchange,
+        set: set()?,
+        submitter: Submitter::open(
+            rpc_unavailable()?,
+            key(4)?,
+            CHAIN,
+            &scratch.0.join("submit"),
+        )?,
+    };
+    Ok(relay)
+}
+
+fn assert_exchange_binding(exchange: &ProgramExchange) -> Checked {
+    assert!(exchange
+        .bind_chain(CHAIN + 1, NETWORK, signer_address(&key(1)?))
+        .is_err());
+    assert!(exchange
+        .bind_chain(CHAIN, NETWORK + 1, signer_address(&key(1)?))
+        .is_err());
+    assert!(exchange
+        .bind_chain(CHAIN, NETWORK, signer_address(&key(2)?))
+        .is_err());
+    Ok(())
+}
+
+fn assert_completed_exchange(
+    scratch: &Scratch,
+    request: &ProgramRequest,
+    program_key: ([u8; 32], u64),
+    original: Answer,
+    observation: &[u8],
+    index: &Arc<WebIndex>,
+    store: &Arc<ContentStore>,
+) -> Checked {
     let recovered = ProgramExchange::open(&scratch.0.join("local"), &[])?;
     recovered.bind_chain(CHAIN, NETWORK, signer_address(&key(1)?))?;
     let ready_after_quorum = recovered
         .ready(program_key, &set()?)
         .ok_or("persisted quorum missing")?;
     assert_eq!(
-        observation_bytes(NETWORK, &request, &ready_after_quorum)?,
+        observation_bytes(NETWORK, request, &ready_after_quorum)?,
         observation
     );
     assert!(recovered
-        .record(attestor(1, &index, &store)?.attest(&request)?)
+        .record(attestor(1, index, store)?.attest(request)?)
         .is_err());
     recovered.forget(program_key)?;
     drop(recovered);
@@ -302,8 +326,8 @@ fn fulfilment_nonces_are_shared_across_kinds_and_reopen_before_broadcast() -> Ch
             program.stage_program((PROGRAM, 17), &observation, 2, 7, FEES)
         });
         (
-            web.join().expect("web worker"),
-            origin2.join().expect("program worker"),
+            web.join().or_panic("web worker"),
+            origin2.join().or_panic("program worker"),
         )
     });
     let web = web?;
@@ -322,29 +346,7 @@ fn fulfilment_nonces_are_shared_across_kinds_and_reopen_before_broadcast() -> Ch
     assert_ne!(web.raw, origin2.raw);
     // Receive the actual production RPC send, then lose the response. No
     // fabricated receipt, status or nonce response is supplied by this fault.
-    let receiver = std::thread::spawn(move || -> Result<Value, String> {
-        let (mut stream, _) = listener.accept().map_err(|e| e.to_string())?;
-        stream
-            .set_read_timeout(Some(Duration::from_secs(10)))
-            .map_err(|e| e.to_string())?;
-        let mut reader = BufReader::new(&mut stream);
-        let mut length = None;
-        loop {
-            let mut line = String::new();
-            reader.read_line(&mut line).map_err(|e| e.to_string())?;
-            if line == "\r\n" {
-                break;
-            }
-            if let Some((name, value)) = line.split_once(':') {
-                if name.eq_ignore_ascii_case("content-length") {
-                    length = Some(value.trim().parse::<usize>().map_err(|e| e.to_string())?);
-                }
-            }
-        }
-        let mut body = vec![0; length.ok_or("missing content length")?];
-        reader.read_exact(&mut body).map_err(|e| e.to_string())?;
-        serde_json::from_slice(&body).map_err(|e| e.to_string())
-    });
+    let receiver = receive_rpc_request(listener);
     assert!(program.broadcast_program((PROGRAM, 17)).is_err());
     let sent = receiver.join().map_err(|_| "receiver panicked")??;
     assert_eq!(sent["method"], "eth_sendRawTransaction");
@@ -388,6 +390,38 @@ fn fulfilment_nonces_are_shared_across_kinds_and_reopen_before_broadcast() -> Ch
             .0,
         9
     );
+    assert_submitter_identity(&scratch)?;
+    Ok(())
+}
+
+fn receive_rpc_request(listener: TcpListener) -> std::thread::JoinHandle<Result<Value, String>> {
+    let receiver = std::thread::spawn(move || -> Result<Value, String> {
+        let (mut stream, _) = listener.accept().map_err(|e| e.to_string())?;
+        stream
+            .set_read_timeout(Some(Duration::from_secs(10)))
+            .map_err(|e| e.to_string())?;
+        let mut reader = BufReader::new(&mut stream);
+        let mut length = None;
+        loop {
+            let mut line = String::new();
+            reader.read_line(&mut line).map_err(|e| e.to_string())?;
+            if line == "\r\n" {
+                break;
+            }
+            if let Some((name, value)) = line.split_once(':') {
+                if name.eq_ignore_ascii_case("content-length") {
+                    length = Some(value.trim().parse::<usize>().map_err(|e| e.to_string())?);
+                }
+            }
+        }
+        let mut body = vec![0; length.ok_or("missing content length")?];
+        reader.read_exact(&mut body).map_err(|e| e.to_string())?;
+        serde_json::from_slice(&body).map_err(|e| e.to_string())
+    });
+    receiver
+}
+
+fn assert_submitter_identity(scratch: &Scratch) -> Checked {
     assert!(Submitter::open(
         rpc_unavailable()?,
         key(5)?,
@@ -564,7 +598,7 @@ fn metered_retired_offers_execute_exact_on_the_application_ledger() -> Checked {
     let config = Config::parse(&json!({
         "listen":"127.0.0.1:8482", "data_dir":scratch.0.join("data"),"seeds":["https://paxeer.app/"],
         "crawl":{"pages_per_cycle":10,"pages_per_host":10,"max_depth":1,"politeness_delay_ms":1000},
-        "fetch":{"connect_timeout_ms":3000,"total_timeout_ms":10000,"max_body_bytes":2097152,"max_redirects":3,"allow_loopback":true},
+        "fetch":{"connect_timeout_ms":3000,"total_timeout_ms":10000,"max_body_bytes":2_097_152,"max_redirects":3,"allow_loopback":true},
         "assets":produced["assets"],"gateway":{"endpoint":endpoint,"receipt_keys":[produced["receipt_key"]]},
         "evm":{"endpoint":endpoint,"chain_id":CHAIN,"confirmations":12},"kernel_network_id":NETWORK,"peers":[],"payment":{}
     }).to_string())?;
@@ -657,4 +691,26 @@ fn metered_retired_offers_execute_exact_on_the_application_ledger() -> Checked {
         || r["method"] == "eth_call"
         || r["method"] == "pax_sequencerReceipt"));
     Ok(())
+}
+
+trait OrPanic {
+    type Output;
+
+    fn or_panic(self, context: &str) -> Self::Output;
+}
+
+impl<T, E: std::fmt::Debug> OrPanic for std::result::Result<T, E> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|error| panic!("{context}: {error:?}"))
+    }
+}
+
+impl<T> OrPanic for std::option::Option<T> {
+    type Output = T;
+
+    fn or_panic(self, context: &str) -> T {
+        self.unwrap_or_else(|| panic!("{context}"))
+    }
 }

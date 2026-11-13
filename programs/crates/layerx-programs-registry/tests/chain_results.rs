@@ -7,8 +7,10 @@ use layerx_programs::chain_proof::{
 };
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 #[path = "../src/chain_proof/merkle.rs"]
 mod merkle;
+#[allow(dead_code)]
 #[path = "../src/chain_proof/results.rs"]
 mod results;
 

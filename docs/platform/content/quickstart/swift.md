@@ -1,18 +1,23 @@
 # Swift quickstart
 
-Add a payment to a Swift application. Five lines, no protocol vocabulary, no key handling.
+Use the human-payment client from a Swift application. The integration region has five lines; the complete sample supplies configuration and journey polling.
 
 ## Before you start
 
-Add the package to your `Package.swift`:
+Use Swift 5.9 or newer. Configure an authenticated human-payment service that supports
+`/v1/moves/quote`, `/v1/moves` and journey reads. The local emulator does not implement
+these payment-write routes. For native node transactions, follow the
+[reference applications](../guide/reference-applications.md).
 
-```text
+Add the package to your `Package.swift`. The path below assumes that manifest is at the repository root; use the relative path from your own manifest to the SDK directory:
+
+```swift
 .package(path: "sdk/platform/swift")
 ```
 
 | Variable | What it is |
 |---|---|
-| `LAYERX_API_URL` | The base URL of your environment |
+| `LAYERX_API_URL` | The base URL of your human-payment service |
 | `LAYERX_API_TOKEN` | A bearer token identifying your account |
 
 ## The integration
@@ -31,14 +36,18 @@ var journey = try await layerx.humanMoveCommit(.object(["quote_id": .string(quot
 
 ## Run the whole sample
 
-```text
+Set `LAYERX_API_URL` and `LAYERX_API_TOKEN` for that service, plus
+`LAYERX_SOURCE`, `LAYERX_DESTINATION`, `LAYERX_AMOUNT`, `LAYERX_CURRENCY`
+and `LAYERX_PAYMENT_KEY` for the payment. Amounts use integer base units;
+reuse the same payment key when reconciling the same operation.
+
+```sh
 cd services/platform/examples/samples/first-payment-swift
 swift build
-LAYERX_API_URL=http://127.0.0.1:9402 LAYERX_API_TOKEN=$(cat ./token) LAYERX_SOURCE=did:layerx:alice LAYERX_DESTINATION=did:layerx:bob \
-LAYERX_AMOUNT=1250000 LAYERX_CURRENCY=USD LAYERX_PAYMENT_KEY=order-2f9c1b7e4a10 swift run FirstPayment
+swift run FirstPayment
 ```
 
-The sample polls `humanJourneyGet(pathParameters:)` until the journey settles, emits a JSON report, and destroys the token on the way out.
+The sample polls `humanJourneyGet(pathParameters:)` up to 40 times at 250 ms intervals, emits a JSON report, and destroys the token on the way out.
 
 ## If you are building an app, not a server
 
@@ -53,15 +62,17 @@ Do not put a bearer token in a client binary. The iOS binding exists precisely f
 | `idempotencyRequired` | You omitted the key |
 | `idempotencyConflict` | Same key, different body |
 | `rateLimit` | Wait for `retryAfterMilliseconds` |
-| `unknownOutcome` | Do not retry. Resolve by receipt lookup under your key |
-| `budgetRefusal` | The payment exceeded a funded budget |
+| `unknownOutcome` | Reconcile the original journey and its evidence before another payment |
+| `budgetRefusal` | The service reported a budget or limit refusal; inspect its evidence for the enforcement layer |
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
 | Atomic settlement | `protocol` | The committed move applies completely or not at all. |
-| Replay refusal | `protocol` | A retried submission cannot apply twice. |
+| Replay refusal | `protocol` | Rebroadcasting the same signed transaction cannot apply twice. |
 | Idempotent money moves | `service` | The commit signature makes the key impossible to omit. |
 | Quote then commit | `service` | The quote you committed is the one that executes. |
 | Done means verified | `service` | The `done` state is backed by receipt evidence. |
+
+The sample reports the service's journey state and evidence references. It does not independently verify receipt bytes or block commitment.

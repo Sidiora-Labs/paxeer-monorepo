@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+include!("support/required.rs");
+
 use std::process::Command;
 
 #[test]
@@ -16,9 +18,9 @@ fn verify_receipt_cli_refuses_activity_id_flag() {
             "unwritten-receipt.json",
         ])
         .output()
-        .expect("run ramp-verify-receipt");
+        .required("run ramp-verify-receipt");
 
-    let stderr = String::from_utf8(output.stderr).expect("UTF-8 CLI diagnostic");
+    let stderr = String::from_utf8(output.stderr).required("UTF-8 CLI diagnostic");
     assert_eq!(output.status.code(), Some(2), "{stderr}");
     assert!(stderr.contains("usage: ramp-verify-receipt"), "{stderr}");
     assert!(
@@ -51,9 +53,9 @@ fn verify_receipt_cli_refuses_short_transaction_hash() {
                 "unwritten-receipt.json",
             ])
             .output()
-            .expect("run ramp-verify-receipt");
+            .required("run ramp-verify-receipt");
 
-        let stderr = String::from_utf8(output.stderr).expect("UTF-8 CLI diagnostic");
+        let stderr = String::from_utf8(output.stderr).required("UTF-8 CLI diagnostic");
         assert_eq!(
             output.status.code(),
             Some(2),

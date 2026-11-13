@@ -1,3 +1,5 @@
+include!("support/required.rs");
+
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -22,12 +24,12 @@ impl JournalDirectory {
             std::process::id(),
             NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
         ));
-        fs::create_dir(&path).expect("create journal directory");
+        fs::create_dir(&path).required("create journal directory");
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt as _;
             fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
-                .expect("protect journal directory");
+                .required("protect journal directory");
         }
         Self(path)
     }
@@ -39,7 +41,7 @@ impl JournalDirectory {
 
 impl Drop for JournalDirectory {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.0).expect("remove journal directory");
+        fs::remove_dir_all(&self.0).required("remove journal directory");
     }
 }
 
@@ -81,10 +83,10 @@ fn executed_receipt() -> ExecutedReceipt {
 fn custody_observation_records_committed_rung() {
     let directory = JournalDirectory::new();
     let path = directory.path();
-    let mut journal = Journal::open(&path).expect("open journal");
+    let mut journal = Journal::open(&path).required("open journal");
     journal
         .plan_paxeer(IDEMPOTENCY_KEY, [1; 32], 10, 1)
-        .expect("plan custody transfer");
+        .required("plan custody transfer");
     let receipts = [
         SequencerReceipt::Submitted {
             tx_hash: TRANSACTION_HASH,
@@ -106,8 +108,10 @@ fn custody_observation_records_committed_rung() {
         assert_eq!(observation.rung, expected);
         journal
             .observe_paxeer(IDEMPOTENCY_KEY, observation, 2)
-            .expect("record sequencer receipt");
-        let snapshot = journal.paxeer(&IDEMPOTENCY_KEY).expect("custody snapshot");
+            .required("record sequencer receipt");
+        let snapshot = journal
+            .paxeer(&IDEMPOTENCY_KEY)
+            .required("custody snapshot");
         assert_eq!(snapshot.rung, Some(expected));
         assert_eq!(snapshot.transaction_hash, Some(TRANSACTION_HASH));
         assert_eq!(snapshot.operation_id.as_deref(), Some(OPERATION));
@@ -115,14 +119,14 @@ fn custody_observation_records_committed_rung() {
     }
     let committed = journal
         .paxeer(&IDEMPOTENCY_KEY)
-        .expect("committed snapshot")
+        .required("committed snapshot")
         .clone();
     assert_eq!(committed.rung, Some(Rung::Committed));
     assert_eq!(committed.block_hash, Some(BLOCK_HASH));
     assert_eq!(committed.block_height, Some(42));
     assert_eq!(journal.record_count(), 4);
     drop(journal);
-    let reopened = Journal::open(&path).expect("replay custody journal");
+    let reopened = Journal::open(&path).required("replay custody journal");
     assert_eq!(reopened.paxeer(&IDEMPOTENCY_KEY), Some(&committed));
 }
 
@@ -130,10 +134,10 @@ fn custody_observation_records_committed_rung() {
 fn custody_observation_never_regresses_rung() {
     let directory = JournalDirectory::new();
     let path = directory.path();
-    let mut journal = Journal::open(&path).expect("open journal");
+    let mut journal = Journal::open(&path).required("open journal");
     journal
         .plan_paxeer(IDEMPOTENCY_KEY, [1; 32], 10, 1)
-        .expect("plan custody transfer");
+        .required("plan custody transfer");
     let committed = SequencerReceipt::Committed {
         receipt: executed_receipt(),
         block_number: 42,
@@ -145,15 +149,15 @@ fn custody_observation_never_regresses_rung() {
             PaxeerObservation::from_sequencer_receipt(OPERATION, &committed),
             2,
         )
-        .expect("record committed custody transfer");
+        .required("record committed custody transfer");
     let snapshot = journal
         .paxeer(&IDEMPOTENCY_KEY)
-        .expect("committed snapshot")
+        .required("committed snapshot")
         .clone();
     let projection = journal.projection().clone();
     let head = journal.head();
     let count = journal.record_count();
-    let bytes = fs::read(&path).expect("read committed journal");
+    let bytes = fs::read(&path).required("read committed journal");
     let receipted = SequencerReceipt::Receipted(executed_receipt());
     assert_eq!(
         journal.observe_paxeer(
@@ -167,15 +171,18 @@ fn custody_observation_never_regresses_rung() {
     assert_eq!(
         journal
             .paxeer(&IDEMPOTENCY_KEY)
-            .expect("retained snapshot")
+            .required("retained snapshot")
             .rung,
         Some(Rung::Committed)
     );
     assert_eq!(journal.projection(), &projection);
     assert_eq!(journal.head(), head);
     assert_eq!(journal.record_count(), count);
-    assert_eq!(fs::read(&path).expect("read journal after refusal"), bytes);
+    assert_eq!(
+        fs::read(&path).required("read journal after refusal"),
+        bytes
+    );
     drop(journal);
-    let reopened = Journal::open(&path).expect("replay unchanged committed journal");
+    let reopened = Journal::open(&path).required("replay unchanged committed journal");
     assert_eq!(reopened.paxeer(&IDEMPOTENCY_KEY), Some(&snapshot));
 }

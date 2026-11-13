@@ -2,11 +2,14 @@
 mod middleware;
 
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
-use layerx_interop_gateway::evidence::{canonical_receipt_digest, SettlementRung};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
+use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use layerx_visa_tap::{
@@ -15,37 +18,52 @@ use layerx_visa_tap::{
 use middleware::{fixture_fixed, recorded_case, recorded_payment, recorded_payment_topics};
 use sha2::{Digest as _, Sha256};
 
-#[test]
-fn visa_intent_path_producer_receipt_agrees_with_both_consumers() {
-    let case = recorded_case();
-    let (evidence, keys, digest) = recorded_payment();
-    let receipt = verify_sequencer_signature(&evidence.signed_receipt, &keys[..])
-        .expect("the producer's original receipt verifies without re-signing");
+fn assert_producer_receipt(
+    case: &serde_json::Value,
+    evidence: &SequencerEvidence,
+    keys: &[SequencerAuthorization],
+    digest: [u8; 32],
+) -> (MerchantOperationResult, [u8; 32]) {
+    let receipt =
+        verify_sequencer_signature(&evidence.signed_receipt, keys).unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "the producer's original receipt verifies without re-signing"
+            )
+        });
     assert_eq!(
         receipt
             .protocol()
-            .expect("native protocol facts")
+            .unwrap_or_else(|| panic!("native protocol facts"))
             .activity_id(),
         fixture_fixed(&case["receiptJson"]["txHash"])
     );
     assert_eq!(
         receipt
             .protocol()
-            .expect("native protocol facts")
+            .unwrap_or_else(|| panic!("native protocol facts"))
             .activity_id(),
         evidence.transaction_hash
     );
     assert_eq!(
-        canonical_receipt_digest(&evidence.signed_receipt).expect("canonical producer digest"),
+        canonical_receipt_digest(&evidence.signed_receipt)
+            .unwrap_or_else(|error| panic!("canonical producer digest: {error:?}")),
         digest
     );
-    let logs = verify_logs(&receipt, evidence.logs.clone()).expect("signed producer logs");
+    let logs = verify_logs(&receipt, evidence.logs.clone())
+        .unwrap_or_else(|error| panic!("signed producer logs: {error:?}"));
     assert_eq!(logs.logs().len(), 1);
     let payment = &logs.logs()[0];
-    let [reference, from, to] = recorded_payment_topics(&case);
+    let [reference, from, to] = recorded_payment_topics(case);
     assert_eq!(&payment.topics()[1..], &[reference, from, to]);
-    let asset = payment.data()[..32].try_into().expect("payment asset");
-    let amount = u128::from_be_bytes(payment.data()[48..64].try_into().expect("payment amount"));
+    let asset = payment.data()[..32]
+        .try_into()
+        .unwrap_or_else(|error| panic!("payment asset: {error:?}"));
+    let amount = u128::from_be_bytes(
+        payment.data()[48..64]
+            .try_into()
+            .unwrap_or_else(|error| panic!("payment amount: {error:?}")),
+    );
     let expected = MerchantOperationResult::ReceiptVerified {
         receipt_digest: digest,
         from,
@@ -54,35 +72,47 @@ fn visa_intent_path_producer_receipt_agrees_with_both_consumers() {
         amount,
     };
     assert_eq!(
-        MerchantOperationResult::from_receipt(&evidence, &keys, reference),
+        MerchantOperationResult::from_receipt(evidence, keys, reference),
         Ok(expected.clone())
     );
+    (expected, reference)
+}
 
-    let principal = PrincipalId::new("merchant-shop-alpha").expect("merchant scope");
-    let other_principal = PrincipalId::new("merchant-shop-beta").expect("other merchant scope");
+#[test]
+fn visa_intent_path_producer_receipt_agrees_with_both_consumers() {
+    let case = recorded_case();
+    let (evidence, keys, digest) = recorded_payment();
+    let (expected, reference) = assert_producer_receipt(&case, &evidence, &keys, digest);
+
+    let principal = PrincipalId::new("merchant-shop-alpha")
+        .unwrap_or_else(|error| panic!("merchant scope: {error:?}"));
+    let other_principal = PrincipalId::new("merchant-shop-beta")
+        .unwrap_or_else(|error| panic!("other merchant scope: {error:?}"));
     let trace = TraceId::mint([0x16; 16]);
-    let adapter = AdapterId::new("visa-tap").expect("adapter id");
+    let adapter =
+        AdapterId::new("visa-tap").unwrap_or_else(|error| panic!("adapter id: {error:?}"));
     let document = PinnedSpec::new(
         adapter.clone(),
-        SpecVersion::parse("1").expect("pinned version"),
+        SpecVersion::parse("1").unwrap_or_else(|error| panic!("pinned version: {error:?}")),
         VISA_TAP_SPEC_SHA256,
     )
-    .expect("Visa specification pin");
+    .unwrap_or_else(|error| panic!("Visa specification pin: {error:?}"));
     let suite_bytes = include_bytes!("repair_22_33_116.rs");
     let suite = ConformanceSuite::new(
-        AdapterId::new("visa-intent-path").expect("suite id"),
+        AdapterId::new("visa-intent-path").unwrap_or_else(|error| panic!("suite id: {error:?}")),
         3,
         Sha256::digest(suite_bytes).into(),
     )
-    .expect("recorded suite declaration");
+    .unwrap_or_else(|error| panic!("recorded suite declaration: {error:?}"));
     let mut gateway = GatewayCore::new();
     gateway
         .register_adapter(
-            visa_tap_adapter_descriptor(document, suite).expect("production adapter descriptor"),
+            visa_tap_adapter_descriptor(document, suite)
+                .unwrap_or_else(|error| panic!("production adapter descriptor: {error:?}")),
             &trace,
             1,
         )
-        .expect("register the Visa adapter");
+        .unwrap_or_else(|error| panic!("register the Visa adapter: {error:?}"));
     let request = TranslationRequest::new(
         adapter,
         TranslationKind::StateChanging,
@@ -90,15 +120,15 @@ fn visa_intent_path_producer_receipt_agrees_with_both_consumers() {
         Sha256::digest(
             case["rawTransaction"]
                 .as_str()
-                .expect("producer transaction"),
+                .unwrap_or_else(|| panic!("producer transaction")),
         )
         .into(),
     )
-    .expect("production translation request");
+    .unwrap_or_else(|error| panic!("production translation request: {error:?}"));
     assert_eq!(
         gateway
             .begin_translation(&principal, &request, &trace, 2)
-            .expect("begin the production translation"),
+            .unwrap_or_else(|error| panic!("begin the production translation: {error:?}")),
         TranslationStatus::Pending
     );
     assert_eq!(gateway.translation(&other_principal, reference), None);
@@ -108,21 +138,21 @@ fn visa_intent_path_producer_receipt_agrees_with_both_consumers() {
     assert_eq!(
         gateway
             .settle_with_sequencer_evidence(&principal, reference, &evidence, &keys, &trace, 3)
-            .expect("settle the producer receipt"),
+            .unwrap_or_else(|error| panic!("settle the producer receipt: {error:?}")),
         settled
     );
     assert_eq!(gateway.translation(&principal, reference), Some(settled));
     assert_eq!(
         gateway
             .begin_translation(&principal, &request, &trace, 4)
-            .expect("retry the same translation"),
+            .unwrap_or_else(|error| panic!("retry the same translation: {error:?}")),
         settled,
         "an identical retry retains its verified outcome"
     );
     assert_eq!(
         gateway
             .settle_with_sequencer_evidence(&principal, reference, &evidence, &keys, &trace, 5)
-            .expect("repeat the same settlement"),
+            .unwrap_or_else(|error| panic!("repeat the same settlement: {error:?}")),
         settled
     );
     assert_eq!(
@@ -145,7 +175,7 @@ fn visa_intent_path_refuses_substituted_receipt_identity_and_payment_fields() {
                 *changed
                     .signed_receipt
                     .last_mut()
-                    .expect("receipt signature") ^= 1
+                    .unwrap_or_else(|| panic!("receipt signature")) ^= 1;
             }
             2..=6 => {
                 let log = &changed.logs[0];
@@ -187,8 +217,12 @@ fn visa_intent_path_reopened_recorded_evidence_retains_the_same_commerce_outcome
     let before = {
         let (evidence, keys, _) = recorded_payment();
         let reference = evidence.logs[0].topics()[1];
-        MerchantOperationResult::from_receipt(&evidence, &keys, reference)
-            .expect("producer receipt before releasing every decoded object")
+        MerchantOperationResult::from_receipt(&evidence, &keys, reference).unwrap_or_else(|error| {
+            panic!(
+                "{}: {error:?}",
+                "producer receipt before releasing every decoded object"
+            )
+        })
     };
     let (reopened, keys, _) = recorded_payment();
     let reference = reopened.logs[0].topics()[1];

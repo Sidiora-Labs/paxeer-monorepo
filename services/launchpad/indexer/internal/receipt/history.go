@@ -46,7 +46,7 @@ func historicalEmitterEpochs(manifest deployment.Manifest, catalogJSON []byte) (
 	if !ok || !implOK || proxy.Status != "confirmed" || implementation.Status != "confirmed" || proxy.Height > manifest.ActivationHeight || implementation.Height > manifest.ActivationHeight {
 		return nil, ErrQualification
 	}
-	identity := deployment.Role{Address: proxy.Address, Kind: "erc1967", RuntimeHash: proxy.RuntimeHash, ImplementationAddress: implementation.Address, ImplementationHash: implementation.RuntimeHash}
+	identity := deployment.Role{Address: proxy.Address, Kind: valueErc1967, RuntimeHash: proxy.RuntimeHash, ImplementationAddress: implementation.Address, ImplementationHash: implementation.RuntimeHash}
 	if !validRPCIdentity(identity) {
 		return nil, ErrQualification
 	}

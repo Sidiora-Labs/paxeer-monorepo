@@ -1,4 +1,4 @@
-# Historical rewards value hazard
+# Historical distribution rewards and CALL value
 
 The distribution precompile at `0x0000000000000000000000000000000000001007`
 exposes `rewards(address)` as a `view` query. The v6.0.6 executor nevertheless
@@ -19,6 +19,6 @@ from the recorded `v7.0` done height, inclusive. A scheduled or absent merge
 plan does not activate that refusal. Tests use a committed in-memory merge
 height of 151573580; this is not a network deployment height.
 
-`repair_m1256_test.go` exercises the production keeper routing, EVM value
-transfer, distribution query, ABI response and persisted balances. It also
-checks zero-value `CALL` and `STATICCALL` on both implementations.
+[Routing and value tests](repair_m1256_test.go) exercise the production keeper
+routing, EVM value transfer, distribution query, ABI response and persisted
+balances. They also check zero-value `CALL` and `STATICCALL` on both implementations.

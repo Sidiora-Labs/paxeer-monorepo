@@ -99,6 +99,10 @@ const TOPICS: Readonly<Record<string, string>> = {
   ConfigUpdated: "2903b3642d2105b7fbd127326de888ab50e8d975bf819398337fb58407c1b10e",
   FeeDistributed: "f7ab826cedf9d005102eddf95e65f43597aef36a55ff09ee4f452204c83f4afc",
   FeeFlow: "626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4",
+  ChainLaunched: "cc3fdcbf1588c99f8d97297b1e742174af195b321237d1f9517f600bdb62817d",
+  ChainRevenueEpochOpened: "052cccce5cfb5c079d591a2ac716ddd1759e66d62f036bd44be608ac47615703",
+  ChainRevenueClaimed: "1e561bbeb84dbf638f5444931d883ff8a4ff458bea55b7c85f2f198bcd17630e",
+  LaunchedChainRetired: "562436e1654eaa173e7e0825a3f072b8d0f9056f0ae31ef5c72a894137a0392a",
   FeeStrategyChanged: "337fd9f9304e9da4c04886a5b8bf56e74032b459758212a860bc61d3544353dd",
   MarketCreated: "b0a9c7605389f1127c2299d4a3ed85f0b2fc19894ab5411d76b453bb29f9f47b",
   NftMint: "d2917d37031c0dfe5016665c7a83360cbf2ff32063096b2caf61ba66c06832e5",
@@ -135,7 +139,7 @@ async function precompile_inventory_calldata_and_events(): Promise<void> {
       declared += 1;
     }
   }
-  assert.equal(declared, 19);
+  assert.equal(declared, 23);
 
   const writes: readonly (readonly [string, string, PrecompileCall, string, string])[] = [
     ["layerxexchange", exchangeOrderAbi(false).signature,
@@ -341,6 +345,42 @@ async function precompile_inventory_calldata_and_events(): Promise<void> {
 }
 
 test(precompile_inventory_calldata_and_events);
+
+function uint32_chain_events_round_trip(): void {
+  const max = (1n << 32n) - 1n;
+  assert.equal(
+    encodeAbiCall("openChainRevenueEpoch", ["uint32"], [max]),
+    abiSelector("openChainRevenueEpoch(uint32)") + word(max),
+  );
+  assert.throws(
+    () => encodeAbiCall("openChainRevenueEpoch", ["uint32"], [max + 1n]),
+    (error: unknown) => error instanceof PrecompileAbiError && error.code === "invalid_value",
+  );
+
+  const names = ["ChainLaunched", "ChainRevenueEpochOpened", "ChainRevenueClaimed", "LaunchedChainRetired"];
+  const specs = LAUNCHPAD_EVENTS.filter((event) => names.includes(event.name));
+  assert.deepEqual(specs.map((event) => event.name), names);
+  for (const spec of specs) {
+    assert.deepEqual(spec.inputs[0], { name: "chain", type: "uint32", indexed: true });
+    const encoded = spec.inputs.map((input) => input.type === "address"
+      ? addressWord("ab")
+      : word(input.name === "chain" ? max : input.type === "uint64" ? 9n : 10n));
+    const topics = [`0x${TOPICS[spec.name] ?? ""}`, ...spec.inputs.flatMap((input, index) => input.indexed ? [`0x${encoded[index]}`] : [])];
+    const data = `0x${spec.inputs.flatMap((input, index) => input.indexed ? [] : [encoded[index]]).join("")}`;
+    const fields = Object.fromEntries(spec.inputs.map((input) => [
+      input.name, input.type === "address" ? address("ab") : input.name === "chain" ? max : input.type === "uint64" ? 9n : 10n,
+    ]));
+    const log = { address: LAUNCHPAD_PRECOMPILE, topics, data };
+    assert.deepEqual(decodeLaunchpadEvent(log).fields, fields, spec.name);
+    assert.throws(
+      () => decodeLaunchpadEvent({ ...log, topics: [topics[0]!, `0x${word(max + 1n)}`, ...topics.slice(2)] }),
+      (error: unknown) => error instanceof PrecompileAbiError && error.code === "non_canonical_word",
+      spec.name,
+    );
+  }
+}
+
+test(uint32_chain_events_round_trip);
 
 export function exchange_account_abi_matches_place_order(): void {
   const { signature } = exchangeOrderAbi(true);

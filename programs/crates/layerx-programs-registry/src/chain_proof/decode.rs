@@ -22,6 +22,10 @@ pub struct CommitmentProof {
 }
 
 impl CommitmentProof {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn encode(&self) -> Result<Vec<u8>, ChainProofError> {
         if self.proof_ops.len() > MAX_PROOF_OPS {
             return Err(ChainProofError::NonCanonical);
@@ -55,6 +59,10 @@ impl CommitmentProof {
     }
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the supplied chain evidence cannot be decoded or verified.
 pub fn decode_commitment_proof(bytes: &[u8]) -> Result<CommitmentProof, ChainProofError> {
     let mut reader = BundleReader { bytes, cursor: 0 };
     if reader.take(4)? != b"LXCP" || reader.take(1)? != [1] {

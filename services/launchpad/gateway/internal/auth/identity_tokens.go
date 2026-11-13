@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/jackc/pgx/v5"
 	"io"
 	"os"
 	"reflect"
@@ -17,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // SigningKey stores references and bounded verification metadata, never private key bytes.
@@ -151,7 +152,7 @@ func (t *IdentityTokens) signClaims(ctx context.Context, id string, c IdentityCl
 		Algorithm string `json:"alg"`
 		Type      string `json:"typ"`
 		KeyID     string `json:"kid"`
-	}{"HS256", "JWT", id})
+	}{hmacSHA256Algorithm, "JWT", id})
 	payload, _ := json.Marshal(c)
 	input := b64.EncodeToString(h) + "." + b64.EncodeToString(payload)
 	mac := hmac.New(sha256.New, key)
@@ -190,7 +191,7 @@ func (t *IdentityTokens) Verify(ctx context.Context, token string) (claims Ident
 		Type      string `json:"typ"`
 		KeyID     string `json:"kid"`
 	}
-	if strictJSON(raw, &h) != nil || h.Algorithm != "HS256" || h.Type != "JWT" {
+	if strictJSON(raw, &h) != nil || h.Algorithm != hmacSHA256Algorithm || h.Type != "JWT" {
 		return c, unauthorized()
 	}
 	key, e := t.key(ctx, h.KeyID)
@@ -308,7 +309,7 @@ func (EnvironmentIdentitySecrets) ResolveIdentityKey(ctx context.Context, refere
 		return nil, unavailable()
 	}
 	for index, c := range reference {
-		if !((c >= 'A' && c <= 'Z') || c == '_' || (index > 0 && c >= '0' && c <= '9')) {
+		if (c < 'A' || c > 'Z') && c != '_' && (index == 0 || c < '0' || c > '9') {
 			return nil, unavailable()
 		}
 	}
@@ -344,7 +345,7 @@ type IdentityKeyMetadata struct {
 func (t *IdentityTokens) KeyMetadata() []IdentityKeyMetadata {
 	items := make([]IdentityKeyMetadata, 0, len(t.keys))
 	for _, key := range t.keys {
-		items = append(items, IdentityKeyMetadata{key.ID, "HS256", wireTime(key.ActiveAt), wireTime(key.RetireAt), key.ID == t.active})
+		items = append(items, IdentityKeyMetadata{key.ID, hmacSHA256Algorithm, wireTime(key.ActiveAt), wireTime(key.RetireAt), key.ID == t.active})
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].KeyID < items[j].KeyID })
 	return items

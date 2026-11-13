@@ -1,8 +1,8 @@
 #[path = "support/producer_redis.rs"]
 mod producer_redis;
-#[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/mod.rs"]
+#[path = "support/producer_tls/mod.rs"]
 pub mod support;
-#[path = "../../internal/src/producer_test_support.rs"]
+#[path = "support/producer_transport.rs"]
 mod transport;
 
 use layerx_platform_internal::{

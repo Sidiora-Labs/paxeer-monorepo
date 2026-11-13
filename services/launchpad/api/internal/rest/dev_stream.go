@@ -235,7 +235,11 @@ func (d *DevelopmentStream) Run(ctx context.Context) {
 	wake := make(chan struct{}, 1)
 	if d.redis != nil {
 		sub := d.redis.Subscribe(ctx, constants.ChannelSwap, constants.ChannelPoolStateUpdated)
-		defer sub.Close()
+		defer func() {
+			if err := sub.Close(); err != nil {
+				slog.Warn("close stream subscription", "error", err)
+			}
+		}()
 		messages := sub.Channel()
 		go func() {
 			for range messages {
@@ -482,7 +486,7 @@ func isTransport(err error) bool {
 }
 
 func (d *DevelopmentStream) skip(s developmentSwap, reason string) {
-	d.logger.Warn("development stream skipped swap", slog.String("swap", s.id), slog.String("pool", s.pool), slog.String("reason", reason))
+	d.logger.Warn("development stream skipped swap", slog.String("swap", s.id), slog.String(literalPool, s.pool), slog.String("reason", reason))
 }
 
 // swapPosition checks the receipt's Swap log at the indexed log index against
@@ -493,12 +497,12 @@ func swapPosition(s developmentSwap, r *streamReceipt) (projectedSwap, string) {
 	}
 	height, errHeight := hexutil.DecodeUint64(r.BlockNumber)
 	txIndex, errTx := hexutil.DecodeUint64(r.TransactionIndex)
-	if errHeight != nil || errTx != nil || r.Status != "0x1" || height != uint64(s.block) || !validHash(r.BlockHash) || !strings.EqualFold(r.TransactionHash, s.txHash) {
+	if errHeight != nil || errTx != nil || r.Status != "0x1" || s.block < 0 || height != uint64(s.block) || !validHash(r.BlockHash) || !strings.EqualFold(r.TransactionHash, s.txHash) {
 		return projectedSwap{}, "receipt does not match the indexed swap"
 	}
 	for _, l := range r.Logs {
 		li, err := hexutil.DecodeUint64(l.LogIndex)
-		if err != nil || li != uint64(s.logIndex) {
+		if err != nil || s.logIndex < 0 || li != uint64(s.logIndex) {
 			continue
 		}
 		if l.Removed || len(l.Topics) != 3 || len(l.Topics[2]) != 66 || !strings.EqualFold(l.Topics[0], swapEventTopic) || !strings.EqualFold(l.Topics[1], s.poolID) || !strings.EqualFold("0x"+l.Topics[2][26:], s.sender) {
@@ -538,6 +542,9 @@ func (d *DevelopmentStream) codeEpoch(ctx context.Context, emitter string, block
 	if ok {
 		return epoch, nil
 	}
+	if block < 0 {
+		return "", errChainReferenceUnavailable
+	}
 	var code hexutil.Bytes
 	if err := d.market.chain.client.CallContext(ctx, &code, "eth_getCode", emitter, hexutil.EncodeUint64(uint64(block))); err != nil {
 		return "", err
@@ -560,8 +567,11 @@ func (d *DevelopmentStream) tokenDecimals(ctx context.Context, token string, blo
 	if ok {
 		return decimals, nil
 	}
+	if block < 0 {
+		return 0, errChainReferenceUnavailable
+	}
 	var raw hexutil.Bytes
-	call := map[string]any{"to": token, "data": erc20DecimalsSelector}
+	call := map[string]any{"to": token, literalData: erc20DecimalsSelector}
 	if err := d.market.chain.client.CallContext(ctx, &raw, "eth_call", call, hexutil.EncodeUint64(uint64(block))); err != nil {
 		return 0, err
 	}
@@ -738,13 +748,13 @@ func developmentTradeDocuments(p projectedSwap) (map[string]any, map[string]any,
 	position := chainPosition(p.position)
 	trade := map[string]any{
 		"eventId":                "125:" + p.position.TransactionHash + ":" + p.position.LogIndex,
-		"poolAddress":            s.pool,
+		literalPoolAddress:       s.pool,
 		"sender":                 s.sender,
 		"recipient":              nil,
 		"side":                   side,
 		"tokenAmountRaw":         tokenAmount,
 		"usdlAmountRaw":          usdlAmount,
-		"position":               position,
+		literalPosition:          position,
 		"feeRaw":                 s.fee,
 		"feeAssetAddress":        feeAsset,
 		"feeAssetDecimals":       feeDecimals,
@@ -753,7 +763,7 @@ func developmentTradeDocuments(p projectedSwap) (map[string]any, map[string]any,
 		"pricedInputRaw":         priced,
 		"ammInputAfterFeeRaw":    net,
 		"inputDerivationQuality": quality,
-		"recipientAttribution":   "unavailable",
+		"recipientAttribution":   literalUnavailable,
 		"recipientEvidenceRefs":  []string{},
 		"emittingContract":       p.emitter,
 		"codeEpoch":              p.epoch,
@@ -768,7 +778,7 @@ func developmentTradeDocuments(p projectedSwap) (map[string]any, map[string]any,
 	}
 	ratio := new(big.Rat).SetFrac(new(big.Int).Mul(usdl, new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(p.tokenDecimals)), nil)), new(big.Int).Mul(token, big.NewInt(1000000)))
 	asset := func(address string, decimals int) map[string]any {
-		return map[string]any{"kind": "erc20", "chainId": "125", "address": address, "currencyCode": nil, "decimals": decimals}
+		return map[string]any{literalKind: "erc20", literalChainId: "125", literalAddress: address, "currencyCode": nil, literalDecimals: decimals}
 	}
 	price := map[string]any{
 		"numerator":   ratio.Num().String(),
@@ -776,12 +786,12 @@ func developmentTradeDocuments(p projectedSwap) (map[string]any, map[string]any,
 		"baseAsset":   asset(s.token, p.tokenDecimals),
 		"quoteAsset":  asset(usdlAddress, 6),
 		"source": map[string]any{
-			"kind":            "gross_execution",
+			literalKind:       "gross_execution",
 			"amountBasis":     "paid_input",
 			"sourceEventId":   trade["eventId"],
-			"position":        position,
+			literalPosition:   position,
 			"providerId":      nil,
-			"observedAt":      wireTime(time.Unix(s.timestamp, 0)),
+			literalObservedAt: wireTime(time.Unix(s.timestamp, 0)),
 			"sourceReference": nil,
 		},
 	}
@@ -903,12 +913,12 @@ func sameStatsContent(prior map[string]any, next map[string]any) bool {
 	}
 	a, b := map[string]any{}, map[string]any{}
 	for k, v := range prior {
-		if k != "watermark" {
+		if k != literalWatermark {
 			a[k] = v
 		}
 	}
 	for k, v := range decoded {
-		if k != "watermark" {
+		if k != literalWatermark {
 			b[k] = v
 		}
 	}

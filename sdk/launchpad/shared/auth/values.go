@@ -1,0 +1,27 @@
+package auth
+
+const (
+	valueV1MeWatchlistPoolAddress = "/v1/me/watchlist/{poolAddress}"
+	valueDELETE                   = "DELETE"
+	valueGET                      = "GET"
+	valuePATCH                    = "PATCH"
+	valueAccepted                 = "accepted"
+	valueAudit                    = "audit"
+	valueChain                    = "chain"
+	valueDenied                   = "denied"
+	valueEip1271                  = "eip1271"
+	valueEip191                   = "eip191"
+	valueEoaEip191                = "eoa_eip191"
+	valueErc1271                  = "erc1271"
+	valueHttps                    = "https"
+	valueOwner                    = "owner"
+	valueProofKind                = "proof_kind"
+	valueRecovery                 = "recovery"
+	valueResponseInvalid          = "response_invalid"
+	valueSignatureLength          = "signature_length"
+	valueUpstream                 = "upstream"
+	valuePOST                     = "POST"
+	valuePreferencesUpdate        = "preferences.update"
+	valuePUT                      = "PUT"
+	valueProfileUpdate            = "profile.update"
+)

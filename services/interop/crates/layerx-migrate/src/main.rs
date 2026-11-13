@@ -188,135 +188,152 @@ fn run() -> Result<Value, MigrationError> {
         Some(value) => TraceId::parse(value).map_err(|_| MigrationError::Configuration)?,
         None => TraceId::mint(entropy),
     };
-    if command == "migrate-asset" {
-        let text = required(&args, "--order-digest")?;
-        if text.len() != 64 || !text.bytes().all(|value| value.is_ascii_hexdigit()) {
-            return Err(MigrationError::InvalidEvidence);
-        }
-        let mut order_digest = [0_u8; 32];
-        for (index, byte) in order_digest.iter_mut().enumerate() {
-            *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
-                .map_err(|_| MigrationError::InvalidEvidence)?;
-        }
-        let evidence =
-            SourceEvidence::new(private_input(required(&args, "--evidence")?, 1024 * 1024)?)?;
-        let client = GatewayClient::new(&config::<GatewayClientConfig>(required(
-            &args,
-            "--gateway-config",
-        )?)?)?;
-        let observation = client.migrate_asset(
-            order_digest,
-            required(&args, "--chain")?,
+    match command.as_str() {
+        "migrate-asset" => migrate_asset(&args, &trace),
+        "confirm-mapping" => confirm_mapping(&args, &trace),
+        "read-history" => read_history(&args, &trace),
+        _ => run_verification(&command, &args, &trace),
+    }
+}
+
+fn migrate_asset(
+    args: &BTreeMap<String, String>,
+    trace: &TraceId,
+) -> Result<Value, MigrationError> {
+    let text = required(args, "--order-digest")?;
+    if text.len() != 64 || !text.bytes().all(|value| value.is_ascii_hexdigit()) {
+        return Err(MigrationError::InvalidEvidence);
+    }
+    let mut order_digest = [0_u8; 32];
+    for (index, byte) in order_digest.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+            .map_err(|_| MigrationError::InvalidEvidence)?;
+    }
+    let evidence = SourceEvidence::new(private_input(required(args, "--evidence")?, 1024 * 1024)?)?;
+    let client = GatewayClient::new(&config::<GatewayClientConfig>(required(
+        args,
+        "--gateway-config",
+    )?)?)?;
+    let observation = client.migrate_asset(
+        order_digest,
+        required(args, "--chain")?,
+        &evidence,
+        required(args, "--idempotency")?,
+        trace,
+    )?;
+    Ok(json!({"ok":true, "result":observation, "trace":trace.as_str()}))
+}
+
+fn confirm_mapping(
+    args: &BTreeMap<String, String>,
+    trace: &TraceId,
+) -> Result<Value, MigrationError> {
+    let principal = PrincipalId::new(required(args, "--principal")?)
+        .map_err(|_| MigrationError::Configuration)?;
+    let text = required(args, "--identity")?;
+    if text.len() != 64 || !text.bytes().all(|value| value.is_ascii_hexdigit()) {
+        return Err(MigrationError::InvalidEvidence);
+    }
+    let mut identity = [0_u8; 32];
+    for (index, byte) in identity.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+            .map_err(|_| MigrationError::InvalidEvidence)?;
+    }
+    let evidence = SourceEvidence::new(private_input(required(args, "--evidence")?, 1024 * 1024)?)?;
+    let binding = PaxeerBindingVerifierV2::new(config::<PaxeerBindingConfigV2>(required(
+        args,
+        "--binding-config",
+    )?)?)?;
+    let store = AccountMappingStoreV2::new(&config::<JournalConfig>(required(
+        args,
+        "--mapping-config",
+    )?)?)?;
+    let mapping = match required(args, "--chain")? {
+        "ethereum" => store.confirm(
+            &principal,
+            identity,
             &evidence,
-            required(&args, "--idempotency")?,
-            &trace,
-        )?;
-        return Ok(json!({"ok":true, "result":observation, "trace":trace.as_str()}));
-    }
-    if command == "confirm-mapping" {
-        let principal = PrincipalId::new(required(&args, "--principal")?)
-            .map_err(|_| MigrationError::Configuration)?;
-        let text = required(&args, "--identity")?;
-        if text.len() != 64 || !text.bytes().all(|value| value.is_ascii_hexdigit()) {
-            return Err(MigrationError::InvalidEvidence);
-        }
-        let mut identity = [0_u8; 32];
-        for (index, byte) in identity.iter_mut().enumerate() {
-            *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
-                .map_err(|_| MigrationError::InvalidEvidence)?;
-        }
-        let evidence =
-            SourceEvidence::new(private_input(required(&args, "--evidence")?, 1024 * 1024)?)?;
-        let binding = PaxeerBindingVerifierV2::new(config::<PaxeerBindingConfigV2>(required(
-            &args,
-            "--binding-config",
-        )?)?)?;
-        let store = AccountMappingStoreV2::new(&config::<JournalConfig>(required(
-            &args,
-            "--mapping-config",
-        )?)?)?;
-        let mapping = match required(&args, "--chain")? {
-            "ethereum" => store.confirm(
-                &principal,
-                identity,
-                &evidence,
-                &EthereumVerifier::new(config::<EthereumConfig>(required(&args, "--config")?)?)?,
-                &binding,
-                &trace,
-            )?,
-            "solana" => store.confirm(
-                &principal,
-                identity,
-                &evidence,
-                &SolanaVerifier::new(config::<SolanaConfig>(required(&args, "--config")?)?)?,
-                &binding,
-                &trace,
-            )?,
-            _ => return Err(MigrationError::InvalidNetwork),
-        };
-        return Ok(
-            json!({"ok":true, "result":{"state":"external_mapping_confirmed", "mapping":mapping}, "trace":trace.as_str()}),
-        );
-    }
-    if command == "read-history" {
-        let store = DurableExternalHistory::new(&config::<JournalConfig>(required(
-            &args,
-            "--store-config",
-        )?)?)?;
-        let principal = PrincipalId::new(required(&args, "--principal")?)
-            .map_err(|_| MigrationError::Configuration)?;
-        let cursor = args
-            .get("--cursor")
-            .map(|text| {
-                if text.len() != 64 || !text.bytes().all(|value| value.is_ascii_hexdigit()) {
-                    return Err(MigrationError::Configuration);
-                }
-                let mut cursor = [0_u8; 32];
-                for (index, byte) in cursor.iter_mut().enumerate() {
-                    *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
-                        .map_err(|_| MigrationError::Configuration)?;
-                }
-                Ok(cursor)
-            })
-            .transpose()?;
-        let limit = args.get("--limit").map_or(Ok(256), |text| {
-            text.parse::<usize>()
-                .map_err(|_| MigrationError::Configuration)
-        })?;
-        let page = store.read(&principal, cursor, limit)?;
-        let records: Vec<_> = page.records().iter().map(|record| json!({
-            "network":chain(record.chain()), "transaction":transaction(record.transaction()),
-            "address":address(record.address()), "kind":format!("{:?}", record.kind()),
-            "timestamp":record.timestamp().to_string(), "asset":hex(&record.source_asset()),
-            "amount":record.source_amount().to_string(),
-            "provenance": match record.provenance() { ExternalProvenance::Ethereum => "ethereum-external", ExternalProvenance::Solana => "solana-external" },
-            "layerx_receipt":false,
-        })).collect();
-        return Ok(
-            json!({"ok":true, "result":{"state":"external-history", "records":records,
-            "next_cursor":page.next_cursor().map(|value| hex(&value))}, "trace":trace.as_str()}),
-        );
-    }
-    let verifier: Box<dyn SourceVerifier> = match required(&args, "--chain")? {
+            &EthereumVerifier::new(config::<EthereumConfig>(required(args, "--config")?)?)?,
+            &binding,
+            trace,
+        )?,
+        "solana" => store.confirm(
+            &principal,
+            identity,
+            &evidence,
+            &SolanaVerifier::new(config::<SolanaConfig>(required(args, "--config")?)?)?,
+            &binding,
+            trace,
+        )?,
+        _ => return Err(MigrationError::InvalidNetwork),
+    };
+    Ok(
+        json!({"ok":true, "result":{"state":"external_mapping_confirmed", "mapping":mapping}, "trace":trace.as_str()}),
+    )
+}
+
+fn read_history(args: &BTreeMap<String, String>, trace: &TraceId) -> Result<Value, MigrationError> {
+    let store =
+        DurableExternalHistory::new(&config::<JournalConfig>(required(args, "--store-config")?)?)?;
+    let principal = PrincipalId::new(required(args, "--principal")?)
+        .map_err(|_| MigrationError::Configuration)?;
+    let cursor = args
+        .get("--cursor")
+        .map(|text| {
+            if text.len() != 64 || !text.bytes().all(|value| value.is_ascii_hexdigit()) {
+                return Err(MigrationError::Configuration);
+            }
+            let mut cursor = [0_u8; 32];
+            for (index, byte) in cursor.iter_mut().enumerate() {
+                *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+                    .map_err(|_| MigrationError::Configuration)?;
+            }
+            Ok(cursor)
+        })
+        .transpose()?;
+    let limit = args.get("--limit").map_or(Ok(256), |text| {
+        text.parse::<usize>()
+            .map_err(|_| MigrationError::Configuration)
+    })?;
+    let page = store.read(&principal, cursor, limit)?;
+    let records: Vec<_> = page.records().iter().map(|record| json!({
+        "network":chain(record.chain()), "transaction":transaction(record.transaction()),
+        "address":address(record.address()), "kind":format!("{:?}", record.kind()),
+        "timestamp":record.timestamp().to_string(), "asset":hex(&record.source_asset()),
+        "amount":record.source_amount().to_string(),
+        "provenance": match record.provenance() { ExternalProvenance::Ethereum => "ethereum-external", ExternalProvenance::Solana => "solana-external" },
+        "layerx_receipt":false,
+    })).collect();
+    Ok(
+        json!({"ok":true, "result":{"state":"external-history", "records":records,
+        "next_cursor":page.next_cursor().map(|value| hex(&value))}, "trace":trace.as_str()}),
+    )
+}
+
+fn run_verification(
+    command: &str,
+    args: &BTreeMap<String, String>,
+    trace: &TraceId,
+) -> Result<Value, MigrationError> {
+    let verifier: Box<dyn SourceVerifier> = match required(args, "--chain")? {
         "ethereum" => Box::new(EthereumVerifier::new(config::<EthereumConfig>(required(
-            &args, "--config",
+            args, "--config",
         )?)?)?),
         "solana" => Box::new(SolanaVerifier::new(config::<SolanaConfig>(required(
-            &args, "--config",
+            args, "--config",
         )?)?)?),
         _ => return Err(MigrationError::InvalidNetwork),
     };
-    let evidence =
-        SourceEvidence::new(private_input(required(&args, "--evidence")?, 1024 * 1024)?)?;
-    let result = match command.as_str() {
+    let evidence = SourceEvidence::new(private_input(required(args, "--evidence")?, 1024 * 1024)?)?;
+    let result = match command {
         "verify-ownership" => {
-            let ownership = verifier.verify_ownership(&evidence, &trace)?;
+            let ownership = verifier.verify_ownership(&evidence, trace)?;
             json!({"state":"source-ownership-verified", "network":chain(ownership.chain()),
                 "address":address(ownership.address()), "layerx_identity":hex(&ownership.layerx_identity()),
                 "evidence_digest":hex(&ownership.evidence_digest()), "layerx_bound":false})
         }
         "verify-asset" => {
-            let finality = verifier.verify_asset_finality(&evidence, &trace)?;
+            let finality = verifier.verify_asset_finality(&evidence, trace)?;
             json!({"state":"source-finality-verified", "network":chain(finality.chain()),
                 "transaction":transaction(finality.transaction()), "source":address(finality.source()),
                 "source_asset":hex(&finality.source_asset()), "source_amount":finality.source_amount().to_string(),
@@ -326,15 +343,15 @@ fn run() -> Result<Value, MigrationError> {
                 "layerx_credited":false})
         }
         "import-history" => {
-            let principal = PrincipalId::new(required(&args, "--principal")?)
+            let principal = PrincipalId::new(required(args, "--principal")?)
                 .map_err(|_| MigrationError::Configuration)?;
             let mut store = DurableExternalHistory::new(&config::<JournalConfig>(required(
-                &args,
+                args,
                 "--store-config",
             )?)?)?;
-            let page = verifier.verify_history(&evidence, &trace)?;
-            store.store_external(&principal, &page, &trace)?;
-            verifier.commit_history(&evidence, &page, &trace)?;
+            let page = verifier.verify_history(&evidence, trace)?;
+            store.store_external(&principal, &page, trace)?;
+            verifier.commit_history(&evidence, &page, trace)?;
             json!({"state":"external-history-imported", "record_count":page.records().len(),
                 "next_cursor":page.next_cursor().map(|value| hex(&value)),
                 "evidence_digest":hex(&page.evidence_digest()), "layerx_receipt":false})

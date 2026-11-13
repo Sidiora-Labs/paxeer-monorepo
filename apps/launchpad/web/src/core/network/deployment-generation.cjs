@@ -41,7 +41,12 @@ function createDeploymentGenerator(base) {
       launchpadPrecompile: precompileIdentity.address,
       roleIdentity: {
         ...data.roleIdentity,
-        treasury: { kind: treasuryIdentity.kind, runtimeHash: treasuryIdentity.runtimeHash },
+        treasury: {
+          kind: treasuryIdentity.kind,
+          runtimeHash: treasuryIdentity.runtimeHash,
+          stagedRuntimeHash: treasuryIdentity.stagedRuntimeHash,
+          stagedUpgrade: treasuryIdentity.stagedUpgrade,
+        },
         usdl: { kind: usdlIdentity.kind, runtimeHash: usdlIdentity.runtimeHash },
         launchpadPrecompile: { kind: precompileIdentity.kind },
       },

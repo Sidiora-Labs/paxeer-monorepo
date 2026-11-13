@@ -116,6 +116,29 @@ describe('pool resolver over served v2 routes', () => {
     expect(snapshot.unavailable.stats).toBeNull();
   });
 
+  it('keeps verified pool detail and market cap inputs when metadata fails', async () => {
+    const { deps, calls } = harness((_method, url) =>
+      url.pathname === `/v2/tokens/${token}/metadata`
+        ? { status: 500, body: envelope('INTERNAL') }
+        : undefined);
+    const snapshot = await resolvePoolSnapshot(pool, deps);
+    const detail = recorded.poolDetailReal.body as V2ContractTypes['PoolDetailResponse'];
+    expect(snapshot.metadata).toBeNull();
+    expect(snapshot.unavailable.metadata).toBeNull();
+    expect(snapshot.token).toEqual(detail.data.token);
+    expect(snapshot.token).toMatchObject({
+      decimals: detail.data.token.decimals,
+      decimalsQuality: 'verified',
+      supplyQuality: 'verified',
+      totalSupplyRaw: detail.data.token.totalSupplyRaw,
+    });
+    expect(snapshot.stats).toEqual(detail.data.stats);
+    expect(snapshot.creator).toBe(detail.data.pool.creator);
+    expect(snapshot.unavailable.stats).toBeNull();
+    expect(snapshot.unavailable.registry).toBeNull();
+    expect(calls()).toEqual(expect.arrayContaining([`GET /v2/pools/${pool}`, `GET /v2/tokens/${token}/metadata`]));
+  });
+
   it('reads IF_STATS from recorded bytes when the pool resolves only through search', async () => {
     const { deps } = harness((_method, url) => url.pathname === `/v2/pools/${pool}` ? { status: 503, body: envelope('DEPENDENCY_UNAVAILABLE', false) } : url.pathname === '/v2/search' && url.searchParams.get('q') === pool && url.searchParams.get('type') === 'pool' ? { status: 200, body: { ...searchToken, data: { items: [{ ...searchToken.data.items[0], kind: 'pool' }] } } } : undefined);
     const snapshot = await resolvePoolSnapshot(pool, deps);

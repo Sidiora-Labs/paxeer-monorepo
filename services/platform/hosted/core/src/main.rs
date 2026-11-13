@@ -4,12 +4,14 @@ mod public_reads;
 
 use layerx_client::px::PxEndpoint;
 use layerx_client::sequencer::SequencerEndpoint;
+use layerx_crypto::disclosure::{AmountRole, CounterpartyRole};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+use layerx_crypto::payments::{bind_call, ledger_payment_call, CallOptions, SendDebit};
 use layerx_platform_core::{
-    asset_registry, did_for_public_key, fixed_hex, hex_decode, hex_encode, main_account, SendError,
+    asset_registry, did_for_public_key, fixed_hex, hex_decode, hex_encode, main_account,
     SocketSigner, TreasurySigner as _,
 };
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig, ServerConnection, StreamOwned};
@@ -26,12 +28,11 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
 use zeroize::{Zeroize, Zeroizing};
 
 const MAX_REQUEST_BYTES: usize = 4 * 1024 * 1024;
-const MAX_RELAY_BYTES: usize = 4 * 1024 * 1024;
 const MAX_RECEIPT_BYTES: usize = 1_212_416;
 const IO_TIMEOUT: Duration = layerx_platform_internal::http::IO_TIMEOUT;
 const RESET_TIMEOUT: Duration = Duration::from_secs(180);
@@ -66,12 +67,12 @@ struct Config {
     sequencer: SequencerEndpoint,
     network: PxEndpoint,
     network_id: u32,
-    node: NodeEndpoint,
-    node_token: Zeroizing<String>,
+    _node: NodeEndpoint,
+    _node_token: Zeroizing<String>,
     receipt_events_token: Option<Zeroizing<String>>,
-    wallet_caps_token: Option<Zeroizing<String>>,
-    replica: NodeEndpoint,
-    replica_token: Zeroizing<String>,
+    _wallet_caps_token: Option<Zeroizing<String>>,
+    _replica: NodeEndpoint,
+    _replica_token: Zeroizing<String>,
     admin_token: Zeroizing<String>,
     treasury: Arc<dyn layerx_platform_core::TreasurySigner>,
     treasury_did: String,
@@ -80,7 +81,7 @@ struct Config {
     sequencer_id: [u8; 32],
     supervisor_socket: PathBuf,
     state_dir: PathBuf,
-    fee_limit: u128,
+    _fee_limit: u128,
     receipt_deadline: Duration,
     admin_lock: Mutex<()>,
     journal_lock: Mutex<()>,
@@ -165,7 +166,6 @@ const MAX_FUNDING_INVENTORY_BYTES: u64 = 64 * 1024 * 1024;
 struct ReceiptFacts {
     activity_id: [u8; 32],
     batch_id: [u8; 32],
-    global_sequence: u64,
     result_code: i32,
     state_root: [u8; 32],
     canonical: Vec<u8>,
@@ -273,6 +273,25 @@ fn parse_node_url(value: &str) -> Result<NodeEndpoint, String> {
     })
 }
 
+fn prepare_state_dir() -> Result<PathBuf, String> {
+    let state_dir = PathBuf::from(required("LAYERX_CORE_STATE_DIR")?);
+    let mut journal = fs::DirBuilder::new();
+    journal.recursive(true).mode(0o700);
+    journal
+        .create(state_dir.join("journal"))
+        .map_err(|error| format!("LAYERX_CORE_STATE_DIR is unusable: {error}"))?;
+    for directory in ["funding-intents", "funding-receipts"] {
+        journal
+            .create(state_dir.join(directory))
+            .map_err(|error| format!("LAYERX_CORE_STATE_DIR is unusable: {error}"))?;
+    }
+    funding_directory(&state_dir)?;
+    fs::File::open(&state_dir)
+        .and_then(|directory| directory.sync_all())
+        .map_err(|error| format!("LAYERX_CORE_STATE_DIR is not durable: {error}"))?;
+    Ok(state_dir)
+}
+
 fn config() -> Result<Config, String> {
     let client_ca = match env::var("LAYERX_CORE_CLIENT_CA_DER") {
         Ok(path) => Some(read_input("LAYERX_CORE_CLIENT_CA_DER", &path)?),
@@ -298,21 +317,7 @@ fn config() -> Result<Config, String> {
         "LAYERX_CORE_SEQUENCER_ID",
         &required("LAYERX_CORE_SEQUENCER_ID")?,
     )?;
-    let state_dir = PathBuf::from(required("LAYERX_CORE_STATE_DIR")?);
-    let mut journal = fs::DirBuilder::new();
-    journal.recursive(true).mode(0o700);
-    journal
-        .create(state_dir.join("journal"))
-        .map_err(|error| format!("LAYERX_CORE_STATE_DIR is unusable: {error}"))?;
-    for directory in ["funding-intents", "funding-receipts"] {
-        journal
-            .create(state_dir.join(directory))
-            .map_err(|error| format!("LAYERX_CORE_STATE_DIR is unusable: {error}"))?;
-    }
-    funding_directory(&state_dir)?;
-    fs::File::open(&state_dir)
-        .and_then(|directory| directory.sync_all())
-        .map_err(|error| format!("LAYERX_CORE_STATE_DIR is not durable: {error}"))?;
+    let state_dir = prepare_state_dir()?;
     let sequencer_url = required("LAYERX_CORE_SEQUENCER_ENDPOINT")?;
     let trust_anchor_path = required("LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER")?;
     let mut trust_anchor = Vec::new();
@@ -345,22 +350,22 @@ fn config() -> Result<Config, String> {
         sequencer,
         network,
         network_id,
-        node: NodeEndpoint {
+        _node: NodeEndpoint {
             host: String::new(),
             port: 0,
         },
-        node_token: Zeroizing::new(String::new()),
-        wallet_caps_token: env::var_os("LAYERX_CORE_WALLET_CAPS_TOKEN_FILE")
+        _node_token: Zeroizing::new(String::new()),
+        _wallet_caps_token: env::var_os("LAYERX_CORE_WALLET_CAPS_TOKEN_FILE")
             .map(|_| read_secret("LAYERX_CORE_WALLET_CAPS_TOKEN_FILE"))
             .transpose()?,
         receipt_events_token: env::var_os("LAYERX_CORE_RECEIPT_EVENTS_TOKEN_FILE")
             .map(|_| read_secret("LAYERX_CORE_RECEIPT_EVENTS_TOKEN_FILE"))
             .transpose()?,
-        replica: NodeEndpoint {
+        _replica: NodeEndpoint {
             host: String::new(),
             port: 0,
         },
-        replica_token: Zeroizing::new(String::new()),
+        _replica_token: Zeroizing::new(String::new()),
         admin_token: read_secret("LAYERX_CORE_ADMIN_TOKEN_FILE")?,
         treasury_did: did_for_public_key(&treasury.public_key()),
         treasury: Arc::new(treasury),
@@ -369,7 +374,7 @@ fn config() -> Result<Config, String> {
         sequencer_id,
         supervisor_socket: PathBuf::from(required("LAYERX_CORE_SUPERVISOR_SOCKET")?),
         state_dir,
-        fee_limit: u128::from(parse_u64("LAYERX_CORE_FEE_LIMIT", 1_000)?),
+        _fee_limit: u128::from(parse_u64("LAYERX_CORE_FEE_LIMIT", 1_000)?),
         receipt_deadline: Duration::from_millis(parse_u64(
             "LAYERX_CORE_RECEIPT_DEADLINE_MS",
             15_000,
@@ -579,7 +584,6 @@ fn receipt_facts(bytes: &[u8], sequencer_key: [u8; 32]) -> Result<ReceiptFacts, 
     Ok(ReceiptFacts {
         activity_id: receipt.activity_id(),
         batch_id: receipt.batch_id(),
-        global_sequence: receipt.global_sequence(),
         result_code: receipt.result_code(),
         state_root: receipt.resulting_state_root(),
         canonical: verified.canonical_bytes().to_vec(),
@@ -660,7 +664,6 @@ fn await_receipt(
     validate_receipt_landing(&receipt, &batch)?;
     Ok(ReceiptRead::Verified(ReceiptFacts {
         activity_id: receipt.activity_id(),
-        global_sequence: receipt.global_sequence(),
         result_code: receipt.result_code().raw(),
         canonical: receipt.canonical_bytes().to_vec(),
         batch_id: batch.hash,
@@ -690,111 +693,6 @@ fn validate_receipt_landing(
         return Err("native receipt landing block differs".into());
     }
     Ok(())
-}
-
-fn receipt_result(facts: &ReceiptFacts) -> serde_json::Value {
-    serde_json::json!({
-        "state": if facts.result_code == 0 { "completed" } else { "refused" },
-        "activity_id": hex_encode(&facts.activity_id),
-        "batch_id": hex_encode(&facts.batch_id),
-        "global_sequence": facts.global_sequence,
-        "result_code": facts.result_code,
-        "state_root": hex_encode(&facts.state_root),
-        "receipt": hex_encode(&facts.canonical),
-    })
-}
-
-fn signer_key(authority: &[u8]) -> Option<[u8; 32]> {
-    match authority.len() {
-        32 => authority.try_into().ok(),
-        33 if authority[0] == 1 => authority[1..].try_into().ok(),
-        _ => None,
-    }
-}
-
-const ASSET_SUBMISSION_ORDINALS: [u16; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 10, 11];
-const PROGRAM_SUBMISSION_ORDINALS: [u16; 6] = [1, 2, 3, 5, 6, 7];
-
-fn registry_with_asset_ordinals(asset_ordinals: &[u16]) -> Result<ModuleRegistry, String> {
-    let asset_operations = asset_ordinals
-        .iter()
-        .copied()
-        .map(|ordinal| ActivityType::new(ModuleId::Asset, ordinal))
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("asset activity: {error:?}"))?;
-    let program_operations = PROGRAM_SUBMISSION_ORDINALS
-        .map(|ordinal| ActivityType::new(ModuleId::Programs, ordinal))
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("program activity: {error:?}"))?;
-    let asset = ModuleRegistration::new(ModuleId::Asset, &asset_operations)
-        .map_err(|error| format!("asset registration: {error:?}"))?;
-    let programs = ModuleRegistration::new(ModuleId::Programs, &program_operations)
-        .map_err(|error| format!("program registration: {error:?}"))?;
-    ModuleRegistry::new(&[asset, programs]).map_err(|error| format!("module registry: {error:?}"))
-}
-
-fn submission_registry() -> Result<ModuleRegistry, String> {
-    registry_with_asset_ordinals(&ASSET_SUBMISSION_ORDINALS)
-}
-
-fn validate_fee_program_account(ordinal: u16, payload: &[u8]) -> Result<(), ()> {
-    if payload.len() < 32 || payload[..32] == [0; 32] {
-        return Err(());
-    }
-    match ordinal {
-        5 => {
-            let count = payload.get(32..34).ok_or(())?;
-            let count = usize::from(u16::from_be_bytes([count[0], count[1]]));
-            if count == 0 || count > 256 || payload.len() != 34 + count * 112 {
-                return Err(());
-            }
-        }
-        6 => {
-            if payload.get(32..37) != Some(b"LXPA1") || payload.get(37..69).ok_or(())? == [0; 32] {
-                return Err(());
-            }
-            let length: [u8; 4] = payload.get(69..73).ok_or(())?.try_into().map_err(|_| ())?;
-            let length = u32::from_be_bytes(length);
-            if length > 128 || payload.len() != 73 + usize::try_from(length).map_err(|_| ())? {
-                return Err(());
-            }
-        }
-        _ => return Err(()),
-    }
-    Ok(())
-}
-
-fn validate_fee_lifecycle_payload(ordinal: u16, payload: &[u8]) -> Result<[u8; 32], String> {
-    let invalid = |_| "invalid canonical program lifecycle payload".to_owned();
-    let (program_id, encoded) = match ordinal {
-        1 => {
-            let value = layerx_types::program_lifecycle::NativeProgramDeploy::decode(payload)
-                .map_err(invalid)?;
-            if <[u8; 32]>::from(Sha256::digest(value.wasm)) != value.new_hash {
-                return Err("program Wasm hash mismatch".to_owned());
-            }
-            (value.program_id.bytes(), value.encode().map_err(invalid)?)
-        }
-        2 => {
-            let value = layerx_types::program_lifecycle::NativeProgramUpgrade::decode(payload)
-                .map_err(invalid)?;
-            if <[u8; 32]>::from(Sha256::digest(value.wasm)) != value.new_hash {
-                return Err("program Wasm hash mismatch".to_owned());
-            }
-            (value.program_id.bytes(), value.encode().map_err(invalid)?)
-        }
-        7 => {
-            let value = layerx_types::program_lifecycle::NativeProgramWindDown::decode(payload)
-                .map_err(invalid)?;
-            (value.program_id.bytes(), value.encode().map_err(invalid)?)
-        }
-        _ => return Err("unsupported program lifecycle ordinal".to_owned()),
-    };
-    if encoded != payload {
-        return Err("noncanonical program lifecycle payload".to_owned());
-    }
-    Ok(program_id)
 }
 
 fn receipt_route(config: &Config, activity_hex: &str) -> Response {
@@ -860,8 +758,8 @@ fn readiness(config: &Config) -> Response {
         .get()
         .and_then(chain_fund::ChainFunding::readiness)
         .unwrap_or_else(|reason| serde_json::json!({"ready": false, "reason": reason}));
-    let mut document: serde_json::Value =
-        serde_json::from_str(&response.body).expect("readiness response is JSON");
+    let mut document: serde_json::Value = serde_json::from_str(&response.body)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "readiness response is JSON"));
     document["funding"] = funding;
     response.body = document.to_string();
     response
@@ -1311,14 +1209,6 @@ fn admin_authorized(config: &Config, request: &Request) -> bool {
         })
 }
 
-fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| {
-            u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)
-        })
-}
-
 fn send_idempotency(key: &str) -> [u8; 32] {
     let mut digest = Sha256::new();
     digest.update(b"layerx-core-fund\0");
@@ -1326,13 +1216,14 @@ fn send_idempotency(key: &str) -> [u8; 32] {
     digest.finalize().into()
 }
 
-fn send_refusal(error: SendError) -> Response {
+#[cfg(test)]
+fn send_refusal(error: layerx_platform_core::SendError) -> Response {
     match error {
-        SendError::Signer(reason) => {
+        layerx_platform_core::SendError::Signer(reason) => {
             eprintln!("layerx-core-boundary: treasury signer: {reason}");
             refusal(503, "treasury_signer_unavailable", Some(5))
         }
-        SendError::Invalid(reason) => {
+        layerx_platform_core::SendError::Invalid(reason) => {
             eprintln!("layerx-core-boundary: send construction: {reason}");
             refusal(422, "send_unbuildable", None)
         }
@@ -1428,10 +1319,11 @@ fn fund_send(
 
 fn funding_record_path(config: &Config, directory: &str, key: &str) -> PathBuf {
     let canonical = journal_path(config, "fund-canonical", key);
-    config
-        .state_dir
-        .join(directory)
-        .join(canonical.file_name().expect("journal filename"))
+    config.state_dir.join(directory).join(
+        canonical
+            .file_name()
+            .unwrap_or_else(|| panic!("{}", "journal filename")),
+    )
 }
 
 fn funding_directory(path: &Path) -> Result<(), String> {
@@ -1531,7 +1423,7 @@ fn funding_store(path: &Path, bytes: &[u8]) -> Result<(), String> {
     result
 }
 
-fn validate_funding_intent(config: &Config, intent: &FundingIntent) -> Result<(), String> {
+fn validate_funding_request(config: &Config, intent: &FundingIntent) -> Result<(), String> {
     if intent.version != 1
         || !valid_key(&intent.key)
         || intent.network_id != config.network_id
@@ -1563,36 +1455,14 @@ fn validate_funding_intent(config: &Config, intent: &FundingIntent) -> Result<()
     {
         return Err("funding request binding differs".to_owned());
     }
-    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
-    use layerx_crypto::payments::{bind_call, ledger_payment_call, CallOptions, SendDebit};
-    let (call, signature) =
-        decode_signed(&intent.signed.canonical).map_err(|error| error.to_string())?;
-    let sender = recover_sender(&call, &signature).map_err(|error| error.to_string())?;
-    let treasury = config
-        .treasury
-        .transaction_signer()
-        .evm_address()
-        .ok_or("treasury address unavailable")?;
-    let mut ledger = [0; 20];
-    ledger[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
-    if call.chain_id != 125
-        || call.to != ledger
-        || sender != treasury
-        || sender != intent.signed.sender
-        || transaction_hash(&intent.signed.canonical) != intent.signed.transaction_hash
-    {
-        return Err("canonical funding identity differs".to_owned());
-    }
-    let disclosure = bind_call(&call, sender).map_err(|error| format!("{error:?}"))?;
-    let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) = disclosure
-        .construct_method()
-        .map_err(|error| format!("{error:?}"))?
-    else {
-        return Err("canonical funding is not a ledger send".to_owned());
-    };
-    if payload.len() != 364 {
-        return Err("canonical funding debit differs".to_owned());
-    }
+    Ok(())
+}
+
+fn validate_funding_debit(
+    config: &Config,
+    intent: &FundingIntent,
+    payload: &[u8],
+) -> Result<Vec<u8>, String> {
     let source = main_account(&config.treasury_did)?;
     let destination = main_account(&intent.command.did)?;
     let idempotency_key = send_idempotency(&intent.key);
@@ -1630,9 +1500,43 @@ fn validate_funding_intent(config: &Config, intent: &FundingIntent) -> Result<()
     let expected_payload = debit
         .encode_signed(config.treasury.public_key(), payload_signature)
         .map_err(|error| format!("{error:?}"))?;
-    if payload != expected_payload {
+    if payload != expected_payload.as_slice() {
         return Err("canonical funding debit differs".to_owned());
     }
+    Ok(expected_payload)
+}
+
+fn validate_funding_intent(config: &Config, intent: &FundingIntent) -> Result<(), String> {
+    validate_funding_request(config, intent)?;
+    let (call, signature) =
+        decode_signed(&intent.signed.canonical).map_err(|error| error.to_string())?;
+    let sender = recover_sender(&call, &signature).map_err(|error| error.to_string())?;
+    let treasury = config
+        .treasury
+        .transaction_signer()
+        .evm_address()
+        .ok_or("treasury address unavailable")?;
+    let mut ledger = [0; 20];
+    ledger[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+    if call.chain_id != 125
+        || call.to != ledger
+        || sender != treasury
+        || sender != intent.signed.sender
+        || transaction_hash(&intent.signed.canonical) != intent.signed.transaction_hash
+    {
+        return Err("canonical funding identity differs".to_owned());
+    }
+    let disclosure = bind_call(&call, sender).map_err(|error| format!("{error:?}"))?;
+    let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) = disclosure
+        .construct_method()
+        .map_err(|error| format!("{error:?}"))?
+    else {
+        return Err("canonical funding is not a ledger send".to_owned());
+    };
+    if payload.len() != 364 {
+        return Err("canonical funding debit differs".to_owned());
+    }
+    let expected_payload = validate_funding_debit(config, intent, &payload)?;
     let expected = ledger_payment_call(
         &expected_payload,
         &CallOptions {
@@ -1648,7 +1552,6 @@ fn validate_funding_intent(config: &Config, intent: &FundingIntent) -> Result<()
     if call != expected.call || disclosure != expected.disclosure {
         return Err("canonical funding call differs".to_owned());
     }
-    use layerx_crypto::disclosure::{AmountRole, CounterpartyRole};
     if disclosure.asset != config.treasury_asset
         || disclosure.counterparties.len() != 2
         || disclosure.amounts.len() != 1
@@ -1691,6 +1594,70 @@ fn persist_funding_intent(config: &Config, intent: &FundingIntent) -> Result<(),
     )
 }
 
+fn import_funding_intent(config: &Config, request: &Request) -> Response {
+    let unavailable = || refusal(503, "journal_unavailable", Some(5));
+    if request.method != "POST" {
+        return refusal(405, "method_not_allowed", None);
+    }
+    if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
+        return refusal(400, "content_type_required", None);
+    }
+    let Ok(intent) = serde_json::from_slice::<FundingIntent>(&request.body) else {
+        return refusal(400, "invalid_funding_intent", None);
+    };
+    if request.headers.get("idempotency-key") != Some(&intent.key)
+        || validate_funding_intent(config, &intent).is_err()
+    {
+        return refusal(400, "invalid_funding_intent", None);
+    }
+    let stage_path = journal_path(config, "fund-canonical", &intent.key);
+    let Ok(command_bytes) = serde_json::to_vec(&intent.command) else {
+        return unavailable();
+    };
+    let command_digest = hex_encode(&Sha256::digest(&command_bytes));
+    let Ok(stage) = journal_read(&stage_path) else {
+        return unavailable();
+    };
+    if let Some(stage) = &stage {
+        let Ok(signed) = serde_json::from_str::<PreparedFunding>(&stage.body) else {
+            return refusal(409, "idempotency_conflict", None);
+        };
+        if stage.request_digest != command_digest
+            || signed.canonical != intent.signed.canonical
+            || signed.transaction_hash != intent.signed.transaction_hash
+            || signed.sender != intent.signed.sender
+        {
+            return refusal(409, "idempotency_conflict", None);
+        }
+    }
+    if persist_funding_intent(config, &intent).is_err() {
+        return unavailable();
+    }
+    if stage.is_none() {
+        let Ok(body) = serde_json::to_string(&intent.signed) else {
+            return unavailable();
+        };
+        if journal_write(
+            &stage_path,
+            &JournalEntry {
+                request_digest: command_digest,
+                status: 202,
+                body,
+                retry_after: Some(5),
+            },
+        )
+        .is_err()
+        {
+            return unavailable();
+        }
+    }
+    success(&serde_json::json!({
+        "state": "prepared",
+        "transaction_hash": hex_encode(&intent.signed.transaction_hash),
+        "sender": hex_encode(&intent.signed.sender)
+    }))
+}
+
 fn funding_intent_route(config: &Config, request: &Request) -> Response {
     let unavailable = || refusal(503, "journal_unavailable", Some(5));
     let Ok(_guard) = config.admin_lock.lock() else {
@@ -1719,67 +1686,7 @@ fn funding_intent_route(config: &Config, request: &Request) -> Response {
         }
     }
     if request.path == "/admin/v1/testnet/funding-intents" {
-        if request.method != "POST" {
-            return refusal(405, "method_not_allowed", None);
-        }
-        if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
-            return refusal(400, "content_type_required", None);
-        }
-        let Ok(intent) = serde_json::from_slice::<FundingIntent>(&request.body) else {
-            return refusal(400, "invalid_funding_intent", None);
-        };
-        if request.headers.get("idempotency-key") != Some(&intent.key)
-            || validate_funding_intent(config, &intent).is_err()
-        {
-            return refusal(400, "invalid_funding_intent", None);
-        }
-        let stage_path = journal_path(config, "fund-canonical", &intent.key);
-        let Ok(command_bytes) = serde_json::to_vec(&intent.command) else {
-            return unavailable();
-        };
-        let command_digest = hex_encode(&Sha256::digest(&command_bytes));
-        let stage = match journal_read(&stage_path) {
-            Ok(stage) => stage,
-            Err(_) => return unavailable(),
-        };
-        if let Some(stage) = &stage {
-            let Ok(signed) = serde_json::from_str::<PreparedFunding>(&stage.body) else {
-                return refusal(409, "idempotency_conflict", None);
-            };
-            if stage.request_digest != command_digest
-                || signed.canonical != intent.signed.canonical
-                || signed.transaction_hash != intent.signed.transaction_hash
-                || signed.sender != intent.signed.sender
-            {
-                return refusal(409, "idempotency_conflict", None);
-            }
-        }
-        if persist_funding_intent(config, &intent).is_err() {
-            return unavailable();
-        }
-        if stage.is_none() {
-            let Ok(body) = serde_json::to_string(&intent.signed) else {
-                return unavailable();
-            };
-            if journal_write(
-                &stage_path,
-                &JournalEntry {
-                    request_digest: command_digest,
-                    status: 202,
-                    body,
-                    retry_after: Some(5),
-                },
-            )
-            .is_err()
-            {
-                return unavailable();
-            }
-        }
-        return success(&serde_json::json!({
-            "state": "prepared",
-            "transaction_hash": hex_encode(&intent.signed.transaction_hash),
-            "sender": hex_encode(&intent.signed.sender)
-        }));
+        return import_funding_intent(config, request);
     }
     if request.method != "GET" {
         return refusal(405, "method_not_allowed", None);
@@ -2028,30 +1935,27 @@ fn retain_funding_receipts(config: &Config) -> Result<(), Response> {
             return Err(unavailable());
         }
         let archive_path = funding_record_path(config, "funding-receipts", &intent.key);
-        let archive = match funding_read(&archive_path).map_err(|_| unavailable())? {
-            Some(bytes) => {
-                serde_json::from_slice::<FundingArchive>(&bytes).map_err(|_| unavailable())?
+        let archive = if let Some(bytes) = funding_read(&archive_path).map_err(|_| unavailable())? {
+            serde_json::from_slice::<FundingArchive>(&bytes).map_err(|_| unavailable())?
+        } else {
+            let remaining = config
+                .receipt_deadline
+                .checked_sub(started.elapsed())
+                .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
+            let lookup =
+                await_authenticated_receipt(config, intent.signed.transaction_hash, remaining)
+                    .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?;
+            let layerx_client::rpc::receipt::Lookup::Verified(receipt) = lookup else {
+                return Err(refusal(503, "receipt_unavailable", Some(5)));
+            };
+            if receipt.execution().signing_key != intent.sequencer_key {
+                return Err(refusal(503, "receipt_unavailable", Some(5)));
             }
-            None => {
-                let remaining = config
-                    .receipt_deadline
-                    .checked_sub(started.elapsed())
-                    .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
-                let lookup =
-                    await_authenticated_receipt(config, intent.signed.transaction_hash, remaining)
-                        .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?;
-                let layerx_client::rpc::receipt::Lookup::Verified(receipt) = lookup else {
-                    return Err(refusal(503, "receipt_unavailable", Some(5)));
-                };
-                if receipt.execution().signing_key != intent.sequencer_key {
-                    return Err(refusal(503, "receipt_unavailable", Some(5)));
-                }
-                let receipt = receipt.canonical_bytes().to_vec();
-                FundingArchive {
-                    version: 1,
-                    intent_digest: hex_encode(&Sha256::digest(&bytes)),
-                    receipt,
-                }
+            let receipt = receipt.canonical_bytes().to_vec();
+            FundingArchive {
+                version: 1,
+                intent_digest: hex_encode(&Sha256::digest(&bytes)),
+                receipt,
             }
         };
         funding_archive_facts(config, &intent, &bytes, &archive).map_err(|_| unavailable())?;
@@ -2191,7 +2095,7 @@ fn reset_authoritative_reply(reply: &SupervisorReply, reset_id: &str) -> Option<
         || reply.reset_id.as_deref() != Some(reset_id)
         || !reply
             .generation
-            .is_some_and(|value| value > 0 && value <= i64::MAX as u64)
+            .is_some_and(|value| value > 0 && i64::try_from(value).is_ok())
     {
         return None;
     }
@@ -2386,9 +2290,8 @@ fn admin_route(config: &Config, request: &Request) -> Response {
     match request.path.as_str() {
         "/admin/v1/testnet/fund" => {
             match archived_funding_response(config, request, &key) {
-                Ok(Some(response)) => return response,
+                Ok(Some(response)) | Err(response) => return response,
                 Ok(None) => {}
-                Err(response) => return response,
             }
             stateful(config, "fund", request, || fund(config, request, &key))
         }
@@ -2497,7 +2400,7 @@ fn platform_core(config: Config) -> Result<(), String> {
         .map_err(|_| "admin listener thread panicked".to_owned())
 }
 
-fn main() {
+pub fn main() {
     if let Err(error) = config().and_then(platform_core) {
         eprintln!("layerx-core-boundary: {error}");
         std::process::exit(2);

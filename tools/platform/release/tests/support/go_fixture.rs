@@ -13,22 +13,21 @@ impl GoFixture {
         let module = include_str!("../../../../../sdk/platform/go/go.mod")
             .lines()
             .find_map(|line| line.strip_prefix("module "))
-            .expect("canonical Go module declaration")
+            .unwrap_or_else(|| panic!("canonical Go module declaration"))
             .trim();
         let declarations = registries_declarations(include_str!("../../registries.kvx"))
-            .expect("committed registry declarations");
+            .unwrap_or_else(|error| panic!("committed registry declarations: {error:?}"));
         let registry = declarations
             .registries
             .iter()
             .find(|registry| registry.name == "go-modules")
-            .expect("Go registry declaration");
+            .unwrap_or_else(|| panic!("Go registry declaration"));
         assert_eq!(registry.packages, [module]);
         let distribution = registry
             .declarations
             .iter()
             .find(|(key, _)| key == "distribution")
-            .map(|(_, value)| value)
-            .expect("Go registry distribution");
+            .map_or_else(|| panic!("Go registry distribution"), |(_, value)| value);
         let escaped = module
             .chars()
             .flat_map(|character| {
@@ -48,10 +47,10 @@ impl GoFixture {
         let document = workflow::parse(include_str!(
             "../../../../../.github/workflows/platform.yml"
         ))
-        .expect("committed publication workflow");
+        .unwrap_or_else(|error| panic!("committed publication workflow: {error:?}"));
         let job = document
             .path(&["jobs", "publish-go-modules"])
-            .expect("Go publication job");
+            .unwrap_or_else(|| panic!("Go publication job"));
         assert_eq!(
             job.path(&["env", "LAYERX_RELEASE_PACKAGES"])
                 .and_then(workflow::Node::as_str),
@@ -64,7 +63,7 @@ impl GoFixture {
         );
         let scripts = job
             .get("steps")
-            .expect("publication steps")
+            .unwrap_or_else(|| panic!("publication steps"))
             .items()
             .iter()
             .filter_map(|step| step.get("run").and_then(workflow::Node::as_str))
@@ -72,14 +71,14 @@ impl GoFixture {
         let signing = scripts
             .iter()
             .find(|script| script.contains("git tag -s"))
-            .expect("signed module tag producer");
+            .unwrap_or_else(|| panic!("signed module tag producer"));
         assert!(signing.contains(&format!("tag={directory}/v$LAYERX_RELEASE_VERSION")));
         assert!(signing.contains("git tag -s \"$tag\""));
         assert!(signing.contains(&format!("refs/tags/{directory}/v$LAYERX_RELEASE_VERSION")));
         let download = scripts
             .iter()
             .find(|script| script.contains("go mod download -json"))
-            .expect("module archive producer");
+            .unwrap_or_else(|| panic!("module archive producer"));
         assert!(download.contains("go mod download -json \"$module@v$LAYERX_RELEASE_VERSION\""));
         assert!(download
             .contains("${LAYERX_RELEASE_TARGET%/}/$escaped/@v/v$LAYERX_RELEASE_VERSION.zip"));

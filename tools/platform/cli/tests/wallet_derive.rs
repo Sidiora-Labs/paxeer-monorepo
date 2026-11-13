@@ -9,7 +9,8 @@ const FIXTURE: &str =
     include_str!("../../../../sdk/platform/conformance/fixtures/account-derivation-v1.json");
 
 fn fixture() -> Value {
-    serde_json::from_str(FIXTURE).expect("the shared derivation fixture is JSON")
+    serde_json::from_str(FIXTURE)
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "the shared derivation fixture is JSON"))
 }
 
 #[test]
@@ -19,15 +20,29 @@ fn derive_reads_the_phrase_from_stdin_and_matches_the_shared_fixture() {
     }
     let cli = Cli::new();
     let fixture = fixture();
-    for vector in fixture["mnemonic_vectors"].as_array().expect("vectors") {
+    for vector in fixture["mnemonic_vectors"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{}", "vectors"))
+    {
         if vector["passphrase"] != "" {
             continue;
         }
-        for account in vector["accounts"].as_array().expect("accounts") {
-            let index = account["index"].as_u64().expect("index").to_string();
+        for account in vector["accounts"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{}", "accounts"))
+        {
+            let index = account["index"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("{}", "index"))
+                .to_string();
             let output = cli.run_with_stdin(
                 &["--json", "wallet", "derive", "--index", &index],
-                &format!("{}\n", vector["mnemonic"].as_str().expect("mnemonic")),
+                &format!(
+                    "{}\n",
+                    vector["mnemonic"]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("{}", "mnemonic"))
+                ),
             );
             assert!(
                 output.status.success(),
@@ -54,16 +69,28 @@ fn derive_reads_files_and_exports_keys_only_to_an_owner_only_file() {
     let fixture = fixture();
     let vector = &fixture["mnemonic_vectors"][1];
     let account = &vector["accounts"][1];
-    let directory = tempfile::tempdir().expect("temporary directory");
+    let directory =
+        tempfile::tempdir().unwrap_or_else(|error| panic!("{}: {error:?}", "temporary directory"));
     let phrase = directory.path().join("phrase");
     let passphrase = directory.path().join("passphrase");
     let keys = directory.path().join("keys.json");
-    std::fs::write(&phrase, vector["mnemonic"].as_str().expect("mnemonic")).expect("phrase");
+    std::fs::write(
+        &phrase,
+        vector["mnemonic"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{}", "mnemonic")),
+    )
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "phrase"));
     std::fs::write(
         &passphrase,
-        format!("{}\n", vector["passphrase"].as_str().expect("passphrase")),
+        format!(
+            "{}\n",
+            vector["passphrase"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "passphrase"))
+        ),
     )
-    .expect("passphrase");
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "passphrase"));
     let arguments = [
         "--json",
         "wallet",
@@ -71,11 +98,11 @@ fn derive_reads_files_and_exports_keys_only_to_an_owner_only_file() {
         "--index",
         "1",
         "--mnemonic-file",
-        phrase.to_str().expect("path"),
+        phrase.to_str().unwrap_or_else(|| panic!("{}", "path")),
         "--passphrase-file",
-        passphrase.to_str().expect("path"),
+        passphrase.to_str().unwrap_or_else(|| panic!("{}", "path")),
         "--export-private-keys",
-        keys.to_str().expect("path"),
+        keys.to_str().unwrap_or_else(|| panic!("{}", "path")),
     ];
     let output = cli.run(&arguments);
     assert!(
@@ -87,15 +114,21 @@ fn derive_reads_files_and_exports_keys_only_to_an_owner_only_file() {
     assert_eq!(result["data"]["evm_address"], account["evm_address"]);
     assert_eq!(result["data"]["did"], account["did"]);
     let mode = std::fs::metadata(&keys)
-        .expect("key file")
+        .unwrap_or_else(|error| panic!("{}: {error:?}", "key file"))
         .permissions()
         .mode();
     assert_eq!(mode & 0o777, 0o600);
-    let exported: Value =
-        serde_json::from_str(&std::fs::read_to_string(&keys).expect("key file")).expect("JSON");
+    let exported: Value = serde_json::from_str(
+        &std::fs::read_to_string(&keys).unwrap_or_else(|error| panic!("{}: {error:?}", "key file")),
+    )
+    .unwrap_or_else(|error| panic!("{}: {error:?}", "JSON"));
     assert_eq!(exported["did"], account["did"]);
-    let seed = exported["layerx_seed"].as_str().expect("seed");
-    let evm = exported["evm_private_key"].as_str().expect("EVM key");
+    let seed = exported["layerx_seed"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{}", "seed"));
+    let evm = exported["evm_private_key"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{}", "EVM key"));
     assert_eq!(seed.len(), 64);
     assert_eq!(evm.len(), 64);
     let printed = format!(
@@ -151,11 +184,21 @@ fn derive_binding_vectors_preserve_pair_refusals_and_recovered_nonce(
     use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
     let corpus = fixture();
     let vector = &corpus["mnemonic_vectors"][0];
-    for expected in vector["accounts"].as_array().expect("derived accounts") {
+    for expected in vector["accounts"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{}", "derived accounts"))
+    {
         let account = derive_from_mnemonic(
-            vector["mnemonic"].as_str().expect("mnemonic"),
+            vector["mnemonic"]
+                .as_str()
+                .unwrap_or_else(|| panic!("{}", "mnemonic")),
             "",
-            expected["index"].as_u64().expect("index") as u32,
+            u32::try_from(
+                expected["index"]
+                    .as_u64()
+                    .unwrap_or_else(|| panic!("{}", "index")),
+            )
+            .unwrap_or_else(|error| panic!("{error:?}")),
         )?;
         assert_eq!(
             account.evm_address(),
@@ -163,9 +206,9 @@ fn derive_binding_vectors_preserve_pair_refusals_and_recovered_nonce(
                 "fixture EVM address",
                 expected["evm_address"]
                     .as_str()
-                    .expect("EVM address")
+                    .unwrap_or_else(|| panic!("{}", "EVM address"))
                     .strip_prefix("0x")
-                    .expect("address prefix"),
+                    .unwrap_or_else(|| panic!("{}", "address prefix")),
             )?
         );
         assert_eq!(account.did(), expected["did"]);
@@ -174,7 +217,7 @@ fn derive_binding_vectors_preserve_pair_refusals_and_recovered_nonce(
         };
         call.signed_binding()
             .verify()
-            .expect("real binding consent");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "real binding consent"));
         let raw = sign_bind_transaction(
             &account,
             125,
@@ -190,9 +233,11 @@ fn derive_binding_vectors_preserve_pair_refusals_and_recovered_nonce(
             layerx_platform_cli::encoding::hex_encode(&raw),
             expected["bind"]["transaction"]["raw"]
         );
-        let (transaction, signature) = decode_signed(&raw).expect("production EIP-1559 codec");
+        let (transaction, signature) = decode_signed(&raw)
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "production EIP-1559 codec"));
         assert_eq!(
-            recover_sender(&transaction, &signature).expect("real sender"),
+            recover_sender(&transaction, &signature)
+                .unwrap_or_else(|error| panic!("{}: {error:?}", "real sender")),
             account.evm_address()
         );
         assert!(matches!(
@@ -200,7 +245,9 @@ fn derive_binding_vectors_preserve_pair_refusals_and_recovered_nonce(
             BindPlan::AlreadyBound
         ));
         assert_eq!(
-            plan_bind(&account, 125, Some([0x61; 32]), 1).expect_err("other identity"),
+            plan_bind(&account, 125, Some([0x61; 32]), 1)
+                .err()
+                .unwrap_or_else(|| panic!("{}", "other identity")),
             BindError::BoundToDifferentDid { bound: [0x61; 32] }
         );
         let BindPlan::Bind(recovered) = plan_bind(&account, 125, None, 7)? else {
@@ -218,7 +265,7 @@ fn derive_binding_vectors_preserve_pair_refusals_and_recovered_nonce(
         recovered
             .signed_binding()
             .verify()
-            .expect("recovered consent");
+            .unwrap_or_else(|error| panic!("{}: {error:?}", "recovered consent"));
     }
     Ok(())
 }

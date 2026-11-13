@@ -105,7 +105,7 @@ impl Directory {
             match component {
                 Component::RootDir | Component::CurDir => (),
                 Component::Normal(name) => {
-                    directory = directory.child_inner(name, create, false)?
+                    directory = directory.child_inner(name, create, false)?;
                 }
                 _ => return Err(invalid("store path contains a parent traversal")),
             }

@@ -1,5 +1,8 @@
 //! Durable unknown reservations and fail-closed restart accounting.
 
+#[cfg(test)]
+use crate::budget::AssertCase as _;
+
 use crate::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence, ReceiptReplayError};
 use crate::store::{ObjectKind, Store, StoreError, TenantId, TenantKey};
 
@@ -298,7 +301,7 @@ mod tests {
     fn directory(name: &str) -> std::path::PathBuf {
         let suffix = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .expect("system time")
+            .assert_case("system time")
             .as_nanos();
         std::env::temp_dir().join(format!(
             "layerx-requested-spend-{name}-{}-{suffix}",
@@ -314,14 +317,14 @@ mod tests {
         state[178..194].copy_from_slice(&100_u128.to_be_bytes());
         state[210..226].copy_from_slice(&spent.to_be_bytes());
         state[242..250].copy_from_slice(&2_000_u64.to_be_bytes());
-        let (proof, root) = build_proof(&[state.as_slice()], 0).expect("state proof");
+        let (proof, root) = build_proof(&[state.as_slice()], 0).assert_case("state proof");
         let key = SigningKey::from_bytes(&[0x3a; 32]);
         let public = key.verifying_key().to_bytes();
         let mut header = Encoder::new(512);
         header
             .structure_header_version(0x1701, layerx_wire::limits::PROTOCOL_VERSION)
-            .expect("header");
-        header.u8(15).expect("field count");
+            .assert_case("header");
+        header.u8(15).assert_case("field count");
         for (tag, value) in [
             (
                 1,
@@ -342,24 +345,26 @@ mod tests {
             (14, 1_000_u64.to_be_bytes().to_vec()),
             (15, public.to_vec()),
         ] {
-            header.tag(tag, 15).expect("tag");
+            header.tag(tag, 15).assert_case("tag");
             match tag {
-                1 => header.u16(u16::from_be_bytes(value.try_into().expect("version"))),
-                2 => header.u32(u32::from_be_bytes(value.try_into().expect("network"))),
-                3..=6 | 14 => header.u64(u64::from_be_bytes(value.try_into().expect("integer"))),
+                1 => header.u16(u16::from_be_bytes(value.try_into().assert_case("version"))),
+                2 => header.u32(u32::from_be_bytes(value.try_into().assert_case("network"))),
+                3..=6 | 14 => {
+                    header.u64(u64::from_be_bytes(value.try_into().assert_case("integer")))
+                }
                 _ => header.bytes(&value, 32),
             }
-            .expect("header field");
+            .assert_case("header field");
         }
         let header = header.finish();
-        let digest = layerx_wire::hash::batch_header_digest(&header).expect("header digest");
+        let digest = layerx_wire::hash::batch_header_digest(&header).assert_case("header digest");
         let signature = key.sign(&digest).to_bytes();
         let authority = EvidenceAuthority::pinned_to_handshake(
             layerx_wire::limits::PROTOCOL_VERSION,
             42,
             public,
         )
-        .expect("authority");
+        .assert_case("authority");
         (
             ProtocolBudgetState {
                 evidence: RawStateEvidence::new(state, proof, root, header, signature),
@@ -374,25 +379,29 @@ mod tests {
         let capture: serde_json::Value = serde_json::from_str(include_str!(
             "../../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
         ))
-        .expect("node producer capture");
+        .assert_case("node producer capture");
         let case = capture["cases"]
             .as_array()
-            .expect("cases")
+            .assert_case("cases")
             .iter()
             .find(|case| case["id"] == "V1-erc20-approve")
-            .expect("zero-value receipt");
+            .assert_case("zero-value receipt");
         let bytes = |value: &serde_json::Value| {
-            hex::decode(value.as_str().expect("hex").trim_start_matches("0x")).expect("decoded hex")
+            hex::decode(value.as_str().assert_case("hex").trim_start_matches("0x"))
+                .assert_case("decoded hex")
         };
         let canonical_receipt = bytes(&case["signedReceipt"]);
-        let decoded = layerx_wire::receipt::decode(&canonical_receipt).expect("node receipt");
-        let protocol_receipt = decoded.protocol().expect("protocol receipt");
+        let decoded = layerx_wire::receipt::decode(&canonical_receipt).assert_case("node receipt");
+        let protocol_receipt = decoded.protocol().assert_case("protocol receipt");
         assert_eq!(protocol_receipt.amount(), 0);
         let activity_id = transaction_hash(&bytes(&case["rawTransaction"]));
         assert_eq!(protocol_receipt.activity_id(), activity_id);
         let mut receipt_signature = [0; 65];
-        receipt_signature[..64]
-            .copy_from_slice(&protocol_receipt.sequencer_signature().expect("signature"));
+        receipt_signature[..64].copy_from_slice(
+            &protocol_receipt
+                .sequencer_signature()
+                .assert_case("signature"),
+        );
         receipt_signature[64] = NODE_ED25519_SIGNATURE_TAG;
         let evidence = TransactionReceiptEvidence {
             metadata: TransactionReceiptMetadata {
@@ -411,22 +420,24 @@ mod tests {
         let key = &case["pinnedKey"];
         let verifier = verifier
             .with_receipt_keys(vec![layerx_client::sequencer::ReceiptKeyEntry {
-                key_id: bytes(&key["keyId"]).try_into().expect("key id"),
-                public_key: bytes(&key["publicKey"]).try_into().expect("public key"),
-                first_height: key["firstHeight"].as_u64().expect("first height"),
-                last_height: key["lastHeight"].as_u64().expect("last height"),
+                key_id: bytes(&key["keyId"]).try_into().assert_case("key id"),
+                public_key: bytes(&key["publicKey"])
+                    .try_into()
+                    .assert_case("public key"),
+                first_height: key["firstHeight"].as_u64().assert_case("first height"),
+                last_height: key["lastHeight"].as_u64().assert_case("last height"),
             }])
-            .expect("receipt keys");
+            .assert_case("receipt keys");
         assert_eq!(
             verifier
                 .verify_current_receipt(&evidence)
-                .expect("verified current receipt")
+                .assert_case("verified current receipt")
                 .amount(),
             0
         );
-        let tenant = TenantId::new("requested-spend").expect("tenant");
+        let tenant = TenantId::new("requested-spend").assert_case("tenant");
         let root = directory("zero-value");
-        let mut store = Store::open(&root).expect("store");
+        let mut store = Store::open(&root).assert_case("store");
         persist_unknown(
             &mut store,
             &UnknownReservation {
@@ -437,30 +448,82 @@ mod tests {
                 resolved: Some(UnknownOutcome::Executed),
             },
         )
-        .expect("persist requested spend");
+        .assert_case("persist requested spend");
         drop(store);
-        let store = Store::open(&root).expect("reopened store");
+        let store = Store::open(&root).assert_case("reopened store");
         let receipts = [PersistedReceipt {
             expected_activity_id: activity_id,
             requested_amount: requested_amount(&store, &tenant, activity_id)
-                .expect("retained requested amount"),
+                .assert_case("retained requested amount"),
             evidence,
         }];
         let accounting = rebuild_accounting(&store, &tenant, &[], &receipts, &protocol, &verifier)
-            .expect("rebuild");
+            .assert_case("rebuild");
         assert_eq!(accounting.protocol_consumed, Some(25));
         assert_eq!(accounting.receipt_consumed, 25);
         assert!(accounting.reconciled);
-        accounting.require_write_ready().expect("write ready");
+        accounting.require_write_ready().assert_case("write ready");
         drop(store);
-        std::fs::remove_dir_all(root).expect("cleanup");
+        std::fs::remove_dir_all(root).assert_case("cleanup");
+    }
+
+    fn assert_invalid_spend_calls(
+        mut call: Eip1559Call,
+        store: &mut Store,
+        tenant: &TenantId,
+        pay: [u8; 20],
+    ) {
+        call.to = [3; 20];
+        let signed = call.sign(&[9; 32]).assert_case("other target");
+        let id = transaction_hash(&signed);
+        store
+            .put_local(
+                TenantKey::new((*tenant).clone(), ObjectKind::PreparedActivity, id.to_vec())
+                    .assert_case("key"),
+                signed,
+            )
+            .assert_case("persist other call");
+        assert_eq!(
+            requested_amount(store, tenant, id).assert_case("other target amount"),
+            0
+        );
+        call.to = pay;
+        call.data[68] = 1;
+        let signed = call.sign(&[9; 32]).assert_case("noncanonical uint128");
+        let id = transaction_hash(&signed);
+        store
+            .put_local(
+                TenantKey::new((*tenant).clone(), ObjectKind::PreparedActivity, id.to_vec())
+                    .assert_case("key"),
+                signed.clone(),
+            )
+            .assert_case("persist invalid calldata");
+        assert!(matches!(
+            requested_amount(store, tenant, id),
+            Err(RestartError::Corrupt)
+        ));
+        store
+            .put_local(
+                TenantKey::new(
+                    (*tenant).clone(),
+                    ObjectKind::PreparedActivity,
+                    [4; 32].to_vec(),
+                )
+                .assert_case("wrong hash key"),
+                signed,
+            )
+            .assert_case("persist wrong hash");
+        assert!(matches!(
+            requested_amount(store, tenant, [4; 32]),
+            Err(RestartError::ReceiptActivityMismatch)
+        ));
     }
 
     #[test]
     fn requested_spend_recovers_signed_calldata_and_prefers_the_persisted_reservation() {
-        let tenant = TenantId::new("requested-spend").expect("tenant");
+        let tenant = TenantId::new("requested-spend").assert_case("tenant");
         let root = directory("calldata");
-        let mut store = Store::open(&root).expect("store");
+        let mut store = Store::open(&root).assert_case("store");
         let mut pay = [0; 20];
         pay[18..].copy_from_slice(&[0x10, 0x1b]);
         let mut data = transaction_hash(b"budgetSpend(bytes32,bytes32,uint128)")[..4].to_vec();
@@ -468,7 +531,7 @@ mod tests {
         data.extend([2; 32]);
         data.extend([0; 16]);
         data.extend(25_u128.to_be_bytes());
-        let mut call = Eip1559Call {
+        let call = Eip1559Call {
             chain_id: 125,
             nonce: 1,
             max_priority_fee_per_gas: 1,
@@ -477,21 +540,21 @@ mod tests {
             to: pay,
             data,
         };
-        let signed = call.sign(&[9; 32]).expect("signed budget spend");
+        let signed = call.sign(&[9; 32]).assert_case("signed budget spend");
         let activity_id = transaction_hash(&signed);
         let signed_key = TenantKey::new(
             tenant.clone(),
             ObjectKind::PreparedActivity,
             activity_id.to_vec(),
         )
-        .expect("signed key");
+        .assert_case("signed key");
         store
             .put_local(signed_key, signed)
-            .expect("persist signed transaction");
+            .assert_case("persist signed transaction");
         drop(store);
-        let mut store = Store::open(&root).expect("reopen");
+        let mut store = Store::open(&root).assert_case("reopen");
         assert_eq!(
-            requested_amount(&store, &tenant, activity_id).expect("calldata amount"),
+            requested_amount(&store, &tenant, activity_id).assert_case("calldata amount"),
             25
         );
         persist_unknown(
@@ -504,60 +567,17 @@ mod tests {
                 resolved: Some(UnknownOutcome::Executed),
             },
         )
-        .expect("reservation");
+        .assert_case("reservation");
         assert_eq!(
-            requested_amount(&store, &tenant, activity_id).expect("reservation first"),
+            requested_amount(&store, &tenant, activity_id).assert_case("reservation first"),
             40
         );
         assert_eq!(
-            requested_amount(&store, &tenant, [0; 32]).expect("no submitted spend"),
+            requested_amount(&store, &tenant, [0; 32]).assert_case("no submitted spend"),
             0
         );
-        call.to = [3; 20];
-        let signed = call.sign(&[9; 32]).expect("other target");
-        let id = transaction_hash(&signed);
-        store
-            .put_local(
-                TenantKey::new(tenant.clone(), ObjectKind::PreparedActivity, id.to_vec())
-                    .expect("key"),
-                signed,
-            )
-            .expect("persist other call");
-        assert_eq!(
-            requested_amount(&store, &tenant, id).expect("other target amount"),
-            0
-        );
-        call.to = pay;
-        call.data[68] = 1;
-        let signed = call.sign(&[9; 32]).expect("noncanonical uint128");
-        let id = transaction_hash(&signed);
-        store
-            .put_local(
-                TenantKey::new(tenant.clone(), ObjectKind::PreparedActivity, id.to_vec())
-                    .expect("key"),
-                signed.clone(),
-            )
-            .expect("persist invalid calldata");
-        assert!(matches!(
-            requested_amount(&store, &tenant, id),
-            Err(RestartError::Corrupt)
-        ));
-        store
-            .put_local(
-                TenantKey::new(
-                    tenant.clone(),
-                    ObjectKind::PreparedActivity,
-                    [4; 32].to_vec(),
-                )
-                .expect("wrong hash key"),
-                signed,
-            )
-            .expect("persist wrong hash");
-        assert!(matches!(
-            requested_amount(&store, &tenant, [4; 32]),
-            Err(RestartError::ReceiptActivityMismatch)
-        ));
+        assert_invalid_spend_calls(call, &mut store, &tenant, pay);
         drop(store);
-        std::fs::remove_dir_all(root).expect("cleanup");
+        std::fs::remove_dir_all(root).assert_case("cleanup");
     }
 }

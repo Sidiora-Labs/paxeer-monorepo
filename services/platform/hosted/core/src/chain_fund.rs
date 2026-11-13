@@ -124,14 +124,14 @@ impl NativeTransfer {
     }
 
     pub(super) fn attest(
-        signed: SignedFunding,
+        funding: SignedFunding,
         sender: [u8; 20],
         signer: &dyn layerx_platform_core::TreasurySigner,
     ) -> Result<Self, String> {
-        let (chain_id, recipient, amount) = transfer_fields(&signed)?;
+        let (chain_id, recipient, amount) = transfer_fields(&funding)?;
         let mut value = Self {
             version: 2,
-            signed,
+            signed: funding,
             sender,
             recipient,
             amount,
@@ -167,12 +167,12 @@ impl NativeTransfer {
 }
 
 /// Decode the exact value-bearing type-2 envelope produced below. The shared
-/// Eip1559Call decoder deliberately refuses value transfers, so it must not be
+/// `Eip1559Call` decoder deliberately refuses value transfers, so it must not be
 /// used to reinterpret a native transfer as a legacy ledger call.
 fn transfer_fields(signed: &SignedFunding) -> Result<(u64, [u8; 20], u64), String> {
     signed
         .validate()
-        .map_err(|_| "invalid native transaction hash")?;
+        .map_err(|()| "invalid native transaction hash")?;
     let mut envelope = &signed.raw[1..];
     let (is_list, mut fields) = take_rlp(&mut envelope)?;
     if !is_list || !envelope.is_empty() {
@@ -302,7 +302,7 @@ impl ChainFunding {
     fn validate_network(&self) -> Result<(), &'static str> {
         let chain_id: u64 = quantity(
             &self
-                .rpc("eth_chainId", json!([]))
+                .rpc("eth_chainId", &json!([]))
                 .map_err(|_| "chain_unavailable")?,
         )
         .map_err(|_| "chain_unavailable")?
@@ -318,7 +318,7 @@ impl ChainFunding {
         self.validate_network()?;
         let latest_block: u64 = quantity(
             &self
-                .rpc("eth_blockNumber", json!([]))
+                .rpc("eth_blockNumber", &json!([]))
                 .map_err(|_| "chain_unavailable")?,
         )
         .map_err(|_| "chain_unavailable")?
@@ -332,7 +332,7 @@ impl ChainFunding {
         }))
     }
 
-    fn rpc(&self, method: &str, params: Value) -> Result<Value, String> {
+    fn rpc(&self, method: &str, params: &Value) -> Result<Value, String> {
         let body =
             json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).to_string();
         let address = (self.endpoint.host.as_str(), self.endpoint.port)
@@ -391,7 +391,7 @@ impl ChainFunding {
             &self
                 .rpc(
                     "eth_getTransactionCount",
-                    json!([
+                    &json!([
                         format!("0x{}", hex_encode(&self.sender.address())),
                         "pending"
                     ]),
@@ -403,13 +403,13 @@ impl ChainFunding {
         .map_err(|_| unavailable())?;
         let gas_price = quantity(
             &self
-                .rpc("eth_gasPrice", json!([]))
+                .rpc("eth_gasPrice", &json!([]))
                 .map_err(|_| unavailable())?,
         )
         .map_err(|_| unavailable())?;
         let priority = quantity(
             &self
-                .rpc("eth_maxPriorityFeePerGas", json!([]))
+                .rpc("eth_maxPriorityFeePerGas", &json!([]))
                 .map_err(|_| unavailable())?,
         )
         .map_err(|_| unavailable())?;
@@ -421,7 +421,7 @@ impl ChainFunding {
             &self
                 .rpc(
                     "eth_estimateGas",
-                    json!([{
+                    &json!([{
                         "from": format!("0x{}", hex_encode(&self.sender.address())),
                         "to": format!("0x{}", hex_encode(&to)),
                         "value": format!("0x{amount:x}"), "data": "0x",
@@ -445,7 +445,7 @@ impl ChainFunding {
         let result = self
             .rpc(
                 "eth_call",
-                json!([{
+                &json!([{
             "to": "0x0000000000000000000000000000000000001004",
             "data": format!("0xc413bad3{}", hex_encode(public_key)),
         }, "latest"]),
@@ -479,7 +479,7 @@ impl ChainFunding {
         let receipt = self
             .rpc(
                 "eth_getTransactionReceipt",
-                json!([transfer.signed.transaction_hash]),
+                &json!([transfer.signed.transaction_hash]),
             )
             .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?;
         if receipt.is_null() {
@@ -558,7 +558,7 @@ impl ChainFunding {
     pub(super) fn submit(&self, signed: &SignedFunding) -> Result<(), Response> {
         let result = match self.rpc(
             "eth_sendRawTransaction",
-            json!([format!("0x{}", hex_encode(&signed.raw))]),
+            &json!([format!("0x{}", hex_encode(&signed.raw))]),
         ) {
             Ok(result) => result,
             Err(error) if error == "funding transaction already known" => return Ok(()),
@@ -580,7 +580,7 @@ impl ChainFunding {
         let receipt = self
             .rpc(
                 "eth_getTransactionReceipt",
-                json!([signed.transaction_hash]),
+                &json!([signed.transaction_hash]),
             )
             .map_err(|_| unavailable())?;
         if receipt.is_null() {
@@ -640,14 +640,23 @@ fn quantity(value: &Value) -> Result<u128, String> {
 
 fn length(size: usize, short: u8, output: &mut Vec<u8>) {
     if size < 56 {
-        output.push(short + u8::try_from(size).expect("short RLP length"));
+        output.push(
+            short
+                + u8::try_from(size)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "short RLP length")),
+        );
     } else {
         let size = size.to_be_bytes();
         let first = size
             .iter()
             .position(|byte| *byte != 0)
-            .expect("nonzero RLP length");
-        output.push(short + 55 + u8::try_from(size.len() - first).expect("RLP length width"));
+            .unwrap_or_else(|| panic!("{}", "nonzero RLP length"));
+        output.push(
+            short
+                + 55
+                + u8::try_from(size.len() - first)
+                    .unwrap_or_else(|error| panic!("{}: {error:?}", "RLP length width")),
+        );
         output.extend_from_slice(&size[first..]);
     }
 }

@@ -7,7 +7,7 @@ await import("./grant-draw-header.test.mjs");
 await import("./proof_middleware_buyer_ts_exports.test.mjs");
 
 const { buyerDrawFixture, buyerExportDrawFixture } = await import("./support/grant-draw-walkthrough.mjs");
-const { keccak256 } = await import("@sidiora/layerx-sdk");
+const { keccak256, verifySequencerReceipt } = await import("@sidiora/layerx-sdk");
 const { decodePaymentExactLog, verifyPaymentReceipt } = await import("@sidiora/layerx-seller-middleware");
 const bytes = (value) => Uint8Array.from(Buffer.from(value.replace(/^0x/u, ""), "hex"));
 const hex = (value) => `0x${Buffer.from(value).toString("hex")}`;
@@ -20,15 +20,16 @@ async function buyerGrantRefusesAuthenticNodeExactEvent() {
   const log = vector.receiptJson.logs.find((entry) => entry.topics[0] === topic);
   assert.ok(log);
   const payment = decodePaymentExactLog({ address: log.address, topics: log.topics.map(bytes), data: bytes(log.data) });
+  const keys = [{ keyId: bytes(vector.pinnedKey.keyId), publicKey: bytes(vector.pinnedKey.publicKey),
+    first_height: BigInt(vector.pinnedKey.firstHeight), last_height: BigInt(vector.pinnedKey.lastHeight) }];
+  const verifiedReceipt = await verifySequencerReceipt(bytes(vector.signedReceipt), bytes(vector.rawTransaction), keys);
   const proof = { format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
     rawTransaction: vector.rawTransaction, signedReceipt: vector.signedReceipt,
-    receiptDigest: hex(keccak256(bytes(vector.signedReceipt))), receiptKey: {
+    receiptDigest: hex(verifiedReceipt.receiptDigest), receiptKey: {
       keyId: vector.pinnedKey.keyId, publicKey: vector.pinnedKey.publicKey,
       firstHeight: `0x${BigInt(vector.pinnedKey.firstHeight).toString(16)}`,
       lastHeight: `0x${BigInt(vector.pinnedKey.lastHeight).toString(16)}`,
     } };
-  const keys = [{ keyId: bytes(proof.receiptKey.keyId), publicKey: bytes(proof.receiptKey.publicKey),
-    first_height: BigInt(proof.receiptKey.firstHeight), last_height: BigInt(proof.receiptKey.lastHeight) }];
   const requirements = { scheme: "exact", network: "eip155:125", amount: payment.amount.toString(),
     asset: hex(payment.assetId), payTo: hex(payment.to), maxTimeoutSeconds: 120,
     extra: { layerx: { commitment: "receipted", payer: hex(payment.from).slice(2),

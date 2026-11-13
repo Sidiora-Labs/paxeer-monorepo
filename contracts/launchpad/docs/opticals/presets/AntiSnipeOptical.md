@@ -1,12 +1,14 @@
 # Solidity API
 
+Source: [AntiSnipeOptical.sol](../../../contracts/opticals/presets/AntiSnipeOptical.sol).
+
 ## AntiSnipeOptical
 
-Blocks buys exceeding maxBuyPercent of token supply in the first N blocks after pool creation.
+Caps buy input during the protection period measured from PoolRegistry's recorded creation block.
+The maximum USDL input is `(virtualUsdl + realUsdl) * maxBuyBps / 10000`, when token reserves are
+nonzero. Sells and buys after the protection period are allowed.
 
-_Uses beforeSwap hook only. Immutable once deployed.
-     After the protection period, all buys are allowed regardless of size.
-     Sells are never affected by this optical._
+Uses `beforeSwap`; configuration is fixed at construction. `maxBuyBps` must be from 1 to 10000.
 
 ### ProtectionActive
 
@@ -20,7 +22,7 @@ error ProtectionActive()
 uint256 maxBuyBps
 ```
 
-Maximum buy percentage in basis points (e.g., 100 = 1%)
+Maximum buy input as a fraction of effective USDL reserves, in BPS (100 = 1%).
 
 ### protectionBlocks
 
@@ -46,12 +48,12 @@ constructor(address _poolRegistry, address _owner, uint256 _maxBuyBps, uint256 _
 
 #### Parameters
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| _poolRegistry | address | PoolRegistry address for pool validation |
-| _owner | address | Deployer/owner address |
-| _maxBuyBps | uint256 | Maximum buy size in bps of token supply (e.g., 100 = 1%) |
-| _protectionBlocks | uint256 | Number of blocks the protection lasts |
+| Name               | Type    | Description                                                    |
+| ------------------ | ------- | -------------------------------------------------------------- |
+| \_poolRegistry     | address | PoolRegistry address for pool validation                       |
+| \_owner            | address | Deployer/owner address                                         |
+| \_maxBuyBps        | uint256 | Maximum buy input in BPS of effective USDL reserves (100 = 1%) |
+| \_protectionBlocks | uint256 | Number of blocks the protection lasts                          |
 
 ### registerPool
 
@@ -59,9 +61,8 @@ constructor(address _poolRegistry, address _owner, uint256 _maxBuyBps, uint256 _
 function registerPool(address pool) external
 ```
 
-Register a pool's creation block (called once when pool is created)
-
-_Anyone can call this, but it only records the first time for each pool_
+Cache a registered, attached pool's creation block from PoolRegistry metadata. Anyone may call this;
+the swap check reads the registry creation block directly.
 
 ### getFlags
 
@@ -74,4 +75,3 @@ function getFlags() external pure returns (uint8)
 ```solidity
 function beforeSwap(address pool, address, bool isBuy, uint256 amountIn) external returns (bool proceed, int256 amountDelta)
 ```
-

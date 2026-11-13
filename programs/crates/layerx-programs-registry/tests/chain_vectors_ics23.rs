@@ -1,3 +1,7 @@
+#[path = "support/assertions.rs"]
+mod assertions;
+use assertions::TestResultExt;
+
 use std::collections::BTreeMap;
 
 use ed25519_dalek::{Signer, SigningKey};
@@ -24,8 +28,8 @@ fn hex(text: &str) -> Vec<u8> {
     text.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            let text = std::str::from_utf8(pair).expect("vector hex must be ASCII");
-            u8::from_str_radix(text, 16).expect("vector must contain valid hex")
+            let text = std::str::from_utf8(pair).or_panic("vector hex must be ASCII");
+            u8::from_str_radix(text, 16).or_panic("vector must contain valid hex")
         })
         .collect()
 }
@@ -34,9 +38,8 @@ fn proof_ops(bytes: &[u8]) -> Result<Vec<ProofOp>, ChainProofError> {
     let mut reader = ProtoReader::new(bytes);
     let mut ops = Vec::new();
     while let Some(field) = reader.next_field()? {
-        let encoded = match (field.number, field.value) {
-            (1, ProtoValue::Bytes(encoded)) => encoded,
-            _ => return Err(ChainProofError::NonCanonical),
+        let (1, ProtoValue::Bytes(encoded)) = (field.number, field.value) else {
+            return Err(ChainProofError::NonCanonical);
         };
         let mut op = ProtoReader::new(encoded);
         let mut fields = Vec::new();
@@ -133,12 +136,12 @@ fn chain_ics23_matches_store_vector() -> Result<(), ChainProofError> {
     );
     let mut fields = BTreeMap::new();
     for line in std::str::from_utf8(STORE_VECTOR)
-        .expect("store vector must be UTF-8")
+        .or_panic("store vector must be UTF-8")
         .lines()
     {
         let (name, value) = line
             .split_once('=')
-            .expect("vector must contain name=value");
+            .unwrap_or_else(|| panic!("{}", "vector must contain name=value"));
         assert!(
             fields.insert(name, value).is_none(),
             "duplicate field {name}"
@@ -146,14 +149,18 @@ fn chain_ics23_matches_store_vector() -> Result<(), ChainProofError> {
     }
     assert_eq!(fields.len(), 10);
     assert_eq!(fields["version"], "1");
-    let height: i64 = fields["height"].parse().expect("vector height must be i64");
+    let height: i64 = fields["height"]
+        .parse()
+        .or_panic("vector height must be i64");
     assert!(height > 0);
     let module =
-        String::from_utf8(hex(fields["module_key"])).expect("vector module key must be UTF-8");
+        String::from_utf8(hex(fields["module_key"])).or_panic("vector module key must be UTF-8");
     let app_hash: [u8; 32] = hex(fields["app_hash"])
         .try_into()
-        .expect("vector app hash must be 32 bytes");
-    let next_height = height.checked_add(1).expect("next height must fit i64");
+        .or_panic("vector app hash must be 32 bytes");
+    let next_height = height
+        .checked_add(1)
+        .unwrap_or_else(|| panic!("{}", "next height must fit i64"));
     let next = verified_head(next_height, app_hash)?;
     assert_eq!(next.app_hash(), app_hash);
     assert_eq!(next.height(), next_height);

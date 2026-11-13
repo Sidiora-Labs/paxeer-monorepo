@@ -12,9 +12,7 @@ use crate::{
         ReputationCurrent, ReputationState, SegmentKey, CURRENT_BYTES, HEADER_BYTES, HISTORY_BYTES,
         LIMIT,
     },
-    reputation_codec::{
-        closure_digest, decode_section, encode_section, segment_digest, state_root,
-    },
+    reputation_codec::{closure_digest, segment_digest, state_root},
     types::{Digest32, FrozenBinding, Presence, Score, Version, WorkerId, WorkerRosterEntry},
 };
 
@@ -60,13 +58,13 @@ pub fn reset_segment(
     }
     match reason {
         ClosureReason::ModelChanged if new_model == old_key.model => {
-            return Err(F07_BINDING_MISMATCH)
+            return Err(F07_BINDING_MISMATCH);
         }
         ClosureReason::PolicyChanged
             if new_model != old_key.model
                 || new_config == old_key.config && new_policy == old_key.policy =>
         {
-            return Err(F07_BINDING_MISMATCH)
+            return Err(F07_BINDING_MISMATCH);
         }
         _ => (),
     }
@@ -186,9 +184,7 @@ pub(crate) fn update_record(
         frozen,
         worker,
         tally,
-        history_allowed,
-        height,
-        false,
+        (history_allowed, height, false),
     )
 }
 
@@ -199,10 +195,10 @@ fn update_record_inner(
     frozen: FrozenBinding,
     worker: &WorkerRosterEntry,
     tally: EpochTally,
-    history_allowed: bool,
-    height: u64,
-    committed: bool,
+    context: (bool, u64, bool),
 ) -> CodecResult<ReputationCurrent> {
+    let (history_allowed, height, committed) = context;
+
     let EpochTally {
         median,
         support,
@@ -419,9 +415,7 @@ impl CompletionDraft {
             self.frozen,
             worker,
             tally,
-            history_allowed,
-            self.height,
-            self.committed,
+            (history_allowed, self.height, self.committed),
         )?;
         let observed = self
             .observed
@@ -637,25 +631,11 @@ pub(crate) fn open_segments_chunk(
     next: SegmentBinding,
     roster: &[WorkerRosterEntry],
     departed: impl Fn(WorkerId) -> CodecResult<bool>,
-    height: u64,
-    start: usize,
-    end: usize,
-    out: &mut [u8],
+    context: (u64, usize, usize, &mut [u8]),
 ) -> CodecResult<usize> {
-    // Bind each committed frame and reject an unfinished history seal.
-    for section in [original, staged] {
-        if !framed_admission_table(section)?.is_empty() {
-            return Err(NON_CANONICAL);
-        }
-        let counts = section.get(6..8).ok_or(NON_CANONICAL)?;
-        if section.len()
-            != HEADER_BYTES
-                + usize::from(*counts.guest_index(0)) * CURRENT_BYTES
-                + usize::from(*counts.guest_index(1)) * HISTORY_BYTES
-        {
-            return Err(NON_CANONICAL);
-        }
-    }
+    let (height, start, end, out) = context;
+
+    check_opened_frames(original, staged)?;
     if roster.len() > LIMIT || start > end || end > LIMIT {
         return Err(NON_CANONICAL);
     }
@@ -790,7 +770,7 @@ fn write_opened_record(
 }
 
 /// Retain the same history suffix as `prune_released`, carrying current bytes verbatim.
-#[inline(always)]
+#[inline]
 pub(crate) fn prune_opened_history(
     out: &mut [u8],
     len: usize,
@@ -811,7 +791,7 @@ pub(crate) fn prune_opened_history(
         removed += 1;
     }
     *out.guest_index_mut(7) = (*out.guest_index(7))
-        .checked_sub(removed as u8)
+        .checked_sub(u8::try_from(removed).map_err(|_| crate::errors::CAPACITY)?)
         .ok_or(NON_CANONICAL)?;
     if usize::from(*out.guest_index(7)) == LIMIT {
         return Err(RETENTION_FULL);
@@ -830,13 +810,17 @@ pub(crate) fn complete_epoch_chunk(
     frozen: FrozenBinding,
     binding: SegmentBinding,
     result: Digest32,
-    height: u64,
-    roster: &[WorkerRosterEntry],
-    observations: &[WorkerObservation],
-    cursor: usize,
-    observed: u8,
-    covered: u8,
+    context: (
+        u64,
+        &[WorkerRosterEntry],
+        &[WorkerObservation],
+        usize,
+        u8,
+        u8,
+    ),
 ) -> CodecResult<(ReputationState, usize, u8, u8)> {
+    let (height, roster, observations, cursor, observed, covered) = context;
+
     let seal = match seal {
         Presence::Present(seal) if seal.epoch == frozen.epoch => seal,
         _ => return Err(F07_EPOCH_NOT_SEALED),
@@ -898,8 +882,14 @@ pub(crate) fn complete_epoch_chunk(
             support: observation.support,
             eligible: seal.eligible,
         };
-        let next =
-            update_record_inner(old, key, frozen, entry, tally, seal.allows(i), height, true)?;
+        let next = update_record_inner(
+            old,
+            key,
+            frozen,
+            entry,
+            tally,
+            (seal.allows(i), height, true),
+        )?;
         *state.current.guest_index_mut(at) = Some(next);
         observed = observed
             .checked_add(u8::from(
@@ -919,7 +909,7 @@ pub(crate) fn complete_epoch_chunk(
             result,
             root,
             observed_workers: observed,
-            total_workers: roster.len() as u8,
+            total_workers: u8::try_from(roster.len()).map_err(|_| crate::errors::CAPACITY)?,
             covered_workers: covered,
         };
         record.validate()?;
@@ -949,7 +939,7 @@ pub(crate) fn framed_admission_table(section: &[u8]) -> CodecResult<&[u8]> {
         return Ok(section);
     }
     let header = section.get(..HEADER_BYTES).ok_or(NON_CANONICAL)?;
-    if header.guest_index(4..6) != &1u16.to_be_bytes() {
+    if header.guest_index(4..6) != 1u16.to_be_bytes() {
         return Err(crate::errors::BAD_VERSION);
     }
     let current = usize::from(*header.guest_index(6));
@@ -1140,18 +1130,6 @@ pub fn open_segments(
 }
 
 #[cfg_attr(target_arch = "wasm32", inline(never))]
-pub(crate) fn open_segments_with(
-    state: &ReputationState,
-    previous: SegmentBinding,
-    next: SegmentBinding,
-    roster: &[WorkerRosterEntry],
-    departed: impl Fn(WorkerId) -> CodecResult<bool>,
-    height: u64,
-) -> CodecResult<ReputationState> {
-    open_segments_inner::<true>(state, previous, next, roster, departed, height)
-}
-
-#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn open_segments_inner<const COMMITTED: bool>(
     state: &ReputationState,
     previous: SegmentBinding,
@@ -1222,7 +1200,7 @@ fn bind_opened_roster(
             let existing = editor.ordered_record(entry.worker, &mut cursor);
             match existing {
                 Some(r) if r.owner != entry.owner || r.status == HistoryStatus::Retired => {
-                    return Err(F07_BINDING_MISMATCH)
+                    return Err(F07_BINDING_MISMATCH);
                 }
                 Some(_) => (),
                 None => {
@@ -1432,33 +1410,7 @@ pub(crate) fn complete_epoch(
         frozen,
         binding,
         result,
-        height,
-        roster,
-        observations,
-        false,
-    )
-}
-
-pub(crate) fn complete_committed_epoch(
-    state: &ReputationState,
-    seal: Presence<HistorySeal>,
-    frozen: FrozenBinding,
-    binding: SegmentBinding,
-    result: Digest32,
-    height: u64,
-    roster: &[WorkerRosterEntry],
-    observations: &[WorkerObservation],
-) -> CodecResult<(ReputationState, CompletedHistory)> {
-    complete_epoch_inner(
-        state,
-        seal,
-        frozen,
-        binding,
-        result,
-        height,
-        roster,
-        observations,
-        true,
+        (height, roster, observations, false),
     )
 }
 
@@ -1468,11 +1420,10 @@ fn complete_epoch_inner(
     frozen: FrozenBinding,
     binding: SegmentBinding,
     result: Digest32,
-    height: u64,
-    roster: &[WorkerRosterEntry],
-    observations: &[WorkerObservation],
-    committed: bool,
+    context: (u64, &[WorkerRosterEntry], &[WorkerObservation], bool),
 ) -> CodecResult<(ReputationState, CompletedHistory)> {
+    let (height, roster, observations, committed) = context;
+
     let seal = match seal {
         Presence::Present(seal) if seal.epoch == frozen.epoch => seal,
         _ => return Err(F07_EPOCH_NOT_SEALED),
@@ -1507,4 +1458,22 @@ fn complete_epoch_inner(
         )?;
     }
     draft.finish()
+}
+
+fn check_opened_frames(original: &[u8], staged: &[u8]) -> CodecResult<()> {
+    // Bind each committed frame and reject an unfinished history seal.
+    for section in [original, staged] {
+        if !framed_admission_table(section)?.is_empty() {
+            return Err(NON_CANONICAL);
+        }
+        let counts = section.get(6..8).ok_or(NON_CANONICAL)?;
+        if section.len()
+            != HEADER_BYTES
+                + usize::from(*counts.guest_index(0)) * CURRENT_BYTES
+                + usize::from(*counts.guest_index(1)) * HISTORY_BYTES
+        {
+            return Err(NON_CANONICAL);
+        }
+    }
+    Ok(())
 }

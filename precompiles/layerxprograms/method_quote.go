@@ -29,6 +29,8 @@ func quoteHandler(ctx sdk.Context, p *PrecompileExecutor, call callContext, args
 	}
 	budget := decoded[0].([7]uint64)
 	ceiling := new(big.Int)
+	// The first six components cover execution; the seventh is available for
+	// occupancy responsibility when the call binds its signed fee limit.
 	for i, word := range budget {
 		price := schedule.Prices[i]
 		component := new(big.Int).Mul(new(big.Int).SetUint64(word), new(big.Int).SetUint64(price))

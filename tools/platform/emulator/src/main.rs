@@ -1823,6 +1823,43 @@ fn parse_request_line(request_line: &str) -> Result<(&str, &str), String> {
     Ok((method, target))
 }
 
+fn spawn_admission(
+    listener: TcpListener,
+    admission_sender: SyncSender<TcpStream>,
+    admission_shutdown: Arc<AtomicBool>,
+) -> Result<thread::JoinHandle<()>, String> {
+    thread::Builder::new()
+        .name("layerx-emulator-admission".to_owned())
+        .spawn(move || {
+            while !admission_shutdown.load(Ordering::Acquire) {
+                match listener.accept().map(|(stream, _)| stream) {
+                    Ok(stream) => match admission_sender.try_send(stream) {
+                        Ok(()) => {}
+                        Err(TrySendError::Full(mut stream)) => {
+                            let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
+                            let response = refusal(
+                                0,
+                                503,
+                                "overloaded",
+                                "the emulator HTTP admission queue is full",
+                            );
+                            let _ = write_response(&mut stream, &response);
+                        }
+                        Err(TrySendError::Disconnected(_)) => return,
+                    },
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(error) => {
+                        eprintln!("emulator connection error: {error}");
+                        return;
+                    }
+                }
+            }
+        })
+        .map_err(|error| format!("could not start emulator admission worker: {error}"))
+}
+
 fn serve_emulator(
     config: &Config,
     mut emulator: Emulator,
@@ -1885,37 +1922,8 @@ fn serve_emulator(
         );
     }
     drop(transition_sender);
-    let admission_shutdown = Arc::clone(&shutdown);
-    let admission = thread::Builder::new()
-        .name("layerx-emulator-admission".to_owned())
-        .spawn(move || {
-            while !admission_shutdown.load(Ordering::Acquire) {
-                match listener.accept().map(|(stream, _)| stream) {
-                    Ok(stream) => match admission_sender.try_send(stream) {
-                        Ok(()) => {}
-                        Err(TrySendError::Full(mut stream)) => {
-                            let _ = stream.set_write_timeout(Some(Duration::from_secs(2)));
-                            let response = refusal(
-                                0,
-                                503,
-                                "overloaded",
-                                "the emulator HTTP admission queue is full",
-                            );
-                            let _ = write_response(&mut stream, &response);
-                        }
-                        Err(TrySendError::Disconnected(_)) => return,
-                    },
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        thread::sleep(Duration::from_millis(10));
-                    }
-                    Err(error) => {
-                        eprintln!("emulator connection error: {error}");
-                        return;
-                    }
-                }
-            }
-        })
-        .map_err(|error| format!("could not start emulator admission worker: {error}"))?;
+    let final_shutdown = Arc::clone(&shutdown);
+    let admission = spawn_admission(listener, admission_sender, shutdown)?;
     for work in transition_receiver {
         let response = match work.request {
             Ok(request) => route(&mut emulator, &request),
@@ -1940,7 +1948,7 @@ fn serve_emulator(
     for worker in workers {
         worker.join().map_err(|_| "emulator HTTP worker panicked")?;
     }
-    if shutdown.load(Ordering::Acquire) {
+    if final_shutdown.load(Ordering::Acquire) {
         Ok(())
     } else {
         Err("all emulator HTTP workers stopped".into())

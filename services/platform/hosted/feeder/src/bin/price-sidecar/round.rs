@@ -661,6 +661,10 @@ impl Sidecar {
 
     /// Reconciles durable submissions with committed execution and the mempool.
     /// Returns false while a submission is still pending; no new round may spend its sequences.
+    ///
+    /// # Errors
+    /// Returns an error when the account, transaction lookup, mempool response,
+    /// or persisted progress cannot be validated.
     pub fn reconcile(
         &mut self,
         config: &Config,
@@ -668,6 +672,12 @@ impl Sidecar {
         metrics: &Mutex<Metrics>,
         dir: &Path,
     ) -> Result<bool, String> {
+        // The execution code is zero when the protobuf JSON omits its default field.
+        #[derive(Deserialize)]
+        struct ExecutionResult {
+            #[serde(default)]
+            code: u32,
+        }
         lock(metrics).confirmed(self.progress.confirmed_height, self.progress.confirmed_ms);
         let Some(pending) = self.progress.pending.clone() else {
             self.journal = Journal::load(dir, 0)?;
@@ -691,12 +701,6 @@ impl Sidecar {
             let height = json_u64(result.get("height"))
                 .filter(|h| *h > 0)
                 .ok_or("tx: invalid committed height")?;
-            // ExecTxResult's protobuf JSON omits code on success (the schema default is zero).
-            #[derive(Deserialize)]
-            struct ExecutionResult {
-                #[serde(default)]
-                code: u32,
-            }
             let execution: ExecutionResult = serde_json::from_value(
                 result
                     .get("tx_result")
@@ -899,6 +903,11 @@ impl Sidecar {
             .map_or_else(Outcome::Transport, |body| parse_broadcast(&body)))
     }
 
+    /// Submits observations with the current account and market sequences.
+    ///
+    /// # Errors
+    /// Returns an error if a prior submission is pending or the account,
+    /// transaction, or durable progress cannot be prepared.
     pub fn submit(
         &mut self,
         config: &Config,

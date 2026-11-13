@@ -1,23 +1,25 @@
 # Solidity API
 
+Source: [MockPausable.sol](../../contracts/test/MockPausable.sol).
+
 ## MockPausable
 
 ### value
 
 ```solidity
-uint256 value
+uint256 public value
 ```
 
 ### protectedAction
 
 ```solidity
-function protectedAction(uint256 _val) external
+function protectedAction(uint256 _val) external whenNotPaused
 ```
 
 ### emergencyAction
 
 ```solidity
-function emergencyAction() external returns (bool)
+function emergencyAction() external whenPaused returns (bool)
 ```
 
 ### pause
@@ -37,4 +39,3 @@ function unpause() external
 ```solidity
 function paused() external view returns (bool)
 ```
-

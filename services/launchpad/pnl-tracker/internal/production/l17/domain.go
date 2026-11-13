@@ -124,7 +124,7 @@ func ptr(s string) *string { return &s }
 // Derive validates coverage and recomputes all nullable amounts. A stale mark is
 // retained as provenance but never contributes to complete current valuation.
 func validateWatermark(w Watermark) error {
-	if w.ChainID != "125" || (w.Integrity != "healthy" && w.Integrity != "quarantined") || !regexp.MustCompile(`^0x[0-9a-fA-F]{64}$`).MatchString(w.BlockHash) {
+	if w.ChainID != "125" || (w.Integrity != "healthy" && w.Integrity != statusQuarantined) || !regexp.MustCompile(`^0x[0-9a-fA-F]{64}$`).MatchString(w.BlockHash) {
 		return ErrInvalid
 	}
 	if _, e := uint256(w.Height); e != nil {
@@ -177,11 +177,11 @@ func Derive(p Position) (Position, *big.Int, error) {
 	if e != nil {
 		return p, nil, e
 	}
-	p.BasisQuality = "complete"
+	p.BasisQuality = statusComplete
 	if u.Sign() > 0 {
-		p.BasisQuality = "partial"
+		p.BasisQuality = statusPartial
 		if k.Sign() == 0 {
-			p.BasisQuality = "unknown"
+			p.BasisQuality = statusUnknown
 		}
 	}
 	p.BasisCoverage = Ratio{k.String(), b.String()}
@@ -194,9 +194,9 @@ func Derive(p Position) (Position, *big.Int, error) {
 	}
 	p.RealizedPnlRaw = nil
 	switch p.RealizedBasisQuality {
-	case "complete":
+	case statusComplete:
 		p.RealizedPnlRaw = ptr(r.String())
-	case "partial", "unknown":
+	case statusPartial, statusUnknown:
 	default:
 		return p, nil, ErrInvalid
 	}
@@ -207,7 +207,7 @@ func Derive(p Position) (Position, *big.Int, error) {
 		}
 		return p, nil, nil
 	}
-	if p.PricingQuality != "priced" && p.PricingQuality != "stale" {
+	if p.PricingQuality != "priced" && p.PricingQuality != statusStale {
 		return p, nil, ErrInvalid
 	}
 	if p.MarkPrice == nil {
@@ -251,19 +251,19 @@ func Derive(p Position) (Position, *big.Int, error) {
 	if m.BaseAsset.Decimals == nil || *m.BaseAsset.Decimals < 0 || *m.BaseAsset.Decimals > 255 {
 		return p, nil, ErrInvalid
 	}
-	if m.QuoteAsset.Kind != "erc20" || m.QuoteAsset.ChainID == nil || *m.QuoteAsset.ChainID != "125" || m.QuoteAsset.Address == nil || !strings.EqualFold(*m.QuoteAsset.Address, "0x85FcD13735F4309833A503EE804ea32395851479") {
+	if m.QuoteAsset.Kind != tokenERC20 || m.QuoteAsset.ChainID == nil || *m.QuoteAsset.ChainID != "125" || m.QuoteAsset.Address == nil || !strings.EqualFold(*m.QuoteAsset.Address, "0x85FcD13735F4309833A503EE804ea32395851479") {
 		return p, nil, ErrInvalid
 	}
 	if new(big.Int).GCD(nil, nil, n, d).Cmp(big.NewInt(1)) != 0 {
 		return p, nil, ErrInvalid
 	}
-	if m.BaseAsset.Kind != "erc20" || m.BaseAsset.ChainID == nil || *m.BaseAsset.ChainID != "125" || m.BaseAsset.Address == nil || !strings.EqualFold(*m.BaseAsset.Address, p.TokenAddress) || m.QuoteAsset.CurrencyCode == nil || *m.QuoteAsset.CurrencyCode != "USDL" || m.QuoteAsset.Decimals == nil || *m.QuoteAsset.Decimals != 6 {
+	if m.BaseAsset.Kind != tokenERC20 || m.BaseAsset.ChainID == nil || *m.BaseAsset.ChainID != "125" || m.BaseAsset.Address == nil || !strings.EqualFold(*m.BaseAsset.Address, p.TokenAddress) || m.QuoteAsset.CurrencyCode == nil || *m.QuoteAsset.CurrencyCode != symbolUSDL || m.QuoteAsset.Decimals == nil || *m.QuoteAsset.Decimals != 6 {
 		return p, nil, ErrInvalid
 	}
-	if p.SourceWatermark.Integrity == "quarantined" {
-		p.PricingQuality = "stale"
+	if p.SourceWatermark.Integrity == statusQuarantined {
+		p.PricingQuality = statusStale
 	}
-	if p.PricingQuality == "stale" {
+	if p.PricingQuality == statusStale {
 		return p, nil, nil
 	}
 	// Frozen IF_PRICE is reduced human quote units per WHOLE base token.
@@ -289,7 +289,7 @@ func Aggregate(wallet, snapshot string, w Watermark, positions []Position) (Summ
 	if e != nil {
 		return Summary{}, e
 	}
-	s := Summary{Wallet: wallet, SnapshotID: snapshot, Watermark: w, PositionCount: len(positions), BasisQuality: "complete", PricingQuality: "complete"}
+	s := Summary{Wallet: wallet, SnapshotID: snapshot, Watermark: w, PositionCount: len(positions), BasisQuality: statusComplete, PricingQuality: statusComplete}
 	v, r := new(big.Int), new(big.Int)
 	allRealized := true
 	knownBasis := false
@@ -305,7 +305,7 @@ func Aggregate(wallet, snapshot string, w Watermark, positions []Position) (Summ
 		snapshotHeight, _ := uint256(w.Height)
 		positionRevision, _ := uint256(p.SourceWatermark.ProjectionRevision)
 		snapshotRevision, _ := uint256(w.ProjectionRevision)
-		if p.Wallet != wallet || p.SourceWatermark.ChainID != w.ChainID || positionRevision.Cmp(snapshotRevision) > 0 || positionHeight.Cmp(snapshotHeight) > 0 || (positionHeight.Cmp(snapshotHeight) == 0 && !strings.EqualFold(p.SourceWatermark.BlockHash, w.BlockHash)) || (w.Integrity == "quarantined" && p.SourceWatermark.Integrity != "quarantined") || seen[p.PositionID] {
+		if p.Wallet != wallet || p.SourceWatermark.ChainID != w.ChainID || positionRevision.Cmp(snapshotRevision) > 0 || positionHeight.Cmp(snapshotHeight) > 0 || (positionHeight.Cmp(snapshotHeight) == 0 && !strings.EqualFold(p.SourceWatermark.BlockHash, w.BlockHash)) || (w.Integrity == statusQuarantined && p.SourceWatermark.Integrity != statusQuarantined) || seen[p.PositionID] {
 			return s, ErrInvalid
 		}
 		block := strings.ToLower(p.SourceWatermark.BlockHash)
@@ -330,13 +330,13 @@ func Aggregate(wallet, snapshot string, w Watermark, positions []Position) (Summ
 		nr, _ := number(p.KnownRealizedSubtotalUsdlRaw, true, 156)
 		r.Add(r, nr)
 		allRealized = allRealized && p.RealizedPnlRaw != nil
-		knownBasis = knownBasis || p.BasisQuality != "unknown"
-		unknownBasis = unknownBasis || p.BasisQuality != "complete" || p.RealizedBasisQuality != "complete"
+		knownBasis = knownBasis || p.BasisQuality != statusUnknown
+		unknownBasis = unknownBasis || p.BasisQuality != statusComplete || p.RealizedBasisQuality != statusComplete
 	}
 	if unknownBasis {
-		s.BasisQuality = "unknown"
+		s.BasisQuality = statusUnknown
 		if knownBasis {
-			s.BasisQuality = "partial"
+			s.BasisQuality = statusPartial
 		}
 	}
 	if len(v.String()) > 156 || len(strings.TrimPrefix(r.String(), "-")) > 156 {
@@ -347,7 +347,7 @@ func Aggregate(wallet, snapshot string, w Watermark, positions []Position) (Summ
 	if s.UnpricedAssetCount == 0 {
 		s.CompleteValueUsdlRaw = ptr(v.String())
 	} else {
-		s.PricingQuality = "partial"
+		s.PricingQuality = statusPartial
 		if s.UnpricedAssetCount == s.PositionCount {
 			s.PricingQuality = "unpriced"
 		}
@@ -377,7 +377,7 @@ func EquityChange(open, close, deposits, withdrawals, transferIn, transferOut st
 		a[i] = n
 	}
 	if !complete {
-		return EquityResult{Method: "unavailable", Reason: "incomplete_cash_flows"}, nil
+		return EquityResult{Method: statusUnavailable, Reason: "incomplete_cash_flows"}, nil
 	}
 	profit := new(big.Int).Sub(a[1], a[0])
 	profit.Sub(profit, a[2])

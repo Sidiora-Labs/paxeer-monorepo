@@ -5,10 +5,8 @@ kernel, which participates in block proposal; a receipt is final when its block 
 committed. The EVM chain ID is **125 (`0x7d`)**. Program execution and monetary effects
 belong to this same chain.
 
-Use the public node JSON-RPC at the root of a node URL, for example
-`https://api1.mainnet-beta.paxeer.network`. The public node names are `api1` through
-`api14.mainnet-beta.paxeer.network` and `api-mainnet-beta.paxeer.network`.
-`node.hyperpaxeer.com` is the build-time library mirror, not an RPC endpoint.
+Use HTTPS JSON-RPC at the configured node origin's root path. Check
+`eth_chainId` before signing or submitting a transaction.
 Sub-chains are tenant domains in the database; a tenant namespace does not require
 another chain process.
 
@@ -36,7 +34,7 @@ transaction hash, call ordinal and selector. See
 | Operations | ABI methods |
 | --- | --- |
 | Deployment and upgrade | `deploy`, `upgrade` |
-| Execution | `call`, `simulateCall` |
+| Execution | `call`, `callWithReceipts`, `simulateCall` |
 | Transfers and account registration | `transfer`, `registerAccount`, `registryRead` |
 | Wind-down | `setExitRoute`, `deprecate`, `tombstone`, `exitValue`, `exitValueBounded` |
 | Sandbox lifecycle | `sandboxFund`, `sandboxActivate`, `sandboxExecute` |
@@ -57,6 +55,12 @@ retain it when interpreting prices and fee ceilings.
 entrypoint, bytes callData, bytes capabilities, bytes accessDeclaration, uint32
 responseCapacity, uint64[7] budget, uint128 feeLimit)` and return
 `(int32 terminalResult, uint8 terminalKind, bytes response)`.
+
+`callWithReceipts` takes the same arguments followed by
+`ReceiptAuthority[] receiptAuthorities`. Each tuple contains `bytes canonicalReceipt`
+and `uint64 blockHeight`; the handler passes those authorities to the host. It
+returns the same terminal result tuple. See the
+[receipt-aware handler](../precompiles/layerxprograms/method_call_receipts.go).
 
 `response` contains the complete terminal evidence frame. `responseCapacity`
 bounds the guest bytes nested inside a successful execution; it does not bound or
@@ -284,7 +288,7 @@ an independently hashed usage value is not an `AuthenticatedUsageReceipt`.
 
 Expiry reclamation is bounded: `MAX_SWEEP_LEASES_PER_BATCH = 128` in
 [expiry.rs](../programs/crates/layerx-programs-sandbox/src/expiry.rs). A caller may
-choose a smaller sweep page. The bound is not six. The
+choose a smaller sweep page. The
 [C expiry path](../src/modules/programs/sandbox_expiry.c) persists terminal and
 cleanup state so bounded reclamation can continue across blocks.
 

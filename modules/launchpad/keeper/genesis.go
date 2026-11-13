@@ -27,9 +27,34 @@ func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	if err := k.initContracts(ctx, gs); err != nil {
 		panic(fmt.Errorf("launchpad: genesis contracts: %w", err))
 	}
+	if err := k.initChainLaunch(ctx, gs); err != nil {
+		panic(fmt.Errorf("launchpad: genesis chain launches: %w", err))
+	}
 	if err := k.installGenesisRoleSurfaces(ctx); err != nil {
 		panic(fmt.Errorf("launchpad: genesis role surfaces: %w", err))
 	}
+}
+
+func (k *Keeper) initChainLaunch(ctx sdk.Context, gs types.GenesisState) error {
+	for _, record := range gs.LaunchedChains {
+		if err := k.SetLaunchedChain(ctx, record); err != nil {
+			return err
+		}
+	}
+	for _, home := range gs.PoolHomeChains {
+		k.SetHomeChainByPool(ctx, common.HexToAddress(home.Pool), home.Chain)
+	}
+	for _, epoch := range gs.ChainRevenueEpochs {
+		if err := k.SetChainRevenueEpoch(ctx, epoch); err != nil {
+			return err
+		}
+	}
+	for _, claim := range gs.ChainRevenueClaims {
+		if err := k.SetChainRevenueClaim(ctx, claim.Chain, claim.Epoch, common.HexToAddress(claim.Holder)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // initContracts imports the surfaces, role tables, fee rights, custody and
@@ -193,6 +218,9 @@ func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		gs.Markets = append(gs.Markets, market)
 		return false
 	})
+	if err := k.exportChainLaunch(ctx, gs); err != nil {
+		panic(fmt.Errorf("launchpad: export chain launches: %w", err))
+	}
 	if err := k.exportContracts(ctx, gs); err != nil {
 		panic(fmt.Errorf("launchpad: export contracts: %w", err))
 	}
@@ -200,6 +228,107 @@ func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		panic(fmt.Errorf("launchpad: invalid exported genesis: %w", err))
 	}
 	return gs
+}
+
+func (k *Keeper) exportChainLaunch(ctx sdk.Context, gs *types.GenesisState) error {
+	store := k.store(ctx)
+	chains := sdk.KVStorePrefixIterator(store, types.LaunchedChainPrefix)
+	defer chains.Close()
+	for ; chains.Valid(); chains.Next() {
+		key := chains.Key()[len(types.LaunchedChainPrefix):]
+		if len(key) != 8 {
+			return types.ErrInvalidGenesis.Wrapf("corrupt launched chain key %x", chains.Key())
+		}
+		number := binary.BigEndian.Uint64(key)
+		record, found, err := k.GetLaunchedChain(ctx, number)
+		if err != nil {
+			return err
+		}
+		if !found || record.RegistryNumber != number {
+			return types.ErrInvalidGenesis.Wrapf("launched chain key disagrees with record %d", number)
+		}
+		pool := common.HexToAddress(record.Pool)
+		if indexed, found := k.RegistryNumberByPool(ctx, pool); !found || indexed != number {
+			return types.ErrInvalidGenesis.Wrapf("launched chain pool index %s", record.Pool)
+		}
+		gs.LaunchedChains = append(gs.LaunchedChains, record)
+	}
+	poolIndexes := sdk.KVStorePrefixIterator(store, types.ChainPoolPrefix)
+	defer poolIndexes.Close()
+	for ; poolIndexes.Valid(); poolIndexes.Next() {
+		key := poolIndexes.Key()[len(types.ChainPoolPrefix):]
+		if len(key) != common.AddressLength || len(poolIndexes.Value()) != 8 {
+			return types.ErrInvalidGenesis.Wrapf("corrupt launched chain pool index %x", poolIndexes.Key())
+		}
+		number := binary.BigEndian.Uint64(poolIndexes.Value())
+		record, found, err := k.GetLaunchedChain(ctx, number)
+		if err != nil {
+			return err
+		}
+		if !found || common.HexToAddress(record.Pool) != common.BytesToAddress(key) {
+			return types.ErrInvalidGenesis.Wrapf("unmatched launched chain pool index %x", poolIndexes.Key())
+		}
+	}
+	homes := sdk.KVStorePrefixIterator(store, types.HomeChainPrefix)
+	defer homes.Close()
+	for ; homes.Valid(); homes.Next() {
+		key := homes.Key()[len(types.HomeChainPrefix):]
+		if len(key) != common.AddressLength || len(homes.Value()) != 8 {
+			return types.ErrInvalidGenesis.Wrapf("corrupt pool home chain key %x", homes.Key())
+		}
+		gs.PoolHomeChains = append(gs.PoolHomeChains, types.PoolHomeChain{
+			Pool: common.BytesToAddress(key).Hex(), Chain: binary.BigEndian.Uint64(homes.Value())})
+	}
+	epochs := sdk.KVStorePrefixIterator(store, types.ChainRevenueEpochPrefix)
+	defer epochs.Close()
+	last := map[uint64]uint64{}
+	for ; epochs.Valid(); epochs.Next() {
+		key := epochs.Key()[len(types.ChainRevenueEpochPrefix):]
+		if len(key) != 16 {
+			return types.ErrInvalidGenesis.Wrapf("corrupt chain revenue epoch key %x", epochs.Key())
+		}
+		chain, number := binary.BigEndian.Uint64(key[:8]), binary.BigEndian.Uint64(key[8:])
+		record, found, err := k.GetChainRevenueEpoch(ctx, chain, number)
+		if err != nil {
+			return err
+		}
+		if !found || record.Chain != chain || record.Epoch != number {
+			return types.ErrInvalidGenesis.Wrapf("chain revenue epoch key disagrees with record %d/%d", chain, number)
+		}
+		if number > last[chain] {
+			last[chain] = number
+		}
+		gs.ChainRevenueEpochs = append(gs.ChainRevenueEpochs, record)
+	}
+	lastIndexes := sdk.KVStorePrefixIterator(store, types.ChainRevenueLastPrefix)
+	defer lastIndexes.Close()
+	for ; lastIndexes.Valid(); lastIndexes.Next() {
+		key := lastIndexes.Key()[len(types.ChainRevenueLastPrefix):]
+		if len(key) != 8 || len(lastIndexes.Value()) != 8 {
+			return types.ErrInvalidGenesis.Wrapf("corrupt chain revenue last epoch %x", lastIndexes.Key())
+		}
+		chain := binary.BigEndian.Uint64(key)
+		expected, found := last[chain]
+		if !found || expected != binary.BigEndian.Uint64(lastIndexes.Value()) {
+			return types.ErrInvalidGenesis.Wrapf("unmatched chain revenue last epoch %x", lastIndexes.Key())
+		}
+		delete(last, chain)
+	}
+	if len(last) != 0 {
+		return types.ErrInvalidGenesis.Wrap("missing chain revenue last epoch")
+	}
+	claims := sdk.KVStorePrefixIterator(store, types.ChainRevenueClaimPrefix)
+	defer claims.Close()
+	for ; claims.Valid(); claims.Next() {
+		key := claims.Key()[len(types.ChainRevenueClaimPrefix):]
+		if len(key) != 16+common.AddressLength || len(claims.Value()) != 1 || claims.Value()[0] != 1 {
+			return types.ErrInvalidGenesis.Wrapf("corrupt chain revenue claim %x", claims.Key())
+		}
+		gs.ChainRevenueClaims = append(gs.ChainRevenueClaims, types.ChainRevenueClaim{
+			Chain: binary.BigEndian.Uint64(key[:8]), Epoch: binary.BigEndian.Uint64(key[8:16]),
+			Holder: common.BytesToAddress(key[16:]).Hex()})
+	}
+	return nil
 }
 
 // exportContracts exports the surfaces, role tables, fee rights, custody and

@@ -1207,22 +1207,8 @@ fn bind_publication_key(shared: &Shared, request: &Request) -> Response {
     }
 }
 
-fn route(shared: &Shared, request: &Request) -> Response {
-    if request.method == "GET" && request.path == "/livez" {
-        return ok("{\"status\":\"live\",\"service\":\"identity\"}".to_owned());
-    }
-    if request.method == "GET" && request.path == "/readyz" {
-        return readiness(shared);
-    }
-    if request.headers.contains_key("forwarded")
-        || request.headers.contains_key("x-forwarded-for")
-        || request.headers.contains_key("x-real-ip")
-        || request.headers.contains_key("x-layerx-client-ip")
-        || request.headers.contains_key("x-layerx-principal")
-    {
-        return refusal(400, "untrusted_identity_header", None);
-    }
-    let known_route = matches!(
+fn known_route(request: &Request) -> bool {
+    matches!(
         (request.method.as_str(), request.path.as_str()),
         (
             "POST",
@@ -1241,8 +1227,25 @@ fn route(shared: &Shared, request: &Request) -> Response {
             request.path.as_str(),
             "/internal/v1/principal" | "/internal/readyz"
         ))
-        || (request.method == "DELETE" && request.path.starts_with("/v1/sessions/"));
-    if !known_route {
+        || (request.method == "DELETE" && request.path.starts_with("/v1/sessions/"))
+}
+
+fn route(shared: &Shared, request: &Request) -> Response {
+    if request.method == "GET" && request.path == "/livez" {
+        return ok("{\"status\":\"live\",\"service\":\"identity\"}".to_owned());
+    }
+    if request.method == "GET" && request.path == "/readyz" {
+        return readiness(shared);
+    }
+    if request.headers.contains_key("forwarded")
+        || request.headers.contains_key("x-forwarded-for")
+        || request.headers.contains_key("x-real-ip")
+        || request.headers.contains_key("x-layerx-client-ip")
+        || request.headers.contains_key("x-layerx-principal")
+    {
+        return refusal(400, "untrusted_identity_header", None);
+    }
+    if !known_route(request) {
         return refusal(404, "not_found", None);
     }
     let service = match authenticate_service(&shared.config, request) {
@@ -1798,13 +1801,8 @@ mod tests {
 mod resolver_tests {
     use super::*;
 
-    #[test]
-    fn route_requires_registry_authority_and_rejects_principal_substitution() {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-        let directory =
-            std::env::temp_dir().join(format!("identity-resolver-route-{}", std::process::id()));
-        fs::create_dir_all(&directory).unwrap_or_else(|error| panic!("{error}"));
-        let shared = Shared {
+    fn resolver_shared(directory: &Path) -> Shared {
+        Shared {
             config: Config {
                 listen: "127.0.0.1:0"
                     .parse()
@@ -1819,7 +1817,7 @@ mod resolver_tests {
                             rustls::server::ResolvesServerCertUsingSni::new(),
                         )),
                 ),
-                state_dir: directory.clone(),
+                state_dir: directory.to_path_buf(),
                 store_key: StoreKey::derive(b"resolver-unit-store-key"),
                 service_tokens: vec![
                     ServiceToken {
@@ -1837,9 +1835,18 @@ mod resolver_tests {
                 outbox_dir: directory.join("signup-outbox"),
                 smtp: None,
             },
-            store: Mutex::new(Store::open(&directory).unwrap_or_else(|error| panic!("{error}"))),
+            store: Mutex::new(Store::open(directory).unwrap_or_else(|error| panic!("{error}"))),
             desk: Mutex::new(Desk::new(Limits::default(), Vec::new())),
-        };
+        }
+    }
+
+    #[test]
+    fn route_requires_registry_authority_and_rejects_principal_substitution() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+        let directory =
+            std::env::temp_dir().join(format!("identity-resolver-route-{}", std::process::id()));
+        fs::create_dir_all(&directory).unwrap_or_else(|error| panic!("{error}"));
+        let shared = resolver_shared(&directory);
         let mut request = Request {
             method: "GET".to_owned(),
             path: "/internal/v1/principal".to_owned(),

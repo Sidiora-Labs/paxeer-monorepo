@@ -47,6 +47,11 @@ pub struct ProtocolProgramStateRead {
 }
 
 impl ProtocolProgramStateRead {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the account or state record cannot be validated or encoded.
+    #[allow(clippy::too_many_arguments)]
     pub fn verify_snapshot(
         registry: &mut Registry,
         program: ProgramId,
@@ -157,10 +162,15 @@ impl ProtocolProgramStateRead {
         &self.snapshot
     }
 
+    #[must_use]
     pub fn account_profile2(&self) -> Option<&VerifiedProgramAccountProfile2> {
         self.account_profile2.as_ref()
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the account or state record cannot be validated or encoded.
     pub fn restore_verified_profile2(
         bytes: &[u8],
         registry: &mut Registry,
@@ -225,17 +235,7 @@ impl ProtocolProgramStateRead {
         {
             return Err(ProtocolAdapterError::CorruptRecord);
         }
-        let snapshot_head = AccountStateHead {
-            receipt_digest: snapshot.receipt_digest,
-            state_root: snapshot.state_root,
-            freshness: snapshot.freshness,
-        };
-        if verified_receipt != snapshot_head {
-            return Err(AccountStateError::UnverifiedReceipt.into());
-        }
-        if current_head != verified_receipt {
-            return Err(AccountStateError::StaleRead.into());
-        }
+        validate_snapshot_heads(&snapshot, verified_receipt, current_head)?;
         let authority = JournalAccountStateAuthority::new(
             ProtocolJournal { head: current_head },
             now,
@@ -515,6 +515,25 @@ fn take_count(cursor: &mut Cursor<'_>) -> Result<usize, ProtocolAdapterError> {
     Ok(count)
 }
 
+fn validate_snapshot_heads(
+    snapshot: &VerifiedAccountSnapshot,
+    verified_receipt: AccountStateHead,
+    current_head: AccountStateHead,
+) -> Result<(), ProtocolAdapterError> {
+    let snapshot_head = AccountStateHead {
+        receipt_digest: snapshot.receipt_digest,
+        state_root: snapshot.state_root,
+        freshness: snapshot.freshness,
+    };
+    if verified_receipt != snapshot_head {
+        return Err(AccountStateError::UnverifiedReceipt.into());
+    }
+    if current_head != verified_receipt {
+        return Err(AccountStateError::StaleRead.into());
+    }
+    Ok(())
+}
+
 fn take_binding(
     cursor: &mut Cursor<'_>,
 ) -> Result<ProgramValueAccountBinding, ProtocolAdapterError> {
@@ -533,8 +552,8 @@ fn take_binding(
     Ok(ProgramValueAccountBinding {
         record_version,
         program,
-        account_id,
         seed,
+        account_id,
         asset_id,
         registered_sequence,
         registration_event_digest,
@@ -714,6 +733,10 @@ impl AccountStateJournal for ProtocolJournal {
     }
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the account or state record cannot be validated or encoded.
 pub fn lifecycle(value: i32) -> Result<ProgramLifecycle, ProtocolAdapterError> {
     match value {
         1 => Ok(ProgramLifecycle::Active),
@@ -723,6 +746,10 @@ pub fn lifecycle(value: i32) -> Result<ProgramLifecycle, ProtocolAdapterError> {
     }
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the account or state record cannot be validated or encoded.
 pub fn restore_verified(
     bytes: &[u8],
     registry: &mut Registry,
@@ -741,6 +768,10 @@ pub fn restore_verified(
     )
 }
 
+///
+/// # Errors
+///
+/// Returns an error when the account or state record cannot be validated or encoded.
 pub fn restore_verified_profile2(
     bytes: &[u8],
     registry: &mut Registry,

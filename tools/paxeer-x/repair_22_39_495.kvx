@@ -1,0 +1,4 @@
+[repair.22.39.495]
+call = "services/human/crates/layerx-human-kms/src/attestor.rs invokes signer::sign_disclosed_call(&transaction_signer, call, disclosure, from) for disclosed EIP-1559 transaction signing."
+entry = "The envelope-signing catalog entry allows the attestor call by its exact source line."
+change = "The catalog allowance now names the attestor transaction signer used by the supported call; the attestor source documents that binding."

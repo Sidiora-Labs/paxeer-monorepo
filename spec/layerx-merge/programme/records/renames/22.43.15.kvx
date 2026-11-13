@@ -1,0 +1,12 @@
+[manifest]
+task = "22.43.15"
+records_moved = 0
+files_renamed = 2
+
+[file.1]
+from = "apps/launchpad/web/test/repair-22-33-955.test.mjs"
+to = "apps/launchpad/web/test/browser-source-inventory.test.mjs"
+
+[file.2]
+from = "apps/launchpad/web/test/repair-22-33-970.test.mjs"
+to = "apps/launchpad/web/test/metadata-editor-viewer.test.mjs"

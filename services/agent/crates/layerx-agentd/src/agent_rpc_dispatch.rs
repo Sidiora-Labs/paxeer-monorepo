@@ -739,6 +739,46 @@ fn rung(value: u8) -> Option<Rung> {
 }
 
 #[cfg(test)]
+trait AssertTestValue<T> {
+    fn assert_value(self, context: &str) -> T;
+}
+
+#[cfg(test)]
+impl<T> AssertTestValue<T> for Option<T> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("{context}"),
+        }
+    }
+}
+
+#[cfg(test)]
+impl<T, E: std::fmt::Debug> AssertTestValue<T> for Result<T, E> {
+    fn assert_value(self, context: &str) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("{context}: {error:?}"),
+        }
+    }
+}
+
+#[cfg(test)]
+trait AssertTestError<E> {
+    fn assert_error(self, context: &str) -> E;
+}
+
+#[cfg(test)]
+impl<T, E> AssertTestError<E> for Result<T, E> {
+    fn assert_error(self, context: &str) -> E {
+        match self {
+            Ok(_) => panic!("{context}"),
+            Err(error) => error,
+        }
+    }
+}
+
+#[cfg(test)]
 mod receipt_rung_wire_tests {
     use super::{rung, HumanOperationError, Rung};
     use layerx_types::verify::VerificationLevel;
@@ -2368,17 +2408,17 @@ mod verification_receipt_lookup_tests {
                 "requested_rung": name,
             });
             let answer = dispatch_program_receipt(
-                request.as_object().expect("request is an object"),
+                request.as_object().assert_value("request is an object"),
                 id,
                 |key, activity| {
                     assert_eq!(key, [0xab; 32]);
                     assert_eq!(activity, [0xcd; 32]);
                     let bytes = crate::human_runtime::receipt_lookup_not_ready_bytes(lookup)
-                        .expect("real owner encodes a not-ready lookup");
-                    Ok(HumanResponse::new(bytes).expect("owner response is bounded"))
+                        .assert_value("real owner encodes a not-ready lookup");
+                    Ok(HumanResponse::new(bytes).assert_value("owner response is bounded"))
                 },
             )
-            .expect("ProgramReceipt dispatch accepts the owner lookup");
+            .assert_value("ProgramReceipt dispatch accepts the owner lookup");
             if submitted {
                 assert!(matches!(
                     answer.verification,
@@ -2388,9 +2428,9 @@ mod verification_receipt_lookup_tests {
                 assert!(answer.verification.is_none());
             }
             let response = crate::agent_rpc::success_body(id, &answer, Some(Some(requested)))
-                .expect("not-ready lookup is rendered without a verification failure");
+                .assert_value("not-ready lookup is rendered without a verification failure");
             assert_eq!(response.status, 200);
-            let body: Value = serde_json::from_slice(&response.body).expect("JSON response");
+            let body: Value = serde_json::from_slice(&response.body).assert_value("JSON response");
             let (value, verification) = if submitted {
                 (
                     serde_json::json!({
@@ -2423,7 +2463,7 @@ mod verification_receipt_lookup_tests {
             assert!(body["verification_status"].get("reason").is_none());
             assert!(body.get("error").is_none());
             assert!(!String::from_utf8(response.body)
-                .expect("JSON is UTF-8")
+                .assert_value("JSON is UTF-8")
                 .contains("verification.inconsistent"));
         }
     }
@@ -2463,34 +2503,37 @@ fn program_receipt_request_requires_an_advertised_rung() {
         request.insert("requested_rung".into(), Value::String(name.into()));
         let original = request.clone();
         let bytes = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
-            .expect("an advertised rung is accepted")
-            .expect("program.receipt has canonical request bytes");
+            .assert_value("an advertised rung is accepted")
+            .assert_value("program.receipt has canonical request bytes");
         let prefix = b"program.receipt\0";
         assert!(bytes.starts_with(prefix));
         let canonical: Value = serde_json::from_slice(&bytes[prefix.len()..])
-            .expect("canonical request contains JSON");
+            .assert_value("canonical request contains JSON");
         assert_eq!(canonical, Value::Object(original.clone()));
         assert_eq!(request, original);
-        let typed: ActivityLookupRequest = decode(&request, id).expect("selector decodes");
-        assert_eq!(typed.requested_level(id).expect("rung decodes"), level);
+        let typed: ActivityLookupRequest = decode(&request, id).assert_value("selector decodes");
+        assert_eq!(
+            typed.requested_level(id).assert_value("rung decodes"),
+            level
+        );
     }
 
     request.remove("requested_rung");
     let missing = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
-        .expect_err("requested_rung is required");
+        .assert_error("requested_rung is required");
     assert_eq!(missing.class, ErrorClass::ProtocolIncompatibility);
     assert_eq!(missing.reason, "envelope.malformed");
 
     request.insert("requested_rung".into(), Value::String("pending".into()));
     let pending = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
-        .expect_err("pending is not an advertised rung");
+        .assert_error("pending is not an advertised rung");
     assert_eq!(pending.class, ErrorClass::ProtocolIncompatibility);
     assert_eq!(pending.reason, "envelope.malformed");
 
     request.insert("requested_rung".into(), Value::String("submitted".into()));
     request.insert("extra".into(), Value::Bool(true));
     let extra = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
-        .expect_err("unknown selector fields are refused");
+        .assert_error("unknown selector fields are refused");
     assert_eq!(extra.class, ErrorClass::ProtocolIncompatibility);
     assert_eq!(extra.reason, "envelope.unknown_field");
 }
@@ -2657,18 +2700,28 @@ pub fn wait_write_answer(
 
 #[cfg(test)]
 mod middleware_submission_contract_tests {
+    use super::AssertTestValue;
     use super::{decode_eip1559_submission, decode_observation, Reader};
     use serde_json::Value;
+
+    use crate::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
+    use crate::outbox::{SubmissionState, SubmissionStatus};
+    use layerx_proof::receipt::AuthorizedBatch;
+    use layerx_types::{rung::Rung, verify::VerificationLevel};
+    use sha2::{Digest, Sha256};
+    use std::io::Write;
+    use std::process::{Command, Stdio};
 
     // Shared serde_json output transcript for the middleware loopback transport test.
     const MIDDLEWARE_SUBMISSION_TRANSCRIPT: &str = r#"{"raw_transaction":"02f901287d80010283030d4094000000000000000000000000000000000000101a80b8c478ea11db33333333333333333333333333333333333333333333333333333333333333332222222222222222222222222222222222222222222222222222222222222222111111111111111111111111111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000000061a8000000000000000000000000000000000000000000000000000000000000000143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab2c001a043d7fc8901d40aa3a43790d0b77e69eefeb5ac9a5771686e3e60949a99a98276a0429fa45350cf784e01c11fd73c93ade98c13c52f062f7a08a5938ec5ea36b06f","receipt_key":{"keyId":"0x0791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f1975","firstHeight":"0x1","lastHeight":"0x3e8","publicKey":"0xea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"},"submit":{"preparation_ref":"repair-preparation","state":"Receipted","signed_receipt":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f"},"pending":{"activity_id":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission_ref":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","state":"Unknown","rung":"submitted","evidence":[],"transitions":[{"to":"Unknown","cause":"transport-lost","at":"1","from":"Submitted"}]},"receipt":null},"committed":{"activity_id":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","submission_ref":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","state":"Committed","rung":"committed","evidence":[],"transitions":[],"receipt_ref":"b34a82b73a2ab4bdef6823c3877be59cb624043b59fcd08bcfed38da26584220"},"receipt":{"tx_hash":"c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f","canonical_bytes":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","authorised_batch":{"batch_id":"0000000000000000000000000000000000000000000000000000000000000007","asset":"0e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f73","previous_state_root":"5555555555555555555555555555555555555555555555555555555555555555","resulting_state_root":"6666666666666666666666666666666666666666666666666666666666666666","sequencer_public_key":"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c"},"rung":"committed","verification_level":"1","receipt_hash":"3598baf029c4a4f7b725956848a9326ddbd84541da0ace05cec946502289aff3","block_height":"7","signed_receipt":"00025201000200000020c338d02daa42c03c08f5b6032840123a4e40557ab37ad27f238655bbb4c1af9f000000000000000100000020555555555555555555555555555555555555555555555555555555555555555500000020666666666666666666666666666666666666666666666666666666666666666600000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000c350000000000000c35000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b143152faf9a9ed12bba8de846dc95d41e4e40d04a0d6599c2122df57958697ab23333333333333333333333333333333333333333333333333333333333333333222222222222222222222222222222222222222222222222222222222222222225fadecbca8d5df660751c8dd73e2c457bc7bb26acef0d7158fa115764a633c6000000000000000000000000000186a0000000200000000000000000000000000000000000000000000000000000000000000007000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f7300000000000000000000000000000000000000200000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1000000000000000000000000000f4240000000000000000000000000000dbba0000000000000000000000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f197500000191dd9dec0001000000405b53a3b5a914cba1bebb3823f64496f6894892103e6b1a93feb4dfd4c2feadf1a825b04779d8bf4146c92f480d3f0460ce3ad12921bb03d827ebc3de70bcda08","receipt_key_id":"0791868d8f29ea735f26a17a9aea038cd4255baac26eac5a74e58a07ed2f1975","public_key":"ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c","first_height":"1","last_height":"1000","inclusion_height":"7"}}}"#;
 
     fn bytes(value: &Value) -> Vec<u8> {
-        let text = value.as_str().expect("hex field");
+        let text = value.as_str().assert_value("hex field");
         text.as_bytes()
             .chunks_exact(2)
             .map(|pair| {
-                u8::from_str_radix(std::str::from_utf8(pair).expect("ascii"), 16).expect("hex")
+                u8::from_str_radix(std::str::from_utf8(pair).assert_value("ascii"), 16)
+                    .assert_value("hex")
             })
             .collect()
     }
@@ -2676,170 +2729,13 @@ mod middleware_submission_contract_tests {
     fn bounded(out: &mut Vec<u8>, data: &[u8]) {
         out.extend_from_slice(
             &u32::try_from(data.len())
-                .expect("bounded field")
+                .assert_value("bounded field")
                 .to_be_bytes(),
         );
         out.extend_from_slice(data);
     }
 
-    #[test]
-    fn receipt_reference_reaches_recovery_consumer() {
-        use crate::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
-        use crate::outbox::{SubmissionState, SubmissionStatus};
-        use layerx_proof::receipt::AuthorizedBatch;
-        use layerx_types::{rung::Rung, verify::VerificationLevel};
-        use sha2::{Digest, Sha256};
-        use std::io::Write;
-        use std::process::{Command, Stdio};
-
-        let transcript: Value =
-            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).expect("transcript");
-        let receipt = &transcript["committed"]["receipt"];
-        let canonical = bytes(&receipt["canonical_bytes"]);
-        let decoded = layerx_wire::receipt::decode(&canonical).expect("canonical receipt");
-        let protocol = decoded.protocol().expect("protocol receipt");
-        let key = layerx_client::sequencer::ReceiptKeyEntry {
-            key_id: bytes(&receipt["receipt_key_id"])
-                .try_into()
-                .expect("key ID"),
-            public_key: bytes(&receipt["public_key"])
-                .try_into()
-                .expect("public key"),
-            first_height: 1,
-            last_height: 1000,
-        };
-        let authenticated =
-            crate::finality::VerifiedReceipt::verify(protocol.activity_id(), &canonical, &[key])
-                .expect("authenticated native receipt");
-        let unsigned = layerx_wire::receipt::encode_unsigned(&decoded).expect("unsigned receipt");
-        let mut preimage = b"LXP/v1/receipt\0".to_vec();
-        preimage.extend_from_slice(&unsigned);
-        let expected: [u8; 32] = Sha256::digest(&preimage).into();
-        assert_eq!(
-            crate::protocol_evidence::canonical_receipt_reference(&canonical)
-                .expect("canonical reference"),
-            expected,
-        );
-        assert!(crate::protocol_evidence::canonical_receipt_reference(&canonical[..10]).is_err());
-        let status = SubmissionStatus {
-            submission_id: protocol.activity_id(),
-            state: SubmissionState::Executed,
-            activity_id: protocol.activity_id(),
-            evidence: None,
-            transitions: Vec::new(),
-        };
-        let native = crate::human_runtime::write_submission(&status, Some(&authenticated))
-            .expect("native tracking writer");
-        let height = u64::from_be_bytes(protocol.batch_id()[24..].try_into().expect("height"));
-        let frame = ReceiptLookupFrame {
-            canonical_bytes: canonical.clone(),
-            authorised_batch: AuthorizedBatch::new(
-                protocol.batch_id(),
-                protocol.asset(),
-                protocol.previous_state_root(),
-                protocol.resulting_state_root(),
-                key.public_key,
-            ),
-            verification_level: VerificationLevel::SEQUENCER_SIGNED,
-            tx_hash: protocol.activity_id(),
-            receipt_hash: Sha256::digest(&canonical).into(),
-            block_height: height,
-            rung: Rung::Receipted,
-            signed_receipt: canonical.clone(),
-            receipt_key_id: key.key_id,
-            public_key: key.public_key,
-            first_height: key.first_height,
-            last_height: key.last_height,
-            inclusion_height: height,
-        };
-        let lookup_wire = ReceiptLookupAnswer::Found(frame.clone())
-            .encode()
-            .expect("receipt writer");
-        let mut observation_wire = protocol.activity_id().to_vec();
-        observation_wire.extend_from_slice(native.bytes());
-        observation_wire.extend_from_slice(&lookup_wire);
-        let mut reader = Reader {
-            bytes: &observation_wire,
-            offset: 0,
-        };
-        let (observation, rung) =
-            decode_observation(&mut reader).expect("production observation decoder");
-        assert_eq!(reader.finish(), Some(()));
-        assert_eq!(rung, Some(Rung::Receipted));
-        assert_eq!(
-            observation["submission"]["receipt_ref"],
-            super::lower_hex(&expected)
-        );
-        assert_eq!(
-            observation["submission"]["evidence"][0]["digest"],
-            super::lower_hex(&expected)
-        );
-        assert_eq!(
-            observation["submission"]["receipt_ref"],
-            transcript["committed"]["submission"]["receipt_ref"]
-        );
-        assert_ne!(
-            observation["submission"]["receipt_ref"],
-            observation["receipt"]["receipt_hash"]
-        );
-        let mut reader = Reader {
-            bytes: &lookup_wire,
-            offset: 0,
-        };
-        let (lookup, lookup_rung) =
-            super::decode_receipt_lookup(&mut reader).expect("production receipt decoder");
-        assert_eq!(reader.finish(), Some(()));
-        assert_eq!(lookup_rung, rung);
-        assert_eq!(lookup["receipt"], observation["receipt"]);
-        for change in ["signature", "root", "rung", "hash"] {
-            let mut changed = frame.clone();
-            match change {
-                "signature" => {
-                    let last = changed.canonical_bytes.len() - 1;
-                    changed.canonical_bytes[last] ^= 1;
-                    changed.signed_receipt = changed.canonical_bytes.clone();
-                    changed.receipt_hash = Sha256::digest(&changed.canonical_bytes).into();
-                }
-                "root" => {
-                    changed.authorised_batch = AuthorizedBatch::new(
-                        protocol.batch_id(),
-                        protocol.asset(),
-                        [0x99; 32],
-                        protocol.resulting_state_root(),
-                        key.public_key,
-                    )
-                }
-                "rung" => changed.rung = Rung::Submitted,
-                "hash" => changed.receipt_hash = expected,
-                _ => unreachable!(),
-            }
-            let wire = ReceiptLookupAnswer::Found(changed)
-                .encode()
-                .expect("changed frame");
-            assert!(
-                super::decode_receipt_lookup(&mut Reader {
-                    bytes: &wire,
-                    offset: 0
-                })
-                .is_none(),
-                "{change}"
-            );
-        }
-        let mut signed_preimage = b"LXP/v1/receipt\0".to_vec();
-        signed_preimage.extend_from_slice(&canonical);
-        let tagged_signed: [u8; 32] = Sha256::digest(&signed_preimage).into();
-        let signed_hash: [u8; 32] = Sha256::digest(&canonical).into();
-        assert_ne!(expected, tagged_signed);
-        assert_ne!(expected, signed_hash);
-        let payload = serde_json::json!({
-            "tracked": {"value": observation["submission"], "verification_status": {"state": "achieved", "rung": "receipted"}},
-            "lookup": {"value": lookup, "verification_status": {"state": "achieved", "rung": "receipted"}},
-            "raw_transaction": transcript["raw_transaction"],
-            "key": transcript["receipt_key"],
-            "expected": super::lower_hex(&expected),
-            "unsigned": super::lower_hex(&unsigned),
-            "wrong_references": [super::lower_hex(&tagged_signed), super::lower_hex(&signed_hash)],
-        });
+    fn assert_python_consumer(payload: &Value, expected: &[u8; 32]) {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
         let mut child = Command::new("python3")
             .current_dir(root)
@@ -2904,35 +2800,232 @@ for change in ("signature", "root", "rung", "hash"):
 print(json.dumps({"receipt_ref": facts["receipt_ref"], "sdk_reference": verified.receipt_digest.hex()}))
 "#)
             .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped())
-            .spawn().expect("real Python recovery consumer");
+            .spawn().assert_value("real Python recovery consumer");
         child
             .stdin
             .take()
-            .expect("subprocess pipe")
-            .write_all(&serde_json::to_vec(&payload).expect("unchanged native JSON"))
-            .expect("pipe native JSON");
-        let output = child.wait_with_output().expect("consumer result");
+            .assert_value("subprocess pipe")
+            .write_all(&serde_json::to_vec(&payload).assert_value("unchanged native JSON"))
+            .assert_value("pipe native JSON");
+        let output = child.wait_with_output().assert_value("consumer result");
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
-        let consumed: Value = serde_json::from_slice(&output.stdout).expect("consumer references");
-        assert_eq!(consumed["receipt_ref"], super::lower_hex(&expected));
+        let consumed: Value =
+            serde_json::from_slice(&output.stdout).assert_value("consumer references");
+        assert_eq!(consumed["receipt_ref"], super::lower_hex(expected));
         assert_eq!(consumed["sdk_reference"], consumed["receipt_ref"]);
+    }
+
+    fn assert_changed_frames(frame: &ReceiptLookupFrame, expected: [u8; 32]) {
+        let decoded = layerx_wire::receipt::decode(&frame.canonical_bytes)
+            .assert_value("canonical receipt for changed frames");
+        let protocol = decoded
+            .protocol()
+            .assert_value("protocol receipt for changed frames");
+        for change in ["signature", "root", "rung", "hash"] {
+            let mut changed = frame.clone();
+            match change {
+                "signature" => {
+                    let last = changed.canonical_bytes.len() - 1;
+                    changed.canonical_bytes[last] ^= 1;
+                    changed.signed_receipt = changed.canonical_bytes.clone();
+                    changed.receipt_hash = Sha256::digest(&changed.canonical_bytes).into();
+                }
+                "root" => {
+                    changed.authorised_batch = AuthorizedBatch::new(
+                        protocol.batch_id(),
+                        protocol.asset(),
+                        [0x99; 32],
+                        protocol.resulting_state_root(),
+                        frame.public_key,
+                    );
+                }
+                "rung" => changed.rung = Rung::Submitted,
+                "hash" => changed.receipt_hash = expected,
+                _ => unreachable!(),
+            }
+            let wire = ReceiptLookupAnswer::Found(changed)
+                .encode()
+                .assert_value("changed frame");
+            assert!(
+                super::decode_receipt_lookup(&mut Reader {
+                    bytes: &wire,
+                    offset: 0
+                })
+                .is_none(),
+                "{change}"
+            );
+        }
+    }
+
+    struct RecoveryFixture {
+        transcript: Value,
+        canonical: Vec<u8>,
+        decoded: layerx_wire::receipt::Receipt,
+        key: layerx_client::sequencer::ReceiptKeyEntry,
+        authenticated: crate::finality::VerifiedReceipt,
+        unsigned: Vec<u8>,
+        expected: [u8; 32],
+    }
+
+    fn recovery_fixture() -> RecoveryFixture {
+        let transcript: Value =
+            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).assert_value("transcript");
+        let receipt = &transcript["committed"]["receipt"];
+        let canonical = bytes(&receipt["canonical_bytes"]);
+        let decoded = layerx_wire::receipt::decode(&canonical).assert_value("canonical receipt");
+        let protocol = decoded.protocol().assert_value("protocol receipt");
+        let key = layerx_client::sequencer::ReceiptKeyEntry {
+            key_id: bytes(&receipt["receipt_key_id"])
+                .try_into()
+                .assert_value("key ID"),
+            public_key: bytes(&receipt["public_key"])
+                .try_into()
+                .assert_value("public key"),
+            first_height: 1,
+            last_height: 1000,
+        };
+        let authenticated =
+            crate::finality::VerifiedReceipt::verify(protocol.activity_id(), &canonical, &[key])
+                .assert_value("authenticated native receipt");
+        let unsigned =
+            layerx_wire::receipt::encode_unsigned(&decoded).assert_value("unsigned receipt");
+        let mut preimage = b"LXP/v1/receipt\0".to_vec();
+        preimage.extend_from_slice(&unsigned);
+        let expected: [u8; 32] = Sha256::digest(&preimage).into();
+        assert_eq!(
+            crate::protocol_evidence::canonical_receipt_reference(&canonical)
+                .assert_value("canonical reference"),
+            expected,
+        );
+        assert!(crate::protocol_evidence::canonical_receipt_reference(&canonical[..10]).is_err());
+        RecoveryFixture {
+            transcript,
+            canonical,
+            decoded,
+            key,
+            authenticated,
+            unsigned,
+            expected,
+        }
+    }
+
+    #[test]
+    fn receipt_reference_reaches_recovery_consumer() {
+        let RecoveryFixture {
+            transcript,
+            canonical,
+            decoded,
+            key,
+            authenticated,
+            unsigned,
+            expected,
+        } = recovery_fixture();
+        let protocol = decoded.protocol().assert_value("protocol receipt");
+        let status = SubmissionStatus {
+            submission_id: protocol.activity_id(),
+            state: SubmissionState::Executed,
+            activity_id: protocol.activity_id(),
+            evidence: None,
+            transitions: Vec::new(),
+        };
+        let native = crate::human_runtime::write_submission(&status, Some(&authenticated))
+            .assert_value("native tracking writer");
+        let height =
+            u64::from_be_bytes(protocol.batch_id()[24..].try_into().assert_value("height"));
+        let frame = ReceiptLookupFrame {
+            canonical_bytes: canonical.clone(),
+            authorised_batch: AuthorizedBatch::new(
+                protocol.batch_id(),
+                protocol.asset(),
+                protocol.previous_state_root(),
+                protocol.resulting_state_root(),
+                key.public_key,
+            ),
+            verification_level: VerificationLevel::SEQUENCER_SIGNED,
+            tx_hash: protocol.activity_id(),
+            receipt_hash: Sha256::digest(&canonical).into(),
+            block_height: height,
+            rung: Rung::Receipted,
+            signed_receipt: canonical.clone(),
+            receipt_key_id: key.key_id,
+            public_key: key.public_key,
+            first_height: key.first_height,
+            last_height: key.last_height,
+            inclusion_height: height,
+        };
+        let lookup_wire = ReceiptLookupAnswer::Found(frame.clone())
+            .encode()
+            .assert_value("receipt writer");
+        let mut observation_wire = protocol.activity_id().to_vec();
+        observation_wire.extend_from_slice(native.bytes());
+        observation_wire.extend_from_slice(&lookup_wire);
+        let mut reader = Reader {
+            bytes: &observation_wire,
+            offset: 0,
+        };
+        let (observation, rung) =
+            decode_observation(&mut reader).assert_value("production observation decoder");
+        assert_eq!(reader.finish(), Some(()));
+        assert_eq!(rung, Some(Rung::Receipted));
+        assert_eq!(
+            observation["submission"]["receipt_ref"],
+            super::lower_hex(&expected)
+        );
+        assert_eq!(
+            observation["submission"]["evidence"][0]["digest"],
+            super::lower_hex(&expected)
+        );
+        assert_eq!(
+            observation["submission"]["receipt_ref"],
+            transcript["committed"]["submission"]["receipt_ref"]
+        );
+        assert_ne!(
+            observation["submission"]["receipt_ref"],
+            observation["receipt"]["receipt_hash"]
+        );
+        let mut reader = Reader {
+            bytes: &lookup_wire,
+            offset: 0,
+        };
+        let (lookup, lookup_rung) =
+            super::decode_receipt_lookup(&mut reader).assert_value("production receipt decoder");
+        assert_eq!(reader.finish(), Some(()));
+        assert_eq!(lookup_rung, rung);
+        assert_eq!(lookup["receipt"], observation["receipt"]);
+        assert_changed_frames(&frame, expected);
+        let mut signed_preimage = b"LXP/v1/receipt\0".to_vec();
+        signed_preimage.extend_from_slice(&canonical);
+        let tagged_signed: [u8; 32] = Sha256::digest(&signed_preimage).into();
+        let signed_hash: [u8; 32] = Sha256::digest(&canonical).into();
+        assert_ne!(expected, tagged_signed);
+        assert_ne!(expected, signed_hash);
+        let payload = serde_json::json!({
+            "tracked": {"value": observation["submission"], "verification_status": {"state": "achieved", "rung": "receipted"}},
+            "lookup": {"value": lookup, "verification_status": {"state": "achieved", "rung": "receipted"}},
+            "raw_transaction": transcript["raw_transaction"],
+            "key": transcript["receipt_key"],
+            "expected": super::lower_hex(&expected),
+            "unsigned": super::lower_hex(&unsigned),
+            "wrong_references": [super::lower_hex(&tagged_signed), super::lower_hex(&signed_hash)],
+        });
+        assert_python_consumer(&payload, &expected);
     }
 
     #[test]
     fn middleware_submit_transcript_is_produced_by_dispatch() {
         let transcript: Value =
-            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).expect("transcript");
+            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).assert_value("transcript");
         let expected = &transcript["submit"];
         let mut wire = Vec::new();
         bounded(
             &mut wire,
             expected["preparation_ref"]
                 .as_str()
-                .expect("reference")
+                .assert_value("reference")
                 .as_bytes(),
         );
         bounded(&mut wire, &bytes(&transcript["raw_transaction"]));
@@ -2941,7 +3034,7 @@ print(json.dumps({"receipt_ref": facts["receipt_ref"], "sdk_reference": verified
             bytes: &wire,
             offset: 0,
         };
-        let (actual, _) = decode_eip1559_submission(&mut reader).expect("submit");
+        let (actual, _) = decode_eip1559_submission(&mut reader).assert_value("submit");
         assert_eq!(&actual, expected);
         assert_eq!(reader.finish(), Some(()));
     }
@@ -2949,7 +3042,7 @@ print(json.dumps({"receipt_ref": facts["receipt_ref"], "sdk_reference": verified
     #[test]
     fn middleware_observation_transcripts_are_produced_by_dispatch() {
         let transcript: Value =
-            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).expect("transcript");
+            serde_json::from_str(MIDDLEWARE_SUBMISSION_TRANSCRIPT).assert_value("transcript");
         for (name, state, rung) in [("pending", 5, 0), ("committed", 9, 2)] {
             let expected = &transcript[name];
             let mut wire = bytes(&expected["activity_id"]);
@@ -2974,17 +3067,20 @@ print(json.dumps({"receipt_ref": facts["receipt_ref"], "sdk_reference": verified
                 let receipt = &expected["receipt"];
                 let canonical_bytes = bytes(&receipt["canonical_bytes"]);
                 let decoded = layerx_wire::receipt::decode(&canonical_bytes)
-                    .expect("producer protocol receipt");
-                let protocol = decoded.protocol().expect("protocol receipt");
-                let height =
-                    u64::from_be_bytes(protocol.batch_id()[24..].try_into().expect("batch height"));
+                    .assert_value("producer protocol receipt");
+                let protocol = decoded.protocol().assert_value("protocol receipt");
+                let height = u64::from_be_bytes(
+                    protocol.batch_id()[24..]
+                        .try_into()
+                        .assert_value("batch height"),
+                );
                 let key = layerx_client::sequencer::ReceiptKeyEntry {
                     key_id: bytes(&receipt["receipt_key_id"])
                         .try_into()
-                        .expect("key ID"),
+                        .assert_value("key ID"),
                     public_key: bytes(&receipt["public_key"])
                         .try_into()
-                        .expect("public key"),
+                        .assert_value("public key"),
                     first_height: 1,
                     last_height: 1000,
                 };
@@ -2993,7 +3089,7 @@ print(json.dumps({"receipt_ref": facts["receipt_ref"], "sdk_reference": verified
                     &canonical_bytes,
                     &[key],
                 )
-                .expect("authenticated producer receipt");
+                .assert_value("authenticated producer receipt");
                 let frame = ReceiptLookupFrame {
                     canonical_bytes: canonical_bytes.clone(),
                     authorised_batch: AuthorizedBatch::new(
@@ -3018,14 +3114,14 @@ print(json.dumps({"receipt_ref": facts["receipt_ref"], "sdk_reference": verified
                 wire.extend(
                     ReceiptLookupAnswer::Found(frame)
                         .encode()
-                        .expect("receipt frame"),
+                        .assert_value("receipt frame"),
                 );
             }
             let mut reader = Reader {
                 bytes: &wire,
                 offset: 0,
             };
-            let (actual, _) = decode_observation(&mut reader).expect("observation");
+            let (actual, _) = decode_observation(&mut reader).assert_value("observation");
             assert_eq!(&actual, expected);
             assert_eq!(reader.finish(), Some(()));
             wire[0] ^= 1;

@@ -1,4 +1,6 @@
+import { copyEntry } from "../../../copy/runtime";
 import Link from "next/link";
+import { formatCopy } from "../../../copy/format";
 
 import { Badge } from "../../kit/collection";
 
@@ -62,7 +64,7 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
   if (!capability.live) {
     return (
       <MarketFrame
-        title="Launchpad"
+        title={copyEntry("launchpad.copy.launchpad").message}
         description="Bonding-curve markets on the Launchpad precompile. Quotes come from the curve before your wallet opens."
         account={account}
       >
@@ -97,7 +99,7 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
   }
   return (
     <MarketFrame
-      title="Launchpad"
+      title={copyEntry("launchpad.copy.launchpad").message}
       description="Bonding-curve markets on the Launchpad precompile. Quotes come from the curve before your wallet opens."
       account={account}
     >
@@ -114,9 +116,9 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
           />
         </div>
       )}
-      <ExplorerPanel title="Markets">
+      <ExplorerPanel title={copyEntry("launchpad.copy.markets").message}>
         {markets.length === 0 ? (
-          <StateEmpty title="No markets yet" description="Create the first market below." />
+          <StateEmpty title={copyEntry("launchpad.copy.no_markets_yet").message} description="Create the first market below." />
         ) : (
           <ExplorerTable
             caption="Launchpad markets"
@@ -127,7 +129,7 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
                   cells: [
                     <span key="pool" title={market.unavailable}>{market.pool}</span>,
                     "—", "—", "—", "—", "—", "—",
-                    <Badge key="state" variant="warning">Unavailable</Badge>,
+                    <Badge key="state" variant="warning">{copyEntry("launchpad.copy.unavailable").message}</Badge>,
                   ],
                 }
               : {
@@ -148,13 +150,13 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
           />
         )}
         {problem !== undefined || count === 0n ? null : (
-          <nav aria-label="Market pages" className="flex items-center gap-4">
+          <nav aria-label={copyEntry("launchpad.copy.market_pages").message} className="flex items-center gap-4">
             {marketPage === 1n ? null : (
-              <Link href={marketPageHref(parameters, marketPage - 1n)} prefetch={false}>Previous markets</Link>
+              <Link href={marketPageHref(parameters, marketPage - 1n)} prefetch={false}>{copyEntry("launchpad.copy.previous_markets").message}</Link>
             )}
-            <span aria-live="polite">Page {marketPage.toString()} of {pageCount.toString()}</span>
+            <span aria-live="polite">{formatCopy("launchpad.market.page", { page: marketPage.toString(), pageCount: pageCount.toString() })}</span>
             {marketPage === pageCount ? null : (
-              <Link href={marketPageHref(parameters, marketPage + 1n)} prefetch={false}>Next markets</Link>
+              <Link href={marketPageHref(parameters, marketPage + 1n)} prefetch={false}>{copyEntry("launchpad.copy.next_markets").message}</Link>
             )}
           </nav>
         )}

@@ -1,0 +1,65 @@
+[meta]
+module = "social"
+surface = "launchpad social service"
+
+[lint.errcheck]
+sites = 51
+behavior = "Transaction rollback, resource close, response encoding and digest writes handle errors."
+
+[lint.goconst]
+sites = 130
+behavior = "Shared package constants preserve environment, action, state, event and response values."
+
+[lint.goimports]
+sites = 18
+behavior = "Go imports follow the module formatter."
+
+[lint.gosec]
+sites = 18
+behavior = "File reads stay in their selected directory and numeric conversions check their bounds. Voice responses retain validated JSON envelopes."
+
+[lint.staticcheck]
+sites = 20
+behavior = "Conditionals, status constants and runtime profile branches use explicit forms while published response text stays stable."
+
+[comment.1]
+path = "internal/config/config.go"
+line = 224
+linter = "staticcheck"
+reason = "The bind address guidance remains stable."
+
+[comment.2]
+path = "internal/fanout/hub.go"
+line = 499
+linter = "staticcheck"
+reason = "The rate limit response text remains stable."
+
+[comment.3]
+path = "internal/social/moderation.go"
+line = 443
+linter = "gosec"
+reason = "The voice adapter emits validated JSON."
+
+[comment.4]
+path = "internal/social/moderation.go"
+line = 470
+linter = "gosec"
+reason = "The voice adapter emits validated JSON."
+
+[comment.5]
+path = "internal/social/moderation.go"
+line = 541
+linter = "gosec"
+reason = "The voice adapter emits validated JSON."
+
+[comment.6]
+path = "internal/social/moderation.go"
+line = 572
+linter = "gosec"
+reason = "The voice adapter emits validated JSON."
+
+[comment.7]
+path = "internal/social/moderation.go"
+line = 607
+linter = "gosec"
+reason = "The voice adapter emits validated JSON."

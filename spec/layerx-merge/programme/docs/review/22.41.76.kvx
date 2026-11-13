@@ -1,0 +1,83 @@
+[manifest]
+task = "22.41.76"
+pages = 20
+
+[page.1]
+path = "node/wasmbinding/README.md"
+status = "corrected"
+
+[page.2]
+path = "precompiles/distribution/legacy/v580/HISTORICAL_VALUE.md"
+status = "reviewed"
+
+[page.3]
+path = "precompiles/distribution/legacy/v605/README.md"
+status = "reviewed"
+
+[page.4]
+path = "precompiles/distribution/legacy/v606/README.md"
+status = "reviewed"
+
+[page.5]
+path = "precompiles/distribution/legacy/v610/repair_m1257.md"
+status = "reviewed"
+
+[page.6]
+path = "precompiles/distribution/legacy/v614/README.md"
+status = "reviewed"
+
+[page.7]
+path = "precompiles/distribution/legacy/v620/README.md"
+status = "reviewed"
+
+[page.8]
+path = "precompiles/distribution/legacy/v630/README.md"
+status = "reviewed"
+
+[page.9]
+path = "precompiles/distribution/legacy/v640/README.md"
+status = "reviewed"
+
+[page.10]
+path = "precompiles/layerxprograms/response.md"
+status = "corrected"
+
+[page.11]
+path = "programs/README.md"
+status = "reviewed"
+
+[page.12]
+path = "programs/crates/layerx-programs-arbiter/src/repair_22_33_215.md"
+status = "reviewed"
+
+[page.13]
+path = "programs/crates/layerx-programs-runtime/src/runtime_contract.md"
+status = "reviewed"
+
+[page.14]
+path = "programs/crates/layerx-programs-sandbox/src/programs_contract.md"
+status = "corrected"
+
+[page.15]
+path = "programs/porting/cosmwasm/MIGRATION.md"
+status = "corrected"
+
+[page.16]
+path = "programs/porting/evm/MIGRATION.md"
+status = "reviewed"
+
+[page.17]
+path = "programs/porting/solana/MIGRATION.md"
+status = "corrected"
+
+[page.18]
+path = "programs/porting/solana/REPAIR_22_33_241.md"
+status = "reviewed"
+
+[page.19]
+path = "programs/sdk/rust/examples/nft-lxt721/README.md"
+status = "reviewed"
+
+[page.20]
+path = "programs/sdk/rust/examples/payments-merchant/README.md"
+status = "reviewed"

@@ -277,6 +277,7 @@ impl std::fmt::Debug for LxkpGateway {
             .field("tls", &self.tls)
             .field("network_id", &self.network_id)
             .field("protocol_version", &self.protocol_version)
+            .field("registry", &self.registry)
             .field("limits", &self.limits)
             .finish_non_exhaustive()
     }
@@ -617,7 +618,7 @@ impl LxkpGateway {
             deadline,
             self.clock.as_ref(),
         )?
-        .map_err(custody_refusal)?;
+        .map_err(|error| custody_refusal(&error))?;
         super::provider::verify_call_signature(&call, request.from, &signature)
             .map_err(|_| KmsError::Integrity)?;
         Ok(signature.to_vec())
@@ -788,9 +789,9 @@ const fn status(error: KmsError) -> u8 {
     }
 }
 
-fn custody_refusal(error: CustodyError) -> KmsError {
+fn custody_refusal(error: &CustodyError) -> KmsError {
     match error {
-        CustodyError::Kms(error) => error,
+        CustodyError::Kms(error) => *error,
         CustodyError::Sign(layerx_crypto::signer::SignError::ReturnedSignatureInvalid) => {
             KmsError::Integrity
         }

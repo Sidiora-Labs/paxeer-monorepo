@@ -70,6 +70,9 @@ pub struct MigrationHeadAuthority {
 }
 
 impl MigrationHeadAuthority {
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn open(
         directory: &Path,
         owner: PrincipalId,
@@ -213,11 +216,17 @@ impl MigrationHeadAuthority {
             .map_err(|_| MigrationError::CheckpointIntegrity)
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn current(&self) -> Result<MigrationJournalHead, MigrationError> {
         let _lock = self.lock()?;
         Ok(self.load()?.head)
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn advance(
         &self,
         principal: &PrincipalId,
@@ -260,6 +269,9 @@ impl MigrationHeadAuthority {
 
     /// JSON-RPC handler for a router that has already authenticated HTTPS bearer
     /// credentials to a principal. Invalid/unowned requests never touch state.
+    ///
+    /// # Errors
+    /// Returns an error if the requested operation cannot be completed.
     pub fn handle(
         &self,
         principal: &PrincipalId,

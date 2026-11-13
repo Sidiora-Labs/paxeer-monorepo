@@ -20,13 +20,13 @@ import (
 const safetyProjectionGeneration = "social_safety_visibility_v1"
 
 func projectSafetyMessage(m fanout.DurableMessage, v safety.Visibility, erased bool, applied int64) (fanout.DurableMessage, error) {
-	if (v.Revision == 0 && v.Status != "") || v.Revision < 0 || (v.Revision > 0 && (v.TargetType != "message" || v.TargetID != m.ID || (v.Status != "removed" && v.Status != "restored"))) || applied < 0 || applied > v.Revision || m.Revision < 1 || v.Revision-applied > math.MaxInt64-m.Revision {
+	if (v.Revision == 0 && v.Status != "") || v.Revision < 0 || (v.Revision > 0 && (v.TargetType != messageAction || v.TargetID != m.ID || (v.Status != removedState && v.Status != "restored"))) || applied < 0 || applied > v.Revision || m.Revision < 1 || v.Revision-applied > math.MaxInt64-m.Revision {
 		return m, safety.ErrInvalid
 	}
 	// Include the authoritative overlay revision even before the consumer has
 	// emitted its replay event, and on restoration as well as removal.
 	m.Revision += v.Revision - applied
-	if m.Deleted || erased || v.Status == "removed" {
+	if m.Deleted || erased || v.Status == removedState {
 		m.Deleted = true
 		m.Content = ""
 		m.ReplyTo = ""
@@ -39,7 +39,7 @@ func projectMessageFromStore(ctx context.Context, db *pgxpool.Pool, m fanout.Dur
 	}
 	var erased bool
 	var applied int64
-	v := safety.Visibility{TargetType: "message", TargetID: m.ID}
+	v := safety.Visibility{TargetType: messageAction, TargetID: m.ID}
 	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chat.interaction_erased_wallets WHERE wallet=$1),COALESCE(v.revision,0),COALESCE(v.status,''),COALESCE(p.revision,0) FROM (SELECT 1) seed LEFT JOIN chat.safety_visibility v ON v.target_type='message' AND v.target_id=$2 LEFT JOIN chat.interaction_feed_projection p ON p.generation=$3 AND p.aggregate_id='message:'||$2`, m.Sender, m.ID, safetyProjectionGeneration).Scan(&erased, &v.Revision, &v.Status, &applied)
 	if err != nil {
 		return m, err
@@ -54,10 +54,10 @@ func (r *socialConnectedRuntime) applyVisibilityOverlay(ctx context.Context, tx 
 	if tx == nil {
 		return safety.ErrUnavailable
 	}
-	if v.TargetID == "" || v.Revision < 1 || (v.Status != "removed" && v.Status != "restored") {
+	if v.TargetID == "" || v.Revision < 1 || (v.Status != removedState && v.Status != "restored") {
 		return safety.ErrInvalid
 	}
-	if v.TargetType != "message" && v.TargetType != "comment" {
+	if v.TargetType != messageAction && v.TargetType != commentAction {
 		return nil
 	}
 	key := v.TargetType + ":" + v.TargetID
@@ -84,7 +84,7 @@ func (r *socialConnectedRuntime) applyVisibilityOverlay(ctx context.Context, tx 
 		return nil
 	}
 	var actor string
-	if v.TargetType == "message" {
+	if v.TargetType == messageAction {
 		actor, err = r.messageVisibilityEvent(ctx, tx, v, applied)
 	} else {
 		actor, err = r.commentVisibilityEvent(ctx, tx, v)
@@ -96,7 +96,7 @@ func (r *socialConnectedRuntime) applyVisibilityOverlay(ctx context.Context, tx 
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO chat.interaction_feed_projection(generation,aggregate_id,revision,actor,removed,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(generation,aggregate_id) DO UPDATE SET revision=EXCLUDED.revision,actor=EXCLUDED.actor,removed=EXCLUDED.removed,payload=EXCLUDED.payload`, safetyProjectionGeneration, key, v.Revision, actor, v.Status == "removed", raw)
+	_, err = tx.Exec(ctx, `INSERT INTO chat.interaction_feed_projection(generation,aggregate_id,revision,actor,removed,payload) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(generation,aggregate_id) DO UPDATE SET revision=EXCLUDED.revision,actor=EXCLUDED.actor,removed=EXCLUDED.removed,payload=EXCLUDED.payload`, safetyProjectionGeneration, key, v.Revision, actor, v.Status == removedState, raw)
 	return err
 }
 func (r *socialConnectedRuntime) messageVisibilityEvent(ctx context.Context, tx pgx.Tx, v safety.Visibility, applied int64) (string, error) {
@@ -112,11 +112,12 @@ func (r *socialConnectedRuntime) messageVisibilityEvent(ctx context.Context, tx 
 	if r.chat != nil {
 		namespace = r.chat.ChannelNamespace
 	}
-	if kind == "pool" {
+	switch kind {
+	case poolResource:
 		m.Type = "pool_message"
 		m.PoolAddress = strings.TrimPrefix(m.ConversationID, "pool:")
 		channels = append(channels, namespace+"pool:"+m.PoolAddress)
-	} else if kind == "dm" {
+	case "dm":
 		rows, e := tx.Query(ctx, `SELECT wallet FROM chat.chat_members WHERE conversation_id=$1 ORDER BY wallet`, m.ConversationID)
 		if e != nil {
 			return "", e
@@ -134,7 +135,7 @@ func (r *socialConnectedRuntime) messageVisibilityEvent(ctx context.Context, tx 
 		if e != nil {
 			return "", e
 		}
-	} else {
+	default:
 		return "", safety.ErrInvalid
 	}
 	var erased bool
@@ -164,7 +165,7 @@ func (r *socialConnectedRuntime) messageVisibilityEvent(ctx context.Context, tx 
 	return m.Sender, err
 }
 func projectSafetyComment(v interactions.CommentView, visibility safety.Visibility, removed, erased bool, revision int64) interactions.PublicEvent {
-	event := interactions.PublicEvent{AggregateID: "comment:" + v.ID, Revision: revision, Actor: v.Author, Action: "comment", Target: v.ID, Pool: v.Pool, Body: v.Body, Removed: removed || erased || visibility.Status == "removed"}
+	event := interactions.PublicEvent{AggregateID: "comment:" + v.ID, Revision: revision, Actor: v.Author, Action: commentAction, Target: v.ID, Pool: v.Pool, Body: v.Body, Removed: removed || erased || visibility.Status == removedState}
 	if v.Parent != nil {
 		event.Parent = *v.Parent
 	}
@@ -255,7 +256,7 @@ func (r *socialConnectedRuntime) visibilityOnce(ctx context.Context) error {
 		if e == nil {
 			e = tx.Commit(ctx)
 		} else {
-			_ = tx.Rollback(ctx)
+			rollbackTx(ctx, tx)
 		}
 		if e != nil {
 			return e

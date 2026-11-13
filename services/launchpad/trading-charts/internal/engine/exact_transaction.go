@@ -247,7 +247,7 @@ func FoldQualified(c *QualifiedCandle, source accounting.FillV1, interval string
 		return out, err
 	}
 	out.ExactCandle = next
-	out.ActorSemantics = "canonical_swap_actor_v1"
+	out.ActorSemantics = canonicalActorSemantics
 	if source.Attribution.Trader == nil {
 		if out.UnknownActorTradeCount == ^uint64(0) {
 			return out, ErrInvalidFill

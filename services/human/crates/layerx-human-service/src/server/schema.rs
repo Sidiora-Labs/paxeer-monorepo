@@ -229,55 +229,8 @@ impl ApiSchema {
                 let Some(name) = section.strip_prefix("operation.") else {
                     continue;
                 };
-                let authorization_class_value =
-                    required_quoted(file, section, values, "authorization_class")?;
-                let authorization_class = AuthorizationClass::parse(&authorization_class_value)
-                    .ok_or_else(|| {
-                        SchemaError::new(format!(
-                            "{file}.{section}.authorization_class is not a recognized closed class"
-                        ))
-                    })?;
-                let operation = Operation {
-                    name: name.to_owned(),
-                    method: required_quoted(file, section, values, "method")?,
-                    path: required_quoted(file, section, values, "path")?,
-                    request: required_quoted(file, section, values, "request")?,
-                    response: required_quoted(file, section, values, "response")?,
-                    idempotency: values
-                        .get("idempotency")
-                        .is_some_and(|value| value == "true"),
-                    authorization_class,
-                    retired: values
-                        .get("retired")
-                        .is_some_and(|value| value == "\"true\""),
-                };
-                let base_path = format!("/v{major}/");
-                if !matches!(
-                    operation.method.as_str(),
-                    "DELETE" | "GET" | "PATCH" | "POST" | "PUT"
-                ) || !operation.path.starts_with(&base_path)
-                    || operation.path.contains(['?', '#'])
-                    || operation.path.ends_with('/')
-                {
-                    return Err(SchemaError::new(format!(
-                        "{file}.{section} does not declare a canonical v{major} route"
-                    )));
-                }
-                if !types.contains_key(&operation.request)
-                    || !types.contains_key(&operation.response)
-                {
-                    return Err(SchemaError::new(format!(
-                        "{file}.{section} references an undeclared request or response type"
-                    )));
-                }
-                if operations.iter().any(|existing: &Operation| {
-                    existing.name == operation.name
-                        || (existing.method == operation.method && existing.path == operation.path)
-                }) {
-                    return Err(SchemaError::new(format!(
-                        "{file}.{section} duplicates an operation name or route"
-                    )));
-                }
+                let operation =
+                    parse_operation(file, section, name, values, major, &types, &operations)?;
                 operations.push(operation);
             }
         }
@@ -562,6 +515,64 @@ fn enforce_verified_balance(balance: &Value) -> Result<(), SchemaError> {
         ));
     }
     Ok(())
+}
+
+fn parse_operation(
+    file: &str,
+    section: &str,
+    name: &str,
+    values: &BTreeMap<String, String>,
+    major: u32,
+    types: &BTreeMap<String, TypeDeclaration>,
+    operations: &[Operation],
+) -> Result<Operation, SchemaError> {
+    let authorization_class_value = required_quoted(file, section, values, "authorization_class")?;
+    let authorization_class =
+        AuthorizationClass::parse(&authorization_class_value).ok_or_else(|| {
+            SchemaError::new(format!(
+                "{file}.{section}.authorization_class is not a recognized closed class"
+            ))
+        })?;
+    let operation = Operation {
+        name: name.to_owned(),
+        method: required_quoted(file, section, values, "method")?,
+        path: required_quoted(file, section, values, "path")?,
+        request: required_quoted(file, section, values, "request")?,
+        response: required_quoted(file, section, values, "response")?,
+        idempotency: values
+            .get("idempotency")
+            .is_some_and(|value| value == "true"),
+        authorization_class,
+        retired: values
+            .get("retired")
+            .is_some_and(|value| value == "\"true\""),
+    };
+    let base_path = format!("/v{major}/");
+    if !matches!(
+        operation.method.as_str(),
+        "DELETE" | "GET" | "PATCH" | "POST" | "PUT"
+    ) || !operation.path.starts_with(&base_path)
+        || operation.path.contains(['?', '#'])
+        || operation.path.ends_with('/')
+    {
+        return Err(SchemaError::new(format!(
+            "{file}.{section} does not declare a canonical v{major} route"
+        )));
+    }
+    if !types.contains_key(&operation.request) || !types.contains_key(&operation.response) {
+        return Err(SchemaError::new(format!(
+            "{file}.{section} references an undeclared request or response type"
+        )));
+    }
+    if operations.iter().any(|existing: &Operation| {
+        existing.name == operation.name
+            || (existing.method == operation.method && existing.path == operation.path)
+    }) {
+        return Err(SchemaError::new(format!(
+            "{file}.{section} duplicates an operation name or route"
+        )));
+    }
+    Ok(operation)
 }
 
 fn parse_sections(

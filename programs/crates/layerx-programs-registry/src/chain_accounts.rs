@@ -49,6 +49,10 @@ pub struct ChainAccountStateAuthority<'a> {
 }
 
 impl<'a> ChainAccountStateAuthority<'a> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the account or state record cannot be validated or encoded.
     pub fn new(
         head: &'a VerifiedChainHead,
         now_ms: u64,
@@ -80,6 +84,10 @@ impl<'a> ChainAccountStateAuthority<'a> {
 
 impl ChainProgramAccountProof {
     /// Encodes untrusted evidence for transport and durable replay.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the account or state record cannot be validated or encoded.
     pub fn canonical_encoding(&self) -> Result<Vec<u8>, AccountStateError> {
         if self.bindings.len() > MAX_PROGRAM_VALUE_ACCOUNTS
             || self.accounts.len() > MAX_PROGRAM_VALUE_ACCOUNTS
@@ -113,6 +121,10 @@ impl ChainProgramAccountProof {
         Ok(bytes)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the account or state record cannot be validated or encoded.
     pub fn decode(bytes: &[u8]) -> Result<Self, AccountStateError> {
         if bytes.len() > MAX_ACCOUNT_EVIDENCE_BYTES {
             return Err(AccountStateError::InvalidProof);
@@ -142,11 +154,11 @@ impl ChainProgramAccountProof {
             program,
             lower_bound,
             upper_bound,
+            bindings,
+            accounts,
             sequence,
             profile,
             owner,
-            bindings,
-            accounts,
         };
         if proof.canonical_encoding()? != bytes {
             return Err(AccountStateError::InvalidProof);
@@ -170,64 +182,15 @@ impl ChainProgramAccountProof {
         (lower, upper)
     }
 
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the account or state record cannot be validated or encoded.
     pub fn verify(
         &self,
         head: &VerifiedChainHead,
     ) -> Result<VerifiedChainProgramAccounts, AccountStateError> {
-        if self.bindings.len() > MAX_PROGRAM_VALUE_ACCOUNTS
-            || self.bindings.len() != self.accounts.len()
-        {
-            return Err(AccountStateError::InvalidProof);
-        }
-        let (lower, upper) = Self::binding_range(self.program);
-        absence(head, &self.lower_bound, &lower)?;
-        absence(head, &self.upper_bound, &upper)?;
-        let start = NonExistenceProof::decode(inner(&self.lower_bound, 2)?)
-            .map_err(|_| AccountStateError::InvalidProof)?;
-        let end = NonExistenceProof::decode(inner(&self.upper_bound, 2)?)
-            .map_err(|_| AccountStateError::InvalidProof)?;
-        if start.left.as_ref().is_some_and(|p| p.key >= lower)
-            || end.right.as_ref().is_some_and(|p| p.key <= upper)
-        {
-            return Err(AccountStateError::InvalidProof);
-        }
-        let mut bindings = Vec::with_capacity(self.bindings.len());
-        let mut previous: Option<ExistenceProof> = None;
-        for response in &self.bindings {
-            let value = membership(head, response, &response.key)?;
-            let binding = ProgramValueAccountBinding::decode_primary_value(value)?;
-            if binding.program != self.program
-                || response.key != programs_state_key(&binding.primary_key())
-            {
-                return Err(AccountStateError::InvalidBinding);
-            }
-            let proof = ExistenceProof::decode(inner(response, 1)?)
-                .map_err(|_| AccountStateError::InvalidProof)?;
-            if let Some(prior) = &previous {
-                if prior.key >= proof.key
-                    || !adjacent(&prior.path, &proof.path, &ProofSpec::iavl().inner_spec)
-                {
-                    return Err(AccountStateError::InvalidProof);
-                }
-            } else if start.right.as_ref().map(|p| &p.key) != Some(&proof.key) {
-                return Err(AccountStateError::InvalidProof);
-            }
-            previous = Some(proof);
-            bindings.push(binding);
-        }
-        match previous {
-            Some(last) if end.left.as_ref().map(|p| &p.key) == Some(&last.key) => {}
-            None if start.right.as_ref().is_none_or(|p| p.key >= upper)
-                && end.left.as_ref().is_none_or(|p| p.key <= lower) => {}
-            _ => return Err(AccountStateError::InvalidProof),
-        }
-        bindings.sort_by_key(|b| b.account_id);
-        if bindings
-            .windows(2)
-            .any(|p| p[0].account_id == p[1].account_id)
-        {
-            return Err(AccountStateError::InvalidBinding);
-        }
+        let bindings = self.verify_bindings(head)?;
         let sequence = u64::from_be_bytes(
             membership(head, &self.sequence, &[2])?
                 .try_into()
@@ -310,6 +273,66 @@ impl ChainProgramAccountProof {
             sequence,
         })
     }
+    fn verify_bindings(
+        &self,
+        head: &VerifiedChainHead,
+    ) -> Result<Vec<ProgramValueAccountBinding>, AccountStateError> {
+        if self.bindings.len() > MAX_PROGRAM_VALUE_ACCOUNTS
+            || self.bindings.len() != self.accounts.len()
+        {
+            return Err(AccountStateError::InvalidProof);
+        }
+        let (lower, upper) = Self::binding_range(self.program);
+        absence(head, &self.lower_bound, &lower)?;
+        absence(head, &self.upper_bound, &upper)?;
+        let start = NonExistenceProof::decode(inner(&self.lower_bound, 2)?)
+            .map_err(|_| AccountStateError::InvalidProof)?;
+        let end = NonExistenceProof::decode(inner(&self.upper_bound, 2)?)
+            .map_err(|_| AccountStateError::InvalidProof)?;
+        if start.left.as_ref().is_some_and(|p| p.key >= lower)
+            || end.right.as_ref().is_some_and(|p| p.key <= upper)
+        {
+            return Err(AccountStateError::InvalidProof);
+        }
+        let mut bindings = Vec::with_capacity(self.bindings.len());
+        let mut previous: Option<ExistenceProof> = None;
+        for response in &self.bindings {
+            let value = membership(head, response, &response.key)?;
+            let binding = ProgramValueAccountBinding::decode_primary_value(value)?;
+            if binding.program != self.program
+                || response.key != programs_state_key(&binding.primary_key())
+            {
+                return Err(AccountStateError::InvalidBinding);
+            }
+            let proof = ExistenceProof::decode(inner(response, 1)?)
+                .map_err(|_| AccountStateError::InvalidProof)?;
+            if let Some(prior) = &previous {
+                if prior.key >= proof.key
+                    || !adjacent(&prior.path, &proof.path, &ProofSpec::iavl().inner_spec)
+                {
+                    return Err(AccountStateError::InvalidProof);
+                }
+            } else if start.right.as_ref().map(|p| &p.key) != Some(&proof.key) {
+                return Err(AccountStateError::InvalidProof);
+            }
+            previous = Some(proof);
+            bindings.push(binding);
+        }
+        match previous {
+            Some(last) if end.left.as_ref().map(|p| &p.key) == Some(&last.key) => {}
+            None if start.right.as_ref().is_none_or(|p| p.key >= upper)
+                && end.left.as_ref().is_none_or(|p| p.key <= lower) => {}
+            _ => return Err(AccountStateError::InvalidProof),
+        }
+        bindings.sort_by_key(|b| b.account_id);
+        if bindings
+            .windows(2)
+            .any(|p| p[0].account_id == p[1].account_id)
+        {
+            return Err(AccountStateError::InvalidBinding);
+        }
+        Ok(bindings)
+    }
 }
 
 impl VerifiedChainProgramAccounts {
@@ -333,7 +356,7 @@ impl VerifiedChainProgramAccounts {
     pub fn freshness(&self) -> ReadFreshness {
         ReadFreshness {
             observed_sequence: self.sequence,
-            observed_at: self.head.time_ms() as u64,
+            observed_at: u64::from_be_bytes(self.head.time_ms().to_be_bytes()),
         }
     }
     pub(crate) fn admits_abi(&self, abi: u16) -> bool {

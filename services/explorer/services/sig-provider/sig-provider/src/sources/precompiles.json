@@ -5944,6 +5944,190 @@
       "type": "event"
     },
     {
+      "anonymous": false,
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32",
+          "indexed": true
+        },
+        {
+          "internalType": "address",
+          "name": "holder",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "internalType": "uint256",
+          "name": "bond",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256",
+          "indexed": false
+        }
+      ],
+      "name": "LaunchedChainRetired",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32",
+          "indexed": true
+        },
+        {
+          "internalType": "address",
+          "name": "pool",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "internalType": "uint64",
+          "name": "chainId",
+          "type": "uint64",
+          "indexed": false
+        },
+        {
+          "internalType": "uint256",
+          "name": "nftId",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "internalType": "address",
+          "name": "creator",
+          "type": "address",
+          "indexed": false
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256",
+          "indexed": false
+        }
+      ],
+      "name": "ChainLaunched",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32",
+          "indexed": true
+        },
+        {
+          "internalType": "uint64",
+          "name": "epoch",
+          "type": "uint64",
+          "indexed": true
+        },
+        {
+          "internalType": "uint256",
+          "name": "epochAmount",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "internalType": "uint64",
+          "name": "snapshotBlock",
+          "type": "uint64",
+          "indexed": false
+        },
+        {
+          "internalType": "uint256",
+          "name": "eligibleSupply",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256",
+          "indexed": false
+        }
+      ],
+      "name": "ChainRevenueEpochOpened",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32",
+          "indexed": true
+        },
+        {
+          "internalType": "uint64",
+          "name": "epoch",
+          "type": "uint64",
+          "indexed": true
+        },
+        {
+          "internalType": "address",
+          "name": "holder",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "internalType": "uint256",
+          "name": "blockNumber",
+          "type": "uint256",
+          "indexed": false
+        }
+      ],
+      "name": "ChainRevenueClaimed",
+      "type": "event"
+    },
+    {
       "type": "event",
       "name": "CheckpointSubmitted",
       "inputs": [
@@ -6817,6 +7001,31 @@
       ]
     },
     {
+      "inputs": [],
+      "name": "AirdropNotTriggered",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AlreadyClaimed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AlreadyInitialized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "AlreadyMinted",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ApproveFailed",
+      "type": "error"
+    },
+    {
       "type": "function",
       "name": "BPS_DENOMINATOR",
       "inputs": [],
@@ -6828,6 +7037,11 @@
         }
       ],
       "stateMutability": "view"
+    },
+    {
+      "type": "error",
+      "name": "CannotCancel",
+      "inputs": []
     },
     {
       "inputs": [],
@@ -6870,6 +7084,51 @@
     },
     {
       "inputs": [],
+      "name": "DeadlineExpired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DivisionByZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DuplicatePool",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "DuplicateToken",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "EnforcedPause",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "EpochTooEarly",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "ExcessiveInput",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ExpectedPause",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "Expired",
+      "inputs": []
+    },
+    {
+      "inputs": [],
       "name": "FACTORY_ROLE",
       "outputs": [
         {
@@ -6893,6 +7152,156 @@
       ],
       "stateMutability": "view",
       "type": "function"
+    },
+    {
+      "type": "error",
+      "name": "FeeExceedsMax",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "FeeOutOfRange",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FutureLookup",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "IndexOutOfBounds",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientAllowance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientCreationFee",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientInput",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "InsufficientLiquidity",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InsufficientOutput",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientSurplus",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "InvalidArrayLength",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "InvalidBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidConfiguration",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "InvalidExpiry",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "InvalidHookResponse",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidImplementation",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "InvalidOracle",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "InvalidPermit",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidPoolBinding",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "InvalidPrice",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidPrices",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "InvalidRoleAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InvalidStrategy",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "InvalidTWAPPeriod",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "InvalidToken",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "InvalidVault",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "LastDefaultAdmin",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "LimitMustBeAboveStopBuy",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "LimitMustBeBelowStopSell",
+      "inputs": []
     },
     {
       "type": "function",
@@ -6934,6 +7343,101 @@
       "stateMutability": "view"
     },
     {
+      "type": "error",
+      "name": "NativeTransferFailed",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "NoFeesAccumulated",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "NoFeesToCollect",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "NonERC721Receiver",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NonPayableUpgrade",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "NotAStablecoin",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotActivated",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "NotApproved",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "NotAuthorized",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotFeeCollector",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "NotFeeRightHolder",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotInitializing",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotLaunchedChain",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotNftOwner",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "NotOrderOwner",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "NotPaused",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "NotPending",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "NotTokenOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NothingToDistribute",
+      "type": "error"
+    },
+    {
       "inputs": [],
       "name": "OPTICAL_CLAIM_ROLE",
       "outputs": [
@@ -6958,6 +7462,31 @@
       ],
       "stateMutability": "view",
       "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "OpticalQuoteUnsupported",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "OrderBelowMinimumNotional",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "OrderExpired",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "OrderNotPending",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "Overflow",
+      "type": "error"
     },
     {
       "inputs": [],
@@ -6987,6 +7516,271 @@
     },
     {
       "inputs": [],
+      "name": "Paused",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PermitExpired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsCloseSizeExceedsPosition",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsCrossMarginOnly",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsDeadlineExpired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsDelegatecall",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsDuplicateCloid",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsFokNotFilled",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsInsufficientCollateral",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsInsufficientMargin",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsInvalidGenesis",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsInvalidOrderType",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsInvalidParams",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsInvalidTimeInForce",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsInvalidTriggerPrice",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsLeverageTooHigh",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsLiquidationCooldown",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsLotSize",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsMarketDisabled",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsMaxOrderValue",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsMinOrderValue",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsNoAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsNoLiquidity",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsNotLiquidatable",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsNotOrderHolder",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsNotPositionHolder",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsOpenInterestCap",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsOverflow",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsPaused",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsPostOnlyWouldCross",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsPriceStale",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsReduceOnlyViolation",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsSelfTransfer",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsSlippageExceeded",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsStaticCall",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsTickSize",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsTokenTransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsTooManyOpenOrders",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsTriggerNotReached",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsUnauthorized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsUnknownMarket",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsUnknownOrder",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsUnknownPosition",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsUnsupportedCollateral",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsZeroAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PerpsZeroAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PoolIndexMigrationRequired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PoolNotFound",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "PriceAboveLimit",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PriceAboveTarget",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PriceAboveTrigger",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PriceBelowLimit",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PriceBelowTarget",
+      "inputs": []
+    },
+    {
+      "inputs": [],
       "name": "ROUTER_ROLE",
       "outputs": [
         {
@@ -6997,6 +7791,31 @@
       ],
       "stateMutability": "view",
       "type": "function"
+    },
+    {
+      "type": "error",
+      "name": "ReentrancyGuardReentrantCall",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "ReentrantCall",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "SameToken",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "SlippageExceeded",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "StalePrice",
+      "inputs": []
     },
     {
       "type": "function",
@@ -7025,6 +7844,106 @@
       "stateMutability": "view"
     },
     {
+      "type": "error",
+      "name": "TokenIsStablecoin",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "TokenNotFound",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "TokenNotRegistered",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "TokenPaused",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "TooManyActiveOrders",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "TransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TransferFromFailed",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "TwapWindowInvalid",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "UUPSNotThroughActiveProxy",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UUPSNotThroughProxy",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Unauthorized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnauthorizedUpgrade",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnexecutableQuote",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "UnsupportedInputTransfer",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "UnsupportedSnapshotToken",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "UnsupportedTransfer",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "UpgradeInitializationFailed",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "UseWethDeposit",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "UseWethWithdraw",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "VirtualFloorBreached",
+      "type": "error"
+    },
+    {
       "type": "function",
       "name": "WETH",
       "inputs": [],
@@ -7049,6 +7968,31 @@
         }
       ],
       "stateMutability": "view"
+    },
+    {
+      "type": "error",
+      "name": "WethOnly",
+      "inputs": []
+    },
+    {
+      "inputs": [],
+      "name": "WrongChain",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "WrongStrategy",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAddress",
+      "type": "error"
+    },
+    {
+      "type": "error",
+      "name": "ZeroAmount",
+      "inputs": []
     },
     {
       "inputs": [],
@@ -8901,6 +9845,38 @@
           "type": "address"
         },
         {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "AccessControlUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "MissingRole",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
           "internalType": "uint256",
           "name": "",
           "type": "uint256"
@@ -9108,6 +10084,17 @@
         }
       ],
       "stateMutability": "view"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "Retired",
+      "type": "error"
     },
     {
       "type": "function",
@@ -9687,6 +10674,17 @@
       ],
       "stateMutability": "view",
       "type": "function"
+    },
+    {
+      "type": "error",
+      "name": "OwnableUnauthorizedAccount",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
     },
     {
       "inputs": [
@@ -10956,6 +11954,17 @@
       "type": "function"
     },
     {
+      "type": "error",
+      "name": "OwnableInvalidOwner",
+      "inputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
       "inputs": [
         {
           "internalType": "address",
@@ -11865,12 +12874,50 @@
           "type": "address"
         }
       ],
+      "name": "homeChainOf",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "chainId",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "pool",
+          "type": "address"
+        }
+      ],
       "name": "isRegisteredPool",
       "outputs": [
         {
           "internalType": "bool",
           "name": "",
           "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "pool",
+          "type": "address"
+        }
+      ],
+      "name": "launchedChainOfPool",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
         }
       ],
       "stateMutability": "view",
@@ -13027,6 +14074,17 @@
         }
       ],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "error",
+      "name": "SafeERC20FailedOperation",
+      "inputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
     },
     {
       "type": "function",
@@ -21881,6 +22939,186 @@
           "internalType": "address",
           "name": "optical",
           "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "chainName",
+          "type": "string"
+        },
+        {
+          "internalType": "uint64",
+          "name": "gasAllowance",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "byteAllowance",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint16",
+          "name": "feeShareBps",
+          "type": "uint16"
+        },
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "deadline",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint8",
+              "name": "v",
+              "type": "uint8"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "r",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "s",
+              "type": "bytes32"
+            }
+          ],
+          "internalType": "struct ILaunchpad.PermitParams",
+          "name": "permit",
+          "type": "tuple"
+        }
+      ],
+      "name": "launchChainWithPermit",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "tokenAddr",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "poolAddr",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "nftId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "chainId",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "symbol",
+          "type": "string"
+        },
+        {
+          "internalType": "uint8",
+          "name": "feeStrategy",
+          "type": "uint8"
+        },
+        {
+          "internalType": "address",
+          "name": "optical",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "chainName",
+          "type": "string"
+        },
+        {
+          "internalType": "uint64",
+          "name": "gasAllowance",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint64",
+          "name": "byteAllowance",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint16",
+          "name": "feeShareBps",
+          "type": "uint16"
+        }
+      ],
+      "name": "launchChain",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "tokenAddr",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "poolAddr",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "nftId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "chainId",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "symbol",
+          "type": "string"
+        },
+        {
+          "internalType": "uint8",
+          "name": "feeStrategy",
+          "type": "uint8"
+        },
+        {
+          "internalType": "address",
+          "name": "optical",
+          "type": "address"
         }
       ],
       "name": "createMarket",
@@ -22771,6 +24009,22 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes",
+          "name": "",
+          "type": "bytes"
+        }
+      ],
+      "name": "MulticallFailed",
+      "type": "error"
+    },
+    {
       "type": "function",
       "name": "activeLimitOrderIds",
       "inputs": [
@@ -23141,6 +24395,17 @@
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
+    },
+    {
+      "type": "error",
+      "name": "MulticallFailed",
+      "inputs": [
+        {
+          "name": "index",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
     },
     {
       "inputs": [
@@ -25742,6 +27007,249 @@
         }
       ],
       "stateMutability": "nonpayable"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "epoch",
+          "type": "uint64"
+        },
+        {
+          "internalType": "address",
+          "name": "holder",
+          "type": "address"
+        }
+      ],
+      "name": "chainRevenueClaimable",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "epoch",
+          "type": "uint64"
+        }
+      ],
+      "name": "chainRevenueEpoch",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "registryNumber",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "epochNumber",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint256",
+          "name": "epochAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint64",
+          "name": "snapshotBlock",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint256",
+          "name": "eligibleSupply",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "claimedTotal",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint64",
+          "name": "openedAt",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "epoch",
+          "type": "uint64"
+        }
+      ],
+      "name": "claimChainRevenue",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint64[]",
+          "name": "epochs",
+          "type": "uint64[]"
+        }
+      ],
+      "name": "claimChainRevenueBatch",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "totalAmount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        }
+      ],
+      "name": "launchedChain",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "registryNumber",
+          "type": "uint32"
+        },
+        {
+          "internalType": "uint64",
+          "name": "chainId",
+          "type": "uint64"
+        },
+        {
+          "internalType": "address",
+          "name": "pool",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "nftId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "creator",
+          "type": "address"
+        },
+        {
+          "internalType": "uint64",
+          "name": "blockNumber",
+          "type": "uint64"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        }
+      ],
+      "name": "openChainRevenueEpoch",
+      "outputs": [
+        {
+          "internalType": "uint64",
+          "name": "epoch",
+          "type": "uint64"
+        },
+        {
+          "internalType": "uint256",
+          "name": "epochAmount",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        }
+      ],
+      "name": "pauseLaunchedChain",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        }
+      ],
+      "name": "resumeLaunchedChain",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "chain",
+          "type": "uint32"
+        }
+      ],
+      "name": "retireLaunchedChain",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
     },
     {
       "inputs": [

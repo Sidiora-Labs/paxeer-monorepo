@@ -8,13 +8,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	raster "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image"
-	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
-	"github.com/jackc/pgx/v5"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	raster "github.com/Sidiora-Technologies/KindleLaunch/media/metadata/internal/image"
+	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
+	"github.com/jackc/pgx/v5"
 )
 
 // AssetRecord is private audit state; object keys are never returned for blocked
@@ -49,7 +50,7 @@ func (s *ProductionStore) CreateAsset(ctx context.Context, a AssetRecord) error 
 	return nil
 }
 func (s *ProductionStore) TransitionAsset(ctx context.Context, id, from, to string) error {
-	valid := map[string]string{"CREATED": "UPLOADING", "UPLOADING": "QUARANTINED", "QUARANTINED": "VALIDATING", "VALIDATING": "REJECTED", "REJECTED": "DELETED", "APPROVED": "DELETED"}
+	valid := map[string]string{"CREATED": metadataStateUploading, metadataStateUploading: metadataStateQuarantined, metadataStateQuarantined: metadataStateValidating, metadataStateValidating: metadataStateRejected, metadataStateRejected: metadataStateDeleted, metadataStateApproved: metadataStateDeleted}
 	if valid[from] != to || !uuidRE.MatchString(id) {
 		return ErrValidation
 	}
@@ -126,7 +127,7 @@ func (s *ProductionStore) Promote(ctx context.Context, id string, original []byt
 	defer func() {
 		c, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer cancel()
-		tx.Rollback(c)
+		rollbackTransaction(c, tx)
 	}()
 	var pool, state, hash string
 	if e = tx.QueryRow(ctx, "SELECT pool FROM "+s.table("assets")+" WHERE id=$1", id).Scan(&pool); e != nil {
@@ -148,7 +149,7 @@ func (s *ProductionStore) Promote(ctx context.Context, id string, original []byt
 	if hex.EncodeToString(h[:]) != hash || int64(len(original)) != size {
 		return ErrConflict
 	}
-	if state != "APPROVED" && state != "VALIDATING" {
+	if state != metadataStateApproved && state != metadataStateValidating {
 		return ErrConflict
 	}
 	var blocked bool

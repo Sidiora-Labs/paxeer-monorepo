@@ -198,7 +198,7 @@ def _human_routes(app, example):
     journey["evidence"] = [reference]
     journey["stages"] = [{**journey["stages"][0], "evidence": [reference]}]
 
-    @app.post("/rpc")
+    @app.post("/")
     async def rpc(request: Request):
         body = await request.json()
         assert body["jsonrpc"] == "2.0"
@@ -323,8 +323,8 @@ def test_015_native_payment_and_wrong_purpose_refusals(example, buyer_payment, s
     assert verified.receipt.to_account[-20:] == transaction.to
     assert verified.receipt.to_account != bytes.fromhex(requirements.pay_to[2:])
     assert verified.receipt_digest.hex() == example["vector"]["receiptDigest"][2:]
-    assert prepared["proof"]["receiptDigest"] == "0x" + keccak256(signed).hex()
-    assert prepared["proof"]["receiptDigest"] != example["vector"]["receiptDigest"]
+    assert prepared["proof"]["receiptDigest"] == "0x" + verified.receipt_digest.hex()
+    assert prepared["proof"]["receiptDigest"] == example["vector"]["receiptDigest"]
     app, _runtime = _application(example, requirements)
     payload = replace(decode_payment_payload_header(prepared["header"]), accepted=requirements)
     header = encode_payment_payload_header(payload)
@@ -370,6 +370,7 @@ def test_013_strict_portable_evidence_and_pinned_keys(example, buyer_payment):
     app, _ = _application(example)
     invalid_proofs = [
         {**original, "receiptDigest": "0x" + "00" * 32},
+        {**original, "receiptDigest": "0x" + keccak256(bytes.fromhex(original["signedReceipt"][2:])).hex()},
         {**original, "receiptKey": {**original["receiptKey"], "publicKey": "0x" + "ab" * 32}},
         {**original, "receiptKey": {**original["receiptKey"], "keyId": "0x" + "ab" * 32}},
         {**original, "receiptKey": {**original["receiptKey"], "lastHeight": "0x7d0"}},
@@ -378,7 +379,7 @@ def test_013_strict_portable_evidence_and_pinned_keys(example, buyer_payment):
     ]
     damaged = bytearray.fromhex(original["signedReceipt"][2:])
     damaged[-1] ^= 1
-    invalid_proofs.append({**original, "signedReceipt": "0x" + damaged.hex(), "receiptDigest": "0x" + keccak256(damaged).hex()})
+    invalid_proofs.append({**original, "signedReceipt": "0x" + damaged.hex()})
     with TestClient(app) as client:
         for invalid in invalid_proofs:
             response = client.get("/recorded-paid", headers={"PAYMENT-SIGNATURE": encode_payment_payload_header(replace(payload, payload=invalid))})
@@ -439,7 +440,7 @@ def test_015_signed_execution_effect_must_agree_with_calldata(example, buyer_pay
         changed_example = {**example, "mount": replace(example["mount"], config=replace(example["mount"].config, receipt_keys=(key,)))}
         app, _ = _application(changed_example)
         altered_proof = {**proof, "signedReceipt": "0x" + canonical.hex(),
-                         "receiptDigest": "0x" + keccak256(canonical).hex(),
+                         "receiptDigest": "0x" + verified.receipt_digest.hex(),
                          "receiptKey": {**proof["receiptKey"], "publicKey": "0x" + key.public_key}}
         payload = replace(decode_payment_payload_header(prepared["header"]), payload=altered_proof)
         with TestClient(app) as client:

@@ -9,6 +9,8 @@ mod market;
 pub(crate) mod memory;
 mod oracle;
 mod scan;
+#[cfg(test)]
+mod scan_tests;
 mod signature;
 mod storage;
 mod transfer;

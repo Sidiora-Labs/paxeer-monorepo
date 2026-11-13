@@ -1,4 +1,4 @@
-//! Audit 22.30.128 closure proofs; see ../REPAIR_22_33_241.md for the task record.
+//! Solana port integration proofs exercise custody, token and cryptographic host calls.
 use layerx_program_sdk::{
     crypto::{Ed25519Message, HashInput, RecoveryId, MAX_HASH_INPUT_BYTES},
     lxt20::{Request, REFERENCE_ASSET, REFERENCE_ISSUER, REFERENCE_METADATA, REFERENCE_SUPPLY},
@@ -24,21 +24,44 @@ const GUIDE: &str = include_str!("../MIGRATION.md");
 const TOKEN: &[u8] = include_bytes!("../../../fixtures/pay5/token-lxt20.wasm");
 const INITIALIZE: &[u8] = &[b'L', b'X', 20, 0, 1, 0x20, 0, 0, 0, 0];
 
+trait Checked<T> {
+    #[track_caller]
+    fn checked(self) -> T;
+}
+
+impl<T, E: std::fmt::Debug> Checked<T> for Result<T, E> {
+    fn checked(self) -> T {
+        match self {
+            Ok(value) => value,
+            Err(error) => panic!("expected success: {error:?}"),
+        }
+    }
+}
+
+impl<T> Checked<T> for Option<T> {
+    fn checked(self) -> T {
+        match self {
+            Some(value) => value,
+            None => panic!("expected value"),
+        }
+    }
+}
+
 fn program() -> ProgramId {
-    ProgramId::new([0x55; 32]).unwrap()
+    ProgramId::new([0x55; 32]).checked()
 }
 
 fn principal(bytes: [u8; 32]) -> Principal {
-    Principal::new(bytes).unwrap()
+    Principal::new(bytes).checked()
 }
 
 fn account(owner: Principal) -> AccountId {
     AccountId::new(
         derive_program_account(program(), &owner.bytes())
-            .unwrap()
+            .checked()
             .bytes(),
     )
-    .unwrap()
+    .checked()
 }
 
 fn storage_grants() -> Vec<Capability> {
@@ -67,7 +90,7 @@ fn invoke(
     input: &[u8],
     grants: Vec<Capability>,
 ) -> V2AuthorizedExecutionRecord {
-    try_invoke(wasm, storage, caller, method, input, grants).unwrap()
+    try_invoke(wasm, storage, caller, method, input, grants).checked()
 }
 
 fn try_invoke(
@@ -79,11 +102,11 @@ fn try_invoke(
     grants: Vec<Capability>,
 ) -> Result<V2AuthorizedExecutionRecord, ExecutionError> {
     let module = WasmEngine::declared()
-        .unwrap()
+        .checked()
         .validate_versioned(ABI_V5_VERSION, wasm)
-        .unwrap();
-    let payer = PrincipalId::new(caller.bytes()).unwrap();
-    let binding = ActivityBudgetBinding::new([0x63; 32]).unwrap();
+        .checked();
+    let payer = PrincipalId::new(caller.bytes()).checked();
+    let binding = ActivityBudgetBinding::new([0x63; 32]).checked();
     let executor = Executor::declared();
     let budget = executor
         .admit_activity_budget_for_qualification(
@@ -92,7 +115,7 @@ fn try_invoke(
             binding,
             u128::MAX,
         )
-        .unwrap();
+        .checked();
     executor.execute_authorized_v5_budgeted_for_qualification(
         storage,
         BudgetedAuthorizedExecutionRequest::new(
@@ -101,7 +124,7 @@ fn try_invoke(
                 program: program(),
                 authorization: AuthorizationContext::new(
                     payer,
-                    CapabilitySet::new(grants).unwrap(),
+                    CapabilitySet::new(grants).checked(),
                 ),
                 receipts: &UnavailableReceiptOracle,
                 entrypoint: method,
@@ -131,15 +154,15 @@ fn call(
         storage,
         caller,
         request.method(),
-        request.encode().unwrap().as_slice(),
+        request.encode().checked().as_slice(),
         grants,
     )
 }
 
-fn amount(record: V2AuthorizedExecutionRecord) -> u128 {
-    let bytes = &record.response().unwrap().bytes;
+fn amount(record: &V2AuthorizedExecutionRecord) -> u128 {
+    let bytes = &record.response().checked().bytes;
     assert_eq!(&bytes[..6], &[1, 0x20, 0, 0, 0, 16]);
-    u128::from_be_bytes(bytes[6..].try_into().unwrap())
+    u128::from_be_bytes(bytes[6..].try_into().checked())
 }
 
 fn initialize(storage: &mut Storage) -> V2AuthorizedExecutionRecord {
@@ -175,13 +198,13 @@ fn solana_custody_guide_funds_then_pays_later_with_owner_bound_authority() {
     let recipient = principal([0x22; 32]);
     let seed = issuer.bytes();
     let prepared = PreparedProgramAccount::new(
-        layerx_program_sdk::ProgramId::new(program().bytes()).unwrap(),
+        layerx_program_sdk::ProgramId::new(program().bytes()).checked(),
         &seed,
-        AssetId::new(REFERENCE_ASSET).unwrap(),
+        AssetId::new(REFERENCE_ASSET).checked(),
     )
-    .unwrap();
+    .checked();
     assert_eq!(prepared.account(), account(issuer));
-    let registration = prepared.registration_payload().unwrap();
+    let registration = prepared.registration_payload().checked();
     assert_eq!(&registration.as_slice()[..32], &program().bytes());
     assert_eq!(&registration.as_slice()[32..37], b"LXPA1");
     assert_eq!(&registration.as_slice()[37..69], &REFERENCE_ASSET);
@@ -190,7 +213,7 @@ fn solana_custody_guide_funds_then_pays_later_with_owner_bound_authority() {
 
     let mut storage = Storage::new();
     let funded = initialize(&mut storage);
-    let legs = &funded.effects().unwrap().transfers;
+    let legs = &funded.effects().checked().transfers;
     assert_eq!(legs.len(), 1);
     assert_eq!(legs[0].amount, REFERENCE_SUPPLY);
     assert_eq!(legs[0].to, prepared.account().bytes());
@@ -225,7 +248,7 @@ fn solana_custody_guide_funds_then_pays_later_with_owner_bound_authority() {
             &seed,
             prepared.account().bytes(),
         )
-        .unwrap();
+        .checked();
     let TranslatedValueFlow::ProgramAccount(plan) = translated else {
         panic!("custody source lost")
     };
@@ -239,24 +262,43 @@ fn solana_custody_guide_funds_then_pays_later_with_owner_bound_authority() {
             account(recipient).bytes(),
             40
         )
-        .unwrap()
+        .checked()
     );
     let encoded = prepared
         .spend_grant(account(recipient), Amount::from_u128(40))
-        .unwrap();
+        .checked();
     assert_eq!(
-        CapabilitySet::decode_v2_canonical(encoded.as_slice()).unwrap(),
+        CapabilitySet::decode_v2_canonical(encoded.as_slice()).checked(),
         vec![plan.capability()]
     );
     let transfer = Request::Transfer {
         to: account(recipient),
         amount: Amount::from_u128(40),
     };
-    let foreign = ProgramId::new([0x66; 32]).unwrap();
+    assert_custody_refusals(&mut storage, issuer, &seed, &plan, transfer);
+    assert_custody_payout(
+        &mut storage,
+        issuer,
+        recipient,
+        &seed,
+        &plan,
+        transfer,
+        &flow,
+    );
+}
+
+fn assert_custody_refusals(
+    storage: &mut Storage,
+    issuer: Principal,
+    seed: &[u8],
+    plan: &ProgramAccountTransferPlan,
+    transfer: Request,
+) {
+    let foreign = ProgramId::new([0x66; 32]).checked();
     assert_eq!(
         ProgramAccountTransferPlan::new(
             foreign,
-            &seed,
+            seed,
             plan.source(),
             REFERENCE_ASSET,
             plan.to(),
@@ -279,23 +321,23 @@ fn solana_custody_guide_funds_then_pays_later_with_owner_bound_authority() {
     // produce a record. Assert that exact boundary and unchanged state.
     let foreign_grant = program_account_payout(
         foreign,
-        &seed,
-        derive_program_account(foreign, &seed).unwrap().bytes(),
+        seed,
+        derive_program_account(foreign, seed).checked().bytes(),
         REFERENCE_ASSET,
         plan.to(),
         40,
     )
-    .unwrap()
+    .checked()
     .capability();
     let before = storage.clone();
     let mut grants = storage_grants();
     grants.push(foreign_grant);
     let refused = try_invoke(
         TOKEN,
-        &mut storage,
+        storage,
         issuer,
         transfer.method(),
-        transfer.encode().unwrap().as_slice(),
+        transfer.encode().checked().as_slice(),
         grants,
     );
     assert!(
@@ -305,34 +347,45 @@ fn solana_custody_guide_funds_then_pays_later_with_owner_bound_authority() {
         ),
         "foreign owner admission: {refused:?}"
     );
-    assert_eq!(storage, before);
+    assert_eq!(*storage, before);
     for grant in [
         None,
         Some(
             program_account_payout(
                 program(),
-                &seed,
+                seed,
                 plan.source(),
                 REFERENCE_ASSET,
                 plan.to(),
                 39,
             )
-            .unwrap()
+            .checked()
             .capability(),
         ),
         Some(
-            program_account_payout(program(), &seed, plan.source(), [0x77; 32], plan.to(), 40)
-                .unwrap()
+            program_account_payout(program(), seed, plan.source(), [0x77; 32], plan.to(), 40)
+                .checked()
                 .capability(),
         ),
     ] {
         let before = storage.clone();
-        let refused = call(&mut storage, issuer, transfer, grant.into_iter().collect());
-        assert_refused(&refused, &storage, &before);
+        let refused = call(storage, issuer, transfer, grant.into_iter().collect());
+        assert_refused(&refused, storage, &before);
     }
-    let paid = call(&mut storage, issuer, transfer, vec![plan.capability()]);
+}
+
+fn assert_custody_payout(
+    storage: &mut Storage,
+    issuer: Principal,
+    recipient: Principal,
+    seed: &[u8],
+    plan: &ProgramAccountTransferPlan,
+    transfer: Request,
+    flow: &ValueFlow,
+) {
+    let paid = call(storage, issuer, transfer, vec![plan.capability()]);
     assert!(paid.response().is_some(), "payout: {paid:?}");
-    let legs = &paid.effects().unwrap().transfers;
+    let legs = &paid.effects().checked().transfers;
     assert_eq!(legs.len(), 1);
     assert_eq!(
         (legs[0].asset, legs[0].to, legs[0].amount),
@@ -343,10 +396,10 @@ fn solana_custody_guide_funds_then_pays_later_with_owner_bound_authority() {
     };
     assert_eq!(authority.owner_program(), program());
     assert_eq!(authority.source_account(), plan.source());
-    assert_eq!(authority.seed(), &seed);
+    assert_eq!(authority.seed(), seed);
     assert_eq!(
-        amount(call(
-            &mut storage,
+        amount(&call(
+            storage,
             issuer,
             Request::BalanceOf { owner: issuer },
             vec![]
@@ -354,8 +407,8 @@ fn solana_custody_guide_funds_then_pays_later_with_owner_bound_authority() {
         REFERENCE_SUPPLY - 40
     );
     assert_eq!(
-        amount(call(
-            &mut storage,
+        amount(&call(
+            storage,
             recipient,
             Request::BalanceOf { owner: recipient },
             vec![]
@@ -374,7 +427,7 @@ fn solana_custody_guide_funds_then_pays_later_with_owner_bound_authority() {
             REFERENCE_ASSET,
             issuer.bytes(),
             program(),
-            &seed,
+            seed,
             plan.source()
         ),
         Err(PortRefusal::UnboundedRentSweep)
@@ -391,7 +444,7 @@ fn solana_lxt20_guide_initialization_authorization_and_refusal_are_atomic() {
     assert!(Calldata::from_bytes(&INITIALIZE[4..]).is_ok());
     let mut storage = Storage::new();
     assert_eq!(
-        amount(call(&mut storage, issuer, Request::TotalSupply, vec![])),
+        amount(&call(&mut storage, issuer, Request::TotalSupply, vec![])),
         0
     );
     for (caller, input, grant) in [
@@ -433,17 +486,17 @@ fn solana_lxt20_guide_initialization_authorization_and_refusal_are_atomic() {
         assert_refused(&record, &storage, &before);
     }
     let record = initialize(&mut storage);
-    assert_eq!(record.response().unwrap().bytes, [1, 0x20, 0, 0, 0, 0]);
+    assert_eq!(record.response().checked().bytes, [1, 0x20, 0, 0, 0, 0]);
     assert_eq!(
-        record.effects().unwrap().transfers[0].amount,
+        record.effects().checked().transfers[0].amount,
         REFERENCE_SUPPLY
     );
     assert_eq!(
-        amount(call(&mut storage, issuer, Request::TotalSupply, vec![])),
+        amount(&call(&mut storage, issuer, Request::TotalSupply, vec![])),
         REFERENCE_SUPPLY
     );
     assert_eq!(
-        amount(call(
+        amount(&call(
             &mut storage,
             issuer,
             Request::BalanceOf { owner: issuer },
@@ -452,15 +505,22 @@ fn solana_lxt20_guide_initialization_authorization_and_refusal_are_atomic() {
         REFERENCE_SUPPLY
     );
     let metadata = call(&mut storage, issuer, Request::Metadata, vec![]);
-    assert_eq!(&metadata.response().unwrap().bytes[6..], REFERENCE_METADATA);
+    assert_eq!(
+        &metadata.response().checked().bytes[6..],
+        REFERENCE_METADATA
+    );
     let before = storage.clone();
     let repeated = initialize(&mut storage);
     assert_refused(&repeated, &storage, &before);
 
+    assert_lxt20_requests(&mut storage, issuer, other);
+}
+
+fn assert_lxt20_requests(storage: &mut Storage, issuer: Principal, other: Principal) {
     // All seven codec requests travel through the real guest dispatcher, in
     // addition to the separate initialize operation above.
     assert!(call(
-        &mut storage,
+        storage,
         other,
         Request::Approve {
             spender: other,
@@ -471,7 +531,7 @@ fn solana_lxt20_guide_initialization_authorization_and_refusal_are_atomic() {
     .response()
     .is_some());
     assert!(call(
-        &mut storage,
+        storage,
         issuer,
         Request::Approve {
             spender: other,
@@ -487,8 +547,8 @@ fn solana_lxt20_guide_initialization_authorization_and_refusal_are_atomic() {
         amount: Amount::from_u128(40),
     };
     let before = storage.clone();
-    let refused = call(&mut storage, other, delegated, vec![]);
-    assert_refused(&refused, &storage, &before);
+    let refused = call(storage, other, delegated, vec![]);
+    assert_refused(&refused, storage, &before);
     let plan = program_account_payout(
         program(),
         &issuer.bytes(),
@@ -497,15 +557,13 @@ fn solana_lxt20_guide_initialization_authorization_and_refusal_are_atomic() {
         account(other).bytes(),
         40,
     )
-    .unwrap();
-    assert!(
-        call(&mut storage, other, delegated, vec![plan.capability()])
-            .response()
-            .is_some()
-    );
+    .checked();
+    assert!(call(storage, other, delegated, vec![plan.capability()])
+        .response()
+        .is_some());
     assert_eq!(
-        amount(call(
-            &mut storage,
+        amount(&call(
+            storage,
             other,
             Request::Allowance {
                 owner: issuer,
@@ -523,9 +581,9 @@ fn solana_lxt20_guide_initialization_authorization_and_refusal_are_atomic() {
         account(issuer).bytes(),
         15,
     )
-    .unwrap();
+    .checked();
     assert!(call(
-        &mut storage,
+        storage,
         other,
         Request::Transfer {
             to: account(issuer),
@@ -536,8 +594,8 @@ fn solana_lxt20_guide_initialization_authorization_and_refusal_are_atomic() {
     .response()
     .is_some());
     assert_eq!(
-        amount(call(
-            &mut storage,
+        amount(&call(
+            storage,
             other,
             Request::BalanceOf { owner: other },
             vec![]
@@ -545,7 +603,7 @@ fn solana_lxt20_guide_initialization_authorization_and_refusal_are_atomic() {
         25
     );
     assert!(call(
-        &mut storage,
+        storage,
         issuer,
         Request::Approve {
             spender: other,
@@ -556,8 +614,8 @@ fn solana_lxt20_guide_initialization_authorization_and_refusal_are_atomic() {
     .response()
     .is_some());
     let before = storage.clone();
-    let revoked = call(&mut storage, other, delegated, vec![plan.capability()]);
-    assert_refused(&revoked, &storage, &before);
+    let revoked = call(storage, other, delegated, vec![plan.capability()]);
+    assert_refused(&revoked, storage, &before);
 }
 
 // Emit an actual guest using the production Solana emitter. Host outputs cross
@@ -639,15 +697,15 @@ fn solana_crypto_guide_guest_host_calls_preserve_transaction_authority() {
         let guest = crypto_guest("hash", &[id, 0, 3, 512], &[(0, b"abc")], 0, 32, false);
         let record = invoke(&guest, &mut storage, caller, "layerx_call", b"", vec![]);
         assert_eq!(
-            record.response().unwrap().bytes,
-            hash_bytes(algorithm, b"abc").unwrap()
+            record.response().checked().bytes,
+            hash_bytes(algorithm, b"abc").checked()
         );
-        assert!(record.effects().unwrap().transfers.is_empty());
+        assert!(record.effects().checked().transfers.is_empty());
     }
     // RFC 8032 section 7.1, TEST 1: fixed Ed25519 key/signature and empty message.
     let key =
-        hex::decode("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a").unwrap();
-    let signature = hex::decode("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b").unwrap();
+        hex::decode("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a").checked();
+    let signature = hex::decode("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b").checked();
     let args = [1, 128, 0, 0, 32, 32, 64];
     let segments = [(0, key.as_slice()), (32, signature.as_slice())];
     let guest = crypto_guest("signature_verify", &args, &segments, 0, 0, false);
@@ -691,15 +749,19 @@ fn solana_crypto_guide_guest_host_calls_preserve_transaction_authority() {
             maximum_amount: 1,
         }],
     );
-    assert_eq!(authorized.effects().unwrap().transfers.len(), 1);
+    assert_eq!(authorized.effects().checked().transfers.len(), 1);
     assert_eq!(
-        authorized.effects().unwrap().transfers[0].source(),
-        &TransferSource::Principal(PrincipalId::new(caller.bytes()).unwrap())
+        authorized.effects().checked().transfers[0].source(),
+        &TransferSource::Principal(PrincipalId::new(caller.bytes()).checked())
     );
 
-    let digest = hash_bytes(HashAlgorithm::Sha256, b"Solana port crypto proof").unwrap();
-    let signing = k256::ecdsa::SigningKey::from_slice(&[9; 32]).unwrap();
-    let (sig, recovery) = signing.sign_prehash_recoverable(&digest).unwrap();
+    assert_secp256k1_calls(&mut storage, caller, &before);
+}
+
+fn assert_secp256k1_calls(storage: &mut Storage, caller: Principal, before: &Storage) {
+    let digest = hash_bytes(HashAlgorithm::Sha256, b"Solana port crypto proof").checked();
+    let signing = k256::ecdsa::SigningKey::from_slice(&[9; 32]).checked();
+    let (sig, recovery) = signing.sign_prehash_recoverable(&digest).checked();
     let sig = sig.to_bytes();
     for compressed in [true, false] {
         let public = signing.verifying_key().to_encoded_point(compressed);
@@ -710,7 +772,7 @@ fn solana_crypto_guide_guest_host_calls_preserve_transaction_authority() {
                 0,
                 32,
                 32,
-                i32::try_from(public.as_bytes().len()).unwrap(),
+                i32::try_from(public.as_bytes().len()).checked(),
                 128,
                 64,
             ],
@@ -719,11 +781,9 @@ fn solana_crypto_guide_guest_host_calls_preserve_transaction_authority() {
             0,
             false,
         );
-        assert!(
-            invoke(&guest, &mut storage, caller, "layerx_call", b"", vec![])
-                .response()
-                .is_some()
-        );
+        assert!(invoke(&guest, storage, caller, "layerx_call", b"", vec![])
+            .response()
+            .is_some());
     }
     let guest = crypto_guest(
         "signature_recover",
@@ -733,9 +793,9 @@ fn solana_crypto_guide_guest_host_calls_preserve_transaction_authority() {
         65,
         false,
     );
-    let recovered = invoke(&guest, &mut storage, caller, "layerx_call", b"", vec![]);
+    let recovered = invoke(&guest, storage, caller, "layerx_call", b"", vec![]);
     assert_eq!(
-        recovered.response().unwrap().bytes,
+        recovered.response().checked().bytes,
         signing.verifying_key().to_encoded_point(false).as_bytes()
     );
     let bad_recovery = crypto_guest(
@@ -747,15 +807,8 @@ fn solana_crypto_guide_guest_host_calls_preserve_transaction_authority() {
         false,
     );
     assert_refused(
-        &invoke(
-            &bad_recovery,
-            &mut storage,
-            caller,
-            "layerx_call",
-            b"",
-            vec![],
-        ),
-        &storage,
-        &before,
+        &invoke(&bad_recovery, storage, caller, "layerx_call", b"", vec![]),
+        storage,
+        before,
     );
 }

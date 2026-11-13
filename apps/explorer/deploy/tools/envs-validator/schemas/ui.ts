@@ -1,6 +1,7 @@
 import * as yup from 'yup';
 import { CHAIN_INDICATOR_IDS, ChainIndicatorId, HeroBannerConfig, HeroBannerButtonState, HOME_STATS_WIDGET_IDS, HomeStatsWidgetId } from 'types/homepage';
 import { replaceQuotes } from 'configs/app/utils';
+import { hasHomepageChartDependencies } from 'configs/app/homepageCharts';
 import { getYupValidationErrorMessage, urlTest } from '../utils';
 import { NavigationLayout, NavigationPromoBannerConfig, NavItemExternal } from 'types/client/navigation';
 import { FeaturedNetwork, NETWORK_GROUPS, NetworkExplorer } from 'types/networks';
@@ -40,21 +41,19 @@ const heroBannerSchema: yup.ObjectSchema<HeroBannerConfig> = yup.object()
       }),
     });
 
+export const homepageChartSchema = yup.string<ChainIndicatorId>().oneOf(CHAIN_INDICATOR_IDS);
+
 export const homepageSchema = yup.object({
     NEXT_PUBLIC_HOMEPAGE_CHARTS: yup
       .array()
       .transform(replaceQuotes)
       .json()
-      .of(yup.string<ChainIndicatorId>().oneOf(CHAIN_INDICATOR_IDS))
+      .of(homepageChartSchema)
       .test(
         'stats-api-required',
         'NEXT_PUBLIC_STATS_API_HOST is required when daily_operational_txs is enabled in NEXT_PUBLIC_HOMEPAGE_CHARTS',
         function(value) {
-          // daily_operational_txs is presented only in stats microservice
-          if (value?.includes('daily_operational_txs')) {
-            return Boolean(this.parent.NEXT_PUBLIC_STATS_API_HOST);
-          }
-          return true;
+          return hasHomepageChartDependencies(value, this.parent.NEXT_PUBLIC_STATS_API_HOST);
         }
       ),
     NEXT_PUBLIC_HOMEPAGE_STATS: yup

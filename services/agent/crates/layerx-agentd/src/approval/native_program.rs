@@ -337,38 +337,6 @@ impl NativeProgramApprovalCarrier {
         }
         Ok(())
     }
-
-    #[cfg(test)]
-    pub(crate) fn read(
-        store: &Store,
-        context: &RpcOwnerContext<'_>,
-        prepared: &EvmPrepared,
-        reservation: &ProgramBudgetReservation,
-    ) -> Result<Self, CarrierError> {
-        let preparation: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
-        let key = TenantKey::new(
-            context.principal().tenant.clone(),
-            ObjectKind::PreparedActivity,
-            [PREFIX, preparation.as_slice()].concat(),
-        )
-        .map_err(|_| CarrierError::Corrupt)?;
-        let stored = store.get(&key).ok_or(CarrierError::Missing)?;
-        if stored.class() != StorageClass::LocalOnly || stored.bytes().len() > MAX_CARRIER {
-            return Err(CarrierError::Corrupt);
-        }
-        let record: Self =
-            serde_json::from_slice(stored.bytes()).map_err(|_| CarrierError::Corrupt)?;
-        if record.encoded()?.as_slice() != stored.bytes() {
-            return Err(CarrierError::Corrupt);
-        }
-        let policy = NativeProgramPolicy::load(&record.native_policy_source)
-            .map_err(|_| CarrierError::Policy)?;
-        let expected = Self::bind(context, prepared, &policy, reservation)?;
-        if record.held_digest()? != expected.held_digest()? {
-            return Err(CarrierError::Binding);
-        }
-        Ok(record)
-    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq)]
@@ -1379,21 +1347,6 @@ impl StagedNativeRateUse {
             _counts: counts,
             _observed_batch: observed_batch.ok_or(CarrierError::Binding)?,
         })
-    }
-
-    #[cfg(test)]
-    pub(crate) fn counts(
-        &self,
-    ) -> &std::collections::BTreeMap<[u8; 32], std::collections::BTreeMap<u64, u64>> {
-        &self._counts
-    }
-    #[cfg(test)]
-    pub(crate) fn observed_batch(&self) -> [u8; 32] {
-        self._observed_batch
-    }
-    #[cfg(test)]
-    pub(crate) fn observed_head_sequence(&self) -> u64 {
-        self.record.observed_head_sequence
     }
 
     pub(crate) fn commit_joined(

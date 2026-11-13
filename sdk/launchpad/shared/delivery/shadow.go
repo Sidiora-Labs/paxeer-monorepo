@@ -68,7 +68,7 @@ func CompareShadow(expected, observed []ShadowRecord) (ShadowDifference, error) 
 	return d, nil
 }
 func (s *Store) RecordShadowTx(ctx context.Context, tx pgx.Tx, rangeDigest, path, subject string, e Envelope) error {
-	if tx == nil || !archiveHash.MatchString(rangeDigest) || (path != "legacy" && path != "durable") {
+	if tx == nil || !archiveHash.MatchString(rangeDigest) || (path != valueLegacy && path != valueDurable) {
 		return ErrSchema
 	}
 	if err := e.Validate(s.policy, subject); err != nil {
@@ -163,7 +163,7 @@ func (s *Store) compareShadowTx(ctx context.Context, tx pgx.Tx, manifestDigest s
 	if json.Unmarshal(raw, &m) != nil || ValidateArchiveManifest(m) != nil {
 		return empty, 0, ErrIntegrity
 	}
-	sets := map[string][]ShadowRecord{"legacy": {}, "durable": {}}
+	sets := map[string][]ShadowRecord{valueLegacy: {}, valueDurable: {}}
 	rows, err := tx.Query(ctx, "SELECT path,event_id,payload_hash,source_order FROM "+s.table("delivery_shadow_observations")+" WHERE range_digest=$1 AND subject=ANY($2) ORDER BY path,event_id", manifestDigest, subjects)
 	if err != nil {
 		return empty, 0, err
@@ -188,7 +188,7 @@ func (s *Store) compareShadowTx(ctx context.Context, tx pgx.Tx, manifestDigest s
 	if err != nil {
 		return empty, 0, err
 	}
-	diff, err := CompareShadow(sets["legacy"], sets["durable"])
+	diff, err := CompareShadow(sets[valueLegacy], sets[valueDurable])
 	if err != nil {
 		return diff, 0, err
 	}
@@ -210,14 +210,14 @@ func (s *Store) compareShadowTx(ctx context.Context, tx pgx.Tx, manifestDigest s
 	if err != nil {
 		return diff, 0, err
 	}
-	if _, err = CompareShadow(expected, sets["durable"]); err != nil {
+	if _, err = CompareShadow(expected, sets[valueDurable]); err != nil {
 		return diff, 0, err
 	}
 	return diff, len(expected), nil
 }
 
 func (s *Store) BindGenerationPathTx(ctx context.Context, tx pgx.Tx, consumer, generation, path string) error {
-	if tx == nil || !token.MatchString(consumer) || !token.MatchString(generation) || (path != "legacy" && path != "durable") {
+	if tx == nil || !token.MatchString(consumer) || !token.MatchString(generation) || (path != valueLegacy && path != valueDurable) {
 		return ErrSchema
 	}
 	if err := s.assertEpochTx(ctx, tx); err != nil {

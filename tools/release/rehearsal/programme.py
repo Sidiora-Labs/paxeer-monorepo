@@ -580,6 +580,7 @@ ABI_PATHS = {
     "share": "precompiles/spot/abi/share.json",
 }
 LAUNCHPAD_ABI_ROLES = (
+    "ChainLaunch",
     "FeeAccumulator",
     "FeesRouter",
     "PoolRegistry",
@@ -1538,10 +1539,15 @@ def buy_pool_token(net, wallet, pool, usdl_in):
 
 
 def check_launchpad_interface(net):
-    """1.1: every function of every generation 2 role answers at HR+1 as the contract answered at HR."""
+    """1.1: every launchpad role answers at HR+1 as it answered at HR."""
     pool = first_gen2_pool(net)
     token = net.one(pool, abi("SidioraPool").fn("tokenAddress"), block=net.halt)
-    targets = dict(LAUNCHPAD_ROLES, SidioraPool=pool, SidioraERC20=token)
+    targets = dict(
+        LAUNCHPAD_ROLES,
+        SidioraPool=pool,
+        SidioraERC20=token,
+        ChainLaunch=LAUNCHPAD,
+    )
     golden = {(role, sig): ident for role, sig, ident in launchpad_golden()}
     golden_topics = launchpad_golden_topics()
     differences, compared = [], 0

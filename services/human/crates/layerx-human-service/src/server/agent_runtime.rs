@@ -15,12 +15,10 @@ use layerx_agent_api::track::{
 };
 use layerx_agent_api::TimestampSeconds;
 use layerx_crypto::disclosure;
-use layerx_proof::receipt::AuthorizedBatch;
 use layerx_sdk::Call;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::result::ResultCode;
 use layerx_types::rung::Rung;
-use layerx_types::verify::VerificationLevel;
 use sha2::Digest as _;
 use zeroize::Zeroizing;
 
@@ -31,6 +29,8 @@ use crate::journeys::{
 
 pub type TransactionType2 = layerx_crypto::evm_transaction::Eip1559Call;
 
+/// # Errors
+/// Returns an error if the input cannot be decoded or validated.
 pub fn decode_unsigned(bytes: &[u8]) -> Result<TransactionType2, AgentBoundaryError> {
     layerx_human_kms::attestor::decode_unsigned_evm_transaction(bytes)
         .map_err(|_| AgentBoundaryError::CorruptResponse)
@@ -122,6 +122,8 @@ pub struct TraceContext {
 }
 
 impl TraceContext {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn enter(trace: &str) -> Result<Self, AgentBoundaryError> {
         let trace = crate::trace::TraceId::parse(trace).map_err(|_| AgentBoundaryError::Refused)?;
         let previous = REQUEST_TRACE.with(|current| current.replace(Some(trace)));
@@ -373,7 +375,85 @@ pub struct NativeProgramApprovalMaterial {
 }
 
 impl NativeProgramApprovalMaterial {
+    /// # Errors
+    /// Returns an error if the supplied evidence does not satisfy the required checks.
     pub fn validate_facts(
+        &self,
+        facts: &NativeProgramApprovalFacts,
+        registry: &ModuleRegistry,
+    ) -> Result<(), AgentBoundaryError> {
+        self.validate_carrier(facts, registry)?;
+        let body_len = self
+            .canonical_budget_bytes
+            .len()
+            .checked_sub(32)
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
+        let (body, digest) = self.canonical_budget_bytes.split_at(body_len);
+        let expected: [u8; 32] = sha2::Sha256::new()
+            .chain_update(b"layerx:program-budget:v2\0")
+            .chain_update(body)
+            .finalize()
+            .into();
+        if digest != expected {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let mut reader = Reader::new(body.to_vec());
+        if reader.fixed::<5>()? != *b"LXPB\x02" {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let legacy_len =
+            usize::try_from(reader.u32()?).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let legacy = reader.take(legacy_len)?;
+        let legacy_body_len = legacy
+            .len()
+            .checked_sub(32)
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
+        let (legacy_body, legacy_digest) = legacy.split_at(legacy_body_len);
+        let expected: [u8; 32] = sha2::Sha256::new()
+            .chain_update(b"layerx:program-budget:v1\0")
+            .chain_update(legacy_body)
+            .finalize()
+            .into();
+        if !legacy_body.starts_with(b"LXPB\x01") || legacy_digest != expected {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let mut legacy = Reader::new(legacy_body.to_vec());
+        if legacy.fixed::<5>()? != *b"LXPB\x01"
+            || legacy.fixed::<32>()? != facts.approval_id
+            || legacy.u64()? != facts.budget_expiry_sequence
+        {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let actor = layerx_types::ids::Did::new(facts.actor.as_bytes())
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let actor_id = layerx_wire::hash::did_id_for_protocol(&actor, 3)
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        if reader.fixed::<32>()? != facts.approval_id
+            || reader.fixed::<32>()? != actor_id
+            || reader.fixed::<32>()? == [0; 32]
+        {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        reader.u64()?;
+        if reader.u64()? != facts.created_at_sequence {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let (limits, fee) = self.read_approval_limits(&mut reader, facts)?;
+        reader.finish()?;
+        let semantics = if limits.is_empty() {
+            NativeProgramApprovalSemantics::OperationOnly
+        } else {
+            NativeProgramApprovalSemantics::AuthorizedLimits(limits)
+        };
+        if fee != facts.fee_asset
+            || fee.is_some() != (self.fee_limit != 0)
+            || semantics != facts.semantics
+        {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        Ok(())
+    }
+    fn validate_carrier(
         &self,
         facts: &NativeProgramApprovalFacts,
         registry: &ModuleRegistry,
@@ -432,61 +512,14 @@ impl NativeProgramApprovalMaterial {
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        let body_len = self
-            .canonical_budget_bytes
-            .len()
-            .checked_sub(32)
-            .ok_or(AgentBoundaryError::CorruptResponse)?;
-        let (body, digest) = self.canonical_budget_bytes.split_at(body_len);
-        let expected: [u8; 32] = sha2::Sha256::new()
-            .chain_update(b"layerx:program-budget:v2\0")
-            .chain_update(body)
-            .finalize()
-            .into();
-        if digest != expected {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
-        let mut reader = Reader::new(body.to_vec());
-        if reader.fixed::<5>()? != *b"LXPB\x02" {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
-        let legacy_len =
-            usize::try_from(reader.u32()?).map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let legacy = reader.take(legacy_len)?;
-        let legacy_body_len = legacy
-            .len()
-            .checked_sub(32)
-            .ok_or(AgentBoundaryError::CorruptResponse)?;
-        let (legacy_body, legacy_digest) = legacy.split_at(legacy_body_len);
-        let expected: [u8; 32] = sha2::Sha256::new()
-            .chain_update(b"layerx:program-budget:v1\0")
-            .chain_update(legacy_body)
-            .finalize()
-            .into();
-        if !legacy_body.starts_with(b"LXPB\x01") || legacy_digest != expected {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
-        let mut legacy = Reader::new(legacy_body.to_vec());
-        if legacy.fixed::<5>()? != *b"LXPB\x01"
-            || legacy.fixed::<32>()? != facts.approval_id
-            || legacy.u64()? != facts.budget_expiry_sequence
-        {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
-        let actor = layerx_types::ids::Did::new(facts.actor.as_bytes())
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let actor_id = layerx_wire::hash::did_id_for_protocol(&actor, 3)
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if reader.fixed::<32>()? != facts.approval_id
-            || reader.fixed::<32>()? != actor_id
-            || reader.fixed::<32>()? == [0; 32]
-        {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
-        reader.u64()?;
-        if reader.u64()? != facts.created_at_sequence {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
+        Ok(())
+    }
+
+    fn read_approval_limits(
+        &self,
+        reader: &mut Reader,
+        facts: &NativeProgramApprovalFacts,
+    ) -> Result<(Vec<NativeProgramLimit>, Option<[u8; 32]>), AgentBoundaryError> {
         let count = usize::from(reader.u16()?);
         if count == 0 || count > 256 {
             return Err(AgentBoundaryError::CorruptResponse);
@@ -529,7 +562,7 @@ impl NativeProgramApprovalMaterial {
                 let main =
                     layerx_types::account::AccountId::parse(&format!("agent:{}:main", facts.actor))
                         .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-                let asset_hex: String = asset.iter().map(|byte| format!("{byte:02x}")).collect();
+                let asset_hex: String = crate::hex::lower(&asset);
                 let asset_account = layerx_types::account::AccountId::parse(&format!(
                     "agent:{}:asset:{asset_hex}",
                     facts.actor
@@ -545,7 +578,7 @@ impl NativeProgramApprovalMaterial {
             }
             match kind {
                 3 if destination.is_none() && maximum_amount == self.fee_limit && fee.is_none() => {
-                    fee = Some(asset)
+                    fee = Some(asset);
                 }
                 1 | 2 if destination.is_some() => limits.push(NativeProgramLimit {
                     kind: if kind == 1 {
@@ -561,19 +594,7 @@ impl NativeProgramApprovalMaterial {
                 _ => return Err(AgentBoundaryError::CorruptResponse),
             }
         }
-        reader.finish()?;
-        let semantics = if limits.is_empty() {
-            NativeProgramApprovalSemantics::OperationOnly
-        } else {
-            NativeProgramApprovalSemantics::AuthorizedLimits(limits)
-        };
-        if fee != facts.fee_asset
-            || fee.is_some() != (self.fee_limit != 0)
-            || semantics != facts.semantics
-        {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
-        Ok(())
+        Ok((limits, fee))
     }
 }
 
@@ -878,6 +899,8 @@ pub struct ManagedAgentView {
 }
 impl ManagedAgentView {
     /// Versioned peer producer codec shared with managed-state adapters.
+    /// # Errors
+    /// Returns an error if the value cannot be encoded.
     pub fn encode_peer_response(&self) -> Result<Vec<u8>, AgentBoundaryError> {
         let mut out = Writer::new(0);
         out.text(&self.agent_id)?;
@@ -908,6 +931,8 @@ impl ManagedAgentView {
         Ok(out.finish())
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn project(&self) -> Result<serde_json::Value, super::backend::ApiFailure> {
         super::projection::managed_agent(self)
     }
@@ -1395,6 +1420,8 @@ impl AgentRuntime {
         reader.finish()?;
         Ok(value)
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn agent_budget_proof(
         &mut self,
         budget_id: [u8; 32],
@@ -1918,6 +1945,8 @@ impl AgentRuntime {
         self.pending_nonce(actor, authority)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn pending_nonce(
         &mut self,
         actor: &layerx_agent_api::identity::AgentDid,
@@ -2173,6 +2202,8 @@ impl AgentRuntime {
         Self::connect_with_clock(endpoint, limits, clock)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn connect_with_clock(
         endpoint: impl AsRef<Path>,
         limits: crate::frame::Limits,
@@ -2236,6 +2267,8 @@ impl AgentRuntime {
         Self::new_with_clock(endpoint, limits, registry, clock)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn new_with_clock(
         endpoint: impl AsRef<Path>,
         limits: crate::frame::Limits,
@@ -2393,9 +2426,11 @@ impl AgentRuntime {
         reader.finish()?;
         if facts.approval.approval_id != approval_id {
             return Err(AgentBoundaryError::CorruptResponse);
-        };
+        }
         Ok(facts)
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn approval_list_facts(
         &mut self,
         current_sequence: u64,
@@ -2407,19 +2442,19 @@ impl AgentRuntime {
         match cursor {
             Some(value) => {
                 writer.u8(1);
-                writer.fixed(&value)
+                writer.fixed(&value);
             }
             None => writer.u8(0),
-        };
+        }
         writer.u8(limit);
         let mut reader = self.exchange(&writer.finish())?;
         let count = usize::from(reader.u8()?);
         if count > 100 || count > usize::from(limit) {
             return Err(AgentBoundaryError::CorruptResponse);
-        };
+        }
         let mut approvals = Vec::with_capacity(count);
         for _ in 0..count {
-            approvals.push(decode_approval_facts(&mut reader)?)
+            approvals.push(decode_approval_facts(&mut reader)?);
         }
         let next_cursor = match reader.u8()? {
             0 => None,
@@ -2432,6 +2467,8 @@ impl AgentRuntime {
             next_cursor,
         })
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_approval_get_facts(
         &mut self,
         approval_id: [u8; 32],
@@ -2454,6 +2491,8 @@ impl AgentRuntime {
         Ok(value)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_approval_list_facts(
         &mut self,
         cursor: Option<[u8; 32]>,
@@ -2506,6 +2545,8 @@ impl AgentRuntime {
         })
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_program_approval_list(
         &mut self,
         cursor: Option<[u8; 32]>,
@@ -2554,6 +2595,8 @@ impl AgentRuntime {
         })
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_program_approval_get(
         &mut self,
         approval_id: [u8; 32],
@@ -2569,6 +2612,8 @@ impl AgentRuntime {
         Ok(facts)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_program_approval_material(
         &mut self,
         approval_id: [u8; 32],
@@ -2619,19 +2664,7 @@ impl AgentRuntime {
             .and_then(|value| u16::try_from(value).ok())
             .ok_or(AgentBoundaryError::CorruptResponse)?;
         validate_native_program_payload(activity_ordinal, &transaction.data)?;
-        let actor_bytes: Vec<u8> = carrier
-            .get("actor")
-            .and_then(serde_json::Value::as_array)
-            .filter(|bytes| !bytes.is_empty() && bytes.len() <= MAX_TEXT)
-            .ok_or(AgentBoundaryError::CorruptResponse)?
-            .iter()
-            .map(|value| {
-                value
-                    .as_u64()
-                    .and_then(|byte| u8::try_from(byte).ok())
-                    .ok_or(AgentBoundaryError::CorruptResponse)
-            })
-            .collect::<Result<_, _>>()?;
+        let actor = decode_program_carrier_actor(&carrier)?;
         if carrier.get("principal").and_then(serde_json::Value::as_str)
             != Some(subject.principal.as_str())
             || carrier
@@ -2660,8 +2693,6 @@ impl AgentRuntime {
         if !allocation_body.starts_with(b"LXPB\x02") || allocation_digest != expected {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        let actor =
-            String::from_utf8(actor_bytes).map_err(|_| AgentBoundaryError::CorruptResponse)?;
         let canonical_payload_bytes = transaction.data;
         let fee_limit = u128::from(transaction.gas_limit)
             .checked_mul(transaction.max_fee_per_gas)
@@ -2686,6 +2717,8 @@ impl AgentRuntime {
         })
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_program_approval_budget(
         &mut self,
         approval_id: [u8; 32],
@@ -2764,6 +2797,8 @@ impl AgentRuntime {
         })
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_program_approval_decide(
         &mut self,
         approval_id: [u8; 32],
@@ -2829,6 +2864,8 @@ impl AgentRuntime {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_effect_approval_get_facts(
         &mut self,
         approval_id: [u8; 32],
@@ -2848,9 +2885,11 @@ impl AgentRuntime {
                 .is_none_or(|s| s.owner.as_bytes() != value.owner.as_bytes())
         {
             return Err(AgentBoundaryError::CorruptResponse);
-        };
+        }
         Ok(value)
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_effect_approval_list_facts(
         &mut self,
         cursor: Option<[u8; 32]>,
@@ -2863,10 +2902,10 @@ impl AgentRuntime {
         match cursor {
             Some(id) => {
                 writer.u8(1);
-                writer.fixed(&id)
+                writer.fixed(&id);
             }
             None => writer.u8(0),
-        };
+        }
         writer.u8(limit);
         let mut reader = self.exchange(&writer.finish())?;
         let count = usize::from(reader.u8()?);
@@ -2900,6 +2939,8 @@ impl AgentRuntime {
             next_cursor,
         })
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_effect_approval_decide(
         &mut self,
         approval_id: [u8; 32],
@@ -2941,10 +2982,12 @@ impl AgentRuntime {
                 && (value.state == NativeEffectApprovalFactState::Granted) != grant)
         {
             return Err(AgentBoundaryError::CorruptResponse);
-        };
+        }
         Ok(value)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_effect_approval_material(
         &mut self,
         approval_id: [u8; 32],
@@ -3020,6 +3063,8 @@ impl AgentRuntime {
             canonical_budget_bytes,
         })
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_effect_approval_budget(
         &mut self,
         approval_id: [u8; 32],
@@ -3114,6 +3159,8 @@ impl AgentRuntime {
         })
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn managed_evidence(
         &mut self,
         agent_id: &str,
@@ -3121,14 +3168,14 @@ impl AgentRuntime {
     ) -> Result<ManagedReceiptExport, AgentBoundaryError> {
         if digest == [0; 32] {
             return Err(AgentBoundaryError::Refused);
-        };
+        }
         let mut writer = Writer::new(MANAGED_EVIDENCE);
         writer.text(agent_id)?;
         writer.fixed(&digest);
         let mut reader = self.exchange(&writer.finish())?;
         if reader.u16()? != 3 {
             return Err(AgentBoundaryError::CorruptResponse);
-        };
+        }
         let value = ManagedReceiptExport {
             digest: reader.fixed()?,
             activity_id: reader.fixed()?,
@@ -3152,9 +3199,11 @@ impl AgentRuntime {
                 != value.canonical_bytes
         {
             return Err(AgentBoundaryError::CorruptResponse);
-        };
+        }
         Ok(value)
     }
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn approval_get(
         &mut self,
         approval_id: [u8; 32],
@@ -3627,6 +3676,23 @@ fn decode_native_ref(reader: &mut Reader) -> Result<Option<[u8; 32]>, AgentBound
     }
 }
 
+fn decode_program_carrier_actor(carrier: &serde_json::Value) -> Result<String, AgentBoundaryError> {
+    let actor_bytes: Vec<u8> = carrier
+        .get("actor")
+        .and_then(serde_json::Value::as_array)
+        .filter(|bytes| !bytes.is_empty() && bytes.len() <= MAX_TEXT)
+        .ok_or(AgentBoundaryError::CorruptResponse)?
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .and_then(|byte| u8::try_from(byte).ok())
+                .ok_or(AgentBoundaryError::CorruptResponse)
+        })
+        .collect::<Result<_, _>>()?;
+    String::from_utf8(actor_bytes).map_err(|_| AgentBoundaryError::CorruptResponse)
+}
+
 fn program_carrier_bytes(carrier: &serde_json::Value, field: &str, bytes: &[u8]) -> bool {
     carrier
         .get(field)
@@ -3699,7 +3765,49 @@ fn decode_native_program_approval_facts(
     let fee_asset = decode_native_ref(reader)?;
     let canonical_payload_bytes = reader.bytes()?;
     validate_native_program_payload(activity_ordinal, &canonical_payload_bytes)?;
-    let semantics = match reader.u8()? {
+    let semantics = decode_native_program_semantics(reader)?;
+    layerx_types::ids::Did::new(owner.as_bytes())
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    layerx_types::ids::Did::new(actor.as_bytes())
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    let module =
+        ModuleId::from_u16(activity_module).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    ActivityType::new(module, activity_ordinal).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    if module != ModuleId::Programs
+        || approval_id == [0; 32]
+        || held_digest == [0; 32]
+        || created_at_sequence >= budget_expiry_sequence
+        || created_at_unix_seconds == 0
+        || created_at_unix_seconds
+            .checked_mul(1000)
+            .is_none_or(|created| created >= activity_expires_at_unix_milliseconds)
+        || release_ref.is_some() != (state == NativeApprovalFactState::Granted)
+    {
+        return Err(AgentBoundaryError::CorruptResponse);
+    }
+    Ok(NativeProgramApprovalFacts {
+        approval_id,
+        held_digest,
+        owner,
+        actor,
+        activity_module,
+        activity_ordinal,
+        state,
+        created_at_sequence,
+        budget_expiry_sequence,
+        created_at_unix_seconds,
+        activity_expires_at_unix_milliseconds,
+        release_ref,
+        fee_asset,
+        canonical_payload_bytes,
+        semantics,
+    })
+}
+
+fn decode_native_program_semantics(
+    reader: &mut Reader,
+) -> Result<NativeProgramApprovalSemantics, AgentBoundaryError> {
+    Ok(match reader.u8()? {
         0 => NativeProgramApprovalSemantics::OperationOnly,
         1 => {
             let count = usize::from(reader.u16()?);
@@ -3739,43 +3847,55 @@ fn decode_native_program_approval_facts(
             NativeProgramApprovalSemantics::AuthorizedLimits(limits)
         }
         _ => return Err(AgentBoundaryError::CorruptResponse),
-    };
-    layerx_types::ids::Did::new(owner.as_bytes())
-        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-    layerx_types::ids::Did::new(actor.as_bytes())
-        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-    let module =
-        ModuleId::from_u16(activity_module).map_err(|_| AgentBoundaryError::CorruptResponse)?;
-    ActivityType::new(module, activity_ordinal).map_err(|_| AgentBoundaryError::CorruptResponse)?;
-    if module != ModuleId::Programs
-        || approval_id == [0; 32]
-        || held_digest == [0; 32]
-        || created_at_sequence >= budget_expiry_sequence
-        || created_at_unix_seconds == 0
-        || created_at_unix_seconds
-            .checked_mul(1000)
-            .is_none_or(|created| created >= activity_expires_at_unix_milliseconds)
-        || release_ref.is_some() != (state == NativeApprovalFactState::Granted)
-    {
+    })
+}
+
+fn decode_native_effect_disclosures(
+    reader: &mut Reader,
+) -> Result<
+    (
+        Vec<disclosure::Counterparty>,
+        Vec<disclosure::DisclosedAmount>,
+    ),
+    AgentBoundaryError,
+> {
+    let count = usize::from(reader.u16()?);
+    if count > 256 {
         return Err(AgentBoundaryError::CorruptResponse);
     }
-    Ok(NativeProgramApprovalFacts {
-        approval_id,
-        held_digest,
-        owner,
-        actor,
-        activity_module,
-        activity_ordinal,
-        state,
-        created_at_sequence,
-        budget_expiry_sequence,
-        created_at_unix_seconds,
-        activity_expires_at_unix_milliseconds,
-        release_ref,
-        fee_asset,
-        canonical_payload_bytes,
-        semantics,
-    })
+    let mut counterparties = Vec::with_capacity(count);
+    for _ in 0..count {
+        let role = match reader.u8()? {
+            0 => disclosure::CounterpartyRole::Payer,
+            1 => disclosure::CounterpartyRole::Recipient,
+            _ => return Err(AgentBoundaryError::CorruptResponse),
+        };
+        let account = reader.fixed()?;
+        if account == [0; 32] {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        counterparties.push(disclosure::Counterparty { role, account });
+    }
+    let count = usize::from(reader.u16()?);
+    if count > 256 {
+        return Err(AgentBoundaryError::CorruptResponse);
+    }
+    let mut amounts = Vec::with_capacity(count);
+    for _ in 0..count {
+        let role = match reader.u8()? {
+            0 => disclosure::AmountRole::Transfer,
+            1 => disclosure::AmountRole::SpendingLimit,
+            2 => disclosure::AmountRole::SupplyCap,
+            3 => disclosure::AmountRole::PerDrawMaximum,
+            4 => disclosure::AmountRole::GrantAllowance,
+            _ => return Err(AgentBoundaryError::CorruptResponse),
+        };
+        amounts.push(disclosure::DisclosedAmount {
+            role,
+            value: reader.u128()?,
+        });
+    }
+    Ok((counterparties, amounts))
 }
 
 fn decode_native_effect_approval_facts(
@@ -3810,42 +3930,7 @@ fn decode_native_effect_approval_facts(
     let asset = reader.fixed()?;
     let fee_asset = reader.fixed()?;
     let fee_limit = reader.u128()?;
-    let count = usize::from(reader.u16()?);
-    if count > 256 {
-        return Err(AgentBoundaryError::CorruptResponse);
-    }
-    let mut counterparties = Vec::with_capacity(count);
-    for _ in 0..count {
-        let role = match reader.u8()? {
-            0 => disclosure::CounterpartyRole::Payer,
-            1 => disclosure::CounterpartyRole::Recipient,
-            _ => return Err(AgentBoundaryError::CorruptResponse),
-        };
-        let account = reader.fixed()?;
-        if account == [0; 32] {
-            return Err(AgentBoundaryError::CorruptResponse);
-        };
-        counterparties.push(disclosure::Counterparty { role, account });
-    }
-    let count = usize::from(reader.u16()?);
-    if count > 256 {
-        return Err(AgentBoundaryError::CorruptResponse);
-    }
-    let mut amounts = Vec::with_capacity(count);
-    for _ in 0..count {
-        let role = match reader.u8()? {
-            0 => disclosure::AmountRole::Transfer,
-            1 => disclosure::AmountRole::SpendingLimit,
-            2 => disclosure::AmountRole::SupplyCap,
-            3 => disclosure::AmountRole::PerDrawMaximum,
-            4 => disclosure::AmountRole::GrantAllowance,
-            _ => return Err(AgentBoundaryError::CorruptResponse),
-        };
-        amounts.push(disclosure::DisclosedAmount {
-            role,
-            value: reader.u128()?,
-        });
-    }
+    let (counterparties, amounts) = decode_native_effect_disclosures(reader)?;
     let release_ref = decode_native_ref(reader)?;
     let submission_ref = decode_native_ref(reader)?;
     layerx_types::ids::Did::new(owner.as_bytes())
@@ -3970,7 +4055,7 @@ fn decode_native_approval_facts(
 fn decode_approval_facts(reader: &mut Reader) -> Result<AgentApprovalFacts, AgentBoundaryError> {
     if reader.u16()? != 2 {
         return Err(AgentBoundaryError::CorruptResponse);
-    };
+    }
     let approval = decode_approval(reader)?;
     let created_at_unix_seconds = reader.u64()?;
     let activity_expires_at_unix_seconds = reader.u64()?;
@@ -3979,7 +4064,7 @@ fn decode_approval_facts(reader: &mut Reader) -> Result<AgentApprovalFacts, Agen
         || activity_expires_at_unix_seconds != approval.held_activity.expiry.0
     {
         return Err(AgentBoundaryError::CorruptResponse);
-    };
+    }
     Ok(AgentApprovalFacts {
         approval,
         created_at_unix_seconds,
@@ -4320,13 +4405,13 @@ impl crate::approvals::ApprovalBoundary for AgentRuntime {
             .map_err(map_approval_error)?;
         let decode=|reader:&mut Reader| -> Result<crate::approvals::VerifiedBudgetAfter,AgentBoundaryError> {
             if reader.u16()?!=2 || reader.fixed::<32>()?!=hold.approval_id
-                || reader.fixed::<32>()?!=hold.canonical_bytes_digest {return Err(AgentBoundaryError::CorruptResponse)};
+                || reader.fixed::<32>()?!=hold.canonical_bytes_digest {return Err(AgentBoundaryError::CorruptResponse)}
             let remaining=reader.u128()?;let rung=match decode_rung(reader.u8()?)? {
                 Rung::Committed=>Rung::Committed,
                 _=>return Err(AgentBoundaryError::CorruptResponse)};
             let evidence_digest=reader.fixed()?;let observed_at_sequence=reader.u64()?;let asset=reader.fixed::<32>()?;
             if evidence_digest==[0;32] || asset==[0;32] || observed_at_sequence!=at_sequence {
-                return Err(AgentBoundaryError::CorruptResponse)};
+                return Err(AgentBoundaryError::CorruptResponse)}
             reader.finish()?;Ok(crate::approvals::VerifiedBudgetAfter{remaining,rung,evidence_digest,observed_at_sequence})
         };
         decode(&mut reader).map_err(map_approval_error)
@@ -4859,6 +4944,8 @@ mod subject_tests {
 }
 
 impl AgentRuntime {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_send_owner_context(
         &mut self,
         session: &super::native_send::HumanOwnerNativeSessionV1,
@@ -4884,13 +4971,7 @@ impl AgentRuntime {
         let pending_nonce = reader.u64()?;
         let value = super::native_send::NativeSendOwnerCoordinatesV1 {
             actor,
-            authority: format!(
-                "session:{}",
-                authority
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect::<String>()
-            ),
+            authority: format!("session:{}", crate::hex::lower(&authority)),
             generation,
             head_sequence,
             protocol_time_ms,
@@ -4914,6 +4995,8 @@ impl AgentRuntime {
         Ok(value)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_send_preview(
         &mut self,
         context: &super::native_send::HumanOwnerNativeContextV1,
@@ -5113,6 +5196,8 @@ impl AgentRuntime {
         Ok(observation)
     }
 
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn bind_native_journey_context(
         &mut self,
         context: super::native_send::HumanOwnerNativeContextV1,
@@ -5159,7 +5244,7 @@ impl AgentRuntime {
             self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
         )
         .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let hex: String = id.iter().map(|byte| format!("{byte:02x}")).collect();
+        let hex: String = crate::hex::lower(&id);
         let idempotency_key = decode_hex32(request.idempotency_key.as_str())?;
         Ok(AgentPreparation {
             preparation_ref: PreparationRef::new(hex)
@@ -5182,6 +5267,217 @@ impl AgentRuntime {
         })
     }
 
+    fn validate_native_resume_purpose(
+        &mut self,
+        call: &Call<IdempotentMutation<PrepareRequest>>,
+        purpose: &layerx_agent_api::identity::SignedNativeSendPurposeV2,
+        approval_id: [u8; 32],
+        held_digest: [u8; 32],
+    ) -> Result<super::native_send::NativeSendOwnerCoordinatesV1, AgentBoundaryError> {
+        let (context, expiry) = self
+            .native_journey
+            .take()
+            .ok_or(AgentBoundaryError::Refused)?;
+        let coordinates =
+            self.native_send_owner_context(&context.session, call.request().request_id.0);
+        self.native_journey = Some((context, expiry));
+        let coordinates = coordinates?;
+        let (context, expiry) = self
+            .native_journey
+            .as_ref()
+            .ok_or(AgentBoundaryError::Refused)?;
+        let statement = &purpose.purpose;
+        let request = &call.request().operation;
+        if statement.preparation_id != approval_id
+            || held_digest == [0; 32]
+            || statement.tenant.as_str() != context.session.tenant
+            || statement.agent_did.as_str() != context.session.owner
+            || statement.owner_did.as_str() != context.session.owner
+            || statement.agent_did != request.actor
+            || statement.consent_public_key != context.session.owner_public_key
+            || statement
+                .session_id
+                .to_bytes()
+                .map_err(|_| AgentBoundaryError::Refused)?
+                != context.session.session_id
+            || statement
+                .capability_id
+                .to_bytes()
+                .map_err(|_| AgentBoundaryError::Refused)?
+                != context.capability_id
+            || statement.generation != context.session.generation
+            || statement.expires_at_ms != *expiry
+            || statement.expires_at_ms > context.expires_at_ms
+            || statement.commitment != context.commitment
+            || statement.economic_action != context.session.session_id
+            || statement.idempotency_key != decode_hex32(request.idempotency_key.as_str())?
+            || coordinates.protocol_time_ms >= coordinates.expiry_ms
+            || coordinates.head_sequence < context.session.grant_sequence
+            || coordinates.revocation_sequence == 0
+            || coordinates.revocation_sequence > coordinates.head_sequence
+        {
+            return Err(AgentBoundaryError::Refused);
+        }
+        statement
+            .check_current_owner(
+                &layerx_agent_api::identity::AgentDid::new(&context.session.owner)
+                    .map_err(|_| AgentBoundaryError::Refused)?,
+                &context.session.owner_public_key,
+                &self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
+            )
+            .map_err(|_| AgentBoundaryError::Refused)?;
+        let purpose_digest: [u8; 32] = sha2::Sha256::digest(
+            statement
+                .canonical_bytes()
+                .map_err(|_| AgentBoundaryError::Refused)?,
+        )
+        .into();
+        layerx_crypto::ed25519::verify_digest(
+            &purpose.purpose.consent_public_key,
+            &purpose.signature,
+            &purpose_digest,
+        )
+        .map_err(|_| AgentBoundaryError::Refused)?;
+        Ok(coordinates)
+    }
+
+    fn rejected_native_admission(
+        &mut self,
+        call: &Call<IdempotentMutation<PrepareRequest>>,
+        purpose: &layerx_agent_api::identity::SignedNativeSendPurposeV2,
+        approval_id: [u8; 32],
+        held_digest: [u8; 32],
+        coordinates: &super::native_send::NativeSendOwnerCoordinatesV1,
+    ) -> Result<Option<crate::journeys::NativeJourneyAdmission>, AgentBoundaryError> {
+        use crate::journeys::NativeJourneyApprovalState as State;
+        let request = &call.request().operation;
+        let statement = &purpose.purpose;
+        let facts = self.native_effect_approval_get_facts(approval_id)?;
+        if matches!(
+            facts.state,
+            NativeEffectApprovalFactState::Rejected | NativeEffectApprovalFactState::Expired
+        ) {
+            let material = self.native_effect_approval_material(approval_id, held_digest)?;
+            if facts.approval_id != approval_id
+                || facts.held_digest != held_digest
+                || facts.actor != request.actor.as_str()
+                || facts.owner != statement.owner_did.as_str()
+                || facts.activity_module != 1
+                || facts.activity_ordinal != 5
+                || facts.fee_limit != request.fee_limit.0
+                || facts.release_ref.is_some()
+                || facts.submission_ref.is_some()
+                || material.owner != statement.owner_did.as_str()
+                || sha2::Sha256::digest(&material.canonical_unsigned_bytes)[..]
+                    != statement.canonical_digest
+            {
+                return Err(AgentBoundaryError::CorruptResponse);
+            }
+            let transaction = decode_unsigned(&material.canonical_unsigned_bytes)?;
+            statement
+                .check_prepared_transaction(
+                    2,
+                    transaction.chain_id,
+                    &self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
+                    &sha2::Sha256::digest(&material.canonical_unsigned_bytes).into(),
+                )
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            if transaction.chain_id != statement.chain_id
+                || statement.activity.module != 1
+                || statement.activity.ordinal != 5
+                || statement.idempotency_key != decode_hex32(request.idempotency_key.as_str())?
+            {
+                return Err(AgentBoundaryError::CorruptResponse);
+            }
+            let preimage = transaction.signing_hash().to_vec();
+            let preparation = self.native_journey_preparation(
+                request,
+                material.canonical_unsigned_bytes,
+                preimage,
+            )?;
+            return Ok(Some(crate::journeys::NativeJourneyAdmission {
+                preparation,
+                approval_id,
+                held_digest,
+                state: if facts.state == NativeEffectApprovalFactState::Rejected {
+                    State::Rejected
+                } else {
+                    State::Expired
+                },
+                release_ref: None,
+                head_sequence: coordinates.head_sequence,
+                protocol_time_ms: coordinates.protocol_time_ms,
+                revocation_sequence: coordinates.revocation_sequence,
+            }));
+        }
+        Ok(None)
+    }
+
+    fn send_native_journey_prepare(
+        &mut self,
+        call: &Call<IdempotentMutation<PrepareRequest>>,
+        purpose: &layerx_agent_api::identity::SignedNativeSendPurposeV2,
+        preview: &crate::journeys::NativeJourneyPreview,
+    ) -> Result<(), AgentBoundaryError> {
+        let (context, _) = self
+            .native_journey
+            .as_ref()
+            .ok_or(AgentBoundaryError::Refused)?;
+        let request = &call.request().operation;
+        let id = purpose.purpose.preparation_id;
+        let body = super::native_send::encode_native_send_prepare_v2(
+            request,
+            purpose,
+            Some(
+                &context
+                    .signed_grant()
+                    .map_err(|_| AgentBoundaryError::Refused)?,
+            ),
+        )
+        .map_err(|_| AgentBoundaryError::Refused)?;
+        let credential = layerx_sdk::agent_envelope::EnvelopeCredential::new(
+            &context.session.tenant,
+            context.session.session_id,
+            *context.session.credential(),
+            context.session.generation,
+        )
+        .map_err(|_| AgentBoundaryError::Refused)?;
+        let envelope = layerx_sdk::agent_envelope::encode_envelope(
+            layerx_sdk::Operation::Prepare,
+            call.request().request_id,
+            &body,
+            Some(&credential),
+            Some(call.request().key),
+        )
+        .map_err(|_| AgentBoundaryError::Refused)?;
+        let bytes =
+            Zeroizing::new(serde_json::to_vec(&envelope).map_err(|_| AgentBoundaryError::Refused)?);
+        let mut writer = Writer::new(67);
+        writer.u8(1);
+        writer.bytes(&bytes)?;
+        let mut reader = self.exchange_secret(&writer.finish_secret())?;
+        if reader.u8()? != 1 {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let status = reader.u16()?;
+        let result = reader.bytes()?;
+        reader.finish()?;
+        if status != 200 {
+            return Err(AgentBoundaryError::Refused);
+        }
+        let result: serde_json::Value =
+            serde_json::from_slice(&result).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let value = layerx_sdk::agent_envelope::decode_native_preparation(&result["value"])
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
+        if value.preparation_id != id
+            || value.canonical_bytes != preview.preparation.unsigned_canonical_bytes
+            || value.signing_preimage.as_slice() != preview.preparation.signing_preimage.as_slice()
+        {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        Ok(())
+    }
+
     fn native_journey_admit(
         &mut self,
         call: &Call<IdempotentMutation<PrepareRequest>>,
@@ -5190,134 +5486,19 @@ impl AgentRuntime {
     ) -> Result<crate::journeys::NativeJourneyAdmission, AgentBoundaryError> {
         use crate::journeys::{AgentBoundary as _, NativeJourneyApprovalState as State};
         if let Some((approval_id, held_digest)) = expected {
-            let (context, expiry) = self
-                .native_journey
-                .take()
-                .ok_or(AgentBoundaryError::Refused)?;
             let coordinates =
-                self.native_send_owner_context(&context.session, call.request().request_id.0);
-            self.native_journey = Some((context, expiry));
-            let coordinates = coordinates?;
-            let (context, expiry) = self
-                .native_journey
-                .as_ref()
-                .ok_or(AgentBoundaryError::Refused)?;
-            let statement = &purpose.purpose;
-            let request = &call.request().operation;
-            if statement.preparation_id != approval_id
-                || held_digest == [0; 32]
-                || statement.tenant.as_str() != context.session.tenant
-                || statement.agent_did.as_str() != context.session.owner
-                || statement.owner_did.as_str() != context.session.owner
-                || statement.agent_did != request.actor
-                || statement.consent_public_key != context.session.owner_public_key
-                || statement
-                    .session_id
-                    .to_bytes()
-                    .map_err(|_| AgentBoundaryError::Refused)?
-                    != context.session.session_id
-                || statement
-                    .capability_id
-                    .to_bytes()
-                    .map_err(|_| AgentBoundaryError::Refused)?
-                    != context.capability_id
-                || statement.generation != context.session.generation
-                || statement.expires_at_ms != *expiry
-                || statement.expires_at_ms > context.expires_at_ms
-                || statement.commitment != context.commitment
-                || statement.economic_action != context.session.session_id
-                || statement.idempotency_key != decode_hex32(request.idempotency_key.as_str())?
-                || coordinates.protocol_time_ms >= coordinates.expiry_ms
-                || coordinates.head_sequence < context.session.grant_sequence
-                || coordinates.revocation_sequence == 0
-                || coordinates.revocation_sequence > coordinates.head_sequence
-            {
-                return Err(AgentBoundaryError::Refused);
-            }
-            statement
-                .check_current_owner(
-                    &layerx_agent_api::identity::AgentDid::new(&context.session.owner)
-                        .map_err(|_| AgentBoundaryError::Refused)?,
-                    &context.session.owner_public_key,
-                    &self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
-                )
-                .map_err(|_| AgentBoundaryError::Refused)?;
-            let purpose_digest: [u8; 32] = sha2::Sha256::digest(
-                statement
-                    .canonical_bytes()
-                    .map_err(|_| AgentBoundaryError::Refused)?,
-            )
-            .into();
-            layerx_crypto::ed25519::verify_digest(
-                &purpose.purpose.consent_public_key,
-                &purpose.signature,
-                &purpose_digest,
-            )
-            .map_err(|_| AgentBoundaryError::Refused)?;
-            let facts = self.native_effect_approval_get_facts(approval_id)?;
-            if matches!(
-                facts.state,
-                NativeEffectApprovalFactState::Rejected | NativeEffectApprovalFactState::Expired
-            ) {
-                let material = self.native_effect_approval_material(approval_id, held_digest)?;
-                if facts.approval_id != approval_id
-                    || facts.held_digest != held_digest
-                    || facts.actor != request.actor.as_str()
-                    || facts.owner != statement.owner_did.as_str()
-                    || facts.activity_module != 1
-                    || facts.activity_ordinal != 5
-                    || facts.fee_limit != request.fee_limit.0
-                    || facts.release_ref.is_some()
-                    || facts.submission_ref.is_some()
-                    || material.owner != statement.owner_did.as_str()
-                    || sha2::Sha256::digest(&material.canonical_unsigned_bytes)[..]
-                        != statement.canonical_digest
-                {
-                    return Err(AgentBoundaryError::CorruptResponse);
-                }
-                let transaction = decode_unsigned(&material.canonical_unsigned_bytes)?;
-                statement
-                    .check_prepared_transaction(
-                        2,
-                        transaction.chain_id,
-                        &self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
-                        &sha2::Sha256::digest(&material.canonical_unsigned_bytes).into(),
-                    )
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-                if transaction.chain_id != statement.chain_id
-                    || statement.activity.module != 1
-                    || statement.activity.ordinal != 5
-                    || statement.idempotency_key != decode_hex32(request.idempotency_key.as_str())?
-                {
-                    return Err(AgentBoundaryError::CorruptResponse);
-                }
-                let preimage = transaction.signing_hash().to_vec();
-                let preparation = self.native_journey_preparation(
-                    request,
-                    material.canonical_unsigned_bytes,
-                    preimage,
-                )?;
-                return Ok(crate::journeys::NativeJourneyAdmission {
-                    preparation,
-                    approval_id,
-                    held_digest,
-                    state: if facts.state == NativeEffectApprovalFactState::Rejected {
-                        State::Rejected
-                    } else {
-                        State::Expired
-                    },
-                    release_ref: None,
-                    head_sequence: coordinates.head_sequence,
-                    protocol_time_ms: coordinates.protocol_time_ms,
-                    revocation_sequence: coordinates.revocation_sequence,
-                });
+                self.validate_native_resume_purpose(call, purpose, approval_id, held_digest)?;
+            if let Some(admission) = self.rejected_native_admission(
+                call,
+                purpose,
+                approval_id,
+                held_digest,
+                &coordinates,
+            )? {
+                return Ok(admission);
             }
         }
         let preview = self.native_journey_preview(call)?;
-        let (context, _) = self
-            .native_journey
-            .as_ref()
-            .ok_or(AgentBoundaryError::Refused)?;
         if preview.purpose != purpose.purpose
             || purpose.purpose.consent_public_key != preview.owner_public_key
             || purpose.signature == [0; 64]
@@ -5339,58 +5520,7 @@ impl AgentRuntime {
         let request = &call.request().operation;
         let id = purpose.purpose.preparation_id;
         if expected.is_none() {
-            let body = super::native_send::encode_native_send_prepare_v2(
-                request,
-                purpose,
-                Some(
-                    &context
-                        .signed_grant()
-                        .map_err(|_| AgentBoundaryError::Refused)?,
-                ),
-            )
-            .map_err(|_| AgentBoundaryError::Refused)?;
-            let credential = layerx_sdk::agent_envelope::EnvelopeCredential::new(
-                &context.session.tenant,
-                context.session.session_id,
-                *context.session.credential(),
-                context.session.generation,
-            )
-            .map_err(|_| AgentBoundaryError::Refused)?;
-            let envelope = layerx_sdk::agent_envelope::encode_envelope(
-                layerx_sdk::Operation::Prepare,
-                call.request().request_id,
-                &body,
-                Some(&credential),
-                Some(call.request().key),
-            )
-            .map_err(|_| AgentBoundaryError::Refused)?;
-            let bytes = Zeroizing::new(
-                serde_json::to_vec(&envelope).map_err(|_| AgentBoundaryError::Refused)?,
-            );
-            let mut writer = Writer::new(67);
-            writer.u8(1);
-            writer.bytes(&bytes)?;
-            let mut reader = self.exchange_secret(&writer.finish_secret())?;
-            if reader.u8()? != 1 {
-                return Err(AgentBoundaryError::CorruptResponse);
-            }
-            let status = reader.u16()?;
-            let result = reader.bytes()?;
-            reader.finish()?;
-            if status != 200 {
-                return Err(AgentBoundaryError::Refused);
-            }
-            let result: serde_json::Value =
-                serde_json::from_slice(&result).map_err(|_| AgentBoundaryError::CorruptResponse)?;
-            let value = layerx_sdk::agent_envelope::decode_native_preparation(&result["value"])
-                .ok_or(AgentBoundaryError::CorruptResponse)?;
-            if value.preparation_id != id
-                || value.canonical_bytes != preview.preparation.unsigned_canonical_bytes
-                || value.signing_preimage.as_slice()
-                    != preview.preparation.signing_preimage.as_slice()
-            {
-                return Err(AgentBoundaryError::CorruptResponse);
-            }
+            self.send_native_journey_prepare(call, purpose, &preview)?;
         }
         let facts = self.native_effect_approval_get_facts(id)?;
         if expected.is_some_and(|(approval, digest)| approval != id || digest != facts.held_digest)
@@ -5448,6 +5578,8 @@ fn decode_hex32(text: &str) -> Result<[u8; 32], AgentBoundaryError> {
 }
 
 impl AgentRuntime {
+    /// # Errors
+    /// Returns an error if validation or a required operation fails.
     pub fn native_send_preview_v2(
         &mut self,
         context: &super::native_send::HumanOwnerNativeContextV1,
@@ -5455,42 +5587,10 @@ impl AgentRuntime {
         purpose_expires_ms: u64,
         commitment: [u8; 32],
     ) -> Result<super::native_send::NativeSendPreviewV2, AgentBoundaryError> {
-        let grant = context
-            .signed_grant()
-            .map_err(|_| AgentBoundaryError::Refused)?;
         let session = &context.session;
-        let mut writer = Writer::new(66);
-        writer.u16(1);
-        writer.text(&session.tenant)?;
-        writer.fixed(&session.session_id);
-        writer.fixed(session.credential());
-        writer.u64(session.generation);
-        writer.u64(u64::from_be_bytes(
-            context.capability_id[..8]
-                .try_into()
-                .map_err(|_| AgentBoundaryError::Refused)?,
-        ));
-        writer.u32(request.protocol_activity_type);
-        writer.text(request.actor.as_str())?;
-        writer.text(request.authority.as_str())?;
-        writer.u64(request.account_sequence.0);
-        writer.u64(request.timestamp_bound.not_before.0);
-        writer.u64(request.timestamp_bound.not_after.0);
-        writer.text(request.idempotency_key.as_str())?;
-        writer.u128(request.fee_limit.0);
-        writer.bytes(request.payload.as_bytes())?;
-        writer.fixed(&request.payload_hash);
-        writer.fixed(&context.capability_id);
-        writer.fixed(&session.owner_public_key);
-        writer.u64(purpose_expires_ms);
-        writer.fixed(&commitment);
-        writer.fixed(&session.session_id);
-        writer.bytes(&grant.capability)?;
-        writer.bytes(&grant.session_scope)?;
-        writer.u64(grant.expires_at_ms);
-        writer.fixed(&grant.owner_public_key);
-        writer.fixed(&grant.signature);
-        let mut reader = self.exchange_secret(&writer.finish_secret())?;
+        let request_bytes =
+            encode_native_preview_request(context, request, purpose_expires_ms, commitment)?;
+        let mut reader = self.exchange_secret(&request_bytes)?;
         if reader.u16()? != 1 {
             return Err(AgentBoundaryError::CorruptResponse);
         }
@@ -5562,4 +5662,48 @@ impl AgentRuntime {
         }
         Ok(value)
     }
+}
+
+fn encode_native_preview_request(
+    context: &super::native_send::HumanOwnerNativeContextV1,
+    request: &PrepareRequest,
+    purpose_expires_ms: u64,
+    commitment: [u8; 32],
+) -> Result<Zeroizing<Vec<u8>>, AgentBoundaryError> {
+    let session = &context.session;
+    let grant = context
+        .signed_grant()
+        .map_err(|_| AgentBoundaryError::Refused)?;
+    let mut writer = Writer::new(66);
+    writer.u16(1);
+    writer.text(&session.tenant)?;
+    writer.fixed(&session.session_id);
+    writer.fixed(session.credential());
+    writer.u64(session.generation);
+    writer.u64(u64::from_be_bytes(
+        context.capability_id[..8]
+            .try_into()
+            .map_err(|_| AgentBoundaryError::Refused)?,
+    ));
+    writer.u32(request.protocol_activity_type);
+    writer.text(request.actor.as_str())?;
+    writer.text(request.authority.as_str())?;
+    writer.u64(request.account_sequence.0);
+    writer.u64(request.timestamp_bound.not_before.0);
+    writer.u64(request.timestamp_bound.not_after.0);
+    writer.text(request.idempotency_key.as_str())?;
+    writer.u128(request.fee_limit.0);
+    writer.bytes(request.payload.as_bytes())?;
+    writer.fixed(&request.payload_hash);
+    writer.fixed(&context.capability_id);
+    writer.fixed(&session.owner_public_key);
+    writer.u64(purpose_expires_ms);
+    writer.fixed(&commitment);
+    writer.fixed(&session.session_id);
+    writer.bytes(&grant.capability)?;
+    writer.bytes(&grant.session_scope)?;
+    writer.u64(grant.expires_at_ms);
+    writer.fixed(&grant.owner_public_key);
+    writer.fixed(&grant.signature);
+    Ok(writer.finish_secret())
 }

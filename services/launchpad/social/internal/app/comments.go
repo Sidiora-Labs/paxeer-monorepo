@@ -52,7 +52,7 @@ func (c *socialComments) page(ctx context.Context, pool string, limit int, curso
 	if err != nil {
 		return out, nil, "", err
 	}
-	defer tx.Rollback(ctx)
+	defer rollbackTx(ctx, tx)
 	var overlay string
 	err = tx.QueryRow(ctx, `SELECT COALESCE(sum(v.revision),0)::text FROM chat.safety_visibility v JOIN chat.interaction_comments c ON v.target_type='comment' AND v.target_id=c.id WHERE c.pool=$1`, pool).Scan(&overlay)
 	if err != nil {
@@ -97,10 +97,10 @@ func commentSnapshotTag(pool, cursor string, limit int, overlay string, views []
 }
 func commentListPath(path string) (pool string, frozen bool, ok bool) {
 	p := strings.Split(path, "/")
-	if len(p) == 5 && p[1] == "v2" && p[2] == "pools" && p[4] == "comments" {
+	if len(p) == 5 && p[1] == "v2" && p[2] == "pools" && p[4] == commentsResource {
 		return p[3], true, true
 	}
-	if len(p) == 6 && p[1] == "v2" && p[2] == "social" && p[3] == "pool" && p[5] == "comments" {
+	if len(p) == 6 && p[1] == "v2" && p[2] == socialService && p[3] == poolResource && p[5] == commentsResource {
 		return p[4], false, true
 	}
 	return "", false, false
@@ -110,19 +110,19 @@ func commentReadError(w http.ResponseWriter, req *http.Request, frozen bool, err
 		frozenError(w, req, err)
 		return
 	}
-	status, code := 503, "DEPENDENCY_UNAVAILABLE"
+	status, code := 503, dependencyUnavailableCode
 	switch {
 	case errors.Is(err, interactions.ErrInvalid):
 		status, code = 400, "INVALID_INPUT"
 	case errors.Is(err, pgx.ErrNoRows):
-		status, code = 404, "NOT_FOUND"
+		status, code = 404, notFoundCode
 	case errors.Is(err, interactions.ErrDenied):
-		status, code = 403, "SCOPE_DENIED"
+		status, code = 403, scopeDeniedCode
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"code": code, "retryable": status == 503})
+	_ = json.NewEncoder(w).Encode(map[string]any{codeField: code, "retryable": status == 503})
 }
 func (c *socialComments) reads(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

@@ -231,7 +231,7 @@ func (s *Service) liveRebuildTx(ctx context.Context, tx pgx.Tx, wallet, token st
 				gasRecorded[m.TransactionHash] = record
 			}
 		}
-		if record.Leg.Kind == "sell" || record.Leg.Kind == "outgoing" || record.Leg.Kind == "burn" {
+		if record.Leg.Kind == sideSell || record.Leg.Kind == movementOutgoing || record.Leg.Kind == movementBurn {
 			var allocation Disposal
 			state, allocation, e = Dispose(state, record.Leg.Quantity, record.Leg.ActualUSDL)
 			record.Allocation = &allocation
@@ -417,7 +417,7 @@ func (a *BaselineAuthority) liveMovementPages(ctx context.Context, tx pgx.Tx, to
 					rows.Close()
 					return nil, "", "", e
 				}
-				if logIndex < 0 || logIndex > 1<<32-1 || txIndex < 0 || txIndex > 1<<32-1 || emitter != token {
+				if m.Height < 0 || logIndex < 0 || logIndex > 1<<32-1 || txIndex < 0 || txIndex > 1<<32-1 || emitter != token {
 					rows.Close()
 					return nil, "", "", delivery.ErrIntegrity
 				}
@@ -613,7 +613,7 @@ func (a *BaselineAuthority) liveReceiptSettlement(ctx context.Context, tx pgx.Tx
 			if log == nil {
 				return result, delivery.ErrIntegrity
 			}
-			if uint64(log.Index) >= end || used[uint32(log.Index)] || len(log.Topics) == 0 || log.Topics[0] != transferTopic {
+			if uint64(log.Index) >= end || uint64(log.Index) > uint64(^uint32(0)) || used[uint32(log.Index)] || len(log.Topics) == 0 || log.Topics[0] != transferTopic {
 				continue
 			}
 			emitter := strings.ToLower(log.Address.Hex())
@@ -627,10 +627,10 @@ func (a *BaselineAuthority) liveReceiptSettlement(ctx context.Context, tx pgx.Tx
 			if m.TransactionHash != f.Position.TransactionHash || m.BlockHash != f.Position.BlockHash || strconv.FormatInt(m.Height, 10) != f.Position.Height || strconv.FormatUint(uint64(m.TransactionIndex), 10) != f.Position.TransactionIndex {
 				return result, delivery.ErrIntegrity
 			}
-			if emitter == f.Token.Address && m.Amount == f.TokenAmountRaw && (f.Side == "buy" && m.From == f.PoolAddress || f.Side == "sell" && m.To == f.PoolAddress) {
+			if emitter == f.Token.Address && m.Amount == f.TokenAmountRaw && (f.Side == sideBuy && m.From == f.PoolAddress || f.Side == sideSell && m.To == f.PoolAddress) {
 				tokenCandidates = append(tokenCandidates, m)
 			}
-			if emitter == f.Settlement.Address && m.Amount == f.USDLAmountRaw && (f.Side == "buy" && m.To == f.PoolAddress || f.Side == "sell" && m.From == f.PoolAddress) {
+			if emitter == f.Settlement.Address && m.Amount == f.USDLAmountRaw && (f.Side == sideBuy && m.To == f.PoolAddress || f.Side == sideSell && m.From == f.PoolAddress) {
 				quoteCandidates = append(quoteCandidates, m)
 			}
 		}
@@ -641,7 +641,7 @@ func (a *BaselineAuthority) liveReceiptSettlement(ctx context.Context, tx pgx.Tx
 		used[token.LogIndex] = true
 		used[quote.LogIndex] = true
 		payer, recipient := quote.From, token.To
-		if f.Side == "sell" {
+		if f.Side == sideSell {
 			payer, recipient = token.From, quote.To
 		}
 		if payer == zeroAddress || recipient == zeroAddress {
@@ -656,7 +656,7 @@ func (a *BaselineAuthority) liveReceiptSettlement(ctx context.Context, tx pgx.Tx
 			if parseErr != nil {
 				return result, parseErr
 			}
-			if f.Side == "buy" {
+			if f.Side == sideBuy {
 				expectedNet[account].Sub(expectedNet[account], amount)
 			} else {
 				expectedNet[account].Add(expectedNet[account], amount)
@@ -1057,7 +1057,7 @@ func (w *LiveTransferWorker) commitWalletTx(ctx context.Context, tx pgx.Tx, wall
 		return summary, "", delivery.ErrIntegrity
 	}
 	at := time.Unix(int64(header.Time), 0).UTC()
-	watermark := l17.Watermark{ChainID: "125", Height: strconv.FormatInt(head, 10), BlockHash: headHash, ProjectionRevision: revision.String(), ObservedAt: at.Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"}
+	watermark := l17.Watermark{ChainID: "125", Height: strconv.FormatInt(head, 10), BlockHash: headHash, ProjectionRevision: revision.String(), ObservedAt: at.Format("2006-01-02T15:04:05.000Z"), Integrity: statusHealthy}
 	positions := make([]l17.Position, 0, len(snapshots))
 	for _, snapshot := range snapshots {
 		parts := strings.Split(snapshot.Partition, ":")
@@ -1068,7 +1068,7 @@ func (w *LiveTransferWorker) commitWalletTx(ctx context.Context, tx pgx.Tx, wall
 		if e != nil {
 			return summary, "", e
 		}
-		quality := "unpriced"
+		quality := statusUnpriced
 		if mark != nil {
 			quality = "priced"
 		}
@@ -1088,8 +1088,8 @@ func (w *LiveTransferWorker) commitWalletTx(ctx context.Context, tx pgx.Tx, wall
 	if e != nil {
 		return summary, "", e
 	}
-	envelope := delivery.Envelope{EventID: source, EventType: "portfolio.snapshot.v2", SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(head, 10), TransactionIndex: "0", LogIndex: "0"}, EmittedAt: at, TraceID: source, PayloadHash: delivery.Hash(payload), Payload: payload}
-	summary, e = w.repository.CommitFullProjectionDeliveryTx(ctx, tx, w.service.outbox, "portfolio.snapshot.v2", source, summary, positions, time.Now().UTC().Add(24*time.Hour), envelope)
+	envelope := delivery.Envelope{EventID: source, EventType: portfolioSnapshotV2, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: strconv.FormatInt(head, 10), TransactionIndex: "0", LogIndex: "0"}, EmittedAt: at, TraceID: source, PayloadHash: delivery.Hash(payload), Payload: payload}
+	summary, e = w.repository.CommitFullProjectionDeliveryTx(ctx, tx, w.service.outbox, portfolioSnapshotV2, source, summary, positions, time.Now().UTC().Add(24*time.Hour), envelope)
 	if e != nil {
 		return summary, "", e
 	}

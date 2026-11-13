@@ -5,9 +5,11 @@ go|services/platform/examples/samples/first-payment-go/go.mod|local-replacements
 maven|services/platform/examples/samples/first-payment-jvm/pom.xml|install-resolved
 python|services/platform/examples/samples/first-payment-python/requirements.txt|compile-only-manifest
 swift|services/platform/examples/samples/first-payment-swift/Package.swift|local-replacements
+swift-lock|services/platform/examples/samples/first-payment-swift/Package.resolved|revision-locked
 npm|services/platform/examples/samples/first-payment-typescript/package.json|covered-by-root-npm
 maven|services/platform/examples/samples/mobile-payment-android/pom.xml|install-resolved
 swift|services/platform/examples/samples/mobile-payment-ios/Package.swift|local-replacements
+swift-lock|services/platform/examples/samples/mobile-payment-ios/Package.resolved|revision-locked
 npm|services/platform/examples/samples/paid-endpoint-express/package.json|covered-by-root-npm
 python|services/platform/examples/samples/paid-endpoint-fastapi/requirements.txt|compile-only-manifest
 maven|services/platform/examples/samples/paid-endpoint-spring/pom.xml|install-resolved
@@ -30,7 +32,6 @@ npm|services/platform/hosted/dashboard/web/package.json|covered-by-human-dashboa
 rust|services/platform/hosted/faucet/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/feeder/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/gateway/Cargo.toml|covered-by-platform-cargo
-rust|services/platform/hosted/gateway/tests/local/Cargo.toml|locked-independent
 rust|services/platform/hosted/identity/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/indexer/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/hosted/internal/Cargo.toml|covered-by-platform-cargo
@@ -52,3 +53,6 @@ rust|services/platform/ramps/toolkit/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/tools/benchmark/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/tools/kvx/Cargo.toml|covered-by-platform-cargo
 rust|services/platform/tools/workspace-gate/Cargo.toml|covered-by-platform-cargo
+python|services/platform/hosted/paxeer/requirements.txt|covered-by-python-source:services/platform/hosted/paxeer/evm.py
+rust|services/platform/perf-db/Cargo.toml|locked-independent
+rust|services/platform/perf-db/src/storage/repair_139/Cargo.toml|covered-by-test:services/platform/perf-db/src/storage/repair_139_test.go

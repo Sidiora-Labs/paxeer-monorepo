@@ -703,10 +703,12 @@ impl Store {
         )
     }
 
+    #[must_use]
     pub fn verification_result(&self, digest: &str) -> Option<&VerificationResult> {
         self.state.verifications.get(digest)
     }
 
+    #[must_use]
     pub fn signup_deliveries(&self) -> Vec<(String, SignupDelivery)> {
         self.state
             .deliveries
@@ -715,6 +717,8 @@ impl Store {
             .collect()
     }
 
+    /// # Errors
+    /// Returns an error when the acceptance record cannot be appended.
     pub fn delivery_accepted(&mut self, digest: &str) -> Result<(), String> {
         if self.state.deliveries.contains_key(digest) {
             self.append(&Record::DeliveryAccepted {
@@ -725,6 +729,8 @@ impl Store {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error when reclaimed state cannot be journaled or checkpointed.
     pub fn reclaim_signups(&mut self, now: u64) -> Result<(), String> {
         if now < self.state.next_signup_reclaim {
             return Ok(());
@@ -772,6 +778,8 @@ impl Store {
         Ok(())
     }
 
+    /// # Errors
+    /// Returns an error when admission state cannot be reclaimed or appended.
     pub fn admit_signup_hour(
         &mut self,
         ip: &str,
@@ -807,6 +815,8 @@ impl Store {
         Ok(Ok(()))
     }
 
+    /// # Errors
+    /// Refuses an invalid signup or delivery and failed durable writes.
     pub fn put_signup_delivery(
         &mut self,
         signup: PendingSignup,
@@ -842,6 +852,8 @@ impl Store {
         Ok(())
     }
 
+    /// # Errors
+    /// Refuses expired or conflicting signup state and failed durable writes.
     pub fn verify_signup_session(
         &mut self,
         digest: &str,
@@ -943,6 +955,8 @@ impl Store {
         self.state.insert_credit(credit)
     }
 
+    /// # Errors
+    /// Refuses an unknown or settled credit and failed durable writes.
     pub fn reissue_starter_credit(&mut self, sub: &str, amount: &str) -> Result<(), String> {
         let credit = self
             .state

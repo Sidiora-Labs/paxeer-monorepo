@@ -12,32 +12,37 @@ fn bytes(value: &Value) -> Vec<u8> {
     let hex = value
         .as_str()
         .and_then(|value| value.strip_prefix("0x"))
-        .expect("fixture hex");
+        .unwrap_or_else(|| panic!("fixture hex"));
     assert_eq!(hex.len() % 2, 0);
     hex.as_bytes()
         .chunks_exact(2)
         .map(|pair| {
-            u8::from_str_radix(std::str::from_utf8(pair).expect("hex digits"), 16)
-                .expect("hex byte")
+            u8::from_str_radix(
+                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("hex digits: {error:?}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("hex byte: {error:?}"))
         })
         .collect()
 }
 
 fn fixed<const N: usize>(value: &Value) -> [u8; N] {
-    bytes(value).try_into().expect("fixture field length")
+    bytes(value)
+        .try_into()
+        .unwrap_or_else(|error| panic!("fixture field length: {error:?}"))
 }
 
 fn recorded_case() -> Value {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
-    .expect("recorded sequencer fixture");
+    .unwrap_or_else(|error| panic!("recorded sequencer fixture: {error:?}"));
     fixture["cases"]
         .as_array()
-        .expect("fixture cases")
+        .unwrap_or_else(|| panic!("fixture cases"))
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .expect("recorded payExact case")
+        .unwrap_or_else(|| panic!("recorded payExact case"))
         .clone()
 }
 
@@ -53,7 +58,7 @@ fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
     [5, 0, 1].map(|word| {
         transaction[start + word * 32..start + (word + 1) * 32]
             .try_into()
-            .expect("recorded payExact calldata word")
+            .unwrap_or_else(|error| panic!("recorded payExact calldata word: {error:?}"))
     })
 }
 
@@ -63,14 +68,14 @@ fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1],
     assert_eq!(receipt["rung"], "receipted");
     let logs = receipt["logs"]
         .as_array()
-        .expect("recorded logs")
+        .unwrap_or_else(|| panic!("recorded logs"))
         .iter()
         .map(|log| {
             SequencerLog::new(
                 fixed(&log["address"]),
                 log["topics"]
                     .as_array()
-                    .expect("log topics")
+                    .unwrap_or_else(|| panic!("log topics"))
                     .iter()
                     .map(fixed)
                     .collect(),
@@ -79,10 +84,10 @@ fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1],
                     log["logIndex"]
                         .as_str()
                         .and_then(|index| index.strip_prefix("0x"))
-                        .expect("log index"),
+                        .unwrap_or_else(|| panic!("log index")),
                     16,
                 )
-                .expect("hex log index"),
+                .unwrap_or_else(|error| panic!("hex log index: {error:?}")),
             )
         })
         .collect();
@@ -97,8 +102,12 @@ fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1],
         [SequencerAuthorization::new(
             fixed(&key["keyId"]),
             fixed(&key["publicKey"]),
-            key["firstHeight"].as_u64().expect("first pinned height"),
-            key["lastHeight"].as_u64().expect("last pinned height"),
+            key["firstHeight"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("first pinned height")),
+            key["lastHeight"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("last pinned height")),
         )],
         fixed(&case["receiptDigest"]),
     )
@@ -151,8 +160,8 @@ fn signed_recorded_payment(
     unsigned.extend_from_slice(&signature);
     evidence.signed_receipt = unsigned;
     evidence.logs = vec![payment];
-    let receipt_digest =
-        canonical_receipt_digest(&evidence.signed_receipt).expect("native-order receipt digest");
+    let receipt_digest = canonical_receipt_digest(&evidence.signed_receipt)
+        .unwrap_or_else(|error| panic!("native-order receipt digest: {error:?}"));
     (evidence, keys, receipt_digest)
 }
 
@@ -205,7 +214,7 @@ fn visa_result_digest_is_the_recorded_receipt_digest() {
     let (evidence, keys, recorded_digest) = recorded_payment();
     let reference = evidence.logs[0].topics()[1];
     let result = MerchantOperationResult::from_receipt(&evidence, &keys, reference)
-        .expect("recorded payment must verify");
+        .unwrap_or_else(|error| panic!("recorded payment must verify: {error:?}"));
     let MerchantOperationResult::ReceiptVerified { receipt_digest, .. } = result else {
         panic!("recorded payment must produce a receipt-verified result");
     };

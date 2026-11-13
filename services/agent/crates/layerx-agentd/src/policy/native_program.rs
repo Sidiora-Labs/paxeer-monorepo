@@ -845,13 +845,18 @@ mod native_effect_policy_tests {
     }
 
     fn bytes(value: &serde_json::Value) -> Vec<u8> {
-        serde_json::to_vec(value).expect("real configured JSON source")
+        let Ok(encoded) = serde_json::to_vec(value) else {
+            panic!("real configured JSON source");
+        };
+        encoded
     }
 
     #[test]
     fn native_effect_policy_profile_is_closed_and_separate_from_programs() {
         let encoded = bytes(&source());
-        let policy = NativeEffectPolicy::load(&encoded).expect("non-Programs source");
+        let Ok(policy) = NativeEffectPolicy::load(&encoded) else {
+            panic!("non-Programs source");
+        };
         assert_eq!(policy.source(), encoded);
         assert!(policy.parsed.rules[0].required_approval);
         assert!(NativeProgramPolicy::load(&encoded).is_err());
@@ -879,7 +884,9 @@ mod native_effect_policy_tests {
         value["rules"][0]["scope"] = serde_json::json!({ "kind": "Transfer",
             "from": ([1; 32].to_vec()), "to": ([2; 32].to_vec()), "asset": ([3; 32].to_vec()),
             "maximum_amount": "40" });
-        let policy = NativeEffectPolicy::load(&bytes(&value)).expect("complete scope");
+        let Ok(policy) = NativeEffectPolicy::load(&bytes(&value)) else {
+            panic!("complete scope");
+        };
         let scope = &policy.parsed.rules[0].scope;
         assert_eq!(
             scope.matching_amount(&crate::capability::Effect::Transfer {

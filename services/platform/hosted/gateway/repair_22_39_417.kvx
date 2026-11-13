@@ -1,0 +1,44 @@
+[documentation]
+lint = "missing_errors_doc, missing_panics_doc, doc_markdown"
+files_changed = ["src/ai_views.rs", "src/explorer_target.rs", "src/runtime.rs", "src/evm.rs", "src/http.rs", "src/lib.rs", "src/committed_state.rs"]
+fact = "Gateway configuration, transport, ABI decoding, receipt verification, and committed state validation report their error conditions; the compiled route catalogue has explicit shape requirements."
+
+[returned_values]
+lint = "must_use_candidate, return_self_not_must_use"
+files_changed = ["src/explorer_target.rs", "src/http.rs", "src/lib.rs"]
+fact = "Routing predicates, client configuration, and receipt key accessors return values used by callers."
+
+[http_shape]
+lint = "too_many_lines, format_collect, collapsible_else_if, inconsistent_struct_constructor, nonminimal_bool, items_after_test_module"
+files_changed = ["src/http.rs"]
+fact = "HTTP boundary checks, request headers, response fields, and UI response handling retain their existing wire behavior."
+
+[other_shapes]
+lint = "unreadable_literal, unused_unit, similar_names, match_wildcard_for_single_variants, expect_used, manual_is_multiple_of, cast_possible_truncation"
+files_changed = ["src/evm.rs", "src/routes.rs", "src/ws.rs", "src/main.rs", "src/lib.rs", "src/encoding.rs", "src/committed_state.rs"]
+fact = "Gateway routing, WebSocket reads, wallet identity configuration, and catalogue access preserve their existing outcomes."
+
+[server_routes]
+lint = "struct_excessive_bools, needless_pass_by_value, manual_range_contains, redundant_closure_for_method_calls, manual_let_else, type_complexity, nonminimal_bool, cast_possible_truncation, too_many_lines, unused_self, question_mark, needless_borrow"
+files_changed = ["src/capabilities.rs", "src/chain_reads.rs", "src/explorer_proxy.rs", "src/history.rs", "src/paxeer.rs", "src/routes.rs", "src/state.rs"]
+fact = "Surface probes, consensus reads, history pages, and routed requests retain their existing admission and response values."
+
+[server_transports]
+lint = "expect_used, struct_field_names, non_upper_case_globals, match_wildcard_for_single_variants, needless_pass_by_value, format_push_string, checked_conversions, single_match_else, too_many_lines"
+files_changed = ["src/rpc.rs", "src/rpc_faucet.rs", "src/rpc_register.rs", "src/ui_proxy.rs", "src/ws.rs"]
+fact = "RPC method names, faucet evidence, registration, UI requests, and WebSocket frames retain their wire values."
+
+[wallet_and_runtime]
+lint = "default_trait_access, too_many_lines, cast_possible_truncation, expect_used, similar_names, duplicate_mod"
+files_changed = ["src/main.rs", "src/runtime.rs", "src/encoding.rs"]
+fact = "Wallet identity frames use bounded lengths, and the gateway listener uses the same configuration and response paths."
+
+[included_sources]
+lint = "unused_imports, dead_code, unused_braces, clippy::all, clippy::pedantic, clippy::unwrap_used, clippy::expect_used, clippy::float_arithmetic, clippy::lossy_float_literal"
+files_changed = ["src/lib.rs", "src/paxeer.rs", "src/state.rs", "tests/repair_22_31_345.rs", "tests/repair_22_33_1439.rs", "tests/repair_22_33_1440.rs"]
+fact = "Gateway modules include committed receipt, program, identity, wallet, and platform sources at their declaration boundaries."
+
+[test_paths]
+lint = "too_many_lines, needless_borrow, dead_code"
+files_changed = ["tests/chain_only_readiness.rs", "tests/router_surface.rs", "tests/repair_22_33_1441.rs", "tests/receipt_keys.rs", "tests/unified_service_paths.rs", "tests/registration_tenant_boundary.rs", "tests/one_source_reads.rs", "tests/repair_22_31_202.rs", "src/rpc.rs", "src/settlement.rs", "src/main.rs"]
+fact = "Gateway tests retain their request, response, receipt, readiness, registration, and transport assertions while sharing setup and focused checks through helpers."

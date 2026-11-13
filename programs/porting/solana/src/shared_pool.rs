@@ -391,6 +391,9 @@ impl SharedPoolPort {
             i32::try_from(reserve_key.len()).map_err(|_| PortRefusal::InvalidSeeds)?;
         let participant_key_len =
             i32::try_from(participant_key.len()).map_err(|_| PortRefusal::InvalidSeeds)?;
+        let query_bytes =
+            i32::try_from(POOL_QUERY_BYTES).map_err(|_| PortRefusal::AccountBounds)?;
+        let pubkey_bytes = i32::try_from(PUBKEY_BYTES).map_err(|_| PortRefusal::AccountBounds)?;
         let mut builder = ModuleBuilder::new(1);
         let scoped_type = builder.signature(&[I32; 5], &[I32]);
         let transfer_type = builder.signature(&[I64, I64, I32, I32, I32, I32], &[I32]);
@@ -427,6 +430,7 @@ impl SharedPoolPort {
             transfer,
             reserve_key_len,
             participant_key_len,
+            pubkey_bytes,
         );
         let mut reserve = Code::new();
         reserve.local_get(0);
@@ -440,6 +444,32 @@ impl SharedPoolPort {
         reserve.pointer(INPUT);
         reserve.end();
         let reserve = builder.function(reserve_type, &[], &reserve);
+        let entry = Self::emit_entry(
+            &mut builder,
+            entry_type,
+            load,
+            deposit,
+            response,
+            query_bytes,
+        );
+        builder.export_memory("memory");
+        builder.export_function("layerx_reserve", reserve);
+        builder.export_function(layerx_programs_runtime::CALL_ENTRY_EXPORT, entry);
+        let wasm = builder.finish();
+        if wasm.len() as u64 > layerx_programs_runtime::limits::DEFAULT_MAX_MODULE_BYTES {
+            return Err(PortRefusal::ModuleTooLarge);
+        }
+        Ok(wasm)
+    }
+
+    fn emit_entry(
+        builder: &mut ModuleBuilder,
+        signature: u32,
+        load: u32,
+        deposit: u32,
+        response: u32,
+        query_bytes: i32,
+    ) -> u32 {
         let mut entry = Code::new();
         entry.local_get(0);
         entry.pointer(INPUT);
@@ -483,20 +513,12 @@ impl SharedPoolPort {
         entry.call(load);
         entry.i32_const(0);
         entry.pointer(RESERVE);
-        entry.i32_const(POOL_QUERY_BYTES as i32);
+        entry.i32_const(query_bytes);
         entry.call(response);
         entry.trap_unless_ok();
         entry.i32_const(0);
         entry.end();
-        let entry = builder.function(entry_type, &[], &entry);
-        builder.export_memory("memory");
-        builder.export_function("layerx_reserve", reserve);
-        builder.export_function(layerx_programs_runtime::CALL_ENTRY_EXPORT, entry);
-        let wasm = builder.finish();
-        if wasm.len() as u64 > layerx_programs_runtime::limits::DEFAULT_MAX_MODULE_BYTES {
-            return Err(PortRefusal::ModuleTooLarge);
-        }
-        Ok(wasm)
+        builder.function(signature, &[], &entry)
     }
 
     /// Validates the emitted pool against the production ABI-v2 engine.
@@ -561,9 +583,9 @@ impl SharedPoolPort {
             code.trap_if();
             code.end();
         }
-        for (index, chunk) in self.authority.chunks_exact(8).enumerate() {
+        for (index, chunk) in (0_u32..).zip(self.authority.chunks_exact(8)) {
             code.pointer(RESERVE);
-            code.memory(I64_LOAD, 20 + index as u32 * 8);
+            code.memory(I64_LOAD, 20 + index * 8);
             code.i64_const(i64::from_le_bytes(
                 chunk
                     .try_into()
@@ -586,6 +608,7 @@ impl SharedPoolPort {
         transfer: u32,
         reserve_key_len: i32,
         participant_key_len: i32,
+        pubkey_bytes: i32,
     ) -> u32 {
         let mut code = Code::new();
         code.local_get(0);
@@ -643,9 +666,9 @@ impl SharedPoolPort {
         code.i64_const(0);
         code.local_get(0);
         code.pointer(ASSET);
-        code.i32_const(PUBKEY_BYTES as i32);
+        code.i32_const(pubkey_bytes);
         code.pointer(DESTINATION);
-        code.i32_const(PUBKEY_BYTES as i32);
+        code.i32_const(pubkey_bytes);
         code.call(transfer);
         code.trap_unless_ok();
         code.end();

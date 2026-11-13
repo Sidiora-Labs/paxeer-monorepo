@@ -27,7 +27,8 @@ fn beta_send_uses_native_account_ids_in_signed_payload_and_authorization() {
     .unwrap_or_else(|error| panic!("{error}"));
     let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&signed.canonical)
         .unwrap_or_else(|error| panic!("{error:?}"));
-    let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature).unwrap();
+    let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
     assert_eq!(
         Some(sender),
         SeedSigner::new(&[9; 32]).transaction_signer().evm_address()
@@ -36,9 +37,11 @@ fn beta_send_uses_native_account_ids_in_signed_payload_and_authorization() {
         call.to,
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a]
     );
-    let disclosure = layerx_crypto::payments::bind_call(&call, sender).unwrap();
-    let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) =
-        disclosure.construct_method().unwrap()
+    let disclosure = layerx_crypto::payments::bind_call(&call, sender)
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
+    let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) = disclosure
+        .construct_method()
+        .unwrap_or_else(|error| panic!("required value: {error:?}"))
     else {
         panic!("ledger send calldata required")
     };
@@ -56,15 +59,15 @@ fn beta_send_uses_native_account_ids_in_signed_payload_and_authorization() {
     );
 }
 
-#[path = "support/native_funding.rs"]
-mod native_funding;
-
-mod boundary {
+pub mod boundary {
     include!("../src/main.rs");
+    include!("support/native_funding.rs");
 
     fn test_config(root: &Path, seed: &[u8; 32]) -> Arc<Config> {
-        let certificate = fs::read(root.join("certificate.der")).unwrap();
-        let key = fs::read(root.join("key.der")).unwrap();
+        let certificate = fs::read(root.join("certificate.der"))
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let key = fs::read(root.join("key.der"))
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let tls = Arc::new(
             ServerConfig::builder()
                 .with_no_client_auth()
@@ -72,29 +75,35 @@ mod boundary {
                     vec![CertificateDer::from(certificate.clone())],
                     PrivateKeyDer::from(PrivatePkcs8KeyDer::from(key)),
                 )
-                .unwrap(),
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
         );
         let treasury = layerx_platform_core::SeedSigner::new(seed);
         Arc::new(Config {
-            listen: "127.0.0.1:0".parse().unwrap(),
-            admin_listen: "127.0.0.1:0".parse().unwrap(),
+            listen: "127.0.0.1:0"
+                .parse()
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+            admin_listen: "127.0.0.1:0"
+                .parse()
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
             tls: Arc::clone(&tls),
             admin_tls: tls,
-            sequencer: SequencerEndpoint::new("https://localhost:1", &[&certificate]).unwrap(),
-            network: PxEndpoint::new("https://localhost:1", &[&certificate]).unwrap(),
+            sequencer: SequencerEndpoint::new("https://localhost:1", &[&certificate])
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
+            network: PxEndpoint::new("https://localhost:1", &[&certificate])
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
             network_id: 42,
-            node: NodeEndpoint {
+            _node: NodeEndpoint {
                 host: "127.0.0.1".into(),
                 port: 1,
             },
-            node_token: Zeroizing::new("test-node-token".into()),
+            _node_token: Zeroizing::new("test-node-token".into()),
             receipt_events_token: None,
-            wallet_caps_token: None,
-            replica: NodeEndpoint {
+            _wallet_caps_token: None,
+            _replica: NodeEndpoint {
                 host: "127.0.0.1".into(),
                 port: 1,
             },
-            replica_token: Zeroizing::new("test-replica-token".into()),
+            _replica_token: Zeroizing::new("test-replica-token".into()),
             admin_token: Zeroizing::new("test-admin-token".into()),
             treasury_did: did_for_public_key(&treasury.public_key()),
             treasury: Arc::new(treasury),
@@ -103,7 +112,7 @@ mod boundary {
             sequencer_id: [4; 32],
             supervisor_socket: root.join("supervisor.sock"),
             state_dir: root.to_path_buf(),
-            fee_limit: 1000,
+            _fee_limit: 1000,
             receipt_deadline: Duration::from_secs(1),
             admin_lock: Mutex::new(()),
             journal_lock: Mutex::new(()),
@@ -116,66 +125,99 @@ mod boundary {
         path: &str,
         body: &[u8],
     ) -> (u16, serde_json::Value) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let address = listener.local_addr().unwrap();
-        let certificate = fs::read(config.state_dir.join("certificate.der")).unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let certificate = fs::read(config.state_dir.join("certificate.der"))
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let plane = if path.starts_with("/v1/") {
             Plane::Core
         } else {
             Plane::Admin
         };
         let worker = thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            handle_connection(&config, plane, stream).unwrap();
+            let (stream, _) = listener
+                .accept()
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
+            handle_connection(&config, plane, stream)
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
         });
         let connector = native_tls::TlsConnector::builder()
-            .add_root_certificate(native_tls::Certificate::from_der(&certificate).unwrap())
+            .add_root_certificate(
+                native_tls::Certificate::from_der(&certificate)
+                    .unwrap_or_else(|error| panic!("required value: {error:?}")),
+            )
             .build()
-            .unwrap();
-        let tcp = TcpStream::connect(address).unwrap();
-        tcp.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
-        tcp.set_write_timeout(Some(Duration::from_secs(5))).unwrap();
-        let mut stream = connector.connect("localhost", tcp).unwrap();
-        write!(stream, "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer test-admin-token\r\nContent-Type: application/json\r\nIdempotency-Key: eip1559-round-trip\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap();
-        stream.write_all(body).unwrap();
-        stream.flush().unwrap();
-        let response = read_http_message(&mut stream, MAX_REQUEST_BYTES).unwrap();
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let tcp =
+            TcpStream::connect(address).unwrap_or_else(|error| panic!("required value: {error:?}"));
+        tcp.set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        tcp.set_write_timeout(Some(Duration::from_secs(5)))
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let mut stream = connector
+            .connect("localhost", tcp)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        write!(stream, "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer test-admin-token\r\nContent-Type: application/json\r\nIdempotency-Key: eip1559-round-trip\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap_or_else(|error| panic!("required value: {error:?}"));
+        stream
+            .write_all(body)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        stream
+            .flush()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let response = read_http_message(&mut stream, MAX_REQUEST_BYTES)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let status = response.headers[""]
             .split_whitespace()
             .nth(1)
-            .unwrap()
+            .unwrap_or_else(|| panic!("required value"))
             .parse()
-            .unwrap();
-        let body = serde_json::from_slice(&response.body).unwrap();
-        worker.join().unwrap();
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let body = serde_json::from_slice(&response.body)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        worker
+            .join()
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         (status, body)
     }
 
     pub(super) fn round_trip() {
-        install_provider().unwrap();
-        let root = std::env::temp_dir().join(format!("layerx-core-eip1559-{}", std::process::id()));
-        fs::DirBuilder::new().mode(0o700).create(&root).unwrap();
         struct Cleanup(PathBuf);
         impl Drop for Cleanup {
             fn drop(&mut self) {
-                fs::remove_dir_all(&self.0).unwrap();
+                fs::remove_dir_all(&self.0)
+                    .unwrap_or_else(|error| panic!("required value: {error:?}"));
             }
         }
+        install_provider().unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let root = std::env::temp_dir().join(format!("layerx-core-eip1559-{}", std::process::id()));
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let _cleanup = Cleanup(root.clone());
         for directory in ["journal", "funding-intents", "funding-receipts"] {
             fs::DirBuilder::new()
                 .mode(0o700)
                 .create(root.join(directory))
-                .unwrap();
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
         }
         let recorded: serde_json::Value =
-            serde_json::from_str(include_str!("../src/repair_22_31_354_transcripts.json")).unwrap();
+            serde_json::from_str(include_str!("../src/repair_22_31_354_transcripts.json"))
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
         for (name, field) in [("certificate.der", "certificate"), ("key.der", "key")] {
             fs::write(
                 root.join(name),
-                hex_decode(recorded["tls"][field].as_str().unwrap()).unwrap(),
+                hex_decode(
+                    recorded["tls"][field]
+                        .as_str()
+                        .unwrap_or_else(|| panic!("required value")),
+                )
+                .unwrap_or_else(|error| panic!("required value: {error:?}")),
             )
-            .unwrap();
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         }
         let seed = [9; 32];
         let config = test_config(&root, &seed);
@@ -188,7 +230,7 @@ mod boundary {
             amount: 25,
         };
         let key = "eip1559-round-trip";
-        let signed = layerx_platform_core::build_send_with_signer(
+        let signed_send = layerx_platform_core::build_send_with_signer(
             &signer,
             11,
             &layerx_platform_core::SendRequest {
@@ -204,21 +246,22 @@ mod boundary {
                 fee_limit: 1000,
             },
         )
-        .unwrap();
-        let (call, _) = layerx_crypto::evm_transaction::decode_signed(&signed.canonical).unwrap();
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
+        let (call, _) = layerx_crypto::evm_transaction::decode_signed(&signed_send.canonical)
+            .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let unsigned = call.encode_unsigned();
         let fee_body =
             serde_json::to_vec(&serde_json::json!({"canonical_hex": hex_encode(&unsigned)}))
-                .unwrap();
+                .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let (status, estimate) =
             exchange(Arc::clone(&config), "POST", "/v1/fees/estimate", &fee_body);
         assert_eq!(status, 200, "{estimate}");
         assert_eq!(estimate["result"]["fee"], "1000");
         assert_eq!(estimate["result"]["canonical_bytes"], unsigned.len());
         let signed_fee = serde_json::to_vec(
-            &serde_json::json!({"canonical_hex": hex_encode(&signed.canonical)}),
+            &serde_json::json!({"canonical_hex": hex_encode(&signed_send.canonical)}),
         )
-        .unwrap();
+        .unwrap_or_else(|error| panic!("required value: {error:?}"));
         let (status, _) = exchange(
             Arc::clone(&config),
             "POST",
@@ -226,7 +269,8 @@ mod boundary {
             &signed_fee,
         );
         assert_eq!(status, 400);
-        super::native_funding::native_funding_intent_producer_import_replay_and_refusals();
+        native_funding_intent_producer_import_replay_and_refusals();
+        native_funding_lost_response_reopen_archive_import();
     }
 }
 

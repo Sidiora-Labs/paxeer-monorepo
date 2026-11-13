@@ -58,7 +58,7 @@ func ProviderPlayback(provider *livepeer.Client, thumbnails *livepeer.ThumbnailC
 }
 
 func withThumbnail(view V2Stream, sources PlaybackSources) V2Stream {
-	if view.Status == "live" && livepeer.SafeThumbnailURL(sources.Thumbnail) {
+	if view.Status == statusLive && livepeer.SafeThumbnailURL(sources.Thumbnail) {
 		view.ThumbnailURL = v2.Optional[string]{Present: true, Value: sources.Thumbnail}
 	}
 	return view
@@ -189,7 +189,7 @@ func (h *Handlers) listRanked(w http.ResponseWriter, r *http.Request, sortKey st
 			h.lifecycleError(w, err)
 			return
 		}
-		if item.Status != "live" {
+		if item.Status != statusLive {
 			continue
 		}
 		ranked = append(ranked, rankedStream{view: item})

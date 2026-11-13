@@ -144,6 +144,22 @@ func TestPostgresHTTPV2OwnerPreferencesAndDevices(t *testing.T) {
 		core.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), identityContextKey{}, identity)))
 	})
 	path := "/v2/me/devices/" + device.String()
+	for _, tc := range []struct {
+		name, target, payload string
+		want                  int
+	}{
+		{"invalid device", "/v2/me/devices/invalid", string(body), http.StatusUnprocessableEntity},
+		{"invalid JSON", path, `{`, http.StatusUnprocessableEntity},
+		{"invalid provider", path, `{"platform":"web","provider":"apns","token":"value","deviceProof":"proof"}`, http.StatusUnprocessableEntity},
+		{"unbound proof", path, `{"platform":"web","provider":"webpush","token":"value","deviceProof":"proof"}`, http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := httpRequest(handler, p, http.MethodPut, tc.target, tc.payload)
+			if response.Code != tc.want {
+				t.Fatalf("device input = %d %s, want %d", response.Code, response.Body.String(), tc.want)
+			}
+		})
+	}
 	registered := httpRequest(handler, p, http.MethodPut, path, string(body))
 	requireV2OwnerResponse(t, registered, http.StatusOK, "DeviceRegisterResponse")
 	var registration v2.DeviceRegisterResponse

@@ -9,13 +9,18 @@ impl BindingGenerator {
     #[must_use]
     pub fn generate_csharp(&self) -> String {
         let mut out = String::from("using System;\nusing System.Collections.Generic;\nusing System.Numerics;\npublic static class LayerXBindings {\n");
-        let _ = writeln!(out, "public const string InterfaceDigest = \"{}\";\npublic const string CodeHash = \"{}\";", hex(&self.digest), hex(&self.code_hash));
+        let _ = writeln!(
+            out,
+            "public const string InterfaceDigest = \"{}\";\npublic const string CodeHash = \"{}\";",
+            hex(&self.digest),
+            hex(&self.code_hash)
+        );
         out.push_str(PRELUDE);
         let mut used = BTreeSet::new();
         for entry in &self.entries {
             let mut name = format!("Entry{}", pascal(&entry.name));
             if !used.insert(name.clone()) {
-                name.push_str(&format!("Lx{}", hex(&entry.discriminator)));
+                let _ = write!(name, "Lx{}", hex(&entry.discriminator));
                 while !used.insert(name.clone()) {
                     name.push('_');
                 }
@@ -52,7 +57,11 @@ fn pascal(value: &str) -> String {
 }
 
 fn convention(value: &Type) -> u8 {
-    if matches!(value, Type::EvmHead) { 2 } else { 1 }
+    if matches!(value, Type::EvmHead) {
+        2
+    } else {
+        1
+    }
 }
 
 fn emit_entry(out: &mut String, entry: &Entry, name: &str) {
@@ -69,7 +78,9 @@ fn emit_entry(out: &mut String, entry: &Entry, name: &str) {
     }
     out.push_str("}\n");
     let _ = writeln!(out, "public static Output DecodeOutput(byte[] bytes) {{ var reader = ReaderFor(bytes, {}); var value = Output.Read(reader); reader.Done(); return value; }}", convention(&entry.output));
-    out.push_str("public static Failure DecodeFailure(uint code, byte[] bytes) { switch (code) {\n");
+    out.push_str(
+        "public static Failure DecodeFailure(uint code, byte[] bytes) { switch (code) {\n",
+    );
     for failure in &entry.failures {
         let code = failure.code;
         let _ = writeln!(out, "case {code}u: {{ var reader = ReaderFor(bytes, {}); var detail = Detail{code}.Read(reader); reader.Done(); return new Failure.Code{code}(detail); }}", convention(&failure.detail));
@@ -106,7 +117,11 @@ fn emit_value(out: &mut String, value: &Type, name: &str) {
         }
         Type::Union(variants) => {
             for variant in variants {
-                emit_value(out, &variant.value, &format!("{name}Variant{}", variant.tag));
+                emit_value(
+                    out,
+                    &variant.value,
+                    &format!("{name}Variant{}", variant.tag),
+                );
             }
         }
         _ => {}
@@ -141,7 +156,10 @@ fn emit_value(out: &mut String, value: &Type, name: &str) {
             let _ = writeln!(out, "internal static {name} Read(Reader reader) {{ reader.Expect(0x50); switch (reader.U32()) {{");
             for variant in variants {
                 let tag = variant.tag;
-                let _ = writeln!(out, "case {tag}u: return Variant{tag}({name}Variant{tag}.Read(reader));");
+                let _ = writeln!(
+                    out,
+                    "case {tag}u: return Variant{tag}({name}Variant{tag}.Read(reader));"
+                );
             }
             out.push_str("default: throw Refuse(Refusal.NonCanonical); } } }\n");
         }
@@ -212,11 +230,13 @@ private static BigInteger ReadInteger(Reader reader, byte tag, int width, bool s
 impl BindingGenerator {
     #[must_use]
     pub fn generate_csharp_consumer(&self) -> String {
+        let _ = self;
         String::from(CONSUMER)
     }
 
     #[must_use]
     pub fn generate_csharp_malformed_consumer(&self) -> String {
+        let _ = self;
         String::from("public static class Program { public static void Main() { var malformed = new LayerXBindings.EntryU8.Call(new byte[] { 0 }); } }\n")
     }
 }

@@ -4,6 +4,8 @@ import {
   prepareTradeIdentity,
   verifyTradeRecovery,
   type TradeIdentity,
+  type TradeRequest,
+  decodeTradeRequest,
 } from './trade-recovery.ts';
 import type { SessionTypes } from '@walletconnect/types';
 async function openWalletURL(url: string) {
@@ -12,6 +14,7 @@ async function openWalletURL(url: string) {
 }
 import { decodeContract } from '../../../../../sdk/launchpad/packages/sdk/src/validate.ts';
 import type { PublicConfiguration } from './service-client.ts';
+import { chainRoute } from './chain-launch.ts';
 import { executionAllowed, type PendingOperation } from '../contracts.ts';
 import type { MobileServices } from './service-client.ts';
 import type { SessionController } from './session.ts';
@@ -165,7 +168,7 @@ export class ForegroundLifecycle {
     return {
       requestId: operation.requestId,
       account: identity.request.from,
-      chainId: 125 as const,
+      chainId: Number(identity.request.chainId),
       nonce: identity.nonce,
       transactionHash: operation.transactionHash,
       status: operation.transactionHash
@@ -180,7 +183,16 @@ export class ForegroundLifecycle {
       trade = this.pending.trade;
     const generation = this.session.generation,
       revision = this.revision;
-    const rpcURL = this.services.config.walletConnect?.rpcURL;
+    const rootRPC = this.services.config.walletConnect?.rpcURL;
+    const rpcURL =
+      rootRPC && trade
+        ? chainRoute(
+            trade.request.chainId === '125'
+              ? 0n
+              : BigInt(trade.request.chainId),
+            rootRPC,
+          ).rpcURL
+        : undefined;
     const fence = () => {
       signal.throwIfAborted();
       if (
@@ -284,6 +296,11 @@ export interface WalletExecutionProvider {
   readonly supportedChain: 125;
   readonly supportsTrade?: boolean;
   readonly connectedAccount?: string;
+  sendTransaction?(
+    request: TransactionRequest,
+    signal: AbortSignal,
+    nonce?: number,
+  ): Promise<{ transactionHash: string }>;
   submitApproval?(
     request: TransactionRequest,
     nonce: number,
@@ -331,6 +348,7 @@ export async function executeExternalWallet(
     generation !== lifecycle.session.generation ||
     !lifecycle.canExecute ||
     identity.quoteId !== quote.quoteId ||
+    Number(identity.request.chainId) !== operation.chainId ||
     provider.connectedAccount?.toLowerCase() !==
       lifecycle.session.account?.toLowerCase() ||
     identity.request.from.toLowerCase() !==
@@ -361,11 +379,13 @@ export type NativeQuoteTransactionBuilder = (
   quote: Quote,
   account: string,
   signal: AbortSignal,
-) => Promise<TransactionRequest>;
+) => Promise<TradeRequest>;
 export class WalletConnectNativeProvider implements WalletExecutionProvider {
   readonly supportedChain = 125 as const;
   private clientPromise: Promise<SignClient> | undefined;
   private active: SessionTypes.Struct | undefined;
+  private tradeSession: SessionTypes.Struct | undefined;
+  private tradeSessionChainId: number | undefined;
   private address: string | undefined;
   private epoch = 0;
   private busy = false;
@@ -411,11 +431,34 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
       }).then((client) => {
         client.on('session_delete', (event) => {
           if (event.topic === this.active?.topic) this.invalidate();
+          if (event.topic === this.tradeSession?.topic)
+            this.tradeSession = undefined;
         });
         client.on('session_expire', (event) => {
           if (event.topic === this.active?.topic) this.invalidate();
+          if (event.topic === this.tradeSession?.topic)
+            this.tradeSession = undefined;
         });
         client.on('session_update', (event) => {
+          if (event.topic === this.tradeSession?.topic) {
+            const updated = {
+              ...client.session.get(event.topic),
+              namespaces: event.params.namespaces,
+            };
+            try {
+              if (
+                this.account(
+                  updated,
+                  this.tradeSessionChainId,
+                ).toLowerCase() !== this.address?.toLowerCase()
+              )
+                this.invalidate();
+              else this.tradeSession = updated;
+            } catch {
+              this.invalidate();
+            }
+            return;
+          }
           if (event.topic !== this.active?.topic) return;
           const updated = {
             ...client.session.get(event.topic),
@@ -431,11 +474,18 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
           }
         });
         client.on('session_event', (event) => {
+          if (event.topic === this.tradeSession?.topic) {
+            if (event.params.event.name === 'accountsChanged')
+              this.invalidate();
+            return;
+          }
           if (event.topic !== this.active?.topic) return;
           if (
-            event.params.chainId !== 'eip155:125' ||
             event.params.event.name === 'accountsChanged' ||
-            event.params.event.name === 'chainChanged'
+            (event.params.event.name === 'chainChanged' &&
+              !this.tradeSession) ||
+            (event.params.chainId !== 'eip155:125' &&
+              event.params.chainId !== `eip155:${this.tradeSessionChainId}`)
           )
             this.invalidate();
         });
@@ -446,28 +496,32 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
   }
   private invalidate() {
     this.active = undefined;
+    this.tradeSession = undefined;
+    this.tradeSessionChainId = undefined;
     this.address = undefined;
     this.epoch++;
     this.invalidated();
   }
-  private account(session: SessionTypes.Struct) {
+  private account(session: SessionTypes.Struct, chainId = 125) {
     if (session.expiry * 1000 <= Date.now())
       throw new Error('WalletConnect session expired');
     const namespace =
-      session.namespaces.eip155 ?? session.namespaces['eip155:125'];
+      session.namespaces.eip155 ?? session.namespaces[`eip155:${chainId}`];
     if (
       !namespace ||
-      !['personal_sign', 'eth_sendTransaction'].every((method) =>
-        namespace.methods.includes(method),
-      )
+      !(
+        chainId === 125
+          ? ['personal_sign', 'eth_sendTransaction']
+          : ['eth_sendTransaction']
+      ).every((method) => namespace.methods.includes(method))
     )
       throw new Error('Required native wallet methods were not approved');
     const accounts = namespace.accounts.filter((account) =>
-      account.startsWith('eip155:125:'),
+      account.startsWith(`eip155:${chainId}:`),
     );
     if (
       accounts.length !== 1 ||
-      !/^eip155:125:0x[0-9a-fA-F]{40}$/.test(accounts[0])
+      !new RegExp(`^eip155:${chainId}:0x[0-9a-fA-F]{40}$`).test(accounts[0])
     )
       throw new Error('Approve exactly one chain125 wallet account');
     return accounts[0].split(':')[2];
@@ -476,10 +530,10 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     method: 'eth_chainId' | 'eth_getCode',
     params: unknown[],
     signal: AbortSignal,
+    rpcURL = this.configuration.walletConnect?.rpcURL,
   ) {
-    const config = this.configuration.walletConnect;
-    if (!config) throw new Error('Native wallet configuration unavailable');
-    const response = await fetch(config.rpcURL, {
+    if (!rpcURL) throw new Error('Native wallet configuration unavailable');
+    const response = await fetch(rpcURL, {
       method: 'POST',
       redirect: 'error',
       credentials: 'omit',
@@ -503,9 +557,70 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
       throw new Error('Invalid authoritative RPC response');
     return value.result;
   }
-  private async assertChain(signal: AbortSignal) {
-    if ((await this.rpc('eth_chainId', [], signal)) !== '0x7d')
-      throw new Error('RPC is not chain125');
+  private async assertChain(signal: AbortSignal, chainId = 125) {
+    const rootRPC = this.configuration.walletConnect?.rpcURL;
+    if (!rootRPC) throw new Error('Native wallet configuration unavailable');
+    const route = chainRoute(chainId === 125 ? 0n : BigInt(chainId), rootRPC);
+    if (
+      BigInt(await this.rpc('eth_chainId', [], signal, route.rpcURL)) !==
+      BigInt(chainId)
+    )
+      throw new Error('RPC chain differs from transaction chain');
+  }
+  private async chainSession(
+    chainId: number,
+    signal: AbortSignal,
+  ): Promise<SessionTypes.Struct> {
+    if (chainId === 125) {
+      if (!this.active) throw new Error('Connect the root wallet first');
+      return this.active;
+    }
+    const client = await this.client();
+    if (this.tradeSession && this.tradeSessionChainId === chainId) {
+      this.account(this.tradeSession, chainId);
+      return this.tradeSession;
+    }
+    const existing = client.session.getAll().filter((session) => {
+      try {
+        return (
+          this.account(session, chainId).toLowerCase() ===
+          this.address?.toLowerCase()
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (existing.length > 1)
+      throw new Error('Select one wallet session for the chain');
+    let session = existing[0];
+    if (!session) {
+      const proposal = await client.connect({
+        requiredNamespaces: {
+          eip155: {
+            chains: [`eip155:${chainId}`],
+            methods: ['eth_sendTransaction'],
+            events: ['accountsChanged', 'chainChanged'],
+          },
+        },
+      });
+      if (proposal.uri) {
+        const destination = new URL(
+          this.configuration.walletConnect!.walletLink,
+        );
+        destination.searchParams.set('uri', proposal.uri);
+        await openWalletURL(destination.toString());
+      }
+      session = await walletBound(proposal.approval(), signal);
+    }
+    if (
+      this.account(session, chainId).toLowerCase() !==
+      this.address?.toLowerCase()
+    )
+      throw new Error('Trade wallet account differs from connected account');
+    await this.assertChain(signal, chainId);
+    this.tradeSession = session;
+    this.tradeSessionChainId = chainId;
+    return session;
   }
   async connect(signal: AbortSignal) {
     if (this.busy) throw new Error('Wallet request already active');
@@ -585,32 +700,38 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     method: 'personal_sign' | 'eth_sendTransaction',
     params: unknown[],
     signal: AbortSignal,
+    chainId = 125,
   ) {
     if (this.busy) throw new Error('Wallet request already active');
     this.busy = true;
     try {
       const client = await this.client(),
-        session = this.active,
+        session = await this.chainSession(chainId, signal),
         epoch = this.epoch;
       if (
         !session ||
         !this.address ||
-        this.account(session).toLowerCase() !== this.address.toLowerCase()
+        this.account(session, chainId).toLowerCase() !==
+          this.address.toLowerCase()
       )
         throw new Error('Connect an authorized chain125 wallet');
-      await this.assertChain(signal);
+      await this.assertChain(signal, chainId);
       const result = client.request<unknown>({
         topic: session.topic,
-        chainId: 'eip155:125',
+        chainId: `eip155:${chainId}`,
         request: { method, params },
         expiry: 300,
       });
       const bound = walletBound(result, signal);
       await openWalletURL(this.configuration.walletConnect!.walletLink);
       const value = await bound;
-      if (epoch !== this.epoch || session.topic !== this.active?.topic)
+      if (
+        epoch !== this.epoch ||
+        session.topic !==
+          (chainId === 125 ? this.active : this.tradeSession)?.topic
+      )
         throw new Error('Wallet authority changed during request');
-      await this.assertChain(signal);
+      await this.assertChain(signal, chainId);
       return value;
     } finally {
       this.busy = false;
@@ -639,22 +760,18 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     return signature;
   }
   async sendTransaction(
-    request: TransactionRequest,
+    request: TradeRequest,
     signal: AbortSignal,
     nonce?: number,
   ) {
-    const tx = decodeContract('TransactionRequest', request);
-    if (
-      !this.address ||
-      tx.chainId !== '125' ||
-      tx.from.toLowerCase() !== this.address.toLowerCase()
-    )
+    const tx = decodeTradeRequest(request);
+    if (!this.address || tx.from.toLowerCase() !== this.address.toLowerCase())
       throw new Error('Transaction account or chain mismatch');
     const quantity = (value: string) => '0x' + BigInt(value).toString(16);
     const payload = {
       from: tx.from,
       to: tx.to,
-      chainId: '0x7d',
+      chainId: quantity(tx.chainId),
       data: tx.data,
       value: quantity(tx.valueRaw),
       ...(nonce !== undefined ? { nonce: quantity(String(nonce)) } : {}),
@@ -666,7 +783,12 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
         ? { maxPriorityFeePerGas: quantity(tx.maxPriorityFeePerGasRaw) }
         : {}),
     };
-    const hash = await this.request('eth_sendTransaction', [payload], signal);
+    const hash = await this.request(
+      'eth_sendTransaction',
+      [payload],
+      signal,
+      Number(tx.chainId),
+    );
     if (typeof hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(hash))
       throw new Error('Invalid wallet transaction hash');
     return { transactionHash: hash };
@@ -690,8 +812,13 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     const account = this.address,
       epoch = this.epoch;
     const request = await this.transactionBuilder(quote, account, signal);
+    const rootRPC = this.configuration.walletConnect.rpcURL;
+    const route = chainRoute(
+      request.chainId === '125' ? 0n : BigInt(request.chainId),
+      rootRPC,
+    );
     const identity = await prepareTradeIdentity(
-      this.configuration.walletConnect.rpcURL,
+      route.rpcURL,
       request,
       quote.quoteId,
       signal,
@@ -728,6 +855,8 @@ export class WalletConnectNativeProvider implements WalletExecutionProvider {
     const client = await this.client();
     const sessions = client.session.getAll();
     this.active = undefined;
+    this.tradeSession = undefined;
+    this.tradeSessionChainId = undefined;
     this.address = undefined;
     this.epoch++;
     await Promise.all(

@@ -90,7 +90,7 @@ export class Approvals {
   async programMaterial(detail: ProgramApprovalDetail): Promise<ProgramApprovalMaterial> {
     const material = await this.#client.approvalProgramMaterial(detail.approval_id);
     if (material.approval_id !== detail.approval_id || material.held_digest !== detail.held_digest
-      || material.provenance !== "local-owned"
+      || !Object.is(material.provenance, "local-owned")
       || [material.canonical_unsigned, material.immutable_carrier, material.budget_reservation]
         .some((item) => item.class !== "approval-hold" || item.verification !== "unverified")) {
       throw new TypeError("Programs request material has mismatched ownership or provenance");

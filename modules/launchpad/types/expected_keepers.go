@@ -3,12 +3,23 @@ package types
 import (
 	"context"
 
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	tokenfactorytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 )
+
+// ChainRegistry manages the virtual chain associated with a launched market.
+type ChainRegistry interface {
+	NextID(ctx sdk.Context) uint32
+	BaseDenom(ctx sdk.Context) string
+	CreateWithPayer(ctx sdk.Context, payer sdk.AccAddress, operator common.Address, name string, gasAllowance, byteAllowance uint64, feeShareBps uint16, value sdk.Int, initialBaseFee sdk.Dec) (chainstypes.Domain, error)
+	Pause(ctx sdk.Context, operator common.Address, id uint32) error
+	Resume(ctx sdk.Context, operator common.Address, id uint32) error
+	Retire(ctx sdk.Context, operator common.Address, id uint32) error
+}
 
 // BankKeeper moves quote and launched tokens between traders, the escrow
 // account and the treasury.

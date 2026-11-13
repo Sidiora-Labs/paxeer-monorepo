@@ -118,7 +118,7 @@ func (a *RPCQualification) bloomGate() bloomGate {
 	for _, e := range a.options.Epochs {
 		add(e.Deployment.Address)
 	}
-	if factory, ok := a.options.Manifest.Roles["SidioraFactory"]; ok && common.IsHexAddress(factory.Address) {
+	if factory, ok := a.options.Manifest.Roles[valueSidioraFactory]; ok && common.IsHexAddress(factory.Address) {
 		add(common.HexToAddress(factory.Address))
 	}
 	return gate
@@ -148,7 +148,7 @@ func (g bloomGate) relevant(bloom types.Bloom) bool {
 // height lookup is itself the canonicality proof. A block the optional bloom
 // gate proves irrelevant is returned without receipts (skipped).
 func (a *RPCQualification) pinnedBlockAtHeight(ctx context.Context, height uint64, gate bloomGate) (pinnedBlock, types.Receipts, bool, error) {
-	raw, err := a.rawBlock(ctx, "eth_getBlockByNumber", hexutil.EncodeUint64(height), true)
+	raw, err := a.rawBlock(ctx, valueEthGetBlockByNumber, hexutil.EncodeUint64(height), true)
 	if err != nil {
 		if IsPruned(err) {
 			return pinnedBlock{}, nil, false, err
@@ -191,7 +191,7 @@ func (a *RPCQualification) ReadAhead(from, to uint64) {
 	if depth == 0 || from < a.options.Manifest.ActivationHeight {
 		return
 	}
-	to = min(to, from+uint64(depth)-1)
+	to = min(to, from+uint64(depth)-1) //nolint:gosec // nonnegative count uses the existing unsigned counter field
 	gate := a.current().bloomGate()
 	r := a.reads
 	r.mu.Lock()

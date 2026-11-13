@@ -7,6 +7,7 @@
 //! market until an operator resolves the evidence conflict.
 
 use std::path::Path;
+use std::time::Duration;
 
 use crate::ai_market::{
     verify_block_commit, verify_program_state, BlockCommitProof, FinalityAuthority,
@@ -382,6 +383,7 @@ impl ReputationProjector {
             return Err(ReputationError::Commit(ProofError::InvalidValidatorSet));
         }
         let connection = Connection::open(path)?;
+        connection.busy_timeout(Duration::from_secs(5))?;
         connection.pragma_update(None, "journal_mode", "WAL")?;
         connection.pragma_update(None, "synchronous", "FULL")?;
         connection.execute_batch(SCHEMA)?;

@@ -1,20 +1,6 @@
-//! Proves: DidRegistration, RecoveryRegistration, KeyRotation, BudgetCreate, BudgetFund, BudgetDefund and SendDebit -> IntentKind, compile, Payload and ledger_payment_call -> CompiledIntent::verify_disclosure, disclosure::call::bind_call, DisclosureCheck::verify_agent and RouteResolver::resolve.
-//!
-//! The onboarding, agent creation, agent controls and custody session callers
-//! use the same consumer decoder exercised here. The event producer's send
-//! travels through Intent::from; the journey resolver is compiled directly
-//! from its production source, including its canonical transport codec.
-//! All producers are constructed in process from real domain types; sends use
-//! LocalSigner and SendDebit's signing and encoding functions. No ambient
-//! configuration or external service supplies any producer. The anchor has no
-//! persistent state: each observation compiles anew and independently decodes
-//! the payload, including a corrupt delivery between successful observations.
-//!
-//! Repairs services/human/crates/layerx-intents/src/vocabulary.rs:
-//! KeyRotation::new accepted a zero effective sequence, although the consumer
-//! in custody/sessions.rs, SessionKeyProvisioner::announce_rotation, requires
-//! a nonzero sequence. The producer now refuses it before compilation.
+//! Exercises human intent construction, compilation, disclosure, and route resolution.
 
+#[allow(dead_code)]
 #[path = "../../layerx-human-service/src/journeys/resolver.rs"]
 mod resolver;
 
@@ -157,7 +143,7 @@ pub(crate) fn signed_send_for_network(network_id: u32) -> (LxpSend, SendRoute, V
     };
     let canonical = required(debit.authorization_message());
     let signature = required(run(signer.sign(required(debit.signing_request(&canonical)))));
-    let signed = required(debit.encode_signed(signer.public_key(), *signature.as_bytes()));
+    let encoded_send = required(debit.encode_signed(signer.public_key(), *signature.as_bytes()));
     let route = SendRoute {
         account_sequence: Sequence::from_u64(debit.source_sequence),
         idempotency_key: IdempotencyKey::new(debit.idempotency_key),
@@ -184,7 +170,7 @@ pub(crate) fn signed_send_for_network(network_id: u32) -> (LxpSend, SendRoute, V
         route.network_id,
         route.protocol_version,
     ));
-    (send, route, signed)
+    (send, route, encoded_send)
 }
 
 fn producers() -> Vec<(&'static str, Intent, ModuleId, u16, IntentKindTag)> {
@@ -404,7 +390,9 @@ fn five_human_producers_cross_the_public_items_into_the_consumer_decoder_twice()
             );
 
             let empty = required(ModuleRegistry::new(&[]));
-            let rejected = compile(&intent, &empty).expect_err("unknown activity must be refused");
+            let rejected = compile(&intent, &empty)
+                .err()
+                .unwrap_or_else(|| panic!("unknown activity must be refused"));
             assert_eq!(rejected.field, CompileField::Payload);
             assert_eq!(
                 rejected.reason,
@@ -413,8 +401,9 @@ fn five_human_producers_cross_the_public_items_into_the_consumer_decoder_twice()
                 ))
             );
             for end in 0..header.len() {
-                let rejection =
-                    inspect_intent(&header[..end]).expect_err("truncated header accepted");
+                let rejection = inspect_intent(&header[..end])
+                    .err()
+                    .unwrap_or_else(|| panic!("truncated header accepted"));
                 assert!(matches!(rejection.reason(), RejectReason::Malformed(_)));
                 assert_eq!(rejection.input(), &header[..end]);
             }
@@ -506,7 +495,9 @@ fn signed_send_crosses_the_real_ledger_call_and_agent_disclosure_consumer_twice(
 #[test]
 fn real_producers_refuse_invalid_keys_sequences_roots_limits_and_movements() {
     assert_eq!(
-        DidRegistration::new(did(), PublicKey::new([0; 32])).expect_err("zero key"),
+        DidRegistration::new(did(), PublicKey::new([0; 32]))
+            .err()
+            .unwrap_or_else(|| panic!("zero key")),
         IntentError {
             field: IntentField::PrimaryKey,
             reason: IntentErrorReason::Zero
@@ -518,7 +509,8 @@ fn real_producers_refuse_invalid_keys_sequences_roots_limits_and_movements() {
             RecoveryRoot::new([0; 32]),
             required(ApprovalThreshold::new(2))
         )
-        .expect_err("zero root"),
+        .err()
+        .unwrap_or_else(|| panic!("zero root")),
         IntentError {
             field: IntentField::RecoveryRoot,
             reason: IntentErrorReason::Zero
@@ -531,14 +523,18 @@ fn real_producers_refuse_invalid_keys_sequences_roots_limits_and_movements() {
         Sequence::from_u64(0),
     );
     assert_eq!(
-        rotation.expect_err("zero effective sequence must be refused at the producer"),
+        rotation
+            .err()
+            .unwrap_or_else(|| panic!("zero effective sequence must be refused at the producer")),
         IntentError {
             field: IntentField::EffectiveSequence,
             reason: IntentErrorReason::Zero
         }
     );
     assert_eq!(
-        budget_create(0).expect_err("zero limit"),
+        budget_create(0)
+            .err()
+            .unwrap_or_else(|| panic!("zero limit")),
         IntentError {
             field: IntentField::Amount,
             reason: IntentErrorReason::Zero
@@ -680,15 +676,18 @@ fn inspection_refuses_retired_unknown_and_versioned_producer_headers_without_los
         ] {
             let mut malformed = header;
             malformed[2..].copy_from_slice(&kind.to_be_bytes());
-            let rejected =
-                inspect_intent(&malformed).expect_err("retired or unknown kind accepted");
+            let rejected = inspect_intent(&malformed)
+                .err()
+                .unwrap_or_else(|| panic!("retired or unknown kind accepted"));
             assert_eq!(rejected.reason(), expected);
             assert_eq!(rejected.input(), malformed);
             assert_eq!(rejected.input().as_ptr(), malformed.as_ptr());
         }
         let mut unknown_version = header;
         unknown_version[..2].copy_from_slice(&2_u16.to_be_bytes());
-        let rejected = inspect_intent(&unknown_version).expect_err("V2 envelope accepted");
+        let rejected = inspect_intent(&unknown_version)
+            .err()
+            .unwrap_or_else(|| panic!("V2 envelope accepted"));
         assert_eq!(rejected.reason(), RejectReason::UnknownVersion(2));
         assert_eq!(rejected.input(), unknown_version);
         assert_eq!(

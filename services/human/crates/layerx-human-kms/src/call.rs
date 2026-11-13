@@ -13,7 +13,7 @@ pub struct CallBinding {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum CallDisclosure {
-    Shared(Disclosure),
+    Shared(Box<Disclosure>),
     Consent {
         payload: Vec<u8>,
         action_key: [u8; 32],
@@ -22,6 +22,9 @@ enum CallDisclosure {
 
 impl CallBinding {
     /// Re-encodes the retained call using the call-specific source validator.
+    ///
+    /// # Errors
+    /// Returns an error if the retained call or disclosure is invalid.
     pub fn reencode(&self) -> Result<Vec<u8>, DisclosureError> {
         match &self.disclosure {
             CallDisclosure::Shared(disclosure) => {
@@ -43,6 +46,9 @@ impl CallBinding {
         Ok(self.call.encode_unsigned())
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the retained call cannot be re-encoded or decoded.
     pub fn construct_method(&self) -> Result<Option<ConstructMethod>, DisclosureError> {
         self.reencode()?;
         match &self.disclosure {
@@ -66,6 +72,9 @@ impl CallBinding {
     }
 
     /// Encodes the LXKP approval fields bound to the retained call.
+    ///
+    /// # Errors
+    /// Returns an error if the call or disclosure cannot be validated or encoded.
     pub fn disclosure_bytes(&self) -> Result<Vec<u8>, DisclosureError> {
         self.reencode()?;
         match &self.disclosure {
@@ -107,6 +116,9 @@ impl CallBinding {
         }
     }
 
+    ///
+    /// # Errors
+    /// Returns an error if the lifecycle approval has invalid fields or bounds.
     pub fn validate_for_signing(&self) -> Result<(), DisclosureError> {
         if let Some(ConstructMethod::AuthLifecycle { payload, .. }) = self.construct_method()? {
             if payload.starts_with(&[0x71, 3]) {
@@ -140,6 +152,9 @@ impl CallBinding {
 /// Binds the production KMS call path, including native onboarding consent.
 /// Malformed recovery values remain representable for transport, but are
 /// refused by the server before it can reserve a nonce or request a signature.
+///
+/// # Errors
+/// Returns an error if the call and sender cannot be bound to a disclosure.
 pub fn bind_call(call: &Eip1559Call, sender: [u8; 20]) -> Result<CallBinding, DisclosureError> {
     let lifecycle = call.to[..18] == [0; 18]
         && call.to[18..] == [0x10, 0x1c]
@@ -154,10 +169,10 @@ pub fn bind_call(call: &Eip1559Call, sender: [u8; 20]) -> Result<CallBinding, Di
                 action_key,
             }
         } else {
-            CallDisclosure::Shared(call::bind_call(call, sender)?)
+            CallDisclosure::Shared(Box::new(call::bind_call(call, sender)?))
         }
     } else {
-        CallDisclosure::Shared(call::bind_call(call, sender)?)
+        CallDisclosure::Shared(Box::new(call::bind_call(call, sender)?))
     };
     let bound = CallBinding {
         call: call.clone(),

@@ -142,12 +142,11 @@ impl Wallet {
         signature: &[u8],
         clock: &dyn layerx_types::clock::Clock,
     ) -> Result<EvmAction> {
-        self.accept_external_checked(action_key, signature, || {
-            clock
-                .sample(std::time::Duration::from_secs(1))
-                .map(|reading| reading.unix_seconds())
-                .map_err(|_| Error::Unavailable)
-        })
+        let now = clock
+            .sample(std::time::Duration::from_secs(1))
+            .map(layerx_types::clock::ClockReading::unix_seconds)
+            .map_err(|_| Error::Unavailable)?;
+        self.accept_external(action_key, signature, now)
     }
     fn accept_external_checked(
         &mut self,

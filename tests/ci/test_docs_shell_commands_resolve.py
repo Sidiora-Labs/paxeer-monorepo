@@ -771,7 +771,7 @@ def test_shell_command_extraction():
     assert _page_root(ROOT / "sdk/README.md", "The targets also run from `sdk/`:\n") == ROOT
     assert _page_root(ROOT / "deploy/launchpad/production/topology/README.md",
                       "Commands, from the monorepo root (not from this directory):\n") == ROOT
-    assert _page_root(ROOT / "docs/site/README.md", "From this directory:\n") == ROOT / "docs/site"
+    assert _page_root(ROOT / "docs/site/paxeer-docs/README.md", "From this directory:\n") == ROOT / "docs/site/paxeer-docs"
     assert _public_url_error("https://api1.mainnet-beta.paxeer.network/rpc") is not None
     assert [match[0] for match in URL.finditer(
         "[http://localhost:3000](http://localhost:3000)."

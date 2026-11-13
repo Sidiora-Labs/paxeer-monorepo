@@ -1,0 +1,23 @@
+[sandbox_lint]
+member = "layerx-programs-sandbox"
+dead_code = 12
+cast_possible_truncation = 21
+cast_possible_wrap = 1
+cast_sign_loss = 8
+missing_errors_doc = 1
+doc_markdown = 1
+large_enum_variant = 1
+too_many_lines = 9
+too_many_arguments = 1
+items_after_statements = 3
+cast_lossless = 2
+large_types_passed_by_value = 8
+needless_pass_by_value = 2
+duplicate_mod = 2
+assigning_clones = 3
+semicolon_if_nothing_returned = 1
+unused_imports = 2
+unused_mut = 1
+unwrap_used = 296
+needless_borrow = 11
+needless_borrows_for_generic_args = 2

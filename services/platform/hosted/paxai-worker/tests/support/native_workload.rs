@@ -3,27 +3,17 @@ use ed25519_dalek::{Signer, SigningKey};
 use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
     auth::{
-        acknowledgment_digest, admit, decode_acknowledgment, decode_service, encode_service,
-        sign_metadata, verify_signed_metadata, Admission, JobReference, MetadataContext,
-        MetadataPublication, Route, ServiceContext, ServiceError, ServiceOperation, ServiceRequest,
+        acknowledgment_digest, decode_acknowledgment, encode_service, sign_metadata,
+        verify_signed_metadata, JobReference, MetadataContext, MetadataPublication, Route,
+        ServiceContext, ServiceError, ServiceOperation, ServiceRequest,
     },
     discovery::{
-        AuthorityEvidence, FinalizedAuthority, IdentityEvidence, Readiness, VerifiedMetadata,
-        MAX_FINALITY_LAG,
+        AuthorityEvidence, FinalizedAuthority, IdentityEvidence, VerifiedMetadata, MAX_FINALITY_LAG,
     },
-    jobs::{
-        decode_result, evidence_digest, result_manifest_digest, AdmissionView, Input, JobService,
-        Lease, Outcome, QueryAnswer, ResultLocator, ServiceResult, LEASE_GRACE_MS,
-    },
+    jobs::{decode_result, evidence_digest, result_manifest_digest, JobService, Outcome},
     metadata::{Capability, Endpoint, Manifest},
-    runner::{
-        processing_ms, Bounds, Completion, Dispatch, EvidenceFault, ProcessRunner, Progress,
-        Report, Role, Segment, Usage, TOKENS, VECTOR_ELEMENTS,
-    },
-    store::{
-        JobKey, JobState, JobStore, NewJob, Usage as QueueUsage, MAX_ENCRYPTED_BYTES, MAX_QUEUED,
-        MAX_QUEUED_BYTES, MAX_RUNNING, RETENTION_MS, TOMBSTONE_DOMAIN,
-    },
+    runner::{Completion, ProcessRunner, Progress, Report, Role, Segment, TOKENS},
+    store::{JobKey, JobState, JobStore},
 };
 use layerx_programs_ai_market::{
     admission::{
@@ -71,9 +61,7 @@ use layerx_programs_ai_market::{
 };
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
-use std::sync::Barrier;
-use std::thread;
+use std::path::PathBuf;
 use std::time::Duration;
 
 const CHAIN: [u8; 32] = [10; 32];
@@ -92,10 +80,18 @@ const HEIGHT: u64 = 1150;
 const TASK_EXPIRY: u64 = 1172;
 const CHUNK_RESPONSE_MAX: usize = 8_244;
 
-const DEFAULT_URI: &str = "https://localhost/paxai/v1";
 const NOW: u64 = 1_700_000_000_000;
 const PAYLOAD_BYTES: usize = 1_024;
-const RUNNER_ENV: &str = "PAXAI_RUNNER";
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut text = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        text.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        text.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    text
+}
 
 enum Failure {
     Application(ApplicationError),
@@ -1075,22 +1071,6 @@ impl Submit {
             key,
         )?)
     }
-    fn admit(
-        &self,
-        authority: &FinalizedAuthority,
-        evidence: &IdentityEvidence,
-        metadata: &VerifiedMetadata,
-    ) -> Checked<Result<Admission, ServiceError>> {
-        let envelope = decode_service(&self.signed(&customer())?)?;
-        Ok(admit(
-            &envelope,
-            &self.request,
-            authority,
-            evidence,
-            metadata,
-            &self.task,
-        ))
-    }
     fn with(&self, change: impl FnOnce(&mut Self)) -> Self {
         let mut changed = *self;
         change(&mut changed);
@@ -1105,19 +1085,6 @@ struct Admitting {
     metadata: VerifiedMetadata,
     submit: Submit,
 }
-fn admitting() -> Checked<Admitting> {
-    let market = opened(vec![endpoint(DEFAULT_URI, [0xE1; 32])])?;
-    let authority = authority_at(&market, HEIGHT)?;
-    let metadata = verified(&authority, &market.signed)?;
-    let submit = submit(&authority, &capability(0x31))?;
-    Ok(Admitting {
-        market,
-        authority,
-        metadata,
-        submit,
-    })
-}
-
 /// A private store directory removed when the test ends.
 struct Scratch(PathBuf);
 impl Scratch {
@@ -1135,31 +1102,11 @@ impl Scratch {
     fn store(&self) -> PathBuf {
         self.0.join("store")
     }
-    /// The configured runner path when no runner executable is installed.
-    fn absent(&self) -> PathBuf {
-        self.0.join("runner-not-installed")
-    }
 }
 impl Drop for Scratch {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
     }
-}
-
-fn service(root: &Path, runner: PathBuf) -> Checked<JobService> {
-    Ok(JobService::new(
-        JobStore::open(root)?,
-        ProcessRunner::new(runner, Vec::new(), Duration::from_secs(5)),
-        delegate(),
-    ))
-}
-
-fn real_runner() -> Checked<PathBuf> {
-    std::env::var_os(RUNNER_ENV)
-        .map(PathBuf::from)
-        .ok_or(Failure::Unexpected(
-            "real model runner executable: PAXAI_RUNNER is not provisioned",
-        ))
 }
 
 /// Encoded encrypted F09 manifest of `object` bound to `task` of epoch 1.
@@ -1241,38 +1188,12 @@ fn order(fixture: &Admitting, request: u8, sequence: u64, max_output_bytes: u32)
     })
 }
 impl Order {
-    fn input(&self) -> Input<'_> {
-        Input {
-            manifest: &self.manifest,
-            payload: &self.payload,
-        }
-    }
-    fn view<'a>(
-        &'a self,
-        authority: &'a FinalizedAuthority,
-        customer: &'a IdentityEvidence,
-        metadata: &'a VerifiedMetadata,
-    ) -> AdmissionView<'a> {
-        AdmissionView {
-            authority,
-            customer,
-            metadata,
-            task: &self.submit.task,
-        }
-    }
     fn key(&self) -> Checked<JobKey> {
         Ok(JobKey::derive(
             self.submit.context.market,
             self.submit.context.actor,
             self.submit.context.request,
         )?)
-    }
-    fn accepted(&self, acknowledgment: &[u8]) -> Checked<TaskBinding> {
-        Ok(TaskBinding {
-            status: TaskStatus::Accepted,
-            acknowledgement: Some(acknowledgment_digest(acknowledgment)?),
-            ..self.submit.task
-        })
     }
     /// A signed query or cancel of this job by `actor` under `key`.
     fn reference(

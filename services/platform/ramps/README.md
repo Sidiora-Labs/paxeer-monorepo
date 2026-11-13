@@ -80,12 +80,13 @@ are retired payment-path requirements.
   calldata, fee bounds and current budget state; the budget binds the customer,
   asset and purpose. The operator never signs a customer debit.
 
-The toolkit's `submit_customer_payment` supports that off-ramp path. The current
-reference HTTP worker only exposes `submit_layerx`, which calls operator
-preparation and refuses off-ramp orders with `PayerGrantRequired`. Its
-`account_sequence` field does not provide customer authorisation. A deployment
-needs an authenticated integration to the toolkit's customer-signed submission
-path before it can offer a complete off-ramp journey.
+The reference HTTP worker exposes that off-ramp path through the operator
+bearer-protected `POST /internal/v1/work` action `submit_customer_payment`.
+Supply `order_digest` and `raw_transaction`, a JSON byte array containing
+1 to 131072 signed transaction bytes; omit `account_sequence` or send JSON
+`null`. Other actions reject non-null `raw_transaction`. The `submit_layerx` action
+uses operator preparation and refuses off-ramp orders with `PayerGrantRequired`;
+its `account_sequence` field does not provide customer authorisation.
 
 Signed execution receipts are checked with independently pinned Ed25519 receipt
 keys and height ranges, bound to the exact transaction and authenticated logs.

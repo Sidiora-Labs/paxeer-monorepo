@@ -28,8 +28,8 @@ wildcards = "allow"
 highlight = "all"
 deny = [
     { name = "bindgen", reason = "Private C layouts may not cross the node boundary" },
-    { name = "libsqlite3-sys", reason = "The agent layer may not open node projections" },
-    { name = "rusqlite", reason = "The agent layer may not open node projections" },
+    { name = "libsqlite3-sys", reason = "The agent layer may not open node projections", wrappers = ["rusqlite"] },
+    { name = "rusqlite", reason = "The agent layer may not open node projections", wrappers = ["layerx-indexer"] },
     { name = "sqlx-sqlite", reason = "The agent layer may not open node projections" },
     { name = "ctor", reason = "Process-wide initialisation is forbidden" },
     { name = "inventory", reason = "Process-wide registries are forbidden" },

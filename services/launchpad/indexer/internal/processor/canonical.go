@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/checked"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/receipt"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
@@ -49,14 +50,26 @@ func (p *Processor) ProcessCanonicalBatch(ctx context.Context, b store.Canonical
 			for i, t := range r.Topics {
 				topics[i] = common.HexToHash(t)
 			}
-			ev, err := p.deps.Decoder.Decode(ethtypes.Log{Address: common.HexToAddress(r.Emitter), Topics: topics, Data: r.Data, BlockNumber: uint64(r.Height), TxHash: common.HexToHash(r.TransactionHash), TxIndex: uint(r.TransactionIndex), BlockHash: common.HexToHash(r.BlockHash), Index: uint(r.LogIndex)})
+			rHeightUint64, conversionErr := checked.Convert[uint64](r.Height)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			rTransactionIndexUint, conversionErr := checked.Convert[uint](r.TransactionIndex)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			rLogIndexUint, conversionErr := checked.Convert[uint](r.LogIndex)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			ev, err := p.deps.Decoder.Decode(ethtypes.Log{Address: common.HexToAddress(r.Emitter), Topics: topics, Data: r.Data, BlockNumber: rHeightUint64, TxHash: common.HexToHash(r.TransactionHash), TxIndex: rTransactionIndexUint, BlockHash: common.HexToHash(r.BlockHash), Index: rLogIndexUint})
 			if err != nil {
 				return nil, fmt.Errorf("required decode: %w", err)
 			}
 			if ev == nil {
 				continue
 			}
-			ts := timestamps[uint64(r.Height)]
+			ts := timestamps[rHeightUint64]
 			if ts <= 0 {
 				return nil, fmt.Errorf("missing block timestamp")
 			}
@@ -122,11 +135,18 @@ func (p *Processor) ProcessQualifiedCanonicalBatch(ctx context.Context, b store.
 			return err
 		}
 		for _, event := range events {
-			if event == nil || event.BlockNumber > math.MaxInt64 || uint64(event.LogIndex) > math.MaxUint32 {
+			if event == nil {
 				return store.ErrIntegrity
 			}
-			key := event.TxHash + ":" + strconv.FormatUint(uint64(event.LogIndex), 10)
-			if event.EventName == "Swap" {
+			logIndex, conversionErr := checked.Convert[uint64](event.LogIndex)
+			if conversionErr != nil {
+				return conversionErr
+			}
+			if event.BlockNumber > math.MaxInt64 || logIndex > math.MaxUint32 {
+				return store.ErrIntegrity
+			}
+			key := event.TxHash + ":" + strconv.FormatUint(logIndex, 10)
+			if event.EventName == valueSwap {
 				if !selected[key] {
 					return errors.New("primary swap lacks qualified accounting fact")
 				}
@@ -136,7 +156,11 @@ func (p *Processor) ProcessQualifiedCanonicalBatch(ctx context.Context, b store.
 			if err != nil {
 				return err
 			}
-			intents = append(intents, store.OutboxIntent{TransactionHash: event.TxHash, LogIndex: uint32(event.LogIndex), Kind: event.EventName, Payload: payload})
+			eventLogIndexUint32, conversionErr := checked.Convert[uint32](event.LogIndex)
+			if conversionErr != nil {
+				return conversionErr
+			}
+			intents = append(intents, store.OutboxIntent{TransactionHash: event.TxHash, LogIndex: eventLogIndexUint32, Kind: event.EventName, Payload: payload})
 		}
 	}
 	sort.Slice(fills, func(i, j int) bool {
@@ -255,7 +279,11 @@ func (p *Processor) ProcessQualifiedCanonicalBatch(ctx context.Context, b store.
 			if err != nil {
 				return nil, err
 			}
-			intent := store.OutboxIntent{TransactionHash: entry.fill.Position.TransactionHash, LogIndex: uint32(logIndex), Kind: subject, Payload: payload}
+			logIndexUint32, conversionErr := checked.Convert[uint32](logIndex)
+			if conversionErr != nil {
+				return nil, conversionErr
+			}
+			intent := store.OutboxIntent{TransactionHash: entry.fill.Position.TransactionHash, LogIndex: logIndexUint32, Kind: subject, Payload: payload}
 			if entry.deferred {
 				if err = canonical.InsertCommittedOutboxIntent(ctx, b, intent); err != nil {
 					return nil, err

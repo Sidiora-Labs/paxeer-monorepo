@@ -33,9 +33,7 @@ parent-hash checks. For every transaction it requires a `pax_sequencerReceipt`
 answer at rung `committed`, matching the block number/hash and transaction hash,
 and verifies the receipt signature under pinned height-ranged keys.
 
-Use root HTTPS node URLs for Paxeer, such as
-`https://api1.mainnet-beta.paxeer.network/`; the public hosts are `api1` through
-`api14.mainnet-beta.paxeer.network` and `api-mainnet-beta.paxeer.network`.
+Use root HTTPS node URLs for Paxeer.
 The quorum transport requires two to eight independent HTTPS endpoints, a strict
 majority, explicit time/response bounds, and file-backed TLS and bearer material.
 Distinct DNS aliases do not establish independent backends: provide unique,
@@ -67,8 +65,8 @@ Each source declares `kind`, `id`, `rpc`, and `publisher_hex`, plus these pins:
 
 Provide real independently verified deployment values. The verifier uses hex
 pins, including Solana identity fields; publisher Solana configuration uses
-base58 for several corresponding fields. Do not copy publisher configuration
-into the verifier or use an old verifier example as a complete operational contract.
+base58 for several corresponding fields. Prepare each configuration using its
+own schema.
 
 A request contains exactly `batch_number`, `evidence` and `policy`.
 `batch_number` is a canonical decimal string naming the archived block height;
@@ -173,10 +171,7 @@ After reconciliation, initialize a distinct empty directory with `first_height`
 set to the operator-verified next committed block. Reopen and verify the new state,
 retrieve a new publication and authenticate its receipts before cutover. A rollback
 also requires reconciliation of any newly signed or broadcast transactions.
-Domain 11 (interop) owns any future migration tooling and durable-format contract
-updates; this crate does not supply a migration command. Configure the next
-committed block with the current `RuntimeConfig.first_height` field; historical
-configuration spellings are not accepted by the current schema.
+Configure the next committed block with `RuntimeConfig.first_height`.
 
 ## Contracts, signer and development targets
 
@@ -187,5 +182,5 @@ in [signer-protocol.md](../../deploy/mirror/signer-protocol.md).
 From the monorepo root, development targets are `make interop-build`,
 `make interop-test` and `make interop-test-mirrors` (the crate plus both archive
 contracts). `make mirror-live` and `make mirror-verify-live` require genuine
-operator configuration and live infrastructure. Listing these targets does not
-claim a live qualification result.
+operator configuration and live infrastructure, including source nodes,
+destination contracts and signer authority.

@@ -7,6 +7,10 @@ use crate::{
 };
 
 impl ProtocolDeploymentVerifier {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the supplied chain evidence cannot be decoded or verified.
     pub fn from_chain_trust(
         chain_id: impl Into<String>,
         validators: Vec<TrustedValidator>,
@@ -25,10 +29,7 @@ impl ProtocolDeploymentVerifier {
             validators,
         };
         Ok(Self {
-            anchors: Vec::new(),
-            current_anchor: 0,
             staleness_limit_ms: max_age_ms,
-            signed_history: None,
             chain_verifier: Some(chain_verifier),
         })
     }

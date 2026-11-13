@@ -20,6 +20,7 @@ use crate::routes::Response;
 use crate::write_atomic;
 
 const RECORD_SUFFIX: &str = "verified";
+type VerificationRecords = Vec<(String, Result<VerificationRecord, String>)>;
 
 /// One completed rebuild of one registered program version.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -475,7 +476,7 @@ impl VerificationLease {
             .map_err(|defect| JournalRefusal::Corrupt(format!("{}: {defect}", path.display())))
     }
 
-    fn records(&self) -> Result<Vec<(String, Result<VerificationRecord, String>)>, String> {
+    fn records(&self) -> Result<VerificationRecords, String> {
         let mut records = Vec::new();
         for path in self.entries()? {
             let name = file_name(&path);
@@ -790,20 +791,7 @@ mod tests {
         let journal =
             VerificationJournal::open(root.join("requests")).unwrap_or_else(|e| panic!("{e}"));
         let outbox = ProgramOutbox::new(&root);
-        let publication = Publication {
-            body: json!({
-                "program_id": "cd".repeat(32),
-                "lifecycle": "active",
-                "versions": [{
-                    "version": 1,
-                    "code_hash": "ee".repeat(32),
-                    "deployment_receipt_digest": "ff".repeat(32),
-                }],
-            })
-            .to_string(),
-            principal: "ab".repeat(32),
-            occurred_at: 20,
-        };
+        let publication = test_publication();
         let held = lease(&journal);
         let mut record = build(held.admit(&scope(4), "alice", program(7), [1; 32], 20));
         held.settle(
@@ -884,14 +872,41 @@ mod tests {
             .unwrap_or_else(|e| panic!("{e}"));
         assert!(outbox.pending().unwrap_or_else(|e| panic!("{e}")).is_none());
 
+        verify_legacy_publication_deduplication(&root, &publication, &pending.observation);
+        assert_eq!(
+            held.admit(&scope(4), "alice", program(7), [1; 32], 32),
+            Ok(Admission::Replay(ok(200)))
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    fn test_publication() -> Publication {
+        Publication {
+            body: json!({
+                "program_id": "cd".repeat(32),
+                "lifecycle": "active",
+                "versions": [{
+                    "version": 1,
+                    "code_hash": "ee".repeat(32),
+                    "deployment_receipt_digest": "ff".repeat(32),
+                }],
+            })
+            .to_string(),
+            principal: "ab".repeat(32),
+            occurred_at: 20,
+        }
+    }
+
+    fn verify_legacy_publication_deduplication(
+        root: &std::path::Path,
+        publication: &Publication,
+        observation: &layerx_platform_internal::producer::Observation,
+    ) {
         let legacy = ProgramOutbox::new(&root.join("legacy"));
         legacy
             .enqueue(
-                &format!(
-                    "{}:{}",
-                    pending.observation.resource, pending.observation.source_sequence
-                ),
-                pending.observation.clone(),
+                &format!("{}:{}", observation.resource, observation.source_sequence),
+                observation.clone(),
             )
             .unwrap_or_else(|e| panic!("{e}"));
         legacy
@@ -913,11 +928,6 @@ mod tests {
             .acknowledge(&legacy_pending.observation.id, false)
             .unwrap_or_else(|e| panic!("{e}"));
         assert!(legacy.pending().unwrap_or_else(|e| panic!("{e}")).is_none());
-        assert_eq!(
-            held.admit(&scope(4), "alice", program(7), [1; 32], 32),
-            Ok(Admission::Replay(ok(200)))
-        );
-        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
