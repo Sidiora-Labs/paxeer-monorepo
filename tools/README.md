@@ -36,7 +36,9 @@ paxd tools scan-tx --start-height 1 --state-dir ./scanner-state > scan.log &
 
 A valid checkpoint takes precedence over `--start-height`. The scanner resumes
 from its saved height, processes blocks below the latest height, and polls every
-ten seconds when caught up. It continues until stopped.
+ten seconds when caught up. A batch with block-query errors is retried at the
+same height; the checkpoint advances only after all block queries in that batch
+succeed. It continues until stopped.
 
 ### State format
 

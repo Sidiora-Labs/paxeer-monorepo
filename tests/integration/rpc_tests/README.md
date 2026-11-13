@@ -79,7 +79,6 @@ tests/integration/rpc_tests/
 │   ├── txUtils.ts              # block/tx fixtures + block/receipt/count/raw-tx assertions
 │   └── …                       # per-method helpers (feeHistory, gasPrice, logs, storage, subscribe, txLookup, wasm)
 ├── hardhat/                    # standalone fork config (chainId 1)
-├── runtime/                    # gitignored, holds runtime.json
 ├── _start/
 │   └── 00_bootstrap.spec.ts    # one-time setup
 └── eth/                        # the actual specs (one dir per RPC namespace)
@@ -144,14 +143,14 @@ npm run rpc:geth      # geth --dev on http://localhost:9547  (requires geth on P
 #    `make docker-cluster-start` from the repo root).
 
 # 3. (Optional, separate terminal) start a pinned fork for manual checks.
-#    Replace the URL and block with a block whose historical state your provider serves.
-ETH_MAINNET_UPSTREAM='https://your-ethereum-provider.example/' \
+#    Set the upstream URL and choose a block whose historical state it serves.
+ETH_MAINNET_UPSTREAM="${ETH_MAINNET_UPSTREAM:?set your Ethereum RPC URL}" \
 ETH_MAINNET_FORK_BLOCK=21000000 npm run rpc:fork  # http://localhost:9546
 
 # 4. Run the suite (single mocha process).
 npm run test:rpc      # bootstrap + run, recommended
 # or, piecewise:
-npm run rpc:bootstrap # writes runtime/runtime.json
+npm run rpc:bootstrap # writes private runtime state
 npm run rpc:run       # runs every spec outside _start/ via .mocharc.run.json
 ```
 
@@ -175,7 +174,7 @@ Individual files can be run with `mocha`, explicitly loading `tsx`:
 npx mocha --require tsx --timeout 600000 eth/eth_blockNumber.spec.ts
 ```
 
-…but only after `npm run rpc:bootstrap` has produced `runtime/runtime.json`.
+…but only after `npm run rpc:bootstrap` has produced the private runtime state.
 
 ## Configuration
 
@@ -191,11 +190,11 @@ npx mocha --require tsx --timeout 600000 eth/eth_blockNumber.spec.ts
 | `ETH_MAINNET_FORK_BLOCK`| required positive safe integer for `npm run rpc:fork`; no latest default |
 | `PAX_ADMIN_MNEMONIC`    | empty; bootstrap generates one when unset |
 | `RPC_POLLING_INTERVAL_MS`| `100` (the ethers default of 4 s is too slow for the local chain) |
-| `RPC_TESTS_RUNTIME_STATE`| `runtime/runtime.json`                            |
+| `RPC_TESTS_RUNTIME_STATE`| `$HOME/.pax-rpc-tests/<suite>/runtime.json` (resolved default) |
 | `RPC_ACCOUNTLESS`       | Required keyless fixture URL for accountless helpers; `eth_accounts` defaults to `http://127.0.0.1:9548` |
 
 Endpoint defaults come from [`config/endpoints.ts`](config/endpoints.ts).
-`RPC_ACCOUNTLESS` selects a separate keyless endpoint. The endpoint map requires
+`RPC_ACCOUNTLESS` selects a separate keyless endpoint. `Endpoints.accountless` requires
 an explicit loopback HTTP(S) URL or a published mainnet-beta HTTPS root URL,
 without credentials, query or fragment. Verify `eth_chainId` and `eth_accounts`
 for that endpoint before using it. The `eth_accounts` empty-keyring case reads
@@ -209,6 +208,18 @@ do not turn this into a remote-only suite. Bootstrap records the actual chain
 IDs in `runtime.json`; `DEFAULT_EVM_CHAIN_ID` equals the merged EVM chain ID
 125, and `HISTORICAL_DEVNET_EVM_CHAIN_ID` explicitly names the separate 713714
 fixture identity.
+
+[`utils/testUtils.ts`](utils/testUtils.ts) resolves the default runtime-state
+location outside the checkout. `<suite>` is the first 24 hexadecimal characters
+of the SHA-256 of the working-directory path. The logical default
+`runtime/runtime.json` also resolves to this private location. Other
+`RPC_TESTS_RUNTIME_STATE` values resolve relative to the working directory and
+must name a file in a dedicated directory outside report, artifact and
+test-results directories. The directory uses mode `0700` and the file `0600`.
+Bootstrap atomically writes a schema-versioned state and chain binding. Every
+`readRuntimeState()` call validates the state fields, configured endpoint URLs,
+chain IDs, block-1 hashes, recorded anchor-block hashes and deployed-code hashes
+against both running chains before returning the fixture state.
 
 ## Authoring a new spec
 

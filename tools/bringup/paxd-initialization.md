@@ -13,6 +13,11 @@ fingerprints. `PAXD` selects the binary (default `paxd`), and
 `BRINGUP_INSPECT_BIN` selects the inspector (default `bringup-inspect`). The
 command leaves the service stopped.
 
+`NODE_HOME` must be an absolute path to an absent or empty directory. `MODE`
+must be `full`, `archive`, `validator` or `seed`. `STOPPED_UNIT` names a systemd
+`.service` unit whose main process is stopped and whose state is `inactive` or
+`failed`.
+
 ## Retain an existing identity
 
 Stop the home's exclusive service owner and retain the complete home, including
@@ -26,8 +31,9 @@ tools/bringup/kernel-genesis.sh identity "$NODE_HOME" "$CHAIN_ID"
 
 Identity checks refuse changed keys or genesis. Signing state may advance
 normally; it is validated and never reset. Keep primary and standby receipt
-keys and WAL separate. Receipt key changes require the native chain's committed
-receipt-key governance and pin update procedure.
+keys and WAL separate. Identity fingerprints are retained in
+`identity/paxd.json` under the home; they cover the node key and genesis, the
+configured validator key, and the receipt key when the sequencer is enabled.
 
 ## Offline artifact conversion
 

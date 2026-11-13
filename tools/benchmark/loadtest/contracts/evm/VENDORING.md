@@ -1,11 +1,15 @@
 # Vendored Solidity dependencies
 
-The load-test contracts build without `forge install` or network access.
+The load-test Solidity dependencies are included under `lib/`. `setup.sh`
+checks their file-tree digests without downloading dependencies or running
+`forge install`.
 
-| Directory | Upstream | Revision | Source archive SHA-256 |
-| --- | --- | --- | --- |
-| `lib/openzeppelin-contracts` | `https://github.com/OpenZeppelin/openzeppelin-contracts` | `e4f70216d759d8e6a64144a9e1f7bbeed78e7079` (`v5.3.0`) | `49c41e34c683c6593932aa6c5485e621e61ec55d2b9c7c74b5e1aed99c9715a5` |
-| `lib/solmate` | `https://github.com/transmissions11/solmate` | `a9e3ea26a2dc73bfa87f0cb189687d029028e0c5` (`v6`) | `2e423b093d439ad0d93469e5f65de473370681bf983347a9a46ee2cf27a9eaa9` |
+| Directory | File-tree SHA-256 checked by `setup.sh` |
+| --- | --- |
+| `lib/openzeppelin-contracts` | `75178fd3042c5dd196588d69f3c5f70b63406c751d5a27a154fc3dd08ff01dba` |
+| `lib/solmate` | `b92432abfecaf534c50837d0868430a72b3fabcc3d548a9c850b5c75650739f1` |
 
-Only the upstream Solidity source tree and license are retained. `setup.sh`
-verifies deterministic tree digests; it never downloads or installs dependencies.
+The digest covers the sorted per-file SHA-256 output within each dependency
+directory, including relative file names. The directories contain Solidity
+sources and licenses. [`foundry.toml`](foundry.toml) pins the compiler to
+Solidity `0.8.20`; an offline build also needs that compiler available locally.
