@@ -28,11 +28,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const repair1283Gas uint64 = 20_000_000
+const pointerRegistrationGas uint64 = 20_000_000
 
-var repair1283Methods = []string{pointer.AddNativePointer, pointer.AddCW20Pointer, pointer.AddCW721Pointer, pointer.AddCW1155Pointer}
+var pointerRegistrationMethods = []string{pointer.AddNativePointer, pointer.AddCW20Pointer, pointer.AddCW721Pointer, pointer.AddCW1155Pointer}
 
-func repair1283Context(t *testing.T) (sdk.Context, sdk.AccAddress, common.Address) {
+func newPointerRegistrationContext(t *testing.T) (sdk.Context, sdk.AccAddress, common.Address) {
 	t.Helper()
 	a := testkeeper.EVMTestApp
 	ctx, _ := a.GetContextForDeliverTx(nil).CacheContext()
@@ -47,21 +47,21 @@ func repair1283Context(t *testing.T) (sdk.Context, sdk.AccAddress, common.Addres
 	return ctx, creator, caller
 }
 
-func repair1283EVM(t *testing.T, ctx sdk.Context, caller common.Address) (*vm.EVM, *state.DBImpl, abi.ABI) {
+func newPointerRegistrationEVM(t *testing.T, ctx sdk.Context, caller common.Address) (*vm.EVM, *state.DBImpl, abi.ABI) {
 	t.Helper()
 	a := testkeeper.EVMTestApp
 	p, err := pointer.NewPrecompile(a.GetPrecompileKeepers())
 	require.NoError(t, err)
 	db := state.NewDBImpl(ctx, &a.EvmKeeper, false)
 	t.Cleanup(db.Cleanup)
-	block, err := a.EvmKeeper.GetVMBlockContext(db.Ctx(), core.GasPool(repair1283Gas))
+	block, err := a.EvmKeeper.GetVMBlockContext(db.Ctx(), core.GasPool(pointerRegistrationGas))
 	require.NoError(t, err)
 	evm := vm.NewEVM(*block, db, evmtypes.DefaultChainConfig().EthereumConfig(a.EvmKeeper.ChainID(ctx)), vm.Config{}, map[common.Address]vm.PrecompiledContract{p.Address(): p})
 	evm.SetTxContext(vm.TxContext{Origin: caller})
 	return evm, db, p.GetABI()
 }
 
-func repair1283Pointer(ctx sdk.Context, method, target string) (common.Address, uint16, bool) {
+func lookupRegisteredPointer(ctx sdk.Context, method, target string) (common.Address, uint16, bool) {
 	k := &testkeeper.EVMTestApp.EvmKeeper
 	switch method {
 	case pointer.AddNativePointer:
@@ -77,7 +77,7 @@ func repair1283Pointer(ctx sdk.Context, method, target string) (common.Address, 
 	}
 }
 
-func repair1283Instantiate(t *testing.T, ctx sdk.Context, creator sdk.AccAddress, code, message []byte) string {
+func instantiatePointerTarget(t *testing.T, ctx sdk.Context, creator sdk.AccAddress, code, message []byte) string {
 	t.Helper()
 	wk := wasmkeeper.NewDefaultPermissionKeeper(testkeeper.EVMTestApp.WasmKeeper)
 	id, err := wk.Create(ctx, creator, code, nil)
@@ -87,11 +87,11 @@ func repair1283Instantiate(t *testing.T, ctx sdk.Context, creator sdk.AccAddress
 	return addr.String()
 }
 
-func TestRepairM_1283_CurrentABIAndSolidity(t *testing.T) {
+func TestPointerCurrentABIAndSolidity(t *testing.T) {
 	TestPointerABIFrozen(t)
 }
 
-func TestRepairM_1283_HistoricalReplayABI(t *testing.T) {
+func TestPointerHistoricalReplayABI(t *testing.T) {
 	versions, err := os.ReadFile("versions")
 	require.NoError(t, err)
 	for _, version := range strings.Fields(string(versions)) {
@@ -116,10 +116,10 @@ func TestRepairM_1283_HistoricalReplayABI(t *testing.T) {
 	}
 }
 
-func TestRepairM_1283_ZeroValueRegistrationAndValueRefusal(t *testing.T) {
-	for _, method := range repair1283Methods {
+func TestPointerZeroValueRegistrationAndValueRefusal(t *testing.T) {
+	for _, method := range pointerRegistrationMethods {
 		t.Run(method, func(t *testing.T) {
-			ctx, creator, caller := repair1283Context(t)
+			ctx, creator, caller := newPointerRegistrationContext(t)
 			a := testkeeper.EVMTestApp
 			target := "repair1283"
 			if method == pointer.AddNativePointer {
@@ -132,18 +132,18 @@ func TestRepairM_1283_ZeroValueRegistrationAndValueRefusal(t *testing.T) {
 				if method == pointer.AddCW20Pointer {
 					message = []byte(`{"name":"Repair Token","symbol":"RPR","decimals":6,"initial_balances":[]}`)
 				}
-				target = repair1283Instantiate(t, ctx, creator, code, message)
+				target = instantiatePointerTarget(t, ctx, creator, code, message)
 			}
 			for _, value := range []uint64{1, 1_000_000_000_000, 0} {
 				t.Run(fmt.Sprintf("value_%d", value), func(t *testing.T) {
-					evm, db, api := repair1283EVM(t, ctx, caller)
+					evm, db, api := newPointerRegistrationEVM(t, ctx, caller)
 					input, err := api.Pack(method, target)
 					require.NoError(t, err)
 					beforeCaller := db.GetBalance(caller).ToBig()
 					beforePrecompile := db.GetBalance(common.HexToAddress(pointer.PointerAddress)).ToBig()
 					module := a.EvmKeeper.GetEVMAddressOrDefault(db.Ctx(), a.EvmKeeper.AccountKeeper().GetModuleAddress(evmtypes.ModuleName))
 					nonce := db.GetNonce(module)
-					ret, _, err := evm.Call(caller, common.HexToAddress(pointer.PointerAddress), input, repair1283Gas, uint256.NewInt(value))
+					ret, _, err := evm.Call(caller, common.HexToAddress(pointer.PointerAddress), input, pointerRegistrationGas, uint256.NewInt(value))
 					if value != 0 {
 						require.ErrorIs(t, err, vm.ErrExecutionReverted)
 						require.EqualError(t, db.GetPrecompileError(), "sending funds to a non-payable function")
@@ -152,7 +152,7 @@ func TestRepairM_1283_ZeroValueRegistrationAndValueRefusal(t *testing.T) {
 						require.Equal(t, beforeCaller, db.GetBalance(caller).ToBig())
 						require.Equal(t, beforePrecompile, db.GetBalance(common.HexToAddress(pointer.PointerAddress)).ToBig())
 						require.Empty(t, db.Ctx().EventManager().Events())
-						_, _, exists := repair1283Pointer(db.Ctx(), method, target)
+						_, _, exists := lookupRegisteredPointer(db.Ctx(), method, target)
 						require.False(t, exists)
 					} else {
 						require.NoError(t, err)
@@ -160,16 +160,16 @@ func TestRepairM_1283_ZeroValueRegistrationAndValueRefusal(t *testing.T) {
 						outputs, err := api.Unpack(method, ret)
 						require.NoError(t, err)
 						require.Len(t, outputs, 1)
-						addr, version, exists := repair1283Pointer(db.Ctx(), method, target)
+						addr, version, exists := lookupRegisteredPointer(db.Ctx(), method, target)
 						require.True(t, exists)
 						require.NotZero(t, version)
 						require.Equal(t, outputs[0], addr)
 						require.NotEmpty(t, db.GetCode(addr))
-						repair1283ReadMetadata(t, evm, caller, addr, method, "Repair Token", "RPR")
+						requirePointerMetadata(t, evm, caller, addr, method, "Repair Token", "RPR")
 					}
 					_, err = db.Finalize()
 					require.NoError(t, err)
-					_, _, exists := repair1283Pointer(ctx, method, target)
+					_, _, exists := lookupRegisteredPointer(ctx, method, target)
 					require.Equal(t, value == 0, exists, "only a successful registration reaches the backing keeper store")
 				})
 			}
@@ -177,14 +177,14 @@ func TestRepairM_1283_ZeroValueRegistrationAndValueRefusal(t *testing.T) {
 	}
 }
 
-func repair1283ReadMetadata(t *testing.T, evm *vm.EVM, caller, addr common.Address, method, name, symbol string) {
+func requirePointerMetadata(t *testing.T, evm *vm.EVM, caller, addr common.Address, method, name, symbol string) {
 	t.Helper()
 	kind := map[string]string{pointer.AddNativePointer: "native", pointer.AddCW20Pointer: "cw20", pointer.AddCW721Pointer: "cw721", pointer.AddCW1155Pointer: "cw1155"}[method]
 	api := artifacts.GetParsedABI(kind)
 	for field, expected := range map[string]string{"name": name, "symbol": symbol} {
 		input, err := api.Pack(field)
 		require.NoError(t, err)
-		ret, _, err := evm.StaticCall(caller, addr, input, repair1283Gas)
+		ret, _, err := evm.StaticCall(caller, addr, input, pointerRegistrationGas)
 		require.NoError(t, err)
 		out, err := api.Unpack(field, ret)
 		require.NoError(t, err)
@@ -192,7 +192,7 @@ func repair1283ReadMetadata(t *testing.T, evm *vm.EVM, caller, addr common.Addre
 	}
 }
 
-func TestRepairM_1283_UntrustedMetadata(t *testing.T) {
+func TestPointerUntrustedMetadata(t *testing.T) {
 	cases := map[string]string{
 		"absent_fields":  `{}`,
 		"absent_name":    `{"symbol":"RPR"}`,
@@ -228,12 +228,12 @@ func TestRepairM_1283_UntrustedMetadata(t *testing.T) {
 		require.NoError(t, err)
 		cases["oversized_utf8_"+field] = string(raw)
 	}
-	for _, method := range repair1283Methods[1:] {
+	for _, method := range pointerRegistrationMethods[1:] {
 		t.Run(method, func(t *testing.T) {
 			for name, response := range cases {
 				t.Run(name, func(t *testing.T) {
-					ctx, creator, caller := repair1283Context(t)
-					target := repair1283Instantiate(t, ctx, creator, repair1283MetadataContract([]byte(response)), []byte(`{}`))
+					ctx, creator, caller := newPointerRegistrationContext(t)
+					target := instantiatePointerTarget(t, ctx, creator, metadataResponseContract([]byte(response)), []byte(`{}`))
 					query := []byte(`{"contract_info":{}}`)
 					if method == pointer.AddCW20Pointer {
 						query = []byte(`{"token_info":{}}`)
@@ -243,7 +243,7 @@ func TestRepairM_1283_UntrustedMetadata(t *testing.T) {
 					actual, err := testkeeper.EVMTestApp.WasmKeeper.QuerySmartSafe(ctx, address, query)
 					require.NoError(t, err)
 					require.Equal(t, []byte(response), actual, "the real Wasm VM must produce the hostile query response")
-					evm, db, api := repair1283EVM(t, ctx, caller)
+					evm, db, api := newPointerRegistrationEVM(t, ctx, caller)
 					input, err := api.Pack(method, target)
 					require.NoError(t, err)
 					k := &testkeeper.EVMTestApp.EvmKeeper
@@ -251,7 +251,7 @@ func TestRepairM_1283_UntrustedMetadata(t *testing.T) {
 					nonce := db.GetNonce(module)
 					var callErr error
 					require.NotPanics(t, func() {
-						_, _, callErr = evm.Call(caller, common.HexToAddress(pointer.PointerAddress), input, repair1283Gas, uint256.NewInt(0))
+						_, _, callErr = evm.Call(caller, common.HexToAddress(pointer.PointerAddress), input, pointerRegistrationGas, uint256.NewInt(0))
 					})
 					require.ErrorIs(t, callErr, vm.ErrExecutionReverted)
 					require.ErrorIs(t, db.GetPrecompileError(), pointer.ErrInvalidMetadata)
@@ -259,8 +259,8 @@ func TestRepairM_1283_UntrustedMetadata(t *testing.T) {
 					require.Empty(t, db.Ctx().EventManager().Events())
 					_, err = db.Finalize()
 					require.NoError(t, err)
-					for _, registration := range repair1283Methods[1:] {
-						_, _, exists := repair1283Pointer(ctx, registration, target)
+					for _, registration := range pointerRegistrationMethods[1:] {
+						_, _, exists := lookupRegisteredPointer(ctx, registration, target)
 						require.False(t, exists, "invalid metadata must leave no committed pointer")
 					}
 				})
@@ -269,32 +269,32 @@ func TestRepairM_1283_UntrustedMetadata(t *testing.T) {
 	}
 }
 
-func TestRepairM_1283_MetadataSizeBoundaries(t *testing.T) {
-	for _, method := range repair1283Methods[1:] {
+func TestPointerMetadataSizeBoundaries(t *testing.T) {
+	for _, method := range pointerRegistrationMethods[1:] {
 		for _, lengths := range []struct{ name, symbol string }{
 			{"N", "S"},
 			{strings.Repeat("n", pointer.MaxMetadataNameBytes), strings.Repeat("s", pointer.MaxMetadataSymbolBytes)},
 			{strings.Repeat("é", pointer.MaxMetadataNameBytes/2), strings.Repeat("é", pointer.MaxMetadataSymbolBytes/2)},
 		} {
 			t.Run(fmt.Sprintf("%s_%d_%d_%x", method, len(lengths.name), len(lengths.symbol), []byte(lengths.name)[:1]), func(t *testing.T) {
-				ctx, creator, caller := repair1283Context(t)
+				ctx, creator, caller := newPointerRegistrationContext(t)
 				response, err := json.Marshal(map[string]string{"name": lengths.name, "symbol": lengths.symbol})
 				require.NoError(t, err)
-				target := repair1283Instantiate(t, ctx, creator, repair1283MetadataContract(response), []byte(`{}`))
-				evm, db, api := repair1283EVM(t, ctx, caller)
+				target := instantiatePointerTarget(t, ctx, creator, metadataResponseContract(response), []byte(`{}`))
+				evm, db, api := newPointerRegistrationEVM(t, ctx, caller)
 				input, err := api.Pack(method, target)
 				require.NoError(t, err)
-				ret, _, err := evm.Call(caller, common.HexToAddress(pointer.PointerAddress), input, repair1283Gas, uint256.NewInt(0))
+				ret, _, err := evm.Call(caller, common.HexToAddress(pointer.PointerAddress), input, pointerRegistrationGas, uint256.NewInt(0))
 				require.NoError(t, err)
 				require.NoError(t, db.GetPrecompileError())
 				out, err := api.Unpack(method, ret)
 				require.NoError(t, err)
 				addr := out[0].(common.Address)
 				require.NotEmpty(t, db.GetCode(addr))
-				repair1283ReadMetadata(t, evm, caller, addr, method, lengths.name, lengths.symbol)
+				requirePointerMetadata(t, evm, caller, addr, method, lengths.name, lengths.symbol)
 				_, err = db.Finalize()
 				require.NoError(t, err)
-				stored, _, exists := repair1283Pointer(ctx, method, target)
+				stored, _, exists := lookupRegisteredPointer(ctx, method, target)
 				require.True(t, exists)
 				require.Equal(t, addr, stored)
 			})
@@ -307,7 +307,7 @@ func TestRepairM_1283_MetadataSizeBoundaries(t *testing.T) {
 // keeper/VM, never substituted for a keeper or precompile. The binary encoding
 // below needs no compiler or external tool in the gate. Each query instance has
 // a fresh memory and a bump allocator for the host's Region arguments.
-func repair1283MetadataContract(response []byte) []byte {
+func metadataResponseContract(response []byte) []byte {
 	u32 := func(n uint32) []byte {
 		var out []byte
 		for n >= 128 {

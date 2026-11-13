@@ -13,8 +13,8 @@ This directory contains the Go implementation, Solidity interface and embedded A
 - `pointer_test.go`: native registration, metadata, events and pointer upgrade tests.
 - `abi_freeze_test.go`: ABI, Solidity mutability, selectors and event declarations tests.
 - `gas_golden_test.go`: registration gas tests across merge activation.
-- `repair_m1283_test.go`: registration, value refusal, versioned ABI and CosmWasm metadata validation tests.
-- `repair_m1283.kvx`: ABI and metadata validation notes.
+- `registration_contract_test.go`: registration, value refusal, versioned ABI and CosmWasm metadata validation tests.
+- [`repair_m1283.kvx`](../../spec/layerx-merge/programme/records/precompiles/pointer/repair_m1283.kvx): ABI and metadata validation notes.
 
 ## Build and test
 
