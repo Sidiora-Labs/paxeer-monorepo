@@ -1,6 +1,6 @@
 [repair.22.33.304]
 mode = "BUILD"
-scope = "sig-provider/src/sources, sig-provider/tests/repair_22_33_304.rs, workspace Cargo.lock"
+scope = "sig-provider/src/sources, sig-provider/tests/directory_adapters.rs, workspace Cargo.lock"
 allowed_gates = "hf-build then hf-done, with at most two task-scoped repair cycles"
 stop_condition = "hf-done passes or the bounded repair/time budget is exhausted; final exact evidence comes from the private runner ledger"
 fourbyte-pagination-bound = "fourbyte_pagination_accepts_relative_and_same_origin_pages; fourbyte_pagination_rejects_cycles_malformed_origins_and_redirects; fourbyte_pagination_bounds_pages_and_total_deadline; fourbyte_lookup_retries_only_transient_status_and_preserves_event_path"
