@@ -215,7 +215,7 @@ See [proposal-handler tests](client/proposal_handler_test.go) for their registra
 
 ## Contract lifecycle tests
 
-[Contract lifecycle tests](repair_m1289_test.go) check the node's default and
+[Contract lifecycle tests](module_lifecycle_test.go) check the node's default and
 specific-proposal selection, all ten registered CLI
 commands and the proposal kind table above. They submit encoded proposal content
 to the governance keeper, execute the stored content through its registered

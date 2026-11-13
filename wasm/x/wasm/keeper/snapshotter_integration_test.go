@@ -135,7 +135,7 @@ func newWasmExampleApp(t *testing.T) (*app.WasmApp, sdk.AccAddress) {
 	return wasmApp, senderAddr
 }
 
-func repairM1288SnapshotOpen(t *testing.T, dir string) (sdk.Context, keeper.TestKeepers, *wasmvm.VM, func()) {
+func openSnapshotContractStore(t *testing.T, dir string) (sdk.Context, keeper.TestKeepers, *wasmvm.VM, func()) {
 	t.Helper()
 	sc := config.DefaultStateCommitConfig()
 	sc.WriteMode = config.MemiavlOnly
@@ -159,15 +159,15 @@ func repairM1288SnapshotOpen(t *testing.T, dir string) (sdk.Context, keeper.Test
 	return ctx, keepers, vm, closeStore
 }
 
-func repairM1288SnapshotRecovery(t *testing.T) {
+func assertContractSnapshotRecovery(t *testing.T) {
 	t.Helper()
-	srcCtx, src, _, closeSource := repairM1288SnapshotOpen(t, t.TempDir())
+	srcCtx, src, _, closeSource := openSnapshotContractStore(t, t.TempDir())
 	defer closeSource()
 	admin, owner := keeper.RandomAccountAddress(t), keeper.RandomAccountAddress(t)
 	id := keeper.StoreReflectContract(t, srcCtx, src)
 	addr, _, err := src.ContractKeeper.Instantiate(srcCtx, id, admin, admin, []byte(`{}`), "snapshot state", nil)
 	require.NoError(t, err)
-	_, err = src.ContractKeeper.Execute(srcCtx, addr, admin, repair184JSON(t, map[string]interface{}{"change_owner": map[string]string{"owner": owner.String()}}), nil)
+	_, err = src.ContractKeeper.Execute(srcCtx, addr, admin, marshalContractJSON(t, map[string]interface{}{"change_owner": map[string]string{"owner": owner.String()}}), nil)
 	require.NoError(t, err)
 	require.NoError(t, keeper.NewGovPermissionKeeper(src.WasmKeeper).PinCode(srcCtx, id))
 	srcCtx.MultiStore().(sdk.CacheMultiStore).Write()
@@ -180,7 +180,7 @@ func repairM1288SnapshotRecovery(t *testing.T) {
 	require.NoError(t, src.MultiStore.Snapshot(height, protoio.NewDelimitedWriter(&state)))
 
 	destDir := t.TempDir()
-	dstCtx, dst, _, closeDestination := repairM1288SnapshotOpen(t, destDir)
+	dstCtx, dst, _, closeDestination := openSnapshotContractStore(t, destDir)
 	_, err = dst.MultiStore.Restore(height, snapshottypes.CurrentFormat, protoio.NewDelimitedReader(bytes.NewReader(state.Bytes()), 64<<20))
 	require.NoError(t, err)
 	dstCtx = dstCtx.WithMultiStore(dst.MultiStore.CacheMultiStore())
@@ -193,7 +193,7 @@ func repairM1288SnapshotRecovery(t *testing.T) {
 	dst.MultiStore.Commit(true)
 	closeDestination()
 
-	dstCtx, dst, vm, closeDestination := repairM1288SnapshotOpen(t, destDir)
+	dstCtx, dst, vm, closeDestination := openSnapshotContractStore(t, destDir)
 	defer closeDestination()
 	metrics, err := vm.GetMetrics()
 	require.NoError(t, err)
@@ -207,7 +207,7 @@ func repairM1288SnapshotRecovery(t *testing.T) {
 	before, err = dst.WasmKeeper.QuerySmart(dstCtx, addr, []byte(`{"owner":{}}`))
 	require.NoError(t, err)
 	require.JSONEq(t, fmt.Sprintf(`{"owner":%q}`, owner.String()), string(before))
-	_, err = dst.ContractKeeper.Execute(dstCtx, addr, owner, repair184JSON(t, map[string]interface{}{"change_owner": map[string]string{"owner": admin.String()}}), nil)
+	_, err = dst.ContractKeeper.Execute(dstCtx, addr, owner, marshalContractJSON(t, map[string]interface{}{"change_owner": map[string]string{"owner": admin.String()}}), nil)
 	require.NoError(t, err)
 	after, err := dst.WasmKeeper.QuerySmart(dstCtx, addr, []byte(`{"owner":{}}`))
 	require.NoError(t, err)

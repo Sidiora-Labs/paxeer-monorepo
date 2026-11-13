@@ -13,7 +13,8 @@
     "lint": "tsc --noEmit",
     "test:static": "npm run lint",
     "generate:llms": "node scripts/generate-llms.mjs",
-    "prepare:docs": "npm run generate:llms && npm run search:index",
+    "generate:systems": "node scripts/generate-systems.mjs",
+    "prepare:docs": "npm run generate:systems && npm run generate:llms && npm run search:index",
     "audit:seo": "node scripts/audit-seo.mjs --dir out",
     "postbuild": "npm run audit:seo",
     "serve": "node scripts/serve.mjs"

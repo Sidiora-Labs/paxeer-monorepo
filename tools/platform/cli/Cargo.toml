@@ -48,8 +48,8 @@ shlex = "=2.0.1"
 layerx-agentd = { path = "../../../services/agent/crates/layerx-agentd" }
 
 [[test]]
-name = "repair_22_33_1499"
-path = "tests/repair_22_33_1499.rs"
+name = "readme_contract"
+path = "tests/readme_contract.rs"
 
 [lints]
 workspace = true
