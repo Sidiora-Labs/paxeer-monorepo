@@ -39,19 +39,19 @@ from test_serve_startup_without_anchor_bind import (
 )
 
 
-def test_repair_f016_retained_handover_needs_no_read_consumer():
+def test_retained_handover_needs_no_read_consumer():
     prove_handover_retirement()
 
 
-def test_repair_f017_embedded_runtime_owns_and_binds_state():
+def test_embedded_runtime_owns_and_binds_state():
     prove_runtime_binding()
 
 
-def test_repair_f018_programs_call_executes_and_commits():
+def test_programs_call_executes_and_commits():
     prove_program_commit()
 
 
-def test_repair_f019_startup_and_reopen_without_anchor_store():
+def test_startup_and_reopen_without_anchor_store():
     prove_anchorless_recovery()
 
 
