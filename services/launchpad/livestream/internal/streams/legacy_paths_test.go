@@ -20,7 +20,7 @@ import (
 )
 
 func TestLegacyHandlerMutationsUseLifecycleAndOwnerDecision(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	f.handlers.providerReady = func(ctx context.Context) error { return ReadSchemaReady(ctx, f.database, "livestream") }
 	_, intent := f.create("legacy-owner-setup")
 	request := func(method, path, id, body, token string) *httptest.ResponseRecorder {
@@ -87,7 +87,7 @@ func TestLegacyHandlerMutationsUseLifecycleAndOwnerDecision(t *testing.T) {
 }
 
 func TestLegacyWebhookAuthenticatesProducerAndObservesLifecycle(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	o, _ := f.create("legacy-webhook")
 	if _, err := f.store.BindProvider(context.Background(), o.ID, "legacy_provider"); err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func TestLegacyWebhookAuthenticatesProducerAndObservesLifecycle(t *testing.T) {
 }
 
 func TestLegacyHeartbeatUsesSignedViewerSession(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("legacy-viewer-heartbeat")
 	o, err := f.store.BindProvider(ctx, o.ID, "legacy_viewer_provider")
@@ -152,7 +152,7 @@ func TestLegacyHeartbeatUsesSignedViewerSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var session repair57Session
+	var session streamContractSession
 	if err := json.Unmarshal(rawSession, &session); err != nil {
 		t.Fatal(err)
 	}
