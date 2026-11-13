@@ -367228,7 +367228,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.65]
 title = "Write the page of the directory services/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -367348,7 +367348,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.61]
 title = "Write the page of the directory utils"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -367798,7 +367798,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.46]
 title = "Write the page of the directory include"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -367948,7 +367948,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.41]
 title = "Write the page of the directory custodyproof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -368068,7 +368068,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.37]
 title = "Write the page of the directory cmd"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -368158,7 +368158,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.34]
 title = "Write the page of the directory admin"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -368601,7 +368601,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.15]
 title = "Write the page of variables of the application under apps/names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -368661,7 +368661,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.13]
 title = "Write the page of variables of the application under apps/inference-peer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -368721,7 +368721,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.11]
 title = "Write the page of variables of the application under apps/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -368931,7 +368931,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.42.4]
 title = "Write the page of variables of the service under services/bridge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
