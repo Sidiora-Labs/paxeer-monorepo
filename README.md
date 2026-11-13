@@ -1,6 +1,16 @@
 # Paxeer X Network
 
-Paxeer mainnet-beta is one Byzantine fault-tolerant network running `paxd`, with EVM chain identifier **125** (`0x7d`) and **PAX** as its native token. The node integrates consensus, the EVM, native modules, precompiles and the LayerX kernel so committed blocks provide the network’s final state.
+Paxeer X Network is a distributed HyperState Machine for payments, code execution and intent routing, developed by Sidiora Labs. The LayerX kernel is the core of the network and runs inside every `paxd` node. It executes each transaction when it arrives, assigns the next position in one global sequence and returns a signed execution receipt before any block is voted. It builds every block: the proposed block is the sealed sequence, with the signed sequence batch first and the executed transactions behind it in sequence order. Validators check that batch and the pinned proposer, replay the block and commit it; they do not select or order transactions. `paxd` uses EVM chain identifier **125** (`0x7d`) and native token **PAX**.
+
+What runs on the kernel:
+
+- [Native payments](modules/layerxpay/) with escrow, budgets, streams and services.
+- [Spot](modules/spot/) and [perpetual markets](modules/perps/).
+- [Rust programs](programs/).
+- [Agents](modules/layerxagent/) with delegated authority and the [pooled inference market](programs/crates/layerx-programs-ai-market/).
+- [Sub-chains](modules/layerxchains/) as tenant domains of the same sequence.
+- [The EVM](modules/evm/) with its native precompiles.
+- [The bridge](modules/layerxbridge/).
 
 ## Repository layout
 
@@ -43,20 +53,24 @@ Paxeer mainnet-beta is one Byzantine fault-tolerant network running `paxd`, with
 
 ```mermaid
 flowchart LR
-    Clients["Clients: sdk / cmd"] --> RPC["RPC surface: rpc"]
-    Apps["Applications: apps"] --> RPC
-    Services["Services: services"] --> RPC
-    RPC --> Node["Node: daemon/paxd + node"]
-    Node --> Consensus["Consensus: consensus"]
-    Node --> Modules["Modules: modules"]
-    Node --> EVM["EVM: modules/evm"]
-    EVM --> Precompiles["Precompiles: precompiles"]
-    Modules --> KernelHost["Kernel host: modules/lxphost"]
-    KernelHost --> Kernel["Kernel: src + include"]
-    Programs["Programs: programs"] --> KernelHost
-    Node --> Storage["Storage: storage"]
-    Consensus --> Storage
+    Client["Client"] -->|signed transaction| Node["paxd node"]
+    Node --> Kernel["LayerX kernel"]
+    Kernel -->|executes on open layer; assigns sequence| Receipt["signed execution receipt"]
+    Receipt --> Client
+    Kernel -->|seals open layer| Proposed["proposed block"]
+    Proposed --> Validators["validators"]
+    Validators -->|check and commit| Committed["committed block"]
+    Committed --> State["final state"]
+    Kernel --- EVM["EVM and native precompiles"]
+    Kernel --- Native["native modules"]
+    Kernel --- Rust["Rust programs"]
+    Kernel --- Domains["sub-chain domains"]
 ```
+
+1. A client sends a signed transaction to `paxd`, and the kernel executes it on the open layer.
+2. The kernel assigns the next global sequence position and returns a signed receipt; the transaction is **submitted** until that receipt exists, then **receipted**.
+3. The kernel seals the layer into the proposed block, placing the signed sequence batch first and transactions in sequence order; validators check the batch and pinned proposer, replay, and commit.
+4. Once its block is committed, the receipt is **committed** and the block supplies final state.
 
 ## Quick start
 
