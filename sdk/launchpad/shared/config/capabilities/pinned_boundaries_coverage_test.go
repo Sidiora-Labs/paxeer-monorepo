@@ -64,7 +64,7 @@ func (r pinnedBoundaryReader) EstimateGasAtHash(ctx context.Context, msg ethereu
 
 func TestPinnedPoolStateRejectsIncompleteReads(t *testing.T) {
 	for _, native := range []bool{false, true} {
-		chain := repair38OpenChain(t, native)
+		chain := preflightFixtureOpenChain(t, native)
 		block, pool := chain.peer.blocks[1], chain.peer.epoch.Pool
 		for _, signature := range []string{"protocolConfig()", "usdlAddress()", "eventEmitter()", "factory()", "getReserves()", "opticalAddress()", "guardian()", "paused()"} {
 			t.Run(chain.engine.manifest.DeploymentVersion+"/"+signature, func(t *testing.T) {
@@ -92,7 +92,7 @@ func TestPinnedPoolStateRejectsIncompleteReads(t *testing.T) {
 			}
 			chain.peer.mu.Lock()
 			for _, pin := range chain.peer.blocks {
-				delete(chain.peer.overrides, repair38Key(pool, repair38Call(t, signature), pin))
+				delete(chain.peer.overrides, preflightFixtureKey(pool, preflightFixtureCall(t, signature), pin))
 			}
 			chain.peer.mu.Unlock()
 		}
@@ -120,7 +120,7 @@ func TestPinnedPoolStateRejectsIncompleteReads(t *testing.T) {
 }
 
 func TestCreationCostChecksMetadataAndGasDependencies(t *testing.T) {
-	chain := repair38OpenChain(t, true)
+	chain := preflightFixtureOpenChain(t, true)
 	ctx := context.Background()
 	block := chain.peer.blocks[1]
 	policy := deployment.Policy{Now: time.Now(), MaxAge: time.Hour, Timeout: 10 * time.Second}
@@ -162,7 +162,7 @@ func TestCreationCostChecksMetadataAndGasDependencies(t *testing.T) {
 	if _, err := engine.creationCost(ctx, request, attestation); err == nil {
 		t.Fatal("unavailable approval simulation admitted")
 	}
-	chain.peer.override(chain.peer.address("USDL"), "approve(address,uint256)", repair38Word(1), chain.peer.address(deployment.LaunchpadPrecompileRole), big.NewInt(1000000))
+	chain.peer.override(chain.peer.address("USDL"), "approve(address,uint256)", preflightFixtureWord(1), chain.peer.address(deployment.LaunchpadPrecompileRole), big.NewInt(1000000))
 	cost, err := chain.engine.creationCost(ctx, request, attestation)
 	var unavailable Unavailable
 	if !errors.As(err, &unavailable) || unavailable.DependencyID != "transaction_simulation" || cost.GasEstimateAvailable || cost.Spender != chain.peer.address(deployment.LaunchpadPrecompileRole).Hex() || cost.ProtocolFeeRaw != "1000000" {
@@ -171,7 +171,7 @@ func TestCreationCostChecksMetadataAndGasDependencies(t *testing.T) {
 }
 
 func TestPreflightRejectsMalformedBodiesAndRevisionChanges(t *testing.T) {
-	chain := repair38OpenChain(t, true)
+	chain := preflightFixtureOpenChain(t, true)
 	ctx := context.Background()
 	request := chain.request(PlainQuote, chain.peer.blocks[1])
 	request.Pool = chain.peer.epoch.Pool

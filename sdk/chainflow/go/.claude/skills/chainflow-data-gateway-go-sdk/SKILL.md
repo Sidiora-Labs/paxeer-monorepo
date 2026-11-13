@@ -40,7 +40,7 @@ go mod tidy
 go build ./...
 ```
 
-The regression fixture in `testdata/repair_m1306_consumer` is a separate consumer
+The regression fixture in `testdata/consumer_example` is a separate consumer
 module with the same requirement, imports and local replacement. The SDK
 workspace links it for the focused tests without adding consumer dependencies
 to the SDK module.

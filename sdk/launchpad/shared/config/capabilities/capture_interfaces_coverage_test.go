@@ -22,7 +22,7 @@ import (
 type requiredMeasurementReader struct{ deployment.Reader }
 
 func TestMeasurementRequiresOptionalReaderInterfaces(t *testing.T) {
-	chain := repair38OpenChain(t, true)
+	chain := preflightFixtureOpenChain(t, true)
 	ctx := context.Background()
 	block := chain.peer.blocks[1]
 	address := chain.peer.epoch.Pool
@@ -104,7 +104,7 @@ func TestMeasurementRequiresOptionalReaderInterfaces(t *testing.T) {
 }
 
 func TestMeasurementCapturesBlockEncodingAndEncodingRefusal(t *testing.T) {
-	chain := repair38OpenChain(t, true)
+	chain := preflightFixtureOpenChain(t, true)
 	ctx := context.Background()
 	var raw bytes.Buffer
 	capture := &measurementCapture{reader: chain.reader, writer: &raw, hash: sha256.New(), maxBytes: 1 << 20}

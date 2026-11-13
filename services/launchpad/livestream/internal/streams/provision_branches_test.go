@@ -13,8 +13,8 @@ import (
 )
 
 func TestProvisionWorkerStopsRevokedAndUnallocatedBroadcasts(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	first, _ := f.create("provision-policy-revoked")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -60,8 +60,8 @@ func TestProvisionWorkerStopsRevokedAndUnallocatedBroadcasts(t *testing.T) {
 }
 
 func TestProvisionWorkerRetainsCurrentProviderAndEndsRestrictedAllocation(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || r.URL.Path != "/stream" {
@@ -119,7 +119,7 @@ func TestProvisionWorkerRetainsCurrentProviderAndEndsRestrictedAllocation(t *tes
 }
 
 func TestSuspensionRevokesProviderAfterDurableDecision(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	ctx := context.Background()
 	o, _ := f.create("suspend-provider-revocation")
 	o, err := f.store.BindProvider(ctx, o.ID, "suspended_provider")
@@ -151,8 +151,8 @@ func TestSuspensionRevokesProviderAfterDurableDecision(t *testing.T) {
 }
 
 func TestProvisionWorkerAdoptsCorrelatedProviderAfterRevocation(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	o, _ := f.create("revoked-provider-recovery")
 	o, err := f.store.Suspend(ctx, o.ID, SuspensionDecision{OperationID: o.ID, Revision: o.Revision, Actor: "policy_reconciler", Reason: "active_restriction", Allowed: true, ExpiresAt: time.Now().Add(time.Minute)})
@@ -184,8 +184,8 @@ func TestProvisionWorkerAdoptsCorrelatedProviderAfterRevocation(t *testing.T) {
 }
 
 func TestProvisionWorkerSuspendsProviderWhenPolicyChangesDuringAllocation(t *testing.T) {
-	f := repair57New(t)
-	f.transit = repair57Vault(t)
+	f := streamContractNew(t)
+	f.transit = streamContractVault(t)
 	ctx := context.Background()
 	o, _ := f.create("provision-policy-change")
 	var created atomic.Bool

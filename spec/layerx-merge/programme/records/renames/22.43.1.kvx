@@ -1,0 +1,36 @@
+[manifest]
+task = "22.43.1"
+records_moved = 2
+files_renamed = 2
+
+[file.1]
+from = "api/repair_m1207_test.go"
+to = "api/tokenfactory_genesis_test.go"
+
+[file.2]
+from = "api/repair_m1300_test.go"
+to = "api/descriptor_shape_comparison_test.go"
+
+[file.3]
+from = "api/repair_m1207.kvx"
+to = "spec/layerx-merge/programme/records/api/repair_m1207.kvx"
+
+[file.4]
+from = "api/repair_m1300.kvx"
+to = "spec/layerx-merge/programme/records/api/repair_m1300.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1207_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1300_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1207_"
+
+[reference.4]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepairM_1300_"

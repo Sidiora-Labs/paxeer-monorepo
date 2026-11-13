@@ -1,0 +1,48 @@
+[manifest]
+task = "22.43.69"
+records_moved = 3
+files_renamed = 3
+
+[file.1]
+from = "modules/spot/keeper/repair_17_test.go"
+to = "modules/spot/keeper/registry_recovery_test.go"
+
+[file.2]
+from = "modules/spot/keeper/repair_m481_test.go"
+to = "modules/spot/keeper/listing_lifecycle_test.go"
+
+[file.3]
+from = "modules/spot/types/repair_m479_test.go"
+to = "modules/spot/types/twap_genesis_recovery_test.go"
+
+[file.4]
+from = "modules/spot/keeper/repair_17.kvx"
+to = "spec/layerx-merge/programme/records/modules/spot/keeper/repair_17.kvx"
+
+[file.5]
+from = "modules/spot/keeper/repair_m481.kvx"
+to = "spec/layerx-merge/programme/records/modules/spot/keeper/repair_m481.kvx"
+
+[file.6]
+from = "modules/spot/types/repair_m479.kvx"
+to = "spec/layerx-merge/programme/records/modules/spot/types/repair_m479.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/spot/keeper/repair_m481_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/spot/types/repair_m479_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "modules/spot/keeper/repair_17_test.go"
+
+[reference.4]
+file = "spec/layerx-merge/dispositions/d22-17.kvx"
+name = "modules/spot/keeper/repair_17_test.go"
+
+[reference.5]
+file = "spec/layerx-merge/qualification.kvx"
+name = "modules/spot/keeper/repair_17_test.go"

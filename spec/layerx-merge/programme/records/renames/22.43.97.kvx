@@ -1,0 +1,56 @@
+[manifest]
+task = "22.43.97"
+records_moved = 2
+files_renamed = 1
+
+[file.1]
+from = "programs/tests/repair_22_33_238.rs"
+to = "programs/tests/registry_read_bridge.rs"
+
+[file.2]
+from = "programs/tests/repair_22_39_453.kvx"
+to = "spec/layerx-merge/programme/records/programs/tests/repair_22_39_453.kvx"
+
+[file.3]
+from = "programs/tests/vectors/repair_22_39_405.kvx"
+to = "spec/layerx-merge/programme/records/programs/tests/vectors/repair_22_39_405.kvx"
+
+[reference.1]
+file = "programs/Cargo.toml"
+name = "repair_22_33_238"
+
+[reference.2]
+file = "programs/Cargo.toml"
+name = "repair_22_33_238.rs"
+
+[reference.3]
+file = "tools/qualification/audit_repairs/repair_22_33_238.kvx"
+name = "repair_22_33_238.rs"
+
+[reference.4]
+file = "tools/qualification/audit_repairs/repair_22_33_238.kvx"
+name = "repair_22_33_238_registry_read_bridge"
+
+[reference.5]
+file = "tools/qualification/audit_repairs/repair_22_33_238.kvx"
+name = "repair_22_33_238_registry_absent_read"
+
+[reference.6]
+file = "tools/qualification/audit_repairs/test_repair_22_33_238.py"
+name = "repair_22_33_238"
+
+[reference.7]
+file = "tools/qualification/audit_repairs/test_repair_22_33_238.py"
+name = "repair_22_33_238.rs"
+
+[reference.8]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_238.rs"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_453.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_405.kvx"

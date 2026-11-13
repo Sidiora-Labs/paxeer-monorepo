@@ -305,10 +305,10 @@ public final class PortableReceiptTest {
         var pin = key(vector);
         var keys = new LocalVerifier.ReceiptKeys(List.of(pin));
         var retained = new ProgramsClient.ProgramSubmission(hash, raw, null);
-        try (var archive = new Repair22331391Test.RecordedReceiptArchive(before)) {
+        try (var archive = new RetainedTransactionReceiptTest.RecordedReceiptArchive(before)) {
             byte[] initialDigest;
             try (var connection = new ProgramsClient.Programs(archive.uri())) {
-                var client = Repair22331391Test.client(connection, vector);
+                var client = RetainedTransactionReceiptTest.client(connection, vector);
                 var initial = client.receipt(retained).toCompletableFuture().get(10, TimeUnit.SECONDS);
                 assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, initial.receipt().level());
                 initialDigest = initial.receipt().receiptDigest();
@@ -320,7 +320,7 @@ public final class PortableReceiptTest {
                 assertEquals(1, transitioned.receipt().status());
             }
             try (var reopened = new ProgramsClient.Programs(archive.uri())) {
-                var recovered = Repair22331391Test.client(reopened, vector).receipt(retained)
+                var recovered = RetainedTransactionReceiptTest.client(reopened, vector).receipt(retained)
                     .toCompletableFuture().get(10, TimeUnit.SECONDS);
                 assertArrayEquals(initialDigest, recovered.receipt().receiptDigest());
                 assertArrayEquals(bytes(vector, "signedReceipt"), recovered.receipt().canonicalBytes());

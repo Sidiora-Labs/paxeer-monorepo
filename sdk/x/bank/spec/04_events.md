@@ -141,6 +141,6 @@ Alice finishes with `2uhpx` plus `999999999995` wei, and Bob with `2uhpx` plus
 `5` wei. Alice's borrow does not add a separate coin-spent event. Independently,
 subtracting `5` wei from `2uhpx` and then adding `5` back emits only
 `wei_spent(amount=5)` and `wei_received(amount=5)`, even though both operations
-write whole balances. `TestRepairM_669_WeiEvents` in
-[repair_m669_test.go](../repair_m669_test.go) checks these exact event streams,
+write whole balances. `TestBankContractWeiEvents` in
+[module_contract_test.go](../module_contract_test.go) checks these exact event streams,
 the balances, zero amounts, and atomic failure without published events.

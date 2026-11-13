@@ -1,0 +1,116 @@
+[manifest]
+task = "22.43.148"
+records_moved = 16
+files_renamed = 1
+
+[file.1]
+from = "services/human/crates/layerx-human-service/src/activity/repair_22_31_156.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/activity/repair_22_31_156.kvx"
+
+[file.2]
+from = "services/human/crates/layerx-human-service/src/approvals/repair_22_31_159.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/approvals/repair_22_31_159.kvx"
+
+[file.3]
+from = "services/human/crates/layerx-human-service/src/approvals/repair_22_33_61.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/approvals/repair_22_33_61.kvx"
+
+[file.4]
+from = "services/human/crates/layerx-human-service/src/audit/repair_22_33_60.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/audit/repair_22_33_60.kvx"
+
+[file.5]
+from = "services/human/crates/layerx-human-service/src/auth/repair_22_33_48.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/auth/repair_22_33_48.kvx"
+
+[file.6]
+from = "services/human/crates/layerx-human-service/src/journeys/repair_22_31_153.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/journeys/repair_22_31_153.kvx"
+
+[file.7]
+from = "services/human/crates/layerx-human-service/src/journeys/repair_22_33_39.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/journeys/repair_22_33_39.kvx"
+
+[file.8]
+from = "services/human/crates/layerx-human-service/src/notify/repair_22_33_59.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/notify/repair_22_33_59.kvx"
+
+[file.9]
+from = "services/human/crates/layerx-human-service/src/onboarding/repair_22_33_49.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/onboarding/repair_22_33_49.kvx"
+
+[file.10]
+from = "services/human/crates/layerx-human-service/src/repair_22_33_43.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/repair_22_33_43.kvx"
+
+[file.11]
+from = "services/human/crates/layerx-human-service/src/repair_22_33_45.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/repair_22_33_45.kvx"
+
+[file.12]
+from = "services/human/crates/layerx-human-service/src/repair_3.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/repair_3.kvx"
+
+[file.13]
+from = "services/human/crates/layerx-human-service/src/server/repair_22_31_154.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/server/repair_22_31_154.kvx"
+
+[file.14]
+from = "services/human/crates/layerx-human-service/src/server/repair_22_33_42.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/server/repair_22_33_42.kvx"
+
+[file.15]
+from = "services/human/crates/layerx-human-service/src/store/repair_22_31_158.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/store/repair_22_31_158.kvx"
+
+[file.16]
+from = "services/human/crates/layerx-human-service/src/store/repair_22_33_58.kvx"
+to = "spec/layerx-merge/programme/records/services/human/crates/layerx-human-service/src/store/repair_22_33_58.kvx"
+
+[file.17]
+from = "services/human/crates/layerx-human-service/src/journeys/repair_22_31_153_transcript.json"
+to = "services/human/crates/layerx-human-service/src/journeys/bank_commit_transcript.json"
+
+[reference.1]
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_153.rs"
+name = "repair_22_31_153_transcript.json"
+
+[reference.2]
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_515.kvx"
+name = "repair_22_31_159.kvx"
+
+[reference.3]
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_523.kvx"
+name = "repair_22_31_159.kvx"
+
+[reference.4]
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_39.rs"
+name = "repair_22_31_153_transcript.json"
+
+[reference.5]
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_41.rs"
+name = "repair_22_31_153_transcript.json"
+
+[reference.6]
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_45.rs"
+name = "repair_22_31_153_transcript.json"
+
+[reference.7]
+file = "services/human/crates/layerx-human-service/tests/support/repair_22_33_44_bank.rs"
+name = "repair_22_31_153_transcript.json"
+
+[reference.8]
+file = "services/human/tests/repair_22_33_32.rs"
+name = "repair_22_31_153_transcript.json"
+
+[reference.9]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_31_159.kvx"
+
+[reference.10]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_33_45.kvx"
+
+[reference.11]
+file = "tools/qualification/paxeer-x/test_native_manifest_contracts.py"
+name = "repair_22_31_153_transcript.json"

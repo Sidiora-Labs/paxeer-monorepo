@@ -1,0 +1,508 @@
+[manifest]
+task = "22.43.156"
+records_moved = 20
+files_renamed = 17
+
+[file.1]
+from = "services/launchpad/api/internal/app/repair_22_39_314_test.go"
+to = "services/launchpad/api/internal/app/development_candle_delivery_test.go"
+
+[file.2]
+from = "services/launchpad/api/internal/app/repair_22_39_357_test.go"
+to = "services/launchpad/api/internal/app/candle_snapshot_metadata_test.go"
+
+[file.3]
+from = "services/launchpad/api/internal/app/repair_22_39_372_test.go"
+to = "services/launchpad/api/internal/app/development_committed_reads_test.go"
+
+[file.4]
+from = "services/launchpad/api/internal/app/repair_22_39_376_test.go"
+to = "services/launchpad/api/internal/app/trade_head_watermark_test.go"
+
+[file.5]
+from = "services/launchpad/api/internal/app/repair_27_test.go"
+to = "services/launchpad/api/internal/app/receipt_evidence_test.go"
+
+[file.6]
+from = "services/launchpad/api/internal/app/repair_m913_test.go"
+to = "services/launchpad/api/internal/app/rest_quota_and_relay_test.go"
+
+[file.7]
+from = "services/launchpad/api/internal/cache/repair_m992_test.go"
+to = "services/launchpad/api/internal/cache/accounting_runtime_admission_test.go"
+
+[file.8]
+from = "services/launchpad/api/internal/config/repair_m976_test.go"
+to = "services/launchpad/api/internal/config/credential_url_redaction_test.go"
+
+[file.9]
+from = "services/launchpad/api/internal/rest/repair_58_test.go"
+to = "services/launchpad/api/internal/rest/search_errors_and_receipt_recovery_test.go"
+
+[file.10]
+from = "services/launchpad/api/internal/rest/repair_m1008_exports_test.go"
+to = "services/launchpad/api/internal/rest/public_read_handler_exports_test.go"
+
+[file.11]
+from = "services/launchpad/api/internal/rest/repair_m1008_test.go"
+to = "services/launchpad/api/internal/rest/public_read_contracts_test.go"
+
+[file.12]
+from = "services/launchpad/api/internal/rest/testdata/repair_22_39_372_token.json"
+to = "services/launchpad/api/internal/rest/testdata/verified_token.json"
+
+[file.13]
+from = "services/launchpad/api/internal/rest/testdata/repair_m1008_emitter.json"
+to = "services/launchpad/api/internal/rest/testdata/emitter_chain_state.json"
+
+[file.14]
+from = "services/launchpad/api/internal/store/repair_m984_test.go"
+to = "services/launchpad/api/internal/store/leaderboard_transfer_basis_test.go"
+
+[file.15]
+from = "services/launchpad/api/internal/ws/repair_m978_test.go"
+to = "services/launchpad/api/internal/ws/subscription_pool_limits_test.go"
+
+[file.16]
+from = "services/launchpad/discovery/repair_46_test.go"
+to = "services/launchpad/discovery/squad_alert_contracts_test.go"
+
+[file.17]
+from = "services/launchpad/discovery/repair_m983_test.go"
+to = "services/launchpad/discovery/squad_mutation_persistence_test.go"
+
+[file.18]
+from = "services/launchpad/api/internal/app/repair_27.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/internal/app/repair_27.kvx"
+
+[file.19]
+from = "services/launchpad/api/internal/app/repair_m913.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/internal/app/repair_m913.kvx"
+
+[file.20]
+from = "services/launchpad/api/internal/cache/repair_m992.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/internal/cache/repair_m992.kvx"
+
+[file.21]
+from = "services/launchpad/api/internal/config/repair_m976.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/internal/config/repair_m976.kvx"
+
+[file.22]
+from = "services/launchpad/api/internal/rest/repair_58.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/internal/rest/repair_58.kvx"
+
+[file.23]
+from = "services/launchpad/api/internal/rest/repair_m1008.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/internal/rest/repair_m1008.kvx"
+
+[file.24]
+from = "services/launchpad/api/internal/store/repair_m984.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/internal/store/repair_m984.kvx"
+
+[file.25]
+from = "services/launchpad/api/internal/ws/repair_m978.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/internal/ws/repair_m978.kvx"
+
+[file.26]
+from = "services/launchpad/api/repair_22_39_154.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/repair_22_39_154.kvx"
+
+[file.27]
+from = "services/launchpad/api/repair_22_39_357.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/repair_22_39_357.kvx"
+
+[file.28]
+from = "services/launchpad/api/repair_22_39_372.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/repair_22_39_372.kvx"
+
+[file.29]
+from = "services/launchpad/api/repair_22_39_376.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/repair_22_39_376.kvx"
+
+[file.30]
+from = "services/launchpad/api/repair_22_39_461.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/repair_22_39_461.kvx"
+
+[file.31]
+from = "services/launchpad/api/repair_22_39_477.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/api/repair_22_39_477.kvx"
+
+[file.32]
+from = "services/launchpad/discovery/repair_22_39_168.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/discovery/repair_22_39_168.kvx"
+
+[file.33]
+from = "services/launchpad/discovery/repair_22_39_472.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/discovery/repair_22_39_472.kvx"
+
+[file.34]
+from = "services/launchpad/discovery/repair_22_39_488.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/discovery/repair_22_39_488.kvx"
+
+[file.35]
+from = "services/launchpad/discovery/repair_22_39_75.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/discovery/repair_22_39_75.kvx"
+
+[file.36]
+from = "services/launchpad/discovery/repair_46.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/discovery/repair_46.kvx"
+
+[file.37]
+from = "services/launchpad/discovery/repair_m983.kvx"
+to = "spec/layerx-merge/programme/records/services/launchpad/discovery/repair_m983.kvx"
+
+[reference.1]
+file = "GOTCHA.kvx"
+name = "TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic"
+
+[reference.2]
+file = "GOTCHA.kvx"
+name = "TestRepair_27_log_free_receipts"
+
+[reference.3]
+file = "GOTCHA.kvx"
+name = "repair_22_39_314_test.go"
+
+[reference.4]
+file = "GOTCHA.kvx"
+name = "repair_27_test.go"
+
+[reference.5]
+file = "services/launchpad/repair_22_39_168.kvx"
+name = "TestRepair_27_log_free_receipts"
+
+[reference.6]
+file = "services/launchpad/repair_22_39_75.kvx"
+name = "repair_22_39_75.kvx"
+
+[reference.7]
+file = "services/launchpad/trading-charts/repair_22_39_314.kvx"
+name = "TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic"
+
+[reference.8]
+file = "spec/layerx-merge/dispositions/d22-21.kvx"
+name = "repair_58_test.go"
+
+[reference.9]
+file = "spec/layerx-merge/dispositions/d22-32.kvx"
+name = "repair_27_test.go"
+
+[reference.10]
+file = "spec/layerx-merge/programme/issues/1918.kvx"
+name = "TestRepair_27_log_free_receipts"
+
+[reference.11]
+file = "spec/layerx-merge/programme/issues/1918.kvx"
+name = "repair_27_test.go"
+
+[reference.12]
+file = "spec/layerx-merge/programme/issues/1919.kvx"
+name = "TestRepair_27_log_free_receipts"
+
+[reference.13]
+file = "spec/layerx-merge/programme/issues/input/1918.md"
+name = "TestRepair_27_log_free_receipts"
+
+[reference.14]
+file = "spec/layerx-merge/programme/issues/input/1919.md"
+name = "TestRepair_27_log_free_receipts"
+
+[reference.15]
+file = "spec/layerx-merge/qualification.kvx"
+name = "TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic"
+
+[reference.16]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_22_39_314_test.go"
+
+[reference.17]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_58_test.go"
+
+[reference.18]
+file = "spec/layerx-merge/qualification.kvx"
+name = "repair_m1008_test.go"
+
+[reference.19]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_314_DevelopmentCandleReachesRouteAndTopic"
+
+[reference.20]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_357_candle_page_items_carry_the_page_snapshot"
+
+[reference.21]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_372_candle_read_survives_swaps_and_replay"
+
+[reference.22]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_372_pool_detail_serves_the_verified_token"
+
+[reference.23]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_372_trade_read_keeps_legacy_rows_quarantined"
+
+[reference.24]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_372_trade_read_serves_committed_swaps"
+
+[reference.25]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_22_39_376_trade_read_carries_the_head_watermark"
+
+[reference.26]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_27_log_free_receipts"
+
+[reference.27]
+file = "spec/layerx-merge/spec.kvx"
+name = "TestRepair_58_SearchErrors"
+
+[reference.28]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_154.kvx"
+
+[reference.29]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_168.kvx"
+
+[reference.30]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_314_test.go"
+
+[reference.31]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_357.kvx"
+
+[reference.32]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_357_test.go"
+
+[reference.33]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_372.kvx"
+
+[reference.34]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_372_test.go"
+
+[reference.35]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_376.kvx"
+
+[reference.36]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_376_test.go"
+
+[reference.37]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_461.kvx"
+
+[reference.38]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_472.kvx"
+
+[reference.39]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_477.kvx"
+
+[reference.40]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_488.kvx"
+
+[reference.41]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_22_39_75.kvx"
+
+[reference.42]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_27_test.go"
+
+[reference.43]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_46_test.go"
+
+[reference.44]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_58_test.go"
+
+[reference.45]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m1008_test.go"
+
+[reference.46]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m913_test.go"
+
+[reference.47]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m976_test.go"
+
+[reference.48]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m978_test.go"
+
+[reference.49]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m983_test.go"
+
+[reference.50]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m984_test.go"
+
+[reference.51]
+file = "spec/layerx-merge/spec.kvx"
+name = "repair_m992_test.go"
+
+[reference.52]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "TestRepair_27_log_free_receipts"
+
+[reference.53]
+file = "tests/ci/data/launchpad_go_test_baseline.json"
+name = "repair_27_test.go"
+
+[reference.54]
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+name = "TestRepair_27_log_free_receipts"
+
+[reference.55]
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+name = "repair_22_39_75.kvx"
+
+[reference.56]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_976_CredentialedURLErrors"
+
+[reference.57]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_976_JoinedCredentialErrors"
+
+[reference.58]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_976_ValidCredentialedURLs"
+
+[reference.59]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_978_CanonicalPoolAddresses"
+
+[reference.60]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_978_FrameLimit"
+
+[reference.61]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_978_IncrementalPoolBudget"
+
+[reference.62]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_978_InitialPoolBudget"
+
+[reference.63]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_984_ExclusionPreservesProvenWallets"
+
+[reference.64]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_984_MalformedProjectionIsRejected"
+
+[reference.65]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_984_MissingOrMismatchedProvenanceIsUnknown"
+
+[reference.66]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_984_ReceiptMatchedBasisAndWindow"
+
+[reference.67]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_984_TransfersCannotReuseStaleBasis"
+
+[reference.68]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepairM_984_UnknownBasisPersistsAndCountsWalletOnce"
+
+[reference.69]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_27_conflicting_block"
+
+[reference.70]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_27_conflicting_inclusion"
+
+[reference.71]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_27_log_free_receipts"
+
+[reference.72]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_27_missing_receipt"
+
+[reference.73]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_27_pending_and_unknown"
+
+[reference.74]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_27_receipt_event_position"
+
+[reference.75]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_27_wrong_chain"
+
+[reference.76]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_46_alert_evaluator_unwired"
+
+[reference.77]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_46_alert_price_context_lost"
+
+[reference.78]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_46_frozen_squad_validation"
+
+[reference.79]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_46_invitation_token_lost"
+
+[reference.80]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_46_legacy_squad_contract"
+
+[reference.81]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_46_membership_squad_revision"
+
+[reference.82]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_58_ReceiptRecoveryAfterRestart"
+
+[reference.83]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "TestRepair_58_SearchErrors"
+
+[reference.84]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_27_test.go"
+
+[reference.85]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_46_test.go"
+
+[reference.86]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_58_test.go"
+
+[reference.87]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m976_test.go"
+
+[reference.88]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m978_test.go"
+
+[reference.89]
+file = "tools/launchpad/production/bootstrap/tests/source-catalog.json"
+name = "repair_m984_test.go"

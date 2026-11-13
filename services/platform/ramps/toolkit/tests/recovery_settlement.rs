@@ -23,13 +23,13 @@ use layerx_ramp_toolkit::{
 use native_tls::{Identity, TlsAcceptor};
 use serde_json::{json, Value};
 
-#[path = "support/repair_22_33_1490.rs"]
-pub mod repair_1490;
-pub use repair_1490::*;
+#[path = "support/recovery_payment.rs"]
+pub mod recovery_payment;
+pub use recovery_payment::*;
 
 #[test]
 fn reopened_v2_custody_uses_node_root_and_refuses_terminal_contradictions() {
-    repair_1490::custody_restart();
+    recovery_payment::custody_restart();
 }
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);

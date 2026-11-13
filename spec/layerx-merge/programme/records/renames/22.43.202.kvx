@@ -1,0 +1,40 @@
+[manifest]
+task = "22.43.202"
+records_moved = 3
+files_renamed = 3
+
+[file.1]
+from = "tests/testutil/keeper/repair_m773_test.go"
+to = "tests/testutil/keeper/evm_fixture_isolation_test.go"
+
+[file.2]
+from = "tests/testutil/nullify/repair_m774_test.go"
+to = "tests/testutil/nullify/fill_test.go"
+
+[file.3]
+from = "tests/testutil/processblock/verify/repair_m775_test.go"
+to = "tests/testutil/processblock/verify/balance_test.go"
+
+[file.4]
+from = "tests/testutil/keeper/repair_m773.kvx"
+to = "spec/layerx-merge/programme/records/tests/testutil/keeper/repair_m773.kvx"
+
+[file.5]
+from = "tests/testutil/nullify/repair_m774.kvx"
+to = "spec/layerx-merge/programme/records/tests/testutil/nullify/repair_m774.kvx"
+
+[file.6]
+from = "tests/testutil/processblock/verify/repair_m775.kvx"
+to = "spec/layerx-merge/programme/records/tests/testutil/processblock/verify/repair_m775.kvx"
+
+[reference.1]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/testutil/keeper/repair_m773_test.go"
+
+[reference.2]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/testutil/nullify/repair_m774_test.go"
+
+[reference.3]
+file = "spec/layerx-merge/spec.kvx"
+name = "tests/testutil/processblock/verify/repair_m775_test.go"

@@ -10,7 +10,7 @@ import (
 )
 
 func TestConnectedMutationsRejectAmbiguousBodiesAndUnboundSignatures(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	o, intent := f.create("mutation-validation-setup")
 	call := func(method, path, contentType string, body []byte, headers map[string]string, want int) {
 		t.Helper()
@@ -51,7 +51,7 @@ func TestConnectedMutationsRejectAmbiguousBodiesAndUnboundSignatures(t *testing.
 }
 
 func TestConnectedCreateRefusesNonEnvelopeAndChangedActorProof(t *testing.T) {
-	f := repair57New(t)
+	f := streamContractNew(t)
 	_, intent := f.create("create-proof-setup")
 	path := "/v2/streams"
 	body := []byte(`{"poolAddress":"` + intent.Pool + `","title":"Proof bound stream"}`)

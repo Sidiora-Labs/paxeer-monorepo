@@ -114,7 +114,7 @@ store keys in the replacement application. The loader renames foo to bar only wh
 version is upgradeInfo.Height - 1; the handler then runs at BeginBlock for the upgrade height. On success,
 the keeper clears the pending plan and records the done height; these changes become durable with the
 block commit. A restart after that commit must preserve the returned version map without repeating
-store renames or the migration. The examples above are compiled and exercised by repair_m610_test.go.
+store renames or the migration. The examples above are compiled and exercised by upgrade_documentation_test.go.
 
 # Halt Behavior
 

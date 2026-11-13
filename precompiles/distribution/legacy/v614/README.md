@@ -15,7 +15,7 @@ been applied, historical value acceptance remains possible. A scheduled plan or
 the binary version alone does not establish activation. Zero-value queries keep
 returning the keeper's rewards through either route.
 
-[Routing and value tests](repair_m1258_test.go) exercise the production version
+[Routing and value tests](rewards_value_test.go) exercise the production version
 registry, upgrade store, keeper routing, EVM CALL/STATICCALL, distribution keeper,
 and ABI decoding. Their heights 10 and 20 are isolated store fixtures; clients
 must obtain their chain's actual applied heights rather than treating these

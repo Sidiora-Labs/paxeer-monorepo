@@ -23,7 +23,7 @@ func TestMeasurementCommandRequiresPinnedAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	buildDigest := repairM951Digest(binary)
+	buildDigest := sourceIndexTestDigest(binary)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }))
 	defer server.Close()
 	const urlVariable = "MEASUREMENT_COVERAGE_URL"
@@ -42,7 +42,7 @@ func TestMeasurementCommandRequiresPinnedAuthority(t *testing.T) {
 			if err := os.WriteFile(authorityFile, approved, 0600); err != nil {
 				t.Fatal(err)
 			}
-			plan.AuthoritySHA256 = repairM951Digest(approved)
+			plan.AuthoritySHA256 = sourceIndexTestDigest(approved)
 			os.Args = []string{"measure", "-plan", path, "-authority", authorityFile}
 		} else {
 			os.Args = []string{"measure", "-plan", path}
@@ -56,7 +56,7 @@ func TestMeasurementCommandRequiresPinnedAuthority(t *testing.T) {
 				t.Fatal(err)
 			}
 			if digest == "" {
-				digest = repairM951Digest(wire)
+				digest = sourceIndexTestDigest(wire)
 			}
 		}
 		os.Args = append(os.Args, "-plan-sha256", digest)
@@ -65,13 +65,13 @@ func TestMeasurementCommandRequiresPinnedAuthority(t *testing.T) {
 		return run()
 	}
 	base := capabilities.MeasurementPlan{HarnessBuildSHA256: buildDigest}
-	repairM951Issue(t, call(t, base, nil, filepath.Join(t.TempDir(), "absent.json"), strings.Repeat("a", 64)), "pinned_file_unavailable")
-	repairM951Issue(t, call(t, base, nil, "", strings.Repeat("a", 64)), "pinned_file_digest_mismatch")
+	sourceIndexTestIssue(t, call(t, base, nil, filepath.Join(t.TempDir(), "absent.json"), strings.Repeat("a", 64)), "pinned_file_unavailable")
+	sourceIndexTestIssue(t, call(t, base, nil, "", strings.Repeat("a", 64)), "pinned_file_digest_mismatch")
 	changedBuild := base
 	changedBuild.HarnessBuildSHA256 = strings.Repeat("0", 64)
-	repairM951Issue(t, call(t, changedBuild, nil, "", ""), "harness_build_identity_mismatch")
-	repairM951Issue(t, call(t, base, []byte(`{"unknown":true}`), "", ""), valueMeasurementInputMalformed)
-	approved := authority{SchemaVersion: 1, Realm: "private_fixture", EndpointID: "chain", URLVariable: urlVariable, URLSHA256: repairM951Digest([]byte(server.URL)), GenesisHash: common.HexToHash("0x01")}
+	sourceIndexTestIssue(t, call(t, changedBuild, nil, "", ""), "harness_build_identity_mismatch")
+	sourceIndexTestIssue(t, call(t, base, []byte(`{"unknown":true}`), "", ""), valueMeasurementInputMalformed)
+	approved := authority{SchemaVersion: 1, Realm: "private_fixture", EndpointID: "chain", URLVariable: urlVariable, URLSHA256: sourceIndexTestDigest([]byte(server.URL)), GenesisHash: common.HexToHash("0x01")}
 	encode := func(t *testing.T, value authority) []byte {
 		t.Helper()
 		wire, err := json.Marshal(value)
@@ -82,17 +82,17 @@ func TestMeasurementCommandRequiresPinnedAuthority(t *testing.T) {
 	}
 	badSchema := approved
 	badSchema.SchemaVersion = 2
-	repairM951Issue(t, call(t, base, encode(t, badSchema), "", ""), "endpoint_authority_invalid")
+	sourceIndexTestIssue(t, call(t, base, encode(t, badSchema), "", ""), "endpoint_authority_invalid")
 	badURL := approved
 	badURL.URLSHA256 = strings.Repeat("0", 64)
-	repairM951Issue(t, call(t, base, encode(t, badURL), "", ""), "approved_endpoint_unavailable")
+	sourceIndexTestIssue(t, call(t, base, encode(t, badURL), "", ""), "approved_endpoint_unavailable")
 	badRealm := approved
 	badRealm.Realm = "unlisted"
-	repairM951Issue(t, call(t, base, encode(t, badRealm), "", ""), "endpoint_realm_invalid")
+	sourceIndexTestIssue(t, call(t, base, encode(t, badRealm), "", ""), "endpoint_realm_invalid")
 	production := approved
 	production.Realm = "production"
-	repairM951Issue(t, call(t, base, encode(t, production), "", ""), "approved_endpoint_transport_invalid")
-	repairM951Issue(t, call(t, base, encode(t, approved), "", ""), "pinned_file_input_missing")
+	sourceIndexTestIssue(t, call(t, base, encode(t, production), "", ""), "approved_endpoint_transport_invalid")
+	sourceIndexTestIssue(t, call(t, base, encode(t, approved), "", ""), "pinned_file_input_missing")
 	valid := base
 	valid.SamplesPerCase, valid.Concurrency, valid.DeadlineMilliseconds = 1, 1, 1000
 	valid.P95BudgetMicroseconds, valid.MaxRawBytes = 1000, 1<<20
@@ -105,8 +105,8 @@ func TestMeasurementCommandRequiresPinnedAuthority(t *testing.T) {
 	if err := os.WriteFile(policyFile, policyWire, 0600); err != nil {
 		t.Fatal(err)
 	}
-	valid.PolicySHA256 = repairM951Digest(policyWire)
-	repairM951Issue(t, call(t, valid, encode(t, approved), "", "", "-policy", policyFile), "pinned_file_input_missing")
+	valid.PolicySHA256 = sourceIndexTestDigest(policyWire)
+	sourceIndexTestIssue(t, call(t, valid, encode(t, approved), "", "", "-policy", policyFile), "pinned_file_input_missing")
 	wrongBudget := policy
 	wrongBudget.SamplesPerCase = 2
 	wrongWire, err := json.Marshal(wrongBudget)
@@ -118,19 +118,19 @@ func TestMeasurementCommandRequiresPinnedAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	wrongPlan := valid
-	wrongPlan.PolicySHA256 = repairM951Digest(wrongWire)
-	repairM951Issue(t, call(t, wrongPlan, encode(t, approved), "", "", "-policy", wrongFile), "approved_measurement_budget_mismatch")
-	root := repairM951Candidate(t)
-	_, sourcePath, sourceDigest := repairM951Index(t, root)
+	wrongPlan.PolicySHA256 = sourceIndexTestDigest(wrongWire)
+	sourceIndexTestIssue(t, call(t, wrongPlan, encode(t, approved), "", "", "-policy", wrongFile), "approved_measurement_budget_mismatch")
+	root := sourceIndexTestCandidate(t)
+	_, sourcePath, sourceDigest := sourceIndexTestIndex(t, root)
 	valid.CandidateSHA256 = sourceDigest
-	repairM951Issue(t, call(t, valid, encode(t, approved), "", "", "-policy", policyFile, "-source-root", root, "-source-index", sourcePath), "pinned_file_input_missing")
-	manifestPath := filepath.Join(repairM951Root(t), "sdk/launchpad/shared/config/deployment/current.json")
+	sourceIndexTestIssue(t, call(t, valid, encode(t, approved), "", "", "-policy", policyFile, "-source-root", root, "-source-index", sourcePath), "pinned_file_input_missing")
+	manifestPath := filepath.Join(sourceIndexTestRoot(t), "sdk/launchpad/shared/config/deployment/current.json")
 	manifestWire, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	approved.ManifestFileSHA256 = repairM951Digest(manifestWire)
-	repairM951Issue(t, call(t, valid, encode(t, approved), "", "", "-policy", policyFile, "-source-root", root, "-source-index", sourcePath, "-manifest", manifestPath), "pinned_file_input_missing")
+	approved.ManifestFileSHA256 = sourceIndexTestDigest(manifestWire)
+	sourceIndexTestIssue(t, call(t, valid, encode(t, approved), "", "", "-policy", policyFile, "-source-root", root, "-source-index", sourcePath, "-manifest", manifestPath), "pinned_file_input_missing")
 	buildExport, err := json.Marshal(capabilities.ConsumerBuildIdentity{})
 	if err != nil {
 		t.Fatal(err)
@@ -139,13 +139,13 @@ func TestMeasurementCommandRequiresPinnedAuthority(t *testing.T) {
 	if err := os.WriteFile(exportFile, buildExport, 0600); err != nil {
 		t.Fatal(err)
 	}
-	approved.GoBuildExportSHA256 = repairM951Digest(buildExport)
+	approved.GoBuildExportSHA256 = sourceIndexTestDigest(buildExport)
 	approved.FrontendBuildExportSHA256 = approved.GoBuildExportSHA256
-	repairM951Issue(t, call(t, valid, encode(t, approved), "", "", "-policy", policyFile, "-source-root", root, "-source-index", sourcePath, "-manifest", manifestPath, "-go-export", exportFile, "-frontend-export", exportFile), "consumer_build_artifact_missing")
+	sourceIndexTestIssue(t, call(t, valid, encode(t, approved), "", "", "-policy", policyFile, "-source-root", root, "-source-index", sourcePath, "-manifest", manifestPath, "-go-export", exportFile, "-frontend-export", exportFile), "consumer_build_artifact_missing")
 	if err := checkBuild(executable, buildDigest); err != nil {
 		t.Fatalf("actual command build identity: %v", err)
 	}
-	repairM951Issue(t, checkBuild(executable, strings.Repeat("0", 64)), "consumer_build_artifact_mismatch")
+	sourceIndexTestIssue(t, checkBuild(executable, strings.Repeat("0", 64)), "consumer_build_artifact_mismatch")
 	actualBuild := capabilities.ConsumerBuildIdentity{BuildSHA256: buildDigest}
 	actualExport, err := json.Marshal(actualBuild)
 	if err != nil {
@@ -155,8 +155,8 @@ func TestMeasurementCommandRequiresPinnedAuthority(t *testing.T) {
 	if err := os.WriteFile(actualExportFile, actualExport, 0600); err != nil {
 		t.Fatal(err)
 	}
-	approved.GoBuildExportSHA256 = repairM951Digest(actualExport)
+	approved.GoBuildExportSHA256 = sourceIndexTestDigest(actualExport)
 	approved.FrontendBuildExportSHA256 = approved.GoBuildExportSHA256
 	valid.GoBuild, valid.FrontendBuild = actualBuild, actualBuild
-	repairM951Issue(t, call(t, valid, encode(t, approved), "", "", "-policy", policyFile, "-source-root", root, "-source-index", sourcePath, "-manifest", manifestPath, "-go-export", actualExportFile, "-frontend-export", actualExportFile, "-go-build", executable, "-frontend-build", executable), "approved_endpoint_chain_mismatch")
+	sourceIndexTestIssue(t, call(t, valid, encode(t, approved), "", "", "-policy", policyFile, "-source-root", root, "-source-index", sourcePath, "-manifest", manifestPath, "-go-export", actualExportFile, "-frontend-export", actualExportFile, "-go-build", executable, "-frontend-build", executable), "approved_endpoint_chain_mismatch")
 }
